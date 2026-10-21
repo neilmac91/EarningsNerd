@@ -28,9 +28,29 @@
                      would take error to 3.9:1, info to 4.26:1 and neutral to
                      4.27:1; with none, error, the lowest, holds 4.6:1 there
                      (5.3:1 on the card at rest). The admin lists' status chips
-                     render the set (InviteStatusBadge, FeedbackStatusBadge),
-                     and tests/unit/statusChipContrast.spec.ts measures every
-                     member on their rows.
+                     (InviteStatusBadge, FeedbackStatusBadge) and the summary
+                     status chip on the watchlist and dashboard rows
+                     (SummaryStatusBadge) render the set, and
+                     tests/unit/statusChipContrast.spec.ts measures them on
+                     their rows, at rest and hovered.
+                     tentative, the set's sixth, is a status not yet settled
+                     (the calendar's estimated date, "Est."): neutral-status's
+                     ink on the hairline, dashed, with no fill in either
+                     theme (TENTATIVE). A ground is the variant's to state: a
+                     className on top of a variant's wins or loses by
+                     stylesheet order, since cx only joins classes. The
+                     stylesheet emits bg-white after bg-transparent, so the
+                     "Est." chip, the neutral chip with bg-transparent added,
+                     painted as a white pill and, on a hovered dark row, its
+                     white/5 took the label to 4.27:1. On the calendar's rows
+                     tentative holds 5.21:1 at rest and 5.44:1 hovered in
+                     light, 5.78:1 and 4.98:1 in dark
+                     (tests/unit/badgeVariants.spec.tsx).
+                     The calendar's status ladder renders the set
+                     (StatusChip, E141): "Est." on tentative, "Confirmed" on
+                     info-status, "Reported" on neutral-status, each label
+                     4.97:1 or more on the calendar's rows, at rest and
+                     hovered, in both themes (badgeVariants.spec.tsx).
                      Status is never told with beat/miss: those are data
                      colours.
      - beat / miss:  earnings surprise — gain/loss DATA colors (kept distinct
@@ -51,8 +71,9 @@
 import { type HTMLAttributes, type ReactNode } from 'react'
 import { cx } from './cx'
 
-/** Badge's status set: a status ink on the one status ground (DESIGN_SYSTEM.md §4, "Status chip"). */
-export type BadgeStatusVariant = 'success' | 'error' | 'info-status' | 'warning-status' | 'neutral-status'
+/** Badge's status set: a status ink on the status ground, or a tentative status on its dashed one (DESIGN_SYSTEM.md
+    §4, "Status chip"). */
+export type BadgeStatusVariant = 'success' | 'error' | 'info-status' | 'warning-status' | 'neutral-status' | 'tentative'
 
 export type BadgeVariant =
   | 'pro'
@@ -79,6 +100,8 @@ const QUIET = cx(
 )
 /** The status set's ground: QUIET's, with no fill in dark (the header above). */
 const STATUS = cx('border border-border-light bg-white', 'dark:border-border-dark dark:bg-transparent')
+/** A tentative status's ground: the status set's hairline, dashed, with no fill in either theme (the header above). */
+const TENTATIVE = cx('border border-dashed border-border-light bg-transparent', 'dark:border-border-dark')
 
 const VARIANT: Record<BadgeVariant, string> = {
   pro: cx(TINT, 'uppercase tracking-eyebrow'),
@@ -95,6 +118,7 @@ const VARIANT: Record<BadgeVariant, string> = {
   'info-status': cx(STATUS, 'text-info-text dark:text-info-dark'),
   'warning-status': cx(STATUS, 'text-warning-light dark:text-warning-dark'),
   'neutral-status': cx(STATUS, 'text-text-tertiary-light dark:text-text-secondary-dark'),
+  tentative: cx(TENTATIVE, 'text-text-tertiary-light dark:text-text-secondary-dark'),
   beat: 'bg-gain-soft text-gain-text dark:bg-gain-soft-dark dark:text-gain-dark',
   miss: 'bg-loss-soft text-loss-text dark:bg-loss-soft-dark dark:text-loss-dark',
   new: TINT,

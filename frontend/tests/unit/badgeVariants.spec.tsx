@@ -2,9 +2,16 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { render } from '@testing-library/react'
+import type { Config } from 'tailwindcss'
+import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
-import { describe, expect, it } from 'vitest'
-import { Badge, Card } from '@/components/ui'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { Badge, Card, type BadgeStatusVariant, type BadgeVariant } from '@/components/ui'
+import type { CalendarEvent } from '@/features/calendar/api/calendar-api'
+import { DayDetailDialog } from '@/features/calendar/components/DayDetailDialog'
+import { StatusChip } from '@/features/calendar/components/EventRow'
+import { WeekView } from '@/features/calendar/components/WeekView'
+import type { EarningsAlertsApi } from '@/features/calendar/hooks/useCalendar'
 
 /**
  * chrome/F8, chrome/F9 (D-032): a status chip is its own Badge variant, never a data colour. `beat` and
@@ -18,14 +25,20 @@ import { Badge, Card } from '@/components/ui'
  *    product's row tint (`hover:bg-brand-weak dark:hover:bg-white/5`): the ground is read from the variant's
  *    classes, so a move to a tint that drops the success ink under the floor fails here, and so does a dark
  *    fill of the chip's own over the row's (error-dark falls to 3.9:1 there);
- *  - Badge.tsx no longer documents beat/miss/new as tonal recipes;
+ *  - Badge.tsx no longer documents beat/miss/new as tonal recipes, and frontend/DESIGN_SYSTEM.md §4's Status chip
+ *    recipe says what each member of the status set means, every member once (chief design's reading on #1459);
  *  - no `<Badge icon={null}>` in app/, components/ or features/ takes `beat` or `miss` (a literal, or a
- *    variable in a file that names either): a direction without its glyph is a status in data colours.
+ *    variable in a file that names either), under any name the file gives Badge (badgeTags): a direction without
+ *    its glyph is a status in data colours.
  *    No file is exempt: the watchlist and dashboard rows say "Ready" and "Error" on success and error;
  *  - `new` is the brand tint with its sage dot (D-032, E51): the `brand` chip's own classes, so it cannot drift
  *    back to the warning tint or apart from the brand chip, a pulse dot in the label's ink that stops under
  *    reduced motion, and a label that clears 4.5:1 in both themes on the interactive Card its one use sits on
- *    (the dashboard's What changed card), at rest and pressed, the grounds read from Card's own classes.
+ *    (the dashboard's What changed card), at rest and pressed, the grounds read from Card's own classes;
+ *  - `tentative` (E83) is neutral-status's ink on a dashed hairline with no fill in either theme, and the calendar's
+ *    status ladder is the status set as Badge renders it ("Est." on tentative, "Confirmed" on info-status, "Reported"
+ *    on neutral-status, E141), each label clearing 4.5:1 on its rows at rest and hovered in both themes; and no <Badge>,
+ *    under any name the file gives it, sets a ground, an ink or a hairline in its className (the cases at the end).
  */
 
 const ROOT = path.resolve(__dirname, '../..')
@@ -47,6 +60,57 @@ const lum = (c: Rgb) => {
 const contrast = (a: Rgb, b: Rgb) => {
   const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x)
   return (hi + 0.05) / (lo + 0.05)
+}
+
+/** Every .tsx under app/, components/ and features/ but Badge.tsx itself: the files whose <Badge> call sites the scans
+    read. */
+function badgeCallerFiles(): string[] {
+  const files: string[] = []
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+      const rel = path.join(dir, entry.name)
+      if (entry.isDirectory()) walk(rel)
+      else if (rel.endsWith('.tsx') && rel !== path.join('components', 'ui', 'Badge.tsx')) files.push(rel)
+    }
+  }
+  for (const dir of ['app', 'components', 'features']) walk(dir)
+  return files
+}
+
+/** The tags a source can render Badge under: `Badge` itself, whatever it names, so a scan fails closed; each name an
+    import from Badge's module binds to it (`import { Badge as Chip }`); `<namespace>.Badge` for a namespace import of
+    that module; and a local name set to one of those (`const Chip = UI.Badge`). Badge's module is components/ui or
+    components/ui/Badge, by the `@/` alias or a relative path. Out of reach: a name that crosses modules (a re-export
+    under another name in a file of its own) and a component that renders Badge for its caller, whose own <Badge>
+    is read where it is written, a spread there failing. */
+function badgeTags(file: string, sf: ts.SourceFile): Set<string> {
+  const tags = new Set(['Badge'])
+  const badgeModule = (spec: string): boolean => {
+    const target = spec.startsWith('@/') ? spec.slice(2) : spec.startsWith('.') ? path.join(path.dirname(file), spec) : null
+    if (target === null) return false
+    const bare = path.normalize(target).replace(/\.(tsx?|jsx?)$/, '').replace(/[\\/]index$/, '')
+    return bare === path.join('components', 'ui') || bare === path.join('components', 'ui', 'Badge')
+  }
+  for (const statement of sf.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+    if (!badgeModule(statement.moduleSpecifier.text)) continue
+    const bindings = statement.importClause?.namedBindings
+    if (bindings && ts.isNamespaceImport(bindings)) tags.add(`${bindings.name.text}.Badge`)
+    if (bindings && ts.isNamedImports(bindings))
+      for (const element of bindings.elements) if ((element.propertyName ?? element.name).text === 'Badge') tags.add(element.name.text)
+  }
+  for (let grew = true; grew; ) {
+    grew = false
+    const visit = (node: ts.Node): void => {
+      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && !tags.has(node.name.text) && tags.has(node.initializer.getText(sf))) {
+        tags.add(node.name.text)
+        grew = true
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(sf)
+  }
+  return tags
 }
 
 /** `success-light` → its hex; `white` → #FFFFFF. */
@@ -103,22 +167,26 @@ describe('Badge status variants (chrome/F8, chrome/F9)', () => {
     expect(source).not.toMatch(/tonal\s+recipe/i)
   })
 
-  it('no <Badge icon={null}> tells a status with beat or miss', () => {
-    const files: string[] = []
-    const walk = (dir: string) => {
-      for (const entry of readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
-        const rel = path.join(dir, entry.name)
-        if (entry.isDirectory()) walk(rel)
-        else if (rel.endsWith('.tsx') && rel !== path.join('components', 'ui', 'Badge.tsx')) files.push(rel)
-      }
-    }
-    for (const dir of ['app', 'components', 'features']) walk(dir)
+  it("the Status chip recipe says what each member of the status set means, so a new chip's member is read there", () => {
+    // Badge's status set: the members of its BadgeStatusVariant type, read from its source.
+    const file = 'components/ui/Badge.tsx'
+    const set = stringUnion(file, 'BadgeStatusVariant')
+    expect(set.length, `BadgeStatusVariant, a union of string literals, in ${file}`).toBeGreaterThan(1)
+    // The recipe's meaning line (frontend/DESIGN_SYSTEM.md §4, Status chip), from its lead to the recipe's Gate line:
+    // each member written `name`: meaning, once.
+    const recipe = readFileSync(path.join(ROOT, 'DESIGN_SYSTEM.md'), 'utf8').split(/^Status chip {2,}/m)[1]?.split(/\n(?=\S)/)[0] ?? ''
+    const line = recipe.split('What each member means')[1]?.split(/^\s+Gate:/m)[0] ?? ''
+    const named = [...line.matchAll(/`([a-z-]+)`:/g)].map((m) => m[1])
+    expect(named.sort(), "the Status chip recipe's line on what each member means, one meaning per member").toEqual([...set].sort())
+  })
 
+  it('no <Badge icon={null}> tells a status with beat or miss', () => {
     const found: string[] = []
-    for (const file of files) {
+    for (const file of badgeCallerFiles()) {
       const text = readFileSync(path.join(ROOT, file), 'utf8')
-      if (!text.includes('<Badge')) continue
+      if (!text.includes('Badge')) continue
       const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+      const tags = badgeTags(file, sf)
       let namesDirection = false
       const scanLiterals = (node: ts.Node): void => {
         if (ts.isStringLiteralLike(node) && (node.text === 'beat' || node.text === 'miss')) namesDirection = true
@@ -126,7 +194,7 @@ describe('Badge status variants (chrome/F8, chrome/F9)', () => {
       }
       scanLiterals(sf)
       const visit = (node: ts.Node): void => {
-        if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(sf) === 'Badge') {
+        if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && tags.has(node.tagName.getText(sf))) {
           const attr = (name: string) =>
             node.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText(sf) === name)
           const icon = attr('icon')?.initializer
@@ -203,5 +271,396 @@ describe('the new chip (D-032, E51)', () => {
         expect(ratio, `the new chip's label in ${theme}, on the card ${state}`).toBeGreaterThanOrEqual(4.5)
       }
     }
+  })
+})
+
+/**
+ * The tentative chip (E83). The calendar's "Est." chip took the neutral chip and handed it `bg-transparent
+ * dark:bg-transparent` as a className, but cx only joins classes and the stylesheet emits `bg-white` after
+ * `bg-transparent` (and `dark:bg-white/5` after `dark:bg-transparent`), so it painted as a white pill, and on a hovered
+ * dark row its white/5 stacked on the row's: 4.27:1. A chip's ground, ink and hairline are its variant's to state.
+ * "Reported", Badge's quiet chip, stacked its white/5 on the hovered row's the same way (4.27:1), and "Confirmed" took
+ * the brand tint; the ladder is a status, so both take the set (E141): info-status and neutral-status.
+ * Colours here are read through the resolved palette (`text-tertiary-light`, `white/5`), as Tailwind names them.
+ */
+const PALETTE = (
+  createRequire(import.meta.url)('tailwindcss/lib/util/flattenColorPalette') as { default: (colors: unknown) => Record<string, string> }
+).default(resolveConfig(config as unknown as Config).theme.colors)
+
+/** A palette colour (`panel-light`, `white/5`) as rgb and alpha: an opacity suffix replaces the token's own alpha, as
+    Tailwind's does on an rgba token. Undefined for a name the palette has no colour for. */
+function paletteColour(value: string): { rgb: Rgb; alpha: number } | undefined {
+  const [name, pct] = value.split('/')
+  const token = PALETTE[name]
+  const rgba = token?.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/)
+  if (!token || (!/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(token) && !rgba)) return undefined
+  const six = token.length === 4 ? token.replace(/^#(.)(.)(.)$/, '#$1$1$2$2$3$3') : token
+  const rgb: Rgb = rgba ? [Number(rgba[1]), Number(rgba[2]), Number(rgba[3])] : hex(six)
+  return { rgb, alpha: pct ? Number(pct) / 100 : rgba?.[4] !== undefined ? Number(rgba[4]) : 1 }
+}
+
+/** The colour fill an element's classes give it in one theme, at rest or hovered (every layer under the pointer is
+    hovered), as the cascade ranks them: in dark a dark: fill outranks a hover: one, which Tailwind emits earlier at
+    one specificity, and a theme left unset falls back to the bare fill. A dialog's `backdrop:` fill paints behind it,
+    outside its box, so it is not read. A fill under any other variant this reader does not model, one it cannot
+    read, and a second fill under one variant, which the stylesheet ranks and class order does not, each fail. */
+function fillOf(el: Element, theme: 'light' | 'dark', hovered: boolean, failures: string[]): string | undefined {
+  const found = new Map<string, string>()
+  for (const cls of (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)) {
+    const parts = cls.split(/:(?![^[]*\])/)
+    const utility = parts.pop()!
+    if (!/^!?bg-/.test(utility) || parts.includes('backdrop')) continue
+    const variant = parts.sort().join(':')
+    const value = utility.replace(/^!?bg-/, '')
+    if (utility.startsWith('!') || !['', 'hover', 'dark', 'dark:hover'].includes(variant)) {
+      failures.push(`<${el.tagName.toLowerCase()}> ${cls}: a fill under a variant this reader does not model`)
+    } else if (value !== 'transparent' && !paletteColour(value)) {
+      failures.push(`<${el.tagName.toLowerCase()}> ${cls}: a fill this reader cannot read`)
+    } else if (found.has(variant) && found.get(variant) !== value) {
+      failures.push(`<${el.tagName.toLowerCase()}> ${cls}: a second fill beside bg-${found.get(variant)}, which the stylesheet ranks`)
+    } else found.set(variant, value)
+  }
+  const order = theme === 'dark' ? (hovered ? ['dark:hover', 'dark', 'hover', ''] : ['dark', '']) : hovered ? ['hover', ''] : ['']
+  const key = order.find((k) => found.has(k))
+  return key === undefined ? undefined : found.get(key)
+}
+
+/** What a chip's label sits on, in one theme, at rest or hovered: every fill from the chip up to the first opaque one,
+    painted from that one up. Null, with a failure, when no opaque fill lies above it. */
+function groundOf(chip: Element, theme: 'light' | 'dark', hovered: boolean, failures: string[]): Rgb | null {
+  const fills: Array<{ rgb: Rgb; alpha: number }> = []
+  for (let el: Element | null = chip; el; el = el.parentElement) {
+    const value = fillOf(el, theme, hovered, failures)
+    const fill = value === undefined || value === 'transparent' ? undefined : paletteColour(value)
+    if (!fill) continue
+    fills.push(fill)
+    if (fill.alpha === 1) return fills.reduceRight<Rgb>((under, { rgb, alpha }) => over(rgb, alpha, under), [0, 0, 0])
+  }
+  failures.push(`no opaque fill above the chip in ${theme}`)
+  return null
+}
+
+/** A class list's ink in one theme: its text- colour, under dark: in dark (the bare one where dark sets none). Two inks
+    under one variant are ranked by the stylesheet, not by class order, so they fail. */
+function inkOf(classes: string[], theme: 'light' | 'dark', failures: string[] = []): string | undefined {
+  const pick = (variant: string) => {
+    const inks = [
+      ...new Set(
+        classes
+          .map((c) => c.split(/:(?![^[]*\])/))
+          .filter((parts) => parts.slice(0, -1).join(':') === variant && /^text-/.test(parts[parts.length - 1]) && paletteColour(parts[parts.length - 1].slice(5)))
+          .map((parts) => parts[parts.length - 1].slice(5)),
+      ),
+    ]
+    if (inks.length > 1) failures.push(`${inks.map((ink) => `${variant ? `${variant}:` : ''}text-${ink}`).join(' and ')}: two inks, which the stylesheet ranks`)
+    return inks[0]
+  }
+  return (theme === 'dark' ? pick('dark') : undefined) ?? pick('')
+}
+
+const classSet = (className: string) => [...new Set(className.split(/\s+/).filter(Boolean))].sort().join(' ')
+const badgeClasses = (variant: BadgeVariant) =>
+  (render(<Badge variant={variant}>Est.</Badge>).container.firstElementChild as HTMLElement).className.split(/\s+/)
+
+const ALERTS: EarningsAlertsApi = {
+  identityPending: false,
+  isOn: () => false,
+  isPending: () => false,
+  toggle: () => {},
+  blocked: null,
+  clearBlocked: () => {},
+}
+const ESTIMATED: CalendarEvent = {
+  ticker: 'TSM',
+  company_name: 'Taiwan Semiconductor',
+  event_date: '2026-07-30',
+  event_time: 'bmo',
+  status: 'estimated',
+  confidence: 'high',
+  eps_estimate: 2.3,
+  eps_actual: null,
+  anticipation_score: 88,
+}
+
+/** The calendar's status ladder (E141, chief design's reading on #1460): each rung its member of Badge's status set,
+    read dashed, blue, quiet. Keyed by every status and typed as the set: under the app's tsconfig a tint here does not
+    compile, and since CI's typecheck leaves the specs out, the reader below also reads EventStatus from its source, so a
+    status the calendar gains fails it until it has a rung here and an event in LADDER_EVENTS. */
+const LADDER: Record<CalendarEvent['status'], { label: string; variant: BadgeStatusVariant }> = {
+  estimated: { label: 'Est.', variant: 'tentative' },
+  confirmed: { label: 'Confirmed', variant: 'info-status' },
+  reported: { label: 'Reported', variant: 'neutral-status' },
+}
+const RUNGS = Object.values(LADDER)
+/** One sample company per rung on the same day; the reported one carries its actual, as a reported row does. */
+const LADDER_EVENTS: CalendarEvent[] = [
+  ESTIMATED,
+  { ...ESTIMATED, ticker: 'MSFT', company_name: 'Microsoft', event_time: 'amc', status: 'confirmed', eps_estimate: 3.1, anticipation_score: 95 },
+  { ...ESTIMATED, ticker: 'KO', company_name: 'Coca-Cola', status: 'reported', eps_estimate: 0.8, eps_actual: 0.84, anticipation_score: 70 },
+]
+
+describe('the tentative chip (E83)', () => {
+  it("is neutral-status's ink on a dashed hairline, with no fill in either theme", () => {
+    const tentative = badgeClasses('tentative')
+    expect(tentative).toEqual(expect.arrayContaining(['border', 'border-dashed']))
+    expect([inkOf(tentative, 'light'), inkOf(tentative, 'dark')], "neutral-status's ink").toEqual([
+      inkOf(badgeClasses('neutral-status'), 'light'),
+      inkOf(badgeClasses('neutral-status'), 'dark'),
+    ])
+    // A fill under any variant, bare, dark: or a state's, would paint under the label.
+    expect(tentative.filter((c) => /(^|:)!?bg-/.test(c) && !/(^|:)bg-transparent$/.test(c)), 'a fill on the tentative chip').toEqual([])
+  })
+})
+
+describe("the calendar's status ladder (E83, E141)", () => {
+  // jsdom has no showModal(); the day dialog opens itself with it.
+  const dialogProto = HTMLElement.prototype as HTMLElement & { showModal?: () => void }
+  beforeAll(() => {
+    dialogProto.showModal = function (this: HTMLElement) {
+      this.setAttribute('open', '')
+    }
+  })
+  afterAll(() => {
+    delete dialogProto.showModal
+  })
+
+  it('each rung is its chip of the status set as the week sheet, the day list and the day dialog render it, its label at 4.5:1 or more on its row at rest and hovered, both themes', () => {
+    const day = { iso: ESTIMATED.event_date, isToday: false, holidayName: null, events: LADDER_EVENTS }
+    // The sheet's compact row and the list's roomy row both render (CSS shows one by the view's width), then the dialog's.
+    const views = [
+      render(<WeekView days={[day]} alerts={ALERTS} signedIn={false} onShowMore={() => {}} />).container,
+      render(<DayDetailDialog iso={day.iso} events={LADDER_EVENTS} alerts={ALERTS} signedIn={false} onClose={() => {}} />).container,
+    ]
+    const where = ['the week sheet', 'the day list', 'the day dialog']
+    const statuses = stringUnion('features/calendar/api/calendar-api.ts', 'EventStatus')
+    expect(statuses.length, 'EventStatus, a union of string literals').toBeGreaterThan(1)
+    expect(Object.keys(LADDER).sort(), 'a rung for every status EventStatus names').toEqual([...statuses].sort())
+    expect(LADDER_EVENTS.map((e) => e.status).sort(), 'an event for every rung').toEqual([...statuses].sort())
+    const failures: string[] = []
+    let measured = 0
+    for (const { label, variant } of RUNGS) {
+      const chips = views.flatMap((view) => [...view.querySelectorAll('span')].filter((el) => el.textContent === label))
+      if (chips.length !== where.length) failures.push(`"${label}": ${chips.length} chips, where the sheet, the list and the dialog render ${where.length}`)
+      const own = classSet(badgeClasses(variant).join(' '))
+      chips.forEach((chip, i) => {
+        const at = `${where[i]}, "${label}"`
+        if (classSet(chip.className) !== own) failures.push(`${at}: "${classSet(chip.className)}" is not Badge's ${variant} chip, "${own}"`)
+        for (const theme of ['light', 'dark'] as const) {
+          for (const hovered of [false, true]) {
+            const ground = groundOf(chip, theme, hovered, failures)
+            const ink = inkOf(chip.className.split(/\s+/), theme, failures)
+            const colour = ink === undefined ? undefined : paletteColour(ink)
+            if (!ground || !colour) {
+              if (!colour) failures.push(`${at} (${theme}): no ink this case can read`)
+              continue
+            }
+            const ratio = Math.round(contrast(over(colour.rgb, colour.alpha, ground), ground) * 100) / 100
+            measured += 1
+            if (ratio < 4.5) failures.push(`${at} (${theme}${hovered ? ', a hovered row' : ''}): ${ratio.toFixed(2)}:1`)
+          }
+        }
+      })
+    }
+    expect([...new Set(failures)]).toEqual([])
+    // Each rung on three rows, two themes, at rest and hovered: a chip or a ground read short must not pass.
+    expect(measured).toBe(RUNGS.length * where.length * 2 * 2)
+  })
+
+  it('reads a status it does not know as "Est.", the tentative chip, a name on Object.prototype included', () => {
+    for (const status of ['postponed', 'constructor', 'toString'] as unknown as CalendarEvent['status'][]) {
+      const chip = render(<StatusChip status={status} />).container.querySelector('span')
+      expect(chip?.textContent, String(status)).toBe('Est.')
+      expect(classSet(chip?.className ?? ''), String(status)).toBe(classSet(badgeClasses('tentative').join(' ')))
+    }
+  })
+})
+
+/** The members of a string-literal union type alias, read from its source file (relative to the frontend root). */
+function stringUnion(file: string, name: string): string[] {
+  const sf = ts.createSourceFile(file, readFileSync(path.join(ROOT, file), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const alias = sf.statements.find((s): s is ts.TypeAliasDeclaration => ts.isTypeAliasDeclaration(s) && s.name.text === name)
+  return (alias && ts.isUnionTypeNode(alias.type) ? alias.type.types : []).map((t) =>
+    ts.isLiteralTypeNode(t) && ts.isStringLiteral(t.literal) ? t.literal.text : t.getText(sf),
+  )
+}
+
+/** Every value a piece joined into a class token can take, when each is a string literal (one, a condition between
+    them, or two joined with +); null for anything else. */
+function literalValues(node: ts.Expression): string[] | null {
+  if (ts.isStringLiteralLike(node)) return [node.text]
+  if (ts.isParenthesizedExpression(node)) return literalValues(node.expression)
+  const [a, b] = ts.isConditionalExpression(node)
+    ? [literalValues(node.whenTrue), literalValues(node.whenFalse)]
+    : ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken
+      ? [literalValues(node.left), literalValues(node.right)]
+      : [null, null]
+  if (!a || !b) return null
+  return ts.isConditionalExpression(node) ? [...a, ...b] : a.flatMap((x) => b.map((y) => x + y))
+}
+
+/** The classes a className passes, read statically: a string, or the strings in a cx() or clsx() call, a condition,
+    a logical pair, a template, an array or an object's keys; null where a class could come from elsewhere (a variable,
+    another call). A template's interpolation with whitespace or the template's edge on both sides stands as classes
+    of its own and is read as a className; one glued to a chunk or to another interpolation sits inside a class token
+    (`text-${tone}-text`), so every value it can take must be a string literal, joined to its neighbours before the
+    template is split into classes, or the template is unreadable. Two pieces joined with + are joined the same way. */
+function staticClasses(node: ts.Node | undefined): string[] | null {
+  if (node === undefined) return []
+  const all = (nodes: readonly ts.Node[]): string[] | null => {
+    const out: string[] = []
+    for (const n of nodes) {
+      const classes = staticClasses(n)
+      if (classes === null) return null
+      out.push(...classes)
+    }
+    return out
+  }
+  const split = (texts: string[]) => texts.flatMap((text) => text.split(/\s+/).filter(Boolean))
+  if (ts.isStringLiteralLike(node)) return split([node.text])
+  if (ts.isJsxExpression(node) || ts.isParenthesizedExpression(node)) return staticClasses(node.expression)
+  if (ts.isConditionalExpression(node)) return all([node.whenTrue, node.whenFalse])
+  if (ts.isBinaryExpression(node)) {
+    if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return staticClasses(node.right)
+    if (node.operatorToken.kind !== ts.SyntaxKind.PlusToken) return all([node.left, node.right])
+    const joined = literalValues(node)
+    return joined === null ? null : split(joined)
+  }
+  if (ts.isTemplateExpression(node)) {
+    const spans = node.templateSpans
+    const chunks = [node.head.text, ...spans.map((span) => span.literal.text)]
+    const out: string[] = []
+    let texts = [chunks[0]]
+    for (const [i, span] of spans.entries()) {
+      const [before, after] = [chunks[i], chunks[i + 1]]
+      const alone = (before === '' ? i === 0 : /\s$/.test(before)) && (after === '' ? i === spans.length - 1 : /^\s/.test(after))
+      if (alone) {
+        const classes = staticClasses(span.expression)
+        if (classes === null) return null
+        out.push(...split(texts), ...classes)
+        texts = ['']
+      } else {
+        const values = literalValues(span.expression)
+        if (values === null || texts.length * values.length > 64) return null
+        texts = texts.flatMap((text) => values.map((value) => text + value))
+      }
+      texts = texts.map((text) => text + after)
+    }
+    return [...new Set([...out, ...split(texts)])]
+  }
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && ['cx', 'clsx'].includes(node.expression.text)) return all(node.arguments)
+  if (ts.isArrayLiteralExpression(node)) return all(node.elements)
+  if (ts.isObjectLiteralExpression(node)) {
+    const keys: string[] = []
+    for (const p of node.properties) {
+      if (!ts.isPropertyAssignment(p) || !(ts.isStringLiteral(p.name) || ts.isIdentifier(p.name))) return null
+      keys.push(...p.name.text.split(/\s+/).filter(Boolean))
+    }
+    return keys
+  }
+  if (node.kind === ts.SyntaxKind.FalseKeyword || node.kind === ts.SyntaxKind.NullKeyword || (ts.isIdentifier(node) && node.text === 'undefined')) return []
+  return null
+}
+
+/** Whether a class sets a chip's ground, ink or hairline, under any variant: any bg- or border utility, and a text- one
+    that names a colour (a palette colour, or an arbitrary value that is no length). */
+function paintsChip(cls: string): boolean {
+  const utility = cls.split(/:(?![^[]*\])/).pop()!.replace(/^!/, '')
+  if (/^(bg|border)(-|$)/.test(utility)) return true
+  const value = utility.match(/^text-(.+)$/)?.[1]
+  if (value === undefined) return false
+  if (value.startsWith('[')) return !/^\[(length:|[\d.]+(px|rem|em|%)?\])/.test(value)
+  return PALETTE[value.split('/')[0]] !== undefined
+}
+
+/** Every <Badge>, under any name the source gives it (badgeTags), with a className or a spread this scan finds fault
+    with, as `file:line: why`. */
+function badgeClassFaults(file: string, source: string): string[] {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const tags = badgeTags(file, sf)
+  const faults: string[] = []
+  const visit = (node: ts.Node): void => {
+    if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && tags.has(node.tagName.getText(sf))) {
+      const at = `${file}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
+      for (const prop of node.attributes.properties) {
+        if (ts.isJsxSpreadAttribute(prop)) faults.push(`${at}: a spread, which may pass a className this scan cannot read`)
+        else if (prop.name.getText(sf) === 'className') {
+          const classes = staticClasses(prop.initializer)
+          const painting = classes?.filter(paintsChip) ?? []
+          if (classes === null) faults.push(`${at}: a className this scan cannot read`)
+          else if (painting.length) faults.push(`${at}: ${painting.join(' ')}`)
+        }
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return faults
+}
+
+describe("a Badge's ground, ink and hairline are its variant's (E83)", () => {
+  it('no <Badge> in app/, components/ or features/ sets a ground, an ink or a hairline in its className', () => {
+    const found = badgeCallerFiles().flatMap((file) => {
+      const source = readFileSync(path.join(ROOT, file), 'utf8')
+      return source.includes('Badge') ? badgeClassFaults(file, source) : []
+    })
+    expect(found, "give the chip a variant of its own (components/ui/Badge.tsx): a class on top of a variant's wins or loses by stylesheet order").toEqual([])
+  })
+
+  it('reads a className through cx(), conditions and templates, and tells a ground, an ink or a hairline from a layout class', () => {
+    const probe = [
+      '<Badge variant="pro" className="shrink-0 text-center !whitespace-normal text-xs" />',
+      '<Badge className={cx("ml-1", on && "bg-white", on ? "text-sm" : "dark:text-brand-strong-dark")}>x</Badge>',
+      // An interpolation with whitespace or the template's edge on both sides is classes of its own.
+      '<Badge className={`border-dashed ${on ? "hover:!text-[#fff]" : ""}`} />',
+      '<Badge className={chip} />',
+      '<Badge {...props} />',
+      '<Badge className={clsx({ "text-text-tertiary-light": on, "mt-1": true })} />',
+      // One glued inside a class token is joined to its neighbours, or the template is unreadable.
+      '<Badge className={`text-${up ? "gain" : "loss"}-text`} />',
+      '<Badge className={cx(`text-${"white"}`)} />',
+      '<Badge className={`text-${tone}`} />',
+      '<Badge className={"text-" + "brand-strong"} />',
+      '<Badge className={`shrink-0 ${wide ? "w-full" : ""} mt-${"1"}`} />',
+    ].join('\n')
+    expect(badgeClassFaults('probe.tsx', probe)).toEqual([
+      'probe.tsx:2: bg-white dark:text-brand-strong-dark',
+      'probe.tsx:3: border-dashed hover:!text-[#fff]',
+      'probe.tsx:4: a className this scan cannot read',
+      'probe.tsx:5: a spread, which may pass a className this scan cannot read',
+      'probe.tsx:6: text-text-tertiary-light',
+      'probe.tsx:7: text-gain-text text-loss-text',
+      'probe.tsx:8: text-white',
+      'probe.tsx:9: a className this scan cannot read',
+      'probe.tsx:10: text-brand-strong',
+    ])
+    // The last line (11) is read whole and paints nothing: shrink-0, w-full and mt-1.
+    const last = ts.createSourceFile('probe.tsx', '<Badge className={`shrink-0 ${wide ? "w-full" : ""} mt-${"1"}`} />', ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const attr = (last.statements[0] as ts.ExpressionStatement).expression as ts.JsxSelfClosingElement
+    expect(staticClasses((attr.attributes.properties[0] as ts.JsxAttribute).initializer)).toEqual(['shrink-0', 'w-full', 'mt-1'])
+  })
+
+  it('reads Badge under any name a source gives it: an alias, a namespace, a relative path or a local name', () => {
+    const probe = [
+      "import { Badge as Chip } from '@/components/ui'",
+      "import * as UI from '@/components/ui/Badge'",
+      "import { Badge as Near } from '../ui'",
+      "import { Badge as Other } from '@/features/other'",
+      "import * as Lib from '@/lib/ui'",
+      // A statement of its own: unended, the next line's tag would parse as `UI.Badge < Chip …`.
+      'const Local = UI.Badge;',
+      '<Chip className="bg-white" />',
+      '<UI.Badge className="text-white" />',
+      '<Near className="border-dashed" />',
+      '<Local className="dark:bg-white/5" />',
+      // Another module's Badge, or another module's namespace, is not this one.
+      '<Other className="bg-white" />',
+      '<Lib.Badge className="bg-white" />',
+    ].join('\n')
+    expect(badgeClassFaults('components/dashboard/probe.tsx', probe)).toEqual([
+      'components/dashboard/probe.tsx:7: bg-white',
+      'components/dashboard/probe.tsx:8: text-white',
+      'components/dashboard/probe.tsx:9: border-dashed',
+      'components/dashboard/probe.tsx:10: dark:bg-white/5',
+    ])
   })
 })
