@@ -162,8 +162,7 @@ export default function SecurityPage() {
             <li>
               <strong>Framing:</strong> The site sends X-Frame-Options DENY and a Content-Security-Policy of
               frame-ancestors &apos;none&apos;, so other sites cannot show its pages in a frame. The API&apos;s
-              responses under /api carry a Content-Security-Policy of default-src &apos;none&apos;, except its
-              replies to a request that times out or fails with an unexpected error.
+              responses under /api carry a Content-Security-Policy of default-src &apos;none&apos;.
             </li>
             <li>
               <strong>Rate limits:</strong> The API caps how often logins, new accounts, password-reset and
