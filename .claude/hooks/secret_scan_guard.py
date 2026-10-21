@@ -167,7 +167,7 @@ replace. Each also says when no main checkout it can find holds the hook (a chec
 absolute path, at a level every worktree reads, counts), when git cannot read the clone or write the path, when a
 setting above the clone's own keeps another path in effect, when it runs out of time, and when the pinned binary is
 missing, and sets nothing on a git older than the scan needs, saying so. A session of another agent (Codex, Astra)
-loads no repository hooks: AGENTS.md §5 has it leave core.hooksPath to the founder (F53) and scan its commits by
+loads no repository hooks: AGENTS.md §5 has it leave core.hooksPath to the founder (F54) and scan its commits by
 hand before every push.
 
 Not checked before a call, though git's pre-push hook stops each push among them that is a `git push` without

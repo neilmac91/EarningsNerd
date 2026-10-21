@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event'
 import ts from 'typescript'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import PrivacyPage from '@/app/privacy/page'
-import CookieConsent, { getCookiePreferences, type CookiePreferences } from '@/components/CookieConsent'
+import CookieConsent, { CONSENT_VERSION, getCookiePreferences, type CookiePreferences } from '@/components/CookieConsent'
 import Footer from '@/components/Footer'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn() } }))
@@ -54,7 +54,7 @@ vi.mock('@/components/EarningsNerdLogo', () => ({ default: () => null }))
  */
 
 const STORAGE_KEY = 'cookie_consent'
-const CHOSEN: CookiePreferences = { essential: true, analytics: true, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z' }
+const CHOSEN: CookiePreferences = { essential: true, analytics: true, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z', version: CONSENT_VERSION }
 /** /privacy's sentence on the banner and Do Not Track, as the founder approved it and scoped it to the browser (D-049). */
 const PRIVACY_SENTENCE =
   "Analytics and session recording in your browser stay off until you allow them, and you can change your choice at any time in Cookie settings. We don't change this based on your browser's Do Not Track setting."

@@ -7,6 +7,7 @@ import { OPEN_COOKIE_SETTINGS_EVENT } from '@/lib/cookieSettings'
 import Link from 'next/link'
 import { Button, Checkbox, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
 import { isConsentLayerVisible, publishConsentLayer } from '@/lib/consentLayer'
+import { ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 
 // Isomorphic layout effect (the repo's SSR-safe alias, as in ui/Input and useCountUp): useLayoutEffect
 // in the browser, where the consent inset must land before the bar's first paint; useEffect on a server
@@ -18,6 +19,8 @@ export interface CookiePreferences {
   analytics: boolean
   sessionRecording: boolean
   timestamp: string
+  /** The analytics clause the choice was made under (CONSENT_VERSION); a choice stored before it has none. */
+  version?: number
 }
 
 const DEFAULT_PREFERENCES: CookiePreferences = {
@@ -29,6 +32,16 @@ const DEFAULT_PREFERENCES: CookiePreferences = {
 
 const STORAGE_KEY = 'cookie_consent'
 
+/**
+ * The analytics clause a stored choice was made under. Version 2 is ANALYTICS_CONSENT_CLAUSE (D-046, F33), which says
+ * a logged-in reader's statistics are tied to an internal account id; a choice stored before it carries no version,
+ * made while the dialog called them anonymous usage statistics. An allow made under an earlier clause reads as no
+ * choice, so the bar asks again, once; a refusal stands, since nothing is collected on it. A clause that changes what
+ * an allow covers moves this in the same commit. tests/unit/legalTruth.spec.tsx pins the two side by side, but whether
+ * a change to the clause calls for the bump is review-checked.
+ */
+export const CONSENT_VERSION = 2
+
 export function getCookiePreferences(): CookiePreferences | null {
   if (typeof window === 'undefined') return null
 
@@ -37,6 +50,8 @@ export function getCookiePreferences(): CookiePreferences | null {
     if (!stored) return null
 
     const preferences = JSON.parse(stored) as CookiePreferences
+    // An allow made under an earlier clause is no choice: the bar asks again (CONSENT_VERSION).
+    if (preferences.analytics && preferences.version !== CONSENT_VERSION) return null
     // Ensure essential is always true
     preferences.essential = true
     return preferences
@@ -53,6 +68,7 @@ export function saveCookiePreferences(preferences: CookiePreferences): void {
     // Ensure essential is always true
     preferences.essential = true
     preferences.timestamp = new Date().toISOString()
+    preferences.version = CONSENT_VERSION
     localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences))
 
     // Dispatch event so PostHog can react to changes
@@ -242,9 +258,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   Analytics cookies
                 </h3>
                 <p id="cookie-analytics-desc" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  Help us understand how visitors interact with our website by collecting
-                  anonymous usage statistics (PostHog). This helps us improve the user
-                  experience.
+                  {ANALYTICS_CONSENT_CLAUSE}
                 </p>
               </div>
               <div>

@@ -97,7 +97,7 @@ push run inside `.git`, or with a `GIT_DIR` from a subdirectory), and says the h
 leaving a hooks path naming another directory, or hooks of the clone's own, as they are, and setting
 nothing on a git older than 2.43, whose every push that adds commits the hook would refuse. A Claude
 Code cloud session that loads the repository's hooks does it for its clone as it starts; Codex and
-Astra sessions leave it to the founder (`AGENTS.md` §5, F53). Both hooks take the remote named
+Astra sessions leave it to the founder (`AGENTS.md` §5, F54). Both hooks take the remote named
 `origin` for GitHub: in a clone whose GitHub remote has another name, every push that adds commits
 has its whole history scanned without main's pins, and is refused. The hook stops a push on a finding
 and whenever it cannot scan (it needs the binary above, git 2.43 or later and `python3`), naming why;

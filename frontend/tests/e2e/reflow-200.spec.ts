@@ -18,7 +18,9 @@ import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
  *
  * Before the fix each route with the site header measured 552px at 200% (its theme toggle and account
  * link) and each auth page 576px (the auth shell's top bar); with those wrapping, Button labels ("See a
- * live example", "Ask this filing") and one long heading word on /waitlist were next. Each case checks
+ * live example", "Ask this filing") and one long heading word on /waitlist were next. /security and
+ * /privacy measured 469px: each mailto address (security@, privacy@ and hello@earningsnerd.io) was one
+ * word that could not break, and now breaks anywhere ([overflow-wrap:anywhere]). Each case checks
  * that chrome is on the page, so a route that fails to render cannot pass empty. On a failure the
  * message lists the widest elements and text runs past the viewport edge, outside any clipping box.
  *
@@ -124,6 +126,8 @@ const ROUTES: Route[] = [
   { name: 'login', path: '/login', open: answerGuest, ready: (p) => h1(p, 'Welcome back'), ...authShellBar },
   { name: 'register', path: '/register', open: answerGuest, ready: (p) => h1(p, 'Create your account'), ...authShellBar },
   { name: 'not found', path: '/no-such-page', status: 404, open: answerGuest, ready: (p) => h1(p, 'Page not found'), ...siteHeader },
+  { name: 'security', path: '/security', open: answerGuest, ready: (p) => h1(p, 'Security'), ...siteHeader },
+  { name: 'privacy', path: '/privacy', open: answerGuest, ready: (p) => h1(p, 'Privacy Policy'), ...siteHeader },
   {
     name: 'filing',
     path: '/filing/3',

@@ -157,7 +157,7 @@ Other tools Codex and Astra do not have, and what to do instead:
   yourself: never approve or reject an Ops run waiting on the `ops-apply` environment, and never
   change that environment. Only the founder does. Nor does `.claude/hooks/secret_scan_guard.py` read
   your pushes, though git's pre-push hook runs its scan on each `git push` from a clone where it is
-  turned on (E134). Turning it on in a clone is the founder's call (F53), so never set or change
+  turned on (E134). Turning it on in a clone is the founder's call (F54), so never set or change
   `core.hooksPath`, and never push with `--no-verify` past the hook. Scan your new commits by hand
   before every push, as `lessons/ops-a-secret-shaped-literal-on-any-branch-fails-every-pr.md`'s Rule
   says, whatever `core.hooksPath` names: a path can name a hook that has gone (a moved clone's, or a

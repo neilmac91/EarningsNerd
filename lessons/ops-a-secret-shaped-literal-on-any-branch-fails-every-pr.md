@@ -143,7 +143,7 @@ that SHA-256 and another platform's against the release's checksums file once th
   above the clone's own keeps another, and when the pinned binary is missing; on a git older than 2.43,
   whose every push that adds commits the hook would refuse, each sets nothing and says so. A session of
   another agent (Codex, Astra) loads no repository hooks: `AGENTS.md` §5 leaves `core.hooksPath` to the
-  founder (F53) and has it scan by hand before every push. git runs the hook
+  founder (F54) and has it scan by hand before every push. git runs the hook
   before a `git push` sends anything, whoever runs the push, and hands it the refs the push sends: it
   scans the commits each one reaches and no ref under `refs/remotes/origin` holds, with the scan above,
   and stops the push on a finding, wherever the scan fails closed (that refusal names
