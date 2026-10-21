@@ -183,13 +183,15 @@ def resolve_google_user(
     email_verified: bool,
     full_name: Optional[str],
     invite_code_hash: Optional[str],
-) -> tuple[User, bool]:
-    """Return ``(user, linked_existing)`` for a verified Google identity, with the provider link (if
-    new) and ``last_login_at`` staged for ``mint_oauth_refresh_token`` to commit.
+) -> tuple[User, bool, bool]:
+    """Return ``(user, linked_existing, created)`` for a verified Google identity, with the provider
+    link (if new) and ``last_login_at`` staged for ``mint_oauth_refresh_token`` to commit.
 
     Order: existing link → existing account (linked only when both sides verified the email; else
     ``google_account_conflict``, since a new insert would hit the UNIQUE constraint) → new account
-    through the gate. Raises :class:`OAuthSignInRefused` with the redirect's error code.
+    through the gate. ``created`` is True only on that last branch: the sign-in creates the account,
+    and the router writes its register row once the sign-in commits. Raises
+    :class:`OAuthSignInRefused` with the redirect's error code.
     """
     oauth_row = (
         db.query(OAuthAccount)
@@ -198,6 +200,7 @@ def resolve_google_user(
     )
 
     linked_existing = False
+    created = False
     if oauth_row:
         user = oauth_row.user
     else:
@@ -220,6 +223,7 @@ def resolve_google_user(
             )
             if user is None:
                 raise OAuthSignInRefused(error_code)
+            created = True
         db.add(OAuthAccount(
             user_id=user.id,
             provider="google",
@@ -228,7 +232,7 @@ def resolve_google_user(
         ))
 
     user.last_login_at = datetime.now(timezone.utc)
-    return user, linked_existing
+    return user, linked_existing, created
 
 
 def resolve_apple_user(
@@ -239,20 +243,22 @@ def resolve_apple_user(
     email_verified: bool,
     full_name: Optional[str],
     invite_code_hash: Optional[str],
-) -> tuple[User, bool]:
-    """Return ``(user, linked_existing)`` for a verified Apple identity, with the provider link (if
-    new), a first-authorization name fill-in and ``last_login_at`` staged for
+) -> tuple[User, bool, bool]:
+    """Return ``(user, linked_existing, created)`` for a verified Apple identity, with the provider
+    link (if new), a first-authorization name fill-in and ``last_login_at`` staged for
     ``mint_oauth_refresh_token`` to commit.
 
-    Order: existing link → existing verified account → new account. Without an existing link Apple
-    must supply an email (``apple_missing_claims``); an existing account that cannot be safely
-    linked is ``apple_account_conflict``. Raises :class:`OAuthSignInRefused` with the error code.
+    Order: existing link → existing verified account → new account (``created``, as for Google).
+    Without an existing link Apple must supply an email (``apple_missing_claims``); an existing
+    account that cannot be safely linked is ``apple_account_conflict``. Raises
+    :class:`OAuthSignInRefused` with the error code.
     """
     oauth_row = db.query(OAuthAccount).filter_by(
         provider="apple", provider_account_id=subject
     ).first()
 
     linked_existing = False
+    created = False
     if oauth_row:
         user_obj = oauth_row.user
         if full_name and not user_obj.full_name:
@@ -284,6 +290,7 @@ def resolve_apple_user(
             )
             if user_obj is None:
                 raise OAuthSignInRefused(error_code)
+            created = True
 
         db.add(OAuthAccount(
             user_id=user_obj.id,
@@ -293,7 +300,7 @@ def resolve_apple_user(
         ))
 
     user_obj.last_login_at = datetime.now(timezone.utc)
-    return user_obj, linked_existing
+    return user_obj, linked_existing, created
 
 
 def mint_oauth_refresh_token(

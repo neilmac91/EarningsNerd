@@ -1086,7 +1086,7 @@ async def google_callback(
     # Existing link → existing verified account (linked) → new account through the invite gate;
     # stages the link and last_login_at for the commit below.
     try:
-        user, linked_existing = oauth_account_service.resolve_google_user(
+        user, linked_existing, created = oauth_account_service.resolve_google_user(
             db,
             subject=google_sub,
             email=email,
@@ -1112,6 +1112,10 @@ async def google_callback(
     issue_session(db, user, redirect, request, refresh_token=refresh_token, commit=False)
 
     hashed_ip = _hashed_client_ip(request)
+    if created:
+        # A sign-up as well as a login: the register row a password sign-up writes, so the log tells
+        # this sign-up from a later login (D-054). Written only now, after the sign-in committed.
+        audit_service.log_register(db, user.id, user.email, ip_address=hashed_ip)
     audit_service.log_oauth_login(db, user.id, user.email, provider="google", ip_address=hashed_ip)
     if linked_existing:
         # Security-relevant: a federated identity was just attached to a pre-existing account.
@@ -1240,7 +1244,7 @@ async def apple_callback(
 
     # Resolve user: existing oauth link → existing verified account → new account
     try:
-        user_obj, linked_existing = oauth_account_service.resolve_apple_user(
+        user_obj, linked_existing, created = oauth_account_service.resolve_apple_user(
             db,
             subject=apple_sub,
             email=email,
@@ -1265,6 +1269,9 @@ async def apple_callback(
     issue_session(db, user_obj, redirect, request, refresh_token=refresh_token, commit=False)
 
     hashed_ip = _hashed_client_ip(request)
+    if created:
+        # As for Google: the sign-up's register row, after the sign-in committed (D-054).
+        audit_service.log_register(db, user_obj.id, user_obj.email, ip_address=hashed_ip)
     audit_service.log_oauth_login(db, user_obj.id, user_obj.email, provider="apple", ip_address=hashed_ip)
     if linked_existing:
         audit_service.log_oauth_linked(db, user_obj.id, user_obj.email, provider="apple", ip_address=hashed_ip)

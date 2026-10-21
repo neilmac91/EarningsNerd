@@ -5,9 +5,10 @@ Written against the router before its ORM work moved into app/services/ (the rou
 tests/unit/test_router_orm_ceilings_allowlist.py), and every test here passed on that pre-move
 router as well as after the move, so it proved the refactor preserved behaviour. The password
 login's one commit and the refusals of a login or change whose account changed while it hashed
-(E121), and the logout rows that name the user whose refresh token a logout revoked (E137), pin
-deliberate changes made since, and fail on the code before them; the rows of signed-in logouts that
-revoke nothing, which E137 kept, are pinned beside them:
+(E121), the logout rows that name the user whose refresh token a logout revoked (E137), and the
+register row a Google or Apple sign-in writes when it creates the account (D-054) pin deliberate
+changes made since, and fail on the code before them; the rows of signed-in logouts that revoke
+nothing, which E137 kept, and the audit rows of the other sign-ins are pinned beside them:
 
   - email verification: verify, single use, unknown and expired links, resend (opaque; a resend
     supersedes the earlier link; a verified account gets no mail)
@@ -32,6 +33,10 @@ revoke nothing, which E137 kept, are pinned beside them:
   - an OAuth callback commits its own sign-in (a new account, the link, last_login_at, the refresh
     token) with no audit row committing after it; the connections list; Apple's name fill-in on an
     existing link and its first sign-in without an email
+  - the audit rows an OAuth callback writes: a sign-in that creates the account writes register
+    and then oauth_login, once each, under the hashed address; a returning one oauth_login alone; a
+    link to an existing verified account oauth_login and oauth_linked; and a refused sign-in, a
+    conflict, a lost create race and a new account whose commit loses its link write none
   - the failure paths that roll back (a failed reverse trial, the OAuth races) do so before they log
 
 Real endpoints against the app's SQLite database, like the rest of the auth suite. Mail is captured
@@ -1130,6 +1135,124 @@ def test_oauth_first_sign_in_that_loses_the_create_race_redirects_with_a_conflic
     ]
     # Rolled back (once) before the warning is logged.
     assert len(root_rollbacks) == 1 and root_rollbacks[0] <= caplog.records.index(warnings[0])
+
+
+# ── OAuth callbacks: the audit rows a sign-in writes (D-054) ──────────────────
+
+def _audit_trail(email: str) -> list[tuple[str, Optional[str], Optional[dict], Optional[str]]]:
+    """Every audit row written for ``email``, oldest first: its action, the account id it names, its
+    details and the address it records."""
+    with SessionLocal() as db:
+        return [
+            (row.action, row.user_id, row.details, row.ip_address)
+            for row in db.query(AuditLog).filter(AuditLog.user_email == email).order_by(AuditLog.id)
+        ]
+
+
+def _test_client_address() -> Optional[str]:
+    """The address the router records for the test client: its keyed hash, never the raw host."""
+    return auth_module._hashed_client_ip(SimpleNamespace(client=SimpleNamespace(host="testclient")))
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("path", ["first-sign-in", "returning", "linked"])
+@pytest.mark.parametrize("provider", ["google", "apple"])
+def test_an_oauth_sign_in_writes_the_register_row_only_when_it_creates_the_account(
+    client, monkeypatch, provider, path
+):
+    """/security says registrations are written to the audit log. A Google or Apple sign-in that
+    creates the account writes the register row a password sign-up writes, once, then its
+    oauth_login row, both under the hashed address, so the log tells the sign-up from a later
+    login. A returning sign-in writes oauth_login alone, and a link to an existing verified account
+    oauth_login and oauth_linked. The response is the same on every path."""
+    email = _email()
+    sub = f"{provider}_{uuid.uuid4().hex}"
+    if path != "first-sign-in":
+        user_id = _seed_verified(email)
+        if path == "returning":
+            _seed_link(user_id, provider, sub, email)
+
+    resp = _oauth_callback(client, monkeypatch, provider, sub, email)
+    assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL
+    assert _cookies(resp) == [_STATE_CLEARED[provider], *SESSION_ISSUED]
+    account, address = str(_user(email).id), _test_client_address()
+    assert address is not None and address != "testclient"
+    login = ("oauth_login", account, {"provider": provider}, address)
+    assert _audit_trail(email) == {
+        "first-sign-in": [("register", account, None, address), login],
+        "returning": [login],
+        "linked": [login, ("oauth_linked", account, {"provider": provider}, address)],
+    }[path]
+
+
+@pytest.fixture
+def lose_the_new_accounts_link_race():
+    """Arm with (email, sub, provider, owner_id): when a first sign-in for ``email`` flushes its new
+    account, a competing request first commits the same provider identity for ``owner_id`` (the
+    identity's email changed between the two), so the sign-in's commit, where its link is flushed
+    with the refresh token, raises IntegrityError and rolls the new account back."""
+    armed: dict = {}
+
+    def _before_flush(session, _flush_context, _instances):
+        email = armed.get("email")
+        if email is None or not any(isinstance(obj, User) and obj.email == email for obj in session.new):
+            return
+        armed["email"] = None
+        with SessionLocal() as other:
+            other.add(OAuthAccount(
+                user_id=armed["owner_id"], provider=armed["provider"], provider_account_id=armed["sub"],
+            ))
+            other.commit()
+
+    event.listen(Session, "before_flush", _before_flush)
+    yield armed
+    event.remove(Session, "before_flush", _before_flush)
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize(
+    "failure", ["refused-by-the-invite-gate", "account-conflict", "lost-the-create-race", "lost-the-new-link"]
+)
+@pytest.mark.parametrize("provider", ["google", "apple"])
+def test_an_oauth_sign_in_that_creates_no_account_writes_no_register_row(
+    client, monkeypatch, request, caplog, provider, failure
+):
+    """No account comes of these sign-ins, so none writes a register row, nor any other audit row: the
+    invite gate refusing a new account, an existing account that cannot be linked, a lost create
+    race, and a new account whose commit loses its link to a concurrent sign-in (rolled back, which
+    is why the register row waits for the commit)."""
+    email = _email()
+    sub = f"{provider}_{uuid.uuid4().hex}"
+    error = f"{provider}_account_conflict"
+    armed: Optional[dict] = None
+    if failure == "refused-by-the-invite-gate":
+        monkeypatch.setattr(settings, "REGISTRATION_MODE", "invite_only")
+        error = "invite_required"
+    elif failure == "account-conflict":
+        with SessionLocal() as db:
+            db.add(User(email=email, hashed_password="x", email_verified=False))
+            db.commit()
+    elif failure == "lost-the-create-race":
+        armed = request.getfixturevalue("lose_the_create_race")
+        armed["email"] = email
+    else:
+        armed = request.getfixturevalue("lose_the_new_accounts_link_race")
+        armed.update(email=email, sub=sub, provider=provider, owner_id=_seed_verified(_email()))
+
+    with caplog.at_level(logging.WARNING, logger="app.routers.auth"):
+        resp = _oauth_callback(client, monkeypatch, provider, sub, email)
+    assert armed is None or armed["email"] is None, "the race was never injected"
+    assert resp.status_code == 302
+    assert resp.headers["location"] == f"{settings.FRONTEND_URL}/login?error={error}"
+    assert f"{settings.COOKIE_NAME}=" not in resp.headers.get("set-cookie", "")
+    assert _audit_trail(email) == []
+    if failure == "lost-the-new-link":
+        # Lost at the sign-in's commit, after the resolve had created the account, which rolled back.
+        label = "Google" if provider == "google" else "Apple"
+        assert f"{label} OAuth IntegrityError for sub={sub}" in [r.getMessage() for r in caplog.records]
+        with SessionLocal() as db:
+            assert db.query(User).filter(User.email == email).count() == 0
+            assert db.query(OAuthAccount).filter_by(provider_account_id=sub).one().user_id == armed["owner_id"]
 
 
 # ── registration that loses a concurrent create ───────────────────────────────
