@@ -106,7 +106,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // The account could not be read (offline, a 5xx) and there is no user to check: neither a guest to send to /login nor
   // an admin. A refetch that fails with the user in hand keeps the section.
   if (userFailure.failed && !user) {
-    return <AccountLoadFailure failure={userFailure} focusTarget={navRef} />
+    return <AccountLoadFailure failure={userFailure} focusTarget={navRef} title="Unable to load the admin section" />
   }
 
   // While the redirect effect runs, render nothing rather than flashing admin content.

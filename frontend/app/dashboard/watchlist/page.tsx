@@ -128,7 +128,7 @@ export default function WatchlistDashboardPage() {
   // The account could not be read (offline, a 5xx) and there is no user to show: neither the page nor a guest to send
   // to /login. A refetch that fails with the user in hand keeps the page.
   if (userFailure.failed && !user) {
-    return <AccountLoadFailure failure={userFailure} focusTarget={titleRef} />
+    return <AccountLoadFailure failure={userFailure} focusTarget={titleRef} title="Unable to load your watchlist" />
   }
 
   if (!user) {

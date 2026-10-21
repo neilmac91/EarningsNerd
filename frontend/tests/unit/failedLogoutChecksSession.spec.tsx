@@ -26,8 +26,8 @@ import { LOGOUT_CALL_SITES } from './logoutCallSites'
  * proceeds as a logout that succeeded. A read that fails too reports the logout as not taken and keeps the account,
  * and its Log out, for another try. The read can renew a lapsed access cookie from the refresh cookie, as any request
  * of a signed-in tab does, so a lapsed access cookie is not mistaken for a logout. The dashboard leaves for /login only
- * for a confirmed guest, and the watchlist and the admin section, whose guards wait for one too, show the dashboard's
- * account card when the first /me read fails. A login accepted meanwhile owns the tab.
+ * for a confirmed guest, and the watchlist and the admin section, whose guards wait for one too, show the shared
+ * account card, named for each route, when the first /me read fails. A login accepted meanwhile owns the tab.
  *
  * The requests run through the real API client and auth API, with the adapter answering, so the interceptor's
  * statuses, the session flag and the generation fences are the ones the app runs; the refresh is the one stub, and the
@@ -369,23 +369,25 @@ describe('the dashboard sends a confirmed guest to /login', () => {
 const GUARDED = {
   '/dashboard/watchlist': {
     render: () => <WatchlistDashboardPage />,
+    title: 'Unable to load your watchlist',
     user: reader,
     loaded: () => screen.findByRole('heading', { level: 1, name: 'Watchlist insights' }),
   },
   '/admin': {
     render: () => <AdminLayout><p>Admin page</p></AdminLayout>,
+    title: 'Unable to load the admin section',
     user: admin,
     loaded: () => screen.findByRole('navigation', { name: 'Admin sections' }),
   },
 } as const
 
 describe.each(Object.keys(GUARDED) as (keyof typeof GUARDED)[])('%s, when the first /me read answers 500', (path) => {
-  it("shows the dashboard's account card with Try again and Go to login, leaves for nothing, and Try again loads it", async () => {
+  it('shows the account card, named for the route, with Try again and Go to login, leaves for nothing, and Try again loads it', async () => {
     const route = GUARDED[path]
     server.me = status(500, 'Internal Server Error')
     render(<QueryClientProvider client={newClient()}>{route.render()}</QueryClientProvider>)
     const card = await screen.findByRole('alert')
-    within(card).getByText('Unable to load your dashboard')
+    within(card).getByText(route.title)
     const retry = within(card).getByRole('button', { name: 'Try again' })
     expect(within(card).getByRole('link', { name: 'Go to login' })).toHaveAttribute('href', '/login')
     await settle()
