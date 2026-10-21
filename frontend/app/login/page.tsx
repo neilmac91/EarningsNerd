@@ -20,7 +20,7 @@ import PasswordField from '@/features/auth/components/PasswordField'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
-import { Button, Input, Notice } from '@/components/ui'
+import { Button, Input, Notice, cx, primaryUnavailableClass } from '@/components/ui'
 
 /**
  * Google or Apple returned an email an existing EarningsNerd account holds, and the two were not linked
@@ -63,6 +63,11 @@ function LoginContent() {
   const [loading, setLoading] = useState(false)
   const [showEmail, setShowEmail] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState('')
+  // A new key mounts a new Turnstile widget, which issues a new token (see handleSubmit's finally).
+  const [turnstileKey, setTurnstileKey] = useState(0)
+  // With Turnstile on, a login waits for a token: on the first load, while a new one is issued after each login the
+  // form sends, and after one expires.
+  const tokenPending = TURNSTILE_ENABLED && !turnstileToken
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? ''
 
@@ -80,7 +85,8 @@ function LoginContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (loading) return
+    // The wait for a Turnstile token is aria-disabled, as `loading` is, so a press or Enter sends nothing until it comes.
+    if (loading || tokenPending) return
     setError('')
     setLoading(true)
 
@@ -129,6 +135,12 @@ function LoginContent() {
       setError(errorMessage)
     } finally {
       setLoading(false)
+      // Cloudflare verifies a Turnstile token once (siteverify answers timeout-or-duplicate after), and the route
+      // checks it right after the rate limit, so a sent login may have spent its token whatever it answered. The form
+      // renews it after every one, as WaitlistForm does: it drops the token and mounts a new widget, and the button
+      // waits for the new token.
+      setTurnstileToken('')
+      setTurnstileKey((key) => key + 1)
     }
   }
 
@@ -209,14 +221,17 @@ function LoginContent() {
               }
             />
 
-            <TurnstileWidget onToken={setTurnstileToken} className="flex justify-center" />
+            <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} className="flex justify-center" />
 
+            {/* The wait for a token is aria-disabled with handleSubmit's guard, never native disabled: the token renews
+                after every login the form sends, while the button that sent it has focus, and Chromium moves focus to
+                <body> from a focused button that turns disabled (lessons/frontend-busy-controls-stay-focusable.md (e)). */}
             <Button
               type="submit"
               loading={loading}
               loadingText="Logging in…"
-              disabled={TURNSTILE_ENABLED && !turnstileToken}
-              className="w-full"
+              aria-disabled={loading || tokenPending || undefined}
+              className={cx('w-full', tokenPending && !loading && primaryUnavailableClass)}
             >
               Log in
             </Button>

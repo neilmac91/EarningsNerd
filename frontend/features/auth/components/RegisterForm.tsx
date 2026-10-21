@@ -14,7 +14,7 @@ import PasswordField from '@/features/auth/components/PasswordField'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { loginHrefWithRedirect } from '@/lib/postAuthRedirect'
-import { Button, Input, Notice } from '@/components/ui'
+import { Button, Input, Notice, cx, primaryUnavailableClass } from '@/components/ui'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 import { PASSWORD_MIN_LENGTH, PASSWORD_RULE } from '@/lib/passwordRules'
 
@@ -72,6 +72,11 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
   const [loading, setLoading] = useState(false)
   const [showEmail, setShowEmail] = useState(isInvited)
   const [turnstileToken, setTurnstileToken] = useState('')
+  // A new key mounts a new Turnstile widget, which issues a new token (see handleSubmit's finally).
+  const [turnstileKey, setTurnstileKey] = useState(0)
+  // With Turnstile on, a registration waits for a token: on the first load, while a new one is issued after each one
+  // the form sends, and after one expires.
+  const tokenPending = TURNSTILE_ENABLED && !turnstileToken
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? ''
 
@@ -90,7 +95,8 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
     e.preventDefault()
     // In flight: the submit stays focusable (DS Button `loading` sets aria-disabled, never native
     // disabled), so a repeat Enter must be ignored here. lessons/frontend-busy-controls-stay-focusable.md
-    if (loading) return
+    // The wait for a Turnstile token is aria-disabled too, so a press or Enter sends nothing until it comes.
+    if (loading || tokenPending) return
     setError('')
     setLoading(true)
     analytics.signupStarted(isInvited ? 'register_invite' : 'register_page')
@@ -107,6 +113,12 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
       setError(errorMessage)
     } finally {
       setLoading(false)
+      // Cloudflare verifies a Turnstile token once (siteverify answers timeout-or-duplicate after), and the route
+      // checks it right after the rate limit, so a sent registration may have spent its token whatever it answered. The form
+      // renews it after every one, as WaitlistForm does: it drops the token and mounts a new widget, and the button
+      // waits for the new token.
+      setTurnstileToken('')
+      setTurnstileKey((key) => key + 1)
     }
   }
 
@@ -226,14 +238,17 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
               hint={PASSWORD_RULE}
             />
 
-            <TurnstileWidget onToken={setTurnstileToken} className="flex justify-center" />
+            <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} className="flex justify-center" />
 
+            {/* The wait for a token is aria-disabled with handleSubmit's guard, never native disabled: the token renews
+                after every registration the form sends, while the button that sent it has focus, and Chromium moves
+                focus to <body> from a focused button that turns disabled (lessons/frontend-busy-controls-stay-focusable.md (e)). */}
             <Button
               type="submit"
               loading={loading}
               loadingText="Creating account…"
-              disabled={TURNSTILE_ENABLED && !turnstileToken}
-              className="w-full py-2.5 font-semibold active:scale-[0.99]"
+              aria-disabled={loading || tokenPending || undefined}
+              className={cx('w-full py-2.5 font-semibold active:scale-[0.99]', tokenPending && !loading && primaryUnavailableClass)}
             >
               Create account
             </Button>

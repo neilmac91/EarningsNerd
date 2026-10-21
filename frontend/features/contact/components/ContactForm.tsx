@@ -6,7 +6,7 @@ import { submitContactForm } from '@/features/contact/api/contact-api'
 import { CONTACT_LIMITS, isPlausibleEmail, trimmedLength } from '@/features/contact/lib/limits'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
-import { Button } from '@/components/ui/Button'
+import { Button, primaryUnavailableClass } from '@/components/ui/Button'
 import { Input, inputClasses } from '@/components/ui/Input'
 import { Notice } from '@/components/ui/Notice'
 import { ApiError } from '@/lib/api/client'
@@ -44,6 +44,11 @@ export default function ContactForm() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState('')
+  // A new key mounts a new Turnstile widget, which issues a new token (see handleSubmit's finally).
+  const [turnstileKey, setTurnstileKey] = useState(0)
+  // With Turnstile on, a send waits for a token: on the first load, while a new one is issued after each message the
+  // form sends (the success panel's 'Send another message' brings the form back to that wait), and after one expires.
+  const tokenPending = TURNSTILE_ENABLED && !turnstileToken
   // Swapping the form for the success panel (and back) unmounts whatever held focus: Send, the
   // field Enter was pressed in, or 'Send another message'. Hand focus to the panel's heading, or to
   // the first field, but only when it fell to <body>.
@@ -61,8 +66,9 @@ export default function ContactForm() {
     event.preventDefault()
     // Send uses `loading` (aria-disabled + click guard, not native disabled) and the fields go
     // readOnly, so everything stays focusable while the request is in flight — Enter in a field can
-    // still land here, so refuse a second submit explicitly.
-    if (isSubmitting) return
+    // still land here, so refuse a second submit explicitly. The wait for a Turnstile token is aria-disabled too, so a
+    // press or Enter sends nothing until it comes.
+    if (isSubmitting || tokenPending) return
     setError(null)
     setSuccess(false)
 
@@ -130,6 +136,12 @@ export default function ContactForm() {
       setError(sendErrorMessage(err))
     } finally {
       setIsSubmitting(false)
+      // Cloudflare verifies a Turnstile token once (siteverify answers timeout-or-duplicate after), and the route
+      // checks it right after the rate limit, so a sent message may have spent its token whatever it answered. The form
+      // renews it after every one, as WaitlistForm does: it drops the token and mounts a new widget, and the button
+      // waits for the new token.
+      setTurnstileToken('')
+      setTurnstileKey((key) => key + 1)
     }
   }
 
@@ -272,18 +284,18 @@ export default function ContactForm() {
         {/* Error Message */}
         {error && <Notice variant="error" title="Message not sent" description={error} />}
 
-        <TurnstileWidget onToken={setTurnstileToken} />
+        <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />
 
         {/* Submit Button — `loading`, never native `disabled`, while sending: Chromium blurs a
             focused control that turns disabled (focus → <body>), and the fields above are readOnly
-            for the same reason. Native `disabled` stays only for the missing Turnstile token, which
-            the widget sets — never this button's own activation. */}
+            for the same reason. The wait for a token is aria-disabled with handleSubmit's guard too:
+            the token renews after every message the form sends, while the button that sent it has focus. */}
         <Button
           type="submit"
           loading={isSubmitting}
           loadingText="Sending…"
-          disabled={TURNSTILE_ENABLED && !turnstileToken}
-          className="w-full"
+          aria-disabled={isSubmitting || tokenPending || undefined}
+          className={clsx('w-full', tokenPending && !isSubmitting && primaryUnavailableClass)}
         >
           Send message
         </Button>
