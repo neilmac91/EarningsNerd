@@ -9,10 +9,10 @@ Date: 2026-10-21   Area: ops / evals / spend
 `AGENTS.md` §3 prices a run at "about USD 0.30". No file a session reads at start says when it runs.
 
 On 2026-10-20 the principal session read the balance before #1325's push and before its own second
-push to #1437, and reserved for both runs at §3's figure. Its first push to #1437, at 20:56Z (the pull
-request's third; another session made the first two), had no reservation of its own, and #1325's
-after-draw reading named that run but counted it inside #1325's own reservation. Those evening runs
-read about USD 0.16 each.
+push to #1437, and reserved for both `eval-baseline` runs at §3's figure. Its first push to #1437, at
+20:56Z (the pull request's third; another session made the first two), had no reservation of its own,
+and #1325's after-draw reading named that run but counted it inside #1325's own reservation. Those
+evening runs read about USD 0.16 each.
 
 Hours later the same session drove #1451, the logout route and `refresh_token_service.py`. It counted
 only the ready mark's `copilot-eval`, and pushed the draft three times (2026-10-21 03:07Z, 03:48Z and
