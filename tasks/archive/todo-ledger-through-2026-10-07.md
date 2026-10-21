@@ -6736,7 +6736,7 @@ Full local and hosted verification plus independent exact-head review precede re
   no ledger event. No chief defect and no classifier denial; the scratch disk filled, without effect. Closure 188.
 - 2026-10-21 (record 38, `runtime/control/DECISIONS-38.md`): PR #1450 (record 37) merged `47eb769a` by the chief
   under record 35's founder action 9, answered (thirty-third deploy-skip proof), with no classifier refusal, onto
-  #1451's merge of fifteen seconds before; the result verified, and #1451's deploy finished before its own job.
+  #1451's merge of fifteen seconds before; result verified; #1451's deploy ended before record 37's deploy job began.
   Closure 189 registers record 37's survey, fact-check and reviewer and pre-registers this record's survey and
   fact-check and record 39's reviewer; a refuter label, which the records tier forbids, withdrawn before any
   launch on Codex's finding. A read-only survey of the window before the record was written. Four main merges;
