@@ -157,7 +157,10 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    a session token already issued runs to its expiry, and E96 (how a reused token's sweep reads) and E133 (a logout
  *    that does not wait for an in-flight renewal) are open; the stronger wording returns only in a pull request that
  *    carries the founder's go-ahead (tasks/todo.md F53) and changes this check. Each family is read in one list item or
- *    paragraph (blockTexts). Planted forms score the reach; out of reach, planted as gaps: a promise split across two
+ *    paragraph (blockTexts), and a promise of logging out in its own sentence or in the one after a sentence that names
+ *    a logging-out action (a logout, a sign-out, a password changed or reset), so a word in a neighbouring sentence
+ *    makes no context: "Passwords are hashed. Idle sessions end after 30 minutes." passes. Planted forms score the
+ *    reach; out of reach, planted as gaps: a promise split across two
  *    items, one said in other words ("nobody stays signed in"), and a negation that only restricts where no reading
  *    sees it ("does not end this session but every session").
  * 8. /security's numbers repeat the repository's facts (NUMBERS): the session token's 30 minutes
@@ -494,6 +497,17 @@ const deniable = (re: RegExp) => new RegExp(String.raw`${NOT}(?![\w'’-]+${DENI
 const SESSION_END_TIMED_DENIABLE = deniable(SESSION_END_TIMED)
 const SESSION_END_UNTIMED_DENIABLE = deniable(SESSION_END_UNTIMED)
 
+/** A logging-out action as a sentence names it: a logout or a sign-out in their spellings, or a password changed or
+    reset. A password only named ("Passwords are hashed") is no action. */
+const LOGGING_OUT_ACTION = /\b(?:log(?:s|ged|ging)?[- ]?outs?|sign(?:s|ed|ing)?[- ]?outs?)\b|\b(?:chang|reset|updat)\w*\b[^.;!?]{0,20}\bpasswords?\b|\bpasswords?\s+(?:(?:is|are|was|were|gets?|got)\s+)?(?:chang|reset|updat)\w*/i
+/** The sentences of a block a promise of logging out is read in: one that names a logging-out word itself
+    (LOGGING_OUT), and the one after a sentence that names a logging-out action, which goes on from it ("Logging out of
+    all devices revokes your refresh tokens. Each session then ends within 30 minutes."). A word in a neighbouring
+    sentence is no context: in "Passwords are hashed. Idle sessions end after 30 minutes." the idle timeout is no
+    logout's end. */
+const loggingOutSentences = (block: string) =>
+  sentencesOf(block).filter((sentence, i, all) => LOGGING_OUT.test(sentence) || (i > 0 && LOGGING_OUT_ACTION.test(all[i - 1])))
+
 const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
   [
     'a refresh token that works once',
@@ -506,8 +520,7 @@ const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
   [
     'a session that ends after logging out, within a time or with none named',
     (block) =>
-      LOGGING_OUT.test(block) &&
-      (inASentence(SESSION_END_TIMED_DENIABLE)(block) || inASentence(SESSION_END_UNTIMED_DENIABLE)(block) || inASentence(SESSION_END_MORE)(block)),
+      loggingOutSentences(block).some((sentence) => SESSION_END_TIMED_DENIABLE.test(sentence) || SESSION_END_UNTIMED_DENIABLE.test(sentence) || SESSION_END_MORE.test(sentence)),
   ],
 ]
 
@@ -1373,6 +1386,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out never fails to end every session within 30 minutes.</li>', true],
       ['<li>Logging out ends no session but every other one within 30 minutes.</li>', true],
       ['<li>Logging out ends in no time every session on the account.</li>', true],
+      // A promise in its own sentence, and in the one after a sentence that names a logging-out action, which goes on
+      // from it with nothing carrying it on (#1456's seventh round, Codex's thread 4342330097).
+      ['<li>Changing your password ends every session within 30 minutes.</li>', true],
+      ['<li>Logging out of all devices revokes your refresh tokens. A session open elsewhere ends within 30 minutes.</li>', true],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
@@ -1427,6 +1444,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>No session, on any device, ends when you log out.</li>', false],
       ['<li>Logging out ends no other session.</li>', false],
       ['<li>Logging out signs you out of no other device.</li>', false],
+      // A password named in a neighbouring sentence is no logging-out context (#1456's seventh round, Codex's thread
+      // 4342330097): the idle timeout is no logout's end.
+      ['<li>Passwords are hashed. Idle sessions end after 30 minutes.</li>', false],
       // Out of reach: a promise split across two items, and one said in other words.
       ['<ul><li>Logging out of all devices revokes your refresh tokens.</li><li>Each session then ends within 30 minutes.</li></ul>', 'gap'],
       ['<li>After a password reset, nobody stays signed in.</li>', 'gap'],
