@@ -14,7 +14,7 @@ Live design spec with every state exercisable: **`Earnings Calendar.dc.html`**
 | `api/calendar-fixtures.ts` | ⚠ Isolated mock (dynamic-import only, `NEXT_PUBLIC_CALENDAR_FIXTURES='true'`); exercises both cap 403s |
 | `lib/dates.ts` | ET-honest calendar-day math + computed NYSE holidays (no `new Date(iso)` shift bug) |
 | `lib/lanes.ts` | Top-5 ranking, BMO/AMC/during·unspecified lanes, "usually after close" wording |
-| `hooks/useCalendar.ts` | Viewer (session/plan/alert count), optimistic alert toggle with rollback (the range query and its retained failure live in the page, beside its `RetryButton`) |
+| `hooks/useCalendar.ts` | Viewer (session/plan/alert count), optimistic alert toggle with rollback, and today from the reader's browser (`useTodayEasternIso`; the range query and its retained failure live in the page, beside its `RetryButton`) |
 | `components/` | `EarningsCalendarPage` (route body), `WeekView` (desktop sheet + mobile day list), `MonthView`, `DayDetailDialog` (native `<dialog>`), `EventRow`/`StatusChip`/`EpsFigure`, `AlertBell` + `BellPopover`, `laneHeader` |
 | `app/calendar/page.tsx` | Route, 404-gated on `NEXT_PUBLIC_ENABLE_CALENDAR` (same pattern as `ENABLE_ANALYSIS`) |
 
@@ -33,10 +33,20 @@ Weighed three layouts:
 ## Behavior contract (the parts worth reviewing)
 
 - **Dates are US-Eastern calendar days end to end.** Ranges and anchors are
-  plain ISO strings; "today" is asked once via `Intl(America/New_York)`;
-  labels render via `lib/format.formatLocalDate` (which already documents the
+  plain ISO strings; "today" is asked once via `Intl(America/New_York)`, in
+  the reader's browser (`useTodayEasternIso`); labels render via
+  `lib/format.formatLocalDate` (which already documents the
   UTC-shift bug this avoids). Holidays are computed, so any navigated
   month/week renders honestly (e.g. Fri Jul 3 2026 = Independence Day observed).
+- **The week is the browser's.** `/calendar` is prerendered and revalidated
+  hourly, so the server renders the page's frame and the sheet's skeleton,
+  with a bone where the range heading goes, and names no week: a week it read
+  would be last week's once the New York week turns over, and React would
+  throw away markup that disagreed with the browser's (error 418, E136). The
+  heading and the week's data follow from the browser's today, read in the
+  render right after hydration. `tests/e2e/fixtures/calendarWeek.ts` fails a
+  pinned load that logs a hydration error, or whose heading is not the pinned
+  week.
 - **Top 5 per day** by `anticipation_score` desc; `+N more` opens the day
   dialog (desktop/month) or expands in place (mobile). Day cells never overflow.
 - **Only what fits whole, at any text size.** Each view picks its layout by its
@@ -52,9 +62,11 @@ Weighed three layouts:
   Today's marker is sized in rem, so it holds its digits at any text size.
   Names wrap, never truncate, and the range label wraps between whole dates.
   `tests/unit/calendarReflow.spec.tsx` and `calendarEventRow.spec.tsx`.
-- **Status ladder:** `Est.` (dashed chip, tentative by design) → `Confirmed`
-  (brand tint) → `Reported` (quiet chip; EPS actual + calm ▲/▼ in the
-  gain/loss *text* tokens). Estimated rows with a habitual slot say
+- **Status ladder:** `Est.` (Badge's `tentative`: a dashed hairline with no
+  fill in either theme, tentative by design) → `Confirmed` (brand tint) →
+  `Reported` (quiet chip; EPS actual + calm ▲/▼ in the gain/loss *text*
+  tokens). A chip's ground is its variant's, never a class on top
+  (`badgeVariants.spec.tsx`). Estimated rows with a habitual slot say
   "usually before open / after close" (§3.3: right about 3 times in 4), on a line
   of their own after the lane's glyph, in every row kind (the week sheet, the
   day list, the day dialog), since the page's footer explains "usually".

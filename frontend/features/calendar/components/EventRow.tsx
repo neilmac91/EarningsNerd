@@ -31,14 +31,8 @@ import { LANE_ICON } from './laneHeader'
 export function StatusChip({ status }: { status: CalendarEvent['status'] }) {
   if (status === 'reported') return <Badge variant="neutral">Reported</Badge>
   if (status === 'confirmed') return <Badge variant="brand">Confirmed</Badge>
-  return (
-    <Badge
-      variant="neutral"
-      className="border-dashed bg-transparent text-text-tertiary-light dark:bg-transparent dark:text-text-secondary-dark"
-    >
-      Est.
-    </Badge>
-  )
+  // Tentative by design: Badge's dashed hairline with no fill in either theme (E83).
+  return <Badge variant="tentative">Est.</Badge>
 }
 
 /** Mono/tabular EPS: estimate before the event, actual + calm direction after.
