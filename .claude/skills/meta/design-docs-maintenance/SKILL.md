@@ -60,8 +60,8 @@ A change of more than one kind below takes the widest reading. Any of them adds
   - the rules before the recipe block and the list after it;
   - the shared recipes, whose rules a change can break without touching their component: Primary
     button, Secondary button, Wrapping button, Button size, Link as button, Accent text/link,
-    Count control, Focus ring, Card / panel, Delta text, Data table hover, Solid chip, Status chip,
-    Inline notice, Semantic card, Index list, Stacking and Metric cards;
+    Count control, Focus ring, Card / panel, Delta text, Data table hover, Missing value, Solid chip,
+    Status chip, Inline notice, Semantic card, Index list, Stacking and Metric cards;
   - the recipe of each existing component or surface the change uses or edits, whatever its list.
     A recipe's name need not be its component's, so search §4's recipe block for the component's
     name: `<NarrativePane>` is under Analysis reading, `<PeriodPicker>` under Analysis periods,

@@ -149,7 +149,7 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl) + the copilot answer renderer
+DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl, MissingValue) + the copilot answer renderer
 `features/filings/components/copilot/CopilotMessage.tsx` (see "Ask answer" below). Controls expose their applicable interaction and
 availability states; data surfaces supply loading, empty and error treatments as supported by
 their APIs. Passive Card and Badge primitives do not implement the full control-state set.
@@ -444,6 +444,22 @@ Data table hover <DataTable> — ordinary rows use hover:bg-white dark:hover:bg-
                  With stickyFirstColumn, first-column body cells stay opaque: light hover uses
                  group-hover:bg-white; dark hover retains dark:group-hover:bg-panel-dark. The
                  ordinary row tint must not replace that opaque fill and reveal scrolled values.
+
+Missing value    <MissingValue label="…" className="…">  (components/ui, E88): a value the page does
+                 not have, in a cell, a detail row or a line of copy. The token (—, the one sanctioned
+                 em-dash) in the caller's ink, aria-hidden, beside sr-only words a screen reader reads in
+                 its place: "unavailable" by default, the analysis evidence's word, or the site's own where
+                 that would claim more than its data says ("no cohort", "no page", "no role listed",
+                 "name unavailable", "no percentage", "Not included"). `relative`, so the words stay
+                 inside a truncating cell or a table's scroll box. A formatter returns null or '' for a
+                 missing value and its caller renders the element (`fmt(v) ?? <MissingValue />`), so the
+                 formatter's string fallback stays for a CSV, a title or an aria label. Never the token by
+                 hand, a hidden dash with no words, or a span pair of one's own. Gates:
+                 tests/unit/missingValueToken.spec.ts (the token renders nowhere but the element: JSX
+                 text, a child, a fallback, a same-file or imported formatter's return, a prop or render
+                 prop of a component it cannot read, an element call; its header names what it cannot
+                 read, each planted as a gap) and tests/unit/MissingValue.spec.tsx (the reading, the
+                 words a site passes and the positioned clip).
 
 Analysis table   <MetricsTable> — equal rem period columns with semantic row headers. The label
                  column sticks only when the scrollport can also show one whole period; otherwise
