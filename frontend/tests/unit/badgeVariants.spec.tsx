@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { Badge, Card, type BadgeStatusVariant, type BadgeVariant } from '@/components/ui'
 import type { CalendarEvent } from '@/features/calendar/api/calendar-api'
 import { DayDetailDialog } from '@/features/calendar/components/DayDetailDialog'
+import { StatusChip } from '@/features/calendar/components/EventRow'
 import { WeekView } from '@/features/calendar/components/WeekView'
 import type { EarningsAlertsApi } from '@/features/calendar/hooks/useCalendar'
 
@@ -348,12 +349,15 @@ const ESTIMATED: CalendarEvent = {
 }
 
 /** The calendar's status ladder (E141, chief design's reading on #1460): each rung its member of Badge's status set,
-    read dashed, blue, quiet. Typed as the set, so a tint here does not compile. */
-const LADDER: Array<{ status: CalendarEvent['status']; label: string; variant: BadgeStatusVariant }> = [
-  { status: 'estimated', label: 'Est.', variant: 'tentative' },
-  { status: 'confirmed', label: 'Confirmed', variant: 'info-status' },
-  { status: 'reported', label: 'Reported', variant: 'neutral-status' },
-]
+    read dashed, blue, quiet. Keyed by every status and typed as the set, so a tint here does not compile, and a status
+    the calendar gains does not compile until it has a rung here, then fails the reader below until LADDER_EVENTS
+    renders it. */
+const LADDER: Record<CalendarEvent['status'], { label: string; variant: BadgeStatusVariant }> = {
+  estimated: { label: 'Est.', variant: 'tentative' },
+  confirmed: { label: 'Confirmed', variant: 'info-status' },
+  reported: { label: 'Reported', variant: 'neutral-status' },
+}
+const RUNGS = Object.values(LADDER)
 /** One sample company per rung on the same day; the reported one carries its actual, as a reported row does. */
 const LADDER_EVENTS: CalendarEvent[] = [
   ESTIMATED,
@@ -396,7 +400,7 @@ describe("the calendar's status ladder (E83, E141)", () => {
     const where = ['the week sheet', 'the day list', 'the day dialog']
     const failures: string[] = []
     let measured = 0
-    for (const { label, variant } of LADDER) {
+    for (const { label, variant } of RUNGS) {
       const chips = views.flatMap((view) => [...view.querySelectorAll('span')].filter((el) => el.textContent === label))
       if (chips.length !== where.length) failures.push(`"${label}": ${chips.length} chips, where the sheet, the list and the dialog render ${where.length}`)
       const own = classSet(badgeClasses(variant).join(' '))
@@ -420,8 +424,16 @@ describe("the calendar's status ladder (E83, E141)", () => {
       })
     }
     expect([...new Set(failures)]).toEqual([])
-    // Three rungs on three rows each, two themes, at rest and hovered: a chip or a ground read short must not pass.
-    expect(measured).toBe(36)
+    // Each rung on three rows, two themes, at rest and hovered: a chip or a ground read short must not pass.
+    expect(measured).toBe(RUNGS.length * where.length * 2 * 2)
+  })
+
+  it('reads a status it does not know as "Est.", the tentative chip, a name on Object.prototype included', () => {
+    for (const status of ['postponed', 'constructor', 'toString'] as unknown as CalendarEvent['status'][]) {
+      const chip = render(<StatusChip status={status} />).container.querySelector('span')
+      expect(chip?.textContent, String(status)).toBe('Est.')
+      expect(classSet(chip?.className ?? ''), String(status)).toBe(classSet(badgeClasses('tentative').join(' ')))
+    }
   })
 })
 

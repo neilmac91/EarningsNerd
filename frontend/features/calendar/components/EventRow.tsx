@@ -41,7 +41,8 @@ const LADDER: Record<CalendarEvent['status'], { label: string; variant: BadgeSta
 }
 
 export function StatusChip({ status }: { status: CalendarEvent['status'] }) {
-  const { label, variant } = LADDER[status] ?? LADDER.estimated
+  // A status the ladder does not know reads "Est.", a name on Object.prototype included.
+  const { label, variant } = Object.hasOwn(LADDER, status) ? LADDER[status] : LADDER.estimated
   return <Badge variant={variant}>{label}</Badge>
 }
 
