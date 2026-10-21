@@ -182,6 +182,24 @@ describe('FullTextSearch date filters', () => {
     await new Promise((resolve) => setTimeout(resolve, 400)) // past the 350ms debounce
     expect(vi.mocked(searchFullText)).not.toHaveBeenCalled()
   })
+
+  // E81: under 200% text at 320px each field took the forms plugin's 1rem and Chrome's blank room for a six-digit year,
+  // 312px in a 256px row, and the page scrolled to 344px. tests/e2e/reflow-200.spec.ts reads the built page there, but
+  // only both halves undone widen it: at 14px a field that cannot shrink runs 23px into the page's gutter, and a 1rem
+  // field that shrinks cuts its own "yyyy", and neither widens the page. So each half is pinned here.
+  it('sets each date field in the Input primitive’s 14px text, free to shrink to its row', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <FullTextSearch />
+      </QueryClientProvider>,
+    )
+    for (const name of ['Filed on or after', 'Filed on or before']) {
+      const field = screen.getByLabelText(name)
+      expect(field).toHaveAttribute('type', 'date')
+      expect(field).toHaveClass('min-w-0', 'text-sm')
+      expect(field.parentElement).toHaveClass('flex', 'flex-wrap')
+    }
+  })
 })
 
 describe('FullTextSearch form filters', () => {

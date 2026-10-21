@@ -70,7 +70,7 @@ mark.
 | 5 | [05-mark.md](05-mark.md), [mark/](mark/) | The mark's audit, arrangements, rules and renditions; the drawing unchanged |
 | 6 | [06-system.md](06-system.md) | Palette measured, type, spacing, icons, imagery, the device; docs and sidecar in parity |
 | 7 | [07-voice.md](07-voice.md) | The voice guide rewritten; every microcopy site changed, with its before and after |
-| 8 | [08-applications.md](08-applications.md) | The landing page and every other surface in code; templates; the empty founder slot retired; Notable filings dormant |
+| 8 | [08-applications.md](08-applications.md) | The landing page and every other surface in code; templates; the empty founder slot retired; Notable filings back under D-046's rule (E90) |
 | 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; three fixes; second score 11 of 42 (12 until D-045's rows rescored T4) |
 | 10 | this page | The handoff |
 | all | [decisions-log.md](decisions-log.md) | D-001 to D-028 |
@@ -152,9 +152,10 @@ The founder took the last four on 2026-10-17 (D-045 and D-046):
 
 1. The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`) is to be
    regenerated through the pipeline to end at FY2025, a paid run under a USD 0.10 ceiling (E93).
-2. Notable filings is to return to the homepage with 10-K and 10-Q filings only, from companies
-   that hold a full summary (one the filing page shows, D-052), newest first, at most six
-   (`NotableFilings.tsx`, E90).
+2. Notable filings returned to the homepage as a ruled row after Reporting this week, with 10-K
+   and 10-Q filings only, from companies that hold a full summary (one the filing page shows,
+   D-052), newest first, at most six: the backend's query in #1437 and the row in E90's frontend
+   half (`NotableFilings.tsx`).
 3. The landing page's sections after the hero became ruled rows (tell T4, D-045, #1398).
 4. Vercel Web Analytics loads only after the visitor allows analytics (D-046, #1387), so the consent
    bar's promise is true in code. What `/privacy` says of Do Not Track is settled (D-049); what it says

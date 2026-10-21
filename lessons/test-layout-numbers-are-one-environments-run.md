@@ -17,6 +17,19 @@ run's environment and note the differences beside it. Never require equal pixels
 the browser pinned. Never rewrite a committed recording to match another machine; check from an `--out` run
 instead. A browser pin guards against one known drift (another Chromium version), not against the machine.
 
+**Recurrence (2026-10-21, #1462)**: E81 pinned /privacy's "communications," as a word past reflow-200's 320px edge
+under 200% text, from a measurement in the agents' sandbox (338px), and CI's runner failed the pin: there the page
+fits. This time a cause is isolated. The sandbox image carries `/etc/fonts/conf.d/56-prefer-inter.conf`, which points
+`-apple-system`, `BlinkMacSystemFont`, `system-ui`, `sans-serif` and five other system names at the installed static
+Inter (the `fonts-inter` package), so the body stack, which leads with `-apple-system`, paints in it
+(`CSS.getPlatformFontsForNode`: Inter-Regular, not a custom font), about 8% wider at 32px than the site's own Inter
+web font, whose optical size there is the Display cut ("communications," 258.1px against 239px). CI's runner has no
+such alias and paints the web font, as a reader off Apple's systems does; headings, whose stack leads with the web
+font, measure alike on both. CI's run of the pin's expiry is the gate that caught it. To see what CI sees first, run
+the browser with `FONTCONFIG_FILE` naming a copy of `/etc/fonts/fonts.conf` whose `conf.d` include points at a folder
+of links to every rule but that one: `-apple-system` then matches DejaVu Sans, which Chrome declines, and the body
+text paints in the web font, as on CI.
+
 **Evidence**: `tasks/analysis-redesign-2026-10/astra-prompt.md` (Track A's done line);
 `docs/design/analysis-data-notes-redesign-2026-10.md` §11 ("Font-dependent widths");
 `tasks/analysis-redesign-2026-10/harness/browser-pin.mjs`; the founder's review on #1197 (2026-10-11).

@@ -25,7 +25,8 @@ pages after the three fixes in §3. These scores and captures precede the retire
 Founder slot; [A5](01-interview.md#3-the-answers-in-force) records its current absence. T4 alone
 was rescored on 2026-10-18, on the production build of D-045's rows in both themes at 1440 and
 390 px and with 200% text; the rows change nothing the other tells measure (T9 reads `/pricing`,
-which keeps its cards), so their scores stand.
+which keeps its cards), so their scores stand. T7's evidence was rewritten on 2026-10-21, when E90
+remounted Notable filings under D-046's rule; its score stands, for the reason in its row.
 
 | # | Tell | Before | After | Evidence |
 |---|---|---|---|---|
@@ -35,7 +36,7 @@ which keeps its cards), so their scores stand.
 | T4 | Template composition | 3 | 1 | The hero keeps its two columns, the copy beside the live example, by the founder's decision (D-045); that is the trace. Every section after it is one ruled row: a hairline across the container, then the section's number, title and one line in a 224 px label column beside the content: the margin of a 10-K, so the page reads as a filing's items. The four-up strip is four claims two across inside the first row, the alternating feature rows stack in one order, the four-up extras grid is a ruled list, the two pricing cards are one table of the plans against what each includes, and the banner is one closing line. On a phone, and under 200% text at any width, the label sits above its content, as one column must. `landing-sections-mounted.spec.ts` holds the order and the rows, and the `no-four-up-grid` lint rule the grids. |
 | T5 | Sample-data drift | 3 | 1 | Every surface is FY2025 against FY2024 from one verified set, and the Financial Highlights table now shows "$7.46 / $6.08" like the Change Report two screens later ([after](stress/after-home-evidence-light.jpg)). The Multi-Period demo alone ends at FY2024: a pipeline snapshot, labelled, to be regenerated through the pipeline to FY2025, not edited (D-046, E93). |
 | T6 | No human, no reason, no "aha" | 3 | 1 | "The number you remember" is on the page with two real figures. The Founder slot rendered nothing in these captures and has since been retired (08-applications.md §6). |
-| T7 | Notable filings | 3 | 0 | Unmounted; DORMANT until E90 remounts it under D-046's curation rule ([08-applications.md](08-applications.md) §7). |
+| T7 | Notable filings | 3 | 0 | Remounted under D-046's curation rule (E90, [08-applications.md](08-applications.md) §7): the backend's query serves only 10-K and 10-Q filings, from companies that hold a summary the filing page shows (D-052), newest first, at most six (#1437), and the row's line says what the feed is where the section said "High-signal SEC filings from the past week, across the whole market." No 8-K can reach the row, and the line promises nothing the query does not do, so the list cannot contradict its heading, which was the tell; the score stays 0. A small company can still appear when it holds a summary, which the line says. Scored on the rule and on a local render of sample rows, not on a production week. |
 | T8 | A second homepage in a second voice | 3 | 0 | The waitlist page shares the subhead, the voice and the fourth brand headline ([after, both themes](stress/after-waitlist-1440-both-themes.jpg)); no urgency, no counter at zero. |
 | T9 | Pricing off-voice and off-fact | 2 | 1 | The call to action reads the registration mode ("Request an invite" under the gate); the plan copy says what each is for. The yearly toggle still shows the derived "$32.50 /month"; it is arithmetic on the stated price and is left. |
 | T10 | Placeholder as decoration | 2 | 0 | The grey bars are gone; the counter has a floor of 25. |

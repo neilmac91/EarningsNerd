@@ -19,7 +19,7 @@
 
 import Link from 'next/link'
 import CompanyLogo from '@/components/CompanyLogo'
-import { Badge } from '@/components/ui'
+import { Badge, type BadgeStatusVariant } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import { fmtCurrency } from '@/lib/format'
 import type { CalendarEvent } from '../api/calendar-api'
@@ -28,17 +28,22 @@ import type { EarningsAlertsApi } from '../hooks/useCalendar'
 import { AlertBell } from './AlertBell'
 import { LANE_ICON } from './laneHeader'
 
+/** The status ladder, on Badge's status set (DESIGN_SYSTEM.md §4, Status chip; E141): not yet settled, firm and
+    upcoming, over. A status, so TypeScript refuses a tint here, as in the admin badges' configs. */
+const LADDER: Record<CalendarEvent['status'], { label: string; variant: BadgeStatusVariant }> = {
+  // Tentative by design: Badge's dashed hairline with no fill in either theme (E83).
+  estimated: { label: 'Est.', variant: 'tentative' },
+  // A firm, upcoming date, and the rung a reader scans for: not success, whose light ink is gain.text's hex, the
+  // ink a reported row's beat prints in.
+  confirmed: { label: 'Confirmed', variant: 'info-status' },
+  // The event is over, and its EPS figure carries the news.
+  reported: { label: 'Reported', variant: 'neutral-status' },
+}
+
 export function StatusChip({ status }: { status: CalendarEvent['status'] }) {
-  if (status === 'reported') return <Badge variant="neutral">Reported</Badge>
-  if (status === 'confirmed') return <Badge variant="brand">Confirmed</Badge>
-  return (
-    <Badge
-      variant="neutral"
-      className="border-dashed bg-transparent text-text-tertiary-light dark:bg-transparent dark:text-text-secondary-dark"
-    >
-      Est.
-    </Badge>
-  )
+  // A status the ladder does not know reads "Est.", a name on Object.prototype included.
+  const { label, variant } = Object.hasOwn(LADDER, status) ? LADDER[status] : LADDER.estimated
+  return <Badge variant={variant}>{label}</Badge>
 }
 
 /** Mono/tabular EPS: estimate before the event, actual + calm direction after.
