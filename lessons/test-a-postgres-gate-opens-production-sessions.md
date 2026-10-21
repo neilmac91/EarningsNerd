@@ -34,5 +34,6 @@ subclass.
   - `test_concurrency_has_a_required_postgres_ci_execution_path` fails a session a gate home opens
     other than with production's settings on the engine its case was handed (`_unapproved_sessions`);
   - `test_session_settings_detector_semantics` holds the detector to planted forms.
-- A session built in a module the home imports, or a setting changed after a session is made, is
-  review-checked.
+- Aliases are followed: an import alias, a plain or annotated assignment, and a class derived from
+  `Session` (Codex on #1454). A session built in a module the home imports, one reached through a
+  call or `getattr`, and a setting changed after a session is made are review-checked.

@@ -514,7 +514,9 @@ def _last_name(node: ast.expr) -> str | None:
     return node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
 
 
-def _spreads_production_settings(call: ast.Call, handed: set[str]) -> bool:
+def _spreads_production_settings(
+    call: ast.Call, handed: set[str], resolved: Callable[[ast.expr], str | None],
+) -> bool:
     """``sessionmaker(**{**SessionLocal.kw, "bind": <engine>})``, with at most ``class_=`` beside it: production's
     settings with only the engine (and a test's Session subclass) replaced, and that engine one the case was handed,
     a parameter of a function around the call. Any other bind, ``database.engine`` or ``SessionLocal.kw["bind"]``
@@ -525,10 +527,44 @@ def _spreads_production_settings(call: ast.Call, handed: set[str]) -> bool:
         return False
     keys, values = spreads[0].keys, spreads[0].values
     return (
-        len(keys) == 2 and keys[0] is None and ast.unparse(values[0]) == "SessionLocal.kw"
+        len(keys) == 2 and keys[0] is None
+        and isinstance(values[0], ast.Attribute) and values[0].attr == "kw"
+        and resolved(values[0].value) == "SessionLocal"
         and isinstance(keys[1], ast.Constant) and keys[1].value == "bind"
         and isinstance(values[1], ast.Name) and values[1].id in handed
     )
+
+
+def _session_names(tree: ast.Module) -> dict[str, str]:
+    """``Session``, ``sessionmaker`` and ``SessionLocal``, each mapped to itself, and every other name a gate home
+    binds to one of them: an import alias (``Session as OrmSession``), a plain assignment (``factory = SessionLocal``),
+    or a class derived from ``Session``. A name reached through a call, an attribute other than the name itself, or
+    ``getattr`` is not followed."""
+    names = {name: name for name in ("Session", "sessionmaker", "SessionLocal")}
+    names |= {
+        alias.asname: alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+        for alias in node.names if alias.asname and alias.name in names
+    }
+    assignments = [
+        (node.targets[0].id, node.value) for node in ast.walk(tree)
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+    ] + [
+        (node.target.id, node.value) for node in ast.walk(tree)
+        if isinstance(node, ast.AnnAssign) and node.value is not None and isinstance(node.target, ast.Name)
+    ]
+    bases = [(node.name, base) for node in ast.walk(tree) if isinstance(node, ast.ClassDef) for base in node.bases]
+    while found := {
+        **{
+            target: names[_last_name(value)] for target, value in assignments
+            if isinstance(value, (ast.Name, ast.Attribute)) and _last_name(value) in names and target not in names
+        },
+        **{
+            name: "Session" for name, base in bases
+            if names.get(_last_name(base) or "") == "Session" and name not in names
+        },
+    }:
+        names |= found
+    return names
 
 
 def _unapproved_sessions(tree: ast.Module) -> list[str]:
@@ -536,30 +572,29 @@ def _unapproved_sessions(tree: ast.Module) -> list[str]:
     ``Session``, or a class derived from it, called directly (it autoflushes); production's ``SessionLocal`` called
     directly (it is bound to the app's database, which under the test conftest is the suite's SQLite file, so a case
     that opens it runs nothing on PostgreSQL); or a ``sessionmaker`` that sets anything beyond the engine, or binds
-    one its function was not handed."""
-    session_classes = {"Session"}
-    classes = [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
-    while derived := {
-        node.name for node in classes
-        if node.name not in session_classes and any(_last_name(base) in session_classes for base in node.bases)
-    }:
-        session_classes |= derived
+    one its function was not handed. Each by its own name or any alias ``_session_names`` follows."""
+    names = _session_names(tree)
+
+    def resolved(node: ast.expr) -> str | None:
+        return names.get(_last_name(node) or "")
+
     parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
 
     def handed(node: ast.AST) -> set[str]:
         """The parameters of every function around ``node``."""
-        names: set[str] = set()
+        params: set[str] = set()
         while node in parents:
             node = parents[node]
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
-                names |= {arg.arg for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]}
-        return names
+                params |= {arg.arg for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]}
+        return params
 
     return [
         f"line {node.lineno}: {ast.unparse(node)}" for node in ast.walk(tree)
         if isinstance(node, ast.Call) and (
-            _last_name(node.func) in session_classes | {"SessionLocal"}
-            or (_last_name(node.func) == "sessionmaker" and not _spreads_production_settings(node, handed(node)))
+            resolved(node.func) in ("Session", "SessionLocal")
+            or (resolved(node.func) == "sessionmaker"
+                and not _spreads_production_settings(node, handed(node), resolved))
         )
     ]
 
@@ -588,6 +623,22 @@ def test_session_settings_detector_semantics():
     # Production's own factory has its settings but the app's database, not the case's engine.
     assert found("SessionLocal()") == ["line 1: SessionLocal()"]
     assert found("database.SessionLocal()") == ["line 1: database.SessionLocal()"]
+    # Each is followed through an import alias, a plain assignment, an annotated one and a class derived from an alias.
+    for source in (
+        "from sqlalchemy.orm import Session as OrmSession\nOrmSession(engine)",
+        "from sqlalchemy.orm import Session as OrmSession\nclass Observed(OrmSession): pass\nObserved(engine)",
+        "S = Session\nT = S\nT(engine)",
+        "from app.database import SessionLocal as Local\nLocal()",
+        "factory = database.SessionLocal\nfactory()",
+        "from sqlalchemy.orm import sessionmaker as make\nmake(bind=engine)()",
+        "make: type = sessionmaker\nmake(bind=engine)()",
+    ):
+        assert len(found(source)) == 1, source
+    aliased = (
+        "from sqlalchemy.orm import sessionmaker as make\nfrom app.database import SessionLocal as Local\n"
+        'def case(engine):\n    make(**{**Local.kw, "bind": engine})()'
+    )
+    assert found(aliased) == []
     # A factory with settings of its own, or without production's: a later key wins a dict merge, so
     # SessionLocal.kw spread after the engine binds the app's database instead.
     for source in (
