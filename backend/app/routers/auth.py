@@ -1298,13 +1298,17 @@ async def logout(
     # Read before the revoke commits: the commit expires the user, and a read after it refreshes the row.
     actor = (current_user.id, current_user.email) if current_user else None
     hashed_ip = _hashed_client_ip(request)
+    # Set once revoke_and_commit has returned: the session it ended stays ended, whatever the unit does after it.
+    revoked = False
 
     def revoke() -> None:
+        nonlocal revoked
         # One unit in the thread pool, released before the route returns: a revoke that finds no live
         # token commits nothing, and the audit write reads its row back, so either would otherwise
         # hold a connection for the dependency's finalizer.
         try:
             ended = refresh_token_service.revoke_and_commit(db, raw_token)
+            revoked = True
             # The row names the user whose session the logout ended: the one whose refresh token it revoked,
             # which a logout after the session token's 30 minutes knows only from that token, and otherwise
             # the signed-in user. A logout that ends no session and names no user writes none (E137).
@@ -1317,19 +1321,23 @@ async def logout(
     try:
         await run_in_threadpool(revoke)
     except Exception:
-        # The revoke failed (the token store down, the pool exhausted) and its unit rolled back: the session may
-        # live on in the database, but this browser's cookies go regardless, or a shared computer stays signed in.
-        # The deletions ride a response of our own: FastAPI drops the injected Response's headers from the fresh
-        # response it builds for an exception, the global handler's 500 included. No audit row: no session is
-        # known to have ended.
-        logger.exception("Logout could not revoke the refresh token; clearing this browser's session cookies")
-        incomplete = JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={"detail": "This browser is logged out, but we could not end the session on the server."},
-        )
-        _clear_auth_cookie(incomplete)
-        _clear_refresh_cookie(incomplete)
-        return incomplete
+        if not revoked:
+            # The revoke failed (the token store down, the pool exhausted) and its unit rolled back: the session may
+            # live on in the database, but this browser's cookies go regardless, or a shared computer stays signed
+            # in. The deletions ride a response of our own: FastAPI drops the injected Response's headers from the
+            # fresh response it builds for an exception, the global handler's 500 included. No audit row: no session
+            # is known to have ended.
+            logger.exception("Logout could not revoke the refresh token; clearing this browser's session cookies")
+            incomplete = JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"detail": "This browser is logged out, but we could not end the session on the server."},
+            )
+            _clear_auth_cookie(incomplete)
+            _clear_refresh_cookie(incomplete)
+            return incomplete
+        # The revoke committed and a step after it raised (the audit write, the release): the session ended, so this
+        # is a logout that succeeded and answers as one. The audit row is whatever that step left.
+        logger.exception("Logout ended the session, but a step after the revoke's commit failed")
     _clear_auth_cookie(response)
     _clear_refresh_cookie(response)
     return {"status": "success"}
