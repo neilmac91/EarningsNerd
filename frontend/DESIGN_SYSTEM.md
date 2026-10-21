@@ -590,8 +590,8 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  own. In dark the chip carries no fill, its hairline only, so a hovered row's white/5 is the
                  one layer under it: error-dark holds 4.6:1 there, where a fill of its own would take it to
                  3.9:1 (gates: tests/unit/badgeVariants.spec.tsx, success and error on the card and on a
-                 hovered row; tests/unit/statusChipContrast.spec.ts, the whole set on the admin rows, Status
-                 chip below). beat/miss are the
+                 hovered row; tests/unit/statusChipContrast.spec.ts, the whole set on the admin rows and the
+                 summary status chip on the watchlist and dashboard rows, Status chip below). beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
                  tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` is the brand tint, `brand`'s
                  own classes (bg-brand-weak text-brand-strong and the sage hairline, dark pair), with a pulse
@@ -647,6 +647,16 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  (black/[0.04]: 9.04:1, 8.50:1 hovered), and the status set's dark one: no fill, its
                  white/10 hairline kept, text-secondary-dark at 5.78:1 at rest and 4.98:1 on a hovered row
                  (its old white/5 fill measured 4.27:1 there).
+                 The summary status chip (SummaryStatusBadge: the Watchlist insights cards and the
+                 dashboard's "Your companies" rows) is a label alone on the same set: Ready on success,
+                 Generating on info-status, No summary yet and Pending on neutral-status, Unavailable and
+                 Needs regenerating on warning-status, Error on error. Both rows sit on Card's panel fill
+                 with no hover fill of their own, so a label reads the same at rest and hovered: light 5.02
+                 (Ready) to 7.09:1 (warning-status), dark 5.31 (Error) to 6.83:1. Before, Unavailable and
+                 Needs regenerating took the warning tint (5.83 and 5.22:1, no hairline, so 2px shorter than
+                 the chips beside them), No summary yet and Pending the quiet chip (10.31 and 4.98:1: the
+                 neutral-status ink is the tertiary one, 5.44:1 in light, and dark drops the white/5 fill,
+                 5.78:1), and Generating the brand tint (5.77 and 5.93:1, now 6.70 and 5.77:1).
                  Gate: tests/unit/statusChipContrast.spec.ts (every member of BadgeStatusVariant, read from
                  Badge's source and rendered through Badge, on both tables' rows, at rest and hovered, both
                  themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the pages' <tbody>;
@@ -659,7 +669,15 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  hand-rolled chip, a copy of Badge's classes included, a tint, an added class or a label in
                  a tint of its own fails; the type chip measured as it renders on FeedbackRow's grounds, and
                  held to Badge's metrics: every class of Badge's BASE, with only a ground and an ink of its
-                 own beside them, so a weight, a gap or a size of its own fails).
+                 own beside them, so a weight, a gap or a size of its own fails; and the summary status
+                 chip: every chip summaryStatusBadge() returns, for each member of SummaryStatusKind read
+                 from its source and for a prefix it does not know, with and without needs_regeneration,
+                 rendered through Badge and measured on both rows at rest and hovered, both themes, the
+                 grounds read from each row's source up to its <Card>, rendered as Card renders the props
+                 written on it: the row is the element carrying the list's key (the watchlist's Card
+                 itself, the dashboard's row <div> inside its Card), its tint at rest and hovered read over
+                 the card's fill, and every other layer paints nothing; SummaryStatusBadge held to the set as
+                 the admin badges are, rendering the variant summaryStatusBadge() returns).
 
 Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside its card, never the page, in
                  TableScroll (features/admin/components), a `relative overflow-x-auto` box. `relative` makes it the
