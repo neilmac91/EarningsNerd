@@ -6743,6 +6743,14 @@ Full local and hosted verification plus independent exact-head review precede re
   two other writers' backend deploys, each verified healthy by its deploy job; production not read live. No CODE
   RED spend; no ledger event; another writer's request to settle its paid runs in the ledger put to the founder.
   No chief defect and no classifier denial. Closure 189.
+- 2026-10-21 (record 39, `runtime/control/DECISIONS-39.md`): PR #1453 (record 38) merged `04b2b334` by the chief
+  under record 35's founder action 9, answered (thirty-fourth deploy-skip proof), with no classifier refusal, after
+  two late Codex findings: an archive line named no deploy job, and closure 189 had been rewritten after its
+  launches. Closure 189 keeps its pre-launch bytes; closure 190 registers record 38's survey, fact-check and
+  reviewer, carries the corrected convention date and pre-registers this record's survey and fact-check and record
+  40's reviewer. A read-only survey of the window before the record was written. Two main merges, no backend
+  deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid run outside it.
+  No chief defect and no classifier denial of the chief's commands. Closure 190.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
