@@ -1179,7 +1179,9 @@ Hero example     <HeroExample example>  (features/marketing, critique 1d) — th
                  line began with its middot at 1440px (E81). Gate: tests/e2e/reflow-200.spec.ts (at 320, 390 and
                  1440px under 200% text each label whole, each value and change on one line inside its own figure
                  and the example, no two figures meeting, every form code on one line, no painted line starting
-                 with a middot; the page at 320px).
+                 with a middot; at both text sizes the strip's rules as painted, a row's leading rule and the
+                 first row's top rule clipped, every other rule inside the strip, the first figure's label flush
+                 with the card; the page at 320px).
 
 Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain statements, each scoped to what
                  the implementation establishes ("where a match is found"); "generated" stays distinct from

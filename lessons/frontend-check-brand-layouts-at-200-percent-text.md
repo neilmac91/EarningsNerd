@@ -109,8 +109,9 @@ is wider than its text, since Chrome keeps blank room for a six-digit year: in t
 field was 312px under 200% text, in a 256px row at 320px. It shrinks to its row (`min-w-0`) in the Input primitive's
 14px, giving up the blank room and no digit. The site scrolls smoothly (`scroll-behavior: smooth`), so a capture
 scrolls with `behavior: 'instant'` or it shows the page where it was. `tests/e2e/reflow-200.spec.ts` holds the hero's
-figures, codes and middots at 320, 390 and 1440px and every route at 320px, /security but for its headings' words
-that E131 owns: those runs are allowed by name, the page no wider than the widest of them, and the page must still show
+figures, codes and middots at 320, 390 and 1440px, and the strip's rules as painted at both text sizes, since they rest
+on three coupled values (the list's negative margins, a figure's padding and its 1px rules) that a class check cannot
+hold together. It holds every route at 320px, /security but for its headings' words that E131 owns: those runs are allowed by name, the page no wider than the widest of them, and the page must still show
 one, never each run, since one passes the edge by 5px here and a few pixels are one machine's measure
 (`lessons/test-layout-numbers-are-one-environments-run.md`). /privacy was pinned too, from the agents' sandbox, which
 paints the body text in an installed static Inter; in the site's own Inter, as CI's runner paints it, the page fits at

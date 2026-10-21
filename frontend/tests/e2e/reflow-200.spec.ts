@@ -48,13 +48,14 @@ import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
  * ran onto three lines below its segment). Every form code in the landing's rows and its close paints on one line
  * at 320 and 390px under 200% text and at 320px at the default size, where the plan table broke "10-Q" at its
  * hyphen before each code became one nowrap run; the hero's do at 320, 390 and 1440px under 200% text, where its
- * figures keep apart and whole too and no line of its example starts with a middot (E81). Below a 12rem viewport
- * the auth shell's wordmark yields to the mark. At 320x640 with the text doubled every route passes the same
- * checks (E81): /pricing's billing switch's row wraps, the yearly label on a line of its own, where on one line it
- * took "Monthly" 13px past the screen's left edge and the page to 333px; / reached 329px (the hero example's
- * identity line and figures) and /search 344px (its date fields). There /security passes but for the words E131
- * names in its headings, each wider than its column, which nothing else may join, past which the page may not reach
- * and of which it must still show one, so the exemption ends with E131.
+ * figures keep apart and whole too, no line of its example starts with a middot and, at both text sizes, its strip's
+ * rules stand only between two figures (E81). Below a 12rem viewport the auth shell's wordmark yields to the mark.
+ * At 320x640 with the text doubled every route passes the same checks (E81): /pricing's billing switch's row wraps,
+ * the yearly label on a line of its own, where on one line it took "Monthly" 13px past the screen's left edge and the
+ * page to 333px; / reached 329px (the hero example's identity line and figures) and /search 344px (its date fields).
+ * There /security passes but for the words E131 names in its headings, each wider than its column, which nothing
+ * else may join, past which the page may not reach and of which it must still show one, so the exemption ends with
+ * E131.
  * The open menu scrolls inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
  * wheel over the menu and focus each bring its last item into view inside it, the page unmoved, and neither
  * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
@@ -1241,11 +1242,72 @@ const heroFit = (page: Page) =>
     return { figures: figures.map((f) => `${f.label}: ${f.runs.map((r) => r.text).join(', ')}`), problems, codes, middots: middots.length, starts }
   }, FORM_CODE.source)
 
+/** The hero strip's rules as painted, at either text size (E81; #1462's review). The strip draws its own rule above
+    and below and clips its list (HeroExample.tsx), whose negative margins put a row's leading rule and padding, and
+    the first row's top rule, outside the clip, so a figure's own left and top rules stand only between two figures.
+    Three coupled values hold that (the list's -ml-[calc(0.75rem_+_1px)] and -mt-px, a figure's pl-3 and its 1px
+    rules), and dropping the margins showed a rule at every row start and doubled the top rule with every other check
+    green, so the boxes are read: the strip clips and draws its two rules; a figure that starts a row has its left
+    rule at or left of the clip's left edge, and one on the first row its top rule at or above the clip's top edge;
+    every other figure draws its left rule, and every figure below the first row its top rule, inside the clip; and
+    the first figure's label starts flush with the card's content edge, within 0.5px. */
+const stripRules = (page: Page) =>
+  page.evaluate(() => {
+    const px = (n: number) => `${Math.round(n * 10) / 10}px`
+    const ruleOf = (style: CSSStyleDeclaration, side: 'Top' | 'Right' | 'Bottom' | 'Left') => parseFloat(style[`border${side}Width`])
+    const example = document.querySelector('main section[aria-labelledby="hero-h"] section[aria-label="Example summary"]')
+    const list = example?.querySelector('dl')
+    const clip = list?.parentElement
+    const column = example?.firstElementChild
+    if (!example || !list || !clip || !column) return { figures: 0, problems: ['the hero has no figure strip'] }
+    const problems: string[] = []
+    const clipStyle = getComputedStyle(clip)
+    if (clipStyle.overflowX === 'visible' || clipStyle.overflowY === 'visible') problems.push(`the strip does not clip its list (overflow ${clipStyle.overflowX} ${clipStyle.overflowY})`)
+    if (ruleOf(clipStyle, 'Top') < 1 || ruleOf(clipStyle, 'Bottom') < 1) problems.push(`the strip draws no rule of its own above or below (${clipStyle.borderTopWidth}, ${clipStyle.borderBottomWidth})`)
+    const box = clip.getBoundingClientRect()
+    const edge = { left: box.left + ruleOf(clipStyle, 'Left'), right: box.right - ruleOf(clipStyle, 'Right'), top: box.top + ruleOf(clipStyle, 'Top'), bottom: box.bottom - ruleOf(clipStyle, 'Bottom') }
+    const cells = [...list.children].map((cell) => {
+      const style = getComputedStyle(cell)
+      return { label: cell.querySelector('dt')?.firstChild?.textContent?.trim() ?? '', box: cell.getBoundingClientRect(), left: ruleOf(style, 'Left'), top: ruleOf(style, 'Top') }
+    })
+    cells.forEach((cell, i) => {
+      const startsRow = i === 0 || Math.abs(cell.box.top - cells[i - 1].box.top) > 0.5
+      const onFirstRow = Math.abs(cell.box.top - cells[0].box.top) <= 0.5
+      const leftRule = `${px(cell.box.left)}-${px(cell.box.left + cell.left)}`
+      const topRule = `${px(cell.box.top)}-${px(cell.box.top + cell.top)}`
+      if (startsRow) {
+        if (cell.box.left + cell.left > edge.left + 0.5) problems.push(`"${cell.label}" starts a row with its left rule at ${leftRule}, inside the clip from ${px(edge.left)}`)
+      } else if (cell.left < 1) {
+        problems.push(`"${cell.label}" draws no rule after the figure before it`)
+      } else if (cell.box.left < edge.left - 0.5 || cell.box.left + cell.left > edge.right + 0.5) {
+        problems.push(`"${cell.label}" has its left rule at ${leftRule}, outside the clip ${px(edge.left)}-${px(edge.right)}`)
+      }
+      if (onFirstRow) {
+        if (cell.box.top + cell.top > edge.top + 0.5) problems.push(`"${cell.label}" on the first row has its top rule at ${topRule}, inside the clip from ${px(edge.top)}, under the strip's own`)
+      } else if (cell.top < 1) {
+        problems.push(`"${cell.label}" draws no rule under the row before it`)
+      } else if (cell.box.top < edge.top - 0.5 || cell.box.top + cell.top > edge.bottom + 0.5) {
+        problems.push(`"${cell.label}" has its top rule at ${topRule}, outside the clip ${px(edge.top)}-${px(edge.bottom)}`)
+      }
+    })
+    const columnStyle = getComputedStyle(column)
+    const content = column.getBoundingClientRect().left + ruleOf(columnStyle, 'Left') + parseFloat(columnStyle.paddingLeft)
+    const label = list.querySelector('dt')?.firstChild
+    if (!label) problems.push('the first figure has no label')
+    else {
+      const range = document.createRange()
+      range.selectNodeContents(label)
+      const start = range.getBoundingClientRect().left
+      if (Math.abs(start - content) > 0.5) problems.push(`"${cells[0]?.label}" starts at ${px(start)}, not flush with the card's content edge at ${px(content)}`)
+    }
+    return { figures: cells.length, problems }
+  })
+
 for (const viewport of [{ width: 320, height: 640 }, { width: 390, height: 844 }, { width: 1440, height: 900 }]) {
   const at = `${viewport.width}px and 200% text`
   test.describe(`a ${viewport.width}px ${viewport.width < 1024 ? 'phone' : 'desktop'} at 200% text, the hero`, () => {
     test.use({ viewport, isMobile: viewport.width < 1024, hasTouch: viewport.width < 1024 })
-    test(`home (/) keeps the hero's figures whole and apart, its form codes on one line and no line starting with a middot at ${at}`, async ({ page, baseURL }) => {
+    test(`home (/) keeps the hero's figures whole and apart, its form codes on one line and no line starting with a middot at ${at}, and the strip's rules only between two figures at both sizes`, async ({ page, baseURL }) => {
       await page.addInitScript(() => {
         try {
           localStorage.setItem('theme', 'light')
@@ -1257,22 +1319,29 @@ for (const viewport of [{ width: 320, height: 640 }, { width: 390, height: 844 }
       await h1(page)
       await expect(page.getByRole('region', { name: 'Example summary' }).getByRole('term')).toHaveCount(3)
       await page.evaluate(() => document.fonts.ready)
+      // The strip's rules at the default size first, then again with the text doubled.
+      const rulesAtDefault = await stripRules(page)
       // The tablet pass's confirmation holds at every width here: the root at 32px, the 48rem query (1536px) not matching.
       await doubleTextOnATablet(page)
 
       const fit = await heroFit(page)
+      const rules = await stripRules(page)
       // Anti-vacuity: three figures, each with its value and its change; codes read in the lead and in the example; the
-      // identity line's two middots and the receipt's one read.
+      // identity line's two middots and the receipt's one read; the strip's three figures read at both sizes.
       expect(fit.figures, `the hero's figures at ${at}`).toHaveLength(3)
+      expect(rulesAtDefault.figures, `the strip's figures at ${viewport.width}px and the default size`).toBe(3)
+      expect(rules.figures, `the strip's figures at ${at}`).toBe(3)
       expect(fit.middots, `middots read in the example at ${at}`).toBeGreaterThanOrEqual(3)
       for (const figure of fit.figures) expect(figure, `a figure with its value and change at ${at}`).toMatch(/^[^:]+: \S+, \S+$/)
       expect(fit.codes.filter((code) => code.where === 'lead').length, `form codes read in the hero's lead at ${at}`).toBeGreaterThanOrEqual(2)
       expect(fit.codes.filter((code) => code.where === 'example').length, `form codes read in the example at ${at}`).toBeGreaterThanOrEqual(1)
-      // Soft, so one run reports the figures, the codes and the middots together; any of them fails the test.
+      // Soft, so one run reports the figures, the codes, the middots and the rules together; any of them fails the test.
       expect.soft(fit.problems, `the hero's figures at ${at} (${fit.figures.join('; ')})`).toEqual([])
       const broken = fit.codes.filter((code) => code.lines !== 1).map((code) => `${code.where}: "${code.code}" on ${code.lines} lines`)
       expect.soft(broken, `${at}: each form code in the hero paints on one line`).toEqual([])
       expect.soft(fit.starts, `${at}: no painted line in the example starts with a middot`).toEqual([])
+      expect.soft(rulesAtDefault.problems, `${viewport.width}px at the default size: the strip's rules stand only between two figures`).toEqual([])
+      expect.soft(rules.problems, `${at}: the strip's rules stand only between two figures`).toEqual([])
     })
   })
 }

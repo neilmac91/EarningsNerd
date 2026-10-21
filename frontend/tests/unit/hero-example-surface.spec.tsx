@@ -49,10 +49,11 @@ describe('HeroExample', () => {
     // Each middot shares an item with the fact before it (E81), so the line is the form's item's parent.
     const facts = screen.getByText('10-K').parentElement!.parentElement as HTMLElement
     expect(facts).toHaveTextContent(/^AAPL\s*·\s*,\s*10-K\s*·\s*,\s*filed Oct 31, 2025$/)
-    // tests/e2e/reflow-200.spec.ts reads the built hero at 200% text: the figures wrapping apart, the form codes
-    // whole and no line starting with a middot. These pins hold what its boxes cannot say: the date moves under
-    // "filed" whole and breaks only after its day, and the strip's rules are its own above and below and, between two
-    // figures, the later one's left and top rules, which the strip's clip hides where a figure starts a row.
+    // tests/e2e/reflow-200.spec.ts reads the built hero: under 200% text the figures wrapping apart, the form codes
+    // whole and no line starting with a middot, and at both text sizes where the strip's rules paint, only between two
+    // figures, with the first figure's label flush with the card. These pins hold what its boxes cannot say, the date
+    // moving under "filed" whole and breaking only after its day, and name the strip's rules: its own above and below,
+    // round the list it clips, and each figure's left and top.
     expect(screen.getByText('Oct 31,')).toHaveClass('whitespace-nowrap')
     expect(screen.getByText('Oct 31,').parentElement).toHaveClass('inline-block')
     const strip = screen.getByText('$416.2B').closest('dl') as HTMLElement
