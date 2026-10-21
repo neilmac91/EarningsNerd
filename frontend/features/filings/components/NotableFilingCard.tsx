@@ -57,7 +57,8 @@ export default function NotableFilingCard({
       <CompanyLogo decorative ticker={filing.ticker} name={filing.company_name} size={40} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
+          {/* A ticker is data: the data face, as Reporting this week's and the hero's tickers are (DESIGN.md, Typography). */}
+          <span className="font-data font-semibold text-text-primary-light dark:text-text-primary-dark">
             {filing.ticker}
           </span>
           <span className="truncate text-sm text-text-secondary-light dark:text-text-secondary-dark">

@@ -128,8 +128,9 @@ describe('NotableFilings', () => {
     expect(within(card).getByText(',')).toHaveClass('sr-only')
   })
 
-  it('sets the form code as data-face text in one unbroken run, never an eyebrow chip', () => {
+  it('sets the ticker in the data face, and the form code as data-face text in one unbroken run, never an eyebrow chip', () => {
     render(<NotableFilings data={RESPONSE} />)
+    expect(within(screen.getByTestId('notable-filing-SMPB')).getByText('SMPB')).toHaveClass('font-data')
     const form = within(screen.getByTestId('notable-filing-SMPB')).getByText('10-K')
     expect(form).toHaveClass('font-data', 'whitespace-nowrap', 'text-text-primary-light', 'dark:text-text-primary-dark')
     expect(form.className).not.toMatch(/\b(uppercase|tracking-eyebrow)\b/)
