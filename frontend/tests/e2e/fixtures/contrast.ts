@@ -6,10 +6,12 @@ import type { Locator } from '@playwright/test'
  * is every background-color from the nearest opaque ancestor (up to and including <html>) down to
  * the element itself, over white when none is opaque. Background images and gradients are not
  * read — the surfaces measured with it are flat token fills. A DOM measurement, not a screen-reader
- * or visual test.
+ * or visual test. The ratio is rounded to two places unless `exact` is set: a case that holds a floor
+ * at its margin reads it unrounded, since a rounded 4.495 would pass 4.5 (the waitlist join link's
+ * dark label computes to 4.500005:1 on its hovered fill).
  */
-export const textContrast = (loc: Locator): Promise<number> =>
-  loc.evaluate((el) => {
+export const textContrast = (loc: Locator, { exact = false }: { exact?: boolean } = {}): Promise<number> =>
+  loc.evaluate((el, exact) => {
     type Rgba = { r: number; g: number; b: number; a: number }
     const parse = (c: string): Rgba => {
       const m = c.match(/rgba?\(([^)]+)\)/)
@@ -40,8 +42,9 @@ export const textContrast = (loc: Locator): Promise<number> =>
       return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
     }
     const [hi, lo] = [lum(ink), lum(ground)].sort((x, y) => y - x)
-    return Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100
-  })
+    const ratio = (hi + 0.05) / (lo + 0.05)
+    return exact ? ratio : Math.round(ratio * 100) / 100
+  }, exact)
 
 /** Every finite CSS transition or animation on the element and its subtree has finished (an
  *  infinite loop, such as a pulse, never finishes, so it is not awaited). */
