@@ -95,3 +95,16 @@ squeeze out of the Notice (E120). The header now wraps as the rule above says, a
 `frontend/tests/e2e/reflow-200.spec.ts` holds two dialogs' headers at 390, 360 and 320px, the consent dialog and
 the email verification prompt: the title beside the icon at the default size and under it at 200% text, every
 painted line inside the panel and left of the close button, a word broken only when it is wider than the title.
+
+**Recurrence (2026-10-21, the landing hero and /search, E81)**: the figure clause had not reached the hero
+example's strip, three figures in equal thirds: at 390px under 200% text each value ran across its 81px cell into the
+next. They now take their own widths in a wrapping row inside the one hairline strip, each figure's own left and top
+rules its dividers, which the strip clips at a row's start and on the first row. The subhead broke "10-Ks" at 390px
+and "10-Qs" at 1440px; its codes are `FormCodeText` runs now. A label and its value held in one nowrap run are as wide
+as the run: "filed Oct 31, 2025" took the page to 329px at 320px; the date is an inline-block after its label that
+moves down whole and breaks after its day only where it cannot fit whole. A native date field is wider than its
+text, since Chrome keeps blank room for a six-digit year: in the forms plugin's 1rem each /search field was 312px
+under 200% text, in a 256px row at 320px. It shrinks to its row (`min-w-0`) in the Input primitive's 14px, giving up
+the blank room and no digit. The site scrolls smoothly (`scroll-behavior: smooth`), so a capture scrolls with
+`behavior: 'instant'` or it shows the page where it was. `tests/e2e/reflow-200.spec.ts` holds the hero's figures and
+codes at 390 and 1440px and every route at 320px, the legal pages but for the words E131 owns.
