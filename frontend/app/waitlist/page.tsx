@@ -117,9 +117,11 @@ export default function WaitlistPage() {
             {/* A hand-rolled pill on purpose: this server page cannot call buttonVariants() (a client
                 export), and MarketingCta, which renders that recipe for a server section, gives the
                 secondary button's own look (transparent at rest, rounded-lg). The pill rests at the
-                secondary recipe's hover fill and takes its pressed fill under the pointer, in both
-                themes (E82): its label measures 5.33:1 on that fill in light and 4.50:1 in dark, on
-                this card. tests/e2e/text-floors.spec.ts holds both themes, at rest and hovered. */}
+                secondary recipe's hover fill (in dark a shade stronger: brand-dark/15, where the
+                recipe's brand-weak-dark is the same sage at 0.14) and takes the recipe's pressed fill
+                under the pointer, in both themes (E82): its label measures 5.33:1 on that fill in light
+                and 4.50:1 in dark, on this card. tests/e2e/text-floors.spec.ts holds both themes, at
+                rest and hovered. */}
             <a
               href="#waitlist"
               className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-semibold text-brand-strong transition hover:bg-brand-border/60 focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:hover:bg-brand-border-dark dark:focus-visible:shadow-ring-brand-dark"

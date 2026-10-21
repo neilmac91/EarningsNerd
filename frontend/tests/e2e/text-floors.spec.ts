@@ -25,8 +25,9 @@ import { STATIC_ENTRIES } from '../../app/sitemap'
  * The census is light theme only: every dark pairing is the secondary-dark ink, which this change leaves alone.
  *
  * The waitlist's join link (E82), in both themes: the pill rests at the secondary recipe's hover fill
- * (`bg-brand-weak`, dark `bg-brand-dark/15`) and takes its pressed fill under the pointer
- * (`hover:bg-brand-border/60`, dark `dark:hover:bg-brand-border-dark`). Per theme: the theme took, the label
+ * (`bg-brand-weak`; in dark a shade stronger, `bg-brand-dark/15` beside the recipe's `brand-weak-dark` at 0.14)
+ * and takes its pressed fill under the pointer (`hover:bg-brand-border/60`, dark
+ * `dark:hover:bg-brand-border-dark`). Per theme: the theme took, the label
  * is the recipe's sage ink (read from tailwind.config.js, so the case measures that label), `:hover` is on the
  * link and its fill changes, and the label clears 4.5:1 on what is behind it at rest and hovered. The ratio is
  * read unrounded: on the How it works card the dark label computes to 4.500005:1 on the hovered fill, where a
