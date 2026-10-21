@@ -49,8 +49,9 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    "consent-gated" or "opt-in", where a sentence that names the browser or its part, its analytics cookies or session
  *    recording (the consent dialog's own "Analytics cookies and session recording stay off until you allow them", and
  *    "Session recording with PostHog is opt-in"), reads as scoped, and where the verb says the promise, a denial before
- *    it or on the subject passes ("No server events require your consent", "Server events do not need your consent"),
- *    while "No analytics run until you allow them" and "No usage data is sent without your permission" still promise.
+ *    it, on the subject or on the consent passes ("No server events require your consent", "Server events do not need
+ *    your consent", "Server events require no consent"), while "No analytics run until you allow them" and "No usage
+ *    data is sent without your permission" still promise.
  *    The scan reads /security's rendered tree, as one text (a heading runs into the body under it) and block by block
  *    (blockTexts: a list item or a paragraph on its own, so a provider's item is not read through the PostHog line's
  *    "in your browser"), /privacy's and /terms' rendered trees the same way (/privacy carries the account-events
@@ -278,7 +279,8 @@ const CONSENT = String.raw`(?:consent|permission|agreement|approval|opt[- ]in|sa
     part (BROWSER_PART) as scoped too, so the consent dialog's own sentence and "Session recording with PostHog is
     opt-in." pass. A negation before "without your consent" may be contracted ("doesn't", "won't"). The forms whose
     verb says the promise (requires, needs, waits for or until, is subject to, consent-gated, opt-in) read a denial
-    as NOT does, before the verb or on the subject, so "No server events require your consent." passes; "until you
+    as NOT does, before the verb or on the subject, so "No server events require your consent." passes, and "no" before
+    the consent denies it ("Server events require no consent."); "until you
     allow" after another verb and "without your consent" take a denied subject as part of the promise ("No analytics
     run until you allow them", "No usage data is sent without your permission"). */
 const CONSENT_PROMISE = new RegExp(
@@ -287,7 +289,7 @@ const CONSENT_PROMISE = new RegExp(
     String.raw`.*(?<!\bwait(?:s|ing)?\s)\buntil you(?: have|['’]ve)? ${YES}` +
     String.raw`|.*${NOT}\bwait(?:s|ing)?\s+until you(?: have|['’]ve)? ${YES}` +
     String.raw`|.*(?:\b(?:never|not|no|nothing|none)\b|n['’]t\b).{0,60}?\bwithout (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
-    String.raw`|.*${NOT}\b(?:requires?|needs?|waits? for|(?:is|are) subject to) (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
+    String.raw`|.*${NOT}\b(?:requires?|needs?|waits? for|(?:is|are) subject to) (?:your )?(?:(?!no\b)[\w-]+ )?${CONSENT}\b` +
     String.raw`|.*${NOT}\bconsent[- ]gated\b|.*${NOT}\bgated (?:on|by|behind) (?:your |the )?(?:[\w-]+ )?(?:consent|choice)\b` +
     String.raw`|.*${NOT}\b(?:is|are) (?:strictly |only )?opt[- ]in\b` +
     ')',
@@ -1210,6 +1212,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Any endpoint expects an account number.</p>', false],
       ['<p>Each endpoint can only be called with an account ID.</p>', false],
       ['<p>No endpoint answers without an account ID.</p>', false],
+      // A denial on the consent itself, D-051 in other words (#1456's sixth round, Codex's thread 4339665110).
+      ['<p>Server events require no consent.</p>', false],
+      ['<p>Usage needs no consent.</p>', false],
+      ['<p>Account events need no consent from you.</p>', false],
       // Out of reach.
       ['<p>Our pages use a Content Security Policy. It blocks XSS.</p>', 'gap'],
       ['<p>Nobody outside our network can reach the servers.</p>', 'gap'],
