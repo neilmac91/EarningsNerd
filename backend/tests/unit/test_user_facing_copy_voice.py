@@ -229,7 +229,7 @@ EXEMPT: dict[str, tuple[int, str]] = {
     "app/routers/auth.py::unlink_connection": (
         1,
         "founder: the unlink detail's 'only sign-in method', which test_auth_flow.py pins (a locked contract "
-        "test, CLAUDE.md rule 6), so it takes the account verb only under a contract change its PR documents",
+        "test, CLAUDE.md rule 6), so it takes the account verb only under a contract change its PR documents; F56",
     ),
     "app/services/trend_analysis/detectors.py": (
         1,
