@@ -40,21 +40,24 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    (after, upon, on or by) your consent" with up to three words before the consent (permission, agreement, approval,
  *    opt-in, each read by its start, so "only after consenting" fails too), or before "once allowed", a sentence that
  *    names the browser ("in your browser") reading as scoped; or, in the forms the "only" ones miss, "until you allow",
- *    a negation, contracted or not, before "without your consent", "requires (needs, waits for, is subject to) your
- *    consent", "consent-gated" or "opt-in", where a sentence that names the browser or its part, its analytics cookies
- *    or session recording (the consent dialog's own "Analytics cookies and session recording stay off until you allow
- *    them", and "Session recording with PostHog is opt-in"), reads as scoped. The scan reads /security's rendered tree,
- *    as one text (a heading runs into the body under it) and block by block (blockTexts: a list item or a paragraph on
- *    its own, so a provider's item is not read through the PostHog line's "in your browser"), /privacy's and /terms'
- *    rendered trees the same way (/privacy carries the account-events sentence too), the page module's literals (its
- *    metadata, which no render shows) and the waitlist page's copy (strings, JSX text and each element's run across its
- *    inline elements, outside className), sentence by sentence, a sentence ending only at ".", "!" or "?", so a
- *    `<strong>Label:</strong> body` item is read whole. The planted forms run through the same render, text, blocks and
- *    splitter and score the reach: main's sentences and their close rewordings fail, the page's new sentences and class
- *    names pass, and so do true or unrelated sentences a wider reading once refused (#1456's review and Codex: "We
- *    delete your data only with your consent.", "Any endpoint may return 503."). Out of reach, planted as gaps: a claim
- *    split across two sentences, one said in other words ("PostHog runs after you allow it", "the whole API sits behind
- *    authentication"), and an unscoped consent promise in a sentence that also names the browser or its part.
+ *    a negation, contracted or not, before "without your consent", "requires (needs, waits for, is or are subject to)
+ *    your consent", "consent-gated" or "opt-in", where a sentence that names the browser or its part, its analytics
+ *    cookies or session recording (the consent dialog's own "Analytics cookies and session recording stay off until you
+ *    allow them", and "Session recording with PostHog is opt-in"), reads as scoped, and where the verb says the
+ *    promise, a denial before it or on the subject passes ("No server events require your consent", "Server events do
+ *    not need your consent"), while "No analytics run until you allow them" and "No usage data is sent without your
+ *    permission" still promise. The scan reads /security's rendered tree, as one text (a heading runs into the body
+ *    under it) and block by block (blockTexts: a list item or a paragraph on its own, so a provider's item is not read
+ *    through the PostHog line's "in your browser"), /privacy's and /terms' rendered trees the same way (/privacy
+ *    carries the account-events sentence too), the page module's literals (its metadata, which no render shows) and the
+ *    waitlist page's copy (strings, JSX text and each element's run across its inline elements, outside className),
+ *    sentence by sentence, a sentence ending only at ".", "!" or "?", so a `<strong>Label:</strong> body` item is read
+ *    whole. The planted forms run through the same render, text, blocks and splitter and score the reach: main's
+ *    sentences and their close rewordings fail, the page's new sentences and class names pass, and so do true or
+ *    unrelated sentences a wider reading once refused (#1456's review and Codex: "We delete your data only with your
+ *    consent.", "Any endpoint may return 503."). Out of reach, planted as gaps: a claim split across two sentences, one
+ *    said in other words ("PostHog runs after you allow it", "the whole API sits behind authentication"), and an
+ *    unscoped consent promise in a sentence that also names the browser or its part.
  * 2. The account events (D-051). /security's PostHog line scopes the consent to the browser, and a sentence of
  *    its own, ACCOUNT_EVENTS_DISCLOSURE (lib/consentCopy.ts), names no provider and says the service records how
  *    accounts use it against the internal account id, whatever the reader chose. /security and /privacy each place
@@ -118,23 +121,24 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    test_cached_filings_pool_lifetime.py pin that a logout that ends a session writes its row, under the user whose
  *    session it ended.
  * 7. /security promises nothing of refresh tokens and logging out that the code does not enforce when requests overlap
- *    (E127_PROMISES): a refresh token that works once (one-time, cannot be used twice), a reused one revoking the
- *    account or sweeping its sessions (every session ended, signed out on every device; a session that ends on its own
- *    beside "again" is no sweep), or a session that ends after logging out or a password change, within a time or with
- *    none named (every session, everywhere, a session token revoked), a logout in each spelling (logout, logged out, a
- *    sign-out; a revocation alone, as a renewal's of the token it replaces, is none), and what ends named before its
- *    verb ("a session open elsewhere then ends", "every device is signed out") or signed out with no pronoun ("signs
- *    out every device"). A denial passes, a negation before the verb with an aside or not ("does not, by itself, end")
- *    or on the subject ("No sessions are ended", "None of your sessions", "Not every device"), and so does an end at
- *    its token's expiry ("that session ends when its token expires"). Main's timed and untimed readings keep main's
- *    verdicts where main's logging-out words call them; where only the wider ones do ("a logout", "a sign-out", "every
- *    device"), a denial passes there too ("No session ends within 30 minutes of a logout"). The page is read on every
- *    run, whatever tasks/todo.md records: E127's race is fixed (#1422) and so is a login that straddled a password
- *    reset (#1431), but a session token already issued runs to its expiry, and E96 (how a reused token's sweep reads)
- *    and E133 (a logout that does not wait for an in-flight renewal) are open; the stronger wording returns only in a
- *    pull request that carries the founder's go-ahead (tasks/todo.md F53) and changes this check. Each family is read
- *    in one list item or paragraph (blockTexts). Planted forms score the reach; out of reach, planted as gaps: a
- *    promise split across two items, and one said in other words ("nobody stays signed in").
+ *    (E127_PROMISES): a refresh token that works once (one-time, cannot be used twice, read beyond main's phrases only
+ *    in a sentence about the refresh or session token: "a one-time recovery code" is another credential), a reused one
+ *    revoking the account or sweeping its sessions (every session ended, signed out on every device; a session that
+ *    ends on its own beside "again" is no sweep), or a session that ends after logging out or a password change, within
+ *    a time or with none named (every session, everywhere, a session token revoked), a logout in each spelling (logout,
+ *    logged out, a sign-out; a revocation alone, as a renewal's of the token it replaces, is none), and what ends named
+ *    before its verb ("a session open elsewhere then ends", "every device is signed out") or signed out with no pronoun
+ *    ("signs out every device"). A denial passes, a negation before the verb with an aside or not ("does not, by
+ *    itself, end") or on the subject ("No sessions are ended", "None of your sessions", "Not every device"), and so
+ *    does an end at its token's expiry ("that session ends when its token expires"). Main's timed and untimed readings
+ *    keep main's verdicts where main's logging-out words call them; where only the wider ones do ("a logout", "a
+ *    sign-out", "every device"), a denial passes there too ("No session ends within 30 minutes of a logout"). The page
+ *    is read on every run, whatever tasks/todo.md records: E127's race is fixed (#1422) and so is a login that
+ *    straddled a password reset (#1431), but a session token already issued runs to its expiry, and E96 (how a reused
+ *    token's sweep reads) and E133 (a logout that does not wait for an in-flight renewal) are open; the stronger
+ *    wording returns only in a pull request that carries the founder's go-ahead (tasks/todo.md F53) and changes this
+ *    check. Each family is read in one list item or paragraph (blockTexts). Planted forms score the reach; out of
+ *    reach, planted as gaps: a promise split across two items, and one said in other words ("nobody stays signed in").
  * 8. /security's numbers repeat the repository's facts (NUMBERS): the session token's 30 minutes
  *    (ACCESS_TOKEN_EXPIRE_MINUTES), the refresh token's 30 days (REFRESH_TOKEN_EXPIRE_DAYS), the lockout's ten failures
  *    (LOCKOUT_THRESHOLD) and its two 15 minutes (LOCKOUT_SECONDS), HSTS's year (main.py's max-age), the breach check's
@@ -224,6 +228,14 @@ const PERCENT = String.raw`\b\d{2,3}(?:\.\d+)?\s?(?:%|percent\b|per cent\b)`
 const CSP = String.raw`(?:\bCSP\b|\bContent[- ]Security[- ]Polic(?:y|ies)\b)`
 const XSS = String.raw`(?:\bXSS\b|\bcross[- ]site[- ]scripting\b)`
 
+/** A clause whose subject is denied, from its start up to the verb: "No sessions are ended", "None of your devices is
+    signed out", "Not every session ends", "No server events require your consent", "Nothing the API records waits
+    for your consent" ("no matter" and "no sooner" deny nothing). */
+const DENIED_SUBJECT = String.raw`(?:^|[;:]\s*|,\s+|\b(?:and|but|so|while|whereas)\s+)(?:no(?!\s+(?:matter|sooner)\b)|none|nothing|neither|nobody|not\s+(?:every|all|one|any|each|a\s+single|even\s+one))\b(?:(?!,\s*(?:and|but|so|or|while|whereas|then)\b)[^.;:!?])*`
+/** Not after a negation: "does not end your other sessions", "never signs you out", "does not, by itself, end a
+    session" and "do not need your consent" deny what the verb says, and so does a clause whose subject is denied
+    (DENIED_SUBJECT). The end forms and the consent forms whose verb says the promise read it. */
+const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+(?:\w+\s+)?|n['’]t\s+(?:\w+\s+)?|(?:\b(?:not|never|cannot)|n['’]t)\s*,[^,.;:!?]{1,40},\s*|${DENIED_SUBJECT})`
 /** The analytics by any name ANONYMOUS_ANALYTICS reads them by, and events only as the account, the server or the API
     names them ("account events", "the events the API records"; "usage data" and "usage events" are usage), so "your
     data" and "event invitations" are not the analytics. */
@@ -240,15 +252,20 @@ const CONSENT = String.raw`(?:consent|permission|agreement|approval|opt[- ]in|sa
     "only" forms read a sentence that names the browser as scoped, and read the consent word by its start, so "only
     after consenting" fails as "only after consent" does; the forms that wait for a yes another way read the browser's
     part (BROWSER_PART) as scoped too, so the consent dialog's own sentence and "Session recording with PostHog is
-    opt-in." pass. A negation before "without your consent" may be contracted ("doesn't", "won't"). */
+    opt-in." pass. A negation before "without your consent" may be contracted ("doesn't", "won't"). The forms whose
+    verb says the promise (requires, needs, waits for or until, is subject to, consent-gated, opt-in) read a denial
+    as NOT does, before the verb or on the subject, so "No server events require your consent." passes; "until you
+    allow" after another verb and "without your consent" take a denied subject as part of the promise ("No analytics
+    run until you allow them", "No usage data is sent without your permission"). */
 const CONSENT_PROMISE = new RegExp(
   String.raw`^(?!.*\bin your browser\b)(?=.*${ANALYTICS_NAMES}).*\bonly\b.{0,60}?(?:\b(?:after|once|when|if|until) you(?: have|['’]ve)? ${YES}|\b(?:with|after|upon|on|by) (?:[\w'’-]+ ){0,3}${CONSENT}|\b(?:once|if|when|after) (?:it is |they are |it['’]s |they['’]re )?(?:allowed|accepted|enabled|consented)\b)` +
     String.raw`|^(?!.*(?:\bin your browser\b|${BROWSER_PART}))(?=.*${ANALYTICS_NAMES})(?:` +
-    String.raw`.*\buntil you(?: have|['’]ve)? ${YES}` +
+    String.raw`.*(?<!\bwait(?:s|ing)?\s)\buntil you(?: have|['’]ve)? ${YES}` +
+    String.raw`|.*${NOT}\bwait(?:s|ing)?\s+until you(?: have|['’]ve)? ${YES}` +
     String.raw`|.*(?:\b(?:never|not|no|nothing|none)\b|n['’]t\b).{0,60}?\bwithout (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
-    String.raw`|.*(?<!\b(?:not|never)\s|n['’]t\s)\b(?:requires?|needs?|waits? for|is subject to) (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
-    String.raw`|.*\bconsent[- ]gated\b|.*\bgated (?:on|by|behind) (?:your |the )?(?:[\w-]+ )?(?:consent|choice)\b` +
-    String.raw`|.*\b(?:is|are) (?:strictly |only )?opt[- ]in\b` +
+    String.raw`|.*${NOT}\b(?:requires?|needs?|waits? for|(?:is|are) subject to) (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
+    String.raw`|.*${NOT}\bconsent[- ]gated\b|.*${NOT}\bgated (?:on|by|behind) (?:your |the )?(?:[\w-]+ )?(?:consent|choice)\b` +
+    String.raw`|.*${NOT}\b(?:is|are) (?:strictly |only )?opt[- ]in\b` +
     ')',
   'i',
 )
@@ -326,12 +343,6 @@ const SESSION_END_UNTIMED = new RegExp(
   'i',
 )
 
-/** A clause whose subject is denied, from its start up to the verb: "No sessions are ended", "None of your devices is
-    signed out", "Not every session ends", "nothing ends them" ("no matter" and "no sooner" deny nothing). */
-const DENIED_SUBJECT = String.raw`(?:^|[;:]\s*|,\s+|\b(?:and|but|so|while|whereas)\s+)(?:no(?!\s+(?:matter|sooner)\b)|none|nothing|neither|nobody|not\s+(?:every|all|one|any|each|a\s+single|even\s+one))\b(?:(?!,\s*(?:and|but|so|or|while|whereas|then)\b)[^.;:!?])*`
-/** Not after a negation: "does not end your other sessions", "never signs you out" and "does not, by itself, end a
-    session" deny an end, and so does a clause whose subject is denied (DENIED_SUBJECT). */
-const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+(?:\w+\s+)?|n['’]t\s+(?:\w+\s+)?|(?:\b(?:not|never|cannot)|n['’]t)\s*,[^,.;:!?]{1,40},\s*|${DENIED_SUBJECT})`
 /** What a promise of logging out says ends: a session (a session token is a token, not a session), a device, a tab or
     a browser, with a word that says which ("every session", "your other sessions", "all of your devices"), or
     everywhere, elsewhere or the others. */
@@ -378,6 +389,20 @@ const SWEEP = [
   String.raw`${NOT}\b(?:signs?|logs?|signed|logged)\s+(?:everyone|everybody)\s+out\b`,
   String.raw`${EVERY_SESSION}[^.;!?]*?${NOT}\b(?:end(?:s|ed)?|clos(?:e|es|ed)|terminat(?:e|es|ed)|(?:is|are|get|gets|will be)\s+(?:ended|closed|terminated|revoked|invalidated|signed out|logged out))\b`,
 ].join('|')
+/** Main's works-once phrases, read as main reads them, in any block. */
+const WORKS_ONCE = /\bworks? (?:only )?once\b|\bsingle[- ]use\b|\b(?:used|usable|valid|good) (?:only )?(?:once|one time)\b|\bonly once\b|\bone time only\b/i
+/** The one-use forms main's phrases miss ("one-time", "good for one use", "cannot be used twice", "cannot be reused",
+    "after one use"), read only in a sentence about the refresh or session token: one that names it (TOKEN_CONTEXT), or
+    one in a block that names it and names no other credential (OTHER_CREDENTIAL), as "Each one cannot be reused." in
+    the Token renewal item. "A one-time recovery code", a reset link and a verification code are other credentials. */
+const ONE_USE = /\bone-time\b|\b(?:used|usable|valid|good)(?: only)? for (?:one|a single) use\b|\b(?:can(?:not|['’]t)|can never|may not|never|won['’]t) be (?:used|presented|accepted) (?:twice|again|more than once|a second time)\b|\b(?:can(?:not|['’]t)|can never|won['’]t) be re-?used\b|\bafter (?:one|a single|its first) use\b/i
+/** The refresh or session token, or token renewal, named. */
+const TOKEN_CONTEXT = /\b(?:refresh|session)[- ]tokens?\b|\btoken renewal\b/i
+/** A credential that is not the refresh or session token: a code, a link, a password, a key, an invite, a PIN. */
+const OTHER_CREDENTIAL = /\b(?:codes?|links?|passwords?|passcodes?|passphrases?|keys?|invit\w*|OTPs?|PINs?)\b/i
+/** A one-use form about the refresh or session token, in one sentence of the block. */
+const oneUseOfTheToken = (block: string) =>
+  sentencesOf(block).some((sentence) => ONE_USE.test(sentence) && (TOKEN_CONTEXT.test(sentence) || (TOKEN_CONTEXT.test(block) && !OTHER_CREDENTIAL.test(sentence))))
 /** Main's logging-out words, which call its timed and untimed readings with main's verdicts as they stand. */
 const MAIN_LOGGING_OUT = /\b(?:log(?:ging|s)? out|sign(?:ing|s)? out|all (?:of your )?devices|everywhere|password)\b/i
 /** Main's timed and untimed readings where only the wider words call them (LOGGING_OUT: "a logout", "a sign-out",
@@ -389,7 +414,7 @@ const SESSION_END_UNTIMED_DENIABLE = new RegExp(NOT + SESSION_END_UNTIMED.source
 const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
   [
     'a refresh token that works once',
-    inASentence(/\bworks? (?:only )?once\b|\bsingle[- ]use\b|\b(?:used|usable|valid|good) (?:only )?(?:once|one time)\b|\bonly once\b|\bone time only\b|\bone-time\b|\b(?:used|usable|valid|good)(?: only)? for (?:one|a single) use\b|\b(?:can(?:not|['’]t)|can never|may not|never|won['’]t) be (?:used|presented|accepted) (?:twice|again|more than once|a second time)\b|\b(?:can(?:not|['’]t)|can never|won['’]t) be re-?used\b|\bafter (?:one|a single|its first) use\b/i),
+    (block) => inASentence(WORKS_ONCE)(block) || oneUseOfTheToken(block),
   ],
   [
     'a reused refresh token revoking the account',
@@ -875,6 +900,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ["<p>The API doesn't record account events without your consent.</p>", true],
       ['<p>PostHog won’t run without your consent.</p>', true],
       ["<p>We don't send usage events without your consent.</p>", true],
+      // The removed promise in its plainest words, "are subject to" with it, and "No" where the promise needs it
+      // (#1456's third round).
+      ['<p>Server events require your consent.</p>', true],
+      ['<p>Server events are subject to your consent.</p>', true],
+      ['<p>Server events wait until you allow them.</p>', true],
+      ['<p>No analytics run until you allow them.</p>', true],
       // Every endpoint with other words before "endpoints" (#1397's last review), each and any with a login said, and
       // the claim the other way round.
       ["<p>All of the API's endpoints require authentication.</p>", true],
@@ -918,6 +949,17 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>No API endpoints require authentication.</p>', false],
       ['<p>Any endpoint returning account data requires authentication.</p>', false],
       ['<p>No more endpoints are planned.</p>', false],
+      // A denied subject before the verb that says the promise, D-051 in other words (#1456's third round, Codex's
+      // thread 4335683393).
+      ['<p>No server events require your consent.</p>', false],
+      ['<p>None of the account events the API records require your consent.</p>', false],
+      ['<p>Nothing the API records waits for your consent.</p>', false],
+      ['<p>Nothing the API records about account events waits for your consent.</p>', false],
+      ['<p>No server events are consent-gated.</p>', false],
+      ['<p>No account events are opt-in.</p>', false],
+      ['<p>No server event waits until you allow it.</p>', false],
+      ['<p>None of the server events need your permission.</p>', false],
+      ['<p>Not every account event is subject to your consent.</p>', false],
       // Out of reach.
       ['<p>Our pages use a Content Security Policy. It blocks XSS.</p>', 'gap'],
       ['<p>Nobody outside our network can reach the servers.</p>', 'gap'],
@@ -1005,6 +1047,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>After a password reset, every device is signed out.</li>', true],
       // "No matter" denies nothing (#1456's review).
       ['<li>Once you log out, no matter where, every device is signed out.</li>', true],
+      // A one-use form about the refresh token, in its sentence or in a sentence of its item (#1456's third round).
+      ['<li>Each refresh token is good for one use.</li>', true],
+      ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each one cannot be reused.</li>', true],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
@@ -1027,6 +1072,15 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Not every device is signed out when you change your password.</li>', false],
       // A denial that only the wider logging-out words call main's timed reading on.
       ['<li>No session ends within 30 minutes of a logout.</li>', false],
+      // One-use forms about other credentials, alone and beside a refresh-token sentence (#1456's third round,
+      // Codex's thread 4335683402).
+      ['<li>Use a one-time recovery code.</li>', false],
+      ['<li>Password reset links are one-time links.</li>', false],
+      ['<li>A verification code cannot be reused.</li>', false],
+      ['<li>An invite link cannot be used twice.</li>', false],
+      ['<li>A verification code is good for one use.</li>', false],
+      ['<li>Each magic link expires after one use.</li>', false],
+      ['<li>Refresh tokens are stored only as hashes. A recovery code cannot be reused.</li>', false],
       // Out of reach: a promise split across two items, and one said in other words.
       ['<ul><li>Logging out of all devices revokes your refresh tokens.</li><li>Each session then ends within 30 minutes.</li></ul>', 'gap'],
       ['<li>After a password reset, nobody stays signed in.</li>', 'gap'],
