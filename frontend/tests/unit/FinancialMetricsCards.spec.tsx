@@ -141,7 +141,7 @@ const servedFacts = (rows: FinancialMetric[], hasComparatives: boolean) => ({
     ? rows.map((r) =>
         r.change_display
           ? { text: r.change_display, direction: r.change_direction ?? null, tone: r.change_tone ?? null }
-          : { text: '—', direction: null, tone: null },
+          : { text: '—unavailable', direction: null, tone: null },
       )
     : [],
   takeaways: rows.map((r) => r.commentary || '-'),
@@ -159,7 +159,7 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     ['no comparatives (no prior / change anywhere, the short caption)', NO_COMPARATIVES, false],
     ['no commentary (the "-" placeholder, no chip)', NO_COMMENTARY, true],
     ['no evidence (a takeaway without a chip, nothing invented)', NO_EVIDENCE, true],
-    ['no server change (the em dash, no percentage)', NO_CHANGE, true],
+    ['no server change (MissingValue, read as unavailable; no percentage)', NO_CHANGE, true],
     ['a row without a prior among rows with one (the empty Prior cell, mirrored)', MIXED_PRIOR, true],
     ['long values (verbatim in both layouts)', LONG, true],
   ] as const)('%s: cards === table === served', (_name, rows, hasComparatives) => {
@@ -181,7 +181,7 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
       for (const card of cardList(container)) expect(within(card).getAllByRole('term')).toHaveLength(1) // Current only
     }
     if (rows === NO_CHANGE) {
-      expect(cards.changes).toEqual([{ text: '—', direction: null, tone: null }])
+      expect(cards.changes).toEqual([{ text: '—unavailable', direction: null, tone: null }])
       expect(layout(container, 'cards')).not.toHaveTextContent('%')
     }
     if (rows === NO_EVIDENCE || rows === NO_COMMENTARY) {
@@ -192,7 +192,7 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     if (rows === MIXED_PRIOR) {
       // strict mirroring: the Prior group is rendered for every row, empty where the table's cell is
       expect(cards.priors).toEqual(['$80.0', ''])
-      expect(cards.changes[1]).toEqual({ text: '—', direction: null, tone: null })
+      expect(cards.changes[1]).toEqual({ text: '—unavailable', direction: null, tone: null })
       for (const card of cardList(container)) expect(within(card).getAllByRole('term').map(text)).toEqual(['Current period', 'Prior period', 'Change'])
     }
   })

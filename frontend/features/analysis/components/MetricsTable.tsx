@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Button, Card, DataTable, SegmentedControl, type Column } from '@/components/ui'
+import { Button, Card, DataTable, MissingValue, SegmentedControl, type Column } from '@/components/ui'
 import { FileXlsIcon } from '@/lib/icons'
 import { directionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
@@ -69,7 +69,8 @@ export default function MetricsTable({
         const point = row.series.points.find((p) => p.period === period.key) ?? { period: period.key, value: null }
         const currencyLabel = tableCurrencyLabel(row.series)
         const sourceLabel = `${row.series.label}${currencyLabel ? ` (${currencyLabel})` : ''}`
-        if (point.value == null) return <SourceValue compactMarks point={point} label={sourceLabel} concept={row.series.concept} note={notes.noteFor(point)}>—</SourceValue>
+        // A missing figure is MissingValue in its source control; the control's own name reads "unavailable" too.
+        if (point.value == null) return <SourceValue compactMarks point={point} label={sourceLabel} concept={row.series.concept} note={notes.noteFor(point)}><MissingValue /></SourceValue>
         const growthBasis = tableComparisonBasis(dataset.mode, point)
         const growth = point[growthBasis]
         const growthReconciled = point[`${growthBasis}_reconciled`]
@@ -150,7 +151,7 @@ export default function MetricsTable({
             ><span className="inline-block">{compactText}</span></SourceValue>
           </span>
         ) : (
-          <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
+          <MissingValue className="text-text-tertiary-light dark:text-text-secondary-dark" />
         )
       },
     }

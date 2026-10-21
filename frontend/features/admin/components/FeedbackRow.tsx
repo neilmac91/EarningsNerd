@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CircleNotchIcon } from '@/lib/icons'
 import { fieldUnavailableClass, inputClasses } from '@/components/ui/Input'
+import { MissingValue } from '@/components/ui/MissingValue'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import {
   updateFeedbackStatus,
@@ -18,10 +19,12 @@ import FeedbackTypeBadge from '@/features/admin/components/FeedbackTypeBadge'
 
 const STATUS_OPTIONS: FeedbackStatus[] = ['new', 'triaged', 'resolved']
 
-function fmtDate(value: string | null): string {
-  if (!value) return '—'
+/** A stored instant as its day, or null when there is none or it does not parse: the cell then shows MissingValue
+ *  ("unavailable"), never a bare token. */
+function fmtDate(value: string | null): string | null {
+  if (!value) return null
   const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return null
   return format(d, 'MMM d, yyyy')
 }
 
@@ -76,7 +79,8 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
             {feedback.page_url}
           </span>
         ) : (
-          <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
+          // Feedback sent from no page carries none: the words say so rather than "unavailable".
+          <MissingValue label="no page" className="text-text-tertiary-light dark:text-text-secondary-dark" />
         )}
       </td>
       {/* The reporter's address is never cut: it keeps its own width up to 14rem and wraps inside that beyond it, so
@@ -91,7 +95,7 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
         </span>
       </td>
       <td className="whitespace-nowrap px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        {fmtDate(feedback.created_at)}
+        {fmtDate(feedback.created_at) ?? <MissingValue />}
       </td>
       <td className="whitespace-nowrap px-4 py-3 align-top text-sm">
         <div className="flex items-center gap-2">

@@ -7,7 +7,7 @@ import { directionText, type Direction } from '@/lib/financialTone'
 import { MetricSourceLink } from '@/features/filings/components/MetricSourceLink'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
 import { PerAdsNote } from '@/features/summaries/components/PerAdsNote'
-import { Card, CardHeader, CardTitle, CardFooter, DataTable, cx, type Column, type CellTone } from '@/components/ui'
+import { Card, CardHeader, CardTitle, CardFooter, DataTable, MissingValue, cx, type Column, type CellTone } from '@/components/ui'
 import type { PerAdsValue } from '@/types/summary'
 import type { BlockEvidence } from '@/features/summaries/api/summaries-api'
 
@@ -125,11 +125,12 @@ const changeIcon = (direction: FinancialMetric['change_direction']) =>
  * could never break a long change string.
  */
 const changeField = (row: FinancialMetric, flow = false): ReactNode => {
-  // Server-computed string only — no client-side delta math (single-source gate).
+  // Server-computed string only — no client-side delta math (single-source gate). With none served, the change is
+  // MissingValue, read as "unavailable".
   if (!row.change_display) {
     return (
       <span data-metric-field="change" className="text-text-tertiary-light dark:text-text-secondary-dark">
-        —
+        <MissingValue />
       </span>
     )
   }
