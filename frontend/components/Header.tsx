@@ -56,6 +56,7 @@ export default function Header({
   const queryClient = useQueryClient()
   const account = ACCESS_COPY[accessMode]
   const headerRef = useRef<HTMLElement>(null)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
 
   // Publish the header's height (SITE_HEADER_HEIGHT_PROPERTY) before the first paint and on every
   // reflow (a wrapped bar, an open menu, a theme or text-size change); cleared when the header leaves.
@@ -95,7 +96,10 @@ export default function Header({
     refetchOnWindowFocus: true,
   })
 
-  const handleMobileLogout = async () => {
+  const handleMobileLogout = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    // Log out leaves with the menu. If the logout does not take, focus goes back to the menu's toggle, only when
+    // Log out held it and it fell to <body> (lessons/frontend-busy-controls-stay-focusable.md (g)).
+    const heldFocus = document.activeElement === event.currentTarget
     setMobileMenuOpen(false)
     try {
       await logoutAndResetAccount(queryClient, logout, (succeeded) => {
@@ -105,6 +109,7 @@ export default function Header({
       })
     } catch {
       // A logout that did not take has told the reader, and this tab stays signed in (logoutAndResetAccount).
+      if (heldFocus && document.activeElement === document.body) menuButtonRef.current?.focus({ preventScroll: true })
     }
   }
 
@@ -192,6 +197,7 @@ export default function Header({
             </Link>
           )}
           <button
+            ref={menuButtonRef}
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"

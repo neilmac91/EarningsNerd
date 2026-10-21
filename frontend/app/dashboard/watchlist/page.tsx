@@ -9,6 +9,7 @@ import { formatDistanceToNowStrict } from 'date-fns'
 import { formatLocalDate } from '@/lib/format'
 import { ArrowsCounterClockwiseIcon, CalendarDotsIcon, ChartBarIcon, ClockIcon, WarningCircleIcon } from '@/lib/icons'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { isConfirmedGuest } from '@/features/auth/lib/confirmedGuest'
 import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSearch'
@@ -22,17 +23,18 @@ import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 
 function useAuthGate() {
   const router = useRouter()
-  const { data: user, isLoading } = useQuery({
+  const userQuery = useQuery({
     queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
   })
+  const { data: user, isLoading } = userQuery
 
+  // Only a confirmed guest leaves for /login: never a null still being read, or a read that failed.
+  const guest = isConfirmedGuest(userQuery)
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login')
-    }
-  }, [router, isLoading, user])
+    if (guest) router.push('/login')
+  }, [router, guest])
 
   return { isReady: !isLoading, hasUser: Boolean(user) }
 }

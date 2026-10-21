@@ -651,11 +651,11 @@ describe('a page loading gate over a shared query holds its shown failure (rule-
       return offendersIn(new Map([[file, unheldGates(source, file, shared)]]), ALLOW)
     }
     expect(fold('app/admin/layout.tsx', [
-      ['const { data: user, isLoading } = useQuery({', 'const { data: user, isLoading: firstLoad, isFetching } = useQuery({'],
+      ['const { data: user, isLoading } = userQuery', 'const { data: user, isLoading: firstLoad, isFetching } = userQuery'],
       ['  const isAdmin = ', '  const isLoading = firstLoad || isFetching\n  const isAdmin = '],
     ])).toEqual([expect.stringMatching(/^app\/admin\/layout\.tsx:\d+: isLoading \[queryKeys\.currentUser\] reads a fetch flag of queryKeys\.currentUser$/)])
     expect(fold('app/dashboard/watchlist/page.tsx', [
-      ['const { data: user, isLoading } = useQuery({', 'const { data: user, isLoading, isFetching } = useQuery({'],
+      ['const { data: user, isLoading } = userQuery', 'const { data: user, isLoading, isFetching } = userQuery'],
       ['isReady: !isLoading,', 'isReady: !isLoading && !isFetching,'],
     ])).toEqual([
       expect.stringMatching(

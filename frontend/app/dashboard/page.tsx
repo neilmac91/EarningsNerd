@@ -4,6 +4,7 @@ import { formatCompanyName } from '@/lib/formatCompanyName'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
 import { logoutAndResetAccount } from '@/features/auth/lib/accountQueryState'
+import { isConfirmedGuest } from '@/features/auth/lib/confirmedGuest'
 import { getUsage, getSubscriptionStatus, createPortalSession } from '@/features/subscriptions/api/subscriptions-api'
 import { getSavedSummaries, deleteSavedSummary, SavedSummary } from '@/features/summaries/api/summaries-api'
 import { getWatchlistInsights } from '@/features/watchlist/api/watchlist-api'
@@ -140,16 +141,16 @@ export default function DashboardPage() {
       router.push('/login')
       router.refresh()
     }),
+    // Offline, a press still sends the logout and reports how it went, rather than waiting paused for the connection.
+    networkMode: 'always',
   })
 
-  // A null user is a confirmed guest (a 401 resolves to null, and logout resets the user to null) only once its read
-  // has settled. An unresolved user (a fetch paused offline, a failure) is not logged out, and neither is a null still
-  // being read: a logout whose request failed, from any control (the site header's included), resets the user to null
-  // and reads /me in the same turn before it decides (logoutAndResetAccount).
-  const userSettled = userQuery.fetchStatus === 'idle' && !userQuery.isError
+  // Only a confirmed guest leaves for /login: an unresolved user (a fetch paused offline, a failure) is not logged out,
+  // and neither is a null still being read (isConfirmedGuest).
+  const guest = isConfirmedGuest(userQuery)
   useEffect(() => {
-    if (user === null && userSettled) router.push('/login')
-  }, [user, userSettled, router])
+    if (guest) router.push('/login')
+  }, [guest, router])
 
   // A successful delete drops its row once saved summaries refetch. Land on the section heading, or
   // on the next section's when the last summary went and the section with it.

@@ -35,6 +35,7 @@ const MENU_LINKS = [
 export default function UserMenu({ user }: { user: MenuUser }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
   const queryClient = useQueryClient()
 
@@ -58,7 +59,10 @@ export default function UserMenu({ user }: { user: MenuUser }) {
     }
   }, [open])
 
-  const handleLogout = async () => {
+  const handleLogout = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    // Log out leaves with the menu. If the logout does not take, focus goes back to the button that opened the menu,
+    // only when Log out held it and it fell to <body> (lessons/frontend-busy-controls-stay-focusable.md (g)).
+    const heldFocus = document.activeElement === event.currentTarget
     setOpen(false)
     try {
       await logoutAndResetAccount(queryClient, logout, (succeeded) => {
@@ -68,12 +72,14 @@ export default function UserMenu({ user }: { user: MenuUser }) {
       })
     } catch {
       // A logout that did not take has told the reader, and this tab stays signed in (logoutAndResetAccount).
+      if (heldFocus && document.activeElement === document.body) buttonRef.current?.focus({ preventScroll: true })
     }
   }
 
   return (
     <div ref={containerRef} className="relative">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="true"

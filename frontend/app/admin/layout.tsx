@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { ChatTextIcon, EnvelopeSimpleIcon } from '@/lib/icons'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { isConfirmedGuest } from '@/features/auth/lib/confirmedGuest'
 import { Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -55,23 +56,25 @@ function AdminSubNav() {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
-  const { data: user, isLoading } = useQuery({
+  const userQuery = useQuery({
     queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
     staleTime: 60_000,
   })
+  const { data: user, isLoading } = userQuery
 
   const isAdmin = Boolean(user?.is_admin)
+  // Only a confirmed guest leaves for /login: never a null still being read, or a read that failed.
+  const guest = isConfirmedGuest(userQuery)
 
   useEffect(() => {
-    if (isLoading) return
-    if (!user) {
+    if (guest) {
       router.replace('/login')
-    } else if (!isAdmin) {
+    } else if (user && !isAdmin) {
       router.replace('/dashboard')
     }
-  }, [isLoading, user, isAdmin, router])
+  }, [guest, user, isAdmin, router])
 
   if (isLoading) {
     return (

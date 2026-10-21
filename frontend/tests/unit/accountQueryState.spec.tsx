@@ -209,7 +209,8 @@ describe('account snapshots follow the resolved identity', () => {
     expect(continued).toHaveBeenCalledWith(succeeded)
     expect(navigate).toHaveBeenCalledTimes(1)
     expect(clearAnalytics).toHaveBeenCalledTimes(succeeded ? 1 : 0)
-    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+    // A logout that did not take, and whose /me read could not tell, puts back the identity it reset.
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(succeeded ? null : makeUser(2))
   })
 
   it('a late unmounted profile mutation cannot publish A while the canonical B refetch waits', async () => {
@@ -350,8 +351,9 @@ describe('account snapshots follow the resolved identity', () => {
     markSessionActive()
     api.defaults.adapter = async () => { throw new Error('offline logout') }
     await expect(logoutAndResetAccount(client, logout)).rejects.toThrow('offline logout')
-    expect(hasActiveSession()).toBe(false)
-    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+    // Its /me read failed too, so nothing says the session ended: the flag and the identity stay as the logout found them.
+    expect(hasActiveSession()).toBe(true)
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(1))
     expect(client.getQueryCache().findAll({ queryKey: queryKeys.subscription.all() })).toHaveLength(0)
     expect(client.getQueryCache().findAll({ queryKey: queryKeys.usage.all() })).toHaveLength(0)
     // The previous account's labels and receipts never show to the next account in this tab.
@@ -444,8 +446,14 @@ describe('account query ownership structural gate', () => {
           if (!key.startsWith('queryKeys.')) errors.push(`${relative}: indirect cache writer ${key}`)
           if (key.includes('currentUser')) {
             identityWrites.push(relative)
-            if (relative !== 'features/auth/lib/accountQueryState.ts' || node.arguments[1]?.kind !== ts.SyntaxKind.NullKeyword) {
-              errors.push(`${relative}: only the reset owner may directly publish null identity`)
+            // The reset owner publishes null, and puts back the snapshot its own reset took (restoreIdentity: a logout
+            // whose request failed, while no transition has followed its reset).
+            let owner: ts.Node | undefined = node.parent
+            while (owner && !ts.isFunctionDeclaration(owner)) owner = owner.parent
+            const restores = owner !== undefined && ts.isFunctionDeclaration(owner) && owner.name?.text === 'restoreIdentity' &&
+              node.arguments[1]?.getText(source) === 'shown.data'
+            if (relative !== 'features/auth/lib/accountQueryState.ts' || (node.arguments[1]?.kind !== ts.SyntaxKind.NullKeyword && !restores)) {
+              errors.push(`${relative}: only the reset owner may directly publish null identity, or restore its own snapshot`)
             }
           }
         }
@@ -465,10 +473,10 @@ describe('account query ownership structural gate', () => {
       visit(source)
     }
     expect(errors).toEqual([])
-    expect(identityWrites).toEqual(['features/auth/lib/accountQueryState.ts'])
-    // current user null, watchlist x2, notification x2, saved summaries x1 (Delete prunes its row),
+    expect(identityWrites).toEqual(['features/auth/lib/accountQueryState.ts', 'features/auth/lib/accountQueryState.ts'])
+    // current user null and its restore, watchlist x2, notification x2, saved summaries x1 (Delete prunes its row),
     // wording review x3 (the label applied as it is pressed, its rollback, the server's state).
-    expect(allWrites).toHaveLength(9)
+    expect(allWrites).toHaveLength(10)
   })
 
   it('all subscription/usage reads carry identity and an enabled condition, never a family prefix', () => {
@@ -503,24 +511,7 @@ describe('account query ownership structural gate', () => {
     for (const file of ['components/Header.tsx', 'features/auth/components/UserMenu.tsx', 'app/dashboard/page.tsx']) {
       const source = readFileSync(path.join(frontend, file), 'utf8')
       expect(source, file).toContain('logoutAndResetAccount(queryClient, logout,')
-      const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-      const callbacks: ts.ArrowFunction[] = []
-      const find = (node: ts.Node) => {
-        if (ts.isCallExpression(node) && node.expression.getText(ast) === 'logoutAndResetAccount') {
-          const callback = node.arguments[2]
-          if (callback && ts.isArrowFunction(callback)) callbacks.push(callback)
-        }
-        ts.forEachChild(node, find)
-      }
-      find(ast)
-      expect(callbacks).toHaveLength(1)
-      expect(callbacks[0].modifiers?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword) ?? false).toBe(false)
-      expect(callbacks[0].body.getText(ast)).toContain('router.push(')
-      expect(callbacks[0].body.getText(ast)).toContain('router.refresh()')
-      if (file === 'app/dashboard/page.tsx') {
-        expect(callbacks[0].body.getText(ast)).toContain('if (!succeeded) return')
-        expect(callbacks[0].body.getText(ast)).toContain('analytics.logout()')
-      }
+      // Each call's continuation, and what runs when the logout rejects: tests/unit/logoutCallSitesGate.spec.ts.
       expect(source, file).not.toMatch(/invalidateQueries\(\{ queryKey: queryKeys\.currentUser\(\)/)
     }
     const login = readFileSync(path.join(frontend, 'app/login/page.tsx'), 'utf8')
