@@ -1177,12 +1177,27 @@ Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P
 Hero example     <HeroExample example>  (features/marketing, critique 1d) — the example IS the product, on ONE
                  surface (rounded-xl panel + hairline + e2, dark: fill + hairline): "Example summary" with the
                  quality Badge, the identity line (company, then ticker · form · filed in the data face, Sep
-                 between), the summary's opening, the figures as ONE hairline strip (<dl> grid-cols-3, border-y
-                 + divide-x; ▲/▼ aria-hidden before the signed delta), one evidence row when the live summary
+                 between; each middot in one item with the fact before it, so a wrapped line never starts or
+                 stands with one; the form one nowrap run; the date an inline-block after "filed", so it moves
+                 down whole and breaks only after its day), the summary's opening, the figures as ONE hairline
+                 strip (border-y on a clipping wrapper round a wrapping flex <dl>: each figure flex-auto, never
+                 an equal third, so where three do not fit they wrap one under another; a figure's own border-l
+                 and border-t are the strip's rules, the <dl>'s negative margins putting a row's leading rule
+                 and padding, and the first row's top rule, outside the clip; a value breaks inside only when
+                 wider than the strip; ▲/▼ aria-hidden before the signed delta), one evidence row when the live summary
                  has a located risk excerpt (pickEvidence: source_verified under the source owner; heading =
                  excerptHeadings, blockquote clipped at 180 on a word with " …", a chip link "Located in the
-                 filing"), the EDGAR receipt, and a text-link CTA. No browser-frame mockup, no card in the
-                 card, no sparkle chip, no tinted CTA. The static fallback has no evidence row.
+                 filing"), the EDGAR receipt (a no-break space holds its middot to the word before it), and a
+                 text-link CTA. No browser-frame mockup, no card in the
+                 card, no sparkle chip, no tinted CTA. The static fallback has no evidence row. Under 200% text
+                 the three figures sat in equal thirds and ran into each other at 390px, the identity line's
+                 "filed Oct 31, 2025", one nowrap run, took the page to 329px at 320px, and the receipt's second
+                 line began with its middot at 1440px (E81). Gate: tests/e2e/reflow-200.spec.ts (at 320, 390 and
+                 1440px under 200% text each label whole, each value and change on one line inside its own figure
+                 and the example, no two figures meeting, every form code on one line, no painted line starting
+                 with a middot; at both text sizes the strip's rules as painted, a row's leading rule and the
+                 first row's top rule clipped, every other rule inside the strip, the first figure's label flush
+                 with the card; the page at 320px).
 
 Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain statements, each scoped to what
                  the implementation establishes ("where a match is found"); "generated" stays distinct from
@@ -1444,15 +1459,15 @@ container (`max-w-7xl`, so each rule runs the width of the hero's trust strip), 
 and `py-12 sm:py-16`, then a 14rem label column beside the content. The label column holds the
 section's number (12px data face, tertiary ink, secondary on navy: the `landing-row` CSS counter that
 `app/page.tsx` resets on `<main>`, aria-hidden as the summary's section index is, so a section that
-omits itself, Reporting this week with no data or the empty reader quote, takes no number and leaves
-no gap), its title as the section's `h2` in the Title role (`text-2xl`, 24/32), and one line (14px
+omits itself, Reporting this week or Notable filings with no data or the empty reader quote, takes no
+number and leaves no gap), its title as the section's `h2` in the Title role (`text-2xl`, 24/32), and one line (14px
 secondary), one short sentence: a second sentence opens the content column, in body secondary under a
 `max-w-2xl` measure, as the evidence and contents rows' do. The columns open at
 `[@media(min-width:64rem)]:` at the reader's text size (1024px, or 2048px under a 200% text setting)
 and the label stacks above the content below it. No row alternates
-and no landing file lays items out four across: the claims and the extras are two across, the Pro
-screens one under another with each pitch above its screen, the contents and Reporting this week
-hairline lists. Pricing on the landing is one native table (`PricingSection.tsx`): an sr-only caption,
+and no landing file lays items out four across: the claims and the extras are two across, the Pro screens one
+under another with each pitch above its screen, the contents a hairline list, and Reporting this week and Notable
+filings hairline lines two across, one anatomy for both (`tests/unit/NotableFilings.spec.tsx` fails when they drift). Pricing on the landing is one native table (`PricingSection.tsx`): an sr-only caption,
 the plans as `th scope="col"`, what each includes as `th scope="row"`, every cell a plan line read
 through `shipped()` from `lib/planLimits.ts`, a dash with a visually hidden "Not included" where a plan
 has none; it fits a 390px phone at the default size and, wider than its box (a phone at 200% text),
@@ -1471,8 +1486,11 @@ the painted numbers on the built page, 01 to the last row with no gap. The plan 
 claim no summary history while nothing enforces one (D-046), and the Change Report the same on both plans,
 its line naming the metric deltas alone, while production serves no wording diff and omits the report's
 risk lines (`tests/unit/changeReportPlanClaims.spec.tsx` fails a Pro chip on the row, or a risk or
-language clause in its line and screen, while `ENABLE_SECTION_CHANGES` is off). E90 remounts
-Notable filings as a row after Reporting this week.
+language clause in its line and screen, while `ENABLE_SECTION_CHANGES` is off). Notable filings is the
+row after Reporting this week (E90): one hairline line per filing the backend serves under D-046's rule, in
+Reporting this week's anatomy (the mark at 32, the ticker in the data face with the form and its filed date where
+Reporting this week has its day, the name beneath through `formatCompanyName`), each opening its company page, under
+a line that says what the feed is and nothing the backend's query does not do; no reason chip.
 
 Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
@@ -1491,14 +1509,17 @@ The site footer opens its columns at md at the reader's text size, `[@media(min-
 cannot break, and at md's 768px under 200% text the footer took every route to 812px (the landing's
 final CTA card took / to 886px the same way, until D-045 made the close one line). The landing's rows
 open their label column at 64rem by the same rule. A form code in the landing's copy is one
-`whitespace-nowrap` run (`FormCodeText` in the plan table's cells, the claims, How it works and the Pro
-extras; a span of its own in the close and the extras' file kinds): before, the plan table painted
-"10-K and 10-" over "Q filings" at 320px, and the claims and How it works broke "10-Q" the same way at
-320px under 200% text. The auth shell's lockup yields to
+`whitespace-nowrap` run (`FormCodeText` in the hero's subhead, the plan table's cells, the claims, How it
+works and the Pro extras; a span of its own in the close, the extras' file kinds and the hero example's
+identity line): before, the plan table painted "10-K and 10-" over "Q filings" at 320px, the claims and
+How it works broke "10-Q" the same way at 320px under 200% text, and the subhead broke "10-Ks" at 390px
+and "10-Qs" at 1440px under 200% text (E81). The auth shell's lockup yields to
 the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
 at 360 and 390px, every line but the last ending at the middot; every form code in the landing's rows and
-its close on one painted line at 320 and 390px under 200% text and at 320px at the default size; a 768px
-and an 834px tablet over its route loop).
+its close on one painted line at 320 and 390px under 200% text and at 320px at the default size, and the
+hero's at 320, 390 and 1440px under 200% text; a 768px and an 834px tablet over its route loop; a 320px phone
+under 200% text over it too, where /security's headings, whose words E131 owns, are the one exemption, the page
+no wider than the widest of them).
 
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:

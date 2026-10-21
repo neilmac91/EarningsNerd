@@ -12,10 +12,10 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import make_url
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
 
-from app.database import Base
+from app.database import Base, SessionLocal
 from app.models import LoginAttempt
 from app.services import login_lockout as lockout
 
@@ -39,11 +39,18 @@ def postgres_engine():
         engine.dispose()
 
 
+def _session(bind) -> Session:
+    """A session with production's settings (``SessionLocal``'s, which do not autoflush) on this case's engine
+    or connection: an autoflushing one flushes a pending write at its next query, where production waits for
+    the commit, and can serialize two requests that production does not (E132)."""
+    return sessionmaker(**{**SessionLocal.kw, "bind": bind})()
+
+
 def _seed(engine, email, scenario):
     if scenario == "absent":
         return
     now = datetime.now(timezone.utc)
-    with Session(engine) as db:
+    with _session(engine) as db:
         db.add(LoginAttempt(
             email_hash=lockout._email_hash(email),
             failed_count=8 if scenario == "current" else 10,
@@ -66,7 +73,7 @@ def test_parallel_failures_count_every_commit_across_initial_and_reset_states(po
             first_writes.wait()
 
     def fail_login():
-        with Session(postgres_engine) as db:
+        with _session(postgres_engine) as db:
             stale = db.query(LoginAttempt).filter_by(email_hash=lockout._email_hash(email)).first()
             local.first = True
             lockout.record_failure(db, email)
@@ -81,7 +88,7 @@ def test_parallel_failures_count_every_commit_across_initial_and_reset_states(po
                 future.result(timeout=6)
     finally:
         event.remove(postgres_engine, "before_cursor_execute", before_write)
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         row = db.query(LoginAttempt).one()
         assert row.failed_count == (11 if scenario == "current" else 3)
         remaining = lockout.seconds_until_unlock(db, email)
@@ -104,12 +111,12 @@ def test_failure_waiting_on_success_clear_records_against_committed_state(postgr
 
     def fail_login():
         try:
-            with Session(postgres_engine) as db:
+            with _session(postgres_engine) as db:
                 lockout.record_failure(db, email)
         finally:
             finished.set()
 
-    with Session(postgres_engine) as success:
+    with _session(postgres_engine) as success:
         lockout.clear_failures(success, email)  # uncommitted caller-owned delete holds the key
         event.listen(postgres_engine, "before_cursor_execute", before_write)
         try:
@@ -126,7 +133,7 @@ def test_failure_waiting_on_success_clear_records_against_committed_state(postgr
                 future.result(timeout=6)
         finally:
             event.remove(postgres_engine, "before_cursor_execute", before_write)
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         row = db.query(LoginAttempt).one()
         # A committed clear starts a new failure history; a rolled-back success cannot erase it.
         assert row.failed_count == (1 if commit_clear else 9)

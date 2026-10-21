@@ -88,7 +88,7 @@ os.environ["TURNSTILE_SECRET_KEY"] = ""
 
 # Outbound-network gate (rule 12): any attempt to reach a non-loopback host fails the test that
 # made it, or the session when no running test owns it. Pinned by tests/unit/test_network_gate.py.
-pytest_plugins = ("tests.support.network_gate",)
+pytest_plugins = ("tests.support.network_gate", "tests.support.postgres_gates")
 
 # NOTE: custom markers are registered in backend/pytest.ini (single source of test config).
 # The characterization anchors' shared helpers live in tests/support/summary_stream_harness.py.
