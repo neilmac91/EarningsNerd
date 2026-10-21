@@ -144,19 +144,22 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    a time or with none named (every session, everywhere, a session token revoked), a logout in each spelling (logout,
  *    logged out, a sign-out; a revocation alone, as a renewal's of the token it replaces, is none), and what ends named
  *    before its verb ("a session open elsewhere then ends", "every device is signed out") or signed out with no pronoun
- *    ("signs out every device"). A denial passes, a negation before the verb with up to four words between them, with
- *    or without commas ("does not by itself end", "does not in normal use end"; not "not only ... but", not past "and"
- *    or a relative word), with a longer aside in commas ("does not, as a rule of thumb, end"), or on the subject ("No
- *    sessions are ended", "None of your sessions", "Not every device"), and so does an end at its token's expiry ("that
- *    session ends when its token expires"). Main's timed and untimed readings keep main's verdicts where main's
- *    logging-out words call them; where only the wider ones do ("a logout", "a sign-out", "every device"), a denial
- *    passes there too ("No session ends within 30 minutes of a logout"). The page is read on every run, whatever
+ *    ("signs out every device"). A denial passes, in main's logging-out words as in the wider ones: a negation before
+ *    the verb with up to four words between them, with or without commas ("does not by itself end", "does not in normal
+ *    use end", "does not yet end"; not "not only ... but", not past "and", a relative word or a verb that turns it back
+ *    into a promise, as "never fails to end" does), with a longer aside in commas ("does not, as a rule of thumb, end"),
+ *    on the subject ("No sessions are ended", "None of your sessions", "Not every device", where the subject stops at
+ *    another clause, so "No password is stored and logging out ends every session" fails), or on the object ("ends no
+ *    other session"), and so does an end at its token's expiry ("that session ends when its token expires"). Main's
+ *    timed and untimed readings read the same denial, so "Logging out does not end every session within 30 minutes"
+ *    passes, and every promise they refuse in main's spec is refused here too. The page is read on every run, whatever
  *    tasks/todo.md records: E127's race is fixed (#1422) and so is a login that straddled a password reset (#1431), but
  *    a session token already issued runs to its expiry, and E96 (how a reused token's sweep reads) and E133 (a logout
  *    that does not wait for an in-flight renewal) are open; the stronger wording returns only in a pull request that
  *    carries the founder's go-ahead (tasks/todo.md F53) and changes this check. Each family is read in one list item or
  *    paragraph (blockTexts). Planted forms score the reach; out of reach, planted as gaps: a promise split across two
- *    items, and one said in other words ("nobody stays signed in").
+ *    items, one said in other words ("nobody stays signed in"), and a negation that only restricts where no reading
+ *    sees it ("does not end this session but every session").
  * 8. /security's numbers repeat the repository's facts (NUMBERS): the session token's 30 minutes
  *    (ACCESS_TOKEN_EXPIRE_MINUTES), the refresh token's 30 days (REFRESH_TOKEN_EXPIRE_DAYS), the lockout's ten failures
  *    (LOCKOUT_THRESHOLD) and its two 15 minutes (LOCKOUT_SECONDS), HSTS's year (main.py's max-age), the breach check's
@@ -246,22 +249,39 @@ const PERCENT = String.raw`\b\d{2,3}(?:\.\d+)?\s?(?:%|percent\b|per cent\b)`
 const CSP = String.raw`(?:\bCSP\b|\bContent[- ]Security[- ]Polic(?:y|ies)\b)`
 const XSS = String.raw`(?:\bXSS\b|\bcross[- ]site[- ]scripting\b)`
 
+/** The words that end a denied subject (DENIED_SUBJECT) where another clause starts: a conjunction that starts one,
+    and a verb that turns the denial back into a promise of what follows ("Nothing stops a logout from ending", "No
+    logout fails to end"). */
+const CLAUSE_STOP = String.raw`(?:but|so|yet|because|although|though|whereas|while|unless|then|if|when|whenever)`
+const UNDENIED = String.raw`(?:stops?|stopped|prevents?|prevented|keeps?|kept|blocks?|blocked|fails?|failed|forgets?|neglects?|hesitates?|refuses?|ceases?|without)`
+/** An aside in commas inside a denied subject ("No session, on any device, ends"), with no verb of its own: a comma
+    alone, or an aside with "is" in it, starts another clause ("No setup is needed, a logout ends every session"). */
+const SUBJECT_ASIDE = String.raw`,(?!\s*(?:and|but|so|or|nor|while|whereas|then|yet)\b)(?:(?!\b(?:is|are|was|were|be|been|has|have|had|do|does|did|will|would|can|could|may|might|must|should)\b)[^,.;:!?]){1,40},`
 /** A clause whose subject is denied, from its start up to the verb: "No sessions are ended", "None of your devices is
     signed out", "Not every session ends", "No server events require your consent", "Nothing the API records waits
-    for your consent" ("no matter" and "no sooner" deny nothing). */
-const DENIED_SUBJECT = String.raw`(?:^|[;:]\s*|,\s+|\b(?:and|but|so|while|whereas)\s+)(?:no(?!\s+(?:matter|sooner)\b)|none|nothing|neither|nobody|not\s+(?:every|all|one|any|each|a\s+single|even\s+one))\b(?:(?!,\s*(?:and|but|so|or|while|whereas|then)\b)[^.;:!?])*`
-/** How far a negation reaches to its verb: up to four words between them, an adverbial phrase ("does not by itself
-    end", "does not in normal use end", "does not on its own end", "does not of its own accord end"), with or without
-    commas. Four covers the phrases a page uses for "in itself"; a fifth word is where a negated verb's own object or a
-    second predicate begins. None of the words may be a conjunction or a relative or subordinating word, which would
-    start another predicate or clause ("does not clear cookies and ends every session"), and the first may not be
+    for your consent" ("no matter" and "no sooner" deny nothing). The subject runs through its own words, "or" and "nor"
+    between them ("No session on your phone or laptop"), "and" before another denial ("No session and no device"), a
+    relative clause ("None of the sessions that you open elsewhere") and an aside (SUBJECT_ASIDE), and stops where
+    another clause starts: at a comma, at "and" before anything else ("No password is stored and logging out ends every
+    session"), and at CLAUSE_STOP and UNDENIED. */
+const DENIED_SUBJECT = String.raw`(?:^|[;:]\s*|,\s+|\b(?:and|but|so|while|whereas)\s+)(?:no(?!\s+(?:matter|sooner)\b)|none|nothing|neither|nobody|not\s+(?:every|all|one|any|each|a\s+single|even\s+one))\b` +
+  String.raw`(?:(?!\b(?:${CLAUSE_STOP}|${UNDENIED})\b)(?!\band\s+(?!(?:no|none|nothing|neither|nor|not)\b))[^,.;:!?]|${SUBJECT_ASIDE})*`
+/** A word a negation reaches across to its verb (NEGATION_REACH): not a conjunction or a relative or subordinating
+    word, which would start another predicate or clause ("does not clear cookies and ends every session"), and not a
+    verb that turns the negation back into a promise ("never fails to end", "cannot help ending", "never stops short of
+    ending", "does not happen without ending"). */
+const REACH_WORD = String.raw`(?!(?:and|but|or|nor|so|then|yet|which|that|who|whom|whose|where|when|while|whereas|because|though|although|if|unless|fail|fails|failed|forget|forgets|neglect|neglects|hesitate|hesitates|refuse|refuses|cease|ceases|help|stop|stops|stopped|without)\b)[\w'’-]+\s+`
+/** How far a negation reaches to its verb: up to four words between them (REACH_WORD), an adverbial phrase ("does not
+    by itself end", "does not in normal use end", "does not on its own end", "does not of its own accord end"), with or
+    without commas, "yet" or "then" first among them ("does not yet end"). Four covers the phrases a page uses for "in
+    itself"; a fifth word is where a negated verb's own object or a second predicate begins. The first may not be
     "only", "just", "merely" or "simply", which deny a restriction, not the act ("does not only end this session but
     every session on the account"). */
-const NEGATION_REACH = String.raw`(?!(?:only|just|merely|simply)\b)(?:(?!(?:and|but|or|nor|so|then|yet|which|that|who|whom|whose|where|when|while|whereas|because|though|although|if|unless)\b)[\w'’-]+\s+){0,4}`
+const NEGATION_REACH = String.raw`(?!(?:only|just|merely|simply)\b)(?:(?:yet|then)\s+(?:${REACH_WORD}){0,3}|(?:${REACH_WORD}){0,4})`
 /** Not after a negation: "does not end your other sessions", "never signs you out", "does not by itself end a
     session" (NEGATION_REACH), "does not, by itself, end a session" and "do not need your consent" deny what the verb
-    says, and so does a clause whose subject is denied (DENIED_SUBJECT). The end forms and the consent forms whose verb
-    says the promise read it. */
+    says, and so does a clause whose subject is denied (DENIED_SUBJECT). The end forms, main's timed and untimed
+    readings among them, and the consent forms whose verb says the promise read it. */
 const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+${NEGATION_REACH}|n['’]t\s+${NEGATION_REACH}|(?:\b(?:not|never|cannot)|n['’]t)\s*,[^,.;:!?]{1,40},\s*|${DENIED_SUBJECT})`
 /** The analytics by any name ANONYMOUS_ANALYTICS reads them by, and events only as the account, the server or the API
     names them ("account events", "the events the API records"; "usage data" and "usage events" are usage), so "your
@@ -406,8 +426,12 @@ const SESSION_END_UNTIMED = new RegExp(
     a browser, with a word that says which ("every session", "your other sessions", "all of your devices"), or
     everywhere, elsewhere or the others. */
 const ENDED = String.raw`(?:\b(?:every|all|each|any|your|the|other|open)\b(?:\s+(?:of|your|the|other|open|active|remaining))*\s+(?:sessions?(?![- ]tokens?)|devices?|tabs?|browsers?)\b|\b(?:everywhere|elsewhere|the others)\b)`
-/** A verb that ends one ("the end of" is a noun). */
-const ENDS = String.raw`${NOT}\b(?:end(?:s|ed|ing)?(?!\s+of\b)|clos(?:e|es|ed|ing)|stop(?:s|ped|ping)?|terminat(?:e|es|ed|ing)|kill(?:s|ed|ing)?|invalidat(?:e|es|ed|ing)|expir(?:e|es|ed|ing)|times? out|timed out|cuts? off)\b`
+/** A denied object after the verb ("ends no other session", "revokes none of your session tokens"): "no" or "none of"
+    before what ends, with only the words that say which between them, so "ends in no time every session" denies
+    nothing, unless the clause goes on to the promise ("ends no session but every other one"). */
+const DENIED_OBJECT = String.raw`\s+(?:(?:of|on|from|across|in)\s+)?(?:no|none\s+of)\s+(?:(?:other|open|active|remaining|single|more|your|the|their|its|these|those|our|my|session)\s+){0,3}(?:sessions?|devices?|tabs?|browsers?|tokens?)\b(?![^.;:!?]*\b(?:but|except|only|yet)\b)`
+/** A verb that ends one ("the end of" is a noun), unless what it ends is denied (DENIED_OBJECT). */
+const ENDS = String.raw`${NOT}\b(?:end(?:s|ed|ing)?(?!\s+of\b)|clos(?:e|es|ed|ing)|stop(?:s|ped|ping)?|terminat(?:e|es|ed|ing)|kill(?:s|ed|ing)?|invalidat(?:e|es|ed|ing)|expir(?:e|es|ed|ing)|times? out|timed out|cuts? off)\b(?!${DENIED_OBJECT})`
 /** A time an end comes within: a span, or at once. */
 const WITHIN = String.raw`(?:\b(?:within|after|in|under|inside)\s+(?:(?:\d+|a|an|one|two|three|five|ten|fifteen|twenty|thirty|forty|sixty|a few|a couple of|half an?)\s+)?(?:seconds?|secs?|minutes?|mins?|hours?|hrs?|days?)\b|\b(?:immediately|at once|instantly|right away|straight away|straightaway|without delay|on the spot)\b)`
 /** A logging-out action, as a block names it: a logout and a sign-out in their spellings (log out, logged out,
@@ -426,12 +450,12 @@ const AT_EXPIRY = String.raw`(?!\s+(?:only\s+)?(?:when|once|as soon as|after)\s+
 const SESSION_END_MORE = new RegExp(
   [
     String.raw`${ENDS}(?:[^\w.;!?]+[\w'’-]+){0,3}?[^\w.;!?]+${ENDED}`,
-    String.raw`${NOT}\brevok(?:e|es|ed|ing)\b(?:[^\w.;!?]+[\w'’-]+){0,3}?[^\w.;!?]+\b(?:every|all|each|any|your|the|other|open)\b(?:\s+(?:of|your|the|other|open|active))*\s+sessions?\b(?![- ]tokens?)`,
-    String.raw`${NOT}\b(?:signs?|logs?|signed|logged)\s+(?:you|everyone|everybody)\s+out\b`,
+    String.raw`${NOT}\brevok(?:e|es|ed|ing)\b(?!${DENIED_OBJECT})(?:[^\w.;!?]+[\w'’-]+){0,3}?[^\w.;!?]+\b(?:every|all|each|any|your|the|other|open)\b(?:\s+(?:of|your|the|other|open|active))*\s+sessions?\b(?![- ]tokens?)`,
+    String.raw`${NOT}\b(?:signs?|logs?|signed|logged)\s+(?:you|everyone|everybody)\s+out\b(?!${DENIED_OBJECT})`,
     String.raw`${NOT}\b(?:signs|logs|signed|logged)\s+out\s+(?:of\s+|from\s+|on\s+|across\s+)?${ENDED}`,
     String.raw`\b(?:you|everyone|everybody)(?:['’]re|\s+are|\s+will be|\s+get|\s+are then)\s+(?:signed|logged)\s+out\b`,
-    String.raw`\b(?:sessions?(?![- ]tokens?)|devices?|tabs?|browsers?|the others)\b[^.;!?]*?${NOT}\b(?:end(?:s|ed)?(?!\s+of\b)|clos(?:e|es|ed)|stop(?:s|ped)?|terminat(?:e|es|ed)|times? out|timed out|(?:is|are|get|gets|will be|would be|be)\s+(?:ended|closed|terminated|revoked|invalidated|killed|cut off|signed out|logged out))\b${AT_EXPIRY}`,
-    String.raw`${NOT}(?:\b(?:ends?|ended|expires?|stops?|closes?|(?:signs?|logs?|signed|logged) (?:you )?out|(?:is|are) (?:revoked|ended))\b|\b(?:ending|expired|stopped|closed|terminat(?:e|es|ed|ing)|kill(?:s|ed)?|invalidat(?:e|es|ed)|times? out|timed out|cuts? off|(?:signs?|logs?|signed|logged)\s+(?:you\s+)?out)\b).*${WITHIN}`,
+    String.raw`\b(?:sessions?(?![- ]tokens?)|devices?|tabs?|browsers?|the others)\b[^.;!?]*?${NOT}\b(?:end(?:s|ed)?(?!\s+of\b)|clos(?:e|es|ed)|stop(?:s|ped)?|terminat(?:e|es|ed)|times? out|timed out|(?:is|are|get|gets|will be|would be|be)\s+(?:ended|closed|terminated|revoked|invalidated|killed|cut off|signed out|logged out))\b(?!${DENIED_OBJECT})${AT_EXPIRY}`,
+    String.raw`${NOT}(?:\b(?:ends?|ended|expires?|stops?|closes?|(?:signs?|logs?|signed|logged) (?:you )?out|(?:is|are) (?:revoked|ended))\b|\b(?:ending|expired|stopped|closed|terminat(?:e|es|ed|ing)|kill(?:s|ed)?|invalidat(?:e|es|ed)|times? out|timed out|cuts? off|(?:signs?|logs?|signed|logged)\s+(?:you\s+)?out)\b)(?!${DENIED_OBJECT}).*${WITHIN}`,
   ].join('|'),
   'i',
 )
@@ -462,13 +486,13 @@ const OTHER_CREDENTIAL = /\b(?:codes?|links?|passwords?|passcodes?|passphrases?|
 /** A one-use form about the refresh or session token, in one sentence of the block. */
 const oneUseOfTheToken = (block: string) =>
   sentencesOf(block).some((sentence) => ONE_USE.test(sentence) && (TOKEN_CONTEXT.test(sentence) || (TOKEN_CONTEXT.test(block) && !OTHER_CREDENTIAL.test(sentence))))
-/** Main's logging-out words, which call its timed and untimed readings with main's verdicts as they stand. */
-const MAIN_LOGGING_OUT = /\b(?:log(?:ging|s)? out|sign(?:ing|s)? out|all (?:of your )?devices|everywhere|password)\b/i
-/** Main's timed and untimed readings where only the wider words call them (LOGGING_OUT: "a logout", "a sign-out",
-    "every device"), with a denial read as SESSION_END_MORE reads one: "No session ends within 30 minutes of a logout."
-    denies the end. */
-const SESSION_END_TIMED_DENIABLE = new RegExp(NOT + SESSION_END_TIMED.source, 'i')
-const SESSION_END_UNTIMED_DENIABLE = new RegExp(NOT + SESSION_END_UNTIMED.source, 'i')
+/** Main's timed and untimed readings on every logging-out word (LOGGING_OUT, main's own words among them), with a
+    denial read as SESSION_END_MORE reads one, before the verb or on the subject (NOT) or on its object (DENIED_OBJECT):
+    "Logging out does not end every session within 30 minutes", "No session ends within 30 minutes of logging out" and
+    "Logging out ends no other session" deny the end. A promise stays one: nothing else is taken from main's readings. */
+const deniable = (re: RegExp) => new RegExp(String.raw`${NOT}(?![\w'’-]+${DENIED_OBJECT})` + re.source, 'i')
+const SESSION_END_TIMED_DENIABLE = deniable(SESSION_END_TIMED)
+const SESSION_END_UNTIMED_DENIABLE = deniable(SESSION_END_UNTIMED)
 
 const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
   [
@@ -482,9 +506,8 @@ const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
   [
     'a session that ends after logging out, within a time or with none named',
     (block) =>
-      (MAIN_LOGGING_OUT.test(block) && (inASentence(SESSION_END_TIMED)(block) || inASentence(SESSION_END_UNTIMED)(block))) ||
-      (LOGGING_OUT.test(block) &&
-        (inASentence(SESSION_END_TIMED_DENIABLE)(block) || inASentence(SESSION_END_UNTIMED_DENIABLE)(block) || inASentence(SESSION_END_MORE)(block))),
+      LOGGING_OUT.test(block) &&
+      (inASentence(SESSION_END_TIMED_DENIABLE)(block) || inASentence(SESSION_END_UNTIMED_DENIABLE)(block) || inASentence(SESSION_END_MORE)(block)),
   ],
 ]
 
@@ -1338,6 +1361,18 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out does not merely end this session but signs you out of every device.</li>', true],
       ['<li>Logging out does not clear cookies and ends every session.</li>', true],
       ['<li>A logout does not as a rule of thumb end your other sessions.</li>', true],
+      // A denial that does not reach the end, now that main's own words read denials too (#1456's sixth round): a
+      // denied subject that runs into another clause (after "and", a comma, "because", an aside with a verb of its
+      // own), a double negation on the subject or in the reach, a denied object the clause goes on from, and "no" that
+      // denies no object ("in no time").
+      ['<li>No password is stored and logging out ends every session.</li>', true],
+      ['<li>No setup is needed, logging out ends every session.</li>', true],
+      ['<li>Nobody stays signed in because logging out ends every session.</li>', true],
+      ['<li>Nothing is stored, nothing is shared, logging out ends every session.</li>', true],
+      ['<li>Nothing stops logging out from ending every session within 30 minutes.</li>', true],
+      ['<li>Logging out never fails to end every session within 30 minutes.</li>', true],
+      ['<li>Logging out ends no session but every other one within 30 minutes.</li>', true],
+      ['<li>Logging out ends in no time every session on the account.</li>', true],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
@@ -1358,7 +1393,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>No device is signed out when you change your password.</li>', false],
       ['<li>None of your sessions end when you log out.</li>', false],
       ['<li>Not every device is signed out when you change your password.</li>', false],
-      // A denial that only the wider logging-out words call main's timed reading on.
+      // A denied subject before main's timed reading, called by the wider logging-out words (main's own, below).
       ['<li>No session ends within 30 minutes of a logout.</li>', false],
       // One-use forms about other credentials, alone and beside a refresh-token sentence (#1456's third round,
       // Codex's thread 4335683402).
@@ -1378,9 +1413,27 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>A logout does not of its own accord end your other sessions.</li>', false],
       ['<li>Logging out never by itself ends your other sessions.</li>', false],
       ['<li>A logout does not, as a rule of thumb, end your other sessions.</li>', false],
+      // A denial in main's own logging-out words, read as in the wider ones (#1456's sixth round, Codex's thread
+      // 4339665129): a negation before the verb, with a phrase or an aside, or "yet" after it, on the subject (its "or",
+      // its "and no", its aside) and on the object.
+      ['<li>Logging out does not end every session within 30 minutes.</li>', false],
+      ['<li>Logging out does not of its own accord end your other sessions.</li>', false],
+      ['<li>Logging out does not, by itself, end your other sessions.</li>', false],
+      ['<li>Logging out does not yet end your other sessions.</li>', false],
+      ['<li>Nothing ends your other sessions when you log out.</li>', false],
+      ['<li>No session ends within 30 minutes of logging out.</li>', false],
+      ['<li>No session on your phone or laptop ends when you log out.</li>', false],
+      ['<li>No session and no device is signed out when you log out.</li>', false],
+      ['<li>No session, on any device, ends when you log out.</li>', false],
+      ['<li>Logging out ends no other session.</li>', false],
+      ['<li>Logging out signs you out of no other device.</li>', false],
       // Out of reach: a promise split across two items, and one said in other words.
       ['<ul><li>Logging out of all devices revokes your refresh tokens.</li><li>Each session then ends within 30 minutes.</li></ul>', 'gap'],
       ['<li>After a password reset, nobody stays signed in.</li>', 'gap'],
+      // And a negation that only restricts where no reading sees the restriction: main's untimed reading reads a
+      // negation up to three words before "revokes" as a denial, and "not ... but" with no "only" reads as "not".
+      ['<li>Logging out does not clear cookies and revokes your session tokens.</li>', 'gap'],
+      ['<li>Logging out does not end this session but every session.</li>', 'gap'],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)
