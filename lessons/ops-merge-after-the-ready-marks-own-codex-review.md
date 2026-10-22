@@ -14,8 +14,8 @@ same head.
 **Rule**:
 - Before a merge, read the Codex summary comment's `codex-review-state` for the head: `status` completed and
   `has_unresolved_findings` false, on the review the ready mark started when the pull request was a draft, and every Codex
-  thread on the head answered. A green `review-gate` is not that read. The marker is an HTML comment at the top of the
-  Codex summary, its braces escaped as `&#123;` and `&#125;` in the raw text; decoded, a clean read of #1476's head was
+  thread on the head answered. The F58 `review-gate` checks that machine state and cycle evidence; answering every thread remains
+  part of the reviewer's disposition. The marker is an HTML comment at the top of the Codex summary, its braces escaped as `&#123;` and `&#125;` in the raw text; decoded, a clean read of #1476's head was
   `codex-review-state:v1 {"code_review":{"commit_sha":"b001bcab…","has_any_findings":true,"has_unresolved_findings":false,"status":"completed"},…}`
   (findings it raised earlier, all resolved).
 - A pull request opened ready has no ready-mark review; the latest review of its head is the one to read.
@@ -28,12 +28,32 @@ same head.
 
 **Evidence**: #1469's Codex summary (comment 6327567665, the trigger "Draft marked ready"), the finding 4342609972 and
 the reply 4342632073; `review-gate` run 39686282032 (passed 22:24:51Z); the merge `1c6dd6bf` at 22:26:52Z;
-`backend/scripts/review_gate.py:178-180` (a Completed row passes, findings or not). #1476's ready-mark
+`backend/scripts/review_gate.py:178-180` at the incident revision (a Completed row passed, findings or not). #1476's ready-mark
 review of `900065d3` completed at 03:58:34Z on 2026-10-22 with a finding unresolved (4344402620, the case the
 rule's third line answers), and `review-gate` passed on it at 03:58:51Z (run 39719618842).
 
-**Gate**: none yet; review-checked until founder row F58 picks the gate's form. A `review-gate` that waits for the
-ready mark's review and fails on `has_unresolved_findings` would change the merge gate every session uses, so it went
-to the founder on 2026-10-21 (`tasks/todo.md` F58). The rule only adds a wait before a merge, so it lets through
-nothing the gate refuses; `ops-reserve-eval-baseline-before-each-push.md` stays in force the same way, review-checked
-until founder row F55 picks its gate's form.
+**Gate**: The founder approved F58 on 2026-10-22. `backend/scripts/review_gate.py` reads the
+summary's full-head machine state, the live PR head/draft flag, GitHub's ready-transition timeline,
+and the trusted bot's comment edit history. A completion is paired with its nearest preceding
+running state. Its start must reach the next whole second after GitHub's event/request timestamp,
+which has only second precision; a start within that same second cannot prove ordering. An earlier clean review, a manual
+review while the ready review is still pending, missing history, or contradictory API snapshots
+cannot satisfy the gate. Unresolved findings fail it.
+
+For a PR marked ready, the ready-triggered cycle must have completed. A later manual review of a
+different head may supersede that cycle's findings once its own current-head state is clean; this
+preserves the correction path above without requiring another draft/ready transition. A manual
+review of the same head requires the ready-triggered cycle itself to be clean. A PR opened ready
+uses its creation time instead. Missing or changed service formats fail closed; the existing
+service-unavailability override remains the only documented exception. The bot exposes no unique
+review-run ID, so overlapping distinct starts that cannot be paired unambiguously also wait.
+Marking ready already requests a review: let that automatic review finish before making another
+manual request. If two requests overlap, wait for them to settle before requesting a fresh review;
+if the ready cycle's required history is missing, create a fresh ready transition after pending
+reviews settle and let its automatic review finish. This recovery does not change the normal
+new-head correction path, which keeps a PR ready when its completed ready cycle is provable.
+
+`backend/tests/unit/test_review_gate.py` covers these boundaries alongside the existing closing
+reference, draft, identity and short-SHA ambiguity guards. The workflow continues to load the gate
+from the trusted base branch, so this PR's own required check uses the previous implementation
+until the change lands. The separate F55 paid-evaluation reservation remains review-checked.
