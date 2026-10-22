@@ -29,16 +29,18 @@ commenting `@codex review`, returns for the pull request's current head before y
 record why you did not as a line `Review override: <reason>` in the pull request body. After pushing
 commits that address findings, comment `@codex review` immediately: a push alone re-triggers
 nothing here, and that comment also re-runs the gate. The `review-gate` check (`.github/workflows/review-gate.yml`,
-`backend/scripts/review_gate.py`) enforces this once a ruleset on `main` requires it, for a head whose first
-review is the one you triggered: it passes on any completed review of the head, findings or not, and cannot tell
-the ready mark's review from an earlier one of the same head, so that case is read by hand
-(`ops-merge-after-the-ready-marks-own-codex-review.md`, #1469); a
+`backend/scripts/review_gate.py`) enforces this once a ruleset on `main` requires it, by checking
+the current full-head machine state and trusted review-cycle history: the latest review must
+have completed with no unresolved findings, and the ready transition must have its own completed review.
+A later review of a different head can supersede findings from that completed ready review; a manual
+review of the same head cannot substitute for an unfinished or unclean ready review
+(`ops-merge-after-the-ready-marks-own-codex-review.md`, F58). A
 required status check needs no approver, so it cannot lock a solo-administrator repository, whereas a
 required pull-request review would (authors cannot approve their own pull requests and there is one
 collaborator). The gate's job never skips on a pull-request event, and nothing in it may skip or
 soften the gate step. On every pull-request event while the pull request is a draft it fails, reading
-the flag as it is now rather than from the event, so the job passes only on a completed review of the
-head or a recorded override.
+the flag as it is now rather than from the event, so the job passes only on a completed clean review
+with the required cycle evidence or a recorded override.
 
 **Evidence**: #856 timeline and #857; the 2026-09-16 merge audit in `tasks/archive/todo-ledger-through-2026-10-07.md`;
 `backend/tests/unit/test_review_gate.py` (a completed review of another head is `wait`, never
