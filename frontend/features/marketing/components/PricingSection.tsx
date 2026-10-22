@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { PRO_PRICING } from '@/app/pricing/prices'
 import { buttonVariants } from '@/components/ui/Button'
 import { cx } from '@/components/ui/cx'
+import { MissingValue } from '@/components/ui/MissingValue'
 import FormCodeText from '@/features/marketing/components/FormCodeText'
 import LandingRow from '@/features/marketing/components/LandingRow'
 import { ACCESS_COPY, type AccessMode } from '@/features/marketing/lib/access'
@@ -95,15 +96,9 @@ const CELL = `${RULE} px-4 py-3 align-top text-sm ${MUTED_CLASS}`
 const CTA_CLASS = 'min-h-11 max-w-full'
 
 /** A cell's reading, each form code in it one unbroken run so a phone's narrow cell never breaks "10-Q" at its hyphen,
- *  or a dash a screen reader hears as "Not included". */
+ *  or MissingValue, which a screen reader hears as "Not included". */
 function PlanCell({ text }: { text: string | null }) {
-  if (text !== null) return <FormCodeText text={text} />
-  return (
-    <>
-      <span aria-hidden="true">—</span>
-      <span className="sr-only">Not included</span>
-    </>
-  )
+  return text !== null ? <FormCodeText text={text} /> : <MissingValue label="Not included" />
 }
 
 export default function PricingSection({

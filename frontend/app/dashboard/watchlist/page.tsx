@@ -15,7 +15,7 @@ import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSear
 import SummaryStatusBadge, { summaryNextStep } from '@/features/watchlist/components/SummaryStatusBadge'
 import CompanyLogo from '@/components/CompanyLogo'
 import { ENABLE_ANALYSIS } from '@/lib/featureFlags'
-import { Badge, buttonVariants, Card, cx, GuidanceCard, Skeleton } from '@/components/ui'
+import { Badge, buttonVariants, Card, cx, GuidanceCard, MissingValue, Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { useContentIn } from '@/hooks/useContentIn'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
@@ -219,11 +219,13 @@ export default function WatchlistDashboardPage() {
                           </div>
                           <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                             <CalendarDotsIcon className="h-4 w-4" />
-                            <span>{formatLocalDate(latest.filing_date, 'MMM dd, yyyy', '—')}</span>
+                            {/* formatLocalDate gives '' for a date that is missing or does not read, and MissingValue stands in
+                                its place. The filed date's line has no label of its own, so its words name the date. */}
+                            <span>{formatLocalDate(latest.filing_date, 'MMM dd, yyyy') || <MissingValue label="filing date unavailable" />}</span>
                           </div>
                           <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                             <ClockIcon className="h-4 w-4" />
-                            <span>Period end: {formatLocalDate(latest.period_end_date, 'MMM dd, yyyy', '—')}</span>
+                            <span>Period end: {formatLocalDate(latest.period_end_date, 'MMM dd, yyyy') || <MissingValue />}</span>
                           </div>
                         </>
                       ) : (
