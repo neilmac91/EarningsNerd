@@ -452,7 +452,7 @@ Missing value    <MissingValue label="…" className="…">  (components/ui, E88
                  em-dash) in the caller's ink, aria-hidden, beside sr-only words a screen reader reads in
                  its place: "unavailable" by default, the analysis evidence's word, or the site's own where
                  that would claim more than its data says ("no cohort", "no page", "no role listed",
-                 "name unavailable", "no percentage", "Not included"). `relative`, so the words stay
+                 "name unavailable", "no percentage", "no takeaway", "Not included"). `relative`, so the words stay
                  inside a truncating cell or a table's scroll box. A formatter returns null or '' for a
                  missing value and its caller renders the element (`fmt(v) ?? <MissingValue />`), so the
                  formatter's string fallback stays for a CSV, a title or an aria label. Never the token by
@@ -1090,7 +1090,8 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  aria-hidden, the string verbatim, MissingValue when the server sent none; tone from
                  `change_tone` through lib/financialTone.directionText + font-semibold for a move,
                  pinned token-for-token to DataTable's td); the per-ADS note as its own line under the figures;
-                 the takeaway and its evidence chip. Figures `font-data text-sm tabular-nums`, prose text-sm,
+                 the takeaway and its evidence chip, MissingValue read as "no takeaway" where the summary wrote
+                 none (E145). Figures `font-data text-sm tabular-nums`, prose text-sm,
                  chips as they are — never smaller than the md table. Wrap contract: `[overflow-wrap:anywhere]`
                  on the card (inherited; it also lowers a flex item's min-content, which `break-words` cannot)
                  and `min-w-0` groups; never nowrap / truncate / line-clamp / a clipping height on card text —

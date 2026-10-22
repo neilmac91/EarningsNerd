@@ -12,9 +12,10 @@ describe('delta single-source (T1.5)', () => {
     // If any client-side fallback computation existed, it would derive a % from 100 vs 80 here.
     const { container } = render(
       <FinancialMetricsTable
-        metrics={[{ metric: 'Revenue', current_period: '$100', prior_period: '$80' }]}
+        metrics={[{ metric: 'Revenue', current_period: '$100', prior_period: '$80', commentary: 'Grew.' }]}
       />,
     )
+    // The row has a takeaway, so the one token on the page is the Change cell's (a missing takeaway renders one too, E145).
     expect(container).toHaveTextContent('—')
     expect(container).not.toHaveTextContent('%')
   })

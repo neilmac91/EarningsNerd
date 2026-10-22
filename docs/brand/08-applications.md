@@ -397,7 +397,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
   "$7.5" (a Phase 9 fix; compact figures keep their rounding). A change the server did not send is the
-  missing-value element, read as "unavailable". The standalone card (the landing's
+  missing-value element, read as "unavailable", and so is a takeaway the summary did not write, read as
+  "no takeaway" (E145). The standalone card (the landing's
   evidence table) is titled "Financial highlights", in sentence case; the summary's own section
   heading is the backend's schema title.
 - **Calendar** (`frontend/features/calendar/components/EarningsCalendarPage.tsx`, `MonthView.tsx`,
