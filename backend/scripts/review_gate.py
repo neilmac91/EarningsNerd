@@ -64,7 +64,7 @@ import re
 import sys
 import time
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
 SUMMARY_MARKER = "codex-pull-request-review-summary"
@@ -291,13 +291,20 @@ def _latest_request(comments: List[Dict[str, Any]], anchor: datetime) -> Optiona
     return created
 
 
+def _after_github_second(start: datetime, event: datetime) -> bool:
+    """REST creation/event timestamps expose only the second containing the event. A bot start
+    anywhere in that second, even with fractional precision, may precede it. Only the next whole
+    second or later proves the start followed this request, ready mark or PR creation."""
+    return start >= event.replace(microsecond=0) + timedelta(seconds=1)
+
+
 def _prove_cycles(current: Review, states: List[Optional[Review]], ready: Optional[datetime],
                   created: datetime, request: Optional[datetime]) -> None:
     start = _cycle_start(states, 0)
     anchor = ready or created
-    if start.at < anchor:
-        raise EvidenceError("review started before the current ready/creation boundary")
-    if request is not None and (current.trigger != "Manual request" or start.at < request):
+    if not _after_github_second(start.at, anchor):
+        raise EvidenceError("review start does not provably follow the current ready/creation second")
+    if request is not None and (current.trigger != "Manual request" or not _after_github_second(start.at, request)):
         raise EvidenceError("latest manual @codex review request has not completed its own cycle")
     if current.trigger == "Manual request" and request is None:
         raise EvidenceError("manual review has no matching human @codex review request")
@@ -312,7 +319,7 @@ def _prove_cycles(current: Review, states: List[Optional[Review]], ready: Option
     for index, state in enumerate(states):
         if state is not None and state.trigger == "Draft marked ready" and state.status == "completed" and state.at >= ready:
             ready_start = _cycle_start(states, index)
-            if ready_start.at < ready or state.at > start.at:
+            if not _after_github_second(ready_start.at, ready) or state.at > start.at:
                 raise EvidenceError("ready cycle did not complete before the later manual review started")
             if state.head == current.head and state.unresolved is not False:
                 raise EvidenceError("same-head manual review cannot replace unresolved ready-cycle findings")

@@ -535,7 +535,9 @@ trusted; and a reviewed short SHA counts only when the repository resolves it un
 no other commit of the pull request shares it, so a head minted to share a reviewed prefix stays
 unreviewed while the reviewed object exists. F58 additionally reads GitHub's ready-transition
 timeline and the bot's authenticated comment edit history, pairing a completion with its preceding
-running state. The PR's live head and latest manual request must agree with that proof. Missing,
+running state. GitHub's event/request timestamps have second precision, so a start in the same second
+cannot establish ordering: the gate requires the next whole-second boundary. The PR's live head
+and latest manual request must agree with that proof. Missing,
 malformed or contradictory evidence waits instead of falling back to an older clean result.
 GitHub retains at most 100 comment revisions and the bot exposes no unique review-run ID, so missing
 required history or ambiguous overlapping starts also wait. Marking ready already requests a review;

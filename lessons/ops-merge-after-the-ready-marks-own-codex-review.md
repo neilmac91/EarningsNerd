@@ -35,7 +35,8 @@ rule's third line answers), and `review-gate` passed on it at 03:58:51Z (run 397
 **Gate**: The founder approved F58 on 2026-10-22. `backend/scripts/review_gate.py` reads the
 summary's full-head machine state, the live PR head/draft flag, GitHub's ready-transition timeline,
 and the trusted bot's comment edit history. A completion is paired with its nearest preceding
-running state, whose start must follow the relevant request. An earlier clean review, a manual
+running state. Its start must reach the next whole second after GitHub's event/request timestamp,
+which has only second precision; a start within that same second cannot prove ordering. An earlier clean review, a manual
 review while the ready review is still pending, missing history, or contradictory API snapshots
 cannot satisfy the gate. Unresolved findings fail it.
 

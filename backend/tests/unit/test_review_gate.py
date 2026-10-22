@@ -840,3 +840,28 @@ def test_changed_snapshot_polls_again_but_api_errors_still_fail(monkeypatch, cap
     assert review_gate.main(fetch=fetch, sleep=sleeps.append, clock=lambda: 0) == 0
     assert len(attempts) == 2 and len(sleeps) == 1
     assert "concurrent ready event" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("second, expected", [("00Z", "wait"), ("00.999999Z", "wait"), ("01Z", "pass")],
+                         ids=["same-second-exact", "same-second-fractional", "next-second"])
+@pytest.mark.parametrize("boundary", ["manual", "current-ready", "historical-ready", "opened-ready"])
+def test_review_start_must_follow_the_whole_github_event_second(boundary, second, expected):
+    """GitHub's recorded T can mean an event at T+.999999. A start at T or T+.999999 cannot prove
+    it belongs to that event; T+1 can. This includes the ready cycle borrowed by a later new-head
+    manual review, and uses the same conservative precision rule for a PR opened ready."""
+    if boundary == "manual":
+        cycle = _cycle(trigger="Manual request", start="2026-09-15T19:03:" + second,
+                       finish="2026-09-15T19:05:00Z")
+        comments = [_comment(cycle + _cycle()), _request()]
+        verdict, message = _verdict(comments)
+    elif boundary == "current-ready":
+        verdict, message = _verdict([_comment(_cycle(start="2026-09-15T19:00:" + second))])
+    elif boundary == "historical-ready":
+        manual = _cycle(trigger="Manual request", start="2026-09-15T19:03:01Z", finish="2026-09-15T19:05:00Z")
+        ready = _cycle(OTHER, start="2026-09-15T19:00:" + second)
+        verdict, message = _verdict([_comment(manual + ready), _request()])
+    else:
+        opened = _cycle(trigger="PR opened", start="2026-09-15T18:40:" + second,
+                        finish="2026-09-15T18:42:00Z")
+        verdict, message = _verdict([_comment(opened)], pr_timeline=[])
+    assert verdict == expected, message
