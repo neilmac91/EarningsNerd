@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 
+test.use({ deviceScaleFactor: 2 })
+
 // Exercise the real font and the enlarged-text fallback: a nonbreaking decorative span can
 // pass the default phone capture while pushing its words outside a 200% reader's viewport.
 for (const theme of ['light', 'dark'] as const) {
@@ -22,6 +24,7 @@ for (const theme of ['light', 'dark'] as const) {
           await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe('32px')
         }
         await page.evaluate(() => document.fonts.ready)
+        expect(await page.evaluate(() => window.devicePixelRatio)).toBe(2)
 
         const layout = await phrase.evaluate((element) => {
           const text = element.firstChild!
