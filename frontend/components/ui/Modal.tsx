@@ -23,7 +23,10 @@
      - inset: the sections' side padding, the header's top and the footer's
        bottom are px-cap-6 / pt-cap-6 / pb-cap-6, min(1.5rem, 6vw): 24px from
        a 400px viewport up, and at 320px under 200% text 19.2px a side where
-       px-6 took 48px (E120; gate: earningsnerd/surface-padding-cap).
+       px-6 took 48px (E120; gate: earningsnerd/surface-padding-cap). A
+       caller's numbered step on a section (className="px-8") loses to it:
+       the stylesheet emits px-cap-6 after every numbered step, and cx does no
+       tailwind-merge.
      - focus: moves into the panel on open (initialFocusRef ?? first focusable
        ?? the panel), Tab/Shift-Tab cycle inside, Escape closes (when
        dismissible), focus RETURNS to the opener on close; the trap arms once

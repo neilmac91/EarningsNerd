@@ -356,7 +356,9 @@ const BONE_WIDTHS = ['w-3/5', 'w-1/2', 'w-7/12']
 /** The ledger's own shape: raw bones (aria-hidden) inside ONE role="status" wrapper (DS §4). */
 function FilingIndexSkeleton() {
   return (
-    <div role="status" aria-label="Loading filings" className="px-4 pb-4 pt-2 sm:px-6">
+    // The list's sections carry the Card's capped inset (E120); the skeleton, drawn here and not inside the Card's own
+    // markup, carries it by hand so its rows do not move when the list replaces it.
+    <div role="status" aria-label="Loading filings" className="px-4 pb-4 pt-2 sm:px-cap-6">
       <div aria-hidden="true">
         <div className={cx('hidden md:grid', ROW_TRACKS, 'pb-2 pt-4')}>
           <Skeleton className="h-3 w-9" />

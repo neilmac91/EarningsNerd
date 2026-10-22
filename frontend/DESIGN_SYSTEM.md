@@ -261,12 +261,12 @@ A surface's inset stops growing at narrow widths under enlarged text (E120, chie
 padding step N is the capped step `p-cap-N`, `min(N × 0.25rem, N vw)`, on every side (`px-cap-6`, `pt-cap-6`,
 `sm:p-cap-8`; `tailwind.config.js` PADDING_CAP_STEPS: 3, 4, 5, 6, 8 and 10, and `scroll-py-cap-6` for a scroll padding
 that matches a capped inset). From a 25rem viewport up (400px at the default text size, 800px under a 200% text
-setting) it is the step itself, so nothing moves on a desktop or a tablet at either size, nor on a phone at the default
-size from 400px; below that it is N% of the viewport: a `p-6` card keeps 23.4px at 390px and 19.2px at 320px, and at
-320px under 200% text 19.2px where `p-6` took 48px a side. A surface is a Card; a Modal's panel; a frame, an element
+setting) it is the step itself, so nothing moves at the default size from 400px up, nor under a 200% text setting from
+800px up; below that it is N% of the viewport: a `p-6` card keeps 23.4px at 390px and 19.2px at 320px, at 320px under
+200% text 19.2px where `p-6` took 48px a side, and on a 768px tablet under 200% text 46.1px. A surface is a Card; a Modal's panel; a frame, an element
 whose class text draws a full border and a radius (the Card recipe copied by hand, a well, the ticker filings card);
 the Card's and the dialog's sections (CardHeader, CardBody, CardFooter, ModalHeader, ModalBody, ModalFooter, at a call
-site and in their own source); a native `<dialog>` and its sections (DayDetailDialog's header and footer); and what is
+site and in their own source, imported under any name, and a Modal's className, its panel); a native `<dialog>` and its sections (DayDetailDialog's header and footer); and what is
 written directly inside a Card, a Modal or a frame that sets no padding of its own (the hero example's wrapper, the
 filings index's header and rows, the admin lists' rows). Each takes the cap from step 5; a frame inside a dialog's
 body takes it from step 4, since the dialog's own inset already halves the measure there: the cookie dialog's category
@@ -275,11 +275,17 @@ cards (`p-cap-4`) left their text 92, 132 and 162px at 320, 360 and 390px under 
 threshold stays as it is (a Notice's `px-4`, the KPI strip's `p-3 sm:p-4`, the Trace to Source demo's claim box), and
 a page's gutter is no surface. Gate: the ESLint rule `earningsnerd/surface-padding-cap` (`eslint.designRules.mjs`; its
 planted cases in `tests/unit/designRules.spec.ts`), which reads a step by its resolved size (`p-gutter`, `p-[24px]`),
-fails a value it cannot read as a length, reads a class a same-file binding holds where a surface names it, and fails
-a capped key the theme does not define anywhere; out of its reach (review-checked): a class a component receives as a
-prop, an inset in an inline style or a stylesheet, a frame drawn without a border utility (`.glass-card`), and a
-section held in a variable or rendered by another component (the stacked metric cards' list in FinancialMetricsTable
-and TableScroll's hint carry the cap by hand). `tests/e2e/reflow-200.spec.ts` holds what the cap gives back: the
+fails a value it cannot read as a length, reads a class a same-file binding holds with any class attribute that names
+it (`cx(SHELL, 'p-6')`), never reads a form field (input, textarea, select) as a frame, since its padding reserves room
+for a glyph, and fails a capped key the theme does not define anywhere, scroll padding included; out of its reach
+(review-checked, planted as stated gaps): a class a component receives as a prop, an imported constant, an object of
+recipes, a binding a ternary sets, a class through a helper other than cx()/clsx(), an inset in an inline style or a
+stylesheet, a frame drawn without a border utility (`.glass-card`), a section of a surface that sets padding on one
+axis only, and a section held in a variable or rendered by another component (the stacked metric cards' list in
+FinancialMetricsTable, TableScroll's hint and the filings index's skeleton carry the cap by hand). A class on top of a
+section's capped inset (`<ModalBody className="px-8">`) wins or loses by stylesheet order, since cx does no
+tailwind-merge, and Tailwind emits `px-cap-6` after every numbered step: a caller widens or narrows a section with a
+capped step, never a numbered one. `tests/e2e/reflow-200.spec.ts` holds what the cap gives back: the
 billing and ticker filings cards' Notices keep their Retry and every text run inside their border at 320px under 200%
 text, and the cookie dialog's cards break no word at 320, 360 and 390px.
 

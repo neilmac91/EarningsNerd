@@ -56,6 +56,9 @@ export function Card({
   )
 }
 
+/* The sections' side padding is the capped step, px-cap-5 = min(1.25rem, 5vw) (E120; gate:
+   earningsnerd/surface-padding-cap). A caller's numbered step on top (className="px-6") loses to it: the
+   stylesheet emits px-cap-5 after every numbered step, and cx does no tailwind-merge. */
 export function CardHeader({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div

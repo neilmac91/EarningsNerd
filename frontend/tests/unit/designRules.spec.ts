@@ -56,8 +56,9 @@ import {
  *    sections and what is written directly inside a Card, a Modal or a frame that sets no padding of its own carry no
  *    padding of step 5 or more that is not a capped token (p-cap-N, tailwind.config.js), and a frame inside a dialog's
  *    body none from step 4. A step is read by its resolved size (a configured key, an arbitrary length), a value the rule
- *    cannot read fails closed, a class a same-file binding holds is read where a surface names it, and a capped key the
- *    theme does not define fails anywhere.
+ *    cannot read fails closed, a class a same-file binding holds is read with the attribute that names it, a Card or a
+ *    section imported under another name is read as itself, a form field is never a frame, and a capped key the theme
+ *    does not define fails anywhere. The shapes out of its reach are planted as stated gaps.
  *  - elements-built-with-jsx: the app builds its elements in JSX, which the gates that read elements see, so React's
  *    element factories are refused under any name (Codex's two forms on #1370's 44229515 among them), a use of React
  *    the rule cannot follow is refused as unreadable, and the DOM's document.createElement, JSX, a type and the one
@@ -769,7 +770,9 @@ describe('uncappedInset', () => {
   it('reads a step by its resolved size, under any variant, important or not', () => {
     expect(uncappedInset('rounded-xl border p-6', SURFACE_STEP)).toEqual({ token: 'p-6', step: 6, fix: 'p-cap-6' })
     expect(uncappedInset('p-4 sm:p-6', SURFACE_STEP)).toEqual({ token: 'sm:p-6', step: 6, fix: 'sm:p-cap-6' })
-    expect(uncappedInset('!pt-8', SURFACE_STEP)).toEqual({ token: '!pt-8', step: 8, fix: 'pt-cap-8' })
+    // The fix keeps the token's variants and its important mark.
+    expect(uncappedInset('!pt-8', SURFACE_STEP)).toEqual({ token: '!pt-8', step: 8, fix: '!pt-cap-8' })
+    expect(uncappedInset('md:!px-10', SURFACE_STEP)).toEqual({ token: 'md:!px-10', step: 10, fix: 'md:!px-cap-10' })
     // A configured key and an arbitrary length count by their size.
     expect(uncappedInset('p-gutter', SURFACE_STEP)).toEqual({ token: 'p-gutter', step: 6, fix: 'p-cap-6' })
     expect(uncappedInset('px-[20px]', SURFACE_STEP)).toEqual({ token: 'px-[20px]', step: 5, fix: 'px-cap-5' })
@@ -799,8 +802,14 @@ describe('uncappedInset', () => {
     expect(drawsFrame('rounded-xl border-t')).toBe(false)
     expect(drawsFrame('border border-border-light')).toBe(false)
     expect(drawsFrame('rounded-none border')).toBe(false)
+    // A zero-width border draws none.
+    expect(drawsFrame('rounded-xl border-0')).toBe(false)
     expect(undefinedCap('p-cap-7')).toBe('p-cap-7')
     expect(undefinedCap('sm:px-cap-12')).toBe('sm:px-cap-12')
+    // Scroll padding takes the same steps, and a variant that styles another element still ships the class unstyled.
+    expect(undefinedCap('scroll-py-cap-7')).toBe('scroll-py-cap-7')
+    expect(undefinedCap('[&>div]:p-cap-7')).toBe('[&>div]:p-cap-7')
+    expect(undefinedCap('scroll-py-cap-6')).toBeNull()
     expect(undefinedCap('p-cap-6 px-cap-3')).toBeNull()
   })
 })
@@ -812,19 +821,29 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     '<Card className="p-4" />',
     '<Card className="p-3 sm:p-4" />',
     '<div className="rounded-xl border bg-panel-light p-cap-5 shadow-e2" />',
-    // Not a frame: no border, a side border alone, or no radius; a page gutter is no surface.
-    '<div className="rounded-xl bg-panel-light p-6" />',
+    // Not a frame: a side border alone, a zero-width border, or no radius; a page gutter is no surface.
     '<header className="border-b px-6 py-4" />',
+    '<div className="rounded-xl border-0 p-6" />',
     '<section className="mx-auto max-w-7xl px-6 py-12" />',
     // A Notice-sized frame and a field.
     '<div className="rounded-lg border px-4 py-3.5" />',
     '<ModalBody className="space-y-4" />',
     '<ModalBody><div className="rounded-lg border p-cap-4" /></ModalBody>',
     '<ModalBody><textarea className="rounded-lg border px-3 py-2" /></ModalBody>',
+    // A form field is never a frame: its padding reserves room for a glyph, in a dialog's body or on a page.
+    '<ModalBody><input className="rounded-lg border px-4 py-2" /></ModalBody>',
+    '<input className="rounded-lg border pl-11 pr-3" />',
     // A frame outside a dialog's body keeps step 4.
     '<Card><div className="rounded-lg border p-4" /></Card>',
-    // A token that styles another element is not this element's inset.
+    // Out of reach (review-checked), planted as stated gaps: a token whose variant styles another element; a frame drawn
+    // without a border utility; an object of recipes; a binding a ternary sets; a class through a helper other than
+    // cx() or clsx(); a section of a surface that sets padding on one axis only.
     '<Card className="[&>div]:p-6" />',
+    '<div className="rounded-xl bg-panel-light p-6 shadow-e2" />',
+    "const S = { pad: 'p-6' }\nexport const x = <Card className={S.pad} />",
+    "const PAD = wide ? 'p-6' : 'p-4'\nexport const x = <Card className={PAD} />",
+    "export const x = <Card className={merge(cx('p-6'))} />",
+    '<Card className="py-2"><div className="px-6" /></Card>',
     '<dialog className="rounded-2xl border p-0"><header className="border-b px-cap-5 py-4" /></dialog>',
     // A constant that draws no frame and sits on no surface.
     "const PAD = 'p-6'\nexport const x = <section className={PAD} />",
@@ -873,8 +892,25 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     { code: '<Modal><div className="p-6" /></Modal>', errors: [{ messageId: 'uncapped' }] },
     // A Modal's className is its panel's.
     { code: '<Modal className="p-6" />', errors: [{ messageId: 'uncapped' }] },
-    // A capped key the theme does not define ships unstyled, on any element.
+    // A class a same-file binding holds is read with the attribute that names it, for a frame's border as for its padding.
+    { code: "const PAD = 'p-6'\nexport const x = <div className={cx('rounded-xl border', PAD)} />", errors: [{ messageId: 'uncapped' }] },
+    { code: "const SHELL = 'rounded-xl border bg-panel-light'\nexport const x = <div className={cx(SHELL, 'p-6')} />", errors: [{ messageId: 'uncapped' }] },
+    { code: "const SHELL = 'rounded-xl border bg-panel-light'\nexport const x = <div className={`${SHELL} p-6`} />", errors: [{ messageId: 'uncapped' }] },
+    { code: "const WELL = 'rounded-lg border p-4'\nexport const x = <ModalBody><div className={WELL} /></ModalBody>", errors: [{ messageId: 'uncapped' }] },
+    // A Card or a section imported under another name, and a section declared through React.forwardRef or React.memo.
+    { code: "import { Card as Panel } from '@/components/ui'\nexport const x = <Panel className=\"p-6\" />", errors: [{ messageId: 'uncapped' }] },
+    { code: "import { ModalBody as Body } from '@/components/ui/Modal'\nexport const x = <Body className=\"px-8\" />", errors: [{ messageId: 'uncapped' }] },
+    { code: "const CardBody = React.forwardRef(function Body() { return <div className=\"px-5\" /> })", errors: [{ messageId: 'uncapped' }] },
+    { code: 'const ModalBody = React.memo(() => <div className="px-6" />)', errors: [{ messageId: 'uncapped' }] },
+    // A stated limit, failing closed: a class constant read on its own cannot see the element it lands on, so one that
+    // draws a field's frame beside a glyph inset of step 5 or more reads as a frame; the inset belongs on the field.
+    { code: "const FIELD = 'rounded-lg border pr-9'\nexport const x = <select className={FIELD} />", errors: [{ messageId: 'noStep' }] },
+    // The fix keeps the token's variants and its important mark.
+    { code: '<Card className="sm:!p-6" />', errors: [{ messageId: 'uncapped', data: { token: 'sm:!p-6', surface: 'a Card', fix: 'sm:!p-cap-6', step: 6 } }] },
+    // A capped key the theme does not define ships unstyled, on any element, as scroll padding or for another element.
     { code: '<span className="p-cap-7" />', errors: [{ messageId: 'undefinedCap' }] },
+    { code: '<span className="scroll-py-cap-7" />', errors: [{ messageId: 'undefinedCap' }] },
+    { code: '<span className="[&>div]:p-cap-7" />', errors: [{ messageId: 'undefinedCap' }] },
   ],
 })
 

@@ -230,28 +230,39 @@
 //                       from step 4. A step is read from the padding scale the theme resolves, so a configured key
 //                       (`p-gutter`, 1.5rem) and an arbitrary length (`p-[24px]`) count by their size, and an arbitrary
 //                       value the rule cannot read as a length (`p-[calc(…)]`, `p-[env(…)]`) fails closed. A surface is:
-//                       a <Card> (any element named Card, `ui.Card`), whose recipe draws a border and a radius; the
-//                       Card's and the dialog's sections, <CardHeader>, <CardBody>, <CardFooter>, <ModalHeader>,
-//                       <ModalBody> and <ModalFooter>, at a call site and in their own source (a class written inside
-//                       the function that declares one, or the Card recipe), and a <Modal>'s className, its panel; a
-//                       native <dialog> and each element directly inside it; a frame, an element whose class text draws
-//                       a full border (`border`, `border-2`) and a radius (`rounded`, `rounded-*` but `-none`) in the
-//                       same branch, the Card recipe copied by hand and the wells inside a card; and a section of a
-//                       surface, an element written directly inside a Card, a Modal or a frame that sets no padding of
-//                       its own (through `{…}` children, conditionals and a callback written there), as the Card's
-//                       sections are: the hero example's wrapper, the admin lists' rows. A frame inside a dialog's body (written
-//                       inside <ModalBody> or a native <dialog> in the same file, a Card included) caps from step 4:
-//                       the dialog's own inset already halves the measure there, and at 320px under 200% text the
-//                       cookie dialog's category cards left their text 105px and broke its longest words. A class
-//                       held in a same-file binding and named in a surface's className (`className={PAD}`, the
-//                       initializer a string, a template or a cx()/clsx() call) is read with it, as is a constant
-//                       that draws a frame on its own. A capped key the theme does not define (`p-cap-7`) fails
-//                       anywhere, since it ships unstyled. Out of reach (review-checked): a class a component receives
-//                       as a prop and passes to a Card or a frame elsewhere, an inset set in an inline style or a
-//                       stylesheet, a token whose variant styles another element (`[&>div]:p-6`), a frame drawn
-//                       without a border utility (a fill, a shadow or a ring alone, or a stylesheet class such as
-//                       `.glass-card`), and a section held in a variable or rendered by another component (the stacked
-//                       metric cards' list in FinancialMetricsTable, TableScroll's hint), which carry the cap by hand.
+//                       a <Card> (any element named Card, `ui.Card`, or a local name an import from @/components/ui or
+//                       its Card or Modal module binds to Card: `Card as Panel`), whose recipe draws a border and a
+//                       radius; the Card's and the dialog's sections, <CardHeader>, <CardBody>, <CardFooter>,
+//                       <ModalHeader>, <ModalBody> and <ModalFooter>, imported under any name, at a call site and in
+//                       their own source (a class written inside the function that declares one, bare, in memo() or
+//                       forwardRef() or as React.memo() or React.forwardRef(), or the Card recipe), and a <Modal>'s
+//                       className, its panel; a native <dialog> and each element directly inside it; a frame, an element
+//                       whose class text draws a full border (`border`, `border-2`; never `border-0`) and a radius
+//                       (`rounded`, `rounded-*` but `-none`) in the same branch, the Card recipe copied by hand and the
+//                       wells inside a card, but never a form field (input, textarea, select), whose padding reserves
+//                       room for a glyph (an icon field's pl-11, a select's pr-9); and a section of a surface, an element
+//                       written directly inside a Card, a Modal or a frame that sets no padding of its own (through
+//                       `{…}` children, conditionals and a callback written there), as the Card's sections are: the hero
+//                       example's wrapper, the admin lists' rows. A frame inside a dialog's body (written inside
+//                       <ModalBody> or a native <dialog> in the same file, a Card included) caps from step 4: the
+//                       dialog's own inset already halves the measure there, and at 320px under 200% text the cookie
+//                       dialog's category cards left their text 92px and broke its longest words. A class a same-file
+//                       binding holds, named in any class attribute (`className={PAD}`, `cx(SHELL, 'p-6')`,
+//                       `${SHELL} p-6`; the initializer a string, a template or a cx()/clsx() call), is read with it as
+//                       text that is always there, for its frame and its padding alike, and a constant that draws a
+//                       frame is read on its own too, failing closed where it cannot see the element it lands on (a
+//                       constant drawing a select's frame beside its pr-9 reads as a frame; keep a field's inset on it). A capped key the theme does not define (`p-cap-7`,
+//                       `scroll-py-cap-7`) fails anywhere, under any variant, since it ships unstyled. Out of reach
+//                       (review-checked, the reachable ones planted as gaps in tests/unit/designRules.spec.ts): a class a
+//                       component receives as a prop and passes to a Card or a frame elsewhere, an imported constant, an
+//                       object of recipes (`S.pad`), a binding a ternary or a later assignment sets, a class through a
+//                       helper other than cx()/clsx() (`merge(…)`), an inset set in an inline style or a stylesheet, a
+//                       token whose variant styles another element (`[&>div]:p-6`), a frame drawn without a border
+//                       utility (a fill, a shadow or a ring alone, or a stylesheet class such as `.glass-card`), a
+//                       section of a surface that sets padding on one axis only (a `py-2` Card's `px-6` rows), and a
+//                       section held in a variable or rendered by another component (the stacked metric cards' list in
+//                       FinancialMetricsTable, TableScroll's hint, the filings index's skeleton), which carry the cap by
+//                       hand.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
@@ -1781,21 +1792,30 @@ export const dateHelpersCalledDirectly = {
   },
 }
 
-/** The padding scale the theme resolves (`6` → `1.5rem`, `gutter` → `1.5rem`, `cap-6` → `min(1.5rem, 6vw)`), so a
- *  step is read by its size and a capped key is one tailwind.config.js defines. */
+/** The padding and scroll-padding scales the theme resolves (`6` → `1.5rem`, `gutter` → `1.5rem`, `cap-6` →
+ *  `min(1.5rem, 6vw)`), so a step is read by its size and a capped key is one tailwind.config.js defines. */
 const PADDING_SCALE = RESOLVED_THEME.padding
+const SCROLL_PADDING_SCALE = RESOLVED_THEME.scrollPadding
 const PADDING = /^(p|px|py|ps|pe|pt|pr|pb|pl)-(.+)$/
+const SCROLL_PADDING = /^scroll-(?:p|px|py|ps|pe|pt|pr|pb|pl)-(.+)$/
 const CAPPED_KEY = /^cap-(.+)$/
 /** A surface caps its inset from this step; a frame inside a dialog's body from the next. */
 export const SURFACE_STEP = 5
 export const DIALOG_WELL_STEP = 4
 /** The components whose className and own source carry a surface's inset (components/ui/Card.tsx, Modal.tsx). */
 const SURFACE_COMPONENTS = new Set(['Card', 'CardHeader', 'CardBody', 'CardFooter', 'Modal', 'ModalHeader', 'ModalBody', 'ModalFooter'])
+/** The modules the Card and the Modal and their sections are imported from: a local name bound to one of those exports
+ *  is that component (`import { Card as Panel }`). */
+const SURFACE_SOURCES = /^(?:@\/components\/ui(?:\/(?:Card|Modal))?|\.\/(?:Card|Modal))$/
 /** The primitives whose panel leaves its inset to the elements written inside it when it sets no padding itself. */
 const SECTIONED_COMPONENTS = new Set(['Card', 'Modal'])
 /** A dialog's body: a frame written inside one caps from DIALOG_WELL_STEP. */
 const DIALOG_BODIES = new Set(['ModalBody', 'dialog'])
-const FULL_BORDER = /^border(?:-\d+|-\[\d[^\]]*\])?$/
+/** Form fields: their border and radius draw a control, and their padding reserves room for a glyph (an icon field's
+ *  pl-11, a select's pr-9), so they are never a frame. */
+const FORM_FIELDS = new Set(['input', 'textarea', 'select'])
+/** A border on every side: `border`, `border-2`, `border-[1.5px]`; never `border-0`, which draws none. */
+const FULL_BORDER = /^border(?:-(?!0$)\d+|-\[\d[^\]]*\])?$/
 
 /** A padding value's step on the 0.25rem scale (`1.5rem` → 6, `24px` → 6, `0` → 0), or null for a value that is not a
  *  plain length (a calc(), a var(), an env()). */
@@ -1807,12 +1827,16 @@ function lengthStep(value) {
   return m[2] === 'rem' ? Number(m[1]) * 4 : Number(m[1]) / 4
 }
 
-/** The capped key tailwind.config.js does not define in `classText` (`p-cap-7`, which ships unstyled), else null. */
+/** The capped key tailwind.config.js does not define in `classText` (`p-cap-7`, `scroll-py-cap-7`, `[&>div]:p-cap-7`),
+ *  which ships unstyled, else null. */
 export function undefinedCap(classText) {
   for (const raw of classText.split(/\s+/)) {
-    const token = raw && parseClassToken(raw)
-    const m = token && PADDING.exec(token.utility)
-    if (m && CAPPED_KEY.test(m[2]) && !(m[2] in PADDING_SCALE)) return raw
+    if (!raw) continue
+    const { utility } = splitClassToken(raw)
+    const padding = PADDING.exec(utility)
+    if (padding && CAPPED_KEY.test(padding[2]) && !(padding[2] in PADDING_SCALE)) return raw
+    const scroll = SCROLL_PADDING.exec(utility)
+    if (scroll && CAPPED_KEY.test(scroll[1]) && !(scroll[1] in SCROLL_PADDING_SCALE)) return raw
   }
   return null
 }
@@ -1825,33 +1849,36 @@ export function drawsFrame(classText) {
 
 /** The first padding token in `classText` a surface may not carry from `threshold` up, else null: a step of
  *  `threshold` or more by its resolved size (p-6, sm:px-8, !pt-5, p-gutter, p-[24px]), or an arbitrary value the rule
- *  cannot read as a length. `fix` is the capped token to write instead, or null when the theme defines no cap for the
- *  step (`step` says which) or the value is unreadable. A capped key passes at any step; a token whose variant styles
- *  another element (`[&>div]:p-6`) is not this element's inset. */
+ *  cannot read as a length. `fix` is the capped token to write instead, variants and `!` kept, or null when the theme
+ *  defines no cap for the step (`step` says which) or the value is unreadable. A capped key passes at any step; a token
+ *  whose variant styles another element (`[&>div]:p-6`) is not this element's inset. */
 export function uncappedInset(classText, threshold) {
   for (const raw of classText.split(/\s+/)) {
     const token = raw && parseClassToken(raw)
     const m = token && PADDING.exec(token.utility)
     if (!m || CAPPED_KEY.test(m[2])) continue
-    const [, side, key] = m
+    const [utility, side, key] = m
     const arbitrary = key.startsWith('[') && key.endsWith(']')
     const value = arbitrary ? key.slice(1, -1).replace(/_/g, ' ') : PADDING_SCALE[key]
     // A key the theme does not define styles nothing: not an inset.
     if (value === undefined) continue
     const step = lengthStep(value)
     if (step !== null && step < threshold) continue
-    const capped = step !== null && `cap-${step}` in PADDING_SCALE ? [...token.variants, `${side}-cap-${step}`].join(':') : null
-    return { token: raw, step, fix: capped }
+    const capped = step !== null && `cap-${step}` in PADDING_SCALE
+    // The utility is the token's last part, after its variants and an important `!` (or before a trailing one).
+    const at = raw.lastIndexOf(utility)
+    const fix = capped ? `${raw.slice(0, at)}${side}-cap-${step}${raw.slice(at + utility.length)}` : null
+    return { token: raw, step, fix }
   }
   return null
 }
 
 /** The name a function is declared or bound under (`function CardBody`, `const CardBody = (…) =>`, inside memo() or
- *  forwardRef()), else null. */
+ *  forwardRef(), bare or as `React.x`), else null. */
 function functionName(fn) {
   if (fn.type === 'FunctionDeclaration') return fn.id?.name ?? null
   let holder = fn.parent
-  while (holder?.type === 'CallExpression' && holder.callee.type === 'Identifier' && COMPONENT_WRAPPERS.has(holder.callee.name)) holder = holder.parent
+  while (holder?.type === 'CallExpression' && COMPONENT_WRAPPERS.has(calleeName(holder.callee))) holder = holder.parent
   if (holder?.type === 'VariableDeclarator' && holder.id.type === 'Identifier') return holder.id.name
   return fn.type === 'FunctionExpression' ? fn.id?.name ?? null : null
 }
@@ -1861,27 +1888,6 @@ function functionName(fn) {
 function enclosingElement(element) {
   for (let node = element.parent; node; node = node.parent) if (node.type === 'JSXElement') return node
   return null
-}
-
-const jsxName = (element) => {
-  const name = element?.openingElement?.name
-  if (name?.type === 'JSXIdentifier') return name.name
-  if (name?.type === 'JSXMemberExpression') return name.property.name
-  return null
-}
-
-/** Whether a surface leaves its inset to the elements written directly inside it: a Card, a Modal or a frame whose own
- *  class text sets no padding, as the Card leaves its inset to its sections. */
-function leavesInsetToSections(element) {
-  const attribute = element.openingElement.attributes.find(
-    (a) => a.type === 'JSXAttribute' && a.name.type === 'JSXIdentifier' && /^(class|className)$/.test(a.name.name),
-  )
-  const text = attribute ? branchTexts(collectStaticText(attribute.value, new WeakSet())).join(' ') : ''
-  const padded = text.split(/\s+/).some((raw) => {
-    const token = raw && parseClassToken(raw)
-    return Boolean(token && PADDING.test(token.utility))
-  })
-  return !padded && (SECTIONED_COMPONENTS.has(jsxName(element)) || drawsFrame(text))
 }
 
 /** The identifiers an attribute's value names, outside a callback's body and a member's or a key's written name. */
@@ -1896,6 +1902,11 @@ function identifiersIn(node, keys, out = []) {
   }
   return out
 }
+
+const classAttribute = (element) =>
+  element.openingElement.attributes.find(
+    (a) => a.type === 'JSXAttribute' && a.name.type === 'JSXIdentifier' && /^(class|className)$/.test(a.name.name),
+  )
 
 export const surfacePaddingCap = {
   meta: {
@@ -1919,19 +1930,55 @@ export const surfacePaddingCap = {
   create(context) {
     const sourceCode = context.sourceCode
     const keys = sourceCode.visitorKeys
+    // The local names the file binds to the Card's and the Modal's exports, under their own names or another.
+    const aliases = new Map()
+    for (const statement of sourceCode.ast.body) {
+      if (statement.type !== 'ImportDeclaration' || !SURFACE_SOURCES.test(String(statement.source.value))) continue
+      for (const spec of statement.specifiers) {
+        const imported = spec.type === 'ImportSpecifier' ? spec.imported.name ?? spec.imported.value : null
+        if (SURFACE_COMPONENTS.has(imported)) aliases.set(spec.local.name, imported)
+      }
+    }
+    /** An element's name, an alias of a DS surface read as the surface (`<Panel>` for `Card as Panel`). */
+    const nameOf = (element) => {
+      const name = element?.openingElement?.name
+      if (name?.type === 'JSXIdentifier') return aliases.get(name.name) ?? name.name
+      if (name?.type === 'JSXMemberExpression') return name.property.name
+      return null
+    }
+    /** The class text a same-file binding holds where an attribute names it (`className={PAD}`, `cx(SHELL, 'p-6')`,
+     *  `${SHELL} p-6`): its initializer a string, a template or a cx()/clsx() call, read as the binding's own text. */
+    const boundTexts = (attribute) =>
+      identifiersIn(attribute.value, keys).flatMap((identifier) => {
+        const def = resolvedVariable(sourceCode, identifier)?.defs?.[0]
+        const init = def?.node?.type === 'VariableDeclarator' ? def.node.init : null
+        return init && isClassShaped(init) ? branchTexts(collectStaticText(unwrapTs(init), new WeakSet())) : []
+      })
+    /** Whether a surface leaves its inset to the elements written directly inside it: a Card, a Modal or a frame whose
+     *  own class text sets no padding, as the Card leaves its inset to its sections. */
+    const leavesInsetToSections = (element) => {
+      const attribute = classAttribute(element)
+      const texts = attribute ? [...branchTexts(collectStaticText(attribute.value, new WeakSet())), ...boundTexts(attribute)] : []
+      const text = texts.join(' ')
+      const padded = text.split(/\s+/).some((raw) => {
+        const token = raw && parseClassToken(raw)
+        return Boolean(token && PADDING.test(token.utility))
+      })
+      return !padded && !FORM_FIELDS.has(nameOf(element)) && (SECTIONED_COMPONENTS.has(nameOf(element)) || drawsFrame(text))
+    }
     /** What makes a class unit a surface whatever its text says, and the element it sits on. */
     const surfaceOf = (node) => {
       const element = node.type === 'JSXAttribute' ? node.parent.parent : null
-      const name = element ? jsxName(element) : null
+      const name = element ? nameOf(element) : null
       if (name === 'Card') return { surface: 'a Card', card: true, element }
       if (SURFACE_COMPONENTS.has(name)) return { surface: `<${name}>`, card: false, element }
       if (name === 'dialog') return { surface: 'a native <dialog>', card: false, element }
       const holder = element ? enclosingElement(element) : null
-      if (holder && jsxName(holder) === 'dialog') return { surface: 'a section of a native <dialog>', card: false, element }
+      if (holder && nameOf(holder) === 'dialog') return { surface: 'a section of a native <dialog>', card: false, element }
       // An element written directly inside a Card, a Modal or a frame that sets no padding of its own carries that
       // surface's inset, as the Card's own sections do (the hero example's wrapper, the filings index's header).
       if (holder && leavesInsetToSections(holder)) {
-        const of = SECTIONED_COMPONENTS.has(jsxName(holder)) ? `a ${jsxName(holder)}` : 'a frame'
+        const of = SECTIONED_COMPONENTS.has(nameOf(holder)) ? `a ${nameOf(holder)}` : 'a frame'
         return { surface: `a section of ${of} that sets no padding of its own`, card: false, element }
       }
       for (let at = node.parent; at; at = at.parent) {
@@ -1944,7 +1991,7 @@ export const surfacePaddingCap = {
       return { surface: null, card: false, element }
     }
     const inDialogBody = (element) => {
-      for (let at = enclosingElement(element); at; at = enclosingElement(at)) if (DIALOG_BODIES.has(jsxName(at))) return true
+      for (let at = enclosingElement(element); at; at = enclosingElement(at)) if (DIALOG_BODIES.has(nameOf(at))) return true
       return false
     }
     const report = (node, found, surface) => {
@@ -1953,7 +2000,11 @@ export const surfacePaddingCap = {
       context.report({ node, messageId, data })
     }
     return classUnitVisitors((node, pieces) => {
-      const texts = branchTexts(pieces)
+      // A class a same-file binding holds is read with the attribute that names it, as text that is always there.
+      const bound = node.type === 'JSXAttribute' ? boundTexts(node) : []
+      const always = bound.join(' ')
+      const texts = branchTexts(pieces).map((text) => `${text} ${always}`)
+      if (texts.length === 0 && always) texts.push(always)
       for (const text of texts) {
         const token = undefinedCap(text)
         if (token !== null) {
@@ -1962,29 +2013,16 @@ export const surfacePaddingCap = {
         }
       }
       const { surface, card, element } = surfaceOf(node)
+      const field = element !== null && FORM_FIELDS.has(nameOf(element))
       const well = element !== null && inDialogBody(element)
       for (const text of texts) {
-        const framed = card || drawsFrame(text)
+        const framed = card || (!field && drawsFrame(text))
         const threshold = framed && well ? DIALOG_WELL_STEP : surface || framed ? SURFACE_STEP : null
         if (threshold === null) continue
         const found = uncappedInset(text, threshold)
         if (found) {
           report(node, found, surface ?? (well ? "a frame inside a dialog's body" : 'a frame (a full border and a radius)'))
           return
-        }
-      }
-      // A class a same-file binding holds, named in a surface's className, is read with it.
-      if (surface === null || node.type !== 'JSXAttribute') return
-      for (const identifier of identifiersIn(node.value, keys)) {
-        const def = resolvedVariable(sourceCode, identifier)?.defs?.[0]
-        const init = def?.node?.type === 'VariableDeclarator' ? def.node.init : null
-        if (!init || !isClassShaped(init)) continue
-        for (const text of branchTexts(collectStaticText(unwrapTs(init), new WeakSet()))) {
-          const found = uncappedInset(text, card && well ? DIALOG_WELL_STEP : SURFACE_STEP)
-          if (found) {
-            report(node, found, surface)
-            return
-          }
         }
       }
     })
