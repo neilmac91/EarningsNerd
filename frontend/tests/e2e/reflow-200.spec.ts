@@ -20,9 +20,10 @@ import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
  * link) and each auth page 576px (the auth shell's top bar); with those wrapping, Button labels ("See a
  * live example", "Ask this filing") and one long heading word on /waitlist were next. /security and
  * /privacy measured 469px: each mailto address (security@, privacy@ and hello@earningsnerd.io) was one
- * word that could not break, and now breaks anywhere ([overflow-wrap:anywhere]). Each case checks
- * that chrome is on the page, so a route that fails to render cannot pass empty. On a failure the
- * message lists the widest elements and text runs past the viewport edge, outside any clipping box.
+ * word that could not break, and now breaks anywhere ([overflow-wrap:anywhere], since E131 the rule on
+ * each legal page's <main>, which every word there inherits). Each case checks that chrome is on the
+ * page, so a route that fails to render cannot pass empty. On a failure the message lists the widest
+ * elements and text runs past the viewport edge, outside any clipping box.
  *
  * The scroll width alone cannot see a bar that squeezes instead of wrapping: its controls may shrink
  * (min-w-0) until a label spills over its neighbours, with nothing past the edge. So in the header or
@@ -53,9 +54,10 @@ import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
  * At 320x640 with the text doubled every route passes the same checks (E81): /pricing's billing switch's row wraps,
  * the yearly label on a line of its own, where on one line it took "Monthly" 13px past the screen's left edge and the
  * page to 333px; / reached 329px (the hero example's identity line and figures) and /search 344px (its date fields).
- * There /security passes but for the words E131 names in its headings, each wider than its column, which nothing
- * else may join, past which the page may not reach and of which it must still show one, so the exemption ends with
- * E131.
+ * There a legal page's gutter gives way before a word breaks, and a word still wider than its column breaks inside it
+ * (E131), where /security reached 348px on its headings' "Authentication" and "Infrastructure" and /terms 362px on
+ * "Indemnification"; at 390px under 200% text no word on the legal pages breaks inside it, an address aside, and at
+ * 320px each one's h1 holds whole, read a character at a time.
  * The open menu scrolls inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
  * wheel over the menu and focus each bring its last item into view inside it, the page unmoved, and neither
  * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
@@ -133,6 +135,7 @@ const ROUTES: Route[] = [
   { name: 'not found', path: '/no-such-page', status: 404, open: answerGuest, ready: (p) => h1(p, 'Page not found'), ...siteHeader },
   { name: 'security', path: '/security', open: answerGuest, ready: (p) => h1(p, 'Security'), ...siteHeader },
   { name: 'privacy', path: '/privacy', open: answerGuest, ready: (p) => h1(p, 'Privacy Policy'), ...siteHeader },
+  { name: 'terms', path: '/terms', open: answerGuest, ready: (p) => h1(p, 'Terms of Service'), ...siteHeader },
   {
     name: 'filing',
     path: '/filing/3',
@@ -167,7 +170,7 @@ const ROUTES: Route[] = [
   },
 ]
 
-type Overflow = { scrollWidth: number; clientWidth: number; widest: string[]; past?: { what: string; right: number }[] }
+type Overflow = { scrollWidth: number; clientWidth: number; widest: string[] }
 
 /** The document's widths and, for a failure message, what reaches past the viewport's right edge. */
 const measure = (page: Page): Promise<Overflow> =>
@@ -205,12 +208,7 @@ const measure = (page: Page): Promise<Overflow> =>
       if (right > vw + 0.5) past.push({ right, what: `text in ${label(el, node.textContent)}` })
     }
     past.sort((a, b) => b.right - a.right)
-    return {
-      scrollWidth: root.scrollWidth,
-      clientWidth: vw,
-      widest: past.slice(0, 6).map((p) => `${Math.round(p.right)}px ${p.what}`),
-      past: past.map(({ what, right }) => ({ what, right })),
-    }
+    return { scrollWidth: root.scrollWidth, clientWidth: vw, widest: past.slice(0, 6).map((p) => `${Math.round(p.right)}px ${p.what}`) }
   })
 
 /** Controls in the bar that overlap one another, or whose text paints past their own box's sides. */
@@ -937,28 +935,22 @@ test('filing (/filing/3) keeps the stuck section nav below the header at 200% te
     344px: Chrome keeps blank room in a date field for a six-digit year, so each of its two fields was 312px in a 256px
     row (FullTextSearch.tsx). Both fit since E81.
 
-    /security is E131's at 320px: its layout is outside E81, and it still scrolls sideways there on its headings'
-    words, each wider than its column ("Authentication and access control" to 348px, "Infrastructure security" to
-    325px). So at 320px those runs, by name, are the only things on the page that may pass the edge, the page may be
-    no wider than the widest of them (what measure() cannot see, a positioned pseudo-element, would widen it unseen),
-    and at least one of them must still pass it: when E131 fits the page, its entry fails here until it is taken out,
-    and the page passes the width check with the rest of the loop. A single run is not required, since
-    "Infrastructure security" passes by 5px here and a few pixels are one machine's measure
-    (lessons/test-layout-numbers-are-one-environments-run.md). /privacy fits at 320px in the site's own Inter, as CI's
-    runner and a reader paint it. It was pinned from the agents' sandbox, whose fontconfig (56-prefer-inter.conf)
-    paints the body text in an installed static Inter, 338px there, and CI's run 39590916309 failed the pin, as the
-    expiry means it to. */
-const E131_AT_320: Record<string, string[]> = {
-  '/security': ['text in h2 "Authentication and access control"', 'text in h2 "Infrastructure security"'],
-}
+    The legal pages fit at both widths since E131: each page's gutter gives way under enlarged text, and a word still
+    wider than its column breaks inside it, the rule on its <main> (`[overflow-wrap:anywhere]`, lib/legalPageLayout.ts)
+    inherited by every heading, paragraph and address (the words, after this loop). Before, at 320px /security
+    reached 348px on its headings' "Authentication" and "Infrastructure", which this loop allowed by name
+    (E131_AT_320) until the fix, and /terms, then outside the loop, 362px on "Indemnification" (362px at 360px too),
+    with "MERCHANTABILITY,", "Subscriptions," and "EarningsNerd" past the edge. /privacy fitted at 320px in the site's
+    own Inter, as CI's runner and a reader paint it; the agents' sandbox paints its body text in an installed static
+    Inter (56-prefer-inter.conf), where "communications," reached 338px
+    (lessons/test-layout-numbers-are-one-environments-run.md). */
 for (const { width, height } of [
   { width: 360, height: 780 },
   { width: 320, height: 640 },
 ]) test.describe(`a ${width}px phone at 200% text`, () => {
   test.use({ viewport: { width, height }, isMobile: true, hasTouch: true })
   for (const route of ROUTES) {
-    const e131 = width === 320 ? E131_AT_320[route.path] : undefined
-    test(`${route.name} (${route.path}) does not scroll sideways at ${width}px and 200% text${e131 ? ', but for the words E131 owns' : ''}`, async ({ page, baseURL }) => {
+    test(`${route.name} (${route.path}) does not scroll sideways at ${width}px and 200% text`, async ({ page, baseURL }) => {
       await page.addInitScript(() => {
         try {
           localStorage.setItem('theme', 'light')
@@ -975,25 +967,84 @@ for (const { width, height } of [
       await doubleText(page)
 
       const enlarged = await measure(page)
-      if (e131) {
-        const past = enlarged.past ?? []
-        const beyond = past.filter(({ what }) => !e131.includes(what)).map(({ what }) => what)
-        expect(beyond, `${route.path} at ${width}px and 200% text, past the edge besides E131's words: ${why(enlarged)}`).toEqual([])
-        const pinned = past.filter(({ what }) => e131.includes(what))
-        expect(
-          pinned.length > 0,
-          `${route.path} at ${width}px and 200% text: none of E131's words passes the edge now, so take the page out of E131_AT_320 (${why(enlarged)})`,
-        ).toBe(true)
-        const edge = Math.max(...pinned.map(({ right }) => right))
-        expect(
-          enlarged.scrollWidth,
-          `${route.path} at ${width}px and 200% text: no wider than the widest of E131's words, ${edge.toFixed(1)}px (${why(enlarged)})`,
-        ).toBeLessThanOrEqual(edge + 0.5)
-      } else {
-        expect(enlarged.scrollWidth, `${route.path} at ${width}px and 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
-      }
+      expect(enlarged.scrollWidth, `${route.path} at ${width}px and 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
       expect(await collisions(route.bar(page)), `${route.path} at ${width}px and 200% text: the bar's controls`).toEqual([])
       expect(await logoClearSpace(route.bar(page)), `${route.path} at ${width}px and 200% text: the logo's clear space`).toEqual([])
+    })
+  }
+})
+
+/** A legal page's gutter gives way before a word breaks, and the wrap is the last resort (E131; chief design's review
+    of #1475). Each page's <main> sits in a query container, and narrower than 13em of its text size (a phone under
+    200% text) its gutter is 16px, where px-4 had doubled to 32px (lib/legalPageLayout.ts). So at 390px under 200% text
+    no word on /security, /terms or /privacy breaks inside it, and at 320px each page's h1 holds whole. A word is read a
+    character at a time: one whose characters sit on more than one line is broken. A break after a hyphen is a line
+    break between two parts, not a word broken, and an address breaks anywhere by design (#1397), so both are left out.
+    Before, at 390px /terms broke "Indemnification" ("Indemnificatio" over "n") in a 326px column, and at 320px
+    /security its title ("Securit" over "y") in a 256px one. At 320px a word wider than the 288px column still breaks
+    inside it, which is what the wrap is for; the width checks above hold every legal page at each width. */
+const LEGAL_ROUTES = ROUTES.filter((route) => ['/security', '/terms', '/privacy'].includes(route.path))
+
+/** The words under `selector` that a line breaks inside, each with the pieces its lines hold and the element it sits
+    in, and how many words were read, so a page that rendered nothing cannot pass. */
+const brokenWords = (page: Page, selector: string) =>
+  page.evaluate((selector) => {
+    const found: string[] = []
+    let words = 0
+    for (const root of document.querySelectorAll(selector)) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+        const el = node.parentElement
+        // A visually hidden run is 1px wide, so its every character would read as a line of its own.
+        if (!el || el.closest('.sr-only') || el.closest('a[href^="mailto:"]')) continue
+        for (const match of node.data.matchAll(/\S+/g)) {
+          words += 1
+          const start = match.index ?? 0
+          const pieces: string[] = []
+          let top: number | null = null
+          for (let i = 0; i < match[0].length; i++) {
+            const char = document.createRange()
+            char.setStart(node, start + i)
+            char.setEnd(node, start + i + 1)
+            const at = Math.round(char.getBoundingClientRect().top)
+            if (top === null || at !== top) pieces.push('')
+            pieces[pieces.length - 1] += match[0][i]
+            top = at
+          }
+          // A piece but the last that ends on a hyphen (or a non-breaking one) is a break after it, not inside a word.
+          if (pieces.slice(0, -1).some((piece) => !/[-‑]$/.test(piece))) {
+            const where = `${el.tagName.toLowerCase()} "${(el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 40)}"`
+            found.push(`"${match[0]}" ("${pieces.join('" over "')}") in ${where}`)
+          }
+        }
+      }
+    }
+    return { words, found }
+  }, selector)
+
+for (const state of [
+  { width: 390, height: 844, scope: 'main', what: 'every word' },
+  { width: 320, height: 640, scope: 'main h1', what: 'its title' },
+]) test.describe(`a ${state.width}px phone at 200% text, a legal page's ${state.scope === 'main' ? 'words' : 'title'}`, () => {
+  test.use({ viewport: { width: state.width, height: state.height }, isMobile: true, hasTouch: true })
+  for (const route of LEGAL_ROUTES) {
+    test(`${route.name} (${route.path}) keeps ${state.what} whole at ${state.width}px and 200% text`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      await route.open(page, baseURL!)
+      await page.goto(route.path)
+      await route.ready(page)
+      await page.evaluate(() => document.fonts.ready)
+      await doubleText(page)
+
+      const { words, found } = await brokenWords(page, state.scope)
+      // Anti-vacuity: the read reaches the page's text (each page holds about 800 words or more) or its title.
+      expect(words, `${route.path}: words read in ${state.scope}`).toBeGreaterThan(state.scope === 'main' ? 500 : 0)
+      expect(found, `${route.path} at ${state.width}px and 200% text, a word broken inside it: ${found.join('; ')}`).toEqual([])
     })
   }
 })

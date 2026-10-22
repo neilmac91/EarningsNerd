@@ -102,15 +102,19 @@ the business card, the footer and the merch; it is the positioning in six words.
 - **The bare `—` null-value token stays.** Tables and detail rows render `—` for missing
   data (see `MISSING_TOKENS` in `frontend/lib/format.ts`). That is a data convention, not
   prose. It is the only sanctioned em-dash, and it stands alone, in a cell or an element of
-  its own: never with a unit after it, a sign before it or a middot joining it to a label. A
-  figure that sits in a line of copy and can be missing gets words, or the token in its own
-  element; the insider panel and What changed give that element the word "unavailable" for
-  assistive tech, the word the analysis evidence uses for a missing figure. The CI gate
-  (`frontend/tests/unit/no-em-dash-copy.spec.ts`) exempts the bare `'—'` only where it stands
-  alone, reads a same-file formatter's fallback where the formatter is called, and reads a
-  fragment as its contents. An element is one value to it, so the token inside an element set
-  beside a unit (`{count ?? <Missing />} sh`, which still reads "— sh") passes the gate and is
-  review-checked, as are the other forms the gate's header lists out of reach.
+  its own: never with a unit after it, a sign before it or a middot joining it to a label. It
+  renders through one element, `MissingValue` (`frontend/components/ui`), which hides the
+  token from assistive tech and gives it words: "unavailable" by default, the word the
+  analysis evidence uses for a missing figure, or the site's own where that would claim more
+  than its data says ("no cohort", "no role listed", "Not included"). A figure that sits in a
+  line of copy and can be missing gets words, or the element. Two CI gates hold it:
+  `frontend/tests/unit/missingValueToken.spec.ts` fails the token rendered anywhere but the
+  element, and `frontend/tests/unit/no-em-dash-copy.spec.ts` exempts the bare `'—'` only where
+  it stands alone, reads a same-file formatter's fallback where the formatter is called, and
+  reads a fragment as its contents. An element is one value to the em-dash gate, so the
+  element set beside a unit (`{count ?? <MissingValue />} sh`, which still reads "— sh")
+  passes it and is review-checked, as are the other forms each gate's header lists out of
+  reach.
 
 ## House conventions
 
@@ -146,8 +150,13 @@ the business card, the footer and the merch; it is the positioning in six words.
   devices out"); a letter from another script; and, in a lowercase string shaped like a class list,
   the verb joined into a longer word by a hyphen, a slash or a colon ("sign-in-related",
   "sign-in/sign-up", "auth:sign-in"), as a class joins its parts. Copy in a JSON module stays
-  review-checked. The backend's own messages follow in their voice pass (E45), and the OAuth-linked
-  mail in E46's.
+  review-checked. On the backend, `backend/tests/unit/test_user_facing_copy_voice.py` fails it in every
+  literal of the files it reads, `app/routers`, `app/services`, `app/dependencies.py` and `main.py` (a
+  module of text for the model is read for its copy alone, and markup by its text and its attributes
+  that are not code), with the forms its header names as gaps and false positives; the messages
+  `app/schemas`' validators raise are outside it. Its exempt list holds the two sites that still say
+  it: the unlink detail's "only sign-in method", which the locked `test_auth_flow.py` pins (F56), and
+  the OAuth-linked mail, which takes the verb in E46.
 
 ## Claims
 

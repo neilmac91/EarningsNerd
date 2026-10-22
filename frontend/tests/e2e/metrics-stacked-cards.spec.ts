@@ -242,7 +242,7 @@ async function expectParity(page: Page, active: 'cards' | 'table', rows: Row[], 
   expect(p.cards.takeaways).toEqual(rows.map((r) => r.commentary || '-'))
   if (hasComparatives) {
     expect(p.cards.changes.map((c) => [c.text, c.direction, c.tone])).toEqual(
-      rows.map((r) => (r.change_display ? [r.change_display, r.change_direction ?? null, r.change_tone ?? null] : ['—', null, null])),
+      rows.map((r) => (r.change_display ? [r.change_display, r.change_direction ?? null, r.change_tone ?? null] : ['—unavailable', null, null])),
     )
   }
   const inactive = active === 'cards' ? 'table' : 'cards'

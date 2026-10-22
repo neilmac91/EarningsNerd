@@ -38,7 +38,7 @@ from tests.support.summary_stream_harness import reset_rate_limiters
 
 PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit; test fixture, not a credential  # gitleaks:allow
 NEW_PASSWORD = PASSWORD + "9z"  # gitleaks:allow
-REFUSED = {"detail": "Invalid or expired refresh token"}
+REFUSED = {"detail": "Your session has ended. Log in again."}
 
 
 @pytest.fixture(scope="module")

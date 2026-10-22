@@ -142,6 +142,8 @@ def upsert_filings(db: Session, company: Company, sec_filings: list[dict]) -> li
     if not sec_filings:
         return []
 
+    from app.services.filing_amendment_service import lock_company_filings, mark_superseded_filings
+    lock_company_filings(db, company.id)  # before the check below reads which rows exist
     accession_numbers = [f.get("accession_number") for f in sec_filings if f.get("accession_number")]
     existing = {
         f.accession_number: f
@@ -177,7 +179,6 @@ def upsert_filings(db: Session, company: Company, sec_filings: list[dict]) -> li
             new_filings.append(filing)
         result.append(filing)
 
-    from app.services.filing_amendment_service import mark_superseded_filings
     changed_links = mark_superseded_filings(db, company.id)
     if new_filings or changed_links:
         db.commit()

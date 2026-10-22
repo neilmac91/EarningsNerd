@@ -1,6 +1,6 @@
 'use client'
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, type DefaultOptions } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Toaster } from 'sonner'
 import { IconContext, type IconProps } from '@phosphor-icons/react'
@@ -68,15 +68,17 @@ export function ThemedToaster() {
   return <Toaster theme={theme} closeButton position="top-center" toastOptions={TOAST_OPTIONS} />
 }
 
+/** The app's QueryClient defaults. Exported so a spec that models the app's cache builds its client from them
+ *  (failedLogoutChecksSession.spec.tsx). */
+export const QUERY_CLIENT_DEFAULTS: DefaultOptions = {
+  queries: {
+    staleTime: 60 * 1000, // 1 minute
+    refetchOnWindowFocus: false,
+  },
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 60 * 1000, // 1 minute
-        refetchOnWindowFocus: false,
-      },
-    },
-  }))
+  const [queryClient] = useState(() => new QueryClient({ defaultOptions: QUERY_CLIENT_DEFAULTS }))
 
   useEffect(() => subscribeAccountQueryReset(queryClient), [queryClient])
 

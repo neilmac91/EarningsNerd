@@ -322,6 +322,7 @@ vi.mock('next/font/google', () => {
   const font = () => ({ className: '', variable: '', style: { fontFamily: '' } })
   return { Inter: font, Geist_Mono: font, Newsreader: font }
 })
+vi.mock('next/font/local', () => ({ default: () => ({ variable: '' }) }))
 
 /**
  * The metadata each module exports, evaluated: the module is imported, as Next imports it, so a title or a

@@ -48,8 +48,9 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
  *     endpoint's 401 (a retry after a refresh or a sign-in can help), its 404 (kept retryable since round 3)
  *     and its 429 must not, and a status the table does not classify fails. A reworded sentence fails here
  *     until the matcher follows it.
- *  4. Voice: what the page shows has no em-dash, no exclamation mark, and reads as a sentence; a key's
- *     only fields are bare `{name}` ones, the only kind streamErrorCopy matches.
+ *  4. Voice: what the page shows has no em-dash, no exclamation mark, and reads as a sentence, a line of the map
+ *     or an endpoint answer the map passes through as the backend wrote it (the account check's, since E45); a
+ *     key's only fields are bare `{name}` ones, the only kind streamErrorCopy matches.
  *  5. The hidden em-dash: no-em-dash-copy.spec.ts reads a file's raw text for the character, so a dash
  *     spelled any other way passes it: a char code (`String.fromCharCode(0x2014)`, `fromCodePoint`, any
  *     radix, a const or arithmetic resolved to its value), an escape (`'\u2014'`, `` `\u{2014}` ``) or a
@@ -588,6 +589,20 @@ describe('the summary stream error sentences the filing page maps', () => {
       misread,
       'a 403 must match isNonRetryableStreamError (features/summaries/api/summaries-api.ts) in its own words, or its card ' +
         'offers a Retry that repeats it; a 401, 404 or 429 must not',
+    ).toEqual([])
+  })
+
+  it('prints every answer the stream endpoint gives in the product voice, mapped or passed through', () => {
+    // STREAM_ERROR_COPY's lines are held to the voice below; an answer the map does not hold reaches the card as the
+    // backend wrote it (the account check's since E45), so its own words are held here, read from the Python.
+    const offVoice = endpointErrors()
+      .map((answer) => ({ answer, shown: streamErrorCopy(answer.text) }))
+      .filter(({ shown }) => shown.includes(EM_DASH) || shown.includes('!') || !/^[A-Z].*[.…]$/.test(shown))
+      .map(({ answer, shown }) => `${answer.file}:${answer.line} ${answer.status} "${shown}"`)
+    expect(
+      offVoice,
+      'what the card prints for an endpoint answer reads as a sentence, with no em-dash and no exclamation mark: ' +
+        'reword the backend detail, or map it in STREAM_ERROR_COPY',
     ).toEqual([])
   })
 
