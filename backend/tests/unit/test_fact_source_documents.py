@@ -10,15 +10,18 @@ comparisons and the narrative's citations open the document. Its snapshot finger
 looked-up link as its folder, so a filing row that lands moves no snapshot; a link stored with its
 receipt is hashed as stored. A saved narrative re-served while its snapshot holds answers with the
 rebuilt dataset's links (``current_links``), each inside the folder it saved, and its row stays as saved.
+Its PDF renders a copy of the row that takes the same links (``cached_analysis_export``).
 
 Synthetic fixtures, not real-issuer coverage.
 """
 
 import json
+import re
 import uuid
 from copy import deepcopy
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import event
@@ -27,7 +30,7 @@ from app.database import SessionLocal
 from app.models import Company, Filing, FinancialFact, TrendAnalysis
 from app.services import trend_analysis_service as svc
 from app.services.fact_provenance import calculated_provenance, provenance_for_fact, reported_provenance
-from app.services.trend_analysis.presentation import _operand
+from app.services.trend_analysis.presentation import _operand, cached_analysis_export
 from app.services.trend_analysis.source_documents import current_links, folder_links
 from app.utils.sec_urls import build_sec_archive_url, normalize_accession
 
@@ -287,7 +290,7 @@ def test_a_re_served_link_only_moves_inside_its_accession_folder():
         "F1": {"source_url": document},
         "F2": {"provenance": {"source_url": document}},  # The citations' reading: the point's, else its provenance's.
         "F3": {"source_url": build_sec_archive_url(CIK, NINE_MONTHS)},
-        "F4": {"source_url": _document(CIK, ANNUAL, "ex99-2.htm")},
+        "F4": {"source_url": _document(CIK, ANNUAL, "ex99-2.htm"), "provenance": receipt},  # The saved receipt, another exhibit.
     }
     saved = [
         {"marker": "F1", "source_url": folder}, {"marker": "F2", "source_url": folder},
@@ -298,6 +301,42 @@ def test_a_re_served_link_only_moves_inside_its_accession_folder():
     links = [item["source_url"] for item in current_links(saved, index)]
     assert links == [document, document, folder, receipt["source_url"], folder, folder]
     assert saved == before
+
+
+def test_a_re_served_items_lineage_moves_with_its_links():
+    """A calculated citation's operands are linked on its provenance copy, which the PDF lists: it takes the
+    point's where the snapshot reads the two alike, and keeps its own when anything else differs."""
+    folder, document = build_sec_archive_url(CIK, ANNUAL), _document(CIK, ANNUAL, "annual-10k.htm")
+
+    def lineage(link, validation="passed"):
+        return {"method": "calculated", "validation": validation, "inputs": [{"accession": ANNUAL, "source_url": link}]}
+
+    index = {"F1": {"provenance": lineage(document)}, "F2": {"provenance": lineage(document, "needs_review")}}
+    saved = [{"marker": marker, "source_url": None, "provenance": lineage(folder)} for marker in ("F1", "F2")]
+    moved = current_links(saved, index)
+    assert moved[0]["provenance"] == lineage(document) and moved[1] is saved[1]
+
+
+def test_a_pdf_copy_takes_the_rebuilt_series_only_where_the_snapshot_reads_them_alike():
+    """The PDF's copy of a saved row takes the rebuilt series, and its citations their links, inside the
+    folders it saved, and keeps the saved snapshot's other keys; a link in another accession's folder
+    keeps the saved series whole. The saved row is untouched."""
+    folder, document = build_sec_archive_url(CIK, ANNUAL), _document(CIK, ANNUAL, "annual-10k.htm")
+
+    def dataset(link, as_of):
+        point = {"period": "FY2024", "value": 1.0, "marker": "F1", "source_url": link}
+        series = {"concept": "revenue", "label": "Revenue", "unit": "USD", "percent": False, "points": [point]}
+        return {"snapshot_id": "a" * 64, "data_as_of": as_of, "series": [series]}
+
+    saved = SimpleNamespace(id=7, mode="annual", dataset_json=dataset(folder, "2026-01-02T00:00:00Z"),
+                            citations_json=[{"marker": "F1", "source_url": folder}])
+    before = deepcopy(vars(saved))
+    moved = cached_analysis_export(dataset(document, "2026-10-22T00:00:00Z"), saved)
+    assert (moved.id, moved.mode, moved.dataset_json["data_as_of"]) == (7, "annual", "2026-01-02T00:00:00Z")
+    assert [moved.dataset_json["series"][0]["points"][0]["source_url"], moved.citations_json[0]["source_url"]] == [document] * 2
+    kept = cached_analysis_export(dataset(build_sec_archive_url(CIK, NINE_MONTHS), "2026-10-22T00:00:00Z"), saved)
+    assert [kept.dataset_json, kept.citations_json] == [saved.dataset_json, saved.citations_json]
+    assert vars(saved) == before
 
 
 @pytest.fixture
@@ -377,4 +416,62 @@ async def test_a_re_served_narrative_opens_the_documents_its_saved_folders_name(
     assert served_evidence == {marker: opened.get(url, url) for marker, url in saved_evidence.items()}
     with SessionLocal() as db:
         row = db.query(TrendAnalysis).filter(TrendAnalysis.company_id == company_id).one()
+        assert [row.citations_json, row.dataset_json] == stored
+
+
+@pytest.mark.asyncio
+async def test_a_saved_analysis_pdf_opens_the_documents_its_saved_folders_name(saved_history, monkeypatch):
+    """The PDF of a narrative saved with folder links, its 10-K rows landed since: the export's checks pass,
+    and each link it renders (the citations', the methods' points' and their operands') opens the document
+    the rebuilt dataset links in that folder. FY2021's folder stays, nothing else in the PDF changes, and
+    the saved row is as it was."""
+    from app.routers import analysis as router
+    from app.services import entitlements
+    from app.services import openai_service as oa
+    from app.services.export_service import export_service
+
+    company_id, cik, ten_k = saved_history
+
+    async def selection(messages, **kwargs):
+        yield json.dumps({key: [] for key, _ in svc.ANALYSIS_SECTIONS})
+
+    monkeypatch.setattr(oa.openai_service, "stream_chat", selection)
+    events = [event async for event in svc.stream_trend_narrative(
+        company_id=company_id, mode="annual", start_period="FY2021", end_period="FY2023",
+    )]
+    assert events[-1]["type"] == "complete"
+    with SessionLocal() as db:  # The FY2022 and FY2023 10-K rows land after the narrative was saved.
+        company = db.get(Company, company_id)
+        for year in (2022, 2023):
+            _filing(db, company, ten_k[year], f"fy{year}-10k.htm", "10-K")
+        db.commit()
+        row = db.query(TrendAnalysis).filter(TrendAnalysis.company_id == company_id).one()
+        analysis_id, stored = row.id, deepcopy([row.citations_json, row.dataset_json])
+        saved_pdf = export_service.generate_analysis_pdf_html(row, company)
+
+    pdfs = []
+
+    async def render(analysis, company):
+        pdfs.append(export_service.generate_analysis_pdf_html(analysis, company))
+        return b"%PDF-test"
+
+    monkeypatch.setattr(entitlements, "get_entitlements", lambda user: SimpleNamespace(can_export=True))
+    monkeypatch.setattr(export_service, "export_analysis_pdf", render)
+    response = await router.export_analysis_pdf(
+        analysis_id, snapshot_id=stored[1]["snapshot_id"], current_user=SimpleNamespace(), db=SessionLocal(),
+    )
+
+    assert response.body == b"%PDF-test" and len(pdfs) == 1
+    folders = {year: build_sec_archive_url(cik, accession) for year, accession in ten_k.items()}
+    opened = {folders[year]: folders[year] + f"fy{year}-10k.htm" for year in (2022, 2023)}
+    links = re.compile(r'<a href="([^"]+)">Source filing \d+</a>')
+    saved_links = links.findall(saved_pdf)
+    assert set(saved_links) == set(folders.values())  # The saved row links each 10-K's folder, and only those.
+    assert links.findall(pdfs[0]) == [opened.get(url, url) for url in saved_links]
+    restored, exported = pdfs[0], re.compile(r"Exported \S+")
+    for folder, document in opened.items():
+        restored = restored.replace(document, folder)
+    assert exported.sub("", restored) == exported.sub("", saved_pdf)
+    with SessionLocal() as db:
+        row = db.get(TrendAnalysis, analysis_id)
         assert [row.citations_json, row.dataset_json] == stored

@@ -57,18 +57,21 @@ def folder_links(value: Any) -> Any:
 
 
 def current_links(saved: list[dict[str, Any]], index: Mapping[str, dict[str, Any]]) -> list[dict[str, Any]]:
-    """Copies of a re-served analysis's citations or evidence operands, each with its point's link now.
+    """Copies of a re-served analysis's citations or evidence operands, each with its point's links now.
 
     A saved narrative is re-served while its snapshot holds, so a folder it saved before the filing's
     row landed takes the document its marker's point carries in the rebuilt dataset (the citations'
-    reading). An item takes the link only where the snapshot reads the two alike (``folder_links``):
-    the same accession folder, so it never changes which filing it names, and a link stored with its
-    receipt stays as it is. Nothing hashed, scanned, counted or saved changes; the copies are the response's.
+    reading), and the provenance it copied takes the point's, whose operands' links the PDF lists.
+    An item takes them only where the snapshot reads the two alike (``folder_links``): the same
+    accession folders, so it never changes which filing it names, and a link stored with its receipt
+    stays as it is. Nothing hashed, scanned, counted or saved changes; the copies are a response's or a PDF's.
     """
     swapped: list[dict[str, Any]] = []
     for item in saved:
         point = index.get(item.get("marker")) or {}
         candidate = {**item, "source_url": point.get("source_url") or (point.get("provenance") or {}).get("source_url")}
+        if "provenance" in item:
+            candidate["provenance"] = point.get("provenance")
         swapped.append(candidate if folder_links(candidate) == folder_links(item) else item)
     return swapped
 
