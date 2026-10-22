@@ -25,6 +25,7 @@ from app.config import settings
 from app.models import Company, Watchlist
 from app.services import filing_scan_service
 from app.services.edgar.config import FilingType
+from app.services.request_work import run_owned_sync
 from app.utils.datetimes import utcnow
 
 logger = logging.getLogger(__name__)
@@ -186,21 +187,49 @@ async def backfill_company_by_id(
 ) -> dict | None:
     """Backfill an on-visit company without retaining a connection during EFTS I/O.
 
-    The two sessions are owned here and contain only short read/persistence units. Generic batch
-    callers keep using ``backfill_company`` so this path never closes their sessions or discards
-    pending mutations.
+    The two sessions are owned here and contain only short read/persistence units, each run in the
+    thread pool (``run_owned_sync``), so neither checkout waits on the event loop: with
+    ``DURABLE_TASKS_ENABLED`` off the visit's backfill runs in the API process after the response
+    (E123). Generic batch callers keep using ``backfill_company`` so this path never closes their
+    sessions or discards pending mutations.
     """
-    with session_factory() as db:
-        company = db.get(Company, company_id)
-        if company is None or (not force and company.history_backfilled_at is not None):
-            return None
-        cik = company.cik
-        ticker = company.ticker
+    identity = await run_owned_sync(_company_to_backfill, session_factory, company_id, force)
+    if identity is None:
+        return None
+    cik, ticker = identity
 
     rows, windows, windows_ok = await _fetch_history_rows(
         cik=cik, ticker=ticker, efts_client=efts_client
     )
 
+    return await run_owned_sync(
+        _persist_backfill, session_factory, company_id,
+        rows=rows, windows=windows, windows_ok=windows_ok, require_complete=require_complete,
+    )
+
+
+def _company_to_backfill(
+    session_factory: Callable[[], Session], company_id: int, force: bool
+) -> tuple[str, str] | None:
+    """The backfill's first unit: the company's CIK and ticker, or None when it is gone or done."""
+    with session_factory() as db:
+        company = db.get(Company, company_id)
+        if company is None or (not force and company.history_backfilled_at is not None):
+            return None
+        return company.cik, company.ticker
+
+
+def _persist_backfill(
+    session_factory: Callable[[], Session],
+    company_id: int,
+    *,
+    rows: list[dict],
+    windows: int,
+    windows_ok: int,
+    require_complete: bool,
+) -> dict | None:
+    """The backfill's second unit: persist the fetched rows on a session of its own, or None when
+    the company is gone."""
     with session_factory() as db:
         company = db.get(Company, company_id)
         if company is None:

@@ -17,6 +17,7 @@ import { formatInstant } from '@/lib/format'
 import { Button, buttonVariants } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { MissingValue } from '@/components/ui/MissingValue'
 import { Notice } from '@/components/ui/Notice'
 import { SkeletonText } from '@/components/ui/Skeleton'
 import { queryKeys } from '@/lib/queryKeys'
@@ -131,7 +132,7 @@ export default function BillingPanel() {
                   ? usage.summaries_limit == null
                     ? `${usage.summaries_used} · Unlimited`
                     : `${usage.summaries_used} / ${usage.summaries_limit}`
-                  : '—'}
+                  : <MissingValue />}
               </span>
             </div>
 

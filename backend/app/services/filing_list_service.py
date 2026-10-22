@@ -8,7 +8,8 @@ fetch here), the ``BackgroundTasks`` scheduling, the durable-task handoff (it do
 the error mapping and the fallback log lines; the skip and background-failure warnings moved here
 with their code, so they now log as ``app.services.filing_list_service``.
 
-The background tasks open their own short-lived sessions. Everything else is one synchronous unit
+The background tasks open their own short-lived sessions, each in a synchronous unit run in the
+thread pool (``run_owned_sync``; E123). Everything else is one synchronous unit
 on the request's session, which the router runs in the thread pool, so its checkout never waits on
 the event loop. Each unit releases the request's pooled connection before it returns, so nothing is
 held across an SEC or queue await or left for the dependency's finalizer
@@ -34,6 +35,7 @@ from app.services.company_resolution import resolve_or_create_company_by_cik
 from app.services.edgar.client import _take_recent
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.config import FilingType
+from app.services.request_work import run_owned_sync
 from app.utils.datetimes import utcnow
 
 logger = logging.getLogger(__name__)
@@ -102,31 +104,36 @@ async def refresh_company_filings(
     if key in _refreshing_keys:
         return  # a refresh for this exact key is already in flight in this process
     _refreshing_keys.add(key)
-    db = None
     try:
         sec_filings = await asyncio.wait_for(
             sec_edgar_service.get_filings(cik, types_list),
             timeout=SEC_REQUEST_TIMEOUT_SECONDS,
         )
-        db = SessionLocal()
-        company = db.get(Company, company_id)
-        if company is None:
-            return
-        from app.services.filing_scan_service import upsert_filings
-        upsert_filings(db, company, sec_filings)
-        _mark_filings_synced(ticker_upper, types_list)
+        if await run_owned_sync(_persist_refreshed_filings, company_id, sec_filings):
+            _mark_filings_synced(ticker_upper, types_list)
     except Exception:
         logger.warning(
             "Background filings refresh failed for %s; serving persisted rows (stale within TTL)",
             ticker_upper,
             exc_info=True,
         )
-        if db is not None:
-            db.rollback()
     finally:
-        if db is not None:
-            db.close()
         _refreshing_keys.discard(key)
+
+
+def _persist_refreshed_filings(company_id: int, sec_filings: List[dict]) -> bool:
+    """The background refresh's one database unit, in the thread pool: upsert the refreshed list on
+    a session of its own, closed (and so rolled back on a failure) before it returns. False when the
+    company is gone. On the event loop its checkout would freeze the loop while the pool is full
+    (E123)."""
+    from app.services.filing_scan_service import upsert_filings
+
+    with SessionLocal() as db:
+        company = db.get(Company, company_id)
+        if company is None:
+            return False
+        upsert_filings(db, company, sec_filings)
+        return True
 
 
 async def run_history_backfill_on_visit(company_id: int) -> None:
@@ -330,9 +337,12 @@ def persist_live_filings(
     last, after the commit, while the session is still open: the router's unit releases it once
     this returns or raises. Any exception propagates to the router's fallbacks.
     """
+    from app.services.filing_amendment_service import lock_company_filings, mark_superseded_filings
+
     filings = []
     new_filings = []  # Track newly added filings for batch refresh
 
+    lock_company_filings(db, company_id)  # before the check below reads which rows exist
     # Prefetch existing filings in a single query to avoid an N+1
     # (previously this loop issued one SELECT per SEC filing).
     accession_numbers = [
@@ -401,7 +411,6 @@ def persist_live_filings(
 
     # Batch commit: single transaction for all database changes
     if new_filings or db.dirty:
-        from app.services.filing_amendment_service import mark_superseded_filings
         db.flush()
         mark_superseded_filings(db, company_id)
         db.commit()

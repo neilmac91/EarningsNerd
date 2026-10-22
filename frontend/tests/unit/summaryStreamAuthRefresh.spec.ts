@@ -3,7 +3,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 // The raw SSE fetch bypasses the shared axios client, so it reuses the client's exact machinery
 // (ensureRefreshed single-flight + hasActiveSession gate + clearSessionActive on confirmed rejection). These
 // pin that: an expired access cookie is recovered transparently (one refresh, one replay) instead
-// of dead-ending a logged-in user on "Could not validate credentials" (review finding, #619/#620).
+// of dead-ending a logged-in user on the 401's detail (review finding, #619/#620).
 // ensureRefreshed() wraps refreshAccessToken, so mocking the latter still controls the outcome.
 vi.mock('@/lib/api/refresh', () => ({
   refreshAccessToken: vi.fn(),
@@ -37,7 +37,7 @@ const okStream = () => {
 const unauthorized = () => ({
   ok: false,
   status: 401,
-  json: async () => ({ detail: 'Could not validate credentials' }),
+  json: async () => ({ detail: 'You are not logged in.' }),
 })
 
 describe('generateSummaryStream — expired-session silent refresh', () => {
@@ -91,7 +91,7 @@ describe('generateSummaryStream — expired-session silent refresh', () => {
     expect(refreshAccessToken).toHaveBeenCalledTimes(1)
     // One initial POST + one refresh attempt; a 401 is non-retryable, so no outer-loop retry storm.
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(error).toHaveBeenCalledWith(expect.stringMatching(/validate credentials/i))
+    expect(error).toHaveBeenCalledWith(expect.stringMatching(/not logged in/i))
     // A genuinely-gone session clears the advisory marker so the app stops treating it as live.
     expect(hasActiveSession()).toBe(false)
   })

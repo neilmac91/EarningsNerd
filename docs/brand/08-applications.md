@@ -13,7 +13,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 | Section | File | What changed |
 |---|---|---|
 | Composition (D-045) | `frontend/app/page.tsx`, `LandingRow.tsx` (new) | The two-column hero stays; every section after it is one ruled row: a hairline across the hero's container, a label column with the section's number (a CSS counter, so a section that omits itself takes none and leaves no gap), its title as the section's h2 and one line, one short sentence (a second opens the content column), and the content beside it, opening at 64rem at the reader's text size. No row alternates and nothing lays out four across (`earningsnerd/no-four-up-grid`); `tests/unit/landing-sections-mounted.spec.ts` holds the order, each row to the primitive and the close to one line. A form code in a row's copy is one unbroken run (`FormCodeText`), so no line breaks "10-Q" at its hyphen (`tests/e2e/reflow-200.spec.ts`, at 320 and 390px). The label column is the margin of a 10-K, so the page reads as a filing's items (tell T4, `09-stress-test.md` §2). |
-| Hero headline | `frontend/features/marketing/components/HeroHeadline.tsx`, `lib/headline.ts` | The accent phrase carries the mark (`.en-mark`) on the primary ink instead of sage text. Variant A ("Read the filing faster. Keep the source in view.") survives as the served default, with the mark under "the source" so it never breaks across lines; B and C become "Read it faster. Check it anyway." and "The summary that shows its work." |
+| Hero headline | `frontend/features/marketing/components/HeroHeadline.tsx`, `BrandEmphasis.tsx`, `lib/headline.ts` | All three accent phrases use shared `BrandEmphasis` (C5): genuine Inter italic 600 and dark ink on a full sage fill. Each phrase stays together when it fits and wraps at a word boundary under enlarged text. Variant A ("Read the filing faster. Keep the source in view.") remains the served default, with emphasis on "the source"; B and C are "Read it faster. Check it anyway." and "The summary that shows its work." |
 | Hero subhead and access line | `LandingHero.tsx` | "AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company's XBRL where they can be, and quotes against the filing's own text." The scope is the server's: it checks a figure only when the metric maps to an XBRL concept of at least $1M (`backend/app/services/provenance_service.py`). The access line is unchanged ("Private beta · request an invite"). Each form code in the subhead is one unbroken run (`FormCodeText`), so under 200% text it no longer breaks "10-Ks" at 390px or "10-Qs" at 1440px (E81, `tests/e2e/reflow-200.spec.ts`). |
 | Hero example | `HeroExample.tsx` | The fallback is Apple's FY2025 10-K (filed 2025-10-31) with the verified figures; the evidence row is a `MarkedCopy` block: the claim with its `[1]` bracket, the bracket's twin in the margin, and the filing's sentence in a `.en-marked` blockquote set in the editorial face. Live data renders the same way. The excerpt wears quotation marks, the closing one after the clip's ellipsis. A live figure carries no XBRL hover and the link reads "Source filing · check the figures on SEC EDGAR", since a live figure is the summary's highlight, which the hero cannot vouch for as an XBRL match; only the checked fallback names its XBRL concepts and reads "Figures from the company's XBRL · check them on SEC EDGAR" (one verb on both links). Each fallback concept is text inside its term, visually hidden, so every reader reaches it; the hover repeats it for a mouse. The link carries the brand focus ring (`tests/unit/hero-example-surface.spec.tsx`). Under 200% text (E81) the identity line wraps between its facts, each middot held to the fact before it, the form one run and the date moving under "filed" whole, where "filed Oct 31, 2025" in one run took the page to 329px at 320px; and the three figures wrap one under another inside their one hairline strip, each taking its own width, where in equal thirds each value ran into the next at 390px. The EDGAR receipt holds its middot to the word before it with a no-break space, where at 1440px its second line began "·". `tests/e2e/reflow-200.spec.ts` reads the boxes at 320, 390 and 1440px, the strip's rules among them at both text sizes (only between two figures, the first figure's label flush with the card), and the page at 320px. |
 | Founder slot | Retired | The empty component, configuration and hero mount have been removed (see §6). |
@@ -23,7 +23,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 | Contents | `SummaryContents.tsx` | The nine parts the live schema produces, from The Print to Notable Footnotes, in reading order, as a hairline list rather than a card (D-045). The list's note reads "Up to nine parts": the list is the schema's outline, and the Apple sample's own page omits Segments. |
 | How it works | `HowItWorks.tsx` | Three steps without "supported" or "selected": search any company with a ticker on SEC EDGAR (the coverage search has: SEC's ticker file), pick a filing, read the summary. |
 | Pro section | `ProDepth.tsx`, `ChangeReportDemo.tsx` | "More ways to read one filing." with the Ask, Multi-Period and Change Report demos, one under another, each pitch above its screen (D-045: no alternating rows); the Change Report sample is FY2025 against FY2024. The Pro chip sits on Ask this Filing and Multi-Period Analysis alone, and the Change Report's line names the metric deltas alone, "What changed against the prior filing, metric by metric, computed from XBRL. Both plans include it.": every reader gets the same report, metric deltas only, since `change_report_service.py` omits its risk lines and production serves no wording diff. Its risk and language clauses come back with `ENABLE_SECTION_CHANGES` (E27); until then `tests/unit/changeReportPlanClaims.spec.tsx` fails the row when it names either, or wears the chip. The extras are a ruled list, two across, with their file kinds and forms as text in the data face, no icon tiles and no chips: Excel export (with the analysis route), Summary export and Filing alerts, and no history extra while no retention is enforced (D-046). The Multi-Period row, its call to action, the Excel extra and the lead's "read its periods side by side" render only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships the route, which 404s otherwise (`tests/unit/analysis-route-hidden.spec.tsx`). |
-| Pricing section | `PricingSection.tsx` | One table since D-045, not two cards: the plans as columns, what each includes as rows (price, summaries, filings, search, Ask this Filing, Multi-Period Analysis, Change Report, alerts, exports, watchlist, priority support; no summary-history row, since nothing enforces `history_retention_days` and the history claims leave until a retention is enforced, D-046), each cell a plan line read through `shipped()` from `lib/planLimits.ts`, a dash read as "Not included" where a plan has none, and the two calls to action in the last row. No "Most popular" badge: the beta has no popularity figure behind one. The Multi-Period row (its label and cells are `ANALYSIS_LINES` entries) lists only while the flag ships it, and the exports cell reads "PDF, CSV and Excel exports" only then ("PDF and CSV exports" otherwise), since the Excel export is the analysis workbook. Each line keyed to a flag names it in a field (`flag: 'analysis'`), not by its wording. The Filings row reads "10-K, 10-Q and 20-F filings from SEC EDGAR" for both plans, with no "Supported" hedge, 20-F only while `NEXT_PUBLIC_ENABLE_FPI_FILINGS` mirrors the API's flag (`flag: 'fpi'`; "10-K and 10-Q filings from SEC EDGAR" otherwise). The Change Report row reads "Included" for both plans: the report's one plan difference, the Item 1A wording block (`entitlements.py`, `section_changes_items`), is served only behind `ENABLE_SECTION_CHANGES`, which `config.py` defaults off and no deploy map sets, and `tests/unit/changeReportPlanClaims.spec.tsx` fails when the flag can ship until the row says what the plans then get. The table fits a 390px phone at the default size and scrolls inside a named region, never the page, when it is wider (`tests/unit/pricing-section.spec.tsx`). `/pricing` keeps its two cards. The billing radios carry the brand ring on their own className. |
+| Pricing section | `PricingSection.tsx` | One table since D-045, not two cards: the plans as columns, what each includes as rows (price, summaries, filings, search, Ask this Filing, Multi-Period Analysis, Change Report, alerts, exports, watchlist, priority support; no summary-history row, since nothing enforces `history_retention_days` and the history claims leave until a retention is enforced, D-046), each cell a plan line read through `shipped()` from `lib/planLimits.ts`, the missing-value element (`MissingValue`) read as "Not included" where a plan has none, and the two calls to action in the last row. No "Most popular" badge: the beta has no popularity figure behind one. The Multi-Period row (its label and cells are `ANALYSIS_LINES` entries) lists only while the flag ships it, and the exports cell reads "PDF, CSV and Excel exports" only then ("PDF and CSV exports" otherwise), since the Excel export is the analysis workbook. Each line keyed to a flag names it in a field (`flag: 'analysis'`), not by its wording. The Filings row reads "10-K, 10-Q and 20-F filings from SEC EDGAR" for both plans, with no "Supported" hedge, 20-F only while `NEXT_PUBLIC_ENABLE_FPI_FILINGS` mirrors the API's flag (`flag: 'fpi'`; "10-K and 10-Q filings from SEC EDGAR" otherwise). The Change Report row reads "Included" for both plans: the report's one plan difference, the Item 1A wording block (`entitlements.py`, `section_changes_items`), is served only behind `ENABLE_SECTION_CHANGES`, which `config.py` defaults off and no deploy map sets, and `tests/unit/changeReportPlanClaims.spec.tsx` fails when the flag can ship until the row says what the plans then get. The table fits a 390px phone at the default size and scrolls inside a named region, never the page, when it is wider (`tests/unit/pricing-section.spec.tsx`). `/pricing` keeps its two cards. The billing radios carry the brand ring on their own className. |
 | Reader quote | `ReaderQuoteSlot.tsx`, `lib/readerQuote.ts` (new) | Mounted under the pricing section; renders nothing while `READER_QUOTE` is `null`, so no placeholder testimonial ships, the reader-quote slot stays unrendered and it takes no number among the rows; once filled it is a ruled row (§6; 01-interview.md §2; `tests/unit/readerQuoteSlot.spec.tsx`). It fills only with a real reader's words and the naming they approved in writing; the voice rules of #1288 (`brandVoiceRules.spec.ts`) gate the shipped value once that PR merges. The placeholder strings are gone. |
 | Sample data | `lib/landing-samples.ts` | Every sample on the page is Apple's FY2025 10-K against FY2024: revenue $416.2B vs $391.0B (+6.4%), net income $112.0B vs $93.7B (+19.5%) and diluted EPS $7.46 vs $6.08 (+22.7%) from SEC companyfacts; Services $109.2B vs $96.2B (+13.5%), a dimensioned fact companyfacts does not carry, from the 10-K's own inline XBRL; and the verbatim Item 7 sentence on Services (00-audit.md §4, D-021). The Multi-Period demo is the one exception (§8). The Ask demo answers "How much did net sales grow, and what drove Services?" as a live run would: total net sales of $416.2B [1] and its 6.4% growth [2], two XBRL chips written as `copilot_tools.fact_to_citation` writes them (a fact the tool can fetch, and the growth `compute_metric` derives from it), then the Item 7 sentence on Services [3]. The markers are numbered as the server numbers them, never [F1]. `tests/unit/landingSamplesVerified.spec.ts` holds every figure, chip label and marker on the page's samples and the hero fallback to the verified set, ties each XBRL chip's label and figure to the concept its section ref names, and ties the answer's figure before each marker to that chip. The Copilot teaser's blurred sample (`CopilotTeaser.tsx`, #1295) answers a Services question instead: its Services figures are a dimensioned fact the tool cannot fetch, so its citations are passages from the filing, not XBRL facts; the two answers differ for that reason, and the spec's teaser clause holds that citation kind: the sample states only the verified Services pair, names the drivers the Item 7 sentence names, and runs markers [1] and [2] with one matched source each and no XBRL marker, locator, tag or braces glyph. |
 | Reporting this week | `features/calendar/components/ReportingThisWeek.tsx` | A ruled row of hairline lines (mark, ticker, the day it reports, name), two across, in place of the four-up tiles (D-045); it renders only with live data, so it takes no number without it. |
@@ -123,6 +123,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   joined heading are h2, so the outline does not skip a level after the h1 when the example beside
   the form loads (it has no heading; `tests/unit/waitlistPage.spec.tsx`); the unused `WaitlistStatus`
   component is deleted, with the `getWaitlistStatus` client it alone called. The example link and the "Join the waitlist" pill carry the brand focus ring.
+  The pill, which answered no pointer, rests at the secondary recipe's hover fill and takes its pressed
+  fill under the pointer (`hover:bg-brand-border/60`, `dark:hover:bg-brand-border-dark`; E82): on the How
+  it works card its label measures 5.77:1 at rest and 5.33:1 hovered in light, 5.81:1 and 4.50:1 in
+  dark, and `tests/e2e/text-floors.spec.ts` holds both themes at rest and hovered.
   /waitlist, /login, /register, /forgot-password, /check-email, /verify-email, /reset-password,
   /contact, /privacy, /terms, /security, /delete-account, /calendar (its pinned fixture week painted) and
   /search (its results painted), since CI's e2e build turns the calendar and search on, join the routes
@@ -231,9 +235,14 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   change fails until the last row records it (a row on the day of the row before it names the pull
   request that shares the day; a row edited in place passes, and is review-checked, as is whether a
   row's date is the day main's history gives its merge). Its five links carry the brand focus ring, the site chrome's triple;
-  `siteChromeFocusRing.spec.ts` holds them, and its residue no longer lists the page. Its two
-  addresses break anywhere, as /privacy's four do, so neither page scrolls sideways at 390px under
-  200% text (`reflow-200.spec.ts`).
+  `siteChromeFocusRing.spec.ts` holds them, and its residue no longer lists the page. On each legal
+  page the gutter gives way before a word breaks: on a phone under 200% text each side gutter is 16px,
+  where it doubled to 32px (`lib/legalPageLayout.ts`, a query in em as on /analysis), and a word still
+  wider than the column breaks inside it (`[overflow-wrap:anywhere]` on the page's `<main>`, E131), its
+  two addresses and /privacy's four included. So none of /security, /terms and /privacy scrolls sideways
+  at 320, 360 or 390px under 200% text, no word but an address breaks at 390px, and each title holds
+  whole at 320px, where /security's "Authentication" and "Infrastructure" and /terms' "EarningsNerd",
+  "Subscriptions,", "MERCHANTABILITY," and "Indemnification" still break (`reflow-200.spec.ts`).
 
 - **Metadata and the social card** (every `app/**/page.tsx` and `layout.tsx`, `lib/socialCard.ts`,
   `scripts/brand/og-template.html`): every route's tab and shared-link preview reads
@@ -250,8 +259,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   pages carry the site card, since a page-level `openGraph` replaces the root one; their titles and
   descriptions say what the page holds in each state (a foreign issuer with no SEC reports is told as
   such, a filing with no summary yet claims none), and a filing's title names its filed date. The
-  card's URL is typed once (`?v=5`); its headline breaks before "shows its work." so the highlight
-  never crosses a line, and the highlight's hairline is 2px. Under `WAITLIST_MODE=true` (the rollback
+  card's URL is typed once (`?v=6`); its headline breaks before "shows its work." so the C5 claim
+  emphasis stays whole: genuine Inter italic 600 on a solid Bright Sage fill, opaque espresso ink,
+  8px corners and no hairline. The source citation below keeps its existing rule. Under `WAITLIST_MODE=true` (the rollback
   state) the card, the icons, the manifest and /terms stay reachable. The founder declined a
   company-specific or filing-specific card (D8, D-040). Gates: `routeMetadata.spec.ts`,
   `markSingleSource.spec.ts`, `middleware.spec.ts`.
@@ -341,7 +351,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   sized to its content beside its "Metric" label (nine and up to 23 options, in sentence case on its
   face); insider activity picks its window through the SegmentedControl; headings in sentence case; the
   percentile is an ordinal ("21st percentile"); a trade's type carries a hidden ▲ or ▼ beside its
-  label and the discretionary net keeps its sign; the 10b5-1 note says what a plan trade is. "Full
+  label and the discretionary net keeps its sign; the 10b5-1 note says what a plan trade is; a trade's
+  missing share count, value or date reads "unavailable", a missing name "name unavailable" and a row
+  that lists neither a title nor a role "no role listed", each the missing-value element. "Full
   history on SEC EDGAR" opens the company's EDGAR list through the shared company link the lead
   uses (`edgarCompanyUrl`: every form, and EDGAR's own defaults in place of the old `owner=include`
   and `count=40`), in the filing identity's quiet link. `earningsnerd/no-hand-rolled-toggle-group`
@@ -370,7 +382,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the /pricing FAQ and the filing page's monthly-limit card, D-046, `tests/unit/summaryPlanClaims.spec.ts`),
   the search card reads "Find a company by name or ticker", the plan strip's button reads "Manage
   billing", and the route error boundary is in sentence case with a generic line that names no route
-  ("This page didn't load. The error has been logged."). Tickers are set in the data face.
+  ("This page didn't load. The error has been logged."). Tickers are set in the data face. A watched
+  company's card shows a missing filed date as the missing-value element read as "filing date
+  unavailable" (its line has no label of its own) and a missing period end as "Period end:" with the
+  element read as "unavailable".
   `earningsnerd/direction-text-tokens` (new ESLint rule) bans the 600-level gain and loss as text, and
   sage on a direction glyph it can see by its name, its import or a binding the file writes it to (on
   the glyph, on the element whose ink it inherits, or in a map that pairs it with its classes);
@@ -383,7 +398,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   header's rung with the account menu.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
-  "$7.5" (a Phase 9 fix; compact figures keep their rounding). The standalone card (the landing's
+  "$7.5" (a Phase 9 fix; compact figures keep their rounding). A change the server did not send is the
+  missing-value element, read as "unavailable". The standalone card (the landing's
   evidence table) is titled "Financial highlights", in sentence case; the summary's own section
   heading is the backend's schema title.
 - **Calendar** (`frontend/features/calendar/components/EarningsCalendarPage.tsx`, `MonthView.tsx`,
@@ -498,7 +514,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   trial banner) and "Analyze trends" a chart glyph; the sparkle leaves commerce there (D-031 records
   that it has no sanctioned site until an AI-summary chip exists), and #1295 takes it off the
   Copilot's two upgrade buttons (`CopilotMessage.tsx`, `CopilotTeaser.tsx`). The dead
-  SubscriptionGate is gone. The locked overlay reads "Upgrade to Pro". Section headings in settings
+  SubscriptionGate is gone. The locked overlay reads "Upgrade to Pro". The profile's email and the
+  billing panel's monthly count show the missing-value element, read as "unavailable", until they
+  load. Section headings in settings
   and on the dashboard carry no icon. The dashboard answers a finished checkout ("Pro is active", or
   "Checkout finished" with "Your plan updates in a moment. Reload this page if it still shows Free."
   while the query still says Free) and pricing a cancelled one ("You returned from checkout", then
@@ -572,7 +590,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   chips put the status ink on the quiet ground (DESIGN_SYSTEM.md §4), the feedback type chip beside
   them takes the same quiet ground in dark (no fill, its hairline kept) and Badge's metrics, so the
   row's two chips share one weight, "New" feedback takes an unread envelope in place of the sparkle,
-  an already-invited chip reads "· already invited" in its own ink, and the remaining admin controls
+  an already-invited chip reads "· already invited" in its own ink, a missing value is the missing-value
+  element (an invite without a cohort reads "no cohort", feedback sent from no page "no page", an
+  unreadable date "unavailable"), and the remaining admin controls
   carry the brand ring (`statusChipContrast.spec.ts`, `inviteOutcomeEmailed.spec.tsx`,
   `siteChromeFocusRing.spec.ts`).
 - **Earnings calendar** (`frontend/app/calendar/page.tsx`, `features/calendar/components/*`): the

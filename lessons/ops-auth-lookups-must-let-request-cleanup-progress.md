@@ -33,8 +33,9 @@ satisfy its timeout. The off-the-loop rule and its gates cover only these sites;
 listing covers each `asyncio.to_thread` and positional `run_in_executor(None, …)` call under `app/` and
 in the backend's top-level modules, and its docstring names the forms it cannot see. Other async code still
 makes blocking lookups on the loop (async route bodies such as `register`, `reset_password` and
-`change_password`, the `filing_list_service.refresh_company_filings` background task, the `/internal`
-trigger helpers); those are known and review-checked.
+`change_password`, and the `/internal` trigger helpers' flag-off jobs, E150; the
+`filing_list_service.refresh_company_filings` background task moved its unit into the thread pool in
+E123); those are known and review-checked.
 
 **Evidence.** `backend/app/services/auth_account_service.py::find_user_by_email` (the lookup,
 moved out of the router as `_lookup_auth_user` in 2026-10), awaited through `run_in_threadpool`

@@ -9,6 +9,7 @@ import { Button, primaryUnavailableClass } from '@/components/ui/Button'
 import { cx } from '@/components/ui/cx'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
+import { MissingValue } from '@/components/ui/MissingValue'
 import { queryKeys } from '@/lib/queryKeys'
 
 export default function ProfileForm() {
@@ -44,7 +45,7 @@ export default function ProfileForm() {
       <div className="space-y-4">
         <div>
           <label className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Email</label>
-          <p className="break-words text-text-primary-light dark:text-text-primary-dark font-medium">{user?.email ?? '—'}</p>
+          <p className="break-words text-text-primary-light dark:text-text-primary-dark font-medium">{user?.email ?? <MissingValue />}</p>
         </div>
 
         <div>

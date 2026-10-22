@@ -17,6 +17,8 @@ export { Checkbox, type CheckboxProps } from './Checkbox'
 export { Modal, ModalHeader, ModalBody, ModalFooter, type ModalProps, type ModalHeaderProps } from './Modal'
 export { DataTable, type DataTableProps, type Column, type CellTone, type SortState, type Density } from './DataTable'
 export { Skeleton, SkeletonText, SkeletonStat } from './Skeleton'
+// A value the page does not have: the missing-value token, aria-hidden, beside words for assistive tech (E88).
+export { MissingValue, type MissingValueProps } from './MissingValue'
 // v2.1: ui/StateCard renamed → GuidanceCard (collision with the app's own
 // components/StateCard.tsx notice card; one letter from StatCard the KPI tile).
 export { GuidanceCard, type GuidanceCardProps, type GuidanceCardVariant } from './GuidanceCard'

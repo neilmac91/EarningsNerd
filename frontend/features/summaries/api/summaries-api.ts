@@ -143,8 +143,8 @@ export const isPaywallStreamError = (message: string): boolean => {
 // the filing page's card offers no Retry (StreamingSummaryDisplay). Each backend sentence is matched on its own
 // words. Pro's fair-use pause (admission.py: "We've temporarily paused new summary generation on your
 // account …") holds until the month turns. The stream route's 403s hold whatever the reader retries: a Free
-// reader's force regeneration of a summary the page shows ("Regenerating an analysis is a Pro feature.", the
-// route itself) and an inactive account ("User account is inactive", get_current_user). A retry of any of them
+// reader's force regeneration of a summary the page shows ("Regenerating a summary is a Pro feature.", the
+// route itself) and an inactive account ("This account is inactive. …", get_current_user). A retry of any of them
 // only repeats the blocked request. tests/unit/streamErrorCopy.spec.ts reads the pause from admission.py and
 // every 403 the stream endpoint returns, and holds this matcher to each.
 export const isNonRetryableStreamError = (message: string): boolean => {

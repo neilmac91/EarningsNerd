@@ -25,6 +25,7 @@ import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 
 const mockVariant = vi.hoisted(() => ({ value: undefined as unknown }))
 vi.mock('posthog-js/react', () => ({ useFeatureFlagVariantKey: () => mockVariant.value }))
+vi.mock('next/font/local', () => ({ default: () => ({ variable: 'hero-italic-font' }) }))
 
 describe('access decision (design tweak `access`)', () => {
   it('fails closed to the invite copy when the backend cannot be read', () => {
@@ -77,15 +78,22 @@ describe('headline experiment (design tweak `headline`)', () => {
   it('renders variant A in server HTML and leaves the document title alone', () => {
     render(<HeroHeadline />)
     const h1 = screen.getByRole('heading', { level: 1 })
-    expect(h1).toHaveTextContent(`${HEADLINES.A.pre}${HEADLINES.A.accent}${HEADLINES.A.post}`)
+    expect(h1.textContent).toBe(`${HEADLINES.A.pre}${HEADLINES.A.accent}${HEADLINES.A.post}`)
     expect(h1).toHaveAttribute('data-headline-variant', 'A')
+    expect(screen.getByText('the source')).toHaveClass('en-hero-emphasis', 'hero-italic-font')
+    expect(screen.getByText('the source').parentElement).not.toHaveClass('en-hero-emphasis-group')
     expect(document.title).toBe(originalTitle)
   })
 
-  it('swaps to the flagged arm and retitles the document to match', () => {
-    mockVariant.value = 'C'
+  it.each(['B', 'C'] as const)('keeps the shared promotional emphasis on arm %s and retitles the document', (variant) => {
+    mockVariant.value = variant
     render(<HeroHeadline />)
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('The summary that shows its work.')
-    expect(document.title).toBe(pageTitleFor('C'))
+    const headline = HEADLINES[variant]
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(`${headline.pre}${headline.accent}${headline.post}`)
+    const emphasis = screen.getByText(headline.accent)
+    expect(emphasis).toHaveClass('en-mark', 'en-hero-emphasis', 'hero-italic-font')
+    expect(emphasis.parentElement).toHaveClass('en-hero-emphasis-group')
+    expect(emphasis.parentElement?.textContent).toBe(`${headline.accent}.`)
+    expect(document.title).toBe(pageTitleFor(variant))
   })
 })

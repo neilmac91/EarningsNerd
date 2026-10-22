@@ -4,6 +4,8 @@ import { formatCompanyName } from '@/lib/formatCompanyName'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
 import { logoutAndResetAccount } from '@/features/auth/lib/accountQueryState'
+import { isConfirmedGuest } from '@/features/auth/lib/confirmedGuest'
+import AccountLoadFailure from '@/features/auth/components/AccountLoadFailure'
 import { getUsage, getSubscriptionStatus, createPortalSession } from '@/features/subscriptions/api/subscriptions-api'
 import { getSavedSummaries, deleteSavedSummary, SavedSummary } from '@/features/summaries/api/summaries-api'
 import { getWatchlistInsights } from '@/features/watchlist/api/watchlist-api'
@@ -140,13 +142,16 @@ export default function DashboardPage() {
       router.push('/login')
       router.refresh()
     }),
+    // Offline, a press still sends the logout and reports how it went, rather than waiting paused for the connection.
+    networkMode: 'always',
   })
 
+  // Only a confirmed guest leaves for /login: an unresolved user (a fetch paused offline, a failure) is not logged out,
+  // and neither is a null still being read (isConfirmedGuest).
+  const guest = isConfirmedGuest(userQuery)
   useEffect(() => {
-    // Only a confirmed guest (a 401 resolves to null, and logout resets the user to null). An unresolved
-    // user (a fetch paused offline, a failure) is not logged out.
-    if (user === null) router.push('/login')
-  }, [user, router])
+    if (guest) router.push('/login')
+  }, [guest, router])
 
   // A successful delete drops its row once saved summaries refetch. Land on the section heading, or
   // on the next section's when the last summary went and the section with it.
@@ -243,26 +248,10 @@ export default function DashboardPage() {
     )
   }
 
-  if (userFailure.failed) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark px-4">
-        <div className="max-w-md w-full">
-          <GuidanceCard
-            variant="error"
-            title="Unable to load your dashboard"
-            description={userFailure.error instanceof Error ? userFailure.error.message : 'Please try again in a moment.'}
-            action={
-              <>
-                <RetryButton failures={[userFailure]} focusTarget={titleRef} />
-                <Link href="/login" className={buttonVariants({ variant: 'primary' })}>
-                  Go to login
-                </Link>
-              </>
-            }
-          />
-        </div>
-      </div>
-    )
+  // The account could not be read and there is no user to show. A refetch that fails with the user in hand keeps the
+  // page, as the watchlist and the admin section do.
+  if (userFailure.failed && !user) {
+    return <AccountLoadFailure failure={userFailure} focusTarget={titleRef} title="Unable to load your dashboard" />
   }
 
   if (!user) {

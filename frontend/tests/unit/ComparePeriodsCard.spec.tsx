@@ -115,7 +115,7 @@ describe('ComparePeriodsCard', () => {
     expect(screen.getByText('1 more in the change report.')).toBeInTheDocument()
   })
 
-  it('shows the figure dash for a change from zero and speaks its direction, with no figures to infer it from', async () => {
+  it('shows the missing-value element for a change from zero and speaks its direction, with no figures to infer it from', async () => {
     // No percentage is meaningful from a zero prior: the server sends the direction and display null.
     api.getWhatChanged.mockResolvedValue({
       ...REPORT,
@@ -123,9 +123,10 @@ describe('ComparePeriodsCard', () => {
     })
     renderCard()
     const [row] = within(await screen.findByRole('list')).getAllByRole('listitem')
-    expect(row).toHaveTextContent(/^Net income▲Up —Favorable$/)
+    expect(row).toHaveTextContent(/^Net income▲Up, —no percentageFavorable$/)
     expect(within(row).getByText('—')).toHaveAttribute('aria-hidden', 'true')
-    expect(within(row).getByText('Up')).toHaveClass('sr-only')
+    expect(within(row).getByText('Up,')).toHaveClass('sr-only')
+    expect(within(row).getByText('no percentage')).toHaveClass('sr-only')
   })
 
   it('links to the change report on the filing page', async () => {

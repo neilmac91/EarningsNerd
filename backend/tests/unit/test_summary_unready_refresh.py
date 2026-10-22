@@ -162,7 +162,7 @@ def test_force_over_a_ready_row_stays_pro_only():
         response = _post(filing_id, "?force=true")
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Regenerating an analysis is a Pro feature."
+    assert response.json()["detail"] == "Regenerating a summary is a Pro feature."
     summarize.assert_not_called()
     assert _stored(filing_id)[:2] == (stored_id, READY_BODY)
 

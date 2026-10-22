@@ -4,6 +4,8 @@ import { ArrowRightIcon } from '@/lib/icons'
 import WaitlistForm from '@/features/waitlist/components/WaitlistForm'
 import WaitlistCounter from '@/features/waitlist/components/WaitlistCounter'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
+import BrandEmphasis from '@/features/marketing/components/BrandEmphasis'
+import FormCodeText from '@/features/marketing/components/FormCodeText'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import WaitlistExample, { WaitlistExamplePending } from '@/features/waitlist/components/WaitlistExample'
 
@@ -24,13 +26,11 @@ export default function WaitlistPage() {
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
           <div className="text-center lg:text-left">
-            <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark sm:text-5xl md:text-6xl">
-              The 10-K, read for you, <span className="en-mark">with receipts</span>.
+            <h1 className="isolate [container-type:inline-size] text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark sm:text-5xl md:text-6xl">
+              The <FormCodeText text="10-K, read for you, " /><BrandEmphasis trailingPeriod>with receipts</BrandEmphasis>
             </h1>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark sm:mt-6">
-              AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are
-              checked against the company’s XBRL where they can be, and quotes against the filing’s
-              own text.
+              <FormCodeText text="AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company’s XBRL where they can be, and quotes against the filing’s own text." />
             </p>
 
             <div className="mt-6 flex justify-center lg:justify-start">
@@ -97,7 +97,7 @@ export default function WaitlistPage() {
               <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {item.title}
               </h2>
-              <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">{item.body}</p>
+              <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark"><FormCodeText text={item.body} /></p>
             </div>
           ))}
         </div>
@@ -114,13 +114,17 @@ export default function WaitlistPage() {
                 From the filing to its summary, with the receipts.
               </p>
             </div>
-            {/* Server component — buttonVariants() can't be called here (it's a client export),
-                so this CTA stays a token-clean hand-rolled secondary pill. It has no hover colour: the
-                hover hairline it carried equalled its resting one in light and lost to the resting dark
-                border in dark, so it painted nothing in either theme. */}
+            {/* A hand-rolled pill on purpose: this server page cannot call buttonVariants() (a client
+                export), and MarketingCta, which renders that recipe for a server section, gives the
+                secondary button's own look (transparent at rest, rounded-lg). The pill rests at the
+                secondary recipe's hover fill (in dark a shade stronger: brand-dark/15, where the
+                recipe's brand-weak-dark is the same sage at 0.14) and takes the recipe's pressed fill
+                under the pointer, in both themes (E82): its label measures 5.33:1 on that fill in light
+                and 4.50:1 in dark, on this card. tests/e2e/text-floors.spec.ts holds both themes, at
+                rest and hovered. */}
             <a
               href="#waitlist"
-              className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-semibold text-brand-strong transition focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+              className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-semibold text-brand-strong transition-colors duration-fast hover:bg-brand-border/60 focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:hover:bg-brand-border-dark dark:focus-visible:shadow-ring-brand-dark"
             >
               Join the waitlist
             </a>
@@ -159,7 +163,7 @@ export default function WaitlistPage() {
                 <h3 className="mt-2 text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                   {item.title}
                 </h3>
-                <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">{item.body}</p>
+                <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark"><FormCodeText text={item.body} /></p>
               </div>
             ))}
           </div>

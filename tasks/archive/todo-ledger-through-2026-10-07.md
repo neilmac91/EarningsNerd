@@ -6774,6 +6774,37 @@ Full local and hosted verification plus independent exact-head review precede re
   production not read live. No CODE RED spend; no ledger event; no other writer's paid run on GitHub. Chief defect
   19 (a repeated foreground sleep) and no classifier denial; one hook refusal of the chief's commands in the
   window, nothing running. Closure 193.
+- 2026-10-21 (record 43, `runtime/control/DECISIONS-43.md`): PR #1467 (record 42) merged `87e5331d` by the chief
+  under record 35's founder action 9, answered, on the founder's word (thirty-eighth deploy-skip proof), with no
+  classifier refusal, after its fact-check, three reviewer passes and Codex's clean reviews; its ready marking's
+  review gate passed on one re-run after an HTTP 503 from GitHub's API. Closure 194 registers record 42's survey,
+  fact-check and reviewer and pre-registers this record's survey and fact-check and record 44's reviewer. A
+  read-only survey of the window before the record was written. Three main merges, two of them other writers', no
+  backend deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid run on
+  GitHub (#1455's). Chief defect 20 (a printed path name, the class of chief defect 14) and no classifier denial;
+  two hook refusals of the chief's commands in the window, nothing running. Closure 194.
+- 2026-10-22 (record 44, `runtime/control/DECISIONS-44.md`): PR #1470 (record 43) merged `45d0a8e5` by the chief
+  under record 35's founder action 9, answered (thirty-ninth deploy-skip proof, in a new form: its main run was
+  cancelled when `e2e-tests` reached its 25-minute limit, so its deploy job never ran and nothing deployed to the
+  backend), with no classifier refusal, after its fact-check, three reviewer passes and Codex's one finding,
+  taken. Closure 195 registers record 43's survey, fact-check and reviewer and pre-registers this record's survey
+  and fact-check and record 45's reviewer. A read-only survey of the window before the record was written. Six
+  main merges, five of them other writers', no backend deploy; six CI runs cut off by the same limit within the
+  hour (founder action 13, new); production not read live. No CODE RED spend; no ledger event; five other
+  writers' paid runs on GitHub (#1474's and #1455's). Chief defect 21 (an unfiltered search, the class of chief
+  defect 20); no classifier denial and no hook refusal of the chief's commands in the window. Closure 195.
+- 2026-10-22 (record 45, `runtime/control/DECISIONS-45.md`): PR #1477 (record 44) merged `dbc2a732` by the chief
+  under record 35's founder action 9, answered, and the founder's word for it (fortieth deploy-skip proof: its
+  main run succeeded and its deploy job skipped every deploy step), with no classifier refusal, after its
+  fact-check, three reviewer passes and Codex's four findings, taken, two of them from its review on the ready
+  marking, whose clean review of the final head the merge waited for. Closure 196 registers record 44's survey,
+  fact-check and reviewer and pre-registers this record's survey and fact-check and record 46's reviewer. A
+  read-only survey of the window before the record was written. Two main merges, #1476 and record 44's, no
+  backend deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid run on
+  GitHub (#1455's). Chief defects 22 (an unfiltered search, the class of chief defects 20 and 21) and 23 (shell
+  variables in `gh api` paths); no classifier denial and two hook refusals of the chief's commands in the window,
+  nothing running. Closure 196, amended in place before merge to pre-register a fresh reviewer after a container
+  restart ended the first one's context.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and

@@ -1418,7 +1418,7 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 # ceiling is 0, so every new async route starts clean. The ceilings are the counts when the ratchet
 # landed. A PR that moves a route's session work off the loop lowers its entry in the same diff and
 # deletes it at 0. The ratchet fails only above a ceiling, never below one: while other branches edit
-# routers in parallel (one moves the contact form's persistence into a service), an exact match would
+# routers in parallel (as #1325 did, moving the contact form's persistence into a service), an exact match would
 # turn main red when one of them merges with fewer calls, as ``test_router_orm_ceilings_allowlist.py``
 # explains. Lowering is therefore each fixing PR's job, checked in review.
 #
@@ -1441,13 +1441,7 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # the loop. The blank line between entries keeps in-place number edits on different entries
 # mergeable in any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
-    ("app/routers/contact.py", "submit_contact_form"): 4,
-
     ("app/routers/feedback.py", "submit_feedback"): 4,
-
-    ("app/routers/subscriptions.py", "create_checkout_session"): 2,
-
-    ("app/routers/subscriptions.py", "get_subscription_status"): 1,
 
     ("app/routers/summaries.py", "ask_filing_stream"): 1,
 
