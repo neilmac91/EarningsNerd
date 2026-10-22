@@ -22,7 +22,12 @@ import type { RetainedFailure } from '@/hooks/useRetainedFailure'
  */
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
-vi.mock('next/font/google', () => ({ Inter: () => ({ className: 'font-inter' }) }))
+// The root's fonts (app/fonts.ts, which global-error.tsx imports, E147): next/font is compiled away by Next's build, so
+// its three loaders are stubbed.
+vi.mock('next/font/google', () => {
+  const font = () => ({ className: 'font-inter', variable: '' })
+  return { Inter: font, Geist_Mono: font, Newsreader: font }
+})
 
 const firstHeading = (ui: ReactElement) => {
   const match = renderToStaticMarkup(ui).match(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/)

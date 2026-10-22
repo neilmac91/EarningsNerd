@@ -54,8 +54,9 @@ interface TurnstileWidgetProps {
 
 /**
  * Renders the Cloudflare Turnstile widget when NEXT_PUBLIC_TURNSTILE_SITE_KEY is configured;
- * renders nothing otherwise. On failure to load it stays silent (the backend also fails open
- * on infra errors), so a Cloudflare outage never hard-blocks a sign-in form.
+ * renders nothing otherwise. On failure to load it stays silent, and no token comes. The backend
+ * fails open only when siteverify is unreachable, never on a missing token, so while the script
+ * cannot load, a form that waits for its token (TURNSTILE_ENABLED) waits with no end (E152).
  */
 export default function TurnstileWidget({ onToken, className }: TurnstileWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null)
