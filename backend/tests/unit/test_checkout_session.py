@@ -103,9 +103,10 @@ def _create_and_capture(client, **params):
     return kwargs
 
 
-def test_repeat_subscriber_gets_plain_checkout(client):
+def test_repeat_subscriber_gets_plain_checkout(client, monkeypatch):
     """A repeat subscriber (prior Subscription row exists — the autouse default) gets no trial and
     keeps the ``if_required`` no-card lever (Stripe still collects a card on a non-zero total)."""
+    monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)  # trial on, so the prior row decides
     kwargs = _create_and_capture(client, price_id="price_monthly_test")
     assert kwargs["payment_method_collection"] == "if_required"
     assert kwargs["mode"] == "subscription"
@@ -244,12 +245,13 @@ def test_live_trialing_subscriber_gets_409(client):
     create.assert_not_called()
 
 
-def test_expired_trial_remnant_can_resubscribe_without_trial(client):
+def test_expired_trial_remnant_can_resubscribe_without_trial(client, monkeypatch):
     """The 409 gate resolves through entitlements, NOT the raw status string: a stale
     ``trialing`` row whose trial_end has passed (reverse-trial remnant / lagging webhook) is
     Free by plan truth, so the user can subscribe again — but the prior row means no new trial."""
     from datetime import datetime, timedelta, timezone
 
+    monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)  # trial on, so the prior row decides
     past = datetime.now(timezone.utc) - timedelta(days=3)
     app.dependency_overrides[get_current_user] = lambda: _user(
         id=7, subscription=SimpleNamespace(status="trialing", trial_end=past)
