@@ -243,29 +243,29 @@
 //                       room for a glyph (an icon field's pl-11, a select's pr-9); and a section of a surface, an element
 //                       written directly inside a Card, a Modal or a frame whose class does not pad every render (only
 //                       padding of some length in its unconditional text, a binding's read where it is named, under no
-//                       variant, does; `p-0`, or padding set only under a condition or a variant such as `sm:`, leaves
-//                       the inset to the children, failing closed), through `{…}` children, conditionals and a callback
-//                       written there, as the Card's sections are: the hero example's wrapper, the admin lists' rows. A
-//                       frame inside a dialog's body (written inside <ModalBody> or a native <dialog> in the same file, a
-//                       Card included) caps from step 4: the dialog's own inset already halves the measure there, and at
-//                       320px under 200% text the cookie dialog's category cards left their text 92px and broke its
-//                       longest words. A class a same-file binding holds, named in any class attribute
-//                       (`className={PAD}`, `cx(SHELL, 'p-6')`, `${SHELL} p-6`; the initializer a string, a template or a
-//                       cx()/clsx() call), is read with it as text that is always there, for its frame and its padding
-//                       alike, and a constant that draws a frame is read on its own too, failing closed where it cannot
-//                       see the element it lands on (a constant drawing a select's frame beside its pr-9 reads as a
-//                       frame; keep a field's inset on it). A capped key the theme does not define (`p-cap-7`,
-//                       `scroll-py-cap-7`) fails anywhere, under any variant, since it ships unstyled. Out of reach
-//                       (review-checked, the reachable ones planted as gaps in tests/unit/designRules.spec.ts): a class a
-//                       component receives as a prop and passes to a Card or a frame elsewhere, an imported constant, an
-//                       object of recipes (`S.pad`), a binding a ternary or a later assignment sets, a class through a
-//                       helper other than cx()/clsx() (`merge(…)`), an inset set in an inline style or a stylesheet, a
-//                       token whose variant styles another element (`[&>div]:p-6`), a frame drawn without a border
-//                       utility (a fill, a shadow or a ring alone, or a stylesheet class such as `.glass-card`), a
-//                       section of a surface that sets padding on one axis only (a `py-2` Card's `px-6` rows), and a
-//                       section held in a variable or rendered by another component (the stacked metric cards' list in
-//                       FinancialMetricsTable, TableScroll's hint, the filings index's skeleton), which carry the cap by
-//                       hand.
+//                       variant and reset to zero under none, does; `p-0`, padding set only under a condition or a
+//                       variant such as `sm:`, or a reset under one (`p-cap-6 sm:p-0`), leaves the inset to the children,
+//                       failing closed), through `{…}` children, conditionals and a callback written there, as the Card's
+//                       sections are: the hero example's wrapper, the admin lists' rows. A frame inside a dialog's body
+//                       (written inside <ModalBody> or a native <dialog> in the same file, a Card included) caps from
+//                       step 4: the dialog's own inset already halves the measure there, and at 320px under 200% text the
+//                       cookie dialog's category cards left their text 92px and broke its longest words. A class a
+//                       same-file binding holds, named in any class attribute (`className={PAD}`, `cx(SHELL, 'p-6')`,
+//                       `${SHELL} p-6`; the initializer a string, a template or a cx()/clsx() call), is read with it as
+//                       text that is always there, for its frame and its padding alike, and a constant that draws a frame
+//                       is read on its own too, failing closed where it cannot see the element it lands on (a constant
+//                       drawing a select's frame beside its pr-9 reads as a frame; keep a field's inset on it). A capped
+//                       key the theme does not define (`p-cap-7`, `scroll-py-cap-7`) fails anywhere, under any variant,
+//                       since it ships unstyled. Out of reach (review-checked, the reachable ones planted as gaps in
+//                       tests/unit/designRules.spec.ts): a class a component receives as a prop and passes to a Card or a
+//                       frame elsewhere, an imported constant, an object of recipes (`S.pad`), a binding a ternary or a
+//                       later assignment sets, a class through a helper other than cx()/clsx() (`merge(…)`), an inset set
+//                       in an inline style or a stylesheet, a token whose variant styles another element (`[&>div]:p-6`),
+//                       a frame drawn without a border utility (a fill, a shadow or a ring alone, or a stylesheet class
+//                       such as `.glass-card`), a section of a surface that sets padding on one axis only (a `py-2`
+//                       Card's `px-6` rows), and a section held in a variable or rendered by another component (the
+//                       stacked metric cards' list in FinancialMetricsTable, TableScroll's hint, the filings index's
+//                       skeleton), which carry the cap by hand.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
@@ -1830,16 +1830,23 @@ function lengthStep(value) {
   return m[2] === 'rem' ? Number(m[1]) * 4 : Number(m[1]) / 4
 }
 
+/** A padding token's step on the 0.25rem scale (`p-6` → 6, `p-0` → 0, `p-[24px]` → 6), null for a value the rule
+ *  cannot read as a length, or undefined for a token that sets no padding: another utility, or a key the theme does
+ *  not define (`p-typo`), which styles nothing, as uncappedInset reads it. */
+function paddingStep(raw) {
+  const token = raw && parseClassToken(raw)
+  const m = token && PADDING.exec(token.utility)
+  if (!m) return undefined
+  const key = m[2]
+  const value = key.startsWith('[') && key.endsWith(']') ? key.slice(1, -1).replace(/_/g, ' ') : PADDING_SCALE[key]
+  return value === undefined ? undefined : lengthStep(value)
+}
+
 /** Whether a class token sets padding of some length: `p-6`, `px-cap-5`, `p-[24px]`, and a value the rule cannot read
  *  as a length; never a zero one (`p-0`, `px-0`, `p-[0px]`) nor a key the theme does not define. */
 function setsPadding(raw) {
-  const token = raw && parseClassToken(raw)
-  const m = token && PADDING.exec(token.utility)
-  if (!m) return false
-  const key = m[2]
-  const value = key.startsWith('[') && key.endsWith(']') ? key.slice(1, -1).replace(/_/g, ' ') : PADDING_SCALE[key]
-  // A key the theme does not define styles nothing (`p-typo`), as uncappedInset reads it.
-  return value !== undefined && lengthStep(value) !== 0
+  const step = paddingStep(raw)
+  return step !== undefined && step !== 0
 }
 
 /** The capped key tailwind.config.js does not define in `classText` (`p-cap-7`, `scroll-py-cap-7`, `[&>div]:p-cap-7`),
@@ -1991,17 +1998,21 @@ export const surfacePaddingCap = {
     }
     /** Whether a surface leaves its inset to the elements written directly inside it: a Card, a Modal or a frame whose
      *  class text does not pad it in every render, as the Card leaves its inset to its sections. Only padding of some
-     *  length in the unconditional text (a binding's read where it is named) and under no variant pads every render;
-     *  one set only under a condition (`padded ? 'p-cap-6' : 'p-0'`, `padded && PAD`) or a variant (`sm:p-cap-6` has
-     *  none below sm; `hover:`, `dark:`) leaves the inset to the children, failing closed, and so does `p-0`. A value
-     *  the rule cannot read as a length counts as padding. */
+     *  length in the unconditional text (a binding's read where it is named), under no variant and reset to zero under
+     *  none, pads every render; one set only under a condition (`padded ? 'p-cap-6' : 'p-0'`, `padded && PAD`) or a
+     *  variant (`sm:p-cap-6` has none below sm; `hover:`, `dark:`), or reset under one (`p-cap-6 sm:p-0`), leaves the
+     *  inset to the children, failing closed, and so does `p-0`. A value the rule cannot read as a length counts as
+     *  padding. */
     const leavesInsetToSections = (element) => {
       if (FORM_FIELDS.has(nameOf(element))) return false
       const attribute = classAttribute(element)
       const root = { parent: null }
       const pieces = attribute ? collectStaticText(attribute.value, new WeakSet(), [], root, resolveBinding) : []
       const always = pieces.filter((piece) => piece.branch === root).map((piece) => piece.text).join(' ')
-      if (always.split(/\s+/).some((raw) => setsPadding(raw) && splitClassToken(raw).variants.length === 0)) return false
+      const tokens = always.split(/\s+/).filter(Boolean)
+      const base = (raw) => splitClassToken(raw).variants.length === 0
+      const reset = tokens.some((raw) => !base(raw) && paddingStep(raw) === 0)
+      if (!reset && tokens.some((raw) => base(raw) && setsPadding(raw))) return false
       return SECTIONED_COMPONENTS.has(nameOf(element)) || [always, ...branchTexts(pieces)].some(drawsFrame)
     }
     /** What makes a class unit a surface whatever its text says, and the element it sits on. */

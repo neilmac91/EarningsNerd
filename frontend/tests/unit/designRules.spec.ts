@@ -54,12 +54,12 @@ import {
  *  - surface-padding-cap (E120): under enlarged text a surface's inset stops growing at narrow widths, so a Card, a
  *    Modal's panel, a frame (a full border and a radius), the Card's and the dialog's sections, a native <dialog>'s
  *    sections and what is written directly inside a Card, a Modal or a frame whose class does not pad every render
- *    (no padding, p-0, or padding set only under a condition or a variant) carry no padding of step 5 or more that is
- *    not a capped token (p-cap-N, tailwind.config.js), and a frame inside a dialog's body none from step 4. A step is
- *    read by its resolved size (a configured key, an arbitrary length), a value the rule cannot read fails closed, a
- *    class a same-file binding holds is read with the attribute that names it, a Card or a section imported under
- *    another name is read as itself, a form field is never a frame, and a capped key the theme does not define fails
- *    anywhere. The shapes out of its reach are planted as stated gaps.
+ *    (no padding, p-0, padding set only under a condition or a variant, or reset under one) carry no padding of step
+ *    5 or more that is not a capped token (p-cap-N, tailwind.config.js), and a frame inside a dialog's body none from
+ *    step 4. A step is read by its resolved size (a configured key, an arbitrary length), a value the rule cannot
+ *    read fails closed, a class a same-file binding holds is read with the attribute that names it, a Card or a
+ *    section imported under another name is read as itself, a form field is never a frame, and a capped key the theme
+ *    does not define fails anywhere. The shapes out of its reach are planted as stated gaps.
  *  - elements-built-with-jsx: the app builds its elements in JSX, which the gates that read elements see, so React's
  *    element factories are refused under any name (Codex's two forms on #1370's 44229515 among them), a use of React
  *    the rule cannot follow is refused as unreadable, and the DOM's document.createElement, JSX, a type and the one
@@ -917,6 +917,9 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     { code: '<div className="rounded-xl border dark:p-cap-5"><div className="p-5" /></div>', errors: [{ messageId: 'uncapped' }] },
     // A key the theme does not define styles nothing, so it pads no render (Codex's review of a1866702).
     { code: '<Card className="p-typo"><div className="p-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
+    // A base inset reset to zero under a variant leaves it to the children there (Codex's review of 0c7a2f2b).
+    { code: '<Card className="p-cap-6 sm:p-0"><div className="p-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<div className="rounded-xl border p-cap-5 md:px-0"><div className="px-5" /></div>', errors: [{ messageId: 'uncapped' }] },
     // A stated limit, failing closed: only unconditional padding pads every render, so a surface whose every arm pads it
     // still reads its children as sections; capping them is never wrong.
     { code: "<Card className={padded ? 'p-cap-6' : 'p-4'}><div className=\"p-6\" /></Card>", errors: [{ messageId: 'uncapped' }] },
