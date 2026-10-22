@@ -110,23 +110,32 @@ describe('account snapshots follow the resolved identity', () => {
     markSessionActive()
     const credential = deferred<unknown>()
     const logoutDone = deferred<unknown>()
-    vi.mocked(refreshAccessToken).mockRejectedValue({ response: { status: 401 } })
+    const refreshAnswer = deferred<void>()
+    let logoutRequests = 0
+    vi.mocked(refreshAccessToken).mockImplementation(() => refreshAnswer.promise)
     api.defaults.adapter = async (config) => {
       if (config.url === '/api/auth/login') return response(config, await credential.promise)
-      if (config.url === '/api/auth/logout') return response(config, await logoutDone.promise)
+      if (config.url === '/api/auth/logout') {
+        logoutRequests += 1
+        return response(config, await logoutDone.promise)
+      }
       throw Object.assign(new Error('expired A'), { config, response: { status: 401, data: { detail: 'Expired access' } } })
     }
     const explicitGeneration = getExplicitSessionGeneration()
     const signedIn = login('2@example.test', 'test-only-password').catch((error) => error)
-    const pendingLogout = order === 'passive-loss-then-logout' ? logoutAndResetAccount(client, logout) : null
     const oldIdentity = client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }).catch((error) => error)
     await waitFor(() => expect(refreshAccessToken).toHaveBeenCalledTimes(1))
+    // The logout starts while that refresh is in flight and waits for its answer (E133); the refresh's 401 then
+    // lands as a passive loss while the logout is under way, and the logout must still send its request.
+    const pendingLogout = order === 'passive-loss-then-logout' ? logoutAndResetAccount(client, logout) : null
+    refreshAnswer.reject({ response: { status: 401 } })
     await oldIdentity
     expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
     expect(getExplicitSessionGeneration()).toBe(explicitGeneration)
     if (pendingLogout) {
       logoutDone.resolve({ ok: true })
       await pendingLogout
+      expect(logoutRequests).toBe(1)
       expect(getExplicitSessionGeneration()).not.toBe(explicitGeneration)
     }
     credential.resolve({ ok: true })
