@@ -133,13 +133,14 @@ advisory lock that every inserting writer shares, and reads the missing accessio
 inserts (`filing_amendment_service.existing_filings_for_insert`), so a writer that waited there inserts
 only what is still missing. One lock serves every accession: a first listing or a history backfill
 inserts hundreds of rows, and a lock apiece would hold as many entries of PostgreSQL's shared lock
-table. A writer with nothing to insert takes no lock, and one that does commits soon after, with no
-network call between. SQLite omits both locks, so
-`backend/tests/unit/test_filing_writers_lock_before_they_check.py` reads each writer's statements,
-compiled for PostgreSQL: a lock that waits, then the check, with no end of a transaction between them;
-`backend/tests/unit/test_filing_inserts_lock_across_companies.py` reads the insert lock after the check,
-the second read and the commit, and runs the race in one thread. No PostgreSQL gate races two writers;
-E153's local run did.
+table. A writer with nothing to insert takes no lock, and one that takes it ends its transaction soon
+after (its commit, or its caller's commit or close), with no network call between. SQLite omits both
+locks, so `backend/tests/unit/test_filing_writers_lock_before_they_check.py` reads each writer's
+statements, compiled for PostgreSQL: a lock that waits, then the check, with no end of a transaction
+between them; `backend/tests/unit/test_filing_inserts_lock_across_companies.py` reads the insert lock
+after the check, the second read and the commit, runs the race in one thread, and holds every builder of
+a filing row under `app/` to the three writers. No PostgreSQL gate races two writers; E153's local run
+did, and E160 carries a CI case.
 
 The refresh token's rotation was one more. It read its token, checked it live, minted a successor and
 marked the token rotated, so two refreshes with one cookie both minted, and a refresh racing a logout or

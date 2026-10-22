@@ -15,12 +15,17 @@ two companies could both find it missing, and the second insert failed the uniqu
   held the lock first would. The writer stores no second row and lists the other company's, where main's failed the
   unique accession.
 - Off PostgreSQL no advisory lock is taken.
+- Every function under ``app/`` that builds a filing row, by ``Filing(...)`` or by handing the model to an insert, is one
+  of those three writers, so a fourth fails here until it reads through the helper and joins them. E123's gate, which
+  names the same three, has no census of its own.
 
 SQLite has no advisory locks, so the lock cases run on an engine whose dialect calls itself PostgreSQL, with a stand-in
 for ``pg_advisory_xact_lock``, and read the statements each writer's session runs, compiled for PostgreSQL. No CI step
-races two writers on PostgreSQL; the pull request's local run did.
+races two writers on PostgreSQL; the pull request's local run did, and E160 carries a CI case.
 """
+import ast
 import asyncio
+from pathlib import Path
 from typing import NamedTuple
 from unittest.mock import AsyncMock
 
@@ -38,6 +43,13 @@ from app.utils.datetimes import utc_from_iso
 # "FILINGS_" in ASCII, pinned here rather than read from the module under test, so a changed key fails.
 INSERT_LOCK_KEY = int.from_bytes(b"FILINGS_", "big")
 WRITERS = ("upsert_filings", "persist_live_filings", "precompute_one")
+# Where each writer lives, under backend/: the census below holds every builder of a filing row to these.
+WRITER_SITES = {
+    ("app/services/filing_scan_service.py", "upsert_filings"),
+    ("app/services/filing_list_service.py", "persist_live_filings"),
+    ("app/services/precompute_service.py", "precompute_one"),
+}
+BACKEND = Path(__file__).resolve().parents[2]
 
 
 class Recorded(NamedTuple):
@@ -258,3 +270,94 @@ def test_off_postgresql_a_writer_takes_no_advisory_lock(sessions, monkeypatch):
     assert not any("advisory" in s.sql for s in statements), _shown(statements)
     with sessions() as db:
         assert db.query(Filing.accession_number).all() == [("new",)]
+
+
+def _dotted(node: ast.AST) -> str | None:
+    """``a.b.c`` for a chain of names and attributes, else None."""
+    parts = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if not isinstance(node, ast.Name):
+        return None
+    return ".".join([node.id, *reversed(parts)])
+
+
+def _filing_builders(path: Path) -> set[str]:
+    """The functions of ``path`` (by qualified name) that build an ``app.models`` Filing: they call the model, hand it
+    to an insert (``insert(Filing)``, ``bulk_insert_mappings(Filing, ...)``) or call its table's ``insert()``. The model
+    is reached by a name an import from ``app.models`` binds, or through the module (``models.Filing``,
+    ``app.models.Filing``); the edgar layer's and edgartools' own ``Filing`` are other classes."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    model = {"app.models.Filing"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            if node.module == "app.models" or node.module.startswith("app.models."):
+                model.update(alias.asname or alias.name for alias in node.names if alias.name == "Filing")
+            elif node.module == "app":
+                model.update(f"{alias.asname or alias.name}.Filing" for alias in node.names if alias.name == "models")
+        elif isinstance(node, ast.Import):
+            model.update(f"{alias.asname}.Filing" for alias in node.names if alias.name == "app.models" and alias.asname)
+
+    def is_model(node: ast.AST) -> bool:
+        return _dotted(node) in model
+
+    builders: set[str] = set()
+
+    def visit(node: ast.AST, scope: tuple[str, ...]) -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            scope = (*scope, node.name)
+        if isinstance(node, ast.Call):
+            func = node.func
+            called = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+            if (is_model(func)
+                    or (called in ("insert", "bulk_insert_mappings") and any(is_model(arg) for arg in node.args))
+                    or (called == "insert" and isinstance(func, ast.Attribute)
+                        and any(is_model(inner) for inner in ast.walk(func.value)))):
+                builders.add(".".join(scope) or "<module>")
+        for child in ast.iter_child_nodes(node):
+            visit(child, scope)
+
+    visit(tree, ())
+    return builders
+
+
+def test_the_census_finds_each_way_to_build_a_filing_row(tmp_path):
+    """The census's own reach, on planted source: each form it counts, and the other ``Filing`` classes it leaves."""
+    planted = tmp_path / "planted.py"
+    planted.write_text(
+        "from app.models import Filing, Company\n"
+        "from app.models import Filing as Row\n"
+        "from app import models\n"
+        "import app.models as m\n"
+        "from app.services.edgar.models import Filing as EdgarFiling\n"
+        "from sqlalchemy import insert\n"
+        "def built(): return Filing(accession_number='a')\n"
+        "def aliased(): return Row(accession_number='a')\n"
+        "def through_the_module(): return models.Filing(accession_number='a')\n"
+        "def through_an_alias(): return m.Filing(accession_number='a')\n"
+        "def core(db): db.execute(insert(Filing).values(accession_number='a'))\n"
+        "def bulk(db): db.bulk_insert_mappings(Filing, [{}])\n"
+        "def table(db): db.execute(Filing.__table__.insert())\n"
+        "class Writer:\n"
+        "    def write(self): return Filing()\n"
+        "def edgar(): return EdgarFiling()\n"
+        "def read(db): return db.query(Filing).filter(Filing.accession_number.in_(['a'])).all()\n"
+        "def company(): return Company()\n",
+        encoding="utf-8",
+    )
+    assert _filing_builders(planted) == {
+        "built", "aliased", "through_the_module", "through_an_alias", "core", "bulk", "table", "Writer.write",
+    }
+
+
+def test_every_builder_of_a_filing_row_is_one_of_the_three_writers():
+    """A function under ``app/`` that builds a filing row and is not one of the writers above inserts without the
+    filing-insert lock (and without E123's company lock): read through ``existing_filings_for_insert`` after
+    ``lock_company_filings``, then add it to ``WRITERS`` and ``WRITER_SITES`` with its cases here and in E123's gate."""
+    found = {
+        (str(path.relative_to(BACKEND)), function)
+        for path in sorted((BACKEND / "app").rglob("*.py"))
+        for function in _filing_builders(path)
+    }
+    assert found == WRITER_SITES, sorted(found ^ WRITER_SITES)

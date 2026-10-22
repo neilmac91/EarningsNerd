@@ -46,10 +46,11 @@ def existing_filings_for_insert(db: Session, accessions: list[str]) -> dict[str,
     So when an accession is missing, this takes the filing-insert lock, a transaction-level advisory lock that
     every writer takes after its company's lock before it inserts, and reads the missing ones again. A writer
     that waited there sees the rows the one before it committed, and the caller inserts only the rest. The lock
-    is held to the commit or rollback, and each writer commits soon after this returns, with no network call
-    between; a writer with nothing to insert takes no lock. One lock serves every accession: a first listing or a
-    history backfill inserts hundreds of filings, and a lock for each would hold an entry of PostgreSQL's shared
-    lock table apiece. SQLite has no advisory locks, so off PostgreSQL nothing is locked.
+    is held to the commit or rollback, and each writer's transaction ends soon after this returns (its commit, or
+    its caller's commit or close), with no network call between; a writer with nothing to insert takes no lock.
+    One lock serves every accession: a first listing or a history backfill inserts hundreds of filings, and a lock
+    for each would hold an entry of PostgreSQL's shared lock table apiece. SQLite has no advisory locks, so off
+    PostgreSQL nothing is locked.
     """
     if not accessions:
         return {}
