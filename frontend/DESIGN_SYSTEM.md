@@ -1529,7 +1529,11 @@ separate work. The class uses solid `brand.strong-dark` (`#98C5AD`) in both them
 That is a local fill/ink role exception, with no new palette token, hairline, shadow or interaction.
 Its inline block uses line-height `.9`, padding `calc(.04em - 1px) .18em .06em`, inline margins
 `-.1em`, the existing `.5rem` radius and baseline alignment. The 1px top trim keeps the fill off
-the preceding line's descender. `max-width: 100%` and normal white space keep the phrase together
+the preceding line's descender at default text size. The heading isolates a local stacking context;
+the relative emphasis span sits at `z-index: -1`, with the fill on its `::before` behind the text.
+That fill's top inset is `max(0px, calc(6% - .06em))`: zero on one line, increasing with the box's
+height when enlarged text wraps the phrase, to clear neighboring descenders without moving glyphs.
+`max-width: 100%` and normal white space keep the phrase together
 while its intrinsic width fits, then allow a word-boundary wrap under enlarged text. Check the
 painted glyphs as well as line boxes at mobile/desktop widths, DPR2 and 200% text in both themes.
 Variants B/C and the shared `.en-mark`/reader paint keep their existing recipes.
