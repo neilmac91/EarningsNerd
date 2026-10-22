@@ -25,7 +25,8 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    endpoint behind authentication (ENDPOINT_CLAIM: "all" or "every" endpoints as main's reading has them; "all",
  *    "every", "each" or "any" with up to three words before "endpoints", as in "all of the API's endpoints", whose own
  *    predicate says they need a login, after them in their clause ("each endpoint requires a login", "sits behind a
- *    login", "can only be called with a token") or before them as their requirement ("a login is required for each
+ *    login", "can only be called with a token"; "and" carries them on only directly before it, so "Each endpoint returns
+ *    JSON and administrators need a login." passes) or before them as their requirement ("a login is required for each
  *    endpoint"), not after a negation, unless a relative clause or a participle narrows them, as "any endpoint
  *    returning account data" does; and "no endpoint" answering without authentication in its clause, the claim the
  *    other way round; login words in another role or clause pass ("Each API endpoint documents the token format.", "Any
@@ -350,9 +351,17 @@ const AS_LOGIN = String.raw`(?!-\w)${ITSELF}`
 /** A login, as the claim says the endpoints need one: authentication, a login or sign-in, a token or an account as the
     credential itself (ITSELF, AS_LOGIN). */
 const A_LOGIN = String.raw`(?:(?:a|an|the|your|valid|prior|its own|signed[- ]in|logged[- ]in|authenticated|registered|verified|user|account)\s+)*(?:authentication|auth|log[- ]?in|logging in|sign[- ]?in|signing in|(?:bearer\s+|session\s+|access\s+)?tokens?${ITSELF}|account${AS_LOGIN}|credentials?)\b`
+/** A conjunction that joins clauses inside a sentence (#1456's eighth round). It carries a reading on only directly
+    before the predicate the reading looks for, an adverb at most between them (CARRIED_ON: "each endpoint returns JSON
+    and also requires a login"); before anything else it starts another clause, with a subject of its own ("each
+    endpoint returns JSON and administrators need a login"). */
+const CLAUSE_JOIN = String.raw`(?:and|but|or)`
+/** The adverb a conjunction may carry a predicate on through (CLAUSE_JOIN). */
+const CARRIED_ON = String.raw`(?:(?:also|always|then|still|only|likewise)\s+)?`
 /** The words between the endpoints and their predicate, in their own clause: none opens another clause (which, that,
-    when, because, but, or, ", and the login page ..."), up to six of them. */
-const IN_THEIR_CLAUSE = String.raw`(?:(?:\s*,)?\s+(?!(?:which|that|who|whom|whose|where|when|while|whereas|because|if|unless|so|but|or)\b|and\s+(?:the|a|an|its|their|your|our|we|you|it|they|this|these|those)\b)[\w'’-]+){0,6}?(?:\s*,)?\s+`
+    when, because, so, or a conjunction: CLAUSE_JOIN), up to six of them, and "and" only directly before the predicate
+    (CARRIED_ON). */
+const IN_THEIR_CLAUSE = String.raw`(?:(?:\s*,)?\s+(?!(?:which|that|who|whom|whose|where|when|while|whereas|because|if|unless|so)\b|${CLAUSE_JOIN}\b)[\w'’-]+){0,6}?(?:\s*,)?\s+(?:and\s+${CARRIED_ON})?`
 /** The endpoints' own predicate when it says they need a login, not after a negation (NOT): a requirement with the
     login ("requires a login", "needs a token", "requires you to be logged in"), a state ("is protected", "is
     authenticated", "sits behind a login"), or a use only with one ("can only be called with a token", "answers only to
@@ -1227,6 +1236,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // A token as the login itself (#1456's seventh round, Codex's thread 4342330091), a token-based login with it.
       ['<p>Each endpoint requires a token.</p>', true],
       ['<p>Each endpoint requires token-based authentication.</p>', true],
+      // "And" carries the endpoints on only directly before their predicate, an adverb at most between, as in "Each
+      // endpoint returns JSON and requires a login." above; before another subject it starts another clause (#1456's
+      // eighth round, Codex's thread 4342548449).
+      ['<p>Each endpoint returns JSON and also requires a login.</p>', true],
+      ['<p>Each endpoint returns JSON and administrators need a login.</p>', false],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
