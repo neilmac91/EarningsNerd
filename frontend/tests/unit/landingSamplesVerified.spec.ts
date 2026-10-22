@@ -332,7 +332,8 @@ describe('the Multi-Period demo is one pipeline run, ending at the verified fisc
       eps_diluted: 'EarningsPerShareDiluted',
       operating_cash_flow: 'NetCashProvidedByUsedInOperatingActivities',
     }
-    const accession = samples.AAPL_FY25_EDGAR_URL.match(/\/(\d{18})\/$/)?.[1]
+    // The accession's folder segment, which the 10-K document's URL (#1471) carries as the folder's did.
+    const accession = samples.AAPL_FY25_EDGAR_URL.match(/\/edgar\/data\/\d+\/(\d{18})\//)?.[1]
     expect(accession, 'the landing names its 10-K by accession').toBeDefined()
     for (const [concept, tag] of Object.entries(SHARED)) {
       const shown = ['FY2025', 'FY2024'].map((period) => points(concept).find((point) => point.period === period))
