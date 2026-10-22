@@ -11,12 +11,13 @@ import { ApiError } from '@/lib/api/client'
 
 /**
  * E117: Cloudflare verifies a Turnstile token once (siteverify answers timeout-or-duplicate after), and the login,
- * register and contact routes check it right after the rate limit, so a submit that does not land has spent its
- * token: once Turnstile is on, a retry after a wrong password would answer 403. Each form renews the token after
- * every submit it sends, as WaitlistForm does since #1386 (its cases are in waitlistSuccessCard.spec.tsx): a new key
- * mounts a new widget, and the submit waits for the new token aria-disabled behind its handler's guard, never natively
- * disabled. Chromium moves focus to <body> from a focused button that turns disabled and never gives it back; jsdom
- * moves no focus, so the cases hold the attributes as well as the focus.
+ * register and contact routes check it right after the rate limit, so a submit that does not land may have spent its
+ * token (a 429, which the limit answers first, spends none): once Turnstile is on, a retry after a wrong password
+ * would answer 403. Each form renews the token after every submit it sends, as WaitlistForm does since #1386 (its
+ * cases are in waitlistSuccessCard.spec.tsx): a new key mounts a new widget, and the submit waits for the new token
+ * aria-disabled behind its handler's guard, never natively disabled. Chromium moves focus to <body> from a focused
+ * button that turns disabled and never gives it back; jsdom moves no focus, so the cases hold the attributes as well
+ * as the focus.
  */
 
 // Turnstile, off unless a case turns it on. On, each mount of the widget yields a new token, as a new Cloudflare
@@ -30,26 +31,32 @@ vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   },
 }))
 vi.mock('@/features/auth/components/TurnstileWidget', async () => {
-  const { useEffect } = await import('react')
+  const { useEffect, useRef } = await import('react')
   return {
+    // As the real widget is built: the latest onToken through a ref, and one effect for each mount, so only a new key
+    // (a new widget) yields a new token, never a new callback.
     default: function TurnstileWidget({ onToken }: { onToken: (token: string) => void }) {
+      const onTokenRef = useRef(onToken)
+      useEffect(() => {
+        onTokenRef.current = onToken
+      })
       useEffect(() => {
         if (!turnstile.on) return
         const token = `token-${++turnstile.mounts}`
         if (!turnstile.hold) {
-          onToken(token)
+          onTokenRef.current(token)
           return
         }
         const issue = () => {
           turnstile.waiting.delete(issue)
-          onToken(token)
+          onTokenRef.current(token)
         }
         turnstile.waiting.add(issue)
         // An unmounted widget's token never comes (TurnstileWidget removes its widget).
         return () => {
           turnstile.waiting.delete(issue)
         }
-      }, [onToken])
+      }, [])
       return null
     },
   }
@@ -143,6 +150,16 @@ const FORMS: Array<[string, FormUnderTest]> = [
 describe.each(FORMS)('%s with Turnstile on', (_, form) => {
   beforeEach(() => {
     turnstile.on = true
+  })
+
+  it('holds the submit busy and aria-disabled, never natively disabled, while its request is in flight', async () => {
+    form.call.mockReturnValueOnce(new Promise(() => {}))
+    form.open()
+    const button = screen.getByRole('button', { name: form.submit })
+    fireEvent.click(button)
+    await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'true'))
+    expect(button).toHaveAttribute('aria-disabled', 'true')
+    expect(button).not.toBeDisabled()
   })
 
   it('sends a new token on the retry after a refused submit', async () => {

@@ -65,8 +65,8 @@ function LoginContent() {
   const [turnstileToken, setTurnstileToken] = useState('')
   // A new key mounts a new Turnstile widget, which issues a new token (see handleSubmit's finally).
   const [turnstileKey, setTurnstileKey] = useState(0)
-  // With Turnstile on, a login waits for a token: on the first load, while a new one is issued after each login the
-  // form sends, and after one expires.
+  // With Turnstile on, a login waits for a token: when the email form opens, while a new one is issued after each
+  // login the form sends, and after one expires.
   const tokenPending = TURNSTILE_ENABLED && !turnstileToken
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? ''
@@ -138,7 +138,8 @@ function LoginContent() {
       // Cloudflare verifies a Turnstile token once (siteverify answers timeout-or-duplicate after), and the route
       // checks it right after the rate limit, so a sent login may have spent its token whatever it answered. The form
       // renews it after every one, as WaitlistForm does: it drops the token and mounts a new widget, and the button
-      // waits for the new token.
+      // waits for the new token. A login that succeeds renews it too: until the page leaves, a second press then
+      // waits for the new token rather than sending the spent one, which the route would refuse with a 403.
       setTurnstileToken('')
       setTurnstileKey((key) => key + 1)
     }

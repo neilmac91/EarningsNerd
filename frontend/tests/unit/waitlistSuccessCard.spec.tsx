@@ -119,26 +119,32 @@ vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   },
 }))
 vi.mock('@/features/auth/components/TurnstileWidget', async () => {
-  const { useEffect } = await import('react')
+  const { useEffect, useRef } = await import('react')
   return {
+    // As the real widget is built: the latest onToken through a ref, and one effect for each mount, so only a new key
+    // (a new widget) yields a new token, never a new callback.
     default: function TurnstileWidget({ onToken }: { onToken: (token: string) => void }) {
+      const onTokenRef = useRef(onToken)
+      useEffect(() => {
+        onTokenRef.current = onToken
+      })
       useEffect(() => {
         if (!turnstile.on) return
         const token = `token-${++turnstile.mounts}`
         if (!turnstile.hold) {
-          onToken(token)
+          onTokenRef.current(token)
           return
         }
         const issue = () => {
           turnstile.waiting.delete(issue)
-          onToken(token)
+          onTokenRef.current(token)
         }
         turnstile.waiting.add(issue)
         // An unmounted widget's token never comes (TurnstileWidget removes its widget).
         return () => {
           turnstile.waiting.delete(issue)
         }
-      }, [onToken])
+      }, [])
       return null
     },
   }
