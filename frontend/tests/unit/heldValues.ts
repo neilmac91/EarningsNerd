@@ -66,7 +66,11 @@ import ts from 'typescript'
  *    `forwardRef` (the component they wrap); and, for a gate that reads React's state (`state`), `useState`,
  *    `useReducer`, `useRef`, `useDeferredValue` and `useSyncExternalStore` (what each keeps, HeldOptions.state).
  *    Wherever the reading calls a value (a callee, a callback, a hook's initializer, reducer, updater or snapshot), a
- *    leaf the gate says is a function gives back what the gate names (HeldOptions.calls: another module's function);
+ *    leaf the gate says is a function gives back what the gate names (HeldOptions.calls: another module's function).
+ *    A function value called through Function.prototype's `call` or `apply`, or `Reflect.apply`, is called with the
+ *    arguments after `thisArg` (`apply`'s from its list), and `bind` gives back the function, its bound arguments
+ *    handed to it there and a later call's arguments after them (a call of a function ever bound may be through the
+ *    bound one, so its arguments reach both places);
  *  - parentheses, `as`, `satisfies`, `<T>` and `!`.
  * A call is known by the name its callee is known by (knownAs), so React's utilities and the globals are read under
  * any local name: an import renamed (`Children as Kids`), a member destructured under another name, a same-file
@@ -80,12 +84,13 @@ import ts from 'typescript'
  * holds nothing.
  * Out of its reach, for each gate to name and plant as a gap: a value that crosses modules (an app module's export or a
  * context's, or a setter handed to another module's code), what React state holds after its setter or a reducer runs
- * unless the gate reads state (HeldOptions.state), a class's fields and `this`, a promise's `then` and a generator's
- * yields. One over-count, which fails closed: a parameter is not told apart by call, so it
- * holds what every same-file call passes it, and a function called with different values reads all of them at each
- * call (a component rendered once with each of two glyphs counts both at each render). A value that grows through its own reads (`const a = <>{a}</>`, or a
- * component that passes its own children back to itself with more added) never settles: the scan throws instead of
- * settling on an arbitrary count.
+ * unless the gate reads state (HeldOptions.state), a class's fields and `this`, a promise's `then`, a generator's
+ * yields, and a utility known by its name (an array's method, React's Children) called through Function.prototype's
+ * `call` or `apply`, which reads as a call of the method. One over-count, which fails closed: a parameter is not told
+ * apart by call, so it holds what every same-file call passes it, and a function called with different values reads all
+ * of them at each call (a component rendered once with each of two glyphs counts both at each render). A value that
+ * grows through its own reads (`const a = <>{a}</>`, or a component that passes its own children back to itself with
+ * more added) never settles: the scan throws instead of settling on an arbitrary count.
  */
 export interface Held<L> {
   /** Each leaf the value may be, with how many times it renders. */
@@ -766,6 +771,10 @@ export function heldValues<L>(
       if (name === 'useDeferredValue') return union(arg(0), arg(1))
       if (name === 'useSyncExternalStore') return union(calledAt(1), calledAt(2))
     }
+    // Function.prototype's `call` and `apply` give back what the function they are read from gives back, and `bind`
+    // gives back the function itself.
+    const through = throughMethod(x, record)
+    if (through) return through.method === 'bind' ? through.target : called(through.target, record)
     // React's component wrappers give back the component they wrap: `memo(Mark)`, `forwardRef((props, ref) => …)`.
     if (name === 'memo' || name === 'forwardRef') return arg(0)
     const recv = receiverOf(x)
@@ -872,13 +881,27 @@ export function heldValues<L>(
       })
     }
   }
-  /** Binds each parameter of these functions to what a call passes it, by position: a rest parameter takes the arguments
+  /** How many arguments each same-file function is bound with (Function.prototype.bind): a later call of the bound
+      function hands its arguments to the parameters after them. A bound list the scan cannot count (a spread) is
+      ANY_SHIFT: a later argument may land on any parameter. */
+  const boundShifts = new Map<Fn, Set<number>>()
+  const ANY_SHIFT = -1
+  /** Binds each parameter of a function to what a call passes it, by position: a rest parameter takes the arguments
       from its place on, each at its position (restOf), and past a spread argument each parameter may take any of its
       elements. A parameter's default is bound where it is declared. */
-  const pass = (fns: Set<Fn> | null | undefined, passed: Array<Held<L>>, tail?: Held<L>) => {
+  const bindParams = (fn: Fn, passed: Array<Held<L>>, tail?: Held<L>) => {
     const args = argumentsOf(passed, tail)
+    fn.parameters.forEach((p, i) => bindName(p.name, p.dotDotDotToken ? restOf(args, i) : (passed[i] ?? tail ?? empty<L>()), p))
+  }
+  /** Binds the parameters of these functions to what a call passes them (bindParams). A call of a function ever bound
+      may be a call of the bound one, so its arguments also land after the bound arguments (boundShifts). */
+  const pass = (fns: Set<Fn> | null | undefined, passed: Array<Held<L>>, tail?: Held<L>) => {
     for (const fn of fns ?? []) {
-      fn.parameters.forEach((p, i) => bindName(p.name, p.dotDotDotToken ? restOf(args, i) : (passed[i] ?? tail ?? empty<L>()), p))
+      bindParams(fn, passed, tail)
+      for (const k of boundShifts.get(fn) ?? []) {
+        if (k === ANY_SHIFT) bindParams(fn, [], [...passed, tail ?? empty<L>()].reduce(union, empty<L>()))
+        else bindParams(fn, [...Array.from({ length: k }, () => empty<L>()), ...passed], tail)
+      }
     }
   }
   /** A call's arguments by position, and from a spread argument on what any later position may take: any of its
@@ -892,6 +915,46 @@ export function heldValues<L>(
       else passed.push(v)
     }
     return [passed, tail]
+  }
+  /** Whether a value may be called: a same-file function, a hook's setter or dispatcher, or a leaf the gate calls. */
+  const callable = (value: Held<L>): boolean =>
+    !!value.fns?.size || !!value.setters?.size || (!!calls && [...value.leaves.keys()].some((leaf) => !!calls(leaf)?.length))
+  /** A call of Function.prototype's `call`, `apply` or `bind` on a value the reading may call (an object's own member of
+      that name is read as any member is), or of `Reflect.apply(f, thisArg, list)`: the method, the function value, and
+      the arguments it hands the function, after `thisArg` (`apply`'s from its list: each element at its place, one the
+      scan cannot place at any). A utility known by its name (an array's method, React's Children) is no value the
+      reading may call, so its call through these is read as a call of the method. */
+  const throughMethod = (x: ts.CallExpression, record?: Set<ts.Node>) => {
+    const method = calleeName(x)
+    const reflected = method === 'apply' && receiverNamed(x, 'Reflect')
+    const recv = reflected ? x.arguments[0] : receiverOf(x)
+    if (!recv || ts.isSpreadElement(recv) || (method !== 'call' && method !== 'apply' && method !== 'bind')) return undefined
+    const target = valueOf(recv)
+    if (!callable(target) || (!reflected && target.props?.has(method))) return undefined
+    if (method !== 'apply') {
+      const [passed, tail] = passedBy(x.arguments.slice(1), record)
+      return { method, target, passed, tail }
+    }
+    const listArg = x.arguments[reflected ? 2 : 1]
+    const list = listArg && !ts.isSpreadElement(listArg) ? valueOf(listArg, record) : empty<L>()
+    const placed: Array<Held<L>> = []
+    let tail: Held<L> | undefined
+    for (const [key, value] of list.props ?? []) {
+      if (/^\d+$/.test(key)) placed[Number(key)] = value
+      else tail = union(tail ?? empty<L>(), value)
+    }
+    return { method, target, passed: Array.from(placed, (value) => value ?? empty<L>()), tail }
+  }
+  /** A call through a value, however the value reached the callee: a same-file function's parameters take what it is
+      passed, and a hook's setter or dispatcher hands the hook its first argument (HeldOptions.state); React calls an
+      updater a setter is handed with the state. */
+  const callThrough = (callee: Held<L>, passed: Array<Held<L>>, tail?: Held<L>) => {
+    if (callee.fns?.size) pass(callee.fns, passed, tail)
+    const handed = passed[0] ?? tail ?? empty<L>()
+    for (const hook of callee.setters ?? []) {
+      give(hook, handed)
+      if (handed.fns?.size && calleeName(hook) === 'useState') pass(handed.fns, [propertyOf(valueOf(hook), '0')])
+    }
   }
   /** What a call gives a holder: a same-file function's parameters, a callback's, or an array or a `Map` it puts in. */
   const call = (x: ts.CallExpression, record?: Set<ts.Node>) => {
@@ -968,18 +1031,22 @@ export function heldValues<L>(
         if (!vacant(v)) assign(recv, withProps([[literalKey(args[0]) ?? ANY, v]]), record)
       }
     }
-    // A call through a value, however the value reached the callee: a same-file function's parameters take what it is
-    // passed, and a hook's setter or dispatcher hands the hook its first argument (HeldOptions.state); React calls an
-    // updater a setter is handed with the state.
+    // Function.prototype's methods: `call` and `apply` call the function they are read from, and `bind` hands it its
+    // bound arguments now and puts a later call's after them.
+    const through = throughMethod(x, record)
+    if (through) {
+      callThrough(through.target, through.passed, through.tail)
+      const bound = args.slice(1)
+      const k = bound.some(ts.isSpreadElement) ? ANY_SHIFT : bound.length
+      if (through.method === 'bind' && k !== 0) {
+        for (const fn of through.target.fns ?? []) boundShifts.set(fn, new Set([...(boundShifts.get(fn) ?? []), k]))
+      }
+      return
+    }
+    // A call through a value, however the value reached the callee (callThrough).
     const callee = valueOf(x.expression)
     if (!callee.fns?.size && !callee.setters?.size) return
-    const [passed, tail] = passedBy(args, record)
-    if (callee.fns?.size) pass(callee.fns, passed, tail)
-    const handed = passed[0] ?? tail ?? empty<L>()
-    for (const hook of callee.setters ?? []) {
-      give(hook, handed)
-      if (handed.fns?.size && calleeName(hook) === 'useState') pass(handed.fns, [propertyOf(valueOf(hook), '0')])
-    }
+    callThrough(callee, ...passedBy(args, record))
   }
   /** A JSX element of a same-file component calls it with a props object: each attribute's value, each spread's
       properties (a later attribute overriding), and its children as `children`. */
@@ -1041,7 +1108,8 @@ export function heldValues<L>(
   // code that runs, a value stops growing within a pass per source. A value that reads itself (`const a = <>{a}</>`,
   // which no runtime allows, or a component handing its own children back to itself with more added) would count
   // without end: the scan throws instead of settling on an arbitrary count.
-  const total = () => [...holders.values()].reduce((n, value) => n + size(value), 0)
+  const total = () =>
+    [...holders.values()].reduce((n, value) => n + size(value), 0) + [...boundShifts.values()].reduce((n, shifts) => n + shifts.size, 0)
   let settled = false
   for (let pass = 0; !settled && pass <= sites + 1; pass++) {
     const before = total()

@@ -810,6 +810,83 @@ export function N130({ ev }: { ev: CalendarEvent }) {
   return <span>{chosenNameOf(ev)}</span>
 }
 
+/** N131 flag: a state's setter called through Function.prototype's call. */
+export function N131({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useState('')
+  return (
+    <button type="button" onClick={() => setName.call(null, ev.company_name)}>
+      {name}
+    </button>
+  )
+}
+
+/** N132 flag: a state's setter bound to a served name, the bound setter the click's handler. */
+export function N132({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useState('')
+  return (
+    <button type="button" onClick={setName.bind(null, ev.company_name)}>
+      {name}
+    </button>
+  )
+}
+
+/** N133 flag: a reducer's dispatcher called through Function.prototype's apply. */
+export function N133({ ev }: { ev: CalendarEvent }) {
+  const [name, dispatch] = useReducer((_current: string, next: string) => next, '')
+  return (
+    <button type="button" onClick={() => dispatch.apply(null, [ev.company_name])}>
+      {name}
+    </button>
+  )
+}
+
+/** N134's helper, which prints the name it is handed. */
+function N134Line(name: string) {
+  return <span>{name}</span>
+}
+
+/** N134 flag: a same-file function called through Function.prototype's call. */
+export function N134({ ev }: { ev: CalendarEvent }) {
+  return N134Line.call(null, ev.company_name)
+}
+
+/** N135 flag: another module's helper that hands back a served name, called through Function.prototype's call. */
+export function N135({ ev }: { ev: CalendarEvent }) {
+  return <span>{nameOf.call(null, ev)}</span>
+}
+
+/** N136's helper, which prints its second argument alone. */
+function N136Label(_prefix: string, name: string) {
+  return <span>{name}</span>
+}
+
+/** N136 flag: a same-file function bound with one argument, so a later call's argument lands on the parameter after it. */
+export function N136({ ev }: { ev: CalendarEvent }) {
+  const label = N136Label.bind(null, 'Company: ')
+  return label(ev.company_name)
+}
+
+/** N137 clean: a setter called through call, and another bound, each handed the display form. */
+export function N137({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useState('')
+  const [title, setTitle] = useState('')
+  return (
+    <button type="button" onClick={setTitle.bind(null, formatCompanyName(ev.company_name))} onFocus={() => setName.call(null, formatCompanyName(ev.company_name))}>
+      {name} · {title}
+    </button>
+  )
+}
+
+/** N138 flag: a state's setter called through Reflect.apply. */
+export function N138({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useState('')
+  return (
+    <button type="button" onClick={() => Reflect.apply(setName, null, [ev.company_name])}>
+      {name}
+    </button>
+  )
+}
+
 // Forms the rule forbids that the gate leaves to review, each named in the spec's header.
 
 /** N87 gap: a prop typed as a plain string, filled in another module. */
@@ -897,6 +974,11 @@ export function N122({ events }: { events: CalendarEvent[] }) {
       {name}
     </button>
   )
+}
+
+/** N139 gap: a utility known by its name, an array's map, called through Function.prototype's call. */
+export function N139({ events }: { events: CalendarEvent[] }) {
+  return <span>{Array.prototype.map.call(events, (e: CalendarEvent) => e.company_name).join(', ')}</span>
 }
 
 /** N113 gap: a name inside an object another module's function hands back. */

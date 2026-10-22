@@ -31,16 +31,17 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * callback, React's state (useState with what its setter is handed, useReducer with what its dispatcher is handed, a
  * reducer the reader does not hold (another module's) giving back what React hands it, as a call the reader cannot
  * follow does; the setter and the dispatcher followed as values: destructured, read by index from the hook's pair, held
- * by another name, put in an object, handed to a same-file component or function, handed back by a custom hook; useRef,
- * useDeferredValue, useSyncExternalStore), a template literal, `+`, an array or a call the reader cannot follow
- * (`String()`, `trim()`, `join()`) is still the name. Across modules, another module's function that hands back a
- * served name as text gives the name wherever the reader reads a call of it: called here, or handed on as a value and
- * called by React (a reducer, an initializer), an array's method or a same-file function, through any chain of modules
- * (SERVED_RETURNS, a fixed point over the program), and reached through an import's alias, a re-export or a const that
- * holds it (both arms of a conditional, either side of `||` or `??`), by every declaration it has, an overloaded
- * function's body among them. A call of formatCompanyName (imported under any name, read from the module's namespace,
- * or held in a same-file const) gives the display form; so does a read of a field of the app's own, and a string
- * literal is written by hand in its display form. An element is a value of its own, read where it is written.
+ * by another name, put in an object, handed to a same-file component or function, handed back by a custom hook, called
+ * through Function.prototype's `call`, `apply` or `bind` or through `Reflect.apply`; useRef, useDeferredValue,
+ * useSyncExternalStore), a template literal, `+`, an array or a call the reader cannot follow (`String()`, `trim()`,
+ * `join()`) is still the name. Across modules, another module's function that hands back a served name as text gives
+ * the name wherever the reader reads a call of it: called here (through `call` or `apply` too), or handed on as a value
+ * and called by React (a reducer, an initializer), an array's method or a same-file function, through any chain of
+ * modules (SERVED_RETURNS, a fixed point over the program), and reached through an import's alias, a re-export or a
+ * const that holds it (both arms of a conditional, either side of `||` or `??`), by every declaration it has, an
+ * overloaded function's body among them. A call of formatCompanyName (imported under any name, read from the module's
+ * namespace, or held in a same-file const) gives the display form; so does a read of a field of the app's own, and a
+ * string literal is written by hand in its display form. An element is a value of its own, read where it is written.
  *
  * It fails (findingsIn):
  *  A. a served name printed raw: an expression child of an intrinsic element, a fragment or a component the scan
@@ -79,8 +80,10 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * under another field (the census fails a string field of an API type named for a company, an issuer, a filer, a
  * registrant or an entity until it joins the reading or NOT_NAMES); a read by a key the scan cannot read (`ev[key]`) or
  * from a type that declares no field for it (an index signature, `any`); a piece of the name read by index from what a
- * call hands back (`n.split(' ')[0]`); a display form shouted again (`formatCompanyName(n).toUpperCase()`); and React's
- * element calls, which app code may not write (earningsnerd/elements-built-with-jsx).
+ * call hands back (`n.split(' ')[0]`); a display form shouted again (`formatCompanyName(n).toUpperCase()`); a utility
+ * known by its name (an array's method) called through Function.prototype's `call` or `apply`, which the reader reads
+ * as a call of the method; and React's element calls, which app code may not write
+ * (earningsnerd/elements-built-with-jsx).
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -548,7 +551,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       else strays.push(`line ${f.line}: ${f.shown}`)
     }
     const count = (mark: string) => [...forms.values()].filter((f) => f.mark === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([84, 33, 13])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([91, 34, 14])
     const misread = [...forms].filter(([name, { mark }]) => named.has(name) !== (mark === 'flag')).map(([name, { mark }]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])
