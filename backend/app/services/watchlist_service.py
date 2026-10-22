@@ -52,7 +52,9 @@ def lock_watch_rows(db: Session, user_id: int) -> None:
     waits here for the first's commit, and its check then reads that commit (READ COMMITTED).
     FOR NO KEY UPDATE, as ``refresh_token_service.lock_user_tokens`` takes it: it serializes these
     writers and the account's other users row writers, but not the foreign-key checks of inserts that
-    name the user. Unbounded, as its holders are short transactions. SQLite ignores it."""
+    name the user. Unbounded, as that lock is: its holders are short transactions, except a Stripe
+    delivery, which can hold the row across a Stripe read, and which answers busy for Stripe to
+    redeliver when it finds the row held. SQLite ignores it."""
     db.query(User.id).filter(User.id == user_id).with_for_update(key_share=True).first()
 
 
