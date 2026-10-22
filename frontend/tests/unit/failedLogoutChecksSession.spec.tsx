@@ -131,10 +131,25 @@ const recordingLocation = new Proxy({} as Location, {
     return true
   },
 })
+/** jsdom's virtual console, which vitest's jsdom environment exposes on `globalThis.jsdom`. */
+interface JsdomConsole {
+  on(event: 'jsdomError', listener: (error: Error) => void): unknown
+  off(event: 'jsdomError', listener: (error: Error) => void): unknown
+}
+/** Each load jsdom is asked for and reports as not implemented: a navigation of the real location ("navigation to
+    another Document"), which `document.location` reaches without passing through window.location, so the stand-in above
+    never sees it, and a form's submit() or requestSubmit(). jsdom passes over a load of the URL the document is at, so
+    each case parks the document at a path no navigation goes to. */
+const jsdomLoads: string[] = []
+const jsdomConsole = (globalThis as unknown as { jsdom: { virtualConsole: JsdomConsole } }).jsdom.virtualConsole
+const LOAD_REPORT = /^Not implemented: (navigation|HTMLFormElement's (submit|requestSubmit)\(\) method)/
+const hearLoad = (error: Error) => { if (LOAD_REPORT.test(error.message)) jsdomLoads.push(error.message) }
+const realUrl = window.location.href
+const PARKED_PATH = '/failed-logout-spec'
 /** The history moves and window.open, held for each case so none runs. */
 const historyMoves: MockInstance[] = []
 /** No navigation of any kind: none of the router's moves, no history move or window.open, nothing set on or loaded by
-    window.location.
+    window.location, and no load asked of the real location through document.location.
     logoutCallSitesGate.spec.ts reads only the calls of logoutAndResetAccount and the code around them; the helper
     itself, the API client and the session reset are imported code it cannot read, so this watch is the one check
     that a failed logout navigates nowhere through them. */
@@ -143,10 +158,14 @@ const expectNoNavigation = () => {
   for (const move of ['back', 'forward', 'go'] as const) expect(window.history[move], `history.${move}`).not.toHaveBeenCalled()
   expect(window.open, 'window.open').not.toHaveBeenCalled()
   expect(locationChanges, 'window.location').toEqual([])
+  expect(jsdomLoads, 'a load jsdom reports (document.location, a form submit)').toEqual([])
 }
 
 beforeEach(() => {
   locationChanges.length = 0
+  jsdomLoads.length = 0
+  jsdomConsole.on('jsdomError', hearLoad)
+  window.history.replaceState(null, '', PARKED_PATH)
   Object.defineProperty(window, 'location', {
     configurable: true,
     get: () => recordingLocation,
@@ -173,6 +192,8 @@ afterEach(() => {
   onlineManager.setOnline(true)
   Object.defineProperty(window, 'location', realLocationProperty)
   historyMoves.splice(0).forEach((spy) => spy.mockRestore())
+  window.history.replaceState(null, '', realUrl)
+  jsdomConsole.off('jsdomError', hearLoad)
   vi.clearAllMocks()
 })
 
@@ -411,13 +432,14 @@ describe.each(Object.keys(GUARDED) as (keyof typeof GUARDED)[])('%s, when the fi
 })
 
 /** Every route that renders the account card, the two guarded above and the dashboard, with what shows it fully loaded:
-    the watchlist's header renders on its skeleton too, so its list's empty state marks the loaded page. */
+    the dashboard's header and greeting and the watchlist's header render on their skeletons too, so a section only the
+    loaded page renders marks it (the dashboard's Plan and usage, the watchlist's empty list). */
 const CARD_ROUTES = {
   '/dashboard': {
     render: () => <DashboardPage />,
     title: 'Unable to load your dashboard',
     user: reader,
-    loaded: () => screen.findByText('Welcome back, Reader'),
+    loaded: () => screen.findByRole('heading', { level: 2, name: 'Plan and usage' }),
   },
   '/dashboard/watchlist': { ...GUARDED['/dashboard/watchlist'], loaded: () => screen.findByText('No watchlist companies yet') },
   '/admin': GUARDED['/admin'],
@@ -431,7 +453,7 @@ describe.each(Object.keys(CARD_ROUTES) as (keyof typeof CARD_ROUTES)[])('%s, whe
     render(<QueryClientProvider client={client}>{route.render()}</QueryClientProvider>)
     await route.loaded()
     await settle()
-    // The page as it reads loaded: its header and greeting also render on a skeleton, so a marker alone would not tell.
+    // The whole page as it reads loaded, to hold against the page after the failed refetch.
     const page = document.body.textContent
     server.me = status(500, 'Internal Server Error')
     await act(async () => { await client.refetchQueries({ queryKey: queryKeys.currentUser() }) })
