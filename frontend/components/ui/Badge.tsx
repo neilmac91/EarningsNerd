@@ -28,11 +28,12 @@
                      would take error to 3.9:1, info to 4.26:1 and neutral to
                      4.27:1; with none, error, the lowest, holds 4.6:1 there
                      (5.3:1 on the card at rest). The admin lists' status chips
-                     (InviteStatusBadge, FeedbackStatusBadge) and the summary
+                     (InviteStatusBadge, FeedbackStatusBadge), the summary
                      status chip on the watchlist and dashboard rows
-                     (SummaryStatusBadge) render the set, and
-                     tests/unit/statusChipContrast.spec.ts measures them on
-                     their rows, at rest and hovered.
+                     (SummaryStatusBadge) and the labs research evidence
+                     pack's review status (ReviewStatusChip, E140) render the
+                     set, and tests/unit/statusChipContrast.spec.ts measures
+                     them on their rows and cards, at rest and hovered.
                      tentative, the set's sixth, is a status not yet settled
                      (the calendar's estimated date, "Est."): neutral-status's
                      ink on the hairline, dashed, with no fill in either
@@ -53,6 +54,18 @@
                      hovered, in both themes (badgeVariants.spec.tsx).
                      Status is never told with beat/miss: those are data
                      colours.
+                     Tints on purpose, not statuses (chief design on #1459,
+                     E140): the dashboard plan card's "Loading" and
+                     "Unavailable" hold the plan chip's slot while the plan is
+                     unread, so they keep the plan chip's quiet form ("Free"
+                     is the quiet chip there, "Pro" the brand tint); the
+                     filing page's "Live" is the stream's own activity marker
+                     beside its progress card, and the Separate Signals Rule
+                     gives activity to sage; the landing example's quality
+                     tier ("Full summary", "Partial") is a grade of the
+                     summary, not a state it moves through; "Superseded" and
+                     the source check (SourceCheckBadge) keep their warning
+                     tint too.
      - beat / miss:  earnings surprise — gain/loss DATA colors (kept distinct
                      from the brand accent), soft tint bg, auto ▲/▼. A
                      direction only, never a status.

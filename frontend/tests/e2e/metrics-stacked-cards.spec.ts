@@ -218,7 +218,8 @@ const servedVector = (rows: Row[], hasComparatives: boolean) => ({
   changes: hasComparatives ? rows.length : 0,
   takeaways: rows.length,
   xbrlChips: rows.filter((r) => r.source_url).length,
-  takeawayChips: rows.filter((r) => r.commentary_evidence).length,
+  // A chip only beside a takeaway the row has (E145): evidence with no takeaway takes none.
+  takeawayChips: rows.filter((r) => r.commentary_evidence && r.commentary?.trim()).length,
   perAds: rows.filter((r) => r.per_ads).length,
 })
 const vectorOf = (f: Awaited<ReturnType<typeof probe>>['cards']) => ({
@@ -239,7 +240,7 @@ async function expectParity(page: Page, active: 'cards' | 'table', rows: Row[], 
   expect(vectorOf(p.cards)).toEqual(servedVector(rows, hasComparatives))
   expect(p.cards.caption).toBe(hasComparatives ? CAPTION_WITH : CAPTION_WITHOUT)
   expect(p.cards.names).toEqual(rows.map((r) => r.metric))
-  expect(p.cards.takeaways).toEqual(rows.map((r) => r.commentary || '-'))
+  expect(p.cards.takeaways).toEqual(rows.map((r) => r.commentary || '—no takeaway'))
   if (hasComparatives) {
     expect(p.cards.changes.map((c) => [c.text, c.direction, c.tone])).toEqual(
       rows.map((r) => (r.change_display ? [r.change_display, r.change_direction ?? null, r.change_tone ?? null] : ['—unavailable', null, null])),
@@ -717,11 +718,15 @@ test.describe('data variants at 390x844', () => {
     await expectCardsWellFormed(page)
   })
 
-  test('no commentary and no evidence: the "-" placeholder and no takeaway chip, nothing invented', async ({ page, baseURL }) => {
+  test('no commentary and no evidence: MissingValue, read as "no takeaway", and no takeaway chip, nothing invented', async ({ page, baseURL }) => {
     await openFiling(page, baseURL!, { rows: NO_COMMENTARY })
     await expectSingleLayout(page, 'cards')
     const p = await expectParity(page, 'cards', NO_COMMENTARY)
-    expect(p.cards.takeaways).toEqual(NO_COMMENTARY.map(() => '-'))
+    expect(p.cards.takeaways).toEqual(NO_COMMENTARY.map(() => '—no takeaway'))
+    // What Chromium's accessibility tree holds for a missing takeaway: the element's words, never the token (E145).
+    const tree = await page.locator(`${SECTION} [data-metric-card] [data-metric-field="takeaway"]`).first().ariaSnapshot()
+    expect(tree).toContain('no takeaway')
+    expect(tree).not.toContain('—')
     expect(p.cards.takeawayChips).toEqual([])
     await expect(page.locator(`${SECTION} [aria-label="Source: Verified in filing"]`)).toHaveCount(0)
 

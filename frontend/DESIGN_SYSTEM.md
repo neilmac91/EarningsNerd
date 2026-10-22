@@ -452,7 +452,7 @@ Missing value    <MissingValue label="…" className="…">  (components/ui, E88
                  em-dash) in the caller's ink, aria-hidden, beside sr-only words a screen reader reads in
                  its place: "unavailable" by default, the analysis evidence's word, or the site's own where
                  that would claim more than its data says ("no cohort", "no page", "no role listed",
-                 "name unavailable", "no percentage", "Not included"). `relative`, so the words stay
+                 "name unavailable", "no percentage", "no takeaway", "Not included"). `relative`, so the words stay
                  inside a truncating cell or a table's scroll box. A formatter returns null or '' for a
                  missing value and its caller renders the element (`fmt(v) ?? <MissingValue />`), so the
                  formatter's string fallback stays for a CSV, a title or an aria label. Never the token by
@@ -611,8 +611,9 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  own. In dark the chip carries no fill, its hairline only, so a hovered row's white/5 is the
                  one layer under it: error-dark holds 4.6:1 there, where a fill of its own would take it to
                  3.9:1 (gates: tests/unit/badgeVariants.spec.tsx, success and error on the card and on a
-                 hovered row; tests/unit/statusChipContrast.spec.ts, the whole set on the admin rows and the
-                 summary status chip on the watchlist and dashboard rows, Status chip below). `tentative`, the
+                 hovered row; tests/unit/statusChipContrast.spec.ts, the whole set on the admin rows, the
+                 summary status chip on the watchlist and dashboard rows and the labs evidence pack's review
+                 status on its evidence card, Status chip below). `tentative`, the
                  set's sixth, is a status not yet settled (the calendar's
                  estimated date, "Est."): neutral-status's ink on the hairline, dashed, with no fill in either
                  theme. A chip's ground, ink and hairline are its variant's: a class on top of a variant's
@@ -708,13 +709,21 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  the chips beside them), No summary yet and Pending the quiet chip (10.31 and 4.98:1: the
                  neutral-status ink is the tertiary one, 5.44:1 in light, and dark drops the white/5 fill,
                  5.78:1), and Generating the brand tint (5.77 and 5.93:1, now 6.70 and 5.77:1).
+                 The labs research evidence pack's review status (ReviewStatusChip in ResearchEvidencePacks,
+                 E140) is a status too, a label alone on the set: "Unreviewed" on neutral-status, not started;
+                 "Review needed" on warning-status, which needs the reader; "User reviewed" on success, done.
+                 It sits on its evidence card, Card's panel fill with no hover fill of its own: light 5.44,
+                 7.09 and 5.02:1 on the white chip, dark 5.78, 6.83 and 6.44:1 on the panel. Before, Unreviewed
+                 and User reviewed were both the quiet chip, so done read as not started, and Review needed
+                 the warning tint.
                  What each member means, read from its uses so far (chief design on #1459), so a new status
                  chip lands on the member its state means: `info-status`: active or upcoming (an invite
                  pending, new feedback, a confirmed date, a summary being written); `success`: done (an invite
-                 used, feedback resolved, a summary ready); `warning-status`: needs the reader (an invite
-                 expired, feedback triaged, a summary unavailable or needing regenerating); `error`: failed (a
-                 summary whose run failed); `neutral-status`: not started, over or not known (an invite
-                 revoked, a reported date, no summary yet, a summary status the chip does not know);
+                 used, feedback resolved, a summary ready, evidence the reader reviewed); `warning-status`:
+                 needs the reader (an invite expired, feedback triaged, a summary unavailable or needing
+                 regenerating, evidence whose source needs review); `error`: failed (a summary whose run
+                 failed); `neutral-status`: not started, over or not known (an invite revoked, a reported date,
+                 no summary yet, a summary status the chip does not know, evidence not yet reviewed);
                  `tentative`: not yet settled (an estimated date).
                  tests/unit/badgeVariants.spec.tsx holds this line to the set read from Badge's source, each
                  member named once; which member a new chip takes is review-checked.
@@ -741,7 +750,11 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  since the stylesheet's order decides which paints (a fill written on the <Card> sits beside
                  Card's own: Card joins classes without merging them); every tracked source outside tests/
                  that can render the chip is one of the two rows; SummaryStatusBadge held to the set as the
-                 admin badges are, rendering the variant summaryStatusBadge() returns).
+                 admin badges are, rendering the variant summaryStatusBadge() returns); and the labs evidence
+                 pack's review status, every status reviewStatusChip names rendered through Badge and measured
+                 on its evidence card, the card read from its source as the summary rows' are and its own
+                 ground, with ReviewStatusChip held to the set the same way and each status pinned to the
+                 member its meaning names).
 
 Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside its card, never the page, in
                  TableScroll (features/admin/components), a `relative overflow-x-auto` box. `relative` makes it the
@@ -1080,7 +1093,8 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  aria-hidden, the string verbatim, MissingValue when the server sent none; tone from
                  `change_tone` through lib/financialTone.directionText + font-semibold for a move,
                  pinned token-for-token to DataTable's td); the per-ADS note as its own line under the figures;
-                 the takeaway and its evidence chip. Figures `font-data text-sm tabular-nums`, prose text-sm,
+                 the takeaway and its evidence chip, MissingValue read as "no takeaway" where the summary wrote
+                 none (E145). Figures `font-data text-sm tabular-nums`, prose text-sm,
                  chips as they are — never smaller than the md table. Wrap contract: `[overflow-wrap:anywhere]`
                  on the card (inherited; it also lowers a flex item's min-content, which `break-words` cannot)
                  and `min-w-0` groups; never nowrap / truncate / line-clamp / a clipping height on card text —
