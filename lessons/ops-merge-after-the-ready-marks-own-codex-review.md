@@ -14,7 +14,10 @@ same head.
 **Rule**:
 - Before a merge, read the Codex summary comment's `codex-review-state` for the head: `status` completed and
   `has_unresolved_findings` false, on the review the ready mark started when the pull request was a draft, and every Codex
-  thread on the head answered. A green `review-gate` is not that read.
+  thread on the head answered. A green `review-gate` is not that read. The marker is an HTML comment at the top of the
+  Codex summary, its braces escaped as `&#123;` and `&#125;` in the raw text; decoded, a clean read of #1476's head was
+  `codex-review-state:v1 {"code_review":{"commit_sha":"b001bcab…","has_any_findings":true,"has_unresolved_findings":false,"status":"completed"},…}`
+  (findings it raised earlier, all resolved).
 - A pull request opened ready has no ready-mark review; the latest review of its head is the one to read.
 - A finding that lands after the merge gets its fix in the next pull request, with a reply on its thread naming it.
 - While Codex cannot review (credits exhausted, service down), AGENTS.md §5's `Review override:` line, naming the tier and
