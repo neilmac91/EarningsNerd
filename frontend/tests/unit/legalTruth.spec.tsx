@@ -297,14 +297,14 @@ const NEGATION_REACH = String.raw`(?!(?:only|just|merely|simply)\b)(?:(?:yet|the
     readings among them, and the consent forms whose verb says the promise read it. */
 const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+${NEGATION_REACH}|n['’]t\s+${NEGATION_REACH}|(?:\b(?:not|never|cannot)|n['’]t)\s*,[^,.;:!?]{1,40},\s*|${DENIED_SUBJECT})`
 /** Usage as the analytics (#1456's eighth round): qualified ("usage data", "usage statistics", "product usage",
-    "anonymous usage") or as what is tracked, collected or sent ("we track usage", "usage is collected", a negation on
-    the verb read too: "usage isn't collected", "usage cannot be collected"), not the word's ordinary sense ("usage of
-    this website", "fair usage"). */
+    "anonymous usage") or as what is tracked, collected or sent ("we track usage", "usage is collected", with a modal
+    or a negation on the verb: "usage can be collected", "usage isn't collected", "usage cannot be collected"), not the
+    word's ordinary sense ("usage of this website", "fair usage"). */
 const USAGE =
   String.raw`\busage\s+(?:data|statistics|stats|events?|analytics|metrics|tracking|information|patterns|logs?)\b` +
   String.raw`|\b(?:product|site|app|feature|anonymous|anonymi[sz]ed|aggregated?)\s+usage\b` +
   String.raw`|\b(?:track|collect|measur|record|monitor|logg?)(?:s|ed|e|es|ing)?\s+(?:(?:your|our|the|its|their)\s+)?usage\b` +
-  String.raw`|\busage\s+(?:(?:is|are|was|were)(?:n['’]t)?|gets|(?:cannot|can['’]t|can not|won['’]t|will not|may not|must not)\s+be)\s+(?:(?:only|also|not|never)\s+)?(?:tracked|collected|measured|recorded|monitored|logged|sent|shared|stored|processed)\b`
+  String.raw`|\busage\s+(?:(?:is|are|was|were)(?:n['’]t)?|gets|(?:cannot|can['’]t|won['’]t|(?:could|would|should|must|might)n['’]t|can|could|may|might|must|will|would|shall|should)(?:\s+(?:only|also|never|not|ever))?\s+be)\s+(?:(?:only|also|not|never)\s+)?(?:tracked|collected|measured|recorded|monitored|logged|sent|shared|stored|processed)\b`
 /** The analytics by any name ANONYMOUS_ANALYTICS reads them by, usage only as the analytics (USAGE), and events only
     as the account, the server or the API names them ("account events", "the events the API records"; "usage data" and
     "usage events" are usage), so "your data" and "event invitations" are not the analytics. */
@@ -1255,6 +1255,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ["<p>Usage isn't billed without your agreement.</p>", false],
       ['<p>We cannot store your financial data.</p>', true],
       ['<p>We store your financial data with Stripe.</p>', false],
+      // A modal on the usage verb reads as its negation does (#1456's ninth round), beside the word's ordinary sense.
+      ['<p>Usage can be collected only with your consent.</p>', true],
+      ['<p>Usage can be billed only with your agreement.</p>', false],
       // Every endpoint with other words before "endpoints" (#1397's last review), each and any with a login said, and
       // the claim the other way round.
       ["<p>All of the API's endpoints require authentication.</p>", true],
