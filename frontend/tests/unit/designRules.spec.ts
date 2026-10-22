@@ -856,6 +856,8 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     '<Card className="p-cap-4 sm:p-cap-6"><div className="px-6" /></Card>',
     // Bindings named in opposite arms render one or the other, never a padded frame (Codex's review of 82dd27ea).
     "const FRAME = 'rounded-xl border'\nconst PAD = 'p-6'\nexport const x = <div className={framed ? FRAME : PAD} />",
+    // Pieces under separate conditions render together: this frame carries the cap in every render.
+    "<div className={cx(bordered && 'rounded-xl border', compact ? 'p-3' : 'p-cap-6')} />",
     // A binding named unconditionally pads every render, read where it is named.
     "const PAD = 'p-cap-6'\nexport const x = <Card className={cx(PAD, 'mt-6')}><div className=\"p-6\" /></Card>",
     // A binding is read each time it is named, so its unconditional read counts after a conditional one (Codex's review
@@ -932,6 +934,21 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     // A binding named in two arms is read in both: the second renders an uncapped frame (Codex's review of 310ec1f0).
     {
       code: "const SHELL = 'rounded-xl border'\nexport const x = <div className={wide ? cx(SHELL, 'p-4') : cx(SHELL, 'p-6')} />",
+      errors: [{ messageId: 'uncapped' }],
+    },
+    // Pieces under separate conditions can render together, so a frame and its padding split across two conditions, or
+    // across an object's keys, are one render (Codex's review of 9603886a); a ternary's arms still render one or the other.
+    { code: "<div className={cx(active && 'rounded-xl border', active && 'p-6')} />", errors: [{ messageId: 'uncapped' }] },
+    { code: "<div className={cx(bordered && 'rounded-xl border', compact ? 'p-3' : 'p-6')} />", errors: [{ messageId: 'uncapped' }] },
+    { code: "<div className={cx({ 'rounded-xl border': framed, 'p-6': roomy })} />", errors: [{ messageId: 'uncapped' }] },
+    // So is a frame split across two conditions, which leaves its inset to what is written inside it.
+    { code: "<div className={cx(round && 'rounded-xl', round && 'border')}><div className=\"p-6\" /></div>", errors: [{ messageId: 'uncapped' }] },
+    // Stated limits, failing closed: conditions the rule cannot correlate read as rendering together, and past six ternaries
+    // with text in both arms every piece reads as one render.
+    { code: "<div className={cx(open && 'rounded-xl border', !open && 'p-6')} />", errors: [{ messageId: 'uncapped' }] },
+    {
+      code:
+        "<div className={cx(a ? 'mt-1' : 'mt-2', b ? 'mb-1' : 'mb-2', c ? 'gap-1' : 'gap-2', d ? 'flex' : 'grid', e ? 'w-full' : 'w-auto', f ? 'h-8' : 'h-9', g ? 'rounded-xl border' : 'p-6')} />",
       errors: [{ messageId: 'uncapped' }],
     },
     // A binding that reads itself is read once, not without end.

@@ -160,7 +160,8 @@ export const isPassThrough = (node) => {
  *  chunks joined), each tagged with its branch: a ternary arm, a logical operand, an object key or
  *  value opens a branch inside the current one; everything else (helper-call arguments, the receiver
  *  of a pass-through method, array elements, spreads, template expressions, `+` operands) stays in
- *  it. Every node it walks is added to `reached`, so the rule evaluates on its own only what no unit
+ *  it. A ternary's arms and a logical expression's operands are the two sides of one fork (`fork`,
+ *  `side`), which render one or the other; an object's keys and values open branches of no fork. Every node it walks is added to `reached`, so the rule evaluates on its own only what no unit
  *  reached, such as the arguments of any other call. A caller that passes `resolve` has an identifier
  *  read as the node it returns (a same-file binding's initializer), in the identifier's own branch, each
  *  time it is named: a binding named in two arms is read in both, and `expanding` stops only one that
@@ -169,7 +170,8 @@ export function collectStaticText(node, reached, out = [], branch = { parent: nu
   if (!node) return out
   reached.add(node)
   const sub = (child) => collectStaticText(child, reached, out, branch, resolve, expanding)
-  const optional = (child) => collectStaticText(child, reached, out, { parent: branch }, resolve, expanding)
+  const optional = (child, fork = null, side = 0) =>
+    collectStaticText(child, reached, out, { parent: branch, fork, side }, resolve, expanding)
   switch (node.type) {
     case 'Literal':
       if (typeof node.value === 'string') out.push({ text: node.value, branch })
@@ -189,12 +191,12 @@ export function collectStaticText(node, reached, out = [], branch = { parent: nu
       sub(node.argument)
       break
     case 'ConditionalExpression':
-      optional(node.consequent)
-      optional(node.alternate)
+      optional(node.consequent, node, 0)
+      optional(node.alternate, node, 1)
       break
     case 'LogicalExpression':
-      optional(node.left)
-      optional(node.right)
+      optional(node.left, node, 0)
+      optional(node.right, node, 1)
       break
     case 'BinaryExpression':
       if (node.operator === '+') {
@@ -246,6 +248,35 @@ export function branchTexts(pieces) {
       .map((p) => p.text)
       .join(' ')
   })
+}
+
+/** The class text of each render the pieces can make, for a check of what renders together: one side of every
+ *  fork (a ternary's arms, a logical expression's operands) and every piece no fork leaves out, so pieces under
+ *  separate conditions read together (`cx(bordered && FRAME, compact ? 'p-3' : 'p-6')`), where branchTexts reads each
+ *  branch alone. A fork with text on one side only takes that side; past `limit` forks with text on both, every piece
+ *  reads as one render, failing closed. */
+export function renderTexts(pieces, limit = 6) {
+  if (pieces.length === 0) return []
+  const sides = new Map()
+  for (const piece of pieces) {
+    for (let b = piece.branch; b; b = b.parent) {
+      if (!b.fork) continue
+      if (!sides.has(b.fork)) sides.set(b.fork, new Set())
+      sides.get(b.fork).add(b.side)
+    }
+  }
+  const contested = [...sides].filter(([, taken]) => taken.size > 1).map(([fork]) => fork)
+  if (contested.length > limit) return [pieces.map((p) => p.text).join(' ')]
+  const texts = new Set()
+  for (let mask = 0; mask < 2 ** contested.length; mask++) {
+    const choice = new Map(contested.map((fork, i) => [fork, (mask >> i) & 1]))
+    const renders = (piece) => {
+      for (let b = piece.branch; b; b = b.parent) if (choice.has(b.fork) && choice.get(b.fork) !== b.side) return false
+      return true
+    }
+    texts.add(pieces.filter(renders).map((p) => p.text).join(' '))
+  }
+  return [...texts]
 }
 
 /** Visitors that hand `check(node, pieces)` every class unit once: a class attribute, a class-helper

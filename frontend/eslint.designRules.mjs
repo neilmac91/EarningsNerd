@@ -238,9 +238,13 @@
 //                       forwardRef() or as React.memo() or React.forwardRef(), or the Card recipe), and a <Modal>'s
 //                       className, its panel; a native <dialog> and each element directly inside it; a frame, an element
 //                       whose class text draws a full border (`border`, `border-2`; never `border-0`) and a radius
-//                       (`rounded`, `rounded-*` but `-none`) in the same branch, the Card recipe copied by hand and the
-//                       wells inside a card, but never a form field (input, textarea, select), whose padding reserves
-//                       room for a glyph (an icon field's pl-11, a select's pr-9); and a section of a surface, an element
+//                       (`rounded`, `rounded-*` but `-none`) in the same render (a ternary's arms render one or the
+//                       other, pieces under separate conditions together, `cx(bordered && FRAME, compact ? 'p-3' :
+//                       'p-6')`; conditions it cannot correlate, `open && FRAME` beside `!open && PAD`, and every piece
+//                       past six ternaries with text in both arms read as one render, failing closed), the Card recipe
+//                       copied by hand and the wells inside a card, but never a form field (input, textarea, select),
+//                       whose padding reserves room for a glyph (an icon field's pl-11, a select's pr-9); and a section
+//                       of a surface, an element
 //                       written directly inside a Card, a Modal or a frame whose class does not pad every render (only
 //                       padding of some length in its unconditional text, a binding's read where it is named, under no
 //                       variant and reset to zero under none, does; `p-0`, padding set only under a condition or a
@@ -281,6 +285,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   branchTexts,
+  renderTexts,
   classUnitVisitors,
   collectStaticText,
   isHelperCall,
@@ -2018,7 +2023,7 @@ export const surfacePaddingCap = {
         piece.text.split(/\s+/).some((raw) => paddingStep(raw) === 0 && (piece.branch !== root || !base(raw))),
       )
       if (!reset && tokens.some((raw) => base(raw) && setsPadding(raw))) return false
-      return SECTIONED_COMPONENTS.has(nameOf(element)) || [always, ...branchTexts(pieces)].some(drawsFrame)
+      return SECTIONED_COMPONENTS.has(nameOf(element)) || [always, ...renderTexts(pieces)].some(drawsFrame)
     }
     /** What makes a class unit a surface whatever its text says, and the element it sits on. */
     const surfaceOf = (node) => {
@@ -2056,7 +2061,7 @@ export const surfacePaddingCap = {
     return classUnitVisitors((node, pieces) => {
       // A class a same-file binding holds is read with the attribute that names it, in each branch where it is named
       // (`framed ? FRAME : PAD` renders one or the other); a binding the collector does not walk to (`merge(PAD)`)
-      // is read as text that is always there.
+      // is read as text that is always there. Each text is one render: pieces under separate conditions together.
       let own = pieces
       let always = ''
       if (node.type === 'JSXAttribute') {
@@ -2067,7 +2072,7 @@ export const surfacePaddingCap = {
         })
         always = boundTexts(node, (identifier) => !named.has(identifier)).join(' ')
       }
-      const texts = branchTexts(own).map((text) => `${text} ${always}`)
+      const texts = renderTexts(own).map((text) => `${text} ${always}`)
       if (texts.length === 0 && always) texts.push(always)
       for (const text of texts) {
         const token = undefinedCap(text)
