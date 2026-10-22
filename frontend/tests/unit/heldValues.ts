@@ -76,8 +76,9 @@ import ts from 'typescript'
  * tagged or not, hold its substitutions, `+` both sides and a comma expression its last; and `+=` give its target
  * what it adds. Without it each holds nothing.
  * Out of its reach, for each gate to name and plant as a gap: a value that crosses modules (an app module's export or a
- * context's), what React state holds after its setter or a reducer runs, a class's fields and `this`, a promise's
- * `then` and a generator's yields. One over-count, which fails closed: a parameter is not told apart by call, so it
+ * context's, or a setter handed to another module's code), what React state holds after its setter or a reducer runs
+ * unless the gate reads state (HeldOptions.state), a class's fields and `this`, a promise's `then` and a generator's
+ * yields. One over-count, which fails closed: a parameter is not told apart by call, so it
  * holds what every same-file call passes it, and a function called with different values reads all of them at each
  * call (a component rendered once with each of two glyphs counts both at each render). A value that grows through its own reads (`const a = <>{a}</>`, or a
  * component that passes its own children back to itself with more added) never settles: the scan throws instead of
@@ -89,6 +90,9 @@ export interface Held<L> {
   props: Map<string, Held<L>> | null
   /** The same-file functions the value may be: a call through it binds their parameters and reads their returns. */
   fns: Set<Fn> | null
+  /** The React hooks (useState, useReducer) whose setter or dispatcher the value may be (HeldOptions.state): a call
+      through it hands the hook what it is passed. */
+  setters?: Set<ts.CallExpression> | null
 }
 
 /** A function the scan follows: a declaration, an arrow, a function expression or an object literal's method. */
@@ -125,15 +129,22 @@ const joinedProps = <L>(a: Held<L>, b: Held<L>): Map<string, Held<L>> | null => 
   return props
 }
 const joinedFns = <L>(a: Held<L>, b: Held<L>): Set<Fn> | null => (a.fns || b.fns ? new Set([...(a.fns ?? []), ...(b.fns ?? [])]) : null)
+const joinedSetters = <L>(a: Held<L>, b: Held<L>): Set<ts.CallExpression> | null =>
+  a.setters?.size || b.setters?.size ? new Set([...(a.setters ?? []), ...(b.setters ?? [])]) : null
 
 /** Either value (a conditional's arms, `||`, `??`, a name's values in turn): the leaves of both, each at the larger
-    count, each property either side holds, and the functions of both. */
+    count, each property either side holds, and the functions and setters of both. */
 export function union<L>(a: Held<L>, b: Held<L>): Held<L> {
-  return { leaves: joined(a.leaves, b.leaves, Math.max), props: joinedProps(a, b), fns: joinedFns(a, b) }
+  return { leaves: joined(a.leaves, b.leaves, Math.max), props: joinedProps(a, b), fns: joinedFns(a, b), setters: joinedSetters(a, b) }
 }
 
 /** Both values, rendered together (an element's tag and its children): each leaf as many times as the two render it. */
-const both = <L>(a: Held<L>, b: Held<L>): Held<L> => ({ leaves: joined(a.leaves, b.leaves, add), props: joinedProps(a, b), fns: joinedFns(a, b) })
+const both = <L>(a: Held<L>, b: Held<L>): Held<L> => ({
+  leaves: joined(a.leaves, b.leaves, add),
+  props: joinedProps(a, b),
+  fns: joinedFns(a, b),
+  setters: joinedSetters(a, b),
+})
 
 /** Every leaf a value holds, its properties' included, with how many times it renders: a value read whole reads
     each of its properties. */
@@ -148,9 +159,9 @@ export function leavesOf<L>(value: Held<L>): Map<L, number> {
     builds from what it returns settles instead of nesting deeper on every pass. */
 const asText = <L>(value: Held<L>): Held<L> => ({ leaves: leavesOf(value), props: null, fns: null })
 
-/** Whether a value holds nothing to follow: no leaf and no function, here or in a property. */
+/** Whether a value holds nothing to follow: no leaf, no function and no setter, here or in a property. */
 const vacant = <L>(value: Held<L>): boolean =>
-  value.leaves.size === 0 && !value.fns?.size && [...(value.props?.values() ?? [])].every(vacant)
+  value.leaves.size === 0 && !value.fns?.size && !value.setters?.size && [...(value.props?.values() ?? [])].every(vacant)
 
 /** The key prefix of an array's elements whose indices the scan cannot know (past a spread, pushed, built by a call). */
 const REST = '…'
@@ -201,6 +212,7 @@ const argumentsOf = <L>(passed: Array<Held<L>>, tail?: Held<L>): Held<L> => {
 const size = <L>(value: Held<L>): number =>
   [...value.leaves.values()].reduce(add, 0) +
   (value.fns?.size ?? 0) +
+  (value.setters?.size ?? 0) +
   [...(value.props?.entries() ?? [])].reduce((n, [key, prop]) => n + key.length + size(prop), 0)
 
 export const unwrapHeld = (e: ts.Expression): ts.Expression =>
@@ -384,13 +396,16 @@ export interface HeldOptions<L> {
       (missingValueToken.spec.ts): each part counts once, so a string a loop or a recursion builds settles. By default
       each holds nothing. */
   passThrough?: boolean
-  /** Whether React's state keeps what it is handed and gives it back (companyNameDisplay.spec.ts): useState's first
-      element holds its initial value, what its initializer returns and what its setter is handed in the file, called
-      by the name it is destructured under (a value, or what an updater returns); useReducer's, its initial argument and
-      what its init and its reducer return, the reducer called with the state and each action its dispatcher is handed
-      in the file, by the name it is destructured under; useRef's `current`, its initial value (what the code puts there later is an
-      assignment, read as any other); useDeferredValue, what it defers; useSyncExternalStore, what the snapshot returns.
-      By default each is a call the reading cannot follow. */
+  /** Whether React's state keeps what it is handed and gives it back (companyNameDisplay.spec.ts). A setter or a
+      dispatcher is a value, the hook it came from (Held.setters), followed as any other value is: destructured, read by
+      index from the hook's pair, held by another name, put in an object, handed to a same-file function or component,
+      handed back by a custom hook. useState's first element holds its initial value, what its initializer returns and
+      what each call through its setter hands it (a value, or what an updater returns, the updater called with the
+      state); useReducer's, its initial argument and what its init and its reducer return, the reducer called with the
+      state and each action a call through its dispatcher hands it; useRef's `current`, its initial value (what the code
+      puts there later is an assignment, read as any other); useDeferredValue, what it defers; useSyncExternalStore,
+      what the snapshot returns. A setter handed to code the reading does not hold (another module's function or
+      component) is called where the reading cannot see. By default each hook is a call the reading cannot follow. */
   state?: boolean
 }
 
@@ -495,44 +510,11 @@ export function heldValues<L>(
     }
     return value
   }
-  /** The file's calls by the declaration their callee names, built at the first ask (HeldOptions.state). */
-  let callIndex: Map<ts.Node, ts.CallExpression[]> | undefined
-  const callsTo = (declaration: ts.Node): ts.CallExpression[] => {
-    if (!callIndex) {
-      const index = new Map<ts.Node, ts.CallExpression[]>()
-      const walk = (n: ts.Node): void => {
-        if (ts.isCallExpression(n)) {
-          const callee = unwrapHeld(n.expression)
-          const d = ts.isIdentifier(callee) ? declarationOf(callee) : undefined
-          if (d) index.set(d, [...(index.get(d) ?? []), n])
-        }
-        ts.forEachChild(n, walk)
-      }
-      walk(sf)
-      callIndex = index
-    }
-    return callIndex.get(declaration) ?? []
-  }
-  /** What a hook's second element is handed in the file, called by the name it is destructured under (`const [, set] =
-      useState(…)`): useState's setter, each value or what an updater returns; useReducer's dispatcher, each action. A
-      setter or a dispatcher called by another name or handed on is not read. */
-  const handedTo = (x: ts.CallExpression, record?: Set<ts.Node>): Held<L> => {
-    let parent: ts.Node = x.parent
-    while (ts.isParenthesizedExpression(parent) || ts.isAsExpression(parent) || ts.isSatisfiesExpression(parent) || ts.isNonNullExpression(parent)) {
-      parent = parent.parent
-    }
-    if (!ts.isVariableDeclaration(parent) || !ts.isArrayBindingPattern(parent.name)) return empty()
-    const setter = parent.name.elements[1]
-    if (!setter || ts.isOmittedExpression(setter) || !ts.isIdentifier(setter.name)) return empty()
-    let handed = empty<L>()
-    for (const call of callsTo(declarationOf(setter.name) ?? setter)) {
-      const a = call.arguments[0]
-      if (!a || ts.isSpreadElement(a)) continue
-      const value = valueOf(a, record)
-      handed = union(handed, union(value, returned(value.fns, record)))
-    }
-    return handed
-  }
+  /** A hook's setter or dispatcher as a value: the hook it came from (HeldOptions.state). */
+  const setterOf = (hook: ts.CallExpression): Held<L> => ({ leaves: new Map(), props: null, fns: null, setters: new Set([hook]) })
+  /** What the calls through a hook's setter or dispatcher hand it, however each reached the setter: useState's values
+      and updaters, useReducer's actions (HeldOptions.state). */
+  const handedTo = (hook: ts.CallExpression): Held<L> => holders.get(hook) ?? empty()
   /** What same-file components render where their element is: what they return, the components themselves aside. */
   const renders = (fns: Set<Fn>, element: ts.Node, record?: Set<ts.Node>): Held<L> => {
     const value = returned(fns, record)
@@ -740,8 +722,21 @@ export function heldValues<L>(
     if (name === 'useCallback') return arg(0)
     // React's state, for a gate that reads it (HeldOptions.state): what each hook keeps, where it gives it back.
     if (state) {
-      if (name === 'useState') return withProps([['0', union(union(arg(0), returned(fnsOf(0), record)), handedTo(x, record))]])
-      if (name === 'useReducer') return withProps([['0', union(arg(1), union(returned(fnsOf(2), record), returned(fnsOf(0), record)))]])
+      if (name === 'useState') {
+        // React calls a function its setter is handed (an updater) and keeps what it returns.
+        const handed = handedTo(x)
+        const kept = union({ leaves: handed.leaves, props: handed.props, fns: null }, returned(handed.fns, record))
+        return withProps([
+          ['0', union(union(arg(0), returned(fnsOf(0), record)), kept)],
+          ['1', setterOf(x)],
+        ])
+      }
+      if (name === 'useReducer') {
+        return withProps([
+          ['0', union(arg(1), union(returned(fnsOf(2), record), returned(fnsOf(0), record)))],
+          ['1', setterOf(x)],
+        ])
+      }
       if (name === 'useRef') return withProps([['current', arg(0)]])
       if (name === 'useDeferredValue') return union(arg(0), arg(1))
       if (name === 'useSyncExternalStore') return union(returned(fnsOf(1), record), returned(fnsOf(2), record))
@@ -883,7 +878,7 @@ export function heldValues<L>(
     // with the initial argument (HeldOptions.state).
     if (state && name === 'useReducer') {
       const reducer = fnsAt(0)
-      if (reducer?.size) pass(reducer, [propertyOf(valueOf(x, record), '0'), handedTo(x, record)])
+      if (reducer?.size) pass(reducer, [propertyOf(valueOf(x, record), '0'), handedTo(x)])
       const init = fnsAt(2)
       if (init?.size && args[1]) pass(init, [valueOf(args[1], record)])
     }
@@ -948,9 +943,18 @@ export function heldValues<L>(
         if (!vacant(v)) assign(recv, withProps([[literalKey(args[0]) ?? ANY, v]]), record)
       }
     }
-    // A call of a same-file function, however the function reached the callee: each parameter takes what it is passed.
-    const fns = valueOf(x.expression).fns
-    if (fns?.size) pass(fns, ...passedBy(args, record))
+    // A call through a value, however the value reached the callee: a same-file function's parameters take what it is
+    // passed, and a hook's setter or dispatcher hands the hook its first argument (HeldOptions.state); React calls an
+    // updater a setter is handed with the state.
+    const callee = valueOf(x.expression)
+    if (!callee.fns?.size && !callee.setters?.size) return
+    const [passed, tail] = passedBy(args, record)
+    if (callee.fns?.size) pass(callee.fns, passed, tail)
+    const handed = passed[0] ?? tail ?? empty<L>()
+    for (const hook of callee.setters ?? []) {
+      give(hook, handed)
+      if (handed.fns?.size && calleeName(hook) === 'useState') pass(handed.fns, [propertyOf(valueOf(hook), '0')])
+    }
   }
   /** A JSX element of a same-file component calls it with a props object: each attribute's value, each spread's
       properties (a later attribute overriding), and its children as `children`. */

@@ -45,7 +45,7 @@ import type { RedlineSource } from '@/features/filing-redlines/lib/filingPair'
 import type { SourceIdentity } from '@/features/research-evidence-packs/lib/evidenceLedger'
 import type { SampleFact } from '@/features/financial-refresh-review/lib/refreshReview'
 import type { ExampleData } from '@/lib/serverApi'
-import { displayNameOf, labelsOf, lengthOf, nameOf } from './companyNameKit'
+import { displayNameOf, labelsOf, lengthOf, nameOf, pickFirst } from './companyNameKit'
 import { shortNameOf } from './companyNameKit2'
 
 /** A view model of this file's own, so its fields are the app's own (declared outside an API module). */
@@ -561,7 +561,7 @@ export function N85({ ev }: { ev: CalendarEvent }) {
 }
 
 // A name handed back across modules or kept in React's state: the gate follows another module's function to what it
-// hands back, and React's state to where it gives the name back.
+// hands back, and React's state to where it gives the name back, a setter or a dispatcher followed as a value.
 
 /** N86 flag: a name another module's function hands back as a plain string. */
 export function N86({ ev }: { ev: CalendarEvent }) {
@@ -642,6 +642,83 @@ export function N115({ ev }: { ev: CalendarEvent }) {
   return <span>{ref.current}</span>
 }
 
+/** N112's component, handed a state's setter under a type of its own. */
+function N112Pick({ ev, onPick }: { ev: CalendarEvent; onPick: (name: string) => void }) {
+  return (
+    <button type="button" onClick={() => onPick(ev.company_name)}>
+      Pick
+    </button>
+  )
+}
+
+/** N112 flag: a state's setter handed on to a same-file component, and called there. */
+export function N112({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useState('')
+  return (
+    <>
+      <N112Pick ev={ev} onPick={setName} />
+      <span>{name}</span>
+    </>
+  )
+}
+
+/** N117 flag: a state's pair kept whole, its setter read by index and handed a served name. */
+export function N117({ ev }: { ev: CalendarEvent }) {
+  const name = useState('')
+  return (
+    <button type="button" onClick={() => name[1](ev.company_name)}>
+      {name[0]}
+    </button>
+  )
+}
+
+/** N118 flag: a reducer's pair kept whole, its dispatcher read by index and handed a served name. */
+export function N118({ ev }: { ev: CalendarEvent }) {
+  const name = useReducer((_current: string, next: string) => next, '')
+  return (
+    <button type="button" onClick={() => name[1](ev.company_name)}>
+      {name[0]}
+    </button>
+  )
+}
+
+/** N119 flag: a state's setter held by another name. */
+export function N119({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useState('')
+  const pick = setName
+  return (
+    <button type="button" onClick={() => pick(ev.company_name)}>
+      {name}
+    </button>
+  )
+}
+
+/** N120 flag: a state's setter put in an object and called through it. */
+export function N120({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useState('')
+  const actions = { setName }
+  return (
+    <button type="button" onClick={() => actions.setName(ev.company_name)}>
+      {name}
+    </button>
+  )
+}
+
+/** N121's hook, which hands back a state's pair. */
+function useN121Name() {
+  return useState('')
+}
+
+/** N121 flag: a custom hook's setter handed a served name, and its state printed. */
+export function N121({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useN121Name()
+  return (
+    <button type="button" onClick={() => setName(ev.company_name)}>
+      {name}
+    </button>
+  )
+}
+
 /** N109 flag: a deferred value of a served name. */
 export function N109({ ev }: { ev: CalendarEvent }) {
   const name = useDeferredValue(ev.company_name)
@@ -663,6 +740,17 @@ export function N111({ ev }: { ev: CalendarEvent }) {
     <span>
       {name} · {formatCompanyName(event.company_name)}
     </span>
+  )
+}
+
+/** N123 clean: a served name handed to one state's setter, and another state printed. */
+export function N123({ ev }: { ev: CalendarEvent }) {
+  const [query] = useState('')
+  const [, setPicked] = useState('')
+  return (
+    <button type="button" onClick={() => setPicked(ev.company_name)}>
+      {query}
+    </button>
   )
 }
 
@@ -745,23 +833,13 @@ export function N102({ events }: { events: CalendarEvent[] }) {
   return <DataTable rows={events} rowKey={(row) => row.ticker} columns={[{ key: 'company_name', header: 'Company' }]} />
 }
 
-/** N112's component, handed a state's setter under a type of its own. */
-function N112Pick({ ev, onPick }: { ev: CalendarEvent; onPick: (name: string) => void }) {
-  return (
-    <button type="button" onClick={() => onPick(ev.company_name)}>
-      Pick
-    </button>
-  )
-}
-
-/** N112 gap: a state's setter handed on to a component, and called there. */
-export function N112({ ev }: { ev: CalendarEvent }) {
+/** N122 gap: a state's setter handed to another module's function, and called there. */
+export function N122({ events }: { events: CalendarEvent[] }) {
   const [name, setName] = useState('')
   return (
-    <>
-      <N112Pick ev={ev} onPick={setName} />
-      <span>{name}</span>
-    </>
+    <button type="button" onClick={() => pickFirst(events, setName)}>
+      {name}
+    </button>
   )
 }
 
