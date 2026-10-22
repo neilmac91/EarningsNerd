@@ -18,7 +18,7 @@ from app.services.trend_analysis.periods import (
     MODES, DATASET_CONCEPT_ORDER, _QUARTERS, _period_sort_key, concept_label, parse_period_key,
 )
 from app.services.trend_analysis.series import _series_map, _valued_points
-from app.services.trend_analysis.source_documents import filing_documents
+from app.services.trend_analysis.source_documents import filing_documents, folder_links
 from app.utils.datetimes import ensure_utc, iso_z
 
 # Balance-sheet (point-in-time) concepts + their derived metrics: matched by period_end in
@@ -395,7 +395,7 @@ def dataset_fingerprint(dataset: dict[str, Any]) -> str:
     # A refresh that confirms the same source facts must not consume a new AI generation. The
     # Display metadata is excluded; underlying source/quality/formula changes are not.
     content = {key: value for key, value in dataset.items() if key not in {"snapshot_id", "data_as_of", "data_notes", "narrative_presentation"}}
-    canonical = json.dumps(content, sort_keys=True, separators=(",", ":"), default=str)
+    canonical = json.dumps(folder_links(content), sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 

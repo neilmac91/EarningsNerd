@@ -2,15 +2,19 @@
 
 ``fact_provenance`` links each reported value and each calculation operand that stores no link.
 Given a lookup (dashless accession to the filing row's ``document_url``) it takes that filing's
-document; an accession with no filing row keeps its folder (``build_sec_archive_url``), and a
-call without the lookup links every one to its folder, as before. The Multi-Period dataset builds
-the lookup with one read of the company's filing rows (``trend_analysis/source_documents.py``), so
-its points, their operands, their comparisons and the narrative's citations open the document.
+document when it is an SEC archive URL inside the accession's folder; any other accession keeps
+its folder (``build_sec_archive_url``), and a call without the lookup links every one to its
+folder, as before. The Multi-Period dataset builds the lookup with one read of the company's
+filing rows (``trend_analysis/source_documents.py``), so its points, their operands, their
+comparisons and the narrative's citations open the document. Its snapshot fingerprint hashes each
+looked-up link as its folder, so a filing row that lands moves no snapshot; a link stored with its
+receipt is hashed as stored.
 
 Synthetic fixtures, not real-issuer coverage.
 """
 
 import uuid
+from copy import deepcopy
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
@@ -154,34 +158,48 @@ def _points(dataset, concept):
     return {point["period"]: point for point in series["points"]}
 
 
-def test_the_multi_period_dataset_opens_each_cited_filings_document(dataset_db):
-    db, company, other, prefix = dataset_db
-    annual, original_q3, later_q3 = f"{prefix}-25-000010", f"{prefix}-24-000091", f"{prefix}-25-000072"
-    unlisted, elsewhere, offsite = f"{prefix}-24-000077", f"{prefix}-25-000033", f"{prefix}-24-000055"
-    # Filing rows: the 10-K dashed, the later 10-Q dashless, another company's row for `elsewhere`.
-    _filing(db, company, annual, "annual-10k.htm", "10-K")
-    _filing(db, company, original_q3, "original-q3-10q.htm")
-    _filing(db, company, normalize_accession(later_q3), "later-q3-10q.htm")
-    _filing(db, other, elsewhere, "another-filers-10k.htm", "10-K")
-    _filing(db, company, offsite, "", document_url="https://sec.example/mirror/offsite-10q.htm")
+def _seed(db, company, other, prefix):
+    """The window's facts and filing rows; returns each accession by its role."""
+    acc = {role: f"{prefix}-{number}" for role, number in (
+        ("annual", "25-000010"), ("original_q3", "24-000091"), ("later_q3", "25-000072"),
+        ("unlisted", "24-000077"), ("elsewhere", "25-000033"), ("offsite", "24-000055"), ("eps_8k", "24-000066"),
+    )}
+    # Filing rows: the 10-K dashed, the later 10-Q dashless, another company's row for `elsewhere`,
+    # and a row whose document is on another host.
+    _filing(db, company, acc["annual"], "annual-10k.htm", "10-K")
+    _filing(db, company, acc["original_q3"], "original-q3-10q.htm")
+    _filing(db, company, normalize_accession(acc["later_q3"]), "later-q3-10q.htm")
+    _filing(db, other, acc["elsewhere"], "another-filers-10k.htm", "10-K")
+    _filing(db, company, acc["offsite"], "", document_url="https://sec.example/mirror/offsite-10q.htm")
     # Q3 revenue is the later 10-Q's comparative; the derived Q4 cites the 10-K (dashless) and the
     # original Q3 10-Q, which no row in the window names.
-    _quarter(db, company, "revenue", 100, 3, later_q3)
+    _quarter(db, company, "revenue", 100, 3, acc["later_q3"])
     operands = [
         {"concept": "revenue", "value": 420, "unit": "USD", "period_start": date(2024, 1, 1),
-         "period_end": date(2024, 12, 31), "accession": normalize_accession(annual), "raw_tag": "us-gaap:Revenues",
-         "source": "companyfacts", "reconciled": True, "filed_at": "2025-01-30"},
+         "period_end": date(2024, 12, 31), "accession": normalize_accession(acc["annual"]),
+         "raw_tag": "us-gaap:Revenues", "source": "companyfacts", "reconciled": True, "filed_at": "2025-01-30"},
         {"concept": "revenue", "value": 300, "unit": "USD", "period_start": date(2024, 1, 1),
-         "period_end": date(2024, 9, 30), "accession": original_q3, "raw_tag": "us-gaap:Revenues",
-         "source": "companyfacts", "reconciled": True, "filed_at": "2024-10-31"},
+         "period_end": date(2024, 9, 30), "accession": acc["original_q3"],
+         "raw_tag": "us-gaap:Revenues", "source": "companyfacts", "reconciled": True, "filed_at": "2024-10-31"},
     ]
     stored = calculated_provenance("FY - YTD9", operands)
     stored["period_calculation"] = True
-    _quarter(db, company, "revenue", 120, 4, annual, source="derived", provenance=stored)
-    _quarter(db, company, "operating_cash_flow", 10, 3, unlisted)
-    _quarter(db, company, "operating_cash_flow", 30, 4, elsewhere)
-    _quarter(db, company, "net_income", 15, 3, offsite)
+    _quarter(db, company, "revenue", 120, 4, acc["annual"], source="derived", provenance=stored)
+    _quarter(db, company, "operating_cash_flow", 10, 3, acc["unlisted"])
+    _quarter(db, company, "operating_cash_flow", 30, 4, acc["elsewhere"])
+    _quarter(db, company, "net_income", 15, 3, acc["offsite"])
+    # Reported EPS read from an 8-K exhibit, stored with its receipt as the quarterly repair writes it.
+    receipt = {**reported_provenance({"reconciled": True}), "source_sha256": "a" * 64,
+               "source_url": _document(company.cik, acc["eps_8k"], "ex99-1.htm")}
+    _quarter(db, company, "earnings_per_share", "1.25", 3, acc["eps_8k"], unit="USD/shares",
+             source="reported_eps", form="8-K", raw_tag=None, provenance=receipt)
     db.flush()
+    return acc
+
+
+def test_the_multi_period_dataset_opens_each_cited_filings_document(dataset_db):
+    db, company, other, prefix = dataset_db
+    acc = _seed(db, company, other, prefix)
 
     statements = []
     engine = db.get_bind()
@@ -197,8 +215,9 @@ def test_the_multi_period_dataset_opens_each_cited_filings_document(dataset_db):
     assert len([statement for statement in statements if "FROM filings" in statement]) == 1
 
     revenue = _points(dataset, "revenue")
-    later, annual_doc = _document(company.cik, later_q3, "later-q3-10q.htm"), _document(company.cik, annual, "annual-10k.htm")
-    original = _document(company.cik, original_q3, "original-q3-10q.htm")
+    later = _document(company.cik, acc["later_q3"], "later-q3-10q.htm")
+    annual_doc = _document(company.cik, acc["annual"], "annual-10k.htm")
+    original = _document(company.cik, acc["original_q3"], "original-q3-10q.htm")
     assert revenue["2024Q3"]["source_url"] == revenue["2024Q3"]["provenance"]["source_url"] == later
     q4 = revenue["2024Q4"]
     assert q4["derived"] is True and q4["source_url"] is None
@@ -209,10 +228,12 @@ def test_the_multi_period_dataset_opens_each_cited_filings_document(dataset_db):
     assert [item["source_url"] for item in qoq[0]["provenance"]["inputs"]] == [annual_doc, original]
     # No filing row, or only another company's: the folder, under this company's CIK.
     cash = _points(dataset, "operating_cash_flow")
-    assert cash["2024Q3"]["source_url"] == build_sec_archive_url(company.cik, unlisted)
-    assert cash["2024Q4"]["source_url"] == build_sec_archive_url(company.cik, elsewhere)
-    # A row whose document is on another host lends nothing either.
-    assert _points(dataset, "net_income")["2024Q3"]["source_url"] == build_sec_archive_url(company.cik, offsite)
+    assert cash["2024Q3"]["source_url"] == build_sec_archive_url(company.cik, acc["unlisted"])
+    assert cash["2024Q4"]["source_url"] == build_sec_archive_url(company.cik, acc["elsewhere"])
+    # A row whose document is on another host lends nothing either, and a stored link stays.
+    assert _points(dataset, "net_income")["2024Q3"]["source_url"] == build_sec_archive_url(company.cik, acc["offsite"])
+    assert _points(dataset, "earnings_per_share")["2024Q3"]["source_url"] == _document(
+        company.cik, acc["eps_8k"], "ex99-1.htm")
 
     index = svc.marker_index(dataset)
     marker = revenue["2024Q3"]["marker"]
@@ -220,3 +241,23 @@ def test_the_multi_period_dataset_opens_each_cited_filings_document(dataset_db):
     assert _operand(marker, index[marker], 1, frozenset())["source_url"] == later
     cited = svc._point_citation(2, index[q4["marker"]])["provenance"]["inputs"]
     assert [item["source_url"] for item in cited] == [annual_doc, original]
+
+
+def test_a_snapshot_reads_each_looked_up_link_as_its_folder(dataset_db):
+    """A filing row that turns folder links into documents moves no snapshot; a stored receipt still does."""
+    db, company, other, prefix = dataset_db
+    acc = _seed(db, company, other, prefix)
+    documents = svc.build_dataset(db, company, "quarterly", "2024Q3", "2024Q4")
+    db.query(Filing).filter(Filing.company_id == company.id).delete()
+    db.flush()
+    folders = svc.build_dataset(db, company, "quarterly", "2024Q3", "2024Q4")
+    links = [_points(dataset, "revenue")["2024Q3"]["source_url"] for dataset in (documents, folders)]
+    assert links == [
+        _document(company.cik, acc["later_q3"], "later-q3-10q.htm"), build_sec_archive_url(company.cik, acc["later_q3"]),
+    ]
+    assert documents["snapshot_id"] == folders["snapshot_id"] == svc.dataset_fingerprint(folders)
+    # A link stored with its receipt names the document a figure was read from: another exhibit moves it.
+    moved = deepcopy(documents)
+    eps = _points(moved, "earnings_per_share")["2024Q3"]
+    eps["source_url"] = eps["provenance"]["source_url"] = _document(company.cik, acc["eps_8k"], "ex99-2.htm")
+    assert svc.dataset_fingerprint(moved) != documents["snapshot_id"]
