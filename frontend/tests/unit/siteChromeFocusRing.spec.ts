@@ -116,7 +116,7 @@ const RING_RESIDUE: Record<string, number> = {
   'features/fundamentals/components/FundamentalsTrendChart.tsx': 3, // the chart props spreads the scan cannot read; #1292 ringed its controls
   'features/marketing/components/CatchCard.tsx': 1, // #1311 (brand-public-pages) left it, and no open PR edits the file; the next public-pages change rings it
   'features/marketing/components/HeroExample.tsx': 1, // #1311 ringed its links; the evidence chip's className is sourceTraceChipClass(), a recipe the scan does not read (brand-filing-page owns SourceTrace)
-  'features/marketing/components/TraceToSourceDemo.tsx': 1, // #1311 (brand-public-pages) left it, and no open PR edits the file; the next public-pages change rings it
+  'features/marketing/components/TraceToSourceDemo.tsx': 1, // its one stop is the source chip, whose className is sourceTraceChipClass(), a recipe that carries the ring and the scan does not read (brand-filing-page owns SourceTrace; E143 checked it)
   'features/peers/components/PeerComparisonPanel.tsx': 2, // #1292 ringed its controls; the rest are chart props spreads the scan cannot read
   'features/summaries/components/FinancialMetricsTable.tsx': 2, // brand-filing-page
   'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
