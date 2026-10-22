@@ -46,6 +46,11 @@ async def precompute_one(
     (unless ``force``). ``dry_run`` resolves via SEC + reports what *would* happen, writing nothing
     and generating nothing. Returns a status dict; never raises for "expected" misses (not found,
     no filings) — the caller aggregates statuses.
+
+    ``force`` regenerates a stored summary in place under keep-better and reports ``generated`` (the
+    run replaced it), ``kept`` (keep-better kept it) or ``failed`` (the run ended in a terminal error
+    or never ran; one of the job's error counters). ``generation_failed`` means the filing still has
+    no summary.
     """
     from app.config import settings
     from app.database import SessionLocal
@@ -53,6 +58,7 @@ async def precompute_one(
     from app.services.company_resolution import resolve_or_create_company_by_cik
     from app.services.edgar.compat import sec_edgar_service
     from app.services.summary_generation_service import generate_summary_background
+    from app.services.summary_refresh import generation_failed
     from app.utils.datetimes import utc_from_iso
 
     ticker_u = ticker.upper().strip()
@@ -180,24 +186,49 @@ async def precompute_one(
         result["status"] = "already_cached"
         return result
 
+    # A forced refresh never deletes the stored summary: the one orchestrator regenerates it IN PLACE
+    # under keep-better (force_regenerate below), so its summaries.id and any saved_summaries bookmark
+    # survive, and a failed or lower-ranked run keeps it (lessons/arch-fk-safe-bulk-deletes.md). Only
+    # the cached excerpt is cleared, so the run builds it with the current extraction; the stored one
+    # goes back below when the stored summary stays, so that summary keeps the excerpt the read-time
+    # verification of its quotes was built from.
+    stored = None
+    stored_excerpt: Optional[str] = None
     if force:
         with SessionLocal() as db:
-            db.query(Summary).filter(Summary.filing_id == filing_id).delete()
+            stored = db.query(Summary.id, Summary.updated_at).filter(Summary.filing_id == filing_id).first()
             cache = (
                 db.query(FilingContentCache)
                 .filter(FilingContentCache.filing_id == filing_id)
                 .first()
             )
             if cache:
-                cache.critical_excerpt = None
+                stored_excerpt, cache.critical_excerpt = cache.critical_excerpt, None
             db.commit()
 
     # Generate outside any session (it manages its own; idempotent if a Summary slipped in).
-    await generate_summary_background(filing_id, user_id=None)
+    outcome = await generate_summary_background(filing_id, None, force_regenerate=force)
 
     with SessionLocal() as db:
-        summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-        result["status"] = "generated" if summary else "generation_failed"
+        summary = db.query(Summary.id, Summary.updated_at).filter(Summary.filing_id == filing_id).first()
+        if summary is None:
+            result["status"] = "generation_failed"
+        elif stored is None:
+            result["status"] = "generated"
+        else:
+            # The in-place UPDATE stamps updated_at, so an unchanged (id, updated_at) was not replaced.
+            # The terminal event alone cannot tell a keep from a replace (both carry the stored id),
+            # but a terminal error is a failed paid attempt, as the refresh-stale drains count it.
+            replaced = tuple(summary) != tuple(stored)
+            if outcome is None or generation_failed(outcome):
+                result["status"] = "failed"
+            else:
+                result["status"] = "generated" if replaced else "kept"
+            if not replaced and stored_excerpt is not None:
+                db.query(FilingContentCache).filter(FilingContentCache.filing_id == filing_id).update(
+                    {FilingContentCache.critical_excerpt: stored_excerpt}, synchronize_session=False
+                )
+                db.commit()
     return result
 
 

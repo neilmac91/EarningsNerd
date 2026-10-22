@@ -107,6 +107,7 @@ class EdgarXBRLService:
         self,
         accession_number: str,
         cik: str,
+        refresh: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """
         Extract XBRL data from SEC filing.
@@ -121,22 +122,21 @@ class EdgarXBRLService:
         Args:
             accession_number: Filing accession number
             cik: Company CIK (Central Index Key)
+            refresh: Look past the persisted snapshot (a Pro "Regenerate"), but return it when the
+                caches and SEC give nothing, so a refresh that fails never loses the stored data.
 
         Returns:
             Dictionary with XBRL data in legacy format:
             {
                 "revenue": [{"period": "2024-03-31", "value": 123, "form": "10-K", "accn": "..."}],
-                "net_income": [...],
-                "total_assets": [...],
-                "total_liabilities": [...],
-                "cash_and_equivalents": [...],
-                "earnings_per_share": [...],
+                "net_income": [...], "total_assets": [...], "total_liabilities": [...],
+                "cash_and_equivalents": [...], "earnings_per_share": [...],
             }
         """
         # Persisted data is accession-specific and survives process/cache eviction. Release the
         # short read session before touching Redis or SEC; parsing/generation never holds it open.
         persisted = await run_owned_sync(self._persisted_xbrl, accession_number, cik)
-        if persisted is not None:
+        if persisted is not None and not refresh:
             return persisted
 
         # Build cache keys (versioned — see _XBRL_CACHE_VERSION)
@@ -183,7 +183,7 @@ class EdgarXBRLService:
         else:
             logger.debug(f"XBRL NOT cached for {memory_key} (no data)")
 
-        return result
+        return result if result is not None else persisted  # None unless a refresh got nothing new
 
     @staticmethod
     def _persisted_xbrl(accession_number: str, cik: str) -> Optional[Dict[str, Any]]:

@@ -552,9 +552,10 @@ class XBRLServiceCompat:
         self,
         accession_number: str,
         cik: str,
+        refresh: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """
-        Get XBRL data for a filing.
+        Get XBRL data for a filing (``refresh``: see ``EdgarXBRLService.get_xbrl_data``).
 
         Returns legacy format:
         {
@@ -563,7 +564,7 @@ class XBRLServiceCompat:
             ...
         }
         """
-        return await edgar_xbrl_service.get_xbrl_data(accession_number, cik)
+        return await edgar_xbrl_service.get_xbrl_data(accession_number, cik, refresh=refresh)
 
     def extract_standardized_metrics(self, xbrl_data: Dict) -> Dict[str, Any]:
         """

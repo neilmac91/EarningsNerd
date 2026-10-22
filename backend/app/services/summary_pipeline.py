@@ -400,6 +400,7 @@ async def stream_filing_summary(
     emit_funnel_telemetry: bool = True,
     force_regenerate: bool = False,
     replace_unready_only: bool = False,
+    refresh_xbrl: bool = False,
     request_evidence: SummaryRequestEvidence | None = None,
 ) -> AsyncIterator[dict]:
     """Run the summary pipeline for ``filing_id``, yielding event dicts.
@@ -421,6 +422,10 @@ async def stream_filing_summary(
     after a joined leader finishes, is served, not regenerated. A row that becomes ready during
     generation is kept, not replaced. A row still unready after a joined leader fails is not served:
     this run claims the generation, as a follower of a failed first generation does.
+
+    ``refresh_xbrl`` (set only by the route's Pro "Regenerate") looks past the filing's persisted XBRL
+    snapshot and replaces it only with XBRL that arrives; when none does the run uses the snapshot.
+    ``force_regenerate`` alone (the refresh-stale drains, every background caller) reads the snapshot.
     """
     run = generation_run.GenerationRun(
         filing_id=filing_id,
@@ -432,6 +437,7 @@ async def stream_filing_summary(
         emit_funnel_telemetry=emit_funnel_telemetry,
         force_regenerate=force_regenerate,
         replace_unready_only=replace_unready_only,
+        refresh_xbrl=refresh_xbrl,
         request_evidence=request_evidence,
     )
     run.emit_funnel(
