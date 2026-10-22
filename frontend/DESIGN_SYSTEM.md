@@ -82,6 +82,8 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
 - **Headings:** Inter loaded WITH the variable `opsz` axis (`font-optical-sizing: auto` = SF-style
   Text↔Display cuts). ONE display weight: **600** (700/800 collapse to it). One theme-aware ink via
   `--heading-color` (`#1A1A17` / `#D7DADC`) — hierarchy comes from size + weight, never a second color.
+  The default homepage headline's "the source" has the scoped italic and filled-ground exception in §7;
+  it retains Inter 600 and does not change the heading role elsewhere.
 - **Body & UI:** `-apple-system → Inter` (system-first; Apple hardware renders SF Pro, everyone
   else falls through to Inter — Inter sits BEFORE generic `system-ui` on purpose).
 - **Data:** Geist Mono + `tabular-nums` — money, %, tickers, XBRL anchors, verbatim excerpts,
@@ -149,7 +151,7 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl) + the copilot answer renderer
+DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl, MissingValue) + the copilot answer renderer
 `features/filings/components/copilot/CopilotMessage.tsx` (see "Ask answer" below). Controls expose their applicable interaction and
 availability states; data surfaces supply loading, empty and error treatments as supported by
 their APIs. Passive Card and Badge primitives do not implement the full control-state set.
@@ -444,6 +446,22 @@ Data table hover <DataTable> — ordinary rows use hover:bg-white dark:hover:bg-
                  With stickyFirstColumn, first-column body cells stay opaque: light hover uses
                  group-hover:bg-white; dark hover retains dark:group-hover:bg-panel-dark. The
                  ordinary row tint must not replace that opaque fill and reveal scrolled values.
+
+Missing value    <MissingValue label="…" className="…">  (components/ui, E88): a value the page does
+                 not have, in a cell, a detail row or a line of copy. The token (—, the one sanctioned
+                 em-dash) in the caller's ink, aria-hidden, beside sr-only words a screen reader reads in
+                 its place: "unavailable" by default, the analysis evidence's word, or the site's own where
+                 that would claim more than its data says ("no cohort", "no page", "no role listed",
+                 "name unavailable", "no percentage", "Not included"). `relative`, so the words stay
+                 inside a truncating cell or a table's scroll box. A formatter returns null or '' for a
+                 missing value and its caller renders the element (`fmt(v) ?? <MissingValue />`), so the
+                 formatter's string fallback stays for a CSV, a title or an aria label. Never the token by
+                 hand, a hidden dash with no words, or a span pair of one's own. Gates:
+                 tests/unit/missingValueToken.spec.ts (the token renders nowhere but the element: JSX
+                 text, a child, a fallback, a same-file or imported formatter's return, a prop or render
+                 prop of a component it cannot read, an element call; its header names what it cannot
+                 read, each planted as a gap) and tests/unit/MissingValue.spec.tsx (the reading, the
+                 words a site passes and the positioned clip).
 
 Analysis table   <MetricsTable> — equal rem period columns with semantic row headers. The label
                  column sticks only when the scrollport can also show one whole period; otherwise
@@ -1054,9 +1072,10 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  keep them. A card: name + XBRL chip; a `<dl>` of Current / Prior / Change (visible short labels
                  in the table's header eyebrow with an sr-only "period", so the three groups sit on one line at
                  390px and AT hears the column names; the Prior and Change groups whenever the table has those
-                 columns, mirroring its cells exactly — an empty Prior cell is an empty definition; the change
-                 glyph inline-block and aria-hidden, the string verbatim, the em dash when the server sent none;
-                 tone from `change_tone` through lib/financialTone.directionText + font-semibold for a move,
+                 columns, mirroring its cells exactly: a figure served empty or as the token alone is
+                 MissingValue in the cell and in the definition alike; the change glyph inline-block and
+                 aria-hidden, the string verbatim, MissingValue when the server sent none; tone from
+                 `change_tone` through lib/financialTone.directionText + font-semibold for a move,
                  pinned token-for-token to DataTable's td); the per-ADS note as its own line under the figures;
                  the takeaway and its evidence chip. Figures `font-data text-sm tabular-nums`, prose text-sm,
                  chips as they are — never smaller than the md table. Wrap contract: `[overflow-wrap:anywhere]`
@@ -1459,7 +1478,8 @@ h2 section; where the card stands in for the page's content directly under the h
 `headingLevel="h2"` (the filing page's signup gate, failure and monthly-limit cards and a stored
 summary's writer error; the watchlist's empty and error cards; the waitlist example's fallbacks).
 A fallback that replaces the whole page passes `headingLevel="h1"` (app/error.tsx, the dashboard's
-error boundary, the providers' GlobalErrorBoundary; global-error.tsx writes its own h1; gate:
+error boundary, the providers' GlobalErrorBoundary, the signed-in routes' account card
+`features/auth/components/AccountLoadFailure.tsx`; global-error.tsx writes its own h1; gate:
 tests/unit/errorBoundaryHeadings.spec.tsx).
 The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
 titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
@@ -1490,13 +1510,33 @@ contrast + hairline with `shadow-none`. `brand-weak` is an accent/hover/tint col
 ## 7. Marketing surfaces
 
 Flat **solid** surfaces — no decorative gradients anywhere; the only glow is the theme-aware hero
-search glow. The hero accent phrase sits on the primary ink and carries the brand device's mark
-(`.en-mark`, below), not sage ink; sage ink stays for links and the wordmark's italic.
+search glow. Alternate hero headline variants carry the brand device's mark (`.en-mark`, below)
+on the primary ink. The default variant A's "the source" uses the scoped treatment below; neither
+uses sage text. Sage ink stays for links and the wordmark's italic.
 `.mockup-frame` is flat navy (the decorative slate gradient is retired), 16px radius, paired with
 `shadow-e3`; its title-bar traffic-light dots are gone. Marketing cards use the `<Card>` recipe
 (panel + hairline + e2, brighten on hover); the popular-company chips are the same surface at e1,
 per the design. `.glass-card` is retired on the landing route (its remaining consumer is
 `AuthShell`).
+
+**Default hero emphasis.** Only variant A in `HeroHeadline.tsx` adds `.en-hero-emphasis` to
+"the source". It loads the existing `scripts/brand/fonts/Inter-Variable-Italic-latin.woff2` through
+`next/font/local`, with genuine italic, weight 600, optical sizing and `font-synthesis: none`.
+This local face does not change `app/layout.tsx`, the root font variables or `app/global-error.tsx`;
+the broader web/brand-image italic decision (E79) and root/error font deduplication (E147) remain
+separate work. The class uses solid `brand.strong-dark` (`#98C5AD`) in both themes, opaque
+`text.primary.light` (`#1A1A17`) in light and `background.dark` (`#0B1120`) at 90% in dark.
+That is a local fill/ink role exception, with no new palette token, hairline, shadow or interaction.
+Its inline block uses line-height `.9`, padding `calc(.04em - 1px) .18em .06em`, inline margins
+`-.1em`, the existing `.5rem` radius and baseline alignment. The 1px top trim keeps the fill off
+the preceding line's descender at default text size. The heading isolates a local stacking context;
+the relative emphasis span sits at `z-index: -1`, with the fill on its `::before` behind the text.
+That fill's top inset is `max(0px, calc(6% - .06em))`: zero on one line, increasing with the box's
+height when enlarged text wraps the phrase, to clear neighboring descenders without moving glyphs.
+`max-width: 100%` and normal white space keep the phrase together
+while its intrinsic width fits, then allow a word-boundary wrap under enlarged text. Check the
+painted glyphs as well as line boxes at mobile/desktop widths, DPR2 and 200% text in both themes.
+Variants B/C and the shared `.en-mark`/reader paint keep their existing recipes.
 
 **The landing's composition** (D-045, composition C). The two-column hero stays; every section after
 it is one ruled row, `features/marketing/components/LandingRow.tsx`, in the page's order: on the hero's
@@ -1558,13 +1598,25 @@ open their label column at 64rem by the same rule. A form code in the landing's 
 works and the Pro extras; a span of its own in the close, the extras' file kinds and the hero example's
 identity line): before, the plan table painted "10-K and 10-" over "Q filings" at 320px, the claims and
 How it works broke "10-Q" the same way at 320px under 200% text, and the subhead broke "10-Ks" at 390px
-and "10-Qs" at 1440px under 200% text (E81). The auth shell's lockup yields to
+and "10-Qs" at 1440px under 200% text (E81). On the legal pages (/security, /terms and /privacy) the
+gutter gives way before a word breaks, and the wrap is the last resort. Each page's `<main>` sits in a
+`[container-type:inline-size]` wrapper and takes one class string (`lib/legalPageLayout.ts`), whose side
+padding is `px-2` below 13em of the wrapper's text size, as /analysis's is: on a phone under 200% text each
+gutter is 16px where `px-4` doubled to 32px, and nothing moves at the default size or on a tablet. A word
+still wider than the column breaks inside it, `[overflow-wrap:anywhere]` on `<main>`, which every heading,
+paragraph and address inherits. At 390px under 200% text no word breaks but an address, which breaks
+anywhere by design (a 358px column; in 326px "Indemnification", 330px, left its "n" alone); at 320px
+(288px) each title holds whole and six words still break, /security's "Authentication" and "Infrastructure"
+and /terms' "EarningsNerd", "Subscriptions,", "MERCHANTABILITY," and "Indemnification", three of them by 1
+to 5px; at 360px "Indemnification" alone.
+Before E131, at 320px under 200% text /security reached 348px on its headings' "Authentication" and
+"Infrastructure" and /terms 362px on "Indemnification". The auth shell's lockup yields to
 the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
 at 360 and 390px, every line but the last ending at the middot; every form code in the landing's rows and
 its close on one painted line at 320 and 390px under 200% text and at 320px at the default size, and the
 hero's at 320, 390 and 1440px under 200% text; a 768px and an 834px tablet over its route loop; a 320px phone
-under 200% text over it too, where /security's headings, whose words E131 owns, are the one exemption, the page
-no wider than the widest of them).
+under 200% text over it too, the three legal pages among its routes; and, read a character at a time, every
+word of the legal pages whole at 390px under 200% text and each one's title at 320px).
 
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:
@@ -1622,7 +1674,8 @@ fallback, a Cited jump and an XBRL fact never register the device's highlight; a
   read). At 360px and 200% text the lockup ran to 369px. Gate: `tests/e2e/reflow-200.spec.ts` (360px at
   200%, the bar's edge in the logo's clear space).
 - Fonts are self-hosted via `next/font` (Inter with `axes: ['opsz']`, Geist Mono, Newsreader) —
-  see `app/layout.tsx`; SF Pro / New York are platform-licensed and must never be embedded.
+  see `app/layout.tsx`; the default hero phrase also loads its own local Inter italic face (§7).
+  SF Pro / New York are platform-licensed and must never be embedded.
 
 ## 9. Exemptions
 

@@ -15,16 +15,31 @@ def expand_amendment_forms(forms: list[str]) -> list[str]:
     return result
 
 
+def lock_company_filings(db: Session, company_id: int) -> None:
+    """Take the company row's lock that serializes its filing writers, held until the transaction ends.
+
+    Each writer of a company's filing rows takes it before it reads or writes any of them, so a
+    competing writer of that company has committed, and is seen, before it inserts. Read first, two
+    writers both find a filing missing and the second insert fails the unique accession, rolling back
+    its batch (E123's review); taken first, it also keeps every writer to one lock order, the company
+    and then its filing rows. The row lock reaches every process and instance, as a process lock would
+    not. It serializes one company's writers only: a filing listed under two companies (a co-registrant
+    filing) is checked under two locks. PostgreSQL emits FOR NO KEY UPDATE, which does not conflict
+    with the key-share locks child-row inserts take; SQLite omits the clause. Taking it again in the
+    same transaction is a no-op.
+    """
+    with db.no_autoflush:
+        db.query(Company.id).filter(Company.id == company_id).with_for_update(key_share=True).scalar()
+
+
 def mark_superseded_filings(db: Session, company_id: int) -> int:
     """Mark older same-period rows in the caller's transaction, in either ingestion order.
 
     No period means no defensible relationship. Select metadata only in one company query;
     update the changed rows in one executemany batch, without loading XBRL or summaries.
     """
-    # Serialize competing refreshes without conflicting with child-row FK key-share locks.
-    # SQLite omits this clause; PostgreSQL emits FOR NO KEY UPDATE. Lock before reading links.
-    with db.no_autoflush:
-        db.query(Company.id).filter(Company.id == company_id).with_for_update(key_share=True).scalar()
+    # Serialize competing refreshes. Lock before reading links, and before flushing new rows.
+    lock_company_filings(db, company_id)
     db.flush()
     rows = db.query(
         Filing.id, Filing.filing_type, Filing.period_end_date, Filing.filing_date,

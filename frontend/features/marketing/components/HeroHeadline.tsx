@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import localFont from 'next/font/local'
 import { useFeatureFlagVariantKey } from 'posthog-js/react'
 import {
   DEFAULT_HEADLINE,
@@ -9,6 +10,16 @@ import {
   pageTitleFor,
   resolveHeadlineVariant,
 } from '@/features/marketing/lib/headline'
+
+// A separate face keeps the approved hero italic out of the wordmark and shared Inter loaders.
+const heroItalic = localFont({
+  src: '../../../scripts/brand/fonts/Inter-Variable-Italic-latin.woff2',
+  weight: '100 900',
+  style: 'italic',
+  display: 'swap',
+  variable: '--font-hero-italic',
+  adjustFontFallback: false,
+})
 
 /**
  * The H1 (the page's LCP element). Server HTML always carries the default variant (A), which is
@@ -28,11 +39,13 @@ export default function HeroHeadline() {
     <h1
       id="hero-h"
       data-headline-variant={variant}
-      className="text-4xl font-semibold leading-[1.1] text-text-primary-light dark:text-text-primary-dark sm:text-5xl lg:text-6xl"
+      className="isolate text-4xl font-semibold leading-[1.1] text-text-primary-light dark:text-text-primary-dark sm:text-5xl lg:text-6xl"
     >
       {headline.pre}
-      {/* The brand device: the accent phrase carries the mark on the primary ink (DESIGN.md › Graphic device). */}
-      <span className="en-mark">{headline.accent}</span>
+      {/* C5 is specific to “the source”; the other experiment arms keep the shared mark. */}
+      <span className={`en-mark ${variant === DEFAULT_HEADLINE ? `${heroItalic.variable} en-hero-emphasis` : ''}`}>
+        {headline.accent}
+      </span>
       {headline.post}
     </h1>
   )

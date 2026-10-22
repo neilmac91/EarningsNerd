@@ -13,7 +13,7 @@ import {
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtShares } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
-import { Badge, Card, DataTable, SegmentedControl, Skeleton, type Column } from '@/components/ui'
+import { Badge, Card, DataTable, MissingValue, SegmentedControl, Skeleton, type Column } from '@/components/ui'
 
 const WINDOWS: { days: number; label: string }[] = [
   { days: 90, label: '90D' },
@@ -26,24 +26,16 @@ const MAX_ROWS = 8
 /** A dollar amount's size, compact ("$1.8M"); the panel states its direction beside it, in words or a sign. */
 const fmtMoney = (n: number): string => fmtCurrency(Math.abs(n), { compact: true })
 
-/** A trade's missing share count, value or date: the missing-value token alone in its cell, which assistive tech
- *  reads as "unavailable". The summary never needs it: the API always sends its share counts, so a missing dollar
- *  value falls back to them. `relative` keeps the sr-only word inside the table's scroll box
- *  (lessons/frontend-sr-only-needs-a-positioned-clip.md). */
-const UNAVAILABLE = (
-  <span className="relative">
-    <span aria-hidden="true">—</span>
-    <span className="sr-only">unavailable</span>
-  </span>
-)
-
-function roleOf(t: InsiderTransaction): string {
+/** The insider's role: the filing's title for them, else the relationships it flags, else null, and the cell shows
+ *  MissingValue read as "no role listed". Not "unavailable": with every flag false the filing names none of the
+ *  three roles, and the words claim no more than the row lists. */
+function roleOf(t: InsiderTransaction): string | null {
   if (t.insider_title) return t.insider_title
   const roles: string[] = []
   if (t.is_officer) roles.push('Officer')
   if (t.is_director) roles.push('Director')
   if (t.is_ten_pct_owner) roles.push('10% Owner')
-  return roles.join(', ') || '—'
+  return roles.join(', ') || null
 }
 
 // 'A' (acquired) is a buy, 'D' (disposed) a sell; fall back to the label text.
@@ -54,7 +46,11 @@ function isBuy(t: InsiderTransaction): boolean {
 
 // v2 DataTable columns: Shares/Value/Date are numeric (data face + tabular-nums,
 // right-aligned); the Type cell tone carries buy/sell as gain/loss, with a ▲/▼ glyph
-// and the label text ("Buy"/"Sell"), so color is never the sole cue.
+// and the label text ("Buy"/"Sell"), so color is never the sole cue. A trade's missing share count, value or
+// date is MissingValue alone in its cell, read as "unavailable"; the summary never needs it, since the API always
+// sends its share counts and a missing dollar value falls back to them. A missing name reads "name unavailable", so
+// the cell never reads as the insider being unavailable: a Form 4 always names its reporting owner, so the name is
+// one this read lacks.
 const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
   {
     key: 'insider',
@@ -62,9 +58,9 @@ const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
     render: (t) => (
       <>
         <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
-          {t.insider_name ?? '—'}
+          {t.insider_name ?? <MissingValue label="name unavailable" />}
         </span>
-        <span className="block text-xs text-text-tertiary-light dark:text-text-secondary-dark">{roleOf(t)}</span>
+        <span className="block text-xs text-text-tertiary-light dark:text-text-secondary-dark">{roleOf(t) ?? <MissingValue label="no role listed" />}</span>
       </>
     ),
   },
@@ -84,9 +80,9 @@ const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
       </>
     ),
   },
-  { key: 'shares', header: 'Shares', align: 'right', numeric: true, render: (t) => (t.shares == null ? UNAVAILABLE : fmtShares(t.shares)) },
-  { key: 'value', header: 'Value', align: 'right', numeric: true, render: (t) => (t.value == null ? UNAVAILABLE : fmtMoney(t.value)) },
-  { key: 'date', header: 'Date', align: 'right', numeric: true, render: (t) => t.transaction_date ?? UNAVAILABLE },
+  { key: 'shares', header: 'Shares', align: 'right', numeric: true, render: (t) => (t.shares == null ? <MissingValue /> : fmtShares(t.shares)) },
+  { key: 'value', header: 'Value', align: 'right', numeric: true, render: (t) => (t.value == null ? <MissingValue /> : fmtMoney(t.value)) },
+  { key: 'date', header: 'Date', align: 'right', numeric: true, render: (t) => t.transaction_date ?? <MissingValue /> },
 ]
 
 export default function InsiderActivityPanel({

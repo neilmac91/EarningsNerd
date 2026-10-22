@@ -3,9 +3,10 @@ import ts from 'typescript'
 /**
  * What a same-file value holds, followed from where it is written to where it is used, for the gates that read a
  * value rather than its syntax: brandVoiceRules.spec.ts's heading icons, reservedGlyphs.spec.ts's glyph counts,
- * no-em-dash-copy.spec.ts's missing-value token and checkboxRecipe.spec.tsx's input type. One reading for all four, so
- * a shape one gate follows the others follow too (lessons/test-gates-must-be-as-wide-as-their-rule.md: the family is
- * taken from the language, not from the forms a review names).
+ * no-em-dash-copy.spec.ts's missing-value token joined into copy, missingValueToken.spec.ts's token rendered outside
+ * its element and checkboxRecipe.spec.tsx's input type. One reading for all five, so a shape one gate follows the
+ * others follow too (lessons/test-gates-must-be-as-wide-as-their-rule.md: the family is taken from the language, not
+ * from the forms a review names).
  *
  * A value is the leaves it may be (the gate says what a leaf is: an icon's import, a glyph's root), each with how
  * many times it renders; for an object or an array, what each property or element holds; and the same-file functions
@@ -67,6 +68,12 @@ import ts from 'typescript'
  * A call is known by the name its callee is known by (knownAs), so React's utilities and the globals are read under
  * any local name: an import renamed (`Children as Kids`), a member destructured under another name, a same-file
  * alias (`const h = createElement`).
+ * A gate that fails closed on code the reading cannot see (`passThrough`, the missing-value gate's) also has a call
+ * of a function it does not hold (an import's, a global's, a method of a value it does not hold) hold what it is
+ * handed, each argument and a method's receiver, since a formatter may give back its fallback
+ * (`formatLocalDate(value, pattern, '—')`) and `String()` or `trim()` the value it is given; a template literal,
+ * tagged or not, hold its substitutions, `+` both sides and a comma expression its last; and `+=` give its target
+ * what it adds. Without it each holds nothing.
  * Out of its reach, for each gate to name and plant as a gap: a value that crosses modules (an app module's export or a
  * context's), what React state holds after its setter or a reducer runs, a class's fields and `this`, a promise's
  * `then` and a generator's yields. One over-count, which fails closed: a parameter is not told apart by call, so it
@@ -134,6 +141,11 @@ export function leavesOf<L>(value: Held<L>): Map<L, number> {
   for (const prop of value.props?.values() ?? []) out = joined(out, leavesOf(prop), add)
   return out
 }
+
+/** A value as text, what a call the reading cannot follow, a template literal or `+` gives back under `passThrough`:
+    every leaf it holds, its properties' included, with no properties or functions of its own, so a string a recursion
+    builds from what it returns settles instead of nesting deeper on every pass. */
+const asText = <L>(value: Held<L>): Held<L> => ({ leaves: leavesOf(value), props: null, fns: null })
 
 /** Whether a value holds nothing to follow: no leaf and no function, here or in a property. */
 const vacant = <L>(value: Held<L>): boolean =>
@@ -365,6 +377,12 @@ export interface HeldOptions<L> {
       element's parent. By default the element is `leafOf`'s, or else holds what the component returns and the children
       it is handed. */
   rendered?: boolean
+  /** Whether a value built by code the reading cannot follow holds what it is built from (the header's last
+      paragraph): a call of a function the reading does not hold, a template literal, `+` and a comma expression, and
+      `+=` gives its target what it adds. For a gate that asks whether a leaf may render, not how often
+      (missingValueToken.spec.ts): each part counts once, so a string a loop or a recursion builds settles. By default
+      each holds nothing. */
+  passThrough?: boolean
 }
 
 /** React's calls that make an element of the type they are given: createElement, and the JSX runtime's jsx, jsxs and
@@ -393,7 +411,7 @@ export const componentTag = (opening: ts.JsxOpeningLikeElement): ts.Identifier |
 export function heldValues<L>(
   sf: ts.SourceFile,
   leafOf: (e: ts.Expression) => L[] | undefined,
-  { memberLeaf, textLeaf, suspends, rendered }: HeldOptions<L> = {},
+  { memberLeaf, textLeaf, suspends, rendered, passThrough }: HeldOptions<L> = {},
 ): HeldValues<L> {
   // Keyed by the declaration (scopeResolver), never by the bare name.
   const holders = new Map<ts.Node, Held<L>>()
@@ -555,8 +573,16 @@ export function heldValues<L>(
       // An assignment is its value: the right side, or for `||=`, `&&=` and `??=` the old value or the right side.
       if (op === ts.SyntaxKind.EqualsToken) return valueOf(x.right, record)
       if (ASSIGNMENTS.has(op)) return union(valueOf(x.left), valueOf(x.right, record))
+      // A string built by `+` holds both sides, each once, so a string a loop or a recursion builds settles; a comma
+      // expression is its last (passThrough).
+      if (passThrough && op === ts.SyntaxKind.PlusToken) return asText(union(valueOf(x.left, record), valueOf(x.right, record)))
+      if (passThrough && op === ts.SyntaxKind.CommaToken) return valueOf(x.right, record)
       return empty()
     }
+    // A template literal holds its substitutions, each once, as `+` does; a tagged one is a call of its tag that the
+    // reading cannot follow, so it may give back what it is handed (passThrough).
+    if (passThrough && ts.isTemplateExpression(x)) return asText(x.templateSpans.reduce((value, span) => union(value, valueOf(span.expression, record)), empty<L>()))
+    if (passThrough && ts.isTaggedTemplateExpression(x)) return asText(valueOf(x.template, record))
     if (ts.isCallExpression(x)) return callValue(x, record)
     if (ts.isJsxSelfClosingElement(x) || ts.isJsxElement(x) || ts.isJsxFragment(x)) {
       const opening = ts.isJsxFragment(x) ? undefined : ts.isJsxElement(x) ? x.openingElement : x
@@ -692,7 +718,13 @@ export function heldValues<L>(
       }
     }
     // A call of a same-file function holds what it returns.
-    return returned(valueOf(x.expression).fns, record)
+    const fns = valueOf(x.expression).fns
+    if (fns?.size || !passThrough) return returned(fns, record)
+    // A call the reading cannot follow may give back what it is handed, as text: each argument, a spread one's
+    // elements, and a method's receiver (passThrough).
+    let handed = recv ? valueOf(recv, record) : empty<L>()
+    for (const a of args) handed = union(handed, ts.isSpreadElement(a) ? elementOf(valueOf(a.expression, record)) : valueOf(a, record))
+    return asText(handed)
   }
 
   /** Gives a holder a value it may hold, beside those it holds already. */
@@ -895,6 +927,10 @@ export function heldValues<L>(
       else if (ts.isBinaryExpression(node) && ASSIGNMENTS.has(node.operatorToken.kind)) {
         const rec = holdsTarget(node.left) ? record : undefined
         assign(node.left, valueOf(node.right, rec), rec)
+      } else if (passThrough && ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusEqualsToken) {
+        // `+=` joins what it adds to what its target held (passThrough); either, not both, so the holder settles.
+        const rec = holdsTarget(node.left) ? record : undefined
+        assign(node.left, asText(union(valueOf(node.left), valueOf(node.right, rec))), rec)
       }
       else if (ts.isCallExpression(node)) call(node, record)
       else if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) render(node, record)

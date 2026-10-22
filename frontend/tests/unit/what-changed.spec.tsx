@@ -127,7 +127,8 @@ describe('WhatChanged (A5)', () => {
     expect(debtRow.querySelector('.sr-only')).toBeNull()
   })
 
-  it('speaks the direction wherever no signed string states it: the dash for a zero prior, an unsigned 0.0%', () => {
+  // E88: the zero prior's missing percentage is MissingValue, read after the direction as "no percentage".
+  it('speaks the direction wherever no signed string states it: no percentage from a zero prior, an unsigned 0.0%', () => {
     const unsigned: ChangeReport = {
       ...baseReport,
       metrics: {
@@ -145,17 +146,18 @@ describe('WhatChanged (A5)', () => {
     const table = within(container.querySelector<HTMLElement>('[data-change-layout="table"]')!)
     const changeCell = (name: RegExp) => within(table.getByRole('row', { name })).getAllByRole('cell')[2]
     const fromZero = changeCell(/Net income/)
-    expect(fromZero).toHaveTextContent(/^▲Up —$/)
+    expect(fromZero).toHaveTextContent(/^▲Up, —no percentage$/)
     expect(within(fromZero).getByText('—')).toHaveAttribute('aria-hidden', 'true')
-    expect(within(fromZero).getByText('Up')).toHaveClass('sr-only')
-    expect(changeCell(/Operating income/)).toHaveTextContent(/^Unchanged —$/)
+    expect(within(fromZero).getByText('Up,')).toHaveClass('sr-only')
+    expect(within(fromZero).getByText('no percentage')).toHaveClass('sr-only')
+    expect(changeCell(/Operating income/)).toHaveTextContent(/^Unchanged, —no percentage$/)
     const roundedAway = changeCell(/Revenue/)
     expect(roundedAway).toHaveTextContent(/^▼Down 0\.0%$/)
     expect(within(roundedAway).getByText('Down')).toHaveClass('sr-only')
     // The stacked phone rows render the same Change.
     const rows = within(container.querySelector<HTMLElement>('[data-change-layout="rows"]')!).getAllByRole('listitem')
-    expect(rows[0]).toHaveTextContent(/^Net income▲Up —/)
-    expect(rows[1]).toHaveTextContent(/^Operating incomeUnchanged —/)
+    expect(rows[0]).toHaveTextContent(/^Net income▲Up, —no percentage/)
+    expect(rows[1]).toHaveTextContent(/^Operating incomeUnchanged, —no percentage/)
     expect(rows[2]).toHaveTextContent(/^Revenue▼Down 0\.0%/)
   })
 
