@@ -26,9 +26,11 @@ import { bindingResolver } from './astBindings'
  * `autoWidth` (sized to its content), `density`, `leadingIcon` and `trailingIcon` (the password field's reveal
  * toggle, which set `pr-10` on top until it existed); Button's twin gate is button-icon-size-gate.spec.ts. The
  * scan skips Input.tsx, so the module's own classes are held below: padding to explicit sides by "the field's
- * padding is explicit", and every field (each combination of the options, and the Input, Textarea and Select
- * components) to one class per property per variant chain, with `invalid` (the components' `error`) picking the
- * error tone's border and ring rather than layering them, by "the field's tone is one class per state".
+ * padding is explicit", each single-line field's box to DESIGN.md's `input` height (44px; `input-compact`'s 36px
+ * from sm for a compact field) at 100% and 200% text by "the field's height is the documented one", and every
+ * field (each combination of the options, and the Input, Textarea and Select components) to one class per
+ * property per variant chain, with `invalid` (the components' `error`) picking the error tone's border and ring
+ * rather than layering them, by "the field's tone is one class per state".
  *
  * The scan reads the TypeScript AST of every .ts and .tsx under app/, components/, features/, hooks/ and lib/,
  * except Input.tsx, which defines the field. For each `inputClasses(…)` call (imported from components/ui/Input
@@ -1082,6 +1084,86 @@ describe("the field's padding is explicit", () => {
     // The gate reads <FieldSpinner /> as a control at the right edge: its classes must keep it inside the inset.
     const spinner = render(<FieldSpinner />).container.querySelector('svg')!.classList
     for (const c of ['absolute', 'right-3', 'h-4', 'w-4']) expect(spinner.contains(c), c).toBe(true)
+  })
+})
+
+// ------------------------------------------------------------------------------------------------- height
+
+describe("the field's height is the documented one", SLOW, () => {
+  /** DESIGN.md's frontmatter height for a component, in rem. Read inside the test, so a missing key fails it by name. */
+  const documentedHeight = (key: string) => {
+    const md = readFileSync(path.join(FRONTEND_ROOT, '../DESIGN.md'), 'utf8').replace(/\r\n/g, '\n')
+    const frontmatter = `${md.match(/^---\n([\s\S]*?)\n---\n/)?.[1] ?? ''}\n`
+    const block = frontmatter.match(new RegExp(`^  ${key}:\\n((?: {4}.+\\n)+)`, 'm'))?.[1] ?? ''
+    const rem = block.match(/^ {4}height: "([\d.]+)rem"$/m)?.[1]
+    if (!rem) throw new Error(`DESIGN.md's components.${key} has no height in rem`)
+    return Number(rem)
+  }
+  /** The terms a single-line field states itself; one left to the forms plugin fails rather than reading 0. */
+  const BOX = ['border-top-width', 'padding-top', 'line-height', 'padding-bottom', 'border-bottom-width']
+  /** A single-line field's border-box height (preflight makes every field border-box) on one screen, '' below sm
+      and 'sm' from 640px, at a root font size: what Tailwind declares for its classes in the plain state, an `sm:`
+      class replacing a bare one as its rule follows it in the stylesheet. An explicit height, else the borders,
+      vertical padding and line, held up by the min-height. */
+  const fieldHeight = (classes: string[], screen: '' | 'sm', root: number) => {
+    const set = new Map<string, string>()
+    for (const chain of screen ? ['', screen] : ['']) {
+      for (const c of classes.map(parseClass)) {
+        if (c.target || [...c.chain].join(':') !== chain) continue
+        for (const e of declCache.get(c.utility) ?? []) if (!e.target) for (const d of e.decls) set.set(d.prop, d.value)
+      }
+    }
+    const px = (prop: string) => {
+      const value = set.get(prop)
+      if (value === undefined) throw new Error(`${prop} is left to the forms plugin: ${classes.join(' ')}`)
+      return value.endsWith('rem') ? parseFloat(value) * root : parseFloat(value)
+    }
+    const natural = BOX.reduce((sum, prop) => sum + px(prop), 0)
+    return Math.max(set.has('min-height') ? px('min-height') : 0, set.has('height') ? px('height') : natural)
+  }
+
+  it("every single-line field is DESIGN.md's input height on every screen, and a compact one input-compact's from sm, in rem", async () => {
+    const input = documentedHeight('input')
+    const compactSm = documentedHeight('input-compact')
+    expect(documentedHeight('input-search'), 'a search field is a comfortable field').toBe(input)
+    const { container } = render(
+      <>
+        <Input aria-label="Input" />
+        <Input aria-label="Input icon loading" icon="i" loading />
+        <Select aria-label="Select">
+          <option>x</option>
+        </Select>
+        <Select aria-label="Select compact" density="compact">
+          <option>x</option>
+        </Select>
+      </>,
+    )
+    // A shell takes its content's height (the composer's is 54px) and a textarea its rows', so neither is here.
+    const fields = [
+      ...ALL.filter((o) => !o.shell).map((o) => ({ name: JSON.stringify(o), compact: o.density === 'compact', classes: inputClasses(o as InputClassesOptions).split(' ') })),
+      ...[...container.querySelectorAll('input, select')].map((el) => ({ name: el.getAttribute('aria-label')!, compact: el.getAttribute('aria-label') === 'Select compact', classes: [...el.classList] })),
+    ]
+    expect(fields.length).toBe(ALL.length / 2 + 4)
+    await loadDeclarations(fields.flatMap((f) => f.classes).map((t) => parseClass(t).utility))
+    // The model reads the element's bare and `sm:` chains only, so a box term under any other variant
+    // (`md:min-h-0`, `dark:py-1`, `focus:h-9`) would move the height where it never looks.
+    const BOX_PROPS = new Set([...BOX, 'height', 'min-height', 'max-height'])
+    const unread = fields.flatMap((f) =>
+      f.classes
+        .map(parseClass)
+        .filter((c) => !c.target && !['', 'sm'].includes([...c.chain].join(':')))
+        .filter((c) => (declCache.get(c.utility) ?? []).some((e) => !e.target && e.decls.some((d) => BOX_PROPS.has(d.prop))))
+        .map((c) => `${f.name}: ${c.token}`),
+    )
+    expect(unread, 'a box term outside the chains the height model reads').toEqual([])
+    for (const f of fields) {
+      for (const root of [16, 32]) {
+        expect({ phone: fieldHeight(f.classes, '', root), sm: fieldHeight(f.classes, 'sm', root) }, `${f.name} at a ${root}px root`).toEqual({
+          phone: input * root,
+          sm: (f.compact ? compactSm : input) * root,
+        })
+      }
+    }
   })
 })
 

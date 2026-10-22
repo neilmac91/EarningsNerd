@@ -211,7 +211,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   /privacy says too, discloses the account events the API records against the account id whatever
   the reader chose, in words that name no provider (D-051). The runbook bullet and the notification
   bullet name their source beside them (`tasks/security_privacy_runbook.md` §3), and the audit-log
-  item names the administrator actions an audit row records. Token renewal and Logging out say what
+  item names three administrator actions an audit row records. Token renewal and Logging out say what
   holds when requests overlap (E127): each renewal replaces the refresh token, logging out revokes the
   one the browser sends, logging out of all devices revokes every refresh token the account holds at
   that moment, as a password change or reset does, and none of these revokes a session token already
@@ -223,8 +223,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   /privacy's analytics cookies line to one constant (`ANALYTICS_CONSENT_CLAUSE` in
   `frontend/lib/consentCopy.ts`), with no copy calling the analytics anonymous or anonymised; holds
   the account-events sentence (`ACCOUNT_EVENTS_DISCLOSURE`, the same module) to the backend's callers
-  that key an event on the account id and read no consent, the sourced bullets to their section's
-  steps, the audit-log item to the backend's audit writers, and the page's numbers and schedules to
+  that key an event on the account id and read no consent, the sourced bullets to the steps they
+  cite, the audit-log item to the backend's audit writers (each audited action named or held as
+  unnamed, and a write whose action the reader cannot read reported, not skipped), and the page's
+  numbers and schedules to
   the repository's facts (the backend's defaults, the breach check's prefix, the export's day of the
   month and Dependabot's week); fails on a refresh token that works once, a reused one revoking the account, or a session
   that ends after logging out, within a time or with none named, on every run, until the founder's
