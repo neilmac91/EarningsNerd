@@ -218,7 +218,8 @@ const servedVector = (rows: Row[], hasComparatives: boolean) => ({
   changes: hasComparatives ? rows.length : 0,
   takeaways: rows.length,
   xbrlChips: rows.filter((r) => r.source_url).length,
-  takeawayChips: rows.filter((r) => r.commentary_evidence).length,
+  // A chip only beside a takeaway the row has (E145): evidence with no takeaway takes none.
+  takeawayChips: rows.filter((r) => r.commentary_evidence && r.commentary?.trim()).length,
   perAds: rows.filter((r) => r.per_ads).length,
 })
 const vectorOf = (f: Awaited<ReturnType<typeof probe>>['cards']) => ({

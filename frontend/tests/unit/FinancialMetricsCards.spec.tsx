@@ -75,6 +75,14 @@ const NO_COMPARATIVES: FinancialMetric[] = [
 const NO_COMMENTARY: FinancialMetric[] = [
   { metric: 'Net income', current_period: '$112,010M', prior_period: '$93,736M', change_display: '+19.5%', change_direction: 'up', change_tone: 'gain', source_url: SEC, source_verified: true, xbrl_concept: 'Net income' },
 ]
+/** Takeaways the field reads as missing beside one it shows: whitespace, the token alone, and evidence with no takeaway,
+    which takes no chip (E145). */
+const MISSING_TAKEAWAYS: FinancialMetric[] = [
+  { metric: 'Revenue', current_period: '$1.2B', prior_period: '$1.1B', change_display: '+9.1%', change_direction: 'up', change_tone: 'gain', commentary: '   ' },
+  { metric: 'Net income', current_period: '$210.0M', prior_period: '$190.0M', change_display: '+10.5%', change_direction: 'up', change_tone: 'gain', commentary: '—' },
+  { metric: 'Operating income', current_period: '$300.0M', prior_period: '$280.0M', change_display: '+7.1%', change_direction: 'up', change_tone: 'gain', commentary_evidence: EVIDENCE },
+  { metric: 'Gross margin', current_period: '48%', prior_period: '47%', change_display: '+1.0 pp', change_direction: 'up', change_tone: 'gain', commentary: 'Held.' },
+]
 const NO_EVIDENCE: FinancialMetric[] = [
   { metric: 'Net income', current_period: '$112,010M', prior_period: '$93,736M', change_display: '+19.5%', change_direction: 'up', change_tone: 'gain', commentary: 'Lower tax rate.' },
 ]
@@ -153,6 +161,9 @@ function factsOf(root: HTMLElement) {
   }
 }
 
+/** A served takeaway as the field shows it, or null where it renders MissingValue: empty, whitespace or the token alone. */
+const takeawayOf = (r: FinancialMetric): string | null => (!r.commentary?.trim() || r.commentary.trim() === '—' ? null : r.commentary)
+
 /** The same facts, computed from the served rows — no client math anywhere in here either. */
 const servedFacts = (rows: FinancialMetric[], hasComparatives: boolean) => ({
   caption: hasComparatives ? CAPTION_WITH : CAPTION_WITHOUT,
@@ -167,9 +178,9 @@ const servedFacts = (rows: FinancialMetric[], hasComparatives: boolean) => ({
           : { text: '—unavailable', direction: null, tone: null },
       )
     : [],
-  takeaways: rows.map((r) => r.commentary || '—no takeaway'),
+  takeaways: rows.map((r) => (takeawayOf(r) ?? '—no takeaway')),
   xbrlChips: rows.filter((r) => r.source_url).map((r) => (r.source_verified ? `Source: ${r.xbrl_concept ? `${r.xbrl_concept} · ` : ''}SEC XBRL` : 'Source: Cited')),
-  takeawayChips: rows.filter((r) => r.commentary_evidence).map((r) => (r.commentary_evidence!.verified ? 'Source: Verified in filing' : 'Source: Cited')),
+  takeawayChips: rows.filter((r) => r.commentary_evidence && takeawayOf(r) !== null).map((r) => (r.commentary_evidence!.verified ? 'Source: Verified in filing' : 'Source: Cited')),
 })
 
 const TONE_TOKENS = /^(font-semibold|(dark:)?text-(gain|loss)-(text|dark)|(dark:)?text-flat-(light|dark))$/
@@ -182,6 +193,7 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     ['no comparatives (no prior / change anywhere, the short caption)', NO_COMPARATIVES, false],
     ['no commentary (MissingValue, read as "no takeaway"; no chip)', NO_COMMENTARY, true],
     ['no evidence (a takeaway without a chip, nothing invented)', NO_EVIDENCE, true],
+    ['takeaways read as missing (whitespace, the token alone, evidence without a takeaway: MissingValue, no chip)', MISSING_TAKEAWAYS, true],
     ['no server change (MissingValue, read as unavailable; no percentage)', NO_CHANGE, true],
     ['a row without a prior among rows with one (MissingValue in the Prior cell, mirrored)', MIXED_PRIOR, true],
     ['a degraded summary with XBRL (a prior served as the token: MissingValue)', FALLBACK_XBRL, true],
