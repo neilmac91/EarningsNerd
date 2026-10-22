@@ -136,10 +136,12 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    and the service imported as a module (`import app.services.audit_service as audit`) are read. Whatever the walk
  *    cannot read or follow (a variable, an f-string or a positional action, a name mentioned but not called or
  *    reassigned, a star import of the service, the service module used other than as `<module>.<name>`, a service
- *    function that writes through another helper, a create_audit_log in the service outside the one call of a top-level
- *    function, in a class's method or at the module's top level, a second call or the writer passed on, and a helper
- *    used outside a top-level function) is listed by module and line, and that list is held empty, so a new
- *    write fails until its action is a literal or taught to the walk. The item names part of what the rows record, and
+ *    function that uses another helper, whether or not it writes a row of its own, a create_audit_log in the service
+ *    outside the one call of a top-level function, in a class's method or at the module's top level, a second call or
+ *    the writer passed on, a helper used outside a top-level function, and an AuditLog row built anywhere but in
+ *    create_audit_log's own body, under its name or an import's alias) is listed by module and line, and that list is
+ *    held empty, so a new write fails until its action is a literal or taught to the walk. A row written without
+ *    building an AuditLog (a bulk or core insert on the table, or SQL, which CLAUDE.md forbids) is out of its reach. The item names part of what the rows record, and
  *    AUDITED_UNNAMED holds the rest, each with what it records: a Google or Apple sign-in linked to an existing account
  *    or unlinked from it (oauth_linked, oauth_unlinked), and two administrator actions on summaries, a bulk reset and a
  *    regeneration of stale ones (summaries_bulk_reset, summaries_refresh_stale). Every action written is in one map or
@@ -1094,7 +1096,6 @@ function auditActions(modules: Record<string, string>): { written: Set<string>; 
   const lineOf = (code: string, index: number) => code.slice(0, index).split('\n').length
   const helpers = new Map<string, AuditHelper>()
   const unread: string[] = []
-  const others: Array<{ where: string; name: string; body: string }> = []
   const serviceUses: Array<{ rel: string; code: string; spans: Array<{ name: string; start: number; end: number }>; readAt: number[] }> = []
   for (const [rel, src] of Object.entries(modules)) {
     if (!isService(rel)) continue
@@ -1108,10 +1109,7 @@ function auditActions(modules: Record<string, string>): { written: Set<string>; 
       const body = pythonFunctionAt(code, def.index ?? 0, open)
       spans.push({ name, start: def.index ?? 0, end: (def.index ?? 0) + body.length })
       const call = name === 'create_audit_log' ? null : body.match(/\bcreate_audit_log\s*\(/)
-      if (!call) {
-        others.push({ where: `${rel}:${lineOf(code, def.index ?? 0)}`, name, body })
-        continue
-      }
+      if (!call) continue
       readAt.push((def.index ?? 0) + (call.index ?? 0))
       const params = (pythonCall(code, open)?.args ?? []).map((param) => param.split(/[:=]/)[0].trim())
       const action = pythonArgument(pythonCall(body, (call.index ?? 0) + call[0].length - 1)?.args ?? [], 'action', 1)
@@ -1132,12 +1130,10 @@ function auditActions(modules: Record<string, string>): { written: Set<string>; 
       const fn = spans.find(({ start, end }) => at >= start && at < end)
       if (!fn) unread.push(`${rel}:${lineOf(code, at)} ${use[0]} is used outside a top-level function of the service, which the walk does not read`)
       else if (use[0] === 'create_audit_log') unread.push(`${rel}:${lineOf(code, at)} ${fn.name} uses create_audit_log other than in the one call the walk reads`)
+      // A helper used inside a function of the service, called or passed on, writes through it there, whether or not
+      // the function writes a row of its own (#1456's thirteenth round): the walk follows no helper inside the service.
+      else unread.push(`${rel}:${lineOf(code, at)} ${fn.name} uses ${use[0]} inside the service, which the walk does not follow`)
     }
-  }
-  // A service function that writes through another helper is one the walk does not follow inside the service.
-  for (const { where, name, body } of others) {
-    const inner = [...helpers.keys()].find((helper) => new RegExp(String.raw`\b${helper}\s*\(`).test(body))
-    if (inner) unread.push(`${where} ${name} calls ${inner} inside the service, which the walk does not follow`)
   }
   const written = new Set<string>()
   const callees = ['create_audit_log', ...helpers.keys()]
@@ -1205,6 +1201,26 @@ function auditActions(modules: Record<string, string>): { written: Set<string>; 
       const word = value && !value.positional ? pythonWord(value.value) : undefined
       if (word) written.add(helper ? `${helper.prefix}${word}${helper.suffix}` : word)
       else unread.push(`${where} passes ${param}=${value ? (value.positional ? `${value.value} positionally` : value.value) : 'nothing'}, which the walk cannot read`)
+    }
+  }
+  // A row built directly is one no create_audit_log call writes (#1456's thirteenth round): any AuditLog(...) outside
+  // create_audit_log's own body, under its own name or an import's alias, its class statement aside, with strings
+  // blanked so a repr's text is no call.
+  const writerSpan = serviceUses.flatMap(({ rel, spans }) => spans.filter(({ name }) => name === 'create_audit_log').map((span) => ({ rel, ...span })))
+  for (const [rel, src] of Object.entries(modules)) {
+    const code = pythonCode(src).replace(/(['"])(?:\\.|(?!\1)[^\\\n])*\1/g, (literal) => ' '.repeat(literal.length))
+    const names = ['AuditLog']
+    for (const statement of code.matchAll(IMPORT)) {
+      for (const part of statement[2].replace(/[()]/g, '').split(',').map((piece) => piece.trim())) {
+        const [target, alias] = part.split(/\s+as\s+/).map((piece) => piece.trim())
+        if (target === 'AuditLog' && alias) names.push(alias)
+      }
+    }
+    const rows = new RegExp(String.raw`(?<!\bclass\s+)(?<![\w])(?:[\w.]*\.)?(?:${names.map(escapeRe).join('|')})\s*\(`, 'g')
+    for (const row of code.replace(IMPORT, (statement) => statement.replace(/[^\n]/g, ' ')).matchAll(rows)) {
+      const at = row.index ?? 0
+      if (writerSpan.some((span) => span.rel === rel && at >= span.start && at < span.end)) continue
+      unread.push(`${rel}:${lineOf(code, at)} builds an AuditLog row outside create_audit_log, which the walk does not read`)
     }
   }
   return { written, unread }
@@ -2014,7 +2030,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     })
     expect([...aliased.written].sort()).toEqual(['feedback_status_changed', 'invite_resent', 'register', 'subscription_cancelled'])
     expect(aliased.unread).toEqual([
-      'app/services/audit_service.py:7 log_both calls log_register inside the service, which the walk does not follow',
+      'app/services/audit_service.py:8 log_both uses log_register inside the service, which the walk does not follow',
       'app/routers/c.py:6 write_audit is named but not called, so the walk cannot read its action',
       'app/routers/d.py:1 imports * from app.services.audit_service, which binds names the walk cannot follow',
       'app/routers/e.py:2 audit_service (the audit service) is used other than as audit_service.<name>, so the walk cannot follow what it calls',
@@ -2065,6 +2081,45 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       'app/services/audit_service.py:14 log_pair uses create_audit_log other than in the one call the walk reads',
       'app/services/audit_service.py:16 log_later uses create_audit_log other than in the one call the walk reads',
       'app/services/audit_service.py:17 create_audit_log is used outside a top-level function of the service, which the walk does not read',
+    ])
+    // A helper that writes its own row and uses another helper too, which writes one the router never names, and an
+    // AuditLog row built directly, under its name, an alias or its module (#1456's thirteenth round, the review of
+    // 730a2d76): each is reported where it stands, while create_audit_log's own row, the class statement and a repr's
+    // text are not, and a query reads no row.
+    const nested = auditActions({
+      'app/services/audit_service.py': [
+        'from app.models.audit_log import AuditLog',
+        'def create_audit_log(db, action):',
+        '    row = AuditLog(action=action)',
+        '    return row',
+        'def log_new_thing(db):',
+        '    return create_audit_log(db, action="new_thing")',
+        'def log_login(db):',
+        '    log_new_thing(db)',
+        '    return create_audit_log(db, action="login_success")',
+      ].join('\n'),
+      'app/models/audit_log.py': [
+        'class AuditLog(Base):',
+        '    def __repr__(self):',
+        '        return f"<AuditLog(id={self.id}, action={self.action})>"',
+      ].join('\n'),
+      'app/routers/h.py': [
+        'from app.models.audit_log import AuditLog',
+        'from app.models import AuditLog as Row',
+        'from app import models',
+        'audit_service.log_login(db)',
+        'db.add(AuditLog(action="router_row"))',
+        'db.add(Row(action="aliased_row"))',
+        'db.add(models.AuditLog(action="module_row"))',
+        'rows = db.query(AuditLog).all()',
+      ].join('\n'),
+    })
+    expect([...nested.written]).toEqual(['login_success'])
+    expect(nested.unread).toEqual([
+      'app/services/audit_service.py:8 log_login uses log_new_thing inside the service, which the walk does not follow',
+      'app/routers/h.py:5 builds an AuditLog row outside create_audit_log, which the walk does not read',
+      'app/routers/h.py:6 builds an AuditLog row outside create_audit_log, which the walk does not read',
+      'app/routers/h.py:7 builds an AuditLog row outside create_audit_log, which the walk does not read',
     ])
   })
 })
