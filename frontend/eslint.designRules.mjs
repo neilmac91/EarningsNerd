@@ -247,7 +247,8 @@
 //                       of a surface, an element
 //                       written directly inside a Card, a Modal or a frame, on each side its class does not pad in every
 //                       render (only padding of some length in its unconditional text, a binding's read where it is named,
-//                       under no variant, pads its sides, `py-2` the top and the bottom; `p-0`, padding set only under a
+//                       under no variant, pads its sides, `py-2` the top and the bottom, each side taking the stylesheet's
+//                       latest group, so `p-cap-6 px-0` pads the top and the bottom only; `p-0`, padding set only under a
 //                       condition or a variant such as `sm:`, or a reset to zero under one or a condition (`p-cap-6
 //                       sm:p-0`), leaves its sides to the children, failing closed), through `{…}` children, conditionals
 //                       and a callback written there, as the Card's sections are: the hero example's wrapper, the admin
@@ -1857,11 +1858,19 @@ function setsPadding(raw) {
 }
 
 const SIDES = { p: ['t', 'r', 'b', 'l'], px: ['r', 'l'], py: ['t', 'b'], ps: ['l'], pe: ['r'], pt: ['t'], pr: ['r'], pb: ['b'], pl: ['l'] }
-/** The sides a padding token sets (`px-6` the left and the right), none for any other token. */
-function paddingSides(raw) {
+// Tailwind's stylesheet order for padding: `p`, then `px` and `py`, then one side, so a later group sets a side over an
+// earlier one whatever the class order (`p-cap-6 px-0` has no horizontal padding).
+const SIDE_GROUP = { p: 0, px: 1, py: 1, ps: 2, pe: 2, pt: 2, pr: 2, pb: 2, pl: 2 }
+/** A padding token's side prefix (`px` for `sm:px-6`), else null. */
+function paddingPrefix(raw) {
   const token = raw && parseClassToken(raw)
   const m = token && PADDING.exec(token.utility)
-  return m ? SIDES[m[1]] : []
+  return m ? m[1] : null
+}
+/** The sides a padding token sets (`px-6` the left and the right), none for any other token. */
+function paddingSides(raw) {
+  const prefix = paddingPrefix(raw)
+  return prefix ? SIDES[prefix] : []
 }
 
 /** `classText` without the padding tokens that set none of `sides`: what a section carries of the inset its surface
@@ -2027,7 +2036,8 @@ export const surfacePaddingCap = {
     /** The sides a surface leaves to the elements written directly inside it: those a Card, a Modal or a frame does not
      *  pad in every render, as the Card leaves its inset to its sections; none for any other element. Only padding of
      *  some length in the unconditional text (a binding's read where it is named), under no variant, pads its sides in
-     *  every render (`py-2` the top and the bottom); padding set only under a condition (`padded ? 'p-cap-6' : 'p-0'`,
+     *  every render (`py-2` the top and the bottom; `p-cap-6 px-0` the top and the bottom only, as the stylesheet sets
+     *  `px` after `p`); padding set only under a condition (`padded ? 'p-cap-6' : 'p-0'`,
      *  `padded && PAD`) or a variant (`sm:p-cap-6` has none below sm; `hover:`, `dark:`) pads none, and a reset to zero
      *  under one or a condition (`p-cap-6 sm:p-0`, `reset && 'sm:px-0'`) leaves its sides to the children, failing
      *  closed, as `p-0` does. A value the rule cannot read as a length counts as padding. */
@@ -2039,8 +2049,20 @@ export const surfacePaddingCap = {
       const always = pieces.filter((piece) => piece.branch === root).map((piece) => piece.text).join(' ')
       if (!SECTIONED_COMPONENTS.has(nameOf(element)) && ![always, ...renderTexts(pieces)].some(drawsFrame)) return NO_SIDES
       const base = (raw) => splitClassToken(raw).variants.length === 0
-      const left = new Set(SIDES.p)
-      for (const raw of always.split(/\s+/).filter(Boolean)) if (base(raw) && setsPadding(raw)) for (const side of paddingSides(raw)) left.delete(side)
+      // Each side takes the latest stylesheet group that sets it; a zero there leaves the side, and so does a zero beside
+      // padding in the same group (`px-0 px-cap-6`), failing closed.
+      const latest = new Map()
+      for (const raw of always.split(/\s+/).filter(Boolean)) {
+        const step = base(raw) ? paddingStep(raw) : undefined
+        if (step === undefined) continue
+        const group = SIDE_GROUP[paddingPrefix(raw)]
+        for (const side of paddingSides(raw)) {
+          const at = latest.get(side)
+          if (!at || group > at.group) latest.set(side, { group, zero: step === 0 })
+          else if (group === at.group && step === 0) at.zero = true
+        }
+      }
+      const left = new Set(SIDES.p.filter((side) => !latest.has(side) || latest.get(side).zero))
       // A zero reset under a variant, or in any conditional piece (`reset && 'sm:p-0'`), leaves its sides somewhere.
       for (const piece of pieces) {
         for (const raw of piece.text.split(/\s+/)) {

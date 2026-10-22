@@ -860,6 +860,8 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     // vertical inset, so the row's py-6 is spacing inside it, and a horizontal reset at sm leaves only the sides.
     '<Card className="py-2"><div className="px-cap-6 py-6" /></Card>',
     '<Card className="p-cap-6 sm:px-0"><div className="py-6" /></Card>',
+    // The p-cap-6 still pads the top and the bottom under its px-0, so the row's py-6 is spacing inside it.
+    '<Card className="p-cap-6 px-0"><div className="py-6" /></Card>',
     // Pieces under separate conditions render together: this frame carries the cap in every render.
     "<div className={cx(bordered && 'rounded-xl border', compact ? 'p-3' : 'p-cap-6')} />",
     // A binding named unconditionally pads every render, read where it is named.
@@ -955,6 +957,12 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
         "<div className={cx(a ? 'mt-1' : 'mt-2', b ? 'mb-1' : 'mb-2', c ? 'gap-1' : 'gap-2', d ? 'flex' : 'grid', e ? 'w-full' : 'w-auto', f ? 'h-8' : 'h-9', g ? 'rounded-xl border' : 'p-6')} />",
       errors: [{ messageId: 'uncapped' }],
     },
+    // A zero on one axis after padding on every side leaves that axis, in the stylesheet's order, not the class order
+    // (Codex's review of b763217c): px after p, a side after px.
+    { code: '<Card className="p-cap-6 px-0"><div className="px-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<Card className="pl-0 px-cap-6 py-2"><div className="pl-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
+    // A stated limit, failing closed: a zero beside padding in the same group leaves the side.
+    { code: '<Card className="px-0 px-cap-6 py-2"><div className="px-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
     // A surface padded on one axis leaves the other to what is written inside it (Codex's review of 5f3bfd0a).
     { code: '<Card className="py-2"><div className="px-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
     { code: '<div className="rounded-xl border px-cap-5"><div className="py-6" /></div>', errors: [{ messageId: 'uncapped' }] },
