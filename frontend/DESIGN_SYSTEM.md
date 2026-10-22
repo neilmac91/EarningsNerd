@@ -267,7 +267,7 @@ setting) it is the step itself, so nothing moves at the default size from 400px 
 whose class text draws a full border and a radius (the Card recipe copied by hand, a well, the ticker filings card);
 the Card's and the dialog's sections (CardHeader, CardBody, CardFooter, ModalHeader, ModalBody, ModalFooter, at a call
 site and in their own source, imported under any name, and a Modal's className, its panel); a native `<dialog>` and its sections (DayDetailDialog's header and footer); and what is
-written directly inside a Card, a Modal or a frame, on each side its class does not pad in every render (no padding, padding on the other axis only, a zero on that axis after padding as in `p-cap-6 px-0`, `p-0`, padding set only under a condition or a variant such as `sm:`, or reset to zero under one; the hero example's wrapper, the
+written directly inside a Card, a Modal or a frame, on each side its class does not pad in every render (no padding, padding on the other axis only, a zero on that axis after padding as in `p-cap-6 px-0`, an important zero whatever its group as in `!p-0 px-cap-6`, `p-0`, padding set only under a condition or a variant such as `sm:`, or reset to zero under one; the hero example's wrapper, the
 filings index's header and rows, the admin lists' rows). Each takes the cap from step 5; a frame inside a dialog's
 body takes it from step 4, since the dialog's own inset already halves the measure there: the cookie dialog's category
 cards (`p-cap-4`) left their text 92, 132 and 162px at 320, 360 and 390px under 200% text and broke its longest words
@@ -282,8 +282,8 @@ is a frame at `p-6`), failing closed where it cannot correlate two conditions, n
 for a glyph, and fails a capped key the theme does not define anywhere, scroll padding included; out of its reach
 (review-checked, planted as stated gaps): a class a component receives as a prop, an imported constant, an object of
 recipes, a binding a ternary sets, a class through a helper other than cx()/clsx(), an inset in an inline style or a
-stylesheet, a frame drawn without a border utility (`.glass-card`), a section of a surface that sets padding on one
-axis only, and a section held in a variable or rendered by another component (the stacked metric cards' list in
+stylesheet or written as an arbitrary property (`[padding:24px]`), a frame drawn without a border utility
+(`.glass-card`), and a section held in a variable or rendered by another component (the stacked metric cards' list in
 FinancialMetricsTable, TableScroll's hint and the filings index's skeleton carry the cap by hand). A class on top of a
 section's capped inset (`<ModalBody className="px-8">`) wins or loses by stylesheet order, since cx does no
 tailwind-merge, and Tailwind emits `px-cap-6` after every numbered step: a caller widens or narrows a section with a
