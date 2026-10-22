@@ -23,7 +23,8 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    percent or per cent, beside uptime, availability or an SLA, or a guarantee beside uptime or availability, in
  *    either order; none is offered); firewalls or intrusion detection or prevention (nothing configures them); every
  *    endpoint behind authentication (ENDPOINT_CLAIM: "all" or "every" endpoints as main's reading has them; "all",
- *    "every", "each" or "any" with up to three words before "endpoints", as in "all of the API's endpoints", whose own
+ *    "every", "each" or "any" with up to three words before "endpoints" that leave the set whole (WHOLE_SET, so "every
+ *    administrative endpoint" claims nothing of every one), as in "all of the API's endpoints", whose own
  *    predicate says they need a login, after them in their clause ("each endpoint requires a login", "sits behind a
  *    login", "can only be called with a token", "cannot be called without a token"; "and" carries them on only directly
  *    before it, so "Each endpoint returns JSON and administrators need a login." passes) or before them as their
@@ -365,9 +366,16 @@ const CONSENT_PROMISE = new RegExp(
     data", "any endpoint returning account data"): a scoped claim, not every one. A verb of their own ("each endpoint
     returns JSON and requires a login") narrows nothing. */
 const NARROWED = String.raw`(?!\s+(?:that|which|returning|serving|handling|exposing|reading|writing|for|with)\b)`
-/** The endpoints the removed claim speaks of: all, every, each or any with up to three words before "endpoints"
-    ("all of the API's endpoints", "every single endpoint", "each API endpoint"), unless what follows narrows them. */
-const SOME_ENDPOINTS = String.raw`\b(?:all|every|each|any)\b(?:\s+[\w'’-]+){0,3}?\s+endpoints?\b${NARROWED}`
+/** The words that may stand between the endpoints' quantifier and "endpoints" and leave the set whole (#1456's
+    eleventh round): "all of the API's endpoints", "every one of our endpoints", "each of its endpoints", "every
+    single endpoint", "each individual endpoint", "each REST endpoint", "every EarningsNerd endpoint". Any other word
+    there picks some of them out, so "every administrative endpoint" and "each private endpoint" claim nothing of every
+    endpoint, and "all of these endpoints" speaks of a set named before. */
+const WHOLE_SET = String.raw`(?:of|the|our|its|one|single|individual|API|API['’]s|REST|EarningsNerd(?:['’]s)?)`
+/** The endpoints the removed claim speaks of: all, every, each or any with up to three words of WHOLE_SET before
+    "endpoints" ("all of the API's endpoints", "every single endpoint", "each API endpoint"), unless what follows
+    narrows them. */
+const SOME_ENDPOINTS = String.raw`\b(?:all|every|each|any)\b(?:\s+${WHOLE_SET}){0,3}?\s+endpoints?\b${NARROWED}`
 /** A credential as the thing required, not a word before what it names: followed by an end, a comma or a word that
     does not take it as a modifier ("a token to call it", "an account first"), not by a possessive or another noun ("a
     token parameter", "the token format", "an account ID", "the account holder's name"). */
@@ -414,14 +422,15 @@ const LOGIN_FOR = String.raw`(?:` +
   ')'
 /** Every endpoint behind authentication: main's reading (all or every, with "of", "our" or "the" and "API" between);
     SOME_ENDPOINTS with their own predicate saying they need a login, after them in their clause (NEEDS_A_LOGIN) or
-    before them as their requirement (LOGIN_FOR); and the claim the other way round, "no endpoint" answering without
-    authentication, unauthenticated or to anonymous requests, in its clause. "Each API endpoint documents the token
-    format.", "Any endpoint may accept an optional token." and "No API endpoints require authentication." pass. */
+    before them as their requirement (LOGIN_FOR); and the claim the other way round, "no endpoint" (WHOLE_SET's words
+    between, as in SOME_ENDPOINTS) answering without authentication, unauthenticated or to anonymous requests, in its
+    clause. "Each API endpoint documents the token format.", "Any endpoint may accept an optional token.", "No API
+    endpoints require authentication." and "Every administrative endpoint requires authentication." pass. */
 const ENDPOINT_CLAIM = new RegExp(
   String.raw`\b(?:all|every)\b(?:\s+of)?(?:\s+(?:our|the))?(?:\s+API)?\s+endpoints?\b` +
     String.raw`|${SOME_ENDPOINTS}${IN_THEIR_CLAUSE}${NEEDS_A_LOGIN}` +
     String.raw`|${LOGIN_FOR}${SOME_ENDPOINTS}` +
-    String.raw`|\bno\b(?:\s+[\w'’-]+){0,3}?\s+endpoints?\b${NARROWED}${IN_THEIR_CLAUSE}(?:without\s+(?:an?\s+)?(?:authentication|log[- ]?in|logging in|sign[- ]?in|signing in|token${ITSELF}|account${AS_LOGIN})\b|unauthenticated\b|(?:\w+\s+)?anonymous(?:ly\b|\s+(?:users?|requests?|callers?|readers?|access|visitors?)\b))`,
+    String.raw`|\bno\b(?:\s+${WHOLE_SET}){0,3}?\s+endpoints?\b${NARROWED}${IN_THEIR_CLAUSE}(?:without\s+(?:an?\s+)?(?:authentication|log[- ]?in|logging in|sign[- ]?in|signing in|token${ITSELF}|account${AS_LOGIN})\b|unauthenticated\b|(?:\w+\s+)?anonymous(?:ly\b|\s+(?:users?|requests?|callers?|readers?|access|visitors?)\b))`,
   'i',
 )
 
@@ -1331,6 +1340,18 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // endpoint named, which says nothing of every endpoint.
       ['<p>Each endpoint cannot be called without a token.</p>', true],
       ['<p>The admin endpoint cannot be called without a token.</p>', false],
+      // A word before the endpoints that picks some of them out narrows the claim, beside the words that leave the set
+      // whole (#1456's eleventh round, Codex's thread 4346660304).
+      ['<p>Every administrative endpoint requires authentication.</p>', false],
+      ['<p>Each private endpoint requires a login.</p>', false],
+      ['<p>No administrative endpoint answers without authentication.</p>', false],
+      ['<p>Every API endpoint requires authentication.</p>', true],
+      ['<p>Each REST endpoint requires a login.</p>', true],
+      ['<p>Every one of our endpoints is protected.</p>', true],
+      ['<p>Each of its endpoints requires a login.</p>', true],
+      ['<p>Each individual endpoint requires a login.</p>', true],
+      ['<p>Every EarningsNerd endpoint requires authentication.</p>', true],
+      ["<p>All of EarningsNerd's endpoints require authentication.</p>", true],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
