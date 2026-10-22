@@ -57,15 +57,16 @@
   matcher, so no branch of it can move the file, and the manifest is free to change its icons.
   The @font-face rules point at the repository's Inter, upright and italic, for this preview and
   its reflow check only (the email loads no font); a sent email falls back through the inline font
-  stacks. The highlight under "shows its work" is two nested spans:
-  the outer span's own font box is the lower 38% of the tagline's line box (tint, with the 2px
-  hairline as its bottom border), lowered onto it; the inner span restores the ink. At 18px:
-    tint 5.187px = (0.45978 × 18 - 2) / 1.20996, lowered 1.091px = 0.24121 × 18 - 2 - 0.24121 × 5.187
-  A view with a minimum font size draws the tint taller: an Android WebView's is 8px unless its app
-  sets another, which lifts the tint from 8 to about 12px tall at the set size; the ink keeps its place.
-  An inline-block holds the two spans and the full stop, so the phrase moves to the next line whole
-  where it does not fit after "The summary that", and breaks inside itself only where it does not fit
-  a line at all. Outlook gets the plain phrase and its full stop through the conditional comment.
+  stacks. The C5 emphasis on "shows its work" uses solid Bright Sage (#98C5AD), opaque espresso
+  (#1A1A17), italic 600, 8px corners and padding 0.04em 0.18em 0.06em. It has no hairline or shadow.
+  An inline-block keeps the phrase and full stop together where they fit and wraps between words
+  where they do not. The inner inline span paints a full-height rounded fill on each wrapped line
+  through box-decoration-break:clone; a client that ignores cloning may join the middle corners.
+  This inline treatment needs no positioned layers, pseudo-elements or negative stacking order.
+  The preview loads genuine Inter italic. A sent message uses the recipient's sans-serif italic
+  (possibly synthesized); no font is downloaded. Classic Outlook keeps the existing plain phrase
+  and full stop through its conditional comment. Mail clients may recolour light-only messages;
+  this browser preview does not establish those clients' dark-mode colours or exact typography.
 -->
 <html lang="en">
 <head>
@@ -127,7 +128,7 @@
             </td>
           </tr>
           <tr>
-            <td style="padding:16px 32px 28px 32px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-0.2px;color:#1A1A17;">The summary that <!--[if mso]>shows its work.<![endif]--><!--[if !mso]><!--><span style="display:inline-block;"><span style="font-size:5.187px;line-height:0;vertical-align:-1.091px;background-color:#ECF2EE;border-bottom:2px solid #CFE0D6;"><span style="font-size:18px;line-height:0;vertical-align:1.091px;">shows its work</span></span>.</span><!--<![endif]--></td>
+            <td style="padding:16px 32px 28px 32px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-0.2px;color:#1A1A17;">The summary that <!--[if mso]>shows its work.<![endif]--><!--[if !mso]><!--><span style="display:inline-block;max-width:100%;"><span style="font-style:italic;font-weight:600;background-color:#98C5AD;color:#1A1A17;border-radius:8px;padding:0.04em 0.18em 0.06em;-webkit-box-decoration-break:clone;box-decoration-break:clone;">shows its work</span>.</span><!--<![endif]--></td>
           </tr>
         </table>
         <!--[if mso]></td></tr></table><![endif]-->

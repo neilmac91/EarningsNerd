@@ -164,7 +164,8 @@ import { routeFiles, walkImports } from './importWalk'
  *    them, is a figure field or a word field (a name, a code, a status line, a URL, or what a person
  *    types), by its name; a test fails one that is neither, and a field whose literals carry no
  *    digit is a word by its type. A map over a figure array renders what its callback returns.
- * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
+ * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the promotional highlight (BrandEmphasis,
+ *    including imported aliases, or either raw compatibility class) never sits on a
  *    figure or a price, the hero's accent phrases included. The device means located (D-044): its parts
  *    (the margin, MarkedCopy; the marker, EnRef; the marked block, `en-marked`) render only in
  *    DEVICE_PLACES, an equality naming each place, the parts it renders and the passage it marks (the
@@ -172,8 +173,10 @@ import { routeFiles, walkImports } from './importWalk'
  *    the block alone); the gutter's classes are written only in its own module
  *    (components/ui/MarkedCopy.tsx), and every MarkedCopy carries a marker. The two forms stay apart: a
  *    located passage set as a block takes the marked block (a quote among them); the highlight's tint and
- *    hairline (`en-mark`) sit under one phrase of ours per surface (HIGHLIGHT_PLACES, an equality) and are
- *    the Source pane's ::highlight paint. No quote block takes `en-mark`, on it, inside it or around it,
+ *    hairline (`en-mark`) remain the Source pane's ::highlight paint. Promotional phrases use the one
+ *    BrandEmphasis owner, one invocation per surface (HIGHLIGHT_PLACES, an equality); only its emitted
+ *    span is excluded from that census. Raw classes outside that span fail, including a copy of the new
+ *    recipe. No quote block takes promotional emphasis, on it, inside it or around it,
  *    and a class any string names counts as a part, so a Source pane module that adds `en-marked` is a
  *    place DEVICE_PLACES does not list. On a row of a list (what a
  *    `.map` or `.flatMap` callback returns, through the file's components, so a summary block is one) a
@@ -3191,6 +3194,7 @@ describe('brand rule 2: sage never colours a number', () => {
 
 /** The device's own module: the margin is drawn there, and no other file writes the gutter's classes. */
 const DEVICE_FILE = 'components/ui/MarkedCopy.tsx'
+const BRAND_EMPHASIS_FILE = 'features/marketing/components/BrandEmphasis.tsx'
 /** The device's parts: the margin (MarkedCopy, which draws the twins), the in-text marker (EnRef) and the marked
     block (`en-marked`). */
 type DevicePart = 'margin' | 'marker' | 'block'
@@ -3230,6 +3234,43 @@ const isMarker = (n: ts.Node) => tagOf(n) === 'EnRef'
 const isMarkedBlock = (n: ts.Node) => {
   const opening = jsxOpening(n)
   return !!opening && classTokens(opening).includes('en-marked')
+}
+
+const BRAND_EMPHASIS_SOURCE = PROGRAM.getSourceFile(path.join(ROOT, BRAND_EMPHASIS_FILE))
+const BRAND_EMPHASIS_DECLARATION = BRAND_EMPHASIS_SOURCE?.statements.find((n) =>
+  ts.isExportAssignment(n) || (ts.canHaveModifiers(n) && ts.getModifiers(n)?.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword)),
+)
+const BRAND_EMPHASIS_FUNCTION = BRAND_EMPHASIS_DECLARATION && functionOf(BRAND_EMPHASIS_DECLARATION)
+const BRAND_EMPHASIS_RETURNS = BRAND_EMPHASIS_FUNCTION ? returnedExpressions(BRAND_EMPHASIS_FUNCTION).map(unwrap) : []
+const BRAND_EMPHASIS_SPANS = BRAND_EMPHASIS_RETURNS.flatMap((root) => {
+  const spans: ts.JsxElement[] = []
+  visit(root, (n) => {
+    if (ts.isJsxElement(n) && tagOf(n) === 'span' && classTokens(n.openingElement).some((t) => t === 'en-mark' || t === 'en-hero-emphasis')) spans.push(n)
+  })
+  return spans
+})
+/** Exempt this one emitted inner element, never its punctuation wrapper or every mark in the owner's file. */
+const BRAND_EMPHASIS_SPAN = BRAND_EMPHASIS_SPANS[0]
+const isBrandEmphasis = (n: ts.Node) => {
+  const opening = jsxOpening(n)
+  return !!opening && !!BRAND_EMPHASIS_FUNCTION && componentFunction(opening) === BRAND_EMPHASIS_FUNCTION
+}
+const hasHighlightClass = (n: ts.Node) => {
+  const opening = jsxOpening(n)
+  return !!opening && classTokens(opening).some((t) => t === 'en-mark' || t === 'en-hero-emphasis')
+}
+const isHighlight = (n: ts.Node) => isBrandEmphasis(n) || hasHighlightClass(n)
+
+/** JSX children and the equivalent children prop, including a self-closing component invocation. */
+function highlightTexts(n: ts.Node, sf: ts.SourceFile) {
+  const texts = allTexts(n, sf)
+  const opening = jsxOpening(n)
+  for (const attr of opening?.attributes.properties ?? []) {
+    if (!ts.isJsxAttribute(attr) || attr.name.getText() !== 'children' || !attr.initializer) continue
+    if (ts.isStringLiteral(attr.initializer)) texts.push({ node: attr.initializer, text: attr.initializer.text })
+    else if (ts.isJsxExpression(attr.initializer) && attr.initializer.expression) texts.push(...allTexts(attr.initializer.expression, sf))
+  }
+  return texts
 }
 
 /** A same-file `const`'s value, for a name rendered where it is read (`<MarkedCopy>{list}</MarkedCopy>`). */
@@ -3436,6 +3477,21 @@ type DeviceOffence = { node: ts.Node; text: string }
 
 /** Rule 3's checks over one file, each naming what it found. */
 const DEVICE_CHECKS: Record<string, (sf: ts.SourceFile, rel: string) => DeviceOffence[]> = {
+  'a promotional highlight outside the shared BrandEmphasis owner': (sf) => {
+    const out: DeviceOffence[] = []
+    visit(sf, (n) => {
+      if (n !== BRAND_EMPHASIS_SPAN && hasHighlightClass(n)) out.push({ node: n, text: 'use BrandEmphasis instead of raw highlight classes' })
+    })
+    return out
+  },
+  'a highlight on a figure or a price': (sf) => {
+    const out: DeviceOffence[] = []
+    visit(sf, (n) => {
+      if (!isHighlight(n)) return
+      for (const { node, text } of highlightTexts(n, sf)) if (/[\d$%]/.test(text)) out.push({ node, text })
+    })
+    return out
+  },
   // The gutter's classes are written only in the device's own module.
   'a bare gutter': (sf, rel) => {
     const out: DeviceOffence[] = []
@@ -3489,11 +3545,11 @@ const DEVICE_CHECKS: Record<string, (sf: ts.SourceFile, rel: string) => DeviceOf
     const out: DeviceOffence[] = []
     const quote = (n: ts.Node) => tagOf(n) === 'blockquote'
     visit(sf, (n) => {
-      if (!(ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n)) || !classTokens(jsxOpening(n)!).includes('en-mark')) return
+      if (!isHighlight(n)) return
       let around = quote(n)
       for (let at = n.parent; at && !around; at = at.parent) if (ts.isJsxElement(at) && quote(at)) around = true
       if (ts.isJsxElement(n)) for (const c of n.children) eachRendered(c, (m) => { if (quote(m)) around = true })
-      if (around) out.push({ node: n, text: 'en-mark on a quote block' })
+      if (around) out.push({ node: n, text: 'promotional highlight on a quote block' })
     })
     return out
   },
@@ -3548,27 +3604,45 @@ function deviceParts(sf: ts.SourceFile): DevicePart[] {
     here. A located passage never takes it as a class: set as a block it takes the marked block, and inside running
     text (the Source pane) its look is the reader's ::highlight paint (tests/unit/highlightInDom.spec.ts). */
 const HIGHLIGHT_PLACES: Record<string, { count: number; phrase: string }> = {
-  'features/marketing/components/HeroHeadline.tsx': { count: 1, phrase: "the served headline's accent phrase (the source)" },
+  'features/marketing/components/HeroHeadline.tsx': { count: 1, phrase: 'the headline accent in every experiment arm: the source / Check it anyway / shows its work' },
   'app/waitlist/page.tsx': { count: 1, phrase: 'the waitlist headline: with receipts' },
   'features/auth/components/AuthShell.tsx': { count: 1, phrase: 'the auth pane tagline: shows its work' },
 }
-/** The JSX elements a file marks with the highlight (`en-mark`), in any class list it writes. */
+/** Count the owner at its call sites, under any imported name, and retain raw marks in the census. */
 const highlights = (sf: ts.SourceFile) => {
   const out: ts.Node[] = []
-  visit(sf, (n) => { if ((ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n)) && classTokens(jsxOpening(n)!).includes('en-mark')) out.push(n) })
+  visit(sf, (n) => { if (n !== BRAND_EMPHASIS_SPAN && isHighlight(n)) out.push(n) })
   return out
 }
 
 describe('brand rule 3: the Marked Copy Rule', () => {
-  it('the highlight (en-mark) never sits on a figure or a price', () => {
-    const offenders: string[] = []
-    for (const { rel, sf } of SOURCES) {
-      visit(sf, (n) => {
-        if (!ts.isJsxElement(n) || !classTokens(n.openingElement).includes('en-mark')) return
-        for (const { node, text } of allTexts(n, sf)) if (/[\d$%]/.test(text)) offenders.push(where(rel, sf, node, text))
-      })
-    }
-    expect(offenders).toEqual([])
+  it('the shared promotional owner emits its one marked span with the genuine local italic face', () => {
+    expect(BRAND_EMPHASIS_RETURNS).toHaveLength(1)
+    expect(BRAND_EMPHASIS_SPANS).toHaveLength(1)
+    const opening = jsxOpening(BRAND_EMPHASIS_SPAN!)!
+    expect(classTokens(opening)).toEqual(expect.arrayContaining(['en-mark', 'en-hero-emphasis']))
+    const fontBindings: ts.VariableDeclaration[] = []
+    visit(opening, (n) => {
+      if (!ts.isPropertyAccessExpression(n) || n.name.text !== 'variable') return
+      const declaration = declarationOf(n.expression)
+      if (declaration && ts.isVariableDeclaration(declaration)) fontBindings.push(declaration)
+    })
+    expect(fontBindings).toHaveLength(1)
+    const call = fontBindings[0]?.initializer
+    expect(call && ts.isCallExpression(call)).toBe(true)
+    if (!call || !ts.isCallExpression(call)) return
+    const imported = BRAND_EMPHASIS_SOURCE!.statements.find((n): n is ts.ImportDeclaration =>
+      ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) && n.moduleSpecifier.text === 'next/font/local',
+    )
+    expect(call.expression.getText()).toBe(imported?.importClause?.name?.text)
+    const options = call.arguments[0]
+    expect(options && ts.isObjectLiteralExpression(options)).toBe(true)
+    if (!options || !ts.isObjectLiteralExpression(options)) return
+    const values = Object.fromEntries(options.properties.filter(ts.isPropertyAssignment).map((p) => [p.name.getText().replace(/^['"]|['"]$/g, ''), literalText(p.initializer)]))
+    expect(values).toMatchObject({
+      src: '../../../scripts/brand/fonts/Inter-Variable-Italic-latin.woff2',
+      weight: '100 900', style: 'italic', variable: '--font-hero-italic',
+    })
   })
 
   it("the hero's accent phrases (rendered inside the highlight) carry no figure or price", () => {
@@ -3658,13 +3732,7 @@ describe('brand rule 3: the Marked Copy Rule', () => {
     for (const rel of ['features/marketing/components/HeroHeadline.tsx', 'features/marketing/components/HeroExample.tsx', 'app/waitlist/page.tsx', 'app/pricing/page.tsx', 'features/auth/components/AuthShell.tsx', 'features/calendar/components/EarningsCalendarPage.tsx', 'features/calendar/components/MonthView.tsx', 'features/calendar/components/WeekView.tsx']) {
       expect(rels.has(rel), rel).toBe(true)
     }
-    const marked = SOURCES.filter(({ sf }) => {
-      let found = false
-      visit(sf, (n) => {
-        if (ts.isJsxElement(n) && classTokens(n.openingElement).includes('en-mark')) found = true
-      })
-      return found
-    }).map((s) => s.rel)
+    const marked = SOURCES.filter(({ sf }) => highlights(sf).length > 0).map((s) => s.rel)
     expect(marked).toEqual(expect.arrayContaining(['features/marketing/components/HeroHeadline.tsx', 'app/waitlist/page.tsx', 'features/auth/components/AuthShell.tsx']))
   })
 })

@@ -9,6 +9,8 @@
  * it, and DEVICE_PLACES does not list it. A new form the rule can take joins it with its mark.
  */
 import { EnRef, MarkedCopy, cx } from '@/components/ui'
+import BrandEmphasis, { default as RenamedEmphasis } from '@/features/marketing/components/BrandEmphasis'
+import * as EmphasisModule from '@/features/marketing/components/BrandEmphasis'
 import CitationChip from '@/features/filings/components/copilot/CitationChip'
 import CopilotMessage, { type CopilotMessageData } from '@/features/filings/components/copilot/CopilotMessage'
 import NarrativePane, { type NarrativeState } from '@/features/analysis/components/NarrativePane'
@@ -347,7 +349,7 @@ export function D27({ blocks }: { blocks: RenderedBlock[] }) {
 export function D28() {
   return (
     <h1>
-      Read the filing faster. Keep <span className="en-mark">the source</span> in view.
+      Read the filing faster. Keep <BrandEmphasis>the source</BrandEmphasis> in view.
     </h1>
   )
 }
@@ -397,4 +399,46 @@ export function D30({ risks }: { risks: RiskFactor[] }) {
       </ul>
     </MarkedCopy>
   )
+}
+
+/** D31 flag: a new or reverted surface bypasses the shared promotional owner with the old mark. */
+export function D31() {
+  return <h2>The summary that <span className="en-mark">shows its work</span>.</h2>
+}
+
+/** D32 clean: the shared emphasis imported under another name is still the same owner. */
+export function D32() {
+  return <h2>The summary that <RenamedEmphasis>shows its work</RenamedEmphasis>.</h2>
+}
+
+/** D33 flag: an aliased promotional emphasis inside a quote is not a located-passage treatment. */
+export function D33() {
+  return <blockquote><RenamedEmphasis>Words from the filing</RenamedEmphasis></blockquote>
+}
+
+/** D34 clean: an unrelated component parameter named BrandEmphasis is not the imported owner. */
+export function D34({ BrandEmphasis }: { BrandEmphasis: (props: { children: string }) => React.ReactNode }) {
+  return <blockquote><BrandEmphasis>Words from the filing</BrandEmphasis></blockquote>
+}
+
+/** D35 flag: the namespace import is the same owner and cannot highlight a price. */
+export function D35() {
+  return <EmphasisModule.default>$9 a month</EmphasisModule.default>
+}
+
+/** D36 flag: copying only the C5 class still bypasses the owner. */
+export function D36() {
+  return <h2>Research <span className="en-hero-emphasis">with receipts</span>.</h2>
+}
+
+/** D37 flag: self-closing emphasis with a children prop still renders the figure it carries. */
+export function D37() {
+  // eslint-disable-next-line react/no-children-prop -- planted AST form verifies children-prop content.
+  return <RenamedEmphasis children="$9 a month" />
+}
+
+/** D38 clean: the namespace import with a text-only children prop is a promotional phrase. */
+export function D38() {
+  // eslint-disable-next-line react/no-children-prop -- planted AST form verifies namespace children-prop content.
+  return <h2>Research <EmphasisModule.default children="with receipts" />.</h2>
 }
