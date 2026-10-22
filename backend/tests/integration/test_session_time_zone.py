@@ -11,7 +11,9 @@ are not passing on a server that already runs at UTC:
 - the zone holds after a rollback and on each of the pool's connections, which a SET inside a transaction would not;
 - the engine production's ``database.py`` builds pins it too, under ``PGTZ`` (libpq's default zone for a session).
   ``PGTZ`` is a client-side start that outranks even a startup ``options`` setting, so that case also holds that the
-  pin is a statement run after the session starts, not a setting sent with the startup.
+  pin is a statement run after the session starts, not a setting sent with the startup;
+- that engine, under the relabel dry run's guards in ``PGOPTIONS``, keeps each of them beside the pin, its
+  transactions read-only included: the pin sets nothing the Ops steps set.
 
 SQLite has no session time zone, so the fast lane skips these cases; CI's "Verify the session time zone on PostgreSQL"
 step runs them.
@@ -128,12 +130,21 @@ def test_the_zone_holds_after_a_rollback_and_on_each_pooled_connection(postgres_
         assert _zone(second) == "UTC"
 
 
-def test_the_engine_database_py_builds_runs_its_sessions_at_utc(postgres_engine, monkeypatch):
-    """Production's own engine, built by importing a fresh ``app.database`` with this gate's URL, under ``PGTZ``, which
-    libpq sends as a session's starting zone; a plain engine shows that start holds without the listener. The suite's
-    module comes back at teardown."""
+def _fresh_database(monkeypatch):
+    """Production's own engine, built by importing a fresh ``app.database`` with this gate's URL; the suite's module
+    comes back when ``monkeypatch`` undoes."""
     from app import config
 
+    monkeypatch.setattr(config.settings, "DATABASE_URL", _url())
+    app_package = importlib.import_module("app")
+    monkeypatch.setattr(app_package, "database", getattr(app_package, "database", None), raising=False)
+    monkeypatch.delitem(sys.modules, "app.database", raising=False)
+    return importlib.import_module("app.database")
+
+
+def test_the_engine_database_py_builds_runs_its_sessions_at_utc(postgres_engine, monkeypatch):
+    """Production's own engine, under ``PGTZ``, which libpq sends as a session's starting zone; a plain engine shows
+    that start holds without the listener."""
     monkeypatch.setenv("PGTZ", ELSEWHERE)
     plain = create_engine(_url())
     try:
@@ -141,11 +152,7 @@ def test_the_engine_database_py_builds_runs_its_sessions_at_utc(postgres_engine,
             assert _zone(connection) == ELSEWHERE
     finally:
         plain.dispose()
-    monkeypatch.setattr(config.settings, "DATABASE_URL", _url())
-    app_package = importlib.import_module("app")
-    monkeypatch.setattr(app_package, "database", getattr(app_package, "database", None), raising=False)
-    monkeypatch.delitem(sys.modules, "app.database", raising=False)
-    fresh = importlib.import_module("app.database")
+    fresh = _fresh_database(monkeypatch)
     try:
         with fresh.engine.connect() as first, fresh.engine.connect() as second:  # each connection, not the first alone
             for connection in (first, second):
@@ -154,3 +161,27 @@ def test_the_engine_database_py_builds_runs_its_sessions_at_utc(postgres_engine,
                 assert _zone(connection) == "UTC"
     finally:
         fresh.engine.dispose()
+
+
+# The relabel dry run's guards (.github/workflows/ops.yml), which reach its script's sessions only through PGOPTIONS.
+OPS_GUARDS = "-c lock_timeout=10s -c statement_timeout=120s -c default_transaction_read_only=on"
+
+
+def test_the_pin_keeps_the_guards_pgoptions_gives_a_session(postgres_engine, monkeypatch):
+    """The Ops steps run production's engine with their guards in ``PGOPTIONS`` (``test_ops_workflow_wiring.py``): under
+    the relabel dry run's, each session runs at UTC and keeps them, its transactions read-only. The environment is
+    undone before the fixture drops its schema, so no connection it opens then is read-only."""
+    with monkeypatch.context() as patch:
+        patch.setenv("PGTZ", ELSEWHERE)
+        patch.setenv("PGOPTIONS", OPS_GUARDS)
+        fresh = _fresh_database(patch)
+        try:
+            with fresh.engine.connect() as first, fresh.engine.connect() as second:
+                for connection in (first, second):
+                    settings = connection.execute(text(
+                        "SELECT current_setting('TimeZone'), current_setting('transaction_read_only'),"
+                        " current_setting('lock_timeout'), current_setting('statement_timeout')"
+                    )).one()
+                    assert tuple(settings) == ("UTC", "on", "10s", "2min")
+        finally:
+            fresh.engine.dispose()

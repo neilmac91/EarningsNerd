@@ -43,7 +43,10 @@ class _ConnectionClosed(Exception):
 
 class _Connection:
     """A DBAPI connection that records each statement with the autocommit it ran under, and can refuse it, or die
-    before it (then, as psycopg2's does, it refuses to have its autocommit set)."""
+    before it (then, as psycopg2's does, it refuses to have its autocommit set). It has no other attribute to set
+    (psycopg2's readonly, say) or method to call, so a listener that touched one fails here."""
+
+    __slots__ = ("_autocommit", "refuse", "dies", "closed", "ran")
 
     def __init__(self, autocommit: bool, refuse: bool = False, dies: bool = False):
         self._autocommit = autocommit
@@ -66,6 +69,8 @@ class _Connection:
         connection = self
 
         class _Cursor:
+            __slots__ = ()
+
             def __enter__(self):
                 return self
 

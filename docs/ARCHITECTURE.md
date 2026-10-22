@@ -423,12 +423,15 @@ unused since generation became account-required in #619; kept because migrations
   such as an SEC listing's, as aware UTC. Every session `database.py`'s engine opens (the API, the
   jobs, the durable worker and the scripts that import it) runs at UTC (its `connect` listener, E151),
   so a `timestamptz` reads back at +00:00 and a naive value binds as UTC whatever zone the session
-  would start in; gated on PostgreSQL by `tests/integration/test_session_time_zone.py`. psql sessions
-  (the deploy's migrations, the Ops steps) start at the server's default, so SQL run there that turns
-  an instant into a date pins its own zone, as `ops/capacity/snapshot.sql` does. The pin moves no
-  stored instant: a database whose sessions ran away from UTC before E100 holds SEC's bare dates at
-  that zone's local midnight and needs those rows normalized before day reads or amendment links rely
-  on them; production's sessions ran at UTC, so none is due there. A deliberate 6-site **naive**
+  would start in; gated on PostgreSQL by `tests/integration/test_session_time_zone.py`. Other sessions
+  (psql's, for the deploy's migrations and the Ops SQL steps, and the engine
+  `scripts/validate_db_performance.py` builds) start at the server's default zone, UTC on production's
+  instance, which sets no `timezone` flag; of the SQL run there, `ops/capacity/snapshot.sql` sets its
+  zone and `ops/detection/notable_homepage_candidates.sql` names one. The pin moves no stored instant.
+  A database whose sessions ran at another zone before E100 holds SEC's bare dates at that zone's local
+  midnight: east of UTC they read, pinned, as the day before, and either side they miss an amendment's
+  period end, so such rows need normalizing before that database runs the pin. Production's sessions
+  ran at UTC, so none is due there. A deliberate 6-site **naive**
   allowlist exists for the OAuthState/RefreshToken token-expiry columns — enforced by
   `tests/unit/test_naive_utcnow_allowlist.py`.
 - **Resilience numbers:** circuit breaker CLOSED → OPEN at 5 consecutive network failures,

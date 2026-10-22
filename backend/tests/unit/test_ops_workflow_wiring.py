@@ -24,8 +24,8 @@ reach the database only through libpq's `PGOPTIONS`. An `options` setting in the
 `connect_args`, a query on the URL the proxy step exports or on the URL the app builds from it, a
 connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a guard in the relabel
 script would replace them, so none may exist. The one connection-level event allowed is database.py's
-`connect` listener that runs each session at UTC (E151), held by running it: it sets the time zone and
-nothing else.
+`connect` listener that runs each session at UTC (E151), held by running it on a recording connection:
+it sets the time zone and nothing else, no other statement, connection attribute or method.
 
 Every -apply operation waits for the founder's approval: an approval job in the `ops-apply`
 environment, whose required reviewer is the founder, runs for exactly those operations. The
@@ -143,9 +143,17 @@ def _connection_listeners(path: Path) -> list[tuple[str, int, str, str]]:
     return found
 
 
-def _statements_it_runs(listener) -> list[str]:
-    """What a connect listener executes, run on a recording DBAPI connection."""
-    ran: list[str] = []
+def _what_it_does(listener) -> list[str]:
+    """What a connect listener does to its session, run on a recording DBAPI connection: each statement
+    it executes, each connection attribute it sets but autocommit (psycopg2's readonly, isolation_level
+    and deferrable are setters that change the session's transactions), and each call of a method the
+    recorder does not model (a connection's set_session, a cursor's callproc)."""
+    did: list[str] = []
+
+    def call(name):
+        def record(*args, **kwargs):
+            did.append(f"{name}({', '.join([*map(repr, args), *(f'{key}={value!r}' for key, value in kwargs.items())])})")
+        return record
 
     class Cursor:
         def __enter__(self):
@@ -155,17 +163,30 @@ def _statements_it_runs(listener) -> list[str]:
             return False
 
         def execute(self, sql, *_args):
-            ran.append(sql)
+            did.append(sql)
+
+        def __getattr__(self, name):
+            return call(f"cursor.{name}")
 
     class Connection:
-        autocommit = False
         closed = 0
+
+        def __init__(self):
+            object.__setattr__(self, "autocommit", False)
+
+        def __setattr__(self, name, value):
+            if name != "autocommit":
+                did.append(f"{name} = {value!r}")
+            object.__setattr__(self, name, value)
+
+        def __getattr__(self, name):
+            return call(name)
 
         def cursor(self):
             return Cursor()
 
     listener(Connection(), None)
-    return ran
+    return did
 
 
 def test_the_listener_scan_reads_each_form_it_claims(tmp_path):
@@ -183,7 +204,7 @@ def test_the_listener_scan_reads_each_form_it_claims(tmp_path):
     assert [(event_name, handler) for _, _, event_name, handler in _connection_listeners(planted)] == [
         ("connect", "pin"), ("checkout", "lambda c, r, p: None"), ("engine_connect", "on_engine_connect"),
     ]
-    # The run that holds the pin to its one statement, on planted listeners.
+    # The run that holds the pin to its one statement, on planted listeners: what each does to its session.
 
     def also_lock_timeout(connection, _record):
         with connection.cursor() as cursor:
@@ -194,8 +215,20 @@ def test_the_listener_scan_reads_each_form_it_claims(tmp_path):
         with connection.cursor() as cursor:
             cursor.execute("SET default_transaction_read_only = off")
 
-    assert _statements_it_runs(also_lock_timeout) == ["SET TIME ZONE 'UTC'", "SET lock_timeout = '0'"]
-    assert _statements_it_runs(read_write) == ["SET default_transaction_read_only = off"]
+    def read_write_attribute(connection, _record):
+        connection.readonly = False
+
+    def read_write_session(connection, _record):
+        connection.set_session(readonly=False)
+
+    def set_config(connection, _record):
+        connection.cursor().callproc("set_config", ["lock_timeout", "0", False])
+
+    assert _what_it_does(also_lock_timeout) == ["SET TIME ZONE 'UTC'", "SET lock_timeout = '0'"]
+    assert _what_it_does(read_write) == ["SET default_transaction_read_only = off"]
+    assert _what_it_does(read_write_attribute) == ["readonly = False"]
+    assert _what_it_does(read_write_session) == ["set_session(readonly=False)"]
+    assert _what_it_does(set_config) == ["cursor.callproc('set_config', ['lock_timeout', '0', False])"]
 
 
 def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypatch):
@@ -238,7 +271,7 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
               if (path, event_name, handler) != UTC_PIN]
     assert others == [], f"a connection-level event can set the session's guards again: {others}"
     assert [(path, event_name, handler) for path, _, event_name, handler in listeners] == [UTC_PIN], listeners
-    assert _statements_it_runs(database._set_session_time_zone_utc) == ["SET TIME ZONE 'UTC'"], (
+    assert _what_it_does(database._set_session_time_zone_utc) == ["SET TIME ZONE 'UTC'"], (
         "the UTC pin may set the session's time zone and nothing else: anything more can set a guard again"
     )
     script = (ROOT / "backend/scripts/relabel_filing_fy_facts.py").read_text(encoding="utf-8")
