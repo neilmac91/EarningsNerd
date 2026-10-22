@@ -1145,6 +1145,17 @@ describe("the field's height is the documented one", SLOW, () => {
     ]
     expect(fields.length).toBe(ALL.length / 2 + 4)
     await loadDeclarations(fields.flatMap((f) => f.classes).map((t) => parseClass(t).utility))
+    // The model reads the element's bare and `sm:` chains only, so a box term under any other variant
+    // (`md:min-h-0`, `dark:py-1`, `focus:h-9`) would move the height where it never looks.
+    const BOX_PROPS = new Set([...BOX, 'height', 'min-height', 'max-height'])
+    const unread = fields.flatMap((f) =>
+      f.classes
+        .map(parseClass)
+        .filter((c) => !c.target && !['', 'sm'].includes([...c.chain].join(':')))
+        .filter((c) => (declCache.get(c.utility) ?? []).some((e) => !e.target && e.decls.some((d) => BOX_PROPS.has(d.prop))))
+        .map((c) => `${f.name}: ${c.token}`),
+    )
+    expect(unread, 'a box term outside the chains the height model reads').toEqual([])
     for (const f of fields) {
       for (const root of [16, 32]) {
         expect({ phone: fieldHeight(f.classes, '', root), sm: fieldHeight(f.classes, 'sm', root) }, `${f.name} at a ${root}px root`).toEqual({
