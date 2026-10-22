@@ -164,12 +164,14 @@ def _seed(db, company, other, prefix):
         ("annual", "25-000010"), ("original_q3", "24-000091"), ("later_q3", "25-000072"),
         ("unlisted", "24-000077"), ("elsewhere", "25-000033"), ("offsite", "24-000055"), ("eps_8k", "24-000066"),
     )}
-    # Filing rows: the 10-K dashed, the later 10-Q dashless, another company's row for `elsewhere`,
-    # and a row whose document is on another host.
+    # Filing rows: the 10-K dashed, the later 10-Q dashless, another company's row for `elsewhere`
+    # whose document sits under this company's folder (so only the read's company filter keeps it
+    # out), and a row whose document is on another host.
     _filing(db, company, acc["annual"], "annual-10k.htm", "10-K")
     _filing(db, company, acc["original_q3"], "original-q3-10q.htm")
     _filing(db, company, normalize_accession(acc["later_q3"]), "later-q3-10q.htm")
-    _filing(db, other, acc["elsewhere"], "another-filers-10k.htm", "10-K")
+    _filing(db, other, acc["elsewhere"], "", "10-K",
+            document_url=_document(company.cik, acc["elsewhere"], "another-filers-10k.htm"))
     _filing(db, company, acc["offsite"], "", document_url="https://sec.example/mirror/offsite-10q.htm")
     # Q3 revenue is the later 10-Q's comparative; the derived Q4 cites the 10-K (dashless) and the
     # original Q3 10-Q, which no row in the window names.
@@ -226,7 +228,7 @@ def test_the_multi_period_dataset_opens_each_cited_filings_document(dataset_db):
     qoq = q4["qoq_provenance"]["inputs"]
     assert "source_url" not in qoq[0] and qoq[1]["source_url"] == later
     assert [item["source_url"] for item in qoq[0]["provenance"]["inputs"]] == [annual_doc, original]
-    # No filing row, or only another company's: the folder, under this company's CIK.
+    # No filing row, or only another company's (even with a document in this folder): the folder.
     cash = _points(dataset, "operating_cash_flow")
     assert cash["2024Q3"]["source_url"] == build_sec_archive_url(company.cik, acc["unlisted"])
     assert cash["2024Q4"]["source_url"] == build_sec_archive_url(company.cik, acc["elsewhere"])
