@@ -1,0 +1,207 @@
+"""E149: a fact's source link opens its filing's primary document, not the accession folder.
+
+``fact_provenance`` links each reported value and each calculation operand that stores no link.
+Given a lookup (dashless accession to the filing row's ``document_url``) it takes that filing's
+document; an accession with no filing row keeps its folder (``build_sec_archive_url``), and a
+call without the lookup links every one to its folder, as before. The Multi-Period dataset builds
+the lookup with one read of the company's filing rows (``trend_analysis/source_documents.py``), so
+its points, their operands, their comparisons and the narrative's citations open the document.
+
+Synthetic fixtures, not real-issuer coverage.
+"""
+
+import uuid
+from datetime import date, datetime, timezone
+from decimal import Decimal
+
+import pytest
+from sqlalchemy import event
+
+from app.database import SessionLocal
+from app.models import Company, Filing, FinancialFact
+from app.services import trend_analysis_service as svc
+from app.services.fact_provenance import calculated_provenance, provenance_for_fact, reported_provenance
+from app.services.trend_analysis.presentation import _operand
+from app.utils.sec_urls import build_sec_archive_url, normalize_accession
+
+CIK = "1326801"
+ANNUAL = "0001326801-25-000010"
+NINE_MONTHS = "0001326801-24-000091"
+UNLISTED = "0001326801-24-000077"
+
+
+def _document(cik, accession, name):
+    """A primary document under the filing's folder, as the edgar client stores ``document_url``."""
+    return build_sec_archive_url(cik, accession) + name
+
+
+DOCUMENTS = {
+    normalize_accession(ANNUAL): _document(CIK, ANNUAL, "annual-10k.htm"),
+    normalize_accession(NINE_MONTHS): _document(CIK, NINE_MONTHS, "third-quarter-10q.htm"),
+}
+
+
+def _fact(**changes):
+    return {
+        "concept": "revenue", "value": Decimal("42000000000"), "unit": "USD",
+        "period_start": date(2024, 1, 1), "period_end": date(2024, 12, 31),
+        "accession": ANNUAL, "raw_tag": "us-gaap:Revenues",
+        "fiscal_year": 2024, "fiscal_period": "FY",
+        "filed_at": "2025-01-30", "source": "companyfacts", "reconciled": True,
+        "provenance": None, **changes,
+    }
+
+
+@pytest.mark.parametrize("spelling", [ANNUAL, normalize_accession(ANNUAL)], ids=["dashed", "dashless"])
+def test_a_reported_fact_opens_its_filings_document(spelling):
+    provenance = provenance_for_fact(_fact(accession=spelling), CIK, DOCUMENTS)
+    assert provenance["method"] == "reported"
+    assert provenance["source_url"] == _document(CIK, ANNUAL, "annual-10k.htm")
+
+
+def test_each_operand_opens_its_own_filings_document_nested_ones_included():
+    annual = _fact()
+    nine_months = _fact(value=Decimal("30000000000"), period_end=date(2024, 9, 30), accession=NINE_MONTHS)
+    quarter = _fact(
+        source="derived", value=Decimal("12000000000"), period_start=date(2024, 10, 1), fiscal_period="Q4",
+        provenance=calculated_provenance("FY - YTD9", [annual, nine_months]),
+    )
+    nested = _fact(
+        concept="free_cash_flow", source="derived",
+        provenance=calculated_provenance("operating_cash_flow - capex", [quarter, _fact(value=5)]),
+    )
+    projected = provenance_for_fact(nested, CIK, DOCUMENTS)
+    assert "source_url" not in projected  # A computed value is not a reported filing row.
+    outer = projected["inputs"]
+    assert [item["source_url"] for item in outer] == [_document(CIK, ANNUAL, "annual-10k.htm")] * 2
+    inner = outer[0]["provenance"]["inputs"]
+    assert [item["source_url"] for item in inner] == [
+        _document(CIK, ANNUAL, "annual-10k.htm"), _document(CIK, NINE_MONTHS, "third-quarter-10q.htm"),
+    ]
+
+
+def test_an_accession_with_no_filing_row_keeps_its_folder():
+    folder = build_sec_archive_url(CIK, UNLISTED)
+    assert provenance_for_fact(_fact(accession=UNLISTED), CIK, DOCUMENTS)["source_url"] == folder
+    calculation = _fact(concept="free_cash_flow", source="derived", provenance=calculated_provenance(
+        "operating_cash_flow - capex", [_fact(accession=UNLISTED), _fact()],
+    ))
+    inputs = provenance_for_fact(calculation, CIK, DOCUMENTS)["inputs"]
+    assert [item["source_url"] for item in inputs] == [folder, _document(CIK, ANNUAL, "annual-10k.htm")]
+    # Without the lookup every caller's links are the folders they were.
+    assert provenance_for_fact(_fact(), CIK)["source_url"] == build_sec_archive_url(CIK, ANNUAL)
+    assert provenance_for_fact(calculation, CIK) == provenance_for_fact(calculation, CIK, {})
+    assert "source_url" not in provenance_for_fact(_fact(accession="synthetic-quarter"), CIK, DOCUMENTS)
+
+
+def test_a_stored_source_link_is_kept():
+    stored = _document(CIK, ANNUAL, "reported-eps-exhibit.htm")
+    fact = _fact(provenance={**reported_provenance(_fact()), "source_url": stored})
+    assert provenance_for_fact(fact, CIK, DOCUMENTS)["source_url"] == stored
+    operand = _fact(accession=NINE_MONTHS, provenance={**reported_provenance(_fact()), "source_url": stored})
+    calculation = _fact(source="derived", provenance=calculated_provenance("FY - YTD9", [_fact(), operand]))
+    inputs = provenance_for_fact(calculation, CIK, DOCUMENTS)["inputs"]
+    assert [item["source_url"] for item in inputs] == [_document(CIK, ANNUAL, "annual-10k.htm"), stored]
+
+
+@pytest.fixture
+def dataset_db():
+    """Two companies of their own inside one rollback-only transaction."""
+    with SessionLocal() as db:
+        token = uuid.uuid4().hex
+        company = Company(cik=str(int(token[:12], 16)), ticker=f"DOCS{token[:8]}", name="Synthetic documents fixture")
+        other = Company(cik=str(int(token[:12], 16) + 1), ticker=f"ELSE{token[:8]}", name="Another filer")
+        db.add_all([company, other])
+        db.flush()
+        yield db, company, other, f"{int(token[12:20], 16) % 9_000_000_000 + 1_000_000_000}"
+        db.rollback()
+
+
+def _filing(db, company, accession, name, form="10-Q"):
+    db.add(Filing(
+        company_id=company.id, accession_number=accession, filing_type=form,
+        filing_date=datetime(2025, 1, 30, tzinfo=timezone.utc),
+        sec_url=build_sec_archive_url(company.cik, accession),
+        document_url=_document(company.cik, accession, name),
+    ))
+
+
+def _quarter(db, company, concept, value, quarter, accession, **changes):
+    months = {3: (7, 9, 30), 4: (10, 12, 31)}
+    start_month, end_month, end_day = months[quarter]
+    db.add(FinancialFact(**{
+        "company_id": company.id, "concept": concept, "value": Decimal(str(value)), "unit": "USD",
+        "period_start": date(2024, start_month, 1), "period_end": date(2024, end_month, end_day),
+        "fiscal_year": 2024, "fiscal_period": f"Q{quarter}", "form": "10-Q", "accession": accession,
+        "raw_tag": f"us-gaap:{concept}", "source": "companyfacts", "reconciled": True, "is_latest": True,
+        **changes,
+    }))
+
+
+def _points(dataset, concept):
+    series = next(item for item in dataset["series"] if item["concept"] == concept)
+    return {point["period"]: point for point in series["points"]}
+
+
+def test_the_multi_period_dataset_opens_each_cited_filings_document(dataset_db):
+    db, company, other, prefix = dataset_db
+    annual, original_q3, later_q3 = f"{prefix}-25-000010", f"{prefix}-24-000091", f"{prefix}-25-000072"
+    unlisted, elsewhere = f"{prefix}-24-000077", f"{prefix}-25-000033"
+    # Filing rows: the 10-K dashed, the later 10-Q dashless, another company's row for `elsewhere`.
+    _filing(db, company, annual, "annual-10k.htm", "10-K")
+    _filing(db, company, original_q3, "original-q3-10q.htm")
+    _filing(db, company, normalize_accession(later_q3), "later-q3-10q.htm")
+    _filing(db, other, elsewhere, "another-filers-10k.htm", "10-K")
+    # Q3 revenue is the later 10-Q's comparative; the derived Q4 cites the 10-K (dashless) and the
+    # original Q3 10-Q, which no row in the window names.
+    _quarter(db, company, "revenue", 100, 3, later_q3)
+    operands = [
+        {"concept": "revenue", "value": 420, "unit": "USD", "period_start": date(2024, 1, 1),
+         "period_end": date(2024, 12, 31), "accession": normalize_accession(annual), "raw_tag": "us-gaap:Revenues",
+         "source": "companyfacts", "reconciled": True, "filed_at": "2025-01-30"},
+        {"concept": "revenue", "value": 300, "unit": "USD", "period_start": date(2024, 1, 1),
+         "period_end": date(2024, 9, 30), "accession": original_q3, "raw_tag": "us-gaap:Revenues",
+         "source": "companyfacts", "reconciled": True, "filed_at": "2024-10-31"},
+    ]
+    stored = calculated_provenance("FY - YTD9", operands)
+    stored["period_calculation"] = True
+    _quarter(db, company, "revenue", 120, 4, annual, source="derived", provenance=stored)
+    _quarter(db, company, "operating_cash_flow", 10, 3, unlisted)
+    _quarter(db, company, "operating_cash_flow", 30, 4, elsewhere)
+    db.flush()
+
+    statements = []
+    engine = db.get_bind()
+
+    def spy(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", spy)
+    try:
+        dataset = svc.build_dataset(db, company, "quarterly", "2024Q3", "2024Q4")
+    finally:
+        event.remove(engine, "before_cursor_execute", spy)
+    assert len([statement for statement in statements if "FROM filings" in statement]) == 1
+
+    revenue = _points(dataset, "revenue")
+    later, annual_doc = _document(company.cik, later_q3, "later-q3-10q.htm"), _document(company.cik, annual, "annual-10k.htm")
+    original = _document(company.cik, original_q3, "original-q3-10q.htm")
+    assert revenue["2024Q3"]["source_url"] == revenue["2024Q3"]["provenance"]["source_url"] == later
+    q4 = revenue["2024Q4"]
+    assert q4["derived"] is True and q4["source_url"] is None
+    assert [item["source_url"] for item in q4["provenance"]["inputs"]] == [annual_doc, original]
+    # The comparison's operands carry the points' links, the calculated point's nested ones too.
+    qoq = q4["qoq_provenance"]["inputs"]
+    assert "source_url" not in qoq[0] and qoq[1]["source_url"] == later
+    assert [item["source_url"] for item in qoq[0]["provenance"]["inputs"]] == [annual_doc, original]
+    # No filing row, or only another company's: the folder, under this company's CIK.
+    cash = _points(dataset, "operating_cash_flow")
+    assert cash["2024Q3"]["source_url"] == build_sec_archive_url(company.cik, unlisted)
+    assert cash["2024Q4"]["source_url"] == build_sec_archive_url(company.cik, elsewhere)
+
+    index = svc.marker_index(dataset)
+    marker = revenue["2024Q3"]["marker"]
+    assert svc._point_citation(1, index[marker])["source_url"] == later
+    assert _operand(marker, index[marker], 1, frozenset())["source_url"] == later
+    cited = svc._point_citation(2, index[q4["marker"]])["provenance"]["inputs"]
+    assert [item["source_url"] for item in cited] == [annual_doc, original]
