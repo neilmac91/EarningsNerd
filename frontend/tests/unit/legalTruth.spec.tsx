@@ -167,7 +167,8 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    into a promise, as "never fails to end" does), with a longer aside in commas ("does not, as a rule of thumb, end"),
  *    on the subject ("No sessions are ended", "None of your sessions", "Not every device", where the subject stops at
  *    another clause, so "No password is stored and logging out ends every session" fails), or on the object ("ends no
- *    other session"), and so does an end at its token's expiry ("that session ends when its token expires"). Main's
+ *    other session"), and so does an end at its token's expiry ("that session ends when its token expires"), and a
+ *    negation on a causative verb that governs the end ("does not cause your other sessions to end": CAUSED). Main's
  *    timed and untimed readings read the same denial, so "Logging out does not end every session within 30 minutes"
  *    passes, and every promise they refuse in main's spec is refused here too. The page is read on every run, whatever
  *    tasks/todo.md records: E127's race is fixed (#1422), and so are a login that straddled a password reset (#1431)
@@ -304,11 +305,19 @@ const REACH_WORD = String.raw`(?!(?:and|but|or|nor|so|then|yet|which|that|who|wh
     "only", "just", "merely" or "simply", which deny a restriction, not the act ("does not only end this session but
     every session on the account"). */
 const NEGATION_REACH = String.raw`(?!(?:only|just|merely|simply)\b)(?:(?:yet|then)\s+(?:${REACH_WORD}){0,3}|(?:${REACH_WORD}){0,4})`
+/** A negation on a causative verb (#1456's twelfth round): "does not cause your other sessions to end", "never forces
+    a session to end" and "does not make the sessions on your other devices end" deny the end the verb governs, as
+    "does not end" does. One word at most stands between the negation and the verb, not "only", "just", "merely" or
+    "simply", and a negation earlier in the sentence makes the two a promise (NOT_NEAR's rules); up to six words of the
+    verb's object follow it, then "to" (cause, force, lead) or the end at once (make), with no word among them that
+    opens a clause of time or comparison ("does not cause any delay before every session ends" still promises). */
+const CAUSED = String.raw`(?<!(?:\b(?:not|never|no|none|nothing|nobody|neither|nor|cannot)\b|n['’]t\b)[^.;:!?]*)(?:\b(?:not|never|nor|cannot|no\s+longer)|n['’]t)\s+(?!(?:only|just|merely|simply)\b)(?:${REACH_WORD})?(?:(?:caus(?:e|es|ed|ing)|forc(?:e|es|ed|ing)|lead(?:s|ing)?|led)\s+(?:(?!(?:before|after|until|till|once|since|as|than|to)\b)${REACH_WORD}){1,6}?to\s+|(?:mak(?:e|es|ing)|made)\s+(?:(?!(?:before|after|until|till|once|since|as|than|to)\b)${REACH_WORD}){1,6})`
 /** Not after a negation: "does not end your other sessions", "never signs you out", "does not by itself end a
     session" (NEGATION_REACH), "does not, by itself, end a session" and "do not need your consent" deny what the verb
-    says, and so does a clause whose subject is denied (DENIED_SUBJECT). The end forms, main's timed and untimed
-    readings among them, and the consent forms whose verb says the promise read it. */
-const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+${NEGATION_REACH}|n['’]t\s+${NEGATION_REACH}|(?:\b(?:not|never|cannot)|n['’]t)\s*,[^,.;:!?]{1,40},\s*|${DENIED_SUBJECT})`
+    says, and so does a clause whose subject is denied (DENIED_SUBJECT) and a negation on a causative verb before it
+    (CAUSED: "does not cause your other sessions to end"). The end forms, main's timed and untimed readings among them,
+    and the consent forms whose verb says the promise read it. */
+const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+${NEGATION_REACH}|n['’]t\s+${NEGATION_REACH}|(?:\b(?:not|never|cannot)|n['’]t)\s*,[^,.;:!?]{1,40},\s*|${DENIED_SUBJECT}|${CAUSED})`
 /** A negation on the word itself (#1456's tenth round), for three branches that read no denial before: the consent
     forms' "only" where the yes follows it at once, the login said as the subject before the endpoints, and the one-use
     forms that are no denial themselves. One word at most stands between them (REACH_WORD), with "be", "been" or
@@ -1736,6 +1745,13 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // A password named in a neighbouring sentence is no logging-out context (#1456's seventh round, Codex's thread
       // 4342330097): the idle timeout is no logout's end.
       ['<li>Passwords are hashed. Idle sessions end after 30 minutes.</li>', false],
+      // A negation on a causative verb denies the end it governs, as "does not end" does, beside the causative with no
+      // negation and a negation that only restricts another verb; "does not make" within four words of the end denied
+      // it before (#1456's twelfth round, Codex's thread 4350498620).
+      ['<li>Logging out does not cause your other sessions to end.</li>', false],
+      ['<li>Logging out causes your other sessions to end.</li>', true],
+      ['<li>Logging out does not just end this session but causes every session to end.</li>', true],
+      ['<li>Logging out does not make your other sessions end.</li>', false],
       // Out of reach: a promise split across two items, and one said in other words.
       ['<ul><li>Logging out of all devices revokes your refresh tokens.</li><li>Each session then ends within 30 minutes.</li></ul>', 'gap'],
       ['<li>After a password reset, nobody stays signed in.</li>', 'gap'],
