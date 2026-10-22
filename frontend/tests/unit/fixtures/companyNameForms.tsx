@@ -45,7 +45,7 @@ import type { RedlineSource } from '@/features/filing-redlines/lib/filingPair'
 import type { SourceIdentity } from '@/features/research-evidence-packs/lib/evidenceLedger'
 import type { SampleFact } from '@/features/financial-refresh-review/lib/refreshReview'
 import type { ExampleData } from '@/lib/serverApi'
-import { displayNameOf, keepLatest, labelsOf, lengthOf, nameFromEvent, nameOf, pickFirst } from './companyNameKit'
+import { aliasedNameOf, chosenNameOf, displayNameOf, keepLatest, labelsOf, lengthOf, nameFromEvent, nameOf, pickFirst } from './companyNameKit'
 import { shortNameOf } from './companyNameKit2'
 
 /** A view model of this file's own, so its fields are the app's own (declared outside an API module). */
@@ -798,6 +798,16 @@ export function N128({ ev, events }: { ev: CalendarEvent; events: CalendarEvent[
       {name} · {events.map(displayNameOf).join(', ')}
     </button>
   )
+}
+
+/** N129 flag: another module's overloaded helper, exported through a const alias, which hands back a served name. */
+export function N129({ ev }: { ev: CalendarEvent }) {
+  return <span>{aliasedNameOf(ev)}</span>
+}
+
+/** N130 flag: another module's helper chosen by a conditional, one arm of which hands back a served name. */
+export function N130({ ev }: { ev: CalendarEvent }) {
+  return <span>{chosenNameOf(ev)}</span>
 }
 
 // Forms the rule forbids that the gate leaves to review, each named in the spec's header.

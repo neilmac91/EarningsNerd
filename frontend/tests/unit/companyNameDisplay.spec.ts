@@ -36,10 +36,11 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * (`String()`, `trim()`, `join()`) is still the name. Across modules, another module's function that hands back a
  * served name as text gives the name wherever the reader reads a call of it: called here, or handed on as a value and
  * called by React (a reducer, an initializer), an array's method or a same-file function, through any chain of modules
- * (SERVED_RETURNS, a fixed point over the program). A call of formatCompanyName (imported under any name, read from the
- * module's namespace, or held in a same-file const) gives the display form; so does a read of a field of the app's own,
- * and a string literal is written by hand in its display form. An element is a value of its own, read where it is
- * written.
+ * (SERVED_RETURNS, a fixed point over the program), and reached through an import's alias, a re-export or a const that
+ * holds it (both arms of a conditional, either side of `||` or `??`), by every declaration it has, an overloaded
+ * function's body among them. A call of formatCompanyName (imported under any name, read from the module's namespace,
+ * or held in a same-file const) gives the display form; so does a read of a field of the app's own, and a string
+ * literal is written by hand in its display form. An element is a value of its own, read where it is written.
  *
  * It fails (findingsIn):
  *  A. a served name printed raw: an expression child of an intrinsic element, a fragment or a component the scan
@@ -216,28 +217,37 @@ const returnsOf = (fn: Fn): ts.Expression[] => {
   ts.forEachChild(fn.body, walk)
   return out
 }
-/** The function a declaration holds: itself, or what a const or a property is given, read through parentheses, `as`,
-    `satisfies` and a name or a member that holds one. */
-const functionOf = (d: ts.Node | undefined, seen = new Set<ts.Node>()): Fn | undefined => {
-  if (!d || seen.has(d)) return undefined
+/** The functions a declaration holds: itself, or what a const or a property is given, read as a value is read:
+    through parentheses, `as`, `satisfies` and `!`, both arms of a conditional, both sides of `||` and `??` and the right
+    of `&&`, and a name or a member that holds one, by every declaration it has (an overloaded function's signatures
+    and its body, so the body that returns is never missed). */
+const functionsOf = (d: ts.Node | undefined, seen = new Set<ts.Node>()): Fn[] => {
+  if (!d || seen.has(d)) return []
   seen.add(d)
-  if (isFnNode(d)) return d
-  if (ts.isShorthandPropertyAssignment(d)) return functionOf(resolved(CHECKER.getShorthandAssignmentValueSymbol(d))?.declarations?.[0], seen)
+  if (isFnNode(d)) return [d]
+  const declared = (symbol: ts.Symbol | undefined): Fn[] => (symbol?.declarations ?? []).flatMap((x) => functionsOf(x, seen))
+  const held = (expression: ts.Expression): Fn[] => {
+    const e = unwrapHeld(expression)
+    if (isFnNode(e)) return [e]
+    if (ts.isConditionalExpression(e)) return [...held(e.whenTrue), ...held(e.whenFalse)]
+    if (ts.isBinaryExpression(e)) {
+      const op = e.operatorToken.kind
+      if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) return [...held(e.left), ...held(e.right)]
+      return op === ts.SyntaxKind.AmpersandAmpersandToken ? held(e.right) : []
+    }
+    return ts.isIdentifier(e) || ts.isPropertyAccessExpression(e) ? declared(calleeTarget(e)) : []
+  }
+  if (ts.isShorthandPropertyAssignment(d)) return declared(resolved(CHECKER.getShorthandAssignmentValueSymbol(d)))
   const init = ts.isVariableDeclaration(d) || ts.isPropertyAssignment(d) ? d.initializer : undefined
-  if (!init) return undefined
-  const e = unwrapHeld(init)
-  if (isFnNode(e)) return e
-  return ts.isIdentifier(e) || ts.isPropertyAccessExpression(e) ? functionOf(calleeTarget(e)?.declarations?.[0], seen) : undefined
+  return init ? held(init) : []
 }
 /** The functions of the app's other modules an expression names (a call's callee, or a function handed on as a
-    value), through an import's alias, a namespace's member, a re-export and an object's method (a library's are no
-    app code, and the formatter gives the display form). */
+    value), through an import's alias, a namespace's member, a re-export, an object's method and a const that holds
+    one (functionsOf; a library's are no app code, and the formatter gives the display form). */
 const crossTargets = (expression: ts.Expression, sf: ts.SourceFile): Fn[] =>
-  (calleeTarget(expression)?.declarations ?? []).flatMap((d) => {
-    const fn = functionOf(d)
-    const file = fn?.getSourceFile()
-    return fn && file !== sf && !/[\\/]node_modules[\\/]/.test(file!.fileName) && fn !== FORMATTER ? [fn] : []
-  })
+  (calleeTarget(expression)?.declarations ?? [])
+    .flatMap((d) => functionsOf(d))
+    .filter((fn) => fn.getSourceFile() !== sf && !/[\\/]node_modules[\\/]/.test(fn.getSourceFile().fileName) && fn !== FORMATTER)
 
 /**
  * One source's reading (the header's): its values followed by the shared reader with `passThrough` and React's state
@@ -538,7 +548,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       else strays.push(`line ${f.line}: ${f.shown}`)
     }
     const count = (mark: string) => [...forms.values()].filter((f) => f.mark === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([82, 33, 13])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([84, 33, 13])
     const misread = [...forms].filter(([name, { mark }]) => named.has(name) !== (mark === 'flag')).map(([name, { mark }]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])
