@@ -297,13 +297,14 @@ const NEGATION_REACH = String.raw`(?!(?:only|just|merely|simply)\b)(?:(?:yet|the
     readings among them, and the consent forms whose verb says the promise read it. */
 const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+${NEGATION_REACH}|n['’]t\s+${NEGATION_REACH}|(?:\b(?:not|never|cannot)|n['’]t)\s*,[^,.;:!?]{1,40},\s*|${DENIED_SUBJECT})`
 /** Usage as the analytics (#1456's eighth round): qualified ("usage data", "usage statistics", "product usage",
-    "anonymous usage") or as what is tracked, collected or sent ("we track usage", "usage is collected"), not the word's
-    ordinary sense ("usage of this website", "fair usage"). */
+    "anonymous usage") or as what is tracked, collected or sent ("we track usage", "usage is collected", a negation on
+    the verb read too: "usage isn't collected", "usage cannot be collected"), not the word's ordinary sense ("usage of
+    this website", "fair usage"). */
 const USAGE =
   String.raw`\busage\s+(?:data|statistics|stats|events?|analytics|metrics|tracking|information|patterns|logs?)\b` +
   String.raw`|\b(?:product|site|app|feature|anonymous|anonymi[sz]ed|aggregated?)\s+usage\b` +
   String.raw`|\b(?:track|collect|measur|record|monitor|logg?)(?:s|ed|e|es|ing)?\s+(?:(?:your|our|the|its|their)\s+)?usage\b` +
-  String.raw`|\busage\s+(?:is|are|gets|was|were)\s+(?:(?:only|also|not|never)\s+)?(?:tracked|collected|measured|recorded|monitored|logged|sent|shared|stored|processed)\b`
+  String.raw`|\busage\s+(?:(?:is|are|was|were)(?:n['’]t)?|gets|(?:cannot|can['’]t|can not|won['’]t|will not|may not|must not)\s+be)\s+(?:(?:only|also|not|never)\s+)?(?:tracked|collected|measured|recorded|monitored|logged|sent|shared|stored|processed)\b`
 /** The analytics by any name ANONYMOUS_ANALYTICS reads them by, usage only as the analytics (USAGE), and events only
     as the account, the server or the API names them ("account events", "the events the API records"; "usage data" and
     "usage events" are usage), so "your data" and "event invitations" are not the analytics. */
@@ -320,18 +321,18 @@ const CONSENT = String.raw`(?:consent|permission|agreement|approval|opt[- ]in|sa
     "only" forms read a sentence that names the browser as scoped, and read the consent word by its start, so "only
     after consenting" fails as "only after consent" does; the forms that wait for a yes another way read the browser's
     part (BROWSER_PART) as scoped too, so the consent dialog's own sentence and "Session recording with PostHog is
-    opt-in." pass. A negation before "without your consent" may be contracted ("doesn't", "won't"). The forms whose
-    verb says the promise (requires, needs, waits for or until, is subject to, consent-gated, opt-in) read a denial
-    as NOT does, before the verb or on the subject, so "No server events require your consent." passes, and "no" before
-    the consent denies it ("Server events require no consent."); "until you
-    allow" after another verb and "without your consent" take a denied subject as part of the promise ("No analytics
-    run until you allow them", "No usage data is sent without your permission"). */
+    opt-in." pass. A negation before "without your consent" may be contracted ("doesn't", "won't") or fused with its
+    modal ("cannot"; #1456's ninth round). The forms whose verb says the promise (requires, needs, waits for or until,
+    is subject to, consent-gated, opt-in) read a denial as NOT does, before the verb or on the subject, so "No server
+    events require your consent." passes, and "no" before the consent denies it ("Server events require no consent.");
+    "until you allow" after another verb and "without your consent" take a denied subject as part of the promise ("No
+    analytics run until you allow them", "No usage data is sent without your permission"). */
 const CONSENT_PROMISE = new RegExp(
   String.raw`^(?!.*\bin your browser\b)(?=.*${ANALYTICS_NAMES}).*\bonly\b.{0,60}?(?:\b(?:after|once|when|if|until) you(?: have|['’]ve)? ${YES}|\b(?:with|after|upon|on|by) (?:[\w'’-]+ ){0,3}${CONSENT}|\b(?:once|if|when|after) (?:it is |they are |it['’]s |they['’]re )?(?:allowed|accepted|enabled|consented)\b)` +
     String.raw`|^(?!.*(?:\bin your browser\b|${BROWSER_PART}))(?=.*${ANALYTICS_NAMES})(?:` +
     String.raw`.*(?<!\bwait(?:s|ing)?\s)\buntil you(?: have|['’]ve)? ${YES}` +
     String.raw`|.*${NOT}\bwait(?:s|ing)?\s+until you(?: have|['’]ve)? ${YES}` +
-    String.raw`|.*(?:\b(?:never|not|no|nothing|none)\b|n['’]t\b).{0,60}?\bwithout (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
+    String.raw`|.*(?:\b(?:never|not|no|nothing|none|cannot)\b|n['’]t\b).{0,60}?\bwithout (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
     String.raw`|.*${NOT}\b(?:requires?|needs?|waits? for|(?:is|are) subject to) (?:your )?(?:(?!no\b)[\w-]+ )?${CONSENT}\b` +
     String.raw`|.*${NOT}\bconsent[- ]gated\b|.*${NOT}\bgated (?:on|by|behind) (?:your |the )?(?:[\w-]+ )?(?:consent|choice)\b` +
     String.raw`|.*${NOT}\b(?:is|are) (?:strictly |only )?opt[- ]in\b` +
@@ -411,7 +412,7 @@ const REMOVED_CLAIMS: Array<[string, RegExp]> = [
   ['a Content Security Policy against XSS', new RegExp(`${CSP}[^.]*${XSS}|${XSS}[^.]*${CSP}`, 'i')],
   ['role-based access control', /\brole[- ]based (?:access|permissions?|authori[sz]ation)\b|\bRBAC\b/i],
   ['an adjective in place of a fact', /\b(?:enterprise|military|bank)[- ](?:grade|level)\b|\bindustry[- ]standards?\b/i],
-  ['no financial data stored', /(?:\b(?:no|never|not|none)\b|n['’]t\b)[^.]{0,40}\bfinancial data\b|\bfinancial data\b[^.]{0,40}(?:\b(?:never|not)\b|n['’]t\b)/i],
+  ['no financial data stored', /(?:\b(?:no|never|not|none|cannot)\b|n['’]t\b)[^.]{0,40}\bfinancial data\b|\bfinancial data\b[^.]{0,40}(?:\b(?:never|not|cannot)\b|n['’]t\b)/i],
   ['post-incident reviews', /\bpost[- ]incident reviews?\b|\bpost[- ]?mortems?\b/i],
   ['vetting the providers', /\bvet(?:s|ted|ting)?\b/i],
   ['an analytics-consent promise not scoped to the browser', CONSENT_PROMISE],
@@ -527,7 +528,7 @@ const WORKS_ONCE = /\bworks? (?:only )?once\b|\bsingle[- ]use\b|\b(?:used|usable
     "after one use"), read only in a sentence about the refresh or session token: one that names it (TOKEN_CONTEXT), or
     one in a block that names it and names no other credential (OTHER_CREDENTIAL), as "Each one cannot be reused." in
     the Token renewal item. "A one-time recovery code", a reset link and a verification code are other credentials. */
-const ONE_USE = /\bone-time\b|\b(?:used|usable|valid|good)(?: only)? for (?:one|a single) use\b|\b(?:can(?:not|['’]t)|can never|may not|never|won['’]t) be (?:used|presented|accepted) (?:twice|again|more than once|a second time)\b|\b(?:can(?:not|['’]t)|can never|won['’]t) be re-?used\b|\bafter (?:one|a single|its first) use\b/i
+const ONE_USE = /\bone-time\b|\b(?:used|usable|valid|good)(?: only)? for (?:one|a single) use\b|\b(?:can(?:not|['’]t| not)|can never|may not|never|won['’]t) be (?:used|presented|accepted) (?:twice|again|more than once|a second time)\b|\b(?:can(?:not|['’]t| not)|can never|won['’]t) be re-?used\b|\bafter (?:one|a single|its first) use\b/i
 /** The refresh or session token, or token renewal, named. */
 const TOKEN_CONTEXT = /\b(?:refresh|session)[- ]tokens?\b|\btoken renewal\b/i
 /** A credential that is not the refresh or session token: a code, a link, a password, a key, an invite, a PIN. */
@@ -1246,6 +1247,14 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // Codex's thread 4342548437).
       ['<p>Usage data requires your agreement.</p>', true],
       ['<p>Usage of this website requires your agreement to these Terms.</p>', false],
+      // A negation fused with its modal ("cannot") or contracted onto the verb ("isn't") reads as the other negations
+      // do (#1456's ninth round, Codex's thread 4344103141), beside look-alikes that stay clear.
+      ['<p>Analytics cannot run without your consent.</p>', true],
+      ['<p>Analytics cannot run in your browser without your consent.</p>', false],
+      ["<p>Usage isn't collected without your consent.</p>", true],
+      ["<p>Usage isn't billed without your agreement.</p>", false],
+      ['<p>We cannot store your financial data.</p>', true],
+      ['<p>We store your financial data with Stripe.</p>', false],
       // Every endpoint with other words before "endpoints" (#1397's last review), each and any with a login said, and
       // the claim the other way round.
       ["<p>All of the API's endpoints require authentication.</p>", true],
@@ -1483,6 +1492,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Passwords are hashed and idle sessions end after 30 minutes.</li>', false],
       ['<li>Your password is hashed and the session token expires after 30 minutes.</li>', false],
       ['<li>Your password is hashed and every session ends within 30 minutes.</li>', false],
+      // A one-use form with the negation apart from its modal ("can not"), beside another credential's (#1456's ninth
+      // round).
+      ['<li>A refresh token can not be used twice.</li>', true],
+      ['<li>A verification code can not be used twice.</li>', false],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
