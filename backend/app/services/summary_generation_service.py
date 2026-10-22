@@ -662,16 +662,3 @@ def mark_stale_progress_as_error(progress: SummaryGenerationProgress) -> bool:
     progress.stage = "error"
     progress.error = "Generation stalled and was abandoned. Please retry."
     return True
-
-
-def get_generation_progress_snapshot(filing_id: int) -> Optional[Dict[str, Any]]:
-    """Return the persisted generation progress for a filing, if available."""
-    with SessionLocal() as session:
-        progress = (
-            session.query(SummaryGenerationProgress)
-            .filter(SummaryGenerationProgress.filing_id == filing_id)
-            .first()
-        )
-        if not progress:
-            return None
-        return progress_as_dict(progress)

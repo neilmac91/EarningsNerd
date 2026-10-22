@@ -2,7 +2,7 @@
 its own session, so it never needs a second pooled connection while it holds one.
 
 The dashboard feed and the watchlist insights read each filing's generation progress through
-``summary_generation_service.get_generation_progress_snapshot``, which opens a session of its own.
+``summary_generation_service.get_generation_progress_snapshot``, which opened a session of its own.
 Each request then held its session's connection and waited for a second one: on main, eight
 requests on a four-slot pool answered 500 at the pool timeout, all eight, on both routes, and one
 request on a one-slot pool could not finish. Both now read the progress rows in the request's own
@@ -11,7 +11,8 @@ session, in one query.
 - Behaviour: each route answers one request on a one-slot pool, and eight requests on four slots,
   with the summary statuses the summaries and progress rows imply; the feed's unit leaves nothing
   for the dependency's finalizer.
-- Structure: no code under ``app/`` calls ``get_generation_progress_snapshot`` again.
+- Structure: ``get_generation_progress_snapshot`` is gone since E124, and no code under ``app/`` defines it
+  again or calls it.
 """
 
 import ast
@@ -129,27 +130,29 @@ async def test_progress_reads_need_no_second_connection(monkeypatch, tmp_path, p
         engine.dispose()
 
 
-# ── Structure: the own-session progress helper stays uncalled ─────────────────────────────
+# ── Structure: the own-session progress helper stays deleted and uncalled ─────────────────
 
 APP_DIR = Path(__file__).resolve().parents[2] / "app"
 _HELPER = "get_generation_progress_snapshot"
 
 
 def test_no_code_reads_progress_through_its_own_session():
-    """``get_generation_progress_snapshot`` opens a session of its own, so a request unit that calls it
-    while its session holds a connection needs two. Read the progress rows in the caller's session
-    instead (``SummaryGenerationProgress`` and ``progress_as_dict``)."""
+    """``get_generation_progress_snapshot`` opened a session of its own, so a request unit that called it
+    while its session held a connection needed two. E124 deleted it. Read the progress rows in the caller's
+    session instead (``SummaryGenerationProgress`` and ``progress_as_dict``)."""
     callers = []
     for path in sorted(APP_DIR.rglob("*.py")):
         tree = ast.parse(path.read_text(), filename=str(path))
         for node in ast.walk(tree):
-            if isinstance(node, ast.Name) and node.id == _HELPER:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == _HELPER:
+                callers.append(f"{path.relative_to(APP_DIR.parent)}:{node.lineno} (its definition)")
+            elif isinstance(node, ast.Name) and node.id == _HELPER:
                 callers.append(f"{path.relative_to(APP_DIR.parent)}:{node.lineno}")
             elif isinstance(node, ast.Attribute) and node.attr == _HELPER:
                 callers.append(f"{path.relative_to(APP_DIR.parent)}:{node.lineno}")
             elif isinstance(node, ast.alias) and node.name == _HELPER:
                 callers.append(f"{path.relative_to(APP_DIR.parent)}:import")
     assert callers == [], (
-        f"{_HELPER} opens its own session; these sites use it: {callers}. Read SummaryGenerationProgress "
+        f"{_HELPER} opened its own session; these sites define or use it: {callers}. Read SummaryGenerationProgress "
         "in the caller's session (lessons/ops-one-connection-per-request-unit.md)."
     )

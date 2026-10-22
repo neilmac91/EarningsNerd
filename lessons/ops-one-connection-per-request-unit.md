@@ -21,6 +21,7 @@ insights now read `SummaryGenerationProgress`.
 `backend/app/services/watchlist_service.py` (`load_insight_rows`), 2026-10-18. The gate is
 `backend/tests/unit/test_progress_reads_share_the_request_session.py`:
 - each route answers one request on a one-slot pool and eight on four slots;
-- an AST check fails any reference to `get_generation_progress_snapshot` under `app/`.
+- an AST check fails a definition of `get_generation_progress_snapshot` or any reference to it under `app/`;
+  E124 deleted the helper (2026-10-22).
 
 Any other own-session helper called inside a request unit is a review check.
