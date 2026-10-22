@@ -6803,7 +6803,8 @@ Full local and hosted verification plus independent exact-head review precede re
   backend deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid run on
   GitHub (#1455's). Chief defects 22 (an unfiltered search, the class of chief defects 20 and 21) and 23 (shell
   variables in `gh api` paths); no classifier denial and two hook refusals of the chief's commands in the window,
-  nothing running. Closure 196.
+  nothing running. Closure 196, amended in place before merge to pre-register a fresh reviewer after a container
+  restart ended the first one's context.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
