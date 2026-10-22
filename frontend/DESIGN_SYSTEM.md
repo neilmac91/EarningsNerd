@@ -190,8 +190,9 @@ A Retry of a failed query is
 identity, so a key change (another user, a new search term) never holds the old query's error (gated in
 `tests/unit/useRetainedFailure.spec.tsx`). The error UI stays up through any refetch until data replaces it;
 the Retry is busy while the query has a fetch in flight (paused offline included), reads "Trying again…" only
-while its own press runs, and hands focus to `focusTarget` (a `tabIndex={-1}` heading, or a text field with
-`textField`) when it unmounts while focused. It lives beside its hook in `hooks/useRetainedFailure.tsx`, not in
+while its own press runs, and hands focus to `focusTarget` (a `tabIndex={-1}` heading, the region its success
+renders in, such as TurnstileWidget's security check, or a text field with `textField`) when it unmounts while
+focused. It lives beside its hook in `hooks/useRetainedFailure.tsx`, not in
 `components/ui`: it is query-coupled, the DS primitives stay free of react-query, and `components/` root is app
 chrome only. Every Retry is RetryButton, gated in `busyControlsStayFocusable.spec.ts` by wiring and by label.
 Its label is the product's one retry verb (D-032): "Try again", busy "Trying again…", RetryButton's own, so a
