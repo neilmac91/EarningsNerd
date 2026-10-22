@@ -295,6 +295,11 @@ export default function ContactForm() {
           loading={isSubmitting}
           loadingText="Sending…"
           aria-disabled={isSubmitting || tokenPending || undefined}
+          // Refused while the token comes, so the browser's own validation never starts either: an empty required
+          // field would take focus from a control announced unavailable. Enter in a field submits through this click.
+          onClick={(event) => {
+            if (tokenPending) event.preventDefault()
+          }}
           className={clsx('w-full', tokenPending && !isSubmitting && primaryUnavailableClass)}
         >
           Send message

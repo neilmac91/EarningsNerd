@@ -249,6 +249,11 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
               loading={loading}
               loadingText="Creating account…"
               aria-disabled={loading || tokenPending || undefined}
+              // Refused while the token comes, so the browser's own validation never starts either: an empty required
+              // field would take focus from a control announced unavailable. Enter in a field submits through this click.
+              onClick={(event) => {
+                if (tokenPending) event.preventDefault()
+              }}
               className={cx('w-full py-2.5 font-semibold active:scale-[0.99]', tokenPending && !loading && primaryUnavailableClass)}
             >
               Create account

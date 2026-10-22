@@ -213,6 +213,27 @@ describe.each(FORMS)('%s with Turnstile on', (_, form) => {
       expect(form.tokens()).toEqual(['token-1', 'token-2'])
     })
 
+    it("refuses a press's default while the token comes, so the browser's own validation never starts", async () => {
+      form.open()
+      const button = screen.getByRole('button', { name: form.submit })
+      // A required field left empty, as by a reader who presses before typing it.
+      const field = button.closest('form')!.querySelector<HTMLInputElement>('input[required]')!
+      fireEvent.change(field, { target: { value: '' } })
+      const invalid = vi.fn()
+      field.addEventListener('invalid', invalid)
+      fireEvent.click(button)
+      field.focus()
+      await userEvent.keyboard('{Enter}')
+      expect(invalid).not.toHaveBeenCalled()
+      expect(document.activeElement).toBe(field)
+
+      // With the token, a press is the browser's again: it validates, finds the empty field and sends nothing.
+      issueToken()
+      fireEvent.click(button)
+      expect(invalid).toHaveBeenCalledTimes(1)
+      expect(form.call).not.toHaveBeenCalled()
+    })
+
     it('waits for the first token the same way: focusable, and the first press after it sends token-1', async () => {
       form.open()
       const button = screen.getByRole('button', { name: form.submit })

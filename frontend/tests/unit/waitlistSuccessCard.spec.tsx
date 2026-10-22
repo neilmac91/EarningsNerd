@@ -378,6 +378,25 @@ describe('waitlist join refused', () => {
         expect(api.joinWaitlist.mock.calls.map(([, token]) => token)).toEqual(['token-1', 'token-2'])
       })
 
+      it("refuses a press's default while the token comes, so the browser's own validation never starts", async () => {
+        render(<WaitlistForm source="waitlist" />)
+        // The required email left empty, as by a reader who presses before typing it.
+        const field = screen.getByLabelText('Email address')
+        const invalid = vi.fn()
+        field.addEventListener('invalid', invalid)
+        const button = screen.getByRole('button', { name: 'Join the waitlist' })
+        fireEvent.click(button)
+        field.focus()
+        await userEvent.keyboard('{Enter}')
+        expect(invalid).not.toHaveBeenCalled()
+
+        // With the token, a press is the browser's again: it validates, finds the empty field and sends nothing.
+        issueToken()
+        fireEvent.click(button)
+        expect(invalid).toHaveBeenCalledTimes(1)
+        expect(api.joinWaitlist).not.toHaveBeenCalled()
+      })
+
       it('waits for the first token the same way: focusable, and the first press after it sends token-1', async () => {
         render(<WaitlistForm source="waitlist" />)
         fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'ada@example.test' } })
