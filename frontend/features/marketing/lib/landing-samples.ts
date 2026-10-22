@@ -18,8 +18,9 @@ import demo from '@/features/analysis/demo/demo-analysis.json'
  * Regenerate it through the pipeline, never by hand.
  */
 
+// The primary 10-K document, not its accession directory: every sample receipt opens the filing.
 export const AAPL_FY25_EDGAR_URL =
-  'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
+  'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm'
 
 export const SAMPLE_FILING = {
   ticker: 'AAPL',

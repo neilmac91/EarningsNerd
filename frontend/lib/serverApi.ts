@@ -2,6 +2,7 @@ import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
 import type { Company } from '@/features/companies/api/companies-api'
 import type { Filing } from '@/features/filings/api/filings-api'
+import { originalDocumentUrl } from '@/features/filings/lib/originalDocumentUrl'
 import type { ChangeReport, Summary } from '@/features/summaries/api/summaries-api'
 import { isSummaryReady } from '@/features/summaries/lib/summaryPlaceholder'
 
@@ -69,6 +70,7 @@ interface FilingPayload {
   filing_type: string
   filing_date: string
   sec_url: string
+  document_url?: string | null
   company?: { ticker: string; name: string }
 }
 
@@ -164,6 +166,8 @@ export const fetchExampleData = async (): Promise<ExampleData | null> => {
 
   const excerpt = toExcerpt(summary.business_overview)
   if (!excerpt) return null
+  const secUrl = originalDocumentUrl(filing)
+  if (!secUrl) return null
 
   return {
     filingId: filing.id,
@@ -171,7 +175,7 @@ export const fetchExampleData = async (): Promise<ExampleData | null> => {
     companyName: filing.company.name,
     filingType: filing.filing_type,
     filingDate: filing.filing_date,
-    secUrl: filing.sec_url,
+    secUrl,
     excerpt,
     qualityTier: summary.raw_summary?.quality?.tier ?? null,
     metrics: pickMetrics(summary),

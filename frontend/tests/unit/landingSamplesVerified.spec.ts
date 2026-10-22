@@ -36,6 +36,7 @@ import * as samples from '@/features/marketing/lib/landing-samples'
  *    passages: its markers run [1], [2] with one matched source each, it names the drivers the
  *    filing's Item 7 sentence names, and it shows no XBRL marker, locator, tag or braces glyph;
  *  - no figure row is labelled with a CamelCase or namespaced XBRL concept;
+ *  - every static sample source URL opens that 10-K document, not the accession directory;
  *  - the Multi-Period demo (features/analysis/demo/demo-analysis.json, the teaser's and the landing's) is the
  *    run its comment names, ending at FY2025: its FY2025 and FY2024 revenue, net income, diluted EPS and
  *    operating cash flow are the verified values, tagged and filed as the verified 10-K; its citations are
@@ -87,6 +88,33 @@ const STRINGS = SAMPLES.flatMap(([name, value]) => leaves(value, name)).filter(
 const FALLBACK_SOURCE = HERO.slice(HERO.indexOf('const FALLBACK: ExampleData = {'), HERO.indexOf('\n}\n', HERO.indexOf('const FALLBACK: ExampleData = {')))
 
 describe('landing sample figures come from the verified Apple FY2025 set', () => {
+  it('opens the primary 10-K document from every static sample receipt', () => {
+    // Independent expectation: comparing a link to the shared sample constant let the directory
+    // URL pass every component spec. Select fields by name so empty/malformed values cannot hide.
+    const links: { at: string; value: unknown }[] = []
+    function sourceUrls(value: unknown, at: string) {
+      if (!value || typeof value !== 'object') return
+      for (const [key, item] of Object.entries(value)) {
+        const location = `${at}.${key}`
+        if (/url$/i.test(key)) links.push({ at: location, value: item })
+        else sourceUrls(item, location)
+      }
+    }
+    // SAMPLES leaves out the Multi-Period dataset: its links are the pipeline's, which gives a fact with no source URL
+    // its accession folder (`_attach_sources`, backend/app/services/fact_provenance.py), so E149 widens this gate to it
+    // once the pipeline resolves each accession's primary document.
+    for (const [name, value] of SAMPLES) sourceUrls(value, name)
+    expect(links.length).toBeGreaterThan(0)
+    for (const { at, value } of links) {
+      expect(typeof value, at).toBe('string')
+      const url = new URL(value as string)
+      url.hash = '' // A passage or section deep link may refine the same filing destination.
+      expect(url.href, at).toBe(
+        'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm',
+      )
+    }
+  })
+
   it('the verified set is the one docs/brand/00-audit.md §4 records', () => {
     const section = AUDIT.slice(AUDIT.indexOf('## 4. Facts the later phases must carry'))
     for (const [concept, pair] of Object.entries(VERIFIED)) {
