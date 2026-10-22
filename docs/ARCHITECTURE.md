@@ -133,7 +133,7 @@ backend/
 │   ├── integrations/     # external market-data APIs
 │   ├── utils/            # datetimes.py (aware utcnow, iso_z, ensure_utc, utc_from_iso), numbers.py (coerce_float)
 │   ├── config.py         # Pydantic Settings — ALL env access goes through it
-│   └── database.py       # session management + ensure_additive_columns
+│   └── database.py       # session management (each PostgreSQL session at UTC) + ensure_additive_columns
 ├── evals/                # AI eval harness + regression gate (see evals/RUNBOOK.md)
 ├── prompts/              # 9 prompt files: 10k/10q/20f/6k analyst+structured, trends-analyst
 ├── migrations/           # idempotent SQL, applied once via the migration_ledger table (ADR-0007; no Alembic)
@@ -420,7 +420,10 @@ unused since generation became account-required in #619; kept because migrations
 
 - **Datetime:** tz-aware UTC via `app/utils/datetimes.utcnow()` (+ `iso_z()` for the
   legacy `…Z` wire format); `utc_from_iso()` parses an ISO date or date-time from outside,
-  such as an SEC listing's, as aware UTC. A deliberate 6-site **naive** allowlist exists for the
+  such as an SEC listing's, as aware UTC. Every PostgreSQL session runs at UTC (`database.py`'s
+  `connect` listener, E151), so a `timestamptz` reads back at +00:00 and a naive value binds as UTC
+  whatever the server's or the role's default zone; gated on PostgreSQL by
+  `tests/integration/test_session_time_zone.py`. A deliberate 6-site **naive** allowlist exists for the
   OAuthState/RefreshToken token-expiry columns — enforced by
   `tests/unit/test_naive_utcnow_allowlist.py`.
 - **Resilience numbers:** circuit breaker CLOSED → OPEN at 5 consecutive network failures,

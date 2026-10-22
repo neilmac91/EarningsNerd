@@ -500,12 +500,17 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
 
 
 # Each PostgreSQL step of the migrations-postgres job: its label, its test home, and the variable it sets.
+# Each PostgreSQL gate's step, "Verify <subject> on PostgreSQL", its test home and the variable the step sets.
 _POSTGRES_STEPS = [
-    ("Stripe transaction", "test_subscription_event_transactions.py", "STRIPE_CONCURRENCY_TEST_DATABASE_URL"),
-    ("usage counter", "test_usage_counter_transactions.py", "USAGE_CONCURRENCY_TEST_DATABASE_URL"),
-    ("login failure", "test_login_lockout_transactions.py", "LOGIN_CONCURRENCY_TEST_DATABASE_URL"),
-    ("alert delivery claim", "test_notification_delivery_transactions.py", "DELIVERY_CONCURRENCY_TEST_DATABASE_URL"),
-    ("refresh token rotation", "test_refresh_rotation_transactions.py", "REFRESH_CONCURRENCY_TEST_DATABASE_URL"),
+    ("Stripe transaction concurrency", "test_subscription_event_transactions.py",
+     "STRIPE_CONCURRENCY_TEST_DATABASE_URL"),
+    ("usage counter concurrency", "test_usage_counter_transactions.py", "USAGE_CONCURRENCY_TEST_DATABASE_URL"),
+    ("login failure concurrency", "test_login_lockout_transactions.py", "LOGIN_CONCURRENCY_TEST_DATABASE_URL"),
+    ("alert delivery claim concurrency", "test_notification_delivery_transactions.py",
+     "DELIVERY_CONCURRENCY_TEST_DATABASE_URL"),
+    ("refresh token rotation concurrency", "test_refresh_rotation_transactions.py",
+     "REFRESH_CONCURRENCY_TEST_DATABASE_URL"),
+    ("the session time zone", "test_session_time_zone.py", "SESSION_TIME_ZONE_TEST_DATABASE_URL"),
 ]
 _GATE_VARIABLE = re.compile(r"[A-Z0-9_]+_TEST_DATABASE_URL")
 
@@ -674,10 +679,10 @@ def test_every_postgres_step_fails_when_its_cases_skip(request):
     from tests.support import postgres_gates
 
     ci = _load_ci()
-    expected = sorted(f"Verify {label} concurrency on PostgreSQL" for label, _, _ in _POSTGRES_STEPS)
+    expected = sorted(f"Verify {label} on PostgreSQL" for label, _, _ in _POSTGRES_STEPS)
     named = sorted(
         str(step.get("name", "")) for step in ci["jobs"][MIGRATIONS_JOB]["steps"]
-        if re.fullmatch(r"Verify .+ concurrency on PostgreSQL", str(step.get("name", "")))
+        if re.fullmatch(r"Verify .+ on PostgreSQL", str(step.get("name", "")))
     )
     assert named == expected
     # Whatever its name: each env, the workflow's, a job's or a step's, that hands a home a gate's database.
@@ -696,8 +701,9 @@ def test_every_postgres_step_fails_when_its_cases_skip(request):
 
 
 @pytest.mark.parametrize("label,test_home,url_name", _POSTGRES_STEPS)
-def test_concurrency_has_a_required_postgres_ci_execution_path(label, test_home, url_name):
-    """The ordinary SQLite lane cannot establish PostgreSQL row-lock behavior."""
+def test_each_postgres_gate_has_a_required_ci_execution_path(label, test_home, url_name):
+    """The ordinary SQLite lane cannot establish PostgreSQL behavior: its row locks, or a session's settings (E151's time
+    zone)."""
     # The test home must read the variable its step sets: renamed on one side only, its cases skip and
     # the required step passes with nothing run.
     home = ast.parse((BACKEND_DIR / "tests" / "integration" / test_home).read_text(encoding="utf-8"))
@@ -729,12 +735,12 @@ def test_concurrency_has_a_required_postgres_ci_execution_path(label, test_home,
     )
     ci = _load_ci()
     job = ci["jobs"][MIGRATIONS_JOB]
-    step = _step(job, f"Verify {label} concurrency on PostgreSQL")
+    step = _step(job, f"Verify {label} on PostgreSQL")
     assert step.get("working-directory") == "backend"
     assert step.get("run") == f"python -m pytest tests/integration/{test_home}"
     assert step.get("env", {}).get(url_name) == (
         "postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd"
-    ), "PostgreSQL concurrency cases must receive the disposable service URL, or they silently skip"
+    ), "PostgreSQL gate cases must receive the disposable service URL, or they silently skip"
     assert step.get("continue-on-error", False) is False
     assert job.get("continue-on-error", False) is False
     assert "if" not in step, "Concurrency checks must run on every successful migration gate"

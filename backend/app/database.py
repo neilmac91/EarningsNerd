@@ -1,7 +1,7 @@
 import logging
 import os
 
-from sqlalchemy import create_engine, inspect as sa_inspect, text
+from sqlalchemy import create_engine, event, inspect as sa_inspect, text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -47,6 +47,26 @@ def _database_url() -> URL:
 
 _DATABASE_URL = _database_url()
 
+
+def _set_session_time_zone_utc(dbapi_connection, _connection_record) -> None:
+    """Run each new PostgreSQL session at UTC (E151).
+
+    PostgreSQL binds a naive datetime, and renders each ``timestamptz`` it returns, in the session's ``TimeZone``,
+    which a session takes from the server's or the role's default. So the app's dates hold only while every session
+    runs at UTC: under America/Los_Angeles a filing stored at its true instant, the 15th at midnight UTC, reads back as
+    the 14th at 16:00 -08:00 and its page shows the 14th. The SET runs outside a transaction, with autocommit on, so it
+    holds for the connection's life: inside the transaction psycopg2 opens, the rollback the pool makes when the
+    connection comes back would undo it. A statement, not ``options=-c TimeZone=UTC`` at connect: it holds on any path
+    the connection takes to the server, where a startup option needs the path to pass it on."""
+    autocommit = dbapi_connection.autocommit
+    dbapi_connection.autocommit = True
+    try:
+        with dbapi_connection.cursor() as cursor:
+            cursor.execute("SET TIME ZONE 'UTC'")
+    finally:
+        dbapi_connection.autocommit = autocommit
+
+
 # SQLite requires check_same_thread=False for async operations
 if settings.DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
@@ -64,6 +84,7 @@ else:
         pool_timeout=DB_POOL_TIMEOUT,
         connect_args={"connect_timeout": DB_CONNECT_TIMEOUT},
     )
+    event.listen(engine, "connect", _set_session_time_zone_utc)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

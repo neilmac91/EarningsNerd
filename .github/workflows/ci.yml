@@ -285,6 +285,12 @@ jobs:
         env:
           REFRESH_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
         run: python -m pytest tests/integration/test_refresh_rotation_transactions.py
+      - name: Verify the session time zone on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          SESSION_TIME_ZONE_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_session_time_zone.py
 
   frontend-tests:
     runs-on: ubuntu-latest
