@@ -1,7 +1,7 @@
 import type { QueryClient, QueryState } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getCurrentUserSafe, type CurrentUser } from '@/features/auth/api/auth-api'
-import { cancelRefresh } from '@/lib/api/client'
+import { ApiError, cancelRefresh } from '@/lib/api/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { advanceSessionGeneration, getSessionGeneration, isSessionGenerationCurrent, subscribeSessionLoss, getExplicitSessionGeneration, isExplicitSessionGenerationCurrent, assertExplicitSessionGeneration, hasActiveSession, markSessionActive, clearSessionActive } from '@/lib/api/session'
 
@@ -107,24 +107,58 @@ function restoreIdentity(queryClient: QueryClient, shown: QueryState<CurrentUser
   if (shown?.data) queryClient.setQueryData(queryKeys.currentUser(), shown.data, { updatedAt: shown.dataUpdatedAt })
 }
 
+/** A logout running in this tab, and the explicit generation it answers for: the one it found, then its own reset's
+ * once its request has failed and /me is read. */
+interface LogoutUnderWay {
+  generation: number
+  settled: Promise<void>
+}
+
+/** One logout at a time, for the controls that log out through this helper (the account menu, the mobile menu and the
+ * dashboard; the settings page's "Log out of all devices" runs outside it, E157). A second would undo the first: its
+ * request clears the session flag (auth-api's logout) while the first reads /me, so a lapsed access cookie reads as a
+ * guest and the first leaves as logged out with the refresh cookie alive; and its answer, landing after the first's
+ * reset moved the generation past the one it started with, is dropped, so a logout it completed leaves the tab showing
+ * the account. A login accepted meanwhile moves the generation past this one, and that account's logout starts its
+ * own. */
+let logoutUnderWay: LogoutUnderWay | null = null
+
 /** A late logout completion must not reset or navigate away from a newer accepted login.
  * The callback is synchronous and shares a turn with the ownership check before it: the reset's turn when the
  * request succeeded, and when it failed, the turn the read of /me ended in, by its answer or by its limit.
  * The account snapshots reset once the request settles, failed or not. A failed request (a network error, a 5xx,
  * the API's 504) may still have logged this browser out, so the reader keeps their identity on screen while /me is
- * read (readSession), and the callback hears success when it answers no user: the logout resolves. Otherwise the
- * logout did not take: the reader is told so, the callback hears failure, the tab stays where it is, and the logout
- * rejects with the request's error. The session flag goes back to what the logout found for the read, since the
- * request clears it (auth-api's logout) and a lapsed access cookie then reads as a guest: /me 401s, and only the
- * flag lets that 401 renew the session from the refresh cookie. A login accepted meanwhile owns the tab, and nothing
- * follows for this logout but its error.
+ * read (readSession), and the callback hears success when it answers no user: the logout resolves. After the API's
+ * own 503 (it cleared this browser's cookies but could not end the session on the server) the reader is warned in
+ * the API's words. Otherwise the logout did not take: the reader is told so, the callback hears failure, the tab
+ * stays where it is, and the logout rejects with the request's error. The session flag goes back to what the logout
+ * found for the read, since the request clears it (auth-api's logout) and a lapsed access cookie then reads as a
+ * guest: /me 401s, and only the flag lets that 401 renew the session from the refresh cookie. A login accepted
+ * meanwhile owns the tab, and nothing follows for this logout but its error. A call while a logout of the same
+ * session runs (a second press) joins it (logoutUnderWay): it settles as that logout does, and neither its request
+ * nor its callback runs.
  */
-export async function logoutAndResetAccount(
+export function logoutAndResetAccount(
   queryClient: QueryClient,
   logout: () => Promise<unknown>,
   onCurrentSettled?: (succeeded: boolean) => void,
 ): Promise<void> {
-  const generation = getExplicitSessionGeneration()
+  if (logoutUnderWay && isExplicitSessionGenerationCurrent(logoutUnderWay.generation)) return logoutUnderWay.settled
+  const run = { generation: getExplicitSessionGeneration() } as LogoutUnderWay
+  run.settled = settleLogout(queryClient, logout, run, onCurrentSettled).finally(() => {
+    if (logoutUnderWay === run) logoutUnderWay = null
+  })
+  logoutUnderWay = run
+  return run.settled
+}
+
+async function settleLogout(
+  queryClient: QueryClient,
+  logout: () => Promise<unknown>,
+  run: LogoutUnderWay,
+  onCurrentSettled?: (succeeded: boolean) => void,
+): Promise<void> {
+  const generation = run.generation
   const sessionWasActive = hasActiveSession()
   let failure: { error: unknown } | null = null
   try {
@@ -142,6 +176,8 @@ export async function logoutAndResetAccount(
     // The reset's own generation: an explicit transition (a login accepted) moves both checks below, a lost session
     // only the second.
     const reset = getSessionGeneration()
+    // A press while /me is read joins this logout.
+    run.generation = reset
     restoreIdentity(queryClient, shown)
     // The flag as the logout found it, so a 401 from the read renews a lapsed access cookie.
     if (sessionWasActive) markSessionActive()
@@ -152,6 +188,9 @@ export async function logoutAndResetAccount(
     // goes back as the reset found it.
     if (read === 'guest') {
       clearSessionActive()
+      // The session may live on in the database until it expires, so the reader hears it (the logout route's 503).
+      const { error } = failure
+      if (error instanceof ApiError && error.status === 503 && error.backendDetail) toast.warning(error.backendDetail)
     } else {
       if (read === 'unknown' && isSessionGenerationCurrent(reset)) restoreIdentity(queryClient, shown)
       toast.error(LOGOUT_FAILED_MESSAGE)

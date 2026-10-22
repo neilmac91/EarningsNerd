@@ -38,6 +38,12 @@
    v3.8: raw destructive-confirm fields use `tone: 'danger'` for an error-toned
    focus only. Their resting border stays neutral; `invalid` still means an
    invalid value and takes precedence over this focus treatment.
+   v3.9: every field is at least 44px tall, the touch height: FIELD_BASE's `min-h-11` (2.75rem, so
+   it holds at 200% text) lifts the box that 10px padding, a 20px line and 1px borders make. A
+   floor, never `h-11`: the Textarea, the raw textareas and the composer shell share FIELD_BASE and
+   PAD and stand taller. `compact` drops the floor from sm (`sm:min-h-0`), where its `sm:h-9` sets
+   the 36px toolbar field (gate: tests/unit/inputClassesNoOverrides.spec.tsx, "the field's height
+   is the documented one", against DESIGN.md's input and input-compact heights).
    Assumes @tailwindcss/forms (already in the config plugins).
 ============================================================================= */
 
@@ -61,6 +67,8 @@ const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : use
 /** The field's look without a width or a tone: inputClasses() picks them through its options. */
 const FIELD_BASE = cx(
   'rounded-lg border text-sm transition-[border-color,box-shadow] duration-fast',
+  // v3.9: the 44px touch height, as a floor (multi-line fields clear it) in rem (it holds at 200% text).
+  'min-h-11',
   'bg-white text-text-primary-light placeholder:text-text-tertiary-light',
   // v3.6: the forms plugin's `:focus` rule sets --tw-ring-shadow (a 1px #2563EB ring; 2px past a 2px white offset on
   // a checkbox or radio), and the shadow-ring-* tokens composite it without resetting it, listed first, so it painted
@@ -126,24 +134,24 @@ const PAD = 'px-3.5 py-2.5'
     class order, wins) — the two search fields hand-rolled that gamble (v2.2). */
 const PAD_ICON = 'py-2.5 pl-11 pr-3.5'
 
-/** v3.1 — field density. `comfortable` (default) is the form field (42px: 10px padding, a 20px line,
-    1px borders). `compact` is the TOOLBAR field (the filings index's year filter, beside a
-    SegmentedControl) and the field inside a table row (the admin feedback status): 36px from sm
-    up, while phones keep the standard 42px. Named `density`
-    (DataTable's vocabulary), not `size` — `size` is a native <input>/<select> attribute. EXPLICIT
-    sides per density, never an override on top of PAD: cx does no tailwind-merge, so two padding
-    utilities resolve by stylesheet order, not class order. */
+/** v3.1 — field density. `comfortable` (default) is the form field (44px: FIELD_BASE's min-h-11 over
+    10px padding, a 20px line and 1px borders). `compact` is the TOOLBAR field (the filings index's year
+    filter, beside a SegmentedControl) and the field inside a table row (the admin feedback status): 36px
+    from sm up (`sm:h-9`, with `sm:min-h-0` dropping the floor), while phones keep the 44px touch
+    height. Named `density` (DataTable's vocabulary), not `size` — `size` is a native <input>/<select>
+    attribute. EXPLICIT sides per density, never an override on top of PAD: cx does no tailwind-merge,
+    so two padding utilities resolve by stylesheet order, not class order. */
 export type FieldDensity = 'comfortable' | 'compact'
-const PAD_COMPACT = 'px-3.5 py-2.5 sm:h-9 sm:px-3 sm:py-1.5'
-const PAD_ICON_COMPACT = 'py-2.5 pl-11 pr-3.5 sm:h-9 sm:py-1.5 sm:pl-10 sm:pr-3'
-const SELECT_PAD = { comfortable: 'py-2.5 pl-3.5 pr-9', compact: 'py-2.5 pl-3.5 pr-9 sm:h-9 sm:py-1.5 sm:pl-3' } as const
+const PAD_COMPACT = 'px-3.5 py-2.5 sm:h-9 sm:min-h-0 sm:px-3 sm:py-1.5'
+const PAD_ICON_COMPACT = 'py-2.5 pl-11 pr-3.5 sm:h-9 sm:min-h-0 sm:py-1.5 sm:pl-10 sm:pr-3'
+const SELECT_PAD = { comfortable: 'py-2.5 pl-3.5 pr-9', compact: 'py-2.5 pl-3.5 pr-9 sm:h-9 sm:min-h-0 sm:py-1.5 sm:pl-3' } as const
 /** v3.3 — trailing inset: pr-10 (40px) in both densities, as SELECT_PAD keeps pr-9, because the control does
     not move with density. EXPLICIT sides, never pr-10 on top of PAD: that pair resolves by stylesheet order
     (the padding plugin emits sides after axes), the conflict the leading inset already avoids. */
 const PAD_TRAILING = 'py-2.5 pl-3.5 pr-10'
 const PAD_ICON_TRAILING = 'py-2.5 pl-11 pr-10'
-const PAD_TRAILING_COMPACT = 'py-2.5 pl-3.5 pr-10 sm:h-9 sm:py-1.5 sm:pl-3'
-const PAD_ICON_TRAILING_COMPACT = 'py-2.5 pl-11 pr-10 sm:h-9 sm:py-1.5 sm:pl-10'
+const PAD_TRAILING_COMPACT = 'py-2.5 pl-3.5 pr-10 sm:h-9 sm:min-h-0 sm:py-1.5 sm:pl-3'
+const PAD_ICON_TRAILING_COMPACT = 'py-2.5 pl-11 pr-10 sm:h-9 sm:min-h-0 sm:py-1.5 sm:pl-10'
 /** A field's padding by density and inset: one explicit literal each. */
 const FIELD_PAD = {
   comfortable: { plain: PAD, leading: PAD_ICON, trailing: PAD_TRAILING, both: PAD_ICON_TRAILING },
@@ -155,7 +163,7 @@ interface InputClassesBase {
   invalid?: boolean
   /** Destructive confirmation: neutral at rest, error border/ring on focus only. `invalid` takes precedence. */
   tone?: FieldTone
-  /** v3.1: `compact` = the 36px toolbar field from sm up (phones keep the standard 42px). */
+  /** v3.1: `compact` = the 36px toolbar field from sm up (phones keep the 44px touch height). */
   density?: FieldDensity
   /** v3.2: the field sizes to its content instead of filling its container: a select beside its
       label in a flex row, a toolbar filter, a table cell. Capped at its container (`max-w-full`)
@@ -416,7 +424,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
 /* --------------------------------------------------------------- Select -- */
 
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement>, FieldExtras {
-  /** v3.1: `compact` = the 36px toolbar select from sm up (phones keep the standard 42px). */
+  /** v3.1: `compact` = the 36px toolbar select from sm up (phones keep the 44px touch height). */
   density?: FieldDensity
 }
 
