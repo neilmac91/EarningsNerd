@@ -40,8 +40,10 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    (payment records are kept); post-incident reviews or post-mortems and vetting the providers (no process in the
  *    repository does either); and an analytics-consent promise not scoped to the browser in its own sentence
  *    (CONSENT_PROMISE; the API sends account events whatever the reader chose: D-051). That promise names the analytics
- *    by a name the F33 check reads them by (analytics, tracking, statistics, PostHog, usage, telemetry), or as the
- *    account's, the server's or the API's events ("your data" and "event invitations" are not the analytics), and makes
+ *    by a name the F33 check reads them by (analytics, tracking, statistics, PostHog, telemetry, and usage as the
+ *    analytics: usage data, statistics or events, product or anonymous usage, usage tracked or collected), or as the
+ *    account's, the server's or the API's events ("your data", "event invitations" and "usage of this website" are not
+ *    the analytics), and makes
  *    them wait for a yes: "only" up to 60 characters before "after (once, when, if or until) you allow" (accept, agree,
  *    consent, opt in, give consent, say yes, turn or switch on, enable), before "with (after, upon, on or by) your
  *    consent" with up to three words before the consent (permission, agreement, approval, opt-in, each read by its
@@ -288,10 +290,18 @@ const NEGATION_REACH = String.raw`(?!(?:only|just|merely|simply)\b)(?:(?:yet|the
     says, and so does a clause whose subject is denied (DENIED_SUBJECT). The end forms, main's timed and untimed
     readings among them, and the consent forms whose verb says the promise read it. */
 const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+${NEGATION_REACH}|n['’]t\s+${NEGATION_REACH}|(?:\b(?:not|never|cannot)|n['’]t)\s*,[^,.;:!?]{1,40},\s*|${DENIED_SUBJECT})`
-/** The analytics by any name ANONYMOUS_ANALYTICS reads them by, and events only as the account, the server or the API
-    names them ("account events", "the events the API records"; "usage data" and "usage events" are usage), so "your
-    data" and "event invitations" are not the analytics. */
-const ANALYTICS_NAMES = String.raw`(?:\b(?:analytics|tracking|statistics|PostHog|usage|telemetry)\b|\b(?:account|server|API)\s+events?\b|\bevents?\s+(?:that\s+)?the\s+(?:API|service|server|backend)\s+(?:records?|sends?|captures?|logs?)\b)`
+/** Usage as the analytics (#1456's eighth round): qualified ("usage data", "usage statistics", "product usage",
+    "anonymous usage") or as what is tracked, collected or sent ("we track usage", "usage is collected"), not the word's
+    ordinary sense ("usage of this website", "fair usage"). */
+const USAGE =
+  String.raw`\busage\s+(?:data|statistics|stats|events?|analytics|metrics|tracking|information|patterns|logs?)\b` +
+  String.raw`|\b(?:product|site|app|feature|anonymous|anonymi[sz]ed|aggregated?)\s+usage\b` +
+  String.raw`|\b(?:track|collect|measur|record|monitor|logg?)(?:s|ed|e|es|ing)?\s+(?:(?:your|our|the|its|their)\s+)?usage\b` +
+  String.raw`|\busage\s+(?:is|are|gets|was|were)\s+(?:(?:only|also|not|never)\s+)?(?:tracked|collected|measured|recorded|monitored|logged|sent|shared|stored|processed)\b`
+/** The analytics by any name ANONYMOUS_ANALYTICS reads them by, usage only as the analytics (USAGE), and events only
+    as the account, the server or the API names them ("account events", "the events the API records"; "usage data" and
+    "usage events" are usage), so "your data" and "event invitations" are not the analytics. */
+const ANALYTICS_NAMES = String.raw`(?:\b(?:analytics|tracking|statistics|PostHog|telemetry)\b|${USAGE}|\b(?:account|server|API)\s+events?\b|\bevents?\s+(?:that\s+)?the\s+(?:API|service|server|backend)\s+(?:records?|sends?|captures?|logs?)\b)`
 /** The browser's part of the analytics, which does wait for the reader's yes: its analytics cookies and session
     recording (the consent dialog: "Analytics cookies and session recording stay off until you allow them"). */
 const BROWSER_PART = String.raw`\b(?:analytics|tracking) cookies\b|\bsession (?:recording|replay)s?\b`
@@ -1185,6 +1195,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Server events wait until you allow them.</p>', true],
       ['<p>No analytics run until you allow them.</p>', true],
       ['<p>Server events do not just require your consent; they require your explicit opt-in.</p>', true],
+      // Usage as the analytics, beside the word's ordinary sense, which names no analytics (#1456's eighth round,
+      // Codex's thread 4342548437).
+      ['<p>Usage data requires your agreement.</p>', true],
+      ['<p>Usage of this website requires your agreement to these Terms.</p>', false],
       // Every endpoint with other words before "endpoints" (#1397's last review), each and any with a login said, and
       // the claim the other way round.
       ["<p>All of the API's endpoints require authentication.</p>", true],
