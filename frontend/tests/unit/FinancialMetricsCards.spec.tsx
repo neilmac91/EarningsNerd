@@ -79,10 +79,27 @@ const NO_EVIDENCE: FinancialMetric[] = [
   { metric: 'Net income', current_period: '$112,010M', prior_period: '$93,736M', change_display: '+19.5%', change_direction: 'up', change_tone: 'gain', commentary: 'Lower tax rate.' },
 ]
 const NO_CHANGE: FinancialMetric[] = [{ metric: 'Revenue', current_period: '$100', prior_period: '$80' }]
-/** A row without a prior value among rows that have one: the table shows an empty Prior cell. */
+/** A row without a prior value among rows that have one: its Prior cell is MissingValue, read as unavailable. */
 const MIXED_PRIOR: FinancialMetric[] = [
   { metric: 'Revenue', current_period: '$100', prior_period: '$80', change_display: '+25.0%', change_direction: 'up', change_tone: 'gain' },
   { metric: 'New metric', current_period: '$5', prior_period: '' },
+]
+/** A degraded summary's rows as backend/app/services/fallback_summary.py writes them and _metrics_block serves them
+ *  (generate_xbrl_summary run offline): the missing-value token for a figure the fallback lacks, and in the `change`
+ *  the table never reads. With XBRL, the net income has no prior; without, no row has a figure. */
+const FALLBACK_XBRL: Array<FinancialMetric & { change: string }> = [
+  { metric: 'Revenue', current_period: '$1.2B', prior_period: '$1.1B', change: '—', commentary: 'From XBRL data', change_display: '+9.1%', change_direction: 'up', change_tone: 'gain' },
+  { metric: 'Net Income', current_period: '$210.0M', prior_period: '—', change: '—', commentary: 'From XBRL data' },
+]
+const FALLBACK_NO_XBRL: Array<FinancialMetric & { change: string }> = [
+  { metric: 'Revenue', current_period: '—', prior_period: '—', change: '—', commentary: 'Regenerate for financial data' },
+  { metric: 'Net Income', current_period: '—', prior_period: '—', change: '—', commentary: 'Regenerate for financial data' },
+]
+/** Figures that are not missing and render as they did before MissingValue reached these cells: a genuine zero, and
+ *  words a summary reports in a figure's place ("Not disclosed", the degraded summary's own for a figure XBRL lacks). */
+const ZERO_AND_TEXT: FinancialMetric[] = [
+  { metric: 'Deferred revenue', current_period: '$0', prior_period: '$12M', change_display: '-100.0%', change_direction: 'down', change_tone: 'loss' },
+  { metric: 'Revenue', current_period: 'Not disclosed', prior_period: '0%' },
 ]
 // Long values that SURVIVE formatMetricValue: a leading non-numeric token makes parseNumeric null,
 // so the string renders verbatim (a numeric '$1,234,567,890,123 (restated)' would compact to $1.2T
@@ -112,6 +129,12 @@ const all = (root: Element, sel: string) => Array.from(root.querySelectorAll<HTM
 const text = (e: Element | null | undefined) => (e?.textContent ?? '').replace(/\s+/g, ' ').trim()
 const cardList = (c: HTMLElement) => all(layout(c, 'cards'), '[data-metric-card]')
 const bodyRows = (c: HTMLElement) => all(layout(c, 'table'), 'tbody tr')
+/** What assistive tech reads of an element: its text with every aria-hidden part (MissingValue's token) left out. */
+const spoken = (e: Element) => {
+  const copy = e.cloneNode(true) as Element
+  copy.querySelectorAll('[aria-hidden="true"]').forEach((hidden) => hidden.remove())
+  return text(copy)
+}
 
 /** Everything the acceptance row says must be equal across layouts, read the same way in both. */
 function factsOf(root: HTMLElement) {
@@ -160,7 +183,10 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     ['no commentary (the "-" placeholder, no chip)', NO_COMMENTARY, true],
     ['no evidence (a takeaway without a chip, nothing invented)', NO_EVIDENCE, true],
     ['no server change (MissingValue, read as unavailable; no percentage)', NO_CHANGE, true],
-    ['a row without a prior among rows with one (the empty Prior cell, mirrored)', MIXED_PRIOR, true],
+    ['a row without a prior among rows with one (MissingValue in the Prior cell, mirrored)', MIXED_PRIOR, true],
+    ['a degraded summary with XBRL (a prior served as the token: MissingValue)', FALLBACK_XBRL, true],
+    ['a degraded summary without XBRL (every figure the token: MissingValue, no comparatives)', FALLBACK_NO_XBRL, false],
+    ['a genuine zero and reported words (as served, never MissingValue)', ZERO_AND_TEXT, true],
     ['long values (verbatim in both layouts)', LONG, true],
   ] as const)('%s: cards === table === served', (_name, rows, hasComparatives) => {
     const { container } = render(<FinancialMetricsTable metrics={[...rows]} bare />)
@@ -170,6 +196,8 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     expect(cards).toEqual(table)
     expect(table).toMatchObject(servedFacts([...rows], hasComparatives))
     expect(cards.currents).toHaveLength(rows.length)
+    // No field lets assistive tech read the token, in either layout: a missing figure is MissingValue's words.
+    for (const field of all(container, '[data-metric-field]')) expect(spoken(field), field.dataset.metricField).not.toContain('—')
     if (!hasComparatives) {
       expect(cards.priors).toEqual([])
       expect(cards.changes).toEqual([])
@@ -190,10 +218,20 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
       expect(within(container).queryByText(/Verified in filing/)).toBeNull()
     }
     if (rows === MIXED_PRIOR) {
-      // strict mirroring: the Prior group is rendered for every row, empty where the table's cell is
-      expect(cards.priors).toEqual(['$80.0', ''])
+      // strict mirroring: the Prior group is rendered for every row, MissingValue where the row has no prior
+      expect(cards.priors).toEqual(['$80.0', '—unavailable'])
       expect(cards.changes[1]).toEqual({ text: '—unavailable', direction: null, tone: null })
       for (const card of cardList(container)) expect(within(card).getAllByRole('term').map(text)).toEqual(['Current period', 'Prior period', 'Change'])
+    }
+    if (rows === FALLBACK_XBRL) {
+      expect(cards.currents).toEqual(['$1.2B', '$210.0M'])
+      expect(cards.priors).toEqual(['$1.1B', '—unavailable'])
+      expect(cards.changes[1]).toEqual({ text: '—unavailable', direction: null, tone: null })
+    }
+    if (rows === FALLBACK_NO_XBRL) expect(cards.currents).toEqual(['—unavailable', '—unavailable'])
+    if (rows === ZERO_AND_TEXT) {
+      expect(cards.currents).toEqual(['$0.00', 'Not disclosed'])
+      expect(cards.priors).toEqual(['$12.0M', '0.0%'])
     }
   })
 

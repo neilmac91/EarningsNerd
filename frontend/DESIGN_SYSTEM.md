@@ -1070,9 +1070,10 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  keep them. A card: name + XBRL chip; a `<dl>` of Current / Prior / Change (visible short labels
                  in the table's header eyebrow with an sr-only "period", so the three groups sit on one line at
                  390px and AT hears the column names; the Prior and Change groups whenever the table has those
-                 columns, mirroring its cells exactly — an empty Prior cell is an empty definition; the change
-                 glyph inline-block and aria-hidden, the string verbatim, the em dash when the server sent none;
-                 tone from `change_tone` through lib/financialTone.directionText + font-semibold for a move,
+                 columns, mirroring its cells exactly: a figure served empty or as the token alone is
+                 MissingValue in the cell and in the definition alike; the change glyph inline-block and
+                 aria-hidden, the string verbatim, MissingValue when the server sent none; tone from
+                 `change_tone` through lib/financialTone.directionText + font-semibold for a move,
                  pinned token-for-token to DataTable's td); the per-ADS note as its own line under the figures;
                  the takeaway and its evidence chip. Figures `font-data text-sm tabular-nums`, prose text-sm,
                  chips as they are — never smaller than the md table. Wrap contract: `[overflow-wrap:anywhere]`
