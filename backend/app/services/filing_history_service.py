@@ -1,8 +1,9 @@
 """Deep filing-history backfill via EFTS (P1-6).
 
 The company-filings endpoint serves only the newest filings (a recent-window submissions
-download). This backfills DEEP history — 10-K/10-Q since 2001 — into the ``filings`` table so the
-company page can show a full history and the fiscal-year filter has data to work with.
+download). This backfills DEEP history — 10-K/10-Q since 2001, and with ``ENABLE_FPI_FILINGS`` on a
+foreign private issuer's 20-F/40-F annual reports — into the ``filings`` table so the company page
+can show a full history and the fiscal-year filter has data to work with.
 
 Uses the EFTS full-text-search integration (``app.integrations.sec_api`` — Path B: rate-limited via
 ``sec_rate_limiter``, no circuit breaker) with query-less form+cik+date-window listings: one
@@ -11,7 +12,8 @@ sized so a company's per-window hit count stays under the ~100-hit page cap. Row
 through ``filing_scan_service.upsert_filings`` (NOT-NULL-safe, accession-deduped). Each company is
 stamped ``companies.history_backfilled_at`` so the on-visit enqueue never re-walks it.
 
-Annual and quarterly amendments are included; same-period originals remain available and are marked superseded.
+Annual and quarterly amendments are included; same-period originals remain available, and 10-K/10-Q
+originals are marked superseded (``mark_superseded_filings`` covers those two forms only).
 """
 from __future__ import annotations
 
@@ -32,10 +34,21 @@ logger = logging.getLogger(__name__)
 
 # Match the company display: retain both originals and same-period amendments.
 _BACKFILL_FORMS = ("10-K", "10-K/A", "10-Q", "10-Q/A")
-_ALLOWED_FILING_TYPES = frozenset(_BACKFILL_FORMS)
+# A foreign private issuer's annual reports, walked while ENABLE_FPI_FILINGS lists 20-F and 40-F on
+# the company page. Their amendments are stored too, as the walk runs once per company, though the
+# default list serves only the originals. They join the same per-window query, so they cost no EFTS
+# request, and a filer adds hits only for forms it files: about one a year, under the four reports a
+# year the windows are sized for. 6-K stays out: a high-volume interim form (a heavy filer furnishes
+# one most business days) would fill a window's ~100-hit page and push the annual reports off it.
+_FPI_BACKFILL_FORMS = ("20-F", "20-F/A", "40-F", "40-F/A")
 # Transient-5xx retries scoped to THIS path — the shared limiter's execute_with_backoff only
 # retries rate-limit errors, not the sporadic 5xx EFTS emits, so we add a small bounded ladder.
 _BACKFILL_RETRY_ATTEMPTS = 3
+
+
+def _backfill_forms() -> tuple[str, ...]:
+    """The forms the walk lists and keeps: the foreign annual reports only behind ENABLE_FPI_FILINGS."""
+    return _BACKFILL_FORMS + (_FPI_BACKFILL_FORMS if settings.ENABLE_FPI_FILINGS else ())
 
 
 def _windows(since_year: int, end: datetime, window_years: int) -> list[tuple[str, str]]:
@@ -65,7 +78,7 @@ def _hit_to_filing_dict(hit: Any) -> Optional[dict]:
     if not accession or not sec_url or not document_url or not raw_form or not filed_date:
         return None
     ftype = FilingType.from_string(raw_form, strict=False)
-    if ftype is FilingType.UNKNOWN or ftype.value not in _ALLOWED_FILING_TYPES:
+    if ftype is FilingType.UNKNOWN or ftype.value not in _backfill_forms():
         return None
     return {
         "accession_number": accession,
@@ -103,7 +116,7 @@ async def _fetch_history_rows(
         from app.integrations.sec_api import sec_full_text_search_client
         efts_client = sec_full_text_search_client
 
-    forms = ",".join(_BACKFILL_FORMS)
+    forms = ",".join(_backfill_forms())
     windows = _windows(
         settings.HISTORY_BACKFILL_SINCE_YEAR, utcnow(), settings.HISTORY_BACKFILL_WINDOW_YEARS
     )

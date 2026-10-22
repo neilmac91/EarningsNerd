@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Backfill deep 10-K/10-Q filing history (since 2001) from EFTS into the ``filings`` table (P1-6).
+"""Backfill deep 10-K/10-Q filing history (since 2001) from EFTS into the ``filings`` table (P1-6);
+with ENABLE_FPI_FILINGS on in the running process, also 20-F/40-F annual reports.
 
 A few EFTS full-text-search requests per company (paced by the shared SEC rate limiter) list the
 company's historical annual/quarterly reports; rows are written NOT-NULL-safe + accession-deduped,

@@ -1,19 +1,23 @@
 """P1-6 guardrail (data-quality plan): the EFTS deep-history backfill service.
 
-Pins: query-less windowing since 2001; EftsHit → NOT-NULL-safe filing dict; amendments (/A) and
-unknown/legacy forms excluded (matching the display form set); accession dedupe across windows;
-the company stamped only when a window succeeded; the 5xx retry bounded at 3; a per-window failure
+Pins: query-less windowing since 2001; EftsHit → NOT-NULL-safe filing dict; amendments (/A) kept
+and unknown/legacy forms excluded (matching the display form set); a foreign issuer's 20-F/40-F
+walked in the same query only behind ENABLE_FPI_FILINGS; accession dedupe across windows; the
+company stamped only when a window succeeded; the 5xx retry bounded at 3; a per-window failure
 tolerated without losing the other windows' rows.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 
+import httpx
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.integrations.sec_api import EftsHit, EftsSearchResult
+from app.integrations.sec_api import EftsHit, EftsSearchResult, SECFullTextSearchClient
 from app.models import Base, Company, Filing
 from app.services import filing_history_service as fh
+from app.services.edgar.config import FilingType
+from app.services.latest_filing_service import company_list_forms
 
 
 def _engine_session():
@@ -179,3 +183,113 @@ async def test_backfill_all_windows_fail_does_not_stamp(monkeypatch):
     assert stats["inserted"] == 0
     assert company.history_backfilled_at is None
     assert db.query(Filing).filter(Filing.company_id == company.id).count() == 0
+
+
+# ---- Foreign private issuers: 20-F and 40-F annual reports behind ENABLE_FPI_FILINGS ----
+# SEC's recent submissions window holds about a year (or about 1,000 filings), only weeks for an
+# issuer that furnishes a 6-K most business days, so the live list never reaches its older annual
+# reports; the history walk is the path that does.
+
+FPI_CIK = "0000313807"
+# A switcher: a Canadian issuer on 40-F through 2019, then a domestic 10-K/10-Q filer, with the 6-Ks
+# it furnished as a foreign issuer. (accession, form, filed, period ending)
+_SWITCHER = [
+    ("0000313807-18-000001", "40-F", "2018-03-01", "2017-12-31"),
+    ("0000313807-18-000002", "40-F/A", "2018-06-01", "2017-12-31"),
+    ("0000313807-19-000003", "6-K", "2019-05-01", None),
+    ("0000313807-19-000004", "40-F", "2019-03-01", "2018-12-31"),
+    ("0000313807-21-000005", "10-K", "2021-02-20", "2020-12-31"),
+    ("0000313807-21-000006", "10-Q", "2021-05-01", "2021-03-31"),
+]
+
+
+def _efts_client(filings, sent):
+    """The real EFTS client over a fake transport. Each request's query string is recorded in
+    ``sent`` as sent, and answered with the ``filings`` of a requested form filed in its window."""
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        sent.append(request.url.query.decode())
+        params = request.url.params
+        hits = [
+            {"_id": f"{accession}:doc.htm", "_source": {
+                "file_type": form, "file_date": filed, "period_ending": period,
+                "ciks": [FPI_CIK], "display_names": [f"Test Co (TCO) (CIK {FPI_CIK})"],
+            }}
+            for accession, form, filed, period in filings
+            if form in params["forms"].split(",") and params["startdt"] <= filed <= params["enddt"]
+        ]
+        return httpx.Response(200, json={"hits": {"total": {"value": len(hits)}, "hits": hits}})
+
+    return SECFullTextSearchClient(transport=httpx.MockTransport(respond))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fpi, forms, stored", [
+    (False, "10-K%2C10-K%2FA%2C10-Q%2C10-Q%2FA", ["10-K", "10-Q"]),
+    (True, "10-K%2C10-K%2FA%2C10-Q%2C10-Q%2FA%2C20-F%2C20-F%2FA%2C40-F%2C40-F%2FA",
+     ["40-F", "40-F/A", "40-F", "10-K", "10-Q"]),
+], ids=["fpi-off", "fpi-on"])
+async def test_walk_sends_one_query_per_window_whatever_the_flag(monkeypatch, fpi, forms, stored):
+    """One EFTS request per window with the flag on or off: the foreign annual reports join the same
+    query, so they cost no request, and a domestic filer's hits are unchanged. With the flag off the
+    queries and the stored rows are byte for byte those of the walk before FPI forms were added."""
+    monkeypatch.setattr(fh.settings, "ENABLE_FPI_FILINGS", fpi)
+    monkeypatch.setattr(fh.settings, "HISTORY_BACKFILL_SINCE_YEAR", 2017)
+    monkeypatch.setattr(fh.settings, "HISTORY_BACKFILL_WINDOW_YEARS", 4)
+    monkeypatch.setattr(fh, "utcnow", lambda: datetime(2026, 7, 8, tzinfo=timezone.utc))
+    db = _engine_session()
+    company = Company(cik=FPI_CIK, ticker="TCO", name="Test Co")
+    db.add(company)
+    db.commit()
+    sent = []
+
+    stats = await fh.backfill_company(db, company, efts_client=_efts_client(_SWITCHER, sent))
+
+    windows = [("2017-01-01", "2020-12-31"), ("2021-01-01", "2024-12-31"), ("2025-01-01", "2026-07-08")]
+    assert sent == [f"forms={forms}&startdt={start}&enddt={end}&ciks={FPI_CIK}" for start, end in windows]
+    assert stats["windows"] == stats["windows_ok"] == 3
+    rows = db.query(Filing).filter(Filing.company_id == company.id).order_by(Filing.accession_number).all()
+    assert [row.filing_type for row in rows] == stored
+    base = "https://www.sec.gov/Archives/edgar/data/313807/"
+    for row in rows:
+        accession, form, filed, period = next(f for f in _SWITCHER if f[0] == row.accession_number)
+        assert row.sec_url == base + accession.replace("-", "") + "/"
+        assert row.document_url == row.sec_url + "doc.htm"
+        assert row.filing_date.date().isoformat() == filed
+        assert row.period_end_date.date().isoformat() == period
+
+
+@pytest.mark.parametrize("form, kept_with_fpi", [
+    ("20-F", True), ("20-F/A", True), ("40-F", True), ("40-F/A", True), ("6-K", False), ("6-K/A", False),
+])
+def test_hit_to_filing_dict_keeps_fpi_annual_reports_only_behind_the_flag(monkeypatch, form, kept_with_fpi):
+    """With the flag off a foreign form's hit is dropped, as before; with it on the annual reports
+    and their amendments are kept, and the 6-K group stays out (a high-volume interim form)."""
+    monkeypatch.setattr(fh.settings, "ENABLE_FPI_FILINGS", False)
+    assert fh._hit_to_filing_dict(_hit("acc", form)) is None
+    monkeypatch.setattr(fh.settings, "ENABLE_FPI_FILINGS", True)
+    kept = fh._hit_to_filing_dict(_hit("acc", form))
+    assert (kept is not None and kept["filing_type"] == form) is kept_with_fpi
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fpi", [False, True], ids=["fpi-off", "fpi-on"])
+async def test_backfill_walks_every_report_form_the_company_list_serves(monkeypatch, fpi):
+    """Rule 12 gate: every form the company list serves by default, the 6-K group (FilingType
+    .is_interim) aside, is a form the history walk queries and keeps under the same
+    ENABLE_FPI_FILINGS state, with its amendment; the walk queries no other form. The walk only
+    reaches what SEC's recent window no longer holds, so a list form it skips loses its older
+    reports for good once the company is stamped."""
+    monkeypatch.setattr(fh.settings, "ENABLE_FPI_FILINGS", fpi)
+    monkeypatch.setattr(fh.settings, "HISTORY_BACKFILL_SINCE_YEAR", 2024)
+    fake = _FakeEfts({})
+
+    await fh._fetch_history_rows(cik=FPI_CIK, ticker="TCO", efts_client=fake)
+
+    walked = {form for call in fake.calls for form in call["forms"].split(",")}
+    reports = {
+        form.removesuffix("/A") for form in company_list_forms(fpi=fpi)
+        if not FilingType.from_string(form, strict=False).is_interim
+    }
+    assert walked == reports | {f"{form}/A" for form in reports}
+    assert all(fh._hit_to_filing_dict(_hit("acc", form)) for form in walked)

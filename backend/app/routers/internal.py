@@ -247,7 +247,7 @@ async def trigger_sync_companyfacts(req: SyncCompanyfactsRequest, background: Ba
 
 
 class BackfillFilingHistoryRequest(BaseModel):
-    """P1-6: backfill deep 10-K/10-Q history (since 2001) from EFTS for a cohort.
+    """P1-6: backfill deep 10-K/10-Q history (and 20-F/40-F behind ENABLE_FPI_FILINGS) from EFTS.
 
     ``tickers`` > ``watchlist_only`` > all companies, capped per run by
     ``HISTORY_BACKFILL_MAX_COMPANIES``. A few EFTS requests per company through the shared rate
