@@ -8,7 +8,8 @@ login's one commit and the refusals of a login or change whose account changed w
 (E121), the logout rows that name the user whose refresh token a logout revoked (E137), and the
 register row a Google or Apple sign-in writes when it creates the account (D-054) pin deliberate
 changes made since, and fail on the code before them; the rows of signed-in logouts that revoke
-nothing, which E137 kept, and the audit rows of the other sign-ins are pinned beside them:
+nothing, which E137 kept, the audit rows of the other sign-ins and of a password sign-up, and a
+first sign-in whose session mint fails are pinned beside them:
 
   - email verification: verify, single use, unknown and expired links, resend (opaque; a resend
     supersedes the earlier link; a verified account gets no mail)
@@ -33,11 +34,13 @@ nothing, which E137 kept, and the audit rows of the other sign-ins are pinned be
   - an OAuth callback commits its own sign-in (a new account, the link, last_login_at, the refresh
     token) with no audit row committing after it; the connections list; Apple's name fill-in on an
     existing link and its first sign-in without an email
-  - the audit rows an OAuth callback writes: a sign-in that creates the account, in public mode or
-    by invite under invite_only (the deployed mode), writes register and then oauth_login, once each,
-    under the hashed address; a returning one oauth_login alone; a link to an existing verified
-    account oauth_login and oauth_linked; and a refused sign-in, a conflict, a lost create race and
-    a new account whose commit loses its link write none
+  - the audit rows of a sign-up and an OAuth sign-in: /register writes register once, under the
+    keyed hash of the address; an OAuth sign-in that creates the account, in public mode or by
+    invite under invite_only (the deployed mode), writes register and then oauth_login, once each,
+    under the same hash; a returning one oauth_login alone; a link to an existing verified account
+    oauth_login and oauth_linked; a refused sign-in, a conflict, a lost create race and a new account
+    whose commit loses its link write none and set no session cookie; and a first sign-in whose
+    session mint fails answers 500 and leaves no account, link or audit row
   - the failure paths that roll back (a failed reverse trial, the OAuth races) do so before they log
 
 Real endpoints against the app's SQLite database, like the rest of the auth suite. Mail is captured
@@ -48,6 +51,7 @@ the expiry comparisons run as they do on PostgreSQL. The session-mint failures a
 injected at the session's flush (SQLAlchemy events), so they hit the same write before and after
 the move, whichever module issues it.
 """
+import hashlib
 import json
 import logging
 import re
@@ -1146,7 +1150,7 @@ def test_oauth_first_sign_in_that_loses_the_create_race_redirects_with_a_conflic
     assert len(root_rollbacks) == 1 and root_rollbacks[0] <= caplog.records.index(warnings[0])
 
 
-# ── OAuth callbacks: the audit rows a sign-in writes (D-054) ──────────────────
+# ── sign-ups and OAuth sign-ins: the audit rows they write (D-054) ────────────
 
 def _audit_trail(email: str) -> list[tuple[str, Optional[str], Optional[dict], Optional[str]]]:
     """Every audit row written for ``email``, oldest first: its action, the account id it names, its
@@ -1158,9 +1162,20 @@ def _audit_trail(email: str) -> list[tuple[str, Optional[str], Optional[dict], O
         ]
 
 
-def _test_client_address() -> Optional[str]:
-    """The address the router records for the test client: its keyed hash, never the raw host."""
-    return auth_module._hashed_client_ip(SimpleNamespace(client=SimpleNamespace(host="testclient")))
+def _test_client_address() -> str:
+    """The address an audit row records for the test client: the SHA-256 of its host, ``testclient``,
+    keyed with SECRET_KEY. Computed here, not by the router's helper, so a raw or unkeyed address
+    fails."""
+    return hashlib.sha256(f"testclient:{settings.SECRET_KEY}".encode("utf-8")).hexdigest()
+
+
+@pytest.mark.requires_db
+def test_a_password_sign_up_writes_the_register_row(client, mail):
+    """/register writes the register row once, under the keyed hash of the address: the row a Google or
+    Apple sign-up writes below. The frontend's legalTruth.spec.tsx counts the action as written while
+    any module calls log_register, as the callbacks now do, so this pins /register's own row."""
+    email, _ = _register(client, mail)
+    assert _audit_trail(email) == [("register", str(_user(email).id), None, _test_client_address())]
 
 
 @pytest.mark.requires_db
@@ -1192,7 +1207,6 @@ def test_an_oauth_sign_in_writes_the_register_row_only_when_it_creates_the_accou
     assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL
     assert _cookies(resp) == [_STATE_CLEARED[provider], *SESSION_ISSUED]
     account, address = str(_user(email).id), _test_client_address()
-    assert address is not None and address != "testclient"
     login = ("oauth_login", account, {"provider": provider}, address)
     assert _audit_trail(email) == {
         "first-sign-in": [("register", account, None, address), login],
@@ -1234,10 +1248,10 @@ def lose_the_new_accounts_link_race():
 def test_an_oauth_sign_in_that_creates_no_account_writes_no_register_row(
     client, monkeypatch, request, caplog, provider, failure
 ):
-    """No account comes of these sign-ins, so none writes a register row, nor any other audit row: the
-    invite gate refusing a new account, an existing account that cannot be linked, a lost create
-    race, and a new account whose commit loses its link to a concurrent sign-in (rolled back, which
-    is why the register row waits for the commit)."""
+    """No account comes of these sign-ins, so none writes a register row, nor any other audit row, and
+    none sets a session cookie: the invite gate refusing a new account, an existing account that
+    cannot be linked, a lost create race, and a new account whose commit loses its link to a
+    concurrent sign-in (rolled back with that commit)."""
     email = _email()
     sub = f"{provider}_{uuid.uuid4().hex}"
     error = f"{provider}_account_conflict"
@@ -1261,7 +1275,7 @@ def test_an_oauth_sign_in_that_creates_no_account_writes_no_register_row(
     assert armed is None or armed["email"] is None, "the race was never injected"
     assert resp.status_code == 302
     assert resp.headers["location"] == f"{settings.FRONTEND_URL}/login?error={error}"
-    assert f"{settings.COOKIE_NAME}=" not in resp.headers.get("set-cookie", "")
+    assert _cookies(resp) == ([] if provider == "google" else [APPLE_STATE_CLEARED])
     assert _audit_trail(email) == []
     if failure == "lost-the-new-link":
         # Lost at the sign-in's commit, after the resolve had created the account, which rolled back.
@@ -1270,6 +1284,28 @@ def test_an_oauth_sign_in_that_creates_no_account_writes_no_register_row(
         with SessionLocal() as db:
             assert db.query(User).filter(User.email == email).count() == 0
             assert db.query(OAuthAccount).filter_by(provider_account_id=sub).one().user_id == armed["owner_id"]
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("provider", ["google", "apple"])
+def test_an_oauth_first_sign_in_whose_session_mint_fails_leaves_no_account_and_no_register_row(
+    monkeypatch, server_errors, fail_the_refresh_token_insert, provider
+):
+    """A first sign-in's new account and link commit with its refresh token, and its audit rows follow
+    that commit: when the mint fails, the callback answers 500 with no session and leaves no account,
+    no link and no audit row. A register row written before the mint would commit the account, the link
+    and itself, all kept behind the 500, whether or not the database enforces the refresh token's
+    foreign key (SQLite here does not; PostgreSQL does)."""
+    email = _email()
+    sub = f"{provider}_{uuid.uuid4().hex}"
+    fail_the_refresh_token_insert["on"] = True
+    resp = _oauth_callback(server_errors, monkeypatch, provider, sub, email)
+    assert fail_the_refresh_token_insert["fired"], "the mint failure was never injected"
+    assert resp.status_code == 500 and _cookies(resp) == []
+    with SessionLocal() as db:
+        assert db.query(User).filter(User.email == email).count() == 0
+        assert db.query(OAuthAccount).filter_by(provider_account_id=sub).count() == 0
+    assert _audit_trail(email) == []
 
 
 # ── registration that loses a concurrent create ───────────────────────────────
