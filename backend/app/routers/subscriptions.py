@@ -31,7 +31,7 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 # Logical plan tokens the frontend may send, mapped to the configured Stripe price IDs. Lets the
 # UI reference stable names instead of hard-coding live price ids (which it previously did,
-# guaranteeing an "Invalid price_id" 400 in production).
+# guaranteeing the unknown-plan 400 in production).
 def _resolve_price_id(price_id: str) -> Optional[str]:
     aliases = {
         "monthly": settings.STRIPE_PRICE_MONTHLY_ID,
@@ -177,7 +177,7 @@ async def create_checkout_session(
     if not current_user.email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Please verify your email address before subscribing.",
+            detail="Verify your email address before you subscribe.",
         )
     if is_pro_user(current_user):
         raise HTTPException(
@@ -187,13 +187,13 @@ async def create_checkout_session(
     if not settings.STRIPE_SECRET_KEY:
         raise HTTPException(
             status_code=500,
-            detail="Stripe is not configured. Please set STRIPE_SECRET_KEY."
+            detail="Checkout is not available right now."
         )
     resolved_price_id = _resolve_price_id(price_id)
     if not resolved_price_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid price_id. Please select a supported subscription plan.",
+            detail="That plan is not available. Reload the page and try again.",
         )
     price_id = resolved_price_id
 

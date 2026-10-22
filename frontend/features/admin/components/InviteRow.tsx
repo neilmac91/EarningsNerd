@@ -10,14 +10,17 @@ import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { resendInvite, revokeInvite, type InviteRecord } from '@/features/admin/api/admin-api'
 import InviteStatusBadge from '@/features/admin/components/InviteStatusBadge'
 import RevokeConfirmModal from '@/features/admin/components/RevokeConfirmModal'
+import { MissingValue } from '@/components/ui/MissingValue'
 import ResendShareModal from '@/features/admin/components/ResendShareModal'
 
 const RESEND_COOLDOWN_SECONDS = 30
 
-function fmtDate(value: string | null): string {
-  if (!value) return '—'
+/** A stored instant as its day, or null when there is none or it does not parse: the cell then shows MissingValue
+ *  ("unavailable"), never a bare token. */
+function fmtDate(value: string | null): string | null {
+  if (!value) return null
   const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return null
   return format(d, 'MMM d, yyyy')
 }
 
@@ -85,16 +88,17 @@ export default function InviteRow({ invite }: InviteRowProps) {
         )}
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        {invite.cohort ?? '—'}
+        {/* An invite minted without a cohort has none: "no cohort", never "unavailable". */}
+        {invite.cohort ?? <MissingValue label="no cohort" />}
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm">
         <InviteStatusBadge status={invite.status} />
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        {fmtDate(invite.created_at)}
+        {fmtDate(invite.created_at) ?? <MissingValue />}
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        {fmtDate(invite.expires_at)}
+        {fmtDate(invite.expires_at) ?? <MissingValue />}
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm">
         <div className="flex items-center gap-2">

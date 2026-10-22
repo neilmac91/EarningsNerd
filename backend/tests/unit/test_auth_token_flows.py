@@ -478,7 +478,7 @@ def test_session_cookie_headers_and_their_order(client, mail):
     client.cookies.clear()
     unknown = client.post("/api/auth/refresh", json={"refresh_token": "not-a-real-token"})
     assert unknown.status_code == 401
-    assert unknown.json() == {"detail": "Invalid or expired refresh token"}
+    assert unknown.json() == {"detail": "Your session has ended. Log in again."}
     assert unknown.headers["www-authenticate"] == "Bearer"
     # The handler clears both cookies on the injected Response, but FastAPI renders an HTTPException
     # as a fresh response, so a refused refresh carries no Set-Cookie at all.
@@ -486,7 +486,7 @@ def test_session_cookie_headers_and_their_order(client, mail):
 
     replay = client.post("/api/auth/refresh", json={"refresh_token": first_refresh})
     assert replay.status_code == 401
-    assert replay.json() == {"detail": "Invalid or expired refresh token"}
+    assert replay.json() == {"detail": "Your session has ended. Log in again."}
     assert _cookies(replay) == []
 
 

@@ -246,6 +246,17 @@ describe('NarrativePane readable evidence', () => {
       .toContain('-3.3pp (-3.25 percentage points)')
   })
 
+  it("reads a derived Q4 citation in the server's middot and in the em-dash a report cached before E45 carries", () => {
+    const derived = { ...citation, value: 25100000000, unit: 'USD', period: '2025Q4', derived: true }
+    const shown = [' · derived Q4', ' \u2014 derived Q4'].map((label) =>
+      citationDisplay({ ...derived, excerpt: `Revenue = 25,100,000,000 (2025Q4)${label}` }),
+    )
+    expect(shown[0]).toMatch(/^Revenue · Q4 2025 · /)
+    expect(shown[1]).toBe(shown[0])
+    expect(citationDisplay({ ...derived, excerpt: 'Revenue = 25,100,000,000 (2025Q4) derived Q4' }))
+      .toBe('Revenue = 25,100,000,000 (2025Q4) derived Q4')
+  })
+
   it('retains exact citation precision and describes a legacy calculation without implying recorded inputs', () => {
     const citations = [
       { ...citation, value: 26.065360767092647, excerpt: 'Net margin = 26.1% (2026Q2)', section_ref: 'XBRL · net_margin', provenance: { version: 1 as const, method: 'calculated' as const, validation: 'needs_review' as const, reasons: ['legacy_calculation'], formula: null, inputs: [] } },
