@@ -267,7 +267,7 @@ setting) it is the step itself, so nothing moves at the default size from 400px 
 whose class text draws a full border and a radius (the Card recipe copied by hand, a well, the ticker filings card);
 the Card's and the dialog's sections (CardHeader, CardBody, CardFooter, ModalHeader, ModalBody, ModalFooter, at a call
 site and in their own source, imported under any name, and a Modal's className, its panel); a native `<dialog>` and its sections (DayDetailDialog's header and footer); and what is
-written directly inside a Card, a Modal or a frame that sets no padding of its own, or only `p-0` (the hero example's wrapper, the
+written directly inside a Card, a Modal or a frame that sets no padding of its own, or only `p-0`, in any branch (the hero example's wrapper, the
 filings index's header and rows, the admin lists' rows). Each takes the cap from step 5; a frame inside a dialog's
 body takes it from step 4, since the dialog's own inset already halves the measure there: the cookie dialog's category
 cards (`p-cap-4`) left their text 92, 132 and 162px at 320, 360 and 390px under 200% text and broke its longest words
