@@ -390,10 +390,10 @@ def build_dataset(
 
 
 def dataset_fingerprint(dataset: dict[str, Any]) -> str:
-    """sha256 of the canonical dataset JSON — new facts (or a changed range) change it, which
-    invalidates the cached narrative for that key (D4)."""
-    # A refresh that confirms the same source facts must not consume a new AI generation. The
-    # Display metadata is excluded; underlying source/quality/formula changes are not.
+    """sha256 of the canonical dataset JSON, every key but fetch and display metadata, with each looked-up
+    source link read as its accession folder (``folder_links``). New or corrected facts, their lineage
+    (accession, validation, formula, a link stored with its receipt) or another range change it, so the
+    cached narrative regenerates (D4); a re-fetch of the same facts, or a link now opening the document, does not."""
     content = {key: value for key, value in dataset.items() if key not in {"snapshot_id", "data_as_of", "data_notes", "narrative_presentation"}}
     canonical = json.dumps(folder_links(content), sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
