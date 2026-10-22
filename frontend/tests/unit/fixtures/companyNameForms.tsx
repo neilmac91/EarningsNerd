@@ -8,7 +8,19 @@
  * A top-level helper named for a form (N23Line) is that form's, so what the gate names inside it scores there.
  * Outside the scan roots. Sample companies only. A new form the rule can take joins it with its mark.
  */
-import { Fragment, createContext, createElement, useContext, useMemo, useState, type ReactNode } from 'react'
+import {
+  Fragment,
+  createContext,
+  createElement,
+  useContext,
+  useDeferredValue,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Bar } from 'recharts'
@@ -33,7 +45,8 @@ import type { RedlineSource } from '@/features/filing-redlines/lib/filingPair'
 import type { SourceIdentity } from '@/features/research-evidence-packs/lib/evidenceLedger'
 import type { SampleFact } from '@/features/financial-refresh-review/lib/refreshReview'
 import type { ExampleData } from '@/lib/serverApi'
-import { lengthOf, nameOf } from './companyNameKit'
+import { displayNameOf, labelsOf, lengthOf, nameOf } from './companyNameKit'
+import { shortNameOf } from './companyNameKit2'
 
 /** A view model of this file's own, so its fields are the app's own (declared outside an API module). */
 interface LineView {
@@ -547,12 +560,88 @@ export function N85({ ev }: { ev: CalendarEvent }) {
   return <N85Drop>{ev.company_name}</N85Drop>
 }
 
-// Forms the rule forbids that the gate leaves to review, each named in the spec's header.
+// A name handed back across modules or kept in React's state: the gate follows another module's function to what it
+// hands back, and React's state to where it gives the name back.
 
-/** N86 gap: a name another module's function hands back as a plain string. */
+/** N86 flag: a name another module's function hands back as a plain string. */
 export function N86({ ev }: { ev: CalendarEvent }) {
   return <span>{nameOf(ev)}</span>
 }
+
+/** N89 flag: React state, its initial value a served name. */
+export function N89({ ev }: { ev: CalendarEvent }) {
+  const [name] = useState(ev.company_name)
+  return <span>{name}</span>
+}
+
+/** N103 flag: a name handed back through two modules (a helper that trims another module's). */
+export function N103({ ev }: { ev: CalendarEvent }) {
+  return <span>{shortNameOf(ev)}</span>
+}
+
+/** N104 clean: another module's function that hands back the display form. */
+export function N104({ ev }: { ev: CalendarEvent }) {
+  return <span>{displayNameOf(ev)}</span>
+}
+
+/** N105 flag: a state's setter handed a served name after the state is made. */
+export function N105({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useState('')
+  return (
+    <button type="button" onClick={() => setName(ev.company_name)}>
+      {name}
+    </button>
+  )
+}
+
+/** N106 flag: a state's setter handed an updater that returns a served name. */
+export function N106({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useState('')
+  return (
+    <button type="button" onClick={() => setName(() => ev.company_name)}>
+      {name}
+    </button>
+  )
+}
+
+/** N107 flag: a ref that keeps a served name. */
+export function N107({ ev }: { ev: CalendarEvent }) {
+  const ref = useRef(ev.company_name)
+  // eslint-disable-next-line react-hooks/refs -- planted AST form: a ref read while rendering, which app code may not write.
+  return <span>{ref.current}</span>
+}
+
+/** N108 flag: a reducer's initial argument, a served name. */
+export function N108({ ev }: { ev: CalendarEvent }) {
+  const [name] = useReducer((current: string, next: string) => next, ev.company_name)
+  return <span>{name}</span>
+}
+
+/** N109 flag: a deferred value of a served name. */
+export function N109({ ev }: { ev: CalendarEvent }) {
+  const name = useDeferredValue(ev.company_name)
+  return <span>{name}</span>
+}
+
+/** N110 flag: an external store's snapshot that returns a served name. */
+export function N110({ ev }: { ev: CalendarEvent }) {
+  const name = useSyncExternalStore(() => () => {}, () => ev.company_name)
+  return <span>{name}</span>
+}
+
+/** N111 clean: React's state that keeps the display form, or the object the name is served on, read by its type where
+    it prints. */
+export function N111({ ev }: { ev: CalendarEvent }) {
+  const [name] = useState(formatCompanyName(ev.company_name))
+  const [event] = useState(ev)
+  return (
+    <span>
+      {name} · {formatCompanyName(event.company_name)}
+    </span>
+  )
+}
+
+// Forms the rule forbids that the gate leaves to review, each named in the spec's header.
 
 /** N87 gap: a prop typed as a plain string, filled in another module. */
 export function N87({ label }: { label: string }) {
@@ -562,12 +651,6 @@ export function N87({ label }: { label: string }) {
 /** N88 gap: an indexed access type, which carries no field. */
 export function N88({ value }: { value: CalendarEvent['company_name'] }) {
   return <span>{value}</span>
-}
-
-/** N89 gap: React state. */
-export function N89({ ev }: { ev: CalendarEvent }) {
-  const [name] = useState(ev.company_name)
-  return <span>{name}</span>
 }
 
 /** N90 gap: a name served under another field. */
@@ -635,4 +718,29 @@ export function N101({ ev }: { ev: CalendarEvent }) {
 /** N102 gap: a component the scan cannot read that prints a row's field by key, a DataTable column with no render. */
 export function N102({ events }: { events: CalendarEvent[] }) {
   return <DataTable rows={events} rowKey={(row) => row.ticker} columns={[{ key: 'company_name', header: 'Company' }]} />
+}
+
+/** N112's component, handed a state's setter under a type of its own. */
+function N112Pick({ ev, onPick }: { ev: CalendarEvent; onPick: (name: string) => void }) {
+  return (
+    <button type="button" onClick={() => onPick(ev.company_name)}>
+      Pick
+    </button>
+  )
+}
+
+/** N112 gap: a state's setter handed on to a component, and called there. */
+export function N112({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useState('')
+  return (
+    <>
+      <N112Pick ev={ev} onPick={setName} />
+      <span>{name}</span>
+    </>
+  )
+}
+
+/** N113 gap: a name inside an object another module's function hands back. */
+export function N113({ ev }: { ev: CalendarEvent }) {
+  return <span>{labelsOf(ev).title}</span>
 }

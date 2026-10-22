@@ -63,7 +63,8 @@ import ts from 'typescript'
  *    target, with every source's properties), `Object.freeze`, `Object.seal` and `Object.preventExtensions` (what
  *    they are given), `Array.from`; React's `Children.map` (what the callback returns), `Children.toArray` and
  *    `Children.only`, `useMemo` (what its callback returns), `useCallback` (its callback), and `memo` and
- *    `forwardRef` (the component they wrap);
+ *    `forwardRef` (the component they wrap); and, for a gate that reads React's state (`state`), `useState`,
+ *    `useReducer`, `useRef`, `useDeferredValue` and `useSyncExternalStore` (what each keeps, HeldOptions.state);
  *  - parentheses, `as`, `satisfies`, `<T>` and `!`.
  * A call is known by the name its callee is known by (knownAs), so React's utilities and the globals are read under
  * any local name: an import renamed (`Children as Kids`), a member destructured under another name, a same-file
@@ -383,6 +384,13 @@ export interface HeldOptions<L> {
       (missingValueToken.spec.ts): each part counts once, so a string a loop or a recursion builds settles. By default
       each holds nothing. */
   passThrough?: boolean
+  /** Whether React's state keeps what it is handed and gives it back (companyNameDisplay.spec.ts): useState's first
+      element holds its initial value, what its initializer returns and what its setter is handed in the file, called
+      by the name it is destructured under (a value, or what an updater returns); useReducer's, its initial argument and
+      what its init and its reducer return; useRef's `current`, its initial value (what the code puts there later is an
+      assignment, read as any other); useDeferredValue, what it defers; useSyncExternalStore, what the snapshot returns.
+      By default each is a call the reading cannot follow. */
+  state?: boolean
 }
 
 /** React's calls that make an element of the type they are given: createElement, and the JSX runtime's jsx, jsxs and
@@ -411,7 +419,7 @@ export const componentTag = (opening: ts.JsxOpeningLikeElement): ts.Identifier |
 export function heldValues<L>(
   sf: ts.SourceFile,
   leafOf: (e: ts.Expression) => L[] | undefined,
-  { memberLeaf, textLeaf, suspends, rendered, passThrough }: HeldOptions<L> = {},
+  { memberLeaf, textLeaf, suspends, rendered, passThrough, state }: HeldOptions<L> = {},
 ): HeldValues<L> {
   // Keyed by the declaration (scopeResolver), never by the bare name.
   const holders = new Map<ts.Node, Held<L>>()
@@ -485,6 +493,43 @@ export function heldValues<L>(
       }
     }
     return value
+  }
+  /** The file's calls by the declaration their callee names, built at the first ask (HeldOptions.state). */
+  let callIndex: Map<ts.Node, ts.CallExpression[]> | undefined
+  const callsTo = (declaration: ts.Node): ts.CallExpression[] => {
+    if (!callIndex) {
+      const index = new Map<ts.Node, ts.CallExpression[]>()
+      const walk = (n: ts.Node): void => {
+        if (ts.isCallExpression(n)) {
+          const callee = unwrapHeld(n.expression)
+          const d = ts.isIdentifier(callee) ? declarationOf(callee) : undefined
+          if (d) index.set(d, [...(index.get(d) ?? []), n])
+        }
+        ts.forEachChild(n, walk)
+      }
+      walk(sf)
+      callIndex = index
+    }
+    return callIndex.get(declaration) ?? []
+  }
+  /** What a useState's setter is handed in the file, called by the name it is destructured under (`const [, set] =
+      useState(…)`): each value, or what an updater returns. A setter called by another name or handed on is not read. */
+  const handedToSetter = (x: ts.CallExpression, record?: Set<ts.Node>): Held<L> => {
+    let parent: ts.Node = x.parent
+    while (ts.isParenthesizedExpression(parent) || ts.isAsExpression(parent) || ts.isSatisfiesExpression(parent) || ts.isNonNullExpression(parent)) {
+      parent = parent.parent
+    }
+    if (!ts.isVariableDeclaration(parent) || !ts.isArrayBindingPattern(parent.name)) return empty()
+    const setter = parent.name.elements[1]
+    if (!setter || ts.isOmittedExpression(setter) || !ts.isIdentifier(setter.name)) return empty()
+    let handed = empty<L>()
+    for (const call of callsTo(declarationOf(setter.name) ?? setter)) {
+      const a = call.arguments[0]
+      if (!a || ts.isSpreadElement(a)) continue
+      const value = valueOf(a, record)
+      handed = union(handed, union(value, returned(value.fns, record)))
+    }
+    return handed
   }
   /** What same-file components render where their element is: what they return, the components themselves aside. */
   const renders = (fns: Set<Fn>, element: ts.Node, record?: Set<ts.Node>): Held<L> => {
@@ -691,6 +736,14 @@ export function heldValues<L>(
     if (receiverNamed(x, 'Array') && name === 'from') return args[1] ? arrayOf(returned(fnsOf(1), record)) : arrayOf(elementOf(arg(0)))
     if (name === 'useMemo') return returned(fnsOf(0), record)
     if (name === 'useCallback') return arg(0)
+    // React's state, for a gate that reads it (HeldOptions.state): what each hook keeps, where it gives it back.
+    if (state) {
+      if (name === 'useState') return withProps([['0', union(union(arg(0), returned(fnsOf(0), record)), handedToSetter(x, record))]])
+      if (name === 'useReducer') return withProps([['0', union(arg(1), union(returned(fnsOf(2), record), returned(fnsOf(0), record)))]])
+      if (name === 'useRef') return withProps([['current', arg(0)]])
+      if (name === 'useDeferredValue') return union(arg(0), arg(1))
+      if (name === 'useSyncExternalStore') return union(returned(fnsOf(1), record), returned(fnsOf(2), record))
+    }
     // React's component wrappers give back the component they wrap: `memo(Mark)`, `forwardRef((props, ref) => …)`.
     if (name === 'memo' || name === 'forwardRef') return arg(0)
     const recv = receiverOf(x)

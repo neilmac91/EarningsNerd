@@ -80,20 +80,6 @@ describe('NotificationBell', () => {
     expect(markNotificationsSeen).toHaveBeenCalledTimes(1)
   })
 
-  // EDGAR serves a conformed name, often in capitals; the line prints it as every other row does (E146).
-  it('prints a served name in capitals in its display casing', async () => {
-    const shouting = { items: [{ ...sample.items[0], company_name: 'APPLE INC.' }], unread_count: 1 }
-    vi.mocked(getNotifications).mockResolvedValue(shouting)
-    vi.mocked(markNotificationsSeen).mockResolvedValue({ items: [{ ...shouting.items[0], read: true }], unread_count: 0 })
-    const user = userEvent.setup()
-    renderBell()
-
-    await user.click(await screen.findByRole('button', { name: /notifications/i }))
-    const menu = await screen.findByRole('menu')
-    expect(menu).toHaveTextContent('Apple Inc.')
-    expect(menu).not.toHaveTextContent('APPLE INC.')
-  })
-
   it('renders an empty state with no badge when there are no alerts', async () => {
     vi.mocked(getNotifications).mockResolvedValue({ items: [], unread_count: 0 })
     const user = userEvent.setup()

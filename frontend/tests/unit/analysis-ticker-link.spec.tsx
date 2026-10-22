@@ -44,14 +44,14 @@ function LinkProbe({ ticker }: { ticker: string }) {
   return data ? createElement('output', null, `link resolved: ${data.ticker}`) : null
 }
 
-function mount(search: string, probeTicker?: string, servedNames: Record<string, string> = {}) {
+function mount(search: string, probeTicker?: string) {
   window.history.replaceState(null, '', `/analysis${search}`)
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
   client.setQueryData(queryKeys.currentUser(), { id: 7 })
   client.setQueryData(queryKeys.subscription.byUser(7), { is_pro: true })
   for (const ticker of Object.keys(COMPANIES)) {
     client.setQueryData(queryKeys.analysisCoverage(ticker), {
-      ticker, company_name: servedNames[ticker] ?? COMPANIES[ticker].name, supported: true, syncing: false,
+      ticker, company_name: COMPANIES[ticker].name, supported: true, syncing: false,
       annual: [2021, 2022, 2023].map((year) => ({ key: `FY${year}`, fiscal_year: year, period_end: `${year}-12-31`, has_core: true })),
       quarterly: [],
       limits: { annual: 10, quarterly: 12 },
@@ -104,14 +104,6 @@ describe('/analysis?ticker= preselects a resolved company and never runs', () =>
     // Neither the dataset (POST) nor the narrative stream (fetch) is requested by the link.
     expect(post).not.toHaveBeenCalled()
     expect(global.fetch).not.toHaveBeenCalled()
-  })
-
-  // Coverage serves EDGAR's conformed name, often in capitals; the line under the picker prints it as the company
-  // page does (E146).
-  it('names the company in its display casing under the picker', async () => {
-    mount('?ticker=AAPL', undefined, { AAPL: 'APPLE INC.' })
-    expect(await screen.findByText('Apple Inc.')).toBeTruthy()
-    expect(screen.queryByText('APPLE INC.')).toBeNull()
   })
 
   it('normalises the ticker before resolving it', async () => {

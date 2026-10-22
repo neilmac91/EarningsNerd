@@ -342,15 +342,9 @@ describe('filing redlines prototype', () => {
   })
 })
 
-// EDGAR serves a conformed name, often in capitals; the pair names its company in its display casing where the
-// filings enter, so each source identity prints it as the app's other surfaces do (E146).
+// EDGAR serves a conformed name, often in capitals. The pages print it in its display casing (E146, held by
+// companyNameDisplay.spec.ts); the receipt a reader downloads is a record of the filings, so it keeps the name as served.
 describe('the source identities', () => {
-  it('name the company in its display casing', () => {
-    const shouting = (id: number): Filing => ({ ...filing(id), company: { id: 123, ticker: 'TEST', name: 'SAMPLE INDUSTRIES A INC' } })
-    const pair = validateFilingPair(shouting(1), shouting(2), 1, 2)
-    expect([pair.earlier.companyName, pair.current.companyName]).toEqual(['Sample Industries A Inc', 'Sample Industries A Inc'])
-  })
-
   it("keep EDGAR's conformed name, as served, in the downloaded review receipt, a record of the filings (chief design on #1491)", () => {
     const shouting = (id: number): Filing => ({ ...filing(id), company: { id: 123, ticker: 'TEST', name: 'SAMPLE INDUSTRIES A INC' } })
     const pair = validateFilingPair(shouting(1), shouting(2), 1, 2)
