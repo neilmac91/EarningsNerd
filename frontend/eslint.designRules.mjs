@@ -248,7 +248,8 @@
 //                       written directly inside a Card, a Modal or a frame, on each side its class does not pad in every
 //                       render (only padding of some length in its unconditional text, a binding's read where it is named,
 //                       under no variant, pads its sides, `py-2` the top and the bottom, each side taking the stylesheet's
-//                       latest group, so `p-cap-6 px-0` pads the top and the bottom only; `p-0`, padding set only under a
+//                       latest group, an important one over every plain one, so `p-cap-6 px-0` pads the top and the bottom
+//                       only and `!p-0 px-cap-6` no side; `p-0`, padding set only under a
 //                       condition or a variant such as `sm:`, or a reset to zero under one or a condition (`p-cap-6
 //                       sm:p-0`), leaves its sides to the children, failing closed), through `{…}` children, conditionals
 //                       and a callback written there, as the Card's sections are: the hero example's wrapper, the admin
@@ -268,9 +269,10 @@
 //                       tests/unit/designRules.spec.ts): a class a component receives as a prop and passes to a Card or a
 //                       frame elsewhere, an imported constant, an object of recipes (`S.pad`), a binding a ternary or a
 //                       later assignment sets, a class through a helper other than cx()/clsx() (`merge(…)`), an inset set
-//                       in an inline style or a stylesheet, a token whose variant styles another element (`[&>div]:p-6`),
-//                       a frame drawn without a border utility (a fill, a shadow or a ring alone, or a stylesheet class
-//                       such as `.glass-card`), and a section held in a variable or rendered by another component (the
+//                       in an inline style or a stylesheet or written as an arbitrary property (`[padding:24px]`), a token
+//                       whose variant styles another element (`[&>div]:p-6`), a frame drawn without a border utility (a
+//                       fill, a shadow or a ring alone, or a stylesheet class such as `.glass-card`), and a section held in
+//                       a variable or rendered by another component (the
 //                       stacked metric cards' list in FinancialMetricsTable, TableScroll's hint, the filings index's
 //                       skeleton), which carry the cap by hand.
 //
@@ -1859,8 +1861,10 @@ function setsPadding(raw) {
 
 const SIDES = { p: ['t', 'r', 'b', 'l'], px: ['r', 'l'], py: ['t', 'b'], ps: ['l'], pe: ['r'], pt: ['t'], pr: ['r'], pb: ['b'], pl: ['l'] }
 // Tailwind's stylesheet order for padding: `p`, then `px` and `py`, then one side, so a later group sets a side over an
-// earlier one whatever the class order (`p-cap-6 px-0` has no horizontal padding).
+// earlier one whatever the class order (`p-cap-6 px-0` has no horizontal padding); an important token outranks every
+// plain one (`!p-0 px-cap-6` has none).
 const SIDE_GROUP = { p: 0, px: 1, py: 1, ps: 2, pe: 2, pt: 2, pr: 2, pb: 2, pl: 2 }
+const IMPORTANT_RANK = 3
 /** A padding token's side prefix (`px` for `sm:px-6`), else null. */
 function paddingPrefix(raw) {
   const token = raw && parseClassToken(raw)
@@ -2049,13 +2053,13 @@ export const surfacePaddingCap = {
       const always = pieces.filter((piece) => piece.branch === root).map((piece) => piece.text).join(' ')
       if (!SECTIONED_COMPONENTS.has(nameOf(element)) && ![always, ...renderTexts(pieces)].some(drawsFrame)) return NO_SIDES
       const base = (raw) => splitClassToken(raw).variants.length === 0
-      // Each side takes the latest stylesheet group that sets it; a zero there leaves the side, and so does a zero beside
-      // padding in the same group (`px-0 px-cap-6`), failing closed.
+      // Each side takes the latest stylesheet group that sets it, an important token over every plain one; a zero there
+      // leaves the side, and so does a zero beside padding in the same group (`px-0 px-cap-6`), failing closed.
       const latest = new Map()
       for (const raw of always.split(/\s+/).filter(Boolean)) {
         const step = base(raw) ? paddingStep(raw) : undefined
         if (step === undefined) continue
-        const group = SIDE_GROUP[paddingPrefix(raw)]
+        const group = SIDE_GROUP[paddingPrefix(raw)] + (splitClassToken(raw).important ? IMPORTANT_RANK : 0)
         for (const side of paddingSides(raw)) {
           const at = latest.get(side)
           if (!at || group > at.group) latest.set(side, { group, zero: step === 0 })

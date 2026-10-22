@@ -839,12 +839,13 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     '<Card><div className="rounded-lg border p-4" /></Card>',
     // Out of reach (review-checked), planted as stated gaps: a token whose variant styles another element; a frame drawn
     // without a border utility; an object of recipes; a binding a ternary sets; a class through a helper other than
-    // cx() or clsx().
+    // cx() or clsx(); padding written as an arbitrary property (Codex's review of 94258cb8).
     '<Card className="[&>div]:p-6" />',
     '<div className="rounded-xl bg-panel-light p-6 shadow-e2" />',
     "const S = { pad: 'p-6' }\nexport const x = <Card className={S.pad} />",
     "const PAD = wide ? 'p-6' : 'p-4'\nexport const x = <Card className={PAD} />",
     "export const x = <Card className={merge(cx('p-6'))} />",
+    '<Card className="[padding:24px]" />',
     '<dialog className="rounded-2xl border p-0"><header className="border-b px-cap-5 py-4" /></dialog>',
     // A constant that draws no frame and sits on no surface.
     "const PAD = 'p-6'\nexport const x = <section className={PAD} />",
@@ -861,6 +862,8 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     '<Card className="py-2"><div className="px-cap-6 py-6" /></Card>',
     '<Card className="p-cap-6 sm:px-0"><div className="py-6" /></Card>',
     // The p-cap-6 still pads the top and the bottom under its px-0, so the row's py-6 is spacing inside it.
+    // An important padding outranks a plain zero, whatever its group: the sides stay padded.
+    '<Card className="!px-cap-6 px-0 py-2"><div className="px-6" /></Card>',
     '<Card className="p-cap-6 px-0"><div className="py-6" /></Card>',
     // Pieces under separate conditions render together: this frame carries the cap in every render.
     "<div className={cx(bordered && 'rounded-xl border', compact ? 'p-3' : 'p-cap-6')} />",
@@ -961,6 +964,8 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     // (Codex's review of b763217c): px after p, a side after px.
     { code: '<Card className="p-cap-6 px-0"><div className="px-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
     { code: '<Card className="pl-0 px-cap-6 py-2"><div className="pl-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
+    // An important zero outranks every plain padding, whatever its group (the ready mark's review of 9ee7df94).
+    { code: '<Card className="!p-0 px-cap-6"><div className="px-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
     // A stated limit, failing closed: a zero beside padding in the same group leaves the side.
     { code: '<Card className="px-0 px-cap-6 py-2"><div className="px-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
     // A surface padded on one axis leaves the other to what is written inside it (Codex's review of 5f3bfd0a).
