@@ -182,9 +182,9 @@ async def update_notification_preferences(
     VALID_DIGESTS = {"immediate", "daily", "weekly"}
     data = update.model_dump(exclude_unset=True)
     if "channel" in data and data["channel"] not in VALID_CHANNELS:
-        raise HTTPException(status_code=400, detail=f"channel must be one of {sorted(VALID_CHANNELS)}")
+        raise HTTPException(status_code=400, detail=f"Channel must be one of: {', '.join(sorted(VALID_CHANNELS))}.")
     if "digest" in data and data["digest"] not in VALID_DIGESTS:
-        raise HTTPException(status_code=400, detail=f"digest must be one of {sorted(VALID_DIGESTS)}")
+        raise HTTPException(status_code=400, detail=f"Digest must be one of: {', '.join(sorted(VALID_DIGESTS))}.")
 
     ent = apply_preference_update(db, prefs, data, current_user)
     return _prefs_response(prefs, ent)
@@ -290,7 +290,7 @@ async def export_user_data(
         logger.error(f"Error exporting user data for user {current_user.id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to export user data"
+            detail="We could not export your data. Try again in a moment."
         )
 
 
@@ -422,6 +422,6 @@ async def delete_user_account(
         logger.error(f"Error deleting user account {current_user.id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete account. Please contact support."
+            detail="We could not delete your account. Contact support."
         )
 

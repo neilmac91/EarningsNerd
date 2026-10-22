@@ -233,7 +233,7 @@ async def generate_summary_stream(
             request,
             SUMMARY_LIMITER,
             f"summary:{current_user.id}",
-            error_detail="Too many summary requests. Please try again shortly.",
+            error_detail="Too many summary requests. Try again shortly.",
             include_client_ip=False,
         )
 
@@ -277,7 +277,7 @@ async def generate_summary_stream(
                 if not is_pro_user(current_user):
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Regenerating an analysis is a Pro feature.",
+                        detail="Regenerating a summary is a Pro feature.",
                     )
                 # Regenerate IN PLACE (force_regenerate below): the pipeline's save step UPDATEs the
                 # existing summary row rather than delete+insert, so the summaries.id — and any
@@ -499,7 +499,7 @@ async def ask_filing_stream(
         request,
         ASK_LIMITER,
         f"ask:{current_user.id}",
-        error_detail="Too many questions. Please try again shortly.",
+        error_detail="Too many questions. Try again shortly.",
         include_client_ip=False,
     )
 
@@ -773,7 +773,7 @@ async def export_summary_pdf(
         logger.error(f"PDF export failed for filing {filing_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail="Failed to generate PDF. Please try again later."
+            detail="We could not generate the PDF. Try again later."
         )
 
 @router.get("/filing/{filing_id}/export/csv")
@@ -819,5 +819,5 @@ async def export_summary_csv(
         logger.error(f"CSV export failed for filing {filing_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail="Failed to generate CSV. Please try again later."
+            detail="We could not generate the CSV. Try again later."
         )

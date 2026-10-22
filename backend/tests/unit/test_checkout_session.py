@@ -327,4 +327,4 @@ def test_unknown_price_id_is_rejected_with_400(client):
         params={"price_id": "price_not_on_the_allowlist"},
     )
     assert resp.status_code == 400
-    assert "Invalid price_id" in resp.json()["detail"]
+    assert "That plan is not available" in resp.json()["detail"]

@@ -64,13 +64,13 @@ const MATCHERS: Matcher[] = [
     file: 'features/summaries/api/summaries-api.ts',
     fn: 'isNonRetryableStreamError',
     // The summary stream's own sources only. Its 401 comes from get_current_user (routers/auth.py),
-    // "Could not validate credentials", which summaries-api.ts surfaces as the detail in place of its
+    // "You are not logged in.", which summaries-api.ts surfaces as the detail in place of its
     // fallback ("Log in again to generate this summary."; D-046 moved the fallback and the phrase together from
     // "sign in"). The stream never retries a 401 (retryable: false by status), and the card keeps its Retry for
     // that detail, since a retry after a refresh or a log-in can help (streamErrorCopy.spec.ts holds both). The
-    // same check's 403, "User account is inactive", is matched on its words, so auth.py is a source. Its other
-    // messages never reach the stream, but they say both verbs (the reset's "log in", Apple's "Sign In"), so this
-    // clause no longer ties "log in" to the fallback. The card also matches useSummaryGeneration's sentence for a
+    // same check's 403, "This account is inactive. …", is matched on its words, so auth.py is a source. Its other
+    // messages never reach the stream, but they say "log in" (the reset's and the refresh's), so this clause no longer
+    // ties "log in" to the fallback. The card also matches useSummaryGeneration's sentence for a
     // press made signed out ("Log in to generate this summary."), set beside the stream. summaryStreamFallbacks.spec.tsx
     // holds both sentences to this matcher.
     backend: [BACKEND.summaries, BACKEND.admission, BACKEND.auth],
@@ -82,7 +82,7 @@ const MATCHERS: Matcher[] = [
   { file: 'lib/api/client.ts', backend: [BACKEND.subscriptions], frontend: [] },
   // Reached by the tree-wide pass (a test on error.message). An error boundary sees what a render throws:
   // no dashboard query throws to it (no throwOnError, no suspense query), and the 401 a signed-in request
-  // gets reads get_current_user's "Could not validate credentials" (routers/auth.py), which none of its
+  // gets reads get_current_user's "You are not logged in." (routers/auth.py), which none of its
   // phrases match. No source is listed: auth.py's and lib/api/client.ts's route paths ("/api/auth/…")
   // would pass "auth" on a URL, not a message.
   { file: 'app/dashboard/error.tsx', fn: 'DashboardError', backend: [], frontend: [] },

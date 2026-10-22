@@ -124,6 +124,24 @@ describe('InsiderActivityPanel', () => {
     }
   })
 
+  // E88: a missing name or role is MissingValue with words of its own, never the bare token and never "unavailable"
+  // alone, which would read as the insider being unavailable: "name unavailable", and "no role listed" where the
+  // filing gives no title and flags none of the three roles.
+  it('reads a missing name and role in words of their own', async () => {
+    getInsiderActivity.mockResolvedValue({
+      ...RESP,
+      transactions: [txn({ insider_name: null, insider_title: null, is_officer: false, is_director: false, is_ten_pct_owner: false })],
+    })
+    renderPanel()
+
+    const [insider] = within(await screen.findByRole('row', { name: /name unavailable/ })).getAllByRole('cell')
+    expect(insider).toHaveTextContent(/^—name unavailable—no role listed$/)
+    for (const words of ['name unavailable', 'no role listed']) expect(within(insider).getByText(words)).toHaveClass('sr-only')
+    const dashes = within(insider).getAllByText('—')
+    expect(dashes).toHaveLength(2)
+    for (const dash of dashes) expect(dash).toHaveAttribute('aria-hidden', 'true')
+  })
+
   // Three fixed tracks left each tile about 13px for its figure at 200% text on a 390px phone, and content-sized tiles
   // made the tinted row change shape with the data. The tiles take equal tracks of at least 5.5rem, as many as fit, so
   // they stay one width and stack when enlarged text leaves no room; the figures are in the data face (DESIGN_SYSTEM.md §3).
