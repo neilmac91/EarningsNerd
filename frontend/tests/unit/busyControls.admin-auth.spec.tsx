@@ -578,7 +578,7 @@ describe('Email verification modal: Resend link stays focusable', () => {
 
   it('keeps Resend link focused but unavailable after a 429, and says what to do', async () => {
     vi.mocked(resendVerification).mockRejectedValue(
-      new ApiError(429, 'Too many resend requests. Please wait before trying again.'),
+      new ApiError(429, 'Too many resend requests. Try again later.'),
     )
     const user = userEvent.setup()
     withQueryClient(<EmailVerificationModal />)

@@ -735,7 +735,7 @@ class TestBuildDataset:
         db.close()
 
     def test_derived_flag_marks_only_computed_q4(self):
-        """The dataset's `derived` flag (→ "— derived Q4" / † / [derived]) is source=="derived"
+        """The dataset's `derived` flag (→ "· derived Q4" / † / [derived]) is source=="derived"
         AND fiscal_period=="Q4" — a computed metric on a real quarter or an FY row must never
         carry it (audit finding A1)."""
         from app.database import SessionLocal
@@ -774,7 +774,7 @@ class TestBuildDataset:
                     and index[m]["concept"] == "net_margin"}
         assert "derived Q4" not in excerpts["2023Q2"]
         q4_excerpt = svc._point_citation(1, index[revenue["2023Q4"]["marker"]])["excerpt"]
-        assert q4_excerpt.endswith("— derived Q4")
+        assert q4_excerpt.endswith(" · derived Q4")
         db.close()
 
     def test_discrete_q4_filer_metrics_not_flagged(self):

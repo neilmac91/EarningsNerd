@@ -16,7 +16,8 @@ function formatPerAds(value: number, currency?: string | null): string {
  * only when the backend attached a `per_ads` block (ratio != 1 ADRs).
  */
 // The backend's ratio registry (backend/app/services/edgar/ads_ratios.py) joins the document and the
-// ratio with an em-dash; the visible line joins them with a colon, the product's separator.
+// ratio with a colon, the product's separator, since E45; a payload cached before then (the ratio rides
+// xbrl_data) joins them with an em-dash, which the visible line reads as the same colon.
 const SOURCE_DASH = /\s*\u2014\s*/g
 
 export function PerAdsNote({ perAds }: { perAds: PerAdsValue }) {

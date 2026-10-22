@@ -146,8 +146,13 @@ the business card, the footer and the merch; it is the positioning in six words.
   devices out"); a letter from another script; and, in a lowercase string shaped like a class list,
   the verb joined into a longer word by a hyphen, a slash or a colon ("sign-in-related",
   "sign-in/sign-up", "auth:sign-in"), as a class joins its parts. Copy in a JSON module stays
-  review-checked. The backend's own messages follow in their voice pass (E45), and the OAuth-linked
-  mail in E46's.
+  review-checked. On the backend, `backend/tests/unit/test_user_facing_copy_voice.py` fails it in every
+  literal of the files it reads, `app/routers`, `app/services`, `app/dependencies.py` and `main.py` (a
+  module of text for the model is read for its copy alone, and markup by its text and its attributes
+  that are not code), with the forms its header names as gaps and false positives; the messages
+  `app/schemas`' validators raise are outside it. Its exempt list holds the two sites that still say
+  it: the unlink detail's "only sign-in method", which the locked `test_auth_flow.py` pins (F56), and
+  the OAuth-linked mail, which takes the verb in E46.
 
 ## Claims
 

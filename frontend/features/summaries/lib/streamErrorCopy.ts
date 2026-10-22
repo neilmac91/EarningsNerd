@@ -53,10 +53,10 @@ export const STREAM_ERROR_COPY: Readonly<Record<string, string>> = {
   // routers/summaries.py, the stream route's 403 before it streams: a Free reader's force regeneration of a summary
   // the page shows, so a ready summary is there to read (a retry after a failed summary read sends force). Never a
   // retry, and never the paywall card: that card states the free monthly limit, which this reader has not hit.
-  'Regenerating an analysis is a Pro feature.':
+  'Regenerating a summary is a Pro feature.':
     'A summary of this filing is ready, and regenerating it is a Pro feature. Reload the page to read it.',
-  // routers/auth.py (get_current_user, the stream route's account check): an inactive account. Never a retry.
-  'User account is inactive': 'This account is inactive. Contact support with any questions.',
+  // The account check's answers (get_current_user in routers/auth.py) need no line: since E45 the backend writes
+  // them in the product's words ("This account is inactive. Contact support with any questions.").
   // admission.py: a progress line (this run joins one already in flight), shown only if a run ends on it.
   [`Another request is already generating this analysis ${EM_DASH} joining it...`]:
     'This summary is already being generated. Joining that run…',

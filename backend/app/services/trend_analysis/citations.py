@@ -42,7 +42,7 @@ def _point_citation(n: int, point: dict[str, Any]) -> dict[str, Any]:
         )
         excerpt = f"{point['label']} = {value_str} ({point['period']})"
         if point.get("derived"):
-            excerpt += " — derived Q4"
+            excerpt += " · derived Q4"
         section_ref = (
             "Calculated · " + str(provenance.get("formula") or point["concept"])
             if provenance.get("method") == "calculated"
