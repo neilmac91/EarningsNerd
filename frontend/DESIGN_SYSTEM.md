@@ -799,8 +799,8 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  chip's last child, inside the card (a marker that could not shrink squeezed the address out at 200%
                  text and pushed the button past the card). Its 16px radius (`rounded-xl`) is a pill on one line and
                  a rounded box once it wraps, as SourceTrace's chip. The chip row is an inline-size query container,
-                 and below 8em of its own text size (`[@container(width<8em)]:`) that group is too narrow for
-                 "· already" (the dot is held to its word by a no-break space), so the group dissolves (`contents`),
+                 and below 9.6em of its own text size (`[@container(width<9.6em)]:`), where an invited chip no
+                 longer fits on one line, the group dissolves (`contents`),
                  the chip wraps with no row gap and the address takes the first line whole (`order-first
                  basis-full`), wrapping anywhere (`whitespace-normal [overflow-wrap:anywhere]`) instead of
                  truncating: beside the remove button it kept 52px at 320px under 200% text ("al…", "bo…", a bare
@@ -809,10 +809,12 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  "· already" to give the button its line wherever both fit (390px under 200% text; at 320px the
                  button takes the line under the marker), and it never paints over the button (at 320px under 200%
                  text it once ran across it). The button keeps its 48px and its ring and ends the chip on whatever
-                 line it lands (`ml-auto`), as it does above 8em. An invited chip needs about 9.6em on one line, so
-                 the narrow state never splits a chip that fits; at the default size it starts at a 128px row, so a
-                 chip that fits keeps the one-line pill from 320 up (a short address at 320, whose row is 14.9em, and
-                 alice@example.com at 390 and 1440). Reading and Tab order stay address, marker, button. The em is
+                 line it lands (`ml-auto`), as it does above 9.6em. An invited chip needs about 9.6em on one line,
+                 so the narrow state never splits a chip that fits and no address truncates beside its marker below
+                 it; at the default size it starts at a 154px row, so a chip that fits keeps the one-line pill from
+                 320 up (a short address at 320, whose row is 15.5em, and alice@example.com at 390 and 1440). The
+                 switch was 8em until the capped card inset (E120) widened the row at 390px under 200% text from
+                 7.1em to 8.7em, where an 8em switch truncated alice's address by 55px. Reading and Tab order stay address, marker, button. The em is
                  the text's actual size however it is enlarged (a media query's rem is only the browser's text
                  setting), as in the Analysis KPI strip. Gates: tests/unit/admin-invites-page.spec.tsx (the classes)
                  and tests/e2e/admin-invite-chip-reflow.spec.ts (what they paint at 320, 390 and 1440px, at the

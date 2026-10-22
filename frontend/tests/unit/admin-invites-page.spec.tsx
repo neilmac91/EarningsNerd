@@ -320,16 +320,16 @@ describe('AdminInvitesPage: an email chip stays inside its card', () => {
     expect([...chip.children].at(-1)).toBe(remove)
     expect(chip).toHaveClass('max-w-full', 'rounded-xl')
     expect(chip).not.toHaveClass('rounded-full')
-    // The narrow state. The chip row is an inline-size query container; below 8em of its text size the group is too
-    // narrow for "· already", so it dissolves, the chip wraps with no row gap, and the address takes the first line
+    // The narrow state. The chip row is an inline-size query container; below 9.6em of its text size an invited chip
+    // no longer fits on one line, so the group dissolves, the chip wraps with no row gap, and the address takes the first line
     // whole and wraps anywhere instead of truncating (beside the button it kept 52px at 320px under 200% text, the
     // chief designer's review of #1344). The marker takes the rest of the line it shares with the button, and carries
     // that one class and nothing else (no shrink-0 or nowrap, above).
     expect(chip.parentElement).toHaveClass('[container-type:inline-size]')
-    expect(chip).toHaveClass('[@container(width<8em)]:flex-wrap', '[@container(width<8em)]:gap-y-0')
-    expect(group).toHaveClass('[@container(width<8em)]:contents')
+    expect(chip).toHaveClass('[@container(width<9.6em)]:flex-wrap', '[@container(width<9.6em)]:gap-y-0')
+    expect(group).toHaveClass('[@container(width<9.6em)]:contents')
     expectOwnLineWhenNarrow(address)
-    expect(marker.className).toBe('[@container(width<8em)]:flex-1')
+    expect(marker.className).toBe('[@container(width<9.6em)]:flex-1')
     expectEndsChipWhenNarrow(remove)
   })
 
@@ -348,22 +348,22 @@ describe('AdminInvitesPage: an email chip stays inside its card', () => {
 })
 
 /**
- * Below 8em the remove button ends the chip on whatever line it lands, as it does above (the chief designer's call on
+ * Below 9.6em the remove button ends the chip on whatever line it lands, as it does above (the chief designer's call on
  * #1344): alone on a line it sat at the line's start.
  */
 function expectEndsChipWhenNarrow(remove: HTMLElement) {
-  expect(remove).toHaveClass('[@container(width<8em)]:ml-auto')
+  expect(remove).toHaveClass('[@container(width<9.6em)]:ml-auto')
 }
 
-/** Above 8em of the row the address truncates beside its marker; below it, it takes the first line whole and wraps. */
+/** Above 9.6em of the row the address truncates beside its marker; below it, it takes the first line whole and wraps. */
 function expectOwnLineWhenNarrow(address: HTMLElement) {
   expect(address).toHaveClass(
     'truncate',
-    '[@container(width<8em)]:order-first',
-    '[@container(width<8em)]:basis-full',
-    '[@container(width<8em)]:whitespace-normal',
-    '[@container(width<8em)]:[overflow-wrap:anywhere]',
+    '[@container(width<9.6em)]:order-first',
+    '[@container(width<9.6em)]:basis-full',
+    '[@container(width<9.6em)]:whitespace-normal',
+    '[@container(width<9.6em)]:[overflow-wrap:anywhere]',
   )
   // Sharing the first line with the button (flex-1) is what left it 52px.
-  expect(address).not.toHaveClass('[@container(width<8em)]:flex-1')
+  expect(address).not.toHaveClass('[@container(width<9.6em)]:flex-1')
 }
