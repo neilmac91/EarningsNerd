@@ -23,11 +23,16 @@ declare global {
 const SCRIPT_SRC =
   'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
 
+/** How long a load may take before the widget says it did not load: a stalled request fires no event at all. */
+const SCRIPT_LOAD_TIMEOUT_MS = 15_000
+
 /**
  * Loads Cloudflare's script, or waits on the load in flight. The turnstile-script query is its one caller, so it
- * runs once a page, and again on the notice's Try again. A load that fails removes its element: a failed element
- * fires no second event, so a later call that waited on it would wait with no end, as every call after a failure
- * once did (a kept rejection answered them all for the page's life).
+ * runs once a page, and again on the notice's Try again. A load fails on the element's error, on a load that leaves
+ * no Turnstile global (a content blocker can answer with an empty stand-in) and after SCRIPT_LOAD_TIMEOUT_MS. A
+ * failed load removes its element: it fires no second event, so a later call that waited on it would wait with no
+ * end, as every call after a failure once did (a kept rejection answered them all for the page's life). A removed
+ * element that loads late still sets the global, which the next call then finds.
  */
 function loadTurnstileScript(): Promise<void> {
   if (typeof window === 'undefined' || window.turnstile) return Promise.resolve()
@@ -36,15 +41,23 @@ function loadTurnstileScript(): Promise<void> {
       'script[src^="https://challenges.cloudflare.com/turnstile"]',
     )
     const script = existing ?? document.createElement('script')
-    script.addEventListener('load', () => resolve(), { once: true })
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const settle = (failure?: string) => {
+      clearTimeout(timer)
+      if (!failure) {
+        resolve()
+        return
+      }
+      script.remove()
+      reject(new Error(failure))
+    }
+    timer = setTimeout(() => settle('Turnstile took too long to load'), SCRIPT_LOAD_TIMEOUT_MS)
     script.addEventListener(
-      'error',
-      () => {
-        script.remove()
-        reject(new Error('Turnstile failed to load'))
-      },
+      'load',
+      () => settle(window.turnstile ? undefined : 'Turnstile loaded without its global'),
       { once: true },
     )
+    script.addEventListener('error', () => settle('Turnstile failed to load'), { once: true })
     if (existing) return
     script.src = SCRIPT_SRC
     script.async = true
@@ -63,11 +76,12 @@ interface TurnstileWidgetProps {
  * Renders the Cloudflare Turnstile widget when NEXT_PUBLIC_TURNSTILE_SITE_KEY is configured; renders nothing
  * otherwise. A form that waits for its token (TURNSTILE_ENABLED) cannot send without one: the backend refuses a
  * missing token and fails open only when siteverify is unreachable. So when the script cannot load (a content
- * blocker, a lost connection), the widget says so in place, with a Try again that loads it afresh (E152).
+ * blocker, a lost connection, a request that stalls), the widget says so in place, with a Try again that loads it
+ * afresh (E152).
  */
-export default function TurnstileWidget(props: TurnstileWidgetProps) {
+export default function TurnstileWidget({ onToken, className }: TurnstileWidgetProps) {
   if (!TURNSTILE_SITE_KEY) return null
-  return <TurnstileChallenge {...props} />
+  return <TurnstileChallenge onToken={onToken} className={className} />
 }
 
 function TurnstileChallenge({ onToken, className }: TurnstileWidgetProps) {
@@ -88,6 +102,11 @@ function TurnstileChallenge({ onToken, className }: TurnstileWidgetProps) {
     // notice shows at once rather than after the default retries.
     staleTime: Infinity,
     retry: false,
+    // Offline too: the default mode would pause the load, with no element and no notice until the connection came
+    // back. Offline, the load fails into the notice, and a reconnect loads it again on its own, which this mode
+    // turns off unless asked (query-core defaults refetchOnReconnect to networkMode !== 'always').
+    networkMode: 'always',
+    refetchOnReconnect: true,
   })
   const failure = useRetainedFailure(script, queryKeys.turnstileScript())
   const loaded = script.isSuccess
@@ -95,12 +114,18 @@ function TurnstileChallenge({ onToken, className }: TurnstileWidgetProps) {
   useEffect(() => {
     const turnstile = window.turnstile
     if (!loaded || !containerRef.current || !turnstile) return
-    const widgetId = turnstile.render(containerRef.current, {
-      sitekey: TURNSTILE_SITE_KEY,
-      callback: (token: string) => onTokenRef.current(token),
-      'error-callback': () => onTokenRef.current(''),
-      'expired-callback': () => onTokenRef.current(''),
-    })
+    let widgetId: string
+    try {
+      widgetId = turnstile.render(containerRef.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        callback: (token: string) => onTokenRef.current(token),
+        'error-callback': () => onTokenRef.current(''),
+        'expired-callback': () => onTokenRef.current(''),
+      })
+    } catch {
+      // A render that throws leaves no widget and no token, never an error boundary in place of the whole form.
+      return
+    }
     return () => {
       try {
         turnstile.remove(widgetId)
@@ -115,7 +140,7 @@ function TurnstileChallenge({ onToken, className }: TurnstileWidgetProps) {
       <Notice
         variant="error"
         // Its text keeps to the start in a column that centres it (the waitlist page below lg), as the waitlist
-        // form's own notices do.
+        // form's own notices do, until a Notice sets its own alignment (E120).
         className="text-left"
         title="The security check didn't load"
         description="This form needs Cloudflare's check before it can send. Allow challenges.cloudflare.com in any content blocker, or check your connection, then try again."

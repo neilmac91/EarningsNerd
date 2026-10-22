@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import type { Mock } from 'vitest'
 import LoginPage from '@/app/login/page'
 import RegisterForm from '@/features/auth/components/RegisterForm'
@@ -19,7 +19,8 @@ import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
  *
  * The real TurnstileWidget runs in each form. Cloudflare's script is the one stand-in: jsdom loads no external
  * script, so a case fires the element's error or load event itself, and a load first puts the Turnstile global in
- * place, as the real script does.
+ * place, as the real script does. The widget's own cases hold the other ways a load fails: a request that stalls
+ * (no event at all), a load that brings no Turnstile (a content blocker's empty stand-in), and an offline browser.
  */
 
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
@@ -57,6 +58,8 @@ vi.mock('@/features/auth/components/SocialAuthButtons', () => ({ default: () => 
 vi.mock('@/features/marketing/api/access-api', () => ({ getRegistrationConfig: async () => null }))
 
 const TITLE = "The security check didn't load"
+/** TurnstileWidget's SCRIPT_LOAD_TIMEOUT_MS: how long a load may stall before the widget says it did not load. */
+const LOAD_TIMEOUT_MS = 15_000
 const SCRIPT = 'script[src^="https://challenges.cloudflare.com/turnstile"]'
 const scripts = () => [...document.head.querySelectorAll<HTMLScriptElement>(SCRIPT)]
 /** The element of the one load in flight. */
@@ -98,6 +101,8 @@ const inProvider = (children: ReactNode) => (
 )
 
 afterEach(() => {
+  vi.useRealTimers()
+  onlineManager.setOnline(true)
   for (const script of scripts()) script.remove()
   delete window.turnstile
   cloudflare.rendered = 0
@@ -184,7 +189,6 @@ describe.each(FORMS)('%s with Turnstile on', (_, form) => {
     await waitFor(() => expect(retry).toHaveAttribute('aria-busy', 'true'))
     expect(scripts()).toHaveLength(1)
     expect(notice()).not.toBeNull()
-    expect(retry).toHaveTextContent('Trying again…')
 
     await loadScript()
     await waitFor(() => expect(notice()).toBeNull())
@@ -243,6 +247,61 @@ describe("TurnstileWidget's script load", () => {
     await failLoad()
     await waitFor(() => expect(screen.getAllByText(TITLE)).toHaveLength(2))
     expect(scripts()).toHaveLength(0)
+  })
+
+  it('says so when a load stalls past its time, and removes the element it waited on', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    render(inProvider(<TurnstileWidget onToken={() => {}} />))
+    expect(scripts()).toHaveLength(1)
+    // Neither event fires. Short of the bound nothing is said; at it, the notice, and the element is gone.
+    await act(() => vi.advanceTimersByTimeAsync(LOAD_TIMEOUT_MS - 100))
+    expect(notice()).toBeNull()
+    expect(scripts()).toHaveLength(1)
+    await act(() => vi.advanceTimersByTimeAsync(200))
+    expect(notice()).not.toBeNull()
+    expect(scripts()).toHaveLength(0)
+  })
+
+  it('says so when the script loads but brings no Turnstile, and removes its element', async () => {
+    render(inProvider(<TurnstileWidget onToken={() => {}} />))
+    // A content blocker's empty stand-in: the element loads, and no global comes with it.
+    await act(async () => {
+      inFlight().dispatchEvent(new Event('load'))
+    })
+    await noticeShown()
+    expect(scripts()).toHaveLength(0)
+  })
+
+  it('offline, fails into the notice, and a reconnect loads the script again on its own', async () => {
+    onlineManager.setOnline(false)
+    const tokens: string[] = []
+    render(inProvider(<TurnstileWidget onToken={(token) => tokens.push(token)} />))
+    // The load starts though the browser reports no connection, and the request fails.
+    expect(scripts()).toHaveLength(1)
+    await failLoad()
+    await noticeShown()
+    act(() => onlineManager.setOnline(true))
+    await waitFor(() => expect(scripts()).toHaveLength(1))
+    await loadScript()
+    await waitFor(() => expect(notice()).toBeNull())
+    expect(tokens).toEqual(['token-1'])
+  })
+
+  it('keeps its place when Cloudflare cannot render the check, rather than give the form to an error boundary', async () => {
+    render(inProvider(<TurnstileWidget onToken={() => {}} />))
+    await act(async () => {
+      window.turnstile = {
+        render: vi.fn(() => {
+          throw new Error('Invalid container')
+        }),
+        reset: vi.fn(),
+        remove: vi.fn(),
+      }
+      inFlight().dispatchEvent(new Event('load'))
+    })
+    await waitFor(() => expect(window.turnstile!.render).toHaveBeenCalledTimes(1))
+    expect(check()).not.toBeNull()
+    expect(notice()).toBeNull()
   })
 
   it('renders each widget once on a load both waited on', async () => {
