@@ -17,6 +17,8 @@ same head.
   thread on the head answered. A green `review-gate` is not that read.
 - A pull request opened ready has no ready-mark review; the latest review of its head is the one to read.
 - A finding that lands after the merge gets its fix in the next pull request, with a reply on its thread naming it.
+- While Codex cannot review (credits exhausted, service down), AGENTS.md §5's `Review override:` line, naming the tier and
+  the substitute review, stands in for that read, as it does for `review-gate`; it is never written while Codex can review.
 
 **Evidence**: #1469's Codex summary (comment 6327567665, the trigger "Draft marked ready"), the finding 4342609972 and
 the reply 4342632073; `review-gate` run 39686282032 (passed 22:24:51Z); the merge `1c6dd6bf` at 22:26:52Z;
