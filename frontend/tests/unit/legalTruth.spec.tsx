@@ -165,8 +165,11 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    that does not wait for an in-flight renewal) are open; the stronger wording returns only in a pull request that
  *    carries the founder's go-ahead (tasks/todo.md F53) and changes this check. Each family is read in one list item or
  *    paragraph (blockTexts), and a promise of logging out in its own sentence or in the one after a sentence that names
- *    a logging-out action (a logout, a sign-out, a password changed or reset), so a word in a neighbouring sentence
- *    makes no context: "Passwords are hashed. Idle sessions end after 30 minutes." passes. Planted forms score the
+ *    a logging-out action (a logout, a sign-out, a password changed or reset; a new password counts in its own
+ *    sentence), and beside a password only named, in the password's own clause, which a conjunction ends unless an end
+ *    follows it or it joins the password to another noun (CLAUSE_JOIN), so a word in a neighbouring sentence or clause
+ *    makes no context: "Passwords are hashed. Idle sessions end after 30 minutes." and "Passwords are hashed and idle
+ *    sessions end after 30 minutes." pass. Planted forms score the
  *    reach; out of reach, planted as gaps: a promise split across two
  *    items, one said in other words ("nobody stays signed in"), and a negation that only restricts where no reading
  *    sees it ("does not end this session but every session").
@@ -355,8 +358,9 @@ const AS_LOGIN = String.raw`(?!-\w)${ITSELF}`
 const A_LOGIN = String.raw`(?:(?:a|an|the|your|valid|prior|its own|signed[- ]in|logged[- ]in|authenticated|registered|verified|user|account)\s+)*(?:authentication|auth|log[- ]?in|logging in|sign[- ]?in|signing in|(?:bearer\s+|session\s+|access\s+)?tokens?${ITSELF}|account${AS_LOGIN}|credentials?)\b`
 /** A conjunction that joins clauses inside a sentence (#1456's eighth round). It carries a reading on only directly
     before the predicate the reading looks for, an adverb at most between them (CARRIED_ON: "each endpoint returns JSON
-    and also requires a login"); before anything else it starts another clause, with a subject of its own ("each
-    endpoint returns JSON and administrators need a login"). */
+    and also requires a login", "sends a reset link and ends every session"); before anything else it starts another
+    clause, with a subject of its own ("each endpoint returns JSON and administrators need a login", "passwords are
+    hashed and idle sessions end after 30 minutes"). */
 const CLAUSE_JOIN = String.raw`(?:and|but|or)`
 /** The adverb a conjunction may carry a predicate on through (CLAUSE_JOIN). */
 const CARRIED_ON = String.raw`(?:(?:also|always|then|still|only|likewise)\s+)?`
@@ -465,9 +469,24 @@ const ENDS = String.raw`${NOT}\b(?:end(?:s|ed|ing)?(?!\s+of\b)|clos(?:e|es|ed|in
 /** A time an end comes within: a span, or at once. */
 const WITHIN = String.raw`(?:\b(?:within|after|in|under|inside)\s+(?:(?:\d+|a|an|one|two|three|five|ten|fifteen|twenty|thirty|forty|sixty|a few|a couple of|half an?)\s+)?(?:seconds?|secs?|minutes?|mins?|hours?|hrs?|days?)\b|\b(?:immediately|at once|instantly|right away|straight away|straightaway|without delay|on the spot)\b)`
 /** A logging-out action, as a block names it: a logout and a sign-out in their spellings (log out, logged out,
-    logout, log-out, signing out, sign-out), all devices or every device, everywhere, a password. A revocation alone is
-    none: a renewal revokes the token it replaces, and the Token renewal item says so. */
-const LOGGING_OUT = /\b(?:log(?:s|ged|ging)?[- ]?outs?|sign(?:s|ed|ing)?[- ]?outs?|all (?:of )?(?:your |the )?devices|every device|everywhere|passwords?)\b/i
+    logout, log-out, signing out, sign-out), all devices or every device, everywhere; a password only named gives its
+    context to its own clause (PASSWORD). A revocation alone is none: a renewal revokes the token it replaces, and the
+    Token renewal item says so. */
+const LOGGING_OUT = /\b(?:log(?:s|ged|ging)?[- ]?outs?|sign(?:s|ed|ing)?[- ]?outs?|all (?:of )?(?:your |the )?devices|every device|everywhere)\b/i
+/** A password only named (#1456's eighth round), which gives a logout's context to its own clause, where a
+    conjunction ends it (CLAUSE_JOIN, the stop the endpoint claim reads): in "Passwords are hashed and idle sessions end
+    after 30 minutes." the idle timeout is no logout's end. A password changed or reset (LOGGING_OUT_ACTION), or
+    replaced (NEW_PASSWORD), gives it to its whole sentence. */
+const PASSWORD = /\bpasswords?\b/i
+/** A verb the session-end readings take for an end, which a conjunction carries a clause on to (CLAUSE_JOIN). */
+const END_VERB = String.raw`(?:end(?:s|ed|ing)?|clos(?:e|es|ed|ing)|stop(?:s|ped|ping)?|terminat(?:e|es|ed|ing)|kill(?:s|ed|ing)?|invalidat(?:e|es|ed|ing)|expir(?:e|es|ed|ing)|revok(?:e|es|ed|ing)|(?:signs?|logs?|signed|logged)\s+(?:you\s+)?out|times? out|timed out|cuts? off)\b`
+/** A sentence's clauses: split at a semicolon, and at a conjunction (CLAUSE_JOIN) that does not carry it on to an end
+    (CARRIED_ON, END_VERB) and does not, right after the password with no comma, join it to one more noun before an end
+    ("your password or email ends every session"). */
+const clausesOf = (sentence: string) =>
+  sentence.split(
+    new RegExp(String.raw`\s*;\s*|,?\s+${CLAUSE_JOIN}\s+(?!${CARRIED_ON}${END_VERB})(?!(?<=\bpasswords?\s+${CLAUSE_JOIN}\s+)[\w'’-]+\s+${CARRIED_ON}${END_VERB})`, 'i'),
+  )
 /** An end at its token's expiry ("that session ends when its token expires"): the expiry, not a logout's end. */
 const AT_EXPIRY = String.raw`(?!\s+(?:only\s+)?(?:when|once|as soon as|after)\s+(?:its|the|that|their|your)\s+(?:own\s+)?(?:session\s+)?tokens?\s+(?:expires?|has expired|have expired|runs? out)\b)`
 /** The forms of an end the two above miss: the verb before what it ends with no "every" ("ends your sessions", "ends
@@ -524,10 +543,11 @@ const MAIN_REUSE = /^(?=.*\brevok).*\b(?:a second time|again|twice|re-?us(?:e|ed
     read as the one-use forms are, only in a sentence about the refresh or session token (#1456's eighth round): "A
     verification code cannot be used more than once and can be revoked from settings." is another credential's. */
 const REUSE_OF_THE_TOKEN = new RegExp(String.raw`^(?=.*${REUSED})(?=.*(?:\brevok|${SWEEP}|\block(?:s|ed)?\s+(?:the account|you out)\b))`, 'i')
-/** Main's timed and untimed readings on every logging-out word (LOGGING_OUT, main's own words among them), with a
-    denial read as SESSION_END_MORE reads one, before the verb or on the subject (NOT) or on its object (DENIED_OBJECT):
-    "Logging out does not end every session within 30 minutes", "No session ends within 30 minutes of logging out" and
-    "Logging out ends no other session" deny the end. A promise stays one: nothing else is taken from main's readings. */
+/** Main's timed and untimed readings on every logging-out word (LOGGING_OUT and PASSWORD, main's own words among
+    them), with a denial read as SESSION_END_MORE reads one, before the verb or on the subject (NOT) or on its object
+    (DENIED_OBJECT): "Logging out does not end every session within 30 minutes", "No session ends within 30 minutes of
+    logging out" and "Logging out ends no other session" deny the end. A promise stays one: nothing else is taken from
+    main's readings. */
 const deniable = (re: RegExp) => new RegExp(String.raw`${NOT}(?![\w'’-]+${DENIED_OBJECT})` + re.source, 'i')
 const SESSION_END_TIMED_DENIABLE = deniable(SESSION_END_TIMED)
 const SESSION_END_UNTIMED_DENIABLE = deniable(SESSION_END_UNTIMED)
@@ -535,13 +555,20 @@ const SESSION_END_UNTIMED_DENIABLE = deniable(SESSION_END_UNTIMED)
 /** A logging-out action as a sentence names it: a logout or a sign-out in their spellings, or a password changed or
     reset. A password only named ("Passwords are hashed") is no action. */
 const LOGGING_OUT_ACTION = /\b(?:log(?:s|ged|ging)?[- ]?outs?|sign(?:s|ed|ing)?[- ]?outs?)\b|\b(?:chang|reset|updat)\w*\b[^.;!?]{0,20}\bpasswords?\b|\bpasswords?\s+(?:(?:is|are|was|were|gets?|got)\s+)?(?:chang|reset|updat)\w*/i
-/** The sentences of a block a promise of logging out is read in: one that names a logging-out word itself
-    (LOGGING_OUT), and the one after a sentence that names a logging-out action, which goes on from it ("Logging out of
-    all devices revokes your refresh tokens. Each session then ends within 30 minutes."). A word in a neighbouring
-    sentence is no context: in "Passwords are hashed. Idle sessions end after 30 minutes." the idle timeout is no
-    logout's end. */
+/** A password replaced ("choose a new password"), a change in the sentence that names it (#1456's eighth round). */
+const NEW_PASSWORD = /\b(?:new|another|different)\s+passwords?\b/i
+/** What of a block a promise of logging out is read in: a sentence that names a logging-out word or action itself
+    (LOGGING_OUT, LOGGING_OUT_ACTION, NEW_PASSWORD), the one after a sentence that names a logging-out action, which
+    goes on from it ("Logging out of all devices revokes your refresh tokens. Each session then ends within 30
+    minutes."), and the clause of a password only named (PASSWORD, clausesOf). A word in a neighbouring sentence or
+    clause is no context: in "Passwords are hashed. Idle sessions end after 30 minutes." the idle timeout is no logout's
+    end. */
 const loggingOutSentences = (block: string) =>
-  sentencesOf(block).filter((sentence, i, all) => LOGGING_OUT.test(sentence) || (i > 0 && LOGGING_OUT_ACTION.test(all[i - 1])))
+  sentencesOf(block).flatMap((sentence, i, all) =>
+    LOGGING_OUT.test(sentence) || LOGGING_OUT_ACTION.test(sentence) || NEW_PASSWORD.test(sentence) || (i > 0 && LOGGING_OUT_ACTION.test(all[i - 1]))
+      ? [sentence]
+      : clausesOf(sentence).filter((clause) => PASSWORD.test(clause)),
+  )
 
 const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
   [
@@ -1445,6 +1472,17 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>A refresh token used more than once revokes all of the account’s refresh tokens.</li>', true],
       ['<li>A verification code cannot be used more than once and can be revoked from settings.</li>', false],
       ['<li>A token used twice revokes the account.</li>', true],
+      // A password only named gives a logout's context to its own clause, which a conjunction ends unless an end
+      // follows it or it joins the password to another noun; a password changed, reset or replaced gives it to the
+      // sentence (#1456's eighth round, Codex's thread 4342548463). Main refuses the last two, on its password word
+      // anywhere in the item.
+      ['<li>Your password is reset and every session ends within 30 minutes.</li>', true],
+      ['<li>Choose a new password and every other session ends within 30 minutes.</li>', true],
+      ['<li>Forgetting your password sends a reset link and ends every session.</li>', true],
+      ['<li>Forgetting your password or email ends every session.</li>', true],
+      ['<li>Passwords are hashed and idle sessions end after 30 minutes.</li>', false],
+      ['<li>Your password is hashed and the session token expires after 30 minutes.</li>', false],
+      ['<li>Your password is hashed and every session ends within 30 minutes.</li>', false],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
