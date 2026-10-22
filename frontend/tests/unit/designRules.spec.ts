@@ -53,8 +53,9 @@ import {
  *    the DS Button imported under another name; an imported wrapper and a wrapper of a wrapper stay unread.
  *  - surface-padding-cap (E120): under enlarged text a surface's inset stops growing at narrow widths, so a Card, a
  *    Modal's panel, a frame (a full border and a radius), the Card's and the dialog's sections, a native <dialog>'s
- *    sections and what is written directly inside a Card, a Modal or a frame whose class does not pad every render
- *    (no padding, p-0, padding set only under a condition or a variant, or reset under one) carry no padding of step
+ *    sections and what is written directly inside a Card, a Modal or a frame, on each side its class does not pad in
+ *    every render (no padding, padding on the other axis only, p-0, padding set only under a condition or a variant,
+ *    or reset under one), carry no padding of step
  *    5 or more that is not a capped token (p-cap-N, tailwind.config.js), and a frame inside a dialog's body none from
  *    step 4. A step is read by its resolved size (a configured key, an arbitrary length), a value the rule cannot
  *    read fails closed, a class a same-file binding holds is read with the attribute that names it, a Card or a
@@ -838,13 +839,12 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     '<Card><div className="rounded-lg border p-4" /></Card>',
     // Out of reach (review-checked), planted as stated gaps: a token whose variant styles another element; a frame drawn
     // without a border utility; an object of recipes; a binding a ternary sets; a class through a helper other than
-    // cx() or clsx(); a section of a surface that sets padding on one axis only.
+    // cx() or clsx().
     '<Card className="[&>div]:p-6" />',
     '<div className="rounded-xl bg-panel-light p-6 shadow-e2" />',
     "const S = { pad: 'p-6' }\nexport const x = <Card className={S.pad} />",
     "const PAD = wide ? 'p-6' : 'p-4'\nexport const x = <Card className={PAD} />",
     "export const x = <Card className={merge(cx('p-6'))} />",
-    '<Card className="py-2"><div className="px-6" /></Card>',
     '<dialog className="rounded-2xl border p-0"><header className="border-b px-cap-5 py-4" /></dialog>',
     // A constant that draws no frame and sits on no surface.
     "const PAD = 'p-6'\nexport const x = <section className={PAD} />",
@@ -856,6 +856,10 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     '<Card className="p-cap-4 sm:p-cap-6"><div className="px-6" /></Card>',
     // Bindings named in opposite arms render one or the other, never a padded frame (Codex's review of 82dd27ea).
     "const FRAME = 'rounded-xl border'\nconst PAD = 'p-6'\nexport const x = <div className={framed ? FRAME : PAD} />",
+    // A surface padded on one axis leaves only the other to its sections (Codex's review of 5f3bfd0a): the Card's py-2 is its
+    // vertical inset, so the row's py-6 is spacing inside it, and a horizontal reset at sm leaves only the sides.
+    '<Card className="py-2"><div className="px-cap-6 py-6" /></Card>',
+    '<Card className="p-cap-6 sm:px-0"><div className="py-6" /></Card>',
     // Pieces under separate conditions render together: this frame carries the cap in every render.
     "<div className={cx(bordered && 'rounded-xl border', compact ? 'p-3' : 'p-cap-6')} />",
     // A binding named unconditionally pads every render, read where it is named.
@@ -951,6 +955,9 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
         "<div className={cx(a ? 'mt-1' : 'mt-2', b ? 'mb-1' : 'mb-2', c ? 'gap-1' : 'gap-2', d ? 'flex' : 'grid', e ? 'w-full' : 'w-auto', f ? 'h-8' : 'h-9', g ? 'rounded-xl border' : 'p-6')} />",
       errors: [{ messageId: 'uncapped' }],
     },
+    // A surface padded on one axis leaves the other to what is written inside it (Codex's review of 5f3bfd0a).
+    { code: '<Card className="py-2"><div className="px-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<div className="rounded-xl border px-cap-5"><div className="py-6" /></div>', errors: [{ messageId: 'uncapped' }] },
     // A binding that reads itself is read once, not without end.
     { code: "const SHELL = cx('rounded-xl border', SHELL)\nexport const x = <div className={cx(SHELL, 'p-6')} />", errors: [{ messageId: 'uncapped' }] },
     // A stated limit, failing closed: only unconditional padding pads every render, so a surface whose every arm pads it

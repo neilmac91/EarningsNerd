@@ -245,12 +245,13 @@
 //                       copied by hand and the wells inside a card, but never a form field (input, textarea, select),
 //                       whose padding reserves room for a glyph (an icon field's pl-11, a select's pr-9); and a section
 //                       of a surface, an element
-//                       written directly inside a Card, a Modal or a frame whose class does not pad every render (only
-//                       padding of some length in its unconditional text, a binding's read where it is named, under no
-//                       variant and reset to zero under none, does; `p-0`, padding set only under a condition or a
-//                       variant such as `sm:`, or a reset to zero under one or a condition (`p-cap-6 sm:p-0`), leaves the
-//                       inset to the children, failing closed), through `{…}` children, conditionals and a callback
-//                       written there, as the Card's sections are: the hero example's wrapper, the admin lists' rows. A
+//                       written directly inside a Card, a Modal or a frame, on each side its class does not pad in every
+//                       render (only padding of some length in its unconditional text, a binding's read where it is named,
+//                       under no variant, pads its sides, `py-2` the top and the bottom; `p-0`, padding set only under a
+//                       condition or a variant such as `sm:`, or a reset to zero under one or a condition (`p-cap-6
+//                       sm:p-0`), leaves its sides to the children, failing closed), through `{…}` children, conditionals
+//                       and a callback written there, as the Card's sections are: the hero example's wrapper, the admin
+//                       lists' rows, a `py-2` Card's `px-6` rows. A
 //                       frame inside a dialog's body (written inside <ModalBody> or a native <dialog> in the same file, a
 //                       Card included) caps from step 4: the dialog's own inset already halves the measure there, and at
 //                       320px under 200% text the cookie dialog's category cards left their text 92px and broke its
@@ -268,8 +269,7 @@
 //                       later assignment sets, a class through a helper other than cx()/clsx() (`merge(…)`), an inset set
 //                       in an inline style or a stylesheet, a token whose variant styles another element (`[&>div]:p-6`),
 //                       a frame drawn without a border utility (a fill, a shadow or a ring alone, or a stylesheet class
-//                       such as `.glass-card`), a section of a surface that sets padding on one axis only (a `py-2`
-//                       Card's `px-6` rows), and a section held in a variable or rendered by another component (the
+//                       such as `.glass-card`), and a section held in a variable or rendered by another component (the
 //                       stacked metric cards' list in FinancialMetricsTable, TableScroll's hint, the filings index's
 //                       skeleton), which carry the cap by hand.
 //
@@ -1856,6 +1856,26 @@ function setsPadding(raw) {
   return step !== undefined && step !== 0
 }
 
+const SIDES = { p: ['t', 'r', 'b', 'l'], px: ['r', 'l'], py: ['t', 'b'], ps: ['l'], pe: ['r'], pt: ['t'], pr: ['r'], pb: ['b'], pl: ['l'] }
+/** The sides a padding token sets (`px-6` the left and the right), none for any other token. */
+function paddingSides(raw) {
+  const token = raw && parseClassToken(raw)
+  const m = token && PADDING.exec(token.utility)
+  return m ? SIDES[m[1]] : []
+}
+
+/** `classText` without the padding tokens that set none of `sides`: what a section carries of the inset its surface
+ *  leaves it. */
+function onSides(classText, sides) {
+  return classText
+    .split(/\s+/)
+    .filter((raw) => {
+      const set = paddingSides(raw)
+      return set.length === 0 || set.some((side) => sides.has(side))
+    })
+    .join(' ')
+}
+
 /** The capped key tailwind.config.js does not define in `classText` (`p-cap-7`, `scroll-py-cap-7`, `[&>div]:p-cap-7`),
  *  which ships unstyled, else null. */
 export function undefinedCap(classText) {
@@ -1923,6 +1943,7 @@ function enclosingElement(element, fragments = FRAGMENTS) {
 /** The names a fragment is written under: `Fragment`, and in a rule that reads the file's imports, React's Fragment
  *  under another name (`Fragment as F`). */
 const FRAGMENTS = new Set(['Fragment'])
+const NO_SIDES = new Set()
 const isFragment = (element, fragments) => {
   const name = element.openingElement.name
   return name.type === 'JSXIdentifier' ? fragments.has(name.name) : name.type === 'JSXMemberExpression' && name.property.name === 'Fragment'
@@ -2003,27 +2024,30 @@ export const surfacePaddingCap = {
       const init = def?.node?.type === 'VariableDeclarator' ? def.node.init : null
       return init && isClassShaped(init) ? unwrapTs(init) : null
     }
-    /** Whether a surface leaves its inset to the elements written directly inside it: a Card, a Modal or a frame whose
-     *  class text does not pad it in every render, as the Card leaves its inset to its sections. Only padding of some
-     *  length in the unconditional text (a binding's read where it is named), under no variant and reset to zero under
-     *  none, pads every render; one set only under a condition (`padded ? 'p-cap-6' : 'p-0'`, `padded && PAD`) or a
-     *  variant (`sm:p-cap-6` has none below sm; `hover:`, `dark:`), or reset under one or a condition (`p-cap-6 sm:p-0`,
-     *  `reset && 'sm:p-0'`), leaves the inset to the children, failing closed, and so does `p-0`. A value the rule
-     *  cannot read as a length counts as padding. */
-    const leavesInsetToSections = (element) => {
-      if (FORM_FIELDS.has(nameOf(element))) return false
+    /** The sides a surface leaves to the elements written directly inside it: those a Card, a Modal or a frame does not
+     *  pad in every render, as the Card leaves its inset to its sections; none for any other element. Only padding of
+     *  some length in the unconditional text (a binding's read where it is named), under no variant, pads its sides in
+     *  every render (`py-2` the top and the bottom); padding set only under a condition (`padded ? 'p-cap-6' : 'p-0'`,
+     *  `padded && PAD`) or a variant (`sm:p-cap-6` has none below sm; `hover:`, `dark:`) pads none, and a reset to zero
+     *  under one or a condition (`p-cap-6 sm:p-0`, `reset && 'sm:px-0'`) leaves its sides to the children, failing
+     *  closed, as `p-0` does. A value the rule cannot read as a length counts as padding. */
+    const sidesLeftToSections = (element) => {
+      if (FORM_FIELDS.has(nameOf(element))) return NO_SIDES
       const attribute = classAttribute(element)
       const root = { parent: null }
       const pieces = attribute ? collectStaticText(attribute.value, new WeakSet(), [], root, resolveBinding) : []
       const always = pieces.filter((piece) => piece.branch === root).map((piece) => piece.text).join(' ')
-      const tokens = always.split(/\s+/).filter(Boolean)
+      if (!SECTIONED_COMPONENTS.has(nameOf(element)) && ![always, ...renderTexts(pieces)].some(drawsFrame)) return NO_SIDES
       const base = (raw) => splitClassToken(raw).variants.length === 0
-      // A zero reset under a variant, or in any conditional piece (`reset && 'sm:p-0'`), leaves the inset somewhere.
-      const reset = pieces.some((piece) =>
-        piece.text.split(/\s+/).some((raw) => paddingStep(raw) === 0 && (piece.branch !== root || !base(raw))),
-      )
-      if (!reset && tokens.some((raw) => base(raw) && setsPadding(raw))) return false
-      return SECTIONED_COMPONENTS.has(nameOf(element)) || [always, ...renderTexts(pieces)].some(drawsFrame)
+      const left = new Set(SIDES.p)
+      for (const raw of always.split(/\s+/).filter(Boolean)) if (base(raw) && setsPadding(raw)) for (const side of paddingSides(raw)) left.delete(side)
+      // A zero reset under a variant, or in any conditional piece (`reset && 'sm:p-0'`), leaves its sides somewhere.
+      for (const piece of pieces) {
+        for (const raw of piece.text.split(/\s+/)) {
+          if (paddingStep(raw) === 0 && (piece.branch !== root || !base(raw))) for (const side of paddingSides(raw)) left.add(side)
+        }
+      }
+      return left
     }
     /** What makes a class unit a surface whatever its text says, and the element it sits on. */
     const surfaceOf = (node) => {
@@ -2034,11 +2058,13 @@ export const surfacePaddingCap = {
       if (name === 'dialog') return { surface: 'a native <dialog>', card: false, element }
       const holder = element ? enclosingElement(element, fragments) : null
       if (holder && nameOf(holder) === 'dialog') return { surface: 'a section of a native <dialog>', card: false, element }
-      // An element written directly inside a Card, a Modal or a frame whose class does not pad every render carries that
-      // surface's inset, as the Card's own sections do (the hero example's wrapper, the filings index's header).
-      if (holder && leavesInsetToSections(holder)) {
+      // An element written directly inside a Card, a Modal or a frame carries the surface's inset on each side its class
+      // does not pad in every render, as the Card's own sections do (the hero example's wrapper, the filings index's
+      // header; a `py-2` Card's `px-6` rows).
+      const sides = holder ? sidesLeftToSections(holder) : NO_SIDES
+      if (sides.size) {
         const of = SECTIONED_COMPONENTS.has(nameOf(holder)) ? `a ${nameOf(holder)}` : 'a frame'
-        return { surface: `a section of ${of} whose class does not pad every render`, card: false, element }
+        return { surface: `a section of ${of} whose class does not pad that side in every render`, card: false, element, sides }
       }
       for (let at = node.parent; at; at = at.parent) {
         if (!FUNCTION_TYPES.has(at.type)) continue
@@ -2081,14 +2107,15 @@ export const surfacePaddingCap = {
           return
         }
       }
-      const { surface, card, element } = surfaceOf(node)
+      const { surface, card, element, sides } = surfaceOf(node)
       const field = element !== null && FORM_FIELDS.has(nameOf(element))
       const well = element !== null && inDialogBody(element)
       for (const text of texts) {
         const framed = card || (!field && drawsFrame(text))
         const threshold = framed && well ? DIALOG_WELL_STEP : surface || framed ? SURFACE_STEP : null
         if (threshold === null) continue
-        const found = uncappedInset(text, threshold)
+        // A section carries the inset on the sides its surface leaves it; a frame carries its own on every side.
+        const found = uncappedInset(framed || !sides ? text : onSides(text, sides), threshold)
         if (found) {
           report(node, found, surface ?? (well ? "a frame inside a dialog's body" : 'a frame (a full border and a radius)'))
           return
