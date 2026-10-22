@@ -36,7 +36,7 @@ from app.services.edgar.client import _take_recent
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.config import FilingType
 from app.services.request_work import run_owned_sync
-from app.utils.datetimes import utcnow
+from app.utils.datetimes import utc_from_iso, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -387,8 +387,8 @@ def persist_live_filings(
                 company_id=company_id,
                 accession_number=accession_number,
                 filing_type=sec_filing["filing_type"],
-                filing_date=datetime.fromisoformat(sec_filing["filing_date"]),
-                period_end_date=datetime.fromisoformat(sec_filing["report_date"]) if sec_filing.get("report_date") else None,
+                filing_date=utc_from_iso(sec_filing["filing_date"]),
+                period_end_date=utc_from_iso(sec_filing["report_date"]) if sec_filing.get("report_date") else None,
                 document_url=document_url,
                 sec_url=sec_url
             )

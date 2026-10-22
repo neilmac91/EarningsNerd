@@ -16,7 +16,6 @@ this service), not encoded here — keeping the "how aggressive" decision in con
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import Iterable, Optional
 
 logger = logging.getLogger(__name__)
@@ -54,6 +53,7 @@ async def precompute_one(
     from app.services.company_resolution import resolve_or_create_company_by_cik
     from app.services.edgar.compat import sec_edgar_service
     from app.services.summary_generation_service import generate_summary_background
+    from app.utils.datetimes import utc_from_iso
 
     ticker_u = ticker.upper().strip()
     form_u = form.upper().strip()
@@ -158,9 +158,9 @@ async def precompute_one(
                     company_id=company_id,
                     accession_number=sf["accession_number"],
                     filing_type=sf["filing_type"],
-                    filing_date=datetime.fromisoformat(sf["filing_date"]),
+                    filing_date=utc_from_iso(sf["filing_date"]),
                     period_end_date=(
-                        datetime.fromisoformat(sf["report_date"]) if sf.get("report_date") else None
+                        utc_from_iso(sf["report_date"]) if sf.get("report_date") else None
                     ),
                     document_url=document_url,
                     sec_url=sec_url,

@@ -1,4 +1,4 @@
-"""Unit tests for app.utils.datetimes — the aware utcnow() + iso_z() wire helper.
+"""Unit tests for app.utils.datetimes — the aware utcnow(), the iso_z() wire helper and utc_from_iso().
 
 Regression guard for the aware-migration footgun: an aware ``utcnow().isoformat()`` renders the
 offset as ``+00:00``, so the old ``… + "Z"`` produced a malformed ``…+00:00Z`` that round-trips to a
@@ -9,12 +9,12 @@ wire format instead.
 ``Z`` onto an ``isoformat()`` result, by ``+`` or in an f-string.
 """
 import ast
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
-from app.utils.datetimes import iso_z, utcnow
+from app.utils.datetimes import iso_z, utc_from_iso, utcnow
 
 APP_DIR = Path(__file__).resolve().parents[2] / "app"
 
@@ -45,6 +45,25 @@ def test_iso_z_round_trips_via_fromisoformat():
     dt = utcnow()
     restored = datetime.fromisoformat(iso_z(dt).replace("Z", "+00:00"))
     assert restored == dt
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("2026-01-15", datetime(2026, 1, 15, tzinfo=timezone.utc)),  # an SEC listing's bare date: UTC midnight
+    ("2026-01-15T09:30:00", datetime(2026, 1, 15, 9, 30, tzinfo=timezone.utc)),
+    ("2026-01-15T20:00:00-05:00", datetime(2026, 1, 16, 1, 0, tzinfo=timezone.utc)),
+])
+def test_utc_from_iso_is_aware_utc(text, expected):
+    parsed = utc_from_iso(text)
+    assert parsed == expected
+    assert parsed.utcoffset() == timedelta(0)
+
+
+@pytest.mark.parametrize("value", ["2026-13-01", "", None, "0001-01-01T00:00:00+01:00"])
+def test_utc_from_iso_raises_value_error_for_what_it_cannot_read(value):
+    """The filing scan skips a malformed listing row on ``ValueError``: a missing date and an offset with no UTC
+    equivalent too, which ``fromisoformat`` and ``astimezone`` reject with ``TypeError`` and ``OverflowError``."""
+    with pytest.raises(ValueError):
+        utc_from_iso(value)
 
 
 def _is_isoformat_call(node: ast.AST) -> bool:

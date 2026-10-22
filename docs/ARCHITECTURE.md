@@ -131,7 +131,7 @@ backend/
 │   ├── models/           # SQLAlchemy ORM (core in __init__.py, rest in submodules)
 │   ├── schemas/          # Pydantic request/response contracts
 │   ├── integrations/     # external market-data APIs
-│   ├── utils/            # datetimes.py (aware utcnow + iso_z), numbers.py (coerce_float)
+│   ├── utils/            # datetimes.py (aware utcnow, iso_z, ensure_utc, utc_from_iso), numbers.py (coerce_float)
 │   ├── config.py         # Pydantic Settings — ALL env access goes through it
 │   └── database.py       # session management + ensure_additive_columns
 ├── evals/                # AI eval harness + regression gate (see evals/RUNBOOK.md)
@@ -419,7 +419,8 @@ unused since generation became account-required in #619; kept because migrations
 ## Patterns & invariants
 
 - **Datetime:** tz-aware UTC via `app/utils/datetimes.utcnow()` (+ `iso_z()` for the
-  legacy `…Z` wire format). A deliberate 6-site **naive** allowlist exists for the
+  legacy `…Z` wire format); `utc_from_iso()` parses an ISO date or date-time from outside,
+  such as an SEC listing's, as aware UTC. A deliberate 6-site **naive** allowlist exists for the
   OAuthState/RefreshToken token-expiry columns — enforced by
   `tests/unit/test_naive_utcnow_allowlist.py`.
 - **Resilience numbers:** circuit breaker CLOSED → OPEN at 5 consecutive network failures,
