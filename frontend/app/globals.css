@@ -208,6 +208,9 @@
 /* Approved C5 hero exception, only on the default headline's “the source”. The genuine italic
    face is loaded by HeroHeadline, leaving shared Inter and all other marks unchanged. */
 .en-mark.en-hero-emphasis {
+  /* The heading isolates this layer below neighboring glyphs. */
+  position: relative;
+  z-index: -1;
   display: inline-block;
   max-width: 100%;
   /* Keep the phrase together where it fits; enlarged text can wrap between its words. */
@@ -218,12 +221,22 @@
   padding: calc(0.04em - 1px) 0.18em 0.06em;
   margin-inline: -0.1em;
   border-radius: theme('borderRadius.DEFAULT');
-  background: theme('colors.brand.strong-dark');
+  background: transparent;
   box-shadow: none;
   font-family: var(--font-hero-italic), var(--font-heading);
   font-style: italic;
   font-synthesis: none;
   color: theme('colors.text.primary.light');
+}
+.en-mark.en-hero-emphasis::before {
+  content: '';
+  position: absolute;
+  /* Zero on one line; a wrapped box gains descender clearance without moving its text. */
+  inset: max(0px, calc(6% - 0.06em)) 0 0;
+  background: theme('colors.brand.strong-dark');
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
 }
 .dark .en-mark.en-hero-emphasis {
   color: theme('colors.background.dark / 90%');
