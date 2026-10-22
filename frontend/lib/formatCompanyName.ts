@@ -18,7 +18,7 @@
  *        - a token with a slash is EDGAR's legal form with a marker glued on: the part before the first slash is
  *          cased as that word on its own, and each marker after a slash (a state code, NEW) keeps its capitals
  *          ("INC/DE" -> "Inc/DE", "CO/VA/" -> "Co/VA/"); a marker alone ("/DE/") stays as served (chief design on
- *          #1491, E155);
+ *          #1491, comment 6347648492);
  *        - tokens in OVERRIDES take their brand casing ("JPMORGAN" -> "JPMorgan", "EBAY" -> "eBay");
  *        - tokens in KEEP_UPPER stay upper (legal-form initialisms "LLC", "PLC"; brand initialisms
  *          "IBM", "NVIDIA", "NIKE" as the company itself styles it; roman numerals);

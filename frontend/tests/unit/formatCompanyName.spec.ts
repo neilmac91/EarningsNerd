@@ -31,8 +31,8 @@ describe('formatCompanyName', () => {
     expect(formatCompanyName(input)).toBe(expected)
   })
 
-  // Chief design on #1491 (E155): a legal form with EDGAR's marker glued on reads as the same legal form without one; the
-  // marker keeps its capitals, and a marker alone stays as served. Only letter case changes.
+  // Chief design on #1491 (6347648492): a legal form with EDGAR's marker glued on reads as the same legal form without
+  // one; the marker keeps its capitals, and a marker alone stays as served. Only letter case changes.
   it.each([
     ['QUALCOMM INC/DE', 'Qualcomm Inc/DE'],
     ['SHENANDOAH TELECOMMUNICATIONS CO/VA/', 'Shenandoah Telecommunications Co/VA/'],
