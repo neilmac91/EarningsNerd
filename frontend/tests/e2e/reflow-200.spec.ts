@@ -1127,11 +1127,11 @@ for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }
     paint on one line; the read must reach the table, the claims, How it works, the Pro row and the close. This read
     keeps its own pattern rather than the component's, so a narrower one there cannot narrow it. */
 const FORM_CODE = /\b\d+-[A-Z]+(?:s|['’]s)?\b/
-const formCodes = (page: Page) =>
-  page.evaluate((source) => {
+const formCodes = (page: Page, roots = 'main section[data-landing-row], main [data-landing-close]') =>
+  page.evaluate(({ source, roots }) => {
     const pattern = new RegExp(source, 'g')
     const found: { where: string; code: string; lines: number; text: string }[] = []
-    for (const root of document.querySelectorAll('main section[data-landing-row], main [data-landing-close]')) {
+    for (const root of document.querySelectorAll(roots)) {
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
       for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
         const el = node.parentElement
@@ -1150,13 +1150,13 @@ const formCodes = (page: Page) =>
             where: `${root.id || 'close'}${el.closest('table') ? ' table' : ''}`,
             code: match[0],
             lines: tops.length,
-            text: (el.closest('td, dd, p, li, a') ?? el).textContent?.replace(/\s+/g, ' ').trim().slice(0, 60) ?? '',
+            text: (el.closest('h1, td, dd, p, li, a') ?? el).textContent?.replace(/\s+/g, ' ').trim().slice(0, 60) ?? '',
           })
         }
       }
     }
     return found
-  }, FORM_CODE.source)
+  }, { source: FORM_CODE.source, roots })
 
 for (const state of [
   { width: 320, height: 640, doubled: true },
@@ -1187,6 +1187,31 @@ for (const state of [
       }
       const broken = codes.filter((code) => code.lines !== 1).map((code) => `${code.where}: "${code.code}" on ${code.lines} lines in "${code.text}"`)
       expect(broken, `${at}: each form code paints on one line`).toEqual([])
+    })
+  })
+}
+
+// E142: the waitlist's heading and pick-a-filing step broke their codes at the hyphen at 320px.
+// Read every code on the page, including the lead and problem card, rather than only those three.
+for (const width of [320, 390]) {
+  test.describe(`the waitlist's form codes at ${width}px and 200% text`, () => {
+    test.use({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true })
+    test(`waitlist (/waitlist) paints every form code on one line at ${width}px and 200% text`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem('theme', 'light')
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+      })
+      await answerGuest(page, baseURL!)
+      await page.goto('/waitlist')
+      await h1(page)
+      await doubleText(page)
+
+      const codes = await formCodes(page, 'main')
+      expect(codes.filter((code) => code.text.startsWith('The 10-K,')).map((code) => code.code)).toEqual(['10-K'])
+      expect(codes.filter((code) => code.text.startsWith('Pick a 10-K')).map((code) => code.code)).toEqual(['10-K', '10-Q'])
+      expect(codes.filter((code) => code.text.startsWith('AI summaries of')).map((code) => code.code)).toEqual(['10-Ks', '10-Qs'])
+      const broken = codes.filter((code) => code.lines !== 1).map((code) => `"${code.code}" on ${code.lines} lines in "${code.text}"`)
+      expect(broken, `${width}px and 200% text: each waitlist form code paints on one line`).toEqual([])
     })
   })
 }

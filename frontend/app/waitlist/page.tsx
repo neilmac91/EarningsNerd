@@ -4,6 +4,8 @@ import { ArrowRightIcon } from '@/lib/icons'
 import WaitlistForm from '@/features/waitlist/components/WaitlistForm'
 import WaitlistCounter from '@/features/waitlist/components/WaitlistCounter'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
+import BrandEmphasis from '@/features/marketing/components/BrandEmphasis'
+import FormCodeText from '@/features/marketing/components/FormCodeText'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import WaitlistExample, { WaitlistExamplePending } from '@/features/waitlist/components/WaitlistExample'
 
@@ -24,13 +26,11 @@ export default function WaitlistPage() {
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
           <div className="text-center lg:text-left">
-            <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark sm:text-5xl md:text-6xl">
-              The 10-K, read for you, <span className="en-mark">with receipts</span>.
+            <h1 className="isolate [container-type:inline-size] text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark sm:text-5xl md:text-6xl">
+              The <FormCodeText text="10-K, read for you, " /><BrandEmphasis trailingPeriod>with receipts</BrandEmphasis>
             </h1>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark sm:mt-6">
-              AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are
-              checked against the company’s XBRL where they can be, and quotes against the filing’s
-              own text.
+              <FormCodeText text="AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company’s XBRL where they can be, and quotes against the filing’s own text." />
             </p>
 
             <div className="mt-6 flex justify-center lg:justify-start">
@@ -97,7 +97,7 @@ export default function WaitlistPage() {
               <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {item.title}
               </h2>
-              <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">{item.body}</p>
+              <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark"><FormCodeText text={item.body} /></p>
             </div>
           ))}
         </div>
@@ -163,7 +163,7 @@ export default function WaitlistPage() {
                 <h3 className="mt-2 text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                   {item.title}
                 </h3>
-                <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">{item.body}</p>
+                <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark"><FormCodeText text={item.body} /></p>
               </div>
             ))}
           </div>

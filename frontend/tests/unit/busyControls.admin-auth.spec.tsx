@@ -15,6 +15,7 @@ const { usePathname, useSearchParams, refresh } = vi.hoisted(() => ({
   refresh: vi.fn(),
 }))
 vi.mock('next/navigation', () => ({ usePathname, useSearchParams, useRouter: () => ({ refresh }) }))
+vi.mock('next/font/local', () => ({ default: () => ({ variable: '' }) }))
 
 vi.mock('@/features/admin/api/admin-api', () => ({
   listInvites: vi.fn(),

@@ -78,6 +78,11 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER, *, preheader: str) -> s
     measured (in Chromium, in Inter's text cut; a phone draws the text in its own sans-serif, unmeasured). A
     long word in a body would widen the page, and the header with it, which no gate holds yet (E116). At the
     set size the header is pixel for pixel what it was without either.
+    The tagline's C5 emphasis is an inline full-height Bright Sage fill with espresso italic ink,
+    soft corners and no hairline. It fragments per line when enlarged text wraps. The preview loads
+    genuine Inter italic; sent messages use the client's italic font (possibly synthesized), with
+    the existing plain-phrase fallback in classic Outlook. Client recolouring and actual inbox
+    rendering are not established by the browser check.
     ``frontend/tests/e2e/mail-header-reflow.spec.ts`` holds the template's header, and through
     ``test_mail_header_template.py`` this one, to 320 and 390 px at 200%.
     The panel's padding is on its cells, which classic Outlook honours (it ignores a table's), so the body
@@ -121,7 +126,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER, *, preheader: str) -> s
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:16px 32px 28px 32px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-0.2px;color:#1A1A17;">The summary that <!--[if mso]>shows its work.<![endif]--><!--[if !mso]><!--><span style="display:inline-block;"><span style="font-size:5.187px;line-height:0;vertical-align:-1.091px;background-color:#ECF2EE;border-bottom:2px solid #CFE0D6;"><span style="font-size:18px;line-height:0;vertical-align:1.091px;">shows its work</span></span>.</span><!--<![endif]--></td>
+                  <td style="padding:16px 32px 28px 32px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-0.2px;color:#1A1A17;">The summary that <!--[if mso]>shows its work.<![endif]--><!--[if !mso]><!--><span style="display:inline-block;max-width:100%;"><span style="font-style:italic;font-weight:600;background-color:#98C5AD;color:#1A1A17;border-radius:8px;padding:0.04em 0.18em 0.06em;-webkit-box-decoration-break:clone;box-decoration-break:clone;">shows its work</span>.</span><!--<![endif]--></td>
                 </tr>
               </table>
               <!--[if mso]></td></tr></table><![endif]-->

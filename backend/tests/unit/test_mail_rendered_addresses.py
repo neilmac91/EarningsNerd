@@ -2189,6 +2189,12 @@ HIDDEN_TEXTS = [
     ("a hue with no unit, which rspamd reads", '<div style="color:#FBFAF6"><p style="color:hsl(60,6%,10%)">Ink words.</p></div>', None),
     ("a bgcolor in capitals on a span, which rspamd does not read and a browser paints none of", '<div style="background:#1A1A17;color:#FBFAF6"><span bgcolor="WHITE">Panel on ink.</span></div>', None),
     ("a light colour scheme in a meta", '<meta name="color-scheme" content="light"><p>Words.</p>', None),
+    ("decoration fragmentation box-decoration-break:clone leaves text visible", '<span style="box-decoration-break:clone;background-color:#98C5AD;color:#1A1A17;border-radius:8px;padding:0.04em 0.18em 0.06em;">Shown words.</span>', None),
+    ("decoration fragmentation box-decoration-break:slice leaves text visible", '<span style="box-decoration-break:slice;background-color:#98C5AD;color:#1A1A17;border-radius:8px;padding:0.04em 0.18em 0.06em;">Shown words.</span>', None),
+    ("decoration fragmentation box-decoration-break still checks contrast", '<span style="box-decoration-break:clone;background-color:#98C5AD;color:#98C5AD;">Hidden words.</span>', "its colour is too like the ground"),
+    ("decoration fragmentation -webkit-box-decoration-break:clone leaves text visible", '<span style="-webkit-box-decoration-break:clone;background-color:#98C5AD;color:#1A1A17;border-radius:8px;padding:0.04em 0.18em 0.06em;">Shown words.</span>', None),
+    ("decoration fragmentation -webkit-box-decoration-break:slice leaves text visible", '<span style="-webkit-box-decoration-break:slice;background-color:#98C5AD;color:#1A1A17;border-radius:8px;padding:0.04em 0.18em 0.06em;">Shown words.</span>', None),
+    ("decoration fragmentation -webkit-box-decoration-break still checks contrast", '<span style="-webkit-box-decoration-break:clone;background-color:#98C5AD;color:#98C5AD;">Hidden words.</span>', "its colour is too like the ground"),
     ("the properties that move, clip or cover no text", '<p style="font-family:Arial;font-weight:700;font-style:italic;text-align:center;text-transform:uppercase;border:1px solid #E5E7EB;border-radius:4px;padding:4px;box-sizing:border-box">Plain words.</p>', None),
     ("each property the reader reads at its inert value", '<p style="transform:none;translate:none;rotate:none;scale:none;zoom:1;clip:auto;clip-path:none;mask:none;mask-image:none;-webkit-mask:none;-webkit-mask-image:none;filter:none;mix-blend-mode:normal;contain:none;line-clamp:none;-webkit-line-clamp:none;-webkit-text-fill-color:currentcolor;background-image:none;outline:none;outline-style:none;box-shadow:none;text-shadow:none;overflow-clip-margin:0;text-decoration-thickness:auto;text-underline-offset:auto;color-scheme:light;content-visibility:visible;position:static;text-indent:0">Plain words.</p>', None),
     ("a background shorthand of none, which paints the ground below", '<div style="background:#1A1A17"><p style="background:none;color:#FBFAF6">Panel on ink.</p></div>', None),
@@ -2571,7 +2577,7 @@ def test_the_planted_lists_keep_their_counts():
     }
     assert counts == {
         "PAGES": (12, 8), "REACHES": (10, 4), "SENDS": (50, 18), "ADDRESSES": (63, 9), "SENT": (11, 1), "PREHEADERS": (21, 7),
-        "HIDDEN_TEXTS": (400, 105), "HIDDEN_ROOTS": (18, 4), "TEXT_PARTS": (11, 3), "CONTRASTS": (81, 29),
+        "HIDDEN_TEXTS": (402, 109), "HIDDEN_ROOTS": (18, 4), "TEXT_PARTS": (11, 3), "CONTRASTS": (81, 29),
     }, "a planted case was added or dropped: keep these counts equal to the lists in the same diff"
     for name, cases in (
         ("PAGES", PAGES), ("REACHES", REACHES), ("SENDS", SENDS), ("ADDRESSES", ADDRESSES), ("SENT", SENT), ("PREHEADERS", PREHEADERS),

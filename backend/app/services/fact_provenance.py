@@ -9,9 +9,9 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
-from app.utils.sec_urls import build_sec_archive_url
+from app.utils.sec_urls import build_sec_archive_url, is_sec_archive_url, normalize_accession
 
 CALCULATION_VERSION = "quarterly-v2"
 PROVENANCE_VERSION = 1
@@ -60,11 +60,16 @@ def reported_provenance(fact: Any, filed_at: str | None = None) -> dict[str, Any
     }
 
 
-def provenance_for_fact(fact: Any, cik: str | None = None) -> dict[str, Any]:
+def provenance_for_fact(
+    fact: Any, cik: str | None = None, documents: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
     """Project stored lineage, keeping absent legacy evidence explicitly unknown.
 
 The synthetic EPS exclusion also covers stored pre-migration rows. It is a publication policy,
 not another financial validation pass; ingestion alone owns admission of new source data.
+With a CIK, a reported value or an operand that stores no link gets one: its filing's primary
+document when ``documents`` (dashless accession to the filing row's ``document_url``) holds its
+accession, else its accession folder. Without ``documents`` every such link is the folder.
 """
     stored = _get(fact, "provenance")
     if isinstance(stored, dict) and stored.get("version") == PROVENANCE_VERSION:
@@ -92,24 +97,59 @@ not another financial validation pass; ingestion alone owns admission of new sou
     if _get(fact, "concept") in EPS_CONCEPTS and _get(fact, "source") == "derived":
         provenance.update(validation="unavailable", reasons=["unsupported_eps_calculation"])
     if cik:
-        _attach_sources(provenance, cik, _get(fact, "accession"))
+        _attach_sources(provenance, cik, _get(fact, "accession"), documents or {})
     return provenance
 
 
-def _attach_sources(provenance: dict[str, Any], cik: str, accession: str | None) -> None:
+def _attach_sources(
+    provenance: dict[str, Any], cik: str, accession: str | None, documents: Mapping[str, str],
+) -> None:
     if not provenance.get("source_url") and provenance.get("method") == "reported":
         try:
-            provenance["source_url"] = build_sec_archive_url(cik, accession)
+            provenance["source_url"] = _source_url(cik, accession, documents)
         except ValueError:
             pass  # Legacy/synthetic identity: never invent a source link.
     for operand in provenance.get("inputs", []):
         try:
-            operand["source_url"] = operand.get("source_url") or build_sec_archive_url(cik, operand.get("accession"))
+            operand["source_url"] = operand.get("source_url") or _source_url(cik, operand.get("accession"), documents)
         except ValueError:
             pass
         nested = operand.get("provenance")
         if isinstance(nested, dict):
-            _attach_sources(nested, cik, operand.get("accession"))
+            _attach_sources(nested, cik, operand.get("accession"), documents)
+
+
+def _source_url(cik: str, accession: str | None, documents: Mapping[str, str]) -> str:
+    """The filing's primary document when its row holds one inside this folder, else the folder.
+
+    The folder is built first, so an identity it refuses raises ``ValueError`` and gets no link.
+    A stored ``document_url`` counts only as an SEC archive URL inside that very folder: a legacy
+    viewer link, another host or another CIK's folder keeps the folder, so a document link's
+    folder is always the link this code gave before (``trend_analysis.source_documents``).
+    """
+    folder = build_sec_archive_url(cik, accession)
+    document = documents.get(normalize_accession(accession))
+    return document if is_sec_archive_url(document) and document.startswith(folder) else folder
+
+
+def source_accessions(facts: Iterable[Any]) -> set[str]:
+    """The dashless accessions ``_attach_sources`` can link for these facts: each fact's own and
+    each stored operand's, nested ones included. A malformed identity is skipped, as it is there."""
+    found: set[str] = set()
+
+    def visit(accession: Any, provenance: Any) -> None:
+        try:
+            found.add(normalize_accession(accession))
+        except ValueError:
+            pass
+        if isinstance(provenance, Mapping):
+            for operand in provenance.get("inputs") or []:
+                visit(operand.get("accession"), operand.get("provenance"))
+
+    for fact in facts:
+        if fact is not None:
+            visit(_get(fact, "accession"), _get(fact, "provenance"))
+    return found
 
 
 def fact_operand(fact: Any) -> dict[str, Any]:

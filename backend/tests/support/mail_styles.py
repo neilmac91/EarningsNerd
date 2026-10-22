@@ -2042,6 +2042,9 @@ _READS: dict[str, frozenset[str] | None] = {
         *(f"border{corner}-radius" for corner in (
             "", "-top-left", "-top-right", "-bottom-left", "-bottom-right", "-start-start", "-start-end", "-end-start", "-end-end",
         )),
+        # Decoration fragmentation clones or slices a box's background, borders and padding; it
+        # never clips or recolours its text. The background/ink contrast is still read above.
+        "box-decoration-break", "-webkit-box-decoration-break",
         "box-sizing", "float", "clear", "border-collapse", "border-spacing", "table-layout", "text-size-adjust",
         "-webkit-text-size-adjust", "-ms-text-size-adjust",
     )),

@@ -9,7 +9,7 @@
  * log D-040).
  */
 export const SOCIAL_CARD = {
-  url: '/og-image.png?v=5',
+  url: '/og-image.png?v=6',
   width: 1200,
   height: 630,
   alt: 'EarningsNerd: the summary that shows its work',

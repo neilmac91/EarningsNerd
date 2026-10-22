@@ -5,6 +5,7 @@ import { ArrowLeftIcon, FileTextIcon, ShieldCheckIcon } from '@/lib/icons'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { directionChip } from '@/lib/financialTone'
+import BrandEmphasis from '@/features/marketing/components/BrandEmphasis'
 
 /**
  * Split-screen auth shell: focused form on the left, a constant branded value
@@ -53,10 +54,10 @@ function AuthBrandPane() {
   return (
     <div className="hidden overflow-hidden bg-brand-weak dark:bg-panel-dark lg:flex lg:flex-col lg:items-center lg:justify-center">
       <div className="w-full max-w-md px-12">
-        <h2 className="text-3xl font-semibold leading-tight text-text-primary-light dark:text-text-primary-dark">
+        <h2 className="isolate [container-type:inline-size] text-3xl font-semibold leading-tight text-text-primary-light dark:text-text-primary-dark">
           The summary that
           <br />
-          <span className="en-mark">shows its work</span>.
+          <BrandEmphasis trailingPeriod>shows its work</BrandEmphasis>
         </h2>
         <p className="mt-4 text-base leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
           Up to nine parts per filing, with figures checked against the company’s XBRL where they can be

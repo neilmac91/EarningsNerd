@@ -135,3 +135,11 @@ machine's list can differ by them. At the default size, and from 430px under 200
 what they were, in both themes. `E131_AT_320`'s pins left with the first fix, and `tests/e2e/reflow-200.spec.ts` holds
 /security, /terms and /privacy at every width its route loop visits, every word of each whole at 390px under 200% text
 (an address and a break after a hyphen left out) and each page's h1 whole at 320px.
+
+**Recurrence (2026-10-22, C5 consistency)**: the approved full-fill italic treatment first reached only
+the default homepage headline. The founder requested full consistency; the other experiment arms,
+authentication pane, waitlist, mail header and current share/print templates still carried the old
+promotional mark. `BrandEmphasis` now owns the web phrase recipe and local italic loader;
+`brandCopyRules.spec.ts` checks its callers while keeping source annotations separate. The existing
+reflow gates cover the longer phrases and waitlist form codes. Current editable templates and
+generated assets change together; historical audit screenshots remain evidence of their date.
