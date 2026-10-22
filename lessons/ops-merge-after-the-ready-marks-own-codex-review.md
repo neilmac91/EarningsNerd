@@ -51,9 +51,9 @@ the reply 4342632073; `review-gate` run 39686282032 (passed 22:24:51Z); the merg
 review of `900065d3` completed at 03:58:34Z on 2026-10-22 with a finding unresolved (4344402620, the case the
 rule's third line answers), and `review-gate` passed on it at 03:58:51Z (run 39719618842). #1496's ready review of
 `cb86536c` started at 20:28:50Z on 2026-10-22 and had not completed when `review-gate` timed out at 20:49:10Z (job
-120070504428). A draft-to-ready flip at 20:58:21–25Z, while it still showed Running, recorded a second start at
+120070504428). A draft-to-ready flip at 20:58:18–22Z, while it still showed Running, recorded a second start at
 20:58:28Z, so the clean completion at 21:01:14Z could not be paired (the correction, comment 6351182186). Once the
-summary read Completed, one fresh transition at 21:04:00–02Z with no manual request started a review at 21:04:05Z that
+summary read Completed, one fresh transition at 21:03:58–59Z with no manual request started a review at 21:04:05Z that
 completed clean at 21:06:17Z; `review-gate` passed at 21:06:49Z (run 39854178499), and the merge is `e8be8ba7`. Every
 line the gate printed in the timed-out job carries its exit time, and run 39853388960, cancelled at 21:04:56Z, printed
 none (the S1 note, comment 6351439364).
