@@ -58,6 +58,16 @@ describe('AnalysisTeaser (free-user lock)', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
+  it('makes the locked preview inert, so Tab reaches Upgrade to Pro without crossing the blurred controls', () => {
+    render(<AnalysisTeaser forTicker="MSFT" />)
+    const preview = screen.getByRole('status', { hidden: true }).closest('[aria-hidden="true"]')
+    // Each of the run's values is a button, a Tab stop unless the preview is inert.
+    expect(preview?.querySelectorAll('button').length).toBeGreaterThan(0)
+    expect(preview).toHaveAttribute('inert')
+    // Testing Library reads no inert, so the upgrade button is held outside every inert subtree here.
+    expect(screen.getByRole('button', { name: 'Upgrade to Pro' }).closest('[inert]')).toBeNull()
+  })
+
   it.each([['teaser', AnalysisTeaser], ['landing demo', AnalysisDemo]] as const)('keeps the %s annual sample on its full fixed range', (_, Component) => {
     const { container } = render(<Component />)
     // PeekLocked intentionally removes the teaser contents from the accessibility tree.
