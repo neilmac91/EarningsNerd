@@ -45,7 +45,7 @@ import type { RedlineSource } from '@/features/filing-redlines/lib/filingPair'
 import type { SourceIdentity } from '@/features/research-evidence-packs/lib/evidenceLedger'
 import type { SampleFact } from '@/features/financial-refresh-review/lib/refreshReview'
 import type { ExampleData } from '@/lib/serverApi'
-import { displayNameOf, labelsOf, lengthOf, nameOf, pickFirst } from './companyNameKit'
+import { displayNameOf, keepLatest, labelsOf, lengthOf, nameFromEvent, nameOf, pickFirst } from './companyNameKit'
 import { shortNameOf } from './companyNameKit2'
 
 /** A view model of this file's own, so its fields are the app's own (declared outside an API module). */
@@ -750,6 +750,52 @@ export function N123({ ev }: { ev: CalendarEvent }) {
   return (
     <button type="button" onClick={() => setPicked(ev.company_name)}>
       {query}
+    </button>
+  )
+}
+
+/** N124 flag: another module's reducer, which gives back the action it is dispatched (a served name). */
+export function N124({ ev }: { ev: CalendarEvent }) {
+  const [name, dispatch] = useReducer(keepLatest, '')
+  return (
+    <button type="button" onClick={() => dispatch(ev.company_name)}>
+      {name}
+    </button>
+  )
+}
+
+/** N125 flag: another module's reducer, which hands back the served name of the event it is dispatched. */
+export function N125({ ev }: { ev: CalendarEvent }) {
+  const [name, dispatch] = useReducer(nameFromEvent, '')
+  return (
+    <button type="button" onClick={() => dispatch(ev)}>
+      {name}
+    </button>
+  )
+}
+
+/** N126 flag: another module's helper that hands back a served name, handed to an array's map. */
+export function N126({ events }: { events: CalendarEvent[] }) {
+  return <span>{events.map(nameOf).join(', ')}</span>
+}
+
+/** N127's helper, which calls the function it is handed. */
+function N127Apply(read: (ev: CalendarEvent) => string, ev: CalendarEvent): string {
+  return read(ev)
+}
+
+/** N127 flag: another module's helper that hands back a served name, handed to a same-file function that calls it. */
+export function N127({ ev }: { ev: CalendarEvent }) {
+  return <span>{N127Apply(nameOf, ev)}</span>
+}
+
+/** N128 clean: another module's reducer dispatched the display form, and another module's display-form helper handed
+    to an array's map. */
+export function N128({ ev, events }: { ev: CalendarEvent; events: CalendarEvent[] }) {
+  const [name, dispatch] = useReducer(keepLatest, '')
+  return (
+    <button type="button" onClick={() => dispatch(formatCompanyName(ev.company_name))}>
+      {name} · {events.map(displayNameOf).join(', ')}
     </button>
   )
 }

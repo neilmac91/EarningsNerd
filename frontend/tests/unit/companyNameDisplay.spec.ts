@@ -28,15 +28,18 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  *
  * Values are followed through each file by the shared reader (tests/unit/heldValues.ts) with `passThrough` and `state`
  * on, so a name held in a const, a destructuring, a parameter a same-file call fills, a same-file function's return, a
- * callback, React's state (useState with what its setter is handed, useReducer with what its dispatcher is handed, the
- * setter and the dispatcher followed as values: destructured, read by index from the hook's pair, held by another name,
- * put in an object, handed to a same-file component or function, handed back by a custom hook; useRef,
+ * callback, React's state (useState with what its setter is handed, useReducer with what its dispatcher is handed, a
+ * reducer the reader does not hold (another module's) giving back what React hands it, as a call the reader cannot
+ * follow does; the setter and the dispatcher followed as values: destructured, read by index from the hook's pair, held
+ * by another name, put in an object, handed to a same-file component or function, handed back by a custom hook; useRef,
  * useDeferredValue, useSyncExternalStore), a template literal, `+`, an array or a call the reader cannot follow
- * (`String()`, `trim()`, `join()`) is still the name. Across modules, a call of another module's function that hands
- * back a served name as text holds the name, through any chain of modules (SERVED_RETURNS, a fixed point over the
- * program). A call of formatCompanyName (imported under any name, read from the module's namespace, or held in a
- * same-file const) gives the display form; so does a read of a field of the app's own, and a string literal is written
- * by hand in its display form. An element is a value of its own, read where it is written.
+ * (`String()`, `trim()`, `join()`) is still the name. Across modules, another module's function that hands back a
+ * served name as text gives the name wherever the reader reads a call of it: called here, or handed on as a value and
+ * called by React (a reducer, an initializer), an array's method or a same-file function, through any chain of modules
+ * (SERVED_RETURNS, a fixed point over the program). A call of formatCompanyName (imported under any name, read from the
+ * module's namespace, or held in a same-file const) gives the display form; so does a read of a field of the app's own,
+ * and a string literal is written by hand in its display form. An element is a value of its own, read where it is
+ * written.
  *
  * It fails (findingsIn):
  *  A. a served name printed raw: an expression child of an intrinsic element, a fragment or a component the scan
@@ -182,9 +185,10 @@ const calleeTarget = (callee: ts.Expression) => {
   return resolved(at && CHECKER.getSymbolAtLocation(at))
 }
 
-/** How a value reads: a served name, the display form, or an element, which is a value of its own (its children are
-    read where they are written, so an element held in a name or returned is never read twice). */
-type Leaf = 'served' | 'shown' | 'element'
+/** How a value reads: a served name, the display form, an element, which is a value of its own (its children are
+    read where they are written, so an element held in a name or returned is never read twice), or another module's
+    function that hands back a served name, held as a value: a call of it, wherever the reader reads one, is served. */
+type Leaf = 'served' | 'shown' | 'element' | 'serving'
 interface Finding {
   node: ts.Node
   line: number
@@ -225,10 +229,11 @@ const functionOf = (d: ts.Node | undefined, seen = new Set<ts.Node>()): Fn | und
   if (isFnNode(e)) return e
   return ts.isIdentifier(e) || ts.isPropertyAccessExpression(e) ? functionOf(calleeTarget(e)?.declarations?.[0], seen) : undefined
 }
-/** The functions of the app's other modules a call reaches, through an import's alias, a namespace's member, a
-    re-export and an object's method (a library's are no app code, and the formatter gives the display form). */
-const crossTargets = (call: ts.CallExpression, sf: ts.SourceFile): Fn[] =>
-  (calleeTarget(call.expression)?.declarations ?? []).flatMap((d) => {
+/** The functions of the app's other modules an expression names (a call's callee, or a function handed on as a
+    value), through an import's alias, a namespace's member, a re-export and an object's method (a library's are no
+    app code, and the formatter gives the display form). */
+const crossTargets = (expression: ts.Expression, sf: ts.SourceFile): Fn[] =>
+  (calleeTarget(expression)?.declarations ?? []).flatMap((d) => {
     const fn = functionOf(d)
     const file = fn?.getSourceFile()
     return fn && file !== sf && !/[\\/]node_modules[\\/]/.test(file!.fileName) && fn !== FORMATTER ? [fn] : []
@@ -268,18 +273,23 @@ function readerOf(sf: ts.SourceFile, servedReturns: ReadonlySet<Fn>) {
       if (isFormatter(e.expression)) return ['shown']
       if (isElementCall(e)) return ['element']
       // Another module's function that hands back a served name as text, however many modules it is handed through.
-      if (crossTargets(e, sf).some((fn) => servedReturns.has(fn))) return ['served']
+      if (crossTargets(e.expression, sf).some((fn) => servedReturns.has(fn))) return ['served']
       return undefined
     }
-    if (ts.isPropertyAccessExpression(e)) return leafOfFields(fieldsOf(CHECKER.getSymbolAtLocation(e.name)))
+    if (ts.isPropertyAccessExpression(e)) return leafOfFields(fieldsOf(CHECKER.getSymbolAtLocation(e.name))) ?? serving(e)
     if (ts.isElementAccessExpression(e)) return leafOfFields(fieldsOf(CHECKER.getSymbolAtLocation(e.argumentExpression)))
     if (ts.isIdentifier(e)) {
       const declaration = declarationOf(e)
       if (declaration && ts.isBindingElement(declaration)) return leafOfFields(bindingFields(declaration))
+      if (declaration && (ts.isImportSpecifier(declaration) || ts.isImportClause(declaration))) return serving(e)
     }
     return undefined
   }
-  return { declarationOf, values: heldValues<Leaf>(sf, leafOf, { passThrough: true, state: true }) }
+  /** Another module's function that hands back a served name, named but not called here: the reader calls it where the
+      code does (a callback, a reducer, an initializer, a parameter a same-file function calls). */
+  const serving = (e: ts.Expression): Leaf[] | undefined => (crossTargets(e, sf).some((fn) => servedReturns.has(fn)) ? ['serving'] : undefined)
+  const calls = (leaf: Leaf): Leaf[] | undefined => (leaf === 'serving' ? ['served'] : undefined)
+  return { declarationOf, values: heldValues<Leaf>(sf, leafOf, { passThrough: true, state: true, calls }) }
 }
 type Reader = ReturnType<typeof readerOf>
 
@@ -528,7 +538,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       else strays.push(`line ${f.line}: ${f.shown}`)
     }
     const count = (mark: string) => [...forms.values()].filter((f) => f.mark === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([78, 32, 13])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([82, 33, 13])
     const misread = [...forms].filter(([name, { mark }]) => named.has(name) !== (mark === 'flag')).map(([name, { mark }]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])

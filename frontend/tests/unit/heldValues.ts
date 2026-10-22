@@ -64,17 +64,20 @@ import ts from 'typescript'
  *    they are given), `Array.from`; React's `Children.map` (what the callback returns), `Children.toArray` and
  *    `Children.only`, `useMemo` (what its callback returns), `useCallback` (its callback), and `memo` and
  *    `forwardRef` (the component they wrap); and, for a gate that reads React's state (`state`), `useState`,
- *    `useReducer`, `useRef`, `useDeferredValue` and `useSyncExternalStore` (what each keeps, HeldOptions.state);
+ *    `useReducer`, `useRef`, `useDeferredValue` and `useSyncExternalStore` (what each keeps, HeldOptions.state).
+ *    Wherever the reading calls a value (a callee, a callback, a hook's initializer, reducer, updater or snapshot), a
+ *    leaf the gate says is a function gives back what the gate names (HeldOptions.calls: another module's function);
  *  - parentheses, `as`, `satisfies`, `<T>` and `!`.
  * A call is known by the name its callee is known by (knownAs), so React's utilities and the globals are read under
  * any local name: an import renamed (`Children as Kids`), a member destructured under another name, a same-file
  * alias (`const h = createElement`).
- * A gate that fails closed on code the reading cannot see (`passThrough`, the missing-value gate's) also has a call
- * of a function it does not hold (an import's, a global's, a method of a value it does not hold) hold what it is
- * handed, each argument and a method's receiver, since a formatter may give back its fallback
- * (`formatLocalDate(value, pattern, '—')`) and `String()` or `trim()` the value it is given; a template literal,
- * tagged or not, hold its substitutions, `+` both sides and a comma expression its last; and `+=` give its target
- * what it adds. Without it each holds nothing.
+ * A gate that fails closed on code the reading cannot see (`passThrough`, the missing-value gate's) also has a call of
+ * a function it does not hold (an import's, a global's, a method of a value it does not hold) hold what it is handed,
+ * each argument and a method's receiver, since a formatter may give back its fallback (`formatLocalDate(value, pattern,
+ * '—')`) and `String()` or `trim()` the value it is given (React's call of a reducer it does not hold among them, for a
+ * gate that reads state: the state may be what the reducer is handed); a template literal, tagged or not, hold its
+ * substitutions, `+` both sides and a comma expression its last; and `+=` give its target what it adds. Without it each
+ * holds nothing.
  * Out of its reach, for each gate to name and plant as a gap: a value that crosses modules (an app module's export or a
  * context's, or a setter handed to another module's code), what React state holds after its setter or a reducer runs
  * unless the gate reads state (HeldOptions.state), a class's fields and `this`, a promise's `then` and a generator's
@@ -405,8 +408,16 @@ export interface HeldOptions<L> {
       state and each action a call through its dispatcher hands it; useRef's `current`, its initial value (what the code
       puts there later is an assignment, read as any other); useDeferredValue, what it defers; useSyncExternalStore,
       what the snapshot returns. A setter handed to code the reading does not hold (another module's function or
-      component) is called where the reading cannot see. By default each hook is a call the reading cannot follow. */
+      component) is called where the reading cannot see. A reducer the reading does not hold (another module's) is, to
+      a gate that reads with `passThrough`, a call it cannot follow, so the state may be what React hands it: the state
+      and each action. By default each hook is a call the reading cannot follow. */
   state?: boolean
+  /** What a call of a leaf gives back, for a gate whose leaves include functions the reading does not hold (another
+      module's function that hands back a served name, companyNameDisplay.spec.ts): wherever the reading calls a value
+      (a callee, a callback an array's methods or React's Children call, a hook's initializer, reducer, updater or
+      snapshot), each leaf it holds gives back what this names, beside the returns of its same-file functions. By
+      default a leaf gives back nothing. */
+  calls?: (leaf: L) => L[] | undefined
 }
 
 /** React's calls that make an element of the type they are given: createElement, and the JSX runtime's jsx, jsxs and
@@ -435,7 +446,7 @@ export const componentTag = (opening: ts.JsxOpeningLikeElement): ts.Identifier |
 export function heldValues<L>(
   sf: ts.SourceFile,
   leafOf: (e: ts.Expression) => L[] | undefined,
-  { memberLeaf, textLeaf, suspends, rendered, passThrough, state }: HeldOptions<L> = {},
+  { memberLeaf, textLeaf, suspends, rendered, passThrough, state, calls }: HeldOptions<L> = {},
 ): HeldValues<L> {
   // Keyed by the declaration (scopeResolver), never by the bare name.
   const holders = new Map<ts.Node, Held<L>>()
@@ -509,6 +520,15 @@ export function heldValues<L>(
       }
     }
     return value
+  }
+  /** What calling a value gives back: what its same-file functions return, and what each of its leaves gives back
+      when called (HeldOptions.calls). */
+  const called = (value: Held<L>, record?: Set<ts.Node>): Held<L> => {
+    const back = returned(value.fns, record)
+    if (!calls || value.leaves.size === 0) return back
+    const leaves = new Map<L, number>()
+    for (const leaf of value.leaves.keys()) for (const own of calls(leaf) ?? []) leaves.set(own, (leaves.get(own) ?? 0) + 1)
+    return leaves.size ? union(back, { leaves, props: null, fns: null }) : back
   }
   /** A hook's setter or dispatcher as a value: the hook it came from (HeldOptions.state). */
   const setterOf = (hook: ts.CallExpression): Held<L> => ({ leaves: new Map(), props: null, fns: null, setters: new Set([hook]) })
@@ -681,6 +701,8 @@ export function heldValues<L>(
     const args = x.arguments
     const arg = (i: number) => (args[i] ? valueOf(args[i], record) : empty<L>())
     const fnsOf = (i: number) => (args[i] ? valueOf(args[i]).fns : null)
+    /** What the function a call is handed at this position gives back when it is called. */
+    const calledAt = (i: number) => (args[i] ? called(valueOf(args[i]), record) : empty<L>())
     // React's element calls hold what JSX would: the type and the children; a clone holds its element and children. A
     // same-file function of one of their names is the file's own (a call of it holds what it returns, below).
     if ((ELEMENT_MAKERS.has(name) || name === 'cloneElement') && !valueOf(x.expression).fns?.size) {
@@ -699,7 +721,7 @@ export function heldValues<L>(
       return both(value, children)
     }
     if (receiverNamed(x, 'Children')) {
-      if (name === 'map') return arrayOf(returned(fnsOf(1), record))
+      if (name === 'map') return arrayOf(calledAt(1))
       if (name === 'toArray' || name === 'only') return union(arg(0), elementOf(arg(0)))
       return empty()
     }
@@ -717,29 +739,32 @@ export function heldValues<L>(
       if (name === 'freeze' || name === 'seal' || name === 'preventExtensions') return arg(0)
       return empty()
     }
-    if (receiverNamed(x, 'Array') && name === 'from') return args[1] ? arrayOf(returned(fnsOf(1), record)) : arrayOf(elementOf(arg(0)))
-    if (name === 'useMemo') return returned(fnsOf(0), record)
+    if (receiverNamed(x, 'Array') && name === 'from') return args[1] ? arrayOf(calledAt(1)) : arrayOf(elementOf(arg(0)))
+    if (name === 'useMemo') return calledAt(0)
     if (name === 'useCallback') return arg(0)
     // React's state, for a gate that reads it (HeldOptions.state): what each hook keeps, where it gives it back.
     if (state) {
       if (name === 'useState') {
         // React calls a function its setter is handed (an updater) and keeps what it returns.
         const handed = handedTo(x)
-        const kept = union({ leaves: handed.leaves, props: handed.props, fns: null }, returned(handed.fns, record))
+        const kept = union({ leaves: handed.leaves, props: handed.props, fns: null }, called(handed, record))
         return withProps([
-          ['0', union(union(arg(0), returned(fnsOf(0), record)), kept)],
+          ['0', union(union(arg(0), calledAt(0)), kept)],
           ['1', setterOf(x)],
         ])
       }
       if (name === 'useReducer') {
+        // A reducer the reading does not hold gives back, to a gate that reads with passThrough, what React hands it:
+        // the state and each action its dispatcher is handed.
+        const unheld = passThrough && !fnsOf(0)?.size ? handedTo(x) : empty<L>()
         return withProps([
-          ['0', union(arg(1), union(returned(fnsOf(2), record), returned(fnsOf(0), record)))],
+          ['0', union(union(arg(1), unheld), union(calledAt(2), calledAt(0)))],
           ['1', setterOf(x)],
         ])
       }
       if (name === 'useRef') return withProps([['current', arg(0)]])
       if (name === 'useDeferredValue') return union(arg(0), arg(1))
-      if (name === 'useSyncExternalStore') return union(returned(fnsOf(1), record), returned(fnsOf(2), record))
+      if (name === 'useSyncExternalStore') return union(calledAt(1), calledAt(2))
     }
     // React's component wrappers give back the component they wrap: `memo(Mark)`, `forwardRef((props, ref) => …)`.
     if (name === 'memo' || name === 'forwardRef') return arg(0)
@@ -756,8 +781,8 @@ export function heldValues<L>(
         }
         return arrayOf(element)
       }
-      if (name === 'map' || name === 'flatMap') return arrayOf(returned(fnsOf(0), record))
-      if (name === 'reduce' || name === 'reduceRight') return union(arg(1), returned(fnsOf(0), record))
+      if (name === 'map' || name === 'flatMap') return arrayOf(calledAt(0))
+      if (name === 'reduce' || name === 'reduceRight') return union(arg(1), calledAt(0))
       if (name === 'get' && args.length === 1) {
         const base = valueOf(recv)
         if (base.props) {
@@ -767,14 +792,14 @@ export function heldValues<L>(
         }
       }
     }
-    // A call of a same-file function holds what it returns.
-    const fns = valueOf(x.expression).fns
-    if (fns?.size || !passThrough) return returned(fns, record)
+    // A call of a same-file function holds what it returns, and a call of a leaf what the gate says it gives back.
+    const callee = valueOf(x.expression)
+    if (callee.fns?.size || !passThrough) return called(callee, record)
     // A call the reading cannot follow may give back what it is handed, as text: each argument, a spread one's
-    // elements, and a method's receiver (passThrough).
+    // elements, and a method's receiver (passThrough); and what its callee's leaves give back (HeldOptions.calls).
     let handed = recv ? valueOf(recv, record) : empty<L>()
     for (const a of args) handed = union(handed, ts.isSpreadElement(a) ? elementOf(valueOf(a.expression, record)) : valueOf(a, record))
-    return asText(handed)
+    return union(asText(handed), called(callee, record))
   }
 
   /** Gives a holder a value it may hold, beside those it holds already. */

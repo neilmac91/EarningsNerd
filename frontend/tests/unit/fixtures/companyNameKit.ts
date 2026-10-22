@@ -3,8 +3,10 @@
  * string (N86), which the gate follows to its calls in another module; one that hands back the display form (N104); one
  * that hands the name back inside an object (N113), which the gate does not follow (companyNameDisplay.spec.ts names it
  * as a gap); one that gives back no name (N58), which the gate fails closed on, since it reads what another module's
- * function returns but not what that function makes of what it is handed; and one that hands a served name to the
- * callback it is given (N122), so a state's setter handed to it is called where the gate does not look (a gap).
+ * function returns but not what that function makes of what it is handed; one that hands a served name to the
+ * callback it is given (N122), so a state's setter handed to it is called where the gate does not look (a gap); and
+ * two reducers, one that gives back the action it is dispatched (N124, N128) and one that hands back the served name
+ * of the event it is dispatched (N125).
  */
 import type { CalendarEvent } from '@/features/calendar/api/calendar-api'
 import { formatCompanyName } from '@/lib/formatCompanyName'
@@ -18,3 +20,7 @@ export const labelsOf = (ev: CalendarEvent): { title: string } => ({ title: ev.c
 export const lengthOf = (name: string): number => name.length
 
 export const pickFirst = (events: CalendarEvent[], onPick: (name: string) => void): void => onPick(events[0]?.company_name ?? '')
+
+export const keepLatest = (_current: string, next: string): string => next
+
+export const nameFromEvent = (_current: string, ev: CalendarEvent): string => ev.company_name
