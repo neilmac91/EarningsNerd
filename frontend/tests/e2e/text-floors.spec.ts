@@ -2,7 +2,7 @@ import { readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { test, expect, type Page } from '@playwright/test'
-import { settled } from './fixtures/contrast'
+import { settled, textContrast } from './fixtures/contrast'
 import { answerAnalysisApi, runAnalysis } from './fixtures/analysisLayoutApi'
 import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
 import { answerApi, API_ORIGIN, PANE, SUMMARY } from './fixtures/filing3Api'
@@ -22,7 +22,16 @@ import { STATIC_ENTRIES } from '../../app/sitemap'
  * must read stays secondary. The ink is read from tailwind.config.js, so a token change cannot leave
  * the census looking at a colour nothing uses; the census must also find tertiary text, or a broken
  * probe would pass.
- * Light theme only: every dark pairing is the secondary-dark ink, which this change leaves alone.
+ * The census is light theme only: every dark pairing is the secondary-dark ink, which this change leaves alone.
+ *
+ * The waitlist's join link (E82), in both themes: the pill rests at the secondary recipe's hover fill
+ * (`bg-brand-weak`; in dark a shade stronger, `bg-brand-dark/15` beside the recipe's `brand-weak-dark` at 0.14)
+ * and takes its pressed fill under the pointer (`hover:bg-brand-border/60`, dark
+ * `dark:hover:bg-brand-border-dark`). Per theme: the theme took, the label
+ * is the recipe's sage ink (read from tailwind.config.js, so the case measures that label), `:hover` is on the
+ * link and its fill changes, and the label clears 4.5:1 on what is behind it at rest and hovered. The ratio is
+ * read unrounded: on the How it works card the dark label computes to 4.500005:1 on the hovered fill, where a
+ * ratio rounded to two places would pass 4.495:1. themePairs.spec.ts holds the light hover to its dark twin.
  *
  * Heading outline (DET-OVL-1, DESIGN_SYSTEM §5): no visited route or state skips a level, in DOM
  * order (how the Impeccable detector reads it) and in the accessibility tree. The footer's column
@@ -41,13 +50,18 @@ import { STATIC_ENTRIES } from '../../app/sitemap'
  */
 
 const TAILWIND = createRequire(__filename)('../../tailwind.config.js') as {
-  theme: { extend: { colors: { text: { tertiary: { light: string } } } } }
+  theme: { extend: { colors: { text: { tertiary: { light: string } }; brand: { strong: string; 'strong-dark': string } } } }
 }
 const hexToRgb = (hex: string) => {
   const n = parseInt(hex.replace('#', ''), 16)
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
 }
 const TERTIARY_INK = hexToRgb(TAILWIND.theme.extend.colors.text.tertiary.light)
+/** The secondary recipe's label ink, per theme (`text-brand-strong`, `dark:text-brand-strong-dark`). */
+const BRAND_INK = {
+  light: hexToRgb(TAILWIND.theme.extend.colors.brand.strong),
+  dark: hexToRgb(TAILWIND.theme.extend.colors.brand['strong-dark']),
+}
 const LAUNCHER = 'button[aria-haspopup="dialog"][aria-label="Source"]'
 
 const FOLDER = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
@@ -281,14 +295,14 @@ function isInstance(pattern: string, visitedPath: string): boolean {
   return have.length === want.length
 }
 
-async function visit(page: Page, baseURL: string, route: Route) {
-  await page.addInitScript(() => {
+async function visit(page: Page, baseURL: string, route: Route, theme: 'light' | 'dark' = 'light') {
+  await page.addInitScript((theme) => {
     try {
-      localStorage.setItem('theme', 'light')
+      localStorage.setItem('theme', theme)
       localStorage.setItem('en:copilot-coachmark-v1', '1')
       localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
     } catch {}
-  })
+  }, theme)
   await route.open(page, baseURL)
   const response = await page.goto(route.path)
   if (route.status) expect(response?.status()).toBe(route.status)
@@ -512,6 +526,36 @@ test.describe('page-level guidance cards at 1440x900, light theme', () => {
       expect.soft(outline.exposed, `skipped heading levels: ${state.name} (accessibility tree)`).toEqual([])
       // Anti-vacuity: the card is on the page, as the h2 the outline needs.
       await expect(page.getByRole('heading', { level: 2, name: state.card })).toBeVisible()
+    })
+  }
+})
+
+test.describe('the waitlist join link at 1440x900, both themes', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+  const waitlist = PUBLIC_ROUTES.find((r) => r.path === '/waitlist')!
+
+  for (const theme of ['light', 'dark'] as const) {
+    test(`${theme}: the join link answers the pointer, and its label clears 4.5:1 at rest and hovered`, async ({ page, baseURL }) => {
+      await visit(page, baseURL!, waitlist, theme)
+      expect(await page.evaluate(() => document.documentElement.classList.contains('dark')), `the ${theme} theme took`).toBe(theme === 'dark')
+      const link = page.getByRole('link', { name: 'Join the waitlist' })
+      const look = () =>
+        link.evaluate((el) => ({ hovered: el.matches(':hover'), ink: getComputedStyle(el).color, fill: getComputedStyle(el).backgroundColor }))
+
+      await page.mouse.move(0, 0)
+      await settled(link)
+      const rest = await look()
+      expect(rest.hovered, 'the pointer is off the link at rest').toBe(false)
+      expect(rest.ink, 'the label is the secondary recipe ink').toBe(BRAND_INK[theme])
+      expect(await textContrast(link, { exact: true }), `the ${theme} label at rest`).toBeGreaterThanOrEqual(4.5)
+
+      await link.hover()
+      await settled(link)
+      const hovered = await look()
+      expect(hovered.hovered, 'the pointer is on the link').toBe(true)
+      expect(hovered.fill, 'the fill changes under the pointer').not.toBe(rest.fill)
+      expect(hovered.ink, 'the label keeps the recipe ink').toBe(BRAND_INK[theme])
+      expect(await textContrast(link, { exact: true }), `the ${theme} label hovered`).toBeGreaterThanOrEqual(4.5)
     })
   }
 })

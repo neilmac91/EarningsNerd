@@ -294,7 +294,7 @@ export default function SettingsPage() {
                 {deleteMutation.isError && (
                   <div className="flex items-center text-sm text-error-light dark:text-error-dark">
                     <WarningCircleIcon className="h-4 w-4 mr-2" />
-                    Failed to delete account. Please contact support.
+                    We could not delete your account. Contact support.
                   </div>
                 )}
               </div>

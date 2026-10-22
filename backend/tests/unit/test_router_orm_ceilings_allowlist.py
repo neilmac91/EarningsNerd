@@ -49,7 +49,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 
 # Router file (relative to backend/) -> its ceiling. Counted on origin/main da636f6 (2026-10-08) by
-# this file's own walk. Lower an entry when a PR moves work into app/services/, and set it to 0 (do
+# this file's own walk; summaries.py's lowered to 30, its count since #1286, by E105. Lower an entry when a PR moves work into app/services/, and set it to 0 (do
 # not delete it) when the router is done. Git conflicts on edits to adjacent lines: the blank line
 # between entries keeps in-place number edits on different entries mergeable in any order, which
 # deleting a line (with or without its blank line) would not be. A cleanup PR prunes the zero rows
@@ -67,7 +67,7 @@ ROUTER_ORM_CEILINGS: dict[str, int] = {
 
     "app/routers/subscriptions.py": 0,
 
-    "app/routers/summaries.py": 31,
+    "app/routers/summaries.py": 30,
 
     "app/routers/webhooks.py": 0,
 }

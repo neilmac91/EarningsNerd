@@ -241,7 +241,7 @@ describe('StreamingSummaryDisplay failure reason', () => {
       <StreamingSummaryDisplay streamingText="" stage="error" message="" error={error} filing={filing} onRetry={() => {}} />
     )
     const cardButton = () => within(screen.getByRole('alert')).queryByRole('button')
-    const { rerender } = render(failed('Regenerating an analysis is a Pro feature.'))
+    const { rerender } = render(failed('Regenerating a summary is a Pro feature.'))
     await act(async () => {})
     expect(screen.getByRole('heading', { name: 'Generation interrupted' })).toBeInTheDocument()
     expect(
@@ -249,7 +249,7 @@ describe('StreamingSummaryDisplay failure reason', () => {
     ).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: "You've hit this month's free limit" })).toBeNull()
     expect(cardButton()).toBeNull()
-    rerender(failed('User account is inactive'))
+    rerender(failed('This account is inactive. Contact support with any questions.'))
     expect(screen.getByText('This account is inactive. Contact support with any questions.')).toBeInTheDocument()
     expect(cardButton()).toBeNull()
   })

@@ -17,7 +17,7 @@ PER_ADS = {
     "ordinary_per_ads": 8,
     "currency": "CNY",
     "as_of": "2026-06-28",
-    "source": "Alibaba 20-F cover / deposit agreement — 1 ADS = 8 ordinary shares",
+    "source": "Alibaba 20-F cover / deposit agreement: 1 ADS = 8 ordinary shares",
     "arithmetic": "CNY 5.7 per ordinary share × 8 = CNY 45.6 per ADS",
 }
 
