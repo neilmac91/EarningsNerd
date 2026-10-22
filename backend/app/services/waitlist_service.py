@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -20,12 +20,18 @@ REFERRAL_CODE_LENGTH = 8
 REFERRAL_BONUS = 5
 VERIFY_TOKEN_DAYS = 7
 
-# A join reads, then writes: the referrer's priority it bumps and the signup count its position comes
-# from. On the event loop the join ran them one at a time within the process; in the thread pool two
-# joins on one referral link could both read the same priority and lose a credit, and two joins could
-# take one position. ``create_signup`` holds this lock for its whole unit, taken before its first
+# A join reads, then writes: the referrer's priority it bumps, and the highest place held, which its
+# own place follows. On the event loop the join ran them one at a time within the process; in the
+# thread pool two joins on one referral link could both read the same priority and lose a credit, and
+# two joins could take one place. ``create_signup`` holds this lock for its whole unit, taken before its first
 # query: a waiter holds no connection, so a holder's checkout never waits for one a waiter holds.
+# This lock reaches one process, and the API runs up to two instances, so the credit is one atomic
+# UPDATE and the unit also takes the waitlist's place lock (``_lock_waitlist_places``), which every
+# instance shares (E128).
 _join_lock = threading.Lock()
+
+# The key of the PostgreSQL advisory lock that gives each join a place of its own: "WAITLIST" in ASCII.
+WAITLIST_PLACE_LOCK_KEY = 0x574149544C495354
 
 
 def generate_referral_code(length: int = REFERRAL_CODE_LENGTH) -> str:
@@ -122,6 +128,26 @@ def count_signups(db: Session) -> int:
     return db.query(func.count(WaitlistSignup.id)).scalar() or 0
 
 
+def _next_place(db: Session) -> int:
+    """One past the highest place held, so a place stays its join's alone after a signup is deleted, which
+    the count of signups would hand out again."""
+    return (db.query(func.max(WaitlistSignup.position)).scalar() or 0) + 1
+
+
+def _lock_waitlist_places(db: Session) -> None:
+    """Take the waitlist's place lock for the rest of the caller's transaction (E128).
+
+    A join's place is one past the highest place held (``_next_place``), so two joins that read it before
+    either commits take one place. ``_join_lock`` serializes joins within one instance; this lock serializes
+    them across the API's instances. A second join waits here for the first's commit, and its read of the
+    highest place then sees that commit (READ COMMITTED). The list has no row every join could lock, so it is a
+    transaction-level advisory lock: PostgreSQL releases it at the commit or rollback, so it never
+    outlives the unit on a pooled connection. Unbounded, as its holders are short transactions. SQLite
+    has no advisory locks, and its joins run in one process, under ``_join_lock``."""
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(select(func.pg_advisory_xact_lock(WAITLIST_PLACE_LOCK_KEY)))
+
+
 def count_referrals(db: Session, referral_code: str) -> int:
     return (
         db.query(func.count(WaitlistSignup.id))
@@ -144,7 +170,7 @@ def create_signup(
     Moved from ``POST /api/waitlist/join``. An IntegrityError on the commit rolls back both the
     insert and the bump, then re-reads the email: a concurrent join of the same address raises
     ``WaitlistAlreadyJoined`` like the up-front check does. Joins in one process run one at a time
-    (``_join_lock``).
+    (``_join_lock``), and across instances under the waitlist's place lock (``_lock_waitlist_places``).
     """
     with _join_lock:
         return _create_signup(
@@ -160,6 +186,7 @@ def _create_signup(
     referral_code: Optional[str],
     source: Optional[str],
 ) -> WaitlistJoin:
+    _lock_waitlist_places(db)
     existing = find_signup_by_email(db, email)
     if existing:
         raise WaitlistAlreadyJoined(existing)
@@ -173,10 +200,13 @@ def _create_signup(
         )
         if not referrer:
             raise WaitlistReferralNotFound()
-        referrer.priority_score += 1
+        # The flush adds one to the stored score (SET priority_score = priority_score + 1), not the score
+        # this unit read plus one, so a credit another join committed since that read is kept. The
+        # commit's refresh below reads the score stored.
+        referrer.priority_score = WaitlistSignup.priority_score + 1
 
     total_signups = count_signups(db)
-    base_position = total_signups + 1
+    base_position = _next_place(db)
     new_referral_code = generate_unique_referral_code(db)
 
     signup = WaitlistSignup(

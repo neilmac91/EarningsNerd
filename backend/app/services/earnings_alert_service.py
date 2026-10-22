@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 from app.models import Company, EarningsAlertLog, EarningsEvent, User, Watchlist
 from app.models.notifications import CHANNEL_EMAIL
 from app.services.entitlements import Plan, get_entitlements
-from app.services.watchlist_service import watch_row_lock
+from app.services.watchlist_service import lock_watch_rows, watch_row_lock
 
 logger = logging.getLogger(__name__)
 
@@ -132,8 +132,9 @@ def set_earnings_alert(db: Session, user: User, ticker: str, enabled: bool) -> b
     ticker = ticker.upper()
 
     if not enabled:
-        # Under the watch-row lock too: a remove deleting the row between this read and the update
+        # Under the watch-row locks too: a remove deleting the row between this read and the update
         # would leave the update matching no row.
+        lock_watch_rows(db, user.id)
         with watch_row_lock:
             row = _watch_row_for_ticker(db, user.id, ticker)
             if row is not None and row.earnings_alert:
@@ -143,8 +144,10 @@ def set_earnings_alert(db: Session, user: User, ticker: str, enabled: bool) -> b
 
     ent = get_entitlements(user)
     company = _get_or_create_company(db, ticker)
-    # From the row read to the commit under the watch-row lock, so two enables can't both pass the
-    # cap check or both add the company's row (watchlist_service.watch_row_lock says why).
+    # From the row read to the commit under the watch-row locks, so two enables can't both pass the
+    # cap check or both add the company's row, in one instance or across them
+    # (watchlist_service.watch_row_lock and lock_watch_rows say why, and why the account's comes first).
+    lock_watch_rows(db, user.id)
     with watch_row_lock:
         row = (
             db.query(Watchlist)
