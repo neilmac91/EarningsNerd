@@ -252,7 +252,7 @@
 //                       320px under 200% text the cookie dialog's category cards left their text 92px and broke its
 //                       longest words. A class a same-file binding holds, named in any class attribute
 //                       (`className={PAD}`, `cx(SHELL, 'p-6')`, `${SHELL} p-6`; the initializer a string, a template or a
-//                       cx()/clsx() call), is read with it in the branch where it is named (`framed ? FRAME : PAD`
+//                       cx()/clsx() call), is read with it in each branch where it is named (`framed ? FRAME : PAD`
 //                       renders one or the other), and as text that is always there where the collector does not walk to
 //                       it (`merge(PAD)`), for its frame and its padding alike, and a constant that draws a frame is read
 //                       on its own too, failing closed where it cannot see the element it lands on (a constant drawing a
@@ -2054,7 +2054,7 @@ export const surfacePaddingCap = {
       context.report({ node, messageId, data })
     }
     return classUnitVisitors((node, pieces) => {
-      // A class a same-file binding holds is read with the attribute that names it, in the branch where it is named
+      // A class a same-file binding holds is read with the attribute that names it, in each branch where it is named
       // (`framed ? FRAME : PAD` renders one or the other); a binding the collector does not walk to (`merge(PAD)`)
       // is read as text that is always there.
       let own = pieces

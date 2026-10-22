@@ -858,6 +858,9 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     "const FRAME = 'rounded-xl border'\nconst PAD = 'p-6'\nexport const x = <div className={framed ? FRAME : PAD} />",
     // A binding named unconditionally pads every render, read where it is named.
     "const PAD = 'p-cap-6'\nexport const x = <Card className={cx(PAD, 'mt-6')}><div className=\"p-6\" /></Card>",
+    // A binding is read each time it is named, so its unconditional read counts after a conditional one (Codex's review
+    // of 310ec1f0).
+    "const PAD = 'p-cap-6'\nexport const x = <Card className={cx(wide && PAD, PAD)}><div className=\"p-6\" /></Card>",
     '<section className="rounded-2xl border p-cap-6"><p className="px-6" /></section>',
     // A section of a surface that carries the cap, or a step under 5.
     '<Card><div className="px-4 pt-4 sm:px-cap-6 sm:pt-cap-6" /></Card>',
@@ -926,6 +929,13 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     { code: "<Card className={cx('p-cap-6', reset && 'sm:p-0')}><div className=\"p-6\" /></Card>", errors: [{ messageId: 'uncapped' }] },
     // A binding the collector does not walk to is read as text that is always there.
     { code: "const PAD = 'p-6'\nexport const x = <Card className={merge(PAD)} />", errors: [{ messageId: 'uncapped' }] },
+    // A binding named in two arms is read in both: the second renders an uncapped frame (Codex's review of 310ec1f0).
+    {
+      code: "const SHELL = 'rounded-xl border'\nexport const x = <div className={wide ? cx(SHELL, 'p-4') : cx(SHELL, 'p-6')} />",
+      errors: [{ messageId: 'uncapped' }],
+    },
+    // A binding that reads itself is read once, not without end.
+    { code: "const SHELL = cx('rounded-xl border', SHELL)\nexport const x = <div className={cx(SHELL, 'p-6')} />", errors: [{ messageId: 'uncapped' }] },
     // A stated limit, failing closed: only unconditional padding pads every render, so a surface whose every arm pads it
     // still reads its children as sections; capping them is never wrong.
     { code: "<Card className={padded ? 'p-cap-6' : 'p-4'}><div className=\"p-6\" /></Card>", errors: [{ messageId: 'uncapped' }] },

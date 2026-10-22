@@ -162,12 +162,14 @@ export const isPassThrough = (node) => {
  *  of a pass-through method, array elements, spreads, template expressions, `+` operands) stays in
  *  it. Every node it walks is added to `reached`, so the rule evaluates on its own only what no unit
  *  reached, such as the arguments of any other call. A caller that passes `resolve` has an identifier
- *  read as the node it returns (a same-file binding's initializer), in the identifier's own branch. */
-export function collectStaticText(node, reached, out = [], branch = { parent: null }, resolve = null) {
+ *  read as the node it returns (a same-file binding's initializer), in the identifier's own branch, each
+ *  time it is named: a binding named in two arms is read in both, and `expanding` stops only one that
+ *  reads itself. */
+export function collectStaticText(node, reached, out = [], branch = { parent: null }, resolve = null, expanding = new Set()) {
   if (!node) return out
   reached.add(node)
-  const sub = (child) => collectStaticText(child, reached, out, branch, resolve)
-  const optional = (child) => collectStaticText(child, reached, out, { parent: branch }, resolve)
+  const sub = (child) => collectStaticText(child, reached, out, branch, resolve, expanding)
+  const optional = (child) => collectStaticText(child, reached, out, { parent: branch }, resolve, expanding)
   switch (node.type) {
     case 'Literal':
       if (typeof node.value === 'string') out.push({ text: node.value, branch })
@@ -209,7 +211,11 @@ export function collectStaticText(node, reached, out = [], branch = { parent: nu
       break
     case 'Identifier': {
       const init = resolve?.(node)
-      if (init && !reached.has(init)) sub(init)
+      if (init && !expanding.has(init)) {
+        expanding.add(init)
+        sub(init)
+        expanding.delete(init)
+      }
       break
     }
     case 'ObjectExpression':
