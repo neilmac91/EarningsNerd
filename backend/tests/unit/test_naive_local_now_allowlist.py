@@ -33,12 +33,7 @@ import pytest
 APP_DIR = Path(__file__).resolve().parents[2] / "app"
 
 # (file relative to app/, qualified function) -> exact number of naive local-clock reads there.
-ALLOWED_NAIVE_LOCAL_NOW: dict[tuple[str, str], int] = {
-    # The in-process SEC tickers cache times its own TTL against itself, so the naive clock cancels
-    # out. SEC transport code is outside this gate's PRs; move it to utcnow() when that layer is next
-    # changed, and drop this row in the same diff.
-    ("services/edgar/compat.py", "SECEdgarServiceCompat._get_cached_tickers"): 3,
-}
+ALLOWED_NAIVE_LOCAL_NOW: dict[tuple[str, str], int] = {}
 
 
 def _is_none(node: ast.AST) -> bool:

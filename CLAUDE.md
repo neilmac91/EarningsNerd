@@ -108,8 +108,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 7. **datetime:** timezone-aware UTC via `app/utils/datetimes.py` (`utcnow()`, `iso_z()`); never
    `datetime.utcnow()`/`utcfromtimestamp()`, nor a local-clock read (`datetime.now()` without a zone,
    `today()`). The ONLY sanctioned naive sites are the 6 token-expiry call sites enforced by
-   `backend/tests/unit/test_naive_utcnow_allowlist.py` (naive by design — SQLite/Postgres parity) and
-   the SEC tickers-cache TTL pinned by `backend/tests/unit/test_naive_local_now_allowlist.py`.
+   `backend/tests/unit/test_naive_utcnow_allowlist.py` (naive by design — SQLite/Postgres parity);
+   `backend/tests/unit/test_naive_local_now_allowlist.py` allows no local-clock read in `app/`.
    Serialized timestamps use `iso_z()`; never hand-append `"Z"` (gate:
    `backend/tests/unit/test_datetimes.py`).
 8. **Config:** all env access through `app/config.py` Settings; never `os.getenv` in app code.
