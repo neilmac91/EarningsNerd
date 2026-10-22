@@ -88,17 +88,18 @@ here, as the 2026-09-08 and 2026-10-12 ones are, because `tasks/todo.md`'s hando
 lines and is the CODE RED chief's. First use: #1436, marked ready after a USD 13.06 balance read and
 merged as `707d80e5`.
 
-**Correction rounds on a records pull request — 2026-10-22.** Record 46's pull request (#1488) took four commits
+**Correction rounds on a records pull request — 2026-10-22.** Record 46's pull request (#1488) took three commits
 after its record (Codex's two P1s restated as hand checks; the fact-check's thirty-two corrections with Codex's P2;
-the reviewer's first pass; main's later moves), each one a push, a CI run, a Codex review and a round of draft-gate
-failures, while main moved six times under it. The founder said: "Merge 1488 when ready. as there's been 4
-corrections already, unless there's a real issue identified, make progress and move towards merging." On a records
-pull request, once the fact-check's findings and the reviewer's first pass are taken, push a further commit only for
-a real issue: a wrong fact, a broken rule, a failing gate or check, or a Codex finding. Carry nits, and events newer
-than the head, to the next record (its "After the cutoff" or its disclosures) instead of another round; put
-everything one round needs into one commit; and mark the pull request ready once its reviewer binds no blocker to
-the head, without waiting on nits. The merge steps are unchanged: the ready mark's own clean Codex review (F58),
-green CI, every Codex thread answered, and no backend deploy running or waiting. It is a judgment rule: no gate can
-tell a real issue from a nit. First use: #1488, marked ready at 2026-10-22T19:13:44Z while the reviewer's delta check
-ran, its should-fix and four nits on wording carried to record 47, and merged as `888cf06a` at 19:31:15Z
-(`tasks/code-red-20261004/runtime/control/DECISIONS-46.md`'s "After the cutoff"; DECISIONS-47).
+the reviewer's first pass), each also bringing the record's account of main up to date, and each one a push, a CI
+run, a Codex review and a round of draft-gate failures, while main moved six times under it. The founder said: "Merge
+1488 when ready. as there's been 4 corrections already, unless there's a real issue identified, make progress and move
+towards merging." The chief marked #1488 ready at 2026-10-22T19:13:44Z, before the reviewer had returned any result on
+its head `b0befd2` (its latest, the first pass, was bound to `7680850`): a deviation, because missing review output is
+never clearance (`AGENTS.md` section 5). The founder then said: "merge it once CI and the reviewer are clean." The
+delta check bound no blocker to `b0befd2`; its should-fix and three of its four nits went to record 47 instead of a
+fourth correction, and the fourth, on the pull request's body, into the body's fifth version after the merge. The
+merge, `888cf06a` at 19:31:15Z, came after CI's success on `b0befd2` (19:21:48Z), the ready mark's own Codex review,
+completed with no unresolved finding (F58), and the delta check's verdict
+(`tasks/code-red-20261004/runtime/control/DECISIONS-46.md`'s "After the cutoff" for the commits; DECISIONS-47 for the
+rest). This section records one pull request and sets no rule: no gate can tell a real issue from a nit (rule 12;
+`AGENTS.md` section 4), and no merge step changes.
