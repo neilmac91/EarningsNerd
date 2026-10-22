@@ -46,7 +46,18 @@ import type { RedlineSource } from '@/features/filing-redlines/lib/filingPair'
 import type { SourceIdentity } from '@/features/research-evidence-packs/lib/evidenceLedger'
 import type { SampleFact } from '@/features/financial-refresh-review/lib/refreshReview'
 import type { ExampleData } from '@/lib/serverApi'
-import { aliasedNameOf, chosenNameOf, displayNameOf, keepLatest, labelsOf, lengthOf, nameFromEvent, nameOf, pickFirst } from './companyNameKit'
+import {
+  aliasedNameOf,
+  chosenNameOf,
+  displayNameOf,
+  keepLatest,
+  labelsOf,
+  latestEvent,
+  lengthOf,
+  nameFromEvent,
+  nameOf,
+  pickFirst,
+} from './companyNameKit'
 import { shortNameOf } from './companyNameKit2'
 
 /** A view model of this file's own, so its fields are the app's own (declared outside an API module). */
@@ -888,6 +899,162 @@ export function N138({ ev }: { ev: CalendarEvent }) {
   )
 }
 
+/** N142 flag: a served name an object literal's getter hands back, read as the getter's property. */
+export function N142({ ev }: { ev: CalendarEvent }) {
+  const row = {
+    get label() {
+      return ev.company_name
+    },
+  }
+  return <span>{row.label}</span>
+}
+
+/** N143 flag: an object literal's getter that hands back a served name, held under a declared type, so the checker
+    places the read on the type's property and the value holds the name. */
+export function N143({ ev }: { ev: CalendarEvent }) {
+  const row: { label: string } = {
+    get label() {
+      return ev.company_name
+    },
+  }
+  return <span>{row.label}</span>
+}
+
+/** N144 flag: a getter that hands back a served name its object holds under another key, read through `this`. */
+export function N144({ ev }: { ev: CalendarEvent }) {
+  const row = {
+    raw: ev.company_name,
+    get label() {
+      return this.raw
+    },
+  }
+  return <span>{row.label}</span>
+}
+
+/** N145 flag: a method that puts a served name on its object through `this`, read back by a getter. */
+export function N145({ ev }: { ev: CalendarEvent }) {
+  const row = {
+    raw: '',
+    keep(name: string) {
+      this.raw = name
+    },
+    get label() {
+      return this.raw
+    },
+  }
+  row.keep(ev.company_name)
+  return <span>{row.label}</span>
+}
+
+/** N146 flag: a property Object.defineProperty defines with a getter that hands back a served name. */
+export function N146({ ev }: { ev: CalendarEvent }) {
+  const row: { label?: string } = {}
+  Object.defineProperty(row, 'label', { get: () => ev.company_name })
+  return <span>{row.label}</span>
+}
+
+/** N147 flag: a property Object.defineProperties defines with a getter, written as a method, that hands back a served
+    name. */
+export function N147({ ev }: { ev: CalendarEvent }) {
+  const row: { label?: string } = {}
+  Object.defineProperties(row, {
+    label: {
+      get() {
+        return ev.company_name
+      },
+    },
+  })
+  return <span>{row.label}</span>
+}
+
+/** N148 flag: a property Object.create defines with a value descriptor that holds a served name. */
+export function N148({ ev }: { ev: CalendarEvent }) {
+  const row: { label: string } = Object.create(null, { label: { value: ev.company_name } })
+  return <span>{row.label}</span>
+}
+
+/** N149 flag: a property Reflect.defineProperty defines with a value descriptor that holds a served name. */
+export function N149({ ev }: { ev: CalendarEvent }) {
+  const row: { label?: string } = {}
+  Reflect.defineProperty(row, 'label', { value: ev.company_name })
+  return <span>{row.label}</span>
+}
+
+/** N150 flag: a served name Reflect.set puts on an object, read by name. */
+export function N150({ ev }: { ev: CalendarEvent }) {
+  const row: { label?: string } = {}
+  Reflect.set(row, 'label', ev.company_name)
+  return <span>{row.label}</span>
+}
+
+/** N151 flag: another module's object's getter that hands back a served name, read as its property. */
+export function N151() {
+  return <span>{latestEvent.name}</span>
+}
+
+/** N152's class, whose getter hands back a served name. */
+class N152View {
+  ev: CalendarEvent
+
+  constructor(ev: CalendarEvent) {
+    this.ev = ev
+  }
+
+  get label() {
+    return this.ev.company_name
+  }
+}
+
+/** N152 flag: a class's getter that hands back a served name, read as its property. */
+export function N152({ ev }: { ev: CalendarEvent }) {
+  return <span>{new N152View(ev).label}</span>
+}
+
+/** N153 flag: a field of the app's own filled by a getter that hands back a served name. */
+export function N153(filing: Filing): Pick<SourceIdentity, 'companyName'> {
+  return {
+    get companyName() {
+      return filing.company!.name
+    },
+  }
+}
+
+/** N154's class, whose getter hands back the display form. */
+class N154View {
+  ev: CalendarEvent
+
+  constructor(ev: CalendarEvent) {
+    this.ev = ev
+  }
+
+  get label() {
+    return formatCompanyName(this.ev.company_name)
+  }
+}
+
+/** N154 clean: a getter, a getter reading through `this`, a property Object.defineProperty defines and a class's
+    getter, each handing back the display form beside a served name, and Reflect.get reading the display form. */
+export function N154({ ev }: { ev: CalendarEvent }) {
+  const row: Record<string, string> = {
+    get title() {
+      return formatCompanyName(ev.company_name)
+    },
+  }
+  Object.defineProperty(row, 'shown', { get: () => formatCompanyName(ev.company_name) })
+  const kept = {
+    raw: ev.company_name,
+    shown: formatCompanyName(ev.company_name),
+    get line() {
+      return this.shown
+    },
+  }
+  return (
+    <span>
+      {row.title} {row.shown} {kept.line} {new N154View(ev).label} {Reflect.get(kept, 'shown')}
+    </span>
+  )
+}
+
 // Forms the rule forbids that the gate leaves to review, each named in the spec's header.
 
 /** N87 gap: a prop typed as a plain string, filled in another module. */
@@ -1002,6 +1169,45 @@ export class N141 extends Component<{ ev: CalendarEvent }, { label: string }> {
       </button>
     )
   }
+}
+
+/** N155 gap: a served name an assignment hands an object literal's setter, which keeps it through `this` for a getter
+    of another name. */
+export function N155({ ev }: { ev: CalendarEvent }) {
+  const row = {
+    raw: '',
+    set label(name: string) {
+      this.raw = name
+    },
+    get shown() {
+      return this.raw
+    },
+  }
+  row.label = ev.company_name
+  return <span>{row.shown}</span>
+}
+
+/** N156 gap: a served name a Proxy's get trap hands back. */
+export function N156({ ev }: { ev: CalendarEvent }) {
+  const row = new Proxy<Record<string, string>>({}, { get: () => ev.company_name })
+  return <span>{row.label}</span>
+}
+
+/** N157's object type, whose getter hands back the object itself. */
+interface N157Row {
+  raw: string
+  readonly self: N157Row
+}
+
+/** N157 gap: an object literal's `this` handed on whole, by a getter that hands back its own object. */
+export function N157({ ev }: { ev: CalendarEvent }) {
+  const row: N157Row = {
+    raw: ev.company_name,
+    get self() {
+      return this
+    },
+  }
+  return <span>{row.self.raw}</span>
 }
 
 /** N113 gap: a name inside an object another module's function hands back. */

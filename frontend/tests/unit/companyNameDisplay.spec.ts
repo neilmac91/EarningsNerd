@@ -34,14 +34,19 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * by another name, put in an object, handed to a same-file component or function, handed back by a custom hook, called
  * through Function.prototype's `call`, `apply` or `bind` or through `Reflect.apply`; useRef, useDeferredValue,
  * useSyncExternalStore), a template literal, `+`, an array or a call the reader cannot follow (`String()`, `trim()`,
- * `join()`) is still the name. Across modules, another module's function that hands back a served name as text gives
- * the name wherever the reader reads a call of it: called here (through `call` or `apply` too), or handed on as a value
- * and called by React (a reducer, an initializer), an array's method or a same-file function, through any chain of
- * modules (SERVED_RETURNS, a fixed point over the program), and reached through an import's alias, a re-export or a
- * const that holds it (both arms of a conditional, either side of `||` or `??`), by every declaration it has, an
- * overloaded function's body among them. A call of formatCompanyName (imported under any name, read from the module's
- * namespace, or held in a same-file const) gives the display form; so does a read of a field of the app's own, and a
- * string literal is written by hand in its display form. An element is a value of its own, read where it is written.
+ * `join()`) is still the name. So is a name an object literal's getter hands back (what the literal's methods and
+ * accessors put on `this` and read from it included), and one a property holds that Object.defineProperty,
+ * Object.defineProperties, Object.create or Reflect.defineProperty defines, or Reflect.set puts. Across modules,
+ * another module's function that hands back a served name as text gives the name wherever the reader reads a call of
+ * it: called here (through `call` or `apply` too), or handed on as a value and called by React (a reducer, an
+ * initializer), an array's method or a same-file function, through any chain of modules (SERVED_RETURNS, a fixed point
+ * over the program), and reached through an import's alias, a re-export or a const that holds it (both arms of a
+ * conditional, either side of `||` or `??`), by every declaration it has, an overloaded function's body among them. A
+ * getter that hands back a served name, an object literal's or a class's, gives the name wherever the checker places a
+ * read of it, in any module, since a read calls it. A call of formatCompanyName (imported under any name, read from the
+ * module's namespace, or held in a same-file const) gives the display form; so does a read of a field of the app's own,
+ * and a string literal is written by hand in its display form. An element is a value of its own, read where it is
+ * written.
  *
  * It fails (findingsIn):
  *  A. a served name printed raw: an expression child of an intrinsic element, a fragment or a component the scan
@@ -53,14 +58,14 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  *     page's metadata (METADATA_TEXT: the tab's title, the description, a social card's), by the keys Next's metadata
  *     types declare. A same-file component's props and children bind its parameters, so a name handed to one fails
  *     where the component prints it.
- *  B. a field of the app's own filled with a served name: an object literal's property, placed by the type the literal
- *     is given (a declared type, a return type, a parameter's type, read through Object.freeze, parentheses, `as`,
- *     `satisfies` and `!`), a spread of a served object into such a literal, a JSX attribute or a spread of a served
- *     object into a component's props (so CompanyLogo's `name` takes the display form), and an assignment to the field
- *     (`=`, `||=`, `&&=`, `??=`). A mapper that stops formatting fails here, at the line that fills its field. An object
- *     literal the checker cannot place that holds a company-name key (a NAME_KEYS key, or `name` beside `ticker`)
- *     filled with a served name fails too, unless the type it is given has an index signature (a data payload, as
- *     analytics' properties).
+ *  B. a field of the app's own filled with a served name: an object literal's property (a getter by what it returns),
+ *     placed by the type the literal is given (a declared type, a return type, a parameter's type, read through
+ *     Object.freeze, parentheses, `as`, `satisfies` and `!`), a spread of a served object into such a literal, a JSX
+ *     attribute or a spread of a served object into a component's props (so CompanyLogo's `name` takes the display
+ *     form), and an assignment to the field (`=`, `||=`, `&&=`, `??=`). A mapper that stops formatting fails here, at
+ *     the line that fills its field. An object literal the checker cannot place that holds a company-name key (a
+ *     NAME_KEYS key, or `name` beside `ticker`) filled with a served name fails too, unless the type it is given has an
+ *     index signature (a data payload, as analytics' properties).
  *
  * Over-reads that fail closed: a prop of a component the scan cannot read that never prints (a table's row key, a
  * link's tooltip `title`), a value an imported function is handed but never gives back (a length), and an object
@@ -84,9 +89,11 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * known by its name (an array's method) called through Function.prototype's `call` or `apply`, which the reader reads
  * as a call of the method; a served name copied into a class component's field or its state and printed through `this`
  * (`label = this.props.ev.company_name`, then `{this.label}`), since the shared reader follows no class's fields and no
- * `this` (a served field read through `this.props` is still read by its type, and the app's class components, two error
- * boundaries, print no name); and React's element calls, which app code may not write
- * (earningsnerd/elements-built-with-jsx).
+ * class's `this` (a served field read through `this.props` is still read by its type, as a class's getter is, above,
+ * and the app's class components, two error boundaries, print no name); an object literal's `this` handed on whole (a
+ * getter that hands back its own object, then a member of what it gives); what an assignment through a `set` accessor
+ * hands the accessor, kept for a getter of another name; a Proxy's traps; and React's element calls, which app code
+ * may not write (earningsnerd/elements-built-with-jsx).
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -210,8 +217,13 @@ interface Fill {
 
 const isFnNode = (n: ts.Node | undefined): n is Fn =>
   !!n && (ts.isFunctionDeclaration(n) || ts.isArrowFunction(n) || ts.isFunctionExpression(n) || ts.isMethodDeclaration(n))
-/** What a function returns: an arrow's expression body, and each `return` in its body outside the functions nested in it. */
-const returnsOf = (fn: Fn): ts.Expression[] => {
+/** What hands back what it returns: a function, or a getter (an object literal's or a class's), which a read of its
+    property calls. */
+type Returner = Fn | ts.GetAccessorDeclaration
+const isReturner = (n: ts.Node | undefined): n is Returner => isFnNode(n) || (!!n && ts.isGetAccessorDeclaration(n))
+/** What a function or a getter returns: an arrow's expression body, and each `return` in its body outside the functions
+    nested in it. */
+const returnsOf = (fn: Returner): ts.Expression[] => {
   if (!fn.body) return []
   if (!ts.isBlock(fn.body)) return [fn.body]
   const out: ts.Expression[] = []
@@ -259,7 +271,7 @@ const crossTargets = (expression: ts.Expression, sf: ts.SourceFile): Fn[] =>
  * One source's reading (the header's): its values followed by the shared reader with `passThrough` and React's state
  * on, a call of another module's function that hands back a served name as text (servedReturns) holding the name.
  */
-function readerOf(sf: ts.SourceFile, servedReturns: ReadonlySet<Fn>) {
+function readerOf(sf: ts.SourceFile, servedReturns: ReadonlySet<Returner>) {
   const declarationOf = scopeResolver(sf)
 
   /** Whether a callee is formatCompanyName: an import under any name, the module's namespace, or a same-file const. */
@@ -276,13 +288,20 @@ function readerOf(sf: ts.SourceFile, servedReturns: ReadonlySet<Fn>) {
     const target = calleeTarget(call.expression)
     return !!target && ELEMENT_CALLS.has(target.name) && !!target.declarations?.some((d) => /[\\/]node_modules[\\/]@types[\\/]react[\\/]/.test(d.getSourceFile().fileName))
   }
-  /** The fields a binding takes from the object it destructures. */
-  const bindingFields = (element: ts.BindingElement): Field[] => {
+  /** The members a binding takes from the object it destructures. */
+  const bindingMembers = (element: ts.BindingElement): ts.Symbol[] => {
     if (!ts.isObjectBindingPattern(element.parent)) return []
     const key = keyText(element.propertyName ?? element.name)
-    return key ? propertiesNamed(CHECKER.getTypeAtLocation(element.parent), key).flatMap(fieldsOf) : []
+    return key ? propertiesNamed(CHECKER.getTypeAtLocation(element.parent), key) : []
   }
   const leafOfFields = (fields: Field[]): Leaf[] | undefined => (fields.length === 0 ? undefined : [fields.some(isServed) ? 'served' : 'shown'])
+  /** A read of a getter that hands back a served name (servedReturns), an object literal's or a class's, in any module:
+      the read calls the getter, so it is served. */
+  const gotten = (members: Array<ts.Symbol | undefined>): Leaf[] | undefined =>
+    members.some((m) => (m?.declarations ?? []).some((d) => ts.isGetAccessorDeclaration(d) && servedReturns.has(d))) ? ['served'] : undefined
+  /** A member read: a company-name field by its type, or a getter that hands back a served name. */
+  const leafOfMembers = (members: Array<ts.Symbol | undefined>): Leaf[] | undefined =>
+    leafOfFields(members.flatMap(fieldsOf)) ?? gotten(members)
   const leafOf = (e: ts.Expression): Leaf[] | undefined => {
     if (ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || ts.isJsxFragment(e)) return ['element']
     if (ts.isCallExpression(e)) {
@@ -292,11 +311,11 @@ function readerOf(sf: ts.SourceFile, servedReturns: ReadonlySet<Fn>) {
       if (crossTargets(e.expression, sf).some((fn) => servedReturns.has(fn))) return ['served']
       return undefined
     }
-    if (ts.isPropertyAccessExpression(e)) return leafOfFields(fieldsOf(CHECKER.getSymbolAtLocation(e.name))) ?? serving(e)
-    if (ts.isElementAccessExpression(e)) return leafOfFields(fieldsOf(CHECKER.getSymbolAtLocation(e.argumentExpression)))
+    if (ts.isPropertyAccessExpression(e)) return leafOfMembers([CHECKER.getSymbolAtLocation(e.name)]) ?? serving(e)
+    if (ts.isElementAccessExpression(e)) return leafOfMembers([CHECKER.getSymbolAtLocation(e.argumentExpression)])
     if (ts.isIdentifier(e)) {
       const declaration = declarationOf(e)
-      if (declaration && ts.isBindingElement(declaration)) return leafOfFields(bindingFields(declaration))
+      if (declaration && ts.isBindingElement(declaration)) return leafOfMembers(bindingMembers(declaration))
       if (declaration && (ts.isImportSpecifier(declaration) || ts.isImportClause(declaration))) return serving(e)
     }
     return undefined
@@ -313,26 +332,27 @@ type Reader = ReturnType<typeof readerOf>
     the planted forms with the modules they import. */
 const PROGRAM_SOURCES = PROGRAM.getSourceFiles().filter((sf) => !sf.isDeclarationFile && !/[\\/]node_modules[\\/]/.test(sf.fileName))
 /**
- * The functions that hand back a served name as text, to a fixed point over the program: each pass reads every source
- * with the functions the pass before it found, so a call of one from another module holds the name, as a same-file
- * call does, through any chain of modules (a cycle of them included). The set only grows, so it settles; the readings of
- * its last pass, made with the settled set, are the ones the scan uses.
+ * The functions and getters that hand back a served name as text, to a fixed point over the program: each pass reads
+ * every source with what the pass before it found, so a call of one from another module holds the name, as a same-file
+ * call does, and so does a read of such a getter wherever the checker places it, through any chain of modules (a cycle
+ * of them included). The set only grows, so it settles; the readings of its last pass, made with the settled set, are
+ * the ones the scan uses.
  */
 const { SERVED_RETURNS, READERS } = (() => {
-  let served = new Set<Fn>()
+  let served = new Set<Returner>()
   for (let pass = 0; pass <= PROGRAM_SOURCES.length; pass++) {
-    const next = new Set<Fn>()
+    const next = new Set<Returner>()
     const readers = new Map<ts.SourceFile, Reader>()
     for (const sf of PROGRAM_SOURCES) {
       const reader = readerOf(sf, served)
       readers.set(sf, reader)
       const walk = (node: ts.Node): void => {
-        if (isFnNode(node) && returnsOf(node).some((r) => reader.values.valueOf(r).leaves.has('served'))) next.add(node)
+        if (isReturner(node) && returnsOf(node).some((r) => reader.values.valueOf(r).leaves.has('served'))) next.add(node)
         ts.forEachChild(node, walk)
       }
       walk(sf)
     }
-    if (next.size === served.size) return { SERVED_RETURNS: next as ReadonlySet<Fn>, READERS: readers }
+    if (next.size === served.size) return { SERVED_RETURNS: next as ReadonlySet<Returner>, READERS: readers }
     served = next
   }
   throw new Error('the functions that hand back a served name never settle')
@@ -454,18 +474,20 @@ function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
         }
         return
       }
-      if (!ts.isPropertyAssignment(p) && !ts.isShorthandPropertyAssignment(p)) return
+      // A property's value, or what its getter returns: a getter fills its key as a value does.
+      const getter = ts.isGetAccessorDeclaration(p)
+      if (!getter && !ts.isPropertyAssignment(p) && !ts.isShorthandPropertyAssignment(p)) return
       const key = keyText(p.name)
       if (!key) return
-      const value = ts.isPropertyAssignment(p) ? p.initializer : p.name
+      const served = getter ? returnsOf(p).some(holds) : holds(ts.isPropertyAssignment(p) ? p.initializer : p.name)
       // The words Next prints from a page's metadata.
-      if (METADATA_TEXT.has(key) && propertiesNamed(type, key).some((m) => m.declarations?.some(isNextDeclaration)) && holds(value)) return flag(p, 'A')
+      if (METADATA_TEXT.has(key) && propertiesNamed(type, key).some((m) => m.declarations?.some(isNextDeclaration)) && served) return flag(p, 'A')
       const fields = placed(key)
-      if (fields.length > 0) return fill(fields, holds(value), p)
+      if (fields.length > 0) return fill(fields, served, p)
       // A literal the checker cannot place, holding a company-name key: read as a field of the app's own, unless the
       // type it is given has an index signature (a data payload) or declares the key (then the field is not a name).
       const nameKey = NAME_KEYS.has(key) || (key === 'name' && keys.includes('ticker'))
-      if (nameKey && !hasIndex(type) && propertiesNamed(type, key).length === 0 && holds(value)) flag(p, 'B')
+      if (nameKey && !hasIndex(type) && propertiesNamed(type, key).length === 0 && served) flag(p, 'B')
     })
   }
   const ASSIGNMENTS = new Set([ts.SyntaxKind.EqualsToken, ts.SyntaxKind.BarBarEqualsToken, ts.SyntaxKind.QuestionQuestionEqualsToken, ts.SyntaxKind.AmpersandAmpersandEqualsToken])
@@ -555,7 +577,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       else strays.push(`line ${f.line}: ${f.shown}`)
     }
     const count = (mark: string) => [...forms.values()].filter((f) => f.mark === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([91, 34, 16])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([103, 35, 19])
     const misread = [...forms].filter(([name, { mark }]) => named.has(name) !== (mark === 'flag')).map(([name, { mark }]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])

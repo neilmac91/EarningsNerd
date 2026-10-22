@@ -7,7 +7,8 @@
  * callback it is given (N122), so a state's setter handed to it is called where the gate does not look (a gap); two
  * reducers, one that gives back the action it is dispatched (N124, N128) and one that hands back the served name of
  * the event it is dispatched (N125); an overloaded helper exported through a const alias (N129), whose body the gate
- * reaches past its signatures; and a helper chosen by a conditional (N130), whose arms the gate reads both of.
+ * reaches past its signatures; a helper chosen by a conditional (N130), whose arms the gate reads both of; and an
+ * object whose getter hands back a served name (N151), which a read of its property in another module calls.
  */
 import type { CalendarEvent } from '@/features/calendar/api/calendar-api'
 import { formatCompanyName } from '@/lib/formatCompanyName'
@@ -37,3 +38,10 @@ export const aliasedNameOf = overloadedNameOf
 const RAW_NAMES = true as boolean
 
 export const chosenNameOf = RAW_NAMES ? nameOf : displayNameOf
+
+export const latestEvent = {
+  event: undefined as CalendarEvent | undefined,
+  get name(): string {
+    return this.event?.company_name ?? ''
+  },
+}

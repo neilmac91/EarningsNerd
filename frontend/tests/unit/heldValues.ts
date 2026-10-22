@@ -34,11 +34,17 @@ import ts from 'typescript'
  *    calls its parameter);
  *  - what the code puts in an object or an array after making it: a property assigned (`BOX.mark = QuotesIcon`, nested,
  *    or under a key the scan cannot read, which any read may reach), an element pushed, unshifted or spliced in, a
- *    `Map`'s `set`, and `Object.assign` onto it.
+ *    `Map`'s `set`, `Object.assign` and `Reflect.set` onto it, and a property `Object.defineProperty`,
+ *    `Object.defineProperties` or `Reflect.defineProperty` defines on it (its descriptor's `value`, or what its `get`
+ *    returns).
  * An expression holds:
- *  - a member read by name or literal key (`MARK.alert`, `MARK['alert']`, a nested `A.b.c`, a `Map`'s `get`), and one
- *    read by a key the scan cannot read (`MARK[kind]`), which may be any property;
- *  - an object literal's properties, spreads and methods, in source order, so a later property overrides a spread's;
+ *  - a member read by name or literal key (`MARK.alert`, `MARK['alert']`, a nested `A.b.c`, a `Map`'s `get`,
+ *    `Reflect.get`), and one read by a key the scan cannot read (`MARK[kind]`), which may be any property;
+ *  - an object literal's properties, spreads, methods and getters (a getter's property is what it returns), in source
+ *    order, so a later property overrides a spread's. In the literal's methods and accessors (and a function expression
+ *    given as one of its properties), a member of `this` is the literal's member, what the code puts on `this` there
+ *    included (`this.raw = name`, read back as `this.raw` or from the literal); `this` handed on whole holds nothing,
+ *    so an object that hands back its own `this` never nests itself;
  *  - an array literal's elements by index (`[QuotesIcon]` read as `marks[0]`); past a spread the indices are unknown,
  *    so a literal index there may read any element from the spread on;
  *  - a conditional's two arms, both sides of `||` and `??`, the right of `&&`, an assignment's value, an `await`;
@@ -60,8 +66,10 @@ import ts from 'typescript'
  *    array's `find`, `findLast`, `at`, `pop` and `shift` (an element), `filter`, `slice`, `splice`, `concat`, `sort`,
  *    `reverse`, `flat` and their copying forms (its elements), `map` and `flatMap` (what the callback returns) and
  *    `reduce` (its accumulator); `Object.values`, `Object.entries` (each value at index 1), `Object.assign` (its
- *    target, with every source's properties), `Object.freeze`, `Object.seal` and `Object.preventExtensions` (what
- *    they are given), `Array.from`; React's `Children.map` (what the callback returns), `Children.toArray` and
+ *    target, with every source's properties), `Object.defineProperty` and `Object.defineProperties` (their target, with
+ *    what they define), `Object.create` (its prototype's properties, with what it defines), `Object.freeze`,
+ *    `Object.seal` and `Object.preventExtensions` (what they are given), `Array.from`; React's `Children.map` (what the
+ *    callback returns), `Children.toArray` and
  *    `Children.only`, `useMemo` (what its callback returns), `useCallback` (its callback), and `memo` and
  *    `forwardRef` (the component they wrap); and, for a gate that reads React's state (`state`), `useState`,
  *    `useReducer`, `useRef`, `useDeferredValue` and `useSyncExternalStore` (what each keeps, HeldOptions.state).
@@ -84,9 +92,11 @@ import ts from 'typescript'
  * holds nothing.
  * Out of its reach, for each gate to name and plant as a gap: a value that crosses modules (an app module's export or a
  * context's, or a setter handed to another module's code), what React state holds after its setter or a reducer runs
- * unless the gate reads state (HeldOptions.state), a class's fields and `this`, a promise's `then`, a generator's
- * yields, and a utility known by its name (an array's method, React's Children) called through Function.prototype's
- * `call` or `apply`, which reads as a call of the method. One over-count, which fails closed: a parameter is not told
+ * unless the gate reads state (HeldOptions.state), a class's members and its `this` (a field, a getter, a method),
+ * `this` handed on whole (returned, passed or held by another name), what an assignment through a `set` accessor hands
+ * the accessor, a Proxy's traps, a promise's `then`, a generator's yields, and a utility known by its name (an array's
+ * method, React's Children) called through Function.prototype's `call` or `apply`, which reads as a call of the
+ * method. One over-count, which fails closed: a parameter is not told
  * apart by call, so it holds what every same-file call passes it, and a function called with different values reads all
  * of them at each call (a component rendered once with each of two glyphs counts both at each render). A value that
  * grows through its own reads (`const a = <>{a}</>`, or a component that passes its own children back to itself with
@@ -105,6 +115,8 @@ export interface Held<L> {
 
 /** A function the scan follows: a declaration, an arrow, a function expression or an object literal's method. */
 export type Fn = ts.FunctionDeclaration | ts.ArrowFunction | ts.FunctionExpression | ts.MethodDeclaration
+/** What the scan reads the returns of: a function, or an object literal's getter, whose returns its property holds. */
+type Body = Fn | ts.GetAccessorDeclaration
 
 export interface HeldValues<L> {
   /** What an expression holds. */
@@ -493,15 +505,41 @@ export function heldValues<L>(
     let t = unwrapHeld(target)
     while (ts.isPropertyAccessExpression(t) || ts.isElementAccessExpression(t)) t = unwrapHeld(t.expression)
     if (ts.isObjectLiteralExpression(t) || ts.isArrayLiteralExpression(t)) return true
+    if (t.kind === ts.SyntaxKind.ThisKeyword) return !!thisLiteral(t)
     if (!ts.isIdentifier(t)) return false
     const declaration = declarationOf(t)
     return !!declaration && (ts.isVariableDeclaration(declaration) || ts.isBindingElement(declaration) || ts.isParameter(declaration))
   }
+  /** The object literal a `this` is: the nearest function that binds `this` (an arrow does not), when that function is
+      one of the literal's methods or accessors, or a function expression given as one of its properties. Undefined for
+      any other `this` (a class's, a plain function's), which the reading does not follow. */
+  const thisLiteral = (node: ts.Node): ts.ObjectLiteralExpression | undefined => {
+    let fn = node.parent
+    while (fn && !ts.isSourceFile(fn) && !ts.isClassLike(fn) && !(ts.isFunctionLike(fn) && !ts.isArrowFunction(fn))) fn = fn.parent
+    if (!fn || !(ts.isMethodDeclaration(fn) || ts.isGetAccessorDeclaration(fn) || ts.isSetAccessorDeclaration(fn) || ts.isFunctionExpression(fn))) {
+      return undefined
+    }
+    const owner = ts.isFunctionExpression(fn) ? (ts.isPropertyAssignment(fn.parent) ? fn.parent.parent : undefined) : fn.parent
+    return owner && ts.isObjectLiteralExpression(owner) ? owner : undefined
+  }
+  /** The object literals a `this` in the file is, read or written: each holds its own value and what the code puts on
+      `this` (sources). */
+  const thisLiterals = new Set<ts.ObjectLiteralExpression>()
+  const findThis = (n: ts.Node): void => {
+    if (n.kind === ts.SyntaxKind.ThisKeyword) {
+      const literal = thisLiteral(n)
+      if (literal) thisLiterals.add(literal)
+    }
+    ts.forEachChild(n, findThis)
+  }
+  findThis(sf)
 
-  // A function being read for its returns: a call of it inside its own returns (recursion) adds nothing more.
-  const evaluating = new Set<Fn>()
-  /** What a function returns: an arrow's expression body, and each `return` in its body outside the functions nested in it. */
-  const returnsOf = (fn: Fn): ts.Expression[] => {
+  // A function or a getter being read for its returns: a call of it inside its own returns (recursion) adds nothing
+  // more.
+  const evaluating = new Set<Body>()
+  /** What a function or a getter returns: an arrow's expression body, and each `return` in its body outside the
+      functions nested in it. */
+  const returnsOf = (fn: Body): ts.Expression[] => {
     if (!fn.body) return []
     if (!ts.isBlock(fn.body)) return [fn.body]
     const out: ts.Expression[] = []
@@ -513,7 +551,7 @@ export function heldValues<L>(
     ts.forEachChild(fn.body, walk)
     return out
   }
-  const returned = (fns: Iterable<Fn> | null | undefined, record?: Set<ts.Node>): Held<L> => {
+  const returned = (fns: Iterable<Body> | null | undefined, record?: Set<ts.Node>): Held<L> => {
     let value = empty<L>()
     for (const fn of fns ?? []) {
       if (evaluating.has(fn)) continue
@@ -540,6 +578,27 @@ export function heldValues<L>(
   /** What the calls through a hook's setter or dispatcher hand it, however each reached the setter: useState's values
       and updaters, useReducer's actions (HeldOptions.state). */
   const handedTo = (hook: ts.CallExpression): Held<L> => holders.get(hook) ?? empty()
+  /** What a property descriptor gives its property: its `value`, and what its `get` returns. */
+  const described = (descriptor: Held<L>, record?: Set<ts.Node>): Held<L> =>
+    union(propertyOf(descriptor, 'value'), called(propertyOf(descriptor, 'get'), record))
+  /** The properties a definition call defines, each what its descriptor gives it: Object.defineProperty's and
+      Reflect.defineProperty's one, under its key, or those of the map Object.defineProperties and Object.create are
+      given. */
+  const definedBy = (x: ts.CallExpression, record?: Set<ts.Node>): Map<string, Held<L>> => {
+    const props = new Map<string, Held<L>>()
+    const [, second, third] = x.arguments
+    if (calleeName(x) === 'defineProperty') {
+      const value = third && !ts.isSpreadElement(third) ? described(valueOf(third, record), record) : empty<L>()
+      if (!vacant(value)) props.set(literalKey(second) ?? ANY, value)
+      return props
+    }
+    const map = second && !ts.isSpreadElement(second) ? valueOf(second, record) : empty<L>()
+    for (const [key, descriptor] of map.props ?? []) {
+      const value = described(descriptor, record)
+      if (!vacant(value)) props.set(key, value)
+    }
+    return props
+  }
   /** What same-file components render where their element is: what they return, the components themselves aside. */
   const renders = (fns: Set<Fn>, element: ts.Node, record?: Set<ts.Node>): Held<L> => {
     const value = returned(fns, record)
@@ -615,7 +674,11 @@ export function heldValues<L>(
     if (ts.isArrowFunction(x) || ts.isFunctionExpression(x)) return fnValue(x)
     if (ts.isAwaitExpression(x)) return valueOf(x.expression, record)
     if (ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) {
-      const value = memberOf(valueOf(x.expression), memberKey(x), x)
+      // A member of `this` in an object literal's method or accessor is the literal's member (thisLiteral); `this`
+      // read whole is no value the reading holds.
+      const base = unwrapHeld(x.expression)
+      const literal = base.kind === ts.SyntaxKind.ThisKeyword ? thisLiteral(base) : undefined
+      const value = memberOf(literal ? (holders.get(literal) ?? empty<L>()) : valueOf(x.expression), memberKey(x), x)
       if (leavesOf(value).size > 0) record?.add(x)
       return value
     }
@@ -688,14 +751,19 @@ export function heldValues<L>(
           if (key !== undefined) props.set(key, fnValue(p))
           continue
         }
-        if (!ts.isPropertyAssignment(p) && !ts.isShorthandPropertyAssignment(p)) continue
+        // A getter's property is what the getter returns; a setter alone gives the property no value to follow.
+        const getter = ts.isGetAccessorDeclaration(p)
+        if (!getter && !ts.isPropertyAssignment(p) && !ts.isShorthandPropertyAssignment(p)) continue
         const key = propertyKey(p.name)
         if (key === undefined) continue
-        const value = valueOf(ts.isPropertyAssignment(p) ? p.initializer : p.name, record)
+        const value = getter ? returned([p], record) : valueOf(ts.isPropertyAssignment(p) ? p.initializer : p.name, record)
         if (!vacant(value)) props.set(key, value)
         else props.delete(key)
       }
-      return { leaves: new Map(), props, fns: null }
+      const made: Held<L> = { leaves: new Map(), props, fns: null }
+      // A literal a `this` is: also what the code puts on `this` in its methods and accessors (sources).
+      const kept = holders.get(x)
+      return kept ? union(made, kept) : made
     }
     return empty()
   }
@@ -742,7 +810,21 @@ export function heldValues<L>(
         return { leaves: target.leaves, props, fns: target.fns }
       }
       if (name === 'freeze' || name === 'seal' || name === 'preventExtensions') return arg(0)
+      // defineProperty and defineProperties give back their target with what they define on it; create gives back a
+      // new object, which reads its prototype's properties and those it defines.
+      if (name === 'defineProperty' || name === 'defineProperties' || name === 'create') {
+        const base = arg(0)
+        const props = new Map<string, Held<L>>(base.props ?? [])
+        for (const [key, value] of definedBy(x, record)) props.set(key, value)
+        return name === 'create' ? { leaves: new Map(), props, fns: null } : { leaves: base.leaves, props, fns: base.fns }
+      }
       return empty()
+    }
+    // Reflect.get reads a member as `.` and `[]` do.
+    if (receiverNamed(x, 'Reflect') && name === 'get' && args[0] && !ts.isSpreadElement(args[0])) {
+      const value = memberOf(valueOf(args[0]), literalKey(args[1]), x)
+      if (leavesOf(value).size > 0) record?.add(x)
+      return value
     }
     if (receiverNamed(x, 'Array') && name === 'from') return args[1] ? arrayOf(calledAt(1)) : arrayOf(elementOf(arg(0)))
     if (name === 'useMemo') return calledAt(0)
@@ -846,6 +928,12 @@ export function heldValues<L>(
     if (ts.isIdentifier(t)) {
       const declaration = declarationOf(t)
       if (declaration && !isFn(declaration)) give(declaration, value)
+      return
+    }
+    // What the code puts on `this` in an object literal's method or accessor, it puts on the literal (thisLiteral).
+    if (t.kind === ts.SyntaxKind.ThisKeyword) {
+      const literal = thisLiteral(t)
+      if (literal) give(literal, value)
       return
     }
     if (ts.isPropertyAccessExpression(t) || ts.isElementAccessExpression(t)) {
@@ -990,6 +1078,17 @@ export function heldValues<L>(
       assign(args[0], { leaves: new Map(), props, fns: null }, record)
       return
     }
+    // What a definition puts on a held object (Object.defineProperty, Object.defineProperties, Reflect.defineProperty:
+    // what each descriptor gives), and what Reflect.set puts there, as an assignment does.
+    const defines = (receiverNamed(x, 'Object') && (name === 'defineProperty' || name === 'defineProperties')) || (receiverNamed(x, 'Reflect') && name === 'defineProperty')
+    if (defines || (receiverNamed(x, 'Reflect') && name === 'set')) {
+      if (!args[0] || !holdsTarget(args[0])) return
+      const props = defines ? definedBy(x, record) : new Map<string, Held<L>>()
+      const put = !defines && args[2] ? valueOf(args[2], record) : empty<L>()
+      if (!vacant(put)) props.set(literalKey(args[1]) ?? ANY, put)
+      if (props.size) assign(args[0], { leaves: new Map(), props, fns: null }, record)
+      return
+    }
     // React's element call of a same-file component calls it with its props (a same-file function of a maker's name is
     // the file's own, called below).
     const component = ELEMENT_MAKERS.has(name) && args[0] && !valueOf(x.expression).fns?.size ? valueOf(args[0]).fns : null
@@ -1093,6 +1192,9 @@ export function heldValues<L>(
       }
       else if (ts.isCallExpression(node)) call(node, record)
       else if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) render(node, record)
+      // A literal a `this` is holds its own value, for the members of `this` its methods and accessors read (a hold of
+      // nothing: where the literal is handed on records it).
+      else if (ts.isObjectLiteralExpression(node) && thisLiterals.has(node)) give(node, valueOf(node))
       ts.forEachChild(node, visit)
     }
     visit(sf)
@@ -1100,6 +1202,7 @@ export function heldValues<L>(
   let sites = 0
   const count = (node: ts.Node): void => {
     if (ts.isVariableDeclaration(node) || ts.isParameter(node) || ts.isForOfStatement(node) || ts.isBinaryExpression(node) || ts.isCallExpression(node) || ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) sites++
+    else if (ts.isObjectLiteralExpression(node) && thisLiterals.has(node)) sites++
     ts.forEachChild(node, count)
   }
   count(sf)
