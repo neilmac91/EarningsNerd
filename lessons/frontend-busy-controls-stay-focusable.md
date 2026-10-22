@@ -154,7 +154,10 @@ four of these in later review rounds, after the sweep had shipped them fire-and-
 by a "Saved" label) hands focus to a stable target: a heading or status line with `tabIndex={-1}`, focused
 with `{ preventScroll: true }`. A layout whose pages own its heading hands it to the landmark it renders
 first: the admin layout's account card gives way to the section's `<nav tabIndex={-1}>`, since each admin
-page writes its own h1 below it (`app/admin/layout.tsx`). Two forms are accepted: before the unmount, only
+page writes its own h1 below it (`app/admin/layout.tsx`). A Retry whose success renders content in its
+place hands focus to that content's container: TurnstileWidget's Try again gives way to the security
+check, a group named "Security check" with `tabIndex={-1}` (E152). Two forms are accepted: before the
+unmount, only
 when the control holds focus (`document.activeElement === e.currentTarget`), or after it, only when focus
 fell to `<body>`. Never move focus a mouse user did not lose.
 - A Retry's hand-off fires only when the Retry unmounts while it holds focus, whatever the cause: its own
