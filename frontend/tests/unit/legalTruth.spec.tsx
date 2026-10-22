@@ -30,7 +30,10 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    before it, so "Each endpoint returns JSON and administrators need a login." passes) or before them as their
  *    requirement ("a login is required for each
  *    endpoint"), not after a negation, unless a relative clause or a participle narrows them, as "any endpoint
- *    returning account data" does; and "no endpoint" answering without authentication in its clause, the claim the
+ *    returning account data" does, or a condition after the login need narrows when they need it ("only when
+ *    accessing private records": ONLY_WHEN, unless it restates every request, RESTATED: "only when you call it";
+ *    main's reading of all and every endpoints reads no condition); and "no endpoint" answering without authentication
+ *    in its clause, the claim the
  *    other way round; login words in another role or clause pass ("Each API endpoint documents the token format.", "Any
  *    endpoint may accept an optional token."), an account or a token counts as a login only as the credential itself
  *    ("requires an account", "a signed-in account", "requires a token"), so "Each endpoint requires an account ID." and
@@ -424,16 +427,28 @@ const LOGIN_FOR = String.raw`(?:` +
   String.raw`|${NOT}\b(?:you|readers?|callers?|clients?|users?)\s+(?:need|needs|require|requires|must\s+(?:have|present|send|hold|show))\s+${A_LOGIN}\s+(?:for|on|to\s+(?:call|reach|use|query|open))\s+(?:the\s+)?` +
   String.raw`|${NOT}\b(?:you|readers?|callers?|clients?|users?)\s+(?:must|have to|need to)\s+(?:log|sign)\s+in\s+(?:to|before|first to)\s+(?:call|calling|reach|reaching|use|using|query|querying|open|opening)\s+(?:the\s+)?` +
   ')'
+/** What a condition after "only when", "only if", "only for" or "only to" restates rather than narrows (#1456's
+    twelfth round): the endpoint itself called, used or accessed ("only when you call it", "only when it is called"), a
+    caller with no login ("only if you are not signed in", "only for anonymous requests", "only when your session has
+    expired") or a purpose ("only for your safety", "only to keep your data safe"), each of which is every request. */
+const RESTATED = String.raw`(?:\s+[\w'’-]+){0,3}?\s+(?:(?:call|use|access|reach|query|open)(?:s|es|ing)?\s+(?:it|them|the\s+API|(?:the|an|this|that|each|any)\s+endpoints?)|(?:called|used|accessed|reached|queried|opened)|not\s+(?:yet\s+)?(?:signed|logged)[- ]in|(?:signed|logged)[- ]out|anonymous(?:ly)?|unauthenticated|unauthori[sz]ed|guests?|visitors?|(?:session|token|login)\s+(?:has\s+|is\s+)?expired|(?:without|lack(?:s|ing)?|ha(?:ve|s)\s+no|with\s+no|no)\s+(?:an?\s+)?(?:valid\s+)?(?:login|token|session|credentials?|authentication|account))\b|\s+(?:(?:your|our|its|their)\s+)?(?:keep|protect|secure|safeguard|safety|security|protection|privacy)\b`
+/** A condition after the endpoints' login need, in its clause, that narrows when they need it (#1456's twelfth round):
+    "only when", "only if", "only for" or "only to" ("requires a login only when accessing private records"), not one
+    that restates every request (RESTATED), so the claim is not every request; "even when it is public" and "not only
+    when" narrow nothing. Main's reading of all and every endpoints is not narrowed: it would pass restatements
+    RESTATED does not list, which main refuses ("Every endpoint requires a login only if we do not know you."). */
+const ONLY_WHEN = String.raw`(?:\s+(?!(?:and|but|or|nor|so|not|never|which|that|who|while|whereas|because|although|though|unless|even)\b)[\w'’-]+){0,4}?(?:\s*,)?\s+only\s+(?:when|if|for|to)\b(?!${RESTATED})`
 /** Every endpoint behind authentication: main's reading (all or every, with "of", "our" or "the" and "API" between);
     SOME_ENDPOINTS with their own predicate saying they need a login, after them in their clause (NEEDS_A_LOGIN) or
     before them as their requirement (LOGIN_FOR); and the claim the other way round, "no endpoint" (WHOLE_SET's words
     between, as in SOME_ENDPOINTS) answering without authentication, unauthenticated or to anonymous requests, in its
     clause. "Each API endpoint documents the token format.", "Any endpoint may accept an optional token.", "No API
-    endpoints require authentication." and "Every administrative endpoint requires authentication." pass. */
+    endpoints require authentication." and "Every administrative endpoint requires authentication." pass, and so does
+    this pull request's forms' login need with a condition that narrows it (ONLY_WHEN). */
 const ENDPOINT_CLAIM = new RegExp(
   String.raw`\b(?:all|every)\b(?:\s+of)?(?:\s+(?:our|the))?(?:\s+API)?\s+endpoints?\b` +
-    String.raw`|${SOME_ENDPOINTS}${IN_THEIR_CLAUSE}${NEEDS_A_LOGIN}` +
-    String.raw`|${LOGIN_FOR}${SOME_ENDPOINTS}` +
+    String.raw`|${SOME_ENDPOINTS}${IN_THEIR_CLAUSE}${NEEDS_A_LOGIN}(?!${ONLY_WHEN})` +
+    String.raw`|${LOGIN_FOR}${SOME_ENDPOINTS}(?!${ONLY_WHEN})` +
     String.raw`|\bno\b(?:\s+${WHOLE_SET}){0,3}?\s+endpoints?\b${NARROWED}${IN_THEIR_CLAUSE}(?:without\s+(?:an?\s+)?(?:authentication|log[- ]?in|logging in|sign[- ]?in|signing in|token${ITSELF}|account${AS_LOGIN})\b|unauthenticated\b|(?:\w+\s+)?anonymous(?:ly\b|\s+(?:users?|requests?|callers?|readers?|access|visitors?)\b))`,
   'i',
 )
@@ -1390,6 +1405,14 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Each individual endpoint requires a login.</p>', true],
       ['<p>Every EarningsNerd endpoint requires authentication.</p>', true],
       ["<p>All of EarningsNerd's endpoints require authentication.</p>", true],
+      // A condition after the endpoints' login need that narrows when they need it says it of some requests, not every
+      // one, beside "Each endpoint requires a login." above, a condition that narrows nothing and one that restates
+      // every request; main's reading of every endpoint is not narrowed and still refuses the narrowed claim, as main
+      // does (#1456's twelfth round, Codex's thread 4350498611).
+      ['<p>Each endpoint requires a login only when accessing private records.</p>', false],
+      ['<p>Each endpoint requires a login, even when it is public.</p>', true],
+      ['<p>Each endpoint requires a login only when you call it.</p>', true],
+      ['<p>Every endpoint requires a login only when accessing private records.</p>', true],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
