@@ -142,10 +142,11 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    helper, whether or not it writes a row of its own, a create_audit_log in the service outside the one call of a
  *    top-level function, in a class's method or at the module's top level, a second call or the writer passed on, a
  *    helper used outside a top-level function, and an AuditLog row built anywhere but as create_audit_log's own row,
- *    from its action parameter, under its name or an import's alias) is listed by module and line, and that list is
- *    held empty, so a new write fails until its action is a literal or taught to the walk. Out of its reach: a row
- *    written without building an AuditLog (a bulk or core insert on the table, or SQL, which CLAUDE.md forbids), and a
- *    writer re-exported by another module, whose name the walk reads as that module's. The item names part of what
+ *    from its action parameter, under its name, an import's alias or an assignment's) is listed by module and line,
+ *    and that list is held empty, so a new write fails until its action is a literal or taught to the walk. Out of its
+ *    reach: a row written without building an AuditLog (a bulk or core insert on the table, or SQL, which CLAUDE.md
+ *    forbids), a writer re-exported by another module, whose name the walk reads as that module's, and the model bound
+ *    to another name in one module and imported into another, or passed as a value. The item names part of what
  *    the rows record, and
  *    AUDITED_UNNAMED holds the rest, each with what it records: a Google or Apple sign-in linked to an existing account
  *    or unlinked from it (oauth_linked, oauth_unlinked), and two administrator actions on summaries, a bulk reset and a
@@ -648,9 +649,11 @@ const CREDENTIAL = String.raw`(?:codes?|links?|passwords?|passcodes?|passphrases
 const CREDENTIAL_NAME = String.raw`(?:recovery|verification|backup|login|log-in|sign-in|signin|magic|reset|password|invite|invitation|confirmation|security|access|authentication|auth|email|e-mail|SMS|text|API)`
 /** "One-time" as another credential's (#1456's eleventh round): directly before its noun, up to two words of its name
     between ("Refresh tokens are reusable, unlike one-time recovery codes."), unless it is said of something, after
-    "is", "are" or "be", or compared with it, after "like" or "as", where the token may be what is one-time ("Refresh
-    tokens are one-time keys.", "Refresh tokens work like one-time codes."). */
-const ONE_TIME_OF_ANOTHER = String.raw`(?<!\b(?:is|are|was|were|be|been|being|like|as)\s+(?:(?:a|an|each|all|both|always|only|just|also|still|simply)\s+){0,2})\bone-time\s+(?:${CREDENTIAL_NAME}\s+){0,2}${CREDENTIAL}\b`
+    "is", "are" or "be", or "remain", "become" or "stay" (Codex's thread 4352450748 on fe07229a), or compared with it,
+    after "like" or "as", where the token may be what is one-time ("Refresh tokens are one-time keys.", "Refresh
+    tokens remain one-time access keys.", "Refresh tokens work like one-time codes."). Up to two words may stand
+    between, an article, an adverb in -ly or one of a few others ("are still", "are effectively"). */
+const ONE_TIME_OF_ANOTHER = String.raw`(?<!\b(?:is|are|was|were|be|been|being|remains?|remained|becomes?|became|stays?|stayed|like|as)\s+(?:(?:a|an|each|all|both|always|only|just|also|still|simply|now|already|\w+ly)\s+){0,2})\bone-time\s+(?:${CREDENTIAL_NAME}\s+){0,2}${CREDENTIAL}\b`
 /** The one-use forms main's phrases miss ("one-time", "good for one use", "cannot be used twice", "cannot be reused",
     "after one use"), read only in a sentence about the refresh or session token: one that names it (TOKEN_CONTEXT), or
     one in a block that names it and names no other credential (OTHER_CREDENTIAL), as "Each one cannot be reused." in
@@ -1238,8 +1241,20 @@ function auditActions(modules: Record<string, string>): { written: Set<string>; 
         if (target === 'AuditLog' && alias) names.push(alias)
       }
     }
-    const rows = new RegExp(String.raw`(?<!\bclass\s+)(?<![\w])(?:[\w.]*\.)?(?:${names.map(escapeRe).join('|')})\s*\(`, 'g')
     const scanned = code.replace(IMPORT, (statement) => statement.replace(/[^\n]/g, ' '))
+    // An assignment binds the model to another name (`Row = AuditLog`), followed as an alias too (Codex's r4352450758
+    // on fe07229a); bound in one module and imported into another, or passed as a value, it is out of reach.
+    for (let grew = true; grew; ) {
+      grew = false
+      const assigned = new RegExp(String.raw`^[ \t]*(\w+)[ \t]*(?::[^=\n]*)?=[ \t]*(?:[\w.]*\.)?(?:${names.map(escapeRe).join('|')})[ \t]*$`, 'gm')
+      for (const [, alias] of scanned.matchAll(assigned)) {
+        if (!names.includes(alias)) {
+          names.push(alias)
+          grew = true
+        }
+      }
+    }
+    const rows = new RegExp(String.raw`(?<!\bclass\s+)(?<![\w])(?:[\w.]*\.)?(?:${names.map(escapeRe).join('|')})\s*\(`, 'g')
     for (const row of scanned.matchAll(rows)) {
       const at = row.index ?? 0
       if (writerSpan.some((span) => span.rel === rel && at >= span.start && at < span.end)) {
@@ -1781,6 +1796,13 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Refresh tokens are one-time.</li>', true],
       ['<li>Refresh tokens are one-time keys.</li>', true],
       ['<li>Refresh tokens work like one-time codes.</li>', true],
+      // After "remain", "become" or "stay", or with an adverb between, the noun may be the token's too (Codex's thread
+      // 4352450748 on fe07229a); a participle between still reads as another credential's.
+      ['<li>Refresh tokens remain one-time access keys.</li>', true],
+      ['<li>Refresh tokens become one-time recovery codes.</li>', true],
+      ['<li>Refresh tokens stay one-time keys.</li>', true],
+      ['<li>Refresh tokens are effectively one-time keys.</li>', true],
+      ['<li>Refresh tokens are considered one-time keys.</li>', 'gap'],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
@@ -2201,6 +2223,24 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(writerRows.unread).toEqual([
       'app/services/audit_service.py:4 builds an AuditLog row in create_audit_log from an action other than its own parameter, which the walk does not read',
       'app/services/audit_service.py:5 builds an AuditLog row in create_audit_log from an action other than its own parameter, which the walk does not read',
+    ])
+    // The model bound to another name by assignment, and that name bound again, is followed as an alias (Codex's
+    // r4352450758 on fe07229a); an attribute of it binds nothing.
+    const assigned = auditActions({
+      'app/services/audit_service.py': ['def create_audit_log(db, action):', '    return None'].join('\n'),
+      'app/routers/l.py': [
+        'from app.models.audit_log import AuditLog',
+        'Row = AuditLog',
+        'Again: type = Row',
+        'column = AuditLog.action',
+        'db.add(Row(action="new_action"))',
+        'db.add(Again(action="other_action"))',
+      ].join('\n'),
+    })
+    expect([...assigned.written]).toEqual([])
+    expect(assigned.unread).toEqual([
+      'app/routers/l.py:5 builds an AuditLog row outside create_audit_log, which the walk does not read',
+      'app/routers/l.py:6 builds an AuditLog row outside create_audit_log, which the walk does not read',
     ])
   })
 })
