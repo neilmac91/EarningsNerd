@@ -143,7 +143,13 @@ function TurnstileChallenge({ onToken, className }: TurnstileWidgetProps) {
         // form's own notices do, until a Notice sets its own alignment (E120).
         className="text-left"
         title="The security check didn't load"
-        description="This form needs Cloudflare's check before it can send. Allow challenges.cloudflare.com in any content blocker, or check your connection, then try again."
+        // The domain may break only at its dots: under 200% text at 320px it is wider than the notice's text.
+        description={
+          <>
+            This form needs Cloudflare&apos;s check before it can send. Allow challenges.<wbr />cloudflare.<wbr />com
+            in your content blocker, or check your connection, then try again.
+          </>
+        }
         action={<RetryButton size="sm" failures={[failure]} focusTarget={containerRef} />}
       />
     )

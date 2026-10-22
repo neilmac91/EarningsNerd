@@ -172,7 +172,9 @@ describe.each(FORMS)('%s with Turnstile on', (_, form) => {
     form.open()
     await failLoad()
     const alert = await noticeShown()
-    expect(alert).toHaveTextContent('challenges.cloudflare.com')
+    expect(alert).toHaveTextContent('Allow challenges.cloudflare.com in your content blocker')
+    // The domain breaks at its dots, never inside a word, where the notice is narrower than it.
+    expect(alert!.querySelectorAll('wbr')).toHaveLength(2)
     // The failed element is gone, so a later load is a new one and never waits on it.
     expect(scripts()).toHaveLength(0)
     expect(check()).toBeNull()
