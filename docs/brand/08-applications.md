@@ -474,8 +474,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   admin invites page, with a checked fill that holds 3:1 in dark (it was 2.2:1): Light Sage under a
   navy check, as the Primary button pairs them.
 - **Status chips** (`frontend/components/ui/Badge.tsx`): `success` and `error` variants for status
-  (D-032). The watchlist and dashboard rows say "Ready" on success and "Error" on error, and
-  "Unavailable" and "Needs regenerating" on warning; no status borrows the gain and loss colours.
+  (D-032), with `info-status`, `warning-status` and `neutral-status` beside them as Badge's status set.
+  The watchlist and dashboard rows say "Ready" on success, "Generating" on info-status, "No summary
+  yet" and "Pending" on neutral-status, "Unavailable" and "Needs regenerating" on warning-status and
+  "Error" on error, each the status ink on the quiet ground, never a tint; no status borrows the gain
+  and loss colours (`statusChipContrast.spec.ts` measures each on both rows).
 - **Error copy** (`frontend/lib/api/client.ts`): a lost connection reads "Could not reach the server.
   Try again in a moment." instead of naming the backend and its URL, and a validation error shows
   its first message instead of "[object Object]".
@@ -589,7 +592,13 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   truncating and the range label wraps between whole dates (`calendarReflow.spec.tsx`,
   `calendarEventRow.spec.tsx`). The bell's popover is placed from its measured height inside what the
   reader can see, scrolling inside when neither side of the bell holds it whole
-  (`BellPopover.spec.tsx`).
+  (`BellPopover.spec.tsx`). The status ladder takes Badge's status set and reads dashed, blue, quiet:
+  the "Est." chip is its `tentative` chip, a dashed hairline with no fill in either theme, where a class on
+  top of the neutral chip had painted a white pill; "Confirmed" is `info-status`, off the brand tint;
+  and "Reported" is `neutral-status`, whose label holds 4.98:1 on a hovered dark row where the quiet
+  chip's fill took it to 4.27:1 (`badgeVariants.spec.tsx`). The page takes its week from the reader's
+  browser alone, so a visit after the New York week turns over reads this week's heading, never the
+  week of the hour the page was rendered (`tests/e2e/fixtures/calendarWeek.ts`).
 - **Full-text search** (`frontend/app/search/page.tsx`, `features/search/components/FullTextSearch.tsx`):
   the form code is set in the data face, not as a chip, and `earningsnerd/no-form-code-badge` now
   flags a hand-rolled eyebrow chip around a form as well as a `Badge`, alone or leading a meta line

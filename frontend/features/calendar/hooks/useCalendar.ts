@@ -10,9 +10,12 @@
      FREE at-cap enables short-circuit to the upsell (the cap is public and
      deliberate). PRO is NEVER pre-empted: the request is always sent and
      whatever 403 the API returns is rendered verbatim.
+   - useTodayEasternIso: today in New York from the reader's browser alone,
+     null on the server and while the page hydrates, so the prerendered page
+     names no week that could be stale.
 ============================================================================= */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getUsage } from '@/features/subscriptions/api/subscriptions-api'
@@ -24,9 +27,25 @@ import {
   EarningsAlertError,
   EARNINGS_ALERT_LIMIT_CODE,
 } from '../api/calendar-api'
+import { todayEasternIso } from '../lib/dates'
 import { FREE_EARNINGS_ALERT_LIMIT } from '@/lib/planLimits'
 
 export const FREE_ALERT_LIMIT = FREE_EARNINGS_ALERT_LIMIT
+
+/** Nothing to subscribe to: useTodayEasternIso asks only whether it renders in the browser. */
+const noSubscription = () => () => {}
+
+/**
+ * Today as a New York calendar day, from the reader's browser alone: null on the server and while the page hydrates,
+ * then read once. /calendar is prerendered and revalidated hourly, so a today read on the server turns stale when the
+ * New York week turns over, and a heading built from it disagreed with the browser's week (React error 418, which
+ * throws the server's markup away; E136). The page names no week until this answers.
+ */
+export function useTodayEasternIso(): string | null {
+  // False on the server and in the hydrating render; React renders again right after hydrating, with true.
+  const inBrowser = useSyncExternalStore(noSubscription, () => true, () => false)
+  return useMemo(() => (inBrowser ? todayEasternIso() : null), [inBrowser])
+}
 
 export interface CalendarViewer {
   /** The canonical identity query has not resolved yet: neither signed in nor a guest. */

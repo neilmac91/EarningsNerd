@@ -1,4 +1,4 @@
-import { Badge, type BadgeVariant } from '@/components/ui'
+import { Badge, type BadgeStatusVariant } from '@/components/ui'
 
 /**
  * The summary status of a watched company's latest filing, read from the server's `summary_status`
@@ -9,9 +9,13 @@ import { Badge, type BadgeVariant } from '@/components/ui'
  * not know (it is true for missing, placeholder and error alike, and false while a summary is written).
  * Gate: tests/unit/summaryStatusCopy.spec.tsx.
  *
- * The badge is a status, so it takes Badge's status variants (D-032): Ready on success, Error on error,
- * Unavailable and Needs regenerating on warning. Never beat or miss: those are the earnings-surprise
- * direction (tests/unit/badgeVariants.spec.tsx).
+ * The badge is a status, so it takes Badge's status set (D-032; BadgeStatusVariant, components/ui/Badge.tsx),
+ * the status ink on the one quiet ground: Ready on success, Generating on info-status, No summary yet and
+ * Pending on neutral-status, Unavailable and Needs regenerating on warning-status, Error on error. Never a
+ * tint or the quiet chip (brand, info, warning, neutral), and never beat or miss: those are the
+ * earnings-surprise direction (tests/unit/badgeVariants.spec.tsx). tests/unit/statusChipContrast.spec.ts
+ * holds the badge to the set and measures every chip summaryStatusBadge() returns on both rows, at rest and
+ * hovered, in both themes.
  */
 export type SummaryStatusKind = 'ready' | 'generating' | 'missing' | 'placeholder' | 'error'
 
@@ -23,8 +27,8 @@ export function summaryStatusKind(status: string): SummaryStatusKind | null {
   return KINDS.has(base) ? (base as SummaryStatusKind) : null
 }
 
-/** The badge's label and variant for a status. */
-export function summaryStatusBadge(status: string, needsRegeneration: boolean): { label: string; variant: BadgeVariant } {
+/** The badge's label and variant for a status: always a member of Badge's status set. */
+export function summaryStatusBadge(status: string, needsRegeneration: boolean): { label: string; variant: BadgeStatusVariant } {
   switch (summaryStatusKind(status)) {
     case 'ready':
       return { label: 'Ready', variant: 'success' }
@@ -32,17 +36,17 @@ export function summaryStatusBadge(status: string, needsRegeneration: boolean): 
       // One word for every stage: the stage after the colon is the pipeline's key (`summarizing`,
       // `fetching`, even a stale `completed`), and the filing page's step log speaks in long phrases a
       // chip cannot carry, so the chip says only that a summary is being written.
-      return { label: 'Generating', variant: 'brand' }
+      return { label: 'Generating', variant: 'info-status' }
     case 'missing':
-      return { label: 'No summary yet', variant: 'neutral' }
+      return { label: 'No summary yet', variant: 'neutral-status' }
     case 'placeholder':
-      return { label: 'Unavailable', variant: 'warning' }
+      return { label: 'Unavailable', variant: 'warning-status' }
     case 'error':
       return { label: 'Error', variant: 'error' }
     default:
       return needsRegeneration
-        ? { label: 'Needs regenerating', variant: 'warning' }
-        : { label: 'Pending', variant: 'neutral' }
+        ? { label: 'Needs regenerating', variant: 'warning-status' }
+        : { label: 'Pending', variant: 'neutral-status' }
   }
 }
 

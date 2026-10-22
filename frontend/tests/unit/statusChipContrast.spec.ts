@@ -1,4 +1,5 @@
 import { createElement, type FunctionComponent, type ReactElement } from 'react'
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -7,16 +8,17 @@ import type { Config } from 'tailwindcss'
 import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
 import { describe, expect, it, vi } from 'vitest'
-import { Badge, type BadgeProps, type BadgeVariant } from '@/components/ui'
+import { Badge, Card, type BadgeProps, type BadgeVariant } from '@/components/ui'
 import InviteStatusBadge from '@/features/admin/components/InviteStatusBadge'
 import FeedbackStatusBadge from '@/features/admin/components/FeedbackStatusBadge'
 import FeedbackTypeBadge from '@/features/admin/components/FeedbackTypeBadge'
 import type { FeedbackStatus, FeedbackType, InviteStatus } from '@/features/admin/api/admin-api'
+import SummaryStatusBadge, { summaryStatusBadge } from '@/features/watchlist/components/SummaryStatusBadge'
 
 /**
  * Badge, marked: every chip Badge renders in this file carries `data-badge`, the variant it was given, and nothing
- * else changes, so the case that holds both admin badges to Badge's status set can tell a chip Badge rendered from a
- * copy of its classes by hand.
+ * else changes, so the cases that hold the admin badges and the summary status chip to Badge's status set can tell a
+ * chip Badge rendered from a copy of its classes by hand.
  */
 vi.mock('@/components/ui/Badge', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/components/ui/Badge')>()
@@ -25,8 +27,9 @@ vi.mock('@/components/ui/Badge', async (importOriginal) => {
 })
 
 /**
- * The admin chips' labels clear 4.5:1 on what is behind them, in both themes (audit ADM-16a, ADM-16b;
- * CLAUDE.md rule 11). What is behind them is read from the code, never written here: each table's
+ * The status chips' labels clear 4.5:1 on what is behind them, in both themes (CLAUDE.md rule 11): the admin
+ * lists' (audit ADM-16a, ADM-16b) and the summary status chip's on the watchlist and dashboard rows, below. What is
+ * behind the admin chips is read from the code, never written here: each table's
  * <tbody> ground (app/admin/invites/page.tsx, app/admin/feedback/page.tsx) and its row's own tint
  * (InviteRow's and FeedbackRow's <tr>), from their className strings in the TypeScript AST, at rest and
  * hovered, and every layer between a chip and that <tr> (its cell, and any wrapper inside it), walked up
@@ -60,10 +63,32 @@ vi.mock('@/components/ui/Badge', async (importOriginal) => {
  * and the <tbody>: every colour here is measured at full opacity. A plain unknown token name is skipped,
  * since Tailwind emits no CSS for it either. Out of reach: a stylesheet rule, and an inline style on what
  * is measured (Badge's own chips set none; on an admin chip, or inside it, one fails, as above); an
- * arbitrary property (`[background-color:...]`, `[opacity:...]`); anything above the <tbody>, so an opacity
- * on the <table> or a page wrapper, which fades the chip and its ground together, is not measured; and a
- * utility that changes what is painted without setting a colour or an opacity (a gradient, a blend mode, a
- * filter), except that any bg- utility on a layer fails, as above.
+ * arbitrary property (`[background-color:...]`, `[opacity:...]`); anything above the <tbody> (above the <Card>
+ * for the summary rows), so an opacity on the <table> or a page wrapper, which fades the chip and its ground
+ * together, is not measured; and a utility that changes what is painted without setting a colour or an opacity (a
+ * gradient, a blend mode, a filter), except that any bg- utility on a layer fails, as above.
+ *
+ * The summary status chip (SummaryStatusBadge) is read and held the same way on the two rows it renders on: the
+ * Watchlist insights page's company cards (app/dashboard/watchlist/page.tsx) and the dashboard's "Your companies"
+ * rows (features/dashboard/components/YourCompanies.tsx), each file rendering it once. Each row's grounds are read
+ * from its source: the walk up from the chip to the first <Card>, whose fill is the opaque ground, read as it
+ * renders (Card itself, given the props written on it, each a plain string or a bare boolean; any other prop, a
+ * style or a spread among them, fails). The row is the element on that walk that carries the list's `key`: the
+ * watchlist's <Card>, one per company, which is then its own ground at rest and hovered (a hover fill replaces its
+ * own, so a translucent one fails, since the page would show through), and the dashboard's row <div> inside its one
+ * <Card>, whose tint at rest and hovered is read over the card's ground as a <tr>'s is over its <tbody>. Every other
+ * element on the walk is a layer that must paint nothing, as above; no <Card>, no keyed row, or a chip count other
+ * than one fails. Two fills under one variant fail too: Card joins the className written on it to its own classes
+ * without merging them, so a fill written on a <Card> sits beside Card's own, and the stylesheet's order, which this
+ * spec does not read, decides which one paints; two in a row's own class list fail the same way. The rows are held
+ * to the tree: every tracked source outside tests/ that imports the chip's component or summaryStatusBadge(), or
+ * takes the whole module, must be one of them, so a third row cannot render the chip unmeasured. The status kinds the
+ * chip knows are read from SummaryStatusKind in its source, a member that is
+ * not a string literal failing: every chip summaryStatusBadge() returns for each kind and for a prefix it does not
+ * know, with and without needs_regeneration, is rendered through Badge and measured on both rows, at rest and
+ * hovered, in both themes; and SummaryStatusBadge, for each of those, must render Badge's chip for the variant
+ * summaryStatusBadge() returns, a member of the status set, held as the admin badges are (no class of its own and
+ * nothing on or inside it that paints), so a tint, the quiet chip or a hand-rolled chip fails.
  */
 const require = createRequire(import.meta.url)
 const flattenColorPalette = (require('tailwindcss/lib/util/flattenColorPalette') as { default: (c: unknown) => Record<string, string> }).default
@@ -220,16 +245,21 @@ function chipLayers(source: string, file: string, chips: string[], failures: str
           continue
         }
         layers.push(`${at(up)} <${opening.tagName.text}>`)
-        for (const cls of (className ?? '').split(/\s+/).filter(Boolean)) {
-          const faded = fades(cls)
-          if (/^!?bg-/.test(classParts(cls).pop()!)) failures.push(`${where}: ${cls} sets a background this spec does not model`)
-          else if (faded) failures.push(`${where}: ${faded}`)
-        }
+        paintsNothing(className ?? '', where, failures)
       }
       if (!up) failures.push(`${at(element)} <${chip}>: no <tr> above it, so this spec cannot read what is behind it`)
     }
   }
   return layers
+}
+
+/** A layer under a chip paints nothing: a bg- utility or an opacity below 100, under any variant, each fails, naming where. */
+function paintsNothing(className: string, where: string, failures: string[]): void {
+  for (const cls of className.split(/\s+/).filter(Boolean)) {
+    const faded = fades(cls)
+    if (/^!?bg-/.test(classParts(cls).pop()!)) failures.push(`${where}: ${cls} sets a background this spec does not model`)
+    else if (faded) failures.push(`${where}: ${faded}`)
+  }
 }
 
 /**
@@ -380,22 +410,26 @@ function chipOf(element: ReactElement): Chip {
 }
 
 /**
- * Badge's status set, from its source: the members of its BadgeStatusVariant type, each a string literal. A member it
- * cannot read, or no such type, is a failure that every case reading the set reports.
+ * The members of a type alias in a source, a union of string literals (`type T = 'a' | 'b'`), each a string literal. A
+ * member it cannot read, or no such type, is a failure that every case reading the members reports; `what` names them.
  */
-function statusSet(source: string, file: string, failures: string[]): string[] {
+function literalMembers(source: string, file: string, name: string, what: string, failures: string[]): string[] {
   const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-  const alias = sf.statements.find((s): s is ts.TypeAliasDeclaration => ts.isTypeAliasDeclaration(s) && s.name.text === 'BadgeStatusVariant')
+  const alias = sf.statements.find((s): s is ts.TypeAliasDeclaration => ts.isTypeAliasDeclaration(s) && s.name.text === name)
   if (!alias) {
-    failures.push(`${file}: no BadgeStatusVariant type, so this spec cannot read Badge's status set`)
+    failures.push(`${file}: no ${name} type, so this spec cannot read ${what}`)
     return []
   }
   return (ts.isUnionTypeNode(alias.type) ? alias.type.types : [alias.type]).flatMap((member) => {
     if (ts.isLiteralTypeNode(member) && ts.isStringLiteral(member.literal)) return [member.literal.text]
-    failures.push(`${file}: ${member.getText(sf)} in BadgeStatusVariant is not a string literal this spec can read`)
+    failures.push(`${file}: ${member.getText(sf)} in ${name} is not a string literal this spec can read`)
     return []
   })
 }
+
+/** Badge's status set, from its source: the members of its BadgeStatusVariant type. */
+const statusSet = (source: string, file: string, failures: string[]) =>
+  literalMembers(source, file, 'BadgeStatusVariant', "Badge's status set", failures)
 
 const BADGE = 'components/ui/Badge.tsx'
 /** Why Badge's status set could not be read; every case that reads it fails on any of them. */
@@ -497,15 +531,243 @@ function offTheSet(name: string, { className, badge, inner }: Chip): string | nu
 /** The self-checks' own <tr> and <tbody>: their grounds come from class strings written in each case, not from the code. */
 const PROBE = { row: 'probe <tr>', body: 'probe <tbody>' }
 
+/** The rows the summary status chip renders on, each file rendering it once (the header above). */
+const SUMMARY_ROWS = {
+  watchlist: 'app/dashboard/watchlist/page.tsx',
+  dashboard: 'features/dashboard/components/YourCompanies.tsx',
+}
+
+/**
+ * What is under a summary chip: the props its <Card> is given, its row's className (null where the card is its own
+ * row), where each sits, and the layers between the chip and the card, as `file:line <tag>`.
+ */
+type SummaryStack = { card: Record<string, string | boolean>; row: string | null; where: { card: string; row: string }; layers: string[] }
+
+/**
+ * The props written on a <Card>, as Card takes them: each a plain string or a bare boolean, `key` aside. Any other prop
+ * (an expression, a style, a handler) or a spread fails, since this spec cannot tell what Card would paint with it.
+ */
+function cardProps(opening: ts.JsxOpeningLikeElement, sf: ts.SourceFile, where: string, failures: string[]): Record<string, string | boolean> | null {
+  const props: Record<string, string | boolean> = {}
+  let read = true
+  for (const prop of opening.attributes.properties) {
+    const name = ts.isJsxAttribute(prop) ? prop.name.getText(sf) : null
+    if (name === 'key') continue
+    const init = ts.isJsxAttribute(prop) ? prop.initializer : undefined
+    const value = init && ts.isJsxExpression(init) ? init.expression : init
+    if (name !== null && init === undefined) props[name] = true
+    else if (name !== null && value && (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value))) props[name] = value.text
+    else if (name !== null && value && (value.kind === ts.SyntaxKind.TrueKeyword || value.kind === ts.SyntaxKind.FalseKeyword)) {
+      props[name] = value.kind === ts.SyntaxKind.TrueKeyword
+    } else {
+      failures.push(`${where}: ${prop.getText(sf)} is a prop this spec cannot read, so it cannot tell what the card paints`)
+      read = false
+    }
+  }
+  return read ? props : null
+}
+
+/**
+ * What is under the one <chip> in a row's source: the walk up from it to the first <Card>, the card whose fill is the
+ * opaque ground. The row is the element on the way that carries the list's `key`; when that is the <Card> itself (one
+ * card per item), the card is its own row. Every other element on the way is a layer, held as chipLayers holds one: an
+ * HTML element with no props spread into it, whose className is a plain string or absent and paints nothing. A chip
+ * count other than one, a component on the way, a layer or a card prop it cannot read, no keyed row and no <Card> each
+ * fail, naming the file and line.
+ */
+function summaryStack(source: string, file: string, chip: string, failures: string[]): SummaryStack | null {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const at = (node: ts.Node) => `${file}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
+  const found: ts.Node[] = []
+  const visit = (node: ts.Node): void => {
+    if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(sf) === chip) {
+      found.push(ts.isJsxOpeningElement(node) ? node.parent : node)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  if (found.length !== 1) {
+    failures.push(`${file}: ${found.length} <${chip}> elements, where this spec reads exactly one`)
+    return null
+  }
+  const layers: string[] = []
+  let row: { className: string; where: string } | null = null
+  // Braces, conditionals, fragments and a .map callback render no box of their own; every element up to the <Card> is
+  // the row or a layer, a self-closing one that takes the chip in a prop included.
+  for (let up = found[0].parent; up; up = up.parent) {
+    const opening = ts.isJsxElement(up) ? up.openingElement : ts.isJsxSelfClosingElement(up) ? up : undefined
+    if (!opening) continue
+    const tag = opening.tagName.getText(sf)
+    const where = `${at(up)} <${tag}>`
+    const keyed = opening.attributes.properties.some((p) => ts.isJsxAttribute(p) && p.name.getText(sf) === 'key')
+    if (tag === 'Card') {
+      if (!row && !keyed) {
+        failures.push(`${at(found[0])} <${chip}>: no element with a key between it and its <Card>, so this spec cannot tell which one is the row`)
+        return null
+      }
+      const card = cardProps(opening, sf, where, failures)
+      return card && { card, row: row?.className ?? null, where: { card: where, row: row?.where ?? where }, layers }
+    }
+    if (!ts.isIdentifier(opening.tagName) || !/^[a-z]/.test(opening.tagName.text)) {
+      failures.push(`${where}, between <${chip}> and its <Card>: a component, and this spec does not read what it renders`)
+      continue
+    }
+    const className = classNameOf(opening, sf)
+    if (className === null || opening.attributes.properties.some(ts.isJsxSpreadAttribute)) {
+      failures.push(`${where}, between <${chip}> and its <Card>: no className string this spec can read`)
+      continue
+    }
+    if (keyed && !row) {
+      row = { className: className ?? '', where }
+      continue
+    }
+    layers.push(where)
+    paintsNothing(className ?? '', `${where}, between <${chip}> and its <Card>`, failures)
+  }
+  failures.push(`${at(found[0])} <${chip}>: no <Card> above it, so this spec cannot read what is behind it`)
+  return null
+}
+
+/** Card's classes as it renders with the props a row's source gives it. */
+function cardClasses(props: Record<string, string | boolean>): string {
+  const { container, unmount } = render(createElement(Card, props))
+  const className = (container.firstElementChild as HTMLElement).className
+  unmount()
+  return className
+}
+
+/**
+ * A card that is its own row: its own ground at rest and hovered, in each theme. Its hover fill replaces its own, so a
+ * translucent one would show the page, which this spec does not read, and fails, as one at rest does.
+ */
+function cardGrounds(name: string, card: string, where: string, failures: string[]): Grounds {
+  const fill = backgrounds(card, where, ['', 'hover', 'dark', 'dark:hover'], failures)
+  const grounds: Grounds = { light: [], dark: [] }
+  for (const theme of THEMES) {
+    const states: Array<[string, Rgba | undefined]> = [
+      [`${name} card`, winner(fill, theme === 'dark' ? ['dark', ''] : [''])],
+      [`${name} hovered card`, winner(fill, theme === 'dark' ? ['dark:hover', 'dark', 'hover', ''] : ['hover', ''])],
+    ]
+    for (const [label, ground] of states) {
+      if (!ground) failures.push(`${where} (${theme}, ${label}): no bg- ground this spec can resolve`)
+      else if (ground[3] < 1) failures.push(`${where} (${theme}, ${label}): a translucent ground, and this spec does not read what shows through it`)
+      else grounds[theme].push([label, ground])
+    }
+  }
+  return grounds
+}
+
+/**
+ * One fill per variant in a class list, or a failure naming the two: both apply, and the browser paints whichever
+ * Tailwind emits later, so the stylesheet's order decides, not the order of the list, which backgrounds() reads (it keeps
+ * the last). A plain fill and an important one are ranked apart, as winner() ranks them; a bg- utility that sets no
+ * colour (bg-clip-text) is no fill. `note` says how the two came to share the list.
+ */
+function oneFillPerVariant(className: string, where: string, failures: string[], note = ''): void {
+  const seen = new Map<string, string>()
+  for (const cls of className.split(/\s+/).filter(Boolean)) {
+    const parts = classParts(cls)
+    const m = parts.pop()!.match(/^(!?)bg-(.+)$/)
+    if (!m || (!colour(m[2]) && !looksLikeColour(m[2]))) continue
+    const variant = `${m[1]}${parts.sort().join(':')}`
+    const first = seen.get(variant)
+    if (first === undefined) seen.set(variant, cls)
+    else failures.push(`${where}: ${first} and ${cls} are two fills under one variant${note}, and the stylesheet's order, not the class list's, decides which one paints, which this spec does not read`)
+  }
+}
+
+/**
+ * A summary row's grounds: a card that is its own row, or a row's tint over its card's ground, as a <tr>'s over its
+ * <tbody>. Card joins the className written on it to its own classes without merging them (cx), so a fill written on the
+ * <Card> sits beside Card's own and fails, as two fills in the row's own class list do.
+ */
+function summaryGrounds(name: string, stack: SummaryStack, failures: string[]): Grounds {
+  const card = cardClasses(stack.card)
+  oneFillPerVariant(card, stack.where.card, failures, ' (Card joins the className written on it to its own classes without merging them)')
+  if (stack.row !== null) oneFillPerVariant(stack.row, stack.where.row, failures)
+  return stack.row === null
+    ? cardGrounds(name, card, stack.where.card, failures)
+    : tableGrounds(name, stack.row, card, { row: stack.where.row, body: stack.where.card }, failures)
+}
+
+/** Why the summary rows' grounds could not be read; every case measuring on them fails on any of them. */
+const SUMMARY_GROUND_FAILURES: string[] = []
+/** The layers read between the summary chip and its card, on both rows. */
+const SUMMARY_LAYERS: string[] = []
+const SUMMARY_GROUNDS = Object.fromEntries(
+  Object.entries(SUMMARY_ROWS).map(([name, file]) => {
+    const stack = summaryStack(readFileSync(path.join(ROOT, file), 'utf8'), file, 'SummaryStatusBadge', SUMMARY_GROUND_FAILURES)
+    SUMMARY_LAYERS.push(...(stack?.layers ?? []))
+    return [name, stack ? summaryGrounds(name, stack, SUMMARY_GROUND_FAILURES) : { light: [], dark: [] }]
+  }),
+) as Record<keyof typeof SUMMARY_ROWS, Grounds>
+const EVERY_SUMMARY_GROUND: Grounds = {
+  light: Object.values(SUMMARY_GROUNDS).flatMap((g) => g.light),
+  dark: Object.values(SUMMARY_GROUNDS).flatMap((g) => g.dark),
+}
+
+const SUMMARY_BADGE = 'features/watchlist/components/SummaryStatusBadge.tsx'
+/** Why the status kinds the chip knows could not be read; every summary case fails on any of them. */
+const KIND_FAILURES: string[] = []
+/** The status prefixes the chip knows, from its source: the members of its SummaryStatusKind type. */
+const SUMMARY_KINDS = literalMembers(readFileSync(path.join(ROOT, SUMMARY_BADGE), 'utf8'), SUMMARY_BADGE, 'SummaryStatusKind', 'the status kinds the chip knows', KIND_FAILURES)
+/** A prefix the chip does not know, for which needs_regeneration decides. */
+const UNKNOWN_PREFIX = 'queued'
+if (SUMMARY_KINDS.includes(UNKNOWN_PREFIX)) KIND_FAILURES.push(`${SUMMARY_BADGE}: ${UNKNOWN_PREFIX} is a kind the chip knows, so this spec reads no prefix it does not`)
+/** Every status the chip can be given, as [summary_status, needs_regeneration]: each kind and the unknown prefix, with and without the flag. */
+const SUMMARY_INPUTS = [...SUMMARY_KINDS, UNKNOWN_PREFIX].flatMap((status): Array<[string, boolean]> => [[status, true], [status, false]])
+
+/** The chip's module, from the frontend root, as an import names it without its extension. */
+const SUMMARY_MODULE = path.join(ROOT, SUMMARY_BADGE.replace(/\.tsx$/, ''))
+
+/**
+ * Whether a source can render the summary status chip: it imports or re-exports the chip's module's default export (the
+ * component, under any name) or summaryStatusBadge() (the chip's label and variant), or takes the whole module (a
+ * namespace or side-effect import, `export *`, a dynamic import()). A type-only import, or one that takes only
+ * summaryNextStep or summaryStatusKind, renders no chip. The module is named by the `@/` alias or a path relative to
+ * `file` (a path from the frontend root), with or without its extension.
+ */
+function rendersSummaryChip(source: string, file: string): boolean {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, /x$/.test(file) ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+  const isModule = (spec: ts.Expression | undefined) => {
+    if (!spec || !ts.isStringLiteralLike(spec)) return false
+    const named = spec.text.startsWith('@/') ? path.join(ROOT, spec.text.slice(2)) : spec.text.startsWith('.') ? path.resolve(path.dirname(path.join(ROOT, file)), spec.text) : null
+    return named !== null && named.replace(/\.(tsx?|jsx?|mjs|cjs)$/, '') === SUMMARY_MODULE
+  }
+  const takesChip = (specifiers: readonly (ts.ImportSpecifier | ts.ExportSpecifier)[]) =>
+    specifiers.some((s) => !s.isTypeOnly && ['default', 'summaryStatusBadge'].includes((s.propertyName ?? s.name).text))
+  let found = false
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node) && isModule(node.moduleSpecifier)) {
+      const clause = node.importClause
+      const bindings = clause?.namedBindings
+      if (!clause || (!clause.isTypeOnly && (clause.name || (bindings && (ts.isNamespaceImport(bindings) || takesChip(bindings.elements)))))) found = true
+    } else if (ts.isExportDeclaration(node) && isModule(node.moduleSpecifier)) {
+      if (!node.isTypeOnly && (!node.exportClause || ts.isNamespaceExport(node.exportClause) || takesChip(node.exportClause.elements))) found = true
+    } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && isModule(node.arguments[0])) {
+      found = true
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return found
+}
+
+/** Every tracked source outside tests/, from git, the walk badgeNeverAControl.spec.ts reads. */
+const appSources = (): string[] =>
+  execFileSync('git', ['ls-files', '*.ts', '*.tsx', '*.js', '*.jsx', '*.mjs', '*.cjs'], { cwd: ROOT, encoding: 'utf8' })
+    .split('\n')
+    .filter((rel) => rel && !rel.startsWith('tests/'))
+
 describe('admin status chips: the label clears 4.5:1 on its actual ground, both themes (ADM-16a, ADM-16b)', () => {
   it("every member of Badge's status set, on the rows of both tables at rest and hovered", () => {
     const failures = [...GROUND_FAILURES, ...SET_FAILURES]
     let measured = 0
     for (const variant of STATUS_VARIANTS) measured += measure(`Badge ${variant}`, badgeClasses(variant), EVERY_GROUND, failures)
     expect(failures).toEqual([])
-    // Five status variants, two themes, two tables, each row at rest and hovered: a reader that found no ground, or a
-    // set read short, must not pass.
-    expect(measured).toBe(40)
+    // Six status variants (tentative, the calendar's estimated date, among them), two themes, two tables, each row at
+    // rest and hovered: a reader that found no ground, or a set read short, must not pass.
+    expect(measured).toBe(48)
   })
 
   it("both badges render every status as Badge's chip for one member of its status set, so the measurement above is what ships", () => {
@@ -709,5 +971,149 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
       'probe.tsx:8 <Chip>: no <tr> above it, so this spec cannot read what is behind it',
       'probe.tsx: no <Badge>, so this spec cannot read what is behind it',
     ])
+  })
+})
+
+describe('the summary status chip: the label clears 4.5:1 on the watchlist cards and the dashboard rows, both themes', () => {
+  it('every chip summaryStatusBadge() returns, rendered through Badge, on both rows at rest and hovered', () => {
+    const failures = [...SUMMARY_GROUND_FAILURES, ...KIND_FAILURES]
+    const chips = new Map<string, { label: string; variant: string }>()
+    for (const [status, needs] of SUMMARY_INPUTS) {
+      const { label, variant } = summaryStatusBadge(status, needs)
+      chips.set(`${label} ${variant}`, { label, variant })
+    }
+    let measured = 0
+    for (const { label, variant } of chips.values()) {
+      const { className } = chipOf(createElement(Badge, { variant: variant as BadgeVariant }, label))
+      measured += measure(`"${label}" (${variant})`, className, EVERY_SUMMARY_GROUND, failures)
+    }
+    expect(failures).toEqual([])
+    // Seven chips (Ready, Generating, No summary yet, Unavailable, Error, Needs regenerating, Pending), two themes, two
+    // rows, each at rest and hovered: a reader that found no ground, or kinds read short, must not pass.
+    expect(chips.size).toBe(7)
+    expect(measured).toBe(56)
+  })
+
+  it("SummaryStatusBadge renders every status as Badge's chip for the member of its status set summaryStatusBadge() returns, so the measurement above is what ships", () => {
+    const failures = [...SET_FAILURES, ...KIND_FAILURES]
+    let read = 0
+    for (const [status, needs] of SUMMARY_INPUTS) {
+      const name = `SummaryStatusBadge ${status}${needs ? ', needs regeneration' : ''}`
+      const chip = chipOf(createElement(SummaryStatusBadge, { status, needsRegeneration: needs }))
+      const { variant } = summaryStatusBadge(status, needs)
+      const why = offTheSet(name, chip)
+      read += 1
+      if (why) failures.push(why)
+      else if (chip.badge !== variant) failures.push(`${name}: Badge's ${chip.badge}, where summaryStatusBadge() returns ${variant}, the chip measured above`)
+    }
+    expect(failures).toEqual([])
+    // Five kinds and a prefix the chip does not know, each with and without needs_regeneration.
+    expect(read).toBe(12)
+  })
+
+  it("reads what is under a summary chip from its row's source, the card as Card renders it, and fails on what it cannot read", () => {
+    // The rows' own layers: the watchlist card's three wrappers around the chip, and the dashboard row's status cluster.
+    expect(SUMMARY_LAYERS).toHaveLength(4)
+    const ok: string[] = []
+    // A card per item is its own row, read at rest and hovered from Card's own classes: the interactive card brightens
+    // to white under the pointer in light and keeps its fill in dark, where dark:bg- outranks hover:bg-; its pressed
+    // fill is a state this spec does not model, so it fails.
+    const own = summaryStack('<Card key={id} as="section" interactive className={"p-6"}><div className="flex"><>{open && <Chip />}</></div></Card>', 'probe.tsx', 'Chip', ok)
+    expect(own).toEqual({ card: { as: 'section', interactive: true, className: 'p-6' }, row: null, where: { card: 'probe.tsx:1 <Card>', row: 'probe.tsx:1 <Card>' }, layers: ['probe.tsx:1 <div>'] })
+    const pressed: string[] = []
+    const grounds = summaryGrounds('probe', own!, pressed)
+    expect(grounds).toEqual({
+      light: [['probe card', colour('panel-light')], ['probe hovered card', colour('white')]],
+      dark: [['probe card', colour('panel-dark')], ['probe hovered card', colour('panel-dark')]],
+    })
+    expect(pressed).toEqual([
+      'probe.tsx:1 <Card>: active:bg-brand-weak/60 is a ground under a variant this spec does not model',
+      'probe.tsx:1 <Card>: dark:active:bg-brand-weak-dark is a ground under a variant this spec does not model',
+    ])
+    // A row inside a card: its tint at rest and hovered over the card's ground, as a <tr>'s over its <tbody>. The
+    // second review's admin mutation, a dark hover at white/10, drops info-status under the floor here too.
+    const inCard = summaryStack('<Card className="divide-y"><div key={id} className="px-4 hover:bg-white dark:hover:bg-white/10"><span><Chip /></span></div></Card>', 'probe.tsx', 'Chip', ok)
+    expect(inCard).toEqual({ card: { className: 'divide-y' }, row: 'px-4 hover:bg-white dark:hover:bg-white/10', where: { card: 'probe.tsx:1 <Card>', row: 'probe.tsx:1 <div>' }, layers: ['probe.tsx:1 <span>'] })
+    const hovered: string[] = []
+    measure('Badge info-status', badgeClasses('info-status'), summaryGrounds('probe', inCard!, hovered), hovered)
+    expect(hovered).toEqual(['Badge info-status (dark, probe hovered row): 4.23:1'])
+    expect(ok).toEqual([])
+    // The routine review's two fills: a fill written on a <Card> sits beside Card's own, since Card joins classes without
+    // merging them, so the stylesheet's order decides which one paints, and so do two in a row's own list. A lone fill
+    // under a variant Card sets none for (hover: on a card that is not interactive) is read, and a bg- utility that
+    // sets no colour is no fill.
+    const fills: string[] = []
+    summaryGrounds('probe', summaryStack('<Card key={id} className="p-6 bg-background-light"><Chip /></Card>', 'probe.tsx', 'Chip', fills)!, fills)
+    summaryGrounds('probe', summaryStack('<Card><div key={id} className="bg-white px-4 dark:bg-white/5 bg-panel-light"><Chip /></div></Card>', 'probe.tsx', 'Chip', fills)!, fills)
+    const hoverOnly = summaryStack('<Card key={id} className="p-6 hover:bg-white bg-clip-padding"><Chip /></Card>', 'probe.tsx', 'Chip', fills)
+    expect(summaryGrounds('probe', hoverOnly!, fills).light).toEqual([['probe card', colour('panel-light')], ['probe hovered card', colour('white')]])
+    expect(fills).toEqual([
+      "probe.tsx:1 <Card>: bg-panel-light and bg-background-light are two fills under one variant (Card joins the className written on it to its own classes without merging them), and the stylesheet's order, not the class list's, decides which one paints, which this spec does not read",
+      "probe.tsx:1 <div>: bg-white and bg-panel-light are two fills under one variant, and the stylesheet's order, not the class list's, decides which one paints, which this spec does not read",
+    ])
+    // What it cannot read fails: a fill on a layer, a component on the way, a layer's className it cannot read, no
+    // <Card>, no keyed row, a card prop it cannot read (an expression, a style, a spread), two chips, a translucent
+    // card, and a kinds type it cannot read.
+    const lost: string[] = []
+    for (const source of [
+      '<Card key={id}><div className="flex dark:bg-white/5"><Chip /></div></Card>',
+      '<Card key={id}><Tooltip><Chip /></Tooltip></Card>',
+      '<Card key={id}><div className={cx("flex")}><Chip /></div></Card>',
+      '<div key={id}><Chip /></div>',
+      '<Card><div className="flex"><Chip /></div></Card>',
+      '<Card key={id} className={cx("p-6")} style={{ opacity: 0.5 }} {...rest}><Chip /></Card>',
+      '<Card key={id}><Chip /><Chip /></Card>',
+    ]) summaryStack(source, 'probe.tsx', 'Chip', lost)
+    cardGrounds('probe', 'bg-panel-light hover:bg-white/50 dark:bg-panel-dark', 'probe <Card>', lost)
+    literalMembers("export type SummaryStatusKind = 'ready' | Other", 'probe.tsx', 'SummaryStatusKind', 'the status kinds the chip knows', lost)
+    literalMembers("export type Kind = 'ready'", 'probe.tsx', 'SummaryStatusKind', 'the status kinds the chip knows', lost)
+    expect(lost).toEqual([
+      'probe.tsx:1 <div>, between <Chip> and its <Card>: dark:bg-white/5 sets a background this spec does not model',
+      'probe.tsx:1 <Tooltip>, between <Chip> and its <Card>: a component, and this spec does not read what it renders',
+      'probe.tsx:1 <div>, between <Chip> and its <Card>: no className string this spec can read',
+      'probe.tsx:1 <Chip>: no <Card> above it, so this spec cannot read what is behind it',
+      'probe.tsx:1 <Chip>: no element with a key between it and its <Card>, so this spec cannot tell which one is the row',
+      'probe.tsx:1 <Card>: className={cx("p-6")} is a prop this spec cannot read, so it cannot tell what the card paints',
+      'probe.tsx:1 <Card>: style={{ opacity: 0.5 }} is a prop this spec cannot read, so it cannot tell what the card paints',
+      'probe.tsx:1 <Card>: {...rest} is a prop this spec cannot read, so it cannot tell what the card paints',
+      'probe.tsx: 2 <Chip> elements, where this spec reads exactly one',
+      'probe <Card> (light, probe hovered card): a translucent ground, and this spec does not read what shows through it',
+      'probe.tsx: Other in SummaryStatusKind is not a string literal this spec can read',
+      'probe.tsx: no SummaryStatusKind type, so this spec cannot read the status kinds the chip knows',
+    ])
+  })
+
+  it('every source that can render the chip is one of the rows measured above', () => {
+    const sources = appSources()
+    expect(sources.length, 'the source walk found the app').toBeGreaterThan(200)
+    const importers = sources.filter((rel) => {
+      const text = readFileSync(path.join(ROOT, rel), 'utf8')
+      return text.includes('SummaryStatusBadge') && rendersSummaryChip(text, rel)
+    })
+    const measured: string[] = Object.values(SUMMARY_ROWS)
+    expect([
+      ...importers.filter((rel) => !measured.includes(rel)).map((rel) => `${rel} can render the summary status chip, and this spec does not measure its row: add it to SUMMARY_ROWS`),
+      ...measured.filter((rel) => !importers.includes(rel)).map((rel) => `${rel} is in SUMMARY_ROWS but renders no summary status chip`),
+    ]).toEqual([])
+  })
+
+  it('tells a source that can render the chip, however it imports it, from one that takes only its sentence or a type', () => {
+    const forms: Array<[string, string, string, boolean]> = [
+      ['the component, renamed', 'features/probe/Probe.tsx', "import Chip from '@/features/watchlist/components/SummaryStatusBadge'", true],
+      ['its label and variant, with the extension', 'features/probe/Probe.tsx', "import { summaryStatusBadge as chipOf } from '@/features/watchlist/components/SummaryStatusBadge.tsx'", true],
+      ['the default as a named import', 'features/probe/Probe.tsx', "import { default as Chip, summaryNextStep } from '@/features/watchlist/components/SummaryStatusBadge'", true],
+      ['the whole module', 'features/probe/Probe.tsx', "import * as Summary from '@/features/watchlist/components/SummaryStatusBadge'", true],
+      ['a side-effect import', 'features/probe/Probe.tsx', "import '@/features/watchlist/components/SummaryStatusBadge'", true],
+      ['a re-export', 'features/probe/index.ts', "export { default as StatusChip } from '@/features/watchlist/components/SummaryStatusBadge'", true],
+      ['export *', 'features/probe/index.ts', "export * from '@/features/watchlist/components/SummaryStatusBadge'", true],
+      ['a lazy import', 'features/probe/Probe.tsx', "const Chip = lazy(() => import('@/features/watchlist/components/SummaryStatusBadge'))", true],
+      ['a path from its own folder', 'features/watchlist/components/Probe.tsx', "import Chip from './SummaryStatusBadge'", true],
+      ['a path from a page', 'app/probe/page.tsx', "import Chip from '../../features/watchlist/components/SummaryStatusBadge'", true],
+      ['the sentence alone', 'features/probe/Probe.tsx', "import { summaryNextStep } from '@/features/watchlist/components/SummaryStatusBadge'", false],
+      ['a type alone', 'features/probe/Probe.tsx', "import type { SummaryStatusKind } from '@/features/watchlist/components/SummaryStatusBadge'", false],
+      ['a type specifier alone', 'features/probe/Probe.tsx', "import { type SummaryStatusKind } from '@/features/watchlist/components/SummaryStatusBadge'", false],
+      ['another module of a longer name', 'features/probe/Probe.tsx', "import Chip from '@/features/watchlist/components/SummaryStatusBadgeLegacy'", false],
+    ]
+    expect(forms.map(([name, file, source]) => [name, rendersSummaryChip(source, file)])).toEqual(forms.map(([name, , , renders]) => [name, renders]))
   })
 })
