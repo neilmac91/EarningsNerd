@@ -1548,11 +1548,15 @@ clearance below the p/y descenders in the longer phrases. Its fill top inset is 
 `max(0px, min(calc(6% - .06em), calc(.06em - 1px)))`: the cap keeps multi-line capitals inside
 the fill while leaving preceding descenders clear. The default headline continues with a word
 space and retains its original optical spacing.
-Each heading is an inline-size query container. Below a `13rem` measure, the group can use the
-existing `1rem` side gutters before a word breaks: its width cap grows by `2rem`, its side margins
-become `-1rem`, and the phrase drops its negative start margin while reserving `.3em` for the stop.
-This accommodates WebKit's wider italic metrics at 320px with enlarged text; normal mobile text
-does not enter that query. The word remains padded inside its fill.
+Each heading is an inline-size query container. Below a `13rem` measure, the group retains its
+`100%` width cap and intrinsic minimum, removes its side margins, and uses
+`translateX(min(0px, calc((100cqi - 100%) / 2)))` to center only the part that exceeds the heading.
+Fitting groups retain their normal alignment. The transformed group is relative at `z-index: -1`
+to keep its new stacking context below neighboring ink. The phrase drops its negative start
+margin while reserving `.3em` for the stop. Below `9rem`, its inline padding becomes `.12em`,
+leaving visible screen-edge clearance around the longest words without breaking them.
+This accommodates WebKit's wider italic metrics at enlarged text sizes; normal mobile text
+does not enter these queries. The word remains padded inside its fill.
 `brandCopyRules.spec.ts` counts calls to that component at the allowed promotional surfaces and
 rejects a raw legacy mark there, while retaining the figure/quote and one-per-surface rules.
 The bare `.en-mark` remains the reader annotation paint reference, not a promotional alternative.

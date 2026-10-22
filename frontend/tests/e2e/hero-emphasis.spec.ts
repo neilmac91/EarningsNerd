@@ -8,7 +8,7 @@ test.use({ deviceScaleFactor: 2 })
 // measured here as an explicit layout fixture on the built heading, without changing flags.
 const SURFACES = [
   { name: 'home', path: '/', selector: '#hero-h', phrase: 'the source', widths: [320, 354, 390, 1440] },
-  { name: 'waitlist', path: '/waitlist', selector: 'main h1', phrase: 'with receipts', widths: [320, 390, 1440] },
+  { name: 'waitlist', path: '/waitlist', selector: 'main h1', phrase: 'with receipts', widths: [320, 354, 390, 1440] },
   { name: 'auth pane', path: '/login', selector: 'h2:has(.en-hero-emphasis)', phrase: 'shows its work', widths: [1024, 1440] },
 ]
 
@@ -96,6 +96,9 @@ for (const surface of SURFACES) {
                 return {
                   punctuation,
                   words,
+                  heading: element.closest('h1,h2')!.getBoundingClientRect().toJSON(),
+                  textAlign: getComputedStyle(element.closest('h1,h2')!).textAlign,
+                  horizontalPadding: parseFloat(style.paddingLeft) + parseFloat(style.paddingRight),
                   viewport: document.documentElement.clientWidth,
                   fontStyle: style.fontStyle,
                   box: element.getBoundingClientRect().toJSON(),
@@ -107,16 +110,36 @@ for (const surface of SURFACES) {
               expect(layout.punctuation !== null, 'Every phrase with a trailing stop keeps it in the measured group').toBe(Boolean(copy) || surface.path !== '/')
               expect(layout.box.left).toBeGreaterThanOrEqual(0)
               expect(layout.box.right).toBeLessThanOrEqual(layout.viewport)
-              if (layout.group) {
-                expect(layout.group.left).toBeGreaterThanOrEqual(0)
-                expect(layout.group.right).toBeLessThanOrEqual(layout.viewport)
-              }
               for (const word of layout.words) {
                 expect(word.rects, `${word.word} must not break inside a word`).toHaveLength(1)
                 expect(word.rects[0].left).toBeGreaterThanOrEqual(0)
                 expect(word.rects[0].right).toBeLessThanOrEqual(layout.viewport)
                 expect(word.rects[0].left, `${word.word} fits inside the fill's left edge`).toBeGreaterThanOrEqual(layout.box.left)
                 expect(word.rects[0].right, `${word.word} fits inside the fill's right edge`).toBeLessThanOrEqual(layout.box.right)
+              }
+              if (layout.group) {
+                expect(layout.group.left).toBeGreaterThanOrEqual(0)
+                expect(layout.group.right).toBeLessThanOrEqual(layout.viewport)
+                if (doubled && (width <= 390 || (surface.path === '/login' && width === 1024))) {
+                  // A word and the grouped stop may need more than the narrow column. Give back
+                  // only that excess; fitting phrases must retain their column and alignment.
+                  const longestWord = Math.max(...layout.words.map((word) => word.rects[0].right - word.rects[0].left))
+                  const stopWidth = layout.punctuation!.right - layout.punctuation!.left
+                  const minimumFootprint = longestWord + layout.horizontalPadding + stopWidth
+                  if (minimumFootprint <= layout.heading.width + 0.25) {
+                    expect(layout.group.left, 'A fitting phrase stays inside the headline column').toBeGreaterThanOrEqual(layout.heading.left - 0.25)
+                    expect(layout.group.right, 'A fitting phrase stays inside the headline column').toBeLessThanOrEqual(layout.heading.right + 0.25)
+                    if (layout.textAlign !== 'center' && new Set(layout.words.map((word) => word.rects[0].top)).size > 1) {
+                      expect(Math.abs(layout.group.left - layout.heading.left), 'A fitting wrapped phrase keeps the heading alignment').toBeLessThanOrEqual(0.25)
+                    }
+                  } else {
+                    const leftExcess = layout.heading.left - layout.group.left
+                    const rightExcess = layout.group.right - layout.heading.right
+                    expect(Math.abs(leftExcess - rightExcess), 'An oversized phrase borrows equally from both gutters').toBeLessThanOrEqual(0.25)
+                  }
+                  expect(layout.group.left, 'The group keeps a visible viewport inset').toBeGreaterThanOrEqual(4)
+                  expect(layout.viewport - layout.group.right, 'The group keeps a visible viewport inset').toBeGreaterThanOrEqual(4)
+                }
               }
               if (layout.punctuation) {
                 expect(layout.punctuation.top, 'A following stop stays on the phrase’s final line').toBe(layout.words.at(-1)!.rects[0].top)

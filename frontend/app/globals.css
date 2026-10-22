@@ -260,16 +260,26 @@
   /* Cap the wrapped-box inset to enclose capitals while clearing the preceding descender. */
   top: max(0px, min(calc(6% - 0.06em), calc(0.06em - 1px)));
 }
-/* At enlarged text sizes, give back the existing side gutters before breaking a word.
-   The containing heading supplies the query; ordinary mobile text stays above this threshold. */
+/* At enlarged text sizes, borrow only the side space needed by an oversized phrase and stop.
+   Fitting groups keep their normal alignment; ordinary mobile text stays above this threshold. */
 @container (width < 13rem) {
   .en-hero-emphasis-group {
-    max-width: calc(100% + 2rem);
-    margin-inline: -1rem;
+    max-width: 100%;
+    margin-inline: 0;
+    /* The transform creates a stacking context; keep the whole group below neighboring ink. */
+    position: relative;
+    z-index: -1;
+    transform: translateX(min(0px, calc((100cqi - 100%) / 2)));
   }
   .en-hero-emphasis-group > .en-hero-emphasis {
     margin-inline-start: 0;
     max-width: calc(100% - 0.3em);
+  }
+}
+@container (width < 9rem) {
+  .en-hero-emphasis-group > .en-hero-emphasis {
+    /* Leave visible screen-edge clearance around long words at the narrowest enlarged measure. */
+    padding-inline: 0.12em;
   }
 }
 /* A marked block: the located passage, in the filing's voice, with the bar on its left edge. */
