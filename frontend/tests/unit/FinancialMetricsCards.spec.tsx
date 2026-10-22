@@ -167,7 +167,7 @@ const servedFacts = (rows: FinancialMetric[], hasComparatives: boolean) => ({
           : { text: '—unavailable', direction: null, tone: null },
       )
     : [],
-  takeaways: rows.map((r) => r.commentary || '-'),
+  takeaways: rows.map((r) => r.commentary || '—no takeaway'),
   xbrlChips: rows.filter((r) => r.source_url).map((r) => (r.source_verified ? `Source: ${r.xbrl_concept ? `${r.xbrl_concept} · ` : ''}SEC XBRL` : 'Source: Cited')),
   takeawayChips: rows.filter((r) => r.commentary_evidence).map((r) => (r.commentary_evidence!.verified ? 'Source: Verified in filing' : 'Source: Cited')),
 })
@@ -180,7 +180,7 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
   it.each([
     ['the full fixture (verified + cited XBRL, evidence, per-ADS, up and down)', FULL, true],
     ['no comparatives (no prior / change anywhere, the short caption)', NO_COMPARATIVES, false],
-    ['no commentary (the "-" placeholder, no chip)', NO_COMMENTARY, true],
+    ['no commentary (MissingValue, read as "no takeaway"; no chip)', NO_COMMENTARY, true],
     ['no evidence (a takeaway without a chip, nothing invented)', NO_EVIDENCE, true],
     ['no server change (MissingValue, read as unavailable; no percentage)', NO_CHANGE, true],
     ['a row without a prior among rows with one (MissingValue in the Prior cell, mirrored)', MIXED_PRIOR, true],
@@ -397,8 +397,12 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     const ids = all(document.body, '[id]').map((e) => e.id)
     expect(ids).toEqual([]) // chip ids exist only while a popover is open
     expect(new Set(ids).size).toBe(ids.length)
-    // nothing is hidden from AT by hand: the hiding is display:none at the breakpoint (browser spec)
-    expect(all(container, '[aria-hidden="true"]').filter((e) => e.tagName.toLowerCase() !== 'svg')).toHaveLength(0)
+    // nothing is hidden from AT by hand: the hiding is display:none at the breakpoint (browser spec). The one other hidden
+    // part is MissingValue's own token beside its words: FULL's per-ADS row has no takeaway (2 instances x 2 layouts).
+    const missingValueToken = (e: Element) => e.textContent === '—' && e.nextElementSibling?.classList.contains('sr-only') === true
+    const hidden = all(container, '[aria-hidden="true"]').filter((e) => e.tagName.toLowerCase() !== 'svg')
+    expect(hidden.filter((e) => !missingValueToken(e))).toHaveLength(0)
+    expect(hidden.filter(missingValueToken).map((e) => text(e.parentElement))).toEqual(Array(4).fill('—no takeaway'))
   })
 
   it('pairs every chip with exactly one twin: one copy per layout, keyed by its instance, row and field', () => {
