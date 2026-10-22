@@ -172,7 +172,8 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    that carries the founder's go-ahead (tasks/todo.md F53) and changes this check. Each family is read in one list
  *    item or paragraph (blockTexts), and a promise of logging out in its own sentence or in the one after a sentence
  *    that names a logging-out action (a logout, a sign-out, a password changed or reset; a new password counts in its
- *    own sentence), and beside a password only named, in the password's own clause, which a conjunction ends unless an
+ *    own sentence, and before a noun it names, "our new password policy", only for main's timed and untimed readings,
+ *    as main reads its password word anywhere: ANY_NEW_PASSWORD), and beside a password only named, in the password's own clause, which a conjunction ends unless an
  *    end follows it or it joins the password to another noun (CLAUSE_JOIN), so a word in a neighbouring sentence or
  *    clause makes no context: "Passwords are hashed. Idle sessions end after 30 minutes." and "Passwords are hashed and
  *    idle sessions end after 30 minutes." pass. Planted forms score the
@@ -608,8 +609,16 @@ const SESSION_END_UNTIMED_DENIABLE = deniable(SESSION_END_UNTIMED)
 /** A logging-out action as a sentence names it: a logout or a sign-out in their spellings, or a password changed or
     reset. A password only named ("Passwords are hashed") is no action. */
 const LOGGING_OUT_ACTION = /\b(?:log(?:s|ged|ging)?[- ]?outs?|sign(?:s|ed|ing)?[- ]?outs?)\b|\b(?:chang|reset|updat)\w*\b[^.;!?]{0,20}\bpasswords?\b|\bpasswords?\s+(?:(?:is|are|was|were|gets?|got)\s+)?(?:chang|reset|updat)\w*/i
-/** A password replaced ("choose a new password"), a change in the sentence that names it (#1456's eighth round). */
-const NEW_PASSWORD = /\b(?:new|another|different)\s+passwords?\b/i
+/** A password replaced ("choose a new password"), a change in the sentence that names it (#1456's eighth round): the
+    replacement itself, not "new password" before a noun it names ("our new password policy", "the new password
+    field"), which this pull request's wider end forms read as a password only named (PASSWORD; #1456's eleventh
+    round). */
+const NEW_PASSWORD = /\b(?:new|another|different)\s+passwords?\b(?!\s+(?:policy|policies|requirements?|rules?|criteria|fields?|forms?|pages?|screens?|box(?:es)?|inputs?|prompts?|hints?|strength|length|managers?|settings?|format)\b)/i
+/** A new password named, before a noun or not, whose sentence main's timed and untimed readings read whole, as main
+    reads its password word anywhere in an item (#1456's eleventh round): read as a password only named there, it would
+    pass a change said through the form that main refuses ("Submit the new password form and every session ends within
+    30 minutes."), so "Our new password policy is documented and idle sessions end after 30 minutes." fails, as on main. */
+const ANY_NEW_PASSWORD = /\b(?:new|another|different)\s+passwords?\b/i
 /** What of a block a promise of logging out is read in: a sentence that names a logging-out word or action itself
     (LOGGING_OUT, LOGGING_OUT_ACTION, NEW_PASSWORD), the one after a sentence that names a logging-out action, which
     goes on from it ("Logging out of all devices revokes your refresh tokens. Each session then ends within 30
@@ -636,7 +645,8 @@ const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
   [
     'a session that ends after logging out, within a time or with none named',
     (block) =>
-      loggingOutSentences(block).some((sentence) => SESSION_END_TIMED_DENIABLE.test(sentence) || SESSION_END_UNTIMED_DENIABLE.test(sentence) || SESSION_END_MORE.test(sentence)),
+      loggingOutSentences(block).some((sentence) => SESSION_END_TIMED_DENIABLE.test(sentence) || SESSION_END_UNTIMED_DENIABLE.test(sentence) || SESSION_END_MORE.test(sentence)) ||
+      sentencesOf(block).some((sentence) => ANY_NEW_PASSWORD.test(sentence) && (SESSION_END_TIMED_DENIABLE.test(sentence) || SESSION_END_UNTIMED_DENIABLE.test(sentence))),
   ],
 ]
 
@@ -1569,6 +1579,14 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Passwords are hashed and idle sessions end after 30 minutes.</li>', false],
       ['<li>Your password is hashed and the session token expires after 30 minutes.</li>', false],
       ['<li>Your password is hashed and every session ends within 30 minutes.</li>', false],
+      // "New password" before a noun it names is a password only named for this pull request's wider end forms, while
+      // main's timed and untimed readings read its sentence whole, as main does; a password replaced still fails
+      // (#1456's eleventh round, Codex's thread 4346660324).
+      ['<li>Our new password policy is documented and every other session ends.</li>', false],
+      ['<li>The new password field accepts 128 characters and idle sessions end.</li>', false],
+      ['<li>Submit the new password form and every session ends within 30 minutes.</li>', true],
+      ['<li>Set a new password, and every session ends within 30 minutes.</li>', true],
+      ['<li>Your new password ends every other session within 30 minutes.</li>', true],
       // A one-use form with the negation apart from its modal ("can not"), beside another credential's (#1456's ninth
       // round).
       ['<li>A refresh token can not be used twice.</li>', true],
