@@ -38,6 +38,16 @@ const flat = {
   dark: '#9CA3AF',  // gray-400
 }
 
+// E120 (chief design, 2026-10-19): under enlarged text a surface's inset stops growing at narrow widths.
+// Padding step N becomes `p-cap-N` = min(N × 0.25rem, N vw): the step itself from a 25rem viewport up
+// (400px at the default text size, 800px under a 200% text setting) and N% of the viewport below it, so a
+// p-6 card keeps 24px at 1440px, 23.4px at 390px and 19.2px at 320px, and 19.2px at 320px under 200% text
+// instead of 48px. A Card, a frame and a dialog's sections take it from step 5, a frame inside a dialog's
+// body from step 4 (gate: the ESLint rule earningsnerd/surface-padding-cap, eslint.designRules.mjs, which
+// reads these keys). The Modal panel's scroll padding takes the same value as its capped inset.
+const PADDING_CAP_STEPS = [3, 4, 5, 6, 8, 10]
+const paddingCap = Object.fromEntries(PADDING_CAP_STEPS.map((n) => [`cap-${n}`, `min(${n * 0.25}rem, ${n}vw)`]))
+
 module.exports = {
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
@@ -245,6 +255,10 @@ module.exports = {
         18: '4.5rem',
         gutter: '1.5rem',
       },
+      // The capped inset steps (PADDING_CAP_STEPS above): p-cap-6, px-cap-6, sm:p-cap-8 and the scroll padding
+      // that matches a capped inset (scroll-py-cap-6).
+      padding: paddingCap,
+      scrollPadding: paddingCap,
 
       boxShadow: {
         // Elevation scale (light-mode tuned; pair with ring/border in dark)

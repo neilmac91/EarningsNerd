@@ -59,7 +59,7 @@ export function Card({
 export function CardHeader({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cx('flex items-center gap-3 border-b border-border-light px-5 py-4 dark:border-border-dark', className)}
+      className={cx('flex items-center gap-3 border-b border-border-light px-cap-5 py-4 dark:border-border-dark', className)}
       {...rest}
     />
   )
@@ -82,14 +82,14 @@ export function CardTitle({ className, ...rest }: HTMLAttributes<HTMLHeadingElem
 }
 
 export function CardBody({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cx('px-5 py-4', className)} {...rest} />
+  return <div className={cx('px-cap-5 py-4', className)} {...rest} />
 }
 
 export function CardFooter({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cx(
-        'flex items-center gap-3 border-t border-border-light px-5 py-3 dark:border-border-dark',
+        'flex items-center gap-3 border-t border-border-light px-cap-5 py-3 dark:border-border-dark',
         className,
       )}
       {...rest}

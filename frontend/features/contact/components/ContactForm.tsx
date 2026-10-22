@@ -135,7 +135,7 @@ export default function ContactForm() {
 
   if (success) {
     return (
-      <div className="rounded-2xl border border-border-light bg-panel-light p-8 shadow-e3 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
+      <div className="rounded-2xl border border-border-light bg-panel-light p-cap-8 shadow-e3 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-light/10 dark:bg-success-dark/15">
             <svg
@@ -179,7 +179,7 @@ export default function ContactForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-2xl border border-border-light bg-panel-light p-8 shadow-e3 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+      className="rounded-2xl border border-border-light bg-panel-light p-cap-8 shadow-e3 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
     >
       <div className="space-y-6">
         {/* Name Field */}

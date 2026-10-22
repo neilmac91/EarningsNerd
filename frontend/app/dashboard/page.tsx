@@ -234,13 +234,13 @@ export default function DashboardPage() {
               hand off without a reflow. SkeletonText/Stat own role="status" — no wrapper role. */}
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="space-y-8 lg:col-span-2">
-              <Card className="p-5"><SkeletonText lines={2} /></Card>
-              <Card className="p-5"><SkeletonText lines={4} /></Card>
-              <Card className="p-5"><SkeletonText lines={4} /></Card>
+              <Card className="p-cap-5"><SkeletonText lines={2} /></Card>
+              <Card className="p-cap-5"><SkeletonText lines={4} /></Card>
+              <Card className="p-cap-5"><SkeletonText lines={4} /></Card>
             </div>
             <div className="space-y-8">
-              <Card className="p-5"><SkeletonStat /></Card>
-              <Card className="p-5"><SkeletonText lines={3} /></Card>
+              <Card className="p-cap-5"><SkeletonStat /></Card>
+              <Card className="p-cap-5"><SkeletonText lines={3} /></Card>
             </div>
           </div>
         </main>
@@ -324,7 +324,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Main column: search, the "what changed" feed, and the watchlist status section. */}
           <div className="space-y-8 lg:col-span-2">
-            <Card className="p-5">
+            <Card className="p-cap-5">
               <p className="mb-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">Find a company by name or ticker</p>
               <CompanySearch />
             </Card>
@@ -406,7 +406,7 @@ export default function DashboardPage() {
             ) : null}
 
             {/* Plan and usage — a single compact strip. The ≥80% warning is surfaced at the top. */}
-            <Card className="p-5">
+            <Card className="p-cap-5">
               <div className="flex items-center justify-between">
                 <h2
                   ref={planHeadingRef}

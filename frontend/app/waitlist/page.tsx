@@ -40,7 +40,7 @@ export default function WaitlistPage() {
             <div id="waitlist" className="mt-8 max-w-xl lg:mx-0">
               <Suspense
                 fallback={
-                  <div className="rounded-2xl border border-border-light bg-panel-light p-6 shadow-e2 dark:shadow-none dark:border-border-dark dark:bg-panel-dark">
+                  <div className="rounded-2xl border border-border-light bg-panel-light p-cap-6 shadow-e2 dark:shadow-none dark:border-border-dark dark:bg-panel-dark">
                     Loading…
                   </div>
                 }
@@ -90,7 +90,7 @@ export default function WaitlistPage() {
           ].map((item) => (
             <div
               key={item.title}
-              className="rounded-2xl border border-border-light bg-panel-light p-6 shadow-e1 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
+              className="rounded-2xl border border-border-light bg-panel-light p-cap-6 shadow-e1 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
             >
               {/* h2: the first headings under the page h1 (the example beside the form has none), at
                   the card scale; an h3 here skipped a level (text-floors.spec.ts visits /waitlist). */}
@@ -104,7 +104,7 @@ export default function WaitlistPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-border-light bg-panel-light p-8 shadow-e2 dark:shadow-none dark:border-border-dark dark:bg-panel-dark md:p-10">
+        <div className="rounded-3xl border border-border-light bg-panel-light p-cap-8 shadow-e2 dark:shadow-none dark:border-border-dark dark:bg-panel-dark md:p-cap-10">
           <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -154,7 +154,7 @@ export default function WaitlistPage() {
             ].map((item) => (
               <div
                 key={item.step}
-                className="rounded-2xl border border-border-light bg-background-light px-5 py-4 dark:border-border-dark dark:bg-background-dark"
+                className="rounded-2xl border border-border-light bg-background-light px-cap-5 py-4 dark:border-border-dark dark:bg-background-dark"
               >
                 {/* A step number is a number: neutral ink, never sage (the Separate Signals Rule). */}
                 <div className="font-data text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
@@ -192,7 +192,7 @@ export default function WaitlistPage() {
           ].map((item) => (
             <div
               key={item.title}
-              className="rounded-2xl border border-border-light bg-panel-light p-6 shadow-e1 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
+              className="rounded-2xl border border-border-light bg-panel-light p-cap-6 shadow-e1 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
             >
               <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {item.title}
@@ -204,7 +204,7 @@ export default function WaitlistPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-border-light bg-panel-light p-8 shadow-e2 dark:shadow-none dark:border-border-dark dark:bg-panel-dark md:p-10">
+        <div className="rounded-3xl border border-border-light bg-panel-light p-cap-8 shadow-e2 dark:shadow-none dark:border-border-dark dark:bg-panel-dark md:p-cap-10">
           <h2 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Before you join
           </h2>
@@ -226,7 +226,7 @@ export default function WaitlistPage() {
             ].map((item) => (
               <div
                 key={item.title}
-                className="rounded-2xl border border-border-light bg-background-light px-5 py-4 text-sm text-text-secondary-light dark:border-border-dark dark:bg-background-dark dark:text-text-secondary-dark"
+                className="rounded-2xl border border-border-light bg-background-light px-cap-5 py-4 text-sm text-text-secondary-light dark:border-border-dark dark:bg-background-dark dark:text-text-secondary-dark"
               >
                 <div className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                   {item.title}

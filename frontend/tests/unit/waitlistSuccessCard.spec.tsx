@@ -228,7 +228,8 @@ describe('waitlist join refused', () => {
   })
 
   // The waitlist page centres this column below lg (`app/waitlist/page.tsx`). A Notice's title and description would
-  // inherit it while its action row stays at the start, so each Notice in the form sets its own text to the start.
+  // inherit it while its action row stays at the start, so a Notice sets its own text to the start
+  // (components/ui/Notice.tsx owns its alignment, E120) and the form passes no alignment of its own.
   it('sets the refusal to the start, inside a column the page centres below lg', async () => {
     expect(await joinRefused()).toHaveClass('text-left')
   })

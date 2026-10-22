@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { ESLint, RuleTester } from 'eslint'
 import { describe, expect, it } from 'vitest'
 import {
+  DIALOG_WELL_STEP,
+  drawsFrame,
   ELEMENT_FACTORY_ALLOWLIST,
   elementsBuiltWithJsx,
   fourUpGrid,
@@ -16,7 +18,11 @@ import {
   noUnguardedAnimation,
   SELF_GUARDED_ANIMATIONS,
   sideStripe,
+  SURFACE_STEP,
+  surfacePaddingCap,
   templateTrackCount,
+  uncappedInset,
+  undefinedCap,
   unguardedAnimation,
 } from '../../eslint.designRules.mjs'
 
@@ -45,6 +51,13 @@ import {
  *    composed from components/ui, never rebuilt in a feature (the primitive's own file is exempt). The pressed
  *    button is read in the group's own markup, through a same-file wrapper component (one level) and through
  *    the DS Button imported under another name; an imported wrapper and a wrapper of a wrapper stay unread.
+ *  - surface-padding-cap (E120): under enlarged text a surface's inset stops growing at narrow widths, so a Card, a
+ *    Modal's panel, a frame (a full border and a radius), the Card's and the dialog's sections, a native <dialog>'s
+ *    sections and what is written directly inside a Card, a Modal or a frame that sets no padding of its own carry no
+ *    padding of step 5 or more that is not a capped token (p-cap-N, tailwind.config.js), and a frame inside a dialog's
+ *    body none from step 4. A step is read by its resolved size (a configured key, an arbitrary length), a value the rule
+ *    cannot read fails closed, a class a same-file binding holds is read where a surface names it, and a capped key the
+ *    theme does not define fails anywhere.
  *  - elements-built-with-jsx: the app builds its elements in JSX, which the gates that read elements see, so React's
  *    element factories are refused under any name (Codex's two forms on #1370's 44229515 among them), a use of React
  *    the rule cannot follow is refused as unreadable, and the DOM's document.createElement, JSX, a type and the one
@@ -752,6 +765,119 @@ describe('globals.css animations stop under reduced motion', () => {
   })
 })
 
+describe('uncappedInset', () => {
+  it('reads a step by its resolved size, under any variant, important or not', () => {
+    expect(uncappedInset('rounded-xl border p-6', SURFACE_STEP)).toEqual({ token: 'p-6', step: 6, fix: 'p-cap-6' })
+    expect(uncappedInset('p-4 sm:p-6', SURFACE_STEP)).toEqual({ token: 'sm:p-6', step: 6, fix: 'sm:p-cap-6' })
+    expect(uncappedInset('!pt-8', SURFACE_STEP)).toEqual({ token: '!pt-8', step: 8, fix: 'pt-cap-8' })
+    // A configured key and an arbitrary length count by their size.
+    expect(uncappedInset('p-gutter', SURFACE_STEP)).toEqual({ token: 'p-gutter', step: 6, fix: 'p-cap-6' })
+    expect(uncappedInset('px-[20px]', SURFACE_STEP)).toEqual({ token: 'px-[20px]', step: 5, fix: 'px-cap-5' })
+    // A step the theme defines no cap for, and a value the rule cannot read as a length.
+    expect(uncappedInset('p-12', SURFACE_STEP)).toEqual({ token: 'p-12', step: 12, fix: null })
+    expect(uncappedInset('pb-[calc(1rem+env(safe-area-inset-bottom))]', SURFACE_STEP)).toEqual({
+      token: 'pb-[calc(1rem+env(safe-area-inset-bottom))]',
+      step: null,
+      fix: null,
+    })
+    // A frame inside a dialog's body caps from step 4.
+    expect(uncappedInset('rounded-lg border p-4', DIALOG_WELL_STEP)).toEqual({ token: 'p-4', step: 4, fix: 'p-cap-4' })
+  })
+
+  it('passes a capped token, a step under the threshold and a token that styles another element', () => {
+    expect(uncappedInset('p-cap-6 sm:p-cap-8 px-cap-5 scroll-py-6', SURFACE_STEP)).toBeNull()
+    expect(uncappedInset('p-4 px-4.5 py-3.5 p-px', SURFACE_STEP)).toBeNull()
+    expect(uncappedInset('p-3', DIALOG_WELL_STEP)).toBeNull()
+    expect(uncappedInset('[&>div]:p-6 *:px-8', SURFACE_STEP)).toBeNull()
+    // Not padding: a gap, a margin, a space or a scroll padding.
+    expect(uncappedInset('gap-6 m-6 space-y-6 scroll-py-6', SURFACE_STEP)).toBeNull()
+  })
+
+  it('knows a frame by a full border and a radius, and a capped key the theme does not define', () => {
+    expect(drawsFrame('rounded-xl border bg-panel-light')).toBe(true)
+    expect(drawsFrame('sm:rounded-2xl border-2')).toBe(true)
+    expect(drawsFrame('rounded-xl border-t')).toBe(false)
+    expect(drawsFrame('border border-border-light')).toBe(false)
+    expect(drawsFrame('rounded-none border')).toBe(false)
+    expect(undefinedCap('p-cap-7')).toBe('p-cap-7')
+    expect(undefinedCap('sm:px-cap-12')).toBe('sm:px-cap-12')
+    expect(undefinedCap('p-cap-6 px-cap-3')).toBeNull()
+  })
+})
+
+ruleTester.run('surface-padding-cap', surfacePaddingCap, {
+  valid: [
+    '<Card className="p-cap-6" />',
+    // A Card under step 5, and the KPI strip's two small steps.
+    '<Card className="p-4" />',
+    '<Card className="p-3 sm:p-4" />',
+    '<div className="rounded-xl border bg-panel-light p-cap-5 shadow-e2" />',
+    // Not a frame: no border, a side border alone, or no radius; a page gutter is no surface.
+    '<div className="rounded-xl bg-panel-light p-6" />',
+    '<header className="border-b px-6 py-4" />',
+    '<section className="mx-auto max-w-7xl px-6 py-12" />',
+    // A Notice-sized frame and a field.
+    '<div className="rounded-lg border px-4 py-3.5" />',
+    '<ModalBody className="space-y-4" />',
+    '<ModalBody><div className="rounded-lg border p-cap-4" /></ModalBody>',
+    '<ModalBody><textarea className="rounded-lg border px-3 py-2" /></ModalBody>',
+    // A frame outside a dialog's body keeps step 4.
+    '<Card><div className="rounded-lg border p-4" /></Card>',
+    // A token that styles another element is not this element's inset.
+    '<Card className="[&>div]:p-6" />',
+    '<dialog className="rounded-2xl border p-0"><header className="border-b px-cap-5 py-4" /></dialog>',
+    // A constant that draws no frame and sits on no surface.
+    "const PAD = 'p-6'\nexport const x = <section className={PAD} />",
+    'function ModalHeader() { return <div className="px-cap-6 pt-cap-6" /> }',
+    // A surface that sets its own padding: what is written inside it is content, not its sections.
+    '<Card className="p-cap-6"><div className="p-6" /></Card>',
+    '<section className="rounded-2xl border p-cap-6"><p className="px-6" /></section>',
+    // A section of a surface that carries the cap, or a step under 5.
+    '<Card><div className="px-4 pt-4 sm:px-cap-6 sm:pt-cap-6" /></Card>',
+    '<Modal><div className="p-4" /></Modal>',
+  ],
+  invalid: [
+    { code: '<Card className="p-6" />', errors: [{ messageId: 'uncapped', data: { token: 'p-6', surface: 'a Card', fix: 'p-cap-6', step: 6 } }] },
+    { code: '<Card className="p-4 sm:p-6" />', errors: [{ messageId: 'uncapped' }] },
+    { code: "<ui.Card className={cx('min-w-0 p-5', wide && 'md:col-span-2')} />", errors: [{ messageId: 'uncapped' }] },
+    { code: '<Card className="!pt-8" />', errors: [{ messageId: 'uncapped' }] },
+    { code: '<Card className="p-gutter" />', errors: [{ messageId: 'uncapped' }] },
+    { code: '<Card className="p-[24px]" />', errors: [{ messageId: 'uncapped' }] },
+    { code: '<Card className="p-12" />', errors: [{ messageId: 'noStep' }] },
+    { code: '<Card className="p-[calc(1rem+2px)]" />', errors: [{ messageId: 'unreadable' }] },
+    // The Card recipe copied by hand, a frame's branch, and a constant that draws a frame on its own.
+    { code: '<div className="rounded-xl border bg-panel-light p-6 shadow-e2" />', errors: [{ messageId: 'uncapped' }] },
+    { code: "<div className={cx('rounded-xl border', wide ? 'p-6' : 'p-4')} />", errors: [{ messageId: 'uncapped' }] },
+    { code: "<div className={cx('p-6', framed && 'rounded-xl border')} />", errors: [{ messageId: 'uncapped' }] },
+    { code: "const SHELL = 'rounded-2xl border p-8'", errors: [{ messageId: 'uncapped' }] },
+    // A Card's class held in a same-file binding.
+    { code: "const PAD = 'p-6'\nexport const x = <Card className={PAD} />", errors: [{ messageId: 'uncapped' }] },
+    { code: "const PAD = cx('min-w-0', 'sm:p-8')\nexport const x = <Card className={cx(PAD, 'mt-6')} />", errors: [{ messageId: 'uncapped' }] },
+    // The dialog's sections, at a call site and in their own source.
+    { code: '<ModalBody className="px-8" />', errors: [{ messageId: 'uncapped' }] },
+    { code: 'function ModalHeader() { return <div className="flex px-6 pt-6" /> }', errors: [{ messageId: 'uncapped' }] },
+    { code: "const CardBody = forwardRef(function Body() { return <div className={cx('px-5 py-4')} /> })", errors: [{ messageId: 'uncapped' }] },
+    // A frame inside a dialog's body caps from step 4, through a callback written there; a Card there too.
+    { code: '<ModalBody><div className="rounded-lg border p-4" /></ModalBody>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<ModalBody>{rows.map((r) => <div key={r} className="rounded-lg border p-4" />)}</ModalBody>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<ModalBody><Card className="p-4" /></ModalBody>', errors: [{ messageId: 'uncapped' }] },
+    // A native dialog's sections, and a frame in its body.
+    { code: '<dialog className="rounded-2xl border p-0"><header className="border-b px-5 py-4" /></dialog>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<dialog><div className="px-3"><p className="rounded-lg border p-4" /></div></dialog>', errors: [{ messageId: 'uncapped' }] },
+    // A Card, a Modal or a frame that sets no padding of its own leaves its inset to what is written directly inside it,
+    // through a conditional and a callback written there.
+    { code: '<Card><div className="p-5" /></Card>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<Card as="section">{open ? <div className="sm:px-6" /> : null}</Card>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<section className="rounded-2xl border"><ul>{rows}</ul><p className="border-t px-6 py-3" /></section>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<Card className="divide-y">{rows.map((row) => <article key={row} className="p-4 sm:p-5" />)}</Card>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<Modal><div className="p-6" /></Modal>', errors: [{ messageId: 'uncapped' }] },
+    // A Modal's className is its panel's.
+    { code: '<Modal className="p-6" />', errors: [{ messageId: 'uncapped' }] },
+    // A capped key the theme does not define ships unstyled, on any element.
+    { code: '<span className="p-cap-7" />', errors: [{ messageId: 'undefinedCap' }] },
+  ],
+})
+
 /** Building ESLint from the real config takes 2-3.5s warm and over 7s cold or on a loaded runner; 5s is too tight. */
 const SLOW = { timeout: 30_000 }
 
@@ -929,6 +1055,21 @@ describe('the repository config', SLOW, () => {
       const [elsewhere] = await eslint.lintText(source, { filePath: path.join(frontendRoot, path.dirname(file), 'element-factory-allowlist-probe.tsx') })
       expect(factoryFindings(elsewhere.messages).map((finding) => finding.split(',')[0].replace(/^\d+ /, '')), `${file} still needs its entry`).toEqual([...factories])
     }
+  })
+
+  it('runs surface-padding-cap as an error on app code', async () => {
+    const eslint = new ESLint({ cwd: frontendRoot })
+    const [result] = await eslint.lintText(
+      [
+        "import { Card } from '@/components/ui'",
+        'export function Probe() {',
+        '  return <Card className="p-6">Probe</Card>',
+        '}',
+        '',
+      ].join('\n'),
+      { filePath: path.join(frontendRoot, 'features/probe/components/Probe.tsx') },
+    )
+    expect(result.messages.map((m) => `${m.line} ${m.ruleId} ${m.severity}`)).toEqual(['3 earningsnerd/surface-padding-cap 2'])
   })
 
   it('runs no-four-up-grid on the landing\'s own files (LANDING_GRID_FILES) and on no product screen', async () => {

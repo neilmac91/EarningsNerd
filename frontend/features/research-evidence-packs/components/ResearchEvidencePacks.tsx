@@ -36,7 +36,7 @@ function EvidenceCard({ entry, capture, onChange }: { entry: EvidenceEntry; capt
       setError('')
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Review unavailable.') }
   }
-  return <Card as="article" className="min-w-0 space-y-5 p-5" aria-label={`Evidence ${entry.id}`}>
+  return <Card as="article" className="min-w-0 space-y-5 p-cap-5" aria-label={`Evidence ${entry.id}`}>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h3 ref={heading} tabIndex={-1} className="text-lg font-semibold focus:outline-none">Evidence {entry.id}</h3>
       <Badge variant={entry.status === 'review-needed' ? 'warning' : 'neutral'}>{statusLabels[entry.status]}</Badge>
@@ -147,7 +147,7 @@ export default function ResearchEvidencePacks() {
     </div>
     <p role="status" className={`text-sm ${secondary}`}>{notice || (mode === 'example' ? 'Invented excerpts from a fictional company. Try comparing the selected 2026 source with the saved 2025 evidence.' : 'Read only from the existing local filing cache. No SEC fetch, AI generation or server save is added.')}</p>
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-      <Card as="section" className="min-w-0 space-y-5 p-5" aria-label="Source selection">
+      <Card as="section" className="min-w-0 space-y-5 p-cap-5" aria-label="Source selection">
         <h2 className="text-xl font-semibold">1. Select source evidence</h2>
         {mode === 'example' ? <Select label="Example filing" value={loaded?.identity.filingId ?? 2} onChange={(event) => { setLoaded(event.target.value === '1' ? earlierExample : laterExample); setParagraph(0) }}>
           <option value="1">2025 fictional annual filing</option><option value="2">2026 fictional annual filing</option>
@@ -172,7 +172,7 @@ export default function ResearchEvidencePacks() {
       <section className="min-w-0 space-y-4" aria-label="Evidence ledger">
         <h2 className="text-xl font-semibold">2. Review before reuse</h2>
         {entries.length ? entries.map((entry) => <EvidenceCard key={entry.id} entry={entry} capture={capture} onChange={changeEntry} />) :
-          <Card className="p-5"><p className={secondary}>Your evidence pack is empty. Select a paragraph, then save your first source snapshot.</p></Card>}
+          <Card className="p-cap-5"><p className={secondary}>Your evidence pack is empty. Select a paragraph, then save your first source snapshot.</p></Card>}
       </section>
     </div>
   </main>

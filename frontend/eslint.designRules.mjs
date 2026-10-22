@@ -221,6 +221,37 @@
 //                       named by a value the rule cannot read. tsc refuses a date module's default export (none
 //                       declares one) and `import x = require(…)`. Its cases are planted beside the date rules' own,
 //                       through the repository config, in tests/unit/calendarFieldLint.spec.ts.
+//   surface-padding-cap (E120, chief design 2026-10-19) Under enlarged text a surface's inset stops growing at narrow
+//                       widths: its padding step N is the capped token (`p-cap-6`, `sm:px-cap-8`), min(N × 0.25rem,
+//                       N vw), the steps tailwind.config.js defines (PADDING_CAP_STEPS, read here from the resolved
+//                       theme). An uncapped p-6 is 48px a side at 320px under 200% text, where the cap leaves 19.2px. A
+//                       surface carries no padding of step 5 or more that is not capped, on any side (p, px, py, ps,
+//                       pe, pt, pr, pb, pl), under any variant, important or not; a frame inside a dialog's body none
+//                       from step 4. A step is read from the padding scale the theme resolves, so a configured key
+//                       (`p-gutter`, 1.5rem) and an arbitrary length (`p-[24px]`) count by their size, and an arbitrary
+//                       value the rule cannot read as a length (`p-[calc(…)]`, `p-[env(…)]`) fails closed. A surface is:
+//                       a <Card> (any element named Card, `ui.Card`), whose recipe draws a border and a radius; the
+//                       Card's and the dialog's sections, <CardHeader>, <CardBody>, <CardFooter>, <ModalHeader>,
+//                       <ModalBody> and <ModalFooter>, at a call site and in their own source (a class written inside
+//                       the function that declares one, or the Card recipe), and a <Modal>'s className, its panel; a
+//                       native <dialog> and each element directly inside it; a frame, an element whose class text draws
+//                       a full border (`border`, `border-2`) and a radius (`rounded`, `rounded-*` but `-none`) in the
+//                       same branch, the Card recipe copied by hand and the wells inside a card; and a section of a
+//                       surface, an element written directly inside a Card, a Modal or a frame that sets no padding of
+//                       its own (through `{…}` children, conditionals and a callback written there), as the Card's
+//                       sections are: the hero example's wrapper, the admin lists' rows. A frame inside a dialog's body (written
+//                       inside <ModalBody> or a native <dialog> in the same file, a Card included) caps from step 4:
+//                       the dialog's own inset already halves the measure there, and at 320px under 200% text the
+//                       cookie dialog's category cards left their text 105px and broke its longest words. A class
+//                       held in a same-file binding and named in a surface's className (`className={PAD}`, the
+//                       initializer a string, a template or a cx()/clsx() call) is read with it, as is a constant
+//                       that draws a frame on its own. A capped key the theme does not define (`p-cap-7`) fails
+//                       anywhere, since it ships unstyled. Out of reach (review-checked): a class a component receives
+//                       as a prop and passes to a Card or a frame elsewhere, an inset set in an inline style or a
+//                       stylesheet, a token whose variant styles another element (`[&>div]:p-6`), a frame drawn
+//                       without a border utility (a fill, a shadow or a ring alone, or a stylesheet class such as
+//                       `.glass-card`), and a section held in a variable or rendered by another component (the stacked
+//                       metric cards' list in FinancialMetricsTable, TableScroll's hint), which carry the cap by hand.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
@@ -820,8 +851,9 @@ const flatColours = (colours, prefix = '') =>
     const name = key === 'DEFAULT' ? prefix : prefix ? `${prefix}-${key}` : key
     return value && typeof value === 'object' ? flatColours(value, name) : [name]
   })
+const RESOLVED_THEME = cjs('tailwindcss/resolveConfig')(cjs('./tailwind.config.js')).theme
 const TEXT_COLOURS = new Set(
-  flatColours(cjs('tailwindcss/resolveConfig')(cjs('./tailwind.config.js')).theme.textColor).filter(
+  flatColours(RESOLVED_THEME.textColor).filter(
     (name) => name !== 'inherit' && name !== 'current',
   ),
 )
@@ -1749,8 +1781,219 @@ export const dateHelpersCalledDirectly = {
   },
 }
 
+/** The padding scale the theme resolves (`6` → `1.5rem`, `gutter` → `1.5rem`, `cap-6` → `min(1.5rem, 6vw)`), so a
+ *  step is read by its size and a capped key is one tailwind.config.js defines. */
+const PADDING_SCALE = RESOLVED_THEME.padding
+const PADDING = /^(p|px|py|ps|pe|pt|pr|pb|pl)-(.+)$/
+const CAPPED_KEY = /^cap-(.+)$/
+/** A surface caps its inset from this step; a frame inside a dialog's body from the next. */
+export const SURFACE_STEP = 5
+export const DIALOG_WELL_STEP = 4
+/** The components whose className and own source carry a surface's inset (components/ui/Card.tsx, Modal.tsx). */
+const SURFACE_COMPONENTS = new Set(['Card', 'CardHeader', 'CardBody', 'CardFooter', 'Modal', 'ModalHeader', 'ModalBody', 'ModalFooter'])
+/** The primitives whose panel leaves its inset to the elements written inside it when it sets no padding itself. */
+const SECTIONED_COMPONENTS = new Set(['Card', 'Modal'])
+/** A dialog's body: a frame written inside one caps from DIALOG_WELL_STEP. */
+const DIALOG_BODIES = new Set(['ModalBody', 'dialog'])
+const FULL_BORDER = /^border(?:-\d+|-\[\d[^\]]*\])?$/
+
+/** A padding value's step on the 0.25rem scale (`1.5rem` → 6, `24px` → 6, `0` → 0), or null for a value that is not a
+ *  plain length (a calc(), a var(), an env()). */
+function lengthStep(value) {
+  const v = String(value).trim()
+  if (v === '0') return 0
+  const m = v.match(/^(\d*\.?\d+)(rem|px)$/)
+  if (!m) return null
+  return m[2] === 'rem' ? Number(m[1]) * 4 : Number(m[1]) / 4
+}
+
+/** The capped key tailwind.config.js does not define in `classText` (`p-cap-7`, which ships unstyled), else null. */
+export function undefinedCap(classText) {
+  for (const raw of classText.split(/\s+/)) {
+    const token = raw && parseClassToken(raw)
+    const m = token && PADDING.exec(token.utility)
+    if (m && CAPPED_KEY.test(m[2]) && !(m[2] in PADDING_SCALE)) return raw
+  }
+  return null
+}
+
+/** Whether `classText` draws a frame: a full border and a radius, under any variant. */
+export function drawsFrame(classText) {
+  const utilities = classText.split(/\s+/).filter(Boolean).map(parseClassToken).filter(Boolean).map((t) => t.utility)
+  return utilities.some((u) => FULL_BORDER.test(u)) && utilities.some((u) => ROUNDED.test(u) && !NOT_ROUNDED.test(u))
+}
+
+/** The first padding token in `classText` a surface may not carry from `threshold` up, else null: a step of
+ *  `threshold` or more by its resolved size (p-6, sm:px-8, !pt-5, p-gutter, p-[24px]), or an arbitrary value the rule
+ *  cannot read as a length. `fix` is the capped token to write instead, or null when the theme defines no cap for the
+ *  step (`step` says which) or the value is unreadable. A capped key passes at any step; a token whose variant styles
+ *  another element (`[&>div]:p-6`) is not this element's inset. */
+export function uncappedInset(classText, threshold) {
+  for (const raw of classText.split(/\s+/)) {
+    const token = raw && parseClassToken(raw)
+    const m = token && PADDING.exec(token.utility)
+    if (!m || CAPPED_KEY.test(m[2])) continue
+    const [, side, key] = m
+    const arbitrary = key.startsWith('[') && key.endsWith(']')
+    const value = arbitrary ? key.slice(1, -1).replace(/_/g, ' ') : PADDING_SCALE[key]
+    // A key the theme does not define styles nothing: not an inset.
+    if (value === undefined) continue
+    const step = lengthStep(value)
+    if (step !== null && step < threshold) continue
+    const capped = step !== null && `cap-${step}` in PADDING_SCALE ? [...token.variants, `${side}-cap-${step}`].join(':') : null
+    return { token: raw, step, fix: capped }
+  }
+  return null
+}
+
+/** The name a function is declared or bound under (`function CardBody`, `const CardBody = (…) =>`, inside memo() or
+ *  forwardRef()), else null. */
+function functionName(fn) {
+  if (fn.type === 'FunctionDeclaration') return fn.id?.name ?? null
+  let holder = fn.parent
+  while (holder?.type === 'CallExpression' && holder.callee.type === 'Identifier' && COMPONENT_WRAPPERS.has(holder.callee.name)) holder = holder.parent
+  if (holder?.type === 'VariableDeclarator' && holder.id.type === 'Identifier') return holder.id.name
+  return fn.type === 'FunctionExpression' ? fn.id?.name ?? null : null
+}
+
+/** The JSX element an element is written in, through `{…}` children, conditionals, fragments and a callback written
+ *  there (`{rows.map((row) => <li … />)}`), else null. */
+function enclosingElement(element) {
+  for (let node = element.parent; node; node = node.parent) if (node.type === 'JSXElement') return node
+  return null
+}
+
+const jsxName = (element) => {
+  const name = element?.openingElement?.name
+  if (name?.type === 'JSXIdentifier') return name.name
+  if (name?.type === 'JSXMemberExpression') return name.property.name
+  return null
+}
+
+/** Whether a surface leaves its inset to the elements written directly inside it: a Card, a Modal or a frame whose own
+ *  class text sets no padding, as the Card leaves its inset to its sections. */
+function leavesInsetToSections(element) {
+  const attribute = element.openingElement.attributes.find(
+    (a) => a.type === 'JSXAttribute' && a.name.type === 'JSXIdentifier' && /^(class|className)$/.test(a.name.name),
+  )
+  const text = attribute ? branchTexts(collectStaticText(attribute.value, new WeakSet())).join(' ') : ''
+  const padded = text.split(/\s+/).some((raw) => {
+    const token = raw && parseClassToken(raw)
+    return Boolean(token && PADDING.test(token.utility))
+  })
+  return !padded && (SECTIONED_COMPONENTS.has(jsxName(element)) || drawsFrame(text))
+}
+
+/** The identifiers an attribute's value names, outside a callback's body and a member's or a key's written name. */
+function identifiersIn(node, keys, out = []) {
+  if (!node || typeof node.type !== 'string') return out
+  if (node.type === 'Identifier') out.push(node)
+  if (FUNCTION_TYPES.has(node.type)) return out
+  for (const key of keys[node.type] ?? []) {
+    if (key === 'property' && node.type === 'MemberExpression' && !node.computed) continue
+    if (key === 'key' && node.type === 'Property' && !node.computed) continue
+    for (const child of [node[key]].flat()) identifiersIn(child, keys, out)
+  }
+  return out
+}
+
+export const surfacePaddingCap = {
+  meta: {
+    type: 'problem',
+    docs: { description: "A surface's inset stops growing at narrow widths under enlarged text: its padding is the capped token." },
+    schema: [],
+    messages: {
+      uncapped:
+        "{{token}} on {{surface}} keeps growing with the text: under enlarged text a surface's inset stops growing at " +
+        'narrow widths (E120). Write {{fix}}, min(N × 0.25rem, N vw) (tailwind.config.js PADDING_CAP_STEPS).',
+      noStep:
+        "{{token}} on {{surface}} keeps growing with the text (E120), and tailwind.config.js defines no cap-{{step}}: " +
+        'add {{step}} to PADDING_CAP_STEPS and write the capped token, or use a step it defines.',
+      unreadable:
+        "{{token}} on {{surface}} is an inset the rule cannot read as a length: write it as a capped step (p-cap-N, " +
+        "tailwind.config.js PADDING_CAP_STEPS), so it stops growing at narrow widths under enlarged text (E120).",
+      undefinedCap:
+        '{{token}} names a capped step tailwind.config.js does not define (PADDING_CAP_STEPS), so it ships unstyled.',
+    },
+  },
+  create(context) {
+    const sourceCode = context.sourceCode
+    const keys = sourceCode.visitorKeys
+    /** What makes a class unit a surface whatever its text says, and the element it sits on. */
+    const surfaceOf = (node) => {
+      const element = node.type === 'JSXAttribute' ? node.parent.parent : null
+      const name = element ? jsxName(element) : null
+      if (name === 'Card') return { surface: 'a Card', card: true, element }
+      if (SURFACE_COMPONENTS.has(name)) return { surface: `<${name}>`, card: false, element }
+      if (name === 'dialog') return { surface: 'a native <dialog>', card: false, element }
+      const holder = element ? enclosingElement(element) : null
+      if (holder && jsxName(holder) === 'dialog') return { surface: 'a section of a native <dialog>', card: false, element }
+      // An element written directly inside a Card, a Modal or a frame that sets no padding of its own carries that
+      // surface's inset, as the Card's own sections do (the hero example's wrapper, the filings index's header).
+      if (holder && leavesInsetToSections(holder)) {
+        const of = SECTIONED_COMPONENTS.has(jsxName(holder)) ? `a ${jsxName(holder)}` : 'a frame'
+        return { surface: `a section of ${of} that sets no padding of its own`, card: false, element }
+      }
+      for (let at = node.parent; at; at = at.parent) {
+        if (!FUNCTION_TYPES.has(at.type)) continue
+        const fn = functionName(at)
+        if (fn === null) continue
+        if (SURFACE_COMPONENTS.has(fn)) return { surface: `${fn}'s own source`, card: fn === 'Card', element }
+        break
+      }
+      return { surface: null, card: false, element }
+    }
+    const inDialogBody = (element) => {
+      for (let at = enclosingElement(element); at; at = enclosingElement(at)) if (DIALOG_BODIES.has(jsxName(at))) return true
+      return false
+    }
+    const report = (node, found, surface) => {
+      const data = { token: found.token, surface, fix: found.fix, step: found.step }
+      const messageId = found.fix ? 'uncapped' : found.step === null ? 'unreadable' : 'noStep'
+      context.report({ node, messageId, data })
+    }
+    return classUnitVisitors((node, pieces) => {
+      const texts = branchTexts(pieces)
+      for (const text of texts) {
+        const token = undefinedCap(text)
+        if (token !== null) {
+          context.report({ node, messageId: 'undefinedCap', data: { token } })
+          return
+        }
+      }
+      const { surface, card, element } = surfaceOf(node)
+      const well = element !== null && inDialogBody(element)
+      for (const text of texts) {
+        const framed = card || drawsFrame(text)
+        const threshold = framed && well ? DIALOG_WELL_STEP : surface || framed ? SURFACE_STEP : null
+        if (threshold === null) continue
+        const found = uncappedInset(text, threshold)
+        if (found) {
+          report(node, found, surface ?? (well ? "a frame inside a dialog's body" : 'a frame (a full border and a radius)'))
+          return
+        }
+      }
+      // A class a same-file binding holds, named in a surface's className, is read with it.
+      if (surface === null || node.type !== 'JSXAttribute') return
+      for (const identifier of identifiersIn(node.value, keys)) {
+        const def = resolvedVariable(sourceCode, identifier)?.defs?.[0]
+        const init = def?.node?.type === 'VariableDeclarator' ? def.node.init : null
+        if (!init || !isClassShaped(init)) continue
+        for (const text of branchTexts(collectStaticText(unwrapTs(init), new WeakSet()))) {
+          const found = uncappedInset(text, card && well ? DIALOG_WELL_STEP : SURFACE_STEP)
+          if (found) {
+            report(node, found, surface)
+            return
+          }
+        }
+      }
+    })
+  },
+}
+
 const plugin = {
   rules: {
+    'surface-padding-cap': surfacePaddingCap,
     'direction-text-tokens': directionTextTokens,
     'no-side-stripe': noSideStripe,
     'no-four-up-grid': noFourUpGrid,

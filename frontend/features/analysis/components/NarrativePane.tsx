@@ -244,7 +244,7 @@ export default function NarrativePane({
       : ''
 
   return (
-    <Card as="section" className="p-4 sm:p-6" data-analysis-print-scope={printScope}>
+    <Card as="section" className="p-4 sm:p-cap-6" data-analysis-print-scope={printScope}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h2

@@ -18,8 +18,12 @@
        stops at the scrim's inset and scrolls inside, so on a short or zoomed
        screen the ✕ and the actions stay reachable (the body is locked, so
        nothing else scrolls), and a control scrolled in by focus lands its
-       ring clear of the edge (scroll padding = the panel's p-6 inset).
-       Callers never size its height.
+       ring clear of the edge (scroll padding = the panel's capped inset,
+       scroll-py-cap-6). Callers never size its height.
+     - inset: the sections' side padding, the header's top and the footer's
+       bottom are px-cap-6 / pt-cap-6 / pb-cap-6, min(1.5rem, 6vw): 24px from
+       a 400px viewport up, and at 320px under 200% text 19.2px a side where
+       px-6 took 48px (E120; gate: earningsnerd/surface-padding-cap).
      - focus: moves into the panel on open (initialFocusRef ?? first focusable
        ?? the panel), Tab/Shift-Tab cycle inside, Escape closes (when
        dismissible), focus RETURNS to the opener on close; the trap arms once
@@ -167,7 +171,7 @@ export function Modal({
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className={cx(
-          'relative max-h-full w-full animate-fadeIn overflow-y-auto scroll-py-6 rounded-2xl border border-border-light bg-panel-light shadow-e5 outline-none',
+          'relative max-h-full w-full animate-fadeIn overflow-y-auto scroll-py-cap-6 rounded-2xl border border-border-light bg-panel-light shadow-e5 outline-none',
           'dark:border-white/10 dark:bg-panel-dark dark:shadow-none',
           SIZE[size],
           className,
@@ -221,7 +225,7 @@ export interface ModalHeaderProps extends HTMLAttributes<HTMLDivElement> {
 // title's pt-2 put a title under the icon the column gap (12px) below it. At the default size nothing moves.
 export function ModalHeader({ id, icon, tone = 'brand', onClose, className, children, ...rest }: ModalHeaderProps) {
   return (
-    <div className={cx('flex items-start gap-3 px-6 pt-6', className)} {...rest}>
+    <div className={cx('flex items-start gap-3 px-cap-6 pt-cap-6', className)} {...rest}>
       <div className="flex min-w-0 flex-1 flex-wrap items-start gap-x-3 gap-y-1">
         {icon ? (
           <span
@@ -256,13 +260,13 @@ export function ModalHeader({ id, icon, tone = 'brand', onClose, className, chil
 }
 
 export function ModalBody({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cx('px-6 py-4', className)} {...rest} />
+  return <div className={cx('px-cap-6 py-4', className)} {...rest} />
 }
 
 export function ModalFooter({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cx('flex flex-col gap-2 px-6 pb-6 pt-2 sm:flex-row sm:justify-end', className)}
+      className={cx('flex flex-col gap-2 px-cap-6 pb-cap-6 pt-2 sm:flex-row sm:justify-end', className)}
       {...rest}
     />
   )

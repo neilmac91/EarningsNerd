@@ -59,7 +59,7 @@ export default function ChangePasswordForm() {
   // would flash in for OAuth-only users (who default to hasPassword=true) before disappearing.
   if (connectionsLoading) {
     return (
-      <Card className="p-6 mb-6">
+      <Card className="p-cap-6 mb-6">
         {/* Form-shaped bones (heading + two fields) hold the same footprint the
             spinner card reserved via min-h, so resolve doesn't shift content. */}
         <div role="status" aria-label="Loading password form" className="min-h-[200px] space-y-4">
@@ -73,7 +73,7 @@ export default function ChangePasswordForm() {
   }
 
   return (
-    <Card className="p-6 mb-6">
+    <Card className="p-cap-6 mb-6">
       <div className="flex items-center gap-3 mb-2">
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
           {hasPassword ? 'Change password' : 'Set a password'}

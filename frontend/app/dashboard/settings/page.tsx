@@ -105,7 +105,7 @@ export default function SettingsPage() {
               Profile's email, display name and Save; Billing's plan and usage rows and its action. Raw bones
               are aria-hidden: one status names the wait. */}
           <div role="status" aria-label="Loading your settings">
-            <Card className="p-6 mb-6">
+            <Card className="p-cap-6 mb-6">
               <Skeleton className="mb-4 h-7 w-32" />
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -119,7 +119,7 @@ export default function SettingsPage() {
                 <Skeleton className="h-10 w-36 rounded-lg" />
               </div>
             </Card>
-            <Card className="p-6 mb-6">
+            <Card className="p-cap-6 mb-6">
               <Skeleton className="mb-4 h-7 w-28" />
               {[0, 1].map((i) => (
                 <div key={i} className="flex items-center justify-between py-3">
@@ -158,7 +158,7 @@ export default function SettingsPage() {
           <NotificationPreferencesForm />
 
           {/* Data Export */}
-          <Card className="p-6 mb-6">
+          <Card className="p-cap-6 mb-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
@@ -201,7 +201,7 @@ export default function SettingsPage() {
           </Card>
 
           {/* Delete Account — Card with the border overridden to the loss hairline */}
-          <Card className="border-loss-light/40 p-6 dark:border-loss-dark/30">
+          <Card className="border-loss-light/40 p-cap-6 dark:border-loss-dark/30">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <h2 className="text-xl font-semibold text-error-light dark:text-error-dark mb-2">
