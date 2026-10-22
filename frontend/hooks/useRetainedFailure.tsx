@@ -131,8 +131,9 @@ export interface RetryButtonProps
   > {
   /** The failures this control retries. Busy while any has a fetch in flight; a press retries the failed ones. */
   failures: RetainedFailure[]
-  /** Where focus goes if the Retry unmounts while it holds focus: a heading or status line with tabIndex={-1}.
-   * Any { current } object works; a getter resolves at focus time, as in the dashboard's saved-summary retry. */
+  /** Where focus goes if the Retry unmounts while it holds focus: a heading or status line with tabIndex={-1}, or
+   * the region its success renders in (TurnstileWidget's security check). Any { current } object works; a getter
+   * resolves at focus time, as in the dashboard's saved-summary retry. */
   focusTarget: RefObject<HTMLElement | null>
   /** The target is a text field: skip the hand-off after a pointer press (a tap on it busy included), so a tap never raises the touch keyboard. */
   textField?: boolean
