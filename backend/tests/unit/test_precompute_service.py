@@ -386,7 +386,7 @@ def test_forced_precompute_puts_the_excerpt_back_when_the_run_raises_or_is_cance
     _patch_sec(monkeypatch, filings=[_sec_filing(acc)])
     mid_run = {}
 
-    async def run_that_ends_abruptly(fid, _user_id=None, *, force_regenerate=False):
+    async def run_that_ends_abruptly(fid, user_id=None, *, force_regenerate=False):
         from app.database import SessionLocal
         from app.models import FilingContentCache
 
