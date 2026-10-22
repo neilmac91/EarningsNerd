@@ -19,7 +19,7 @@
 ============================================================================= */
 :root {
   /* next/font self-hosts under HASHED family names exposed ONLY as CSS vars
-     (--font-inter / --font-geist-mono / --font-newsreader — layout.tsx Option A):
+     (--font-inter / --font-geist-mono / --font-newsreader, declared once in app/fonts.ts):
      every stack LEADS with its next/font variable, literals are fallbacks
      (Option B <link> / non-Next consumers). EXCEPTION: --font-body is
      system-first BY DESIGN — -apple-system stays first (Apple hardware renders

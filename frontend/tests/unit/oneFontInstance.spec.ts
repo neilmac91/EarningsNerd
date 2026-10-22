@@ -12,10 +12,13 @@ import { describe, expect, it } from 'vitest'
  * run of text took was the browser's choice. The root's fonts now have one module, `app/fonts.ts`, which the layout and
  * the global error page import.
  *
- * The gate reads every TypeScript module under app/, components/, features/, hooks/ and lib/ through its syntax tree and
+ * The gate reads every JavaScript and TypeScript module under app/, components/, features/, hooks/ and lib/ (tsconfig allows
+ * JS, and Next compiles a loader call in either) through its syntax tree and
  * fails a call of a `next/font/google` loader outside `app/fonts.ts`, under any name an import gives it (a named import, an
  * alias, a namespace's member), a second call of one loader inside it, and a re-export of the package, which would let a
- * module call a loader the scan cannot place. It also holds the layout and the global error page to the module's `inter`.
+ * module call a loader the scan cannot place. It also holds the root layout to all three instances, each one's variable on
+ * its <html> (so a stack that leads with `--font-geist-mono` cannot lose its variable unseen), and the global error page
+ * to the module's `inter`.
  *
  * Out of its reach: `next/font/local` (BrandEmphasis's genuine Inter italic is its own face, D-057), a loader reached
  * through a value the scan cannot follow (a loader passed to a function, or held in a `let`), and modules outside the
@@ -31,9 +34,13 @@ interface Finding {
   why: string
 }
 
+/** How TypeScript parses a module, by its extension. */
+const scriptKind = (file: string) =>
+  /\.tsx$/.test(file) ? ts.ScriptKind.TSX : /\.ts$/.test(file) ? ts.ScriptKind.TS : /\.jsx$/.test(file) ? ts.ScriptKind.JSX : ts.ScriptKind.JS
+
 /** Every call of a next/font/google loader in one module, with the loader's own name, and every re-export of the package. */
 function loaderCalls(file: string, source: string): { calls: { loader: string; line: number }[]; reexports: number[] } {
-  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, scriptKind(file))
   const named = new Map<string, string>()
   const namespaces = new Set<string>()
   const reexports: number[] = []
@@ -98,9 +105,25 @@ function fontsImports(file: string, source: string): string[] {
 }
 
 const read = (rel: string) => readFileSync(path.join(FRONTEND, rel), 'utf8')
+
+/** The text of the className a module writes on its <html> element, or '' where it writes none. */
+function htmlClassName(file: string, source: string): string {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, scriptKind(file))
+  let found = ''
+  const visit = (n: ts.Node): void => {
+    if ((ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) && n.tagName.getText(sf) === 'html') {
+      for (const attr of n.attributes.properties) {
+        if (ts.isJsxAttribute(attr) && attr.name.getText(sf) === 'className' && attr.initializer) found = attr.initializer.getText(sf)
+      }
+    }
+    ts.forEachChild(n, visit)
+  }
+  visit(sf)
+  return found
+}
 const APP = execFileSync('git', ['ls-files', '-z', 'app', 'components', 'features', 'hooks', 'lib'], { cwd: FRONTEND, encoding: 'utf8' })
   .split('\0')
-  .filter((f) => /\.(ts|tsx)$/.test(f))
+  .filter((f) => /\.[cm]?[jt]sx?$/.test(f) && !/\.d\.ts$/.test(f))
 
 describe('one instance of each root font (E147)', () => {
   it('reads the forms it must fail and passes their look-alikes', () => {
@@ -109,6 +132,7 @@ describe('one instance of each root font (E147)', () => {
       'features/a/Aliased.tsx': "import { Inter as Sans } from 'next/font/google'\nexport const sans = Sans({ subsets: ['latin'] })\n",
       'lib/namespace.ts': "import * as google from 'next/font/google'\nexport const mono = google.Geist_Mono({ subsets: ['latin'] })\n",
       'lib/reexport.ts': "export { Inter } from 'next/font/google'\n",
+      'features/c/Legacy.jsx': "import { Newsreader } from 'next/font/google'\nexport const serif = Newsreader({ subsets: ['latin'] })\nexport const Page = () => <p className={serif.className}>Text</p>\n",
       [FONTS]: "import { Inter } from 'next/font/google'\nexport const a = Inter({ subsets: ['latin'] })\nexport const b = Inter({ subsets: ['latin'], axes: ['opsz'] })\n",
       'features/b/LookAlike.tsx': "import { Inter } from './typefaces'\nexport const x = Inter({})\n",
       'features/c/Local.tsx': "import localFont from 'next/font/local'\nexport const italic = localFont({ src: './i.woff2' })\n",
@@ -119,6 +143,7 @@ describe('one instance of each root font (E147)', () => {
       { file: 'features/a/Aliased.tsx', line: 2, why: 'calls Inter() outside app/fonts.ts' },
       { file: 'lib/namespace.ts', line: 2, why: 'calls Geist_Mono() outside app/fonts.ts' },
       { file: 'lib/reexport.ts', line: 1, why: 're-exports next/font/google' },
+      { file: 'features/c/Legacy.jsx', line: 2, why: 'calls Newsreader() outside app/fonts.ts' },
       { file: FONTS, line: 3, why: 'calls Inter() a second time' },
     ])
   })
@@ -134,8 +159,13 @@ describe('one instance of each root font (E147)', () => {
     expect(fontFindings(modules), `the root's fonts are declared once, in ${FONTS}: import its instances`).toEqual([])
   })
 
-  it("gives the layout and the global error page the fonts module's Inter", () => {
-    expect(fontsImports('app/layout.tsx', read('app/layout.tsx'))).toContain('inter')
+  it("gives the root layout every instance, each one's variable on its <html>, and the global error page the module's Inter", () => {
+    const exported = loaderCalls(FONTS, read(FONTS)).calls.length
+    const imported = fontsImports('app/layout.tsx', read('app/layout.tsx')).sort()
+    expect(imported, 'the layout imports every instance app/fonts.ts declares').toEqual(['geistMono', 'inter', 'newsreader'])
+    expect(imported).toHaveLength(exported)
+    const html = htmlClassName('app/layout.tsx', read('app/layout.tsx'))
+    for (const name of imported) expect(html, `the layout's <html> carries ${name}.variable`).toContain(`${name}.variable`)
     expect(fontsImports('app/global-error.tsx', read('app/global-error.tsx'))).toContain('inter')
   })
 })

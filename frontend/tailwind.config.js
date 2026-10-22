@@ -166,7 +166,7 @@ module.exports = {
       fontFamily: {
         // Type v2 — three FIXED roles (not user-selectable). Must mirror the CSS vars in globals.css.
         // next/font self-hosts under HASHED family names exposed ONLY as CSS vars
-        // (--font-inter / --font-geist-mono / --font-newsreader — see layout.tsx Option A), so
+        // (--font-inter / --font-geist-mono / --font-newsreader, declared once in app/fonts.ts), so
         // every stack LEADS with its next/font variable; the literals are fallbacks (Option B /
         // non-Next consumers). EXCEPTION: `body` is system-first BY DESIGN — -apple-system stays
         // first and the var precedes generic system-ui; do not "fix" it to lead. PACKAGING GATE:
