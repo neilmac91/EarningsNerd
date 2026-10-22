@@ -146,7 +146,8 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    row, under the user whose session it ended.
  * 7. /security promises nothing of refresh tokens and logging out that the code does not enforce when requests overlap
  *    (E127_PROMISES): a refresh token that works once (one-time, cannot be used twice, read beyond main's phrases only
- *    in a sentence about the refresh or session token: "a one-time recovery code" is another credential; a negation
+ *    in a sentence about the refresh or session token: "a one-time recovery code" is another credential, beside the
+ *    token too, ONE_TIME_OF_ANOTHER: "Refresh tokens are reusable, unlike one-time recovery codes."; a negation
  *    near "one-time", "good for one use" or "after one use" passes, NOT_NEAR: "Refresh tokens are not one-time
  *    credentials."), a reused one
  *    revoking the account or sweeping its sessions (every session ended, signed out on every device; a session that
@@ -557,21 +558,33 @@ const SWEEP = [
 ].join('|')
 /** Main's works-once phrases, read as main reads them, in any block. */
 const WORKS_ONCE = /\bworks? (?:only )?once\b|\bsingle[- ]use\b|\b(?:used|usable|valid|good) (?:only )?(?:once|one time)\b|\bonly once\b|\bone time only\b/i
+/** A credential that is not the refresh or session token, by its noun: a code, a link, a password, a key, an invite, a
+    PIN. */
+const CREDENTIAL = String.raw`(?:codes?|links?|passwords?|passcodes?|passphrases?|keys?|invit\w*|OTPs?|PINs?)`
+/** The words of another credential's name before its noun: "recovery codes", "password reset links", "sign-in
+    links". */
+const CREDENTIAL_NAME = String.raw`(?:recovery|verification|backup|login|log-in|sign-in|signin|magic|reset|password|invite|invitation|confirmation|security|access|authentication|auth|email|e-mail|SMS|text|API)`
+/** "One-time" as another credential's (#1456's eleventh round): directly before its noun, up to two words of its name
+    between ("Refresh tokens are reusable, unlike one-time recovery codes."), unless it is said of something, after
+    "is", "are" or "be", or compared with it, after "like" or "as", where the token may be what is one-time ("Refresh
+    tokens are one-time keys.", "Refresh tokens work like one-time codes."). */
+const ONE_TIME_OF_ANOTHER = String.raw`(?<!\b(?:is|are|was|were|be|been|being|like|as)\s+(?:(?:a|an|each|all|both|always|only|just|also|still|simply)\s+){0,2})\bone-time\s+(?:${CREDENTIAL_NAME}\s+){0,2}${CREDENTIAL}\b`
 /** The one-use forms main's phrases miss ("one-time", "good for one use", "cannot be used twice", "cannot be reused",
     "after one use"), read only in a sentence about the refresh or session token: one that names it (TOKEN_CONTEXT), or
     one in a block that names it and names no other credential (OTHER_CREDENTIAL), as "Each one cannot be reused." in
-    the Token renewal item. "A one-time recovery code", a reset link and a verification code are other credentials.
-    The forms that are no denial themselves read a negation near them (NOT_NEAR; #1456's tenth round): "Refresh
-    tokens are not one-time credentials." passes. */
+    the Token renewal item. "A one-time recovery code", a reset link and a verification code are other credentials,
+    and "one-time" directly before another credential's noun is that credential's in a sentence that names the token
+    too (ONE_TIME_OF_ANOTHER). The forms that are no denial themselves read a negation near them (NOT_NEAR; #1456's
+    tenth round): "Refresh tokens are not one-time credentials." passes. */
 const ONE_USE = new RegExp(
-  String.raw`${NOT_NEAR}(?:\bone-time\b|\b(?:used|usable|valid|good)(?: only)? for (?:one|a single) use\b|\bafter (?:one|a single|its first) use\b)` +
+  String.raw`${NOT_NEAR}(?:(?!${ONE_TIME_OF_ANOTHER})\bone-time\b|\b(?:used|usable|valid|good)(?: only)? for (?:one|a single) use\b|\bafter (?:one|a single|its first) use\b)` +
     String.raw`|\b(?:can(?:not|['’]t| not)|can never|may not|never|won['’]t) be (?:used|presented|accepted) (?:twice|again|more than once|a second time)\b|\b(?:can(?:not|['’]t| not)|can never|won['’]t) be re-?used\b`,
   'i',
 )
 /** The refresh or session token, or token renewal, named. */
 const TOKEN_CONTEXT = /\b(?:refresh|session)[- ]tokens?\b|\btoken renewal\b/i
-/** A credential that is not the refresh or session token: a code, a link, a password, a key, an invite, a PIN. */
-const OTHER_CREDENTIAL = /\b(?:codes?|links?|passwords?|passcodes?|passphrases?|keys?|invit\w*|OTPs?|PINs?)\b/i
+/** A credential that is not the refresh or session token (CREDENTIAL), named. */
+const OTHER_CREDENTIAL = new RegExp(String.raw`\b${CREDENTIAL}\b`, 'i')
 /** A sentence about the refresh or session token: one that names it (TOKEN_CONTEXT), or one in a block that names it
     and that names no other credential (OTHER_CREDENTIAL). */
 const aboutTheToken = (block: string) => (sentence: string) => TOKEN_CONTEXT.test(sentence) || (TOKEN_CONTEXT.test(block) && !OTHER_CREDENTIAL.test(sentence))
@@ -1563,6 +1576,15 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // A one-use form denied, beside the promise it denies (#1456's tenth round, Codex's thread 4344569270).
       ['<li>Refresh tokens are one-time credentials.</li>', true],
       ['<li>Refresh tokens are not one-time credentials.</li>', false],
+      // "One-time" directly before another credential's noun is that credential's, in a sentence that names the refresh
+      // token too, beside the token said to be one-time, as a credential's noun said of it or compared with it too
+      // (#1456's eleventh round, Codex's thread 4346660313).
+      ['<li>Refresh tokens are reusable, unlike one-time recovery codes.</li>', false],
+      ['<li>Refresh tokens are one-time tokens, unlike recovery codes.</li>', true],
+      ['<li>Unlike recovery codes, refresh tokens are one-time.</li>', true],
+      ['<li>Refresh tokens are one-time.</li>', true],
+      ['<li>Refresh tokens are one-time keys.</li>', true],
+      ['<li>Refresh tokens work like one-time codes.</li>', true],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
