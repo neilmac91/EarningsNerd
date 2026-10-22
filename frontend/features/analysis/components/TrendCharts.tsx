@@ -39,7 +39,7 @@ import {
 import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, ImageSquareIcon } from '@/lib/icons'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import analytics from '@/lib/analytics'
-import { fmtCurrency, fmtPercent } from '@/lib/format'
+import { fmtCurrency, fmtPercent, formatInstant } from '@/lib/format'
 import { chartDataNotes, exportFilename, exportPanelPng } from '@/features/analysis/lib/chartExport'
 import {
   ANNUAL_AXIS_HEIGHT,
@@ -429,6 +429,8 @@ function PanelCard({
 
   const exportPng = async () => {
     if (!plotRef.current) return
+    // The source data's sync time, an instant, as the day it falls on in the reader's zone (DataNotes prints the long form).
+    const sourceDate = formatInstant(dataset.data_as_of, 'MMM d, yyyy')
     const downloaded = await exportPanelPng(
       plotRef.current,
       exportFilename(dataset, panel.title, 'png'),
@@ -443,7 +445,7 @@ function PanelCard({
           ticker: dataset.ticker,
           title: panel.title,
           legend: legendItems.length >= 2 ? legendItems : [],
-          sourceNote: `Source: SEC filings via EarningsNerd · ${dataset.data_as_of ? `data as of ${dataset.data_as_of}` : 'source refresh time unavailable'}`,
+          sourceNote: `Source: SEC filings via EarningsNerd · ${sourceDate ? `data as of ${sourceDate}` : 'source refresh time unavailable'}`,
           disclosure: 'Research only. Not investment advice. Data may contain errors or omissions. earningsnerd.io/terms',
           notes: exportNotes,
         },

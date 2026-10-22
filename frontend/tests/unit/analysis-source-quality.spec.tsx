@@ -104,8 +104,10 @@ describe('Financial origin and source checks', () => {
     rerender(<DataNotes dataset={report} sample />)
     expect(references(), 'Report references in a sample').toBe(0)
     expect(container.textContent?.includes('locator-one'), 'the sample shows its snapshot id').toBe(false)
-    // The as-of line stays: the run's source data really is as of that time, written as a live report writes it.
-    expect(container).toHaveTextContent('Source data as of 2026-10-20T18:38:47.008084Z.')
+    // The as-of line stays, as its day, written as a live report writes it (analysis-source-date.spec.tsx pins the
+    // day in a fixed zone; this case reads it in the runner's).
+    expect(container).toHaveTextContent(/Source data as of October 2[01], 2026\./)
+    expect(container.textContent).not.toContain('2026-10-20T')
   })
 
   it('lists visible table note letters in admitted report order, including unavailable cells', async () => {
