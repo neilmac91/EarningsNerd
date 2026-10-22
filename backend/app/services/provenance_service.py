@@ -17,14 +17,19 @@ Design notes
 from __future__ import annotations
 
 import copy
+import json
+import math
 import re
+from decimal import Decimal
 from typing import Any, Optional
 from urllib.parse import quote
 
+from app.schemas.summary import NormalizedFact, _format_xbrl_value
 from app.services import metric_delta_service
 from app.services.ai.recovery_context import clean_filing_source
 from app.services.summary_schema import RISK_SOURCE_CONTEXT_KEY, RISK_SOURCE_CONTEXT_VERSION
 from app.services.summary_sections import render_sections, render_sections_json, sections_to_markdown
+from app.utils.numbers import display_currency, money_prefix_for, parse_display_number
 
 # An excerpt shorter than this (after normalization) is too generic to verify reliably, so we never
 # claim it as "verified in filing".
@@ -66,9 +71,9 @@ _QUOTE_MARKS_OPEN = "\"'“‘"
 _QUOTE_MARKS_CLOSE = "\"'”’"
 
 # Maps an AI metric-name pattern -> (standardized XBRL key produced by
-# ``xbrl_service.extract_standardized_metrics``, human label). Ordered: more specific first.
-# EPS and margins are intentionally excluded — the value-in-text check below is only reliable for
-# large dollar figures, so we never claim "verified" for small/derived numbers (honest labeling).
+# ``xbrl_service.extract_standardized_metrics``, human label). Ordered: more specific first. The
+# bank-revenue guards read it; the figure check maps whole labels instead (``source_metric_key``).
+# EPS and margins are intentionally excluded (honest labeling: never "verified" for small/derived numbers).
 _METRIC_XBRL_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     # Financial-institution revenue components/totals FIRST, so "Net interest income" /
     # "Non-interest income" verify against their own XBRL concept and are never shadowed by the
@@ -90,8 +95,36 @@ _METRIC_XBRL_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     (re.compile(r"\b(shareholders|stockholders)[’'`]?s?\s+equity\b"), "shareholders_equity", "Shareholders’ equity"),
     (re.compile(r"\blong[-\s]?term\s+debt\b"), "long_term_debt", "Long-term debt"),
 ]
-# Below this magnitude the appears-in-text rendering check is ambiguous, so we don't claim "verified".
+# The figure check covers large dollar amounts only; per-share figures and ratios are never checked.
 _MIN_VERIFIABLE_XBRL_VALUE = 1e6
+# The figure check maps a row by its WHOLE label, as the exact-delta binder does
+# (``metric_delta_service.strict_xbrl_metric_key``). A substring match let "Services net sales" borrow
+# the company's total revenue, so a correct segment figure read as a failed match, and the filed-value
+# swap below would have overwritten it with the total. These labels add the balance-sheet and
+# operating-cash-flow lines the check has always covered, each one filed fact. Free cash flow is
+# computed, not filed, and filers sign capital expenditures either way, so neither is checked.
+_SOURCE_EXTRA_KEYS = {
+    "net revenue": "revenue",
+    "net revenues": "revenue",
+    "income from operations": "operating_income",
+    "total assets": "total_assets",
+    "cash and cash equivalents": "cash_and_equivalents",
+    "cash & cash equivalents": "cash_and_equivalents",
+    "cash and equivalents": "cash_and_equivalents",
+    "operating cash flow": "operating_cash_flow",
+    "cash flow from operations": "operating_cash_flow",
+    "cash from operations": "operating_cash_flow",
+    "net cash provided by operating activities": "operating_cash_flow",
+    "shareholders' equity": "shareholders_equity",
+    "stockholders' equity": "shareholders_equity",
+    "total shareholders' equity": "shareholders_equity",
+    "total stockholders' equity": "shareholders_equity",
+    "long-term debt": "long_term_debt",
+    "long term debt": "long_term_debt",
+}
+_NEVER_CHECKED_KEYS = frozenset({"eps_diluted", "net_margin", "gross_margin", "operating_margin"})
+_SOURCE_KEY_LABELS = {key: label for _pattern, key, label in _METRIC_XBRL_PATTERNS}
+_ROW_PERIOD_FACT = {"current_period": "current", "prior_period": "prior"}
 
 # Risks are a source-first surface. These keys are written only by application code after the
 # model response has been associated with the filing text that produced it. A model-supplied copy
@@ -464,25 +497,57 @@ def map_metric_to_xbrl_key(metric_name: Any) -> Optional[tuple[str, str]]:
     return None
 
 
-def _value_appears_in_text(value: float, text_lower: str) -> bool:
-    """Whether an XBRL float value appears in text, in common renderings (billions/millions/grouped).
+def source_metric_key(metric_name: Any) -> Optional[str]:
+    """The standardized concept a highlights row's figure is checked against, read from its whole label.
 
-    Mirrors the summary generator's numeric-grounding check. Reliable only for large (million+) dollar
-    figures, which is why metric verification is gated to those.
+    ``None`` for a label no concept owns outright: a segment or component line, a qualified total, a
+    per-share figure or a ratio.
     """
-    if not text_lower:
+    key = metric_delta_service.strict_xbrl_metric_key(metric_name)
+    if key is None and isinstance(metric_name, str):
+        key = _SOURCE_EXTRA_KEYS.get(" ".join(metric_name.casefold().replace("’", "'").split()))
+    return None if key in _NEVER_CHECKED_KEYS else key
+
+
+def _filed_fact(entry: Any, period: str) -> Optional[dict]:
+    """``entry[period]`` when it holds a finite filed amount."""
+    fact = entry.get(period) if isinstance(entry, dict) else None
+    value = fact.get("value") if isinstance(fact, dict) else None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return None
+    return fact
+
+
+def _row_figure(row: dict, field: str) -> Any:
+    """A row's displayed figure for ``current_period`` or ``prior_period``, in either key spelling."""
+    return row.get(field) or row.get("currentPeriod" if field == "current_period" else "priorPeriod")
+
+
+# Code-written bank rows name the period after the figure ("$95,443,000,000 (2025-12-31)",
+# ``ai/bank_guards.py``); the check reads the figure before it.
+_PERIOD_SUFFIX_RE = re.compile(r"\s*\(\d{4}-\d{2}-\d{2}\)\s*$")
+
+
+def _figure_text(text: Any) -> Any:
+    return _PERIOD_SUFFIX_RE.sub("", text) if isinstance(text, str) else text
+
+
+def _shows_filed_value(text: Any, fact: dict) -> bool:
+    """Whether a displayed figure is the filed fact: at the display's own scale and last stated digit,
+    and in the fact's currency when the display names one."""
+    has_currency, shown_currency = display_currency(text)
+    currency = fact.get("currency")
+    if has_currency and isinstance(currency, str) and shown_currency != currency.upper():
         return False
-    av = abs(value)
-    candidates: set[str] = set()
-    if av >= 1e9:
-        for d in range(0, 4):  # "383", "383.3", "383.29", "383.285"
-            candidates.add(f"{av / 1e9:.{d}f}")
-    if av >= 1e6:
-        for d in range(0, 4):  # grouped + ungrouped millions
-            candidates.add(f"{av / 1e6:.{d}f}")
-            candidates.add(f"{av / 1e6:,.{d}f}")
-    candidates.add(f"{int(round(av)):,}")
-    return any(c in text_lower for c in candidates if len(c.replace(",", "")) >= 2)
+    return metric_delta_service.display_matches_value(text, fact["value"])
+
+
+def _filed_amount(fact: dict, reporting_currency: Any) -> str:
+    """A filed amount in millions, the way a statement prints it ("$133,050 million")."""
+    millions = Decimal(str(fact["value"])) / Decimal(1_000_000)
+    figure = f"{abs(millions):,.3f}".rstrip("0").rstrip(".")
+    sign = "−" if millions < 0 else ""
+    return f"{sign}{money_prefix_for(fact.get('currency') or reporting_currency)}{figure} million"
 
 
 def build_metric_source(
@@ -493,12 +558,16 @@ def build_metric_source(
 ) -> dict[str, Any]:
     """Compute provenance for a single financial-metric row.
 
-    Returns ``{source_section_ref, source_url, source_verified, source_checkable, xbrl_concept}``.
-    ``source_verified`` is True only when the metric maps to a standardized XBRL concept whose
-    SEC-verified value (a large dollar figure) actually appears in the row's ``current_period``
-    rendering. ``source_checkable`` says the check could run at all (a mapped concept with a value of
-    at least ``_MIN_VERIFIABLE_XBRL_VALUE``): per-share figures, ratios, margins and segment lines are
-    never checked, so a tally of matched figures counts its denominator from these rows only.
+    Returns ``{source_section_ref, source_url, source_verified, source_checkable, xbrl_concept}`` and, for
+    a checkable row, ``source_filed``: each compared period's filed amount in words, for the evidence
+    panel. ``source_checkable`` says the check could run at all: the row's whole label names a
+    standardized concept (``source_metric_key``) whose filed value is at least
+    ``_MIN_VERIFIABLE_XBRL_VALUE``, and its current figure is a number. Per-share figures, ratios,
+    margins and segment lines are never checked, so a tally of matched figures counts its denominator
+    from these rows only. ``source_verified`` is True only when every period the row shows, and the
+    filing's data holds for a comparable period, matches at the row's own scale and last stated digit
+    (``metric_delta_service.display_matches_value``). A period that does not is named in
+    ``source_mismatched``, and ``enrich_financial_highlights`` swaps the filed figure in for it.
     """
     base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
     out: dict[str, Any] = {
@@ -509,22 +578,113 @@ def build_metric_source(
         "xbrl_concept": None,
     }
 
-    mapping = map_metric_to_xbrl_key(metric_row.get("metric"))
-    if not mapping or not isinstance(xbrl_standardized, dict):
-        return out
-    key, label = mapping
-    entry = xbrl_standardized.get(key)
-    current = entry.get("current") if isinstance(entry, dict) else None
-    value = current.get("value") if isinstance(current, dict) else None
-    if not isinstance(value, (int, float)) or abs(value) < _MIN_VERIFIABLE_XBRL_VALUE:
+    key = source_metric_key(metric_row.get("metric"))
+    entry = xbrl_standardized.get(key) if key and isinstance(xbrl_standardized, dict) else None
+    current = _filed_fact(entry, "current")
+    shown = {field: _figure_text(_row_figure(metric_row, field)) for field in _ROW_PERIOD_FACT}
+    if (
+        current is None
+        or abs(current["value"]) < _MIN_VERIFIABLE_XBRL_VALUE
+        or parse_display_number(shown["current_period"])[0] is None
+    ):
         return out
 
     out["source_checkable"] = True
-    displayed = str(metric_row.get("current_period") or "").lower()
-    if _value_appears_in_text(float(value), displayed):
+    compared = {"current_period": current}
+    prior = _filed_fact(entry, "prior")
+    if (
+        prior is not None
+        and metric_delta_service.comparable_facts(current, prior)
+        and parse_display_number(shown["prior_period"])[0] is not None
+    ):
+        compared["prior_period"] = prior
+    reporting_currency = xbrl_standardized.get("reporting_currency")
+    out["source_filed"] = {field: _filed_amount(fact, reporting_currency) for field, fact in compared.items()}
+    mismatched = [field for field, fact in compared.items() if not _shows_filed_value(shown[field], fact)]
+    if mismatched:
+        out["source_mismatched"] = mismatched
+    else:
         out["source_verified"] = True
-        out["xbrl_concept"] = label
+        out["xbrl_concept"] = _SOURCE_KEY_LABELS.get(key)
     return out
+
+
+def _swap_in_filed_figures(row: dict, xbrl_standardized: Any) -> None:
+    """Show the filed figure where the summary's own differs from it (the founder's call, 2026-10-22).
+
+    ``source_replaced`` keeps the summary's text for each swapped period, so the evidence panel can say
+    what changed; the figure becomes the filed amount, written as the table's other code-written cells
+    are (``schemas.summary._format_xbrl_value``). The change computed from the summary's figures is
+    dropped, so the exact binder recomputes it from the filed pair. A takeaway that states a number was
+    written from the replaced figure, so it is withheld rather than left to contradict its row.
+    """
+    mismatched = row.pop("source_mismatched", None)
+    if not mismatched:
+        return
+    key = source_metric_key(row.get("metric"))
+    entry = xbrl_standardized[key]
+    reporting_currency = xbrl_standardized.get("reporting_currency")
+    replaced: dict[str, Any] = {}
+    for field in mismatched:
+        fact = entry[_ROW_PERIOD_FACT[field]]
+        replaced[field] = _row_figure(row, field)
+        figure = _format_xbrl_value(key, fact["value"], money_prefix_for(fact.get("currency") or reporting_currency))
+        row[field] = figure
+        camel = "currentPeriod" if field == "current_period" else "priorPeriod"
+        if camel in row:
+            row[camel] = figure
+    row["source_replaced"] = replaced
+    row["source_verified"] = True
+    row["xbrl_concept"] = _SOURCE_KEY_LABELS.get(key)
+    for field in ("change_display", "change_direction", "change_tone"):
+        row.pop(field, None)
+    commentary = row.get("commentary")
+    if isinstance(commentary, str) and re.search(r"\d", commentary):
+        row["commentary"] = ""
+        row.pop("supporting_evidence", None)
+        row.pop("supportingEvidence", None)
+        row["commentary_withheld"] = "figure_replaced"
+
+
+# A takeaway's excerpt may lead with the section it quotes ('Item 7: "Services net sales increased…"').
+_LEADING_SECTION_RE = re.compile(r"^\s*(Item\s+\d+[A-C]?\b[^:\"“]*?)\s*:\s*[\"“]")
+
+
+def _excerpt_section_ref(excerpt: str) -> Optional[str]:
+    """The section a takeaway's excerpt names for itself, or ``None``.
+
+    Never the row's ``source_section_ref``: that is where the table's figures come from (the
+    statements, "Item 8. Financial Statements"), and a takeaway's driver is usually quoted from Item 7,
+    so inheriting it told the reader to look for the passage in the wrong Item.
+    """
+    match = _LEADING_SECTION_RE.match(excerpt)
+    return match.group(1).strip() if match else None
+
+
+def _refresh_normalized(section: dict) -> None:
+    """Rewrite each swapped row's stored normalized fact from its new figures.
+
+    ``attach_normalized_facts`` derived these from the summary's own figures at generation; the
+    homepage hero reads them (``frontend/lib/serverApi.ts``, ``pickMetrics``), so a stale fact would
+    show the figure the table replaced.
+    """
+    normalized = section.get("normalized")
+    facts = normalized.get("metrics") if isinstance(normalized, dict) else None
+    if not isinstance(facts, list):
+        return
+    swapped = {
+        row.get("metric"): row for row in section["table"]
+        if isinstance(row, dict) and row.get("source_replaced")
+    }
+    for index, fact in enumerate(facts):
+        row = swapped.get(fact.get("metric")) if isinstance(fact, dict) else None
+        if row is not None:
+            facts[index] = json.loads(NormalizedFact(
+                metric=row["metric"],
+                current_period=_row_figure(row, "current_period"),
+                prior_period=_row_figure(row, "prior_period"),
+                commentary=row.get("commentary") or None,
+            ).model_dump_json(by_alias=True))
 
 
 def _base_url(filing: Any) -> str:
@@ -652,10 +812,12 @@ def enrich_financial_highlights(
     is dropped for a no-total bank (:func:`_is_no_total_bank`) so a wrong figure never renders.
 
     ``build_metric_source`` verifies the row's NUMBER against SEC XBRL (the ``source_*``/``xbrl_concept``
-    chip). Distinct from that, when ``normalized_source`` is supplied (the v2 path), the row's
-    Investor-Takeaway is cited too: its model ``supporting_evidence`` excerpt is text-verified into a
-    separate ``commentary_evidence`` dict (T4.2 — the founder's direct ask), so the number and the
-    takeaway carry independent, honestly-labeled provenance.
+    chip), and a checkable figure that differs from the filed one is replaced by it
+    (``_swap_in_filed_figures``) before any change is computed. Distinct from that, when
+    ``normalized_source`` is supplied (the v2 path), the row's Investor-Takeaway is cited too: its model
+    ``supporting_evidence`` excerpt is text-verified into a separate ``commentary_evidence`` dict
+    (T4.2 — the founder's direct ask), so the number and the takeaway carry independent,
+    honestly-labeled provenance.
     """
     if not isinstance(financial_highlights, dict) or not isinstance(
         financial_highlights.get("table"), list
@@ -668,14 +830,6 @@ def enrich_financial_highlights(
     )
     base_url = _base_url(filing)
     result = copy.deepcopy(financial_highlights)
-    # A generation-stamped envelope may retain each already-bound exact delta when the best-effort
-    # XBRL reload lacks that row's complete operand pair. Every unmarked/forged envelope is scrubbed;
-    # a complete reloaded pair always re-enters strict binding, so conflicting facts are refused.
-    result = metric_delta_service.bind_exact_xbrl_deltas(
-        result,
-        xbrl_standardized,
-        preserve_owned_when_unavailable=exact_delta_owned,
-    )
     rows = result["table"]
     if _is_no_total_bank(xbrl_standardized):
         rows = [
@@ -685,10 +839,25 @@ def enrich_financial_highlights(
                 and (map_metric_to_xbrl_key(r.get("metric")) or (None,))[0] == "revenue"
             )
         ]
-    enriched_rows: list[Any] = []
     for row in rows:
         if isinstance(row, dict):
             row.update(build_metric_source(row, filing, xbrl_standardized, section_ref))
+            _swap_in_filed_figures(row, xbrl_standardized)
+    result["table"] = rows
+    if any(isinstance(row, dict) and row.get("source_replaced") for row in rows):
+        _refresh_normalized(result)
+    # A generation-stamped envelope may retain each already-bound exact delta when the best-effort
+    # XBRL reload lacks that row's complete operand pair. Every unmarked/forged envelope is scrubbed;
+    # a complete reloaded pair always re-enters strict binding, so conflicting facts are refused. It
+    # runs on the reconciled rows, so a swapped figure's change is bound from the filed pair.
+    result = metric_delta_service.bind_exact_xbrl_deltas(
+        result,
+        xbrl_standardized,
+        preserve_owned_when_unavailable=exact_delta_owned,
+    )
+    enriched_rows: list[Any] = []
+    for row in result["table"]:
+        if isinstance(row, dict):
             # Single delta policy: ship the computed change display/direction/tone so the table
             # renders one canonical string (ppts for margins) and does no client-side math (T1.5).
             if not row.get("change_display"):
@@ -698,7 +867,7 @@ def enrich_financial_highlights(
                 if isinstance(excerpt, str) and excerpt.strip():
                     row["commentary_evidence"] = build_evidence(
                         excerpt,
-                        row.get("source_section_ref") or section_ref,
+                        _excerpt_section_ref(excerpt),
                         base_url,
                         normalized_source,
                     )

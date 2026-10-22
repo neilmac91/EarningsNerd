@@ -361,6 +361,130 @@ class TestBuildMetricSource:
         assert out["source_checkable"] is False
 
 
+def _annual(value, end, start):
+    return {"value": value, "period": end, "period_start": start, "form": "10-K", "currency": "USD"}
+
+
+# Apple's FY2025 10-K (accession 0000320193-25-000079): the filed pairs, in USD.
+APPLE = {
+    "reporting_currency": "USD",
+    "revenue": {"current": _annual(416_161e6, "2025-09-27", "2024-09-29"),
+                "prior": _annual(391_035e6, "2024-09-28", "2023-10-01")},
+    "operating_income": {"current": _annual(133_050e6, "2025-09-27", "2024-09-29"),
+                         "prior": _annual(123_216e6, "2024-09-28", "2023-10-01")},
+    "free_cash_flow": {"current": _annual(98_767e6, "2025-09-27", "2024-09-29")},
+}
+
+
+class TestFigureCheck:
+    """The figure check reads a row's whole label and its numbers' own scale and precision (2026-10-22)."""
+
+    def _check(self, metric, current, prior="—", xbrl=APPLE):
+        return prov.build_metric_source(
+            {"metric": metric, "current_period": current, "prior_period": prior}, _filing(), xbrl, None,
+        )
+
+    @pytest.mark.parametrize("shown", ["$416.2B", "$416.16B", "$416,161M", "$416,161,000,000"])
+    def test_any_rounding_of_the_filed_value_matches(self, shown):
+        out = self._check("Total net sales", shown)
+        assert out["source_verified"] is True
+        assert out["xbrl_concept"] == "Revenue"
+
+    @pytest.mark.parametrize("shown", ["$416.2M", "$416.9B", "$4,416.2B", "$41.6B"])
+    def test_a_wrong_scale_or_digit_does_not_match(self, shown):
+        # The substring check this replaced read "$416.2M", "$416.9B" and "$4,416.2B" as matched.
+        out = self._check("Total net sales", shown)
+        assert out["source_checkable"] is True
+        assert out["source_verified"] is False
+        assert out["source_mismatched"] == ["current_period"]
+
+    def test_the_prior_period_is_checked_too(self):
+        out = self._check("Total net sales", "$416.2B", "$383.3B")
+        assert out["source_verified"] is False
+        assert out["source_mismatched"] == ["prior_period"]
+        assert self._check("Total net sales", "$416.2B", "$391.0B")["source_verified"] is True
+
+    def test_a_prior_of_another_duration_is_not_compared(self):
+        quarterly_prior = {**APPLE, "revenue": {**APPLE["revenue"], "prior": _annual(94_930e6, "2024-09-28", "2024-06-30")}}
+        out = self._check("Total net sales", "$416.2B", "$391.0B", quarterly_prior)
+        assert out["source_verified"] is True
+        assert set(out["source_filed"]) == {"current_period"}
+
+    def test_names_each_compared_period_as_filed(self):
+        out = self._check("Total net sales", "$416.2B", "$391.0B")
+        assert out["source_filed"] == {"current_period": "$416,161 million", "prior_period": "$391,035 million"}
+
+    @pytest.mark.parametrize("metric", ["Services net sales", "Products net sales", "Revenue growth"])
+    def test_a_segment_or_qualified_line_is_never_checked(self, metric):
+        # A substring map compared "Services net sales" with total revenue and read a correct figure as a miss.
+        out = self._check(metric, "$109,158M", "$96,169M")
+        assert out["source_checkable"] is False
+        assert out["source_verified"] is False
+
+    def test_a_computed_figure_is_never_checked(self):
+        assert self._check("Free cash flow", "$98.8B")["source_checkable"] is False
+
+    def test_a_display_in_another_currency_does_not_match(self):
+        out = self._check("Total net sales", "CNY 416.2B")
+        assert out["source_verified"] is False
+
+    def test_a_figure_that_is_not_a_number_is_not_checkable(self):
+        assert self._check("Total net sales", "Not disclosed")["source_checkable"] is False
+
+
+class TestFiledFigureSwap:
+    """A checkable figure that differs from the filed one is replaced by it (the founder's call, 2026-10-22)."""
+
+    def _enrich(self, *rows, normalized=None):
+        fh = {"source_section_ref": "Item 8. Financial Statements", "table": [dict(r) for r in rows]}
+        if normalized is not None:
+            fh["normalized"] = normalized
+        return prov.enrich_financial_highlights(fh, _filing(), APPLE)
+
+    def test_the_filed_figure_replaces_the_summarys(self):
+        out = self._enrich({"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
+                            "change_display": "+7.2%", "change_direction": "up", "change_tone": "gain"})
+        row = out["table"][0]
+        assert row["current_period"] == "$133,050,000,000"
+        assert row["prior_period"] == "$123,216M"
+        assert row["source_replaced"] == {"current_period": "$132,100M"}
+        assert row["source_verified"] is True
+        assert row["xbrl_concept"] == "Operating income"
+        assert "source_mismatched" not in row
+        # The change is recomputed from the filed pair, never kept from the summary's figures.
+        assert row["change_display"] == "+8.0%"
+
+    def test_a_takeaway_that_states_a_number_is_withheld(self):
+        row = self._enrich({"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
+                            "commentary": "Operating income increased 7.2% YoY.",
+                            "supporting_evidence": "Operating income increased during 2025."})["table"][0]
+        assert row["commentary"] == ""
+        assert row["commentary_withheld"] == "figure_replaced"
+        assert "supporting_evidence" not in row
+
+    def test_a_takeaway_without_numbers_stays(self):
+        row = self._enrich({"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
+                            "commentary": "Higher Services sales drove the increase."})["table"][0]
+        assert row["commentary"] == "Higher Services sales drove the increase."
+        assert "commentary_withheld" not in row
+
+    def test_a_matching_or_unchecked_row_is_left_alone(self):
+        out = self._enrich(
+            {"metric": "Total net sales", "current_period": "$416,161M", "prior_period": "$391,035M"},
+            {"metric": "Services net sales", "current_period": "$109,158M", "prior_period": "$96,169M"},
+        )
+        assert [r["current_period"] for r in out["table"]] == ["$416,161M", "$109,158M"]
+        assert all("source_replaced" not in r for r in out["table"])
+
+    def test_the_stored_normalized_fact_follows_the_swap(self):
+        stale = {"metric": "Operating income", "currentPeriod": "$132,100M", "priorPeriod": "$123,216M", "deltaPercent": 7.2}
+        out = self._enrich({"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M"},
+                           normalized={"metrics": [stale]})
+        fact = out["normalized"]["metrics"][0]
+        assert fact["currentPeriod"] == "$133,050,000,000"
+        assert round(fact["deltaPercent"], 1) == 8.0
+
+
 class TestEnrichFinancialHighlights:
     XBRL = {"revenue": {"current": {"value": 391035000000.0}}}
 
@@ -484,6 +608,23 @@ class TestV2CitationEnrichment:
         assert row["commentary_evidence"]["verified"] is True
         # The number provenance (source_*) and the takeaway citation are independent fields.
         assert "source_verified" in row and "commentary_evidence" in row
+
+    def test_a_takeaway_passage_never_borrows_the_tables_section(self):
+        # The table's section is where its figures come from; the live Apple example labelled Item 7
+        # sentences "Item 8. Financial Statements" by inheriting it. A passage names its section only
+        # when its own excerpt leads with one.
+        raw = self._raw()
+        raw["sections"]["results_that_matter"]["source_section_ref"] = "Item 8. Financial Statements"
+        row = raw["sections"]["results_that_matter"]["table"][0]
+        quoted = row["supporting_evidence"]
+        out = prov.enrich_raw_summary(raw, _filing(critical_excerpt=self.SRC))
+        evidence = out["sections"]["results_that_matter"]["table"][0]["commentary_evidence"]
+        assert evidence["verified"] is True and evidence["section_ref"] is None
+        assert out["sections"]["results_that_matter"]["table"][0]["source_section_ref"] == "Item 8. Financial Statements"
+
+        row["supporting_evidence"] = f'Item 7. MD&A: "{quoted}"'
+        out = prov.enrich_raw_summary(raw, _filing(critical_excerpt=self.SRC))
+        assert out["sections"]["results_that_matter"]["table"][0]["commentary_evidence"]["section_ref"] == "Item 7. MD&A"
 
     def _enrich_one_quote(self, quote):
         raw = self._raw()

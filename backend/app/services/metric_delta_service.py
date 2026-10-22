@@ -197,6 +197,17 @@ def _display_matches_exact(text: Any, exact: Decimal) -> bool:
     return abs(displayed - exact) <= resolution / 2 + epsilon
 
 
+def display_matches_value(text: Any, value: Any) -> bool:
+    """Whether a displayed figure is ``value`` at the display's own scale and last stated digit.
+
+    The figure check (``provenance_service.build_metric_source``) reads a row's numbers with the same
+    rounding bucket the exact binder uses: "$416.2B" and "$416,161M" match 416,161,000,000, while
+    "$416.2M" (the wrong scale) and "$416.9B" (the wrong digit) do not.
+    """
+    exact = _as_finite_decimal(value)
+    return exact is not None and _display_matches_exact(text, exact)
+
+
 def _matching_duration_scopes(current: dict, prior: dict) -> bool:
     """Reject an annual/quarterly/YTD context mix when both facts expose duration metadata."""
     current_start, prior_start = current.get("period_start"), prior.get("period_start")
@@ -214,6 +225,40 @@ def _matching_duration_scopes(current: dict, prior: dict) -> bool:
     return current_days > 0 and prior_days > 0 and abs(current_days - prior_days) <= 8
 
 
+def comparable_facts(current: Any, prior: Any) -> bool:
+    """Whether two standardized facts are one concept's current and prior periods.
+
+    Distinct, named periods of the same form, fiscal period, currency, duration scope and tag. Missing
+    optional metadata stays unknown rather than being fabricated; a conflict is an explicit refusal. The
+    exact binder and the figure check (``provenance_service.build_metric_source``) share this one test.
+    """
+    if not isinstance(current, dict) or not isinstance(prior, dict):
+        return False
+    current_period = current.get("period")
+    prior_period = prior.get("period")
+    if (
+        not isinstance(current_period, str) or not current_period.strip()
+        or not isinstance(prior_period, str) or not prior_period.strip()
+        or current_period.strip() == prior_period.strip()
+    ):
+        return False
+
+    # Reject cross-form, cross-quarter, currency and duration/instant drift.
+    for field in ("form", "fiscal_period", "currency"):
+        left, right = current.get(field), prior.get(field)
+        if left is not None and right is not None and left != right:
+            return False
+    current_start, prior_start = current.get("period_start"), prior.get("period_start")
+    if not _matching_duration_scopes(current, prior):
+        return False
+    if current_start is not None and current_start == prior_start:
+        return False
+    current_tag, prior_tag = current.get("raw_tag"), prior.get("raw_tag")
+    if current_tag and prior_tag and current_tag != prior_tag:
+        return False
+    return True
+
+
 def _exact_delta_for_row(row: dict, metric: Any, metric_key: str) -> Optional[MetricDelta]:
     """Return a delta only when exact XBRL operands match the row's basis and displayed values."""
     if not isinstance(metric, dict):
@@ -224,29 +269,7 @@ def _exact_delta_for_row(row: dict, metric: Any, metric_key: str) -> Optional[Me
         return None
     current_value = _as_finite_decimal(current.get("value"))
     prior_value = _as_finite_decimal(prior.get("value"))
-    current_period = current.get("period")
-    prior_period = prior.get("period")
-    if (
-        current_value is None or prior_value is None
-        or not isinstance(current_period, str) or not current_period.strip()
-        or not isinstance(prior_period, str) or not prior_period.strip()
-        or current_period.strip() == prior_period.strip()
-    ):
-        return None
-
-    # Reject cross-form, cross-quarter, currency and duration/instant drift. Missing optional metadata
-    # stays unknown rather than being fabricated; a conflict is an explicit refusal.
-    for field in ("form", "fiscal_period", "currency"):
-        left, right = current.get(field), prior.get(field)
-        if left is not None and right is not None and left != right:
-            return None
-    current_start, prior_start = current.get("period_start"), prior.get("period_start")
-    if not _matching_duration_scopes(current, prior):
-        return None
-    if current_start is not None and current_start == prior_start:
-        return None
-    current_tag, prior_tag = current.get("raw_tag"), prior.get("raw_tag")
-    if current_tag and prior_tag and current_tag != prior_tag:
+    if current_value is None or prior_value is None or not comparable_facts(current, prior):
         return None
 
     current_text = row.get("current_period") or row.get("currentPeriod")
