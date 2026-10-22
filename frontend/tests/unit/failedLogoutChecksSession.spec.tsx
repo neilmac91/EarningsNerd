@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react
 import { CanceledError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import type { ReactNode } from 'react'
 import api from '@/lib/api/client'
-import { logout, type CurrentUser } from '@/features/auth/api/auth-api'
+import { getCurrentUserSafe, logout, type CurrentUser } from '@/features/auth/api/auth-api'
 import {
   LOGOUT_FAILED_MESSAGE, SESSION_READ_LIMIT_MS, acceptLoginAndResetAccount, logoutAndResetAccount, subscribeAccountQueryReset,
 } from '@/features/auth/lib/accountQueryState'
@@ -586,11 +586,15 @@ describe('logoutAndResetAccount after a failed request', () => {
     expect(toasts.error).not.toHaveBeenCalled()
   })
 
-  it("after the API's own 503, a /me that still answers the reader reports the logout as not taken, and warns nothing", async () => {
+  it.each([
+    ['still answers the reader', ok(reader)],
+    ['answers 500', status(500, 'Internal Server Error')],
+    ['gets no answer', unreachable],
+  ] as const)("after the API's own 503, a /me that %s reports the logout as not taken, and warns nothing", async (_, me) => {
     const client = newClient()
     client.setQueryData(queryKeys.currentUser(), reader)
     markSessionActive()
-    Object.assign(server, { logout: status(503, LOGOUT_INCOMPLETE), me: ok(reader) })
+    Object.assign(server, { logout: status(503, LOGOUT_INCOMPLETE), me })
     const continued = vi.fn()
     await expect(logoutAndResetAccount(client, logout, continued)).rejects.toMatchObject({ status: 503 })
     expect(continued).toHaveBeenCalledExactlyOnceWith(false)
@@ -615,6 +619,37 @@ describe('logoutAndResetAccount after a failed request', () => {
     expect(await settled).toMatchObject({ status: 0 })
     expect(continued).not.toHaveBeenCalled()
     expect(toasts.error).not.toHaveBeenCalled()
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(other)
+  })
+
+  it("after the API's own 503, a login accepted while /me was read owns the tab: the account that logged in hears no warning and keeps its session flag", async () => {
+    const client = newClient()
+    client.setQueryData(queryKeys.currentUser(), reader)
+    markSessionActive()
+    const answer = deferred<CurrentUser>()
+    server.logout = status(503, LOGOUT_INCOMPLETE)
+    server.me = async (config) => ok(await answer.promise)(config)
+    const reads = vi.spyOn(client, 'fetchQuery')
+    const continued = vi.fn()
+    const settled = logoutAndResetAccount(client, logout, continued).catch((error: unknown) => error)
+    await waitFor(() => expect(meReads()).toBe(1))
+    // Another account's login lands meanwhile, in app/login/page.tsx's order: its identity is accepted, then its own read
+    // of /me starts. The reset cancels the logout's read, which comes back with the reset's null, a guest, while the
+    // login's read is unanswered: only the ownership check keeps the 503's warning, and the guest's cleared session flag,
+    // from the new account.
+    acceptLoginAndResetAccount(client, getExplicitSessionGeneration())
+    const login = client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+    // The guest above, checked: a logout's read that failed instead would never reach the warning, and the case would pin
+    // nothing.
+    await expect(reads.mock.results[0].value).resolves.toBeNull()
+    expect(await settled).toMatchObject({ status: 503 })
+    expect(continued).not.toHaveBeenCalled()
+    expect(toasts.warning).not.toHaveBeenCalled()
+    expect(toasts.error).not.toHaveBeenCalled()
+    // Before the login's own /me answers, which marks the flag again.
+    expect(hasActiveSession()).toBe(true)
+    answer.resolve(other)
+    await expect(login).resolves.toEqual(other)
     expect(client.getQueryData(queryKeys.currentUser())).toEqual(other)
   })
 
