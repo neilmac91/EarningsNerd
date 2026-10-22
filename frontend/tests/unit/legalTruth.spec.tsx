@@ -141,11 +141,12 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    never imported), the service module used other than as `<module>.<name>`, a service function that uses another
  *    helper, whether or not it writes a row of its own, a create_audit_log in the service outside the one call of a
  *    top-level function, in a class's method or at the module's top level, a second call or the writer passed on, a
- *    helper used outside a top-level function, and an AuditLog row built anywhere but in create_audit_log's own body,
- *    under its name or an import's alias) is listed by module and line, and that list is held empty, so a new write
- *    fails until its action is a literal or taught to the walk. Out of its reach: a row written without building an
- *    AuditLog (a bulk or core insert on the table, or SQL, which CLAUDE.md forbids), and a writer re-exported by
- *    another module, whose name the walk reads as that module's. The item names part of what the rows record, and
+ *    helper used outside a top-level function, and an AuditLog row built anywhere but as create_audit_log's own row,
+ *    from its action parameter, under its name or an import's alias) is listed by module and line, and that list is
+ *    held empty, so a new write fails until its action is a literal or taught to the walk. Out of its reach: a row
+ *    written without building an AuditLog (a bulk or core insert on the table, or SQL, which CLAUDE.md forbids), and a
+ *    writer re-exported by another module, whose name the walk reads as that module's. The item names part of what
+ *    the rows record, and
  *    AUDITED_UNNAMED holds the rest, each with what it records: a Google or Apple sign-in linked to an existing account
  *    or unlinked from it (oauth_linked, oauth_unlinked), and two administrator actions on summaries, a bulk reset and a
  *    regeneration of stale ones (summaries_bulk_reset, summaries_refresh_stale). Every action written is in one map or
@@ -1224,7 +1225,9 @@ function auditActions(modules: Record<string, string>): { written: Set<string>; 
   }
   // A row built directly is one no create_audit_log call writes (#1456's thirteenth round): any AuditLog(...) outside
   // create_audit_log's own body, under its own name or an import's alias, its class statement aside, with strings
-  // blanked so a repr's text is no call.
+  // blanked so a repr's text is no call. Inside the writer, only a row built from its own action parameter
+  // (`action=action`) is the row its callers' actions name; any other there, a second row with an action of its own or
+  // one from another value, is reported too (Codex's r4352385482 on 673e9d76).
   const writerSpan = serviceUses.flatMap(({ rel, spans }) => spans.filter(({ name }) => name === 'create_audit_log').map((span) => ({ rel, ...span })))
   for (const [rel, src] of Object.entries(modules)) {
     const code = pythonCode(src).replace(/(['"])(?:\\.|(?!\1)[^\\\n])*\1/g, (literal) => ' '.repeat(literal.length))
@@ -1236,9 +1239,16 @@ function auditActions(modules: Record<string, string>): { written: Set<string>; 
       }
     }
     const rows = new RegExp(String.raw`(?<!\bclass\s+)(?<![\w])(?:[\w.]*\.)?(?:${names.map(escapeRe).join('|')})\s*\(`, 'g')
-    for (const row of code.replace(IMPORT, (statement) => statement.replace(/[^\n]/g, ' ')).matchAll(rows)) {
+    const scanned = code.replace(IMPORT, (statement) => statement.replace(/[^\n]/g, ' '))
+    for (const row of scanned.matchAll(rows)) {
       const at = row.index ?? 0
-      if (writerSpan.some((span) => span.rel === rel && at >= span.start && at < span.end)) continue
+      if (writerSpan.some((span) => span.rel === rel && at >= span.start && at < span.end)) {
+        const action = pythonArgument(pythonCall(scanned, at + row[0].length - 1)?.args ?? [], 'action', -1)
+        if (action?.value.trim() !== 'action') {
+          unread.push(`${rel}:${lineOf(code, at)} builds an AuditLog row in create_audit_log from an action other than its own parameter, which the walk does not read`)
+        }
+        continue
+      }
       unread.push(`${rel}:${lineOf(code, at)} builds an AuditLog row outside create_audit_log, which the walk does not read`)
     }
   }
@@ -2173,6 +2183,24 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(collided.unread).toEqual([
       'app/routers/i.py:8 audit_service.log_register reaches the audit service through a binding the walk does not read',
       'app/routers/i.py:9 services.audit_service.create_audit_log reaches the audit service through a binding the walk does not read',
+    ])
+    // Inside the writer, only the row built from its own action parameter is read at its callers (Codex's
+    // r4352385482 on 673e9d76): a second row with an action of its own, or one from another value, is reported.
+    const writerRows = auditActions({
+      'app/services/audit_service.py': [
+        'from app.models.audit_log import AuditLog',
+        'def create_audit_log(db, action):',
+        '    db.add(AuditLog(user_id=None, action=action))',
+        '    db.add(AuditLog(action="shadow_copy"))',
+        '    db.add(AuditLog(action=action.upper()))',
+        '    return None',
+      ].join('\n'),
+      'app/routers/k.py': ['from app.services import audit_service', 'audit_service.create_audit_log(db, action="register")'].join('\n'),
+    })
+    expect([...writerRows.written]).toEqual(['register'])
+    expect(writerRows.unread).toEqual([
+      'app/services/audit_service.py:4 builds an AuditLog row in create_audit_log from an action other than its own parameter, which the walk does not read',
+      'app/services/audit_service.py:5 builds an AuditLog row in create_audit_log from an action other than its own parameter, which the walk does not read',
     ])
   })
 })
