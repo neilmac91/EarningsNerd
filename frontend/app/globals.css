@@ -205,6 +205,29 @@
   background: linear-gradient(transparent 62%, rgba(127, 178, 149, 0.14) 62%); /* brand-weak-dark */
   box-shadow: inset 0 -2px 0 rgba(127, 178, 149, 0.28); /* brand-border-dark */
 }
+/* Approved C5 hero exception, only on the default headline's “the source”. The genuine italic
+   face is loaded by HeroHeadline, leaving shared Inter and all other marks unchanged. */
+.en-mark.en-hero-emphasis {
+  display: inline-block;
+  max-width: 100%;
+  /* Keep the phrase together where it fits; enlarged text can wrap between its words. */
+  white-space: normal;
+  vertical-align: baseline;
+  line-height: 0.9;
+  /* The 1px top trim clears the preceding line's descender at 2× pixel density. */
+  padding: calc(0.04em - 1px) 0.18em 0.06em;
+  margin-inline: -0.1em;
+  border-radius: theme('borderRadius.DEFAULT');
+  background: theme('colors.brand.strong-dark');
+  box-shadow: none;
+  font-family: var(--font-hero-italic), var(--font-heading);
+  font-style: italic;
+  font-synthesis: none;
+  color: theme('colors.text.primary.light');
+}
+.dark .en-mark.en-hero-emphasis {
+  color: theme('colors.background.dark / 90%');
+}
 /* A marked block: the located passage, in the filing's voice, with the bar on its left edge. */
 .en-marked {
   border-left: 3px solid #4F7A63; /* brand */

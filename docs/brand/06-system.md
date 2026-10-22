@@ -64,7 +64,9 @@ One clarification for the public pages, so the Source Voice Rule holds there as 
 product: Newsreader may appear on a marketing surface only inside a quoted passage that the
 product located in a filing (the hero example's evidence row, the social card's excerpt), set in
 quotation marks, never for a headline, a tagline, an aside or a claim of ours. The italic "Nerd"
-in the wordmark is Inter, and stays the brand's only typographic flourish.
+in the wordmark is Inter. The default homepage headline's "the source" adds one scoped exception:
+Inter's genuine italic at 600, locally loaded by `HeroHeadline.tsx`, not Newsreader. It leaves the
+root font definitions and the broader web/brand-image italic work unchanged (§6).
 
 Inside the product Newsreader sets the filing reader and the passages the server located, each in
 its marked block: the filing page's Risks rows and the summary's located quotes (D-044). A summary,
@@ -76,7 +78,8 @@ an answer, a heading, a speaker's name or a label of ours never takes it
 As they stand: Tailwind's base scale with the 18, 52, 72 px and 24 px gutter additions; radii
 4 / 8 / 12 / 16 / 24 with pills for chips; elevation e1 to e5 in light and fill-plus-hairline in
 dark; the stacking ladder sticky 30 · consent 32 · scrim 35 · header 50 · popover 60 · modal 70 ·
-toast 80. No additions. The device has no radius and no shadow: the marked block's bar sits on
+toast 80. No additions. The shared device has no radius and no shadow (the default homepage
+phrase is the scoped exception in §6): the marked block's bar sits on
 square corners, because a stripe never sits on a rounded container (DESIGN.md, the side-tab
 stripe).
 
@@ -124,8 +127,8 @@ alone.
 Rules:
 
 - **Scale.** The mark's hairline is 2 px on screen at every size, 0.3 mm in print; the highlight
-  never exceeds 38% of the line box. The margin is 44 px on desktop and 36 px on phones; in print
-  it is 12 mm on A4 and 6 mm on a card. The in-text marker is never smaller than the provenance
+  never exceeds 38% of the line box, apart from the default homepage exception below. The margin is
+  44 px on desktop and 36 px on phones; in print it is 12 mm on A4 and 6 mm on a card. The in-text marker is never smaller than the provenance
   chip (12 px); its twin is 11 px, the one sub-12 px text beside copy, because it repeats a marker
   the reader already has; 7 pt in print. The gutter and its twins show at every width at the default
   text size; below a measure (a marked copy narrower than 13em at the reader's text size, as on a phone
@@ -157,6 +160,13 @@ Rules:
   dark) carries the words. The words on the tint are the primary ink: in the Source pane the
   reader's secondary ink would be 4.49:1 on the dark tint over the slate panel, so the located
   passage takes the primary ink there (8.1:1).
+- **Default homepage exception.** Variant A's "the source" adds `.en-hero-emphasis`: a full
+  Bright Sage (`brand-strong-dark`, `#98C5AD`) fill in both themes, 8px corners and genuine Inter
+  italic 600. Light uses opaque espresso (`#1A1A17`); dark uses navy (`#0B1120`) at 90%. There is
+  no hairline or shadow. The phrase stays together when it fits and wraps at a word boundary if
+  enlarged text makes it wider than its container. This is one decorative phrase, not a control
+  or a new source-passage treatment; alternate headlines and the shared `.en-mark` retain the
+  standard recipe. `frontend/DESIGN_SYSTEM.md` §7 specifies its spacing and local font loading.
 - **Meaning.** A mark means "located in the filing" and a bracket means "cited". A highlight on a
   phrase we wrote is allowed once per surface, as the brand's signature; it is never put on an
   unverified claim, a number, a price or a competitor's name.

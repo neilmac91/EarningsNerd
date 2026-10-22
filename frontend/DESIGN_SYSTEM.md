@@ -82,6 +82,8 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
 - **Headings:** Inter loaded WITH the variable `opsz` axis (`font-optical-sizing: auto` = SF-style
   Text↔Display cuts). ONE display weight: **600** (700/800 collapse to it). One theme-aware ink via
   `--heading-color` (`#1A1A17` / `#D7DADC`) — hierarchy comes from size + weight, never a second color.
+  The default homepage headline's "the source" has the scoped italic and filled-ground exception in §7;
+  it retains Inter 600 and does not change the heading role elsewhere.
 - **Body & UI:** `-apple-system → Inter` (system-first; Apple hardware renders SF Pro, everyone
   else falls through to Inter — Inter sits BEFORE generic `system-ui` on purpose).
 - **Data:** Geist Mono + `tabular-nums` — money, %, tickers, XBRL anchors, verbatim excerpts,
@@ -1507,13 +1509,29 @@ contrast + hairline with `shadow-none`. `brand-weak` is an accent/hover/tint col
 ## 7. Marketing surfaces
 
 Flat **solid** surfaces — no decorative gradients anywhere; the only glow is the theme-aware hero
-search glow. The hero accent phrase sits on the primary ink and carries the brand device's mark
-(`.en-mark`, below), not sage ink; sage ink stays for links and the wordmark's italic.
+search glow. Alternate hero headline variants carry the brand device's mark (`.en-mark`, below)
+on the primary ink. The default variant A's "the source" uses the scoped treatment below; neither
+uses sage text. Sage ink stays for links and the wordmark's italic.
 `.mockup-frame` is flat navy (the decorative slate gradient is retired), 16px radius, paired with
 `shadow-e3`; its title-bar traffic-light dots are gone. Marketing cards use the `<Card>` recipe
 (panel + hairline + e2, brighten on hover); the popular-company chips are the same surface at e1,
 per the design. `.glass-card` is retired on the landing route (its remaining consumer is
 `AuthShell`).
+
+**Default hero emphasis.** Only variant A in `HeroHeadline.tsx` adds `.en-hero-emphasis` to
+"the source". It loads the existing `scripts/brand/fonts/Inter-Variable-Italic-latin.woff2` through
+`next/font/local`, with genuine italic, weight 600, optical sizing and `font-synthesis: none`.
+This local face does not change `app/layout.tsx`, the root font variables or `app/global-error.tsx`;
+the broader web/brand-image italic decision (E79) and root/error font deduplication (E147) remain
+separate work. The class uses solid `brand.strong-dark` (`#98C5AD`) in both themes, opaque
+`text.primary.light` (`#1A1A17`) in light and `background.dark` (`#0B1120`) at 90% in dark.
+That is a local fill/ink role exception, with no new palette token, hairline, shadow or interaction.
+Its inline block uses line-height `.9`, padding `calc(.04em - 1px) .18em .06em`, inline margins
+`-.1em`, the existing `.5rem` radius and baseline alignment. The 1px top trim keeps the fill off
+the preceding line's descender. `max-width: 100%` and normal white space keep the phrase together
+while its intrinsic width fits, then allow a word-boundary wrap under enlarged text. Check the
+painted glyphs as well as line boxes at mobile/desktop widths, DPR2 and 200% text in both themes.
+Variants B/C and the shared `.en-mark`/reader paint keep their existing recipes.
 
 **The landing's composition** (D-045, composition C). The two-column hero stays; every section after
 it is one ruled row, `features/marketing/components/LandingRow.tsx`, in the page's order: on the hero's
@@ -1639,7 +1657,8 @@ fallback, a Cited jump and an XBRL fact never register the device's highlight; a
   read). At 360px and 200% text the lockup ran to 369px. Gate: `tests/e2e/reflow-200.spec.ts` (360px at
   200%, the bar's edge in the logo's clear space).
 - Fonts are self-hosted via `next/font` (Inter with `axes: ['opsz']`, Geist Mono, Newsreader) —
-  see `app/layout.tsx`; SF Pro / New York are platform-licensed and must never be embedded.
+  see `app/layout.tsx`; the default hero phrase also loads its own local Inter italic face (§7).
+  SF Pro / New York are platform-licensed and must never be embedded.
 
 ## 9. Exemptions
 
