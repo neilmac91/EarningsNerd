@@ -276,7 +276,7 @@ threshold stays as it is (a Notice's `px-4`, the KPI strip's `p-3 sm:p-4`, the T
 a page's gutter is no surface. Gate: the ESLint rule `earningsnerd/surface-padding-cap` (`eslint.designRules.mjs`; its
 planted cases in `tests/unit/designRules.spec.ts`), which reads a step by its resolved size (`p-gutter`, `p-[24px]`),
 fails a value it cannot read as a length, reads a class a same-file binding holds with any class attribute that names
-it (`cx(SHELL, 'p-6')`), never reads a form field (input, textarea, select) as a frame, since its padding reserves room
+it, in the branch where it is named (`cx(SHELL, 'p-6')`, `framed ? FRAME : PAD`), never reads a form field (input, textarea, select) as a frame, since its padding reserves room
 for a glyph, and fails a capped key the theme does not define anywhere, scroll padding included; out of its reach
 (review-checked, planted as stated gaps): a class a component receives as a prop, an imported constant, an object of
 recipes, a binding a ternary sets, a class through a helper other than cx()/clsx(), an inset in an inline style or a

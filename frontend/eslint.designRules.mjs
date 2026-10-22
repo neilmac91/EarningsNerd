@@ -244,19 +244,21 @@
 //                       written directly inside a Card, a Modal or a frame whose class does not pad every render (only
 //                       padding of some length in its unconditional text, a binding's read where it is named, under no
 //                       variant and reset to zero under none, does; `p-0`, padding set only under a condition or a
-//                       variant such as `sm:`, or a reset under one (`p-cap-6 sm:p-0`), leaves the inset to the children,
-//                       failing closed), through `{…}` children, conditionals and a callback written there, as the Card's
-//                       sections are: the hero example's wrapper, the admin lists' rows. A frame inside a dialog's body
-//                       (written inside <ModalBody> or a native <dialog> in the same file, a Card included) caps from
-//                       step 4: the dialog's own inset already halves the measure there, and at 320px under 200% text the
-//                       cookie dialog's category cards left their text 92px and broke its longest words. A class a
-//                       same-file binding holds, named in any class attribute (`className={PAD}`, `cx(SHELL, 'p-6')`,
-//                       `${SHELL} p-6`; the initializer a string, a template or a cx()/clsx() call), is read with it as
-//                       text that is always there, for its frame and its padding alike, and a constant that draws a frame
-//                       is read on its own too, failing closed where it cannot see the element it lands on (a constant
-//                       drawing a select's frame beside its pr-9 reads as a frame; keep a field's inset on it). A capped
-//                       key the theme does not define (`p-cap-7`, `scroll-py-cap-7`) fails anywhere, under any variant,
-//                       since it ships unstyled. Out of reach (review-checked, the reachable ones planted as gaps in
+//                       variant such as `sm:`, or a reset to zero under one or a condition (`p-cap-6 sm:p-0`), leaves the
+//                       inset to the children, failing closed), through `{…}` children, conditionals and a callback
+//                       written there, as the Card's sections are: the hero example's wrapper, the admin lists' rows. A
+//                       frame inside a dialog's body (written inside <ModalBody> or a native <dialog> in the same file, a
+//                       Card included) caps from step 4: the dialog's own inset already halves the measure there, and at
+//                       320px under 200% text the cookie dialog's category cards left their text 92px and broke its
+//                       longest words. A class a same-file binding holds, named in any class attribute
+//                       (`className={PAD}`, `cx(SHELL, 'p-6')`, `${SHELL} p-6`; the initializer a string, a template or a
+//                       cx()/clsx() call), is read with it in the branch where it is named (`framed ? FRAME : PAD`
+//                       renders one or the other), and as text that is always there where the collector does not walk to
+//                       it (`merge(PAD)`), for its frame and its padding alike, and a constant that draws a frame is read
+//                       on its own too, failing closed where it cannot see the element it lands on (a constant drawing a
+//                       select's frame beside its pr-9 reads as a frame; keep a field's inset on it). A capped key the
+//                       theme does not define (`p-cap-7`, `scroll-py-cap-7`) fails anywhere, under any variant, since it
+//                       ships unstyled. Out of reach (review-checked, the reachable ones planted as gaps in
 //                       tests/unit/designRules.spec.ts): a class a component receives as a prop and passes to a Card or a
 //                       frame elsewhere, an imported constant, an object of recipes (`S.pad`), a binding a ternary or a
 //                       later assignment sets, a class through a helper other than cx()/clsx() (`merge(…)`), an inset set
@@ -1983,8 +1985,8 @@ export const surfacePaddingCap = {
     }
     /** The class text a same-file binding holds where an attribute names it (`className={PAD}`, `cx(SHELL, 'p-6')`,
      *  `${SHELL} p-6`): its initializer a string, a template or a cx()/clsx() call, read as the binding's own text. */
-    const boundTexts = (attribute) =>
-      identifiersIn(attribute.value, keys).flatMap((identifier) => {
+    const boundTexts = (attribute, read = () => true) =>
+      identifiersIn(attribute.value, keys).filter(read).flatMap((identifier) => {
         const def = resolvedVariable(sourceCode, identifier)?.defs?.[0]
         const init = def?.node?.type === 'VariableDeclarator' ? def.node.init : null
         return init && isClassShaped(init) ? branchTexts(collectStaticText(unwrapTs(init), new WeakSet())) : []
@@ -2000,9 +2002,9 @@ export const surfacePaddingCap = {
      *  class text does not pad it in every render, as the Card leaves its inset to its sections. Only padding of some
      *  length in the unconditional text (a binding's read where it is named), under no variant and reset to zero under
      *  none, pads every render; one set only under a condition (`padded ? 'p-cap-6' : 'p-0'`, `padded && PAD`) or a
-     *  variant (`sm:p-cap-6` has none below sm; `hover:`, `dark:`), or reset under one (`p-cap-6 sm:p-0`), leaves the
-     *  inset to the children, failing closed, and so does `p-0`. A value the rule cannot read as a length counts as
-     *  padding. */
+     *  variant (`sm:p-cap-6` has none below sm; `hover:`, `dark:`), or reset under one or a condition (`p-cap-6 sm:p-0`,
+     *  `reset && 'sm:p-0'`), leaves the inset to the children, failing closed, and so does `p-0`. A value the rule
+     *  cannot read as a length counts as padding. */
     const leavesInsetToSections = (element) => {
       if (FORM_FIELDS.has(nameOf(element))) return false
       const attribute = classAttribute(element)
@@ -2011,7 +2013,10 @@ export const surfacePaddingCap = {
       const always = pieces.filter((piece) => piece.branch === root).map((piece) => piece.text).join(' ')
       const tokens = always.split(/\s+/).filter(Boolean)
       const base = (raw) => splitClassToken(raw).variants.length === 0
-      const reset = tokens.some((raw) => !base(raw) && paddingStep(raw) === 0)
+      // A zero reset under a variant, or in any conditional piece (`reset && 'sm:p-0'`), leaves the inset somewhere.
+      const reset = pieces.some((piece) =>
+        piece.text.split(/\s+/).some((raw) => paddingStep(raw) === 0 && (piece.branch !== root || !base(raw))),
+      )
       if (!reset && tokens.some((raw) => base(raw) && setsPadding(raw))) return false
       return SECTIONED_COMPONENTS.has(nameOf(element)) || [always, ...branchTexts(pieces)].some(drawsFrame)
     }
@@ -2049,10 +2054,20 @@ export const surfacePaddingCap = {
       context.report({ node, messageId, data })
     }
     return classUnitVisitors((node, pieces) => {
-      // A class a same-file binding holds is read with the attribute that names it, as text that is always there.
-      const bound = node.type === 'JSXAttribute' ? boundTexts(node) : []
-      const always = bound.join(' ')
-      const texts = branchTexts(pieces).map((text) => `${text} ${always}`)
+      // A class a same-file binding holds is read with the attribute that names it, in the branch where it is named
+      // (`framed ? FRAME : PAD` renders one or the other); a binding the collector does not walk to (`merge(PAD)`)
+      // is read as text that is always there.
+      let own = pieces
+      let always = ''
+      if (node.type === 'JSXAttribute') {
+        const named = new Set()
+        own = collectStaticText(node.value, new WeakSet(), [], { parent: null }, (identifier) => {
+          named.add(identifier)
+          return resolveBinding(identifier)
+        })
+        always = boundTexts(node, (identifier) => !named.has(identifier)).join(' ')
+      }
+      const texts = branchTexts(own).map((text) => `${text} ${always}`)
       if (texts.length === 0 && always) texts.push(always)
       for (const text of texts) {
         const token = undefinedCap(text)

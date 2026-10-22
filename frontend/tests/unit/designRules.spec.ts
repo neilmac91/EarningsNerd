@@ -854,6 +854,8 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     '<Card className="p-0"><div className="p-cap-6" /></Card>',
     // Padding under no variant pads every render.
     '<Card className="p-cap-4 sm:p-cap-6"><div className="px-6" /></Card>',
+    // Bindings named in opposite arms render one or the other, never a padded frame (Codex's review of 82dd27ea).
+    "const FRAME = 'rounded-xl border'\nconst PAD = 'p-6'\nexport const x = <div className={framed ? FRAME : PAD} />",
     // A binding named unconditionally pads every render, read where it is named.
     "const PAD = 'p-cap-6'\nexport const x = <Card className={cx(PAD, 'mt-6')}><div className=\"p-6\" /></Card>",
     '<section className="rounded-2xl border p-cap-6"><p className="px-6" /></section>',
@@ -920,6 +922,10 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     // A base inset reset to zero under a variant leaves it to the children there (Codex's review of 0c7a2f2b).
     { code: '<Card className="p-cap-6 sm:p-0"><div className="p-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
     { code: '<div className="rounded-xl border p-cap-5 md:px-0"><div className="px-5" /></div>', errors: [{ messageId: 'uncapped' }] },
+    // So does a reset in a conditional piece (Codex's review of 82dd27ea).
+    { code: "<Card className={cx('p-cap-6', reset && 'sm:p-0')}><div className=\"p-6\" /></Card>", errors: [{ messageId: 'uncapped' }] },
+    // A binding the collector does not walk to is read as text that is always there.
+    { code: "const PAD = 'p-6'\nexport const x = <Card className={merge(PAD)} />", errors: [{ messageId: 'uncapped' }] },
     // A stated limit, failing closed: only unconditional padding pads every render, so a surface whose every arm pads it
     // still reads its children as sections; capping them is never wrong.
     { code: "<Card className={padded ? 'p-cap-6' : 'p-4'}><div className=\"p-6\" /></Card>", errors: [{ messageId: 'uncapped' }] },
