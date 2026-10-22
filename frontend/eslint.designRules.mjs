@@ -1831,14 +1831,15 @@ function lengthStep(value) {
 }
 
 /** Whether a class token sets padding of some length: `p-6`, `px-cap-5`, `p-[24px]`, and a value the rule cannot read
- *  as a length; never a zero one (`p-0`, `px-0`, `p-[0px]`). */
+ *  as a length; never a zero one (`p-0`, `px-0`, `p-[0px]`) nor a key the theme does not define. */
 function setsPadding(raw) {
   const token = raw && parseClassToken(raw)
   const m = token && PADDING.exec(token.utility)
   if (!m) return false
   const key = m[2]
   const value = key.startsWith('[') && key.endsWith(']') ? key.slice(1, -1).replace(/_/g, ' ') : PADDING_SCALE[key]
-  return lengthStep(value ?? '') !== 0
+  // A key the theme does not define styles nothing (`p-typo`), as uncappedInset reads it.
+  return value !== undefined && lengthStep(value) !== 0
 }
 
 /** The capped key tailwind.config.js does not define in `classText` (`p-cap-7`, `scroll-py-cap-7`, `[&>div]:p-cap-7`),

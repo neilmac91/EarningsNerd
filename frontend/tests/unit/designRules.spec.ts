@@ -915,6 +915,8 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     // Padding under a variant pads only some renders (Codex's review of d113034f): below sm, on hover, in one theme.
     { code: '<Card className="sm:p-cap-6"><div className="px-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
     { code: '<div className="rounded-xl border dark:p-cap-5"><div className="p-5" /></div>', errors: [{ messageId: 'uncapped' }] },
+    // A key the theme does not define styles nothing, so it pads no render (Codex's review of a1866702).
+    { code: '<Card className="p-typo"><div className="p-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
     // A stated limit, failing closed: only unconditional padding pads every render, so a surface whose every arm pads it
     // still reads its children as sections; capping them is never wrong.
     { code: "<Card className={padded ? 'p-cap-6' : 'p-4'}><div className=\"p-6\" /></Card>", errors: [{ messageId: 'uncapped' }] },
