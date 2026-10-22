@@ -23,12 +23,13 @@ import { LOGOUT_CALL_SITES } from './logoutCallSites'
  * that logs out: the site header's account menu, its mobile menu and the dashboard's own button. The reader's account
  * stays on screen while /me is read. A user who comes back means the logout did not take: the reader is told, nothing
  * navigates, and focus goes back to the control that opened a menu. No user (the API's 503 clears the session cookies)
- * proceeds as a logout that succeeded, and the reader is warned in the 503's own words that the server kept the session.
- * A read that fails too reports the logout as not taken and keeps the account, and its Log out, for another try. A
- * second press while the logout runs joins it: one request, one report, and the read still renews a lapsed cookie. The read can renew a lapsed access cookie from the refresh cookie, as any request
- * of a signed-in tab does, so a lapsed access cookie is not mistaken for a logout. The dashboard leaves for /login only
- * for a confirmed guest, and the watchlist and the admin section, whose guards wait for one too, show the shared
- * account card, named for each route, when the first /me read fails. A login accepted meanwhile owns the tab.
+ * proceeds as a logout that succeeded, and the reader is warned in the 503's own words that the server may still hold
+ * the session. A read that fails too reports the logout as not taken and keeps the account, and its Log out, for
+ * another try. The read can renew a lapsed access cookie from the refresh cookie, as any request of a signed-in tab
+ * does, so a lapsed access cookie is not mistaken for a logout; a second press while the logout runs joins it (one
+ * request, one report), so it cannot take that renewal away. The dashboard leaves for /login only for a confirmed
+ * guest, and the watchlist and the admin section, whose guards wait for one too, show the shared account card, named
+ * for each route, when the first /me read fails. A login accepted meanwhile owns the tab.
  *
  * The requests run through the real API client and auth API, with the adapter answering, so the interceptor's
  * statuses, the session flag and the generation fences are the ones the app runs; the refresh is the one stub, and the
@@ -434,6 +435,24 @@ describe("the dashboard's Log out while its logout runs", () => {
   })
 })
 
+describe("the dashboard's Log out after a logout that did not take", () => {
+  it('reads available again, and a press then sends a request of its own', async () => {
+    render(<QueryClientProvider client={newClient()}><DashboardPage /></QueryClientProvider>)
+    await screen.findByText('Welcome back, Reader')
+    server.logout = unreachable
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }))
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledTimes(1))
+    const logOut = screen.getByRole('button', { name: 'Log out' })
+    await waitFor(() => expect(logOut).not.toHaveAttribute('aria-disabled'))
+    expect(logOut).not.toHaveAttribute('aria-busy')
+    fireEvent.click(logOut)
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledTimes(2))
+    await settle()
+    expect(logoutPosts()).toBe(2)
+    expectNoNavigation()
+  })
+})
+
 describe('the dashboard sends a confirmed guest to /login', () => {
   it('when /me answers no user', async () => {
     server.me = status(401, 'Not authenticated')
@@ -565,6 +584,18 @@ describe('logoutAndResetAccount after a failed request', () => {
     if (warning) expect(toasts.warning).toHaveBeenCalledExactlyOnceWith(warning)
     else expect(toasts.warning).not.toHaveBeenCalled()
     expect(toasts.error).not.toHaveBeenCalled()
+  })
+
+  it("after the API's own 503, a /me that still answers the reader reports the logout as not taken, and warns nothing", async () => {
+    const client = newClient()
+    client.setQueryData(queryKeys.currentUser(), reader)
+    markSessionActive()
+    Object.assign(server, { logout: status(503, LOGOUT_INCOMPLETE), me: ok(reader) })
+    const continued = vi.fn()
+    await expect(logoutAndResetAccount(client, logout, continued)).rejects.toMatchObject({ status: 503 })
+    expect(continued).toHaveBeenCalledExactlyOnceWith(false)
+    expect(toasts.error).toHaveBeenCalledExactlyOnceWith(LOGOUT_FAILED_MESSAGE)
+    expect(toasts.warning).not.toHaveBeenCalled()
   })
 
   it('lets a login accepted while /me was read own the tab: no continuation and no report', async () => {
@@ -710,8 +741,10 @@ describe('logoutAndResetAccount after a failed request', () => {
     const client = newClient()
     client.setQueryData(queryKeys.currentUser(), reader)
     markSessionActive()
-    const answer = deferred<void>()
-    server.logout = heldUntil(answer.promise, ok({ status: 'success' }))
+    // Each request answers when the case lets it: the earlier logout's first.
+    const answers = [deferred<void>(), deferred<void>()]
+    let posted = 0
+    server.logout = (config) => heldUntil(answers[posted++]?.promise ?? Promise.resolve(), ok({ status: 'success' }))(config)
     const first = vi.fn()
     const earlier = logoutAndResetAccount(client, logout, first)
     await waitFor(() => expect(logoutPosts()).toBe(1))
@@ -723,9 +756,16 @@ describe('logoutAndResetAccount after a failed request', () => {
     const second = vi.fn()
     const later = logoutAndResetAccount(client, logout, second)
     await waitFor(() => expect(logoutPosts()).toBe(2))
-    answer.resolve()
-    await Promise.all([earlier, later])
+    // The earlier logout ends first, its login gone, and leaves the later one running: a press now joins that one.
+    answers[0].resolve()
+    await earlier
+    const again = vi.fn()
+    const joined = logoutAndResetAccount(client, logout, again)
+    answers[1].resolve()
+    await Promise.all([later, joined])
+    expect(logoutPosts()).toBe(2)
     expect(first).not.toHaveBeenCalled()
+    expect(again).not.toHaveBeenCalled()
     expect(second).toHaveBeenCalledExactlyOnceWith(true)
     expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
     expect(hasActiveSession()).toBe(false)

@@ -114,11 +114,13 @@ interface LogoutUnderWay {
   settled: Promise<void>
 }
 
-/** One logout at a time. A second would undo the first: its request clears the session flag (auth-api's logout) while
- * the first reads /me, so a lapsed access cookie reads as a guest and the first leaves as logged out with the refresh
- * cookie alive; and its answer, landing after the first's reset moved the generation past the one it started with, is
- * dropped, so a logout it completed leaves the tab showing the account. A login accepted meanwhile moves the generation
- * past this one, and that account's logout starts its own. */
+/** One logout at a time, for the controls that log out through this helper (the account menu, the mobile menu and the
+ * dashboard; the settings page's "Log out of all devices" runs outside it, E157). A second would undo the first: its
+ * request clears the session flag (auth-api's logout) while the first reads /me, so a lapsed access cookie reads as a
+ * guest and the first leaves as logged out with the refresh cookie alive; and its answer, landing after the first's
+ * reset moved the generation past the one it started with, is dropped, so a logout it completed leaves the tab showing
+ * the account. A login accepted meanwhile moves the generation past this one, and that account's logout starts its
+ * own. */
 let logoutUnderWay: LogoutUnderWay | null = null
 
 /** A late logout completion must not reset or navigate away from a newer accepted login.
