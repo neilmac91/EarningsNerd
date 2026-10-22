@@ -391,8 +391,8 @@ async def test_analysis_stream_releases_its_connection_before_the_body_streams(m
 
 @pytest.mark.asyncio
 async def test_force_regeneration_refreshes_no_expired_row_on_the_loop(monkeypatch, tmp_path):
-    """The Pro force branch of the generate stream commits (it clears the XBRL and the progress
-    row), and the commit expires the request's user and filing. The route read the user's id and
+    """The Pro force branch of the generate stream commits (it clears the progress row; the XBRL
+    snapshot stays, P11), and the commit expires the request's user and filing. The route read the user's id and
     the filing's type and ticker after that commit, so each refreshed its row with a fresh checkout
     on the event loop, which freezes the loop for the pool timeout once the pool is full. The route
     now reads them before the commit, so the force path checks out once, for the auth lookup, in the
@@ -457,13 +457,15 @@ async def test_force_regeneration_refreshes_no_expired_row_on_the_loop(monkeypat
         assert engine.pool.checkedout() == 0
         # One checkout, the auth lookup's, in the thread pool.
         assert request_checkouts == [False]
-        # The force branch ran: its commit cleared the progress row and the XBRL.
+        # The force branch ran: its commit cleared the progress row and kept the XBRL snapshot, which
+        # the run replaces only with fresh XBRL (refresh_xbrl).
         with sessionmaker(bind=engine)() as db:
             assert db.query(SummaryGenerationProgress).count() == 0
-            assert db.get(Filing, filing_id).xbrl_data is None
+            assert db.get(Filing, filing_id).xbrl_data == {"revenue": 1}
         # The pipeline was handed the snapshots taken before that commit.
         [call] = pipeline_calls
         assert (call["user_id"], call["force_regenerate"], call["current_user"].is_pro) == (user_id, True, True)
+        assert call["refresh_xbrl"] is True
         assert (call["telemetry_ctx"]["filing_type"], call["telemetry_ctx"]["ticker"]) == ("10-K", "FORCE")
     finally:
         engine.dispose()
