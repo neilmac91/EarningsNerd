@@ -1478,7 +1478,8 @@ h2 section; where the card stands in for the page's content directly under the h
 `headingLevel="h2"` (the filing page's signup gate, failure and monthly-limit cards and a stored
 summary's writer error; the watchlist's empty and error cards; the waitlist example's fallbacks).
 A fallback that replaces the whole page passes `headingLevel="h1"` (app/error.tsx, the dashboard's
-error boundary, the providers' GlobalErrorBoundary; global-error.tsx writes its own h1; gate:
+error boundary, the providers' GlobalErrorBoundary, the signed-in routes' account card
+`features/auth/components/AccountLoadFailure.tsx`; global-error.tsx writes its own h1; gate:
 tests/unit/errorBoundaryHeadings.spec.tsx).
 The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
 titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.

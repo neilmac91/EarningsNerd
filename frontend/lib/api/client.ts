@@ -174,6 +174,15 @@ export function refreshSettled(limitMs: number): Promise<void> {
     .finally(() => clearTimeout(timer))
 }
 
+/**
+ * Cancels the refresh in flight, if any, so it can no longer set the session cookies: the browser drops a cancelled
+ * request's answer, the cookies with it. A failed logout calls it when its read of /me runs out of time. The generation
+ * fences stop such a refresh's replay but not its cookies, which would land over a login that followed.
+ */
+export function cancelRefresh(): void {
+  refreshAbort?.abort()
+}
+
 // Response error interceptor: silent token refresh on 401, then backend error extraction.
 api.interceptors.response.use(
   (response) => response,

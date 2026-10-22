@@ -152,9 +152,11 @@ four of these in later review rounds, after the sweep had shipped them fire-and-
 
 (g) A control that unmounts as a result of its own activation (a row removed on success, Save replaced
 by a "Saved" label) hands focus to a stable target: a heading or status line with `tabIndex={-1}`, focused
-with `{ preventScroll: true }`. Two forms are accepted: before the unmount, only when the control holds
-focus (`document.activeElement === e.currentTarget`), or after it, only when focus fell to `<body>`. Never
-move focus a mouse user did not lose.
+with `{ preventScroll: true }`. A layout whose pages own its heading hands it to the landmark it renders
+first: the admin layout's account card gives way to the section's `<nav tabIndex={-1}>`, since each admin
+page writes its own h1 below it (`app/admin/layout.tsx`). Two forms are accepted: before the unmount, only
+when the control holds focus (`document.activeElement === e.currentTarget`), or after it, only when focus
+fell to `<body>`. Never move focus a mouse user did not lose.
 - A Retry's hand-off fires only when the Retry unmounts while it holds focus, whatever the cause: its own
   success, a recovery nobody pressed (a reconnect, window focus, an invalidation), a new search term.
   Nothing is armed by a press. The press-armed form (a `retried` or `pressed` ref, fired when the error UI
