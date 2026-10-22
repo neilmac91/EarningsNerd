@@ -241,13 +241,13 @@
 //                       (`rounded`, `rounded-*` but `-none`) in the same branch, the Card recipe copied by hand and the
 //                       wells inside a card, but never a form field (input, textarea, select), whose padding reserves
 //                       room for a glyph (an icon field's pl-11, a select's pr-9); and a section of a surface, an element
-//                       written directly inside a Card, a Modal or a frame that sets no padding of its own (through
-//                       `{…}` children, conditionals and a callback written there), as the Card's sections are: the hero
-//                       example's wrapper, the admin lists' rows. A frame inside a dialog's body (written inside
-//                       <ModalBody> or a native <dialog> in the same file, a Card included) caps from step 4: the
-//                       dialog's own inset already halves the measure there, and at 320px under 200% text the cookie
-//                       dialog's category cards left their text 92px and broke its longest words. A class a same-file
-//                       binding holds, named in any class attribute (`className={PAD}`, `cx(SHELL, 'p-6')`,
+//                       written directly inside a Card, a Modal or a frame that sets no padding of its own or only a zero
+//                       one (`p-0`), through `{…}` children, conditionals and a callback written there, as the Card's
+//                       sections are: the hero example's wrapper, the admin lists' rows. A frame inside a dialog's body
+//                       (written inside <ModalBody> or a native <dialog> in the same file, a Card included) caps from
+//                       step 4: the dialog's own inset already halves the measure there, and at 320px under 200% text the
+//                       cookie dialog's category cards left their text 92px and broke its longest words. A class a
+//                       same-file binding holds, named in any class attribute (`className={PAD}`, `cx(SHELL, 'p-6')`,
 //                       `${SHELL} p-6`; the initializer a string, a template or a cx()/clsx() call), is read with it as
 //                       text that is always there, for its frame and its padding alike, and a constant that draws a
 //                       frame is read on its own too, failing closed where it cannot see the element it lands on (a
@@ -1955,14 +1955,19 @@ export const surfacePaddingCap = {
         return init && isClassShaped(init) ? branchTexts(collectStaticText(unwrapTs(init), new WeakSet())) : []
       })
     /** Whether a surface leaves its inset to the elements written directly inside it: a Card, a Modal or a frame whose
-     *  own class text sets no padding, as the Card leaves its inset to its sections. */
+     *  own class text sets no padding, or only a zero one (`p-0`, `px-0`), as the Card leaves its inset to its
+     *  sections. A value the rule cannot read as a length counts as padding. */
     const leavesInsetToSections = (element) => {
       const attribute = classAttribute(element)
       const texts = attribute ? [...branchTexts(collectStaticText(attribute.value, new WeakSet())), ...boundTexts(attribute)] : []
       const text = texts.join(' ')
       const padded = text.split(/\s+/).some((raw) => {
         const token = raw && parseClassToken(raw)
-        return Boolean(token && PADDING.test(token.utility))
+        const m = token && PADDING.exec(token.utility)
+        if (!m) return false
+        const key = m[2]
+        const value = key.startsWith('[') && key.endsWith(']') ? key.slice(1, -1).replace(/_/g, ' ') : PADDING_SCALE[key]
+        return lengthStep(value ?? '') !== 0
       })
       return !padded && !FORM_FIELDS.has(nameOf(element)) && (SECTIONED_COMPONENTS.has(nameOf(element)) || drawsFrame(text))
     }

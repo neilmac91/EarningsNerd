@@ -53,12 +53,13 @@ import {
  *    the DS Button imported under another name; an imported wrapper and a wrapper of a wrapper stay unread.
  *  - surface-padding-cap (E120): under enlarged text a surface's inset stops growing at narrow widths, so a Card, a
  *    Modal's panel, a frame (a full border and a radius), the Card's and the dialog's sections, a native <dialog>'s
- *    sections and what is written directly inside a Card, a Modal or a frame that sets no padding of its own carry no
- *    padding of step 5 or more that is not a capped token (p-cap-N, tailwind.config.js), and a frame inside a dialog's
- *    body none from step 4. A step is read by its resolved size (a configured key, an arbitrary length), a value the rule
- *    cannot read fails closed, a class a same-file binding holds is read with the attribute that names it, a Card or a
- *    section imported under another name is read as itself, a form field is never a frame, and a capped key the theme
- *    does not define fails anywhere. The shapes out of its reach are planted as stated gaps.
+ *    sections and what is written directly inside a Card, a Modal or a frame that sets no padding of its own (or only
+ *    p-0) carry no padding of step 5 or more that is not a capped token (p-cap-N, tailwind.config.js), and a frame
+ *    inside a dialog's body none from step 4. A step is read by its resolved size (a configured key, an arbitrary
+ *    length), a value the rule cannot read fails closed, a class a same-file binding holds is read with the attribute
+ *    that names it, a Card or a section imported under another name is read as itself, a form field is never a frame,
+ *    and a capped key the theme does not define fails anywhere. The shapes out of its reach are planted as stated
+ *    gaps.
  *  - elements-built-with-jsx: the app builds its elements in JSX, which the gates that read elements see, so React's
  *    element factories are refused under any name (Codex's two forms on #1370's 44229515 among them), a use of React
  *    the rule cannot follow is refused as unreadable, and the DOM's document.createElement, JSX, a type and the one
@@ -850,6 +851,7 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     'function ModalHeader() { return <div className="px-cap-6 pt-cap-6" /> }',
     // A surface that sets its own padding: what is written inside it is content, not its sections.
     '<Card className="p-cap-6"><div className="p-6" /></Card>',
+    '<Card className="p-0"><div className="p-cap-6" /></Card>',
     '<section className="rounded-2xl border p-cap-6"><p className="px-6" /></section>',
     // A section of a surface that carries the cap, or a step under 5.
     '<Card><div className="px-4 pt-4 sm:px-cap-6 sm:pt-cap-6" /></Card>',
@@ -890,6 +892,10 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     { code: '<section className="rounded-2xl border"><ul>{rows}</ul><p className="border-t px-6 py-3" /></section>', errors: [{ messageId: 'uncapped' }] },
     { code: '<Card className="divide-y">{rows.map((row) => <article key={row} className="p-4 sm:p-5" />)}</Card>', errors: [{ messageId: 'uncapped' }] },
     { code: '<Modal><div className="p-6" /></Modal>', errors: [{ messageId: 'uncapped' }] },
+    // A surface reset to zero padding leaves its inset to them too (Codex's review of eee09cb8).
+    { code: '<Card className="p-0"><div className="p-6" /></Card>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<Modal className="p-0"><div className="px-6" /></Modal>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<div className="rounded-xl border px-0 py-[0px]"><div className="px-5" /></div>', errors: [{ messageId: 'uncapped' }] },
     // A Modal's className is its panel's.
     { code: '<Modal className="p-6" />', errors: [{ messageId: 'uncapped' }] },
     // A class a same-file binding holds is read with the attribute that names it, for a frame's border as for its padding.
