@@ -161,12 +161,13 @@ export const isPassThrough = (node) => {
  *  value opens a branch inside the current one; everything else (helper-call arguments, the receiver
  *  of a pass-through method, array elements, spreads, template expressions, `+` operands) stays in
  *  it. Every node it walks is added to `reached`, so the rule evaluates on its own only what no unit
- *  reached, such as the arguments of any other call. */
-export function collectStaticText(node, reached, out = [], branch = { parent: null }) {
+ *  reached, such as the arguments of any other call. A caller that passes `resolve` has an identifier
+ *  read as the node it returns (a same-file binding's initializer), in the identifier's own branch. */
+export function collectStaticText(node, reached, out = [], branch = { parent: null }, resolve = null) {
   if (!node) return out
   reached.add(node)
-  const sub = (child) => collectStaticText(child, reached, out, branch)
-  const optional = (child) => collectStaticText(child, reached, out, { parent: branch })
+  const sub = (child) => collectStaticText(child, reached, out, branch, resolve)
+  const optional = (child) => collectStaticText(child, reached, out, { parent: branch }, resolve)
   switch (node.type) {
     case 'Literal':
       if (typeof node.value === 'string') out.push({ text: node.value, branch })
@@ -206,6 +207,11 @@ export function collectStaticText(node, reached, out = [], branch = { parent: nu
     case 'ArrayExpression':
       for (const el of node.elements) sub(el)
       break
+    case 'Identifier': {
+      const init = resolve?.(node)
+      if (init && !reached.has(init)) sub(init)
+      break
+    }
     case 'ObjectExpression':
       for (const p of node.properties) {
         if (p.type !== 'Property') {

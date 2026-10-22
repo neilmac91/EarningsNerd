@@ -241,20 +241,21 @@
 //                       (`rounded`, `rounded-*` but `-none`) in the same branch, the Card recipe copied by hand and the
 //                       wells inside a card, but never a form field (input, textarea, select), whose padding reserves
 //                       room for a glyph (an icon field's pl-11, a select's pr-9); and a section of a surface, an element
-//                       written directly inside a Card, a Modal or a frame that sets no padding of its own or only a zero
-//                       one (`p-0`) in any branch (the pieces outside a ternary read as a branch of their own, failing
-//                       closed), through `{…}` children, conditionals and a callback written there, as the Card's
-//                       sections are: the hero example's wrapper, the admin lists' rows. A frame inside a dialog's body
-//                       (written inside <ModalBody> or a native <dialog> in the same file, a Card included) caps from
-//                       step 4: the dialog's own inset already halves the measure there, and at 320px under 200% text the
-//                       cookie dialog's category cards left their text 92px and broke its longest words. A class a
-//                       same-file binding holds, named in any class attribute (`className={PAD}`, `cx(SHELL, 'p-6')`,
-//                       `${SHELL} p-6`; the initializer a string, a template or a cx()/clsx() call), is read with it as
-//                       text that is always there, for its frame and its padding alike, and a constant that draws a frame
-//                       is read on its own too, failing closed where it cannot see the element it lands on (a constant
-//                       drawing a select's frame beside its pr-9 reads as a frame; keep a field's inset on it). A capped
-//                       key the theme does not define (`p-cap-7`, `scroll-py-cap-7`) fails anywhere, under any variant,
-//                       since it ships unstyled. Out of reach (review-checked, the reachable ones planted as gaps in
+//                       written directly inside a Card, a Modal or a frame whose class does not pad every render (only
+//                       padding of some length in its unconditional text, a binding's read where it is named, does;
+//                       `p-0`, or padding set only under a condition, leaves the inset to the children, failing closed),
+//                       through `{…}` children, conditionals and a callback written there, as the Card's sections are:
+//                       the hero example's wrapper, the admin lists' rows. A frame inside a dialog's body (written inside
+//                       <ModalBody> or a native <dialog> in the same file, a Card included) caps from step 4: the
+//                       dialog's own inset already halves the measure there, and at 320px under 200% text the cookie
+//                       dialog's category cards left their text 92px and broke its longest words. A class a same-file
+//                       binding holds, named in any class attribute (`className={PAD}`, `cx(SHELL, 'p-6')`, `${SHELL}
+//                       p-6`; the initializer a string, a template or a cx()/clsx() call), is read with it as text that
+//                       is always there, for its frame and its padding alike, and a constant that draws a frame is read
+//                       on its own too, failing closed where it cannot see the element it lands on (a constant drawing a
+//                       select's frame beside its pr-9 reads as a frame; keep a field's inset on it). A capped key the
+//                       theme does not define (`p-cap-7`, `scroll-py-cap-7`) fails anywhere, under any variant, since it
+//                       ships unstyled. Out of reach (review-checked, the reachable ones planted as gaps in
 //                       tests/unit/designRules.spec.ts): a class a component receives as a prop and passes to a Card or a
 //                       frame elsewhere, an imported constant, an object of recipes (`S.pad`), a binding a ternary or a
 //                       later assignment sets, a class through a helper other than cx()/clsx() (`merge(…)`), an inset set
@@ -1966,20 +1967,26 @@ export const surfacePaddingCap = {
         const init = def?.node?.type === 'VariableDeclarator' ? def.node.init : null
         return init && isClassShaped(init) ? branchTexts(collectStaticText(unwrapTs(init), new WeakSet())) : []
       })
+    /** A same-file binding a class attribute names, as its initializer when that is a string, a template or a
+     *  cx()/clsx() call, so the collector reads it where it is named (`padded && PAD` is PAD's text in that arm). */
+    const resolveBinding = (identifier) => {
+      const def = resolvedVariable(sourceCode, identifier)?.defs?.[0]
+      const init = def?.node?.type === 'VariableDeclarator' ? def.node.init : null
+      return init && isClassShaped(init) ? unwrapTs(init) : null
+    }
     /** Whether a surface leaves its inset to the elements written directly inside it: a Card, a Modal or a frame whose
-     *  own class text sets no padding, or only a zero one (`p-0`, `px-0`), in any branch (`padded ? 'p-cap-6' :
-     *  'p-0'`), as the Card leaves its inset to its sections. Each branch is read with the class a same-file binding
-     *  holds, as text that is always there. A value the rule cannot read as a length counts as padding. */
+     *  class text does not pad it in every render, as the Card leaves its inset to its sections. Only padding of some
+     *  length in the unconditional text (a binding's read where it is named) pads every render; one set only under a
+     *  condition (`padded ? 'p-cap-6' : 'p-0'`, `padded && PAD`) leaves the inset to the children, failing closed, and
+     *  so does `p-0`. A value the rule cannot read as a length counts as padding. */
     const leavesInsetToSections = (element) => {
       if (FORM_FIELDS.has(nameOf(element))) return false
       const attribute = classAttribute(element)
-      const bound = attribute ? boundTexts(attribute).join(' ') : ''
-      const branches = attribute ? branchTexts(collectStaticText(attribute.value, new WeakSet())) : []
-      const sectioned = SECTIONED_COMPONENTS.has(nameOf(element))
-      return (branches.length ? branches : ['']).some((branch) => {
-        const text = `${branch} ${bound}`
-        return !text.split(/\s+/).some(setsPadding) && (sectioned || drawsFrame(text))
-      })
+      const root = { parent: null }
+      const pieces = attribute ? collectStaticText(attribute.value, new WeakSet(), [], root, resolveBinding) : []
+      const always = pieces.filter((piece) => piece.branch === root).map((piece) => piece.text).join(' ')
+      if (always.split(/\s+/).some(setsPadding)) return false
+      return SECTIONED_COMPONENTS.has(nameOf(element)) || [always, ...branchTexts(pieces)].some(drawsFrame)
     }
     /** What makes a class unit a surface whatever its text says, and the element it sits on. */
     const surfaceOf = (node) => {
@@ -1990,11 +1997,11 @@ export const surfacePaddingCap = {
       if (name === 'dialog') return { surface: 'a native <dialog>', card: false, element }
       const holder = element ? enclosingElement(element) : null
       if (holder && nameOf(holder) === 'dialog') return { surface: 'a section of a native <dialog>', card: false, element }
-      // An element written directly inside a Card, a Modal or a frame that sets no padding of its own carries that
+      // An element written directly inside a Card, a Modal or a frame whose class does not pad every render carries that
       // surface's inset, as the Card's own sections do (the hero example's wrapper, the filings index's header).
       if (holder && leavesInsetToSections(holder)) {
         const of = SECTIONED_COMPONENTS.has(nameOf(holder)) ? `a ${nameOf(holder)}` : 'a frame'
-        return { surface: `a section of ${of} that sets no padding of its own`, card: false, element }
+        return { surface: `a section of ${of} whose class does not pad every render`, card: false, element }
       }
       for (let at = node.parent; at; at = at.parent) {
         if (!FUNCTION_TYPES.has(at.type)) continue
