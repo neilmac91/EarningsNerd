@@ -28,7 +28,9 @@ the same head (F58 changed both; **Gate** below).
   running review settles. The summary carries no run id, so a start recorded before the running review completes
   leaves two starts with no completion between them: the gate pairs neither with a completion, however clean, and no
   re-run repairs that history. An overlap hidden behind another completion can even pass while a review still runs
-  (B1 in review 6341504879, open). The gate prints its reasons only when its job ends (F58 row). Once the summary
+  (B1 in review 6341504879, open). B1's fix, in the F58 follow-up on the founder's first call, is this rule's machine
+  gate (rule 12); until it lands the rule is review-checked, as `ops-reserve-eval-baseline-before-each-push.md` is
+  while F55 holds its gate's form. The gate prints its reasons only when its job ends (F58 row). Once the summary
   reads Completed (it shows only the newest review, so a superseded run may stay Running behind it):
   - if a transition or request came while a review was Running, or a timed-out job's reason names overlapping starts
     or a missing history, make one fresh draft-to-ready transition, its two steps a few seconds apart (the gate
