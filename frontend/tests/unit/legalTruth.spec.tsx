@@ -130,13 +130,14 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  * 6. The audit-log item names only what an audit_logs row records (AUDITED): each thing it names stands on actions the
  *    backend writes (auditActions), read so that none is missed: each create_audit_log call by its own argument list,
  *    each audit_service function that calls create_audit_log as a helper with a literal action or a template one
- *    (`subscription_{action}`, composed from the caller's literal keyword), a callable passed with its arguments
- *    (`run_in_threadpool(audit_service.create_audit_log, db, action=...)`) from them, an import not as a call; and it
- *    follows a module's bindings, not names, so a writer imported under an alias (`create_audit_log as write_audit`)
+ *    (`subscription_{action}`, composed from the caller's literal keyword), a callable passed with its arguments to
+ *    run_in_threadpool, which runs it (`run_in_threadpool(audit_service.create_audit_log, db, action=...)`), from them,
+ *    an import not as a call; and it follows a module's bindings, not names, so a writer imported under an alias (`create_audit_log as write_audit`)
  *    and the service imported as a module (`import app.services.audit_service as audit`) are read, and a name counts
  *    only where the module binds it to the service: a function of its own, another module's import or another
  *    object's attribute under a helper's name writes no row. Whatever the walk cannot read or follow (a variable, an
- *    f-string or a positional action, a name mentioned but not called or reassigned, a star import of the service,
+ *    f-string or a positional action, a name mentioned but not called or reassigned, a writer passed to any call but
+ *    run_in_threadpool (a stored `partial` may never run), a star import of the service,
  *    the service reached through a binding it does not read (`services.audit_service.<name>`, or `audit_service`
  *    never imported), the service module used other than as `<module>.<name>`, a service function that uses another
  *    helper, whether or not it writes a row of its own, a create_audit_log in the service outside the one call of a
@@ -1095,11 +1096,12 @@ type AuditHelper = { params: string[] } & ({ action: string } | { prefix: string
     its own argument list (a literal `action=` keyword), each audit_service function that calls create_audit_log (a
     helper) with a literal action or a template one, and each call of a helper from another module, a template helper's
     action composed from the call's literal keyword (`action="created"` gives subscription_created). A call or helper
-    passed as a callable (`run_in_threadpool(audit_service.create_audit_log, db, action=...)`) is read from the
-    arguments passed with it. An import is not a call, and a call is the service's only where the module binds its name
-    to the service. Whatever the walk cannot read (a variable or an f-string action outside the service, a positional
-    action, a helper whose action is neither, a name mentioned but not called) is listed in `unread`, with its module
-    and line, and the test holds that list empty, so it fails closed. */
+    passed as a callable to run_in_threadpool (`run_in_threadpool(audit_service.create_audit_log, db, action=...)`),
+    which runs it, is read from the arguments passed with it; passed to any other call, it is reported. An import is
+    not a call, and a call is the service's only where the module binds its name to the service. Whatever the walk
+    cannot read (a variable or an f-string action outside the service, a positional action, a helper whose action is
+    neither, a name mentioned but not called) is listed in `unread`, with its module and line, and the test holds that
+    list empty, so it fails closed. */
 function auditActions(modules: Record<string, string>): { written: Set<string>; unread: string[] } {
   const isService = (rel: string) => /(?:^|\/)audit_service\.py$/.test(rel)
   const lineOf = (code: string, index: number) => code.slice(0, index).split('\n').length
@@ -1204,9 +1206,16 @@ function auditActions(modules: Record<string, string>): { written: Set<string>; 
       let args: string[] | null = null
       if (called) args = pythonCall(code, at + mention[0].length - 1)?.args ?? null
       else {
-        // A callable passed first, with its arguments after it, to a call that runs it.
+        // A callable passed first, with its arguments after it, to run_in_threadpool, the call the backend uses that runs
+        // it. Passed to anything else (a stored `partial`, a callback registered), it may never run, and is reported
+        // (Codex's r4353220551 on 9fc0f1b4).
         const open = pythonEnclosingCall(code, at)
         if (open >= 0 && /^\s*(?:[\w.]+\.)?$/.test(code.slice(open + 1, at))) {
+          const runner = code.slice(0, open).match(/([\w.]+)\s*$/)?.[1] ?? 'a call'
+          if (!/(?:^|\.)run_in_threadpool$/.test(runner)) {
+            unread.push(`${where} is passed to ${runner}, which the walk does not know runs it`)
+            continue
+          }
           args = (pythonCall(code, open)?.args ?? []).slice(1)
         }
       }
@@ -2012,7 +2021,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(fromPlanted.unread).toEqual([])
     // The walk fails closed (Codex's r4335911312 on 94fb37fe): a template helper's action is composed from its caller's
     // literal keyword, a callable passed with its arguments is read from them, and a call whose action it cannot read is
-    // reported, by module and line, never skipped. An import names create_audit_log without calling it.
+    // reported, by module and line, never skipped. An import names create_audit_log without calling it. The callable
+    // counts only when run_in_threadpool runs it; a stored `partial` may never run, and is reported (Codex's
+    // r4353220551 on 9fc0f1b4).
     const templated = auditActions({
       'app/services/audit_service.py': [
         'def create_audit_log(db, action, user_id=None):',
@@ -2045,6 +2056,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
         '    await run_in_threadpool(audit_service.create_audit_log, db, action="free_account_created")',
         '    hook = audit_service.create_audit_log',
         '    log_data_export(db, user.id)',
+        '    callback = partial(audit_service.create_audit_log, db, action="stored_action")',
       ].join('\n'),
     })
     expect([...templated.written].sort()).toEqual(['data_exported', 'feedback_status_changed', 'free_account_created', 'subscription_created'])
@@ -2055,6 +2067,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       'app/routers/b.py:7 create_audit_log passes action=action_name, which the walk cannot read',
       'app/routers/b.py:9 create_audit_log passes action="invite_revoked" positionally, which the walk cannot read',
       'app/routers/b.py:11 create_audit_log is named but not called, so the walk cannot read its action',
+      'app/routers/b.py:13 create_audit_log is passed to partial, which the walk does not know runs it',
     ])
     // The walk follows bindings, not names (Codex's r4336218376 on 2b30fe47): a writer imported under an alias and the
     // service imported as a module are read; a star import, an alias reassigned, the module used other than as
