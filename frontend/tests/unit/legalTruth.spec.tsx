@@ -61,8 +61,9 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    recording (the consent dialog's own "Analytics cookies and session recording stay off until you allow them", and
  *    "Session recording with PostHog is opt-in"), reads as scoped, and where the verb says the promise, a denial before
  *    it, on the subject or on the consent passes ("No server events require your consent", "Server events do not need
- *    your consent", "Server events require no consent"), while "No analytics run until you allow them" and "No usage
- *    data is sent without your permission" still promise.
+ *    your consent", "Server events require no consent"), and so does consent bound to another operation, a gerund of
+ *    one opening the sentence ("Sharing analytics data with another user requires your consent": ITS_OPERATION), while
+ *    "No analytics run until you allow them" and "No usage data is sent without your permission" still promise.
  *    The scan reads /security's rendered tree, as one text (a heading runs into the body under it) and block by block
  *    (blockTexts: a list item or a paragraph on its own, so a provider's item is not read through the PostHog line's
  *    "in your browser"), /privacy's and /terms' rendered trees the same way (/privacy carries the account-events
@@ -344,6 +345,11 @@ const CONSENT = String.raw`(?:consent|permission|agreement|approval|opt[- ]in|sa
     consent", with up to three words before the consent, or "once allowed". */
 const YES_AFTER_ONLY = String.raw`(?:\b(?:after|once|when|if|until) you(?: have|['’]ve)? ${YES}|\b(?:with|after|upon|on|by) (?:[\w'’-]+ ){0,3}${CONSENT}|\b(?:once|if|when|after) (?:it is |they are |it['’]s |they['’]re )?(?:allowed|accepted|enabled|consented)\b)`
 
+/** Consent bound to another operation on the analytics (#1456's twelfth round): a sentence that opens with a gerund of
+    an operation other than collecting or running them, with "any" or "the" before it at most ("Sharing analytics data
+    with another user requires your consent.", "Any selling of usage data needs your permission."), puts the consent on
+    that operation, up to the verb with no comma, colon, semicolon or conjunction (and, but, or) between. */
+const ITS_OPERATION = String.raw`(?<!^\s*(?:(?:any|the)\s+)?(?:sharing|selling|exporting|deleting|erasing|disclosing|transferring|publishing|showing|displaying|revealing|renting|licensing|downloading)\b(?![-'’])(?:(?!\b(?:and|but|or)\b)[^,;:.!?])*)`
 /** An analytics-consent promise not scoped to the browser, in one sentence (header item 1 lists its forms). The
     "only" forms read a sentence that names the browser as scoped, and read the consent word by its start, so "only
     after consenting" fails as "only after consent" does; the forms that wait for a yes another way read the browser's
@@ -355,14 +361,16 @@ const YES_AFTER_ONLY = String.raw`(?:\b(?:after|once|when|if|until) you(?: have|
     "until you allow" after another verb and "without your consent" take a denied subject as part of the promise ("No
     analytics run until you allow them", "No usage data is sent without your permission"). Where the yes follows
     "only" at once, the "only" forms read a negation on the verb before it (NOT_NEAR; #1456's tenth round), so
-    "Analytics are not collected only with your consent." passes. */
+    "Analytics are not collected only with your consent." passes. The forms with requires, needs, waits for or is
+    subject to read no consent bound to another operation (ITS_OPERATION), so "Collecting analytics data requires your
+    consent." still promises and "Sharing analytics data with another user requires your consent." passes. */
 const CONSENT_PROMISE = new RegExp(
   String.raw`^(?!.*\bin your browser\b)(?=.*${ANALYTICS_NAMES}).*(?:${NOT_NEAR}\bonly\s+|\bonly\b(?!\s+${YES_AFTER_ONLY}).{0,60}?)${YES_AFTER_ONLY}` +
     String.raw`|^(?!.*(?:\bin your browser\b|${BROWSER_PART}))(?=.*${ANALYTICS_NAMES})(?:` +
     String.raw`.*(?<!\bwait(?:s|ing)?\s)\buntil you(?: have|['’]ve)? ${YES}` +
     String.raw`|.*${NOT}\bwait(?:s|ing)?\s+until you(?: have|['’]ve)? ${YES}` +
     String.raw`|.*(?:\b(?:never|not|no|nothing|none|cannot)\b|n['’]t\b).{0,60}?\bwithout (?:your )?(?:[\w-]+ )?${CONSENT}\b` +
-    String.raw`|.*${NOT}\b(?:requires?|needs?|waits? for|(?:is|are) subject to) (?:your )?(?:(?!no\b)[\w-]+ )?${CONSENT}\b` +
+    String.raw`|.*${NOT}${ITS_OPERATION}\b(?:requires?|needs?|waits? for|(?:is|are) subject to) (?:your )?(?:(?!no\b)[\w-]+ )?${CONSENT}\b` +
     String.raw`|.*${NOT}\bconsent[- ]gated\b|.*${NOT}\bgated (?:on|by|behind) (?:your |the )?(?:[\w-]+ )?(?:consent|choice)\b` +
     String.raw`|.*${NOT}\b(?:is|are) (?:strictly |only )?opt[- ]in\b` +
     ')',
@@ -1354,6 +1362,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // 4344569265).
       ['<p>Analytics are collected only with your consent.</p>', true],
       ['<p>Analytics are not collected only with your consent.</p>', false],
+      // Consent bound to another operation on the analytics, a gerund that opens the sentence, puts the consent on that
+      // operation, beside the analytics collected or tracked and "Usage data requires your agreement." above, which
+      // still promise (#1456's twelfth round, Codex's thread 4350498600).
+      ['<p>Sharing analytics data with another user requires your consent.</p>', false],
+      ['<p>Collecting analytics data requires your consent.</p>', true],
+      ['<p>Tracking usage requires your consent.</p>', true],
       // Every endpoint with other words before "endpoints" (#1397's last review), each and any with a login said, and
       // the claim the other way round.
       ["<p>All of the API's endpoints require authentication.</p>", true],
