@@ -9,6 +9,7 @@ import {
   getConnections,
   unlinkProvider,
   logoutAllSessions,
+  LogoutAllSuperseded,
   type AuthConnection,
 } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
@@ -66,6 +67,9 @@ export default function ConnectedAccounts() {
       router.push('/login')
     },
     onError: (err: unknown) => {
+      // Another login was accepted while it waited: the tab is that account's now, so there is nothing to clear, to
+      // leave or to say here.
+      if (err instanceof LogoutAllSuperseded) return
       setError(
         isApiError(err) ? getErrorMessage(err) : 'Could not log out of all devices.',
       )
