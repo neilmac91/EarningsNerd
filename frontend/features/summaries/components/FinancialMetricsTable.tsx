@@ -165,8 +165,12 @@ const changeField = (row: FinancialMetric, flow = false): ReactNode => {
 
 const takeawayField = (row: FinancialMetric, twin?: string): ReactNode => (
   <div data-metric-field="takeaway" className="flex flex-col gap-1">
-    <span className="text-text-secondary-light dark:text-text-secondary-dark">{row.commentary || '-'}</span>
-    {row.commentary_evidence && (
+    {/* A row the summary wrote no takeaway for: the missing-value element, read as "no takeaway" (E145), and no chip,
+        whose panel would cite a passage for a takeaway the row does not have. */}
+    <span className="text-text-secondary-light dark:text-text-secondary-dark">
+      {isMissing(row.commentary) ? <MissingValue label="no takeaway" /> : row.commentary}
+    </span>
+    {row.commentary_evidence && !isMissing(row.commentary) && (
       <SourceTrace
         url={row.commentary_evidence.fragment_url}
         verified={row.commentary_evidence.verified}

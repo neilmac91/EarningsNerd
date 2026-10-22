@@ -11,13 +11,16 @@ const PER_ADS = {
   source: 'Alibaba 20-F cover / deposit agreement: 1 ADS = 8 ordinary shares',
   arithmetic: 'CNY 5.7 per ordinary share × 8 = CNY 45.6 per ADS',
 }
+// The row's takeaway, as a served ADR row carries one, so the em-dash checks below read the whole table: a takeaway the
+// summary did not write is the missing-value element (E145), whose token FinancialMetricsCards.spec.tsx reads.
+const TAKEAWAY = 'Per-share earnings rose with net income.'
 
 describe('FinancialMetricsTable — per-ADS EPS (item 1.5)', () => {
   it('renders the per-ADS figure + auditable arithmetic on an ADR EPS row', () => {
     const { container } = render(
       <FinancialMetricsTable
         metrics={[
-          { metric: 'Diluted EPS', current_period: 'CN¥5.70', prior_period: 'CN¥5.50', per_ads: PER_ADS },
+          { metric: 'Diluted EPS', current_period: 'CN¥5.70', prior_period: 'CN¥5.50', per_ads: PER_ADS, commentary: TAKEAWAY },
         ]}
       />,
     )
@@ -37,7 +40,7 @@ describe('FinancialMetricsTable — per-ADS EPS (item 1.5)', () => {
     const cached = { ...PER_ADS, source: 'Alibaba 20-F cover / deposit agreement \u2014 1 ADS = 8 ordinary shares' }
     const { container } = render(
       <FinancialMetricsTable
-        metrics={[{ metric: 'Diluted EPS', current_period: 'CN¥5.70', prior_period: 'CN¥5.50', per_ads: cached }]}
+        metrics={[{ metric: 'Diluted EPS', current_period: 'CN¥5.70', prior_period: 'CN¥5.50', per_ads: cached, commentary: TAKEAWAY }]}
       />,
     )
     expect(container).toHaveTextContent(

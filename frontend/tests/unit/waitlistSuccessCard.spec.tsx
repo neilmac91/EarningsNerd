@@ -119,26 +119,32 @@ vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   },
 }))
 vi.mock('@/features/auth/components/TurnstileWidget', async () => {
-  const { useEffect } = await import('react')
+  const { useEffect, useRef } = await import('react')
   return {
+    // As the real widget is built: the latest onToken through a ref, and one effect for each mount, so only a new key
+    // (a new widget) yields a new token, never a new callback.
     default: function TurnstileWidget({ onToken }: { onToken: (token: string) => void }) {
+      const onTokenRef = useRef(onToken)
+      useEffect(() => {
+        onTokenRef.current = onToken
+      })
       useEffect(() => {
         if (!turnstile.on) return
         const token = `token-${++turnstile.mounts}`
         if (!turnstile.hold) {
-          onToken(token)
+          onTokenRef.current(token)
           return
         }
         const issue = () => {
           turnstile.waiting.delete(issue)
-          onToken(token)
+          onTokenRef.current(token)
         }
         turnstile.waiting.add(issue)
         // An unmounted widget's token never comes (TurnstileWidget removes its widget).
         return () => {
           turnstile.waiting.delete(issue)
         }
-      }, [onToken])
+      }, [])
       return null
     },
   }
@@ -370,6 +376,25 @@ describe('waitlist join refused', () => {
         await userEvent.keyboard('{Enter}')
         await waitFor(() => expect(api.joinWaitlist).toHaveBeenCalledTimes(2))
         expect(api.joinWaitlist.mock.calls.map(([, token]) => token)).toEqual(['token-1', 'token-2'])
+      })
+
+      it("refuses a press's default while the token comes, so the browser's own validation never starts", async () => {
+        render(<WaitlistForm source="waitlist" />)
+        // The required email left empty, as by a reader who presses before typing it.
+        const field = screen.getByLabelText('Email address')
+        const invalid = vi.fn()
+        field.addEventListener('invalid', invalid)
+        const button = screen.getByRole('button', { name: 'Join the waitlist' })
+        fireEvent.click(button)
+        field.focus()
+        await userEvent.keyboard('{Enter}')
+        expect(invalid).not.toHaveBeenCalled()
+
+        // With the token, a press is the browser's again: it validates, finds the empty field and sends nothing.
+        issueToken()
+        fireEvent.click(button)
+        expect(invalid).toHaveBeenCalledTimes(1)
+        expect(api.joinWaitlist).not.toHaveBeenCalled()
       })
 
       it('waits for the first token the same way: focusable, and the first press after it sends token-1', async () => {
