@@ -9,6 +9,7 @@ import { ArrowSquareOutIcon, MagnifyingGlassIcon, WarningIcon } from '@/lib/icon
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
 import { FieldSpinner, cx, inputClasses } from '@/components/ui'
 import { fmtCount } from '@/lib/format'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { SEARCH_QUERY_MAX, clampQuery } from '@/features/search/lib/queryLimit'
 
 // EFTS is a global SEC index (independent of our ENABLE_FPI_FILINGS discovery flag), so the
@@ -70,7 +71,7 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
                 {hit.ticker && (
                   <span className="font-mono text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">{hit.ticker}</span>
                 )}
-                <span className="min-w-0 break-words text-sm text-text-primary-light dark:text-text-primary-dark">{hit.company ?? 'Unknown filer'}</span>
+                <span className="min-w-0 break-words text-sm text-text-primary-light dark:text-text-primary-dark">{formatCompanyName(hit.company) || 'Unknown filer'}</span>
               </div>
               <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 {facts.map((fact, i) => (

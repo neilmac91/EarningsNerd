@@ -23,6 +23,14 @@ describe('source capture boundary', () => {
     { document_url: 'javascript:alert(1)' }, { document_url: 'https://evil.test/Archives/edgar/data/123/000000012326000001/a.htm' },
     { document_url: 'https://www.sec.gov/Archives/edgar/data/123/000000012325000001/a.htm' },
   ])('rejects untrusted identity patch %j', (patch) => expect(() => sourceIdentity({ ...filing, ...patch }, 3)).toThrow())
+  it('names the company in its display casing where the filing enters, so the pack and its export print it so (E146)', () => {
+    const identity = sourceIdentity({ ...filing, company: { id: 123, name: 'SAMPLE INDUSTRIES A INC', ticker: 'TEST' } }, 3)
+    expect(identity.companyName).toBe('Sample Industries A Inc')
+    const document = sourceDocument(identity, { filingId: 3, hasContent: true, markdownContent: 'First paragraph.' })
+    const markdown = exportEvidence([createEntry(1, captureSource(document, 0, now))], 'markdown', now)
+    expect(markdown).toContain('Sample Industries A Inc (TEST)')
+    expect(markdown).not.toContain('SAMPLE INDUSTRIES')
+  })
   it('captures an exact selected paragraph without accepting substituted or missing text', () => {
     const identity = sourceIdentity(filing, 3)
     const document = sourceDocument(identity, { filingId: 3, hasContent: true, markdownContent: 'First paragraph.\n\n  Second <script> text.\nStill second.  ' })

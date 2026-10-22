@@ -89,7 +89,7 @@ const REPORT: ChangeReport = {
   has_changes: true,
 }
 
-function display(initialChangeReport?: ChangeReport, summary: Summary = SUMMARY) {
+function display(initialChangeReport?: ChangeReport, summary: Summary = SUMMARY, filing: Filing = FILING) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
   return {
@@ -97,7 +97,7 @@ function display(initialChangeReport?: ChangeReport, summary: Summary = SUMMARY)
     ...render(
     <SummaryDisplay
       summary={summary}
-      filing={FILING}
+      filing={filing}
       isPro={false}
       isSaved={false}
       isAuthenticated={false}
@@ -167,6 +167,14 @@ describe('the summary page outline', () => {
     display(REPORT)
     const outline = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
     expect(outline).toEqual(['Executive assessment', 'Financial highlights', 'What changed', 'Risks', 'Ask AAPL’s 10-K anything'])
+  })
+
+  // With no ticker the callout names the company: EDGAR's conformed name, often in capitals, in its display casing
+  // (E146).
+  it('names a filing with no ticker by its company, in its display casing', () => {
+    api.getWhatChanged.mockReturnValue(new Promise(() => {}))
+    display(REPORT, SUMMARY, { ...FILING, company: { id: 1, ticker: '', name: 'APPLE INC.' } })
+    expect(screen.getByRole('heading', { level: 2, name: 'Ask Apple Inc.’s 10-K anything' })).toBeInTheDocument()
   })
 })
 

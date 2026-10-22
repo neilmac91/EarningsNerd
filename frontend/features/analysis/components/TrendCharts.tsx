@@ -48,6 +48,7 @@ import {
   periodAxisLabel,
 } from '@/features/analysis/lib/periodAxis'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import DataNotesLink from './DataNotesLink'
 import { useDataNotes } from './DataNotesContext'
 import type { DataNote, DataNotesModel } from '@/features/analysis/lib/dataNotes'
@@ -439,7 +440,7 @@ function PanelCard({
       {
         dark,
         header: {
-          company: dataset.company_name,
+          company: formatCompanyName(dataset.company_name),
           ticker: dataset.ticker,
           title: panel.title,
           legend: legendItems.length >= 2 ? legendItems : [],

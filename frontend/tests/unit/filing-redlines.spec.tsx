@@ -20,6 +20,7 @@ vi.mock('@/features/filings/api/filing-content-api', () => ({
 vi.mock('@/lib/downloadBlob', () => ({ downloadBlob: (blob: Blob) => { api.downloads.push(blob) } }))
 
 import FilingRedlines from '@/features/filing-redlines/components/FilingRedlines'
+import { validateFilingPair } from '@/features/filing-redlines/lib/filingPair'
 
 function filing(id: number): Filing {
   const earlier = id === 1
@@ -336,5 +337,15 @@ describe('filing redlines prototype', () => {
     expect(screen.getByLabelText('Find in changed paragraphs')).toHaveValue('')
     expect(screen.getByLabelText('Added paragraph 1 review status')).toHaveValue('unreviewed')
     expect(screen.getByText('0 of 2 reviewed · 2 remaining · 0 needs follow-up')).toBeInTheDocument()
+  })
+})
+
+// EDGAR serves a conformed name, often in capitals; the pair names its company in its display casing where the
+// filings enter, so each source identity prints it as the app's other surfaces do (E146).
+describe('the source identities', () => {
+  it('name the company in its display casing', () => {
+    const shouting = (id: number): Filing => ({ ...filing(id), company: { id: 123, ticker: 'TEST', name: 'SAMPLE INDUSTRIES A INC' } })
+    const pair = validateFilingPair(shouting(1), shouting(2), 1, 2)
+    expect([pair.earlier.companyName, pair.current.companyName]).toEqual(['Sample Industries A Inc', 'Sample Industries A Inc'])
   })
 })

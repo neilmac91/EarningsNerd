@@ -1,8 +1,10 @@
 import type { Filing } from '@/features/filings/api/filings-api'
 import { originalDocumentUrl } from '@/features/filings/lib/originalDocumentUrl'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 
 export interface RedlineSource {
   filingId: number | null
+  /** The company's name in its display casing (formatCompanyName), formatted here where the filing enters. */
   companyName: string
   ticker: string
   reportDate: string
@@ -61,7 +63,7 @@ export function validateFilingPair(earlier: Filing, current: Filing, earlierId: 
   }
   const source = (filing: Filing, reportDate: string, filingDate: string): RedlineSource => ({
     filingId: filing.id,
-    companyName: filing.company!.name,
+    companyName: formatCompanyName(filing.company!.name),
     ticker: filing.company!.ticker,
     reportDate,
     filingDate,

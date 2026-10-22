@@ -127,3 +127,18 @@ describe('the calendar event row wraps and shows what it carries', () => {
     expect(name.parentElement).toHaveClass('flex-wrap')
   })
 })
+
+// EDGAR serves a conformed name, often in capitals; the row prints it as Reporting this week does, in both layouts
+// (E146). The mark is decorative here, named by the text beside it.
+describe('the calendar event row names its company in its display casing', () => {
+  it.each([true, false])('a served name in capitals prints title-cased (roomy: %s)', (roomy) => {
+    render(
+      <ul>
+        <EventRow ev={{ ...EVENT, company_name: 'APPLE INC.' }} alerts={ALERTS} signedIn={false} roomy={roomy} />
+      </ul>,
+    )
+    const link = within(screen.getByRole('listitem')).getByRole('link')
+    expect(link).toHaveTextContent('Apple Inc.')
+    expect(link).not.toHaveTextContent('APPLE INC.')
+  })
+})

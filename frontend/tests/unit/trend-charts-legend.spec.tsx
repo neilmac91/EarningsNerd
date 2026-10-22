@@ -225,6 +225,13 @@ describe('TrendCharts PNG export wiring', () => {
     expect(header?.legend.map((i) => i.label)).toEqual(['Gross', 'Operating'])
   })
 
+  // A shared PNG names its company as the page does: EDGAR's conformed name, often in capitals, in its display
+  // casing (E146).
+  it('names the company in the export’s header in its display casing', () => {
+    render(<TrendCharts dataset={{ ...dataset, company_name: 'SAMPLE INDUSTRIES A INC' }} exportEnabled />)
+    expect(clickExport('Margins')?.company).toBe('Sample Industries A Inc')
+  })
+
   it('omits a single-item legend from the export, matching PanelLegend', () => {
     // Balance sheet with only equity present → one series → title alone identifies it, no legend.
     const equityOnly: AnalysisDataset = {

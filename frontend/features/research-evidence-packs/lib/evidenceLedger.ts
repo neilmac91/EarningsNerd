@@ -1,10 +1,13 @@
 import type { Filing } from '@/features/filings/api/filings-api'
 import type { FilingContent } from '@/features/filings/api/filing-content-api'
 import { originalDocumentUrl } from '@/features/filings/lib/originalDocumentUrl'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 
 export interface SourceIdentity {
   readonly filingId: number
   readonly companyId: number
+  /** The company's name in its display casing (formatCompanyName), formatted where the filing enters (sourceIdentity),
+      so the pack and its exports name it as the rest of the app does. */
   readonly companyName: string
   readonly ticker: string
   readonly form: string
@@ -71,7 +74,7 @@ export function sourceIdentity(filing: Filing, expectedId: number): SourceIdenti
     throw new Error('A valid SEC original link is required.')
   }
   return Object.freeze({ filingId: expectedId, companyId: filing.company!.id,
-    companyName: filing.company!.name, ticker: filing.company!.ticker, form: filing.filing_type,
+    companyName: formatCompanyName(filing.company!.name), ticker: filing.company!.ticker, form: filing.filing_type,
     accession: filing.accession_number, reportDate, filedDate, originalUrl: url.href, fictional: false })
 }
 

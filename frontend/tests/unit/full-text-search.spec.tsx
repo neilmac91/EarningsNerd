@@ -72,6 +72,13 @@ describe('FullTextSearchResults', () => {
     expect(screen.getByRole('link').getAttribute('href')).toBe(partial.sec_url)
   })
 
+  // The hit's company is EDGAR's display name, often in capitals; the row prints it as the app's other rows do (E146).
+  it('prints a served name in capitals in its display casing', () => {
+    const { container } = render(<FullTextSearchResults hits={[{ ...hit, company: 'APPLE INC.' }]} />)
+    expect(container.textContent).toContain('Apple Inc.')
+    expect(container.textContent).not.toContain('APPLE INC.')
+  })
+
   it('renders a non-link row when no URL is available (no empty anchor)', () => {
     const noUrl: FullTextSearchHit = { ...hit, document_url: null, sec_url: null }
     const { container } = render(<FullTextSearchResults hits={[noUrl]} />)

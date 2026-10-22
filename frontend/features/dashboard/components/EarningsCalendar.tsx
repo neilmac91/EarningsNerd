@@ -4,6 +4,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { getUpcomingCalendar } from '@/features/dashboard/api/dashboard-api'
 import { formatLocalDate, fmtCurrency } from '@/lib/format'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { Card, Skeleton } from '@/components/ui'
 
 const TIME_LABEL: Record<string, string> = { bmo: 'Before open', amc: 'After close' }
@@ -50,7 +51,7 @@ export default function EarningsCalendar({ enabled = true }: { enabled?: boolean
                 <div>
                   <span className="font-data font-semibold text-text-primary-light dark:text-text-primary-dark">{ev.ticker}</span>
                   <span className="ml-2 truncate text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                    {ev.company_name}
+                    {formatCompanyName(ev.company_name)}
                   </span>
                 </div>
                 {ev.eps_estimated != null && (

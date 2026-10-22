@@ -69,6 +69,15 @@ describe('HeroExample', () => {
     expect(within(strip).getByText('▼').parentElement).toHaveTextContent('▼-1.2%')
   })
 
+  // The live example's name is EDGAR's conformed one, often in capitals; the identity line prints it as the filing
+  // page's does (E146). The mark is decorative, named by the line beside it.
+  it('names the live example’s company in its display casing', () => {
+    render(<HeroExample example={{ ...LIVE, companyName: 'APPLE INC.' }} />)
+    const surface = screen.getByRole('region', { name: 'Example summary' })
+    expect(within(surface).getByText('Apple Inc.')).toBeInTheDocument()
+    expect(surface).not.toHaveTextContent('APPLE INC.')
+  })
+
   it('shows one evidence row from the live summary: its opening clause, the excerpt, a chip into the filing', () => {
     const { container } = render(<HeroExample example={LIVE} />)
     // Headed by its own opening clause (the filing's words), as the filing page heads evidence rows.
