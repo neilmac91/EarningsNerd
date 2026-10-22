@@ -7,10 +7,11 @@ import { Inter, Geist_Mono, Newsreader } from 'next/font/google'
 // Type v2 — fixed roles, self-hosted via next/font (zero layout shift; the runtime
 // font switcher is retired). Inter loads WITH the variable opsz axis: that is what
 // gives the SF-style Text↔Display optical cuts (font-optical-sizing: auto in
-// globals.css). -apple-system stays FIRST in --font-body, so Apple users render
-// SF Pro (platform-licensed, zero bytes) and never download Inter; SF Pro / SF Mono /
-// New York must NEVER be embedded as webfonts. globals.css + tailwind.config.js
-// reference the emitted variables (--font-inter / --font-geist-mono / --font-newsreader).
+// globals.css). -apple-system stays FIRST in --font-body, so Apple hardware renders
+// SF Pro (platform-licensed, zero bytes); the preload still fetches Inter's Latin file
+// there. SF Pro / SF Mono / New York must NEVER be embedded as webfonts. globals.css +
+// tailwind.config.js reference the emitted variables (--font-inter / --font-geist-mono /
+// --font-newsreader).
 export const inter = Inter({ subsets: ['latin'], axes: ['opsz'], variable: '--font-inter' })
 export const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' })
 // axes: opsz — the editorial role promises optical sizing (font-optical-sizing: auto);

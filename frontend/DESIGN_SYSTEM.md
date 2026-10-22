@@ -1854,8 +1854,10 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 3. **Font-var gate** (repeat offender — missed in BOTH the v2 and v2.1 exports): every
    `fontFamily` stack in `tailwind.config.js` and every `:root` font var in `globals.css`
    leads with its `next/font` variable (`var(--font-inter)` / `var(--font-geist-mono)` /
-   `var(--font-newsreader)`). next/font self-hosts under hashed family names exposed ONLY as
-   these vars — a literal-only stack silently never resolves. Four sanctioned exceptions, all
+   `var(--font-newsreader)`). next/font exposes each family through these vars, and the var is
+   the contract: the family name it declares (a plain `Inter` in this build, under which two
+   loader calls once collided, E147) is no promise, so a literal-only stack is not wired to the
+   loader. Four sanctioned exceptions, all
    of which still reach a var: `fontFamily.body` and `--font-body` keep `-apple-system` first
    with the var ahead of the `'Inter'` literal; `fontFamily.sans` is `['var(--font-body)', …]`
    and `--font-active` is `var(--font-body)`, both reaching `--font-inter` one hop later. Do
