@@ -32,37 +32,46 @@ import { LOGOUT_CALL_SITES } from './logoutCallSites'
  *   navigates outside the continuation (its catch, its finally, the statements before and after it); a function
  *   declared in it counts as run there, so a helper only the continuation calls is declared outside it. Its promise
  *   goes nowhere: it is inline in a JSX attribute, or a const (`useCallback` included) or a function declaration, not
- *   exported, whose every use is a JSX attribute, a call whose result is discarded (`void handle()`, `handle()` as a
- *   statement) or that an arrow returns (`onClick={(e) => handle(e)}`: the arrow is then read as a caller, its own
- *   uses held to the same rule), or an entry of a hook's dependency list, which React compares and never calls.
+ *   exported, whose every use is a JSX attribute but `action` or `formAction` (React awaits the function given to
+ *   either and throws a rejection to the error boundary), a call whose result is discarded (`void handle()`,
+ *   `handle()` as a statement) or that an arrow returns (`onClick={(e) => handle(e)}`: the arrow is then read as a
+ *   caller, its own uses held to the same rule), or an entry of the dependency list of a hook imported by its name or
+ *   read off an import (`React.useEffect`), which React compares and never calls.
  * - A mutation: the whole body of `mutationFn` in an inline `useMutation({…})` options object, with no `throwOnError`
  *   and no spread, whose other options navigate nowhere: `onMutate` runs before the logout, `onError`, `onSettled`,
  *   `retry` and `retryDelay` on its failure, and `onSuccess` outside the turn of the ownership check, so a login
  *   accepted meanwhile would be sent away. Its result is a const read only as `.mutate()` with no options, for its
- *   state, or in a hook's dependency list (`[logoutMutation]`): `mutateAsync`, `mutate(v, options)`, a destructured
- *   result or the result passed on is refused.
+ *   state, or in such a hook's dependency list (`[logoutMutation]`): `mutateAsync` (wherever it is read),
+ *   `mutate(v, options)`, a destructured result or the result passed on is refused.
  * What runs whatever the outcome navigates nowhere either, read outward from where the logout starts: the function a
  * `.mutate()` (or a refused `mutateAsync()`) sits in, before the call and after it; each function that calls the
  * handler, or that function, with its result discarded, through every caller, each held as the handler is; and the
  * element whose event runs one of them, by its default action (an `href`, an `action` or a `formAction` on it or on a
  * JSX element around it the event bubbles to, a submit control in a form) or by another attribute of any of them (a
- * second handler of the element, an ancestor's handler). JSX a variable holds is read on from each place the variable
- * is written in the file (the dashboard's `const header = <SecondaryHeader actions={…} />`, written as `{header}`).
+ * second handler of the element, an ancestor's handler). JSX a binding holds is read on from each place the binding is
+ * used in the file: a variable's initializer (the dashboard's `const header = <SecondaryHeader actions={…} />`, written
+ * as `{header}`), a value assigned to it later (`content = <button …/>`), and what a function declaration returns (a
+ * same-file component written as `<Menu />`, a helper called as `{renderButton()}`).
  * Navigation is a call of push, replace, back, forward, go, refresh, assign, reload, redirect, permanentRedirect,
- * navigate, traverseTo, submit, requestSubmit or click (on any object, or by a key the gate can read, `router['push']`, so an
- * array's push in such a handler is refused too, and a programmatic click, which may follow a link or submit a form; a
- * string's replace, with its replacement, is not), `open` with a target that is this tab or one the gate cannot read
- * (`window.open(url, '_self')`), and an assignment to `location`, `.location`, `.href`, `.pathname`, `.search`,
- * `.host`, `.hostname`, `.port` or `.protocol` (a fragment's, `.hash`, loads no page). Each is read where it is written and through the
+ * navigate, traverseTo, submit, requestSubmit or click (on any object, by a key the gate can read, `router['push']`, or
+ * through `.call` or `.apply`, so an array's push in such a handler is refused too, and a programmatic click, which may
+ * follow a link or submit a form; a string's replace, with its replacement, is not), `open` with a target that is this
+ * tab or one the gate cannot read (`window.open(url, '_self')`), and an assignment to `location`, `.location`, `.href`,
+ * `.pathname`, `.search`, `.host`, `.hostname`, `.port` or `.protocol`, by name or by a key the gate can read
+ * (`location['href']`, `window['location']`; a fragment's, `.hash`, loads no page). Each is read where it is written and through the
  * same-file code a name there holds: a function (declared, a const's arrow or function, useCallback's), an object
  * literal of them, and what a destructuring takes them from (a same-file hook's call).
  *
  * Out of reach, planted below as gaps: navigation through a function imported from another module, a helper handed in
- * as a parameter or a prop, or state an effect acts on; a dynamic import whose specifier is computed; a component
- * handed a handler as a prop, which may chain its promise or navigate after calling it; an element another component
- * renders inside a link or a form, or JSX handed on as a value (returned from a function, or an argument), which is
- * read no further than where it is handed on; and a props spread on the element or one around it, which may carry an
- * `href` or a handler.
+ * as a parameter or a prop, or state an effect acts on; a navigator called through an alias, a bound copy or
+ * `Reflect.apply` (`const leave = router.push`, `router.push.bind(router)('/')`); a dynamic import whose specifier is
+ * computed; a component
+ * handed a handler as a prop, inline or in an arrow, which may chain its promise or navigate after calling it; an
+ * element a component from another module renders inside a link or a form; JSX handed to a function that renders it
+ * somewhere else, or held where the gate does not follow it (a destructured binding, an array or an object it is put
+ * in, a loop variable); and a props spread on the element or one around it, which may carry an `href` or a handler.
+ * The behavioural spec watches every navigation at run time for the three controls it renders, through the helper,
+ * the API client and the session reset, which are imported code this gate does not read.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -105,8 +114,14 @@ const outermost = (node: ts.Node): ts.Node => {
   while (ts.isParenthesizedExpression(at.parent) || ts.isAsExpression(at.parent) || ts.isSatisfiesExpression(at.parent) || ts.isNonNullExpression(at.parent)) at = at.parent
   return at
 }
-const calleeName = (call: ts.CallExpression): string | undefined => {
+/** Whether a call runs its function through `.call` or `.apply` (`router.push.call(router, '/')`). */
+const isIndirect = (call: ts.CallExpression): boolean => {
   const callee = unwrap(call.expression)
+  return ts.isPropertyAccessExpression(callee) && (callee.name.text === 'call' || callee.name.text === 'apply')
+}
+const calleeName = (call: ts.CallExpression): string | undefined => {
+  let callee = unwrap(call.expression)
+  if (isIndirect(call)) callee = unwrap((callee as ts.PropertyAccessExpression).expression)
   if (ts.isIdentifier(callee)) return callee.text
   if (ts.isPropertyAccessExpression(callee)) return callee.name.text
   // A key the gate can read: `router['push'](…)`.
@@ -121,31 +136,31 @@ const innermostFunction = (node: ts.Node): ts.SignatureDeclaration | undefined =
 const isConst = (decl: ts.VariableDeclaration) => ts.isVariableDeclarationList(decl.parent) && (decl.parent.flags & ts.NodeFlags.Const) !== 0
 /** React hooks whose last argument is a dependency list. */
 const DEPENDENCY_HOOKS = new Set(['useCallback', 'useMemo', 'useEffect', 'useLayoutEffect', 'useInsertionEffect', 'useImperativeHandle'])
-/** Whether a node is an entry of a hook's dependency list, which React compares and never calls. */
-const isDependency = (node: ts.Node): boolean => {
-  const list = outermost(node).parent
-  if (!ts.isArrayLiteralExpression(list)) return false
-  const hook = outermost(list).parent
-  return ts.isCallExpression(hook) && DEPENDENCY_HOOKS.has(calleeName(hook) ?? '') && hook.arguments.length > 1 &&
-    hook.arguments[hook.arguments.length - 1] === outermost(list)
-}
+/** Attributes whose function React awaits, sending a rejection to the nearest error boundary (React 19). */
+const ACTION_ATTRIBUTES = new Set(['action', 'formAction'])
 
 function isNavigation(node: ts.Node): boolean {
   if (ts.isCallExpression(node)) {
     const name = calleeName(node)
+    // Through .call or .apply the arguments shift, so open's target and replace's replacement are not read there.
+    if (name === 'open' && isIndirect(node)) return true
     if (name === 'open') {
       // A new tab leaves this one where it is; a target naming this tab, or one the gate cannot read, may not.
       const target = node.arguments[1] && unwrap(node.arguments[1])
       return target !== undefined && (!ts.isStringLiteralLike(target) || THIS_TAB.has(target.text))
     }
     if (!name || !NAVIGATORS.has(name)) return false
+    if (isIndirect(node)) return true
     const replacement = node.arguments[1]
     // A string's replace: a pattern, then the replacement or a function that makes it.
     return !(name === 'replace' && replacement && (ts.isStringLiteralLike(replacement) || ts.isTemplateExpression(replacement) || isFunction(replacement)))
   }
   if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
     const left = unwrap(node.left)
-    return (ts.isIdentifier(left) && left.text === 'location') || (ts.isPropertyAccessExpression(left) && LOCATION_PARTS.has(left.name.text))
+    // A part read by name or by a key the gate can read: `location.href`, `location['href']`, `window['location']`.
+    const part = ts.isPropertyAccessExpression(left) ? left.name.text
+      : ts.isElementAccessExpression(left) && ts.isStringLiteralLike(left.argumentExpression) ? left.argumentExpression.text : undefined
+    return (ts.isIdentifier(left) && left.text === 'location') || (part !== undefined && LOCATION_PARTS.has(part))
   }
   return false
 }
@@ -183,6 +198,19 @@ export function readLogoutCalls(source: string, file: string): LogoutCallReading
   const problems: LogoutCallReading['problems'] = []
   const flag = (node: ts.Node, problem: Problem) => problems.push({ line: line(node), problem })
   const isModule = (spec: ts.Node | undefined) => spec !== undefined && ts.isStringLiteralLike(spec) && MODULE.test(spec.text)
+  /** Whether a node is an entry of a hook's dependency list, which React compares and never calls: the last argument of
+      a hook by its name, imported (`useEffect`) or read off an import (`React.useEffect`), never a same-file function
+      or an object's method that shares the name. */
+  const isDependency = (node: ts.Node): boolean => {
+    const list = outermost(node).parent
+    if (!ts.isArrayLiteralExpression(list)) return false
+    const hook = outermost(list).parent
+    if (!ts.isCallExpression(hook) || hook.arguments.length < 2 || hook.arguments[hook.arguments.length - 1] !== outermost(list)) return false
+    const callee = unwrap(hook.expression)
+    const base = ts.isPropertyAccessExpression(callee) ? unwrap(callee.expression) : callee
+    const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : undefined
+    return name !== undefined && DEPENDENCY_HOOKS.has(name) && ts.isIdentifier(base) && resolve(base) === undefined
+  }
 
   /**
    * What a binding holds that a read of its name can run, in this file: a function (a declaration, a const's arrow or
@@ -273,15 +301,21 @@ export function readLogoutCalls(source: string, file: string): LogoutCallReading
     const own = attribute.parent.parent
     let inForm = false
     const read = new Set<ts.Node>()
-    // Outward from `from`; JSX a variable holds is read on from each place the variable is written
-    // (`const header = <Header actions={<button …/>} />`, then `<Link href="/">{header}</Link>`).
+    // Outward from `from`. JSX a binding holds is read on from each place the binding is used: a variable's initializer
+    // (`const header = <Header actions={<button …/>} />`, then `<Link href="/">{header}</Link>`), a value assigned to
+    // it later (`content = <button …/>`), and what a function declaration returns (a same-file component or helper).
     const climb = (from: ts.Node, through: ts.Node): boolean => {
       for (let at: ts.Node | undefined = from; at; at = at.parent) {
         if (ts.isJsxAttribute(at)) through = at
-        if (ts.isVariableDeclaration(at) && ts.isIdentifier(at.name) && at.initializer) {
-          if (read.has(at)) return false
-          read.add(at)
-          return references(at).some((use) => climb(use, through))
+        const assigned = ts.isBinaryExpression(at) && at.operatorToken.kind === ts.SyntaxKind.EqualsToken ? unwrap(at.left) : undefined
+        const holder = ts.isVariableDeclaration(at) && ts.isIdentifier(at.name) && at.initializer ? at
+          : ts.isFunctionDeclaration(at) && at.name ? at
+          : assigned && ts.isIdentifier(assigned) ? resolve(assigned)?.decl
+          : undefined
+        if (holder) {
+          if (read.has(holder)) return false
+          read.add(holder)
+          return references(holder).some((use) => climb(use, through))
         }
         const element = ts.isJsxOpeningElement(at) || ts.isJsxSelfClosingElement(at) ? at : ts.isJsxElement(at) ? at.openingElement : undefined
         if (!element || read.has(element)) continue
@@ -319,7 +353,9 @@ export function readLogoutCalls(source: string, file: string): LogoutCallReading
       if (isDependency(use)) continue
       const attribute = attributeOf(use)
       if (attribute) {
-        if (elementNavigates(attribute, skip, seen)) flag(use, 'navigates on failure')
+        // React awaits a form's action and a button's formAction and throws a rejection to the error boundary.
+        if (ACTION_ATTRIBUTES.has(attribute.name.getText(sf))) flag(use, 'escapes')
+        else if (elementNavigates(attribute, skip, seen)) flag(use, 'navigates on failure')
         continue
       }
       const call = discardedCall(use)
@@ -382,9 +418,9 @@ export function readLogoutCalls(source: string, file: string): LogoutCallReading
         flag(use, 'escapes')
         continue
       }
-      if (isDependency(access)) continue
       const trigger = access.name.text
       if (trigger === 'mutateAsync') flag(use, 'escapes')
+      if (isDependency(access)) continue
       if (trigger !== 'mutate' && trigger !== 'mutateAsync') continue
       const call = outermost(access).parent
       if (!ts.isCallExpression(call) || call.expression !== outermost(access)) {
@@ -492,7 +528,8 @@ const NAVIGATIONS = [
   "location.search = '?out=1'", "location.host = 'example.com'", "window.location.hostname = 'example.com'",
   "location.port = '8080'", "location.protocol = 'http:'", "location = '/'", "window.open('/', '_self')",
   'formRef.current?.submit()', 'formRef.current?.requestSubmit()', "navigation.navigate('/login')", 'navigation.traverseTo(entry.key)',
-  "router['push']('/login')", 'linkRef.current?.click()',
+  "router['push']('/login')", 'linkRef.current?.click()', "location['href'] = '/'", "window['location'] = '/'",
+  "router.push.call(router, '/')", 'history.back.call(history)',
 ]
 /** The places outside the continuation, each with a statement planted in it, and what the gate must say of a navigation
     there: the mutation's other options, the function its trigger sits in, the handler's catch, and its callers. */
@@ -623,6 +660,16 @@ export const go = (qc, logout) => m['logoutAndResetAccount'](qc, logout)
   { form: 'a trigger a const holds, written inside a Link', source: mutation({ use: '<Link href="/">{control}</Link>' }).replace('\n  return ', '\n  const control = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>\n  return '), problems: ['navigates on failure'] },
   { form: "a header a const holds, its actions the trigger, written inside an ancestor whose click navigates", source: mutation({ use: "<div onClick={() => router.push('/')}>{header}</div>" }).replace('\n  return ', '\n  const header = <SecondaryHeader title="Dashboard" actions={<button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>} />\n  return '), problems: ['navigates on failure'] },
   { form: 'a handler\'s trigger a const holds, written in a form whose action is a URL', source: handler({ use: '<form action="/goodbye">{control}</form>' }).replace('\n  return ', '\n  const control = <button type="button" onClick={handleLogout}>Log out</button>\n  return '), problems: ['navigates on failure'] },
+  { form: 'an element a same-file component renders inside a link', source: `${handler()}export const InLink = (props) => <Link href="/"><Menu {...props} /></Link>\n`, problems: ['navigates on failure'] },
+  { form: 'an element a same-file component renders inside a form', source: handler({ use: '<button onClick={handleLogout}>Log out</button>' }).concat('export const InForm = (props) => <form><Menu {...props} /></form>\n'), problems: ['navigates on failure'] },
+  { form: 'a trigger a const holds, returned by a same-file function written inside a Link', source: mutation({ use: '<Link href="/">{logOutButton()}</Link>' }).replace('\n  return ', '\n  const control = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>\n  function logOutButton() { return control }\n  return '), problems: ['navigates on failure'] },
+  { form: 'a trigger a let holds, assigned later, written inside a Link', source: mutation({ use: '<Link href="/">{content}</Link>' }).replace('\n  return ', '\n  let content = null\n  content = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>\n  return '), problems: ['navigates on failure'] },
+  { form: "a handler a form's action runs", source: handler({ use: '<form action={handleLogout}><button type="submit">Log out</button></form>' }), problems: ['escapes'] },
+  { form: "a handler an arrow returns, the arrow a form's action", source: handler({ use: '<form action={() => handleLogout()}><button type="submit">Log out</button></form>' }), problems: ['escapes'] },
+  { form: "a handler a button's formAction runs", source: handler({ use: '<form><button formAction={handleLogout}>Log out</button></form>' }), problems: ['escapes'] },
+  { form: 'a handler in the list of a same-file function named useEffect', source: handler().replace('export function Menu', 'function useEffect(run, deps) { deps.forEach((dep) => dep()) }\nexport function Menu').replace('\n  return <button', '\n  useEffect(() => {}, [handleLogout])\n  return <button'), problems: ['escapes'] },
+  { form: "a handler in the list of an object's method named useCallback", source: handler().replace('export function Menu', 'const helpers = { useCallback: (run, deps) => deps.forEach((dep) => dep()) }\nexport function Menu').replace('\n  return <button', '\n  helpers.useCallback(() => {}, [handleLogout])\n  return <button'), problems: ['escapes'] },
+  { form: "the mutation's mutateAsync in a dependency list", source: mutation({ use: '<button onClick={onLogout}>Log out</button>' }).replace('\n  return ', '\n  const onLogout = useCallback(() => logoutMutation.mutate(), [logoutMutation.mutateAsync])\n  return '), problems: ['escapes'] },
   // Refused though it never navigates on failure: a function declared in the handler counts as run there (the header).
   { form: 'a success helper declared in the handler, which only the continuation calls', source: handler({ continuation: '(succeeded) => {\n      if (!succeeded) return\n      leaveHome()\n    }' }).replace('    try {', "    const leaveHome = () => router.push('/')\n    try {"), problems: ['navigates on failure'] },
 
@@ -641,12 +688,18 @@ export const go = (qc, logout) => m['logoutAndResetAccount'](qc, logout)
   { form: 'navigation through an imported helper', source: handler({ caught: 'goHome(router)' }), problems: [], gap: true },
   { form: 'navigation through a helper handed in as a prop', source: handler({ caught: 'leave()' }).replace('{ router, queryClient, logout, opener }', '{ router, queryClient, logout, opener, leave }'), problems: [], gap: true },
   { form: 'navigation through state an effect acts on', source: handler({ caught: 'setLeaving(true)' }), problems: [], gap: true },
+  { form: 'a navigator called through an alias', source: handler({ caught: "leave('/')" }).replace('  const handleLogout', '  const leave = router.push\n  const handleLogout'), problems: [], gap: true },
+  { form: 'a navigator called through a bound copy', source: handler({ caught: "router.push.bind(router)('/')" }), problems: [], gap: true },
+  { form: 'a navigator called through Reflect.apply', source: handler({ caught: "Reflect.apply(router.push, router, ['/'])" }), problems: [], gap: true },
   { form: 'a dynamic import with a computed specifier', source: 'export const go = async (spec, name, qc, logout) => (await import(spec))[name](qc, logout)\n', problems: [], gap: true },
   { form: "a component that chains its handler prop's promise", source: handler({ use: '<Confirm onConfirm={handleLogout} />' }), problems: [], gap: true },
   { form: 'a component that navigates after calling its handler prop', source: handler({ use: '<Confirm onConfirm={handleLogout} router={router} />' }).replace('export function Menu', "function Confirm({ onConfirm, router }) { return <button onClick={() => { onConfirm(); router.push('/') }}>Log out</button> }\nexport function Menu"), problems: [], gap: true },
-  { form: 'an element another component renders inside a link', source: `${handler()}export const InLink = (props) => <Link href="/"><Menu {...props} /></Link>\n`, problems: [], gap: true },
-  { form: 'an element another component renders inside a form', source: handler({ use: '<button onClick={handleLogout}>Log out</button>' }).concat('export const InForm = (props) => <form><Menu {...props} /></form>\n'), problems: [], gap: true },
-  { form: 'a trigger a const holds, returned by a function another place writes inside a Link', source: mutation({ use: '<Link href="/">{logOutButton()}</Link>' }).replace('\n  return ', '\n  const control = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>\n  function logOutButton() { return control }\n  return '), problems: [], gap: true },
+  { form: 'an element a component from another module renders inside a link', source: handler({ use: '<InLink><button type="button" onClick={handleLogout}>Log out</button></InLink>' }).replace(IMPORT, `${IMPORT}import { InLink } from './InLink'\n`), problems: [], gap: true },
+  { form: 'a component handed an arrow that returns the handler, which chains its promise', source: handler({ use: '<Confirm onConfirm={() => handleLogout()} router={router} />' }).replace('export function Menu', "function Confirm({ onConfirm, router }) { return <button onClick={() => { void onConfirm().then(() => router.push('/')) }}>Log out</button> }\nexport function Menu"), problems: [], gap: true },
+  { form: 'JSX handed to a function that renders it inside a Link', source: mutation({ use: 'inLink(<button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>)' }).replace('export function Page', 'function inLink(node) { return <Link href="/">{node}</Link> }\nexport function Page'), problems: [], gap: true },
+  { form: 'a trigger a destructured binding holds, written inside a Link', source: mutation({ use: '<Link href="/">{control}</Link>' }).replace('\n  return ', '\n  const { control } = { control: <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button> }\n  return '), problems: [], gap: true },
+  { form: 'a trigger put in an array, the array written inside a Link', source: mutation({ use: '<Link href="/">{items}</Link>' }).replace('\n  return ', '\n  const items = []\n  items.unshift(<button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>)\n  return '), problems: [], gap: true },
+  { form: 'a trigger a loop variable holds', source: mutation({ use: '<Link href="/">{last}</Link>' }).replace('\n  return ', '\n  let last = null\n  for (const control of [<button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>]) last = control\n  return '), problems: [], gap: true },
   { form: 'a props spread that carries an href', source: handler({ use: '<Link {...home} onClick={handleLogout}>Log out</Link>' }).replace('export function Menu', "const home = { href: '/' }\nexport function Menu"), problems: [], gap: true },
   { form: 'a props spread that carries a handler that navigates', source: handler({ use: '<button {...more} onClick={handleLogout}>Log out</button>' }).replace('export function Menu', "const more = { onPointerUp: () => window.location.assign('/') }\nexport function Menu"), problems: [], gap: true },
 ]
