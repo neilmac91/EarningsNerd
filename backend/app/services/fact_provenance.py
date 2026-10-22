@@ -11,7 +11,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Iterable, Mapping
 
-from app.utils.sec_urls import build_sec_archive_url, normalize_accession
+from app.utils.sec_urls import build_sec_archive_url, is_sec_archive_url, normalize_accession
 
 CALCULATION_VERSION = "quarterly-v2"
 PROVENANCE_VERSION = 1
@@ -120,12 +120,16 @@ def _attach_sources(
 
 
 def _source_url(cik: str, accession: str | None, documents: Mapping[str, str]) -> str:
-    """The filing's primary document when its row is known, else its accession folder.
+    """The filing's primary document when its row holds one inside this folder, else the folder.
 
     The folder is built first, so an identity it refuses raises ``ValueError`` and gets no link.
+    A stored ``document_url`` counts only as an SEC archive URL inside that very folder: a legacy
+    viewer link, another host or another CIK's folder keeps the folder, so a document link's
+    folder is always the link this code gave before (``trend_analysis.source_documents``).
     """
     folder = build_sec_archive_url(cik, accession)
-    return documents.get(normalize_accession(accession)) or folder
+    document = documents.get(normalize_accession(accession))
+    return document if is_sec_archive_url(document) and document.startswith(folder) else folder
 
 
 def source_accessions(facts: Iterable[Any]) -> set[str]:

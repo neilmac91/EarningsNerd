@@ -104,6 +104,17 @@ def test_a_stored_source_link_is_kept():
     assert [item["source_url"] for item in inputs] == [_document(CIK, ANNUAL, "annual-10k.htm"), stored]
 
 
+@pytest.mark.parametrize("stored", [
+    "https://www.sec.gov/cgi-bin/viewer?action=view&cik=1326801&accession_number=0001326801-25-000010",
+    "https://sec.example/Archives/edgar/data/1326801/000132680125000010/annual-10k.htm",
+    _document("320193", ANNUAL, "annual-10k.htm"),
+], ids=["legacy-viewer", "another-host", "another-ciks-folder"])
+def test_a_stored_document_outside_the_accession_folder_keeps_the_folder(stored):
+    """The filings table keeps legacy viewer rows and other hosts; only this folder's document counts."""
+    documents = {normalize_accession(ANNUAL): stored}
+    assert provenance_for_fact(_fact(), CIK, documents)["source_url"] == build_sec_archive_url(CIK, ANNUAL)
+
+
 @pytest.fixture
 def dataset_db():
     """Two companies of their own inside one rollback-only transaction."""
@@ -117,12 +128,12 @@ def dataset_db():
         db.rollback()
 
 
-def _filing(db, company, accession, name, form="10-Q"):
+def _filing(db, company, accession, name, form="10-Q", document_url=None):
     db.add(Filing(
         company_id=company.id, accession_number=accession, filing_type=form,
         filing_date=datetime(2025, 1, 30, tzinfo=timezone.utc),
         sec_url=build_sec_archive_url(company.cik, accession),
-        document_url=_document(company.cik, accession, name),
+        document_url=document_url or _document(company.cik, accession, name),
     ))
 
 
@@ -146,12 +157,13 @@ def _points(dataset, concept):
 def test_the_multi_period_dataset_opens_each_cited_filings_document(dataset_db):
     db, company, other, prefix = dataset_db
     annual, original_q3, later_q3 = f"{prefix}-25-000010", f"{prefix}-24-000091", f"{prefix}-25-000072"
-    unlisted, elsewhere = f"{prefix}-24-000077", f"{prefix}-25-000033"
+    unlisted, elsewhere, offsite = f"{prefix}-24-000077", f"{prefix}-25-000033", f"{prefix}-24-000055"
     # Filing rows: the 10-K dashed, the later 10-Q dashless, another company's row for `elsewhere`.
     _filing(db, company, annual, "annual-10k.htm", "10-K")
     _filing(db, company, original_q3, "original-q3-10q.htm")
     _filing(db, company, normalize_accession(later_q3), "later-q3-10q.htm")
     _filing(db, other, elsewhere, "another-filers-10k.htm", "10-K")
+    _filing(db, company, offsite, "", document_url="https://sec.example/mirror/offsite-10q.htm")
     # Q3 revenue is the later 10-Q's comparative; the derived Q4 cites the 10-K (dashless) and the
     # original Q3 10-Q, which no row in the window names.
     _quarter(db, company, "revenue", 100, 3, later_q3)
@@ -168,6 +180,7 @@ def test_the_multi_period_dataset_opens_each_cited_filings_document(dataset_db):
     _quarter(db, company, "revenue", 120, 4, annual, source="derived", provenance=stored)
     _quarter(db, company, "operating_cash_flow", 10, 3, unlisted)
     _quarter(db, company, "operating_cash_flow", 30, 4, elsewhere)
+    _quarter(db, company, "net_income", 15, 3, offsite)
     db.flush()
 
     statements = []
@@ -198,6 +211,8 @@ def test_the_multi_period_dataset_opens_each_cited_filings_document(dataset_db):
     cash = _points(dataset, "operating_cash_flow")
     assert cash["2024Q3"]["source_url"] == build_sec_archive_url(company.cik, unlisted)
     assert cash["2024Q4"]["source_url"] == build_sec_archive_url(company.cik, elsewhere)
+    # A row whose document is on another host lends nothing either.
+    assert _points(dataset, "net_income")["2024Q3"]["source_url"] == build_sec_archive_url(company.cik, offsite)
 
     index = svc.marker_index(dataset)
     marker = revenue["2024Q3"]["marker"]
