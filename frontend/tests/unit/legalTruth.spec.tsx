@@ -946,7 +946,7 @@ function sourceFaults(rel: string, doc: string | null, section: string, heading:
 }
 
 /** What the audit-log item names, and the audit_logs actions the backend writes for each. A sign-up through Google or
-    Apple writes only an oauth_login row, read under logins. */
+    Apple writes the register row beside its oauth_login row (D-054), read under registrations and logins. */
 const AUDITED: Record<string, string[]> = {
   registrations: ['register'],
   logins: ['login_success', 'oauth_login'],
