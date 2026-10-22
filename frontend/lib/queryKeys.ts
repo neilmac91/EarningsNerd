@@ -43,6 +43,9 @@ export const queryKeys = {
    *  that offer an account CTA on the client (the pricing page), so none advertises a signup the
    *  API would reject (features/marketing/lib/access.ts). */
   registrationConfig: () => ['registration-config'] as const,
+  /** Cloudflare's Turnstile script, loaded once a page by TurnstileWidget: a load that fails is its notice's
+   *  Try again, as a failed read's is. */
+  turnstileScript: () => ['turnstile-script'] as const,
 
   // Same prefix as the library: save/delete invalidation refreshes every saved-state consumer.
   savedSummaryStatus: (summaryId: number | undefined, userId: number | undefined) =>
