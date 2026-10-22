@@ -233,9 +233,14 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   change fails until the last row records it (a row on the day of the row before it names the pull
   request that shares the day; a row edited in place passes, and is review-checked, as is whether a
   row's date is the day main's history gives its merge). Its five links carry the brand focus ring, the site chrome's triple;
-  `siteChromeFocusRing.spec.ts` holds them, and its residue no longer lists the page. Its two
-  addresses break anywhere, as /privacy's four do, so neither page scrolls sideways at 390px under
-  200% text (`reflow-200.spec.ts`).
+  `siteChromeFocusRing.spec.ts` holds them, and its residue no longer lists the page. On each legal
+  page the gutter gives way before a word breaks: on a phone under 200% text each side gutter is 16px,
+  where it doubled to 32px (`lib/legalPageLayout.ts`, a query in em as on /analysis), and a word still
+  wider than the column breaks inside it (`[overflow-wrap:anywhere]` on the page's `<main>`, E131), its
+  two addresses and /privacy's four included. So none of /security, /terms and /privacy scrolls sideways
+  at 320, 360 or 390px under 200% text, no word but an address breaks at 390px, and each title holds
+  whole at 320px, where /security's "Authentication" and "Infrastructure" and /terms' "EarningsNerd",
+  "Subscriptions,", "MERCHANTABILITY," and "Indemnification" still break (`reflow-200.spec.ts`).
 
 - **Metadata and the social card** (every `app/**/page.tsx` and `layout.tsx`, `lib/socialCard.ts`,
   `scripts/brand/og-template.html`): every route's tab and shared-link preview reads
