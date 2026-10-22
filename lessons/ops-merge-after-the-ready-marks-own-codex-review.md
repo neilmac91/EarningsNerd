@@ -1,15 +1,15 @@
 # Merge only once the ready mark's own Codex review of the head has completed with no unresolved finding
 
-Date: 2026-10-21   Area: ops / review
+Date: 2026-10-21, updated 2026-10-22 (#1496)   Area: ops / review
 
 **Context**: #1469 (records) had Codex's clean review of its head `60210176` (requested, completed at 22:11Z) and CI
 green, and was marked ready at 22:24:41Z. The ready mark starts a second Codex review of the same head, its summary row's
 trigger "Draft marked ready". `review-gate` ran at 22:24:43Z, read the summary while it still showed the earlier
 completed review, and passed at 22:24:51Z; the session merged at 22:26:52Z. The ready mark's review had posted a P2 at
 22:26:35Z (4342609972: D-053's row left out the reservation at a pull request's opening), so the merge landed with a
-finding no one had read. `backend/scripts/review_gate.py` passes once the summary row for the head reads Completed: it
-does not read whether that review found anything, and it cannot tell the ready mark's review from an earlier one of the
-same head.
+finding no one had read. `backend/scripts/review_gate.py` then passed once the summary row for the head read Completed:
+it did not read whether that review found anything, and it could not tell the ready mark's review from an earlier one of
+the same head (F58 changed both; **Gate** below).
 
 **Rule**:
 - Before a merge, read the Codex summary comment's `codex-review-state` for the head: `status` completed and
@@ -23,6 +23,19 @@ same head.
   review of the new head that the push's `@codex review` requests is then the one to read, the same way; the pull
   request stays ready.
 - A finding that lands after the merge gets its fix in the next pull request, with a reply on its thread naming it.
+- Make no draft-to-ready transition and no `@codex review` while any Codex review of the pull request shows Running,
+  the ready mark's included. The summary carries no run id, so a start recorded before the running review completes
+  leaves two starts with no completion between them: the gate pairs neither with a completion, however clean, and no
+  re-run repairs that history. Once every review has settled (the summary reads Completed):
+  - a gate job still waiting decides on its own;
+  - a failed job is re-run when no transition or request came while a review was Running;
+  - when one did, or the failed job's reason names overlapping starts or a missing history, make one fresh
+    draft-to-ready transition, with no manual request, and let its review finish. A job prints its reasons only when
+    it ends (F58 row).
+- A ready review still Running an hour after it started has hung, F58's open S1 case (all 242 single runs in PRs
+  1380–1486 finished within 21 minutes; review 6341504879). It may never settle, and any transition overlaps it:
+  report it to the founder with its start time and the timed-out job's reason, and make no transition around it
+  until they decide S1.
 - While Codex cannot review (credits exhausted, service down), AGENTS.md §5's `Review override:` line, naming the tier and
   the substitute review, stands in for that read, as it does for `review-gate`; it is never written while Codex can review.
 
@@ -30,7 +43,14 @@ same head.
 the reply 4342632073; `review-gate` run 39686282032 (passed 22:24:51Z); the merge `1c6dd6bf` at 22:26:52Z;
 `backend/scripts/review_gate.py:178-180` at the incident revision (a Completed row passed, findings or not). #1476's ready-mark
 review of `900065d3` completed at 03:58:34Z on 2026-10-22 with a finding unresolved (4344402620, the case the
-rule's third line answers), and `review-gate` passed on it at 03:58:51Z (run 39719618842).
+rule's third line answers), and `review-gate` passed on it at 03:58:51Z (run 39719618842). #1496's ready review of
+`cb86536c` started at 20:28:50Z on 2026-10-22 and had not completed when `review-gate` timed out at 20:49:10Z (job
+120070504428). A draft-to-ready flip at 20:58:21–25Z, while it still showed Running, recorded a second start at
+20:58:28Z, so the clean completion at 21:01:14Z could not be paired (the correction, comment 6351182186). Once
+everything had settled, one fresh transition at 21:04:00–02Z with no manual request started a review at 21:04:05Z that
+completed clean at 21:06:17Z; `review-gate` passed at 21:06:49Z (run 39854178499), and the merge is `e8be8ba7`. Every
+line of the timed-out job carries its exit time, and run 39853388960, cancelled at 21:04:56Z, printed none (the S1
+note, comment 6351439364).
 
 **Gate**: The founder approved F58 on 2026-10-22. `backend/scripts/review_gate.py` reads the
 summary's full-head machine state, the live PR head/draft flag, GitHub's ready-transition timeline,
@@ -54,6 +74,6 @@ reviews settle and let its automatic review finish. This recovery does not chang
 new-head correction path, which keeps a PR ready when its completed ready cycle is provable.
 
 `backend/tests/unit/test_review_gate.py` covers these boundaries alongside the existing closing
-reference, draft, identity and short-SHA ambiguity guards. The workflow continues to load the gate
-from the trusted base branch, so this PR's own required check uses the previous implementation
-until the change lands. The separate F55 paid-evaluation reservation remains review-checked.
+reference, draft, identity and short-SHA ambiguity guards. The workflow loads the gate from the
+trusted base branch, so #1486's own required check ran the previous implementation. The separate
+F55 paid-evaluation reservation remains review-checked.

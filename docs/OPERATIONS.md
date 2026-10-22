@@ -526,7 +526,12 @@ re-run. The job finds that run by the head commit and the pull request's head br
 however many runs other pull requests have had since. GitHub re-runs a run only within 30 days of its
 first attempt, at most 50 times; past that the job fails, giving GitHub's reason and the remedy (push,
 or edit the body). The job reports each outcome only in its own log, in the Actions tab: its run sits
-on `main`'s latest commit, so the pull request's checks do not show it. Logic in
+on `main`'s latest commit, so the pull request's checks do not show it. Neither a ready mark nor an
+`@codex review` goes in while a review shows Running: the summary carries no run id, so two starts with
+no completion between them never pair with a completion, however clean, and no re-run repairs that
+history (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md` gives the recovery order, and the
+case of a ready review that hangs, F58's open S1). The gate's log shows its reasons only once its job
+ends: its lines are buffered (F58 row). Logic in
 `backend/scripts/review_gate.py` (stdlib only), pinned by `tests/unit/test_review_gate.py`. The
 workflow runs on `pull_request_target` and checks out the **base** branch, so a pull request can edit
 neither its own gate script nor the workflow definition (the job never executes pull-request code and
