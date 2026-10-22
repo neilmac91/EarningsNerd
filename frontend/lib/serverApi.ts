@@ -2,6 +2,7 @@ import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
 import type { Company } from '@/features/companies/api/companies-api'
 import type { Filing } from '@/features/filings/api/filings-api'
+import { originalDocumentUrl } from '@/features/filings/lib/originalDocumentUrl'
 import type { ChangeReport, Summary } from '@/features/summaries/api/summaries-api'
 import { isSummaryReady } from '@/features/summaries/lib/summaryPlaceholder'
 
@@ -69,6 +70,7 @@ interface FilingPayload {
   filing_type: string
   filing_date: string
   sec_url: string
+  document_url?: string | null
   company?: { ticker: string; name: string }
 }
 
@@ -164,6 +166,8 @@ export const fetchExampleData = async (): Promise<ExampleData | null> => {
 
   const excerpt = toExcerpt(summary.business_overview)
   if (!excerpt) return null
+  const secUrl = originalDocumentUrl(filing)
+  if (!secUrl) return null
 
   return {
     filingId: filing.id,
@@ -171,7 +175,7 @@ export const fetchExampleData = async (): Promise<ExampleData | null> => {
     companyName: filing.company.name,
     filingType: filing.filing_type,
     filingDate: filing.filing_date,
-    secUrl: filing.sec_url,
+    secUrl,
     excerpt,
     qualityTier: summary.raw_summary?.quality?.tier ?? null,
     metrics: pickMetrics(summary),
@@ -195,21 +199,25 @@ export interface NotableFilingsResponse {
   timestamp: string
 }
 
-/** Market-wide notable filings (EDGAR-native). Server-rendered only — the section self-omits
- * when the list is empty, so there is no client query. Dormant since 2026-10-11: unmounted from
- * `/` until E90 remounts it under D-046's curation rule (features/filings/components/NotableFilings.tsx); when it
- * returns it renders nothing until NOTABLE_FILINGS_ENABLED is on, because the API answers 200
- * with an empty list.
+/** The landing's Notable filings row (features/filings/components/NotableFilings.tsx). Server-rendered only: the
+ * section omits itself when the list is empty, so there is no client query. The backend's query serves D-046's rule
+ * (F3, E90): the past week's 10-K and 10-Q filings from companies that hold a summary the filing page shows, newest
+ * first, one per company, at most six (backend/app/services/notable_filings_service.py). It answers 200 with an empty
+ * list while NOTABLE_FILINGS_ENABLED is off, in a week with fewer than three such companies, and on any failure of
+ * its own; a failed read here is null. Both render nothing.
+ *
+ * It asks for six, the rule's cap and the route's default. The backend serves six to any larger limit too, so the
+ * request says what the row can show rather than a number it would never be served.
  *
  * Revalidate is 3600, NOT the backend's 15-min serve-cache TTL, for two independent reasons.
  * First, `/` declares no route-level `revalidate`, so Next takes the MINIMUM over its fetches:
- * a 900 here would silently cut the whole homepage from 3600 to 900. Measured, not assumed —
+ * a 900 here would silently cut the whole homepage from 3600 to 900. Measured, not assumed:
  * `/`'s `initialRevalidateSeconds` in `.next/prerender-manifest.json` reads 900 with this at 900
  * and 3600 with it at 3600. Second, the data only moves twice a day: `notable-filings-scan` runs
  * 08:30 and 18:30 America/New_York (docs/DEPLOYMENT.md §12), so sub-hourly polling buys no
- * freshness at any flag state. Do not "restore" 900 when the section goes live. */
+ * freshness at any flag state. Do not "restore" 900. */
 export const fetchNotableFilings = (): Promise<NotableFilingsResponse | null> =>
-  fetchJson<NotableFilingsResponse>('/api/notable_filings?limit=8', 3600)
+  fetchJson<NotableFilingsResponse>('/api/notable_filings?limit=6', 3600)
 
 export interface ReportingCompany {
   ticker: string

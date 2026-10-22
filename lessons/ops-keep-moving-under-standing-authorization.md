@@ -66,8 +66,14 @@ starts a paid draw, the session reads the balance first (`deepseek-balance.yml`)
 reservation on the pull request: the reason, the expected cost and the amount reserved under the
 rule `AGENTS.md` §6 names (`DECISIONS-09`). The CODE RED ledger is the chief's to write, so another
 session states the reservation on the pull request, reads the balance again after the draw and posts
-that reading there too; the chief settles the reservation in the ledger from the two readings. §3
-already authorizes that bounded spend after the balance read. The session merges the pull request
+that reading there too. Since record 29 the chief's records have kept other writers' paid runs
+outside the ledger (before it, record 27's event 67 recorded one dependency sweep's runs, at todo
+row E23's request); whether the ledger should settle them is the founder's call
+(`tasks/code-red-20261004/runtime/control/DECISIONS-38.md`, founder action 10). §3 already
+authorizes that bounded spend after the balance read. A pull request whose diff touches
+`backend/app/`, `backend/evals/` or `backend/prompts/` also draws before the mark, on every push,
+draft or not, so the session reserves for that from its opening (`eval-baseline`;
+`ops-reserve-eval-baseline-before-each-push.md`). The session merges the pull request
 once Codex and CI are green and the draw is green or triaged as not the pull request's by
 `backend/evals/RUNBOOK.md`'s rule for a red `copilot-eval` run, never drawn again to get a green
 one; one that deploys the backend merges alone, after the previous deploy is verified, and its own

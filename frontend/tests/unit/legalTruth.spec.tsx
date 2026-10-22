@@ -160,16 +160,16 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    other session"), and so does an end at its token's expiry ("that session ends when its token expires"). Main's
  *    timed and untimed readings read the same denial, so "Logging out does not end every session within 30 minutes"
  *    passes, and every promise they refuse in main's spec is refused here too. The page is read on every run, whatever
- *    tasks/todo.md records: E127's race is fixed (#1422) and so is a login that straddled a password reset (#1431), but
- *    a session token already issued runs to its expiry, and E96 (how a reused token's sweep reads) and E133 (a logout
- *    that does not wait for an in-flight renewal) are open; the stronger wording returns only in a pull request that
- *    carries the founder's go-ahead (tasks/todo.md F53) and changes this check. Each family is read in one list item or
- *    paragraph (blockTexts), and a promise of logging out in its own sentence or in the one after a sentence that names
- *    a logging-out action (a logout, a sign-out, a password changed or reset; a new password counts in its own
- *    sentence), and beside a password only named, in the password's own clause, which a conjunction ends unless an end
- *    follows it or it joins the password to another noun (CLAUSE_JOIN), so a word in a neighbouring sentence or clause
- *    makes no context: "Passwords are hashed. Idle sessions end after 30 minutes." and "Passwords are hashed and idle
- *    sessions end after 30 minutes." pass. Planted forms score the
+ *    tasks/todo.md records: E127's race is fixed (#1422), and so are a login that straddled a password reset (#1431)
+ *    and a logout that did not wait for an in-flight renewal (#1465), but a session token already issued runs to its
+ *    expiry, and E96 (how a reused token's sweep reads) is open; the stronger wording returns only in a pull request
+ *    that carries the founder's go-ahead (tasks/todo.md F53) and changes this check. Each family is read in one list
+ *    item or paragraph (blockTexts), and a promise of logging out in its own sentence or in the one after a sentence
+ *    that names a logging-out action (a logout, a sign-out, a password changed or reset; a new password counts in its
+ *    own sentence), and beside a password only named, in the password's own clause, which a conjunction ends unless an
+ *    end follows it or it joins the password to another noun (CLAUSE_JOIN), so a word in a neighbouring sentence or
+ *    clause makes no context: "Passwords are hashed. Idle sessions end after 30 minutes." and "Passwords are hashed and
+ *    idle sessions end after 30 minutes." pass. Planted forms score the
  *    reach; out of reach, planted as gaps: a promise split across two
  *    items, one said in other words ("nobody stays signed in"), and a negation that only restricts where no reading
  *    sees it ("does not end this session but every session").
@@ -434,12 +434,12 @@ const inASentence = (re: RegExp) => (block: string) => sentencesOf(block).some((
 
 /**
  * What /security does not promise of refresh tokens and logging out, on every run. E127's race (two renewals with one
- * refresh token both succeeding, a renewal racing a logout leaving a live token) is fixed by #1422, and a login that
- * straddled a password reset by #1431, but nothing revokes a session token already issued (get_current_user keeps no
- * list of revoked ones), so "logging out of all devices ends every session" is untrue as said, and E96 (how a reused
- * token's sweep reads) and E133 (a logout that does not wait for an in-flight renewal) are open. The stronger wording
- * returns only in a pull request that carries the founder's go-ahead (tasks/todo.md F53) and changes this check. Each
- * family is read in one block (a list item or a paragraph), so a promise split across the sentences of one item is
+ * refresh token both succeeding, a renewal racing a logout leaving a live token) is fixed by #1422, a login that
+ * straddled a password reset by #1431, and a logout that did not wait for an in-flight renewal by #1465, but nothing
+ * revokes a session token already issued (get_current_user keeps no list of revoked ones), so "logging out of all
+ * devices ends every session" is untrue as said, and E96 (how a reused token's sweep reads) is open. The stronger
+ * wording returns only in a pull request that carries the founder's go-ahead (tasks/todo.md F53) and changes this check.
+ * Each family is read in one block (a list item or a paragraph), so a promise split across the sentences of one item is
  * read whole.
  */
 const SESSION_END_TIMED =

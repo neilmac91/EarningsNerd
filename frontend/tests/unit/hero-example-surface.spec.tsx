@@ -1,12 +1,16 @@
 import React from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import HeroExample from '@/features/marketing/components/HeroExample'
 import TrustStrip from '@/features/marketing/components/TrustStrip'
-import { pickEvidence, type ExampleData } from '@/lib/serverApi'
+import { fetchExampleData, pickEvidence, type ExampleData } from '@/lib/serverApi'
 import { excerptHeadings } from '@/features/summaries/lib/riskTitle'
 
 vi.mock('@/lib/analytics', () => ({ default: { exampleCtaClicked: vi.fn() } }))
+vi.mock('@/lib/featureFlags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
+  EXAMPLE_FILING_ID: '3',
+}))
 
 /**
  * The hero example as the product on one surface (2026-10 critique, homepage 1d): identity in the
@@ -22,7 +26,7 @@ const LIVE: ExampleData = {
   companyName: 'Apple Inc.',
   filingType: '10-K',
   filingDate: '2025-10-31',
-  secUrl: 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/',
+  secUrl: 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm',
   excerpt: 'Net sales rose 6.4% on iPhone and Services.',
   qualityTier: 'full',
   metrics: [
@@ -46,10 +50,19 @@ describe('HeroExample', () => {
 
   it('states the filing in the data face and its figures in one hairline strip, direction in a glyph', () => {
     render(<HeroExample example={LIVE} />)
-    expect(screen.getByText('10-K').parentElement).toHaveTextContent(/^AAPL\s*·\s*,\s*10-K\s*·\s*,\s*filed Oct 31, 2025$/)
+    // Each middot shares an item with the fact before it (E81), so the line is the form's item's parent.
+    const facts = screen.getByText('10-K').parentElement!.parentElement as HTMLElement
+    expect(facts).toHaveTextContent(/^AAPL\s*·\s*,\s*10-K\s*·\s*,\s*filed Oct 31, 2025$/)
+    // tests/e2e/reflow-200.spec.ts reads the built hero: under 200% text the figures wrapping apart, the form codes
+    // whole and no line starting with a middot, and at both text sizes where the strip's rules paint, only between two
+    // figures, with the first figure's label flush with the card. These pins hold what its boxes cannot say, the date
+    // moving under "filed" whole and breaking only after its day, and name the strip's rules: its own above and below,
+    // round the list it clips, and each figure's left and top.
+    expect(screen.getByText('Oct 31,')).toHaveClass('whitespace-nowrap')
+    expect(screen.getByText('Oct 31,').parentElement).toHaveClass('inline-block')
     const strip = screen.getByText('$416.2B').closest('dl') as HTMLElement
-    expect(strip.className).toMatch(/border-y/)
-    expect(strip.className).toMatch(/divide-x/)
+    expect(strip.parentElement).toHaveClass('border-y', 'overflow-hidden')
+    for (const figure of Array.from(strip.children)) expect(figure).toHaveClass('border-l', 'border-t')
     expect(within(strip).getAllByRole('term')).toHaveLength(3)
     expect(within(strip).getAllByText('▲')).toHaveLength(2)
     for (const glyph of within(strip).getAllByText(/^[▲▼]$/)) expect(glyph).toHaveAttribute('aria-hidden', 'true')
@@ -79,14 +92,17 @@ describe('HeroExample', () => {
 
   it('claims an XBRL source only for the checked fallback; live figures send the reader to the filing', () => {
     const { container, unmount } = render(<HeroExample example={LIVE} />)
-    const live = screen.getByRole('link', { name: 'Source filing · check the figures on SEC EDGAR' })
+    const live = screen.getByRole('link', { name: 'Source filing\u00a0· check the figures on SEC EDGAR' })
     expect(live).toHaveAttribute('href', LIVE.secUrl)
     expect(container.querySelectorAll('dl [title]')).toHaveLength(0)
     expect(container.innerHTML).not.toMatch(/XBRL/)
     unmount()
 
     const fallback = render(<HeroExample example={null} />)
-    expect(screen.getByRole('link', { name: "Figures from the company's XBRL · check them on SEC EDGAR" })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: "Figures from the company's XBRL\u00a0· check them on SEC EDGAR" })).toHaveAttribute(
+      'href',
+      'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm',
+    )
     // The receipt is text in each term, so a keyboard or screen-reader user reaches it; a title hover
     // alone is a receipt only a mouse can read.
     const terms = [...fallback.container.querySelectorAll('dl dt')].map((el) => el.textContent)
@@ -111,6 +127,48 @@ describe('HeroExample', () => {
     const cta = screen.getByRole('link', { name: 'Read the full example summary' })
     expect(cta.className.split(/\s+/)).not.toContain('bg-brand-weak')
     expect(cta.className).toContain('text-brand-strong')
+  })
+})
+
+describe('the live hero source link', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  const folder = 'https://www.sec.gov/Archives/edgar/data/789019/000078901925000001/'
+  const document = `${folder}msft-20250630.htm`
+
+  function mockExampleSource(documentUrl: string | null | undefined, secUrl = folder) {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () => url.endsWith('/api/filings/3')
+        ? {
+          id: 3,
+          company: { ticker: 'MSFT', name: 'Microsoft Corporation' },
+          filing_type: '10-K',
+          filing_date: '2025-07-30',
+          sec_url: secUrl,
+          document_url: documentUrl,
+        }
+        : { business_overview: 'Revenue grew during the fiscal year.' },
+    })))
+  }
+
+  it('carries the API primary document through to the rendered hero instead of the accession folder', async () => {
+    mockExampleSource(document)
+    const example = await fetchExampleData()
+    expect(example?.ticker).toBe('MSFT')
+    render(<HeroExample example={example} />)
+    expect(screen.getByRole('link', { name: /Source filing.*SEC EDGAR/ })).toHaveAttribute('href', document)
+  })
+
+  // One case proves the wiring: originalDocumentUrl.spec.ts holds the helper's matrix of unusable document URLs.
+  it('keeps the filing folder fallback when document_url is unusable', async () => {
+    mockExampleSource(null)
+    expect((await fetchExampleData())?.secUrl).toBe(folder)
+  })
+
+  it('uses the static example when the API supplies no usable source URL', async () => {
+    mockExampleSource(null, '')
+    expect(await fetchExampleData()).toBeNull()
   })
 })
 

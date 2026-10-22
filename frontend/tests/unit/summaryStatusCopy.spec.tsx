@@ -65,11 +65,11 @@ afterEach(() => {
 // Each prefix with the needs_regeneration the server sends beside it.
 const CASES: Array<{ status: string; needs: boolean; sentence: string; label: string; variant: string }> = [
   { status: 'ready', needs: false, sentence: 'Summary is current.', label: 'Ready', variant: 'success' },
-  { status: 'generating:summarizing', needs: false, sentence: 'A summary is being written.', label: 'Generating', variant: 'brand' },
-  { status: 'missing', needs: true, sentence: 'No summary yet. Open the filing to generate one.', label: 'No summary yet', variant: 'neutral' },
+  { status: 'generating:summarizing', needs: false, sentence: 'A summary is being written.', label: 'Generating', variant: 'info-status' },
+  { status: 'missing', needs: true, sentence: 'No summary yet. Open the filing to generate one.', label: 'No summary yet', variant: 'neutral-status' },
   {
     status: 'placeholder', needs: true,
-    sentence: "This summary isn't available right now. Open the filing and generate it again.", label: 'Unavailable', variant: 'warning',
+    sentence: "This summary isn't available right now. Open the filing and generate it again.", label: 'Unavailable', variant: 'warning-status',
   },
   { status: 'error', needs: true, sentence: 'The last attempt failed. Open the filing and generate it again.', label: 'Error', variant: 'error' },
 ]
@@ -99,13 +99,13 @@ describe('the watchlist card states each summary status', () => {
     'generating:analyzing', 'generating:summarizing', 'generating:completed', 'generating:partial'])(
     '%s: the chip reads "Generating" and names no stage key',
     (status) => {
-      expect(summaryStatusBadge(status, false)).toEqual({ label: 'Generating', variant: 'brand' })
+      expect(summaryStatusBadge(status, false)).toEqual({ label: 'Generating', variant: 'info-status' })
     },
   )
 
   it('an unknown prefix falls back on needs_regeneration, in sentence case', () => {
-    expect(summaryStatusBadge('queued', true)).toEqual({ label: 'Needs regenerating', variant: 'warning' })
-    expect(summaryStatusBadge('queued', false)).toEqual({ label: 'Pending', variant: 'neutral' })
+    expect(summaryStatusBadge('queued', true)).toEqual({ label: 'Needs regenerating', variant: 'warning-status' })
+    expect(summaryStatusBadge('queued', false)).toEqual({ label: 'Pending', variant: 'neutral-status' })
   })
 })
 

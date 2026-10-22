@@ -583,15 +583,33 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  constant; gate: earningsnerd/no-form-code-badge, eslint.designRules.mjs);
                  <Badge variant="warning"> = warning tint
                  (replaces raw-amber hand-rolls; "Superseded"). Badge's status set, BadgeStatusVariant
-                 (<Badge variant="success|error|info-status|warning-status|neutral-status">) = a STATUS chip
-                 (a summary is ready, a run failed, an invite pending): the status ink on the quiet ground,
-                 since the success ink inside any tint of itself falls under 4.5:1 at 12px. info, warning
+                 (<Badge variant="success|error|info-status|warning-status|neutral-status|tentative">) = a
+                 STATUS chip (a summary is ready, a run failed, an invite pending): the status ink on the quiet
+                 ground, since the success ink inside any tint of itself falls under 4.5:1 at 12px. info, warning
                  and neutral are the tints and the quiet chip, so their status forms take names of their
                  own. In dark the chip carries no fill, its hairline only, so a hovered row's white/5 is the
                  one layer under it: error-dark holds 4.6:1 there, where a fill of its own would take it to
                  3.9:1 (gates: tests/unit/badgeVariants.spec.tsx, success and error on the card and on a
-                 hovered row; tests/unit/statusChipContrast.spec.ts, the whole set on the admin rows, Status
-                 chip below). beat/miss are the
+                 hovered row; tests/unit/statusChipContrast.spec.ts, the whole set on the admin rows and the
+                 summary status chip on the watchlist and dashboard rows, Status chip below). `tentative`, the
+                 set's sixth, is a status not yet settled (the calendar's
+                 estimated date, "Est."): neutral-status's ink on the hairline, dashed, with no fill in either
+                 theme. A chip's ground, ink and hairline are its variant's: a class on top of a variant's
+                 (`bg-transparent` over its `bg-white`) wins or loses by stylesheet order, since cx does no
+                 tailwind-merge, so the "Est." chip, the neutral chip with that class, painted as a white pill,
+                 and on a hovered dark row its white/5 took the label to 4.27:1 (E83). On the calendar's rows
+                 the tentative label holds 5.21:1 at rest and 5.44:1 hovered in light, 5.78:1 and 4.98:1 in
+                 dark. Gates: tests/unit/badgeVariants.spec.tsx (tentative is neutral-status's ink on a dashed
+                 hairline with no fill under any variant; the calendar's status ladder, "Est.", "Confirmed"
+                 and "Reported" as the week sheet, the day list and the day dialog render them, is tentative,
+                 info-status and neutral-status class for class (Status chip below), each label measured on
+                 its row at rest and hovered in both themes, the grounds read up from the rendered chip; and
+                 no <Badge> in app/, components/ or features/ sets a ground, an ink or a hairline in its
+                 className, any bg- or border utility or a text- colour, read through cx() and conditions and
+                 templates, where an interpolation glued inside a class token (`text-${tone}-text`) is joined
+                 from its string values or the className is unreadable; a className it cannot read or a
+                 spread fails too).
+                 beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
                  tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` is the brand tint, `brand`'s
                  own classes (bg-brand-weak text-brand-strong and the sage hairline, dark pair), with a pulse
@@ -631,6 +649,18 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  <Badge> of its status set (components/ui/Badge.tsx, BadgeStatusVariant; the Badge entry
                  under Solid chip): pending and new on info-status, used and resolved on success, expired
                  and triaged on warning-status, revoked on neutral-status, the icon in Badge's `icon` slot.
+                 The calendar's status ladder (StatusChip in EventRow, a label alone) is a status, so every
+                 rung takes the set (E141): "Est." on `tentative`, the set's sixth, a date not yet settled,
+                 with no fill in either theme, so the row is its ground (on the admin rows 5.21:1, and 4.90:1
+                 under their cream hover, in light; 5.78:1 and 4.98:1 in dark); "Confirmed" on info-status, a
+                 firm, upcoming date and the rung a reader scans for (not success, whose light ink is
+                 gain.text's #15803D, the ink a reported row's beat prints in, and not the brand tint, which
+                 is brand and activity); "Reported" on neutral-status, the event over, its EPS figure carrying
+                 the news. It reads dashed, blue, quiet. On the calendar's rows, at rest and hovered, light
+                 measures 5.21 and 5.44:1 (Est.), 6.70:1 (Confirmed) and 5.44:1 (Reported), dark 5.78 and
+                 4.98:1 (Est. and Reported) and 5.77 and 4.97:1 (Confirmed). Before, Reported was the quiet
+                 chip (10.31:1 in light; in dark its white/5 fill stacked on the hovered row's, 4.27:1) and
+                 Confirmed the brand tint (5.77:1 in light, 5.93 and 5.14:1 in dark).
                  The status INK sits on the quiet ground, never the status tint. Light labels measure 5.0
                  to 7.1:1 on the white chip. Dark carries no fill, so the row's white/5 hover tint is the
                  only layer: the four the admin chips use hold 5.77 to 6.83:1 at rest and 4.97 to 5.89:1 on
@@ -647,7 +677,27 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  (black/[0.04]: 9.04:1, 8.50:1 hovered), and the status set's dark one: no fill, its
                  white/10 hairline kept, text-secondary-dark at 5.78:1 at rest and 4.98:1 on a hovered row
                  (its old white/5 fill measured 4.27:1 there).
-                 Gate: tests/unit/statusChipContrast.spec.ts (every member of BadgeStatusVariant, read from
+                 The summary status chip (SummaryStatusBadge: the Watchlist insights cards and the
+                 dashboard's "Your companies" rows) is a label alone on the same set: Ready on success,
+                 Generating on info-status, No summary yet and Pending on neutral-status, Unavailable and
+                 Needs regenerating on warning-status, Error on error. Both rows sit on Card's panel fill
+                 with no hover fill of their own, so a label reads the same at rest and hovered: light 5.02
+                 (Ready) to 7.09:1 (warning-status), dark 5.31 (Error) to 6.83:1. Before, Unavailable and
+                 Needs regenerating took the warning tint (5.83 and 5.22:1, no hairline, so 2px shorter than
+                 the chips beside them), No summary yet and Pending the quiet chip (10.31 and 4.98:1: the
+                 neutral-status ink is the tertiary one, 5.44:1 in light, and dark drops the white/5 fill,
+                 5.78:1), and Generating the brand tint (5.77 and 5.93:1, now 6.70 and 5.77:1).
+                 What each member means, read from its uses so far (chief design on #1459), so a new status
+                 chip lands on the member its state means: `info-status`: active or upcoming (an invite
+                 pending, new feedback, a confirmed date, a summary being written); `success`: done (an invite
+                 used, feedback resolved, a summary ready); `warning-status`: needs the reader (an invite
+                 expired, feedback triaged, a summary unavailable or needing regenerating); `error`: failed (a
+                 summary whose run failed); `neutral-status`: not started, over or not known (an invite
+                 revoked, a reported date, no summary yet, a summary status the chip does not know);
+                 `tentative`: not yet settled (an estimated date).
+                 tests/unit/badgeVariants.spec.tsx holds this line to the set read from Badge's source, each
+                 member named once; which member a new chip takes is review-checked.
+                 Gate: tests/unit/statusChipContrast.spec.ts (every member of BadgeStatusVariant, six, read from
                  Badge's source and rendered through Badge, on both tables' rows, at rest and hovered, both
                  themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the pages' <tbody>;
                  every layer between a chip and its <tr> read too, and a cell or wrapper there carrying a
@@ -659,7 +709,18 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  hand-rolled chip, a copy of Badge's classes included, a tint, an added class or a label in
                  a tint of its own fails; the type chip measured as it renders on FeedbackRow's grounds, and
                  held to Badge's metrics: every class of Badge's BASE, with only a ground and an ink of its
-                 own beside them, so a weight, a gap or a size of its own fails).
+                 own beside them, so a weight, a gap or a size of its own fails; and the summary status
+                 chip: every chip summaryStatusBadge() returns, for each member of SummaryStatusKind read
+                 from its source and for a prefix it does not know, with and without needs_regeneration,
+                 rendered through Badge and measured on both rows at rest and hovered, both themes, the
+                 grounds read from each row's source up to its <Card>, rendered as Card renders the props
+                 written on it: the row is the element carrying the list's key (the watchlist's Card
+                 itself, the dashboard's row <div> inside its Card), its tint at rest and hovered read over
+                 the card's fill, and every other layer paints nothing; two fills under one variant fail,
+                 since the stylesheet's order decides which paints (a fill written on the <Card> sits beside
+                 Card's own: Card joins classes without merging them); every tracked source outside tests/
+                 that can render the chip is one of the two rows; SummaryStatusBadge held to the set as the
+                 admin badges are, rendering the variant summaryStatusBadge() returns).
 
 Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside its card, never the page, in
                  TableScroll (features/admin/components), a `relative overflow-x-auto` box. `relative` makes it the
@@ -1161,12 +1222,27 @@ Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P
 Hero example     <HeroExample example>  (features/marketing, critique 1d) — the example IS the product, on ONE
                  surface (rounded-xl panel + hairline + e2, dark: fill + hairline): "Example summary" with the
                  quality Badge, the identity line (company, then ticker · form · filed in the data face, Sep
-                 between), the summary's opening, the figures as ONE hairline strip (<dl> grid-cols-3, border-y
-                 + divide-x; ▲/▼ aria-hidden before the signed delta), one evidence row when the live summary
+                 between; each middot in one item with the fact before it, so a wrapped line never starts or
+                 stands with one; the form one nowrap run; the date an inline-block after "filed", so it moves
+                 down whole and breaks only after its day), the summary's opening, the figures as ONE hairline
+                 strip (border-y on a clipping wrapper round a wrapping flex <dl>: each figure flex-auto, never
+                 an equal third, so where three do not fit they wrap one under another; a figure's own border-l
+                 and border-t are the strip's rules, the <dl>'s negative margins putting a row's leading rule
+                 and padding, and the first row's top rule, outside the clip; a value breaks inside only when
+                 wider than the strip; ▲/▼ aria-hidden before the signed delta), one evidence row when the live summary
                  has a located risk excerpt (pickEvidence: source_verified under the source owner; heading =
                  excerptHeadings, blockquote clipped at 180 on a word with " …", a chip link "Located in the
-                 filing"), the EDGAR receipt, and a text-link CTA. No browser-frame mockup, no card in the
-                 card, no sparkle chip, no tinted CTA. The static fallback has no evidence row.
+                 filing"), the EDGAR receipt (a no-break space holds its middot to the word before it), and a
+                 text-link CTA. No browser-frame mockup, no card in the
+                 card, no sparkle chip, no tinted CTA. The static fallback has no evidence row. Under 200% text
+                 the three figures sat in equal thirds and ran into each other at 390px, the identity line's
+                 "filed Oct 31, 2025", one nowrap run, took the page to 329px at 320px, and the receipt's second
+                 line began with its middot at 1440px (E81). Gate: tests/e2e/reflow-200.spec.ts (at 320, 390 and
+                 1440px under 200% text each label whole, each value and change on one line inside its own figure
+                 and the example, no two figures meeting, every form code on one line, no painted line starting
+                 with a middot; at both text sizes the strip's rules as painted, a row's leading rule and the
+                 first row's top rule clipped, every other rule inside the strip, the first figure's label flush
+                 with the card; the page at 320px).
 
 Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain statements, each scoped to what
                  the implementation establishes ("where a match is found"); "generated" stays distinct from
@@ -1428,15 +1504,15 @@ container (`max-w-7xl`, so each rule runs the width of the hero's trust strip), 
 and `py-12 sm:py-16`, then a 14rem label column beside the content. The label column holds the
 section's number (12px data face, tertiary ink, secondary on navy: the `landing-row` CSS counter that
 `app/page.tsx` resets on `<main>`, aria-hidden as the summary's section index is, so a section that
-omits itself, Reporting this week with no data or the empty reader quote, takes no number and leaves
-no gap), its title as the section's `h2` in the Title role (`text-2xl`, 24/32), and one line (14px
+omits itself, Reporting this week or Notable filings with no data or the empty reader quote, takes no
+number and leaves no gap), its title as the section's `h2` in the Title role (`text-2xl`, 24/32), and one line (14px
 secondary), one short sentence: a second sentence opens the content column, in body secondary under a
 `max-w-2xl` measure, as the evidence and contents rows' do. The columns open at
 `[@media(min-width:64rem)]:` at the reader's text size (1024px, or 2048px under a 200% text setting)
 and the label stacks above the content below it. No row alternates
-and no landing file lays items out four across: the claims and the extras are two across, the Pro
-screens one under another with each pitch above its screen, the contents and Reporting this week
-hairline lists. Pricing on the landing is one native table (`PricingSection.tsx`): an sr-only caption,
+and no landing file lays items out four across: the claims and the extras are two across, the Pro screens one
+under another with each pitch above its screen, the contents a hairline list, and Reporting this week and Notable
+filings hairline lines two across, one anatomy for both (`tests/unit/NotableFilings.spec.tsx` fails when they drift). Pricing on the landing is one native table (`PricingSection.tsx`): an sr-only caption,
 the plans as `th scope="col"`, what each includes as `th scope="row"`, every cell a plan line read
 through `shipped()` from `lib/planLimits.ts`, a dash with a visually hidden "Not included" where a plan
 has none; it fits a 390px phone at the default size and, wider than its box (a phone at 200% text),
@@ -1455,8 +1531,11 @@ the painted numbers on the built page, 01 to the last row with no gap. The plan 
 claim no summary history while nothing enforces one (D-046), and the Change Report the same on both plans,
 its line naming the metric deltas alone, while production serves no wording diff and omits the report's
 risk lines (`tests/unit/changeReportPlanClaims.spec.tsx` fails a Pro chip on the row, or a risk or
-language clause in its line and screen, while `ENABLE_SECTION_CHANGES` is off). E90 remounts
-Notable filings as a row after Reporting this week.
+language clause in its line and screen, while `ENABLE_SECTION_CHANGES` is off). Notable filings is the
+row after Reporting this week (E90): one hairline line per filing the backend serves under D-046's rule, in
+Reporting this week's anatomy (the mark at 32, the ticker in the data face with the form and its filed date where
+Reporting this week has its day, the name beneath through `formatCompanyName`), each opening its company page, under
+a line that says what the feed is and nothing the backend's query does not do; no reason chip.
 
 Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
@@ -1475,14 +1554,17 @@ The site footer opens its columns at md at the reader's text size, `[@media(min-
 cannot break, and at md's 768px under 200% text the footer took every route to 812px (the landing's
 final CTA card took / to 886px the same way, until D-045 made the close one line). The landing's rows
 open their label column at 64rem by the same rule. A form code in the landing's copy is one
-`whitespace-nowrap` run (`FormCodeText` in the plan table's cells, the claims, How it works and the Pro
-extras; a span of its own in the close and the extras' file kinds): before, the plan table painted
-"10-K and 10-" over "Q filings" at 320px, and the claims and How it works broke "10-Q" the same way at
-320px under 200% text. The auth shell's lockup yields to
+`whitespace-nowrap` run (`FormCodeText` in the hero's subhead, the plan table's cells, the claims, How it
+works and the Pro extras; a span of its own in the close, the extras' file kinds and the hero example's
+identity line): before, the plan table painted "10-K and 10-" over "Q filings" at 320px, the claims and
+How it works broke "10-Q" the same way at 320px under 200% text, and the subhead broke "10-Ks" at 390px
+and "10-Qs" at 1440px under 200% text (E81). The auth shell's lockup yields to
 the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
 at 360 and 390px, every line but the last ending at the middot; every form code in the landing's rows and
-its close on one painted line at 320 and 390px under 200% text and at 320px at the default size; a 768px
-and an 834px tablet over its route loop).
+its close on one painted line at 320 and 390px under 200% text and at 320px at the default size, and the
+hero's at 320, 390 and 1440px under 200% text; a 768px and an 834px tablet over its route loop; a 320px phone
+under 200% text over it too, where /security's headings, whose words E131 owns, are the one exemption, the page
+no wider than the widest of them).
 
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:

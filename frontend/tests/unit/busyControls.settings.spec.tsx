@@ -43,6 +43,7 @@ vi.mock('@/features/auth/api/auth-api', () => ({
   getConnections: api.getConnections,
   unlinkProvider: api.unlinkProvider,
   logoutAllSessions: api.logoutAllSessions,
+  LogoutAllSuperseded: class LogoutAllSuperseded extends Error {},
   exportUserData: vi.fn(),
   deleteUserAccount: vi.fn(),
 }))
@@ -55,7 +56,8 @@ vi.mock('@/features/notifications/api/notifications-api', () => ({
   getNotificationPreferences: api.getNotificationPreferences,
   updateNotificationPreferences: api.updateNotificationPreferences,
 }))
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+const router = vi.hoisted(() => ({ push: vi.fn() }))
+vi.mock('next/navigation', () => ({ useRouter: () => router }))
 vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: { children: ReactNode; href: string; [key: string]: unknown }) => (
     <a href={href} {...props}>{children}</a>
@@ -323,6 +325,25 @@ describe('ConnectedAccounts', () => {
     expect(await screen.findByText('Sign-out failed')).toBeInTheDocument()
     expect(signOut).not.toHaveAttribute('aria-disabled')
     expect(document.activeElement).toBe(signOut)
+  })
+
+  it('Log out of all devices refused for a login accepted while it waited neither clears, leaves nor shows an error', async () => {
+    const { LogoutAllSuperseded } = await import('@/features/auth/api/auth-api')
+    api.getConnections.mockResolvedValue({ has_password: true, providers: [] })
+    api.logoutAllSessions.mockRejectedValue(new LogoutAllSuperseded())
+    router.push.mockClear()
+    const { client, container } = renderWithClient(<ConnectedAccounts />)
+    const clear = vi.spyOn(client, 'clear')
+
+    const signOut = await screen.findByRole('button', { name: 'Log out of all devices' })
+    const before = container.textContent
+    fireEvent.click(signOut)
+    await waitFor(() => expect(api.logoutAllSessions).toHaveBeenCalledTimes(1))
+    await settle()
+    expect(clear).not.toHaveBeenCalled()
+    expect(router.push).not.toHaveBeenCalled()
+    // No error line, in any wording: the card reads as it did before the press.
+    expect(container.textContent).toBe(before)
   })
 })
 

@@ -14,8 +14,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 |---|---|---|
 | Composition (D-045) | `frontend/app/page.tsx`, `LandingRow.tsx` (new) | The two-column hero stays; every section after it is one ruled row: a hairline across the hero's container, a label column with the section's number (a CSS counter, so a section that omits itself takes none and leaves no gap), its title as the section's h2 and one line, one short sentence (a second opens the content column), and the content beside it, opening at 64rem at the reader's text size. No row alternates and nothing lays out four across (`earningsnerd/no-four-up-grid`); `tests/unit/landing-sections-mounted.spec.ts` holds the order, each row to the primitive and the close to one line. A form code in a row's copy is one unbroken run (`FormCodeText`), so no line breaks "10-Q" at its hyphen (`tests/e2e/reflow-200.spec.ts`, at 320 and 390px). The label column is the margin of a 10-K, so the page reads as a filing's items (tell T4, `09-stress-test.md` §2). |
 | Hero headline | `frontend/features/marketing/components/HeroHeadline.tsx`, `lib/headline.ts` | The accent phrase carries the mark (`.en-mark`) on the primary ink instead of sage text. Variant A ("Read the filing faster. Keep the source in view.") survives as the served default, with the mark under "the source" so it never breaks across lines; B and C become "Read it faster. Check it anyway." and "The summary that shows its work." |
-| Hero subhead and access line | `LandingHero.tsx` | "AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company's XBRL where they can be, and quotes against the filing's own text." The scope is the server's: it checks a figure only when the metric maps to an XBRL concept of at least $1M (`backend/app/services/provenance_service.py`). The access line is unchanged ("Private beta · request an invite"). |
-| Hero example | `HeroExample.tsx` | The fallback is Apple's FY2025 10-K (filed 2025-10-31) with the verified figures; the evidence row is a `MarkedCopy` block: the claim with its `[1]` bracket, the bracket's twin in the margin, and the filing's sentence in a `.en-marked` blockquote set in the editorial face. Live data renders the same way. The excerpt wears quotation marks, the closing one after the clip's ellipsis. A live figure carries no XBRL hover and the link reads "Source filing · check the figures on SEC EDGAR", since a live figure is the summary's highlight, which the hero cannot vouch for as an XBRL match; only the checked fallback names its XBRL concepts and reads "Figures from the company's XBRL · check them on SEC EDGAR" (one verb on both links). Each fallback concept is text inside its term, visually hidden, so every reader reaches it; the hover repeats it for a mouse. The link carries the brand focus ring (`tests/unit/hero-example-surface.spec.tsx`). |
+| Hero subhead and access line | `LandingHero.tsx` | "AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company's XBRL where they can be, and quotes against the filing's own text." The scope is the server's: it checks a figure only when the metric maps to an XBRL concept of at least $1M (`backend/app/services/provenance_service.py`). The access line is unchanged ("Private beta · request an invite"). Each form code in the subhead is one unbroken run (`FormCodeText`), so under 200% text it no longer breaks "10-Ks" at 390px or "10-Qs" at 1440px (E81, `tests/e2e/reflow-200.spec.ts`). |
+| Hero example | `HeroExample.tsx` | The fallback is Apple's FY2025 10-K (filed 2025-10-31) with the verified figures; the evidence row is a `MarkedCopy` block: the claim with its `[1]` bracket, the bracket's twin in the margin, and the filing's sentence in a `.en-marked` blockquote set in the editorial face. Live data renders the same way. The excerpt wears quotation marks, the closing one after the clip's ellipsis. A live figure carries no XBRL hover and the link reads "Source filing · check the figures on SEC EDGAR", since a live figure is the summary's highlight, which the hero cannot vouch for as an XBRL match; only the checked fallback names its XBRL concepts and reads "Figures from the company's XBRL · check them on SEC EDGAR" (one verb on both links). Each fallback concept is text inside its term, visually hidden, so every reader reaches it; the hover repeats it for a mouse. The link carries the brand focus ring (`tests/unit/hero-example-surface.spec.tsx`). Under 200% text (E81) the identity line wraps between its facts, each middot held to the fact before it, the form one run and the date moving under "filed" whole, where "filed Oct 31, 2025" in one run took the page to 329px at 320px; and the three figures wrap one under another inside their one hairline strip, each taking its own width, where in equal thirds each value ran into the next at 390px. The EDGAR receipt holds its middot to the word before it with a no-break space, where at 1440px its second line began "·". `tests/e2e/reflow-200.spec.ts` reads the boxes at 320, 390 and 1440px, the strip's rules among them at both text sizes (only between two figures, the first figure's label flush with the card), and the page at 320px. |
 | Founder slot | Retired | The empty component, configuration and hero mount have been removed (see §6). |
 | Trust strip | `TrustStrip.tsx` | Four statements the product keeps, no hedges: sourced from SEC EDGAR; risk excerpts are the filing's own words (main said "quoted excerpts"; a Forward Signals quote can stand unmatched, so the founder's review narrowed it); one summary per filing, generated once and shared; not investment advice. |
 | Claims strip | `MeasuredClaims.tsx` | "Figures / Risks / Nine parts / SEC EDGAR", each with the behaviour it names, in place of the four pseudo-statistics; the figures line says the server checks them where it can, and the risks line that unmatched excerpts are withheld and counted. The first row, "What a summary does", two across (D-045). |
@@ -27,7 +27,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 | Reader quote | `ReaderQuoteSlot.tsx`, `lib/readerQuote.ts` (new) | Mounted under the pricing section; renders nothing while `READER_QUOTE` is `null`, so no placeholder testimonial ships, the reader-quote slot stays unrendered and it takes no number among the rows; once filled it is a ruled row (§6; 01-interview.md §2; `tests/unit/readerQuoteSlot.spec.tsx`). It fills only with a real reader's words and the naming they approved in writing; the voice rules of #1288 (`brandVoiceRules.spec.ts`) gate the shipped value once that PR merges. The placeholder strings are gone. |
 | Sample data | `lib/landing-samples.ts` | Every sample on the page is Apple's FY2025 10-K against FY2024: revenue $416.2B vs $391.0B (+6.4%), net income $112.0B vs $93.7B (+19.5%) and diluted EPS $7.46 vs $6.08 (+22.7%) from SEC companyfacts; Services $109.2B vs $96.2B (+13.5%), a dimensioned fact companyfacts does not carry, from the 10-K's own inline XBRL; and the verbatim Item 7 sentence on Services (00-audit.md §4, D-021). The Multi-Period demo is the one exception (§8). The Ask demo answers "How much did net sales grow, and what drove Services?" as a live run would: total net sales of $416.2B [1] and its 6.4% growth [2], two XBRL chips written as `copilot_tools.fact_to_citation` writes them (a fact the tool can fetch, and the growth `compute_metric` derives from it), then the Item 7 sentence on Services [3]. The markers are numbered as the server numbers them, never [F1]. `tests/unit/landingSamplesVerified.spec.ts` holds every figure, chip label and marker on the page's samples and the hero fallback to the verified set, ties each XBRL chip's label and figure to the concept its section ref names, and ties the answer's figure before each marker to that chip. The Copilot teaser's blurred sample (`CopilotTeaser.tsx`, #1295) answers a Services question instead: its Services figures are a dimensioned fact the tool cannot fetch, so its citations are passages from the filing, not XBRL facts; the two answers differ for that reason, and the spec's teaser clause holds that citation kind: the sample states only the verified Services pair, names the drivers the Item 7 sentence names, and runs markers [1] and [2] with one matched source each and no XBRL marker, locator, tag or braces glyph. |
 | Reporting this week | `features/calendar/components/ReportingThisWeek.tsx` | A ruled row of hairline lines (mark, ticker, the day it reports, name), two across, in place of the four-up tiles (D-045); it renders only with live data, so it takes no number without it. |
-| Notable filings | `app/page.tsx`, `features/filings/components/NotableFilings.tsx` | Unmounted (see §7); E90 remounts it as a row after Reporting this week. |
+| Notable filings | `app/page.tsx`, `features/filings/components/NotableFilings.tsx` | A ruled row after Reporting this week since E90 (see §7): one hairline line per filing the backend serves under D-046's rule, in Reporting this week's anatomy, two across, each opening its company page, under the line "The past week's 10-K and 10-Q filings from companies with a summary to read, newest first."; it renders only with a served list, so it takes no number without one. |
 | Close | `ClosingLine.tsx` (was `CtaBanner.tsx`) | One line under the last row's rule, not a banner (D-045): "Start with a real filing: read the Apple 10-K summary first, then read your own." with the live example as a text link (the funnel's `cta_banner` placement) and the access mode's call to action as a button at its end. |
 | Footer | `components/Footer.tsx` | The tagline, "The summary that shows its work." |
 | Metadata | `app/page.tsx`, `app/layout.tsx`, `app/manifest.ts`, `lib/socialCard.ts` | Descriptions and the social image's alt text say what the product does in the voice; the Safari pinned-tab icon is declared (`mask-icon`, §4). Titles put the page first and the brand last ("Read the filing faster. Keep the source in view \| EarningsNerd"); the root default is "AI summaries of SEC filings \| EarningsNerd", and the root's social preview carries no title or description of its own, so Next fills both from each page (D-038). |
@@ -476,8 +476,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   admin invites page, with a checked fill that holds 3:1 in dark (it was 2.2:1): Light Sage under a
   navy check, as the Primary button pairs them.
 - **Status chips** (`frontend/components/ui/Badge.tsx`): `success` and `error` variants for status
-  (D-032). The watchlist and dashboard rows say "Ready" on success and "Error" on error, and
-  "Unavailable" and "Needs regenerating" on warning; no status borrows the gain and loss colours.
+  (D-032), with `info-status`, `warning-status` and `neutral-status` beside them as Badge's status set.
+  The watchlist and dashboard rows say "Ready" on success, "Generating" on info-status, "No summary
+  yet" and "Pending" on neutral-status, "Unavailable" and "Needs regenerating" on warning-status and
+  "Error" on error, each the status ink on the quiet ground, never a tint; no status borrows the gain
+  and loss colours (`statusChipContrast.spec.ts` measures each on both rows).
 - **Error copy** (`frontend/lib/api/client.ts`): a lost connection reads "Could not reach the server.
   Try again in a moment." instead of naming the backend and its URL, and a validation error shows
   its first message instead of "[object Object]".
@@ -591,11 +594,17 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   truncating and the range label wraps between whole dates (`calendarReflow.spec.tsx`,
   `calendarEventRow.spec.tsx`). The bell's popover is placed from its measured height inside what the
   reader can see, scrolling inside when neither side of the bell holds it whole
-  (`BellPopover.spec.tsx`).
+  (`BellPopover.spec.tsx`). The status ladder takes Badge's status set and reads dashed, blue, quiet:
+  the "Est." chip is its `tentative` chip, a dashed hairline with no fill in either theme, where a class on
+  top of the neutral chip had painted a white pill; "Confirmed" is `info-status`, off the brand tint;
+  and "Reported" is `neutral-status`, whose label holds 4.98:1 on a hovered dark row where the quiet
+  chip's fill took it to 4.27:1 (`badgeVariants.spec.tsx`). The page takes its week from the reader's
+  browser alone, so a visit after the New York week turns over reads this week's heading, never the
+  week of the hour the page was rendered (`tests/e2e/fixtures/calendarWeek.ts`).
 - **Full-text search** (`frontend/app/search/page.tsx`, `features/search/components/FullTextSearch.tsx`):
   the form code is set in the data face, not as a chip, and `earningsnerd/no-form-code-badge` now
   flags a hand-rolled eyebrow chip around a form as well as a `Badge`, alone or leading a meta line
-  such as "{form} · Filed {ago}" (the notable-filing card, dormant off `/`, moved to the data face
+  such as Notable filings' "{form} · filed {date}" (its form code moved to the data face
   with it). The form toggles, "Clear dates" and "Try again" (a `RetryButton`) carry the brand ring, the
   result rows an inset one inside the clipped list. The rows and the unselected form toggles brighten
   on hover to the row tint (`brand-weak`), never darken. The field stops at the length the backend
@@ -609,7 +618,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   alone is wider than the line; the error alert's
   glyph keeps its size, its message takes its column's whole width and breaks a long token, and
   "Try again" ("Trying again…" while busy) sits on its own row under it, inside the alert
-  (`full-text-search.spec.tsx`).
+  (`full-text-search.spec.tsx`). The two date fields take the Input primitive's 14px text and shrink to their
+  row: in the forms plugin's 1rem, with the blank room Chrome keeps in a date field for a six-digit year, each was
+  312px in a 256px row at 320px under 200% text and the page scrolled to 344px (E81,
+  `tests/e2e/reflow-200.spec.ts`).
 - **Multi-Period Analysis** (`frontend/features/analysis/*`, `frontend/app/analysis/page.tsx`): the
   fair-use cap is stated once, in the narrative card, with no plan link; "See plans" stays only beside
   the 403 "Pro feature" gate, and the page's three inline links (Log in, See plans, Terms) carry the
@@ -666,13 +678,30 @@ content is unchanged. The brief's reader-quote slot stays unrendered
 
 ## 7. Notable filings
 
-The section is unmounted from `app/page.tsx` and its fetcher removed from the page, and the
-component carries a DORMANT note: the week's list read as microcap 8-Ks under a "high-signal"
-heading (audit T7). The fetcher, the card and its spec stay for its return. The curation rule is
-decided (D-046, §8): 10-K and 10-Q filings only, from companies that hold a full summary, newest
-first, at most six. The section is to return under it with E90, as a ruled row after Reporting
-this week (D-045, §1); until then the mount gate (`tests/unit/landing-sections-mounted.spec.ts`)
-records the omission as deliberate.
+The section left `app/page.tsx` on 2026-10-11, because the week's list read as microcap 8-Ks under
+a "high-signal" heading (audit T7), and returned under the curation rule the founder decided
+(D-046, §8) in two halves (E90). The backend's query serves the rule (#1437): the past week's 10-K
+and 10-Q filings, from companies whose stored issuer holds a summary the filing page shows (D-052
+reads "a full summary" so), newest first, one per company, at most six, and an empty list while its
+flag is off, in a week with fewer than three such companies, or on a failed read. The landing
+mounts the section after Reporting this week as a ruled row (D-045, §1). Its line says what the
+query serves, "The past week's 10-K and 10-Q filings from companies with a summary to read, newest
+first.", where the section once said "High-signal SEC filings from the past week, across the whole
+market."; its filings are hairline lines in Reporting this week's anatomy, two across from 40rem
+at the reader's text size, each opening its company page as before: the mark at 32, the ticker in
+the data face with "10-Q · filed Oct 20, 2026" where Reporting this week has its day (sharing the
+line while both fit, dropping beneath the ticker when they do not), and the company's name beneath,
+truncating, through `formatCompanyName` as Reporting this week and the Filing identity line print it. The form code is one unbroken run
+that the middot after it keeps to, and the date states the filing's day as the Filing identity line
+does, through the same helper (`formatLocalDate`): a day with no time, the same in every time zone
+and never stale on the cached page. The date moves under the code whole before it breaks, holding
+the month and day as one run as the hero's identity line does, so under 200% text no line breaks
+the code, starts with the dot or reads "filed Oct" over "20, 2026". There is no reason chip: under
+D-046 it could only gloss the code the row's line already names (chief design's review of #1461).
+With an empty list or a failed read it renders nothing, so it takes no number among the rows. The
+mount gate (`tests/unit/landing-sections-mounted.spec.ts`) holds its place and the slot it is fed,
+and `tests/unit/NotableFilings.spec.tsx` holds it to the lines it is served and to Reporting this
+week's anatomy.
 
 ## 8. Decided by the founder
 
@@ -680,7 +709,8 @@ records the omission as deliberate.
   teaser's sample and the landing's samples) ends at FY2024, and its own comment calls its figures
   approximate; it is to be regenerated through the pipeline to FY2025, not edited (D-046, E93).
 - §7's curation rule: 10-K and 10-Q filings only, from companies that hold a full summary, newest
-  first, at most six (D-046, E90).
+  first, at most six (D-046, E90). It landed in two halves: the backend's query (#1437, under
+  D-052's reading of "a full summary") and the ruled row after Reporting this week.
 
 The landing composition (tell T4) is decided too, and landed: ruled rows after the hero (D-045, #1398).
 
