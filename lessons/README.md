@@ -75,7 +75,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 
 ## Architecture
 
-- arch-a-forced-refresh-keeps-what-a-kept-summary-is-served-with.md — A forced refresh deletes nothing and clears nothing a kept summary is served with before its run; stored data is replaced only by what arrives, and a piece cleared for a rebuild goes back in a `finally` when the summary stays (partly gated by `backend/tests/unit/test_summary_delete_sites_allowlist.py` for the deletes of `summaries` rows its scan can see, and pinned at the two sites by `test_force_regenerate_keeps_xbrl.py` and `test_precompute_service.py`; a new up-front clear of another column is review-checked)
+- arch-a-forced-refresh-keeps-the-summary-and-puts-back-what-it-clears.md — A forced refresh never deletes the stored summary before its run and replaces stored data only with what arrives; the one piece it clears for a rebuild goes back in a `finally` when the summary stays (partly gated by `backend/tests/unit/test_summary_delete_sites_allowlist.py` for the deletes of `summaries` rows its scan can see, and pinned at the two sites by `test_force_regenerate_keeps_xbrl.py` and `test_precompute_service.py`; a new up-front clear of another column is review-checked)
 - arch-acquisition-period-withholding-needs-whole-claims.md — Preserve closed authored continuations when withholding ambiguous acquisition-period claims
 - arch-admit-authored-evidence-before-repair.md — Match the real evidence selector and admit authored evidence before fuzzy repair
 - arch-admit-copilot-answers-before-publication.md — Hold answer prose until citation admission and preserve truthful request completion

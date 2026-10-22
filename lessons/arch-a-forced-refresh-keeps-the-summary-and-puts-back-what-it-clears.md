@@ -1,4 +1,4 @@
-# A forced refresh keeps what a kept summary is served with until the run brings back its replacement
+# A forced refresh never deletes the stored summary, and puts back what it clears when that summary stays
 
 Date: 2026-10-22 · Area: arch / summary pipeline
 
@@ -13,16 +13,18 @@ error left the filing with no summary, an AI-timeout fallback replaced a full su
 and a bookmarked summary was orphaned (SQLite) or the DELETE raised on `saved_summaries`' foreign key
 (PostgreSQL). Findings 6 and 7 of the 2026-10-15 backend bug hunt, fixed in P11.
 
-**Rule.** A forced refresh deletes nothing, and clears nothing a kept summary is served with, before
-its run. It regenerates in place through the one orchestrator (`force_regenerate=True`, where
-keep-better decides), so the summary row changes only through finalize's keep-better UPDATE. Stored
-data the run re-fetches is replaced only by what arrives: the XBRL snapshot only by fresh XBRL
-(`refresh_xbrl`, which only the Pro route sets; the drains read the snapshot). Fresh XBRL replaces the
-snapshot as soon as it arrives, even when the run then fails or keep-better keeps the stored summary:
-it is the same filing's data. A piece the run must rebuild from nothing (the excerpt a forced
-precompute clears so the current extraction runs) goes back in a `finally` whenever the stored summary
-stays, a raise or a cancellation included. Report a refresh's outcome from what the run did
-(replaced, kept or failed), never from whether a row exists afterwards.
+**Rule.** A forced refresh never deletes the stored summary before its run, and clears nothing that
+summary is served with except a piece the run can rebuild only once it is gone, which it puts back
+whenever the summary stays. It regenerates in place through the one orchestrator
+(`force_regenerate=True`, where keep-better decides), so the summary row changes only through
+finalize's keep-better UPDATE. Stored data the run re-fetches stays until a replacement arrives: the
+XBRL snapshot is replaced only by fresh XBRL (`refresh_xbrl`, which only the Pro route sets; the
+drains read the snapshot), and as soon as it arrives, even when the run then fails or keep-better
+keeps the stored summary, since it is the same filing's data. The one piece cleared up front is the
+excerpt a forced precompute clears so the current extraction runs (the excerpt builder returns any
+stored one); it goes back in a `finally` whenever the stored summary stays, a raise or a cancellation
+included. Report a refresh's outcome from what the run did (replaced, kept or failed), never from
+whether a row exists afterwards.
 
 **Limits, stated.** The cleared excerpt is missing while the run is in flight (readers fall back to the
 cached document), and a killed process skips the put-back. The progress row is still deleted before
