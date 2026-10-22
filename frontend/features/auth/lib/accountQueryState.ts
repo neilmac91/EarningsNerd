@@ -62,26 +62,37 @@ export function subscribeAccountQueryReset(queryClient: QueryClient): () => void
 /** What /me says of this browser's session after a logout request that failed: no user, the user, or nothing. */
 type SessionRead = 'guest' | 'user' | 'unknown'
 
+/** How long a failed logout waits for /me, a refresh it starts included, before it tells the reader the logout did not
+ * take. That refresh is a bare request with no timeout of its own (lib/api/refresh.ts), so one that never answered
+ * would hold the logout, its report and the menus' focus return for good. */
+export const SESSION_READ_LIMIT_MS = 10_000
+
 /** After a logout request that failed: whether this browser is logged out anyway. The API answers a revoke that
  * failed with a 503 that clears the session cookies; a request that never arrived, or the API's 504, clears none,
  * and the session goes on. /me decides: no user means the cookies are gone. The read goes into the current-user
  * query, so a session that survived shows again, and it starts in the turn of the reset before it, so no render
  * sees a settled null before it answers (isConfirmedGuest). It reads past the cache (staleTime 0: the app's queries
  * keep a read fresh for a minute) and runs offline too (networkMode 'always'): paused, it would hold the logout
- * until the connection came back. A read that fails cannot tell.
+ * until the connection came back. A read that fails cannot tell, nor can one still unanswered at the limit: a timeout
+ * never counts as a logout that took. A late answer lands in the current-user query as any read's does, behind the
+ * same generation fences, so it cannot replace an account a login accepted meanwhile.
  */
 async function readSession(queryClient: QueryClient): Promise<SessionRead> {
-  try {
-    const user = await queryClient.fetchQuery({
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const limit = new Promise<SessionRead>((resolve) => { timer = setTimeout(() => resolve('unknown'), SESSION_READ_LIMIT_MS) })
+  const read = queryClient
+    .fetchQuery({
       queryKey: queryKeys.currentUser(),
       queryFn: getCurrentUserSafe,
       staleTime: 0,
       retry: false,
       networkMode: 'always',
     })
-    return user === null ? 'guest' : 'user'
-  } catch {
-    return 'unknown'
+    .then((user): SessionRead => (user === null ? 'guest' : 'user'), (): SessionRead => 'unknown')
+  try {
+    return await Promise.race([read, limit])
+  } finally {
+    clearTimeout(timer)
   }
 }
 

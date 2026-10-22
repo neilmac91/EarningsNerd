@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import api from '@/lib/api/client'
 import { logout, type CurrentUser } from '@/features/auth/api/auth-api'
 import {
-  LOGOUT_FAILED_MESSAGE, acceptLoginAndResetAccount, logoutAndResetAccount, subscribeAccountQueryReset,
+  LOGOUT_FAILED_MESSAGE, SESSION_READ_LIMIT_MS, acceptLoginAndResetAccount, logoutAndResetAccount, subscribeAccountQueryReset,
 } from '@/features/auth/lib/accountQueryState'
 import { advanceSessionGeneration, clearSessionActive, getExplicitSessionGeneration, getSessionGeneration, hasActiveSession, markSessionActive, notifySessionLost } from '@/lib/api/session'
 import { refreshAccessToken } from '@/lib/api/refresh'
@@ -504,6 +504,45 @@ describe('logoutAndResetAccount after a failed request', () => {
     expect(continued).not.toHaveBeenCalled()
     expect(toasts.error).not.toHaveBeenCalled()
     expect(client.getQueryData(queryKeys.currentUser())).toEqual(other)
+  })
+
+  it("reports a logout that did not take when /me's refresh never answers, and the refresh's late answer cannot replace a login accepted after", async () => {
+    // The access cookie has lapsed, so /me 401s and starts a refresh, which never answers until the end. It is let go in
+    // `finally` too, so a failure here leaves no refresh in flight for the next case's logout to wait on.
+    const stalled = deferred<void>()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const client = newClient()
+      client.setQueryData(queryKeys.currentUser(), reader)
+      markSessionActive()
+      Object.assign(server, { me: lapsed, refresh: () => stalled.promise })
+      const continued = vi.fn()
+      const settled = logoutAndResetAccount(client, failing, continued).catch((error: unknown) => error)
+      await vi.advanceTimersByTimeAsync(SESSION_READ_LIMIT_MS - 1)
+      expect(meReads()).toBe(1)
+      expect(continued).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      // Past the limit the read cannot tell, as a read that fails cannot: never a logout that took.
+      expect(continued).toHaveBeenCalledExactlyOnceWith(false)
+      expect(toasts.error).toHaveBeenCalledWith(LOGOUT_FAILED_MESSAGE)
+      expect(await settled).toBe(requestError)
+      expect(client.getQueryData(queryKeys.currentUser())).toEqual(reader)
+      expect(hasActiveSession()).toBe(true)
+      // Another account's login lands, and only then does the refresh answer: /me is not read again under the old
+      // session, and the new account stays.
+      acceptLoginAndResetAccount(client, getExplicitSessionGeneration())
+      client.setQueryData(queryKeys.currentUser(), other)
+      server.renewed = true
+      stalled.resolve()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(meReads()).toBe(1)
+      expect(client.getQueryData(queryKeys.currentUser())).toEqual(other)
+      expectNoNavigation()
+    } finally {
+      stalled.resolve()
+      await vi.advanceTimersByTimeAsync(0)
+      vi.useRealTimers()
+    }
   })
 
   it('offline, reports at once rather than holding the logout until the connection returns', async () => {
