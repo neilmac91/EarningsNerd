@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react'
-import { Badge, Button, Card, Input, Select, SegmentedControl, Textarea } from '@/components/ui'
+import { Badge, Button, Card, Input, Select, SegmentedControl, Textarea, type BadgeStatusVariant } from '@/components/ui'
 import { getFiling } from '@/features/filings/api/filings-api'
 import { fetchFilingContent } from '@/features/filings/api/filing-content-api'
 import { downloadBlob } from '@/lib/downloadBlob'
@@ -10,7 +10,19 @@ import { captureSource, createEntry, exportEvidence, parseFilingId, proposeSourc
 
 const secondary = 'text-text-secondary-light dark:text-text-secondary-dark'
 const sourceLink = 'rounded text-brand-strong underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark'
-const statusLabels = { unreviewed: 'Unreviewed', 'review-needed': 'Review needed', reviewed: 'User reviewed' }
+/** An entry's review status is a status under D-032, so its chip is a member of Badge's status set, by the set's meanings
+    (chief design on #1459, E140): not started, needs the reader, done. tests/unit/statusChipContrast.spec.ts measures
+    each on the evidence card. */
+export const reviewStatusChip: Record<EvidenceEntry['status'], { label: string; variant: BadgeStatusVariant }> = {
+  unreviewed: { label: 'Unreviewed', variant: 'neutral-status' },
+  'review-needed': { label: 'Review needed', variant: 'warning-status' },
+  reviewed: { label: 'User reviewed', variant: 'success' },
+}
+
+export function ReviewStatusChip({ status }: { status: EvidenceEntry['status'] }) {
+  const { label, variant } = reviewStatusChip[status]
+  return <Badge variant={variant}>{label}</Badge>
+}
 
 function SourceQuote({ source }: { source: SourceSnapshot }) {
   return <div className="min-w-0 space-y-3">
@@ -39,7 +51,7 @@ function EvidenceCard({ entry, capture, onChange }: { entry: EvidenceEntry; capt
   return <Card as="article" className="min-w-0 space-y-5 p-cap-5" aria-label={`Evidence ${entry.id}`}>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h3 ref={heading} tabIndex={-1} className="text-lg font-semibold focus:outline-none">Evidence {entry.id}</h3>
-      <Badge variant={entry.status === 'review-needed' ? 'warning' : 'neutral'}>{statusLabels[entry.status]}</Badge>
+      <ReviewStatusChip status={entry.status} />
     </div>
     <div className="space-y-3">
       <h4 className="text-sm font-semibold">Current source · revision {entry.revisions.length}</h4>

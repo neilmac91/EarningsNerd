@@ -6805,6 +6805,17 @@ Full local and hosted verification plus independent exact-head review precede re
   variables in `gh api` paths); no classifier denial and two hook refusals of the chief's commands in the window,
   nothing running. Closure 196, amended in place before merge to pre-register a fresh reviewer after a container
   restart ended the first one's context.
+- 2026-10-22 (record 46, `runtime/control/DECISIONS-46.md`): PR #1479 (record 45) merged `690aa3fc` by the chief
+  under record 35's founder action 9, answered (forty-first deploy-skip proof: its main run succeeded and its
+  deploy job skipped every deploy step), with no classifier refusal, after its fact-check, its replacement
+  reviewer's three passes and Codex's one P2, answered and kept, the merge waiting for Codex's clean review of the
+  final head and a re-run of CI's browser tests, cut off at their limit. Closure 197 registers record 45's survey,
+  fact-check and both reviewer contexts and pre-registers this record's survey and fact-check and record 47's
+  reviewer. A read-only survey of the window before the record was written. Ten main merges, three of them backend
+  deploys, each healthy; production not read live. No CODE RED spend; no ledger event; twenty other writers' paid
+  runs and thirteen balance readouts on GitHub. Chief defect 24 (a mask that missed a digit-masked name, the class
+  of chief defects 14 and 20); no classifier denial and two hook refusals of the chief's commands in the window,
+  nothing running. Closure 197.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
