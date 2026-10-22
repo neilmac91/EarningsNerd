@@ -93,9 +93,13 @@ vi.mock('@/components/ui/Badge', async (importOriginal) => {
  *
  * The labs research evidence pack's review status (ReviewStatusChip, E140) is read the same way on the one card it
  * renders on, its evidence card in features/research-evidence-packs/components/ResearchEvidencePacks.tsx: the walk up
- * from the chip to its <Card>, which is no list row, so the card is its own ground, at rest and hovered as a watchlist
- * card is (a card with no hover fill is the same ground in both). Every status reviewStatusChip names is rendered
- * through Badge and measured there in both themes, and ReviewStatusChip must render Badge's chip for the member of the
+ * from the chip to its <Card>, which is no list row, so the card is its own ground (that call alone passes `cardIsRow`),
+ * at rest and hovered as a watchlist card is (a card with no hover fill is the same ground in both). The card's
+ * `aria-label`, a name that paints nothing, is the one prop there that need not be a plain string (that call alone
+ * passes `ariaLabel`); on the summary rows' cards it fails as any other prop it cannot read does. Every status
+ * reviewStatusChip names is rendered through Badge and measured there in both themes; each status takes the member its
+ * meaning names, pinned here (not started neutral-status, needs the reader warning-status, done success), since a swap
+ * within the set would pass every measurement; and ReviewStatusChip must render Badge's chip for the member of the
  * status set reviewStatusChip names, held as the admin badges are. Another source that renders the chip on a ground of
  * its own is out of reach: the labs prototype renders it once.
  */
@@ -553,16 +557,24 @@ const SUMMARY_ROWS = {
 type SummaryStack = { card: Record<string, string | boolean>; row: string | null; where: { card: string; row: string }; layers: string[] }
 
 /**
- * The props written on a <Card>, as Card takes them: each a plain string or a bare boolean, `key` aside. Any other prop
- * (an expression, a style, a handler) or a spread fails, since this spec cannot tell what Card would paint with it.
+ * The props written on a <Card>, as Card takes them: each a plain string or a bare boolean, `key` aside, and the card's
+ * `aria-label` aside where the caller passes `ariaLabel` (the evidence card's, a name that paints nothing). Any other
+ * prop (an expression, a style, a handler, another aria attribute) or a spread fails, since this spec cannot tell what
+ * Card would paint with it.
  */
-function cardProps(opening: ts.JsxOpeningLikeElement, sf: ts.SourceFile, where: string, failures: string[]): Record<string, string | boolean> | null {
+function cardProps(
+  opening: ts.JsxOpeningLikeElement,
+  sf: ts.SourceFile,
+  where: string,
+  failures: string[],
+  { ariaLabel = false } = {},
+): Record<string, string | boolean> | null {
   const props: Record<string, string | boolean> = {}
   let read = true
   for (const prop of opening.attributes.properties) {
     const name = ts.isJsxAttribute(prop) ? prop.name.getText(sf) : null
-    // The list's key, and an aria attribute, which names the card and paints nothing (the evidence card's label).
-    if (name === 'key' || name?.startsWith('aria-')) continue
+    // The list's key, and the evidence card's label, which names the card and paints nothing.
+    if (name === 'key' || (ariaLabel && name === 'aria-label')) continue
     const init = ts.isJsxAttribute(prop) ? prop.initializer : undefined
     const value = init && ts.isJsxExpression(init) ? init.expression : init
     if (name !== null && init === undefined) props[name] = true
@@ -580,12 +592,19 @@ function cardProps(opening: ts.JsxOpeningLikeElement, sf: ts.SourceFile, where: 
 /**
  * What is under the one <chip> in a row's source: the walk up from it to the first <Card>, the card whose fill is the
  * opaque ground. The row is the element on the way that carries the list's `key`; when that is the <Card> itself (one
- * card per item), the card is its own row. Every other element on the way is a layer, held as chipLayers holds one: an
- * HTML element with no props spread into it, whose className is a plain string or absent and paints nothing. A chip
- * count other than one, a component on the way, a layer or a card prop it cannot read, no keyed row and no <Card> each
- * fail, naming the file and line.
+ * card per item), the card is its own row, and so is a card the caller passes `cardIsRow` for (the evidence card, which
+ * is no list row and carries no key). Every other element on the way is a layer, held as chipLayers holds one: an HTML
+ * element with no props spread into it, whose className is a plain string or absent and paints nothing. A chip count
+ * other than one, a component on the way, a layer or a card prop it cannot read (`ariaLabel` passes on to cardProps), no
+ * keyed row without `cardIsRow`, and no <Card> each fail, naming the file and line.
  */
-function summaryStack(source: string, file: string, chip: string, failures: string[], { cardIsRow = false } = {}): SummaryStack | null {
+function summaryStack(
+  source: string,
+  file: string,
+  chip: string,
+  failures: string[],
+  { cardIsRow = false, ariaLabel = false } = {},
+): SummaryStack | null {
   const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const at = (node: ts.Node) => `${file}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
   const found: ts.Node[] = []
@@ -615,7 +634,7 @@ function summaryStack(source: string, file: string, chip: string, failures: stri
         failures.push(`${at(found[0])} <${chip}>: no element with a key between it and its <Card>, so this spec cannot tell which one is the row`)
         return null
       }
-      const card = cardProps(opening, sf, where, failures)
+      const card = cardProps(opening, sf, where, failures, { ariaLabel })
       return card && { card, row: row?.className ?? null, where: { card: where, row: row?.where ?? where }, layers }
     }
     if (!ts.isIdentifier(opening.tagName) || !/^[a-z]/.test(opening.tagName.text)) {
@@ -716,11 +735,16 @@ const EVERY_SUMMARY_GROUND: Grounds = {
   dark: Object.values(SUMMARY_GROUNDS).flatMap((g) => g.dark),
 }
 
-/** The labs evidence pack's review status chip sits on its evidence card, which is no list row: the card is its own row. */
+/**
+ * The labs evidence pack's review status chip sits on its evidence card, which is no list row: the card is its own row,
+ * and its `aria-label` names it.
+ */
 const EVIDENCE_PACKS = 'features/research-evidence-packs/components/ResearchEvidencePacks.tsx'
+/** How the evidence card is read; the summary rows pass neither. */
+const EVIDENCE_CARD = { cardIsRow: true, ariaLabel: true }
 /** Why the evidence card's ground could not be read; the evidence cases fail on any of them. */
 const EVIDENCE_GROUND_FAILURES: string[] = []
-const EVIDENCE_STACK = summaryStack(readFileSync(path.join(ROOT, EVIDENCE_PACKS), 'utf8'), EVIDENCE_PACKS, 'ReviewStatusChip', EVIDENCE_GROUND_FAILURES, { cardIsRow: true })
+const EVIDENCE_STACK = summaryStack(readFileSync(path.join(ROOT, EVIDENCE_PACKS), 'utf8'), EVIDENCE_PACKS, 'ReviewStatusChip', EVIDENCE_GROUND_FAILURES, EVIDENCE_CARD)
 const EVIDENCE_GROUNDS: Grounds = EVIDENCE_STACK ? summaryGrounds('evidence', EVIDENCE_STACK, EVIDENCE_GROUND_FAILURES) : { light: [], dark: [] }
 
 const SUMMARY_BADGE = 'features/watchlist/components/SummaryStatusBadge.tsx'
@@ -1069,8 +1093,9 @@ describe('the summary status chip: the label clears 4.5:1 on the watchlist cards
       "probe.tsx:1 <div>: bg-white and bg-panel-light are two fills under one variant, and the stylesheet's order, not the class list's, decides which one paints, which this spec does not read",
     ])
     // What it cannot read fails: a fill on a layer, a component on the way, a layer's className it cannot read, no
-    // <Card>, no keyed row, a card prop it cannot read (an expression, a style, a spread), two chips, a translucent
-    // card, and a kinds type it cannot read.
+    // <Card>, no keyed row, a card prop it cannot read (an expression, a style, a spread, and an aria-label that is no
+    // plain string, which only the evidence card's reading skips), two chips, a translucent card, and a kinds type it
+    // cannot read.
     const lost: string[] = []
     for (const source of [
       '<Card key={id}><div className="flex dark:bg-white/5"><Chip /></div></Card>',
@@ -1079,6 +1104,7 @@ describe('the summary status chip: the label clears 4.5:1 on the watchlist cards
       '<div key={id}><Chip /></div>',
       '<Card><div className="flex"><Chip /></div></Card>',
       '<Card key={id} className={cx("p-6")} style={{ opacity: 0.5 }} {...rest}><Chip /></Card>',
+      '<Card key={id} className="p-6" aria-label={`x ${id}`}><div className="flex"><Chip /></div></Card>',
       '<Card key={id}><Chip /><Chip /></Card>',
     ]) summaryStack(source, 'probe.tsx', 'Chip', lost)
     cardGrounds('probe', 'bg-panel-light hover:bg-white/50 dark:bg-panel-dark', 'probe <Card>', lost)
@@ -1093,6 +1119,7 @@ describe('the summary status chip: the label clears 4.5:1 on the watchlist cards
       'probe.tsx:1 <Card>: className={cx("p-6")} is a prop this spec cannot read, so it cannot tell what the card paints',
       'probe.tsx:1 <Card>: style={{ opacity: 0.5 }} is a prop this spec cannot read, so it cannot tell what the card paints',
       'probe.tsx:1 <Card>: {...rest} is a prop this spec cannot read, so it cannot tell what the card paints',
+      'probe.tsx:1 <Card>: aria-label={`x ${id}`} is a prop this spec cannot read, so it cannot tell what the card paints',
       'probe.tsx: 2 <Chip> elements, where this spec reads exactly one',
       'probe <Card> (light, probe hovered card): a translucent ground, and this spec does not read what shows through it',
       'probe.tsx: Other in SummaryStatusKind is not a string literal this spec can read',
@@ -1162,5 +1189,31 @@ describe("the evidence pack's review status: the label clears 4.5:1 on the evide
       else if (chip.badge !== variant) failures.push(`${name}: Badge's ${chip.badge}, where reviewStatusChip names ${variant}, the chip measured above`)
     }
     expect(failures).toEqual([])
+  })
+
+  it('each status takes the member its meaning names: not started neutral-status, needs the reader warning-status, done success', () => {
+    // Chief design's reading on #1459. Before E140, done and not started were both the quiet chip; a swap back within the
+    // set clears every measurement above, so the map is pinned here.
+    expect(reviewStatusChip).toEqual({
+      unreviewed: { label: 'Unreviewed', variant: 'neutral-status' },
+      'review-needed': { label: 'Review needed', variant: 'warning-status' },
+      reviewed: { label: 'User reviewed', variant: 'success' },
+    })
+  })
+
+  it("reads the evidence card as its own row and skips its aria-label alone, a reading only the evidence call takes", () => {
+    const ok: string[] = []
+    const card = summaryStack('<Card as="article" className="p-5" aria-label={`Evidence ${id}`}><div className="flex"><Chip /></div></Card>', 'probe.tsx', 'Chip', ok, EVIDENCE_CARD)
+    expect(card).toEqual({ card: { as: 'article', className: 'p-5' }, row: null, where: { card: 'probe.tsx:1 <Card>', row: 'probe.tsx:1 <Card>' }, layers: ['probe.tsx:1 <div>'] })
+    expect(ok).toEqual([])
+    // Another aria attribute it cannot read still fails there, and the label fails without `ariaLabel`, as on the
+    // summary rows' cards above.
+    const lost: string[] = []
+    summaryStack('<Card as="article" aria-label={`Evidence ${id}`} aria-describedby={hint}><Chip /></Card>', 'probe.tsx', 'Chip', lost, EVIDENCE_CARD)
+    summaryStack('<Card as="article" aria-label={`Evidence ${id}`}><Chip /></Card>', 'probe.tsx', 'Chip', lost, { cardIsRow: true })
+    expect(lost).toEqual([
+      'probe.tsx:1 <Card>: aria-describedby={hint} is a prop this spec cannot read, so it cannot tell what the card paints',
+      'probe.tsx:1 <Card>: aria-label={`Evidence ${id}`} is a prop this spec cannot read, so it cannot tell what the card paints',
+    ])
   })
 })

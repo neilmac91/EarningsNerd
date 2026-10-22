@@ -750,7 +750,8 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  admin badges are, rendering the variant summaryStatusBadge() returns); and the labs evidence
                  pack's review status, every status reviewStatusChip names rendered through Badge and measured
                  on its evidence card, the card read from its source as the summary rows' are and its own
-                 ground, with ReviewStatusChip held to the set the same way).
+                 ground, with ReviewStatusChip held to the set the same way and each status pinned to the
+                 member its meaning names).
 
 Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside its card, never the page, in
                  TableScroll (features/admin/components), a `relative overflow-x-auto` box. `relative` makes it the
