@@ -205,8 +205,8 @@
   background: linear-gradient(transparent 62%, rgba(127, 178, 149, 0.14) 62%); /* brand-weak-dark */
   box-shadow: inset 0 -2px 0 rgba(127, 178, 149, 0.28); /* brand-border-dark */
 }
-/* Approved C5 hero exception, only on the default headline's “the source”. The genuine italic
-   face is loaded by HeroHeadline, leaving shared Inter and all other marks unchanged. */
+/* Approved C5 promotional emphasis, shared by every headline/brand promise through BrandEmphasis.
+   Its genuine italic face is local to those phrases; located-passage paint keeps the recipe above. */
 .en-mark.en-hero-emphasis {
   /* The heading isolates this layer below neighboring glyphs. */
   position: relative;
@@ -240,6 +240,33 @@
 }
 .dark .en-mark.en-hero-emphasis {
   color: theme('colors.background.dark / 90%');
+}
+/* Keep the stop with the phrase, while its words can wrap inside the filled box. The group's
+   intrinsic minimum keeps the final word, padding and stop together even at enlarged text. */
+.en-hero-emphasis-group {
+  display: inline-block;
+  max-width: 100%;
+  min-width: min-content;
+  white-space: nowrap;
+}
+.en-hero-emphasis-group > .en-hero-emphasis {
+  margin-inline-end: 0;
+  min-width: min-content;
+  max-width: calc(100% - 0.1em);
+  /* Longer promotional phrases include p/y descenders; keep their ink inside the full fill. */
+  padding-bottom: 0.18em;
+}
+/* At enlarged text sizes, give back the existing side gutters before breaking a word.
+   The containing heading supplies the query; ordinary mobile text stays above this threshold. */
+@container (width < 13rem) {
+  .en-hero-emphasis-group {
+    max-width: calc(100% + 2rem);
+    margin-inline: -1rem;
+  }
+  .en-hero-emphasis-group > .en-hero-emphasis {
+    margin-inline-start: 0;
+    max-width: calc(100% - 0.3em);
+  }
 }
 /* A marked block: the located passage, in the filing's voice, with the bar on its left edge. */
 .en-marked {

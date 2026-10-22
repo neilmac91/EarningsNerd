@@ -15,8 +15,9 @@ import { test, expect, type Page } from '@playwright/test'
 // width the site's own reflow rule checks (reflow-200.spec.ts). The wordmark may wrap between its two words, at a
 // zero-width space, and nowhere else (D-048): at 200% it reads "Earnings" over "Nerd", and at its set size it is one
 // line. The tagline's mark keeps its three words and full stop on one line wherever they fit, at its set size and at
-// 390 px under 200%, and wraps inside itself, between its words alone, where they do not, its tint following them, a
-// fragment under each line. Nothing on either lets a word split (overflow-wrap, word-break, line-break, hyphens). The
+// 390 px under 200%, and wraps inside itself, between its words alone, where they do not. Its full-height fill
+// follows them, a rounded fragment on each line. Nothing on either lets a word split (overflow-wrap, word-break,
+// line-break, hyphens). The
 // tile stays beside the wordmark: left of its painted lines, its middle level with them. Each is measured in painted
 // text with a Range (lessons/frontend-check-brand-layouts-at-200-percent-text.md). At 320 px and the default size the
 // page fits too. Unchecked here: the mail's panel and the body it holds (a long word in a body widens the column the
@@ -215,7 +216,7 @@ for (const { width, zoom, lines, markFits } of CASES) {
       expect(texts(mark).join(''), "the template no longer holds the tagline's mark").toBe('showsitswork.')
       expect(betweenWords(texts(mark), MARK), `the tagline's mark breaks other than between its words: ${JSON.stringify(texts(mark))}`).toBe(true)
       if (markFits) expect(texts(mark), "the tagline's mark wraps where its line fits it").toHaveLength(1)
-      // The mark's tint follows its words: a fragment on each of their lines, under them.
+      // The mark's full-height fill follows its words: a rounded fragment on each line.
       const tint = await tagline.evaluate((cell) =>
         [...cell.querySelectorAll('*')]
           .filter((element) => getComputedStyle(element).backgroundColor !== 'rgba(0, 0, 0, 0)')

@@ -6,13 +6,10 @@
   us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax. Render: see README.md.
 
   The device (docs/brand/06-system.md §6): the margin holds [F1], the twin of the in-text marker,
-  on the marker's own line; the one highlight sits under "shows its work" in the tagline, never on
-  the figure. The highlight is two nested spans rather than .en-mark's background trick, so the
-  same markup renders in Chromium, WeasyPrint and mail clients: the outer span's own font box is
-  sized to the lower 38% of the phrase's line box and lowered onto it (tint plus a 2px hairline at
-  its foot); the inner span restores the ink at full size. For a phrase at size s px:
-    tint size  t = (0.45978 s - 2) / 1.20996     lowered by  L = 0.24121 s - 2 - 0.24121 t
-  (Inter: ascent 0.96875 em, descent 0.24121 em). At s = 38: t = 12.787px, L = 4.082px.
+  on the marker's own line; C5 claim emphasis encloses "shows its work" in the tagline, never
+  the figure. The full Bright Sage fill, opaque espresso ink, genuine Inter italic 600 and 8px
+  corners match the web claim treatment. Its separately named font leaves the wordmark alone.
+  This fixed canvas keeps the phrase on one line; source annotations keep their existing rules.
 -->
 <html lang="en">
 <head>
@@ -24,6 +21,12 @@
     font-style: normal;
     font-weight: 100 900;
     src: url('../../../frontend/scripts/brand/fonts/Inter-Variable-latin.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Inter Claim';
+    font-style: italic;
+    font-weight: 600;
+    src: url('../../../frontend/scripts/brand/fonts/Inter-Variable-Italic-latin.woff2') format('woff2');
   }
   @font-face {
     font-family: 'Geist Mono';
@@ -86,8 +89,23 @@
   /* Footer: the tagline with the one highlight, and the address. */
   .footer { display: flex; align-items: baseline; justify-content: space-between; }
   .tagline { font-size: 38px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.3; color: #1A1A17; }
-  .mark-tint { font-size: 12.787px; vertical-align: -4.082px; line-height: 0; background: #ECF2EE; border-bottom: 2px solid #CFE0D6; white-space: nowrap; }
-  .mark-ink { font-size: 38px; vertical-align: 4.082px; line-height: 0; }
+  .claim-emphasis {
+    display: inline-block;
+    vertical-align: baseline;
+    white-space: nowrap;
+    line-height: 0.9;
+    padding: calc(0.04em - 1px) 0.18em 0.06em;
+    margin-inline: -0.1em 0; /* keep the following full stop clear of the fill */
+    border: 0;
+    border-radius: 8px;
+    background: #98C5AD;
+    box-shadow: none;
+    color: #1A1A17;
+    font-family: 'Inter Claim', 'Inter', sans-serif;
+    font-style: italic;
+    font-weight: 600;
+    font-synthesis: none;
+  }
   .url { font-family: 'Geist Mono', monospace; font-size: 26px; color: #636A77; }
 </style>
 </head>
@@ -113,7 +131,7 @@
   </div>
 
   <div class="footer">
-    <p class="tagline">The summary that <span class="mark-tint"><span class="mark-ink">shows its work</span></span>.</p>
+    <p class="tagline">The summary that <span class="claim-emphasis">shows its work</span>.</p>
     <span class="url">earningsnerd.io</span>
   </div>
 </body>

@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from 'vitest'
  * reads the outline the way text-floors does, in DOM order.
  */
 const api = vi.hoisted(() => ({ joinWaitlist: vi.fn(), getWaitlistStats: vi.fn(() => Promise.reject(new Error('offline'))) }))
+vi.mock('next/font/local', () => ({ default: () => ({ variable: '' }) }))
 vi.mock('@/features/waitlist/api/waitlist-api', () => api)
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams() }))
 vi.mock('@/lib/analytics', () => ({ default: { exampleCtaClicked: vi.fn() } }))

@@ -82,8 +82,8 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
 - **Headings:** Inter loaded WITH the variable `opsz` axis (`font-optical-sizing: auto` = SF-style
   Text↔Display cuts). ONE display weight: **600** (700/800 collapse to it). One theme-aware ink via
   `--heading-color` (`#1A1A17` / `#D7DADC`) — hierarchy comes from size + weight, never a second color.
-  The default homepage headline's "the source" has the scoped italic and filled-ground exception in §7;
-  it retains Inter 600 and does not change the heading role elsewhere.
+  Promotional emphasis shares the italic and filled-ground treatment in §7 across its current surfaces;
+  it retains Inter 600 and leaves ordinary headings in their existing upright role.
 - **Body & UI:** `-apple-system → Inter` (system-first; Apple hardware renders SF Pro, everyone
   else falls through to Inter — Inter sits BEFORE generic `system-ui` on purpose).
 - **Data:** Geist Mono + `tabular-nums` — money, %, tickers, XBRL anchors, verbatim excerpts,
@@ -1510,17 +1510,18 @@ contrast + hairline with `shadow-none`. `brand-weak` is an accent/hover/tint col
 ## 7. Marketing surfaces
 
 Flat **solid** surfaces — no decorative gradients anywhere; the only glow is the theme-aware hero
-search glow. Alternate hero headline variants carry the brand device's mark (`.en-mark`, below)
-on the primary ink. The default variant A's "the source" uses the scoped treatment below; neither
-uses sage text. Sage ink stays for links and the wordmark's italic.
+search glow. Every promotional headline accent uses `BrandEmphasis`, the shared C5 treatment
+below, in all homepage variants, the authentication pane and the waitlist. The phrase uses dark
+ink on solid sage. Sage ink stays for links and the wordmark's italic.
 `.mockup-frame` is flat navy (the decorative slate gradient is retired), 16px radius, paired with
 `shadow-e3`; its title-bar traffic-light dots are gone. Marketing cards use the `<Card>` recipe
 (panel + hairline + e2, brighten on hover); the popular-company chips are the same surface at e1,
 per the design. `.glass-card` is retired on the landing route (its remaining consumer is
 `AuthShell`).
 
-**Default hero emphasis.** Only variant A in `HeroHeadline.tsx` adds `.en-hero-emphasis` to
-"the source". It loads the existing `scripts/brand/fonts/Inter-Variable-Italic-latin.woff2` through
+**Promotional emphasis (C5).** `features/marketing/components/BrandEmphasis.tsx` owns the
+phrase span, `.en-mark.en-hero-emphasis`, and loads the existing
+`scripts/brand/fonts/Inter-Variable-Italic-latin.woff2` through
 `next/font/local`, with genuine italic, weight 600, optical sizing and `font-synthesis: none`.
 This local face does not change `app/layout.tsx`, the root font variables or `app/global-error.tsx`;
 the broader web/brand-image italic decision (E79) and root/error font deduplication (E147) remain
@@ -1536,7 +1537,26 @@ height when enlarged text wraps the phrase, to clear neighboring descenders with
 `max-width: 100%` and normal white space keep the phrase together
 while its intrinsic width fits, then allow a word-boundary wrap under enlarged text. Check the
 painted glyphs as well as line boxes at mobile/desktop widths, DPR2 and 200% text in both themes.
-Variants B/C and the shared `.en-mark`/reader paint keep their existing recipes.
+Every containing heading uses `isolate`; the shared component owns the font and paint classes.
+A caller that ends the phrase with a full stop sets `trailingPeriod`: the component owns that stop
+in an inline-block group with normal wrapping inside the filled phrase and no wrap between its
+final line and the stop. The group and phrase keep their intrinsic minimum widths; the phrase
+releases its negative end margin and reserves `.1em` from the group width. This keeps each word
+inside the fill and the stop outside it under enlarged text. Its bottom padding is `.18em`, leaving
+clearance below the p/y descenders in the longer phrases. The default headline continues with
+a word space and retains its original optical spacing.
+Each heading is an inline-size query container. Below a `13rem` measure, the group can use the
+existing `1rem` side gutters before a word breaks: its width cap grows by `2rem`, its side margins
+become `-1rem`, and the phrase drops its negative start margin while reserving `.3em` for the stop.
+This accommodates WebKit's wider italic metrics at 320px with enlarged text; normal mobile text
+does not enter that query. The word remains padded inside its fill.
+`brandCopyRules.spec.ts` counts calls to that component at the allowed promotional surfaces and
+rejects a raw legacy mark there, while retaining the figure/quote and one-per-surface rules.
+The bare `.en-mark` remains the reader annotation paint reference, not a promotional alternative.
+Current OG/social, business-card and PDF-cover templates reproduce C5 with their medium
+constraints; the mail template and runtime header stay in markup parity with solid fill and
+italic client-font ink. Classic Outlook keeps the readable plain-text fallback. Historical
+audit/direction screenshots record their original state and are not current templates.
 
 **The landing's composition** (D-045, composition C). The two-column hero stays; every section after
 it is one ruled row, `features/marketing/components/LandingRow.tsx`, in the page's order: on the hero's
@@ -1614,9 +1634,10 @@ Before E131, at 320px under 200% text /security reached 348px on its headings' "
 the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
 at 360 and 390px, every line but the last ending at the middot; every form code in the landing's rows and
 its close on one painted line at 320 and 390px under 200% text and at 320px at the default size, and the
-hero's at 320, 390 and 1440px under 200% text; a 768px and an 834px tablet over its route loop; a 320px phone
-under 200% text over it too, the three legal pages among its routes; and, read a character at a time, every
-word of the legal pages whole at 390px under 200% text and each one's title at 320px).
+hero's at 320, 390 and 1440px under 200% text, and every waitlist code at 320 and 390px under 200% text;
+a 768px and an 834px tablet over its route loop; a 320px phone under 200% text over it too, the three
+legal pages among its routes; and, read a character at a time, every word of the legal pages whole at
+390px under 200% text and each one's title at 320px).
 
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:
@@ -1627,8 +1648,8 @@ stripe never sits on a rounded container, the filing's words inside it in `.fili
 inner edge; `w-11` from `sm`, `w-9` on phones, giving way below a measure: Evidence rows, §4) and `.en-margin-mark` (an 11px data-face bracket,
 `brand-strong`, absolutely positioned on the line of the in-text marker it twins; the twin is
 measured by `components/ui/MarkedCopy.tsx`, never hard-coded). Rules: a mark means
-"located" and a bracket means "cited"; one `.en-mark` per surface may sit under a phrase of ours as
-the signature; none on a figure, a price, a status, a competitor's name or an unverified claim; no
+"located" and a bracket means "cited"; one `BrandEmphasis` per surface may enclose a phrase of ours
+as the signature; none on a figure, a price, a status, a competitor's name or an unverified claim; no
 margin without a marker; the hairline never scales with the type. The 11px mark is the one
 sanctioned sub-12px text beside copy because it is a twin of a 12px marker, not copy; it still
 carries no claim and is `aria-hidden`, as the in-text marker (`EnRef`) is: the number points at a twin
@@ -1638,7 +1659,7 @@ Inside the product the device marks every passage the server located, and nothin
 filing page's Risks rows (Evidence rows, §4), the summary's quotes whose evidence the server located
 (Section ledger, §4: the marked block alone, no marker, no twin) and the Source pane's located passage
 (Filing reader, §4).
-One marker per row, so the twins never overprint; the one-`.en-mark` limit stays for a phrase of ours.
+One marker per row, so the twins never overprint; the one-emphasis limit stays for a phrase of ours.
 Ask this Filing's answers and the Multi-Period narrative keep their citation chips: a cited line carries
 several markers there, and their twins would overprint. Gate: brandCopyRules.spec.ts rule 3
 (DEVICE_PLACES, an equality of places and their parts: the hero example's evidence row and the Risks
@@ -1654,7 +1675,7 @@ hairline, `.en-mark`'s look, mark a located passage inside running text (the Sou
 the reader's neutral find highlight, `copilot-find`), a quote block never takes the tint and
 hairline, the Source pane never takes `.en-marked`, and inside the product only the Risks rows carry a
 marker and its twin. Gates: brandCopyRules.spec.ts rule 3 (no `en-mark` on, in or around a quote
-block; the highlight's places, HIGHLIGHT_PLACES, an equality of one per surface; a class any string
+block; the highlight's places, HIGHLIGHT_PLACES, an equality of one shared `BrandEmphasis` per surface; a class any string
 names counts as a part, so a Source pane module that adds `en-marked` fails DEVICE_PLACES),
 highlightInDom.spec.ts (the reader's located paint is `.en-mark`'s look, never the marked block's bar,
 and its find paint never the device's, with planted paints) and sourcePanePaint.spec.tsx (a heading
@@ -1674,7 +1695,7 @@ fallback, a Cited jump and an XBRL fact never register the device's highlight; a
   read). At 360px and 200% text the lockup ran to 369px. Gate: `tests/e2e/reflow-200.spec.ts` (360px at
   200%, the bar's edge in the logo's clear space).
 - Fonts are self-hosted via `next/font` (Inter with `axes: ['opsz']`, Geist Mono, Newsreader) —
-  see `app/layout.tsx`; the default hero phrase also loads its own local Inter italic face (§7).
+  see `app/layout.tsx`; promotional emphasis also loads its shared local Inter italic face (§7).
   SF Pro / New York are platform-licensed and must never be embedded.
 
 ## 9. Exemptions

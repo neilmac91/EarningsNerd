@@ -64,9 +64,11 @@ One clarification for the public pages, so the Source Voice Rule holds there as 
 product: Newsreader may appear on a marketing surface only inside a quoted passage that the
 product located in a filing (the hero example's evidence row, the social card's excerpt), set in
 quotation marks, never for a headline, a tagline, an aside or a claim of ours. The italic "Nerd"
-in the wordmark is Inter. The default homepage headline's "the source" adds one scoped exception:
-Inter's genuine italic at 600, locally loaded by `HeroHeadline.tsx`, not Newsreader. It leaves the
-root font definitions and the broader web/brand-image italic work unchanged (§6).
+in the wordmark is Inter. Promotional claim emphasis uses Inter's genuine italic at 600, locally
+loaded by `BrandEmphasis.tsx` on the web and by a separate `Inter Claim` face in the current
+OG, social and PDF-cover templates, not Newsreader. Email uses the client's italic fallback when
+the committed face is unavailable. This scopes the change to the claim; root font definitions
+and the broader wordmark/font work remain unchanged (§6).
 
 Inside the product Newsreader sets the filing reader and the passages the server located, each in
 its marked block: the filing page's Risks rows and the summary's located quotes (D-044). A summary,
@@ -78,8 +80,8 @@ an answer, a heading, a speaker's name or a label of ours never takes it
 As they stand: Tailwind's base scale with the 18, 52, 72 px and 24 px gutter additions; radii
 4 / 8 / 12 / 16 / 24 with pills for chips; elevation e1 to e5 in light and fill-plus-hairline in
 dark; the stacking ladder sticky 30 · consent 32 · scrim 35 · header 50 · popover 60 · modal 70 ·
-toast 80. No additions. The shared device has no radius and no shadow (the default homepage
-phrase is the scoped exception in §6): the marked block's bar sits on
+toast 80. No additions. Source annotations have no radius or shadow; promotional emphasis uses
+the existing 8px radius (§6). The marked block's bar sits on
 square corners, because a stripe never sits on a rounded container (DESIGN.md, the side-tab
 stripe).
 
@@ -110,10 +112,11 @@ The one element that makes a surface recognisable without the logo. It is the pr
 behaviour made visible: a located passage is highlighted, a cited figure carries a bracketed
 marker, and the marker's twin sits in a margin beside the line it belongs to.
 
-**The mark** is a highlight under a phrase or beside a passage: pale sage (`brand-weak`) from 62%
+**The source mark** is a highlight inside or beside a located passage: pale sage (`brand-weak`) from 62%
 of the line box down, with a `brand-border` hairline at the baseline (`.en-mark` in
 `frontend/app/globals.css`). In dark it is the dark sage tint with the dark hairline. On a block,
-it is a 3 px `brand` bar on the left edge with the tint behind (`.en-marked`).
+it is a 3 px `brand` bar on the left edge with the tint behind (`.en-marked`). A promotional phrase
+uses the separate C5 emphasis below; it does not claim that those words were located in a filing.
 
 **The margin** is a gutter of fixed width with a `brand-border` rule on its inner edge, holding
 bracketed marks (`[F1]`, `[1]`) in the data face at 11 px, `brand-strong` ink, each positioned on
@@ -126,15 +129,15 @@ alone.
 
 Rules:
 
-- **Scale.** The mark's hairline is 2 px on screen at every size, 0.3 mm in print; the highlight
-  never exceeds 38% of the line box, apart from the default homepage exception below. The margin is
+- **Scale.** The source mark's hairline is 2 px on screen at every size, 0.3 mm in print; its highlight
+  never exceeds 38% of the line box. Promotional emphasis instead fills the phrase's enclosure. The margin is
   44 px on desktop and 36 px on phones; in print it is 12 mm on A4 and 6 mm on a card. The in-text marker is never smaller than the provenance
   chip (12 px); its twin is 11 px, the one sub-12 px text beside copy, because it repeats a marker
   the reader already has; 7 pt in print. The gutter and its twins show at every width at the default
   text size; below a measure (a marked copy narrower than 13em at the reader's text size, as on a phone
   under 200% text) they give way, and the marker stays in its heading.
-- **Placement.** The mark goes under one phrase of ours per surface (the hero's accent phrase, the
-  social card's promise) or beside a located passage; the margin goes on the left of a marked copy
+- **Placement.** C5 emphasis encloses one phrase of ours per surface (the hero's accent phrase, the
+  social card's promise); the source mark locates a passage, and the margin goes on the left of a marked copy
   surface only. On a public page that is one passage. Inside the product the device marks every
   passage the server located, because there it is literal (D-044): the filing page's Risks section
   is a marked copy (a marker on each located row's heading, its twin in the margin, the excerpt a
@@ -160,21 +163,29 @@ Rules:
   dark) carries the words. The words on the tint are the primary ink: in the Source pane the
   reader's secondary ink would be 4.49:1 on the dark tint over the slate panel, so the located
   passage takes the primary ink there (8.1:1).
-- **Default homepage exception.** Variant A's "the source" adds `.en-hero-emphasis`: a full
-  Bright Sage (`brand-strong-dark`, `#98C5AD`) fill in both themes, 8px corners and genuine Inter
-  italic 600. Light uses opaque espresso (`#1A1A17`); dark uses navy (`#0B1120`) at 90%. There is
-  no hairline or shadow. The phrase stays together when it fits and wraps at a word boundary if
-  enlarged text makes it wider than its container. This is one decorative phrase, not a control
-  or a new source-passage treatment; alternate headlines and the shared `.en-mark` retain the
-  standard recipe. `frontend/DESIGN_SYSTEM.md` §7 specifies its spacing and local font loading.
+- **Promotional emphasis (C5).** Every homepage headline variant, the auth-shell promise and the
+  waitlist headline use `BrandEmphasis`: a full Bright Sage (`brand-strong-dark`, `#98C5AD`) fill
+  in both themes, 8px corners and genuine Inter italic 600. Light uses opaque espresso (`#1A1A17`,
+  9.07:1 on the fill); dark uses navy (`#0B1120`) at 90%. There is no hairline or shadow. The phrase
+  stays together when it fits and wraps at a word boundary if enlarged text makes it wider than
+  its container. The current OG/social, mail, card-front and PDF-cover prototype carry the same
+  full fill and crisp light ink, with output-specific mechanics described in
+  [templates/README.md](templates/README.md). The fixed-size OG/social/PDF templates use a filled
+  inline block; the card uses a rounded rectangle scaled for print. Email retains a plain-text
+  fallback for classic Outlook and cannot guarantee a downloaded font. The web's reflow-safe
+  paint, proportional padding and local font loading are specified in
+  `frontend/DESIGN_SYSTEM.md` §7. This is decorative emphasis, not a control or a source annotation;
+  the reader's located passages retain their tint and hairline. Historical audit/direction images
+  remain records of the earlier treatment.
 - **Meaning.** A mark means "located in the filing" and a bracket means "cited". A highlight on a
   phrase we wrote is allowed once per surface, as the brand's signature; it is never put on an
   unverified claim, a number, a price or a competitor's name.
 - **Misuse.** No mark on a figure; no margin as decoration; no mark in gain, loss, warning or any
-  status colour; no mark across more than one line of a headline at phone width at the default text
-  size (the highlight breaks per line, so keep the phrase short), though under a reader's enlarged
-  text a mark runs onto the next line rather than push the page sideways, as `.en-mark` and the
-  mail's tagline do (D-048); no mark on a photograph; no scaling the hairline with the type.
+  status colour. Keep promotional phrases short and together where they fit; a narrower measure or
+  wider browser font metrics may wrap at a word boundary, as may a reader's enlarged text, rather
+  than push the page sideways. The B headline at 320px in WebKit is one such default-size case;
+  Chromium's current default-size phrases remain on one line. `BrandEmphasis` and the mail's tagline
+  permit those wraps (D-048). No mark on a photograph; no scaling a source hairline with the type.
 
 Specification in code: `frontend/app/globals.css` ("Brand device") and
 `frontend/components/ui/MarkedCopy.tsx` (the margin and the marker), consumed by

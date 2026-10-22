@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="91mm" height="61mm" viewBox="0 0 91 61">
   <title>EarningsNerd business card, front</title>
-  <desc>85 x 55 mm card with 3 mm bleed on every side (viewBox 91 x 61 mm, trim at 3 mm). Horizontal lockup top-left, the tagline with the one highlight under "shows its work", the address in the data face, and two fill-in lines for the cardholder.</desc>
+  <desc>85 x 55 mm card with 3 mm bleed on every side (viewBox 91 x 61 mm, trim at 3 mm). Horizontal lockup top-left, the tagline with C5 emphasis around "shows its work", the address in the data face, and two fill-in lines for the cardholder.</desc>
+  <style>
+    @font-face {
+      font-family: 'Inter Claim';
+      font-style: italic;
+      font-weight: 600;
+      src: url('../../../frontend/scripts/brand/fonts/Inter-Variable-Italic-latin.woff2') format('woff2');
+    }
+  </style>
   <!-- Artwork. The cream ground runs to the bleed edge. Lockup geometry from
        frontend/public/assets/earningsnerd-logo-light.svg (mark paths verbatim from
        earningsnerd-mark-mono.svg); mark 8.041 mm wide, clear space one E-bar
@@ -17,11 +25,12 @@
       </g>
       <text x="114" y="59" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="44" font-weight="700" letter-spacing="-0.88" fill="#1A1A17">Earnings<tspan font-style="italic" fill="#3C6650">Nerd</tspan></text>
     </g>
-    <!-- The mark (docs/brand/06-system.md §6): pale sage tint over the lower 38% of the line box,
-         0.3 mm sage hairline at its foot. Drawn before the text so the ink sits on it. -->
-    <rect x="37.739" y="30.306" width="22.92" height="1.46" fill="#ECF2EE"/>
-    <rect x="37.739" y="31.466" width="22.92" height="0.3" fill="#CFE0D6"/>
-    <text y="31" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="3.175" font-weight="600" fill="#1A1A17"><tspan x="9">The summary that</tspan><tspan x="37.739" textLength="22.92" lengthAdjust="spacing">shows its work</tspan><tspan>.</tspan></text>
+    <!-- C5 claim emphasis: full Bright Sage, genuine italic 600 and opaque espresso.
+         At 9pt, horizontal padding is 0.18em = 0.5715mm; the 0.706mm corners scale the
+         web's 8px at 36px type. Keep the original baseline and measured phrase width.
+         Install Inter's italic before outlining for print; the scoped web face is for preview. -->
+    <rect id="claim-fill" x="37.1675" y="28.1" width="24.063" height="3.175" rx="0.706" fill="#98C5AD"/>
+    <text y="31" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="3.175" font-weight="600" fill="#1A1A17"><tspan x="9">The summary that</tspan><tspan id="claim-ink" x="37.739" textLength="22.92" lengthAdjust="spacing" font-family="'Inter Claim', Inter, 'Helvetica Neue', Arial, sans-serif" font-style="italic" style="font-synthesis: none">shows its work</tspan><tspan x="61.2305">.</tspan></text>
     <text x="82" y="50.4" text-anchor="end" font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="2.646" font-weight="400" fill="#636A77">earningsnerd.io</text>
   </g>
   <!-- Fill-in: replace "Name" and "Role" with the cardholder's own name and role before print.

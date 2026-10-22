@@ -6,6 +6,7 @@ import HeroExample from '@/features/marketing/components/HeroExample'
 import analytics from '@/lib/analytics'
 
 const resource = vi.hoisted(() => ({ pending: null as Promise<void> | null, value: null as ReactElement | null }))
+vi.mock('next/font/local', () => ({ default: () => ({ variable: '' }) }))
 vi.mock('@/lib/featureFlags', () => ({
   EXAMPLE_FILING_ID: '42',
   exampleFilingHref: (entry: string) => `/filing/42?entry=${entry}&demo=1`,

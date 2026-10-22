@@ -15,6 +15,12 @@ with a pulse, says what the product does in behaviours rather than hedges, and n
 figure nobody measured. Every sample figure on every surface is Apple's FY2025 10-K against
 FY2024, verified against SEC XBRL.
 
+**Current promotional emphasis (C5).** The original studio treatment above is historical.
+Current headline accents and brand templates use a solid Bright Sage fill, crisp italic ink and
+soft corners. The web shares `BrandEmphasis`; located filing passages keep their annotation
+paint. See [the current device specification](06-system.md#6-the-graphic-device-the-margin-and-the-mark)
+and [the implementation recipe](../../frontend/DESIGN_SYSTEM.md#7-marketing-surfaces).
+
 ## Logo files
 
 | File | Use |
