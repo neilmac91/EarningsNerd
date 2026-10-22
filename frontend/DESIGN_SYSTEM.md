@@ -354,8 +354,16 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
                  on hover, with an error border and ring only on focus (focus-within for a shell).
                  Danger describes the action, not the value; it does not imply aria-invalid. An actual
                  invalid value takes precedence and the raw field wires aria-invalid to match it.
+                 Height (v3.9): every field is at least 44px tall, the touch height: min-h-11 in the shared
+                 base (2.75rem, so it scales with the text) over the box its 10px padding, 20px line and
+                 1px borders make. A floor, never a fixed h-11: the Textarea, the raw textareas and the
+                 composer shell share that base and stand taller. Gate: inputClassesNoOverrides.spec.tsx
+                 ("the field's height is the documented one" computes each single-line field's box from
+                 Tailwind's declarations at a 16px and a 32px root against DESIGN.md's input, input-search
+                 and input-compact heights; "documented box" fails a fixed h- in the base).
                  Toolbar fields (v3.1): density="compact" on <Select>/inputClasses = 36px from sm
-                 up, phones keep the standard 42px field height; a field inside a table row is compact too.
+                 up (sm:h-9, with sm:min-h-0 dropping the floor), phones keep the 44px touch height; a
+                 field inside a table row is compact too.
                  `density`, not `size` (a native attribute); each density has its own EXPLICIT padding sides
                  (never an override on top). A select stays raw when it needs a class on the element itself
                  (fieldUnavailableClass) or has no Shell; it takes `select: true` (the Select component's
@@ -588,7 +596,8 @@ Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly
                  not pressed toggles; they sit outside the Button size contract on purpose, so a
                  later change to Button's sizes does not reach them (their labels are three short
                  words and their row wraps). Visible From/To
-                 labels wrap raw compact selects using inputClasses({ select: true, autoWidth: true });
+                 labels wrap raw compact selects using inputClasses({ select: true, density: 'compact',
+                 autoWidth: true });
                  font-data and tabular-nums belong to the select itself. Fields fill phones and use
                  intrinsic/em widths on desktop. Analysis's full-width route wrapper is an inline-size
                  query container. Below 13em of its actual text size, main uses px-2 and the control
