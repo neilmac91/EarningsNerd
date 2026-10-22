@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
-import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
+import { CanceledError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import type { ReactNode } from 'react'
 import api from '@/lib/api/client'
 import { logout, type CurrentUser } from '@/features/auth/api/auth-api'
@@ -506,38 +506,119 @@ describe('logoutAndResetAccount after a failed request', () => {
     expect(client.getQueryData(queryKeys.currentUser())).toEqual(other)
   })
 
-  it("reports a logout that did not take when /me's refresh never answers, and the refresh's late answer cannot replace a login accepted after", async () => {
-    // The access cookie has lapsed, so /me 401s and starts a refresh, which never answers until the end. It is let go in
-    // `finally` too, so a failure here leaves no refresh in flight for the next case's logout to wait on.
+  it("reports a logout that did not take when /me's refresh never answers, and cancels the refresh, so its cookies cannot land over a login accepted after", async () => {
+    // The access cookie has lapsed, so /me 401s and starts a refresh, which answers only when the case lets it. As in the
+    // browser, a cancelled refresh fails at once, and an answer after that is dropped with the cookies it carries, which
+    // `server.renewed` records when they land. The refresh is let go in `finally` too, so a failure here leaves none in
+    // flight for the next case's logout to wait on.
     const stalled = deferred<void>()
+    vi.mocked(refreshAccessToken).mockImplementation((_url, signal) => new Promise<void>((answer, fail) => {
+      signal?.addEventListener('abort', () => fail(new CanceledError()))
+      void stalled.promise.then(() => {
+        if (signal?.aborted) return
+        server.renewed = true
+        answer()
+      })
+    }))
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     try {
       const client = newClient()
       client.setQueryData(queryKeys.currentUser(), reader)
       markSessionActive()
-      Object.assign(server, { me: lapsed, refresh: () => stalled.promise })
+      server.me = lapsed
       const continued = vi.fn()
       const settled = logoutAndResetAccount(client, failing, continued).catch((error: unknown) => error)
       await vi.advanceTimersByTimeAsync(SESSION_READ_LIMIT_MS - 1)
+      const refreshSignal = vi.mocked(refreshAccessToken).mock.calls[0][1] as AbortSignal
       expect(meReads()).toBe(1)
+      expect(refreshSignal.aborted).toBe(false)
       expect(continued).not.toHaveBeenCalled()
       await vi.advanceTimersByTimeAsync(1)
-      // Past the limit the read cannot tell, as a read that fails cannot: never a logout that took.
+      // Past the limit the read cannot tell, as a read that fails cannot: never a logout that took. The read and the
+      // refresh are cancelled, and the identity stays as the logout found it.
+      expect(refreshSignal.aborted).toBe(true)
       expect(continued).toHaveBeenCalledExactlyOnceWith(false)
       expect(toasts.error).toHaveBeenCalledWith(LOGOUT_FAILED_MESSAGE)
       expect(await settled).toBe(requestError)
-      expect(client.getQueryData(queryKeys.currentUser())).toEqual(reader)
+      expect(client.getQueryState(queryKeys.currentUser())).toMatchObject({ data: reader, status: 'success', fetchStatus: 'idle' })
       expect(hasActiveSession()).toBe(true)
-      // Another account's login lands, and only then does the refresh answer: /me is not read again under the old
-      // session, and the new account stays.
+      // Another account's login lands, and only then could the refresh have answered: its answer is dropped, so the
+      // previous session's cookies do not replace the new login's, /me is not read again, and the new account stays.
       acceptLoginAndResetAccount(client, getExplicitSessionGeneration())
       client.setQueryData(queryKeys.currentUser(), other)
-      server.renewed = true
       stalled.resolve()
       await vi.advanceTimersByTimeAsync(0)
+      expect(server.renewed).toBe(false)
       expect(meReads()).toBe(1)
       expect(client.getQueryData(queryKeys.currentUser())).toEqual(other)
       expectNoNavigation()
+    } finally {
+      stalled.resolve()
+      await vi.advanceTimersByTimeAsync(0)
+      vi.useRealTimers()
+    }
+  })
+
+  it('reports a logout that did not take when /me itself never answers, and cancels the read, so no late answer lands', async () => {
+    // A /me request that never answers. Cancelled, it fails at once, as the browser's does.
+    let meSignal: AbortSignal | undefined
+    server.me = (config) => new Promise<AxiosResponse>((_answer, fail) => {
+      meSignal = config.signal as AbortSignal
+      meSignal.addEventListener('abort', () => fail(Object.assign(new CanceledError(), { config })))
+    })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const client = newClient()
+      client.setQueryData(queryKeys.currentUser(), reader)
+      markSessionActive()
+      const continued = vi.fn()
+      const settled = logoutAndResetAccount(client, failing, continued).catch((error: unknown) => error)
+      await vi.advanceTimersByTimeAsync(SESSION_READ_LIMIT_MS - 1)
+      expect(meSignal?.aborted).toBe(false)
+      expect(continued).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(meSignal?.aborted).toBe(true)
+      expect(continued).toHaveBeenCalledExactlyOnceWith(false)
+      expect(toasts.error).toHaveBeenCalledWith(LOGOUT_FAILED_MESSAGE)
+      expect(await settled).toBe(requestError)
+      expect(client.getQueryState(queryKeys.currentUser())).toMatchObject({ data: reader, status: 'success', fetchStatus: 'idle' })
+      expect(hasActiveSession()).toBe(true)
+      expectNoNavigation()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("lets the reader's retry post at once after a logout whose refresh never answered", async () => {
+    // The first logout cannot reach the API, and its /me read waits on a refresh that never answers. Had the limit left
+    // that refresh in flight, the retry the toast invites would wait for it before posting (LOGOUT_REFRESH_WAIT_MS),
+    // with the menus closed and nothing on screen. The refresh is let go in `finally`, as in the case above.
+    const stalled = deferred<void>()
+    vi.mocked(refreshAccessToken).mockImplementation((_url, signal) => new Promise<void>((answer, fail) => {
+      signal?.addEventListener('abort', () => fail(new CanceledError()))
+      void stalled.promise.then(() => { if (!signal?.aborted) answer() })
+    }))
+    const logoutPosts = () => server.requests.filter((request) => request === 'post /api/auth/logout').length
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const client = newClient()
+      client.setQueryData(queryKeys.currentUser(), reader)
+      markSessionActive()
+      Object.assign(server, { logout: unreachable, me: lapsed })
+      const first = vi.fn()
+      const failed = logoutAndResetAccount(client, logout, first).catch((error: unknown) => error)
+      await vi.advanceTimersByTimeAsync(SESSION_READ_LIMIT_MS)
+      expect(first).toHaveBeenCalledExactlyOnceWith(false)
+      expect(await failed).toMatchObject({ status: 0 })
+      // The reader tries again, and this time the API answers.
+      server.logout = ok({ status: 'success' })
+      const retry = vi.fn()
+      const retried = logoutAndResetAccount(client, logout, retry)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(logoutPosts()).toBe(2)
+      await retried
+      expect(retry).toHaveBeenCalledExactlyOnceWith(true)
+      expect(hasActiveSession()).toBe(false)
     } finally {
       stalled.resolve()
       await vi.advanceTimersByTimeAsync(0)

@@ -1,6 +1,7 @@
 import type { QueryClient, QueryState } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getCurrentUserSafe, type CurrentUser } from '@/features/auth/api/auth-api'
+import { cancelRefresh } from '@/lib/api/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { advanceSessionGeneration, getSessionGeneration, isSessionGenerationCurrent, subscribeSessionLoss, getExplicitSessionGeneration, isExplicitSessionGenerationCurrent, assertExplicitSessionGeneration, hasActiveSession, markSessionActive, clearSessionActive } from '@/lib/api/session'
 
@@ -74,12 +75,14 @@ export const SESSION_READ_LIMIT_MS = 10_000
  * sees a settled null before it answers (isConfirmedGuest). It reads past the cache (staleTime 0: the app's queries
  * keep a read fresh for a minute) and runs offline too (networkMode 'always'): paused, it would hold the logout
  * until the connection came back. A read that fails cannot tell, nor can one still unanswered at the limit: a timeout
- * never counts as a logout that took. A late answer lands in the current-user query as any read's does, behind the
- * same generation fences, so it cannot replace an account a login accepted meanwhile.
+ * never counts as a logout that took. At the limit the read is cancelled, its request with it, and the current-user
+ * query goes back to the identity it held when the read began. So is a refresh in flight: its answer sets the session
+ * cookies, and one landing after a login that followed would put this session's back over that login's, which no
+ * generation fence stops (client.ts's cancelRefresh).
  */
 async function readSession(queryClient: QueryClient): Promise<SessionRead> {
   let timer: ReturnType<typeof setTimeout> | undefined
-  const limit = new Promise<SessionRead>((resolve) => { timer = setTimeout(() => resolve('unknown'), SESSION_READ_LIMIT_MS) })
+  const limit = new Promise<'limit'>((resolve) => { timer = setTimeout(() => resolve('limit'), SESSION_READ_LIMIT_MS) })
   const read = queryClient
     .fetchQuery({
       queryKey: queryKeys.currentUser(),
@@ -89,11 +92,11 @@ async function readSession(queryClient: QueryClient): Promise<SessionRead> {
       networkMode: 'always',
     })
     .then((user): SessionRead => (user === null ? 'guest' : 'user'), (): SessionRead => 'unknown')
-  try {
-    return await Promise.race([read, limit])
-  } finally {
-    clearTimeout(timer)
-  }
+  const outcome = await Promise.race([read, limit]).finally(() => clearTimeout(timer))
+  if (outcome !== 'limit') return outcome
+  cancelRefresh()
+  await queryClient.cancelQueries({ queryKey: queryKeys.currentUser() })
+  return 'unknown'
 }
 
 /** Put the reader's identity back as the reset found it, read at the time it was read, so it is no fresher than it
@@ -106,7 +109,7 @@ function restoreIdentity(queryClient: QueryClient, shown: QueryState<CurrentUser
 
 /** A late logout completion must not reset or navigate away from a newer accepted login.
  * The callback is synchronous and shares a turn with the ownership check before it: the reset's turn when the
- * request succeeded, the turn /me answered in when it failed.
+ * request succeeded, and when it failed, the turn the read of /me ended in, by its answer or by its limit.
  * The account snapshots reset once the request settles, failed or not. A failed request (a network error, a 5xx,
  * the API's 504) may still have logged this browser out, so the reader keeps their identity on screen while /me is
  * read (readSession), and the callback hears success when it answers no user: the logout resolves. Otherwise the
