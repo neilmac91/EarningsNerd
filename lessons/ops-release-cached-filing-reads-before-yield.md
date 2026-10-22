@@ -94,6 +94,18 @@ Each now holds a lock from its check to its commit (2026-10-19). The gate is
 after their checks, so without the lock the race happens however loaded the host, and it fails any
 checkout made inside the watch-row lock. It covers those five units only.
 
+Those locks reach one process, and the API runs up to two instances, across which the five races stayed
+open. Since E128 each unit also takes, before its check, a lock in the database that every instance
+shares. The watch-row writes take the account's users row lock (`watchlist_service.lock_watch_rows`, FOR NO
+KEY UPDATE, as the refresh token's writers do). The join takes the waitlist's place lock, a
+transaction-level advisory lock, since no row is common to every join
+(`waitlist_service._lock_waitlist_places`); its credit is one UPDATE that adds to the stored score. The
+process locks stay: under SQLite they are the only serialization, and a join that waits on one holds no
+connection. `backend/tests/unit/test_check_then_write_units_lock_across_instances.py` holds each lock
+before its unit's first read, as statements compiled for PostgreSQL, and the credit to one that a
+concurrent commit cannot lose. No CI step races two instances on PostgreSQL; the pull request's local
+run did.
+
 A company's filing writers were next (E123's review). Each read which of the company's filing rows
 existed before the company row lock that serialized their inserts, so two writers of one company could
 both find a filing missing, and the second insert failed the unique accession and rolled back its batch.

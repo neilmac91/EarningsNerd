@@ -13,7 +13,7 @@ from typing import Dict, List, Optional
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Company, Filing, Summary, SummaryGenerationProgress, Watchlist
+from app.models import Company, Filing, Summary, SummaryGenerationProgress, User, Watchlist
 
 
 class WatchlistCompanyNotFound(Exception):
@@ -36,8 +36,24 @@ class NotOnWatchlist(Exception):
 # session's first query and makes no new checkout inside it, so it never waits for a pool slot that
 # a waiter holds. A waiter's check then sees the holder's commit because each statement reads the
 # latest commit (READ COMMITTED, PostgreSQL's default and production's); under REPEATABLE READ its
-# snapshot, taken at that first query, would not.
+# snapshot, taken at that first query, would not. This lock reaches one process, and the API runs up
+# to two instances, so inside it each unit also takes the account's users row lock
+# (``lock_watch_rows``) before its check, which every instance shares.
 watch_row_lock = threading.Lock()
+
+
+def lock_watch_rows(db: Session, user_id: int) -> None:
+    """Take ``user_id``'s users row lock for the rest of the caller's transaction (E128).
+
+    Every watch-row write takes it under ``watch_row_lock``, before its check: the add's duplicate
+    check, the remove's lookup, and an earnings alert's row read and cap count. The process lock
+    serializes them within one instance; across the API's instances two requests could otherwise both
+    pass a check, and an account go over its alert cap or watch one company twice. A second writer
+    waits here for the first's commit, and its check then reads that commit (READ COMMITTED).
+    FOR NO KEY UPDATE, as ``refresh_token_service.lock_user_tokens`` takes it: it serializes these
+    writers and the account's other users row writers, but not the foreign-key checks of inserts that
+    name the user. Unbounded, as its holders are short transactions. SQLite ignores it."""
+    db.query(User.id).filter(User.id == user_id).with_for_update(key_share=True).first()
 
 
 @dataclass(frozen=True)
@@ -69,6 +85,7 @@ def add_company(db: Session, user_id: int, ticker: str) -> AddedWatch:
     company = _company_by_ticker(db, ticker)
 
     with watch_row_lock:
+        lock_watch_rows(db, user_id)
         if _watched(db, user_id, company.id):
             raise AlreadyOnWatchlist(ticker)
 
@@ -100,6 +117,7 @@ def remove_company(db: Session, user_id: int, ticker: str) -> None:
     company = _company_by_ticker(db, ticker)
 
     with watch_row_lock:
+        lock_watch_rows(db, user_id)
         watchlist_item = _watched(db, user_id, company.id)
         if not watchlist_item:
             raise NotOnWatchlist(ticker)
