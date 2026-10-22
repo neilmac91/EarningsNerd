@@ -1532,8 +1532,9 @@ Its inline block uses line-height `.9`, padding `calc(.04em - 1px) .18em .06em`,
 `-.1em`, the existing `.5rem` radius and baseline alignment. The 1px top trim keeps the fill off
 the preceding line's descender at default text size. The heading isolates a local stacking context;
 the relative emphasis span sits at `z-index: -1`, with the fill on its `::before` behind the text.
-That fill's top inset is `max(0px, calc(6% - .06em))`: zero on one line, increasing with the box's
-height when enlarged text wraps the phrase, to clear neighboring descenders without moving glyphs.
+That fill's base top inset is `max(0px, calc(6% - .06em))`: zero on one line for the default
+headline, increasing with the box's height when enlarged text wraps the phrase, to clear
+neighboring descenders without moving glyphs.
 `max-width: 100%` and normal white space keep the phrase together
 while its intrinsic width fits, then allow a word-boundary wrap under enlarged text. Check the
 painted glyphs as well as line boxes at mobile/desktop widths, DPR2 and 200% text in both themes.
@@ -1543,8 +1544,10 @@ in an inline-block group with normal wrapping inside the filled phrase and no wr
 final line and the stop. The group and phrase keep their intrinsic minimum widths; the phrase
 releases its negative end margin and reserves `.1em` from the group width. This keeps each word
 inside the fill and the stop outside it under enlarged text. Its bottom padding is `.18em`, leaving
-clearance below the p/y descenders in the longer phrases. The default headline continues with
-a word space and retains its original optical spacing.
+clearance below the p/y descenders in the longer phrases. Its fill top inset is bounded to
+`max(0px, min(calc(6% - .06em), calc(.06em - 1px)))`: the cap keeps multi-line capitals inside
+the fill while leaving preceding descenders clear. The default headline continues with a word
+space and retains its original optical spacing.
 Each heading is an inline-size query container. Below a `13rem` measure, the group can use the
 existing `1rem` side gutters before a word breaks: its width cap grows by `2rem`, its side margins
 become `-1rem`, and the phrase drops its negative start margin while reserving `.3em` for the stop.
