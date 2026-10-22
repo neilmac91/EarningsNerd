@@ -41,7 +41,8 @@ import * as samples from '@/features/marketing/lib/landing-samples'
  *    run its comment names, ending at FY2025: its FY2025 and FY2024 revenue, net income, diluted EPS and
  *    operating cash flow are the verified values, tagged and filed as the verified 10-K; its citations are
  *    its own dataset's figures; every source link in it, the landing's three-series view included, opens the
- *    primary document of the filing it cites, never the accession folder (E149), a citation's that of the figure
+ *    primary document EDGAR names for the filing it cites, never the accession folder or another file in it
+ *    (E149), a citation's that of the figure
  *    it cites, a reported figure's on itself and its provenance, and a calculated figure has none; its data notes
  *    and narrative evidence pass the admission the live API path applies; no key or string in it names a model;
  *    and the landing's three-series view counts data notes from those three series alone.
@@ -383,6 +384,20 @@ describe('the Multi-Period demo is one pipeline run, ending at the verified fisc
     expect(calculatedFigures, 'calculated figures, each linked through its inputs').toBeGreaterThan(0)
     expect([...accessions].filter((accession) => !documents.has(accession)), 'filings cited with no document link').toEqual([])
     expect(documents.get('000032019325000079')).toBe(samples.AAPL_FY25_EDGAR_URL)
+    // Each cited filing's primary document as EDGAR names it (the submissions data for CIK 320193, read on
+    // 2026-10-22), so a link to an exhibit or any other file in the right folder fails. A regeneration that cites
+    // another filing adds it from EDGAR.
+    const PRIMARY: Record<string, string> = {
+      '000032019321000105': 'aapl-20210925.htm', // 10-K, FY2021
+      '000032019322000108': 'aapl-20220924.htm', // 10-K, FY2022
+      '000032019323000106': 'aapl-20230930.htm', // 10-K, FY2023
+      '000032019324000123': 'aapl-20240928.htm', // 10-K, FY2024
+      '000032019325000079': 'aapl-20250927.htm', // 10-K, FY2025
+      '000032019326000020': 'aapl-20260627.htm', // 10-Q, the quarter ended 2026-06-27
+    }
+    expect(Object.fromEntries(documents), 'each filing opens the primary document EDGAR names').toEqual(
+      Object.fromEntries(Object.entries(PRIMARY).map(([folder, name]) => [folder, `https://www.sec.gov/Archives/edgar/data/320193/${folder}/${name}`])),
+    )
     // A citation opens what the figure it cites opens: its marker names a point or a series' CAGR in the dataset.
     const marked = new Map<string, unknown>()
     for (const series of dataset.series) {
