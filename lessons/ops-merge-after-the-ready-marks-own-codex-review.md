@@ -22,6 +22,8 @@ same head.
 the reply 4342632073; `review-gate` run 39686282032 (passed 22:24:51Z); the merge `1c6dd6bf` at 22:26:52Z;
 `backend/scripts/review_gate.py:178-180` (a Completed row passes, findings or not).
 
-**Gate**: none yet; review-checked. A `review-gate` that waits for the ready mark's review and fails on
-`has_unresolved_findings` would change the merge gate every session uses, so it was put to the founder on 2026-10-21
-(`tasks/todo.md` F58).
+**Gate**: none yet; review-checked until founder row F58 picks the gate's form. A `review-gate` that waits for the
+ready mark's review and fails on `has_unresolved_findings` would change the merge gate every session uses, so it went
+to the founder on 2026-10-21 (`tasks/todo.md` F58). The rule only adds a wait before a merge, so it lets through
+nothing the gate refuses; `ops-reserve-eval-baseline-before-each-push.md` stays in force the same way, review-checked
+until founder row F55 picks its gate's form.
