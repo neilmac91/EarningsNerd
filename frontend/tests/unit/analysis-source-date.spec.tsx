@@ -12,7 +12,7 @@ import { formatInstant } from '@/lib/format'
 
 /**
  * Data notes' source date (chief design on #1457, 6309710108): `data_as_of` is an instant, the source data's sync
- * time (`iso_z(facts_synced_at)`), and it prints as the day it falls on in the reader's zone, "October 20, 2026",
+ * time (`iso_z(facts_synced_at)`), and it prints as the day it falls on in the reader's zone, "October 22, 2026",
  * never as the instant itself, which read as a bug one click into the landing's demo. The landing renders the demo
  * on the server, so its paragraph also hydrates where the reader's zone puts the instant on another day.
  */
@@ -20,10 +20,10 @@ const asOf = (data_as_of: string | null) => ({ ...SAMPLE_ANALYSIS_DATASET, data_
 
 describe('the source date in Data notes', () => {
   it("prints the saved run's sync time as its day, not the instant", () => {
-    expect(SAMPLE_ANALYSIS_DATASET.data_as_of, 'the run this case reads').toBe('2026-10-20T18:38:47.008084Z')
+    expect(SAMPLE_ANALYSIS_DATASET.data_as_of, 'the run this case reads').toBe('2026-10-22T16:42:27.234940Z')
     const { container } = render(<DataNotes dataset={SAMPLE_ANALYSIS_DATASET} sample />)
-    expect(container).toHaveTextContent('Source data as of October 20, 2026.')
-    expect(container.textContent).not.toContain('2026-10-20T')
+    expect(container).toHaveTextContent('Source data as of October 22, 2026.')
+    expect(container.textContent).not.toContain('2026-10-22T')
   })
 
   it("takes the day the instant falls on in the reader's zone", () => {
@@ -43,21 +43,23 @@ describe('the source date in Data notes', () => {
     const container = document.createElement('div')
     const errors: unknown[] = []
     try {
-      // The server renders in UTC, where the run's 18:38 falls on October 20.
+      // The server renders in UTC, where the run's 16:42 falls on October 22.
       process.env.TZ = 'UTC'
       const html = renderToString(element)
-      expect(html).toContain('Source data as of October 20, 2026.')
+      expect(html).toContain('Source data as of October 22, 2026.')
       container.innerHTML = html
       document.body.appendChild(container)
-      // In Tokyo the same instant is 03:38 on October 21, so the browser's text differs from the server's.
+      // In Tokyo the same instant is 01:42 on October 23, so the browser's text differs from the server's.
       process.env.TZ = 'Asia/Tokyo'
-      expect(formatInstant(SAMPLE_ANALYSIS_DATASET.data_as_of, 'MMMM d, yyyy'), 'the control: the zones disagree').toBe('October 21, 2026')
+      expect(formatInstant(SAMPLE_ANALYSIS_DATASET.data_as_of, 'MMMM d, yyyy'), 'the control: the zones disagree').toBe('October 23, 2026')
       await act(async () => {
         hydrateRoot(container, element, { onRecoverableError: (error) => { errors.push(error) } })
       })
       // A mismatch outside suppressHydrationWarning reports here, and React renders the root again on the client.
       expect(errors).toEqual([])
-      expect(container).toHaveTextContent(/Source data as of October 2[01], 2026\./)
+      // Under it this harness's React 18.3.1 sets the browser's day, where the App Router's React 19 keeps the server's
+      // (DataNotes), so either day passes.
+      expect(container).toHaveTextContent(/Source data as of October 2[23], 2026\./)
     } finally {
       process.env.TZ = 'America/New_York'
       container.remove()

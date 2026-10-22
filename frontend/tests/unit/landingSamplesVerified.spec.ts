@@ -40,9 +40,10 @@ import * as samples from '@/features/marketing/lib/landing-samples'
  *  - the Multi-Period demo (features/analysis/demo/demo-analysis.json, the teaser's and the landing's) is the
  *    run its comment names, ending at FY2025: its FY2025 and FY2024 revenue, net income, diluted EPS and
  *    operating cash flow are the verified values, tagged and filed as the verified 10-K; its citations are
- *    its own dataset's figures; its data notes and narrative evidence pass the admission the live API path
- *    applies; no key or string in it names a model; and the landing's three-series view counts data notes from
- *    those three series alone.
+ *    its own dataset's figures; every source link in it, the landing's three-series view included, opens the
+ *    primary document of the filing it cites, never the accession folder (E149); its data notes and narrative
+ *    evidence pass the admission the live API path applies; no key or string in it names a model; and the
+ *    landing's three-series view counts data notes from those three series alone.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -100,9 +101,8 @@ describe('landing sample figures come from the verified Apple FY2025 set', () =>
         else sourceUrls(item, location)
       }
     }
-    // SAMPLES leaves out the Multi-Period dataset: its links are the pipeline's, which gives a fact with no source URL
-    // its accession folder (`_attach_sources`, backend/app/services/fact_provenance.py), so E149 widens this gate to it
-    // once the pipeline resolves each accession's primary document.
+    // SAMPLES leaves out the Multi-Period dataset: its links are the pipeline's, one per filing it cites, so the
+    // demo's own case below holds each to that filing's primary document.
     for (const [name, value] of SAMPLES) sourceUrls(value, name)
     expect(links.length).toBeGreaterThan(0)
     for (const { at, value } of links) {
@@ -320,8 +320,60 @@ describe('the Multi-Period demo is one pipeline run, ending at the verified fisc
   it('covers FY2020 to FY2025, the window and run its comment names', () => {
     expect(dataset.periods.map((period) => period.key)).toEqual(['FY2020', 'FY2021', 'FY2022', 'FY2023', 'FY2024', 'FY2025'])
     expect(dataset.period_key).toBe('FY2020..FY2025')
-    expect(demo._comment).toContain('Apple Inc., annual, FY2020 to FY2025, on a local backend on 2026-10-20')
-    expect(demo._comment).toContain('USD 0.00046')
+    expect(demo._comment).toContain('Apple Inc., annual, FY2020 to FY2025, on a local backend on 2026-10-22')
+    expect(demo._comment).toContain('USD 0.000196')
+  })
+
+  it('opens the primary document of the filing each source link cites, never its accession folder (E149)', () => {
+    // The pipeline links a fact to its filing row's document_url, and to the accession folder when no row holds one
+    // (backend/app/services/fact_provenance.py), so a run made before the company's filings were listed carries
+    // folders. Each link sits on a figure, an input, a provenance record or a citation; the nearest accession above
+    // it is the filing it cites, where one is named. A calculated figure has no one filing: its link is null, and
+    // its inputs carry theirs.
+    const links: { at: string; key: string; value: unknown; accession?: string; calculated: boolean }[] = []
+    const accessions = new Set<string>()
+    function sourceLinks(value: unknown, at: string, accession?: string) {
+      if (Array.isArray(value)) value.forEach((item, i) => sourceLinks(item, `${at}[${i}]`, accession))
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return
+      const record = value as { accession?: unknown; provenance?: { method?: unknown } }
+      const cited = typeof record.accession === 'string' ? record.accession.replace(/-/g, '') : accession
+      if (cited) accessions.add(cited)
+      const calculated = record.provenance?.method === 'calculated'
+      for (const [key, item] of Object.entries(value)) {
+        if (/url$/i.test(key)) links.push({ at: `${at}.${key}`, key, value: item, accession: cited, calculated })
+        else sourceLinks(item, `${at}.${key}`, cited)
+      }
+    }
+    sourceLinks(demo, 'demo')
+    const demoLinks = links.length
+    sourceLinks(samples.SAMPLE_ANALYSIS_DATASET, 'SAMPLE_ANALYSIS_DATASET')
+    expect(demoLinks, 'source links in the demo').toBeGreaterThan(0)
+    expect(links.length - demoLinks, "source links in the landing's three series").toBeGreaterThan(0)
+
+    const documents = new Map<string, string>()
+    let calculatedFigures = 0
+    for (const { at, key, value, accession, calculated } of links) {
+      // A citation's fragment link is absent until a passage is located, and a calculated figure's own link is null.
+      if (key === 'fragment_url' && value === null) continue
+      if (key === 'source_url' && value === null && calculated) {
+        calculatedFigures += 1
+        continue
+      }
+      expect(typeof value, at).toBe('string')
+      const url = new URL(value as string)
+      url.hash = '' // A passage deep link refines the same filing destination.
+      const match = url.href.match(/^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\/320193\/(\d{18})\/(.*)$/)
+      expect(match, `${at}: ${url.href}`).not.toBeNull()
+      const [, folder, name] = match ?? ['', '', '']
+      expect(name, `${at} opens a document inside its folder: ${url.href}`).toMatch(/^[\w.-]+\.htm$/)
+      if (accession) expect(folder, `${at} sits in the folder of the filing it cites`).toBe(accession)
+      expect(documents.get(folder) ?? url.href, `${at}: one primary document per filing`).toBe(url.href)
+      documents.set(folder, url.href)
+    }
+    // Every filing the run cites has its document, and the verified 10-K's is the one the landing's receipts open.
+    expect(calculatedFigures, 'calculated figures, each linked through its inputs').toBeGreaterThan(0)
+    expect([...accessions].filter((accession) => !documents.has(accession)), 'filings cited with no document link').toEqual([])
+    expect(documents.get('000032019325000079')).toBe(samples.AAPL_FY25_EDGAR_URL)
   })
 
   it('holds the verified FY2025 and FY2024 values for each concept the two share, from the verified 10-K', () => {

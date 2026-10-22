@@ -13,9 +13,10 @@ import demo from '@/features/analysis/demo/demo-analysis.json'
  * 2025-10-31), the same filing the live hero example summarises, verified against the SEC
  * companyfacts XBRL on 2026-10-11 (docs/brand/00-audit.md §4); the excerpts are verbatim from that
  * filing's Item 7. The takeaway sentences are editorial. The Multi-Period demo below is the
- * pipeline's FY2020–FY2025 run of 2026-10-20: its FY2025 and FY2024 revenue, net income, diluted EPS
- * and operating cash flow are the same verified values (tests/unit/landingSamplesVerified.spec.ts).
- * Regenerate it through the pipeline, never by hand.
+ * pipeline's FY2020–FY2025 run of 2026-10-22: its FY2025 and FY2024 revenue, net income, diluted EPS
+ * and operating cash flow are the same verified values, and each source link opens the primary document
+ * of the filing it cites (tests/unit/landingSamplesVerified.spec.ts). Regenerate it through the pipeline,
+ * never by hand, with the company's filings listed first.
  */
 
 // The primary 10-K document, not its accession directory: every sample receipt opens the filing.
