@@ -23,7 +23,9 @@ with its own guards before the script runs. Those guards and the dry run's read-
 reach the database only through libpq's `PGOPTIONS`. An `options` setting in the app engine's
 `connect_args`, a query on the URL the proxy step exports or on the URL the app builds from it, a
 connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a guard in the relabel
-script would replace them, so none may exist.
+script would replace them, so none may exist. The one connection-level event allowed is database.py's
+`connect` listener that runs each session at UTC (E151), held by running it: it sets the time zone and
+nothing else.
 
 Every -apply operation waits for the founder's approval: an approval job in the `ops-apply`
 environment, whose required reviewer is the founder, runs for exactly those operations. The
@@ -41,6 +43,7 @@ import ast
 import os
 import re
 import subprocess
+from pathlib import Path
 
 from tests.support.ops_workflow import (
     BY_NAME, DEPS, INPUTS, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PROXY, RELABEL, RESOLVE, ROOT, STEPS,
@@ -50,6 +53,8 @@ from tests.support.ops_workflow import (
 DB_COMMAND = re.compile(r"\bpsql\b|(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*\S*\bscripts/")
 RUNNER_SCRIPT = re.compile(r"(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*(\S*\bscripts/[\w./-]+\.(?:py|sh))")
 CONNECTION_EVENTS = {"do_connect", "connect", "first_connect", "checkout", "engine_connect", "begin", "after_begin"}
+# The one connection-level listener allowed: database.py's UTC pin (E151), on `connect`, by this name.
+UTC_PIN = ("backend/app/database.py", "connect", "_set_session_time_zone_utc")
 
 
 def test_dispatch_options_are_exactly_the_operations_the_resolve_step_accepts():
@@ -113,11 +118,92 @@ def test_the_relabel_readback_expects_the_steps_own_guards():
     assert expected.groups() == (shown(setting_ms(options, "lock_timeout")), shown(setting_ms(options, "statement_timeout")))
 
 
+def _connection_listeners(path: Path) -> list[tuple[str, int, str, str]]:
+    """Each listener ``path`` registers on a connection event, as (path, line, event, handler): an
+    ``event.listen(target, "<event>", handler)`` call, or an ``@event.listens_for(target, "<event>")``
+    decorator. A handler the source does not name (a lambda, an attribute) reads as its source text."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    relative = str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else path.name
+    decorated = {id(decorator): node.name for node in ast.walk(tree)
+                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for decorator in node.decorator_list}
+    found = []
+    for node in ast.walk(tree):
+        called = isinstance(node, ast.Call) and getattr(node.func, "attr", getattr(node.func, "id", None))
+        if called not in ("listen", "listens_for"):
+            continue
+        events = [arg.value for arg in node.args if isinstance(arg, ast.Constant) and arg.value in CONNECTION_EVENTS]
+        if not events:
+            continue
+        if called == "listens_for":
+            handler = decorated.get(id(node), ast.unparse(node))
+        else:
+            rest = node.args[node.args.index(next(arg for arg in node.args if isinstance(arg, ast.Constant))) + 1:]
+            handler = getattr(rest[0], "id", ast.unparse(rest[0])) if rest else ast.unparse(node)
+        found.append((relative, node.lineno, events[0], handler))
+    return found
+
+
+def _statements_it_runs(listener) -> list[str]:
+    """What a connect listener executes, run on a recording DBAPI connection."""
+    ran: list[str] = []
+
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return False
+
+        def execute(self, sql, *_args):
+            ran.append(sql)
+
+    class Connection:
+        autocommit = False
+        closed = 0
+
+        def cursor(self):
+            return Cursor()
+
+    listener(Connection(), None)
+    return ran
+
+
+def test_the_listener_scan_reads_each_form_it_claims(tmp_path):
+    """The scan's own reach, on planted source: each registration it reads and the handler it names."""
+    planted = tmp_path / "planted.py"
+    planted.write_text(
+        "from sqlalchemy import event\n"
+        "event.listen(engine, 'connect', pin)\n"
+        "event.listen(engine, 'checkout', lambda c, r, p: None)\n"
+        "@event.listens_for(engine, 'engine_connect')\n"
+        "def on_engine_connect(connection): pass\n"
+        "event.listen(engine, 'before_cursor_execute', log)\n",
+        encoding="utf-8",
+    )
+    assert [(event_name, handler) for _, _, event_name, handler in _connection_listeners(planted)] == [
+        ("connect", "pin"), ("checkout", "lambda c, r, p: None"), ("engine_connect", "on_engine_connect"),
+    ]
+    # The run that holds the pin to its one statement, on planted listeners.
+
+    def also_lock_timeout(connection, _record):
+        with connection.cursor() as cursor:
+            cursor.execute("SET TIME ZONE 'UTC'")
+            cursor.execute("SET lock_timeout = '0'")
+
+    def read_write(connection, _record):
+        with connection.cursor() as cursor:
+            cursor.execute("SET default_transaction_read_only = off")
+
+    assert _statements_it_runs(also_lock_timeout) == ["SET TIME ZONE 'UTC'", "SET lock_timeout = '0'"]
+    assert _statements_it_runs(read_write) == ["SET default_transaction_read_only = off"]
+
+
 def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypatch):
     """libpq applies PGOPTIONS unless the connection names its own options, and a connection-level
     event could set the guards again after it. So the engine's connect_args carry no `options`, the
     URL the proxy step exports carries no query, the app uses that URL as it parses it, and nothing
-    in the app or the relabel script listens for a connection event."""
+    in the app or the relabel script listens for a connection event but database.py's UTC pin on
+    `connect` (E151), which, run, sets the session's time zone and nothing else."""
     from sqlalchemy.engine import make_url
 
     from app import database
@@ -144,13 +230,17 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     monkeypatch.setattr(settings, "DATABASE_URL", proxy_url)
     assert database._database_url() == make_url(proxy_url), "the app must use the URL it is given, unchanged"
 
-    listeners = []
-    for path in [*sorted((ROOT / "backend/app").rglob("*.py")), ROOT / "backend/scripts/relabel_filing_fy_facts.py"]:
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if (isinstance(node, ast.Call) and getattr(node.func, "attr", getattr(node.func, "id", None)) in ("listen", "listens_for")
-                    and any(isinstance(arg, ast.Constant) and arg.value in CONNECTION_EVENTS for arg in node.args)):
-                listeners.append(f"{path.relative_to(ROOT)}:{node.lineno}")
-    assert listeners == [], f"a connection-level event can set the session's guards again: {listeners}"
+    listeners = [
+        listener for path in [*sorted((ROOT / "backend/app").rglob("*.py")), ROOT / "backend/scripts/relabel_filing_fy_facts.py"]
+        for listener in _connection_listeners(path)
+    ]
+    others = [f"{path}:{line} ({event_name}: {handler})" for path, line, event_name, handler in listeners
+              if (path, event_name, handler) != UTC_PIN]
+    assert others == [], f"a connection-level event can set the session's guards again: {others}"
+    assert [(path, event_name, handler) for path, _, event_name, handler in listeners] == [UTC_PIN], listeners
+    assert _statements_it_runs(database._set_session_time_zone_utc) == ["SET TIME ZONE 'UTC'"], (
+        "the UTC pin may set the session's time zone and nothing else: anything more can set a guard again"
+    )
     script = (ROOT / "backend/scripts/relabel_filing_fy_facts.py").read_text(encoding="utf-8")
     assert not re.search(r"set_config|\bSET\s+(?:LOCAL\s+|SESSION\s+)?(?:lock_timeout|statement_timeout|default_transaction_read_only"
                          r"|transaction_read_only)|READ\s+WRITE|postgresql_readonly", script, re.I), "the relabel script sets its own guards"

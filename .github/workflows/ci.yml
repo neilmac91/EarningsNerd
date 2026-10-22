@@ -202,7 +202,7 @@ jobs:
       PGUSER: earningsnerd
       PGPASSWORD: earningsnerd
       PGDATABASE: earningsnerd
-      # The PostgreSQL concurrency steps below stay serial, one process each, as their barriers and
+      # The PostgreSQL gate steps below stay serial, one process each, as their barriers and
       # statement timeouts assume. This job installs only requirements.txt (no pytest-xdist), so
       # clear pytest.ini's addopts and its `-n auto` for every pytest run in the job.
       PYTEST_ADDOPTS: '-o addopts='

@@ -499,7 +499,6 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
     )
 
 
-# Each PostgreSQL step of the migrations-postgres job: its label, its test home, and the variable it sets.
 # Each PostgreSQL gate's step, "Verify <subject> on PostgreSQL", its test home and the variable the step sets.
 _POSTGRES_STEPS = [
     ("Stripe transaction concurrency", "test_subscription_event_transactions.py",
@@ -743,7 +742,7 @@ def test_each_postgres_gate_has_a_required_ci_execution_path(label, test_home, u
     ), "PostgreSQL gate cases must receive the disposable service URL, or they silently skip"
     assert step.get("continue-on-error", False) is False
     assert job.get("continue-on-error", False) is False
-    assert "if" not in step, "Concurrency checks must run on every successful migration gate"
+    assert "if" not in step, "PostgreSQL gate checks must run on every successful migration gate"
     assert 0 < step.get("timeout-minutes", 0) <= 5
     assert MIGRATIONS_JOB in _deploy_job(ci)["needs"]
 

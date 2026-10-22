@@ -1,11 +1,16 @@
 import logging
 import os
+from typing import TYPE_CHECKING
 
 from sqlalchemy import create_engine, event, inspect as sa_inspect, text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.config import settings
+
+if TYPE_CHECKING:
+    from psycopg2.extensions import connection as Psycopg2Connection
+    from sqlalchemy.pool import ConnectionPoolEntry
 
 logger = logging.getLogger(__name__)
 
@@ -48,23 +53,29 @@ def _database_url() -> URL:
 _DATABASE_URL = _database_url()
 
 
-def _set_session_time_zone_utc(dbapi_connection, _connection_record) -> None:
-    """Run each new PostgreSQL session at UTC (E151).
+def _set_session_time_zone_utc(
+    dbapi_connection: "Psycopg2Connection", _connection_record: "ConnectionPoolEntry",
+) -> None:
+    """Run each new session of the app's PostgreSQL engine at UTC (E151).
 
     PostgreSQL binds a naive datetime, and renders each ``timestamptz`` it returns, in the session's ``TimeZone``,
-    which a session takes from the server's or the role's default. So the app's dates hold only while every session
-    runs at UTC: under America/Los_Angeles a filing stored at its true instant, the 15th at midnight UTC, reads back as
-    the 14th at 16:00 -08:00 and its page shows the 14th. The SET runs outside a transaction, with autocommit on, so it
-    holds for the connection's life: inside the transaction psycopg2 opens, the rollback the pool makes when the
-    connection comes back would undo it. A statement, not ``options=-c TimeZone=UTC`` at connect: it holds on any path
-    the connection takes to the server, where a startup option needs the path to pass it on."""
+    which a session takes from the server's, the database's or the role's default, or from the client's startup
+    settings (``PGTZ``, ``PGOPTIONS``). So the app's dates hold only while its sessions run at UTC: under
+    America/Los_Angeles a filing stored at its true instant, the 15th at midnight UTC, reads back as the 14th at 16:00
+    -08:00 and its page shows the 14th. The SET runs outside a transaction, with autocommit on, so it holds for the
+    connection's life: inside the transaction psycopg2 opens, the rollback the pool makes when the connection comes back
+    would undo it. It sets nothing else, so the Ops steps' guards, which reach the session only through ``PGOPTIONS``,
+    stand; an ``options`` connect argument would replace ``PGOPTIONS`` and drop them
+    (``tests/unit/test_ops_workflow_wiring.py``). On a connection that died before the SET, the server's error stands:
+    autocommit is given back only to a connection still open."""
     autocommit = dbapi_connection.autocommit
     dbapi_connection.autocommit = True
     try:
         with dbapi_connection.cursor() as cursor:
             cursor.execute("SET TIME ZONE 'UTC'")
     finally:
-        dbapi_connection.autocommit = autocommit
+        if not dbapi_connection.closed:
+            dbapi_connection.autocommit = autocommit
 
 
 # SQLite requires check_same_thread=False for async operations

@@ -10,6 +10,8 @@ are not passing on a server that already runs at UTC:
 - a session reads UTC, and a stored instant comes back on its own day at +00:00, through production's sessions;
 - the zone holds after a rollback and on each of the pool's connections, which a SET inside a transaction would not;
 - the engine production's ``database.py`` builds pins it too, under ``PGTZ`` (libpq's default zone for a session).
+  ``PGTZ`` is a client-side start that outranks even a startup ``options`` setting, so that case also holds that the
+  pin is a statement run after the session starts, not a setting sent with the startup.
 
 SQLite has no session time zone, so the fast lane skips these cases; CI's "Verify the session time zone on PostgreSQL"
 step runs them.
