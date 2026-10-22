@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
+from types import SimpleNamespace
 
 import anyio
 
@@ -29,7 +30,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.dependencies import require_entitlement
-from app.models import Company, TrendAnalysis, User
+from app.models import Company, User
 from app.routers.auth import get_current_user
 from app.schemas.analysis import (
     CoverageLimits,
@@ -471,12 +472,13 @@ async def export_analysis_pdf(
     """Export a completed analysis as PDF (Pro `can_export`, the summaries export pattern)."""
     from app.services.entitlements import get_entitlements
     from app.services.export_service import export_service
-    from app.services.trend_analysis.presentation import presentation_is_current
+    from app.services.trend_analysis.presentation import cached_analysis_export, presentation_is_current
 
-    def analysis_for_export() -> tuple[TrendAnalysis, Company]:
+    def analysis_for_export() -> tuple[SimpleNamespace, Company]:
         # The plan check (its subscription read), the lookups, the snapshot checks and the release
-        # in one unit off the event loop, so no connection waits through the render below. The rows
-        # come back detached with their columns loaded, which is all the PDF reads of them.
+        # in one unit off the event loop, so no connection waits through the render below. The company
+        # comes back detached with its columns loaded and the analysis as a copy with the rebuilt
+        # dataset's links (cached_analysis_export), which is all the PDF reads of them.
         try:
             if not get_entitlements(current_user).can_export:
                 raise HTTPException(
@@ -529,7 +531,7 @@ async def export_analysis_pdf(
                     status_code=status.HTTP_409_CONFLICT,
                     detail="The financial data changed. Re-run the analysis before exporting.",
                 )
-            return analysis, company
+            return cached_analysis_export(current_dataset, analysis), company
         finally:
             filing_list_service.release_request_session(db)
 

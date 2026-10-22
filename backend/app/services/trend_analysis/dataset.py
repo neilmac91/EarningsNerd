@@ -18,6 +18,7 @@ from app.services.trend_analysis.periods import (
     MODES, DATASET_CONCEPT_ORDER, _QUARTERS, _period_sort_key, concept_label, parse_period_key,
 )
 from app.services.trend_analysis.series import _series_map, _valued_points
+from app.services.trend_analysis.source_documents import filing_documents, folder_links
 from app.utils.datetimes import ensure_utc, iso_z
 
 # Balance-sheet (point-in-time) concepts + their derived metrics: matched by period_end in
@@ -283,16 +284,17 @@ def _append_series(
 
 
 def _series_points(
-    company: Company, mode: str, periods: list[dict[str, Any]],
+    db: Session, company: Company, mode: str, periods: list[dict[str, Any]],
     by_fy_fp: dict[tuple[int, str, str], FinancialFact],
     instant_by_end: dict[tuple[str, date], FinancialFact],
 ) -> list[dict[str, Any]]:
-    """Align each concept's points and attach comparisons and window figures."""
+    """Align each concept's points, linked to the filing documents they cite, and attach comparisons and window figures."""
     def _row_for(concept: str, bucket: dict[str, Any]) -> Optional[FinancialFact]:
         if mode == "quarterly" and concept in INSTANT_CONCEPTS:
             return instant_by_end.get((concept, bucket["period_end"]))
         return by_fy_fp.get((bucket["fiscal_year"], bucket["fiscal_period"], concept))
 
+    documents = filing_documents(db, company.id, (_row_for(c, b) for c in DATASET_CONCEPT_ORDER for b in periods))
     series_list: list[dict[str, Any]] = []
     for concept in DATASET_CONCEPT_ORDER:
         points: list[dict[str, Any]] = []
@@ -303,7 +305,7 @@ def _series_points(
                 points.append({"period": bucket["key"], "value": None})
                 continue
             any_value = True
-            points.append(dataset_point(row, bucket["key"], getattr(company, "cik", None)))
+            points.append(dataset_point(row, bucket["key"], getattr(company, "cik", None), documents))
         if not any_value:
             continue
 
@@ -342,7 +344,7 @@ def build_dataset(
     start_period: str,
     end_period: str,
 ) -> dict[str, Any]:
-    """Assemble the aligned N-period dataset for one company (pure DB read + arithmetic).
+    """Assemble the aligned N-period dataset for one company (pure DB reads + arithmetic).
 
     Raises ``ValueError`` for a bad mode/range (the router maps it to 400). Every value point gets
     a stable ``F#`` marker (series order × period order over non-null values) — the only citation
@@ -355,7 +357,7 @@ def build_dataset(
 
     rows, by_fy_fp, instant_by_end = _index_facts(db, company)
     periods = _period_axis(rows, mode, start_fy, start_fp, end_fy, end_fp)
-    series_list = _series_points(company, mode, periods, by_fy_fp, instant_by_end)
+    series_list = _series_points(db, company, mode, periods, by_fy_fp, instant_by_end)
     _assign_markers(series_list)
 
     dataset: dict[str, Any] = {
@@ -388,12 +390,12 @@ def build_dataset(
 
 
 def dataset_fingerprint(dataset: dict[str, Any]) -> str:
-    """sha256 of the canonical dataset JSON — new facts (or a changed range) change it, which
-    invalidates the cached narrative for that key (D4)."""
-    # A refresh that confirms the same source facts must not consume a new AI generation. The
-    # Display metadata is excluded; underlying source/quality/formula changes are not.
+    """sha256 of the canonical dataset JSON, every key but fetch and display metadata, with each looked-up
+    source link read as its accession folder (``folder_links``). New or corrected facts, their lineage
+    (accession, validation, formula, a link stored with its receipt) or another range change it, so the
+    cached narrative regenerates (D4); a re-fetch of the same facts, or a link now opening the document, does not."""
     content = {key: value for key, value in dataset.items() if key not in {"snapshot_id", "data_as_of", "data_notes", "narrative_presentation"}}
-    canonical = json.dumps(content, sort_keys=True, separators=(",", ":"), default=str)
+    canonical = json.dumps(folder_links(content), sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
