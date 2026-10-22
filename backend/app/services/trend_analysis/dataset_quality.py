@@ -1,11 +1,11 @@
 """Publication and comparison lineage for the multi-period dataset."""
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from app.services.fact_provenance import calculated_provenance, provenance_for_fact, published_value
 from app.services.trend_analysis.data_notes import data_notes as data_notes
 
-def dataset_point(row: Any, period: str, cik: str | None) -> dict[str, Any]:
-    provenance = provenance_for_fact(row, cik)
+def dataset_point(row: Any, period: str, cik: str | None, documents: Mapping[str, str] | None = None) -> dict[str, Any]:
+    provenance = provenance_for_fact(row, cik, documents)
     return {
         "period": period, "value": published_value(row), "concept": row.concept,
         "unit": row.unit,
