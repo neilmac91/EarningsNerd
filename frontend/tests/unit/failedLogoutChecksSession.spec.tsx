@@ -136,10 +136,11 @@ interface JsdomConsole {
   on(event: 'jsdomError', listener: (error: Error) => void): unknown
   off(event: 'jsdomError', listener: (error: Error) => void): unknown
 }
-/** Each load jsdom is asked for and reports as not implemented: a navigation of the real location ("navigation to
-    another Document"), which `document.location` reaches without passing through window.location, so the stand-in above
-    never sees it, and a form's submit() or requestSubmit(). jsdom passes over a load of the URL the document is at, so
-    each case parks the document at a path no navigation goes to. */
+/** Each load jsdom reports as not implemented: one of another URL, or a reload(), asked of the real location
+    ("navigation to another Document"), which `document.location` reaches without passing through window.location, so
+    the stand-in above never sees it; and a form's submit() or requestSubmit(). jsdom passes over a load of the URL the
+    document is at without a word, so each case parks the document at a path the app has no page for. A load of that
+    parked URL itself (`document.location.href = document.location.href`) still goes unheard. */
 const jsdomLoads: string[] = []
 const jsdomConsole = (globalThis as unknown as { jsdom: { virtualConsole: JsdomConsole } }).jsdom.virtualConsole
 const LOAD_REPORT = /^Not implemented: (navigation|HTMLFormElement's (submit|requestSubmit)\(\) method)/
@@ -148,8 +149,8 @@ const realUrl = window.location.href
 const PARKED_PATH = '/failed-logout-spec'
 /** The history moves and window.open, held for each case so none runs. */
 const historyMoves: MockInstance[] = []
-/** No navigation of any kind: none of the router's moves, no history move or window.open, nothing set on or loaded by
-    window.location, and no load asked of the real location through document.location.
+/** No navigation: none of the router's moves, no history move or window.open, nothing set on or loaded by
+    window.location, and no load jsdom reports (another URL or a reload through document.location, a form's submit).
     logoutCallSitesGate.spec.ts reads only the calls of logoutAndResetAccount and the code around them; the helper
     itself, the API client and the session reset are imported code it cannot read, so this watch is the one check
     that a failed logout navigates nowhere through them. */

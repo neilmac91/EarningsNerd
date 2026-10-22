@@ -52,8 +52,12 @@ import { LOGOUT_CALL_SITES } from './logoutCallSites'
  * used in the file: a variable's initializer (the dashboard's `const header = <SecondaryHeader actions={…} />`, written
  * as `{header}`), a value assigned to it later (`content = <button …/>`, or by `??=`, `||=` or `&&=`), and what a
  * function declaration returns (a same-file component written as `<Menu />`, a helper called as `{renderButton()}`).
- * An assignment that is not a statement is read where it is written too (`{(content = <button …/>)}`); one whose `=`
- * writes over the binding reads nothing of what the binding held.
+ * An assignment whose value goes somewhere is read where it is written too (`{(content = <button …/>)}`), unlike one that
+ * stands as a statement, is void's operand or a comma's left side; one whose `=` writes over its target reads nothing
+ * of what the target held, unless the target destructures (`({ a = content } = {})` reads it as a default). JSX in an
+ * inline function is read where the function is written, a map's callback or a render prop's included, so the trigger
+ * an arrow on a Link's click handler returns is refused, though React drops what a handler returns. Each attribute
+ * of an element is read once, by each path into the element but the one through that attribute.
  * Navigation is a call of push, replace, back, forward, go, refresh, assign, reload, redirect, permanentRedirect,
  * navigate, traverseTo, submit, requestSubmit or click (on any object, by a key the gate can read, `router['push']`, or
  * through `.call` or `.apply`, named or keyed, so an array's push in such a handler is refused too, and a programmatic
@@ -73,8 +77,10 @@ import { LOGOUT_CALL_SITES } from './logoutCallSites'
  * function that renders it somewhere else, or held where the gate does not follow it (a destructured binding, an array
  * or an object it is put in after it is made, a loop variable); and a props spread on the element or one around it,
  * which may carry an `href` or a handler.
- * The behavioural spec watches every navigation at run time for the three controls it renders, through the helper,
- * the API client and the session reset, which are imported code this gate does not read.
+ * The behavioural spec watches navigation at run time for the three controls it renders, through the helper, the API
+ * client and the session reset, which are imported code this gate does not read: the router, window.location, history,
+ * window.open, and each load jsdom reports (another URL or a reload through document.location, a form's submit). jsdom
+ * passes over a load of the URL the document is at without a word, so that one goes unheard.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -116,6 +122,13 @@ const outermost = (node: ts.Node): ts.Node => {
   let at = node
   while (ts.isParenthesizedExpression(at.parent) || ts.isAsExpression(at.parent) || ts.isSatisfiesExpression(at.parent) || ts.isNonNullExpression(at.parent)) at = at.parent
   return at
+}
+/** Whether an expression's value goes nowhere: it stands as a statement, is void's operand, or is a comma's left side. */
+const goesNowhere = (node: ts.Node): boolean => {
+  const at = outermost(node)
+  const parent = at.parent
+  return ts.isExpressionStatement(parent) || ts.isVoidExpression(parent)
+    || (ts.isBinaryExpression(parent) && parent.operatorToken.kind === ts.SyntaxKind.CommaToken && parent.left === at)
 }
 /** The name a property is read by, or a key the gate can read (`router['push']`). */
 const memberName = (node: ts.Expression): string | undefined =>
@@ -315,10 +328,12 @@ export function readLogoutCalls(source: string, file: string): LogoutCallReading
       for (let at: ts.Node | undefined = from, prev: ts.Node | undefined; at; prev = at, at = at.parent) {
         if (ts.isJsxAttribute(at)) through = at
         const assignment = ts.isBinaryExpression(at) && VALUE_ASSIGNMENTS.has(at.operatorToken.kind) ? at : undefined
-        // A write reads nothing: a plain `=` reached through its target holds the value assigned, not what the target
-        // held (`??=`, `||=` and `&&=` may hold that, so they are read on).
-        if (assignment && prev === assignment.left && assignment.operatorToken.kind === ts.SyntaxKind.EqualsToken) return false
         const assigned = assignment && unwrap(assignment.left)
+        // A write reads nothing: a plain `=` reached through its target holds the value assigned, not what the target
+        // held. `??=`, `||=` and `&&=` may hold that, and a destructuring target may read it as a default
+        // (`({ a = content } = {})`), so they are read on.
+        const destructures = assigned !== undefined && (ts.isObjectLiteralExpression(assigned) || ts.isArrayLiteralExpression(assigned))
+        if (assignment && prev === assignment.left && assignment.operatorToken.kind === ts.SyntaxKind.EqualsToken && !destructures) return false
         const holder = ts.isVariableDeclaration(at) && ts.isIdentifier(at.name) && at.initializer ? at
           : ts.isFunctionDeclaration(at) && at.name ? at
           : assigned && ts.isIdentifier(assigned) ? resolve(assigned)?.decl
@@ -328,17 +343,19 @@ export function readLogoutCalls(source: string, file: string): LogoutCallReading
             read.add(holder)
             if (references(holder).some((use) => climb(use, through))) return true
           }
-          // An assignment is an expression too: unless it stands as a statement, its value is also written where it
-          // is (`{(content = <button …/>)}`, `const view = (content = <button …/>)`), so the climb goes on from it.
-          if (!assigned || ts.isExpressionStatement(outermost(at).parent)) return false
+          // An assignment is an expression too: unless its value goes nowhere, it is also written where it is
+          // (`{(content = <button …/>)}`, `const view = (content = <button …/>)`), so the climb goes on from it.
+          if (!assigned || goesNowhere(at)) return false
           continue
         }
         const element = ts.isJsxOpeningElement(at) || ts.isJsxSelfClosingElement(at) ? at : ts.isJsxElement(at) ? at.openingElement : undefined
-        if (!element || read.has(element)) continue
-        read.add(element)
+        if (!element) continue
         if (element.tagName.getText(sf) === 'form') inForm = true
+        // Each attribute is read once, but never the one this path came through: another path into the same element
+        // (the trigger written as its child, say) reads that one too.
         for (const property of element.attributes.properties) {
-          if (property === through || !ts.isJsxAttribute(property)) continue
+          if (property === through || !ts.isJsxAttribute(property) || read.has(property)) continue
+          read.add(property)
           const name = property.name.getText(sf)
           if (name === 'form' && element === own) inForm = true
           if (URL_ATTRIBUTES.has(name)) return true
@@ -689,6 +706,12 @@ export const go = (qc, logout) => m['logoutAndResetAccount'](qc, logout)
   { form: 'a chained assignment of the trigger, its first target written inside a Link', source: mutation({ use: '<Link href="/">{first}</Link>' }).replace('\n  return ', '\n  let first = null\n  let second = null\n  first = second = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>\n  return '), problems: ['navigates on failure'] },
   { form: 'an assignment of the trigger a same-file function returns, called inside a Link', source: mutation({ use: '<Link href="/">{logOutButton()}</Link>' }).replace('\n  return ', '\n  let content = null\n  function logOutButton() { return (content = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>) }\n  return '), problems: ['navigates on failure'] },
   { form: 'a let holding the trigger, read through ??= inside a Link', source: mutation({ use: '<nav>{content}<Link href="/">{(content ??= null)}</Link></nav>' }).replace('\n  return ', '\n  let content = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>\n  return '), problems: ['navigates on failure'] },
+  { form: 'a let holding the trigger, read as a destructuring default inside a Link', source: mutation({ use: '<Link href="/">{(({ a = content } = {}), a)}</Link>' }).replace('\n  return ', '\n  let a\n  let content = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>\n  return '), problems: ['navigates on failure'] },
+  // Each path into an element reads the attributes it did not come through, whatever another path read.
+  { form: "a destructuring default reading the trigger in an ancestor's navigating handler, the trigger written inside it", source: mutation({ use: "<div onClick={() => { ({ a = content } = {}); router.push('/') }}>{content}</div>" }).replace('\n  return ', '\n  let a\n  const content = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>\n  return '), problems: ['navigates on failure'] },
+  { form: "the trigger handed to a call in an ancestor's navigating handler, and written inside it", source: mutation({ use: "<div onClick={() => { track(content); router.push('/') }}>{content}</div>" }).replace('\n  return ', '\n  const content = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>\n  return '), problems: ['navigates on failure'] },
+  { form: "the trigger read in a Link's href, and written as its child", source: mutation({ use: '<Link href={String(content)}>{content}</Link>' }).replace('\n  return ', '\n  const content = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>\n  return '), problems: ['navigates on failure'] },
+  { form: "a destructuring default reading the trigger in a Link's href, the trigger its child", source: mutation({ use: "<Link href={(({ a = content } = {}), '/')}>{content}</Link>" }).replace('\n  return ', '\n  let a\n  const content = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>\n  return '), problems: ['navigates on failure'] },
   { form: 'a trigger in a const object, read by its key inside a Link', source: mutation({ use: '<Link href="/">{parts.control}</Link>' }).replace('\n  return ', '\n  const parts = { control: <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button> }\n  return '), problems: ['navigates on failure'] },
   { form: 'a mutation made through useMutation.call, its options handed as `this`', source: mutation().replace('useMutation({', 'useMutation.call({'), problems: ['no catch'] },
   { form: "a handler a form's action runs", source: handler({ use: '<form action={handleLogout}><button type="submit">Log out</button></form>' }), problems: ['escapes'] },
@@ -701,6 +724,8 @@ export const go = (qc, logout) => m['logoutAndResetAccount'](qc, logout)
   { form: 'a success helper declared in the handler, which only the continuation calls', source: handler({ continuation: '(succeeded) => {\n      if (!succeeded) return\n      leaveHome()\n    }' }).replace('    try {', "    const leaveHome = () => router.push('/')\n    try {"), problems: ['navigates on failure'] },
   // Refused too: through .call the replacement of a string's replace cannot be read (the header).
   { form: "a string's replace called through .call in the catch", source: handler({ caught: "String.prototype.replace.call(path, /x/, 'y')" }), problems: ['navigates on failure'] },
+  // And JSX in a function is read where the function is written, though React drops what a click handler returns.
+  { form: "the trigger an arrow on a Link's click handler returns, written beside it", source: mutation({ use: '<nav>{content}<Link href="/" onClick={() => (content = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>)}>Home</Link></nav>' }).replace('\n  return ', '\n  let content = null\n  return '), problems: ['navigates on failure'] },
 
   // Look-alikes beside those that must pass.
   { form: "a mutation whose onMutate only says it is logging out", source: mutation({ options: "onMutate: () => toast.loading('Logging out…')," }), problems: [] },
@@ -712,6 +737,9 @@ export const go = (qc, logout) => m['logoutAndResetAccount'](qc, logout)
   { form: "the dashboard's shape: that header held in a const and written in two places", source: mutation({ use: '<div>{loading ? <main>{header}</main> : <main className="page">{header}</main>}</div>' }).replace('\n  return ', '\n  const header = <SecondaryHeader backHref="/" title="Dashboard" actions={<button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>} />\n  return '), problems: [] },
   { form: 'a let holding the trigger, written beside a Link that overwrites it in place', source: mutation({ use: '<nav>{content}<Link href="/">{(content = <span>Home</span>)}</Link></nav>' }).replace('\n  return ', '\n  let content = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>\n  return '), problems: [] },
   { form: "the trigger assigned in a Link's click handler and written beside it", source: mutation({ use: '<nav>{content}<Link href="/" onClick={() => { content = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button> }}>Home</Link></nav>' }).replace('\n  return ', '\n  let content = null\n  return '), problems: [] },
+  { form: "the trigger assigned as void's operand inside a Link, and written beside it", source: mutation({ use: '<nav>{content}<Link href="/">{void (content = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>)}</Link></nav>' }).replace('\n  return ', '\n  let content = null\n  return '), problems: [] },
+  { form: "the trigger assigned on a comma's left inside a Link, and written beside it", source: mutation({ use: '<nav>{content}<Link href="/">{(content = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>, null)}</Link></nav>' }).replace('\n  return ', '\n  let content = null\n  return '), problems: [] },
+  { form: 'a property set in place inside a Link on the let holding the trigger, written beside it', source: mutation({ use: '<nav>{content}<Link href="/">{(content.key = 1)}</Link></nav>' }).replace('\n  return ', '\n  let content = <button type="button" onClick={() => logoutMutation.mutate()}>Log out</button>\n  return '), problems: [] },
   { form: 'a fragment set in the catch, which loads no page', source: handler({ caught: "window.location.hash = '#account'" }), problems: [] },
   { form: 'a new tab opened in the catch', source: handler({ caught: "window.open('/help', '_blank')" }), problems: [] },
 
