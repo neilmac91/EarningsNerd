@@ -12,8 +12,8 @@ uses `originalDocumentUrl`, preferring the chosen filing's `document_url` and re
 existing folder fallback only when no usable document URL is supplied. Test the expected
 destination independently of the sample constant, and exercise the API-to-rendered-link path.
 
-**Evidence.** `frontend/tests/unit/landingSamplesVerified.spec.ts` checks every static sample URL
-(the separate Multi-Period snapshot excepted). `frontend/tests/unit/hero-example-surface.spec.tsx`
+**Evidence.** #1471. `frontend/tests/unit/landingSamplesVerified.spec.ts` checks every static sample URL
+(the separate Multi-Period snapshot excepted until E149: the pipeline fills its missing links with the folder). `frontend/tests/unit/hero-example-surface.spec.tsx`
 checks the static fallback and the live API-to-hero link with a different company's document,
 including unavailable-document behavior. `frontend/lib/serverApi.ts` shares the filing page's
 document-selection helper.

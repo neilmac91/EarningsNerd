@@ -87,6 +87,9 @@ describe('landing sample figures come from the verified Apple FY2025 set', () =>
         else sourceUrls(item, location)
       }
     }
+    // SAMPLES leaves out the Multi-Period dataset: its links are the pipeline's, which gives a fact with no source URL
+    // its accession folder (`_attach_sources`, backend/app/services/fact_provenance.py), so E149 widens this gate to it
+    // once the pipeline resolves each accession's primary document.
     for (const [name, value] of SAMPLES) sourceUrls(value, name)
     expect(links.length).toBeGreaterThan(0)
     for (const { at, value } of links) {

@@ -196,7 +196,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 - frontend-guard-a-loader-two-effects-can-start-in-one-commit.md — Guard a loader with a synchronous in-flight ref when two effects can start it in one commit
 - frontend-guard-submit-on-loading-buttons.md — Guard submit handlers with an early return when the button uses loading, not disabled
 - frontend-hidden-name-tails-bring-their-own-space.md — A visually hidden tail on a control's name brings its own space and starts with a word or bracket
-- frontend-homepage-receipts-open-the-filing-document.md — Point static homepage receipts at the verified primary document, prefer the API document for the live hero, and check destinations independently of the sample inputs
+- frontend-homepage-receipts-open-the-filing-document.md — Point static homepage receipts at the verified primary document, prefer the API document for the live hero, and check destinations independently of the sample inputs (gated by `frontend/tests/unit/landingSamplesVerified.spec.ts` for the static samples and `frontend/tests/unit/hero-example-surface.spec.tsx` for the live hero; the Multi-Period demo's pipeline links are not, E149)
 - frontend-jsdom-sdk-browser-entry.md — Resolve browser SDK imports as browser code in jsdom tests while preserving real capture behavior
 - frontend-locked-page-dialog-scrolls-itself.md — A dialog that locks the page must bound itself to the viewport and scroll inside
 - frontend-native-modal-dialog-makes-body-portals-inert.md — Under a native showModal() dialog, portal into the dialog and preventDefault the keys you own (partly gated by `frontend/tests/unit/dialogAllowlist.spec.ts`; the keyboard and focus hand-off rules are not)

@@ -160,8 +160,9 @@ describe('the live hero source link', () => {
     expect(screen.getByRole('link', { name: /Source filing.*SEC EDGAR/ })).toHaveAttribute('href', document)
   })
 
-  it.each([undefined, null, '', 'not-a-url'])('keeps the filing folder fallback when document_url is %s', async (documentUrl) => {
-    mockExampleSource(documentUrl)
+  // One case proves the wiring: originalDocumentUrl.spec.ts holds the helper's matrix of unusable document URLs.
+  it('keeps the filing folder fallback when document_url is unusable', async () => {
+    mockExampleSource(null)
     expect((await fetchExampleData())?.secUrl).toBe(folder)
   })
 
