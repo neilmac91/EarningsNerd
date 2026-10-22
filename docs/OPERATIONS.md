@@ -518,7 +518,8 @@ the pull request body carries a line `Review override: <reason>` (ten or more ch
 ready transition's own review must have completed. A later manual review of a different head may
 supersede that completed review's findings; a manual review of the same head requires the ready
 review itself to be clean. A completed review of an earlier head is not enough, because a push does not
-re-trigger Codex here: after fix commits, comment `@codex review` at once. The gate waits up to
+re-trigger Codex here: after fix commits, comment `@codex review` at once, or, while a review
+still shows Running, once it settles. The gate waits up to
 twenty minutes, then fails naming the remedy; an `@codex review` comment re-runs the newest gate run
 on the pull request's current head automatically (the workflow's `issue_comment` job, the only one
 holding a write scope, `actions: write`), so a re-requested review is observed without a manual
