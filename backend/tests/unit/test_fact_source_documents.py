@@ -14,7 +14,6 @@ Synthetic fixtures, not real-issuer coverage.
 """
 
 import uuid
-from copy import deepcopy
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
@@ -26,6 +25,7 @@ from app.models import Company, Filing, FinancialFact
 from app.services import trend_analysis_service as svc
 from app.services.fact_provenance import calculated_provenance, provenance_for_fact, reported_provenance
 from app.services.trend_analysis.presentation import _operand
+from app.services.trend_analysis.source_documents import folder_links
 from app.utils.sec_urls import build_sec_archive_url, normalize_accession
 
 CIK = "1326801"
@@ -244,7 +244,7 @@ def test_the_multi_period_dataset_opens_each_cited_filings_document(dataset_db):
 
 
 def test_a_snapshot_reads_each_looked_up_link_as_its_folder(dataset_db):
-    """A filing row that turns folder links into documents moves no snapshot; a stored receipt still does."""
+    """A filing row that turns folder links into documents moves no snapshot, and the folder build hashes as main hashed it."""
     db, company, other, prefix = dataset_db
     acc = _seed(db, company, other, prefix)
     documents = svc.build_dataset(db, company, "quarterly", "2024Q3", "2024Q4")
@@ -256,8 +256,19 @@ def test_a_snapshot_reads_each_looked_up_link_as_its_folder(dataset_db):
         _document(company.cik, acc["later_q3"], "later-q3-10q.htm"), build_sec_archive_url(company.cik, acc["later_q3"]),
     ]
     assert documents["snapshot_id"] == folders["snapshot_id"] == svc.dataset_fingerprint(folders)
-    # A link stored with its receipt names the document a figure was read from: another exhibit moves it.
-    moved = deepcopy(documents)
-    eps = _points(moved, "earnings_per_share")["2024Q3"]
-    eps["source_url"] = eps["provenance"]["source_url"] = _document(company.cik, acc["eps_8k"], "ex99-2.htm")
-    assert svc.dataset_fingerprint(moved) != documents["snapshot_id"]
+    # The folder build carries the links main gave, the EPS exhibit held with its receipt among them:
+    # folding leaves it as it is, so its hash is main's raw hash of the same dataset.
+    assert folder_links(folders) == folders
+
+
+@pytest.mark.parametrize("holder", ["point", "provenance"])
+def test_a_link_stored_with_its_receipt_is_hashed_as_stored(dataset_db, holder):
+    """The EPS point's receipt sits on the provenance beside its link, the provenance's on its own
+    mapping: another exhibit in the same folder moves the snapshot through either link alone."""
+    db, company, other, prefix = dataset_db
+    acc = _seed(db, company, other, prefix)
+    dataset = svc.build_dataset(db, company, "quarterly", "2024Q3", "2024Q4")
+    eps = _points(dataset, "earnings_per_share")["2024Q3"]
+    (eps if holder == "point" else eps["provenance"])["source_url"] = _document(company.cik, acc["eps_8k"], "ex99-2.htm")
+    assert svc.dataset_fingerprint(dataset) != dataset["snapshot_id"]
+
