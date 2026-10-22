@@ -1,12 +1,12 @@
-"""Structural gate: every place that can delete ``summaries`` rows is listed and reviewed.
+"""Structural gate: every delete of ``summaries`` rows the scan can see is listed and reviewed.
 
 ``saved_summaries.summary_id`` references ``summaries.id`` with no ``ondelete``, so on PostgreSQL a
 delete of a bookmarked summary raises (NO ACTION), while SQLite, the test database, enforces nothing
 and orphans the bookmark (``lessons/arch-fk-safe-bulk-deletes.md``). A refresh never needs a delete:
 the one orchestrator regenerates a stored summary in place under keep-better (T1.4), which keeps its
 id and its bookmarks. A forced precompute deleted the row before regenerating until P11, outside both
-guarantees. This gate holds the delete sites to ``ALLOWED_SITES``, so a new one fails until a review
-has checked it is FK-safe and lists it.
+guarantees. This gate holds the delete sites it finds to ``ALLOWED_SITES``, so a new one fails until
+a review has checked it is FK-safe and lists it; what the scan cannot see is listed at the end.
 
 Scope: every Python, SQL, shell and workflow file that can reach the production database, which is
 the whole repository but the browser app (``frontend/``), the test homes (``backend/tests/``), git and
@@ -16,22 +16,27 @@ tool caches, and nested checkouts (an agent worktree under ``.claude/worktrees/`
 
 What counts, as (path from the repository root, enclosing function or ``<module>``, kind) -> count:
 
-* ``delete`` (Python): a ``delete`` call that names the ``Summary`` model (or an import alias of it,
-  or ``<module>.Summary``) where it decides what is deleted: ``query(Summary ...)...delete()``,
-  ``delete(Summary)`` (sqlalchemy's, under any import alias), ``Summary.__table__.delete()``, and
-  ``session.delete(obj)`` where ``obj`` is bound in the same function, directly or through a loop,
-  ``with`` or comprehension over another name, to an expression that names ``Summary``
-  (``summary = db.query(Summary)...first()``). An alias of a session's ``delete``
+* ``delete`` (Python): a ``delete`` call that names the summaries where it decides what is deleted.
+  Naming them is the ``Summary`` model (an import alias of it, ``<module>.Summary``), the
+  ``Filing.summaries`` relationship (any ``.summaries`` attribute) or the string ``"summaries"``. The
+  forms: ``query(Summary ...)...delete()``, ``delete(Summary)`` (sqlalchemy's, under any import alias),
+  ``Summary.__table__.delete()``, ``metadata.tables["summaries"].delete()``, ``session.delete(obj)``,
+  and ``q.delete()`` on a bare name. A name is followed to what it is bound to in the same function
+  (or at module level), directly or through a loop, ``with`` or comprehension over another name:
+  ``summary = db.query(Summary)...first()``, ``q = db.query(Summary)...``, ``M = models.Summary``,
+  ``T = Summary.__table__``, ``for s in filing.summaries``. An alias of a session's ``delete``
   (``remove = db.delete``) is followed.
-* ``unresolved`` (Python, in a module that names ``Summary`` or its table): a ``session.delete(obj)``
-  whose ``obj`` the scan cannot tie to a model (a parameter, an attribute, a helper's return value),
-  and a ``.delete`` handed on uncalled (``run_in_threadpool(db.delete, row)``). A target bound to a
-  query of another model (``progress = db.query(SummaryGenerationProgress)...``) is not counted.
+* ``unresolved`` (Python, in a module that names ``Summary``, its table or ``.summaries``): a
+  ``session.delete(obj)`` or a bare ``q.delete()`` whose target the scan cannot tie to a model (a
+  parameter, an attribute, a helper's return value), and a ``.delete`` handed on uncalled
+  (``run_in_threadpool(db.delete, row)``). A target bound to a query, lookup or row of another model
+  (``progress = db.query(SummaryGenerationProgress)...``) is not counted.
 * ``sql``: SQL that deletes ``summaries`` rows, in a Python string (a literal, a ``+`` of literals or an
   f-string's literal parts; docstrings are not code) or in a SQL, shell or workflow file read as text
   without its comments (``--`` and ``/* */`` in SQL, whole-line ``#`` elsewhere): ``DELETE FROM
   summaries``, ``TRUNCATE`` naming ``summaries`` or with ``CASCADE`` (which reaches it from
-  ``filings``), ``DROP TABLE summaries`` and ``MERGE INTO summaries ... DELETE``, in any case.
+  ``filings``), ``DROP TABLE summaries`` and ``MERGE INTO summaries ... DELETE``, in any case, quoted
+  or not, with or without a schema (``public.summaries``).
 * ``cascade``: SQL that creates or alters ``summaries`` with ``ON DELETE CASCADE``, so a delete of the
   row it references would delete summaries.
 
@@ -42,13 +47,20 @@ the summary), ``summaries`` has no ``ondelete`` foreign key, and the retention p
 ``Summary`` target. Account deletion removes the user's ``saved_summaries`` bookmarks, never a
 summary (the same relationship check).
 
-Out of reach, stated so nothing is overclaimed: a module that never names ``Summary`` or its table
-and deletes a row it was handed (a generic helper); a model or table chosen at run time
-(``getattr(models, name)``, ``delete(target.model)`` as the retention purge does, which is why its
-targets are pinned); SQL assembled from non-literals (``f"DELETE FROM {table}"``) or held in a psql
-variable; ``session.execute`` of a statement object built elsewhere from such pieces; and SQL quoted in
-Markdown, which is read, not run. ``test_the_scan_scores_every_planted_form`` scores the scan on
-planted deletes and look-alikes.
+Out of reach, stated so nothing is overclaimed:
+
+* a module that never names ``Summary``, its table or ``.summaries`` and deletes a row it was handed
+  (a generic helper);
+* a model, table or relationship chosen at run time (``getattr(models, name)``,
+  ``getattr(filing, attr)``, ``delete(target.model)`` as the retention purge does, which is why its
+  targets are pinned);
+* a name bound in another function or module, or through an attribute (``self.q = ...``);
+* a no-argument ``.delete()`` on an attribute or call the scan cannot resolve (``self.q.delete()``);
+* SQL assembled from non-literals (``f"DELETE FROM {table}"``) or with ``%``, ``.format`` or
+  ``str.join``, held in a psql variable, or in a statement object built elsewhere from such pieces;
+* SQL quoted in Markdown, which is read, not run.
+
+``test_the_scan_scores_every_planted_form`` scores the scan on planted deletes and look-alikes.
 """
 import ast
 import os
@@ -91,8 +103,8 @@ _TEXT_SUFFIXES = {".sql", ".sh", ".yml", ".yaml"}
 _T = rf'"?{TABLE}"?(?![\w"])'
 _SQL_DELETE = re.compile(
     rf'\bDELETE\s+FROM\s+(?:ONLY\s+)?(?:"?\w+"?\.)?{_T}'
-    rf'|\bTRUNCATE\b[^;]*?(?:(?<![\w.]){_T}|\bCASCADE\b)'
-    rf'|\bDROP\s+TABLE\b[^;]*?(?<![\w.]){_T}'
+    rf'|\bTRUNCATE\b[^;]*?(?:(?<![\w."])(?:"?\w+"?\.)?{_T}|\bCASCADE\b)'
+    rf'|\bDROP\s+TABLE\b[^;]*?(?<![\w."])(?:"?\w+"?\.)?{_T}'
     rf'|\bMERGE\s+INTO\s+(?:"?\w+"?\.)?{_T}[^;]*?\bDELETE\b',
     re.IGNORECASE,
 )
@@ -157,7 +169,7 @@ class _DeleteFinder(ast.NodeVisitor):
         source_strings = [n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
         self._in_scope = bool(self._models & source_names) or any(
             re.search(rf"(?<!\w){TABLE}(?!\w)", s) for s in source_strings
-        )
+        ) or any(isinstance(n, ast.Attribute) and n.attr == TABLE for n in ast.walk(tree))
         self._stack: list[str] = []
         self._bindings: list[dict[str, list[ast.AST]]] = [{}]
         self._handled: set[int] = set()
@@ -209,8 +221,11 @@ class _DeleteFinder(ast.NodeVisitor):
 
     # --- what a node names ---------------------------------------------------------------------
     def _names_model(self, node: ast.AST) -> bool:
+        """The model (an alias, ``<module>.Summary``), ``Filing.summaries`` or the table's name."""
         return any(
-            (isinstance(n, ast.Name) and n.id in self._models) or (isinstance(n, ast.Attribute) and n.attr == MODEL)
+            (isinstance(n, ast.Name) and n.id in self._models)
+            or (isinstance(n, ast.Attribute) and n.attr in (MODEL, TABLE))
+            or (isinstance(n, ast.Constant) and n.value == TABLE)
             for n in ast.walk(node)
         )
 
@@ -258,7 +273,9 @@ class _DeleteFinder(ast.NodeVisitor):
     def _instance_delete(self, call: ast.Call) -> None:
         if not call.args or isinstance(call.args[0], ast.Constant):
             return  # @router.delete("/path") and the like register a route; they delete nothing
-        kind = self._target(call.args[0])
+        self._count(self._target(call.args[0]))
+
+    def _count(self, kind: str) -> None:
         if kind == "summary":
             self.sites[(self._scope(), "delete")] += 1
         elif kind == "unknown" and self._in_scope:
@@ -270,10 +287,12 @@ class _DeleteFinder(ast.NodeVisitor):
             self._handled.add(id(func))
             query = self._receiver_query(func.value)
             if query is not None:  # query(<entities>)...delete(): the entities decide
-                if any(self._names_model(arg) for arg in query.args):
+                if any(self._target(arg) == "summary" for arg in query.args):
                     self.sites[(self._scope(), "delete")] += 1
             elif self._names_model(func.value):  # Summary.__table__.delete()
                 self.sites[(self._scope(), "delete")] += 1
+            elif not node.args and isinstance(func.value, ast.Name):  # q = db.query(...); q.delete()
+                self._count(self._target(func.value))
             else:  # session.delete(obj), sa.delete(Summary)
                 self._instance_delete(node)
         elif isinstance(func, ast.Name) and func.id in self._core_deletes:
@@ -406,11 +425,28 @@ def aliased_delete(db, fid):
     remove = db.delete
     remove(db.get(S, fid))
 
+def bound_query_delete(db, fid):
+    q = db.query(S).filter(S.filing_id == fid)
+    q.delete()
+
+def aliased_model_and_table(db):
+    M = models.Summary
+    db.query(M).delete()
+    T = S.__table__
+    db.execute(T.delete())
+    db.execute(Base.metadata.tables["summaries"].delete())
+
+def relationship_delete(db, filing):
+    db.delete(db.get(Filing, filing.id).summaries[0])
+    for summary in filing.summaries:
+        db.delete(summary)
+
 def handed_on(db, row):
     run_in_threadpool(db.delete, row)
 
-def unresolved(db, row):
+def unresolved(db, row, stmt):
     db.delete(row)
+    stmt.delete()
 
 def raw_sql(db):
     db.execute(text("DELETE FROM summaries WHERE id = 1"))
@@ -420,6 +456,8 @@ def raw_sql(db):
 def look_alikes(db, fid):
     progress = db.query(SummaryGenerationProgress).filter(SummaryGenerationProgress.filing_id == fid).first()
     db.delete(progress)
+    pending = db.query(SummaryGenerationProgress).filter(SummaryGenerationProgress.filing_id == fid)
+    pending.delete()
     db.query(SavedSummary).filter(SavedSummary.user_id == 1).delete()
     db.execute(text("DELETE FROM saved_summaries WHERE id = 1"))
     note = "a delete would orphan the bookmark"
@@ -438,23 +476,32 @@ def test_the_scan_scores_every_planted_form():
         ("instance_delete", "delete"): 1,
         ("loop_delete", "delete"): 1,
         ("aliased_delete", "delete"): 1,
+        ("bound_query_delete", "delete"): 1,
+        ("aliased_model_and_table", "delete"): 3,
+        ("relationship_delete", "delete"): 2,
         ("handed_on", "unresolved"): 1,
-        ("unresolved", "unresolved"): 1,
+        ("unresolved", "unresolved"): 2,
         ("raw_sql", "sql"): 3,
     })
-    # A module that never names the model or its table does not count what it cannot tie to one.
+    # A module that never names the model or its table does not count what it cannot tie to one,
+    # but one that walks the relationship does.
     assert python_sites("def helper(db, row):\n    db.delete(row)\n") == Counter()
+    assert python_sites("def purge(db, filing):\n    for s in filing.summaries:\n        db.delete(s)\n") \
+        == Counter({("purge", "delete"): 1})
     sql = """
         -- DELETE FROM summaries;   (a comment)
         /* TRUNCATE summaries */
         DELETE FROM saved_summaries WHERE id = 1;
         delete from "summaries" where id = 2;
         TRUNCATE TABLE filings CASCADE;
+        TRUNCATE public.summaries;
         DROP TABLE IF EXISTS summaries;
+        DROP TABLE "public"."summaries";
+        DROP TABLE public.summaries_archive;
         ALTER TABLE summaries ADD CONSTRAINT fk FOREIGN KEY (filing_id) REFERENCES filings (id) ON DELETE CASCADE;
         CREATE TABLE notes (summary_id INTEGER REFERENCES summaries (id) ON DELETE CASCADE);
     """
-    assert Counter(text_sites(sql, ".sql")) == Counter({"sql": 3, "cascade": 1})
+    assert Counter(text_sites(sql, ".sql")) == Counter({"sql": 5, "cascade": 1})
     workflow = "# psql -c 'DELETE FROM summaries'\nrun: psql -c 'DELETE FROM summaries'\n"
     assert text_sites(workflow, ".yml") == ["sql"]
 

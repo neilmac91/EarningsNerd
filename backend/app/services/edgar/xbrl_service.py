@@ -123,7 +123,7 @@ class EdgarXBRLService:
             accession_number: Filing accession number
             cik: Company CIK (Central Index Key)
             refresh: Look past the persisted snapshot (a Pro "Regenerate"), but return it when the
-                caches and SEC give nothing, so a refresh that fails never loses the stored data.
+                caches and SEC give nothing, so a refresh whose fetch comes back empty never loses it.
 
         Returns:
             Dictionary with XBRL data in legacy format:

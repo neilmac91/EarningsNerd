@@ -190,8 +190,9 @@ async def precompute_one(
     # under keep-better (force_regenerate below), so its summaries.id and any saved_summaries bookmark
     # survive, and a failed or lower-ranked run keeps it (lessons/arch-fk-safe-bulk-deletes.md). Only
     # the cached excerpt is cleared, so the run builds it with the current extraction; the stored one
-    # goes back below when the stored summary stays, so that summary keeps the excerpt the read-time
-    # verification of its quotes was built from.
+    # goes back in the finally below whenever the stored summary stays (a raise or a cancellation
+    # included, not a killed process), so that summary keeps the excerpt the read-time verification of
+    # its quotes was built from. While the run is in flight, readers fall back to the cached document.
     stored = None
     stored_excerpt: Optional[str] = None
     if force:
@@ -207,28 +208,30 @@ async def precompute_one(
             db.commit()
 
     # Generate outside any session (it manages its own; idempotent if a Summary slipped in).
-    outcome = await generate_summary_background(filing_id, None, force_regenerate=force)
-
-    with SessionLocal() as db:
-        summary = db.query(Summary.id, Summary.updated_at).filter(Summary.filing_id == filing_id).first()
-        if summary is None:
-            result["status"] = "generation_failed"
-        elif stored is None:
-            result["status"] = "generated"
-        else:
+    outcome = None
+    try:
+        outcome = await generate_summary_background(filing_id, None, force_regenerate=force)
+    finally:
+        with SessionLocal() as db:
+            summary = db.query(Summary.id, Summary.updated_at).filter(Summary.filing_id == filing_id).first()
             # The in-place UPDATE stamps updated_at, so an unchanged (id, updated_at) was not replaced.
-            # The terminal event alone cannot tell a keep from a replace (both carry the stored id),
-            # but a terminal error is a failed paid attempt, as the refresh-stale drains count it.
-            replaced = tuple(summary) != tuple(stored)
-            if outcome is None or generation_failed(outcome):
-                result["status"] = "failed"
-            else:
-                result["status"] = "generated" if replaced else "kept"
+            replaced = stored is None or summary is None or tuple(summary) != tuple(stored)
             if not replaced and stored_excerpt is not None:
                 db.query(FilingContentCache).filter(FilingContentCache.filing_id == filing_id).update(
                     {FilingContentCache.critical_excerpt: stored_excerpt}, synchronize_session=False
                 )
                 db.commit()
+
+    if summary is None:
+        result["status"] = "generation_failed"
+    elif stored is None:
+        result["status"] = "generated"
+    elif outcome is None or generation_failed(outcome):
+        # The terminal event alone cannot tell a keep from a replace (both carry the stored id), but a
+        # terminal error is a failed paid attempt, as the refresh-stale drains count it.
+        result["status"] = "failed"
+    else:
+        result["status"] = "generated" if replaced else "kept"
     return result
 
 

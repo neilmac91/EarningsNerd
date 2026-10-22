@@ -241,8 +241,6 @@ async def test_precompute_aggregates_and_survives_errors(monkeypatch):
     assert out["stats"]["ran"] == 3
 
 
-
-
 # --- Forced precompute regenerates in place (no DELETE) -------------------------------------------
 # precompute_one(force=True) used to DELETE the filing's Summary before generating, outside the
 # keep-better gate: a failed run left the filing with no summary, a timeout fallback replaced a full
@@ -257,7 +255,7 @@ FRESH_EXCERPT = "Item 7. MD&A excerpt the current extraction builds."
 PROVIDER_ERROR = {"status": "error", "message": "provider down"}
 
 
-def _seed_forced(*, with_summary: bool = True):
+def _seed_forced(*, with_summary: bool = True, updated_at=None):
     from app.database import SessionLocal
     from app.models import FilingContentCache, SavedSummary, Summary, User
 
@@ -268,7 +266,7 @@ def _seed_forced(*, with_summary: bool = True):
     with SessionLocal() as db:
         db.add(FilingContentCache(filing_id=filing_id, critical_excerpt=STORED_EXCERPT))
         if with_summary:
-            summary = Summary(filing_id=filing_id, business_overview=STORED_FULL,
+            summary = Summary(filing_id=filing_id, business_overview=STORED_FULL, updated_at=updated_at,
                               raw_summary={"sections": {}, "quality": {"tier": "full"}})
             user = User(email=f"bm-{uuid.uuid4().hex[:8]}@example.com", hashed_password="x")
             db.add_all([summary, user])
@@ -357,6 +355,56 @@ def test_forced_precompute_regenerates_in_place_under_keep_better(monkeypatch, o
     else:
         assert overview == STORED_FULL
         assert excerpt == STORED_EXCERPT  # the stored summary keeps the excerpt it was generated from
+
+
+@pytest.mark.parametrize(("outcome", "status"), [("replaced", "generated"), ("timeout_fallback", "kept")])
+def test_forced_precompute_tells_a_replace_from_a_keep_on_a_row_refreshed_before(monkeypatch, outcome, status):
+    # A row refreshed in place before carries an updated_at; a rerun of --force over it is the common
+    # case, so the replace/keep comparison is pinned from a stamped row too, not only from NULL.
+    ticker, acc, filing_id, summary_id, _user_id = _seed_forced(
+        updated_at=datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc))
+    side_effect = TimeoutError("budget exhausted") if outcome == "timeout_fallback" else None
+
+    result = _forced_precompute(monkeypatch, ticker, acc, side_effect=side_effect)
+
+    assert result["status"] == status
+    count, row_id, overview, excerpt = _stored(filing_id)
+    assert (count, row_id) == (1, summary_id)
+    assert (overview == STORED_FULL, excerpt) == (
+        (False, FRESH_EXCERPT) if outcome == "replaced" else (True, STORED_EXCERPT))
+
+
+@pytest.mark.parametrize("error", [RuntimeError("database down"), asyncio.CancelledError()],
+                         ids=["raises", "cancelled"])
+def test_forced_precompute_puts_the_excerpt_back_when_the_run_raises_or_is_cancelled(monkeypatch, error):
+    # The excerpt is cleared before the run so that it rebuilds with the current extraction. A run that
+    # raises (a database error before the pipeline turns failures into events) or is cancelled (the
+    # job or the API server stops) still leaves the kept summary with the excerpt it was built from.
+    from app.services import summary_generation_service
+
+    ticker, acc, filing_id, summary_id, user_id = _seed_forced()
+    _patch_sec(monkeypatch, filings=[_sec_filing(acc)])
+    mid_run = {}
+
+    async def run_that_ends_abruptly(fid, _user_id=None, *, force_regenerate=False):
+        from app.database import SessionLocal
+        from app.models import FilingContentCache
+
+        mid_run["excerpt"] = _stored(fid)[3]
+        with SessionLocal() as db:  # as the run's excerpt build does before it is judged
+            db.query(FilingContentCache).filter(FilingContentCache.filing_id == fid).one() \
+                .critical_excerpt = FRESH_EXCERPT
+            db.commit()
+        raise error
+
+    monkeypatch.setattr(summary_generation_service, "generate_summary_background", run_that_ends_abruptly)
+
+    with pytest.raises(type(error)):
+        asyncio.run(precompute_one(ticker, "10-K", force=True))
+
+    assert mid_run == {"excerpt": None}  # cleared while the run builds its own
+    assert _stored(filing_id) == (1, summary_id, STORED_FULL, STORED_EXCERPT)
+    assert _bookmark_target_exists(user_id)
 
 
 def test_forced_precompute_never_deletes_a_bookmarked_summary_under_enforced_foreign_keys(monkeypatch):

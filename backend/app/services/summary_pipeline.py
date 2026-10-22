@@ -424,8 +424,10 @@ async def stream_filing_summary(
     this run claims the generation, as a follower of a failed first generation does.
 
     ``refresh_xbrl`` (set only by the route's Pro "Regenerate") looks past the filing's persisted XBRL
-    snapshot and replaces it only with XBRL that arrives; when none does the run uses the snapshot.
-    ``force_regenerate`` alone (the refresh-stale drains, every background caller) reads the snapshot.
+    snapshot and replaces it only with XBRL that arrives. A fetch that comes back empty leaves the run
+    on the snapshot; one still running when the enrichment join times out is cancelled, and the run
+    generates without XBRL (the snapshot stays). ``force_regenerate`` alone (the refresh-stale drains,
+    every background caller) reads the snapshot.
     """
     run = generation_run.GenerationRun(
         filing_id=filing_id,

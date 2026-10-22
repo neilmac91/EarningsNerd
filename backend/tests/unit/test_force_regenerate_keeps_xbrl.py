@@ -174,6 +174,20 @@ def test_a_regenerate_whose_xbrl_fetch_comes_back_empty_keeps_and_uses_the_store
     assert summarize.await_args.kwargs["xbrl_metrics"] == _metrics(STORED)
 
 
+def test_a_regenerate_whose_xbrl_fetch_outlasts_the_enrichment_join_keeps_the_snapshot(monkeypatch):
+    # The stated limit: the join cancels a fetch still running at its timeout, and the run generates
+    # without XBRL, as the force path always has. The snapshot is never cleared, so it stays.
+    monkeypatch.setattr(summary_pipeline, "CONTEXT_ENRICHMENT_TIMEOUT_SECONDS", 0.5)
+    filing_id = _seed()
+
+    with stream_boundaries() as summarize, real_xbrl_lookup(_still_fetching), TestClient(app) as client:
+        response = _regenerate(client, filing_id)
+
+    assert '"type": "complete"' in response.text
+    assert summarize.await_args.kwargs["xbrl_metrics"] is None
+    assert _stored_xbrl(filing_id) == STORED
+
+
 @pytest.mark.parametrize("caller", ["background_force_regenerate", "unready_row_route"])
 def test_force_regenerate_without_refresh_xbrl_reads_the_snapshot_and_fetches_nothing(caller):
     # generate_summary_background(force_regenerate=True) is what the admin refresh-stale endpoint
@@ -198,19 +212,27 @@ def test_force_regenerate_without_refresh_xbrl_reads_the_snapshot_and_fetches_no
 
 def test_the_progress_row_the_route_clears_is_invisible_while_the_summary_exists(pro_user, monkeypatch):
     # The force path still deletes the filing's progress row before admission, so the run's row starts
-    # a fresh clock. That is harmless: the branch runs only while a summary the page shows exists, the
-    # run never removes it, and every reader shows that summary, not the progress row (GET /progress
-    # answers "completed"; the dashboard feed and the watchlist page consult progress only without one).
+    # a fresh clock. That is harmless: the branch runs only while a summary exists, the run never
+    # removes it, and the readers show that summary, not the progress row. GET /progress answers
+    # "completed", and the dashboard feed's status (like the watchlist router's) reads progress only
+    # for a filing without a summary.
+    from app.services.dashboard_feed_service import _summary_status
+
     filing_id = _seed()
     with SessionLocal() as db:
-        db.add(SummaryGenerationProgress(filing_id=filing_id, stage="completed"))
+        db.add(SummaryGenerationProgress(filing_id=filing_id, stage="summarizing"))
         db.commit()
     _at_the_fair_use_ceiling(pro_user.id, monkeypatch)
 
     with TestClient(app) as client:
         before = client.get(f"/api/summaries/filing/{filing_id}/progress").json()
         with stream_boundaries(patch_usage_limit=False), real_xbrl_lookup(AsyncMock(return_value=FRESH)):
-            _regenerate(client, filing_id)
+            assert "temporarily paused new summary generation" in _regenerate(client, filing_id).text
         after = client.get(f"/api/summaries/filing/{filing_id}/progress").json()
 
+    with SessionLocal() as db:
+        assert db.query(SummaryGenerationProgress).filter_by(filing_id=filing_id).count() == 0  # it ran
+        summary = db.query(Summary).filter(Summary.filing_id == filing_id).one()
     assert before == after == {"stage": "completed", "elapsedSeconds": 0}
+    assert _summary_status(summary, {"stage": "summarizing"}) == _summary_status(summary, None) \
+        == {"summary_id": summary.id, "summary_status": "ready"}
