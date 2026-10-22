@@ -25,8 +25,9 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    endpoint behind authentication (ENDPOINT_CLAIM: "all" or "every" endpoints as main's reading has them; "all",
  *    "every", "each" or "any" with up to three words before "endpoints", as in "all of the API's endpoints", whose own
  *    predicate says they need a login, after them in their clause ("each endpoint requires a login", "sits behind a
- *    login", "can only be called with a token"; "and" carries them on only directly before it, so "Each endpoint returns
- *    JSON and administrators need a login." passes) or before them as their requirement ("a login is required for each
+ *    login", "can only be called with a token", "cannot be called without a token"; "and" carries them on only directly
+ *    before it, so "Each endpoint returns JSON and administrators need a login." passes) or before them as their
+ *    requirement ("a login is required for each
  *    endpoint"), not after a negation, unless a relative clause or a participle narrows them, as "any endpoint
  *    returning account data" does; and "no endpoint" answering without authentication in its clause, the claim the
  *    other way round; login words in another role or clause pass ("Each API endpoint documents the token format.", "Any
@@ -372,13 +373,14 @@ const IN_THEIR_CLAUSE = String.raw`(?:(?:\s*,)?\s+(?!(?:which|that|who|whom|whos
 /** The endpoints' own predicate when it says they need a login, not after a negation (NOT): a requirement with the
     login ("requires a login", "needs a token", "requires you to be logged in"), a state ("is protected", "is
     authenticated", "sits behind a login"), or a use only with one ("can only be called with a token", "answers only to
-    a signed-in reader"). */
+    a signed-in reader") or not without one ("cannot be called without a token"; #1456's ninth round). */
 const NEEDS_A_LOGIN = String.raw`${NOT}\b(?:` +
   String.raw`(?:requires?|required|needs?|demands?|expects?|takes?)\s+${A_LOGIN}` +
   String.raw`|(?:requires?|needs?)\s+(?:you|the reader|readers|callers?|users?)\s+to\s+(?:(?:be\s+)?(?:logged|signed)\s+in|(?:log|sign)\s+in|authenticate)\b` +
   String.raw`|(?:is|are|stays?|remains?)\s+(?:all\s+|always\s+|only\s+)?(?:protected|authenticated|locked|gated|private)\b` +
   String.raw`|(?:is|are|sits?|stands?|lives?|stays?)\s+(?:all\s+|always\s+|only\s+)?behind\s+${A_LOGIN}` +
   String.raw`|(?:can|may|will)\s+only\s+be\s+(?:called|reached|used|accessed|queried|opened)\s+(?:with|by|after|once|when)\s+(?:a\s+|an\s+)?(?:valid\s+)?(?:token${ITSELF}|login|logging in|signing in|authentication|account${AS_LOGIN}|signed[- ]in|logged[- ]in|authenticated)\b` +
+  String.raw`|(?:cannot|can['’]t|can\s+not|may\s+not|will\s+not|won['’]t)\s+be\s+(?:called|reached|used|accessed|queried|opened)\s+without\s+(?:${A_LOGIN}|being\s+(?:logged|signed)\s+in\b)` +
   String.raw`|(?:answers?|responds?|works?|opens?)\s+(?:only\s+)?(?:to|for|with|after|once)\s+(?:a\s+|an\s+)?(?:logged[- ]in|signed[- ]in|authenticated|valid\s+token${ITSELF})` +
   ')'
 /** The login said before the endpoints as their requirement: "a login is required for each endpoint", "you need a
@@ -1291,6 +1293,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // eighth round, Codex's thread 4342548449).
       ['<p>Each endpoint returns JSON and also requires a login.</p>', true],
       ['<p>Each endpoint returns JSON and administrators need a login.</p>', false],
+      // The endpoints that cannot be called without a login, in their own clause (#1456's ninth round), beside one
+      // endpoint named, which says nothing of every endpoint.
+      ['<p>Each endpoint cannot be called without a token.</p>', true],
+      ['<p>The admin endpoint cannot be called without a token.</p>', false],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
