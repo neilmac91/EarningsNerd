@@ -354,7 +354,7 @@ Chart series follow the configured order: **Teal → Honey → Cornflower → Co
 
 **Editorial Font:** Newsreader, reached through `--font-newsreader`, for the filing's own words only: the filing reader (`.filing-reader`) and a passage the product located, set as a marked block (`.en-marked`).
 
-**Character:** Clear sans-serif structure surrounds an exact, aligned data register. The editorial serif marks a distinct reading context, not a general accent style. Inter, Geist Mono and Newsreader are self-hosted through `next/font` in [`layout.tsx`](frontend/app/layout.tsx); platform fonts are fallbacks rather than embedded assets.
+**Character:** Clear sans-serif structure surrounds an exact, aligned data register. The editorial serif marks a distinct reading context, not a general accent style. Inter, Geist Mono and Newsreader are self-hosted through `next/font`, one instance each, in [`fonts.ts`](frontend/app/fonts.ts), which the root layout and the global error page import; platform fonts are fallbacks rather than embedded assets.
 
 ### Hierarchy
 

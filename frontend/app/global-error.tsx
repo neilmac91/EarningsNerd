@@ -2,10 +2,8 @@
 
 import * as Sentry from '@sentry/nextjs'
 
-import { Inter } from 'next/font/google'
 import { useEffect } from 'react'
-
-const inter = Inter({ subsets: ['latin'] })
+import { geistMono, inter } from './fonts'
 
 export default function GlobalError({
     error,
@@ -19,7 +17,9 @@ export default function GlobalError({
     }, [error])
 
     return (
-        <html lang="en" className={inter.className}>
+        // The layout's own instances (E147): their variables, so the stylesheet's stacks resolve as on every page (the
+        // data face in the development detail below among them), and Inter's class.
+        <html lang="en" className={`${inter.variable} ${geistMono.variable} ${inter.className}`}>
             <body>
                 <div className="flex min-h-screen flex-col items-center justify-center bg-background-light p-4 text-center dark:bg-background-dark">
                     <div className="mx-auto max-w-md space-y-4">
