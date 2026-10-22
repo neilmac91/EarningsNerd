@@ -131,15 +131,17 @@ const recordingLocation = new Proxy({} as Location, {
     return true
   },
 })
-/** The history moves, held for each case so none runs. */
+/** The history moves and window.open, held for each case so none runs. */
 const historyMoves: MockInstance[] = []
-/** No navigation of any kind: none of the router's moves, no history move, nothing set on or loaded by window.location.
+/** No navigation of any kind: none of the router's moves, no history move or window.open, nothing set on or loaded by
+    window.location.
     logoutCallSitesGate.spec.ts reads only the calls of logoutAndResetAccount and the code around them; the helper
     itself, the API client and the session reset are imported code it cannot read, so this watch is the one check
     that a failed logout navigates nowhere through them. */
 const expectNoNavigation = () => {
   for (const move of ['push', 'replace', 'back', 'forward', 'refresh'] as const) expect(nav[move], `router.${move}`).not.toHaveBeenCalled()
   for (const move of ['back', 'forward', 'go'] as const) expect(window.history[move], `history.${move}`).not.toHaveBeenCalled()
+  expect(window.open, 'window.open').not.toHaveBeenCalled()
   expect(locationChanges, 'window.location').toEqual([])
 }
 
@@ -151,6 +153,7 @@ beforeEach(() => {
     set: (value: unknown) => { locationChanges.push(`location = ${String(value)}`) },
   })
   for (const move of ['back', 'forward', 'go'] as const) historyMoves.push(vi.spyOn(window.history, move).mockImplementation(() => {}))
+  historyMoves.push(vi.spyOn(window, 'open').mockImplementation(() => null))
   advanceSessionGeneration()
   clearSessionActive()
   Object.assign(server, { me: ok(reader), logout: ok({ status: 'success' }), refresh: refused, renewed: false, requests: [] })
@@ -407,7 +410,8 @@ describe.each(Object.keys(GUARDED) as (keyof typeof GUARDED)[])('%s, when the fi
   })
 })
 
-/** Every route that renders the account card: the two guarded above and the dashboard. */
+/** Every route that renders the account card, the two guarded above and the dashboard, with what shows it fully loaded:
+    the watchlist's header renders on its skeleton too, so its list's empty state marks the loaded page. */
 const CARD_ROUTES = {
   '/dashboard': {
     render: () => <DashboardPage />,
@@ -415,7 +419,8 @@ const CARD_ROUTES = {
     user: reader,
     loaded: () => screen.findByText('Welcome back, Reader'),
   },
-  ...GUARDED,
+  '/dashboard/watchlist': { ...GUARDED['/dashboard/watchlist'], loaded: () => screen.findByText('No watchlist companies yet') },
+  '/admin': GUARDED['/admin'],
 } as const
 
 describe.each(Object.keys(CARD_ROUTES) as (keyof typeof CARD_ROUTES)[])('%s, when a refetch of /me fails with the user in hand', (path) => {
@@ -425,13 +430,16 @@ describe.each(Object.keys(CARD_ROUTES) as (keyof typeof CARD_ROUTES)[])('%s, whe
     const client = newClient()
     render(<QueryClientProvider client={client}>{route.render()}</QueryClientProvider>)
     await route.loaded()
+    await settle()
+    // The page as it reads loaded: its header and greeting also render on a skeleton, so a marker alone would not tell.
+    const page = document.body.textContent
     server.me = status(500, 'Internal Server Error')
     await act(async () => { await client.refetchQueries({ queryKey: queryKeys.currentUser() }) })
     await settle()
     expect(meReads()).toBe(2)
-    expect(client.getQueryState(queryKeys.currentUser())?.status).toBe('error')
-    await route.loaded()
+    expect(client.getQueryState(queryKeys.currentUser())).toMatchObject({ status: 'error', data: route.user })
     expect(screen.queryByText(route.title)).toBeNull()
+    expect(document.body.textContent).toBe(page)
     expectNoNavigation()
   })
 })
