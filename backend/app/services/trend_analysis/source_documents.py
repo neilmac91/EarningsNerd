@@ -1,7 +1,8 @@
-"""The primary document of each filing a dataset's facts cite, read from the company's own filing rows."""
+"""The primary document of each filing a dataset's facts cite, read from the company's own filing rows,
+and how the snapshot and a re-served analysis read those links."""
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -53,6 +54,23 @@ def folder_links(value: Any) -> Any:
         key: _folder(item) if key == "source_url" and not stored else folder_links(item)
         for key, item in value.items()
     }
+
+
+def current_links(saved: list[dict[str, Any]], index: Mapping[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    """Copies of a re-served analysis's citations or evidence operands, each with its point's link now.
+
+    A saved narrative is re-served while its snapshot holds, so a folder it saved before the filing's
+    row landed takes the document its marker's point carries in the rebuilt dataset (the citations'
+    reading). An item takes the link only where the snapshot reads the two alike (``folder_links``):
+    the same accession folder, so it never changes which filing it names, and a link stored with its
+    receipt stays as it is. Nothing hashed, scanned, counted or saved changes; the copies are the response's.
+    """
+    swapped: list[dict[str, Any]] = []
+    for item in saved:
+        point = index.get(item.get("marker")) or {}
+        candidate = {**item, "source_url": point.get("source_url") or (point.get("provenance") or {}).get("source_url")}
+        swapped.append(candidate if folder_links(candidate) == folder_links(item) else item)
+    return swapped
 
 
 def _folder(url: Any) -> Any:

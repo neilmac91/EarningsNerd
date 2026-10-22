@@ -17,6 +17,7 @@ from app.services.trend_analysis.narrative_display import (
 from app.services.trend_analysis.observations import (
     TrendObservation, _point_value, render_observation_selection,
 )
+from app.services.trend_analysis.source_documents import current_links
 from app.services.trend_analysis.stream_events import analysis_completion
 
 
@@ -60,11 +61,16 @@ def _display_unit(point: dict[str, Any]) -> str | None:
 def cached_analysis_completion(dataset: dict[str, Any], cached: Any) -> dict[str, Any]:
     from app.services.trend_analysis.dataset import marker_index
 
+    index = marker_index(dataset)
     citations = cached.citations_json or []
-    mismatched = scan_numeric_fidelity(cached.narrative_md, citations, marker_index(dataset))
+    mismatched = scan_numeric_fidelity(cached.narrative_md, citations, index)
+    # The saved row stays as it is; the response's links follow the rebuilt dataset (current_links).
+    presentation = deepcopy(cached.dataset_json["narrative_presentation"])
+    for entry in presentation["evidence"]:
+        entry["operands"] = current_links(entry["operands"], index)
     return analysis_completion(
-        {**dataset, "narrative_presentation": deepcopy(cached.dataset_json["narrative_presentation"])},
-        analysis_id=cached.id, narrative=cached.narrative_md, citations=citations,
+        {**dataset, "narrative_presentation": presentation},
+        analysis_id=cached.id, narrative=cached.narrative_md, citations=current_links(citations, index),
         grounded=cached.grounded, unverified=cached.unverified, mismatched=len(mismatched),
         cached=True, invalidated=False, usage={},
     )

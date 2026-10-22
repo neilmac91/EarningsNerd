@@ -8,12 +8,15 @@ folder, as before. The Multi-Period dataset builds the lookup with one read of t
 filing rows (``trend_analysis/source_documents.py``), so its points, their operands, their
 comparisons and the narrative's citations open the document. Its snapshot fingerprint hashes each
 looked-up link as its folder, so a filing row that lands moves no snapshot; a link stored with its
-receipt is hashed as stored.
+receipt is hashed as stored. A saved narrative re-served while its snapshot holds answers with the
+rebuilt dataset's links (``current_links``), each inside the folder it saved, and its row stays as saved.
 
 Synthetic fixtures, not real-issuer coverage.
 """
 
+import json
 import uuid
+from copy import deepcopy
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
@@ -21,11 +24,11 @@ import pytest
 from sqlalchemy import event
 
 from app.database import SessionLocal
-from app.models import Company, Filing, FinancialFact
+from app.models import Company, Filing, FinancialFact, TrendAnalysis
 from app.services import trend_analysis_service as svc
 from app.services.fact_provenance import calculated_provenance, provenance_for_fact, reported_provenance
 from app.services.trend_analysis.presentation import _operand
-from app.services.trend_analysis.source_documents import folder_links
+from app.services.trend_analysis.source_documents import current_links, folder_links
 from app.utils.sec_urls import build_sec_archive_url, normalize_accession
 
 CIK = "1326801"
@@ -274,3 +277,104 @@ def test_a_link_stored_with_its_receipt_is_hashed_as_stored(dataset_db, holder):
     (eps if holder == "point" else eps["provenance"])["source_url"] = _document(company.cik, acc["eps_8k"], "ex99-2.htm")
     assert svc.dataset_fingerprint(dataset) != dataset["snapshot_id"]
 
+
+def test_a_re_served_link_only_moves_inside_its_accession_folder():
+    """An item takes its point's link where the snapshot reads the two alike: never another accession's,
+    a link stored with its receipt, or a marker the dataset no longer holds. The saved items are untouched."""
+    folder, document = build_sec_archive_url(CIK, ANNUAL), _document(CIK, ANNUAL, "annual-10k.htm")
+    receipt = {"source_sha256": "a" * 64, "source_url": _document(CIK, ANNUAL, "ex99-1.htm")}
+    index = {
+        "F1": {"source_url": document},
+        "F2": {"provenance": {"source_url": document}},  # The citations' reading: the point's, else its provenance's.
+        "F3": {"source_url": build_sec_archive_url(CIK, NINE_MONTHS)},
+        "F4": {"source_url": _document(CIK, ANNUAL, "ex99-2.htm")},
+    }
+    saved = [
+        {"marker": "F1", "source_url": folder}, {"marker": "F2", "source_url": folder},
+        {"marker": "F3", "source_url": folder}, {"marker": "F4", "source_url": receipt["source_url"], "provenance": receipt},
+        {"marker": "F9", "source_url": folder}, {"source_url": folder},
+    ]
+    before = deepcopy(saved)
+    links = [item["source_url"] for item in current_links(saved, index)]
+    assert links == [document, document, folder, receipt["source_url"], folder, folder]
+    assert saved == before
+
+
+@pytest.fixture
+def saved_history():
+    """A company of its own with three annual 10-Ks' facts and no filing rows, committed for the
+    narrative stream's own sessions; the rows the test adds go with it afterwards."""
+    token = uuid.uuid4().hex
+    prefix = f"{int(token[12:20], 16) % 9_000_000_000 + 1_000_000_000}"
+    ten_k = {year: f"{prefix}-{year - 1999}-000010" for year in (2021, 2022, 2023)}
+    with SessionLocal() as db:
+        company = Company(cik=str(int(token[:12], 16)), ticker=f"SAVE{token[:8]}", name="Synthetic saved analysis")
+        db.add(company)
+        db.flush()
+        # Long-term debt grows by more than half across the window: a red flag with its evidence operands.
+        for year, values in {2021: (1000, 100, 100), 2022: (1200, 130, 180), 2023: (1500, 180, 250)}.items():
+            for concept, value in zip(("revenue", "net_income", "long_term_debt"), values):
+                db.add(FinancialFact(
+                    company_id=company.id, concept=concept, value=Decimal(value), unit="USD",
+                    period_start=None if concept == "long_term_debt" else date(year, 1, 1),
+                    period_end=date(year, 12, 31), fiscal_year=year, fiscal_period="FY", form="10-K",
+                    accession=ten_k[year], raw_tag=f"us-gaap:{concept}", source="companyfacts",
+                    reconciled=True, is_latest=True,
+                ))
+        db.commit()
+        company_id, cik = company.id, company.cik
+    yield company_id, cik, ten_k
+    with SessionLocal() as db:
+        for model in (TrendAnalysis, Filing, FinancialFact):
+            db.query(model).filter(model.company_id == company_id).delete()
+        db.query(Company).filter(Company.id == company_id).delete()
+        db.commit()
+
+
+@pytest.mark.asyncio
+async def test_a_re_served_narrative_opens_the_documents_its_saved_folders_name(saved_history, monkeypatch):
+    """A narrative saved with folder links, as main saved it or before its filing rows landed, re-serves
+    while its snapshot holds. Its citations and red-flag evidence open the documents the rebuilt dataset
+    links and a folder no row names stays; the saved row, its counts and the fidelity scan are as they were."""
+    from app.services import openai_service as oa
+
+    company_id, cik, ten_k = saved_history
+    calls = []
+
+    async def narrate(reply):
+        async def fake(messages, **kwargs):
+            calls.append(messages)
+            yield reply
+
+        monkeypatch.setattr(oa.openai_service, "stream_chat", fake)
+        return [event async for event in svc.stream_trend_narrative(
+            company_id=company_id, mode="annual", start_period="FY2021", end_period="FY2023",
+        )][-1]
+
+    def links(completion):
+        evidence = completion["narrative_presentation"]["evidence"]
+        return ({item["marker"]: item["source_url"] for item in completion["citations"]},
+                {item["marker"]: item["source_url"] for entry in evidence for item in entry["operands"]})
+
+    saved = await narrate(json.dumps({key: [] for key, _ in svc.ANALYSIS_SECTIONS}))
+    with SessionLocal() as db:  # The FY2022 and FY2023 10-K rows land after the narrative was saved.
+        company = db.get(Company, company_id)
+        for year in (2022, 2023):
+            _filing(db, company, ten_k[year], f"fy{year}-10k.htm", "10-K")
+        db.commit()
+        row = db.query(TrendAnalysis).filter(TrendAnalysis.company_id == company_id).one()
+        stored = deepcopy([row.citations_json, row.dataset_json])
+    served = await narrate("MUST NOT RUN")
+
+    assert served["cached"] is True and len(calls) == 1  # The generation's one call; the re-serve makes none.
+    same = ("snapshot_id", "narrative", "grounded", "unverified", "mismatched")
+    assert [served[key] for key in same] == [saved[key] for key in same]
+    folders = {year: build_sec_archive_url(cik, accession) for year, accession in ten_k.items()}
+    opened = {folders[year]: folders[year] + f"fy{year}-10k.htm" for year in (2022, 2023)}
+    (saved_citations, saved_evidence), (served_citations, served_evidence) = links(saved), links(served)
+    assert set(folders.values()) <= set(saved_citations.values()) and folders[2023] in saved_evidence.values()
+    assert served_citations == {marker: opened.get(url, url) for marker, url in saved_citations.items()}
+    assert served_evidence == {marker: opened.get(url, url) for marker, url in saved_evidence.items()}
+    with SessionLocal() as db:
+        row = db.query(TrendAnalysis).filter(TrendAnalysis.company_id == company_id).one()
+        assert [row.citations_json, row.dataset_json] == stored
