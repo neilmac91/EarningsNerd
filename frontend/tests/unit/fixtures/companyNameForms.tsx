@@ -9,6 +9,7 @@
  * Outside the scan roots. Sample companies only. A new form the rule can take joins it with its mark.
  */
 import {
+  Component,
   Fragment,
   createContext,
   createElement,
@@ -979,6 +980,28 @@ export function N122({ events }: { events: CalendarEvent[] }) {
 /** N139 gap: a utility known by its name, an array's map, called through Function.prototype's call. */
 export function N139({ events }: { events: CalendarEvent[] }) {
   return <span>{Array.prototype.map.call(events, (e: CalendarEvent) => e.company_name).join(', ')}</span>
+}
+
+/** N140 gap: a served name copied into a class component's field, printed through `this`. */
+export class N140 extends Component<{ ev: CalendarEvent }> {
+  label = this.props.ev.company_name
+
+  render() {
+    return <span>{this.label}</span>
+  }
+}
+
+/** N141 gap: a served name put in a class component's state, printed through `this`. */
+export class N141 extends Component<{ ev: CalendarEvent }, { label: string }> {
+  state = { label: '' }
+
+  render() {
+    return (
+      <button type="button" onClick={() => this.setState({ label: this.props.ev.company_name })}>
+        {this.state.label}
+      </button>
+    )
+  }
 }
 
 /** N113 gap: a name inside an object another module's function hands back. */

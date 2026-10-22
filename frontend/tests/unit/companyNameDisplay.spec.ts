@@ -82,7 +82,10 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * from a type that declares no field for it (an index signature, `any`); a piece of the name read by index from what a
  * call hands back (`n.split(' ')[0]`); a display form shouted again (`formatCompanyName(n).toUpperCase()`); a utility
  * known by its name (an array's method) called through Function.prototype's `call` or `apply`, which the reader reads
- * as a call of the method; and React's element calls, which app code may not write
+ * as a call of the method; a served name copied into a class component's field or its state and printed through `this`
+ * (`label = this.props.ev.company_name`, then `{this.label}`), since the shared reader follows no class's fields and no
+ * `this` (a served field read through `this.props` is still read by its type, and the app's class components, two error
+ * boundaries, print no name); and React's element calls, which app code may not write
  * (earningsnerd/elements-built-with-jsx).
  */
 
@@ -531,16 +534,17 @@ const DECLARED: Field[] = APP_SOURCES.flatMap((sf) => {
 describe('a served company name prints through formatCompanyName (E146)', () => {
   it('scores every planted form in tests/unit/fixtures/companyNameForms.tsx as its mark says', () => {
     const sf = sourceOf(FORMS)
-    const forms = new Map<string, { mark: string; fn: ts.FunctionDeclaration }>()
+    // A form is a function or a class (a class component's), named for its mark.
+    const forms = new Map<string, { mark: string; fn: ts.FunctionDeclaration | ts.ClassDeclaration }>()
     for (const stmt of sf.statements) {
-      if (!ts.isFunctionDeclaration(stmt) || !stmt.name) continue
+      if (!(ts.isFunctionDeclaration(stmt) || ts.isClassDeclaration(stmt)) || !stmt.name) continue
       const mark = ts.getLeadingCommentRanges(sf.text, stmt.pos)?.map((r) => /^\/\*\*\s*(N\d+) (flag|clean|gap):/.exec(sf.text.slice(r.pos, r.end))).find(Boolean)
       if (mark && mark[1] === stmt.name.text) forms.set(mark[1], { mark: mark[2], fn: stmt })
     }
     // A top-level helper named for a form (N23Line) is that form's.
     const formOf = (node: ts.Node): string | undefined => {
       const top = sf.statements.find((s) => node.pos >= s.pos && node.end <= s.end)
-      const name = top && ts.isFunctionDeclaration(top) ? top.name?.text : undefined
+      const name = top && (ts.isFunctionDeclaration(top) || ts.isClassDeclaration(top)) ? top.name?.text : undefined
       return name ? /^N\d+/.exec(name)?.[0] : undefined
     }
     const named = new Set<string>()
@@ -551,7 +555,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       else strays.push(`line ${f.line}: ${f.shown}`)
     }
     const count = (mark: string) => [...forms.values()].filter((f) => f.mark === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([91, 34, 14])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([91, 34, 16])
     const misread = [...forms].filter(([name, { mark }]) => named.has(name) !== (mark === 'flag')).map(([name, { mark }]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])
