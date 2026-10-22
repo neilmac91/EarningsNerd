@@ -55,9 +55,9 @@ vi.mock('@/lib/api/session', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/session')>()),
   hasActiveSession: () => true,
 }))
-// Deterministic flags: no Turnstile gate (the contact form's native `disabled` before a token is a kept availability
-// state; the waitlist's wait for a token is aria-disabled, held in waitlistSuccessCard.spec.tsx), and the feedback
-// launcher on.
+// Deterministic flags: no Turnstile gate (each form's wait for a token is aria-disabled, held for the sign-in, register
+// and contact forms in turnstileRenewal.spec.tsx and for the waitlist in waitlistSuccessCard.spec.tsx), and the
+// feedback launcher on.
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
   TURNSTILE_SITE_KEY: '',

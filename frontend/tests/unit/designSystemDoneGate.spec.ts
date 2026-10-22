@@ -51,7 +51,7 @@ const read = (rel: string) => readFileSync(path.join(frontendDir, rel), 'utf8')
 
 const designSystem = read('DESIGN_SYSTEM.md')
 const globalsCssRaw = read('app/globals.css')
-const layoutRaw = read('app/layout.tsx')
+const fontsRaw = read('app/fonts.ts')
 
 /** Source with comments removed, so a matcher can never be satisfied by code that is switched off.
  *  Quote-aware, because `//` inside a string literal is not a comment. Two separate findings on this
@@ -99,7 +99,7 @@ const stripComments = (src: string, { lineComments = true } = {}): string => {
 
 /** Every matcher below reads the comment-free view, never the raw file. */
 const globalsCss = stripComments(globalsCssRaw, { lineComments: false })
-const layout = stripComments(layoutRaw)
+const fonts = stripComments(fontsRaw)
 
 /** The three next/font variables. next/font self-hosts under hashed family names exposed ONLY as
  *  these vars, so a literal-only stack silently never resolves. */
@@ -226,17 +226,17 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
   /** The variables the next/font loaders actually emit, read from each call's OPTIONS rather than
    *  from the file's text. A whole-file substring search passes on a stale mention. */
   const emittedFontVars = (): string[] => {
-    const imported = layout.match(/import \{([^}]*)\} from 'next\/font\/google'/)
-    if (!imported) throw new Error('app/layout.tsx no longer imports from next/font/google')
+    const imported = fonts.match(/import \{([^}]*)\} from 'next\/font\/google'/)
+    if (!imported) throw new Error('app/fonts.ts no longer imports from next/font/google')
     const loaders = imported[1].split(',').map((n) => n.trim()).filter(Boolean)
     return loaders.flatMap((loader) =>
-      [...layout.matchAll(new RegExp(`\\b${loader}\\(\\{([^{}]*)\\}\\)`, 'g'))].flatMap((call) =>
+      [...fonts.matchAll(new RegExp(`\\b${loader}\\(\\{([^{}]*)\\}\\)`, 'g'))].flatMap((call) =>
         [...call[1].matchAll(/variable:\s*'([^']+)'/g)].map((v) => v[1]),
       ),
     )
   }
 
-  it('emits exactly the three next/font variables from layout.tsx', () => {
+  it('emits exactly the three next/font variables from app/fonts.ts, the root fonts the layout imports', () => {
     // Bidirectional: renaming a live option fails, and so does adding a fourth loader without
     // classifying it. If a variable is renamed here, every stack below points at nothing.
     expect(emittedFontVars().sort()).toEqual([...NEXT_FONT_VARS].sort())
@@ -401,7 +401,7 @@ describe("DESIGN_SYSTEM §3 — Newsreader sets only the filing's own words (the
    *  fails, and so does a listed file that no longer sets it. The face means the filing's own words: the real filing
    *  viewer, a located quoted passage on a public page and, since D-044, the passages the server located inside the
    *  product. Outside the reader it sets only a marked block (`en-marked`, a passage the server located), whose places
-   *  and whose located test tests/unit/brandCopyRules.spec.ts rule 3 holds (DEVICE_PLACES). app/layout.tsx loads the
+   *  and whose located test tests/unit/brandCopyRules.spec.ts rule 3 holds (DEVICE_PLACES). app/fonts.ts loads the
    *  font and is not a surface: it names the loader and its variable, never the face's class or a var() of it. */
   const EDITORIAL_SURFACES: Record<string, string> = {
     'features/filings/components/copilot/FilingViewer.tsx': 'the real filing viewer: `.filing-reader`, the filing text',
