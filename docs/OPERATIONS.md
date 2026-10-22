@@ -512,9 +512,12 @@ body re-runs the check, and a commit message is reworded on the branch. Until th
 previous result stands on the head, as for drafts below, so merge only after it passes. It also fails a
 pull request that lists 250 commits, the most GitHub's commits endpoint returns, because later commit
 messages would go unread. A squash message typed at merge is outside every pull-request check. It passes
-only when Codex's "Review Summary" comment reports **Completed** for that
-exact head, or when the pull request body carries a line `Review override: <reason>` (ten or more
-characters); a completed review of an earlier head is not enough, because a push does not
+only when the trusted Codex summary's machine state names that full head, reports **Completed**,
+and has `has_unresolved_findings` exactly false, with the required review-cycle evidence; or when
+the pull request body carries a line `Review override: <reason>` (ten or more characters). The
+ready transition's own review must have completed. A later manual review of a different head may
+supersede that completed review's findings; a manual review of the same head requires the ready
+review itself to be clean. A completed review of an earlier head is not enough, because a push does not
 re-trigger Codex here: after fix commits, comment `@codex review` at once. The gate waits up to
 twenty minutes, then fails naming the remedy; an `@codex review` comment re-runs the newest gate run
 on the pull request's current head automatically (the workflow's `issue_comment` job, the only one
@@ -530,7 +533,17 @@ neither its own gate script nor the workflow definition (the job never executes 
 holds read-only tokens); only the exact Codex GitHub App identity (login, `Bot` type, immutable id) is
 trusted; and a reviewed short SHA counts only when the repository resolves it uniquely to the head and
 no other commit of the pull request shares it, so a head minted to share a reviewed prefix stays
-unreviewed while the reviewed object exists. Each run takes the workflow definition from `main` as it
+unreviewed while the reviewed object exists. F58 additionally reads GitHub's ready-transition
+timeline and the bot's authenticated comment edit history, pairing a completion with its preceding
+running state. GitHub's event/request timestamps have second precision, so a start in the same second
+cannot establish ordering: the gate requires the next whole-second boundary. The PR's live head
+and latest manual request must agree with that proof. Missing,
+malformed or contradictory evidence waits instead of falling back to an older clean result.
+GitHub retains at most 100 comment revisions and the bot exposes no unique review-run ID, so missing
+required history or ambiguous overlapping starts also wait. Marking ready already requests a review;
+let that cycle finish before sending another manual request for the same head. Thread disposition
+remains a reviewer responsibility (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`).
+Each run takes the workflow definition from `main` as it
 stood at the run's event, and a re-run keeps that definition, so a change here reaches a pull request
 at its next pull-request event. The re-run job never re-runs a skipped run: only a run from before
 #1331 can skip, under its old draft condition, and a re-run would replay the skip. A ready pull
