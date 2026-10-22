@@ -27,6 +27,9 @@ import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, property
  *    the reader cannot follow (an imported formatter handed the token as its fallback, `formatLocalDate(v, f, '—')`,
  *    `String()`, a method such as `trim()`, a template literal, `+`);
  *  - children given by props (`children` where none are written, a spread's) and `dangerouslySetInnerHTML`;
+ *  - an intrinsic element's other props that show as text (HOST_TEXT_PROPS): a field's `value`, `defaultValue` and
+ *    `placeholder` (an input's, a textarea's), an option's, an optgroup's or a track's `label`, and an iframe's
+ *    `srcDoc`;
  *  - every prop of a component the scan cannot read but the attribute ones (ATTRIBUTE_PROPS: key, ref, className,
  *    style, id, role, tabIndex, htmlFor, href, src, type, name, aria-*, data-*, on*), since it may render any other
  *    (a title, a label, a fallback, a column's header), and the return of every function such a prop holds (a
@@ -43,10 +46,11 @@ import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, property
  *
  * Over-reads that fail closed: a prop of a component the scan cannot read that never renders as text (a DataTable's
  * `rowKey`), a function's return such a prop never renders, a value an imported function is handed but never gives
- * back, and a member read by a key the scan cannot read, which may be any member. Out of scope by design, clean:
- * an intrinsic element's attributes (an aria-label, a title, an alt, a CSV for a download's href), which are not the
- * page's text, so a formatter's string return keeps its fallback for those callers; a comparison and a parse set
- * (lib/format.ts's MISSING_TOKENS); data that arrives at run time (a filing's own table cell, which SummaryBlocks
+ * back, a `value` an intrinsic element never shows (a hidden input's, a checkbox's, a button's, an option's in a
+ * select), and a member read by a key the scan cannot read, which may be any member. Out of scope by design, clean:
+ * an intrinsic element's other attributes (an aria-label, a title, an alt, a CSV for a download's href), which are
+ * not the page's text, so a formatter's string return keeps its fallback for those callers; a comparison and a parse
+ * set (lib/format.ts's MISSING_TOKENS); data that arrives at run time (a filing's own table cell, which SummaryBlocks
  * renders verbatim and where a dash often means nil); and stylesheets, since the gate reads .ts and .tsx. Out of
  * reach, each planted as a gap in FORMS below and review-checked: a token that crosses
  * modules (an imported formatter's own fallback, an imported constant, a render prop handed to a component in another
@@ -69,6 +73,10 @@ const SPELLINGS = /—|\\u2014|\\u\{0*2014\}|&mdash;|&#0*8212;|&#x0*2014;|fromCh
 /** The props of a component the scan cannot read that never render as text: they reach an attribute, a handler or
  *  React itself. Every other prop may render. */
 const ATTRIBUTE_PROPS = /^(?:key|ref|className|style|id|role|tabIndex|htmlFor|href|src|type|name|aria-.+|data-.+|on[A-Z].*)$/
+/** The props an intrinsic element shows as text: its children and inner HTML, a field's value, default value and
+ *  placeholder, an option's, an optgroup's or a track's label and an iframe's document. Its other attributes are not
+ *  the page's text. */
+const HOST_TEXT_PROPS = ['children', 'dangerouslySetInnerHTML', 'value', 'defaultValue', 'placeholder', 'label', 'srcDoc']
 
 /** JSX text and a JSX attribute's string with the entities JSX decodes into the token; other text is as written. */
 const decoded = (text: string) => text.replace(/&(?:mdash|#0*8212|#x0*2014);/gi, TOKEN)
@@ -163,11 +171,11 @@ function findingsIn(text: string, file: string): Finding[] {
     if (name === 'cloneElement' || !type || ts.isSpreadElement(type)) return 'unread'
     return ts.isStringLiteralLike(unwrapHeld(type)) ? 'host' : kindOfType(type)
   }
-  /** Whether a prop renders: an intrinsic element renders its children (when none are written) and its inner HTML,
-      a component the scan cannot read any prop but the attribute ones. */
+  /** Whether a prop renders: an intrinsic element renders its children (when none are written) and the other props it
+      shows as text (HOST_TEXT_PROPS), a component the scan cannot read any prop but the attribute ones. */
   const renders = (kind: Kind, prop: string, written: boolean): boolean => {
     if (prop === 'children') return !written
-    return kind === 'host' ? prop === 'dangerouslySetInnerHTML' : !ATTRIBUTE_PROPS.test(prop)
+    return kind === 'host' ? HOST_TEXT_PROPS.includes(prop) : !ATTRIBUTE_PROPS.test(prop)
   }
 
   const findings: Finding[] = []
@@ -217,7 +225,7 @@ function findingsIn(text: string, file: string): Finding[] {
     for (const attr of opening.attributes.properties) {
       if (ts.isJsxSpreadAttribute(attr)) {
         const spread = values.valueOf(attr.expression)
-        const keys = kind === 'host' ? ['children', 'dangerouslySetInnerHTML'] : [...(spread.props?.keys() ?? [])]
+        const keys = kind === 'host' ? HOST_TEXT_PROPS : [...(spread.props?.keys() ?? [])]
         for (const key of keys) prop(kind, key, written, propertyOf(spread, key), attr)
         continue
       }
@@ -237,7 +245,7 @@ function findingsIn(text: string, file: string): Finding[] {
     const props = args[1] && !ts.isSpreadElement(args[1]) ? args[1] : undefined
     if (!props) return
     const value = values.valueOf(props)
-    const keys = kind === 'host' ? ['children', 'dangerouslySetInnerHTML'] : [...(value.props?.keys() ?? [])]
+    const keys = kind === 'host' ? HOST_TEXT_PROPS : [...(value.props?.keys() ?? [])]
     for (const key of keys) prop(kind, key, handed.length > 0, propertyOf(value, key), props)
   }
   /** Whether a parent renders its children here: a fragment, an intrinsic element and a component the scan cannot
@@ -359,38 +367,50 @@ const FORMS: Array<[Mark, string, string]> = [
   ['flag', 'export function M49() { return <svg><text>—</text></svg> }', 'SVG text'],
   ['flag', 'export function M50() { return <MissingValue label="—" /> }', 'the element handed the token as its words'],
   ['flag', "export function M51() { return <DataTable rows={[]} columns={[]} rowKey={(r: Row) => r.id ?? '—'} /> }", 'fails closed: a prop the gate cannot tell never renders'],
+  ['flag', "export function M52({ v }: { v?: string }) { return <input readOnly value={v ?? '—'} /> }", "an input's value"],
+  ['flag', "export function M53({ v }: { v?: string }) { return <input defaultValue={v ?? '—'} /> }", "an input's default value"],
+  ['flag', "export function M54({ v }: { v?: string }) { return <input placeholder={v ?? '—'} /> }", "an input's placeholder"],
+  ['flag', "export function M55({ v }: { v?: string }) { return <textarea readOnly value={v ?? '—'} /> }", "a textarea's value"],
+  ['flag', "export function M56({ v }: { v?: string }) { return <textarea defaultValue={v ?? '—'} /> }", "a textarea's default value"],
+  ['flag', "export function M57({ v }: { v?: string }) { return <textarea placeholder={v ?? '—'} /> }", "a textarea's placeholder"],
+  ['flag', "export function M58() { return <input readOnly {...{ value: '—' }} /> }", "a field's value given by a spread"],
+  ['flag', "export function M59() { return createElement('input', { readOnly: true, value: '—' }) }", "createElement's field value"],
+  ['flag', "export function M60({ v }: { v?: string }) { return <select><option value=\"\" label={v ?? '—'} /></select> }", "an option's label, which the select shows"],
+  ['flag', 'export function M61() { return <iframe title="Note" srcDoc="—" /> }', "an iframe's document"],
+  ['flag', "export function M62({ v }: { v?: string }) { return <input type=\"hidden\" name=\"v\" value={v ?? '—'} /> }", "fails closed: a hidden input's value, which never renders"],
+  ['flag', 'export function M63() { return <select defaultValue=""><option value="—">None</option></select> }', "fails closed: an option's value, which a select never shows"],
   // The element, and look-alikes that render no token.
-  ['clean', 'export function M52() { return <td><MissingValue /></td> }', 'the element'],
-  ['clean', 'export function M53({ v }: { v?: string }) { return <td>{v ?? <MissingValue label="no cohort" />}</td> }', 'the element with words of its own'],
-  ['clean', 'export function M54({ v }: { v?: string }) { return <td>{shownOrNull(v) ?? <MissingValue />}</td> }', 'a formatter that returns null, the element in its place'],
-  ['clean', "export function M55({ v }: { v?: string }) { return <span>Period end: {formatLocalDate(v, 'MMM d, yyyy') || <MissingValue />}</span> }", 'the element beside a label'],
-  ['clean', "export function M56() { return <DataTable rows={[]} columns={[{ key: 'v', header: 'V', render: (r: Row) => r.v ?? <MissingValue /> }]} /> }", "a column's render returns the element"],
-  ['clean', "export function M57({ v }: { v?: string }) { const csv = ['Name', v ?? '—'].join(','); return <a href={`data:text/csv,${encodeURIComponent(csv)}`}>Download CSV</a> }", 'a CSV cell, which never reaches the page'],
-  ['clean', "export function M58({ v }: { v?: string }) { return <button type=\"button\" aria-label={formatLocalDate(v, 'MMM d, yyyy', '—')}>Open</button> }", 'an aria label'],
-  ['clean', "export function M59({ v }: { v?: string }) { return <Button aria-label={v ?? '—'}>Open</Button> }", "an imported component's aria label"],
-  ['clean', "export function M60({ v }: { v?: string }) { return <td title={v ?? '—'}>x</td> }", 'a title attribute'],
-  ['clean', "export function M61({ v }: { v?: string }) { return <td>{v === '—' ? <MissingValue /> : v}</td> }", 'a comparison'],
-  ['clean', "export function M62({ v }: { v?: string }) { return <li key={v ?? '—'} data-missing=\"—\">x</li> }", 'a key and a data attribute'],
-  ['clean', "export function M63() { return <button type=\"button\" onClick={() => navigator.clipboard.writeText('—')}>Copy</button> }", 'a handler'],
-  ['clean', 'export function M64({ a, b }: { a: string; b: string }) { return <p>{a}–{b}</p> }', 'an en dash in a range'],
-  ['clean', 'export function M65() { return <p>Prior — current</p> }', "an em-dash in copy: the em-dash gate's to fail, not a missing value"],
-  ['clean', "export function M66() { const Drop = ({ children }: { children?: ReactNode }) => <td>{children ? 'x' : null}</td>; return <Drop>—</Drop> }", 'a component that never renders the children it is handed'],
-  ['clean', "export function M67() { const MISSING = new Set(['—']); return <td>{MISSING.has('x') ? <MissingValue /> : 'x'}</td> }", "a parse set, as lib/format.ts's MISSING_TOKENS"],
+  ['clean', 'export function M64() { return <td><MissingValue /></td> }', 'the element'],
+  ['clean', 'export function M65({ v }: { v?: string }) { return <td>{v ?? <MissingValue label="no cohort" />}</td> }', 'the element with words of its own'],
+  ['clean', 'export function M66({ v }: { v?: string }) { return <td>{shownOrNull(v) ?? <MissingValue />}</td> }', 'a formatter that returns null, the element in its place'],
+  ['clean', "export function M67({ v }: { v?: string }) { return <span>Period end: {formatLocalDate(v, 'MMM d, yyyy') || <MissingValue />}</span> }", 'the element beside a label'],
+  ['clean', "export function M68() { return <DataTable rows={[]} columns={[{ key: 'v', header: 'V', render: (r: Row) => r.v ?? <MissingValue /> }]} /> }", "a column's render returns the element"],
+  ['clean', "export function M69({ v }: { v?: string }) { const csv = ['Name', v ?? '—'].join(','); return <a href={`data:text/csv,${encodeURIComponent(csv)}`}>Download CSV</a> }", 'a CSV cell, which never reaches the page'],
+  ['clean', "export function M70({ v }: { v?: string }) { return <button type=\"button\" aria-label={formatLocalDate(v, 'MMM d, yyyy', '—')}>Open</button> }", 'an aria label'],
+  ['clean', "export function M71({ v }: { v?: string }) { return <Button aria-label={v ?? '—'}>Open</Button> }", "an imported component's aria label"],
+  ['clean', "export function M72({ v }: { v?: string }) { return <td title={v ?? '—'}>x</td> }", 'a title attribute'],
+  ['clean', "export function M73({ v }: { v?: string }) { return <td>{v === '—' ? <MissingValue /> : v}</td> }", 'a comparison'],
+  ['clean', "export function M74({ v }: { v?: string }) { return <li key={v ?? '—'} data-missing=\"—\">x</li> }", 'a key and a data attribute'],
+  ['clean', "export function M75() { return <button type=\"button\" onClick={() => navigator.clipboard.writeText('—')}>Copy</button> }", 'a handler'],
+  ['clean', 'export function M76({ a, b }: { a: string; b: string }) { return <p>{a}–{b}</p> }', 'an en dash in a range'],
+  ['clean', 'export function M77() { return <p>Prior — current</p> }', "an em-dash in copy: the em-dash gate's to fail, not a missing value"],
+  ['clean', "export function M78() { const Drop = ({ children }: { children?: ReactNode }) => <td>{children ? 'x' : null}</td>; return <Drop>—</Drop> }", 'a component that never renders the children it is handed'],
+  ['clean', "export function M79() { const MISSING = new Set(['—']); return <td>{MISSING.has('x') ? <MissingValue /> : 'x'}</td> }", "a parse set, as lib/format.ts's MISSING_TOKENS"],
   // Forms the rule forbids that the gate leaves to review, each named in the header.
-  ['gap', 'export function M68({ v }: { v?: string }) { return <td>{fmtOwnFallback(v)}</td> }', "an imported formatter's own fallback"],
-  ['gap', 'export function M69() { return <td>{OWN_TOKEN}</td> }', 'an imported constant'],
-  ['gap', "export const M70 = [{ key: 'v', header: 'V', render: (r: Row) => r.v ?? '—' }]", 'a column list handed to a component in another module'],
-  ['gap', "export function M71() { const [mark] = useState('—'); return <td>{mark}</td> }", 'React state'],
-  ['gap', "export class M72 extends Component { mark = '—'; render() { return <td>{this.mark}</td> } }", "a class's field read through this"],
-  ['gap', "export async function M73(p: Promise<string | undefined>) { const v = await p.then((n) => n ?? '—'); return <td>{v}</td> }", "a promise's then"],
-  ['gap', "export function M74() { return <td>{[...marks()].join('')}</td> }", "a generator's yield"],
-  ['gap', 'export function M75({ v }: { v?: string }) { return <td>{shown.call(null, v)}</td> }', "Function.prototype's call"],
-  ['gap', "export function M76({ v }: { v?: string }) { return <td>{v || '-'}</td> }", 'a missing value in another glyph, a hyphen'],
-  ['gap', "export function M77({ v }: { v?: string }) { return <td>{v ?? '–'}</td> }", 'a missing value in another glyph, an en dash'],
-  ['gap', "export function M78() { return <button type=\"button\" onClick={() => toast('—')}>Save</button> }", "a toast's message, rendered outside the tree"],
-  ['gap', "export function M79() { const ref = useRef<HTMLTableCellElement>(null); useEffect(() => { if (ref.current) ref.current.textContent = '—' }); return <td ref={ref} /> }", 'an imperative write'],
-  ['gap', "export function M80({ local }: { local: boolean }) { const Local = ({ children }: { children: ReactNode }) => <b>{children ? 'x' : null}</b>; const Tag = local ? Local : Badge; return <Tag>—</Tag> }", 'a tag that may be a same-file component or an import, read as the same-file one'],
-  ['gap', 'export function M81({ v }: { v?: string }) { return <p>{v ?? <MissingValue />} shares</p> }', 'the element beside a unit, which the voice guide forbids'],
+  ['gap', 'export function M80({ v }: { v?: string }) { return <td>{fmtOwnFallback(v)}</td> }', "an imported formatter's own fallback"],
+  ['gap', 'export function M81() { return <td>{OWN_TOKEN}</td> }', 'an imported constant'],
+  ['gap', "export const M82 = [{ key: 'v', header: 'V', render: (r: Row) => r.v ?? '—' }]", 'a column list handed to a component in another module'],
+  ['gap', "export function M83() { const [mark] = useState('—'); return <td>{mark}</td> }", 'React state'],
+  ['gap', "export class M84 extends Component { mark = '—'; render() { return <td>{this.mark}</td> } }", "a class's field read through this"],
+  ['gap', "export async function M85(p: Promise<string | undefined>) { const v = await p.then((n) => n ?? '—'); return <td>{v}</td> }", "a promise's then"],
+  ['gap', "export function M86() { return <td>{[...marks()].join('')}</td> }", "a generator's yield"],
+  ['gap', 'export function M87({ v }: { v?: string }) { return <td>{shown.call(null, v)}</td> }', "Function.prototype's call"],
+  ['gap', "export function M88({ v }: { v?: string }) { return <td>{v || '-'}</td> }", 'a missing value in another glyph, a hyphen'],
+  ['gap', "export function M89({ v }: { v?: string }) { return <td>{v ?? '–'}</td> }", 'a missing value in another glyph, an en dash'],
+  ['gap', "export function M90() { return <button type=\"button\" onClick={() => toast('—')}>Save</button> }", "a toast's message, rendered outside the tree"],
+  ['gap', "export function M91() { const ref = useRef<HTMLTableCellElement>(null); useEffect(() => { if (ref.current) ref.current.textContent = '—' }); return <td ref={ref} /> }", 'an imperative write'],
+  ['gap', "export function M92({ local }: { local: boolean }) { const Local = ({ children }: { children: ReactNode }) => <b>{children ? 'x' : null}</b>; const Tag = local ? Local : Badge; return <Tag>—</Tag> }", 'a tag that may be a same-file component or an import, read as the same-file one'],
+  ['gap', 'export function M93({ v }: { v?: string }) { return <p>{v ?? <MissingValue />} shares</p> }', 'the element beside a unit, which the voice guide forbids'],
 ]
 
 describe('the missing-value token renders through MissingValue alone (E88)', () => {
@@ -401,7 +421,7 @@ describe('the missing-value token renders through MissingValue alone (E88)', () 
     const file = path.join(FRONTEND_ROOT, 'features/zzprobe/Probe.tsx')
     const named = new Set(findingsIn(FORMS.map(([, code]) => code).join('\n'), file).map((f) => f.line))
     const count = (mark: Mark) => FORMS.filter(([m]) => m === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([51, 16, 14])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([63, 16, 14])
     const misread = FORMS.flatMap(([mark, code, why], i) =>
       named.has(i + 1) === (mark === 'flag') ? [] : [`line ${i + 1} (${mark}): ${why || code.slice(0, 60)}`],
     )
