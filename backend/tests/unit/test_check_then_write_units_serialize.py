@@ -18,6 +18,10 @@ lock both have checked before either writes, so the race happens however slow th
 The watch-row lock is also taken after the session's first query and must run no new checkout
 inside it, so no holder waits for a pool slot that a waiter holds: each watch-row case fails a
 checkout made by the thread that holds the lock.
+
+These locks reach one process. Each unit also takes a database lock that the API's instances share,
+the watch-row writes before the process lock and the join inside it;
+``test_check_then_write_units_lock_across_instances.py`` holds those (E128).
 """
 
 import threading
