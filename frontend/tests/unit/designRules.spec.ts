@@ -852,6 +852,8 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     // A surface that sets its own padding: what is written inside it is content, not its sections.
     '<Card className="p-cap-6"><div className="p-6" /></Card>',
     '<Card className="p-0"><div className="p-cap-6" /></Card>',
+    // A stated gap: a fragment imported under another name reads as an element of its own.
+    "import { Fragment as F } from 'react'\nexport const x = <Card><F><div className=\"p-6\" /></F></Card>",
     // A binding named unconditionally pads every render, read where it is named.
     "const PAD = 'p-cap-6'\nexport const x = <Card className={cx(PAD, 'mt-6')}><div className=\"p-6\" /></Card>",
     '<section className="rounded-2xl border p-cap-6"><p className="px-6" /></section>',
@@ -891,6 +893,11 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     // through a conditional and a callback written there.
     { code: '<Card><div className="p-5" /></Card>', errors: [{ messageId: 'uncapped' }] },
     { code: '<Card as="section">{open ? <div className="sm:px-6" /> : null}</Card>', errors: [{ messageId: 'uncapped' }] },
+    // Through a fragment, written <> or as an element (Codex's review of 26ca7368): a keyed fragment in a map adds no box.
+    { code: '<Card><><div className="p-6" /></></Card>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<Card><React.Fragment><div className="p-6" /></React.Fragment></Card>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<Card>{rows.map((row) => <Fragment key={row}><div className="px-5" /></Fragment>)}</Card>', errors: [{ messageId: 'uncapped' }] },
+    { code: '<ModalBody><Fragment><div className="rounded-lg border p-4" /></Fragment></ModalBody>', errors: [{ messageId: 'uncapped' }] },
     { code: '<section className="rounded-2xl border"><ul>{rows}</ul><p className="border-t px-6 py-3" /></section>', errors: [{ messageId: 'uncapped' }] },
     { code: '<Card className="divide-y">{rows.map((row) => <article key={row} className="p-4 sm:p-5" />)}</Card>', errors: [{ messageId: 'uncapped' }] },
     { code: '<Modal><div className="p-6" /></Modal>', errors: [{ messageId: 'uncapped' }] },

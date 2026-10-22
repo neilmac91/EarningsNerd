@@ -258,13 +258,14 @@
 //                       ships unstyled. Out of reach (review-checked, the reachable ones planted as gaps in
 //                       tests/unit/designRules.spec.ts): a class a component receives as a prop and passes to a Card or a
 //                       frame elsewhere, an imported constant, an object of recipes (`S.pad`), a binding a ternary or a
-//                       later assignment sets, a class through a helper other than cx()/clsx() (`merge(…)`), an inset set
-//                       in an inline style or a stylesheet, a token whose variant styles another element (`[&>div]:p-6`),
-//                       a frame drawn without a border utility (a fill, a shadow or a ring alone, or a stylesheet class
-//                       such as `.glass-card`), a section of a surface that sets padding on one axis only (a `py-2`
-//                       Card's `px-6` rows), and a section held in a variable or rendered by another component (the
-//                       stacked metric cards' list in FinancialMetricsTable, TableScroll's hint, the filings index's
-//                       skeleton), which carry the cap by hand.
+//                       later assignment sets, a fragment imported under another name (`Fragment as F`), a class through
+//                       a helper other than cx()/clsx() (`merge(…)`), an inset set in an inline style or a stylesheet, a
+//                       token whose variant styles another element (`[&>div]:p-6`), a frame drawn without a border
+//                       utility (a fill, a shadow or a ring alone, or a stylesheet class such as `.glass-card`), a
+//                       section of a surface that sets padding on one axis only (a `py-2` Card's `px-6` rows), and a
+//                       section held in a variable or rendered by another component (the stacked metric cards' list in
+//                       FinancialMetricsTable, TableScroll's hint, the filings index's skeleton), which carry the cap by
+//                       hand.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
@@ -1897,10 +1898,16 @@ function functionName(fn) {
 }
 
 /** The JSX element an element is written in, through `{…}` children, conditionals, fragments and a callback written
- *  there (`{rows.map((row) => <li … />)}`), else null. */
+ *  there (`{rows.map((row) => <li … />)}`), else null. A fragment renders no box, written `<>`, `<Fragment>` or
+ *  `<React.Fragment>` (a keyed fragment in a map). */
 function enclosingElement(element) {
-  for (let node = element.parent; node; node = node.parent) if (node.type === 'JSXElement') return node
+  for (let node = element.parent; node; node = node.parent) if (node.type === 'JSXElement' && !isFragment(node)) return node
   return null
+}
+
+const isFragment = (element) => {
+  const name = element.openingElement.name
+  return name.type === 'JSXIdentifier' ? name.name === 'Fragment' : name.type === 'JSXMemberExpression' && name.property.name === 'Fragment'
 }
 
 /** The identifiers an attribute's value names, outside a callback's body and a member's or a key's written name. */
