@@ -22,7 +22,9 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * the app's own (a view model such as the redlines' RedlineSource, a component's props such as CompanyLogo's `name`):
  * the app fills it, the gate checks every fill it can place, and a read of it is the display form. The census below
  * fails a field of the app's own that nothing the gate can see fills, since its value would then come from somewhere
- * the gate cannot check.
+ * the gate cannot check. A field the app keeps the served name in on purpose, as data (SERVED_KEYS: the evidence
+ * pack's and the redlines' `conformedName`, which their JSON downloads write), is served wherever it is declared: a
+ * fill of it is data and never checked, and a read of it is the served name, so printing it fails.
  *
  * Values are followed through each file by the shared reader (tests/unit/heldValues.ts) with `passThrough` on, so a
  * name held in a const, a destructuring, a parameter a same-file call fills, a same-file function's return, a callback,
@@ -59,7 +61,9 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * comparison, an object a function named like a component returns (a mapper's), which is no text, and text drawn
  * outside React (the chart export paints its header on a canvas from ChartExportHeader's `company`, a field of the
  * app's own, which rule B holds). Out of reach, each planted as a gap in tests/unit/fixtures/companyNameForms.tsx and
- * review-checked: a name that crosses modules as a plain string (another module's function's return, a prop typed as
+ * review-checked: text a call puts on the screen outside JSX (a toast's message, `document.title`), since a call's
+ * arguments are data to the gate; a name served under another field of an object a component the scan cannot read
+ * prints by key (a DataTable column with no `render`, which prints `row[key]`); a name that crosses modules as a plain string (another module's function's return, a prop typed as
  * a string, an indexed access type such as `CalendarEvent['company_name']`); React state; a name served under another
  * field (the census fails a string field of an API type named for a company, an issuer, a filer, a registrant or an
  * entity until it joins the reading or NOT_NAMES); a read by a key the scan cannot read (`ev[key]`) or from a type
@@ -79,14 +83,16 @@ const FORMATTER_FILE = path.join(ROOT, 'lib/formatCompanyName.ts')
 const API_MODULES = [/^features\/[^/]+\/api\//, /^lib\/serverApi\.ts$/, /^lib\/api\//, /^types\//]
 /** The keys a company's name is served under, beside a company's `name`. */
 const NAME_KEYS = new Set(['company_name', 'companyName', 'company'])
+/** The keys the app keeps a served name under on purpose, as data: served wherever they are declared (the header). */
+const SERVED_KEYS = new Set(['conformedName'])
 /** A string field of an API type named for a company, an issuer, a filer, a registrant or an entity: the census reads
     each as a company-name field or as one of NOT_NAMES. */
 const NAMED_LIKE_A_COMPANY = /compan|issuer|filer|registrant|entity/i
 /** String fields of the API types named like a company that hold no company's name (none today). */
 const NOT_NAMES: string[] = []
 /** The props of a component the scan cannot read that never print: they reach an attribute, a handler or React. A
-    `title` is not one of them: a Notice's and a card's print. */
-const ATTRIBUTE_PROPS = /^(?:key|ref|className|style|id|role|tabIndex|htmlFor|href|src|type|name|alt|aria-.+|data-.+|on[A-Z].*)$/
+    `title` is not one of them: a Notice's and a card's print. Nor is a `name`: a chart series' prints in its tooltip. */
+const ATTRIBUTE_PROPS = /^(?:key|ref|className|style|id|role|tabIndex|htmlFor|href|src|type|alt|aria-.+|data-.+|on[A-Z].*)$/
 /** The props an intrinsic element shows as text. Its other attributes (a title, an aria-label, an alt) are not printed. */
 const HOST_TEXT_PROPS = ['children', 'dangerouslySetInnerHTML', 'value', 'defaultValue', 'placeholder', 'label', 'srcDoc']
 /** React's calls that make an element: a value of its own, as JSX is. */
@@ -140,11 +146,11 @@ function isNameField(d: ts.Node): d is Field {
   const result =
     !!key &&
     stringLike(CHECKER.getTypeAtLocation(d)) &&
-    (NAME_KEYS.has(key) || (key === 'name' && propertiesNamed(CHECKER.getTypeAtLocation(d.parent), 'ticker').length > 0))
+    (NAME_KEYS.has(key) || SERVED_KEYS.has(key) || (key === 'name' && propertiesNamed(CHECKER.getTypeAtLocation(d.parent), 'ticker').length > 0))
   fieldCache.set(d, result)
   return result
 }
-const isServed = (d: Field) => isApiModule(d.getSourceFile().fileName)
+const isServed = (d: Field) => isApiModule(d.getSourceFile().fileName) || SERVED_KEYS.has(keyText(d.name) ?? '')
 /** The company-name fields a symbol declares (a union's or a mapped type's member declares each of its sources). */
 const fieldsOf = (symbol: ts.Symbol | undefined): Field[] => (symbol?.declarations ?? []).filter(isNameField)
 const fieldName = (d: Field) => {
@@ -450,7 +456,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       else strays.push(`line ${f.line}: ${f.shown}`)
     }
     const count = (mark: string) => [...forms.values()].filter((f) => f.mark === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([58, 27, 10])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([60, 29, 13])
     const misread = [...forms].filter(([name, { mark }]) => named.has(name) !== (mark === 'flag')).map(([name, { mark }]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])

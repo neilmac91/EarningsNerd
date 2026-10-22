@@ -21,6 +21,8 @@ vi.mock('@/lib/downloadBlob', () => ({ downloadBlob: (blob: Blob) => { api.downl
 
 import FilingRedlines from '@/features/filing-redlines/components/FilingRedlines'
 import { validateFilingPair } from '@/features/filing-redlines/lib/filingPair'
+import { compareParagraphs } from '@/features/filing-redlines/lib/compareParagraphs'
+import { createReviewReceipt } from '@/features/filing-redlines/lib/review'
 
 function filing(id: number): Filing {
   const earlier = id === 1
@@ -347,5 +349,16 @@ describe('the source identities', () => {
     const shouting = (id: number): Filing => ({ ...filing(id), company: { id: 123, ticker: 'TEST', name: 'SAMPLE INDUSTRIES A INC' } })
     const pair = validateFilingPair(shouting(1), shouting(2), 1, 2)
     expect([pair.earlier.companyName, pair.current.companyName]).toEqual(['Sample Industries A Inc', 'Sample Industries A Inc'])
+  })
+
+  it("keep EDGAR's conformed name, as served, in the downloaded review receipt, a record of the filings (chief design on #1491)", () => {
+    const shouting = (id: number): Filing => ({ ...filing(id), company: { id: 123, ticker: 'TEST', name: 'SAMPLE INDUSTRIES A INC' } })
+    const pair = validateFilingPair(shouting(1), shouting(2), 1, 2)
+    const receipt = createReviewReceipt(pair, compareParagraphs('Earlier text.', 'Later text.'), {}, '2026-10-22T00:00:00.000Z')
+    for (const source of [receipt.sources.earlier, receipt.sources.later]) {
+      expect(source.companyName).toBe('SAMPLE INDUSTRIES A INC')
+      expect(source).not.toHaveProperty('conformedName')
+      expect(source.form).toBe('10-K')
+    }
   })
 })

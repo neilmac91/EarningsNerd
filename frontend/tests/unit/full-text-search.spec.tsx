@@ -79,6 +79,14 @@ describe('FullTextSearchResults', () => {
     expect(container.textContent).not.toContain('APPLE INC.')
   })
 
+  // A filer with several tickers keeps them in its display name and serves no ticker of its own; the row's only ticker
+  // text is that group, so it stays as served while the name before it takes its display casing.
+  it("keeps a filer's group of tickers as served", () => {
+    const { container } = render(<FullTextSearchResults hits={[{ ...hit, company: 'BOEING CO (BA, BA-PA)', ticker: null }]} />)
+    expect(container.textContent).toContain('Boeing Co (BA, BA-PA)')
+    expect(container.textContent).not.toContain('(Ba, Ba-Pa)')
+  })
+
   it('renders a non-link row when no URL is available (no empty anchor)', () => {
     const noUrl: FullTextSearchHit = { ...hit, document_url: null, sec_url: null }
     const { container } = render(<FullTextSearchResults hits={[noUrl]} />)

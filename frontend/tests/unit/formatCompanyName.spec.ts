@@ -31,6 +31,29 @@ describe('formatCompanyName', () => {
     expect(formatCompanyName(input)).toBe(expected)
   })
 
+  // Chief design on #1491 (E155): a legal form with EDGAR's marker glued on reads as the same legal form without one; the
+  // marker keeps its capitals, and a marker alone stays as served. Only letter case changes.
+  it.each([
+    ['QUALCOMM INC/DE', 'Qualcomm Inc/DE'],
+    ['SHENANDOAH TELECOMMUNICATIONS CO/VA/', 'Shenandoah Telecommunications Co/VA/'],
+    ['ACME HOLDINGS LLC/DE', 'Acme Holdings LLC/DE'],
+    ['BANK OF AMERICA CORP /DE/', 'Bank of America Corp /DE/'],
+  ])('cases a legal form before its marker and keeps the marker: %s -> %s', (input, expected) => {
+    expect(formatCompanyName(input)).toBe(expected)
+  })
+
+  // EDGAR's full-text search folds every ticker of a multi-class or warrant-carrying filer into its display name; the
+  // group is data, so it stays as served (the review of #1491, measured on live display names).
+  it.each([
+    ['BOEING CO (BA, BA-PA)', 'Boeing Co (BA, BA-PA)'],
+    ['NEWS CORP (NWS, NWSA, NWSAL)', 'News Corp (NWS, NWSA, NWSAL)'],
+    ['FLYEXCLUSIVE INC. (FLYX, FLYX-WT)', 'Flyexclusive Inc. (FLYX, FLYX-WT)'],
+    ['Alphabet Inc. (GOOGL, GOOG)', 'Alphabet Inc. (GOOGL, GOOG)'],
+    ['(BA, BA-PA)', '(BA, BA-PA)'],
+  ])('keeps a trailing group of tickers as served: %s -> %s', (input, expected) => {
+    expect(formatCompanyName(input)).toBe(expected)
+  })
+
   it('resolves initialisms and overrides through glued punctuation', () => {
     expect(formatCompanyName('INTERNATIONAL BUSINESS MACHINES CORP (IBM)')).toBe(
       'International Business Machines Corp (IBM)',

@@ -5,12 +5,12 @@ export const fictionalPair: RedlinePair = {
   fictional: true,
   earlier: {
     filingId: null,
-    companyName: 'Harbor Vale Industries', ticker: 'Fictional company',
+    companyName: 'Harbor Vale Industries', conformedName: 'Harbor Vale Industries', ticker: 'Fictional company',
     reportDate: '2024-12-31', filingDate: '2025-02-21', accession: 'Fictional earlier filing', originalUrl: null,
   },
   current: {
     filingId: null,
-    companyName: 'Harbor Vale Industries', ticker: 'Fictional company',
+    companyName: 'Harbor Vale Industries', conformedName: 'Harbor Vale Industries', ticker: 'Fictional company',
     reportDate: '2025-12-31', filingDate: '2026-02-20', accession: 'Fictional later filing', originalUrl: null,
   },
 }

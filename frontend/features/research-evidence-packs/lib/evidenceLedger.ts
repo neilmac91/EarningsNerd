@@ -7,8 +7,12 @@ export interface SourceIdentity {
   readonly filingId: number
   readonly companyId: number
   /** The company's name in its display casing (formatCompanyName), formatted where the filing enters (sourceIdentity),
-      so the pack and its exports name it as the rest of the app does. */
+      so the pack's pages and its Markdown export name it as the rest of the app does. */
   readonly companyName: string
+  /** EDGAR's conformed name as the API served it, the data value. The JSON export writes it as `companyName`: a record a
+      reader has downloaded cannot take a later fix to the display casing, and the filing's own header names the company
+      so (chief design on #1491). */
+  readonly conformedName: string
   readonly ticker: string
   readonly form: string
   readonly accession: string
@@ -74,7 +78,7 @@ export function sourceIdentity(filing: Filing, expectedId: number): SourceIdenti
     throw new Error('A valid SEC original link is required.')
   }
   return Object.freeze({ filingId: expectedId, companyId: filing.company!.id,
-    companyName: formatCompanyName(filing.company!.name), ticker: filing.company!.ticker, form: filing.filing_type,
+    companyName: formatCompanyName(filing.company!.name), conformedName: filing.company!.name, ticker: filing.company!.ticker, form: filing.filing_type,
     accession: filing.accession_number, reportDate, filedDate, originalUrl: url.href, fictional: false })
 }
 
@@ -135,9 +139,22 @@ function sourceMarkdown(source: SourceSnapshot): string {
     source.quote.split('\n').map((line) => `> ${markdownText(line)}`).join('\n'),
   ].join('\n\n')
 }
+/** A snapshot as the JSON export writes it: EDGAR's conformed name, as served, in `companyName`. A data payload. */
+function servedSnapshot({ conformedName, ...snapshot }: SourceSnapshot): Record<string, unknown> {
+  return { ...snapshot, companyName: conformedName }
+}
+
 export function exportEvidence(entries: readonly EvidenceEntry[], format: 'json' | 'markdown', exportedAt: string): string {
   const disclosure = 'Local prototype. User review records a decision, not verified truth or investment advice. Cached text coverage is unverified. A quote match does not establish that an interpretation is supported. Recheck sources before reuse.'
-  if (format === 'json') return JSON.stringify({ schemaVersion: 1, exportedAt, disclosure, entries }, null, 2)
+  if (format === 'json') {
+    const served = entries.map((entry) => ({
+      ...entry,
+      revisions: entry.revisions.map(servedSnapshot),
+      proposal: entry.proposal && servedSnapshot(entry.proposal),
+      reviews: entry.reviews.map((review) => ({ ...review, candidate: review.candidate && servedSnapshot(review.candidate) })),
+    }))
+    return JSON.stringify({ schemaVersion: 1, exportedAt, disclosure, entries: served }, null, 2)
+  }
   return ['# Research evidence pack', `Exported: ${exportedAt}`, disclosure, ...entries.map((entry) => [
     `## Evidence ${entry.id}: ${entry.status}`, `### My interpretation\n\n${entry.interpretation.split('\n').map((line) => markdownText(line)).join('  \n') || '(No interpretation recorded)'}`,
     ...entry.revisions.map((source, index) => `### Source revision ${index + 1}\n\n${sourceMarkdown(source)}`),

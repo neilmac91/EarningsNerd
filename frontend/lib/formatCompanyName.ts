@@ -14,14 +14,20 @@
  *      a lowercase suffix must not exempt the shouting body in front of it.
  *   2. Otherwise every whitespace-separated token is title-cased (first letter up, rest down),
  *      EXCEPT:
- *        - tokens with a digit, ampersand, or slash are left untouched ("3M", "AT&T", "S&P", "/DE/");
+ *        - tokens with a digit or an ampersand are left untouched ("3M", "AT&T", "S&P");
+ *        - a token with a slash is EDGAR's legal form with a marker glued on: the part before the first slash is
+ *          cased as that word on its own, and each marker after a slash (a state code, NEW) keeps its capitals
+ *          ("INC/DE" -> "Inc/DE", "CO/VA/" -> "Co/VA/"); a marker alone ("/DE/") stays as served (chief design on
+ *          #1491, E155);
  *        - tokens in OVERRIDES take their brand casing ("JPMORGAN" -> "JPMorgan", "EBAY" -> "eBay");
  *        - tokens in KEEP_UPPER stay upper (legal-form initialisms "LLC", "PLC"; brand initialisms
  *          "IBM", "NVIDIA", "NIKE" as the company itself styles it; roman numerals);
  *        - short connectives ("of", "the", "and", ...) are lowercased unless they lead the name.
  *      Lookups ignore punctuation glued to a token, so "(IBM)", "IBM," and "CO." resolve like
  *      "IBM" and "CO"; the punctuation is re-attached unchanged.
- *   3. Punctuation is never added or removed. "INC." -> "Inc." and "CORP" -> "Corp" (no period is
+ *   3. A trailing group of tickers in parentheses, which EDGAR's full-text search folds into a filer's display name
+ *      ("BOEING CO (BA, BA-PA)"), is data and stays as served; the name before it takes rules 1 and 2.
+ *   4. Punctuation is never added or removed. "INC." -> "Inc." and "CORP" -> "Corp" (no period is
  *      invented), so the display form is always the source form with only its letter case changed.
  *      Hyphen/apostrophe/period-joined segments are cased per segment ("COCA-COLA" -> "Coca-Cola",
  *      "O'REILLY" -> "O'Reilly", "U.S." -> "U.S."), with a trailing possessive "'S" -> "'s".
@@ -84,6 +90,10 @@ const LOWER_MIDWORD = new Set([
 
 const hasLowercase = (s: string): boolean => /[a-z]/.test(s)
 
+/** A trailing group of tickers in parentheses, as EDGAR's full-text search folds a filer's tickers into its display name
+    ("BOEING CO (BA, BA-PA)", "FLYEXCLUSIVE INC. (FLYX, FLYX-WT)"): each a ticker's shape in capitals, comma-separated. */
+const TICKER_GROUP = /(?:^|\s+)(\((?:[A-Z0-9][A-Z0-9.-]{0,9})(?:,\s*[A-Z0-9][A-Z0-9.-]{0,9})*\))$/
+
 /** Split "(IBM)," into ["(", "IBM", "),"]: leading / trailing non-alphanumerics vs the core. */
 const splitPunctuation = (token: string): [string, string, string] => {
   const m = /^([^A-Za-z0-9]*)(.*?)([^A-Za-z0-9]*)$/.exec(token)
@@ -107,8 +117,13 @@ const caseToken = (token: string, isFirst: boolean): string => {
   // Whole-token lookups first (entries such as "U.S." carry their own punctuation).
   if (OVERRIDES[upper]) return OVERRIDES[upper]
   if (KEEP_UPPER.has(upper)) return upper
-  // Digits, ampersands, slashes: ticker-like or brand tokens ("3M", "AT&T", "S&P", "/DE/") -> as-is.
-  if (/[0-9&/]/.test(token)) return token
+  // Digits, ampersands: ticker-like or brand tokens ("3M", "AT&T", "S&P") -> as-is.
+  if (/[0-9&]/.test(token)) return token
+  // A legal form with EDGAR's marker glued on: the word before the first slash cased on its own, each marker as served
+  // ("INC/DE" -> "Inc/DE"); a marker alone ("/DE/") as served. A marker never takes the word rules ("DE" is a connective).
+  const slash = token.indexOf('/')
+  if (slash === 0) return token
+  if (slash > 0) return caseToken(token.slice(0, slash), isFirst) + token.slice(slash)
   // Then the core with glued punctuation stripped: "(IBM)", "IBM,", "CO." -> lookup "IBM" / "CO".
   const [lead, core, trail] = splitPunctuation(token)
   const coreUpper = core.toUpperCase()
@@ -128,6 +143,12 @@ export function formatCompanyName(name: string | null | undefined): string {
   if (!name) return ''
   const trimmed = name.trim()
   if (!trimmed) return ''
+  // Rule 3: a trailing group of tickers stays as served, and the name before it takes the casing rules.
+  const group = TICKER_GROUP.exec(trimmed)
+  if (group) {
+    const head = formatCompanyName(trimmed.slice(0, group.index))
+    return head ? `${head} ${group[1]}` : group[1]
+  }
   const tokens = trimmed.split(/\s+/)
 
   // Body = everything before the trailing run of legal-form tokens. Only lowercase IN THE BODY

@@ -11,6 +11,8 @@
 import { Fragment, createContext, createElement, useContext, useMemo, useState, type ReactNode } from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Bar } from 'recharts'
+import { toast } from 'sonner'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge, DataTable, Notice } from '@/components/ui'
 import { formatCompanyName, formatCompanyName as titleCase } from '@/lib/formatCompanyName'
@@ -277,14 +279,14 @@ export function N40({ ev }: { ev: CalendarEvent }) {
 
 /** N41 flag: a mapper that stops formatting, the redlines' source (placed by its return type). */
 export function N41(filing: Filing): RedlineSource {
-  return { filingId: filing.id, companyName: filing.company!.name, ticker: filing.company!.ticker, reportDate: '', filingDate: '', accession: '', originalUrl: null }
+  return { filingId: filing.id, companyName: filing.company!.name, conformedName: filing.company!.name, ticker: filing.company!.ticker, reportDate: '', filingDate: '', accession: '', originalUrl: null }
 }
 
 /** N42 flag: a mapper that stops formatting through Object.freeze, the evidence ledger's identity. */
 export function N42(filing: Filing): SourceIdentity {
   return Object.freeze({
-    filingId: filing.id, companyId: filing.company!.id, companyName: filing.company!.name, ticker: filing.company!.ticker, form: filing.filing_type,
-    accession: filing.accession_number, reportDate: '', filedDate: '', originalUrl: null, fictional: false,
+    filingId: filing.id, companyId: filing.company!.id, companyName: filing.company!.name, conformedName: filing.company!.name, ticker: filing.company!.ticker,
+    form: filing.filing_type, accession: filing.accession_number, reportDate: '', filedDate: '', originalUrl: null, fictional: false,
   })
 }
 
@@ -354,7 +356,7 @@ export function N54() {
   return <span>{ev?.company_name}</span>
 }
 
-/** N92's component, which returns the name as text. */
+/** N55's component, which returns the name as text. */
 function N55Name({ ev }: { ev: CalendarEvent }) {
   return ev.company_name
 }
@@ -535,7 +537,7 @@ export function N84(company: Company): Metadata {
   return { title: `${name} SEC filings | EarningsNerd`, description: `${name} filings from SEC EDGAR.` }
 }
 
-/** N89's component, which never prints the children it is handed. */
+/** N85's component, which never prints the children it is handed. */
 function N85Drop({ children }: { children?: ReactNode }) {
   return <td>{children ? 'Listed' : null}</td>
 }
@@ -596,4 +598,41 @@ export function N94({ ev }: { ev: CalendarEvent }) {
 /** N95 gap: a name read from a type that declares no field for it (an index signature). */
 export function N95({ row }: { row: Record<string, string> }) {
   return <span>{row.company_name}</span>
+}
+
+/** N96 flag: a `name` prop of a component the scan cannot read, which prints it (a chart series' name, in its tooltip). */
+export function N96({ ev }: { ev: CalendarEvent }) {
+  return <Bar dataKey="eps_estimate" name={ev.company_name} />
+}
+
+/** N97 flag: the app's own copy of the served name, kept as data, printed. */
+export function N97({ source }: { source: SourceIdentity }) {
+  return <p>{source.conformedName}</p>
+}
+
+/** N98 clean: the served name kept as data beside the display form, in a field of the app's own made for it. */
+export function N98(filing: Filing): Pick<SourceIdentity, 'companyName' | 'conformedName'> {
+  return { companyName: formatCompanyName(filing.company!.name), conformedName: filing.company!.name }
+}
+
+/** N99 clean: a download's record, a data payload typed with an index signature, carrying the served name. */
+export function N99({ conformedName, ...source }: SourceIdentity): Record<string, unknown> {
+  return { ...source, companyName: conformedName }
+}
+
+/** N100 gap: text a call puts on the screen outside JSX, a toast's message. */
+export function N100({ ev }: { ev: CalendarEvent }) {
+  toast.success(`${ev.company_name} added to your watchlist`)
+  return null
+}
+
+/** N101 gap: text a call puts on the screen outside JSX, the tab's title. */
+export function N101({ ev }: { ev: CalendarEvent }) {
+  document.title = `${ev.company_name} · EarningsNerd`
+  return null
+}
+
+/** N102 gap: a component the scan cannot read that prints a row's field by key, a DataTable column with no render. */
+export function N102({ events }: { events: CalendarEvent[] }) {
+  return <DataTable rows={events} rowKey={(row) => row.ticker} columns={[{ key: 'company_name', header: 'Company' }]} />
 }
