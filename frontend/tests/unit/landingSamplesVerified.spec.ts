@@ -41,9 +41,10 @@ import * as samples from '@/features/marketing/lib/landing-samples'
  *    run its comment names, ending at FY2025: its FY2025 and FY2024 revenue, net income, diluted EPS and
  *    operating cash flow are the verified values, tagged and filed as the verified 10-K; its citations are
  *    its own dataset's figures; every source link in it, the landing's three-series view included, opens the
- *    primary document of the filing it cites, never the accession folder (E149); its data notes and narrative
- *    evidence pass the admission the live API path applies; no key or string in it names a model; and the
- *    landing's three-series view counts data notes from those three series alone.
+ *    primary document of the filing it cites, never the accession folder (E149), a citation's that of the figure
+ *    it cites, a reported figure's on itself and its provenance, and a calculated figure has none; its data notes
+ *    and narrative evidence pass the admission the live API path applies; no key or string in it names a model;
+ *    and the landing's three-series view counts data notes from those three series alone.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -328,17 +329,24 @@ describe('the Multi-Period demo is one pipeline run, ending at the verified fisc
     // The pipeline links a fact to its filing row's document_url, and to the accession folder when no row holds one
     // (backend/app/services/fact_provenance.py), so a run made before the company's filings were listed carries
     // folders. Each link sits on a figure, an input, a provenance record or a citation; the nearest accession above
-    // it is the filing it cites, where one is named. A calculated figure has no one filing: its link is null, and
-    // its inputs carry theirs.
+    // it is the filing it cites, where one is named, and a citation, which names none, cites the figure its marker
+    // names. A reported figure opens its filing, on itself and on its provenance. A calculated figure has no one
+    // filing: its link is null or absent, and its inputs carry theirs.
     const links: { at: string; key: string; value: unknown; accession?: string; calculated: boolean }[] = []
     const accessions = new Set<string>()
     function sourceLinks(value: unknown, at: string, accession?: string) {
       if (Array.isArray(value)) value.forEach((item, i) => sourceLinks(item, `${at}[${i}]`, accession))
       if (!value || typeof value !== 'object' || Array.isArray(value)) return
-      const record = value as { accession?: unknown; provenance?: { method?: unknown } }
+      const record = value as { accession?: unknown; source_url?: unknown; provenance?: { method?: unknown; source_url?: unknown } }
       const cited = typeof record.accession === 'string' ? record.accession.replace(/-/g, '') : accession
       if (cited) accessions.add(cited)
       const calculated = record.provenance?.method === 'calculated'
+      if (record.provenance?.method === 'reported') {
+        expect([typeof record.source_url, typeof record.provenance.source_url], `${at}: a reported figure opens its filing`).toEqual(['string', 'string'])
+      }
+      if (calculated) {
+        expect([record.source_url ?? null, record.provenance?.source_url ?? null], `${at}: a calculated figure has no link of its own`).toEqual([null, null])
+      }
       for (const [key, item] of Object.entries(value)) {
         if (/url$/i.test(key)) links.push({ at: `${at}.${key}`, key, value: item, accession: cited, calculated })
         else sourceLinks(item, `${at}.${key}`, cited)
@@ -367,6 +375,7 @@ describe('the Multi-Period demo is one pipeline run, ending at the verified fisc
       const [, folder, name] = match ?? ['', '', '']
       expect(name, `${at} opens a document inside its folder: ${url.href}`).toMatch(/^[\w.-]+\.htm$/)
       if (accession) expect(folder, `${at} sits in the folder of the filing it cites`).toBe(accession)
+      else expect(at, `${at} names no filing, so it is a citation's, held to its figure's link below`).toMatch(/^demo\.completion\.citations\[\d+\]\.(?:provenance\.)?source_url$/)
       expect(documents.get(folder) ?? url.href, `${at}: one primary document per filing`).toBe(url.href)
       documents.set(folder, url.href)
     }
@@ -374,6 +383,18 @@ describe('the Multi-Period demo is one pipeline run, ending at the verified fisc
     expect(calculatedFigures, 'calculated figures, each linked through its inputs').toBeGreaterThan(0)
     expect([...accessions].filter((accession) => !documents.has(accession)), 'filings cited with no document link').toEqual([])
     expect(documents.get('000032019325000079')).toBe(samples.AAPL_FY25_EDGAR_URL)
+    // A citation opens what the figure it cites opens: its marker names a point or a series' CAGR in the dataset.
+    const marked = new Map<string, unknown>()
+    for (const series of dataset.series) {
+      for (const point of series.points) if (point.marker) marked.set(point.marker, point.source_url ?? null)
+      const cagr = series as typeof series & { cagr_marker?: string }
+      if (cagr.cagr_marker) marked.set(cagr.cagr_marker, series.cagr_provenance?.source_url ?? null)
+    }
+    for (const citation of completion.citations) {
+      expect(marked.has(citation.marker as string), `[${citation.n}] cites a marked figure`).toBe(true)
+      const figure = marked.get(citation.marker as string)
+      expect([citation.source_url ?? null, citation.provenance?.source_url ?? null], `[${citation.n}] opens the filing of the figure it cites`).toEqual([figure, figure])
+    }
   })
 
   it('holds the verified FY2025 and FY2024 values for each concept the two share, from the verified 10-K', () => {
