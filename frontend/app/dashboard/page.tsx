@@ -209,10 +209,17 @@ export default function DashboardPage() {
       backHref="/"
       backLabel="Back to home"
       actions={
+        // aria-disabled + aria-busy + an early return while the logout is under way, not native `disabled`: Chromium
+        // blurs a focused button that turns disabled. Busy fades the label's ink, which holds under hover.
         <button
           type="button"
-          onClick={() => logoutMutation.mutate()}
-          className="rounded-lg text-sm font-medium text-text-secondary-light hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark"
+          onClick={() => {
+            if (logoutMutation.isPending) return
+            logoutMutation.mutate()
+          }}
+          aria-disabled={logoutMutation.isPending || undefined}
+          aria-busy={logoutMutation.isPending || undefined}
+          className="rounded-lg text-sm font-medium text-text-secondary-light hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand aria-disabled:text-text-secondary-light/50 dark:text-text-secondary-dark dark:hover:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark dark:aria-disabled:text-text-secondary-dark/50"
         >
           Log out
         </button>
