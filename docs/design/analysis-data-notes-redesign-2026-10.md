@@ -566,7 +566,7 @@ corrections of §11:
   annual totals. Fiscal quarters. Data from Q2 2011; up to 12 quarters at a time.", then Run analysis.
   (The Run button keeps native `disabled` while running: `analysis-api.spec.ts` pins it, a rule-6
   contract; #1203's one-line change to that spec was the pre-approved contract change for the chips.)
-- The 61-chip grid is retired. On phones the selects are full width and 42 px tall; from 640 px up they
+- The 61-chip grid is retired. On phones the selects are full width and 44 px tall; from 640 px up they
   are 36 px toolbar fields beside the segmented control.
 
 ### 4.10 One vocabulary across exports
@@ -608,7 +608,7 @@ grouping and the sentences so the four cannot disagree (Phase 2); the exports re
   focus to the note's list item (`tabIndex=-1`, visible ring) without forced smooth scrolling.
 - Touch: `SegmentedControl` `size="adaptive"` is 36 px below the `sm` breakpoint and 26 px from it;
   the mode and window controls use `size="md"` (36 px) and full width on phones; the range selects are
-  42 px on phones. Figure buttons are not inline text: they meet WCAG 2.5.8 by size (the KPI buttons) or
+  44 px on phones. Figure buttons are not inline text: they meet WCAG 2.5.8 by size (the KPI buttons) or
   by the spacing exception (table rows about 41 px apart, columns at least 68 px); repeated "Open filing
   ↗" links carry distinct names. The table scrolls by swipe and snaps to columns; the chart plot scrolls
   by swipe inside its region, never the page.
