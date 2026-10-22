@@ -1523,9 +1523,9 @@ per the design. `.glass-card` is retired on the landing route (its remaining con
 phrase span, `.en-mark.en-hero-emphasis`, and loads the existing
 `scripts/brand/fonts/Inter-Variable-Italic-latin.woff2` through
 `next/font/local`, with genuine italic, weight 600, optical sizing and `font-synthesis: none`.
-This local face does not change `app/layout.tsx`, the root font variables or `app/global-error.tsx`;
-the broader web/brand-image italic decision (E79) and root/error font deduplication (E147) remain
-separate work. The class uses solid `brand.strong-dark` (`#98C5AD`) in both themes, opaque
+This local face does not change the root fonts (`app/fonts.ts`, one instance each, which `app/layout.tsx`
+and `app/global-error.tsx` import, E147) or the root font variables; the broader web/brand-image italic
+decision (E79) remains separate work. The class uses solid `brand.strong-dark` (`#98C5AD`) in both themes, opaque
 `text.primary.light` (`#1A1A17`) in light and `background.dark` (`#0B1120`) at 90% in dark.
 That is a local fill/ink role exception, with no new palette token, hairline, shadow or interaction.
 Its inline block uses line-height `.9`, padding `calc(.04em - 1px) .18em .06em`, inline margins
@@ -1701,8 +1701,10 @@ fallback, a Cited jump and an XBRL fact never register the device's highlight; a
   with the wordmark `display: none` (sr-only text still lays out past the link, which the bar's checks
   read). At 360px and 200% text the lockup ran to 369px. Gate: `tests/e2e/reflow-200.spec.ts` (360px at
   200%, the bar's edge in the logo's clear space).
-- Fonts are self-hosted via `next/font` (Inter with `axes: ['opsz']`, Geist Mono, Newsreader) —
-  see `app/layout.tsx`; promotional emphasis also loads its shared local Inter italic face (§7).
+- Fonts are self-hosted via `next/font` (Inter with `axes: ['opsz']`, Geist Mono, Newsreader), one
+  instance each, in `app/fonts.ts`, which the root layout and the global error page import, so a page
+  declares one Inter (gate: `tests/unit/oneFontInstance.spec.ts`); promotional emphasis also loads its
+  shared local Inter italic face (§7).
   SF Pro / New York are platform-licensed and must never be embedded.
 
 ## 9. Exemptions

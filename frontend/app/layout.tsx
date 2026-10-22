@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Geist_Mono, Newsreader } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
+import { inter, geistMono, newsreader } from './fonts'
 import { SiteHeader, SiteFooter } from '@/components/SiteChrome'
 import VerificationBanner from '@/features/auth/components/VerificationBanner'
 import EmailVerificationModal from '@/features/auth/components/EmailVerificationModal'
@@ -10,27 +10,6 @@ import { PrivateAnalytics } from './private-analytics'
 import { fetchSignupConfig } from '@/lib/serverApi'
 import { resolveAccessMode } from '@/features/marketing/lib/access'
 import { SOCIAL_CARD } from '@/lib/socialCard'
-
-// Type v2 — fixed roles, self-hosted via next/font (zero layout shift; the runtime
-// font switcher is retired). Inter loads WITH the variable opsz axis: that is what
-// gives the SF-style Text↔Display optical cuts (font-optical-sizing: auto in
-// globals.css). -apple-system stays FIRST in --font-body, so Apple users render
-// SF Pro (platform-licensed, zero bytes) and never download Inter; SF Pro / SF Mono /
-// New York must NEVER be embedded as webfonts. globals.css + tailwind.config.js
-// reference the emitted variables (--font-inter / --font-geist-mono / --font-newsreader).
-const inter = Inter({ subsets: ['latin'], axes: ['opsz'], variable: '--font-inter' })
-const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' })
-// axes: opsz — the editorial role promises optical sizing (font-optical-sizing: auto);
-// preload: false — the serif is opt-in for the filing's own words (long-form filing reading,
-// and inside the product a passage the server located, set as a marked block: D-044), so
-// ~120KB of woff2 must not ride the critical path of every route.
-const newsreader = Newsreader({
-  subsets: ['latin'],
-  style: ['normal', 'italic'],
-  axes: ['opsz'],
-  variable: '--font-newsreader',
-  preload: false,
-})
 
 // Pre-paint theme script — mirrors ThemeProvider (saved 'theme' else light) and sets the
 // .dark class before first paint, so the (theme-responsive) pages don't flash the wrong theme
