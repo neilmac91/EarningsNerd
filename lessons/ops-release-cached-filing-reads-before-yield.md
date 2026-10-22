@@ -104,11 +104,11 @@ the auth lookup's connection each waiter holds, three such waiters and the stall
 instance's four-slot pool. The join takes the waitlist's place lock, a transaction-level advisory lock,
 since no row is common to every join (`waitlist_service._lock_waitlist_places`), inside its process lock,
 which a waiter takes before its first query and so waits on holding no connection. Its place is one past
-the highest held, which a deleted signup cannot hand out again, and its credit one UPDATE that adds to the
-stored score. The process locks stay: under SQLite they are the only serialization.
+the highest held, so no two signups on the list share one even after a deletion, and its credit one
+UPDATE that adds to the stored score. The process locks stay: under SQLite they are the only serialization.
 `backend/tests/unit/test_check_then_write_units_lock_across_instances.py` holds each lock from before its
 unit's first read to the commit of its write, as statements compiled for PostgreSQL, the watch-row lock
-outside the process lock and the reads beside them taking neither, and the credit to one that a
+outside the process lock and the reads beside them taking no lock, and the credit to one that a
 concurrent commit cannot lose. No CI step races two instances on PostgreSQL. The pull request's local run
 did, with a process lock per thread for each instance: two enables at the cap, two adds, two removes, a
 disable against a remove, an add against an enable, and two joins with and without a link. It also timed

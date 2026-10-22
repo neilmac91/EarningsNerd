@@ -20,10 +20,10 @@ REFERRAL_CODE_LENGTH = 8
 REFERRAL_BONUS = 5
 VERIFY_TOKEN_DAYS = 7
 
-# A join reads, then writes: the referrer's priority it bumps and the signup count its position comes
-# from. On the event loop the join ran them one at a time within the process; in the thread pool two
-# joins on one referral link could both read the same priority and lose a credit, and two joins could
-# take one position. ``create_signup`` holds this lock for its whole unit, taken before its first
+# A join reads, then writes: the referrer's priority it bumps, and the highest place held, which its
+# own place follows. On the event loop the join ran them one at a time within the process; in the
+# thread pool two joins on one referral link could both read the same priority and lose a credit, and
+# two joins could take one place. ``create_signup`` holds this lock for its whole unit, taken before its first
 # query: a waiter holds no connection, so a holder's checkout never waits for one a waiter holds.
 # This lock reaches one process, and the API runs up to two instances, so the credit is one atomic
 # UPDATE and the unit also takes the waitlist's place lock (``_lock_waitlist_places``), which every
@@ -139,8 +139,8 @@ def _lock_waitlist_places(db: Session) -> None:
 
     A join's place is one past the highest place held (``_next_place``), so two joins that read it before
     either commits take one place. ``_join_lock`` serializes joins within one instance; this lock serializes
-    them across the API's instances. A second join waits here for the first's commit, and its count
-    then reads that commit (READ COMMITTED). The list has no row every join could lock, so it is a
+    them across the API's instances. A second join waits here for the first's commit, and its read of the
+    highest place then sees that commit (READ COMMITTED). The list has no row every join could lock, so it is a
     transaction-level advisory lock: PostgreSQL releases it at the commit or rollback, so it never
     outlives the unit on a pooled connection. Unbounded, as its holders are short transactions. SQLite
     has no advisory locks, and its joins run in one process, under ``_join_lock``."""

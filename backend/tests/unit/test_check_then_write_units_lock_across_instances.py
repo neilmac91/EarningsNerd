@@ -11,13 +11,14 @@ two adds could both write a row, a referral credit could be lost and two joins c
   query and so waits on holding no connection.
 - The join's credit is one UPDATE that adds to the stored score, so a credit committed after the join read its
   referrer is kept.
-- The reads beside them take neither lock.
+- The reads beside them take no lock: no row lock of any strength, and no advisory lock.
 
 SQLite omits ``FOR UPDATE`` and has no advisory locks, so the lock cases read the statements each unit's session
 runs, compiled for PostgreSQL. The join's run on an engine whose dialect calls itself PostgreSQL, with a stand-in
 for ``pg_advisory_xact_lock``. ``test_check_then_write_units_serialize.py`` holds the process locks; no CI step races
 two instances on PostgreSQL.
 """
+import re
 from typing import NamedTuple
 
 import pytest
@@ -33,6 +34,8 @@ from app.services import earnings_alert_service, waitlist_service, watchlist_ser
 USER_ID = 1000
 # "WAITLIST" in ASCII, pinned here rather than read from the module under test, so a changed key fails.
 PLACE_LOCK_KEY = int.from_bytes(b"WAITLIST", "big")
+# Each of PostgreSQL's row-locking clauses, so a read that locks a row at another strength, or another row, fails too.
+ROW_LOCK = re.compile(r"\bFOR (?:UPDATE|NO KEY UPDATE|SHARE|KEY SHARE)\b")
 
 
 class Recorded(NamedTuple):
@@ -119,7 +122,8 @@ def _place_lock(sql: str) -> bool:
 
 
 def _takes_a_lock(statements: list[Recorded]) -> bool:
-    return any(_users_row_lock(s.sql) or "advisory" in s.sql for s in statements)
+    """Any row lock, of any strength and on any table, or any advisory lock."""
+    return any(ROW_LOCK.search(s.sql) or "advisory" in s.sql for s in statements)
 
 
 def _watcher(sessions, *, alerts_on: int = 0, watched: bool = False) -> None:
@@ -179,7 +183,7 @@ def test_the_alert_enable_counts_the_cap_under_the_lock(sessions):
 
 
 def test_the_watch_row_reads_take_no_lock(sessions):
-    """The list, the insights and the alert reads beside the writes take neither lock."""
+    """The list, the insights and the alert reads beside the writes take no lock."""
     _watcher(sessions, alerts_on=1, watched=True)
     for read in (
         lambda db, user: watchlist_service.list_items(db, user.id),
@@ -210,7 +214,7 @@ def test_the_join_takes_the_place_lock_before_it_reads_the_list(sessions, postgr
 
 
 def test_the_waitlist_reads_take_no_lock(sessions, postgres_named):
-    """The status read (the signup and its referral count) and the stats read take no place lock, even where the
+    """The status read (the signup and its referral count) and the stats read take no lock, even where the
     dialect is PostgreSQL's."""
     with sessions() as db:
         db.add(WaitlistSignup(email="referrer@example.com", referral_code="refcode0", position=1, priority_score=0))
