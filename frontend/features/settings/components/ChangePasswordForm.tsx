@@ -64,8 +64,8 @@ export default function ChangePasswordForm() {
             spinner card reserved via min-h, so resolve doesn't shift content. */}
         <div role="status" aria-label="Loading password form" className="min-h-[200px] space-y-4">
           <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-10 max-w-md" />
-          <Skeleton className="h-10 max-w-md" />
+          <Skeleton className="h-11 max-w-md" />
+          <Skeleton className="h-11 max-w-md" />
           <span className="sr-only">Loading…</span>
         </div>
       </Card>
