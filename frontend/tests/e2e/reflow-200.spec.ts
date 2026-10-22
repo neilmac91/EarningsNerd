@@ -56,8 +56,8 @@ import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
  * page to 333px; / reached 329px (the hero example's identity line and figures) and /search 344px (its date fields).
  * There a legal page's gutter gives way before a word breaks, and a word still wider than its column breaks inside it
  * (E131), where /security reached 348px on its headings' "Authentication" and "Infrastructure" and /terms 362px on
- * "Indemnification"; at 390px under 200% text no word on the legal pages breaks inside it, and at 320px each one's h1
- * holds whole, read a character at a time.
+ * "Indemnification"; at 390px under 200% text no word on the legal pages breaks inside it, an address aside, and at
+ * 320px each one's h1 holds whole, read a character at a time.
  * The open menu scrolls inside the viewport: at 390x664 and 360x640 and 200%, guest and signed in, a
  * wheel over the menu and focus each bring its last item into view inside it, the page unmoved, and neither
  * the page nor the menu scrolls sideways (before, the sticky header showed it only at the page's very end).
