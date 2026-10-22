@@ -171,9 +171,11 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    expiry, and E96 (how a reused token's sweep reads) is open; the stronger wording returns only in a pull request
  *    that carries the founder's go-ahead (tasks/todo.md F53) and changes this check. Each family is read in one list
  *    item or paragraph (blockTexts), and a promise of logging out in its own sentence or in the one after a sentence
- *    that names a logging-out action (a logout, a sign-out, a password changed or reset; a new password counts in its
- *    own sentence, and before a noun it names, "our new password policy", only for main's timed and untimed readings,
- *    as main reads its password word anywhere: ANY_NEW_PASSWORD), and beside a password only named, in the password's own clause, which a conjunction ends unless an
+ *    that names a logging-out action (a logout, a sign-out, a password changed or reset, or acted on in other words,
+ *    "pick a fresh password", "submit the password form": PASSWORD_ACTED_ON; a new password counts in its own sentence,
+ *    and before a noun it names, "our new password policy", only for main's timed and untimed readings, as main reads
+ *    its password word anywhere: ANY_NEW_PASSWORD), and beside a password only named, in the password's own clause,
+ *    which a conjunction ends unless an
  *    end follows it or it joins the password to another noun (CLAUSE_JOIN), so a word in a neighbouring sentence or
  *    clause makes no context: "Passwords are hashed. Idle sessions end after 30 minutes." and "Passwords are hashed and
  *    idle sessions end after 30 minutes." pass. Planted forms score the
@@ -619,15 +621,28 @@ const NEW_PASSWORD = /\b(?:new|another|different)\s+passwords?\b(?!\s+(?:policy|
     pass a change said through the form that main refuses ("Submit the new password form and every session ends within
     30 minutes."), so "Our new password policy is documented and idle sessions end after 30 minutes." fails, as on main. */
 const ANY_NEW_PASSWORD = /\b(?:new|another|different)\s+passwords?\b/i
+/** A password acted on in other words (#1456's eleventh round), a logging-out action as a password changed or reset is
+    (LOGGING_OUT_ACTION, which reads change, reset and update itself): a verb acting on the password, its object naming
+    it after a determiner ("pick a fresh password", "type your password twice", "submit the password form", "comply
+    with the password policy"; "a set of password rules" is no such object), or the password's form, page, field or
+    screen saving it ("the password form saves your choice"). Its whole sentence, across "and", and the sentence after
+    it are a logout's context. Main refuses these by its password word anywhere; read as a password only named, they had
+    passed since round 8, and the sentence after since round 7. */
+const PASSWORD_ACTED_ON = new RegExp(
+  String.raw`\b(?:pick|choose|set|create|enter|type|retype|submit|save|fill in|meet|follow|comply with)\s+(?:a|an|the|your|its|their|this|that|one)\s+(?:(?!(?:and|or|but)\b)[\w'’-]+\s+){0,2}?passwords?\b` +
+    String.raw`|\b(?:the|your|our)\s+(?:new\s+)?password\s+(?:form|page|field|screen)\s+saves\b`,
+  'i',
+)
 /** What of a block a promise of logging out is read in: a sentence that names a logging-out word or action itself
-    (LOGGING_OUT, LOGGING_OUT_ACTION, NEW_PASSWORD), the one after a sentence that names a logging-out action, which
+    (LOGGING_OUT, LOGGING_OUT_ACTION, NEW_PASSWORD, PASSWORD_ACTED_ON), the one after a sentence that names a logging-out
+    action or a password acted on, which
     goes on from it ("Logging out of all devices revokes your refresh tokens. Each session then ends within 30
     minutes."), and the clause of a password only named (PASSWORD, clausesOf). A word in a neighbouring sentence or
     clause is no context: in "Passwords are hashed. Idle sessions end after 30 minutes." the idle timeout is no logout's
     end. */
 const loggingOutSentences = (block: string) =>
   sentencesOf(block).flatMap((sentence, i, all) =>
-    LOGGING_OUT.test(sentence) || LOGGING_OUT_ACTION.test(sentence) || NEW_PASSWORD.test(sentence) || (i > 0 && LOGGING_OUT_ACTION.test(all[i - 1]))
+    LOGGING_OUT.test(sentence) || LOGGING_OUT_ACTION.test(sentence) || NEW_PASSWORD.test(sentence) || PASSWORD_ACTED_ON.test(sentence) || (i > 0 && (LOGGING_OUT_ACTION.test(all[i - 1]) || PASSWORD_ACTED_ON.test(all[i - 1])))
       ? [sentence]
       : clausesOf(sentence).filter((clause) => PASSWORD.test(clause)),
   )
@@ -1587,6 +1602,30 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Submit the new password form and every session ends within 30 minutes.</li>', true],
       ['<li>Set a new password, and every session ends within 30 minutes.</li>', true],
       ['<li>Your new password ends every other session within 30 minutes.</li>', true],
+      // A password acted on in other words, by a verb with the password as its object or by the password's form
+      // saving it, is a logging-out action, as a password changed or reset is: its sentence, across "and", and the
+      // sentence after give the logout's context, one flag a verb; with no end named it promises nothing, and "a set of
+      // password rules" acts on nothing (#1456's eleventh round, the regression since round 8 and, in the sentence
+      // after, round 7).
+      ['<li>Pick a fresh password and every other session ends within 30 minutes.</li>', true],
+      ['<li>Choose a strong password, and every other session ends within 30 minutes.</li>', true],
+      ['<li>Set your password and all your other sessions end at once.</li>', true],
+      ['<li>Create a password and every session ends within 30 minutes.</li>', true],
+      ['<li>Enter a fresh password, and every other session ends within 30 minutes.</li>', true],
+      ['<li>Type your password twice and every session ends within 30 minutes.</li>', true],
+      ['<li>Retype your password and every other session ends within 30 minutes.</li>', true],
+      ['<li>Submit the password form and every session ends within 30 minutes.</li>', true],
+      ['<li>Save the password page, and every other session ends within 30 minutes.</li>', true],
+      ['<li>Fill in the password field and all your other sessions end at once.</li>', true],
+      ['<li>Meet the password requirements and every session ends within 30 minutes.</li>', true],
+      ['<li>Follow the password rules, and every other session ends within 30 minutes.</li>', true],
+      ['<li>Comply with the password policy and every session ends within 30 minutes.</li>', true],
+      ['<li>The password form saves your choice and every session ends within 30 minutes.</li>', true],
+      ['<li>Pick a fresh password and your other sessions end.</li>', true],
+      ['<li>Pick a fresh password. Every other session ends within 30 minutes.</li>', true],
+      ['<li>You can pick a fresh password and every session ends within 30 minutes.</li>', true],
+      ['<li>Choose a strong password and enjoy the dashboard.</li>', false],
+      ['<li>Each account has a set of password rules, and idle sessions end after 30 minutes.</li>', false],
       // A one-use form with the negation apart from its modal ("can not"), beside another credential's (#1456's ninth
       // round).
       ['<li>A refresh token can not be used twice.</li>', true],
