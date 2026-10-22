@@ -128,11 +128,17 @@ def count_signups(db: Session) -> int:
     return db.query(func.count(WaitlistSignup.id)).scalar() or 0
 
 
+def _next_place(db: Session) -> int:
+    """One past the highest place held, so a place stays its join's alone after a signup is deleted, which
+    the count of signups would hand out again."""
+    return (db.query(func.max(WaitlistSignup.position)).scalar() or 0) + 1
+
+
 def _lock_waitlist_places(db: Session) -> None:
     """Take the waitlist's place lock for the rest of the caller's transaction (E128).
 
-    A join's place is the count of signups before it plus one, so two joins that count before either
-    commits take one place. ``_join_lock`` serializes joins within one instance; this lock serializes
+    A join's place is one past the highest place held (``_next_place``), so two joins that read it before
+    either commits take one place. ``_join_lock`` serializes joins within one instance; this lock serializes
     them across the API's instances. A second join waits here for the first's commit, and its count
     then reads that commit (READ COMMITTED). The list has no row every join could lock, so it is a
     transaction-level advisory lock: PostgreSQL releases it at the commit or rollback, so it never
@@ -200,7 +206,7 @@ def _create_signup(
         referrer.priority_score = WaitlistSignup.priority_score + 1
 
     total_signups = count_signups(db)
-    base_position = total_signups + 1
+    base_position = _next_place(db)
     new_referral_code = generate_unique_referral_code(db)
 
     signup = WaitlistSignup(
