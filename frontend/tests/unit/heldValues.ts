@@ -387,7 +387,8 @@ export interface HeldOptions<L> {
   /** Whether React's state keeps what it is handed and gives it back (companyNameDisplay.spec.ts): useState's first
       element holds its initial value, what its initializer returns and what its setter is handed in the file, called
       by the name it is destructured under (a value, or what an updater returns); useReducer's, its initial argument and
-      what its init and its reducer return; useRef's `current`, its initial value (what the code puts there later is an
+      what its init and its reducer return, the reducer called with the state and each action its dispatcher is handed
+      in the file, by the name it is destructured under; useRef's `current`, its initial value (what the code puts there later is an
       assignment, read as any other); useDeferredValue, what it defers; useSyncExternalStore, what the snapshot returns.
       By default each is a call the reading cannot follow. */
   state?: boolean
@@ -512,9 +513,10 @@ export function heldValues<L>(
     }
     return callIndex.get(declaration) ?? []
   }
-  /** What a useState's setter is handed in the file, called by the name it is destructured under (`const [, set] =
-      useState(…)`): each value, or what an updater returns. A setter called by another name or handed on is not read. */
-  const handedToSetter = (x: ts.CallExpression, record?: Set<ts.Node>): Held<L> => {
+  /** What a hook's second element is handed in the file, called by the name it is destructured under (`const [, set] =
+      useState(…)`): useState's setter, each value or what an updater returns; useReducer's dispatcher, each action. A
+      setter or a dispatcher called by another name or handed on is not read. */
+  const handedTo = (x: ts.CallExpression, record?: Set<ts.Node>): Held<L> => {
     let parent: ts.Node = x.parent
     while (ts.isParenthesizedExpression(parent) || ts.isAsExpression(parent) || ts.isSatisfiesExpression(parent) || ts.isNonNullExpression(parent)) {
       parent = parent.parent
@@ -738,7 +740,7 @@ export function heldValues<L>(
     if (name === 'useCallback') return arg(0)
     // React's state, for a gate that reads it (HeldOptions.state): what each hook keeps, where it gives it back.
     if (state) {
-      if (name === 'useState') return withProps([['0', union(union(arg(0), returned(fnsOf(0), record)), handedToSetter(x, record))]])
+      if (name === 'useState') return withProps([['0', union(union(arg(0), returned(fnsOf(0), record)), handedTo(x, record))]])
       if (name === 'useReducer') return withProps([['0', union(arg(1), union(returned(fnsOf(2), record), returned(fnsOf(0), record)))]])
       if (name === 'useRef') return withProps([['current', arg(0)]])
       if (name === 'useDeferredValue') return union(arg(0), arg(1))
@@ -877,6 +879,14 @@ export function heldValues<L>(
     const args = x.arguments
     const recv = receiverOf(x)
     const fnsAt = (i: number) => (args[i] ? valueOf(args[i]).fns : null)
+    // React calls a reducer with the state and each action its dispatcher is handed in the file, and its initializer
+    // with the initial argument (HeldOptions.state).
+    if (state && name === 'useReducer') {
+      const reducer = fnsAt(0)
+      if (reducer?.size) pass(reducer, [propertyOf(valueOf(x, record), '0'), handedTo(x, record)])
+      const init = fnsAt(2)
+      if (init?.size && args[1]) pass(init, [valueOf(args[1], record)])
+    }
     if (receiverNamed(x, 'Children') && (name === 'map' || name === 'forEach')) {
       const fns = fnsAt(1)
       if (fns?.size && args[0]) {

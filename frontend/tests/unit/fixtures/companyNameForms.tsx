@@ -617,6 +617,31 @@ export function N108({ ev }: { ev: CalendarEvent }) {
   return <span>{name}</span>
 }
 
+/** N116 flag: React state whose initializer returns a served name. */
+export function N116({ ev }: { ev: CalendarEvent }) {
+  const [name] = useState(() => ev.company_name)
+  return <span>{name}</span>
+}
+
+/** N114 flag: a reducer's dispatcher handed a served name, which the reducer gives back as the state. */
+export function N114({ ev }: { ev: CalendarEvent }) {
+  const [name, dispatch] = useReducer((_current: string, next: string) => next, '')
+  return (
+    <button type="button" onClick={() => dispatch(ev.company_name)}>
+      {name}
+    </button>
+  )
+}
+
+/** N115 flag: a ref's `current` set to a served name after the ref is made. */
+export function N115({ ev }: { ev: CalendarEvent }) {
+  const ref = useRef('')
+  // eslint-disable-next-line react-hooks/refs -- planted AST form: a ref written while rendering, which app code may not write.
+  ref.current = ev.company_name
+  // eslint-disable-next-line react-hooks/refs -- planted AST form: a ref read while rendering, which app code may not write.
+  return <span>{ref.current}</span>
+}
+
 /** N109 flag: a deferred value of a served name. */
 export function N109({ ev }: { ev: CalendarEvent }) {
   const name = useDeferredValue(ev.company_name)

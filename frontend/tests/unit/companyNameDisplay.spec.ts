@@ -28,8 +28,8 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  *
  * Values are followed through each file by the shared reader (tests/unit/heldValues.ts) with `passThrough` and `state`
  * on, so a name held in a const, a destructuring, a parameter a same-file call fills, a same-file function's return, a
- * callback, React's state (useState with what its setter is handed, useReducer, useRef, useDeferredValue,
- * useSyncExternalStore), a template literal, `+`, an array or a call the reader cannot follow (`String()`, `trim()`,
+ * callback, React's state (useState with what its setter is handed, useReducer with what its dispatcher is handed,
+ * useRef, useDeferredValue, useSyncExternalStore), a template literal, `+`, an array or a call the reader cannot follow (`String()`, `trim()`,
  * `join()`) is still the name. Across modules, a call of another module's function that hands back a served name as
  * text holds the name, through any chain of modules (SERVED_RETURNS, a fixed point over the program). A call of
  * formatCompanyName (imported under any name, read from the module's namespace, or held in a same-file const) gives the
@@ -68,8 +68,8 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * arguments are data to the gate; a name served under another field of an object a component the scan cannot read
  * prints by key (a DataTable column with no `render`, which prints `row[key]`); a name that crosses modules in a prop
  * typed as a plain string (`label: string`, or an indexed access type such as `CalendarEvent['company_name']`), or
- * inside an object another module's function hands back; a state's setter called by another name or handed on (to a
- * component or a function), which the reader no longer ties to its state; a name served under another field (the
+ * inside an object another module's function hands back; a state's setter or a reducer's dispatcher called by another
+ * name or handed on (to a component or a function), which the reader no longer ties to its state; a name served under another field (the
  * census fails a string field of an API type named for a company, an issuer, a filer, a registrant or an
  * entity until it joins the reading or NOT_NAMES); a read by a key the scan cannot read (`ev[key]`) or from a type
  * that declares no field for it (an index signature, `any`); a piece of the name read by index from what a call hands
@@ -526,7 +526,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       else strays.push(`line ${f.line}: ${f.shown}`)
     }
     const count = (mark: string) => [...forms.values()].filter((f) => f.mark === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([69, 31, 13])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([72, 31, 13])
     const misread = [...forms].filter(([name, { mark }]) => named.has(name) !== (mark === 'flag')).map(([name, { mark }]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])
