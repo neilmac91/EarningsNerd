@@ -50,7 +50,8 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    consent, opt in, give consent, say yes, turn or switch on, enable), before "with (after, upon, on or by) your
  *    consent" with up to three words before the consent (permission, agreement, approval, opt-in, each read by its
  *    start, so "only after consenting" fails too), or before "once allowed", a sentence that names the browser ("in
- *    your browser") reading as scoped; or, in the forms the "only" ones miss, "until you allow", a negation, contracted
+ *    your browser") reading as scoped, and a negation on the verb passing (NOT_NEAR: "Analytics are not collected only
+ *    with your consent."); or, in the forms the "only" ones miss, "until you allow", a negation, contracted
  *    or not, before "without your consent", "requires (needs, waits for, is or are subject to) your consent",
  *    "consent-gated" or "opt-in", where a sentence that names the browser or its part, its analytics cookies or session
  *    recording (the consent dialog's own "Analytics cookies and session recording stay off until you allow them", and
@@ -144,7 +145,9 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    row, under the user whose session it ended.
  * 7. /security promises nothing of refresh tokens and logging out that the code does not enforce when requests overlap
  *    (E127_PROMISES): a refresh token that works once (one-time, cannot be used twice, read beyond main's phrases only
- *    in a sentence about the refresh or session token: "a one-time recovery code" is another credential), a reused one
+ *    in a sentence about the refresh or session token: "a one-time recovery code" is another credential; a negation
+ *    near "one-time", "good for one use" or "after one use" passes, NOT_NEAR: "Refresh tokens are not one-time
+ *    credentials."), a reused one
  *    revoking the account or sweeping its sessions (every session ended, signed out on every device; a session that
  *    ends on its own beside "again" is no sweep; read beyond main's words only in a sentence about the token, as the
  *    one-use forms are: "A verification code cannot be used more than once and can be revoked from settings." is
@@ -297,6 +300,17 @@ const NEGATION_REACH = String.raw`(?!(?:only|just|merely|simply)\b)(?:(?:yet|the
     says, and so does a clause whose subject is denied (DENIED_SUBJECT). The end forms, main's timed and untimed
     readings among them, and the consent forms whose verb says the promise read it. */
 const NOT = String.raw`(?<!\b(?:not|never|nor|cannot|no longer)\s+${NEGATION_REACH}|n['’]t\s+${NEGATION_REACH}|(?:\b(?:not|never|cannot)|n['’]t)\s*,[^,.;:!?]{1,40},\s*|${DENIED_SUBJECT})`
+/** A negation on the word itself (#1456's tenth round), for three branches that read no denial before: the consent
+    forms' "only" where the yes follows it at once, the login said as the subject before the endpoints, and the one-use
+    forms that are no denial themselves. One word at most stands between them (REACH_WORD), with "be", "been" or
+    "being" before it ("are not collected only with", "will not be collected only with", "are not one-time", "do not
+    expire after one use"), or "no" stands directly before it ("no login is required"; "no doubt" denies nothing);
+    the first word may not be "only", "just", "merely" or "simply" (NEGATION_REACH), and a negation earlier in the
+    sentence makes the two a promise ("It is not true that refresh tokens are not one-time."). NOT's four words and a
+    denied subject's clause would carry a negation from a relative or a complement clause to the verb after it:
+    "Analytics that do not identify you are collected only with your consent." and "Nobody doubts that refresh tokens
+    are one-time." still promise. */
+const NOT_NEAR = String.raw`(?<!(?<!(?:\b(?:not|never|no|none|nothing|nobody|neither|nor|cannot)\b|n['’]t\b)[^.;:!?]*)(?:(?:\b(?:not|never|nor|cannot|no\s+longer)|n['’]t)\s+(?!(?:only|just|merely|simply)\b)(?:(?:be|been|being)\s+)?(?:${REACH_WORD})?|\bno\s+))`
 /** Usage as the analytics (#1456's eighth round): qualified ("usage data", "usage statistics", "product usage",
     "anonymous usage") or as what is tracked, collected or sent ("we track usage", "usage is collected", with a modal
     or a negation on the verb: "usage can be collected", "usage isn't collected", "usage cannot be collected"), not the
@@ -318,6 +332,10 @@ const YES = String.raw`(?:allow|accept|agree|consent|opt(?:ed)?[- ]in|giv(?:e|en
 /** The reader's yes, as a noun. */
 const CONSENT = String.raw`(?:consent|permission|agreement|approval|opt[- ]in|say-so)s?`
 
+/** The yes an "only" form waits for: "after (once, when, if or until) you allow", "with (after, upon, on or by) your
+    consent", with up to three words before the consent, or "once allowed". */
+const YES_AFTER_ONLY = String.raw`(?:\b(?:after|once|when|if|until) you(?: have|['’]ve)? ${YES}|\b(?:with|after|upon|on|by) (?:[\w'’-]+ ){0,3}${CONSENT}|\b(?:once|if|when|after) (?:it is |they are |it['’]s |they['’]re )?(?:allowed|accepted|enabled|consented)\b)`
+
 /** An analytics-consent promise not scoped to the browser, in one sentence (header item 1 lists its forms). The
     "only" forms read a sentence that names the browser as scoped, and read the consent word by its start, so "only
     after consenting" fails as "only after consent" does; the forms that wait for a yes another way read the browser's
@@ -327,9 +345,11 @@ const CONSENT = String.raw`(?:consent|permission|agreement|approval|opt[- ]in|sa
     is subject to, consent-gated, opt-in) read a denial as NOT does, before the verb or on the subject, so "No server
     events require your consent." passes, and "no" before the consent denies it ("Server events require no consent.");
     "until you allow" after another verb and "without your consent" take a denied subject as part of the promise ("No
-    analytics run until you allow them", "No usage data is sent without your permission"). */
+    analytics run until you allow them", "No usage data is sent without your permission"). Where the yes follows
+    "only" at once, the "only" forms read a negation on the verb before it (NOT_NEAR; #1456's tenth round), so
+    "Analytics are not collected only with your consent." passes. */
 const CONSENT_PROMISE = new RegExp(
-  String.raw`^(?!.*\bin your browser\b)(?=.*${ANALYTICS_NAMES}).*\bonly\b.{0,60}?(?:\b(?:after|once|when|if|until) you(?: have|['’]ve)? ${YES}|\b(?:with|after|upon|on|by) (?:[\w'’-]+ ){0,3}${CONSENT}|\b(?:once|if|when|after) (?:it is |they are |it['’]s |they['’]re )?(?:allowed|accepted|enabled|consented)\b)` +
+  String.raw`^(?!.*\bin your browser\b)(?=.*${ANALYTICS_NAMES}).*(?:${NOT_NEAR}\bonly\s+|\bonly\b(?!\s+${YES_AFTER_ONLY}).{0,60}?)${YES_AFTER_ONLY}` +
     String.raw`|^(?!.*(?:\bin your browser\b|${BROWSER_PART}))(?=.*${ANALYTICS_NAMES})(?:` +
     String.raw`.*(?<!\bwait(?:s|ing)?\s)\buntil you(?: have|['’]ve)? ${YES}` +
     String.raw`|.*${NOT}\bwait(?:s|ing)?\s+until you(?: have|['’]ve)? ${YES}` +
@@ -384,9 +404,11 @@ const NEEDS_A_LOGIN = String.raw`${NOT}\b(?:` +
   String.raw`|(?:answers?|responds?|works?|opens?)\s+(?:only\s+)?(?:to|for|with|after|once)\s+(?:a\s+|an\s+)?(?:logged[- ]in|signed[- ]in|authenticated|valid\s+token${ITSELF})` +
   ')'
 /** The login said before the endpoints as their requirement: "a login is required for each endpoint", "you need a
-    token for any endpoint", "authentication is mandatory on each endpoint", "you must log in to call any endpoint". */
+    token for any endpoint", "authentication is mandatory on each endpoint", "you must log in to call any endpoint".
+    The login as the subject reads a denial on itself (NOT_NEAR; #1456's tenth round), so "No login is required for
+    each endpoint." passes; the forms with "you" read NOT. */
 const LOGIN_FOR = String.raw`(?:` +
-  String.raw`\b${A_LOGIN}\s+(?:is|are)\s+(?:always\s+|strictly\s+)?(?:required|needed|mandatory|necessary|enforced|checked|expected)\s+(?:for|on|by|at|in|to\s+(?:call|reach|use|query|open))\s+(?:the\s+)?` +
+  String.raw`${NOT_NEAR}\b${A_LOGIN}\s+(?:is|are)\s+(?:always\s+|strictly\s+)?(?:required|needed|mandatory|necessary|enforced|checked|expected)\s+(?:for|on|by|at|in|to\s+(?:call|reach|use|query|open))\s+(?:the\s+)?` +
   String.raw`|${NOT}\b(?:you|readers?|callers?|clients?|users?)\s+(?:need|needs|require|requires|must\s+(?:have|present|send|hold|show))\s+${A_LOGIN}\s+(?:for|on|to\s+(?:call|reach|use|query|open))\s+(?:the\s+)?` +
   String.raw`|${NOT}\b(?:you|readers?|callers?|clients?|users?)\s+(?:must|have to|need to)\s+(?:log|sign)\s+in\s+(?:to|before|first to)\s+(?:call|calling|reach|reaching|use|using|query|querying|open|opening)\s+(?:the\s+)?` +
   ')'
@@ -529,8 +551,14 @@ const WORKS_ONCE = /\bworks? (?:only )?once\b|\bsingle[- ]use\b|\b(?:used|usable
 /** The one-use forms main's phrases miss ("one-time", "good for one use", "cannot be used twice", "cannot be reused",
     "after one use"), read only in a sentence about the refresh or session token: one that names it (TOKEN_CONTEXT), or
     one in a block that names it and names no other credential (OTHER_CREDENTIAL), as "Each one cannot be reused." in
-    the Token renewal item. "A one-time recovery code", a reset link and a verification code are other credentials. */
-const ONE_USE = /\bone-time\b|\b(?:used|usable|valid|good)(?: only)? for (?:one|a single) use\b|\b(?:can(?:not|['’]t| not)|can never|may not|never|won['’]t) be (?:used|presented|accepted) (?:twice|again|more than once|a second time)\b|\b(?:can(?:not|['’]t| not)|can never|won['’]t) be re-?used\b|\bafter (?:one|a single|its first) use\b/i
+    the Token renewal item. "A one-time recovery code", a reset link and a verification code are other credentials.
+    The forms that are no denial themselves read a negation near them (NOT_NEAR; #1456's tenth round): "Refresh
+    tokens are not one-time credentials." passes. */
+const ONE_USE = new RegExp(
+  String.raw`${NOT_NEAR}(?:\bone-time\b|\b(?:used|usable|valid|good)(?: only)? for (?:one|a single) use\b|\bafter (?:one|a single|its first) use\b)` +
+    String.raw`|\b(?:can(?:not|['’]t| not)|can never|may not|never|won['’]t) be (?:used|presented|accepted) (?:twice|again|more than once|a second time)\b|\b(?:can(?:not|['’]t| not)|can never|won['’]t) be re-?used\b`,
+  'i',
+)
 /** The refresh or session token, or token renewal, named. */
 const TOKEN_CONTEXT = /\b(?:refresh|session)[- ]tokens?\b|\btoken renewal\b/i
 /** A credential that is not the refresh or session token: a code, a link, a password, a key, an invite, a PIN. */
@@ -1260,6 +1288,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // A modal on the usage verb reads as its negation does (#1456's ninth round), beside the word's ordinary sense.
       ['<p>Usage can be collected only with your consent.</p>', true],
       ['<p>Usage can be billed only with your agreement.</p>', false],
+      // A negation on the verb before "only", beside the promise it denies (#1456's tenth round, Codex's thread
+      // 4344569265).
+      ['<p>Analytics are collected only with your consent.</p>', true],
+      ['<p>Analytics are not collected only with your consent.</p>', false],
       // Every endpoint with other words before "endpoints" (#1397's last review), each and any with a login said, and
       // the claim the other way round.
       ["<p>All of the API's endpoints require authentication.</p>", true],
@@ -1277,6 +1309,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Each endpoint can only be called with a token.</p>', true],
       ['<p>Each endpoint returns JSON and requires a login.</p>', true],
       ['<p>A login is required for each endpoint.</p>', true],
+      // The same with its subject denied, which passes (#1456's tenth round, Codex's thread 4344569268).
+      ['<p>No login is required for each endpoint.</p>', false],
       ['<p>You need a token for any endpoint.</p>', true],
       ['<p>Authentication is mandatory on each endpoint.</p>', true],
       ['<p>No endpoint accepts anonymous requests.</p>', true],
@@ -1505,6 +1539,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // round).
       ['<li>A refresh token can not be used twice.</li>', true],
       ['<li>A verification code can not be used twice.</li>', false],
+      // A one-use form denied, beside the promise it denies (#1456's tenth round, Codex's thread 4344569270).
+      ['<li>Refresh tokens are one-time credentials.</li>', true],
+      ['<li>Refresh tokens are not one-time credentials.</li>', false],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
