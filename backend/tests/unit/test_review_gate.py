@@ -20,13 +20,42 @@ HEAD = "a834193192d007ed9b5c35e895aa532dcbb757bc"
 CODEX_USER = {"login": "chatgpt-codex-connector[bot]", "type": "Bot", "id": 199175422}
 
 
+CREATED = "2026-09-15T18:40:00Z"
+EDITOR = {"login": "chatgpt-codex-connector", "__typename": "Bot", "databaseId": 199175422}
+
+
+def _body(head=HEAD, status="completed", at="2026-09-15T18:54:47Z", trigger="PR opened", unresolved=False):
+    marker = {"code_review": {"commit_sha": head, "status": status,
+                              "has_unresolved_findings": unresolved}, "security_review": {"status": None}}
+    return ("<!-- codex-pull-request-review-summary -->\n"
+            + "<!-- codex-review-state:v1 " + json.dumps(marker) + " -->\n"
+            + "| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n"
+            + f'| 📝 **Code Review** | **{status.title()}** <relative-time datetime="{at}">{at}</relative-time> '
+            + f'| `{head[:7]}` | {trigger} |\n')
+
+
+def _edit(body, at="2026-09-15T18:55:00Z", editor=EDITOR):
+    return {"diff": body, "editedAt": at, "editor": editor}
+
+
 def _summary(status: str, commit: str, user: dict = CODEX_USER) -> dict:
-    body = (
-        "<!-- codex-pull-request-review-summary -->\n\n## Codex Review Summary\n\n"
-        "| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n"
-        f"| 📝 **Code Review** | {status} | `{commit}` | PR opened |\n"
-    )
-    return {"user": user, "body": body}
+    head = HEAD if HEAD.startswith(commit) else commit.ljust(40, "0")
+    state = next(x for x in ("completed", "running", "failed") if x in status.lower())
+    body = _body(head, state)
+    running = _body(head, "running", "2026-09-15T18:50:38Z", unresolved=None)
+    return {"id": 1, "node_id": "IC_1", "created_at": CREATED, "updated_at": "2026-09-15T18:55:00Z",
+            "user": user, "body": body, "review_history": [_edit(body), _edit(running, "2026-09-15T18:50:39Z")]}
+
+
+def _decide(*args, **kwargs):
+    kwargs.setdefault("pr_created_at", CREATED)
+    kwargs.setdefault("pr_timeline", [])
+    kwargs.setdefault("pr_head", HEAD)
+    return review_gate.decide(*args, **kwargs)
+
+
+def _state(comments, body, commits, draft, title=None, messages=()):
+    return review_gate.State(comments, body, commits, draft, title, messages, CREATED, [], HEAD)
 
 
 COMPLETED = '✅ **Completed** <relative-time datetime="2026-09-15T18:54:47Z">2026-09-15T18:54:47Z</relative-time>'
@@ -102,7 +131,7 @@ def test_decision_requires_a_completed_review_of_this_exact_head_or_a_recorded_o
         comments, draft = [_summary(COMPLETED, "a834193")], None
     elif case == "draft-unreadable-override":
         body, draft = "Review override: Codex bot out of credits; two independent lenses reviewed the diff.\n", None
-    verdict, message = review_gate.decide(head, comments, body, commits, resolve, pr_draft=draft)
+    verdict, message = _decide(head, comments, body, commits, resolve, pr_draft=draft)
     assert verdict == expected, message
     if case == "completed-other-head":
         assert "7547ef1" in message and "@codex review" in message
@@ -177,7 +206,7 @@ def test_a_closing_keyword_before_a_reference_fails_the_gate_draft_or_not_and_ov
         case, title, body, messages, draft, expected):
     comments = [_summary(COMPLETED, "a834193")]  # the head is reviewed, so only the text decides
     resolve = lambda short: HEAD if HEAD.startswith(short) else None  # noqa: E731
-    verdict, message = review_gate.decide(HEAD, comments, body, [HEAD], resolve, pr_draft=draft, pr_title=title,
+    verdict, message = _decide(HEAD, comments, body, [HEAD], resolve, pr_draft=draft, pr_title=title,
                                           pr_commit_messages=messages)
     if expected is None:
         assert verdict == "pass", message
@@ -187,7 +216,7 @@ def test_a_closing_keyword_before_a_reference_fails_the_gate_draft_or_not_and_ov
 
 
 def test_the_failure_lists_every_closing_reference_in_the_title_body_and_commits():
-    verdict, message = review_gate.decide(
+    verdict, message = _decide(
         HEAD, [_summary(COMPLETED, "a834193")], "Fixes #1 and closes #2.", [HEAD], pr_draft=False,
         pr_title="close #3", pr_commit_messages=(("c" * 40, "resolved #4"),))
     assert verdict == "fail"
@@ -198,7 +227,7 @@ def test_the_failure_lists_every_closing_reference_in_the_title_body_and_commits
 def test_every_commit_message_is_read_not_only_the_first_or_the_head():
     messages = (("1abcdef" + "0" * 33, "chore: first"), ("2abcdef" + "0" * 33, "fix: middle\n\nfixes #12"),
                 ("3abcdef" + "0" * 33, "chore: head"))
-    verdict, message = review_gate.decide(HEAD, [_summary(COMPLETED, "a834193")], "body", [HEAD], pr_draft=False,
+    verdict, message = _decide(HEAD, [_summary(COMPLETED, "a834193")], "body", [HEAD], pr_draft=False,
                                           pr_commit_messages=messages)
     assert verdict == "fail" and 'commit 2abcdef: "fixes #12"' in message
 
@@ -210,10 +239,10 @@ def test_a_commit_list_at_githubs_cap_fails_closed_override_or_not_because_later
     comments = [_summary(COMPLETED, "a834193")]
     resolve = lambda short: HEAD if HEAD.startswith(short) else None  # noqa: E731
     capped = [f"{n:040x}" for n in range(1, review_gate.COMMIT_LIST_CAP)] + [HEAD]
-    verdict, message = review_gate.decide(HEAD, comments, body, capped, resolve, pr_draft=draft)
+    verdict, message = _decide(HEAD, comments, body, capped, resolve, pr_draft=draft)
     assert verdict == "fail" and "250 commits" in message
     if body == "body" and not draft:
-        assert review_gate.decide(HEAD, comments, body, capped[1:], resolve, pr_draft=draft)[0] == "pass"
+        assert _decide(HEAD, comments, body, capped[1:], resolve, pr_draft=draft)[0] == "pass"
 
 
 def test_main_polls_until_the_review_completes_and_times_out_honestly(monkeypatch, capsys):
@@ -224,11 +253,11 @@ def test_main_polls_until_the_review_completes_and_times_out_honestly(monkeypatc
                    ([_summary(COMPLETED, "a834193")], "body", [HEAD], False)])
     sleeps = []
     ticks = iter([0.0, 0.0, 10.0])
-    assert review_gate.main(fetch=lambda: next(states), sleep=sleeps.append, clock=lambda: next(ticks, 10.0)) == 0
+    assert review_gate.main(fetch=lambda: _state(*next(states)), sleep=sleeps.append, clock=lambda: next(ticks, 10.0)) == 0
     assert sleeps == [5.0]
     # Timeout: the review never completes for this head; the failure names the remedy.
     ticks = iter([0.0, 0.0, 30.0, 70.0])
-    assert review_gate.main(fetch=lambda: ([_summary(COMPLETED, "7547ef1")], "body", [HEAD], False), sleep=sleeps.append,
+    assert review_gate.main(fetch=lambda: _state([_summary(COMPLETED, "7547ef1")], "body", [HEAD], False), sleep=sleeps.append,
                             clock=lambda: next(ticks, 70.0)) == 1
     out = capsys.readouterr().out
     assert "timed out after 1 minutes" in out and "@codex review" in out and "Review override" in out
@@ -237,7 +266,7 @@ def test_main_polls_until_the_review_completes_and_times_out_honestly(monkeypatc
     for draft, expected in ((True, "is a draft"), (None, "failing closed")):
         sleeps.clear()
         ticks = iter([0.0, 0.0, 70.0])
-        assert review_gate.main(fetch=lambda: ([_summary(COMPLETED, "a834193")], "body", [HEAD], draft),
+        assert review_gate.main(fetch=lambda: _state([_summary(COMPLETED, "a834193")], "body", [HEAD], draft),
                                 sleep=sleeps.append, clock=lambda: next(ticks, 70.0)) == 1
         assert sleeps == [] and expected in capsys.readouterr().out
     # A closing keyword in the title or a commit message fails on the first read too, while the review
@@ -246,7 +275,7 @@ def test_main_polls_until_the_review_completes_and_times_out_honestly(monkeypatc
         sleeps.clear()
         ticks = iter([0.0, 0.0, 70.0])
         state = ([_summary(RUNNING, "a834193")], "body", [HEAD], False, title, messages)
-        assert review_gate.main(fetch=lambda: state, sleep=sleeps.append, clock=lambda: next(ticks, 70.0)) == 1
+        assert review_gate.main(fetch=lambda: _state(*state), sleep=sleeps.append, clock=lambda: next(ticks, 70.0)) == 1
         assert sleeps == [] and "closing keyword" in capsys.readouterr().out
 
 
@@ -270,9 +299,10 @@ def test_fetch_state_reads_the_draft_flag_from_the_pull_request_now_and_reports_
     monkeypatch.setattr(review_gate, "_github", github)
     monkeypatch.setattr(review_gate, "_paged", paged_read)
     assert review_gate.fetch_state("o/r", "7", "token") == (
-        [], "body", ["a" * 40, "b" * 40], draft, "title", (("a" * 40, "first"), ("b" * 40, "")))
+        [], "body", ["a" * 40, "b" * 40], draft, "title", (("a" * 40, "first"), ("b" * 40, "")), None, [] if draft is False else None, None)
     # The commits come from the pull request's own list, which GitHub caps at 250, not the branch history.
-    assert paged == ["repos/o/r/issues/7/comments", "repos/o/r/pulls/7/commits"]
+    assert paged == ["repos/o/r/issues/7/comments", "repos/o/r/pulls/7/commits"] + (
+        ["repos/o/r/issues/7/timeline"] if draft is False else []) + ["repos/o/r/issues/7/comments"]
 
 
 def _may_publish_as_review_gate(name: str) -> bool:
@@ -521,3 +551,292 @@ def test_the_rerun_step_fails_rather_than_reporting_nothing_to_rerun_when_the_ap
     assert proc.stdout == ("::error::review-gate: GitHub refused to re-run run 55 (it re-runs a run only within 30 days "
                            f"of its first attempt, and at most 50 times); {SKIP_REMEDY}\n" if failing == "rerun" else "")
     assert len(reruns) == (failing == "rerun")
+
+
+# F58: distinct, timestamped review cycles, not a completed word borrowed from an earlier run.
+READY = "2026-09-15T19:00:00Z"
+READY_EVENTS = [{"event": "ready_for_review", "created_at": READY}]
+OTHER = "b" * 40
+
+
+def _cycle(head=HEAD, trigger="Draft marked ready", start="2026-09-15T19:00:01Z",
+           finish="2026-09-15T19:02:00Z", unresolved=False):
+    return [_edit(_body(head, "completed", finish, trigger, unresolved), finish),
+            _edit(_body(head, "running", start, trigger, None), start)]
+
+
+def _comment(edits, **changes):
+    return {"id": 1, "node_id": "IC_1", "created_at": CREATED, "updated_at": edits[0]["editedAt"],
+            "user": CODEX_USER, "body": edits[0]["diff"], "review_history": edits, **changes}
+
+
+def _request(at="2026-09-15T19:03:00Z", **changes):
+    return {"id": 3, "body": "@codex review\n", "user": {"type": "User", "login": "reviewer", "id": 5},
+            "created_at": at, "updated_at": at, **changes}
+
+
+def _verdict(comments, **kwargs):
+    return _decide(HEAD, comments, "body", [HEAD], lambda short: HEAD, pr_draft=False,
+                   pr_timeline=kwargs.pop("pr_timeline", READY_EVENTS), **kwargs)
+
+
+def test_ready_mark_waits_for_its_own_cycle_and_resolution_not_the_draft_completion():
+    draft = _cycle(trigger="Manual request", start="2026-09-15T18:50:00Z", finish="2026-09-15T18:52:00Z")
+    assert _verdict([_comment(draft)])[0] == "wait"
+    ready = _cycle(unresolved=True)
+    assert _verdict([_comment(ready + draft)])[0] == "fail"
+    clean_update = _edit(_body(at="2026-09-15T19:02:00Z", trigger="Draft marked ready"), "2026-09-15T19:02:30Z")
+    assert _verdict([_comment([clean_update] + ready + draft)])[0] == "pass"
+
+
+@pytest.mark.parametrize("change", [
+    "no-marker", "broken-json", "duplicate-marker", "short-machine-head", "missing-unresolved", "null-unresolved",
+    "string-unresolved", "row-head-mismatch", "row-status-mismatch", "missing-row-time", "unknown-trigger",
+    "no-history", "history-rest-disagreement", "untrusted-editor", "wrong-editor-id", "missing-start",
+    "start-before-ready", "start-after-completion", "mismatched-start-head", "mismatched-start-trigger",
+    "newer-mismatched-start", "overlapping-starts", "out-of-order-edits", "missing-timeline", "missing-created",
+])
+def test_incomplete_or_contradictory_evidence_never_passes(change):
+    edits = _cycle()
+    kwargs = {}
+    if change in ("no-marker", "broken-json", "duplicate-marker", "short-machine-head", "missing-unresolved",
+                  "null-unresolved", "string-unresolved", "row-head-mismatch", "row-status-mismatch",
+                  "missing-row-time", "unknown-trigger"):
+        body = edits[0]["diff"]
+        if change == "no-marker":
+            body = re.sub(r"<!-- codex-review-state:.*?-->", "", body)
+        elif change == "broken-json":
+            body = body.replace('"code_review":', '"code_review"')
+        elif change == "duplicate-marker":
+            body += re.search(r"<!-- codex-review-state:.*?-->", body)[0]
+        elif change == "short-machine-head":
+            body = body.replace(HEAD, HEAD[:7])
+        elif change == "missing-unresolved":
+            body = body.replace(', "has_unresolved_findings": false', '')
+        elif change == "null-unresolved":
+            body = body.replace('"has_unresolved_findings": false', '"has_unresolved_findings": null')
+        elif change == "string-unresolved":
+            body = body.replace('"has_unresolved_findings": false', '"has_unresolved_findings": "false"')
+        elif change == "row-head-mismatch":
+            body = body.replace(f'`{HEAD[:7]}`', '`abcdef0`')
+        elif change == "row-status-mismatch":
+            body = body.replace('**Completed**', '**Running**')
+        elif change == "missing-row-time":
+            body = re.sub(r'<relative-time.*?</relative-time>', '', body)
+        elif change == "unknown-trigger":
+            body = body.replace('Draft marked ready', 'Mystery trigger')
+        edits[0]["diff"] = body
+    elif change == "untrusted-editor":
+        edits[1]["editor"] = {**EDITOR, "__typename": "User"}
+    elif change == "wrong-editor-id":
+        edits[1]["editor"] = {**EDITOR, "databaseId": 1}
+    elif change == "missing-start":
+        edits = edits[:1]
+    elif change == "start-before-ready":
+        edits = _cycle(start="2026-09-15T18:59:59Z")
+    elif change == "start-after-completion":
+        edits[1]["diff"] = _body(status="running", at="2026-09-15T19:04:00Z", trigger="Draft marked ready")
+    elif change == "mismatched-start-head":
+        edits[1]["diff"] = edits[1]["diff"].replace(HEAD, OTHER).replace(HEAD[:7], OTHER[:7])
+    elif change == "mismatched-start-trigger":
+        edits[1]["diff"] = edits[1]["diff"].replace('Draft marked ready', 'Manual request')
+    elif change == "newer-mismatched-start":
+        edits.insert(1, _edit(_body(OTHER, 'running', '2026-09-15T19:01:00Z', 'Manual request'), '2026-09-15T19:01:00Z'))
+    elif change == "overlapping-starts":
+        edits += [_edit(_body(status='running', at='2026-09-15T19:00:00Z', trigger='Draft marked ready'), READY)]
+    elif change == "out-of-order-edits":
+        edits[1]["editedAt"] = "2026-09-15T19:05:00Z"
+    elif change == "missing-timeline":
+        kwargs["pr_timeline"] = None
+    elif change == "missing-created":
+        kwargs["pr_created_at"] = None
+    comment = _comment(edits)
+    if change == "no-history":
+        comment.pop("review_history")
+    elif change == "history-rest-disagreement":
+        comment["body"] += "\nChanged after the REST read"
+    verdict, message = _verdict([comment], **kwargs)
+    assert verdict != "pass", (change, message)
+
+
+def test_html_encoded_state_and_security_only_edits_do_not_hide_the_code_cycle():
+    edits = _cycle()
+    security_update = _edit(edits[0]["diff"].replace('"security_review": {"status": null}',
+                                                   '"security_review": {"status": "running"}'),
+                            "2026-09-15T19:02:10Z")
+    comment = _comment([security_update] + edits)
+    for item in comment["review_history"]:
+        item["diff"] = item["diff"].replace('{', '&#123;').replace('}', '&#125;')
+    comment["body"] = comment["review_history"][0]["diff"]
+    assert _verdict([comment])[0] == "pass"
+
+
+def test_latest_ready_event_and_latest_summary_are_binding_even_with_an_older_success():
+    older = _comment(_cycle())
+    later_ready = READY_EVENTS + [{"event": "ready_for_review", "created_at": "2026-09-15T19:03:00Z"}]
+    assert _verdict([older], pr_timeline=later_ready)[0] == "wait"
+    new = _comment(_cycle(OTHER), id=2, created_at="2026-09-15T19:01:00Z")
+    assert _verdict([older, new])[0] == "wait"
+    assert _verdict([new, older])[0] == "wait"
+
+
+@pytest.mark.parametrize("ready_head, ready_unresolved, expected", [
+    (HEAD, False, "pass"), (HEAD, True, "wait"), (OTHER, False, "pass"), (OTHER, True, "pass"),
+])
+def test_manual_review_can_follow_completed_ready_cycle_and_new_head_can_fix_its_findings(
+        ready_head, ready_unresolved, expected):
+    manual = _cycle(trigger="Manual request", start="2026-09-15T19:03:01Z", finish="2026-09-15T19:05:00Z")
+    ready = _cycle(ready_head, unresolved=ready_unresolved)
+    assert _verdict([_comment(manual + ready), _request()])[0] == expected
+
+
+@pytest.mark.parametrize("case", ["missing-ready", "ready-running", "manual-started-before-ready-completed",
+                                  "newer-request", "request-after-start", "no-human-request", "edited-request"])
+def test_manual_completion_does_not_substitute_missing_ready_or_unanswered_request(case):
+    manual = _cycle(trigger="Manual request", start="2026-09-15T19:03:01Z", finish="2026-09-15T19:05:00Z")
+    ready = _cycle(OTHER)
+    request = _request()
+    if case == "missing-ready":
+        ready = []
+    elif case == "ready-running":
+        ready = ready[1:]
+    elif case == "manual-started-before-ready-completed":
+        manual = _cycle(trigger="Manual request", start="2026-09-15T19:01:00Z", finish="2026-09-15T19:05:00Z")
+        request = _request("2026-09-15T19:00:30Z")
+    elif case == "newer-request":
+        request = _request("2026-09-15T19:06:00Z")
+    elif case == "request-after-start":
+        request = _request("2026-09-15T19:03:02Z")
+    elif case == "no-human-request":
+        request = _request(user=CODEX_USER)
+    elif case == "edited-request":
+        request["updated_at"] = "2026-09-15T19:03:02Z"
+    assert _verdict([_comment(manual + ready), request])[0] == "wait"
+
+
+def test_ready_and_immediate_manual_request_coalesced_as_manual_does_not_prove_ready_cycle():
+    # #1484: ready Running is immediately overwritten by manual Running, then manual Completed;
+    # there is no completed ready cycle to borrow from either the live summary or its history.
+    manual = _cycle(trigger="Manual request", start="2026-09-15T19:00:12Z", finish="2026-09-15T19:03:13Z")
+    ready_running = _edit(_body(status="running", at="2026-09-15T19:00:08Z", trigger="Draft marked ready"),
+                          "2026-09-15T19:00:08Z")
+    assert _verdict([_comment(manual + [ready_running]), _request("2026-09-15T19:00:01Z")])[0] == "wait"
+
+
+def test_opened_ready_uses_creation_and_still_waits_for_a_new_manual_request():
+    opened = _cycle(trigger="PR opened")
+    assert _verdict([_comment(opened)], pr_timeline=[])[0] == "pass"
+    assert _verdict([_comment(opened), _request()], pr_timeline=[])[0] == "wait"
+    manual = _cycle(trigger="Manual request", start="2026-09-15T19:03:01Z", finish="2026-09-15T19:05:00Z")
+    assert _verdict([_comment(manual + opened), _request()], pr_timeline=[])[0] == "pass"
+
+
+def test_fetch_state_reads_trusted_timeline_and_only_current_summary_history(monkeypatch):
+    latest = _comment(_cycle(), id=2, node_id="IC_latest", created_at="2026-09-15T18:45:00Z")
+    older = _summary(COMPLETED, HEAD[:7])
+    comments = [latest, older]
+    calls = []
+    monkeypatch.setattr(review_gate, "_github", lambda *a: {"draft": False, "created_at": CREATED})
+    def paged(path, token):
+        calls.append(path)
+        return comments if path.endswith('/comments') else READY_EVENTS if path.endswith('/timeline') else []
+    def history(node, token):
+        assert (node, token) == ('IC_latest', 'token')
+        return latest['review_history']
+    monkeypatch.setattr(review_gate, '_paged', paged)
+    monkeypatch.setattr(review_gate, '_fetch_history', history)
+    state = review_gate.fetch_state('o/r', '7', 'token')
+    assert state.created_at == CREATED and state.timeline == READY_EVENTS
+    assert 'repos/o/r/issues/7/timeline' in calls
+
+
+def test_history_pagination_is_complete_and_bounded_and_never_swallows_api_failure(monkeypatch):
+    bodies = _cycle()
+    calls = []
+    def graphql(query, variables, token):
+        assert 'userContentEdits(first: 100, after: $after)' in query and 'databaseId' in query
+        calls.append(variables)
+        index = 0 if variables['after'] is None else 1
+        return {'node': {'userContentEdits': {'nodes': bodies[index:index+1], 'pageInfo': {
+            'hasNextPage': index == 0, 'endCursor': 'next' if index == 0 else None}}}}
+    monkeypatch.setattr(review_gate, '_graphql', graphql)
+    assert review_gate._fetch_history('IC_1', 'token') == bodies
+    assert calls == [{'id': 'IC_1', 'after': None}, {'id': 'IC_1', 'after': 'next'}]
+    monkeypatch.setattr(review_gate, 'MAX_PAGES', 1)
+    with pytest.raises(review_gate.EvidenceError, match='limit'):
+        review_gate._fetch_history('IC_1', 'token')
+    monkeypatch.setattr(review_gate, '_graphql', lambda *a: {'node': None})
+    with pytest.raises(review_gate.EvidenceError):
+        review_gate._fetch_history('IC_1', 'token')
+
+
+def test_rest_pagination_limit_and_transport_failure_fail_closed(monkeypatch, capsys):
+    monkeypatch.setattr(review_gate, 'MAX_PAGES', 1)
+    monkeypatch.setattr(review_gate, '_github', lambda *a: [{}] * 100)
+    with pytest.raises(review_gate.EvidenceError, match='limit'):
+        review_gate._paged('path', 'token')
+    monkeypatch.setenv('REVIEW_GATE_HEAD', HEAD)
+    def unreadable():
+        raise OSError('offline')
+    assert review_gate.main(fetch=unreadable) == 1
+    assert 'failed to read trusted GitHub evidence' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("live", [None, "short", OTHER])
+@pytest.mark.parametrize("body", ["body", OVERRIDE_LINE])
+def test_live_head_must_match_job_even_with_an_override(live, body):
+    verdict, message = _decide(HEAD, [_comment(_cycle())], body, [HEAD], pr_draft=False,
+                               pr_timeline=READY_EVENTS, pr_head=live)
+    assert verdict == "fail" and ("live" in message or "stale" in message)
+
+
+def test_a_new_unedited_request_supersedes_an_old_edited_request():
+    manual = _cycle(trigger="Manual request", start="2026-09-15T19:03:01Z", finish="2026-09-15T19:05:00Z")
+    old = _request("2026-09-15T19:02:30Z", updated_at="2026-09-15T19:03:30Z", id=2)
+    assert _verdict([_comment(manual + _cycle()), old, _request()])[0] == "pass"
+
+
+def _mock_snapshot(monkeypatch, *, final_changes=None, fresh_extra=()):
+    initial = {"draft": False, "created_at": CREATED, "head": {"sha": HEAD}, "title": "title", "body": "body",
+               "updated_at": "2026-09-15T19:02:00Z"}
+    pulls = iter([initial, {**initial, **(final_changes or {})}])
+    monkeypatch.setattr(review_gate, "_github", lambda *a: next(pulls))
+    comment = _comment(_cycle())
+    comment_reads = iter([[comment], [{**comment}, *fresh_extra]])
+    def paged(path, token):
+        if path.endswith("/comments"):
+            return next(comment_reads)
+        return READY_EVENTS if path.endswith("/timeline") else [{"sha": HEAD}]
+    monkeypatch.setattr(review_gate, "_paged", paged)
+    monkeypatch.setattr(review_gate, "_fetch_history", lambda *a: comment["review_history"])
+
+
+@pytest.mark.parametrize("change", [{"head": {"sha": OTHER}}, {"draft": True}, {"body": "new body"},
+                                    {"title": "new title"}, {"updated_at": "2026-09-15T19:04:00Z"}])
+def test_fetch_never_combines_old_head_or_ready_metadata_with_new_evidence(monkeypatch, change):
+    _mock_snapshot(monkeypatch, final_changes=change)
+    with pytest.raises(review_gate.SnapshotChanged):
+        review_gate.fetch_state("o/r", "7", "token")
+
+
+def test_manual_request_arriving_during_history_read_is_a_barrier(monkeypatch):
+    _mock_snapshot(monkeypatch, fresh_extra=[_request()])
+    state = review_gate.fetch_state("o/r", "7", "token")
+    assert state.head == HEAD
+    verdict, message = review_gate.decide(HEAD, state.comments, state.body, state.commits, pr_draft=state.draft,
+                                          pr_created_at=state.created_at, pr_timeline=state.timeline, pr_head=state.head)
+    assert verdict == "wait" and "latest manual" in message
+
+
+def test_changed_snapshot_polls_again_but_api_errors_still_fail(monkeypatch, capsys):
+    monkeypatch.setenv("REVIEW_GATE_HEAD", HEAD)
+    attempts = []
+    def fetch():
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise review_gate.SnapshotChanged("concurrent ready event")
+        return _state([_summary(COMPLETED, HEAD[:7])], "body", [HEAD], False)
+    sleeps = []
+    assert review_gate.main(fetch=fetch, sleep=sleeps.append, clock=lambda: 0) == 0
+    assert len(attempts) == 2 and len(sleeps) == 1
+    assert "concurrent ready event" in capsys.readouterr().out
