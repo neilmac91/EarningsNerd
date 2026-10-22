@@ -53,7 +53,14 @@ read for its copy alone. The other verb is "sign" in any inflection (signs, sign
 "into", "out" or "outs", in any case, closed up ("signin"), hyphenated ("sign-in") or parted: by whitespace of any
 kind (a line break and a no-break space included), a dash of any kind or the minus sign, and by the words
 English puts inside the verb (INSIDE_THE_VERB: "back", "right" or "straight", and an object pronoun, a reflexive
-one or one for a person, which may take "all", "both" or "each": "Signing you back in", "Sign them all out"). A
+one or one for a person, which may take "all", "both" or "each": "Signing you back in", "Sign them all out"). The
+noun as the verb is "login" or "logout" (LOGIN_AS_VERB, a break of its own: ``account verb 'login' as a verb``),
+with an "s" or a "re" or neither ("logins", "re-login"), in any case, closed up or hyphenated (a dash of any kind or
+the minus sign), in a closed set of places, as INSIDE_THE_VERB is a closed set of words: after "to", "please", a
+modal or "do" ("can", "could", "may", "might", "must", "shall", "should", "will", "would", "do", "does" or "did"),
+with "not" or contracted ("cannot", "won't", "didn't", "we'll", a straight or a curly apostrophe), or a subject
+pronoun ("I", "you", "we", "they", "he", "she" or "it"); before "again", "now", "first" or "here"; and first in a
+literal, a line or a sentence, before "with", "to", "into", "using" or "via" (an imperative: "Login with Google"). A
 literal is read as its reader gets it: markup (MARKUP) by its text, each tag taken out (TAG; a comment goes with
 them, but what a conditional comment holds stays, since Outlook shows it), a block or line-break tag read as a
 break (``Sign<br>in``) and an inline one (INLINE) as nothing (``<strong>Sign</strong> in``), and by each
@@ -62,14 +69,24 @@ attribute that is not code (CODE_ATTRS: an href, a src, a class, an id, a style)
 folded to its letter (NFKC: a fullwidth ``Ｓｉｇｎ ｉｎ``) and an invisible character taken out (Unicode's
 Default_Ignorable_Code_Point: a soft hyphen, a zero-width space or joiner, a word joiner). Each place a literal
 says it is a break of its own, on the line of the literal it starts on. "Sign up" (registering), "log in",
-"logged in", "logging in" and "login" pass. Out of reach, each planted as a gap in VERB_FORMS: the two words in
-two literals joined by ``+`` (``"Sign " + "in"``), or parted by an interpolation or a format field
-(``f"Sign{SPACE}in"``, ``"Sign {}".format("in")``), each part read alone; a tag in a literal that holds no
-markup MARKUP knows, read as written (``Sign<wbr>in`` alone); a noun object between them
-(``Sign other devices out``; "Sign your name in the box" is the other verb, signing); and a letter from another
-script (a Cyrillic ``і``). Its false positives, planted too: the other senses of "sign" before these words
-(``Signed into law``, ``A sign right in front of you``), an attribute that holds code but that CODE_ATTRS does
-not name (``cite="/signin"``), and a code token in kebab case (``sign-in-limiter``).
+"logged in" and "logging in" pass, and so does "login" as the noun, anywhere but in the verb's places ("Too many
+login attempts", "Login failed.", "the login page", "A logout ends the session"). Out of reach, each planted as a
+gap in VERB_FORMS: the two words in two literals joined by ``+`` (``"Sign " + "in"``), or parted by an
+interpolation or a format field (``f"Sign{SPACE}in"``, ``"Sign {}".format("in")``), each part read alone; a tag in
+a literal that holds no markup MARKUP knows, read as written (``Sign<wbr>in`` alone); a noun object between them
+(``Sign other devices out``; "Sign your name in the box" is the other verb, signing); a letter from another script
+(a Cyrillic ``і``); and the noun as the verb anywhere else: in one literal and the word before it in another
+(``"Please " + "login"``), alone as a button's label, which reads as the noun (``Login`` alone), after a noun
+subject or an adverb (``users who login daily``, ``You can now login``), joined to another verb
+(``Register and login with Google``), and an imperative after a colon or after an element whose text ends with
+no full stop (``Step 2: login to your account``, ``<h1>Welcome</h1><p>Login to continue</p>``). Its false positives,
+planted too: the other senses of "sign" before these words (``Signed into law``, ``A sign right in front of you``),
+an attribute that holds code but that CODE_ATTRS does not name (``cite="/signin"``), a code token in kebab case
+(``sign-in-limiter``), and the noun in one of the verb's places: after "to" as a preposition (``Back to login``),
+after a pronoun that is an object, not the subject (``We'll send you login details``), after a modal that opens a
+question or after "May", the month (``Will logout end every session?``, ``In May login attempts rose``), before
+one of the four words (``Your login now uses a passkey``), and as the subject or a name that opens a sentence or a
+line (``Login with Google is not available.``).
 
 EXEMPT lists what breaks today, each entry with the number of breaks it covers and the PR or decision
 that owns their fix: a file, or ``file::function`` for half of one. The number is an equality, as
@@ -176,6 +193,19 @@ INSIDE_THE_VERB = (
 )
 SIGN_IN_VERB = re.compile(
     rf"\bsign(?:s|ed|ing)?(?:{_PARTED}+{INSIDE_THE_VERB})*{_PARTED}*(?:in(?:s|to)?|outs?)\b", re.IGNORECASE
+)
+# The noun where English puts the verb (module docstring): "login" or "logout", with an "s" or a "re" or neither, closed
+# up or hyphenated. Its places are a closed set, as INSIDE_THE_VERB is a closed set of words: after a word that takes
+# the bare verb ("to", "please", a modal or "do", with "not" or contracted, a subject pronoun), which the match takes
+# with it; before "again", "now", "first" or "here"; and first in a literal, a line or a sentence, before "with", "to",
+# "into", "using" or "via" (an imperative). The noun is the group named word: the break names it, on its own line.
+_NOUN = rf"(?:re[{re.escape(_DASHES)}\u2212]?)?log[{re.escape(_DASHES)}\u2212]?(?:in|out)s?"
+LOGIN_AS_VERB = re.compile(
+    r"(?:\b(?:to|please|(?:can|could|may|might|must|shall|should|will|would|do|does|did)(?:\s+not)?|cannot"
+    r"|(?:ca|could|might|must|sha|should|wo|would|do|does|did)n['\u2019]t|['\u2019](?:ll|d)|i|you|we|they|he|she|it)\s+"
+    rf"|(?:^|(?<=[.!?])\s)\s*(?={_NOUN}\s+(?:with|to|into|using|via)\b)"
+    rf"|\b(?={_NOUN}\s+(?:again|now|first|here)\b))(?P<word>{_NOUN})\b",
+    re.IGNORECASE | re.MULTILINE,
 )
 # Unicode's Default_Ignorable_Code_Point (DerivedCoreProperties.txt), which Python's tables do not carry: what a
 # reader never sees, such as a soft hyphen, a zero-width space or joiner, a word joiner or a direction mark.
@@ -288,13 +318,18 @@ def _copy_breaks(text: str) -> Iterator[tuple[int, str]]:
             yield heading.start(), f"Title Case <{heading.group(1)}>"
 
 
-def _other_verb(text: str) -> Iterator[tuple[int, str]]:
-    """(line breaks in ``text`` before it, form) for each place a literal says the other verb, read as its reader
-    gets it (module docstring)."""
+def _account_verb(text: str) -> Iterator[tuple[int, str]]:
+    """(line breaks in ``text`` before it, rule) for each place a literal says the other verb, or the noun where English
+    puts the verb (at the noun's own place), read as its reader gets it (module docstring)."""
     for reading, stretches in _readings(text):
-        for match in SIGN_IN_VERB.finditer(reading):
-            start, lines = max(stretch for stretch in stretches if stretch[0] <= match.start())
-            yield lines + reading.count("\n", start, match.start()), match.group(0)
+        found = [(match.start(), f"account verb {match.group(0)!r}") for match in SIGN_IN_VERB.finditer(reading)]
+        found += [
+            (match.start("word"), f"account verb {match.group('word')!r} as a verb")
+            for match in LOGIN_AS_VERB.finditer(reading)
+        ]
+        for at, rule in found:
+            start, lines = max(stretch for stretch in stretches if stretch[0] <= at)
+            yield lines + reading.count("\n", start, at), rule
 
 
 def _readings(text: str) -> Iterator[tuple[str, list[tuple[int, int]]]]:
@@ -575,8 +610,8 @@ def read_module(source: str, path: str) -> tuple[list[Break], int]:
             line = node.lineno + text.count("\n", 0, colour.start())
             found.append(Break(path, line, scope, f"retired colour {colour.group(0)}", text.strip()))
         if is_copy or not model_text:
-            for lines, form in _other_verb(text):
-                verbs.append(Break(path, node.lineno + lines, scope, f"account verb {form!r}", text.strip()))
+            for lines, rule in _account_verb(text):
+                verbs.append(Break(path, node.lineno + lines, scope, rule, text.strip()))
     return sorted([*set(found), *verbs], key=lambda b: (b.path, b.line, b.rule)), copy
 
 
@@ -899,9 +934,71 @@ VERB_FORMS: tuple[tuple[str, str, str], ...] = (
     (r'label = "A sign right in front of you"', "false positive", "``A sign right in front of you``"),
     ('html = \'<blockquote cite="/signin">Quoted</blockquote>\'', "false positive", '``cite="/signin"``'),
     (r'key = "sign-in-limiter"', "false positive", "``sign-in-limiter``"),
+    # The noun as the verb (LOGIN_AS_VERB): each of its places, the noun's other spellings and the reading a literal
+    # gets; the noun and the two-word verb, clean; and its gaps and false positives.
+    (r'raise HTTPException(401, "Please login again.")', "flag", ""),  # the review's two examples
+    (r'label = "Logout now."', "flag", ""),
+    (r'label = "You need to login to continue."', "flag", ""),
+    (r'label = "You must login with your email."', "flag", ""),
+    ('label = "You can\'t login while the account is locked."', "flag", ""),
+    (r'label = "Readers cannot logout of a shared device."', "flag", ""),
+    (r'label = "We won\u2019t logout your other devices."', "flag", ""),  # a curly apostrophe
+    ('label = "If you didn\'t login, reset your password."', "flag", ""),
+    (r'label = "Do not logout during an export."', "flag", ""),
+    ('label = "We\'ll logout every device."', "flag", ""),
+    (r'message = f"Once you login, {name} opens."', "flag", ""),
+    (r'label = "If she logins from a new device, we send a notice."', "flag", ""),
+    (r'label = "Session ended: login again."', "flag", ""),
+    (r'label = "Login first, then add a filing."', "flag", ""),
+    (r'label = "Login here"', "flag", ""),
+    (r'label = "Login with Google"', "flag", ""),
+    (r'label = "Login to EarningsNerd"', "flag", ""),
+    (r'label = "Login into your account."', "flag", ""),
+    (r'label = "Login using your passkey."', "flag", ""),
+    (r'label = "Login via the link we sent."', "flag", ""),
+    (r'raise HTTPException(401, "Your session ended. Login to continue.")', "flag", ""),  # a sentence's start
+    (r'message = f"Hi {name},\n\nLogin to finish setting up your account."', "flag", ""),  # a line's start
+    (r'label = "Please log-in again."', "flag", ""),
+    (r'label = "Please re-login."', "flag", ""),
+    (r'label = "LOGOUT NOW"', "flag", ""),
+    (r'html = "<p>Please <strong>login</strong> again.</p>"', "flag", ""),  # an inline tag reads as nothing
+    ('html = \'<img src="/g.png" alt="Login with Google">\'', "flag", ""),  # an attribute that is not code
+    (r'html = "<p>Please&nbsp;log&#8209;in again.</p>"', "flag", ""),  # character references
+    (r'label = "\uff2c\uff4f\uff47\uff49\uff4e to continue"', "flag", ""),  # fullwidth letters, which NFKC folds
+    (r'label = "Please lo\u200bgin again."', "flag", ""),  # a zero-width space inside the word
+    (r'raise HTTPException(status_code=429, detail="Too many login attempts. Try again shortly.")', "clean", ""),
+    (r'label = "Check your login and password."', "clean", ""),
+    (r'label = "Open the login page."', "clean", ""),
+    (r'label = "Login required"', "clean", ""),
+    (r'label = "Logins this week"', "clean", ""),
+    (r'label = "A logout ends the session."', "clean", ""),
+    (r'raise HTTPException(status_code=503, detail="Logging in with Google is not available.")', "clean", ""),
+    (r'label = "Your log-in link expires in an hour."', "clean", ""),  # the hyphenated noun
+    (r'raise HTTPException(401, "Please log in again.")', "clean", ""),  # the verb, two words, in the noun's places
+    (r'label = "Log out now."', "clean", ""),
+    (r'label = "Log in with Google"', "clean", ""),
+    ('label = "If you didn\'t log in, reset your password."', "clean", ""),
+    (r'url = f"{name}/login?error=google_denied"', "clean", ""),  # a path
+    (r'label = "Please " + "login"', "gap", '``"Please " + "login"``'),
+    (r'label = "Login"', "gap", "``Login`` alone"),
+    (r'label = "Alerts go to users who login daily."', "gap", "``users who login daily``"),
+    (r'label = "You can now login"', "gap", "``You can now login``"),
+    (r'label = "Register and login with Google"', "gap", "``Register and login with Google``"),
+    (r'label = "Step 2: login to your account"', "gap", "``Step 2: login to your account``"),
+    (r'html = "<h1>Welcome</h1><p>Login to continue</p>"', "gap", "``<h1>Welcome</h1><p>Login to continue</p>``"),
+    (r'label = "Back to login"', "false positive", "``Back to login``"),
+    ('label = "We\'ll send you login details."', "false positive", "``We'll send you login details``"),
+    (r'label = "Will logout end every session?"', "false positive", "``Will logout end every session?``"),
+    (r'label = "In May login attempts rose."', "false positive", "``In May login attempts rose``"),
+    (r'label = "Your login now uses a passkey."', "false positive", "``Your login now uses a passkey``"),
+    (
+        r'raise HTTPException(status_code=503, detail="Login with Google is not available.")',
+        "false positive",
+        "``Login with Google is not available.``",
+    ),
 )
 # How many cases carry each mark, held equal so that a case dropped in an edit fails here.
-VERB_MARKS = {"flag": 36, "clean": 23, "gap": 6, "false positive": 4}
+VERB_MARKS = {"flag": 66, "clean": 36, "gap": 13, "false positive": 10}
 
 
 def _verbs(source: str, path: str = "app/routers/probe.py") -> list[Break]:
@@ -939,6 +1036,10 @@ def test_the_verb_check_scores_its_planted_forms():
     assert [item.line for item in _verbs('PAGE = """<p>Sig<b\n>n in</p>"""\n')] == [1]
     assert [item.line for item in _verbs('PAGE = """<p>Hi</p>\n<img src="/a.png"\n     alt="Sign in">"""\n')] == [3]
     assert [item.line for item in _verbs('PAGE = """&#10;Sign in\nbye"""\n')] == [1]
+    # The noun as the verb is a break of its own rule, on the line the noun is on, once for each place.
+    assert [item.rule for item in _verbs('label = "Please login again."\n')] == ["account verb 'login' as a verb"]
+    assert [item.line for item in _verbs('PAGE = """Please\nlogin again."""\n')] == [2]
+    assert len(_verbs('label = "Please login, then login again."\n')) == 2
     model = 'RULE = "Never tell the reader to sign in."\nraise HTTPException(401, "Sign in again.")\n'
     assert [item.text for item in _verbs(model, "app/services/ai/summary_prompt.py")] == ["Sign in again."]
     assert len(_verbs(model, "app/services/ai/summary_writer.py")) == 2
