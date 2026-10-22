@@ -14,6 +14,7 @@ import FeedbackStatusBadge from '@/features/admin/components/FeedbackStatusBadge
 import FeedbackTypeBadge from '@/features/admin/components/FeedbackTypeBadge'
 import type { FeedbackStatus, FeedbackType, InviteStatus } from '@/features/admin/api/admin-api'
 import SummaryStatusBadge, { summaryStatusBadge } from '@/features/watchlist/components/SummaryStatusBadge'
+import { ReviewStatusChip, reviewStatusChip } from '@/features/research-evidence-packs/components/ResearchEvidencePacks'
 
 /**
  * Badge, marked: every chip Badge renders in this file carries `data-badge`, the variant it was given, and nothing
@@ -89,6 +90,14 @@ vi.mock('@/components/ui/Badge', async (importOriginal) => {
  * hovered, in both themes; and SummaryStatusBadge, for each of those, must render Badge's chip for the variant
  * summaryStatusBadge() returns, a member of the status set, held as the admin badges are (no class of its own and
  * nothing on or inside it that paints), so a tint, the quiet chip or a hand-rolled chip fails.
+ *
+ * The labs research evidence pack's review status (ReviewStatusChip, E140) is read the same way on the one card it
+ * renders on, its evidence card in features/research-evidence-packs/components/ResearchEvidencePacks.tsx: the walk up
+ * from the chip to its <Card>, which is no list row, so the card is its own ground, at rest and hovered as a watchlist
+ * card is (a card with no hover fill is the same ground in both). Every status reviewStatusChip names is rendered
+ * through Badge and measured there in both themes, and ReviewStatusChip must render Badge's chip for the member of the
+ * status set reviewStatusChip names, held as the admin badges are. Another source that renders the chip on a ground of
+ * its own is out of reach: the labs prototype renders it once.
  */
 const require = createRequire(import.meta.url)
 const flattenColorPalette = (require('tailwindcss/lib/util/flattenColorPalette') as { default: (c: unknown) => Record<string, string> }).default
@@ -552,7 +561,8 @@ function cardProps(opening: ts.JsxOpeningLikeElement, sf: ts.SourceFile, where: 
   let read = true
   for (const prop of opening.attributes.properties) {
     const name = ts.isJsxAttribute(prop) ? prop.name.getText(sf) : null
-    if (name === 'key') continue
+    // The list's key, and an aria attribute, which names the card and paints nothing (the evidence card's label).
+    if (name === 'key' || name?.startsWith('aria-')) continue
     const init = ts.isJsxAttribute(prop) ? prop.initializer : undefined
     const value = init && ts.isJsxExpression(init) ? init.expression : init
     if (name !== null && init === undefined) props[name] = true
@@ -575,7 +585,7 @@ function cardProps(opening: ts.JsxOpeningLikeElement, sf: ts.SourceFile, where: 
  * count other than one, a component on the way, a layer or a card prop it cannot read, no keyed row and no <Card> each
  * fail, naming the file and line.
  */
-function summaryStack(source: string, file: string, chip: string, failures: string[]): SummaryStack | null {
+function summaryStack(source: string, file: string, chip: string, failures: string[], { cardIsRow = false } = {}): SummaryStack | null {
   const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const at = (node: ts.Node) => `${file}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
   const found: ts.Node[] = []
@@ -601,7 +611,7 @@ function summaryStack(source: string, file: string, chip: string, failures: stri
     const where = `${at(up)} <${tag}>`
     const keyed = opening.attributes.properties.some((p) => ts.isJsxAttribute(p) && p.name.getText(sf) === 'key')
     if (tag === 'Card') {
-      if (!row && !keyed) {
+      if (!row && !keyed && !cardIsRow) {
         failures.push(`${at(found[0])} <${chip}>: no element with a key between it and its <Card>, so this spec cannot tell which one is the row`)
         return null
       }
@@ -705,6 +715,13 @@ const EVERY_SUMMARY_GROUND: Grounds = {
   light: Object.values(SUMMARY_GROUNDS).flatMap((g) => g.light),
   dark: Object.values(SUMMARY_GROUNDS).flatMap((g) => g.dark),
 }
+
+/** The labs evidence pack's review status chip sits on its evidence card, which is no list row: the card is its own row. */
+const EVIDENCE_PACKS = 'features/research-evidence-packs/components/ResearchEvidencePacks.tsx'
+/** Why the evidence card's ground could not be read; the evidence cases fail on any of them. */
+const EVIDENCE_GROUND_FAILURES: string[] = []
+const EVIDENCE_STACK = summaryStack(readFileSync(path.join(ROOT, EVIDENCE_PACKS), 'utf8'), EVIDENCE_PACKS, 'ReviewStatusChip', EVIDENCE_GROUND_FAILURES, { cardIsRow: true })
+const EVIDENCE_GROUNDS: Grounds = EVIDENCE_STACK ? summaryGrounds('evidence', EVIDENCE_STACK, EVIDENCE_GROUND_FAILURES) : { light: [], dark: [] }
 
 const SUMMARY_BADGE = 'features/watchlist/components/SummaryStatusBadge.tsx'
 /** Why the status kinds the chip knows could not be read; every summary case fails on any of them. */
@@ -1115,5 +1132,35 @@ describe('the summary status chip: the label clears 4.5:1 on the watchlist cards
       ['another module of a longer name', 'features/probe/Probe.tsx', "import Chip from '@/features/watchlist/components/SummaryStatusBadgeLegacy'", false],
     ]
     expect(forms.map(([name, file, source]) => [name, rendersSummaryChip(source, file)])).toEqual(forms.map(([name, , , renders]) => [name, renders]))
+  })
+})
+
+describe("the evidence pack's review status: the label clears 4.5:1 on the evidence card, both themes (E140)", () => {
+  it('every status reviewStatusChip names, rendered through Badge, on the evidence card at rest and hovered', () => {
+    const failures = [...EVIDENCE_GROUND_FAILURES]
+    let measured = 0
+    for (const { label, variant } of Object.values(reviewStatusChip)) {
+      const { className } = chipOf(createElement(Badge, { variant }, label))
+      measured += measure(`"${label}" (${variant})`, className, EVIDENCE_GROUNDS, failures)
+    }
+    expect(failures).toEqual([])
+    // One layer between the chip and its card, the heading row's <div>, read and held to painting nothing.
+    expect(EVIDENCE_STACK?.layers.map((layer) => layer.replace(/:\d+ /, ' ')), 'the layers read between the chip and its card').toEqual([`${EVIDENCE_PACKS} <div>`])
+    // Three statuses (Unreviewed, Review needed, User reviewed), two themes, the card at rest and hovered: a reader that
+    // found no ground must not pass.
+    expect(Object.keys(reviewStatusChip)).toHaveLength(3)
+    expect(measured).toBe(12)
+  })
+
+  it("ReviewStatusChip renders every status as Badge's chip for the member of its status set reviewStatusChip names, so the measurement above is what ships", () => {
+    const failures = [...SET_FAILURES]
+    for (const [status, { variant }] of Object.entries(reviewStatusChip)) {
+      const name = `ReviewStatusChip ${status}`
+      const chip = chipOf(createElement(ReviewStatusChip, { status: status as keyof typeof reviewStatusChip }))
+      const why = offTheSet(name, chip)
+      if (why) failures.push(why)
+      else if (chip.badge !== variant) failures.push(`${name}: Badge's ${chip.badge}, where reviewStatusChip names ${variant}, the chip measured above`)
+    }
+    expect(failures).toEqual([])
   })
 })
