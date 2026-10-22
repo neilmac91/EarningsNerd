@@ -145,8 +145,10 @@ import { LEGAL_DATES } from '@/lib/legalDates'
  *    (E127_PROMISES): a refresh token that works once (one-time, cannot be used twice, read beyond main's phrases only
  *    in a sentence about the refresh or session token: "a one-time recovery code" is another credential), a reused one
  *    revoking the account or sweeping its sessions (every session ended, signed out on every device; a session that
- *    ends on its own beside "again" is no sweep), or a session that ends after logging out or a password change, within
- *    a time or with none named (every session, everywhere, a session token revoked), a logout in each spelling (logout,
+ *    ends on its own beside "again" is no sweep; read beyond main's words only in a sentence about the token, as the
+ *    one-use forms are: "A verification code cannot be used more than once and can be revoked from settings." is
+ *    another credential's), or a session that ends after logging out or a password change, within a time or with none
+ *    named (every session, everywhere, a session token revoked), a logout in each spelling (logout,
  *    logged out, a sign-out; a revocation alone, as a renewal's of the token it replaces, is none), and what ends named
  *    before its verb ("a session open elsewhere then ends", "every device is signed out") or signed out with no pronoun
  *    ("signs out every device"). A denial passes, in main's logging-out words as in the wider ones: a negation before
@@ -511,9 +513,17 @@ const ONE_USE = /\bone-time\b|\b(?:used|usable|valid|good)(?: only)? for (?:one|
 const TOKEN_CONTEXT = /\b(?:refresh|session)[- ]tokens?\b|\btoken renewal\b/i
 /** A credential that is not the refresh or session token: a code, a link, a password, a key, an invite, a PIN. */
 const OTHER_CREDENTIAL = /\b(?:codes?|links?|passwords?|passcodes?|passphrases?|keys?|invit\w*|OTPs?|PINs?)\b/i
+/** A sentence about the refresh or session token: one that names it (TOKEN_CONTEXT), or one in a block that names it
+    and that names no other credential (OTHER_CREDENTIAL). */
+const aboutTheToken = (block: string) => (sentence: string) => TOKEN_CONTEXT.test(sentence) || (TOKEN_CONTEXT.test(block) && !OTHER_CREDENTIAL.test(sentence))
 /** A one-use form about the refresh or session token, in one sentence of the block. */
-const oneUseOfTheToken = (block: string) =>
-  sentencesOf(block).some((sentence) => ONE_USE.test(sentence) && (TOKEN_CONTEXT.test(sentence) || (TOKEN_CONTEXT.test(block) && !OTHER_CREDENTIAL.test(sentence))))
+const oneUseOfTheToken = (block: string) => sentencesOf(block).some((sentence) => ONE_USE.test(sentence) && aboutTheToken(block)(sentence))
+/** Main's reuse reading, as main reads it, in any sentence: a revocation beside main's reuse words. */
+const MAIN_REUSE = /^(?=.*\brevok).*\b(?:a second time|again|twice|re-?us(?:e|ed|es|ing)|replay(?:s|ed|ing)?)\b/i
+/** The reuse forms this pull request reads beyond main's (REUSED's other words, a sweep or a lock as what follows),
+    read as the one-use forms are, only in a sentence about the refresh or session token (#1456's eighth round): "A
+    verification code cannot be used more than once and can be revoked from settings." is another credential's. */
+const REUSE_OF_THE_TOKEN = new RegExp(String.raw`^(?=.*${REUSED})(?=.*(?:\brevok|${SWEEP}|\block(?:s|ed)?\s+(?:the account|you out)\b))`, 'i')
 /** Main's timed and untimed readings on every logging-out word (LOGGING_OUT, main's own words among them), with a
     denial read as SESSION_END_MORE reads one, before the verb or on the subject (NOT) or on its object (DENIED_OBJECT):
     "Logging out does not end every session within 30 minutes", "No session ends within 30 minutes of logging out" and
@@ -540,7 +550,8 @@ const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
   ],
   [
     'a reused refresh token revoking the account',
-    inASentence(new RegExp(String.raw`^(?=.*${REUSED})(?=.*(?:\brevok|${SWEEP}|\block(?:s|ed)?\s+(?:the account|you out)\b))`, 'i')),
+    (block) =>
+      inASentence(MAIN_REUSE)(block) || sentencesOf(block).some((sentence) => REUSE_OF_THE_TOKEN.test(sentence) && aboutTheToken(block)(sentence)),
   ],
   [
     'a session that ends after logging out, within a time or with none named',
@@ -1429,6 +1440,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // from it with nothing carrying it on (#1456's seventh round, Codex's thread 4342330097).
       ['<li>Changing your password ends every session within 30 minutes.</li>', true],
       ['<li>Logging out of all devices revokes your refresh tokens. A session open elsewhere ends within 30 minutes.</li>', true],
+      // A reuse form read beyond main's words only about the refresh or session token, beside another credential's
+      // (#1456's eighth round, Codex's thread 4342548457), and main's reuse words on any token, as main reads them.
+      ['<li>A refresh token used more than once revokes all of the account’s refresh tokens.</li>', true],
+      ['<li>A verification code cannot be used more than once and can be revoked from settings.</li>', false],
+      ['<li>A token used twice revokes the account.</li>', true],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
