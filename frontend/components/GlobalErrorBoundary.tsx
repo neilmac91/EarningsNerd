@@ -62,7 +62,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
+        <main className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
           <div className="w-full max-w-md space-y-4">
             <GuidanceCard
               variant="error"
@@ -100,7 +100,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
               </a>
             </p>
           </div>
-        </div>
+        </main>
       )
     }
 

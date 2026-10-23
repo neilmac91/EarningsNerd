@@ -19,7 +19,7 @@ export default function Error({
   }, [error])
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
       <div className="w-full max-w-md space-y-4">
         <GuidanceCard
           variant="error"
@@ -61,6 +61,6 @@ export default function Error({
           </div>
         )}
       </div>
-    </div>
+    </main>
   )
 }

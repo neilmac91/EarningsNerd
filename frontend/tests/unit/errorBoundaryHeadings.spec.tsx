@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { within } from '@testing-library/dom'
 import { describe, expect, it, vi } from 'vitest'
 import RouteError from '@/app/error'
 import DashboardError from '@/app/dashboard/error'
@@ -16,8 +17,9 @@ import type { RetainedFailure } from '@/hooks/useRetainedFailure'
  * the signed-in routes' account card, which the dashboard, the watchlist and the admin section render in
  * place of the page when their first /me read fails.
  *
- * Holds: the first heading each fallback renders is an h1 titled as the reader sees it. Server markup, so
- * no effect runs (no Sentry call, no redirect). tests/e2e/text-floors.spec.ts walks the route boundary in
+ * Holds: each fallback owns one main landmark containing its sole h1, the first heading it renders.
+ * The root skip target remains a div; it must not wrap page-owned mains in another main (DS-04).
+ * Server markup, so no effect runs (no Sentry call, no redirect). tests/e2e/text-floors.spec.ts walks the route boundary in
  * Chromium too, with the rest of the outline beneath it.
  */
 
@@ -56,5 +58,11 @@ describe('page-replacing error fallbacks open with an h1 (UA-50)', () => {
     ['features/auth/components/AccountLoadFailure.tsx', <AccountLoadFailure key="account" failure={accountFailure} focusTarget={{ current: null }} title="Unable to load your watchlist" />, /^h1 Unable to load your watchlist$/],
   ])('%s', (_file, ui, expected) => {
     expect(firstHeading(ui)).toMatch(expected)
+    const parsed = new DOMParser().parseFromString(renderToStaticMarkup(ui), 'text/html')
+    // DOMParser's document has no window; importing its body lets role queries read visibility.
+    const body = document.importNode(parsed.body, true)
+    const main = within(body).getByRole('main')
+    expect(within(body).getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(main).toContainElement(within(body).getByRole('heading', { level: 1 }))
   })
 })

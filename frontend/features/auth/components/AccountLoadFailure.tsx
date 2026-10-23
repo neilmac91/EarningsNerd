@@ -22,7 +22,7 @@ interface AccountLoadFailureProps {
  */
 export default function AccountLoadFailure({ failure, focusTarget, title }: AccountLoadFailureProps) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark px-4">
+    <main className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark px-4">
       <div className="max-w-md w-full">
         <GuidanceCard
           variant="error"
@@ -39,6 +39,6 @@ export default function AccountLoadFailure({ failure, focusTarget, title }: Acco
           }
         />
       </div>
-    </div>
+    </main>
   )
 }

@@ -1605,7 +1605,19 @@ summary's writer error; the watchlist's empty and error cards; the waitlist exam
 A fallback that replaces the whole page passes `headingLevel="h1"` (app/error.tsx, the dashboard's
 error boundary, the providers' GlobalErrorBoundary, the signed-in routes' account card
 `features/auth/components/AccountLoadFailure.tsx`; global-error.tsx writes its own h1; gate:
-tests/unit/errorBoundaryHeadings.spec.tsx).
+tests/unit/errorBoundaryHeadings.spec.tsx). The company page's invalid ticker, missing or failed company
+read and unsupported-issuer cards also replace the whole page and pass h1
+(tests/unit/company-page-lead.spec.tsx); the heading's visual size stays GuidanceCard's.
+
+Each page frame owns one `main` landmark. The root layout's `div#main` is only the focusable skip-link
+target, never an enclosing main. AuthShell owns the form pane's main, outside its utility and brand panes;
+settings, ticker-filings and company frames retain one main while loading or showing a terminal state.
+An error boundary or account-load failure replaces the page and owns its main too. Gates:
+tests/e2e/skip-link.spec.ts (root target and no nested main), tests/e2e/text-floors.spec.ts (all six auth
+routes and the route error boundary), and the existing errorBoundaryHeadings, dashboardLoadingSkeletons,
+TickerFilingsView and company-page-lead unit specs (their loading and terminal branches). Loading-heading
+presentation remains with the loading-state work; a landmark does not change its visual design.
+
 The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
 titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
