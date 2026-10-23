@@ -938,10 +938,11 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  1.625rem, so it scales with the root and holds its label at 200% text. `mono` options set
                  codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
                  `fullWidth` stretches the segments across a phone row and wraps them onto another row when
-                 they do not fit (a form filter with amendments), so every option stays visible; from sm up
-                 it is one auto-width row. Optional disabled options remain visible and use native
-                 disabled semantics by default. `focusableDisabled` keeps unavailable options in
-                 the Tab order with aria-disabled and `descriptionId`; activation is refused.
+                 they do not fit (a form filter with amendments; the feedback form's type under 200% text,
+                 E169), so every option stays visible; from sm up it is one auto-width row. Optional
+                 disabled options remain visible and use native disabled semantics by default.
+                 `focusableDisabled` keeps unavailable options in the Tab order with aria-disabled and
+                 `descriptionId`; activation is refused.
                  The controlled selected option keeps its primary colourway even if unavailable,
                  so newly loaded coverage never silently changes the selected mode. This is not
                  a busy-state API.
@@ -962,8 +963,9 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  through a same-file wrapper component (one level) and through the DS Button imported
                  under another name. WordingChanges' review row (LabelToggle) carries the rule's one
                  disable: a second press clears its label, a state the control cannot hold (D-046). A row
-                 without role="group" (FeedbackWidget's type row, E35), a wrapper imported from another
-                 file and a wrapper that renders another wrapper are outside its reach (review-checked).
+                 without role="group", a wrapper imported from another file and a wrapper that renders
+                 another wrapper are outside its reach (review-checked); FeedbackWidget's type row, the one
+                 such row, is the control now (E35).
                  Gate: tests/unit/segmentedControlOptionCount.spec.ts fails a SegmentedControl given
                  more than five options (MAX_SEGMENTS, which the primitive exports), and pins a site it
                  cannot count statically (FilingIndex's form filter). FilingIndex counts that set, All
@@ -1031,8 +1033,8 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  the title beside the icon, or the ✕, at the default size and on its own line at 200% text at
                  the header's full width, under the ✕ too, every painted line inside the panel and clear of
                  the ✕, the ✕ at the header's top right, no word broken, read a character at a time, the page
-                 not scrolling sideways, nor the two icon dialogs' panels; the feedback dialog's type row
-                 widens its panel, E169).
+                 not scrolling sideways, nor any dialog's panel: the feedback dialog's type row is the
+                 SegmentedControl, whose segments wrap whole, E169).
                  Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
                  viewer / workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
                  below lg, where it is a sheet, and a complementary landmark on lg+), and the calendar's
