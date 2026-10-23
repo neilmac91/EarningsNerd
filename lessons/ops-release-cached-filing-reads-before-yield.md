@@ -26,8 +26,8 @@ waiter holds a connection, or after it with no new checkout inside, so no holder
 slot that a waiter holds. A lock taken after the first query relies on READ COMMITTED
 (PostgreSQL's default and production's): the waiter's check must see the holder's commit, so it
 reads the database under the lock (a column query, or `populate_existing()`: an entity query hands
-back an already-loaded object unchanged), not an attribute loaded before it (checkout's customer
-check reads the id the auth lookup loaded, E166).
+back an already-loaded object unchanged), not an attribute loaded before it
+(`lessons/arch-store-a-stripe-customer-only-while-the-account-has-none.md`, E166).
 
 **Evidence**: `backend/app/routers/filings.py` company, specific, recent, content and fundamentals
 read handlers, and the `backend/app/routers/summaries.py` summary read, progress and what-changed

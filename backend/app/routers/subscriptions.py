@@ -226,7 +226,13 @@ async def create_checkout_session(
                 email=current_user.email,
                 metadata={"user_id": str(current_user.id)}
             )
-            billing_account_service.save_stripe_customer_id(db, current_user, customer.id)
+            stored_customer_id = billing_account_service.claim_stripe_customer_id(db, current_user, customer.id)
+            if stored_customer_id != customer.id:
+                # Another checkout of this account stored its customer first: check out with that one,
+                # so a payment through either session finds the account (E166).
+                logger.info("Checkout for user_id=%s uses the customer stored first; %s has no subscription",
+                            current_user.id, customer.id)
+                customer = stripe.Customer.retrieve(stored_customer_id)
         else:
             customer = stripe.Customer.retrieve(current_user.stripe_customer_id)
         
