@@ -284,7 +284,9 @@ test.describe("the site header's own stops hold the page in place", () => {
  * must keep its lines in every state for the height to hold, so the states are 1280 and 1440px at the default size
  * and 1024 and 1440px under 200% text. Where the check changes the bar's lines it does not hold yet: at 1024 to
  * 1031px a guest's bar wraps where a reader's does not (E173), and under 200% text at 1280px the placeholder fits
- * beside the nav where the settled controls do not, and at 390px a guest's account link wraps (E175).
+ * beside the nav where the settled controls do not, and at 390px a guest's account link wraps (E175). At 1440px under
+ * 200% text the logo and the nav share the first line in CI's fonts; in fonts where they miss it by a few pixels a
+ * guest's bar gains a line as the check settles too (E175, chief design on #1544).
  */
 async function answerHeld(page: Page, baseURL: string, who: 'guest' | 'reader'): Promise<() => void> {
   const origin = new URL(baseURL).origin
