@@ -216,13 +216,18 @@ def _efts_client(filings, sent):
     """The real EFTS client over a fake transport. Each request's query string is recorded in
     ``sent`` as sent, and answered with the ``filings`` of a requested form filed in its window. An
     amendment is answered under its root form too, as the P1-6 live walk saw (it dropped seven /A
-    hits), so the walk's own filter must drop what it does not keep."""
+    hits), so the walk's own filter must drop what it does not keep. Each hit carries the form fields
+    live EFTS sends (read 2026-10-23 for the 2024 20-F,40-F listing: 22 of its first 100 hits were
+    amendments): ``root_forms`` lists the root form, ``form`` and ``file_type`` keep the /A, and
+    there is no ``root_form`` key, so a parser that named a hit by its root would store an amendment
+    as an original."""
 
     def respond(request: httpx.Request) -> httpx.Response:
         sent.append(request.url.query.decode())
         params = request.url.params
         hits = [
             {"_id": f"{accession}:doc.htm", "_source": {
+                "root_forms": [form.removesuffix("/A")], "form": form,
                 "file_type": form, "file_date": filed, "period_ending": period,
                 "ciks": [FPI_CIK], "display_names": [f"Test Co (TCO) (CIK {FPI_CIK})"],
             }}

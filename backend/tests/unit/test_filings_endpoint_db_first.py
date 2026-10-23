@@ -744,12 +744,14 @@ def test_domestic_lists_are_unchanged_by_the_6k_budget(client, monkeypatch):
 def _efts_listing(filings):
     """The real EFTS client over a fake transport: a query-less listing answers with the ``filings``
     (``_WindowFiling``) of a requested form filed in the request's window, as EFTS lists them, an
-    amendment under its root form too (the P1-6 live walk dropped seven /A hits)."""
+    amendment under its root form too (the P1-6 live walk dropped seven /A hits), with live EFTS's
+    form fields: ``root_forms`` lists the root form, and ``form`` and ``file_type`` keep the /A."""
 
     def respond(request: httpx.Request) -> httpx.Response:
         params = request.url.params
         hits = [
             {"_id": f"{f.accession_number}:{f.primary_document}", "_source": {
+                "root_forms": [f.form.removesuffix("/A")], "form": f.form,
                 "file_type": f.form, "file_date": f.filing_date.isoformat(), "period_ending": f.report_date,
                 "ciks": [FPI_CIK], "display_names": [f"Test Co (BPX) (CIK {FPI_CIK})"],
             }}
