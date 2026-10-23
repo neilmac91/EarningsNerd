@@ -8,6 +8,7 @@ import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { countControlClass, type CountControlKind } from '@/components/ui/countControl'
+import { inputClasses, type InputClassesOptions } from '@/components/ui/Input'
 import { bindingResolver, type Binding } from './astBindings'
 import { isLocal, lazyImport, routeFiles, walkImports } from './importWalk'
 
@@ -28,8 +29,11 @@ import { isLocal, lazyImport, routeFiles, walkImports } from './importWalk'
  * from `@/components/ui` (the barrel or components/ui/Button.tsx, a namespace member included; a page's own function
  * of that name is not the factory, and its className is read as any call is).
  * The scan reads a className as the file writes it: a string, a template's static text, `cx(…)` (the DS
- * joiner) by its readable arguments, `buttonVariants(…)` as the factory, and two more sources of classes.
- * `countControlClass(…)` imported from `@/components/ui` (the barrel or components/ui/countControl.ts, under
+ * joiner) by its readable arguments, `buttonVariants(…)` as the factory, and three more sources of classes.
+ * `inputClasses(…)` imported from `@/components/ui` (the barrel or components/ui/Input.tsx, by name, not as a namespace
+ * member) is read as the classes the field recipe returns for the options the call writes, when the scan reads every
+ * one (a boolean, a string, a className it reads); a call with an option it cannot read is unreadable, so the field
+ * fails closed. `countControlClass(…)` imported from `@/components/ui` (the barrel or components/ui/countControl.ts, under
  * any local name, a namespace member included) is read as the classes the recipe itself returns for the kind
  * it names: the spec calls the recipe, so the ring is read off it, not trusted by name, and a kind the scan
  * cannot read counts as the classes every kind countControl.ts declares shares. A `const` the file declares
@@ -143,7 +147,13 @@ function routeShells(root: string = ROOT): string[] {
 }
 
 /** Chrome files the scan skips, each with its reason. Shrink-only: fix the file and delete its line. */
-const NOT_SCANNED: Record<string, string> = {}
+const NOT_SCANNED: Record<string, string> = {
+  'components/ui/Input.tsx':
+    'the DS field module, reached through the feedback form\'s inputClasses() (E154): its fields are held by ' +
+    'tests/unit/inputClassesNoOverrides.spec.tsx, each inputClasses() combination and the Input, Textarea and Select ' +
+    'components taking the forms ring off and drawing the DS ring, as the app-wide field clause below leaves it ' +
+    '(FIELD_FACTORY). A chrome field built with the recipe is read here by calling it (fieldFactoryTokens).',
+}
 
 /**
  * Third-party components the chrome renders (`module Tag`), and how their Tab stops meet the rule. The
@@ -273,17 +283,43 @@ function countControlTokens(arg: ts.Expression | undefined): string[] {
 }
 
 /** What a file's class expressions are read with: its bindings, to follow a `const` to its initializer, and the
-    count control's recipe under the names the file imports it as. */
+    count control's and the field's recipes under the names the file imports them as. */
 interface ClassContext {
   resolve: (ref: ts.Identifier) => Binding | undefined
   isCountControl: (callee: ts.Expression) => boolean
   isButtonFactory: (callee: ts.Expression) => boolean
+  isFieldFactory: (callee: ts.Expression) => boolean
 }
 const classContext = (sf: ts.SourceFile): ClassContext => ({
   resolve: bindingResolver(sf),
   isCountControl: importedName(sf, COUNT_CONTROL_IMPORTS),
   isButtonFactory: buttonFactory(sf),
+  // By name only, as the app-wide field clause reads it: a namespace call (`UI.inputClasses()`) is unreadable.
+  isFieldFactory: importedName(sf, FACTORY_IMPORTS, false),
 })
+
+/** The classes an `inputClasses(…)` call returns: the field recipe's own, called with the options the call writes
+    (none, or an object literal whose every option is a boolean, a string or, for `className`, classes the scan
+    reads). An option the scan cannot read (`{ invalid }`, a caller's className) leaves the call unreadable: null. */
+function fieldFactoryTokens(arg: ts.Expression | undefined, ctx: ClassContext): string[] | null {
+  if (!arg) return splitClasses(inputClasses())
+  if (!ts.isObjectLiteralExpression(arg)) return null
+  const options: Record<string, boolean | string> = {}
+  for (const prop of arg.properties) {
+    if (!ts.isPropertyAssignment(prop) || !ts.isIdentifier(prop.name)) return null
+    const value = prop.initializer
+    if (prop.name.text === 'className') {
+      const tokens = expressionTokens(value, ctx)
+      if (!Array.isArray(tokens)) return null
+      options.className = tokens.join(' ')
+    } else if (value.kind === ts.SyntaxKind.TrueKeyword || value.kind === ts.SyntaxKind.FalseKeyword) {
+      options[prop.name.text] = value.kind === ts.SyntaxKind.TrueKeyword
+    } else if (ts.isStringLiteral(value)) {
+      options[prop.name.text] = value.text
+    } else return null
+  }
+  return splitClasses(inputClasses(options as InputClassesOptions))
+}
 
 /** The static class tokens of a className attribute, `'factory'` for buttonVariants(…), or null if unreadable. */
 function classTokens(init: ts.JsxAttributeValue | undefined, ctx: ClassContext): string[] | 'factory' | null {
@@ -294,7 +330,8 @@ function classTokens(init: ts.JsxAttributeValue | undefined, ctx: ClassContext):
 
 /**
  * A class expression's static tokens: a string, a template's static text, `buttonVariants(…)` as
- * 'factory', `countControlClass(…)` as the classes the recipe returns (countControlTokens), a `const` the
+ * 'factory', `countControlClass(…)` as the classes the recipe returns (countControlTokens), `inputClasses(…)` as
+ * the classes the field recipe returns for the options the call writes (fieldFactoryTokens), a `const` the
  * file declares as the tokens of its initializer (a type assertion or parentheses around it read through;
  * `seen` ends a const that reaches itself), and `cx(…)`, the DS class joiner (components/ui/cx.ts) the
  * primitives write their classes with, as the tokens of its readable arguments. A conditional, a parameter,
@@ -314,6 +351,7 @@ function expressionTokens(expr: ts.Expression, ctx: ClassContext, seen: Readonly
     return expressionTokens(decl.initializer, ctx, new Set([...seen, decl]))
   }
   if (ts.isCallExpression(expr) && ctx.isCountControl(expr.expression)) return countControlTokens(expr.arguments[0])
+  if (ts.isCallExpression(expr) && ctx.isFieldFactory(expr.expression)) return fieldFactoryTokens(expr.arguments[0], ctx)
   if (ts.isCallExpression(expr) && ctx.isButtonFactory(expr.expression)) return 'factory'
   if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression)) {
     if (expr.expression.text === 'cx') {
@@ -1167,6 +1205,43 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
     ])
   })
 
+  // The field recipe (components/ui/Input.tsx) is read by calling it with the options the call writes, so a ring
+  // dropped from its default tone flags the feedback form's textarea (E154); an option the scan cannot read fails.
+  it('the scan reads the field recipe by calling it with the options the call writes (a self-check on fixed sources)', () => {
+    const src = `
+      import { cx, inputClasses } from '@/components/ui'
+      import { inputClasses as field } from '@/components/ui/Input'
+      import * as UI from '@/components/ui'
+      const GROW = 'resize-y'
+      export function A({ invalid, extra }: { invalid: boolean; extra: string }) {
+        return (
+          <form>
+            <textarea className={inputClasses()} />
+            <textarea className={inputClasses({ className: 'resize-none' })} />
+            <input className={field({ density: 'compact', autoWidth: true })} />
+            <textarea className={inputClasses({ className: cx('min-h-24', GROW) })} />
+            <input className={inputClasses({ invalid })} />
+            <textarea className={inputClasses({ className: extra })} />
+            <input className={UI.inputClasses()} />
+          </form>
+        )
+      }
+      export function B() {
+        const inputClasses = () => 'rounded-lg border'
+        return <input className={inputClasses()} />
+      }`
+    const { stops, findings } = missingRings(src)
+    expect(stops).toBe(8)
+    expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
+      // An option the scan cannot read: a parameter, as an option or as the className.
+      '13 <input> a className the scan cannot read',
+      '14 <textarea> a className the scan cannot read',
+      // A namespace member, and a local function of the recipe's name, are not read as the recipe.
+      '15 <input> a className the scan cannot read',
+      '21 <input> a className the scan cannot read',
+    ])
+  })
+
   // The DS primitives the chrome renders are read as they are written: classes joined by cx(…), and the
   // component's own rest props passed to the element that takes the caller's className. Modal's close ✕
   // (components/ui/Modal.tsx) is the first case's shape.
@@ -1282,9 +1357,10 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       findings.push(...result.findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`))
     }
     // A reader that finds nothing must not pass: the app styles a handful of fields itself and builds the rest with inputClasses().
-    // Four since the four hand-rolled checkboxes became the one components/ui/Checkbox.tsx (ADM-37).
-    expect(fields, 'fields that style themselves').toBeGreaterThanOrEqual(4)
-    expect(factory, 'fields built with inputClasses()').toBeGreaterThanOrEqual(15)
+    // Four since the four hand-rolled checkboxes became the one components/ui/Checkbox.tsx (ADM-37); three since the
+    // feedback form's textarea took inputClasses() (E154), which moved it to the factory's count, one higher with it.
+    expect(fields, 'fields that style themselves').toBeGreaterThanOrEqual(3)
+    expect(factory, 'fields built with inputClasses()').toBeGreaterThanOrEqual(16)
     expect(findings).toEqual([])
   })
 
