@@ -7,18 +7,26 @@ what that mock cannot:
   another user's), and the ``User`` mirror when there is none.
 - Checkout's first-time-trial check counts only the reader's own row, of any status.
 - A user with no Stripe customer gets one, and checkout commits its id before the checkout session
-  is created, so a Stripe failure after that point still keeps the customer.
+  is created, so a Stripe failure after that point still keeps the customer; no other account's
+  customer changes.
+- Two checkouts of one account that each found no customer check out with the one stored first,
+  never one written over it (E166).
 
 The reader is loaded through the request's own ``get_db`` session, as ``get_current_user`` does, so
-a write on it rides the route's commit exactly as in production.
+the claim's commit expires it and the route's later reads reload it through that session, as in
+production.
 """
 from __future__ import annotations
 
+import asyncio
+import threading
 import uuid
 from datetime import datetime, timezone
 from types import SimpleNamespace
+from typing import Callable
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 import stripe
 from fastapi import Depends
@@ -120,12 +128,15 @@ def test_status_never_serves_another_users_row(client):
     assert (body["stripe_customer_id"], body["stripe_subscription_id"], body["status"]) == ("cus_reader", None, None)
 
 
-def _checkout(client, monkeypatch, *, session_error: Exception | None = None):
-    """Post a monthly checkout with Stripe mocked; return (response, Customer.create, Session.create)."""
+def _checkout(client, monkeypatch, *, session_error: Exception | None = None,
+              customer_created: Callable[..., SimpleNamespace] | None = None):
+    """Post a monthly checkout with Stripe mocked; return (response, Customer.create, Session.create).
+    ``customer_created``, when given, runs as ``Customer.create`` and returns its customer."""
     monkeypatch.setattr(settings, "STRIPE_PRICE_MONTHLY_ID", "price_monthly_test")
     monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)
     session = MagicMock(url="https://checkout.stripe.test/session")
-    with patch.object(stripe.Customer, "create", return_value=SimpleNamespace(id="cus_new")) as create_customer, \
+    with patch.object(stripe.Customer, "create", return_value=SimpleNamespace(id="cus_new"),
+                      side_effect=customer_created) as create_customer, \
             patch.object(stripe.Customer, "retrieve", side_effect=lambda cid: SimpleNamespace(id=cid)), \
             patch.object(stripe.checkout.Session, "create", return_value=session,
                          side_effect=session_error) as create_session:
@@ -151,6 +162,7 @@ def test_the_first_time_trial_counts_only_the_readers_own_row_of_any_status(clie
 
 def test_checkout_creates_and_stores_a_missing_stripe_customer(client, monkeypatch):
     email = _new_user(stripe_customer_id=None)
+    bystander = _new_user(stripe_customer_id=None)
     _sign_in(email)
 
     resp, create_customer, create_session = _checkout(client, monkeypatch)
@@ -160,6 +172,7 @@ def test_checkout_creates_and_stores_a_missing_stripe_customer(client, monkeypat
     assert create_customer.call_args.kwargs["email"] == email
     assert create_session.call_args.kwargs["customer"] == "cus_new"
     assert _stored_customer_id(email) == "cus_new"
+    assert _stored_customer_id(bystander) is None  # the claim writes the reader's row alone
 
 
 def test_the_customer_id_is_committed_before_the_checkout_session_is_created(client, monkeypatch):
@@ -183,3 +196,68 @@ def test_an_existing_customer_is_retrieved_not_recreated(client, monkeypatch):
     create_customer.assert_not_called()
     assert create_session.call_args.kwargs["customer"] == "cus_existing"
     assert _stored_customer_id(email) == "cus_existing"
+
+
+def test_a_customer_another_checkout_stored_first_stays_and_is_checked_out_with(client, monkeypatch):
+    """Another checkout of the account stores its customer after this request's lookup read none. That
+    customer stays, and this checkout's session uses it: written over, the other session would name a
+    customer the account no longer holds, and a payment through it would be refused (E166)."""
+    email = _new_user(stripe_customer_id=None)
+    _sign_in(email)
+
+    def stored_first_by_another_checkout(**_):
+        with SessionLocal() as db:
+            db.query(User).filter(User.email == email).update({User.stripe_customer_id: "cus_first"})
+            db.commit()
+        return SimpleNamespace(id="cus_new")
+
+    resp, create_customer, create_session = _checkout(client, monkeypatch,
+                                                      customer_created=stored_first_by_another_checkout)
+
+    assert resp.status_code == 200, resp.text
+    create_customer.assert_called_once()
+    assert create_session.call_args.kwargs["customer"] == "cus_first"
+    assert _stored_customer_id(email) == "cus_first"
+
+
+@pytest.mark.asyncio
+async def test_two_checkouts_whose_lookups_both_read_no_customer_check_out_with_one(monkeypatch):
+    """Two checkouts of one account whose auth lookups both read the account before either stores a
+    customer (two tabs; a barrier holds each lookup until both have read) each create one, and both
+    sessions use the customer stored first, through the real ``get_current_user`` (E166)."""
+    from app.routers import auth
+    from app.services import auth_account_service
+
+    email = _new_user(stripe_customer_id=None)
+    monkeypatch.setattr(settings, "STRIPE_PRICE_MONTHLY_ID", "price_monthly_test")
+    monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    both_read = threading.Barrier(2, timeout=10)
+    find_user_by_email = auth_account_service.find_user_by_email
+
+    def find_then_wait_for_the_other(db, address):
+        user = find_user_by_email(db, address)
+        both_read.wait()
+        return user
+
+    monkeypatch.setattr(auth_account_service, "find_user_by_email", find_then_wait_for_the_other)
+    customers = iter(["cus_1", "cus_2"])
+    token = auth.create_access_token({"sub": email})
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    with patch.object(stripe.Customer, "create", side_effect=lambda **_: SimpleNamespace(id=next(customers))) \
+            as create_customer, \
+            patch.object(stripe.Customer, "retrieve", side_effect=lambda cid: SimpleNamespace(id=cid)), \
+            patch.object(stripe.checkout.Session, "create",
+                         return_value=MagicMock(url="https://checkout.stripe.test/session")) as create_session:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as http:
+            responses = await asyncio.gather(*[
+                http.post("/api/subscriptions/create-checkout-session", params={"price_id": "monthly"})
+                for _ in range(2)])
+
+    assert [response.status_code for response in responses] == [200, 200], [r.text for r in responses]
+    assert create_customer.call_count == 2  # each lookup read no customer
+    # Whichever claim lands first wins (on the loop, the first body's; off it, either): both sessions use it.
+    stored = _stored_customer_id(email)
+    assert stored in {"cus_1", "cus_2"}
+    assert [call.kwargs["customer"] for call in create_session.call_args_list] == [stored, stored]

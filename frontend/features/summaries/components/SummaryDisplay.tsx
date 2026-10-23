@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge, Card, CardBody, GuidanceCard } from '@/components/ui'
 import { ChatCircleTextIcon } from '@/lib/icons'
 import { ENABLE_QUALITY_BADGE, ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { ChangeReportCard } from './ChangeReportCard'
 import { SummaryActionsBar, type SaveMutation } from './SummaryActionsBar'
 import { useSummaryExports } from '../hooks/useSummaryExports'
@@ -132,8 +133,9 @@ export function SummaryDisplay({
 
   const metadata: MetadataSections | null = rawSummary ? (rawSummary.sections as MetadataSections ?? null) : null
 
-  // "AAPL’s 10-K" when the issuer is known, else the cleaner "this 10-K".
-  const subjectName = filing.company?.ticker || filing.company?.name
+  // "AAPL’s 10-K" when the issuer is known, else the cleaner "this 10-K"; a filing with no ticker names its company in
+  // its display casing.
+  const subjectName = filing.company?.ticker || formatCompanyName(filing.company?.name)
   const askSubjectLabel = subjectName ? `${subjectName}’s ${filing.filing_type}` : `this ${filing.filing_type}`
 
   return (
@@ -260,7 +262,7 @@ export function SummaryDisplay({
       )}
 
       {metadata?.action_items && Array.isArray(metadata.action_items) && metadata.action_items.length > 0 && (
-        <Card as="section" className="p-6">
+        <Card as="section" className="p-cap-6">
           {/* h2, like the summary's sections: it follows them as a sibling, not inside the last one. */}
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">Suggested follow-ups</h2>
           <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-3">Tap a question to ask this filing.</p>

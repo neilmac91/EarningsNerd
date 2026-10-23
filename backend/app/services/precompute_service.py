@@ -152,13 +152,16 @@ async def precompute_one(
 
     # Get-or-create the Filing row (short write session; mirrors routers/filings.py persistence).
     if filing_id is None:
-        from app.services.filing_amendment_service import lock_company_filings, mark_superseded_filings
+        from app.services.filing_amendment_service import (
+            existing_filings_for_insert,
+            lock_company_filings,
+            mark_superseded_filings,
+        )
 
         with SessionLocal() as db:
             lock_company_filings(db, company_id)  # before the check below reads whether it exists
-            filing = (
-                db.query(Filing).filter(Filing.accession_number == sf["accession_number"]).first()
-            )
+            accession = sf["accession_number"]
+            filing = existing_filings_for_insert(db, [accession]).get(accession)
             if not filing:
                 filing = Filing(
                     company_id=company_id,

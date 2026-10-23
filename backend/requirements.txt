@@ -126,7 +126,7 @@ openai==3.33.0
     # via -r requirements.in
 openpyxl==3.1.5
     # via -r requirements.in
-opentelemetry-api==1.45.0
+opentelemetry-api==1.45.1
     # via fastapi
 orjson==3.11.9
     # via edgartools

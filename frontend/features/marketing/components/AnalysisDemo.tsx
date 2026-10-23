@@ -4,12 +4,13 @@ import DataNotes from '@/features/analysis/components/DataNotes'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import RevenueBars, { type RevenuePoint } from '@/features/marketing/components/RevenueBars'
 import { SAMPLE_ANALYSIS_DATASET } from '@/features/marketing/lib/landing-samples'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 
 const MODE_LABEL = { annual: 'Annual', quarterly: 'Quarterly' } as const
 
 const { periods } = SAMPLE_ANALYSIS_DATASET
 const RANGE = `${periods[0]?.key ?? ''}–${periods[periods.length - 1]?.key ?? ''}`
-const TITLE = `${SAMPLE_ANALYSIS_DATASET.company_name} · ${MODE_LABEL[SAMPLE_ANALYSIS_DATASET.mode]} · ${RANGE}`
+const TITLE = `${formatCompanyName(SAMPLE_ANALYSIS_DATASET.company_name)} · ${MODE_LABEL[SAMPLE_ANALYSIS_DATASET.mode]} · ${RANGE}`
 
 // The revenue series drives the one chart on the screen; a point with no value has no bar.
 const REVENUE_POINTS: RevenuePoint[] = (

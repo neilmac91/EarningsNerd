@@ -1,0 +1,598 @@
+[
+  {
+    "theme": "light",
+    "width": 1440,
+    "before": [
+      {
+        "text": "EarningsNerd",
+        "x": 112,
+        "y": 12,
+        "width": 172.28125,
+        "height": 36
+      },
+      {
+        "text": "Multi-period analysisCalendarPricingContact",
+        "x": 565.625,
+        "y": 20,
+        "width": 397.03125,
+        "height": 20
+      },
+      {
+        "text": "Multi-period analysis",
+        "x": 565.625,
+        "y": 20,
+        "width": 141.078125,
+        "height": 20
+      },
+      {
+        "text": "Calendar",
+        "x": 738.703125,
+        "y": 20,
+        "width": 60.421875,
+        "height": 20
+      },
+      {
+        "text": "Pricing",
+        "x": 831.125,
+        "y": 20,
+        "width": 46.75,
+        "height": 20
+      },
+      {
+        "text": "Contact",
+        "x": 909.875,
+        "y": 20,
+        "width": 52.78125,
+        "height": 20
+      },
+      {
+        "text": "Switch to dark mode",
+        "x": 1244,
+        "y": 12,
+        "width": 36,
+        "height": 36
+      },
+      {
+        "text": "Checking sign-in",
+        "x": 1292,
+        "y": 12,
+        "width": 36,
+        "height": 36
+      }
+    ],
+    "after": [
+      {
+        "text": "EarningsNerd",
+        "x": 112,
+        "y": 14,
+        "width": 172.28125,
+        "height": 36
+      },
+      {
+        "text": "Multi-period analysisCalendarPricingContact",
+        "x": 456.109375,
+        "y": 22,
+        "width": 397.03125,
+        "height": 20
+      },
+      {
+        "text": "Multi-period analysis",
+        "x": 456.109375,
+        "y": 22,
+        "width": 141.078125,
+        "height": 20
+      },
+      {
+        "text": "Calendar",
+        "x": 629.1875,
+        "y": 22,
+        "width": 60.421875,
+        "height": 20
+      },
+      {
+        "text": "Pricing",
+        "x": 721.609375,
+        "y": 22,
+        "width": 46.75,
+        "height": 20
+      },
+      {
+        "text": "Contact",
+        "x": 800.359375,
+        "y": 22,
+        "width": 52.78125,
+        "height": 20
+      },
+      {
+        "text": "Switch to dark mode",
+        "x": 1024.953125,
+        "y": 14,
+        "width": 36,
+        "height": 36
+      },
+      {
+        "text": "Log in",
+        "x": 1072.953125,
+        "y": 12,
+        "width": 72.96875,
+        "height": 40
+      },
+      {
+        "text": "Request an invite",
+        "x": 1157.921875,
+        "y": 12,
+        "width": 170.078125,
+        "height": 40
+      }
+    ],
+    "shifts": [
+      {
+        "value": 0.14539414735644934,
+        "recent": false,
+        "sources": [
+          {
+            "node": "DIV",
+            "text": "{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"Organization\",\"@id\":\"https:",
+            "previous": {
+              "x": 0,
+              "y": 57,
+              "width": 1440,
+              "height": 843,
+              "top": 57,
+              "right": 1440,
+              "bottom": 900,
+              "left": 0
+            },
+            "current": {
+              "x": 0,
+              "y": 61,
+              "width": 1440,
+              "height": 839,
+              "top": 61,
+              "right": 1440,
+              "bottom": 900,
+              "left": 0
+            }
+          },
+          {
+            "node": "DIV",
+            "text": "Log inRequest an invite",
+            "previous": {
+              "x": 1244,
+              "y": 12,
+              "width": 84,
+              "height": 36,
+              "top": 12,
+              "right": 1328,
+              "bottom": 48,
+              "left": 1244
+            },
+            "current": {
+              "x": 1024.953125,
+              "y": 10,
+              "width": 306.046875,
+              "height": 46,
+              "top": 10,
+              "right": 1331,
+              "bottom": 56,
+              "left": 1024.953125
+            }
+          },
+          {
+            "node": "NAV",
+            "text": "Multi-period analysisCalendarPricingContact",
+            "previous": {
+              "x": 565.625,
+              "y": 20,
+              "width": 398.25,
+              "height": 20,
+              "top": 20,
+              "right": 963.875,
+              "bottom": 40,
+              "left": 565.625
+            },
+            "current": {
+              "x": 456.109375,
+              "y": 22,
+              "width": 398.25,
+              "height": 20,
+              "top": 22,
+              "right": 854.359375,
+              "bottom": 42,
+              "left": 456.109375
+            }
+          }
+        ]
+      }
+    ],
+    "cls": 0.14539414735644934
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "before": [
+      {
+        "text": "EarningsNerd",
+        "x": 16,
+        "y": 16,
+        "width": 36,
+        "height": 36
+      },
+      {
+        "text": "Switch to dark mode",
+        "x": 282,
+        "y": 12,
+        "width": 44,
+        "height": 44
+      },
+      {
+        "text": "Open menu",
+        "x": 330,
+        "y": 12,
+        "width": 44,
+        "height": 44
+      }
+    ],
+    "after": [
+      {
+        "text": "EarningsNerd",
+        "x": 16,
+        "y": 16,
+        "width": 36,
+        "height": 36
+      },
+      {
+        "text": "Switch to dark mode",
+        "x": 150.046875,
+        "y": 12,
+        "width": 44,
+        "height": 44
+      },
+      {
+        "text": "Request invite",
+        "x": 198.046875,
+        "y": 12,
+        "width": 127.953125,
+        "height": 44
+      },
+      {
+        "text": "Open menu",
+        "x": 330,
+        "y": 12,
+        "width": 44,
+        "height": 44
+      }
+    ],
+    "shifts": [
+      {
+        "value": 0.005319712996286973,
+        "recent": false,
+        "sources": [
+          {
+            "node": "DIV",
+            "text": "Request invite",
+            "previous": {
+              "x": 282,
+              "y": 12,
+              "width": 92,
+              "height": 44,
+              "top": 12,
+              "right": 374,
+              "bottom": 56,
+              "left": 282
+            },
+            "current": {
+              "x": 150.046875,
+              "y": 10,
+              "width": 223.953125,
+              "height": 50,
+              "top": 10,
+              "right": 374,
+              "bottom": 60,
+              "left": 150.046875
+            }
+          }
+        ]
+      }
+    ],
+    "cls": 0.005319712996286973
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "before": [
+      {
+        "text": "EarningsNerd",
+        "x": 112,
+        "y": 12,
+        "width": 172.28125,
+        "height": 36
+      },
+      {
+        "text": "Multi-period analysisCalendarPricingContact",
+        "x": 565.625,
+        "y": 20,
+        "width": 397.03125,
+        "height": 20
+      },
+      {
+        "text": "Multi-period analysis",
+        "x": 565.625,
+        "y": 20,
+        "width": 141.078125,
+        "height": 20
+      },
+      {
+        "text": "Calendar",
+        "x": 738.703125,
+        "y": 20,
+        "width": 60.421875,
+        "height": 20
+      },
+      {
+        "text": "Pricing",
+        "x": 831.125,
+        "y": 20,
+        "width": 46.75,
+        "height": 20
+      },
+      {
+        "text": "Contact",
+        "x": 909.875,
+        "y": 20,
+        "width": 52.78125,
+        "height": 20
+      },
+      {
+        "text": "Switch to light mode",
+        "x": 1244,
+        "y": 12,
+        "width": 36,
+        "height": 36
+      },
+      {
+        "text": "Checking sign-in",
+        "x": 1292,
+        "y": 12,
+        "width": 36,
+        "height": 36
+      }
+    ],
+    "after": [
+      {
+        "text": "EarningsNerd",
+        "x": 112,
+        "y": 14,
+        "width": 172.28125,
+        "height": 36
+      },
+      {
+        "text": "Multi-period analysisCalendarPricingContact",
+        "x": 456.109375,
+        "y": 22,
+        "width": 397.03125,
+        "height": 20
+      },
+      {
+        "text": "Multi-period analysis",
+        "x": 456.109375,
+        "y": 22,
+        "width": 141.078125,
+        "height": 20
+      },
+      {
+        "text": "Calendar",
+        "x": 629.1875,
+        "y": 22,
+        "width": 60.421875,
+        "height": 20
+      },
+      {
+        "text": "Pricing",
+        "x": 721.609375,
+        "y": 22,
+        "width": 46.75,
+        "height": 20
+      },
+      {
+        "text": "Contact",
+        "x": 800.359375,
+        "y": 22,
+        "width": 52.78125,
+        "height": 20
+      },
+      {
+        "text": "Switch to light mode",
+        "x": 1024.953125,
+        "y": 14,
+        "width": 36,
+        "height": 36
+      },
+      {
+        "text": "Log in",
+        "x": 1072.953125,
+        "y": 12,
+        "width": 72.96875,
+        "height": 40
+      },
+      {
+        "text": "Request an invite",
+        "x": 1157.921875,
+        "y": 12,
+        "width": 170.078125,
+        "height": 40
+      }
+    ],
+    "shifts": [
+      {
+        "value": 0.14539414735644934,
+        "recent": false,
+        "sources": [
+          {
+            "node": "DIV",
+            "text": "{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"Organization\",\"@id\":\"https:",
+            "previous": {
+              "x": 0,
+              "y": 57,
+              "width": 1440,
+              "height": 843,
+              "top": 57,
+              "right": 1440,
+              "bottom": 900,
+              "left": 0
+            },
+            "current": {
+              "x": 0,
+              "y": 61,
+              "width": 1440,
+              "height": 839,
+              "top": 61,
+              "right": 1440,
+              "bottom": 900,
+              "left": 0
+            }
+          },
+          {
+            "node": "DIV",
+            "text": "Log inRequest an invite",
+            "previous": {
+              "x": 1244,
+              "y": 12,
+              "width": 84,
+              "height": 36,
+              "top": 12,
+              "right": 1328,
+              "bottom": 48,
+              "left": 1244
+            },
+            "current": {
+              "x": 1024.953125,
+              "y": 10,
+              "width": 306.046875,
+              "height": 46,
+              "top": 10,
+              "right": 1331,
+              "bottom": 56,
+              "left": 1024.953125
+            }
+          },
+          {
+            "node": "NAV",
+            "text": "Multi-period analysisCalendarPricingContact",
+            "previous": {
+              "x": 565.625,
+              "y": 20,
+              "width": 398.25,
+              "height": 20,
+              "top": 20,
+              "right": 963.875,
+              "bottom": 40,
+              "left": 565.625
+            },
+            "current": {
+              "x": 456.109375,
+              "y": 22,
+              "width": 398.25,
+              "height": 20,
+              "top": 22,
+              "right": 854.359375,
+              "bottom": 42,
+              "left": 456.109375
+            }
+          }
+        ]
+      }
+    ],
+    "cls": 0.14539414735644934
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "before": [
+      {
+        "text": "EarningsNerd",
+        "x": 16,
+        "y": 16,
+        "width": 36,
+        "height": 36
+      },
+      {
+        "text": "Switch to light mode",
+        "x": 282,
+        "y": 12,
+        "width": 44,
+        "height": 44
+      },
+      {
+        "text": "Open menu",
+        "x": 330,
+        "y": 12,
+        "width": 44,
+        "height": 44
+      }
+    ],
+    "after": [
+      {
+        "text": "EarningsNerd",
+        "x": 16,
+        "y": 16,
+        "width": 36,
+        "height": 36
+      },
+      {
+        "text": "Switch to light mode",
+        "x": 150.046875,
+        "y": 12,
+        "width": 44,
+        "height": 44
+      },
+      {
+        "text": "Request invite",
+        "x": 198.046875,
+        "y": 12,
+        "width": 127.953125,
+        "height": 44
+      },
+      {
+        "text": "Open menu",
+        "x": 330,
+        "y": 12,
+        "width": 44,
+        "height": 44
+      }
+    ],
+    "shifts": [
+      {
+        "value": 0.005319712996286973,
+        "recent": false,
+        "sources": [
+          {
+            "node": "DIV",
+            "text": "Request invite",
+            "previous": {
+              "x": 282,
+              "y": 12,
+              "width": 92,
+              "height": 44,
+              "top": 12,
+              "right": 374,
+              "bottom": 56,
+              "left": 282
+            },
+            "current": {
+              "x": 150.046875,
+              "y": 10,
+              "width": 223.953125,
+              "height": 50,
+              "top": 10,
+              "right": 374,
+              "bottom": 60,
+              "left": 150.046875
+            }
+          }
+        ]
+      }
+    ],
+    "cls": 0.005319712996286973
+  }
+]

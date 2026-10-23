@@ -82,7 +82,7 @@ export default function ConnectedAccounts() {
   const credentialCount = (data?.has_password ? 1 : 0) + providers.length
 
   return (
-    <Card className="p-6 mb-6">
+    <Card className="p-cap-6 mb-6">
       <div className="flex items-center gap-3 mb-2">
         <h2
           ref={headingRef}

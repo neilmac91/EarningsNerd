@@ -22,6 +22,13 @@ the same head (F58 changed both; **Gate** below).
 - A push made once the pull request is ready, to answer a finding, moves the head past the ready mark's review. The
   review of the new head that the push's `@codex review` requests is then the one to read, the same way; the pull
   request stays ready.
+- A finding answered without a push (one about the pull request's body) leaves the ready review's unresolved state on
+  the same head. Resolving its thread does not clear that state, and a manual review of the same head cannot replace it.
+  Answer and resolve the thread, then make one fresh draft-to-ready transition, its two steps a few seconds apart, with
+  no manual request, and read that review. On #1523 the ready review's P1 (the body listed sixteen mutation proofs
+  where AGENTS.md §4 asks for one) was fixed in the body. The summary still read unresolved two minutes after the
+  thread was resolved, and review-gate failed on it. The fresh transition's review completed clean, and review-gate
+  passed.
 - A finding that lands after the merge gets its fix in the next pull request, with a reply on its thread naming it.
 - Make no draft-to-ready transition and no `@codex review` while any Codex review of the pull request shows Running,
   the ready mark's own review included, after a push too: the gate's advice to comment `@codex review` holds once the
@@ -51,9 +58,9 @@ the reply 4342632073; `review-gate` run 39686282032 (passed 22:24:51Z); the merg
 review of `900065d3` completed at 03:58:34Z on 2026-10-22 with a finding unresolved (4344402620, the case the
 rule's third line answers), and `review-gate` passed on it at 03:58:51Z (run 39719618842). #1496's ready review of
 `cb86536c` started at 20:28:50Z on 2026-10-22 and had not completed when `review-gate` timed out at 20:49:10Z (job
-120070504428). A draft-to-ready flip at 20:58:21–25Z, while it still showed Running, recorded a second start at
+120070504428). A draft-to-ready flip at 20:58:18–22Z, while it still showed Running, recorded a second start at
 20:58:28Z, so the clean completion at 21:01:14Z could not be paired (the correction, comment 6351182186). Once the
-summary read Completed, one fresh transition at 21:04:00–02Z with no manual request started a review at 21:04:05Z that
+summary read Completed, one fresh transition at 21:03:58–59Z with no manual request started a review at 21:04:05Z that
 completed clean at 21:06:17Z; `review-gate` passed at 21:06:49Z (run 39854178499), and the merge is `e8be8ba7`. Every
 line the gate printed in the timed-out job carries its exit time, and run 39853388960, cancelled at 21:04:56Z, printed
 none (the S1 note, comment 6351439364).

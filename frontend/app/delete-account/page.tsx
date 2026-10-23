@@ -51,7 +51,7 @@ export default function DeleteAccountPage() {
         <strong className="font-semibold"> This action cannot be undone.</strong>
       </p>
 
-      <Card as="section" className="mt-6 p-6">
+      <Card as="section" className="mt-6 p-cap-6">
         <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">What gets deleted</h2>
         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           <li>Your profile (name, email) and login credentials</li>
@@ -90,7 +90,7 @@ export default function DeleteAccountPage() {
         /* Signed in — confirm + delete. Danger emphasis via ring (not a border override): cx is a
            plain class join, so a className `border-error-*` would clash nondeterministically with
            Card's own hairline. */
-        <Card as="section" className="mt-6 p-6 ring-1 ring-inset ring-error-light/30 dark:ring-error-dark/30">
+        <Card as="section" className="mt-6 p-cap-6 ring-1 ring-inset ring-error-light/30 dark:ring-error-dark/30">
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Logged in as <strong className="text-text-primary-light dark:text-text-primary-dark">{user.email}</strong>.
             To confirm, type <strong>{CONFIRM_PHRASE}</strong> below.
@@ -131,7 +131,7 @@ export default function DeleteAccountPage() {
         </Card>
       ) : (
         /* Not signed in — sign-in CTA + email fallback */
-        <Card as="section" className="mt-6 p-6">
+        <Card as="section" className="mt-6 p-cap-6">
           <div className="flex items-start gap-3">
             <ShieldWarningIcon className="mt-0.5 h-5 w-5 shrink-0 text-warning-light dark:text-warning-dark" />
             <div>

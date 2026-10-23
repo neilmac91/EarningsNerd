@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
+import { cx } from '@/components/ui/cx'
 import { LockSimpleIcon } from '@/lib/icons'
 import UpgradeModal from './UpgradeModal'
 
@@ -12,6 +13,31 @@ interface PeekLockedProps {
   pill?: string
   /** Override the click behaviour (default opens the UpgradeModal). */
   onUpgradeClick?: () => void
+  /**
+   * How much of the locked content shows. 'full' (the default) shows all of it, with the upgrade action
+   * centred on its whole height. 'screen' shows about one screen of it, fading out at its foot, with the
+   * action centred in that window, so a long preview never puts the action screens below its start
+   * (E139: the analysis teaser's results tree is over 5,000px tall at 390px).
+   */
+  preview?: 'full' | 'screen'
+}
+
+/**
+ * The 'screen' window. Its height is min(40rem, 75svh): the svh term keeps the window inside the smallest
+ * viewport a phone shows (its browser bars out) at any text size, so the action centred in it is on the first
+ * screen from the preview's top; the rem term caps it on a tall screen at about a phone screen of content at
+ * the reader's text size (640px at 16px). `overflow-clip` cuts the content at the window without making the
+ * preview a scroll container, so nothing inside can scroll it. The fade is a mask on the preview alone, over
+ * the window's last quarter: it paints no colour, so the page's own ground shows through in either theme, and
+ * the upgrade action, a sibling of the preview, is never under it.
+ */
+const SCREEN_WINDOW = 'max-h-[min(40rem,75svh)] overflow-clip [mask-image:linear-gradient(to_bottom,black_75%,transparent)]'
+
+// An `inert` prop renders under only one of the two Reacts this component meets: the App Router's React 19 reads it
+// as a boolean, dropping `''`, and the React 18 the unit tests run drops `true`. So the preview takes the attribute
+// from its node, the same under both, until the move to React 19 (E21) makes it a prop.
+function makeInert(node: HTMLDivElement | null) {
+  node?.setAttribute('inert', '')
 }
 
 /**
@@ -21,14 +47,20 @@ interface PeekLockedProps {
  *
  *   <PeekLocked feature="Real-time alerts"><AlertsPanel /></PeekLocked>
  */
-export default function PeekLocked({ children, feature, pill = 'Pro', onUpgradeClick }: PeekLockedProps) {
+export default function PeekLocked({ children, feature, pill = 'Pro', onUpgradeClick, preview = 'full' }: PeekLockedProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const handleClick = onUpgradeClick ?? (() => setModalOpen(true))
 
   return (
-    <div className="relative overflow-hidden rounded-xl">
-      {/* The preview: blurred + dimmed + inert so it can't be interacted with. */}
-      <div aria-hidden className="pointer-events-none select-none blur-sm opacity-60">
+    <div data-peek-locked={preview} className="relative overflow-hidden rounded-xl">
+      {/* The preview: blurred + dimmed + inert so it can't be interacted with. aria-hidden and
+          pointer-events-none leave its controls in the tab order, ahead of the upgrade button; inert
+          takes them out. */}
+      <div
+        ref={makeInert}
+        aria-hidden
+        className={cx('pointer-events-none select-none blur-sm opacity-60', preview === 'screen' && SCREEN_WINDOW)}
+      >
         {children}
       </div>
 
