@@ -3,14 +3,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { ChatCircleDotsIcon, PaperPlaneTiltIcon } from '@/lib/icons'
-import { Button, Modal, ModalBody, ModalHeader } from '@/components/ui'
+import { Button, Modal, ModalBody, ModalHeader, SegmentedControl, inputClasses, type SegmentedOption } from '@/components/ui'
 import { submitFeedback, type FeedbackType } from '@/features/feedback/api/feedback-api'
 import { hasActiveSession } from '@/lib/api/session'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { ENABLE_FEEDBACK_WIDGET } from '@/lib/featureFlags'
 import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
 
-const TYPES: { value: FeedbackType; label: string }[] = [
+// The report's kind: one choice among options that all show, so the SegmentedControl (E35), at its `md` size and
+// stretched across the form below sm, wrapping whole segments onto another row where the dialog is narrower than the
+// row (a phone at 200% text, E169); from sm up it is one content-width row, as `fullWidth` documents.
+const TYPES: readonly SegmentedOption<FeedbackType>[] = [
   { value: 'bug', label: 'Bug' },
   { value: 'feature', label: 'Idea' },
   { value: 'general', label: 'General' },
@@ -86,23 +89,7 @@ export default function FeedbackWidget() {
         </ModalHeader>
         <ModalBody>
           <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="flex gap-2">
-              {TYPES.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => setType(t.value)}
-                  aria-pressed={type === t.value}
-                  className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${
-                    type === t.value
-                      ? 'border-brand-strong/40 bg-brand-strong/10 text-brand-strong dark:border-brand-strong-dark/40 dark:bg-brand-strong-dark/15 dark:text-brand-strong-dark'
-                      : 'border-border-light text-text-secondary-light hover:bg-white dark:border-white/15 dark:text-text-secondary-dark dark:hover:bg-white/[0.04]'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl label="Feedback type" options={TYPES} value={type} onChange={setType} size="md" fullWidth />
 
             <textarea
               ref={messageRef}
@@ -113,7 +100,8 @@ export default function FeedbackWidget() {
               rows={4}
               maxLength={4000}
               placeholder="What's working, what's broken, or what you'd love to see…"
-              className="w-full resize-none rounded-lg border border-border-light bg-white/70 px-3 py-2 text-sm text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand focus:shadow-ring-brand focus:outline-none focus:ring-0 focus:ring-offset-0 dark:border-white/15 dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark"
+              // The field recipe (E154): its fill, border, padding, focus ring and 44px floor; it stays a fixed four rows.
+              className={inputClasses({ className: 'resize-none' })}
             />
 
             {/* `loading`, never native `disabled`, while sending: Chromium blurs a focused button

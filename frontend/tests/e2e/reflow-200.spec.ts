@@ -808,9 +808,8 @@ test.describe("a failure's controls stay inside their card at 200% text", () => 
     ModalBody's px-6 and the cards' p-4 doubled, the text column was 92, 132 and 162px there and the longest words broke
     at all three widths ("Essen" over "tial", "authenticatio" over "n,"). The body's and the cards' insets now stop
     growing at narrow widths (px-cap-6 and p-cap-4, E120): the column is 188, 220 and 244px, and no word in a card
-    breaks inside it, read a character at a time. The panel's own sideways scroll is held by the consent dialog's
-    header case below (`holdsPanel`), since its title wraps under its icon (#1432) and these rows stay inside their
-    cards. */
+    breaks inside it, read a character at a time. The panel's own sideways scroll is held by the dialog header case
+    below, since its title wraps under its icon (#1432) and these rows stay inside their cards. */
 /** The three category cards: inside the open dialog, each box that draws a border and a radius. */
 const COOKIE_CATEGORY_CARDS = '[role="dialog"][aria-modal="true"] div.rounded-lg.border'
 const categoryRows = (dialog: Locator) =>
@@ -1719,9 +1718,9 @@ test.describe('a 1440px desktop at the default text size', () => {
     its words painted past it, under the close button: "Cookie preferences" to 383px, 26px past the panel's edge, and each
     word of "Verify your email to continue" (Chrome 156). The scrim is fixed, so a dialog adds
     nothing to the page's scroll width: the title's painted lines are read, a character at a time, against the panel and
-    the close button, with the page's width checked as well, and the panel's own sideways scroll where its body is
-    clean. The feedback dialog's is not, yet: its type row widens it under 200% text (E169). Three dialogs from three
-    surfaces, all over /pricing: the consent dialog (Customize on a first
+    the close button, with the page's width checked as well, and the panel's own sideways scroll. The feedback dialog's
+    type row widened its panel under 200% text until it took the SegmentedControl, whose segments wrap whole onto
+    another row (E169). Three dialogs from three surfaces, all over /pricing: the consent dialog (Customize on a first
     visit) and checkout's email verification prompt, opened by its event as email-verification-resend.spec.ts opens it,
     each with an icon and a close button; and the feedback dialog, with a close button and no icon, opened from its
     launcher by a signed-in reader, as consent-bar-yields.spec.ts signs one in. At the default size the title sits beside
@@ -1833,8 +1832,6 @@ const DIALOG_HEADERS = [
     signedIn: false,
     icon: true,
     title: 'Cookie preferences',
-    /** Its category rows wrap under 200% text (#1399), so nothing in its body widens the panel: its panel is held too. */
-    holdsPanel: true,
     open: async (p: Page, dialog: Locator) => {
       await p.getByRole('button', { name: 'Customize' }).click()
       await expect(dialog).toBeVisible()
@@ -1846,7 +1843,6 @@ const DIALOG_HEADERS = [
     signedIn: false,
     icon: true,
     title: 'Verify your email to continue',
-    holdsPanel: true,
     // The prompt listens once the page has hydrated; a second event while it is open is the same prompt.
     open: (p: Page, dialog: Locator) =>
       expect(async () => {
@@ -1861,9 +1857,6 @@ const DIALOG_HEADERS = [
     signedIn: true,
     icon: false,
     title: 'Send feedback',
-    /** Its type row (Bug, Idea, General) does not wrap, so under 200% text it widens the panel by 79, 42 and 14px at
-        320, 360 and 390px (E169): its header is held, its panel not yet. */
-    holdsPanel: false,
     open: async (p: Page, dialog: Locator) => {
       await p.getByRole('button', { name: 'Send feedback', exact: true }).click()
       await expect(dialog).toBeVisible()
@@ -1899,7 +1892,7 @@ for (const width of [390, 360, 320]) {
           expect(atDefault.hasIcon, `${at}: the header ${d.icon ? 'has' : 'has no'} icon tile`).toBe(d.icon)
           expect(atDefault.problems, `${at} at the default text size (${atDefault.where})`).toEqual([])
           expect(atDefault.beside, `${at} at the default text size: the title sits beside ${lead} (${atDefault.where})`).toBe(true)
-          if (d.holdsPanel) expect(atDefault.panelScroll, `${at} at the default text size`).toBeNull()
+          expect(atDefault.panelScroll, `${at} at the default text size`).toBeNull()
 
           await doubleText(page)
 
@@ -1907,7 +1900,7 @@ for (const width of [390, 360, 320]) {
           expect(enlarged.problems, `${at} and 200% text (${enlarged.where})`).toEqual([])
           expect(enlarged.stacked, `${at} and 200% text: the title goes under ${lead} (${enlarged.where})`).toBe(true)
           expect(enlarged.full, `${at} and 200% text: the title takes the header's full width, under the close button too (${enlarged.where})`).toBe(true)
-          if (d.holdsPanel) expect(enlarged.panelScroll, `${at} and 200% text`).toBeNull()
+          expect(enlarged.panelScroll, `${at} and 200% text`).toBeNull()
           const widths = await measure(page)
           expect(widths.scrollWidth, `/pricing with ${d.name} open at ${width}px in the ${theme} theme and 200% text: ${why(widths)}`).toBeLessThanOrEqual(widths.clientWidth)
         })
