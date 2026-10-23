@@ -1,0 +1,430 @@
+[
+  {
+    "file": "frontend/components/CookieConsent.tsx",
+    "line": 332,
+    "kind": "class-literal",
+    "tokens": [
+      "fixed",
+      "z-consent"
+    ],
+    "text": "fixed bottom-0 left-0 right-0 z-consent pb-[env(safe-area-inset-bottom)] bg-panel-light dark:bg-panel-dark border-t border-border-light dark:border-border-dark shadow-e5 dark:shadow-none",
+    "role": "Consent bar, bottom0, root inset publisher; 32"
+  },
+  {
+    "file": "frontend/components/Header.tsx",
+    "line": 82,
+    "kind": "class-literal",
+    "tokens": [
+      "sticky",
+      "z-50"
+    ],
+    "text": "sticky top-0 z-50 border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80",
+    "role": "Site header, sticky top0; 50"
+  },
+  {
+    "file": "frontend/components/SecondaryHeader.tsx",
+    "line": 27,
+    "kind": "class-literal",
+    "tokens": [
+      "sticky",
+      "z-40"
+    ],
+    "text": "sticky top-0 z-40 border-b border-border-light dark:border-white/10 bg-panel-light/80 dark:bg-panel-dark/80 backdrop-blur",
+    "role": "Page header, sticky top0; documented 40"
+  },
+  {
+    "file": "frontend/components/SiteChrome.tsx",
+    "line": 35,
+    "kind": "class-literal",
+    "tokens": [
+      "focus:fixed",
+      "focus:z-toast"
+    ],
+    "text": "sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-toast focus:rounded-lg focus:border focus:border-border-light focus:bg-panel-light focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-brand-strong focus:shadow-ring-brand focus:outline-none dark:focus:border-white/10 dark:focus:bg-panel-dark dark:focus:text-brand-strong-dark dark:focus:shadow-ring-brand-dark",
+    "role": "Skip link, fixed only on focus; 80"
+  },
+  {
+    "file": "frontend/components/ui/DataTable.tsx",
+    "line": 121,
+    "kind": "class-literal",
+    "tokens": [
+      "sticky"
+    ],
+    "text": "sticky top-0 bg-panel-light dark:bg-panel-dark border-b border-border-light dark:border-border-dark",
+    "role": "Internal sticky row/column/corner layers; 5/10/20 sanctioned"
+  },
+  {
+    "file": "frontend/components/ui/DataTable.tsx",
+    "line": 126,
+    "kind": "class-literal",
+    "tokens": [
+      "sticky"
+    ],
+    "text": "sticky left-0 bg-panel-light dark:bg-panel-dark border-r border-border-light dark:border-border-dark",
+    "role": "Internal sticky row/column/corner layers; 5/10/20 sanctioned"
+  },
+  {
+    "file": "frontend/components/ui/DataTable.tsx",
+    "line": 133,
+    "kind": "class-literal",
+    "tokens": [
+      "z-20"
+    ],
+    "text": "z-20",
+    "role": "Internal sticky row/column/corner layers; 5/10/20 sanctioned"
+  },
+  {
+    "file": "frontend/components/ui/DataTable.tsx",
+    "line": 133,
+    "kind": "class-literal",
+    "tokens": [
+      "z-10"
+    ],
+    "text": "z-10",
+    "role": "Internal sticky row/column/corner layers; 5/10/20 sanctioned"
+  },
+  {
+    "file": "frontend/components/ui/DataTable.tsx",
+    "line": 134,
+    "kind": "class-literal",
+    "tokens": [
+      "z-[5]"
+    ],
+    "text": "z-[5]",
+    "role": "Internal sticky row/column/corner layers; 5/10/20 sanctioned"
+  },
+  {
+    "file": "frontend/components/ui/Modal.tsx",
+    "line": 157,
+    "kind": "class-literal",
+    "tokens": [
+      "fixed",
+      "z-modal"
+    ],
+    "text": "fixed inset-0 z-modal flex items-center justify-center bg-overlay p-4 backdrop-blur-sm",
+    "role": "Shared body-portal scrim/panel; 70"
+  },
+  {
+    "file": "frontend/features/auth/components/UserMenu.tsx",
+    "line": 99,
+    "kind": "class-literal",
+    "tokens": [
+      "z-50"
+    ],
+    "text": "absolute right-0 z-50 mt-2 w-60 origin-top-right rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark p-1 shadow-e2 dark:shadow-none",
+    "role": "Account dropdown inside Header context;50"
+  },
+  {
+    "file": "frontend/features/calendar/components/AlertBell.tsx",
+    "line": 217,
+    "kind": "class-literal",
+    "tokens": [
+      "fixed",
+      "z-overlay"
+    ],
+    "text": "fixed inset-0 z-overlay",
+    "role": "Anchored popover catcher/panel; overlay60; portals into native dialog when needed"
+  },
+  {
+    "file": "frontend/features/calendar/components/AlertBell.tsx",
+    "line": 225,
+    "kind": "class-literal",
+    "tokens": [
+      "fixed"
+    ],
+    "text": "fixed rounded-lg outline-none border border-border-light bg-panel-light p-4 shadow-e4 dark:border-white/10 dark:bg-panel-dark dark:shadow-none",
+    "role": "Anchored popover catcher/panel; overlay60; portals into native dialog when needed"
+  },
+  {
+    "file": "frontend/features/companies/components/CompanySearch.tsx",
+    "line": 240,
+    "kind": "class-literal",
+    "tokens": [
+      "z-10"
+    ],
+    "text": "absolute z-10 mt-2 w-full rounded-xl border border-error-light/30 dark:border-error-dark/30 bg-panel-light dark:bg-error-dark/10 p-4 shadow-e3 dark:shadow-none backdrop-blur-sm",
+    "role": "Search result/error/empty dropdown;10"
+  },
+  {
+    "file": "frontend/features/companies/components/CompanySearch.tsx",
+    "line": 266,
+    "kind": "class-literal",
+    "tokens": [
+      "z-10"
+    ],
+    "text": "absolute z-10 mt-2 w-full rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark p-4 shadow-e3 dark:shadow-none backdrop-blur-sm",
+    "role": "Search result/error/empty dropdown;10"
+  },
+  {
+    "file": "frontend/features/companies/components/CompanySearch.tsx",
+    "line": 275,
+    "kind": "class-literal",
+    "tokens": [
+      "z-10"
+    ],
+    "text": "absolute z-10 mt-2 w-full overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e3 dark:shadow-none backdrop-blur-sm",
+    "role": "Search result/error/empty dropdown;10"
+  },
+  {
+    "file": "frontend/features/feedback/components/FeedbackWidget.tsx",
+    "line": 146,
+    "kind": "class-literal",
+    "tokens": [
+      "fixed",
+      "z-30"
+    ],
+    "text": "fixed z-30 inline-flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center gap-2 rounded-full border border-border-light bg-panel-light px-3 py-2.5 text-xs font-medium text-text-secondary-light shadow-e2 transition-colors hover:bg-background-light hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:shadow-none dark:hover:bg-white/5 dark:hover:text-text-primary-dark",
+    "role": "Feedback launcher;30; takes consent inset"
+  },
+  {
+    "file": "frontend/features/filings/components/SourceTrace.tsx",
+    "line": 484,
+    "kind": "class-literal",
+    "tokens": [
+      "fixed",
+      "z-modal"
+    ],
+    "text": "fixed inset-0 z-modal",
+    "role": "Touch source-detail modal70; hover/focus popover60"
+  },
+  {
+    "file": "frontend/features/filings/components/SourceTrace.tsx",
+    "line": 524,
+    "kind": "inline-style",
+    "tokens": [
+      "fixed"
+    ],
+    "text": "fixed",
+    "role": "Touch source-detail modal70; hover/focus popover60"
+  },
+  {
+    "file": "frontend/features/filings/components/SourceTrace.tsx",
+    "line": 525,
+    "kind": "class-literal",
+    "tokens": [
+      "z-overlay"
+    ],
+    "text": "z-overlay block w-72 rounded-lg border border-border-light bg-background-light p-3 text-left shadow-e4 dark:shadow-none dark:border-border-dark dark:bg-panel-dark",
+    "role": "Touch source-detail modal70; hover/focus popover60"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/AskAboutSelection.tsx",
+    "line": 112,
+    "kind": "inline-style",
+    "tokens": [
+      "fixed"
+    ],
+    "text": "fixed",
+    "role": "Selection action pill; fixed overlay60"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/AskAboutSelection.tsx",
+    "line": 113,
+    "kind": "class-literal",
+    "tokens": [
+      "z-overlay"
+    ],
+    "text": "z-overlay inline-flex items-center gap-1.5 rounded-full bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-3 py-1.5 text-xs font-semibold shadow-e3 transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark",
+    "role": "Selection action pill; fixed overlay60"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/AskCopilotRail.tsx",
+    "line": 58,
+    "kind": "class-literal",
+    "tokens": [
+      "fixed",
+      "z-40"
+    ],
+    "text": "fixed inset-x-0 bottom-[var(--consent-inset,0px)] z-40 flex max-h-[calc(80vh_-_var(--consent-inset,0px))] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none",
+    "role": "Standalone rail sheet40, launcher40, scrim35; consent-aware; embedded on current filing page"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/AskCopilotRail.tsx",
+    "line": 62,
+    "kind": "class-literal",
+    "tokens": [
+      "lg:z-auto"
+    ],
+    "text": "lg:static lg:inset-auto lg:z-auto lg:h-full lg:w-full lg:max-h-none lg:rounded-none lg:border-y-0 lg:border-l lg:shadow-none",
+    "role": "Standalone rail sheet40, launcher40, scrim35; consent-aware; embedded on current filing page"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/AskCopilotRail.tsx",
+    "line": 508,
+    "kind": "class-literal",
+    "tokens": [
+      "fixed",
+      "z-40"
+    ],
+    "text": "fixed z-40 inline-flex items-center gap-2 rounded-full bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark",
+    "role": "Standalone rail sheet40, launcher40, scrim35; consent-aware; embedded on current filing page"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/AskCopilotRail.tsx",
+    "line": 531,
+    "kind": "class-literal",
+    "tokens": [
+      "fixed",
+      "z-scrim"
+    ],
+    "text": "lg:hidden fixed inset-0 z-scrim bg-overlay",
+    "role": "Standalone rail sheet40, launcher40, scrim35; consent-aware; embedded on current filing page"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/CitationChip.tsx",
+    "line": 203,
+    "kind": "inline-style",
+    "tokens": [
+      "fixed"
+    ],
+    "text": "fixed",
+    "role": "Citation hover/focus popover60"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/CitationChip.tsx",
+    "line": 206,
+    "kind": "class-literal",
+    "tokens": [
+      "z-overlay"
+    ],
+    "text": "z-overlay block w-64 rounded-lg border border-border-light bg-panel-light p-3 text-left shadow-e5 dark:border-white/10 dark:bg-panel-dark dark:shadow-none",
+    "role": "Citation hover/focus popover60"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/CopilotCoachmark.tsx",
+    "line": 32,
+    "kind": "class-literal",
+    "tokens": [
+      "fixed",
+      "z-40"
+    ],
+    "text": "fixed z-40 w-[min(20rem,calc(100vw-2.5rem))] rounded-2xl border border-border-light bg-panel-light p-3.5 shadow-e4 ring-1 ring-black/5 dark:border-white/10 dark:bg-panel-dark dark:shadow-none dark:ring-white/10 motion-safe:animate-fade-up",
+    "role": "Coachmark40, consent-deferred and inset-aware"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/FilingViewer.tsx",
+    "line": 212,
+    "kind": "class-literal",
+    "tokens": [
+      "fixed",
+      "z-modal"
+    ],
+    "text": "fixed inset-x-0 bottom-0 z-modal flex max-h-[85vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:inset-x-auto lg:bottom-0 lg:left-0 lg:top-16 lg:max-h-none lg:w-[480px] lg:rounded-none lg:border-y-0 lg:border-r",
+    "role": "Standalone viewer sheet/modal70; embedded on current filing page"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/FilingWorkspace.tsx",
+    "line": 70,
+    "kind": "class-literal",
+    "tokens": [
+      "fixed",
+      "z-40",
+      "lg:z-auto"
+    ],
+    "text": "fixed inset-x-0 bottom-[var(--consent-inset,0px)] z-40 flex max-h-[calc(85vh_-_var(--consent-inset,0px))] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:static lg:inset-auto lg:z-auto lg:h-full lg:max-h-none lg:w-full lg:rounded-none lg:border-y-0 lg:shadow-none",
+    "role": "Source sheet40, scrim35, launcher40; desktop sticky pane; resizer10"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/FilingWorkspace.tsx",
+    "line": 356,
+    "kind": "class-literal",
+    "tokens": [
+      "lg:sticky"
+    ],
+    "text": "relative min-w-0 lg:sticky lg:top-16 lg:h-[max(0px,calc(100dvh_-_var(--source-pane-top,4rem)_-_var(--consent-inset,0px)))]",
+    "role": "Source sheet40, scrim35, launcher40; desktop sticky pane; resizer10"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/FilingWorkspace.tsx",
+    "line": 378,
+    "kind": "class-literal",
+    "tokens": [
+      "fixed",
+      "z-40"
+    ],
+    "text": "fixed z-40 inline-flex items-center gap-2 rounded-full border border-border-light bg-panel-light px-4 py-3 text-sm font-semibold text-text-primary-light shadow-e3 transition-colors duration-fast hover:bg-white focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5 dark:focus-visible:shadow-ring-brand-dark",
+    "role": "Source sheet40, scrim35, launcher40; desktop sticky pane; resizer10"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/FilingWorkspace.tsx",
+    "line": 410,
+    "kind": "class-literal",
+    "tokens": [
+      "z-10"
+    ],
+    "text": "absolute -left-1 top-0 z-10 hidden h-full w-2 lg:block",
+    "role": "Source sheet40, scrim35, launcher40; desktop sticky pane; resizer10"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/FilingWorkspace.tsx",
+    "line": 423,
+    "kind": "class-literal",
+    "tokens": [
+      "fixed",
+      "z-scrim"
+    ],
+    "text": "lg:hidden fixed inset-0 z-scrim bg-overlay",
+    "role": "Source sheet40, scrim35, launcher40; desktop sticky pane; resizer10"
+  },
+  {
+    "file": "frontend/features/filings/components/copilot/PaneResizer.tsx",
+    "line": 103,
+    "kind": "class-literal",
+    "tokens": [
+      "z-10"
+    ],
+    "text": "group z-10 cursor-col-resize touch-none ",
+    "role": "Local resizer hit area10"
+  },
+  {
+    "file": "frontend/features/notifications/components/NotificationBell.tsx",
+    "line": 94,
+    "kind": "class-literal",
+    "tokens": [
+      "z-50"
+    ],
+    "text": "absolute right-0 z-50 mt-2 w-80 origin-top-right overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none",
+    "role": "Notification dropdown inside Header context50; #1290 migrates token"
+  },
+  {
+    "file": "frontend/features/summaries/components/SummaryBlocks.tsx",
+    "line": 147,
+    "kind": "class-literal",
+    "tokens": [
+      "sticky"
+    ],
+    "text": "sticky top-24",
+    "role": "Desktop section TOC sticky without z; mobile nav sticky30"
+  },
+  {
+    "file": "frontend/features/summaries/components/SummaryBlocks.tsx",
+    "line": 221,
+    "kind": "class-literal",
+    "tokens": [
+      "sticky",
+      "z-sticky"
+    ],
+    "text": "sticky top-16 z-sticky -mx-4 mb-11 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95",
+    "role": "Desktop section TOC sticky without z; mobile nav sticky30"
+  },
+  {
+    "file": "frontend/features/watchlist/components/WatchlistAddSearch.tsx",
+    "line": 120,
+    "kind": "class-literal",
+    "tokens": [
+      "z-20"
+    ],
+    "text": "absolute z-20 mt-2 max-h-80 w-full overflow-y-auto rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark shadow-e3 dark:shadow-none",
+    "role": "Add-company search dropdown20"
+  },
+  {
+    "file": "frontend/features/watchlist/components/WatchlistAddSearch.tsx",
+    "line": 147,
+    "kind": "class-literal",
+    "tokens": [
+      "z-20"
+    ],
+    "text": "absolute z-20 mt-2 w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark p-4 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark shadow-e3 dark:shadow-none",
+    "role": "Add-company search dropdown20"
+  }
+]

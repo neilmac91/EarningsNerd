@@ -1,0 +1,198 @@
+{
+  "matrixStates": 136,
+  "matrixErrors": [],
+  "normalStates": 64,
+  "normalOverflow": [],
+  "text200": [
+    {
+      "route": "/",
+      "theme": "light",
+      "overflow": 153,
+      "rootFont": "32px",
+      "overlapPR": 1278
+    },
+    {
+      "route": "/",
+      "theme": "dark",
+      "overflow": 153,
+      "rootFont": "32px",
+      "overlapPR": 1278
+    },
+    {
+      "route": "/pricing",
+      "theme": "light",
+      "overflow": 153,
+      "rootFont": "32px",
+      "overlapPR": 1278
+    },
+    {
+      "route": "/pricing",
+      "theme": "dark",
+      "overflow": 153,
+      "rootFont": "32px",
+      "overlapPR": 1278
+    },
+    {
+      "route": "/filing/3",
+      "theme": "light",
+      "overflow": 153,
+      "rootFont": "32px",
+      "overlapPR": 1278
+    },
+    {
+      "route": "/filing/3",
+      "theme": "dark",
+      "overflow": 153,
+      "rootFont": "32px",
+      "overlapPR": 1278
+    },
+    {
+      "route": "/company/AAPL",
+      "theme": "light",
+      "overflow": 153,
+      "rootFont": "32px",
+      "overlapPR": 1278
+    },
+    {
+      "route": "/company/AAPL",
+      "theme": "dark",
+      "overflow": 153,
+      "rootFont": "32px",
+      "overlapPR": 1278
+    },
+    {
+      "route": "/login",
+      "theme": "light",
+      "overflow": 168,
+      "rootFont": "32px",
+      "overlapPR": 1278
+    },
+    {
+      "route": "/login",
+      "theme": "dark",
+      "overflow": 168,
+      "rootFont": "32px",
+      "overlapPR": 1278
+    }
+  ],
+  "reduced": [
+    {
+      "route": "/",
+      "theme": "light",
+      "animations": []
+    },
+    {
+      "route": "/",
+      "theme": "dark",
+      "animations": []
+    },
+    {
+      "route": "/pricing",
+      "theme": "light",
+      "animations": []
+    },
+    {
+      "route": "/pricing",
+      "theme": "dark",
+      "animations": []
+    },
+    {
+      "route": "/filing/3",
+      "theme": "light",
+      "animations": []
+    },
+    {
+      "route": "/filing/3",
+      "theme": "dark",
+      "animations": []
+    },
+    {
+      "route": "/company/AAPL",
+      "theme": "light",
+      "animations": []
+    },
+    {
+      "route": "/company/AAPL",
+      "theme": "dark",
+      "animations": []
+    },
+    {
+      "route": "/login",
+      "theme": "light",
+      "animations": []
+    },
+    {
+      "route": "/login",
+      "theme": "dark",
+      "animations": []
+    }
+  ],
+  "authNoMain": [
+    "production-login-light-1440-settled",
+    "production-login-light-390-settled",
+    "production-login-dark-1440-settled",
+    "production-login-dark-390-settled",
+    "production-register-light-1440-settled",
+    "production-register-light-390-settled",
+    "production-register-dark-1440-settled",
+    "production-register-dark-390-settled",
+    "production-forgot-password-light-1440-settled",
+    "production-forgot-password-light-390-settled",
+    "production-forgot-password-dark-1440-settled",
+    "production-forgot-password-dark-390-settled",
+    "production-reset-password-light-1440-settled",
+    "production-reset-password-light-390-settled",
+    "production-reset-password-dark-1440-settled",
+    "production-reset-password-dark-390-settled",
+    "production-check-email-light-1440-settled",
+    "production-check-email-light-390-settled",
+    "production-check-email-dark-1440-settled",
+    "production-check-email-dark-390-settled",
+    "production-verify-email-light-1440-settled",
+    "production-verify-email-light-390-settled",
+    "production-verify-email-dark-1440-settled",
+    "production-verify-email-dark-390-settled"
+  ],
+  "headerCLS": [
+    {
+      "theme": "light",
+      "value": 0.14539414735644934
+    },
+    {
+      "theme": "dark",
+      "value": 0.14539414735644934
+    }
+  ],
+  "logo": [
+    {
+      "theme": "light",
+      "logoRGB": [
+        0,
+        0,
+        0
+      ],
+      "renderedCircleRGB": [
+        216,
+        221,
+        214
+      ],
+      "blackContrast": 15.23,
+      "method": "Most common black logo pixel versus second-most-common surrounding solid circle pixel in 36px production crop. Decorative logo is named by adjacent company label, so this is known craft issue rather than text WCAG failure."
+    },
+    {
+      "theme": "dark",
+      "logoRGB": [
+        0,
+        0,
+        0
+      ],
+      "renderedCircleRGB": [
+        28,
+        41,
+        49
+      ],
+      "blackContrast": 1.41,
+      "method": "Most common black logo pixel versus second-most-common surrounding solid circle pixel in 36px production crop. Decorative logo is named by adjacent company label, so this is known craft issue rather than text WCAG failure."
+    }
+  ]
+}

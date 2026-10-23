@@ -1,0 +1,37 @@
+{
+  "scrollY": 500,
+  "heading": {
+    "x": 283.140625,
+    "y": 20,
+    "w": 1044.859375,
+    "h": 28,
+    "bottom": 48
+  },
+  "headers": [
+    {
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1440,
+        "h": 65,
+        "bottom": 65
+      },
+      "text": "EarningsNerd\nMulti-period analysis\nCalendar\nPricing\nContact\nLog in\nRequest an invite",
+      "position": "sticky",
+      "z": "50"
+    },
+    {
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1440,
+        "h": 85,
+        "bottom": 85
+      },
+      "text": "Back to home\nPricing\n\nOne summary per filing, generated once and shared",
+      "position": "sticky",
+      "z": "40"
+    }
+  ],
+  "atHeading": "<div class=\"mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8\"><div class=\"flex items-center\"><a class=\"flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark\" aria-label=\"EarningsNerd home\" href=\"/\"><svg viewBox=\"0 0 94.6 73.2\" class=\"tex"
+}
