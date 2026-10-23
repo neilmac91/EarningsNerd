@@ -420,10 +420,12 @@ Forgot-password and resend-verification queue their mail, the `account_mail` tas
   that hour's reset and verification mail instead of backing the queue up.
 - **Latency.** A mail waits behind the task the worker is running (up to the 480 s work timeout) and
   anything queued before it.
-- **Rollback.** CI updates the worker before the API, so a forward deploy is safe. A revert brings
-  back a worker whose `TaskEnvelope` has no `account_mail` kind: account mail still queued then fails
-  every attempt (422) and is lost, and its senders must ask again. Never pause or delete the queue
-  (`docs/DEPLOYMENT.md`).
+- **Rollback.** CI updates the worker before the API, so a forward deploy is safe. A revert deploys
+  in the same order, so account mail queued until the API's revert lands meets a worker whose
+  `TaskEnvelope` has no `account_mail` kind: it fails every attempt (422) and is lost, and its senders
+  must ask again. To lose none, first roll the API's traffic back (the Ops workflow's
+  `rollback-traffic`), which stops new account mail reaching the queue; let the queue drain; then
+  revert. Never pause or delete the queue (`docs/DEPLOYMENT.md`).
 
 ### Monitoring Alerts (Suggested Thresholds)
 
