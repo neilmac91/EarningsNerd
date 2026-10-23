@@ -28,24 +28,25 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  *
  * Values are followed through each file by the shared reader (tests/unit/heldValues.ts) with `passThrough` and `state`
  * on, so a name held in a const, a destructuring, a parameter a same-file call fills, a same-file function's return, a
- * callback, React's state (useState with what its setter is handed, useReducer with what its dispatcher is handed, a
- * reducer the reader does not hold (another module's) giving back what React hands it, as a call the reader cannot
- * follow does; the setter and the dispatcher followed as values: destructured, read by index from the hook's pair, held
- * by another name, put in an object, handed to a same-file component or function, handed back by a custom hook, called
- * through Function.prototype's `call`, `apply` or `bind` or through `Reflect.apply`; useRef, useDeferredValue,
- * useSyncExternalStore), a template literal, `+`, an array or a call the reader cannot follow (`String()`, `trim()`,
- * `join()`) is still the name. So is a name an object literal's getter hands back (what the literal's methods and
- * accessors put on `this` and read from it included), one a property holds that Object.defineProperty,
- * Object.defineProperties, Object.create or Reflect.defineProperty defines, or Reflect.set puts, and one a built-in
- * collection is made with or given (`new Map` and `new WeakMap` under each entry's key, read by `get`;
- * Object.fromEntries; `new Set` and a Set's `add`, read by iterating it; a Map's or a Set's `values()` and `entries()`;
- * `new Array`, `Array()`, `Array.of`). Across modules, another module's function that hands back a served name as text
- * gives the name wherever the reader reads a call of it: called here (through `call` or `apply` too), or handed on as a
- * value and called by React (a reducer, an initializer), an array's method or a same-file function, through any chain
- * of modules (SERVED_RETURNS, a fixed point over the program), and reached through an import's alias, a re-export or a
- * const that holds it (both arms of a conditional, either side of `||` or `??`), by every declaration it has, an
- * overloaded function's body among them. A getter that hands back a served name, an object literal's or a class's,
- * gives the name wherever the checker places a read of it, in any module, since a read calls it. A call of
+ * callback, React's state (useState with what its setter is handed, useReducer with what its dispatcher is handed,
+ * useActionState and react-dom's useFormState as a reducer, useOptimistic with what its setter is handed or what its
+ * update function returns, a reducer the reader does not hold (another module's) giving back what React hands it, as a
+ * call the reader cannot follow does; the setter and the dispatcher followed as values: destructured, read by index
+ * from the hook's pair, held by another name, put in an object, handed to a same-file component or function, handed
+ * back by a custom hook, called through Function.prototype's `call`, `apply` or `bind` or through `Reflect.apply`;
+ * useRef, useDeferredValue, useSyncExternalStore), a template literal, `+`, an array or a call the reader cannot follow
+ * (`String()`, `trim()`, `join()`) is still the name. So is a name an object literal's getter hands back (what the
+ * literal's methods and accessors put on `this` and read from it included), one a property holds that
+ * Object.defineProperty, Object.defineProperties, Object.create or Reflect.defineProperty defines, or Reflect.set puts,
+ * and one a built-in collection is made with or given (`new Map` and `new WeakMap` under each entry's key, read by
+ * `get`; Object.fromEntries; `new Set` and a Set's `add`, read by iterating it; a Map's or a Set's `values()` and
+ * `entries()`; `new Array`, `Array()`, `Array.of`). Across modules, another module's function that hands back a served
+ * name as text gives the name wherever the reader reads a call of it: called here (through `call` or `apply` too), or
+ * handed on as a value and called by React (a reducer, an initializer), an array's method or a same-file function,
+ * through any chain of modules (SERVED_RETURNS, a fixed point over the program), and reached through an import's alias,
+ * a re-export or a const that holds it (both arms of a conditional, either side of `||` or `??`), by every declaration
+ * it has, an overloaded function's body among them. A getter that hands back a served name, an object literal's or a
+ * class's, gives the name wherever the checker places a read of it, in any module, since a read calls it. A call of
  * formatCompanyName (imported under any name, read from the module's namespace, or held in a same-file const) gives the
  * display form; so does a read of a field of the app's own, and a string literal is written by hand in its display
  * form. An element is a value of its own, read where it is written.
@@ -82,25 +83,26 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * arguments are data to the gate; a name served under another field of an object a component the scan cannot read
  * prints by key (a DataTable column with no `render`, which prints `row[key]`); a name that crosses modules in a prop
  * typed as a plain string (`label: string`, or an indexed access type such as `CalendarEvent['company_name']`), or
- * inside an object another module's function hands back; a state's setter or a reducer's dispatcher handed to another
- * module's code (a function or a component it imports) and called there, where the reader does not look; a name served
- * under another field (the census fails a string field of an API type named for a company, an issuer, a filer, a
- * registrant or an entity until it joins the reading or NOT_NAMES); a read by a key the scan cannot read (`ev[key]`) or
- * from a type that declares no field for it (an index signature, `any`); a piece of the name read by index from what a
- * call hands back (`n.split(' ')[0]`); a display form shouted again (`formatCompanyName(n).toUpperCase()`); a utility
- * known by its name (an array's method) called through Function.prototype's `call` or `apply`, which the reader reads
- * as a call of the method; a served name copied into a class component's field or its state and printed through `this`
- * (`label = this.props.ev.company_name`, then `{this.label}`), since the shared reader follows no class's fields and no
- * class's `this` (a served field read through `this.props` is still read by its type, as a class's getter is, above,
- * and the app's class components, two error boundaries, print no name); a getter read through a type that declares its
- * property (another module's object held under a declared type, or a class's getter read through an interface it
- * implements), since the checker places the read on the declared property; an object literal's `this` handed on whole
- * (a getter that hands back its own object, then a member of what it gives); what an assignment through a `set`
- * accessor hands the accessor, kept for a getter of another name; a property descriptor's `get` that reads `this`,
- * which the reader binds to the descriptor; a Proxy's traps; a Map's entries iterated as `[key, value]` pairs, since
- * the reader holds a Map's values as its elements (`get`, `forEach`, `values()` and `entries()` read them), and a
- * served name a Map holds as a key; a promise's `then` and a generator's yields; and React's element calls, which app
- * code may not write (earningsnerd/elements-built-with-jsx).
+ * inside an object another module's function hands back; what a child hands its parent's ref through
+ * useImperativeHandle; a state's setter or a reducer's dispatcher handed to another module's code (a function or a
+ * component it imports) and called there, where the reader does not look; a name served under another field (the census
+ * fails a string field of an API type named for a company, an issuer, a filer, a registrant or an entity until it joins
+ * the reading or NOT_NAMES); a read by a key the scan cannot read (`ev[key]`) or from a type that declares no field for
+ * it (an index signature, `any`); a piece of the name read by index from what a call hands back (`n.split(' ')[0]`); a
+ * display form shouted again (`formatCompanyName(n).toUpperCase()`); a utility known by its name (an array's method)
+ * called through Function.prototype's `call` or `apply`, which the reader reads as a call of the method; a served name
+ * copied into a class component's field or its state and printed through `this` (`label = this.props.ev.company_name`,
+ * then `{this.label}`), since the shared reader follows no class's fields and no class's `this` (a served field read
+ * through `this.props` is still read by its type, as a class's getter is, above, and the app's class components, two
+ * error boundaries, print no name); a getter read through a type that declares its property (another module's object
+ * held under a declared type, or a class's getter read through an interface it implements), since the checker places
+ * the read on the declared property; an object literal's `this` handed on whole (a getter that hands back its own
+ * object, then a member of what it gives); what an assignment through a `set` accessor hands the accessor, kept for a
+ * getter of another name; a property descriptor's `get` that reads `this`, which the reader binds to the descriptor; a
+ * Proxy's traps; a Map's entries iterated as `[key, value]` pairs, since the reader holds a Map's values as its
+ * elements (`get`, `forEach`, `values()` and `entries()` read them), and a served name a Map holds as a key; a
+ * promise's `then` and a generator's yields; and React's element calls, which app code may not write
+ * (earningsnerd/elements-built-with-jsx).
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -584,7 +586,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       else strays.push(`line ${f.line}: ${f.shown}`)
     }
     const count = (mark: string) => [...forms.values()].filter((f) => f.mark === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([115, 37, 27])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([118, 38, 28])
     const misread = [...forms].filter(([name, { mark }]) => named.has(name) !== (mark === 'flag')).map(([name, { mark }]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])

@@ -13,9 +13,13 @@ import {
   Fragment,
   createContext,
   createElement,
+  forwardRef,
+  useActionState,
   useContext,
   useDeferredValue,
+  useImperativeHandle,
   useMemo,
+  useOptimistic,
   useReducer,
   useRef,
   useState,
@@ -1174,6 +1178,47 @@ export function N172({ ev }: { ev: CalendarEvent }) {
   return <span>{Array.from(names.entries(), ([, name]) => name).join(', ')}</span>
 }
 
+/** N180 flag: React's optimistic state, its setter handed a served name. */
+export function N180({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useOptimistic('')
+  return (
+    <button type="button" onClick={() => setName(ev.company_name)}>
+      {name}
+    </button>
+  )
+}
+
+/** N181 flag: React's optimistic state with an update function, which appends each value its setter is handed. */
+export function N181({ ev }: { ev: CalendarEvent }) {
+  const [names, addName] = useOptimistic<string[], string>([], (current, next) => [...current, next])
+  return (
+    <button type="button" onClick={() => addName(ev.company_name)}>
+      {names.join(', ')}
+    </button>
+  )
+}
+
+/** N182 flag: React's action state, its action handed a served name through its dispatcher and giving it back. */
+export function N182({ ev }: { ev: CalendarEvent }) {
+  const [name, act] = useActionState((_current: string, next: string) => next, '')
+  return (
+    <button type="button" onClick={() => act(ev.company_name)}>
+      {name}
+    </button>
+  )
+}
+
+/** N183 clean: React's optimistic and action state, each handed the display form. */
+export function N183({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useOptimistic('')
+  const [title, act] = useActionState((_current: string, next: string) => next, '')
+  return (
+    <button type="button" onClick={() => setName(formatCompanyName(ev.company_name))} onFocus={() => act(formatCompanyName(ev.company_name))}>
+      {name} · {title}
+    </button>
+  )
+}
+
 // Forms the rule forbids that the gate leaves to review, each named in the spec's header.
 
 /** N87 gap: a prop typed as a plain string, filled in another module. */
@@ -1386,6 +1431,27 @@ export function N177({ ev }: { ev: CalendarEvent }) {
 /** N178 gap: a served name read from a value typed `any`, which declares no field for it. */
 export function N178({ row }: { row: any }) {
   return <span>{row.company_name}</span>
+}
+
+/** N184's child, which hands its parent's ref an object holding a served name. */
+const N184Child = forwardRef<{ label: string }, { ev: CalendarEvent }>(function N184Child({ ev }, ref) {
+  useImperativeHandle(ref, () => ({ label: ev.company_name }))
+  return null
+})
+
+/** N184 gap: a served name a child hands its parent's ref through useImperativeHandle, which the parent reads in a
+    handler and keeps in state. */
+export function N184({ ev }: { ev: CalendarEvent }) {
+  const ref = useRef<{ label: string }>(null)
+  const [name, setName] = useState('')
+  return (
+    <>
+      <N184Child ev={ev} ref={ref} />
+      <button type="button" onClick={() => setName(ref.current?.label ?? '')}>
+        {name}
+      </button>
+    </>
+  )
 }
 
 /** N179 gap: a reducer's dispatcher handed to another module's function, and called there. */
