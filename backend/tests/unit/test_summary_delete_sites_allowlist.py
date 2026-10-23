@@ -296,7 +296,7 @@ class _DeleteFinder(ast.NodeVisitor):
             else:  # session.delete(obj), sa.delete(Summary)
                 self._instance_delete(node)
         elif isinstance(func, ast.Name) and func.id in self._core_deletes:
-            if node.args and self._names_model(node.args[0]):
+            if node.args and self._target(node.args[0]) == "summary":
                 self.sites[(self._scope(), "delete")] += 1
         elif isinstance(func, ast.Name) and self._session_alias(func.id):
             self._instance_delete(node)
@@ -402,12 +402,23 @@ from sqlalchemy import delete as sa_delete, text
 from app.models import Summary as S, SummaryGenerationProgress, SavedSummary
 import sqlalchemy as sa
 
+ModuleAlias = S
+
 def query_delete(db, fid):
     db.query(S).filter(S.filing_id == fid).delete()
 
 def core_delete(db):
     db.execute(sa_delete(S))
     db.execute(sa.delete(S).where(S.id == 1))
+
+def core_delete_local_alias(db):
+    M = S
+    db.execute(delete(M))
+    db.execute(sa_delete(M))
+
+def core_delete_module_alias(db):
+    db.execute(delete(ModuleAlias))
+    db.execute(sa_delete(ModuleAlias))
 
 def table_delete(db):
     db.execute(models.Summary.__table__.delete())
@@ -472,6 +483,8 @@ def test_the_scan_scores_every_planted_form():
     assert python_sites(PLANTED) == Counter({
         ("query_delete", "delete"): 1,
         ("core_delete", "delete"): 2,
+        ("core_delete_local_alias", "delete"): 2,
+        ("core_delete_module_alias", "delete"): 2,
         ("table_delete", "delete"): 1,
         ("instance_delete", "delete"): 1,
         ("loop_delete", "delete"): 1,
