@@ -184,6 +184,25 @@ class _CheckoutAccount:
     stripe_customer_id: Optional[str]
 
 
+def _read_checkout_account(db: Session, current_user: User) -> _CheckoutAccount:
+    """Checkout's first unit, run in the thread pool and released before any Stripe call, so no Stripe call
+    holds the request's connection: what its refusals read (the plan loads the reader's subscription row,
+    once the reader is verified) and what its Stripe calls need, read before the release detaches the
+    reader (E144, lessons/ops-release-cached-filing-reads-before-yield.md)."""
+    try:
+        verified = bool(current_user.email_verified)
+        return _CheckoutAccount(
+            user_id=current_user.id,
+            email=current_user.email,
+            email_verified=verified,
+            entitled=verified and is_pro_user(current_user),
+            is_beta=bool(getattr(current_user, "is_beta", False)),
+            stripe_customer_id=current_user.stripe_customer_id,
+        )
+    finally:
+        filing_list_service.release_request_session(db)
+
+
 @router.post("/create-checkout-session")
 async def create_checkout_session(
     price_id: str,
@@ -210,25 +229,7 @@ async def create_checkout_session(
     it through would double-bill — and the per-user Subscription row upsert would orphan the first
     sub in-app while Stripe keeps charging it (staff review, PR #619).
     """
-    def read_account() -> _CheckoutAccount:
-        # One unit in the thread pool, released before any Stripe call, so no Stripe call holds the
-        # request's connection: what the refusals below read (the plan loads the reader's
-        # subscription row, once the reader is verified) and what the Stripe calls need
-        # (lessons/ops-release-cached-filing-reads-before-yield.md).
-        try:
-            verified = bool(current_user.email_verified)
-            return _CheckoutAccount(
-                user_id=current_user.id,
-                email=current_user.email,
-                email_verified=verified,
-                entitled=verified and is_pro_user(current_user),
-                is_beta=bool(getattr(current_user, "is_beta", False)),
-                stripe_customer_id=current_user.stripe_customer_id,
-            )
-        finally:
-            filing_list_service.release_request_session(db)
-
-    account = await run_in_threadpool(read_account)
+    account = await run_in_threadpool(_read_checkout_account, db, current_user)
     if not account.email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
