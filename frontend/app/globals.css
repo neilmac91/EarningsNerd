@@ -88,6 +88,12 @@
        behind the bar — opening the desktop Ask pane scrolls its composer clear of the bar.
        Unset without the bar (0px). Gate: tests/unit/bottomChromeLadder.spec.ts. */
     scroll-padding-bottom: var(--consent-inset, 0px);
+    /* The sticky site header reserves the top of the scrollport (--site-header-h, components/Header.tsx;
+       4rem before the first measurement and on routes without it): a keyboard focus, an anchor jump or a
+       scrollIntoView lands below the bar, never behind it (WCAG 2.2 SC 2.4.11). A section's own scroll
+       margin adds only its room beyond the header. Gate: tests/unit/headerOffsetReadsTheVariable.spec.ts,
+       tests/e2e/header-covers-nothing.spec.ts. */
+    scroll-padding-top: var(--site-header-h, 4rem);
   }
   @media (prefers-reduced-motion: reduce) {
     html {

@@ -27,10 +27,12 @@ const NAV_LINKS = [
   { href: '/contact', label: 'Contact' },
 ]
 
-/** The site header's rendered height, published on <html> as a CSS length. Every sticky offset and
- *  scroll margin under the header reads `var(--site-header-h,4rem)` (4rem, the one-row bar, before
- *  the first measurement and on routes without the header), so a bar that wraps under enlarged text
- *  never covers what sits below it (tests/e2e/reflow-200.spec.ts; DESIGN_SYSTEM.md §4 Stacking). */
+/** The site header's rendered height, published on <html> as a CSS length. Every sticky offset under
+ *  the header reads `var(--site-header-h,4rem)` (4rem, the one-row bar, before the first measurement
+ *  and on routes without the header), and the document's top scroll padding reads it once
+ *  (app/globals.css), so a bar that wraps under enlarged text never covers what sits below it, nor a
+ *  control a keyboard focuses (tests/e2e/reflow-200.spec.ts, tests/e2e/header-covers-nothing.spec.ts;
+ *  DESIGN_SYSTEM.md §4 Stacking). */
 export const SITE_HEADER_HEIGHT_PROPERTY = '--site-header-h'
 
 // Isomorphic layout effect (the repo's SSR-safe alias, as in CookieConsent): the header renders on
