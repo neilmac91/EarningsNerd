@@ -316,11 +316,11 @@ REWALK_MIGRATION = REPO / "backend/migrations/20261023_rewalk_foreign_issuer_his
 
 def test_migration_clears_the_stamp_of_each_foreign_issuer_the_old_walk_stamped():
     """The old walk listed 10-K/10-Q only and stamped every company it walked, and a visit never walks
-    a stamped company again. The migration clears the stamp of each stamped company that holds no
-    10-K/10-Q row, original or amendment, and either holds a 20-F, 40-F or 6-K row (a foreign issuer)
-    or holds no row at all, so its next visit walks it with the foreign forms. A company holding a
-    10-K/10-Q row (a switcher too) or only other forms keeps its stamp, an unstamped one stays
-    unstamped, and a second run changes nothing more."""
+    a stamped company again. The migration clears the stamp of each stamped company that holds a 20-F,
+    40-F or 6-K row, original or amendment (a foreign issuer, or one now filing 10-K/10-Q whose older
+    40-F the old walk skipped), or holds no row at all, so its next visit walks it with the foreign
+    forms. A company holding only 10-K/10-Q rows or other forms keeps its stamp, an unstamped one
+    stays unstamped, and a second run changes nothing more."""
     db = _engine_session()
     stamp = datetime(2026, 9, 1, tzinfo=timezone.utc)
     held = {
@@ -362,7 +362,7 @@ def test_migration_clears_the_stamp_of_each_foreign_issuer_the_old_walk_stamped(
 
     walked_again = {
         "FPI": True, "CAN": True, "BARE": True, "DOM": False,
-        "AMND": False, "SWCH": False, "8K": False, "NEW": True,
+        "AMND": False, "SWCH": True, "8K": False, "NEW": True,
     }
     assert migrate() == walked_again
     assert migrate() == walked_again
