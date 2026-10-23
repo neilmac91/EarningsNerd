@@ -540,6 +540,39 @@ class TestFigureCheck:
         assert (row["current_period"], row["commentary"], row["source_checkable"]) == ("$8.0B", "Cash fell to $8.0B.", False)
         assert "source_replaced" not in row and "commentary_withheld" not in row
 
+    def test_an_interim_balance_sheet_prior_is_matched_never_replaced_without_fiscal_labels(self):
+        # Without fiscal labels any two instants pass as comparable, and the standardized prior is the previous
+        # quarter end: a correct year-end or last year's quarter-end prior must not be replaced by it.
+        unlabeled = [{key: value for key, value in fact.items() if key != "fiscal_period"}
+                     for fact in self.QUARTER["total_assets"]["series"]]
+        quarter = {"reporting_currency": "USD", "total_assets": {"current": unlabeled[0], "prior": unlabeled[1], "series": unlabeled}}
+        assert self._check("Total assets", "$331.5B", "$365.0B", quarter)["source_verified"] is True
+        stated_nowhere = self._check("Total assets", "$331.5B", "$356.0B", quarter)
+        assert stated_nowhere["source_checkable"] is False and "source_mismatched" not in stated_nowhere
+
+    def test_an_annual_balance_sheet_prior_is_still_replaced(self):
+        annual = {"reporting_currency": "USD", "total_assets": {
+            "current": {"period": "2025-09-27", "value": 359_241e6, "form": "10-K", "currency": "USD"},
+            "prior": {"period": "2024-09-28", "value": 364_980e6, "form": "10-K", "currency": "USD"}}}
+        assert self._check("Total assets", "$359.2B", "$365.0B", annual)["source_verified"] is True
+        assert self._check("Total assets", "$359.2B", "$356.0B", annual)["source_mismatched"] == ["prior_period"]
+
+    def test_a_figure_dated_to_another_period_is_not_checked(self):
+        # Code-written bank rows date their figures; a figure dated to the filed fact's own period is checked.
+        assert self._check("Total net sales", "$416.2B (2025-09-27)", "$391.0B (2024-09-28)")["source_verified"] is True
+        other_year = self._check("Total net sales", "$416.2B", "$383.3B (2023-09-30)")
+        assert other_year["source_checkable"] is False and "source_mismatched" not in other_year
+
+    @pytest.mark.parametrize("shown", ["$416,161", "416,161", "(1.2)", "$950"])
+    def test_a_figure_that_states_no_scale_is_not_checked(self, shown):
+        # In millions, as a statement prints it, or in any other unit: the scale cannot be told.
+        out = self._check("Total net sales", shown)
+        assert out["source_checkable"] is False and "source_mismatched" not in out
+
+    def test_a_whole_figure_without_a_scale_word_is_still_checked(self):
+        assert self._check("Total net sales", "$416,161,000,000")["source_verified"] is True
+        assert self._check("Total net sales", "$416,000,000,000")["source_mismatched"] == ["current_period"]
+
     def test_a_durations_prior_is_never_read_from_the_series(self):
         # Only instants: a P&L line's series mixes durations under one period end.
         quarter = {**APPLE, "revenue": {
@@ -660,6 +693,14 @@ class TestFiledFigureSwap:
         "Up 8% on Q4 Services demand.",
         "Operating income was $2025 million.",
         "Operating income was 2025 million.",
+        # Words that start like a month, a quarter followed by a figure, and a figure after a Note list.
+        "Operating income declined 8% on weaker demand.",
+        "Decreased 12% year over year.",
+        "Margin 38% held flat.",
+        "Q4 25% of sales came from Services.",
+        "H2 15% growth.",
+        "See Note 3, 25% of revenue.",
+        "FY25 rose 12%; Item 7, 8.5% of it from Services.",
     ])
     def test_a_takeaway_that_states_a_number_is_withheld(self, commentary):
         row = self._enrich({"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
@@ -681,6 +722,8 @@ class TestFiledFigureSwap:
         "Higher than in the 1990s.",
         "fy2025 operating income rose; see note 13 and item 7.",
         "q4 demand lifted the 10-k's operating income.",
+        "Balances held at December 31, 2025 and June 30, 2025.",
+        "Q4 '25 demand held; Items 7 and 7A explain it.",
     ])
     def test_a_takeaway_that_names_no_figure_stays(self, commentary):
         # Years, quarters and the filing's own Items and Notes are not figures the swap replaced.
@@ -775,6 +818,8 @@ class TestLabelsTheModelIsGiven:
     }
 
     def test_the_narratives_dollar_labels_map_to_their_own_concepts(self):
+        # The spec's static labels. At run time the debt line takes its scope's label (debt_balance_label), which
+        # maps to nothing, so it is left unchecked: long-term debt is never replaced anyway (_EXACT_SCOPE_TAGS).
         from app.services.ai.xbrl_narrative import _XBRL_NARRATIVE_SPEC
 
         checked = set(prov._SOURCE_KEY_LABELS) - prov._NEVER_CHECKED_KEYS - set(self.UNCHECKED)
@@ -1033,16 +1078,32 @@ class TestV2CitationEnrichment:
         # v1 path never touches forward_signals / footnote evidence (those are v2-only surfaces).
         assert "forward_signals" not in out["sections"]
 
+    FORGED_EVIDENCE = {"verified": True, "excerpt": "We expect", "fragment_url": "https://evil.example/#:~:text=We"}
+
     @pytest.mark.parametrize("cached", [None, "   "])
     def test_cites_no_passage_without_filing_text_to_search(self, cached):
         # No cached filing text: the passes must not crash, and no passage is cited at all, since a "Quote not
-        # found" or "Section linked" chip would report a search that never ran (the frontend review of #1530).
+        # found" or "Section linked" chip would report a search that never ran (the frontend review of #1530). A
+        # quote's or footnote's evidence the stored JSON carries is the model's, so it is dropped too.
         raw = self._raw()
         raw["sections"]["results_that_matter"]["table"][0]["commentary_evidence"] = {"verified": True, "excerpt": "x"}
+        for item in [*raw["sections"]["forward_signals"]["quotes"], *raw["sections"]["notable_footnotes"]]:
+            item["evidence"] = dict(self.FORGED_EVIDENCE)
         out = prov.enrich_raw_summary(raw, _filing(critical_excerpt=cached))
         assert all("evidence" not in quote for quote in out["sections"]["forward_signals"]["quotes"])
         assert all("evidence" not in footnote for footnote in out["sections"]["notable_footnotes"])
         assert "commentary_evidence" not in out["sections"]["results_that_matter"]["table"][0]
+        rendered = [block for section in prov.render_sections_json(out) for block in section["blocks"]]
+        assert all(block.get("evidence") is None and not block.get("row_evidence") for block in rendered
+                   if block["kind"] in ("quote", "bullets", "table"))
+
+    def test_a_footnote_with_nothing_to_cite_keeps_no_stored_evidence(self):
+        raw = self._raw()
+        raw["sections"]["notable_footnotes"] = [{"item": "Leases", "impact": "None", "evidence": dict(self.FORGED_EVIDENCE)}]
+        raw["sections"]["forward_signals"]["quotes"].append({"speaker": "CFO", "evidence": dict(self.FORGED_EVIDENCE)})
+        out = prov.enrich_raw_summary(raw, _filing(critical_excerpt=self.SRC))
+        assert "evidence" not in out["sections"]["notable_footnotes"][0]
+        assert "evidence" not in out["sections"]["forward_signals"]["quotes"][-1]
 
     def test_quotes_and_footnotes_enriched_without_risks_or_metrics_table(self):
         # Guard regression: a v2 summary with ONLY quotes + footnotes (no risks list, no metrics table)

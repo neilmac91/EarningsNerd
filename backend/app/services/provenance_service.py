@@ -27,6 +27,7 @@ from urllib.parse import quote
 
 from app.schemas.summary import NormalizedFact, _format_xbrl_value
 from app.services import metric_delta_service
+from app.services.facts.calendar import ANNUAL_FORMS
 from app.services.ai.recovery_context import clean_filing_source
 from app.services.summary_schema import RISK_SOURCE_CONTEXT_KEY, RISK_SOURCE_CONTEXT_VERSION
 from app.services.summary_sections import render_sections, render_sections_json, sections_to_markdown
@@ -576,11 +577,17 @@ def _row_figure(row: dict, field: str) -> Any:
 
 # Code-written bank rows name the period after the figure ("$95,443,000,000 (2025-12-31)",
 # ``ai/bank_guards.py``); the check reads the figure before it.
-_PERIOD_SUFFIX_RE = re.compile(r"\s*\(\d{4}-\d{2}-\d{2}\)\s*$")
+_PERIOD_SUFFIX_RE = re.compile(r"\s*\((\d{4}-\d{2}-\d{2})\)\s*$")
 
 
 def _figure_text(text: Any) -> Any:
     return _PERIOD_SUFFIX_RE.sub("", text) if isinstance(text, str) else text
+
+
+def _stated_period(text: Any) -> Optional[str]:
+    """The date a figure names after itself ("(2025-12-31)"), or ``None``."""
+    match = _PERIOD_SUFFIX_RE.search(text) if isinstance(text, str) else None
+    return match.group(1) if match else None
 
 
 def _shows_filed_value(text: Any, fact: dict, reporting_currency: Any = None) -> Optional[bool]:
@@ -635,10 +642,13 @@ def _filed_prior(
     The comparable prior (``comparable_facts``) is checked as the current figure is. A balance-sheet
     line's shown prior is otherwise read against the filing's own earlier instants of its concept: one
     it states counts toward the match, and none leaves the row unchecked, since the summary may mean
-    another date, so nothing is replaced.
+    another date, so nothing is replaced. An interim filing's balance-sheet prior is only ever read
+    that way: its series holds a quarter end, the year end and last year's quarter end, and without
+    fiscal labels any two of them pass as comparable.
     """
     prior = _filed_fact(entry, "prior")
-    if prior is not None and metric_delta_service.comparable_facts(current, prior):
+    interim_instant = key in _INSTANT_KEYS and current.get("form") not in ANNUAL_FORMS
+    if prior is not None and not interim_instant and metric_delta_service.comparable_facts(current, prior):
         return prior, True
     if key in _INSTANT_KEYS:
         for fact in entry.get("series") or []:
@@ -731,6 +741,17 @@ def build_metric_source(
         filed["prior_period"] = prior
         if replaceable:
             compared["prior_period"] = prior
+    for field, fact in filed.items():
+        # A figure that states no scale and reads under a million beside a filed amount of a million or more
+        # may be in its statement's unit ("416,161", in millions): neither a match nor a mismatch can be told.
+        no_scale = not metric_delta_service.display_names_scale(shown[field])
+        if no_scale and abs(parse_display_number(shown[field])[0]) < _MIN_VERIFIABLE_XBRL_VALUE:
+            return out
+        # A figure dated to another period than the filed fact ("$383.3B (2023-09-30)" beside 2024's) is
+        # that period's, not a wrong one.
+        stated = _stated_period(_row_figure(metric_row, field))
+        if stated is not None and stated != fact.get("period"):
+            return out
     shows = {field: _shows_filed_value(shown[field], fact, reporting_currency) for field, fact in compared.items()}
     if any(result is None for result in shows.values()):
         return out
@@ -766,14 +787,22 @@ _CODE_OWNED_ROW_KEYS = (
 # 1990s"), quarters and halves ("Q4'25", "3Q", "1H25", "H1 2025"), dates ("Sept. 27, 2025"), form names
 # ("10-K", "20-F") and the filing's own Items, Notes and Parts ("Notes 3 and 4"). A number written as an
 # amount ("$2025 million", "2025 million") is not a year.
-_PERIOD_TAIL = r"(?:\s?['’]?\d{2}(?:\d{2})?)?"
+# A quarter's or a half's year ("Q4'25", "Q4 2025", "1H25"); a number after a space is a figure ("Q4 25%").
+_PERIOD_TAIL = r"(?:\s?['’]\d{2}|\s?(?:19|20)\d{2}|\d{2})?"
+# A month by its name or abbreviation, never a word that starts like one ("declined 8", "Margin 38").
+_MONTH = (
+    r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?"
+    r"|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
+)
+# One number of an Item, Note or Part list, whole, and never one a percent or a decimal follows ("Note 3, 25%").
+_LISTED = r"\d+[A-C]?(?![\d%]|\.\d)"
 _NON_FIGURE_NUMBER_RE = re.compile(
-    r"(?<![$€£¥\d.,])\b(?:FY|CY)\s?['’]?\d{2}(?:\d{2})?\b"
-    rf"|\b(?:Q[1-4]|[1-4]Q|H[12]|[12]H){_PERIOD_TAIL}\b"
-    r"|(?<![$€£¥\d.,])\b(?:19|20)\d{2}s?\b(?!\s*(?:thousand|million|billion|trillion|mn|bn|tn|[kmbt])\b)"
-    r"|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?\b"
+    r"(?<![$€£¥\d.,])\b(?:FY|CY)\s?['’]?\d{2}(?:\d{2})?\b(?!\s*%)"
+    rf"|\b(?:Q[1-4]|[1-4]Q|H[12]|[12]H){_PERIOD_TAIL}\b(?!\s*%)"
+    r"|(?<![$€£¥\d.,])\b(?:19|20)\d{2}s?\b(?!\s*%)(?!\s*(?:thousand|million|billion|trillion|mn|bn|tn|[kmbt])\b)"
+    rf"|\b{_MONTH}\.?\s+\d{{1,2}}(?:st|nd|rd|th)?\b(?!\s*%)"
     r"|\b(?:10|20|40)-[KQF]\b|\b[68]-K\b|\bS-[14]\b"
-    r"|\b(?:Items?|Notes?|Parts?)\s+\d+[A-C]?(?:\s*(?:,|&|and|to|-|–)\s*\d+[A-C]?)*\b",
+    rf"|\b(?:Items?|Notes?|Parts?)\s+{_LISTED}(?:\s*(?:,|&|and|to|-|–)\s*{_LISTED})*",
     re.IGNORECASE,
 )
 
@@ -928,6 +957,9 @@ def _enrich_forward_quotes(sections: dict, base_url: str, normalized_source: Opt
         return
     section_ref = fwd.get("source_section_ref") or fwd.get("sourceSectionRef")
     for q in quotes:
+        if isinstance(q, dict):
+            # Only this pass writes a quote's evidence; one the model wrote is never kept.
+            q.pop("evidence", None)
         if isinstance(q, dict) and (q.get("quote") or q.get("text")):
             text = q.get("quote") or q.get("text")
             whole = verify_whole_excerpt_in_text(text, normalized_source)
@@ -945,12 +977,24 @@ def _enrich_footnotes(sections: dict, base_url: str, normalized_source: Optional
     for fn in footnotes:
         if not isinstance(fn, dict):
             continue
+        # Only this pass writes a footnote's evidence; one the model wrote is never kept.
+        fn.pop("evidence", None)
         excerpt = fn.get("supporting_evidence") or fn.get("supportingEvidence")
         ref = fn.get("source_section_ref") or fn.get("sourceSectionRef")
         # Only attach a citation when there is actually something to cite — otherwise every footnote
         # would get a bare chip pointing at the filing root, which is noise, not provenance.
         if (isinstance(excerpt, str) and excerpt.strip()) or (isinstance(ref, str) and ref.strip()):
             fn["evidence"] = build_evidence(excerpt, ref, base_url, normalized_source)
+
+
+def _drop_passage_evidence(sections: dict) -> None:
+    """Remove every forward quote's and footnote's ``evidence``, which only the citing passes write."""
+    fwd = sections.get("forward_signals")
+    quotes = fwd.get("quotes") if isinstance(fwd, dict) else None
+    footnotes = sections.get("notable_footnotes")
+    for item in [*(quotes if isinstance(quotes, list) else []), *(footnotes if isinstance(footnotes, list) else [])]:
+        if isinstance(item, dict):
+            item.pop("evidence", None)
 
 
 def _select_source_text(filing: Any) -> Optional[str]:
@@ -1158,6 +1202,10 @@ def enrich_raw_summary(
         base_url = _base_url(filing)
         _enrich_forward_quotes(result["sections"], base_url, normalized_source)
         _enrich_footnotes(result["sections"], base_url, normalized_source)
+    elif version >= 2:
+        # Nothing was searched, so nothing is cited: a stored quote's or footnote's own ``evidence`` is the
+        # model's JSON, and kept it would read as found.
+        _drop_passage_evidence(result["sections"])
     return result
 
 

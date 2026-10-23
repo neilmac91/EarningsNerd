@@ -172,6 +172,13 @@ def _as_finite_decimal(value: Any) -> Optional[Decimal]:
     return number if number.is_finite() else None
 
 
+def _display_scale(text: str, token: re.Match) -> Optional[Decimal]:
+    """The scale a displayed scalar states after its number ("B", "million"), or ``None`` when it states none."""
+    suffix = text[token.end():].casefold().replace(")", "").strip()
+    unit_match = re.match(r"(thousand|million|billion|trillion|mn|bn|tn|[kmbt])\b", suffix)
+    return _DISPLAY_SCALE.get(unit_match.group(1)) if unit_match else None
+
+
 def _display_resolution(text: Any) -> Optional[Decimal]:
     """Return one unit in the displayed scalar's last stated decimal place."""
     if not isinstance(text, str) or parse_display_number(text)[0] is None:
@@ -180,10 +187,16 @@ def _display_resolution(text: Any) -> Optional[Decimal]:
     if token is None:
         return None
     decimals = len(token.group("decimals") or token.group("leading_decimals") or "")
-    suffix = text[token.end():].casefold().replace(")", "").strip()
-    unit_match = re.match(r"(thousand|million|billion|trillion|mn|bn|tn|[kmbt])\b", suffix)
-    scale = _DISPLAY_SCALE.get(unit_match.group(1), Decimal(1)) if unit_match else Decimal(1)
+    scale = _display_scale(text, token) or Decimal(1)
     return scale * (Decimal(10) ** -decimals)
+
+
+def display_names_scale(text: Any) -> bool:
+    """Whether a displayed scalar states its scale after its number ("$416.2B", "416,161 million")."""
+    if not isinstance(text, str) or parse_display_number(text)[0] is None:
+        return False
+    token = _NUMBER_TOKEN.search(text)
+    return token is not None and _display_scale(text, token) is not None
 
 
 def _display_matches_exact(text: Any, exact: Decimal) -> bool:
