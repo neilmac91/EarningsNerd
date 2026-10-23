@@ -8,10 +8,13 @@ Date: 2026-10-16   Area: sec
 exact ticker hits first, then any entry whose name or ticker merely contains the query. So a ticker
 SEC's ticker file no longer lists (retired, renamed or mistyped) bound to an unrelated issuer with a
 200 whenever it is a substring of another entry's name or ticker, which nearly every short ticker
-is: RTN to Enterprise Products PARTNERS, SQ to SQM, FB to FB Financial (FBK), X to Exxon (XOM). The
-company page served that issuer under the requested URL, the filings list fetched and stored its
-filings, and precompute paid to summarize it and reported `generated`. The curated unsupported-ADR
-guard in `company_coverage.py` covered only its eight tickers.
+is. Which issuer it reached follows the order of SEC's file, which changes, so these pairs only
+illustrate: in the test fixture's order RTN bound to Enterprise Products PARTNERS, SQ to SQM, FB to
+FB Financial (FBK) and X to Exxon (XOM), while main against SEC's file when #1356 was reviewed gave
+RTN to RTNTF, SQ to BMY, FB to FBIN and X to XOM. The company page served that issuer under the
+requested URL, the filings list fetched and stored its filings, and precompute paid to summarize it
+and reported `generated`. The curated unsupported-ADR guard in `company_coverage.py` covered only
+its eight tickers.
 
 **Rule**: Bind a requested ticker (a URL, a bookmark, a job input) to a company only through
 `sec_edgar_service.resolve_ticker`: exact and case-insensitive, nothing more, so the fix only

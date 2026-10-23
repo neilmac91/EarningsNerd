@@ -515,9 +515,10 @@ test.describe('a 390x664 phone at 200% text', () => {
     card's Retry ran 39px past the Notice's border at 320px and its title's "comparison" 62px (22px at 360px), and at
     360px the billing and ticker filings cards' Retry ran 15px past it (billing's "information" 33px). The Notice's
     row now wraps, its text column going under the glyph where it cannot keep 9rem beside it (components/ui/Notice.tsx).
-    At 320px those two cards keep only the card's checks: their p-6 (48px a side at 200% text) leaves the Notice a 92px
-    content box, narrower than the Retry's narrowest state (138px), which sits 13px past the Notice's border there,
-    inside the card (tasks/todo.md E120). */
+    At 320px under 200% text those two cards' p-6 took 48px a side and left the Notice a 92px content box, narrower than
+    the Retry's narrowest state (138px), so the Retry ran past the Notice's border there, inside the card. A surface's
+    inset now stops growing at narrow widths (E120): the cards' p-cap-6 is 19.2px a side there, the Notice keeps 150px,
+    and both cards hold the Retry and every text run inside the Notice at 320px as at 360px. */
 const SEARCH_DOWN = 'SEC EDGAR is temporarily unavailable. Please retry shortly.'
 /** A backend detail with a long token in it, which no line break may split. */
 const SEARCH_DOWN_TOKEN = 'SEC EDGAR is unavailable: EDGAR_COMPANY_TICKERS_UPSTREAM_TIMEOUT'
@@ -716,22 +717,22 @@ const FAILURES: Failure[] = [
     widths: [320, 360],
   },
   {
-    // The settings page's billing card, a p-6 Card with the Notice as its child.
-    name: "the settings page's billing card (a Notice inside a p-6 card)",
+    // The settings page's billing card, a p-cap-6 Card with the Notice as its child.
+    name: "the settings page's billing card (a Notice inside a p-cap-6 card)",
     path: '/dashboard/settings',
     open: (p, b, hold) => answerSite(p, b, true, { path: '/api/subscriptions/subscription', status: 503, body: { detail: 'Service temporarily unavailable.' } }, hold),
     card: (p) => billingNotice(p).locator('xpath=..'),
-    notice: { at: billingNotice, widths: [360] },
+    notice: { at: billingNotice, widths: [320, 360] },
     retry: 'RetryButton',
     widths: [320, 360],
   },
   {
-    // /filing/AAPL: the "Recent filings" card (p-6) of a loaded company, its filings read failing.
-    name: "the ticker filings card (a Notice inside a p-6 card)",
+    // /filing/AAPL: the "Recent filings" card (p-cap-6) of a loaded company, its filings read failing.
+    name: "the ticker filings card (a Notice inside a p-cap-6 card)",
     path: '/filing/AAPL',
     open: (p, b, hold) => answerSite(p, b, false, { path: '/api/filings/company/AAPL', status: 503, body: { detail: SEARCH_DOWN } }, hold),
     card: (p) => tickerFilingsNotice(p).locator('xpath=../..'),
-    notice: { at: tickerFilingsNotice, widths: [360] },
+    notice: { at: tickerFilingsNotice, widths: [320, 360] },
     retry: 'RetryButton',
     widths: [320, 360],
   },
@@ -799,12 +800,15 @@ test.describe("a failure's controls stay inside their card at 200% text", () => 
     column keeps 9rem beside the box or takes the card's width with the box under it, and a word too long for the column
     breaks inside it. Before, a row could not wrap and its text column never went narrower than its longest word, so the
     boxes ended 32 to 73px past their cards at 390px, 62 to 103px at 360px and 89 to 130px at 320px, and the text ran
-    past the cards too. At 320, 360 and 390px each box and every run of text in its card lie inside the card. The text
-    column is 105, 132 and 162px there (ModalBody's px-6 and the card's p-4 under doubled text), so the longest words
-    still break at all three widths until a card's padding stops growing under enlarged text (tasks/todo.md E120, whose
-    measure with this recipe is 201px and no broken word at 320px). The panel's own sideways scroll is held by the
-    consent dialog's header case below (`holdsPanel`), since its title wraps under its icon (#1432) and these rows
-    stay inside their cards. */
+    past the cards too. At 320, 360 and 390px each box and every run of text in its card lie inside the card. With
+    ModalBody's px-6 and the cards' p-4 doubled, the text column was 92, 132 and 162px there and the longest words broke
+    at all three widths ("Essen" over "tial", "authenticatio" over "n,"). The body's and the cards' insets now stop
+    growing at narrow widths (px-cap-6 and p-cap-4, E120): the column is 188, 220 and 244px, and no word in a card
+    breaks inside it, read a character at a time. The panel's own sideways scroll is held by the consent dialog's
+    header case below (`holdsPanel`), since its title wraps under its icon (#1432) and these rows stay inside their
+    cards. */
+/** The three category cards: inside the open dialog, each box that draws a border and a radius. */
+const COOKIE_CATEGORY_CARDS = '[role="dialog"][aria-modal="true"] div.rounded-lg.border'
 const categoryRows = (dialog: Locator) =>
   dialog.evaluate((root) => {
     const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
@@ -861,6 +865,11 @@ test.describe("the cookie settings dialog's boxes and text stay inside their car
           expect(row.boxInCard, `${at}: the box lies inside its card`).toBe(true)
           expect(row.pastCard, `${at}: every run of text in the card lies inside it`).toEqual([])
         }
+        // The body's and the cards' insets stop growing under enlarged text (E120), so no word in a card breaks inside it.
+        const { words, found } = await brokenWords(page, COOKIE_CATEGORY_CARDS)
+        // Anti-vacuity: the read reaches the three cards' titles and descriptions.
+        expect(words, `the cookie dialog's cards at ${width}px: words read`).toBeGreaterThan(30)
+        expect(found, `the cookie dialog's cards at ${width}px and 200% text, a word broken inside it: ${found.join('; ')}`).toEqual([])
       })
     })
   }

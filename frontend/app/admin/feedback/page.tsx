@@ -49,7 +49,7 @@ export default function AdminFeedbackPage() {
 
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
         <section className="rounded-2xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-light px-6 py-4 dark:border-white/10">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-light px-cap-6 py-4 dark:border-white/10">
             {/* tabIndex -1: where focus goes if the Retry unmounts while it holds focus. */}
             <h2
               ref={feedbackHeadingRef}
@@ -94,14 +94,14 @@ export default function AdminFeedbackPage() {
           </div>
 
           {feedbackQuery.isLoading && !feedbackFailure.failed ? (
-            <div role="status" aria-label="Loading feedback" className="space-y-3 p-6">
+            <div role="status" aria-label="Loading feedback" className="space-y-3 p-cap-6">
               {[0, 1, 2, 3, 4].map((i) => (
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
               <span className="sr-only">Loading feedback…</span>
             </div>
           ) : feedbackFailure.failed ? (
-            <div className="p-6">
+            <div className="p-cap-6">
               <Notice
                 variant="error"
                 title="Could not load the feedback."
@@ -114,7 +114,7 @@ export default function AdminFeedbackPage() {
           ) : (feedback?.length ?? 0) === 0 ? (
             <p
               role="status"
-              className="px-6 py-10 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark"
+              className="px-cap-6 py-cap-10 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark"
             >
               {hasFilters ? 'No feedback matches these filters.' : 'No feedback yet. Reports appear here as people send them.'}
             </p>
@@ -143,7 +143,7 @@ export default function AdminFeedbackPage() {
             </TableScroll>
           )}
 
-          <p className="border-t border-border-light px-6 py-3 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-secondary-dark">
+          <p className="border-t border-border-light px-cap-6 py-3 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-secondary-dark">
             Showing the most recent {LIST_LIMIT} feedback items.
           </p>
         </section>

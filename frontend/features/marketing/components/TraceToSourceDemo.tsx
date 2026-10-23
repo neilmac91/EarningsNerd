@@ -27,7 +27,7 @@ export default function TraceToSourceDemo({ trace }: { trace: TraceSample }) {
   const panelId = useId()
 
   return (
-    <Card className="p-5">
+    <Card className="p-cap-5">
       <CardTitle>Trace to Source</CardTitle>
       <p className="mt-1.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Hover or tap the chip to see the section, the passage in the filing’s own words, and a link

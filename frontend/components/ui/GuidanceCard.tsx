@@ -84,7 +84,7 @@ export function GuidanceCard({
     <div
       role={variant === 'error' ? 'alert' : 'status'}
       className={cx(
-        'flex flex-col items-center rounded-xl border border-border-light bg-panel-light px-6 py-10 text-center shadow-e2',
+        'flex flex-col items-center rounded-xl border border-border-light bg-panel-light px-cap-6 py-cap-10 text-center shadow-e2',
         'dark:border-white/10 dark:bg-panel-dark dark:shadow-none',
         className,
       )}

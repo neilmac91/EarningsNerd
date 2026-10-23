@@ -197,7 +197,7 @@ export default function AdminInvitesPage() {
 
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
         {/* ── Zone A: Invite people ───────────────────────────────────────────── */}
-        <section className="rounded-2xl border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
+        <section className="rounded-2xl border border-border-light bg-panel-light p-cap-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
           <h2 className="mb-4 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Invite people
           </h2>
@@ -307,7 +307,7 @@ export default function AdminInvitesPage() {
 
         {/* ── Zone B: Invites list ────────────────────────────────────────────── */}
         <section className="rounded-2xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-light px-6 py-4 dark:border-white/10">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-light px-cap-6 py-4 dark:border-white/10">
             {/* tabIndex -1: where focus goes if the Retry unmounts while it holds focus. */}
             <h2
               ref={invitesHeadingRef}
@@ -366,14 +366,14 @@ export default function AdminInvitesPage() {
           </div>
 
           {invitesQuery.isLoading && !invitesFailure.failed ? (
-            <div role="status" aria-label="Loading invites" className="space-y-3 p-6">
+            <div role="status" aria-label="Loading invites" className="space-y-3 p-cap-6">
               {[0, 1, 2, 3, 4].map((i) => (
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
               <span className="sr-only">Loading invites…</span>
             </div>
           ) : invitesFailure.failed ? (
-            <div className="p-6">
+            <div className="p-cap-6">
               <Notice
                 variant="error"
                 title="Could not load the invites."
@@ -386,7 +386,7 @@ export default function AdminInvitesPage() {
           ) : filteredInvites.length === 0 ? (
             <p
               role="status"
-              className="px-6 py-10 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark"
+              className="px-cap-6 py-cap-10 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark"
             >
               {(invites?.length ?? 0) === 0 ? 'No invites yet. Send your first one above.' : 'No invites match these filters.'}
             </p>
@@ -442,7 +442,7 @@ export default function AdminInvitesPage() {
             </TableScroll>
           )}
 
-          <p className="border-t border-border-light px-6 py-3 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-secondary-dark">
+          <p className="border-t border-border-light px-cap-6 py-3 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-secondary-dark">
             Showing the most recent {LIST_LIMIT} invites.
           </p>
         </section>

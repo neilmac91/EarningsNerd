@@ -108,8 +108,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 7. **datetime:** timezone-aware UTC via `app/utils/datetimes.py` (`utcnow()`, `iso_z()`); never
    `datetime.utcnow()`/`utcfromtimestamp()`, nor a local-clock read (`datetime.now()` without a zone,
    `today()`). The ONLY sanctioned naive sites are the 6 token-expiry call sites enforced by
-   `backend/tests/unit/test_naive_utcnow_allowlist.py` (naive by design — SQLite/Postgres parity) and
-   the SEC tickers-cache TTL pinned by `backend/tests/unit/test_naive_local_now_allowlist.py`.
+   `backend/tests/unit/test_naive_utcnow_allowlist.py` (naive by design — SQLite/Postgres parity);
+   `backend/tests/unit/test_naive_local_now_allowlist.py` allows no local-clock read in `app/`.
    Serialized timestamps use `iso_z()`; never hand-append `"Z"` (gate:
    `backend/tests/unit/test_datetimes.py`).
 8. **Config:** all env access through `app/config.py` Settings; never `os.getenv` in app code.
@@ -131,6 +131,7 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     700-level tokens; page bg = `background`, cards = `panel`, on every route. Gates: the design rules in
     `frontend/eslint.config.mjs` (raw hex/palette, `z-[N]`, off-ramp tracking, sub-scale type, `alert`,
     a responsive grid's base track, a side-tab stripe on a rounded container, a form code inside a `Badge`,
+    a surface's inset that keeps growing at narrow widths: `earningsnerd/surface-padding-cap`, the `p-cap-N` steps,
     chip/delta text off the 700 level: `earningsnerd/direction-text-tokens`; a figure in sage, with a glyph
     or none, also fails `tests/unit/brandCopyRules.spec.ts` rule 2)
     `tests/unit/dialogAllowlist.spec.ts`, `tests/unit/bottomChromeLadder.spec.ts` (no fixed bottom chrome
