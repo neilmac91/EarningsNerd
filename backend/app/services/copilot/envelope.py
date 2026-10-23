@@ -57,12 +57,6 @@ def _parse_citations(raw: str) -> tuple[list[dict], list[str]]:
         if not trailer.startswith("```"):
             raise _UnpublishableAnswer("Unclosed citation fence")
         trailer = trailer[3:].strip()
-    followups: list[str] = []
-    if trailer:
-        followups_match = _FOLLOWUPS_RE.match(trailer)
-        if not followups_match:
-            raise _RegenerableCitationTrailer("Unexpected citation trailer")
-        followups = _parse_followups(trailer[followups_match.end():])
     if not isinstance(data, list):
         raise _UnpublishableAnswer("Citation declaration is not an array")
     for item in data:
@@ -72,6 +66,12 @@ def _parse_citations(raw: str) -> tuple[list[dict], list[str]]:
                 or any(item.get(key) is not None and not isinstance(item[key], str)
                        for key in ("section", "section_ref"))):
             raise _UnpublishableAnswer("Invalid citation declaration")
+    followups: list[str] = []
+    if trailer:  # only after a well-formed array, so a malformed one keeps its own terminal reason
+        followups_match = _FOLLOWUPS_RE.match(trailer)
+        if not followups_match:
+            raise _RegenerableCitationTrailer("Unexpected citation trailer")
+        followups = _parse_followups(trailer[followups_match.end():])
     return data, followups
 
 

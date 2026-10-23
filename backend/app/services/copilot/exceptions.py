@@ -11,4 +11,4 @@ class _RegenerableEvidenceMismatch(_UnpublishableAnswer):
 
 
 class _RegenerableCitationTrailer(_UnpublishableAnswer):
-    """Text after the citation array that is not the followups block; no citation was checked yet."""
+    """Text after a well-formed citation array that is not the followups block; no excerpt was checked yet."""

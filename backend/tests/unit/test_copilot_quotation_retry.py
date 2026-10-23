@@ -219,6 +219,7 @@ async def test_retry_exhaustion_has_one_terminal_error_without_private_candidate
     "missing_source_excerpt", "quoted_section", "missing_id",
     "short_source", "leading_zero_missing", "late_quoted_label",
     "short_excerpt_with_quoted_label", "duplicate_id_with_missing_id", "fenced_note",
+    "object_with_note", "invalid_declaration_with_note",
 ])
 async def test_other_rejections_do_not_buy_another_generation(monkeypatch, case):
     selected = filing()
@@ -228,6 +229,13 @@ async def test_other_rejections_do_not_buy_another_generation(monkeypatch, case)
         "fenced_note": (f'Management said "{KNOWN}" [1].\n===CITATIONS===\n```json\n'
                         + json.dumps([{"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"}])
                         + "\nNote: corrected below.\n```"),
+        # A malformed declaration keeps its own terminal reason whatever text follows it.
+        "object_with_note": (f'Management said "{KNOWN}" [1].\n===CITATIONS===\n'
+                             + json.dumps({"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"})
+                             + "\nNote: corrected below.\n===CITATIONS===\n[]"),
+        "invalid_declaration_with_note": (f'Management said "{KNOWN}" [1].\n===CITATIONS===\n'
+                                          + json.dumps([{"n": "1", "excerpt": KNOWN, "section": "Item 2 — MD&A"}])
+                                          + "\nNote: corrected below.\n===CITATIONS===\n[]"),
         "upstream": STREAM_ERROR_SENTINEL + "offline provider failed",
         "ambiguous": envelope(f'The filing said "{KNOWN}" [1]. [More](https://example.invalid)'),
         "missing_source": f'The filing said "{KNOWN}".\n===CITATIONS===[]',
@@ -324,6 +332,7 @@ async def test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_tabl
     "\n===CITATIONS===\n[]",  # a second array straight after the first
     "\nNote: the excerpt above is too short.\n===CITATIONS===\n[]",  # copilot-eval's note, then a second array
     " Contradictory extra prose.",  # prose after the array
+    "\n===FOLLOWU",  # a followups line cut short, as a truncated generation leaves it (RUNBOOK)
 ])
 def test_text_after_the_citation_array_buys_only_the_one_array_guidance(tail):
     """The trailer reason buys the regeneration through its owned class, never through its text.
@@ -343,6 +352,20 @@ def test_text_after_the_citation_array_buys_only_the_one_array_guidance(tail):
     # It names both envelope lines and asks for one array, written once.
     assert copilot_prompt._CITATIONS_SENTINEL in guidance and copilot_prompt._FOLLOWUPS_SENTINEL in guidance
     assert "exactly one JSON array" in guidance
+
+
+@pytest.mark.parametrize(("declaration", "reason"), [
+    ({"n": 1, "excerpt": KNOWN}, "Citation declaration is not an array"),
+    ([{"n": "1", "excerpt": KNOWN}], "Invalid citation declaration"),
+])
+def test_only_a_well_formed_array_makes_what_follows_it_a_trailer(declaration, reason):
+    """The declaration checks run before the trailer check, so a malformed array keeps its own
+    terminal reason and buys no regeneration, whatever text follows it."""
+    raw = json.dumps(declaration) + "\nNote: corrected below.\n===CITATIONS===\n[]"
+    with pytest.raises(copilot_service._UnpublishableAnswer) as caught:
+        copilot_service._parse_citations(raw)
+    assert (type(caught.value), str(caught.value)) == (copilot_service._UnpublishableAnswer, reason)
+    assert copilot_prompt._retry_guidance(caught.value, copilot_service._RETRYABLE_QUOTATION_FAILURES) == ""
 
 
 @pytest.mark.asyncio

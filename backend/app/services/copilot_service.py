@@ -253,8 +253,8 @@ async def answer_filing_question(
 ) -> AsyncGenerator[dict, None]:
     """Publish one admitted answer, privately regenerating one mismatched evidence or citation-trailer candidate.
 
-    Both generations share the original source, usage accounting and provider deadline. Rejected
-    prose is never exposed or reused; an incomplete envelope or another failure stays terminal.
+    Both generations share the original source, usage accounting and provider deadline; rejected prose is
+    never exposed or reused. An incomplete array or other failure is terminal; a cut-off followups line is a trailer.
     """
     try:
         source_text = _select_source_text(filing) or ""
