@@ -1097,16 +1097,21 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  sticks at the top of the viewport. Sticky and fixed chrome below the header reads it,
                  `top-[var(--site-header-h,4rem)]`, never a fixed `top-16` or a `sticky top-0`, so a bar that
                  wraps under enlarged text covers nothing. A page's own header (SecondaryHeader: pricing, the
-                 dashboard, the watchlist, admin) scrolls with the page on an opaque panel (E162); only a
-                 table's header cells stick at `top-0`, inside the table's own scroll box. The document's
+                 dashboard, the watchlist, admin) scrolls with the page on an opaque panel; only a table's
+                 header cells stick at `top-0`, inside the table's own scroll box. The document's
                  `scroll-padding-top` (globals.css) reads the variable once, so a keyboard focus, an anchor
-                 jump or a scrollIntoView lands below the bar, never behind it (WCAG 2.2 SC 2.4.11, E163); a
+                 jump or a scrollIntoView lands below the bar, never behind it (WCAG 2.2 SC 2.4.11); a
                  section's scroll margin adds only its own room beyond the header (`scroll-mt-16`), never the
-                 variable again, which would land every jump one bar lower. Gates:
+                 variable again, which would land every jump one bar lower. The padding steps aside while
+                 focus is inside the site header (`html:has([data-site-header]:focus-within)`): the header is
+                 stuck in view, and the padding, which counts its open mobile menu, would scroll the page
+                 behind the menu at every Tab through it, and move the page when a control in the bar took
+                 focus while it was scrolled; a Tab out of the open menu lands below it. Gates:
                  tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/e2e/reflow-200.spec.ts (the filing
                  page's section nav at 200% text) and tests/e2e/header-covers-nothing.spec.ts (a Shift+Tab walk
                  of /, /pricing and /analysis with no stop wholly under the bar; /pricing's page header off the
-                 screen once scrolled past).
+                 screen once scrolled past; the open menu's Tab walk and the bar's own stops leaving the page where
+                 it is).
                  The open mobile menu scrolls inside the viewport: the header is a column no taller than it
                  (`flex max-h-dvh flex-col`), the bar keeps its own height (`w-full shrink-0`; a column's child
                  with auto side margins is not stretched) and the menu panel takes the rest

@@ -126,7 +126,7 @@ const OFFSET_OBJECTS: Record<string, string[]> = {
 }
 const CONSENT_BAR = 'components/CookieConsent.tsx'
 /** Sticky chrome that outranks the bar: the top-anchored site header only, pinned to its exact z count. A page's own
-    header (SecondaryHeader) scrolls with the page, so it holds no sticky z (E162; headerOffsetReadsTheVariable.spec.ts). */
+    header (SecondaryHeader) scrolls with the page, so it holds no sticky z (headerOffsetReadsTheVariable.spec.ts). */
 const STICKY_ABOVE_CONSENT: Record<string, { z: Record<string, number>; reason: string }> = {
   'components/Header.tsx': { z: { '50': 1 }, reason: 'the site header sticks at the top of the viewport' },
 }

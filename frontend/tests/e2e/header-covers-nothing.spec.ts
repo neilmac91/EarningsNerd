@@ -2,23 +2,31 @@ import { test, expect, type Page } from '@playwright/test'
 
 /**
  * The site header (components/Header.tsx) is the one bar that sticks at the top of the viewport, and it covers
- * nothing a reader scrolls or tabs to: chief design's rulings E162 and E163 (PR #1515, comment 6362491933).
+ * nothing a reader scrolls or tabs to: chief design's two rulings on PR #1515 (comment 6362491933).
  *
- * E162: a page's own header (components/SecondaryHeader.tsx) scrolls with the page. It stuck at `top-0` under the
+ * The page header: a page's own header (components/SecondaryHeader.tsx) scrolls with the page. It stuck at `top-0` under the
  * site header: once /pricing scrolled, its title showed through the bar's translucent ground beside a second logo
  * mark, its last pixels hung below the bar as a blurred band, and a click at its back link's centre landed on the
  * site header. At 390x844 and 1440x900, in both themes, once the page has scrolled past the page header, the page
  * header is off the screen, and it sits on an opaque ground with no blur, since nothing passes under it.
  *
- * E163: the document's `scroll-padding-top` reads the header's height (app/globals.css), so a focused control is
+ * Keyboard focus: the document's `scroll-padding-top` reads the header's height (app/globals.css), so a focused control is
  * scrolled clear of the bar (WCAG 2.2 SC 2.4.11, Focus Not Obscured). Without it Chromium treats a control behind
  * the sticky bar as already in view and leaves it there: on main a Shift+Tab walk found the landing's Trace to
  * Source chip wholly under the bar at the default text size, and under 200% text the footer's links, the search
  * field, "Upgrade to Pro" and "Request an invite". The walk runs Shift+Tab from each page's last stop to its first
  * on /, /pricing and /analysis, at 390x844 and 1440x900, at the default text size and under a 200% text setting,
  * and finds no stop wholly under the bar. The bar's own controls are its own, and fixed chrome (the skip link, the
- * launchers) does not scroll, so neither is a page stop here. The walk runs in the light theme: a theme changes no
- * geometry the walk reads.
+ * launchers) does not scroll, so neither is a page stop here, and the walk must reach the bar, so a walk cut short
+ * fails. The walk runs in the light theme: a theme changes no geometry the walk reads.
+ *
+ * The header's own stops: the padding steps aside while focus is inside the site header
+ * (`html:has([data-site-header]:focus-within)`). The header is stuck in view, and the padding, which counts its
+ * open mobile menu, scrolled the page behind the menu at every Tab through it (from 2,350px to the top in five
+ * Tabs at 390px), and a control in the bar that took focus while the page was scrolled moved the page by half a
+ * screen. With the page scrolled, the menu opened at 390x844 at both text sizes keeps the page where it is through
+ * every Tab in it, and a Tab out of it lands on a control the open menu does not wholly cover; at 1440x900 a focus
+ * on the bar's logo or theme toggle leaves the page where it is.
  *
  * 200% text is Chromium's own text setting (`Page.setFontSizes`, as tests/e2e/reflow-200.spec.ts doubles it), not
  * an inline style on <html>, which no media query reads. CI runs e2e with no backend
@@ -92,7 +100,7 @@ interface Stop {
  * sentinel button, fixed so it moves nothing, is appended last and focused, so the first Shift+Tab lands on the
  * page's last stop; the walk ends when focus leaves the page or comes back round to the sentinel.
  */
-async function walkBack(page: Page): Promise<{ stops: number; hidden: Stop[] }> {
+async function walkBack(page: Page): Promise<{ stops: number; reachedBar: boolean; hidden: Stop[] }> {
   await page.evaluate(() => {
     const sentinel = document.createElement('button')
     sentinel.dataset.walkSentinel = ''
@@ -103,6 +111,7 @@ async function walkBack(page: Page): Promise<{ stops: number; hidden: Stop[] }> 
   })
   const hidden: Stop[] = []
   let stops = 0
+  let reachedBar = false
   for (;;) {
     await page.keyboard.press('Shift+Tab')
     const stop = await page.evaluate(() => {
@@ -115,17 +124,33 @@ async function walkBack(page: Page): Promise<{ stops: number; hidden: Stop[] }> 
       const r = el.getBoundingClientRect()
       const b = bar.getBoundingClientRect()
       const label = (el.getAttribute('aria-label') || el.textContent || el.getAttribute('placeholder') || el.tagName).replace(/\s+/g, ' ').trim().slice(0, 60)
-      const own = bar.contains(el) || fixed || r.width === 0 || r.height === 0
-      return { done: false as const, own, label: `${el.tagName.toLowerCase()} "${label}"`, top: r.top, bottom: r.bottom, barTop: b.top, barBottom: b.bottom, scrollY: window.scrollY }
+      const inBar = bar.contains(el)
+      const own = inBar || fixed || r.width === 0 || r.height === 0
+      return { done: false as const, own, inBar, label: `${el.tagName.toLowerCase()} "${label}"`, top: r.top, bottom: r.bottom, barTop: b.top, barBottom: b.bottom, scrollY: window.scrollY }
     })
     if (stop.done) break
     stops++
     if (stops > MAX_STOPS) throw new Error(`the walk passed ${MAX_STOPS} stops without coming back round`)
-    if (!stop.own && stop.top >= stop.barTop - 0.5 && stop.bottom <= stop.barBottom + 0.5) {
+    if (stop.inBar) reachedBar = true
+    // The bar sits at the top of the viewport, so a stop that ends above its bottom edge is wholly behind it (or above
+    // the screen altogether).
+    if (!stop.own && stop.bottom <= stop.barBottom + 0.5) {
       hidden.push({ label: stop.label, top: stop.top, bottom: stop.bottom, barBottom: stop.barBottom, scrollY: stop.scrollY })
     }
   }
-  return { stops, hidden }
+  return { stops, reachedBar, hidden }
+}
+
+/** The page's scroll, the focused control's box and whether it sits inside the site header. */
+async function focusState(page: Page) {
+  return page.evaluate(() => {
+    const el = document.activeElement as HTMLElement | null
+    const bar = document.querySelector('[data-site-header]')
+    if (!el || !bar) throw new Error('no focus or no site header')
+    const r = el.getBoundingClientRect()
+    const label = (el.getAttribute('aria-label') || el.textContent || el.tagName).replace(/\s+/g, ' ').trim().slice(0, 40)
+    return { scrollY: window.scrollY, inHeader: bar.contains(el), label, top: r.top, bottom: r.bottom, barBottom: bar.getBoundingClientRect().bottom }
+  })
 }
 
 for (const viewport of VIEWPORTS) {
@@ -168,6 +193,7 @@ for (const viewport of VIEWPORTS) {
           await settle(page)
           const walk = await walkBack(page)
           expect(walk.stops, `${route}, ${name}: the walk reached the page's stops`).toBeGreaterThan(3)
+          expect(walk.reachedBar, `${route}, ${name}: the walk came back round to the site header`).toBe(true)
           expect(
             walk.hidden.map((s) => `${s.label} at ${s.top.toFixed(0)} to ${s.bottom.toFixed(0)}px, under a bar ending at ${s.barBottom.toFixed(0)}px (scrollY ${s.scrollY.toFixed(0)})`),
             `${route}, ${name}: a focused control wholly behind the site header`,
@@ -177,3 +203,56 @@ for (const viewport of VIEWPORTS) {
     }
   }
 }
+
+test.describe("the site header's own stops hold the page in place", () => {
+  for (const doubled of [false, true]) {
+    const name = `390px${doubled ? ' under 200% text' : ''}`
+    test.describe(name, () => {
+      test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
+      test('a Tab through the open menu keeps the page where it is, and a Tab out of it lands on a control the menu does not cover', async ({ page, baseURL }) => {
+        await open(page, baseURL!, '/', 'light')
+        if (doubled) await doubleText(page)
+        await settle(page)
+        await page.evaluate(() => window.scrollTo(0, 2000))
+        await settle(page)
+        // Opened from the keyboard, its toggle focused without a scroll, as a reader who had tabbed there would have it.
+        await page.getByRole('button', { name: 'Open menu' }).evaluate((el: HTMLElement) => el.focus({ preventScroll: true }))
+        await page.keyboard.press('Enter')
+        await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible()
+        await settle(page)
+        const opened = await focusState(page)
+        expect(opened.scrollY, `${name}: the page is scrolled before the menu's walk`).toBeGreaterThan(1000)
+        let tabs = 0
+        for (;;) {
+          await page.keyboard.press('Tab')
+          const now = await focusState(page)
+          if (!now.inHeader) {
+            expect(now.bottom, `${name}: a Tab out of the open menu lands on ${now.label} at ${now.top.toFixed(0)} to ${now.bottom.toFixed(0)}px, wholly under a header ending at ${now.barBottom.toFixed(0)}px`).toBeGreaterThan(now.barBottom + 0.5)
+            break
+          }
+          tabs++
+          expect(now.scrollY, `${name}: Tab ${tabs}, onto ${now.label} in the open menu, moved the page from ${opened.scrollY}px`).toBe(opened.scrollY)
+          expect(tabs, `${name}: the walk through the open menu ends`).toBeLessThan(40)
+        }
+        expect(tabs, `${name}: the walk went through the menu's stops`).toBeGreaterThan(3)
+      })
+    })
+  }
+
+  test.describe('1440px', () => {
+    test.use({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
+    test("a focus on the bar's own controls leaves the page where it is", async ({ page, baseURL }) => {
+      await open(page, baseURL!, '/', 'light')
+      await settle(page)
+      for (const control of [page.getByRole('link', { name: 'EarningsNerd home' }), page.getByRole('button', { name: /Switch to (dark|light) mode/ })]) {
+        await page.evaluate(() => window.scrollTo(0, 2000))
+        await settle(page)
+        await control.first().evaluate((el: HTMLElement) => el.focus())
+        await settle(page)
+        const now = await focusState(page)
+        expect(now.inHeader, `the focus is on ${now.label}, in the site header`).toBe(true)
+        expect(now.scrollY, `a focus on ${now.label} in the bar moved the page from 2000px`).toBe(2000)
+      }
+    })
+  })
+})
