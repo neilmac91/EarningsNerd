@@ -17,6 +17,11 @@ caller's choice must shape the work, first validate it where it enters (CLAUDE.m
 bounded canonical set, and count how many distinct payloads one company can produce per dedupe
 bucket. The response can still filter per request. A fix is proven by sending N distinct caller
 values through the real task-naming code, with only the transport faked, and counting the tasks.
+One task departs from this by the founder's decision (F60, option B, 2026-10-23): the account mail
+of forgot-password and resend-verification carries the caller's address, since both branches of
+each route must queue it before any lookup. The request schema validates the address and the
+routes' per-IP and per-address rate limits bound how many tasks a caller can queue; its enqueue site
+is listed in the gate's `EXEMPT` with that reason, and a new exception needs the same.
 
 **Evidence**: `enqueue_task` in `backend/app/services/durable_tasks.py` hashes whatever body it is
 given, by design, so the fix belongs to the caller: `backend/app/routers/filings.py` enqueues

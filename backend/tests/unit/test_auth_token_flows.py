@@ -44,7 +44,9 @@ first sign-in whose session mint fails are pinned beside them:
   - the failure paths that roll back (a failed reverse trial, the OAuth races) do so before they log
 
 Real endpoints against the app's SQLite database, like the rest of the auth suite. Mail is captured
-by patching app.services.email_service (the router imports the senders at call time). SQLite hands
+by patching app.services.email_service (the router and account_mail_service look the senders up on it
+at call time; with durable tasks off, as here, the reset and resend mails go out in a background task
+the test client runs before it returns). SQLite hands
 back ``DateTime(timezone=True)`` columns naive while PostgreSQL hands them back aware; the
 ``_postgres_shaped_expiries`` fixture gives the two token-expiry columns the production shape, so
 the expiry comparisons run as they do on PostgreSQL. The session-mint failures and the races are

@@ -50,6 +50,11 @@ SERVER_OWNED_CALLS = {
 EXEMPT = {
     ("services/internal_task_runner.py", "enqueue_internal_job"): "operator routes (_require_internal_token)",
     ("services/internal_task_runner.py", "run_internal_task"): "worker-side fan-out of an operator job",
+    ("services/account_mail_service.py", "queue_account_mail"): (
+        "F60's account mail (the founder's option B): both branches of forgot-password and resend-verification "
+        "queue it before any lookup, so it carries the address the request schema validated, with a fixed "
+        "two-mail vocabulary; the routes' per-IP and per-address limits bound how many a caller can queue"
+    ),
 }
 
 
