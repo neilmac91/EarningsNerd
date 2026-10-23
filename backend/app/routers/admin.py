@@ -5,6 +5,7 @@ They allow clearing cached summaries and XBRL data to fix issues with stale data
 """
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from typing import Optional
@@ -25,6 +26,7 @@ from app.services import admin_account_service
 from app.services import admin_filing_service
 from app.services import admin_summary_service
 from app.services import invite_service
+from app.services import legal_readiness_service
 from app.services import audit_service
 from app.services.email_service import send_invite_email
 from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
@@ -73,18 +75,7 @@ class CreateFreeAccountRequest(BaseModel):
         return value or None
 
 
-class FreeAccountResponse(BaseModel):
-    id: int
-    email: str
-    full_name: Optional[str]
-    is_pro: bool
-    is_beta: bool
-    is_admin: bool
-    email_verified: bool
-    emailed: bool
-
-
-@router.post("/users/free", response_model=FreeAccountResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/users/free", status_code=status.HTTP_409_CONFLICT)
 async def create_free_account(
     payload: CreateFreeAccountRequest,
     current_user: User = Depends(get_current_user),
@@ -95,8 +86,8 @@ async def create_free_account(
         return await admin_account_service.create_free_account(
             db, email=payload.email, full_name=payload.full_name, actor=current_user,
         )
-    except admin_account_service.FreeAccountAlreadyExistsError:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Account already exists.") from None
+    except admin_account_service.AccountInvitationRequired as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 class EmailTestRequest(BaseModel):
@@ -188,6 +179,10 @@ async def mint_invite(
     When ``send_email`` is set and an ``email`` is given, the link is also emailed best-effort.
     """
     _require_admin(current_user)
+    if not legal_readiness_service.is_collection_available():
+        raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
+    if payload.send_email and not legal_readiness_service.is_marketing_available():
+        raise HTTPException(status_code=503, detail="Invitation email delivery is currently unavailable.")
     invite, _raw, link = invite_service.mint_invite(
         db,
         created_by=current_user.id,
@@ -292,8 +287,15 @@ async def resend_invite(
     best-effort. The raw token is never persisted nor written to the audit log.
     """
     _require_admin(current_user)
+    if not legal_readiness_service.is_collection_available():
+        raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
     expires_in_hours = payload.expires_in_hours if payload else None
     try:
+        # Inspect the existing binding off-loop before reissue can revoke the old link. An
+        # unbound invite remains a manual-link operation; bound invites require email readiness.
+        has_recipient = await run_in_threadpool(invite_service.invite_has_delivery_recipient, db, invite_id)
+        if has_recipient and not legal_readiness_service.is_marketing_available():
+            raise HTTPException(status_code=503, detail="Invitation email delivery is currently unavailable.")
         invite, _raw, link = invite_service.reissue_invite(
             db,
             invite_id,

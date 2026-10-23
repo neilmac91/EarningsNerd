@@ -96,10 +96,21 @@ class Settings(BaseSettings):
     REVERSE_TRIAL_DAYS: int = 7
 
     # Closed-beta invite gate. When REGISTRATION_MODE="invite_only", /api/auth/register requires a
-    # valid, unexpired, unused InviteCode token; "public" (default) keeps registration open so no
-    # behavior changes until prod flips it. Invite magic links expire after INVITE_EXPIRY_HOURS.
+    # valid, unexpired, unused InviteCode token; "public" removes only the invite requirement.
+    # Both modes still require legal collection readiness and the user's own agreement.
+    # Invite magic links expire after INVITE_EXPIRY_HOURS.
     REGISTRATION_MODE: str = "public"
     INVITE_EXPIRY_HOURS: int = 168  # 7 days
+
+    # New personal-data collection requires an explicitly published operator notice as well as
+    # its own rollout switch. Empty defaults disclose no identity. These are public notice fields,
+    # not secrets; only LEGAL_OPERATOR_PUBLISHED permits the API to return their values.
+    LEGAL_COLLECTION_ENABLED: bool = False
+    LEGAL_OPERATOR_PUBLISHED: bool = False
+    LEGAL_OPERATOR_NAME: str = ""
+    LEGAL_OPERATOR_POSTAL_ADDRESS: str = ""
+    LEGAL_OPERATOR_COUNTRY: str = ""
+    LEGAL_OPERATOR_EMAIL: str = ""
 
     # Shared secret for token-gated internal job endpoints (e.g. Cloud Scheduler → /internal/jobs/*).
     # Unset disables those endpoints (they 503). Set to a long random string in prod.

@@ -477,7 +477,7 @@ describe('PricingPage', () => {
     expect(free).toBeEnabled()
     expect(screen.queryByRole('button', { name: /create a free account/i })).not.toBeInTheDocument()
     fireEvent.click(free)
-    expect(mockPush).toHaveBeenCalledWith('/waitlist')
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/waitlist'))
   })
 
   // E58 (D-046): the plan cards keep "Unlimited", and the FAQ says what bounds it, in the one sentence lib/planLimits.ts
@@ -496,9 +496,9 @@ describe('PricingPage', () => {
     const free = await screen.findByRole('button', { name: /create a free account/i })
     expect(free).toBeEnabled()
     fireEvent.click(free)
-    expect(mockPush).toHaveBeenCalledWith('/register')
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/register'))
     fireEvent.click(screen.getByRole('button', { name: /upgrade to pro/i }))
-    expect(mockPush).toHaveBeenCalledWith('/register?redirect=%2Fpricing%3Fbilling%3Dyearly')
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/register?redirect=%2Fpricing%3Fbilling%3Dyearly'))
     expect(mockGetSubscriptionStatus).not.toHaveBeenCalled()
     expect(mockCheckoutStarted).not.toHaveBeenCalled()
   })
@@ -548,6 +548,7 @@ describe('PricingPage', () => {
     renderPricing()
 
     fireEvent.click(await screen.findByRole('button', { name: cycle === 'monthly' ? 'Start 7-day free trial' : 'Upgrade to Pro' }))
+    await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1))
     const registration = new URL(mockPush.mock.calls[0][0], 'https://www.earningsnerd.io')
     expect(registration.pathname).toBe('/register')
     expect(registration.searchParams.get('redirect')).toBe(`/pricing?billing=${cycle}`)
@@ -655,4 +656,10 @@ describe('PricingPage', () => {
     if (!on) expect(container).not.toHaveTextContent('20-F')
     expect(container).not.toHaveTextContent(/Supported/i)
   })
+})
+
+// These cases exercise the form after release; legalReadiness.spec.tsx holds the closed and stale gates.
+vi.mock('@/features/legal/hooks/useLegalReadiness', async () => {
+  const { readyLegalHook } = await import('./fixtures/legalReady')
+  return { useLegalReadiness: () => readyLegalHook }
 })

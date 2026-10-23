@@ -1,3 +1,4 @@
+import { legalReady } from './fixtures/legalReady'
 import { readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -79,6 +80,8 @@ async function answerSiteApi(page: Page, baseURL: string, signedIn: boolean) {
     const { pathname } = new URL(route.request().url())
     const json = (status: number, body: unknown) => route.fulfill({ status, headers: cors, json: body })
     switch (pathname) {
+      case '/api/legal/readiness':
+        return json(200, legalReady)
       case '/api/companies/AAPL':
         return json(200, { id: 1, cik: '320193', ticker: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' })
       case '/api/filings/company/AAPL':

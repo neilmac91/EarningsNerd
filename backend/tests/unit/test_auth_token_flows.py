@@ -65,6 +65,8 @@ from unittest.mock import AsyncMock
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+from tests.support.account_agreement import ACCOUNT_AGREEMENT
+
 from fastapi.testclient import TestClient
 from sqlalchemy import event
 from sqlalchemy.orm import Session
@@ -78,6 +80,8 @@ from app.routers import auth as auth_module
 from app.services import invite_service, login_lockout, refresh_token_service
 from app.services.posthog_client import EVENT_TRIAL_STARTED
 from tests.support.summary_stream_harness import reset_rate_limiters
+
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit; test fixture, not a credential  # gitleaks:allow
 NEW_PASSWORD = PASSWORD + "9z"  # gitleaks:allow
@@ -216,7 +220,7 @@ def _token(sender: AsyncMock, link_kwarg: str) -> str:
 def _register(client: TestClient, mail) -> tuple[str, str]:
     """Register a fresh password account; return (email, raw verification token)."""
     email = _email()
-    resp = client.post("/api/auth/register", json={"email": email, "password": PASSWORD})
+    resp = client.post("/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": email, "password": PASSWORD})
     assert resp.status_code == 200, resp.text
     assert mail.verification.call_args.kwargs["to_email"] == email
     return email, _token(mail.verification, "verification_link")
@@ -929,14 +933,9 @@ def _oauth_callback(
     the POST start as the sign-up page sends it."""
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "test-google-client")
     monkeypatch.setattr(settings, "APPLE_CLIENT_ID", "io.earningsnerd.test")
-    if invite is None:
-        start = client.get(f"/api/auth/{provider}", follow_redirects=False)
-        assert start.status_code == 302, start.text
-        consent_url = start.headers["location"]
-    else:
-        start = client.post(f"/api/auth/{provider}/start", json={"invite": invite})
-        assert start.status_code == 200, start.text
-        consent_url = start.json()["url"]
+    start = client.post(f"/api/auth/{provider}/start", json={**ACCOUNT_AGREEMENT, "invite": invite})
+    assert start.status_code == 200, start.text
+    consent_url = start.json()["url"]
     state = parse_qs(urlparse(consent_url).query)["state"][0]
     if provider == "google":
         monkeypatch.setattr(auth_module, "httpx", SimpleNamespace(AsyncClient=_FakeAsyncClient))
@@ -1319,13 +1318,13 @@ def test_a_registration_that_loses_the_create_race_stays_opaque(client, mail, mo
     exists, and neither a verification nor an account-exists mail goes out."""
     account_exists = AsyncMock()
     monkeypatch.setattr("app.services.email_service.send_account_exists_email", account_exists)
-    normal = client.post("/api/auth/register", json={"email": _email(), "password": PASSWORD})
+    normal = client.post("/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": _email(), "password": PASSWORD})
     assert normal.status_code == 200, normal.text
     mail.verification.reset_mock()
 
     email = _email()
     lose_the_create_race["email"] = email
-    raced = client.post("/api/auth/register", json={"email": email, "password": PASSWORD})
+    raced = client.post("/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": email, "password": PASSWORD})
     assert lose_the_create_race["email"] is None, "the race was never injected"
     assert raced.status_code == normal.status_code
     assert raced.content == normal.content
