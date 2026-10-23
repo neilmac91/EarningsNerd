@@ -39,9 +39,9 @@ _visit_task_handoffs: dict[str, float] = {}
 VISIT_TASK_BUDGET = RateLimiter(limit=15, window_seconds=300)
 # The live SEC fetch, taken when nothing is stored in the requested forms and no listing of this
 # company within the freshness TTL found them empty (a first view, a company that has none of them once
-# per TTL, or, on every visit, a listing made only of rows another company stores), is bounded per
-# client IP, as search's is. Production paces SEC at 1 request/s per process, so one client gets at
-# most a sixth of it.
+# per TTL, or, on every visit, a listing made only of rows another company stores or rows it could not
+# store), is bounded per client IP, as search's is. Production paces SEC at 1 request/s per process, so
+# one client gets at most a sixth of it.
 LIVE_FETCH_LIMITER = RateLimiter(limit=10, window_seconds=60)
 
 

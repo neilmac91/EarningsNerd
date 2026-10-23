@@ -420,12 +420,12 @@ def persist_live_filings(
         filings.append(filing)
 
     # The stamp lets the route answer this key from the stored rows until the TTL passes, so it is
-    # written only when they answer for this listing: SEC listed nothing, or a row stored under this
+    # written only when they answer for this listing: it came back empty, or a row is stored under this
     # company. A row skipped above (a new filing listed without its primary document) is not stored.
     # Accession numbers are unique, so a filing two companies list (a combined report of co-registrants,
     # a Form 4 in its issuer's and its reporting owner's listings) is stored once, under the company
-    # whose listing stored it first. A listing of only such rows stays unstamped, and the next visit
-    # fetches it again rather than being answered an empty list.
+    # whose listing stored it first. A listing of only skipped rows or only such rows stays unstamped,
+    # and the next visit fetches it again rather than being answered an empty list.
     stored_rows_answer = not sec_filings or any(f.company_id == company_id for f in filings)
 
     # Batch commit: single transaction for all database changes

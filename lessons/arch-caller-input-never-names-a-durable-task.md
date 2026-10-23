@@ -59,7 +59,7 @@ the cap is then 60% of the drain. The first size, 20, was set against the 0.2/s 
 80% of that drain. The synchronous SEC fetch, taken when nothing is stored in the requested forms
 and no listing of the company within the 3-hour freshness TTL found them empty (a first view, once
 per TTL for a company that has none of them, or, on every visit, a listing made only of rows another
-company stores), spends `LIVE_FETCH_LIMITER` (10 per minute per client IP) and answers 429 past it.
+company stores or rows it could not store), spends `LIVE_FETCH_LIMITER` (10 per minute per client IP) and answers 429 past it.
 The payload gate requires a pass-through to spend such a module-level budget first, and a direct
 router `enqueue_task` to sit in a route with `Depends(get_current_user)`. Tests:
 `test_filings_routes.py::test_handoffs_past_the_budget_serve_stored_rows_and_queue_nothing_until_the_window_passes`,
