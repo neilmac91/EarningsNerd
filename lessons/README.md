@@ -54,6 +54,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 - ops-finish-only-job-owned-read-transactions.md — Finish the CLI's read transaction before transport while preserving attached inputs
 - ops-job-success-needs-outcome-evidence.md — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 - ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
+- ops-stripe-calls-wait-on-threads-of-their-own.md — Run calls through Stripe's global client on the Stripe threads, never on the event loop or anyio's default worker threads, since one such call can wait minutes (partly gated by `backend/tests/unit/test_stripe_threads_allowlist.py`; a result's own methods and other SDKs are review-checked)
 - ops-verify-env-updates-reach-session.md — Fingerprint env values in the running shell before debugging a rotated secret
 
 ## Evals, judging, paid runs and the founder's machine (read for that work)
