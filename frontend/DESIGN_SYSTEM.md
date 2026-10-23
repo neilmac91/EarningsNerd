@@ -1006,26 +1006,33 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  cannot handle Tab/Escape itself. The header icon tile takes the dialog's tone: brand for a
                  neutral prompt, a status hue for a state glyph (brand never signals a state).
                  The header's icon, title and ✕ share one row while the title can keep 9rem (144px at the
-                 default size, 288px under 200% text) beside the icon, as a Notice's glyph and text column do
-                 (Inline notice). Where it cannot (a phone at 200% text), the title goes to its own line under
-                 the icon and the ✕, at the header's full width, under the ✕ too, the column gap below the
-                 icon (gap-y-1 and the title's pt-2), and the ✕ keeps the top right; the type never steps down
-                 (E158, chief design on #1495). A header with a ✕ is a container for this
-                 ([container-type:inline-size]): below 14.25rem, the row's own width (the 2.5rem icon, two
-                 0.75rem gaps, the 9rem title and the ✕'s 1.25rem margin box), the title takes order-last and
-                 basis-full, since flex-wrap alone, as the Notice uses, would carry the ✕ down after a wrapped
-                 title. With no ✕, flex-wrap alone stacks the title, and with no icon it stays beside the ✕.
-                 The title never overlaps the ✕ or runs past the panel, and a stacked title breaks no word:
-                 under 200% text the consent dialog's is 216, 251 and 277px wide at 320, 360 and 390px (a
-                 header with no icon keeps its title beside the ✕, 64px narrower, E165).
-                 Before E158 it kept the group's width beside the ✕'s column, 152, 187 and 213px, so
-                 "preferences" (197px) broke at 320 and 360px. At the default size nothing moves: at 320, 360,
-                 390 and 1440px the icon, the title and the ✕ keep their boxes, in both themes, and at 1440px
-                 under 200% text the title still sits beside the icon. Gate: e2e reflow-200.spec.ts (the
-                 consent dialog and the email verification prompt at 390, 360 and 320px: the title beside the
-                 icon at the default size and under it at 200% text at the header's full width, under the ✕
-                 too, every painted line inside the panel and clear of the ✕, no word broken, read a character
-                 at a time, the page not scrolling sideways, nor the prompt's panel).
+                 default size, 288px under 200% text) beside what shares it, as a Notice's glyph and text
+                 column do (Inline notice). Where it cannot (a phone at 200% text), the title goes to a line of
+                 its own at the header's full width, under the icon and the ✕ or under the ✕ alone, and the ✕
+                 keeps the top right; the type never steps down (E158 and E165, chief design on #1495 and
+                 #1519). A header with a ✕ is a container for this ([container-type:inline-size]): below the
+                 row's own width the title takes order-last and basis-full, since flex-wrap alone, as the
+                 Notice uses, would carry the ✕ down after a wrapped title. That width is 11rem (the 9rem
+                 title, a 0.75rem gap and the ✕'s 1.25rem margin box), or 14.25rem with an icon (its 2.5rem and
+                 a second gap). justify-between holds the icon left and the ✕ right; with no icon, justify-end
+                 keeps the ✕ alone on its line at the right. A title under the icon sits the column gap below
+                 it (gap-y-1 and the title's pt-2); a title under the ✕ alone sits the column gap below its
+                 glyph (gap-y-1 and the title's mt-2), its box clear of the ✕'s padded hit area. With no ✕,
+                 flex-wrap alone stacks the title. The title never overlaps the ✕ or runs past the panel, and
+                 a title on its own line breaks no word the header's width holds: under 200% text the consent
+                 dialog's is 216, 251 and 277px wide at 320, 360 and 390px, where before E158 it kept the ✕'s
+                 column, 152, 187 and 213px, and "preferences" (197px) broke at 320 and 360px; before E165 the
+                 feedback dialog's kept that column too, and "feedback" (153px) broke at 320px. A word wider
+                 than the whole header still breaks, since nothing can hold it (the analysis evidence dialog's
+                 "Shareholders'", 226px, at 320px). At the default size nothing moves: at 320, 360, 390 and
+                 1440px the icon, the title and the ✕ keep their boxes, in both themes, and at 1440px under
+                 200% text the title still sits beside the icon or the ✕. Gate: e2e reflow-200.spec.ts (the
+                 consent dialog, the email verification prompt and the feedback dialog at 390, 360 and 320px:
+                 the title beside the icon, or the ✕, at the default size and on its own line at 200% text at
+                 the header's full width, under the ✕ too, every painted line inside the panel and clear of
+                 the ✕, the ✕ at the header's top right, no word broken, read a character at a time, the page
+                 not scrolling sideways, nor the two icon dialogs' panels; the feedback dialog's type row
+                 widens its panel, E168).
                  Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
                  viewer / workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
                  below lg, where it is a sheet, and a complementary landmark on lg+), and the calendar's
