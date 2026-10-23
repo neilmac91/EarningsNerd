@@ -6858,9 +6858,9 @@ Full local and hosted verification plus independent exact-head review precede re
   pre-registers this record's survey and fact-check and record 51's reviewer. A read-only survey of the window
   before the record was written. Eight main merges, two of them backend deploys, each healthy; no job cut off at
   the browser tests' limit; production not read live. No CODE RED spend; no ledger event; four runs by other
-  writers whose paid steps ran and seven balance readouts on GitHub. Chief defects 30 (a loop over `gh api`
-  calls with a variable in the path) and 31 (foreground sleeps); no classifier denial of the chief's commands
-  and one hook refusal of them in the window. Closure 201.
+  writers whose paid steps started (one failing a second later) and seven balance readouts on GitHub. Chief
+  defects 30 (a loop over `gh api` calls with a variable in the path) and 31 (foreground sleeps); no classifier
+  denial of the chief's commands and one hook refusal of them in the window. Closure 201.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
