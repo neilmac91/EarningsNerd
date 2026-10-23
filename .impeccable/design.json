@@ -624,7 +624,8 @@
       "**Don't** treat illustrative sidecar markup as production tokens or behavior, or add synthetic tonal ramps to the sidecar.",
       "**Don't** create another dialog primitive or remove existing reduced-motion fallbacks.",
       "**Don't** put a thick left stripe on a rounded container or set a form code as a chip; callouts are inset wells and forms are data-face text.",
-      "**Don't** put the mark on a figure or a status, draw a margin without a marker, or scale the device's hairline with the type."
+      "**Don't** put the mark on a figure or a status, draw a margin without a marker, or scale the device's hairline with the type.",
+      "**Don't** stick a page's own header, or any second bar, to the top of the viewport: the site header is the one bar that sticks there, and chrome that sticks below it reads its height."
     ]
   }
 }
