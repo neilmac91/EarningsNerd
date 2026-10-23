@@ -1124,14 +1124,15 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  The logo's mr-auto and the controls' ml-auto share the full bar's free space, never
                  justify-between alone, which puts a line's only block at its start, so should the bar ever
                  wrap, the notification and account menus, anchored at their right edge (right-0), still open
-                 on the screen (E160; gate: the same spec opens each menu at 2304 and 2560px under 200% text,
-                 and holds the one-line bar's nav midway at 1440px). The desktop controls block holds
-                 min-h-10, the md button's height, so the bar is one height while the auth check runs and
-                 after it, for a guest and a signed-in reader (E174; gate:
-                 tests/e2e/header-covers-nothing.spec.ts holds the check open, scrolls, and answers it in the
-                 compact bar at 1024px and the full bar at 1152 and 1440px, and under 200% text in the compact
-                 bar at 1024 and 1440px and the full bar at 2304px). Below 1024px under 200% text a guest's
-                 account link can still change the compact bar's lines as it appears (E175).
+                 on the screen (E160; gate: the same spec opens each menu at 2304 and 2560px under 200% text
+                 with a copy fixture that lengthens the nav until the bar wraps, and holds the one-line bar's
+                 nav midway at 1440px). The desktop controls block holds min-h-10, the md button's height, so
+                 the bar is one height while the auth check runs and after it, for a guest and a signed-in
+                 reader (E174; gate: tests/e2e/header-covers-nothing.spec.ts holds the check open, scrolls,
+                 and answers it in the compact bar at 1024px and the full bar at 1152 and 1440px, and under
+                 200% text in the compact bar at 1024 and 1440px and the full bar at 2304px). Below 1024px
+                 under 200% text a guest's account link can still change the compact bar's lines as it appears
+                 (E175).
                  A page's own header (SecondaryHeader: pricing, the dashboard, the watchlist, admin) scrolls
                  with the page on an opaque panel; only a table's
                  header cells stick at `top-0`, inside the table's own scroll box. The document's

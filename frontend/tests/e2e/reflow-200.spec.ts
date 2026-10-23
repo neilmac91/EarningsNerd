@@ -1674,9 +1674,11 @@ for (const viewport of [{ width: 768, height: 1024 }, { width: 834, height: 1194
     its start, so the bell's menu, 20rem wide and anchored at the bell's right edge (right-0), spanned -408 to 232px and
     the account menu -108 to 372px, every item losing its first letters; the logo's mr-auto and the controls' ml-auto
     keep the controls at the right of their line. The full bar now shows from 72rem, 2304px with the text doubled, where
-    it keeps one line (below), and the menus open from there: at 2304 and 2560px each open menu's box, and every painted
-    line of its text, lies inside the viewport. The full bar's nav is checked first, so a width where the full bar no
-    longer shows cannot pass unread. */
+    it keeps one line (below), so the margins guard a wrap no supported font makes: at 2304 and 2560px a copy fixture
+    lengthens the nav's last link until the bar wraps, as a longer nav or a font wider than the switch allows for would,
+    and each open menu's box, and every painted line of its text, lies inside the viewport. The full bar's nav and the
+    controls' own line below the logo are checked first, so a bar that shows the compact form or stops wrapping cannot
+    pass unread. */
 const HEADER_MENUS = [
   { menu: 'Notifications', button: /^Notifications/ },
   { menu: 'Account', button: 'Account menu' },
@@ -1737,7 +1739,17 @@ for (const viewport of [{ width: 2304, height: 1296 }, { width: 2560, height: 14
         await page.evaluate(() => document.fonts.ready)
         await doubleTextOnADesktop(page, true)
 
-        await expect(page.getByRole('banner').getByRole('navigation', { name: 'Main navigation' }), `${viewport.width}px and 200% text: the full bar shows`).toBeVisible()
+        const nav = page.getByRole('banner').getByRole('navigation', { name: 'Main navigation' })
+        await expect(nav, `${viewport.width}px and 200% text: the full bar shows`).toBeVisible()
+        await nav.getByRole('link').last().evaluate((link) => {
+          link.textContent = `${link.textContent}${' and everything else we have to say on the matter'.repeat(2)}`
+        })
+        await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+        const wrapped = await trigger.evaluate((el) => {
+          const logo = document.querySelector('header[data-site-header] a[aria-label="EarningsNerd home"]')!.getBoundingClientRect()
+          return el.getBoundingClientRect().top >= logo.bottom
+        })
+        expect(wrapped, `${viewport.width}px and 200% text, the nav lengthened: the bar wraps, the controls on a line below the logo`).toBe(true)
         await trigger.click()
         await expect(page.getByRole('menu', { name: menu })).toBeVisible()
         const fit = await headerMenuFit(page, menu)

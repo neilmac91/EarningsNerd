@@ -234,10 +234,11 @@ export default function Header({
           gap skips, while space-y's sibling margin would still push the first link down. The panel scrolls inside
           the viewport (the header's cap, above) and never chains to the page behind it (overscroll-contain). Its
           scroll padding equals the nav's inset, as the Modal panel's does, for a browser that scrolls a focused row
-          to the nearest edge; Chromium centres it, and the nav's own padding ends the range. */}
+          to the nearest edge; Chromium centres it, and the nav's own padding ends the range. From lg, where the compact
+          bar now stands below 72rem, the nav takes the bar's 32px inset, so its rows line up with the logo. */}
       {mobileMenuOpen && (
         <div className="overflow-y-auto overscroll-contain scroll-pb-4 scroll-pt-2 border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark [@media(min-width:72rem)]:hidden">
-          <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 pb-4 pt-2" aria-label="Mobile navigation">
+          <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 pb-4 pt-2 lg:px-8" aria-label="Mobile navigation">
             {/* Below a 24rem viewport the theme toggle lives here, not in the bar (see the mobile actions), as the
                 menu's first row: directly under the bar, so it opens in view, before any scrolling of the menu
                 (tests/e2e/reflow-200.spec.ts). */}
