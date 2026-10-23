@@ -35,10 +35,12 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * through Function.prototype's `call`, `apply` or `bind` or through `Reflect.apply`; useRef, useDeferredValue,
  * useSyncExternalStore), a template literal, `+`, an array or a call the reader cannot follow (`String()`, `trim()`,
  * `join()`) is still the name. So is a name an object literal's getter hands back (what the literal's methods and
- * accessors put on `this` and read from it included), and one a property holds that Object.defineProperty,
- * Object.defineProperties, Object.create or Reflect.defineProperty defines, or Reflect.set puts. Across modules,
- * another module's function that hands back a served name as text gives the name wherever the reader reads a call of
- * it: called here (through `call` or `apply` too), or handed on as a value and called by React (a reducer, an
+ * accessors put on `this` and read from it included), one a property holds that Object.defineProperty,
+ * Object.defineProperties, Object.create or Reflect.defineProperty defines, or Reflect.set puts, and one a built-in
+ * collection is made with or given (`new Map` and `new WeakMap` under each entry's key, read by `get`;
+ * Object.fromEntries; `new Set` and a Set's `add`, read by iterating it; `new Array`, `Array()`, `Array.of`). Across
+ * modules, another module's function that hands back a served name as text gives the name wherever the reader reads a
+ * call of it: called here (through `call` or `apply` too), or handed on as a value and called by React (a reducer, an
  * initializer), an array's method or a same-file function, through any chain of modules (SERVED_RETURNS, a fixed point
  * over the program), and reached through an import's alias, a re-export or a const that holds it (both arms of a
  * conditional, either side of `||` or `??`), by every declaration it has, an overloaded function's body among them. A
@@ -92,8 +94,9 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * class's `this` (a served field read through `this.props` is still read by its type, as a class's getter is, above,
  * and the app's class components, two error boundaries, print no name); an object literal's `this` handed on whole (a
  * getter that hands back its own object, then a member of what it gives); what an assignment through a `set` accessor
- * hands the accessor, kept for a getter of another name; a Proxy's traps; and React's element calls, which app code
- * may not write (earningsnerd/elements-built-with-jsx).
+ * hands the accessor, kept for a getter of another name; a Proxy's traps; a Map's entries iterated as `[key, value]`
+ * pairs, since the reader holds a Map's values as its elements (`get`, `forEach` and `values()` read them); and React's
+ * element calls, which app code may not write (earningsnerd/elements-built-with-jsx).
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -577,7 +580,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       else strays.push(`line ${f.line}: ${f.shown}`)
     }
     const count = (mark: string) => [...forms.values()].filter((f) => f.mark === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([103, 35, 19])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([110, 36, 20])
     const misread = [...forms].filter(([name, { mark }]) => named.has(name) !== (mark === 'flag')).map(([name, { mark }]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])

@@ -34,7 +34,7 @@ import ts from 'typescript'
  *    calls its parameter);
  *  - what the code puts in an object or an array after making it: a property assigned (`BOX.mark = QuotesIcon`, nested,
  *    or under a key the scan cannot read, which any read may reach), an element pushed, unshifted or spliced in, a
- *    `Map`'s `set`, `Object.assign` and `Reflect.set` onto it, and a property `Object.defineProperty`,
+ *    `Set`'s `add`, a `Map`'s `set`, `Object.assign` and `Reflect.set` onto it, and a property `Object.defineProperty`,
  *    `Object.defineProperties` or `Reflect.defineProperty` defines on it (its descriptor's `value`, or what its `get`
  *    returns).
  * An expression holds:
@@ -47,6 +47,11 @@ import ts from 'typescript'
  *    so an object that hands back its own `this` never nests itself;
  *  - an array literal's elements by index (`[QuotesIcon]` read as `marks[0]`); past a spread the indices are unknown,
  *    so a literal index there may read any element from the spread on;
+ *  - a built-in collection's constructor (a global, under any local name): `new Map` and `new WeakMap` hold each
+ *    entry's value under its key, as `set` puts it (a pair written out under its key when the scan can read it, else
+ *    under any key; a pair from an iterable the scan cannot see written, under any key; a copied Map's values under
+ *    theirs), and `new Set`, `new Array`, `Array()` and `Array.of` hold their items, unplaced, as `add` and `push` put
+ *    them; a WeakSet gives nothing back to read, and any other constructor (a class's, a Proxy's) holds nothing;
  *  - a conditional's two arms, both sides of `||` and `??`, the right of `&&`, an assignment's value, an `await`;
  *  - a JSX element's tag and its children (`<span><BellIcon /></span>` and `<><BellIcon /></>` hold it, as do
  *    `{expressions}` among the children, and JSX text for a gate that reads it, `textLeaf`), and the same for React's
@@ -66,7 +71,8 @@ import ts from 'typescript'
  *    array's `find`, `findLast`, `at`, `pop` and `shift` (an element), `filter`, `slice`, `splice`, `concat`, `sort`,
  *    `reverse`, `flat` and their copying forms (its elements), `map` and `flatMap` (what the callback returns) and
  *    `reduce` (its accumulator); `Object.values`, `Object.entries` (each value at index 1), `Object.assign` (its
- *    target, with every source's properties), `Object.defineProperty` and `Object.defineProperties` (their target, with
+ *    target, with every source's properties), `Object.fromEntries` (each entry's value under its key, as `new Map`
+ *    holds it), `Object.defineProperty` and `Object.defineProperties` (their target, with
  *    what they define), `Object.create` (its prototype's properties, with what it defines), `Object.freeze`,
  *    `Object.seal` and `Object.preventExtensions` (what they are given), `Array.from`; React's `Children.map` (what the
  *    callback returns), `Children.toArray` and
@@ -94,9 +100,10 @@ import ts from 'typescript'
  * context's, or a setter handed to another module's code), what React state holds after its setter or a reducer runs
  * unless the gate reads state (HeldOptions.state), a class's members and its `this` (a field, a getter, a method),
  * `this` handed on whole (returned, passed or held by another name), what an assignment through a `set` accessor hands
- * the accessor, a Proxy's traps, a promise's `then`, a generator's yields, and a utility known by its name (an array's
- * method, React's Children) called through Function.prototype's `call` or `apply`, which reads as a call of the
- * method. One over-count, which fails closed: a parameter is not told
+ * the accessor, a Proxy's traps, a Map's entries iterated as `[key, value]` pairs (a Map holds its values as its
+ * elements, so `forEach` hands on a value and a destructured pair holds nothing), a promise's `then`, a generator's
+ * yields, and a utility known by its name (an array's method, React's Children) called through Function.prototype's
+ * `call` or `apply`, which reads as a call of the method. One over-count, which fails closed: a parameter is not told
  * apart by call, so it holds what every same-file call passes it, and a function called with different values reads all
  * of them at each call (a component rendered once with each of two glyphs counts both at each render). A value that
  * grows through its own reads (`const a = <>{a}</>`, or a component that passes its own children back to itself with
@@ -599,6 +606,54 @@ export function heldValues<L>(
     }
     return props
   }
+  /** The entries a Map, a WeakMap or Object.fromEntries is given, each value under its key, as a Map's `set` puts it: a
+      pair written out under its key when the scan can read it (else under any key), and from what the scan cannot see
+      written (an array of pairs held by a name, Object.entries, a Map copied) each pair's value under any key and a
+      copied Map's values under theirs. */
+  const entriesOf = (given: ts.Expression | undefined, record?: Set<ts.Node>): Map<string, Held<L>> => {
+    const props = new Map<string, Held<L>>()
+    const put = (key: string | undefined, value: Held<L>) => {
+      if (vacant(value)) return
+      const at = key ?? ANY
+      props.set(at, props.has(at) ? union(props.get(at)!, value) : value)
+    }
+    if (!given || ts.isSpreadElement(given)) return props
+    const e = unwrapHeld(given)
+    if (ts.isArrayLiteralExpression(e)) {
+      for (const el of e.elements) {
+        if (ts.isOmittedExpression(el)) continue
+        const pair = ts.isSpreadElement(el) ? undefined : unwrapHeld(el)
+        if (pair && ts.isArrayLiteralExpression(pair) && pair.elements.length >= 2 && !pair.elements.slice(0, 2).some(ts.isSpreadElement)) {
+          const [key, value] = pair.elements
+          if (!ts.isOmittedExpression(value)) put(literalKey(key), valueOf(value, record))
+          continue
+        }
+        put(undefined, propertyOf(ts.isSpreadElement(el) ? elementOf(valueOf(el.expression, record)) : valueOf(el, record), '1'))
+      }
+      return props
+    }
+    const value = valueOf(e, record)
+    put(undefined, propertyOf(elementOf(value), '1'))
+    for (const [key, held] of value.props ?? []) put(key, held)
+    return props
+  }
+  /** What a built-in collection's constructor holds (knownAs: a global, under any local name): a Map's and a WeakMap's
+      entries under their keys (entriesOf), and a Set's items and an Array's elements, unplaced, as `add` and `push`
+      put them. A WeakSet gives nothing back to read, and any other constructor (a class's, a Proxy's) is no value the
+      reading follows. */
+  const newValue = (x: ts.NewExpression, record?: Set<ts.Node>): Held<L> => {
+    const known = knownAs(x.expression)
+    if (!known?.global) return empty()
+    const args = x.arguments ?? []
+    if (known.name === 'Map' || known.name === 'WeakMap') return { leaves: new Map(), props: entriesOf(args[0], record), fns: null }
+    if (known.name === 'Set') return args[0] && !ts.isSpreadElement(args[0]) ? arrayOf(elementOf(valueOf(args[0], record))) : empty()
+    if (known.name === 'Array') return elementsOf(args, record)
+    return empty()
+  }
+  /** An array of what a call is handed, unplaced (Array's constructor and call, Array.of): a spread argument's
+      elements. A lone count gives a length, which holds nothing to follow. */
+  const elementsOf = (args: readonly ts.Expression[], record?: Set<ts.Node>): Held<L> =>
+    arrayOf(args.reduce((value, a) => union(value, ts.isSpreadElement(a) ? elementOf(valueOf(a.expression, record)) : valueOf(a, record)), empty<L>()))
   /** What same-file components render where their element is: what they return, the components themselves aside. */
   const renders = (fns: Set<Fn>, element: ts.Node, record?: Set<ts.Node>): Held<L> => {
     const value = returned(fns, record)
@@ -701,6 +756,7 @@ export function heldValues<L>(
     if (passThrough && ts.isTemplateExpression(x)) return asText(x.templateSpans.reduce((value, span) => union(value, valueOf(span.expression, record)), empty<L>()))
     if (passThrough && ts.isTaggedTemplateExpression(x)) return asText(valueOf(x.template, record))
     if (ts.isCallExpression(x)) return callValue(x, record)
+    if (ts.isNewExpression(x)) return newValue(x, record)
     if (ts.isJsxSelfClosingElement(x) || ts.isJsxElement(x) || ts.isJsxFragment(x)) {
       const opening = ts.isJsxFragment(x) ? undefined : ts.isJsxElement(x) ? x.openingElement : x
       const type = opening && componentTag(opening)
@@ -800,6 +856,8 @@ export function heldValues<L>(
     }
     if (receiverNamed(x, 'Object')) {
       if (name === 'values') return arrayOf(elementOf(arg(0)))
+      // Object.fromEntries gives back an object with each entry's value under its key (entriesOf).
+      if (name === 'fromEntries') return { leaves: new Map(), props: entriesOf(args[0], record), fns: null }
       if (name === 'entries') return arrayOf(withProps([['1', elementOf(arg(0))]]))
       // Object.assign gives back its target with every source's properties on it, so a compound component
       // (`Object.assign(Root, { Part })`) is still Root; freeze, seal and preventExtensions give back what they are given.
@@ -827,6 +885,10 @@ export function heldValues<L>(
       return value
     }
     if (receiverNamed(x, 'Array') && name === 'from') return args[1] ? arrayOf(calledAt(1)) : arrayOf(elementOf(arg(0)))
+    // Array.of and Array called without `new` give back an array of what they are handed, as its constructor does.
+    if (receiverNamed(x, 'Array') && name === 'of') return elementsOf(args, record)
+    const bare = knownAs(x.expression)
+    if (bare?.global && bare.name === 'Array' && ts.isIdentifier(unwrapHeld(x.expression))) return elementsOf(args, record)
     if (name === 'useMemo') return calledAt(0)
     if (name === 'useCallback') return arg(0)
     // React's state, for a gate that reads it (HeldOptions.state): what each hook keeps, where it gives it back.
@@ -1116,8 +1178,8 @@ export function heldValues<L>(
           const element = elementOf(valueOf(recv, record))
           pass(fns, [element, element])
         }
-      } else if ((name === 'push' || name === 'unshift' || name === 'splice') && holdsTarget(recv)) {
-        // What the code puts in an array after making it, at indices the scan cannot know.
+      } else if ((name === 'push' || name === 'unshift' || name === 'splice' || (name === 'add' && args.length === 1)) && holdsTarget(recv)) {
+        // What the code puts in an array after making it, or a Set's `add`, at indices the scan cannot know.
         const added = name === 'splice' ? args.slice(2) : [...args]
         const entries: Array<[string, Held<L>]> = []
         for (const a of added) {

@@ -1055,6 +1055,70 @@ export function N154({ ev }: { ev: CalendarEvent }) {
   )
 }
 
+/** N158 flag: a served name a Map is constructed with, read by its key. */
+export function N158({ ev }: { ev: CalendarEvent }) {
+  const names = new Map([['current', ev.company_name]])
+  return <span>{names.get('current')}</span>
+}
+
+/** N159 flag: a served name a Set is constructed with, read by spreading the Set. */
+export function N159({ ev }: { ev: CalendarEvent }) {
+  const names = new Set([ev.company_name])
+  return <span>{[...names].join(', ')}</span>
+}
+
+/** N160 flag: a served name Object.fromEntries puts under a key, read by that key. */
+export function N160({ ev }: { ev: CalendarEvent }) {
+  const labels = Object.fromEntries([['label', ev.company_name]])
+  return <span>{labels.label}</span>
+}
+
+/** N161 flag: a served name a Set's add puts in after the Set is made, read through Array.from. */
+export function N161({ ev }: { ev: CalendarEvent }) {
+  const names = new Set<string>()
+  names.add(ev.company_name)
+  return <span>{Array.from(names).join(', ')}</span>
+}
+
+/** N162 flag: a served name an Array is constructed with, read by index. */
+export function N162({ ev }: { ev: CalendarEvent }) {
+  const names = new Array<string>(ev.company_name)
+  return <span>{names[0]}</span>
+}
+
+/** N163 flag: a served name a WeakMap is constructed with under an object key, read by that key. */
+export function N163({ ev }: { ev: CalendarEvent }) {
+  const names = new WeakMap([[ev, ev.company_name]])
+  return <span>{names.get(ev)}</span>
+}
+
+/** N164 flag: a Map constructed from pairs the scan does not see written (Object.entries), read by a key. */
+export function N164({ ev }: { ev: CalendarEvent }) {
+  const names = new Map(Object.entries({ label: ev.company_name }))
+  return <span>{names.get('label')}</span>
+}
+
+/** N165 clean: a Map and Object.fromEntries holding a served name under one key and the display form under another,
+    read under the display form's key; a Set of display forms; and a WeakSet, which gives nothing back to read. */
+export function N165({ ev }: { ev: CalendarEvent }) {
+  const shown = formatCompanyName(ev.company_name)
+  const names = new Map([
+    ['raw', ev.company_name],
+    ['shown', shown],
+  ])
+  const labels = Object.fromEntries([
+    ['raw', ev.company_name],
+    ['shown', shown],
+  ])
+  const display = new Set([shown])
+  const seen = new WeakSet([ev])
+  return (
+    <span>
+      {names.get('shown')} {labels.shown} {[...display].join(', ')} {seen.has(ev) ? 'seen' : ''}
+    </span>
+  )
+}
+
 // Forms the rule forbids that the gate leaves to review, each named in the spec's header.
 
 /** N87 gap: a prop typed as a plain string, filled in another module. */
@@ -1208,6 +1272,18 @@ export function N157({ ev }: { ev: CalendarEvent }) {
     },
   }
   return <span>{row.self.raw}</span>
+}
+
+/** N166 gap: a Map's entries iterated as `[key, value]` pairs, a served name the pair's value. */
+export function N166({ ev }: { ev: CalendarEvent }) {
+  const names = new Map([['current', ev.company_name]])
+  return (
+    <ul>
+      {Array.from(names, ([key, name]) => (
+        <li key={key}>{name}</li>
+      ))}
+    </ul>
+  )
 }
 
 /** N113 gap: a name inside an object another module's function hands back. */
