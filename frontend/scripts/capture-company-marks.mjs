@@ -23,7 +23,8 @@
    or the binary named by PLAYWRIGHT_CHROMIUM_PATH. A Vercel preview sits behind deployment
    protection (an SSO redirect, which reads as a page with no marks): pass the project's
    "Protection Bypass for Automation" secret as VERCEL_PROTECTION_BYPASS and the script sends it
-   with every request (`x-vercel-protection-bypass`).
+   (`x-vercel-protection-bypass`) with each request to the preview's own origin and with no other:
+   the mark requests go to Logo.dev's CDN and never carry it.
 
    Proportion: this is a release check, run once against a preview after a change to the marks,
    not a monitor. Each run loads the routes six times (two themes, three pixel ratios) in a real
@@ -41,6 +42,14 @@ if (!base) {
   console.error('usage: node scripts/capture-company-marks.mjs <base url> [out dir] [routes]')
   process.exit(2)
 }
+let origin
+try {
+  origin = new URL(base).origin
+} catch {
+  console.error(`not a URL: ${base}`)
+  process.exit(2)
+}
+const bypass = process.env.VERCEL_PROTECTION_BYPASS
 const outDir = outArg || fs.mkdtempSync(path.join(os.tmpdir(), 'company-marks-'))
 const routes = (routesArg || '/,/company/AAPL,/calendar').split(',').map((r) => r.trim()).filter(Boolean)
 const THEMES = ['light', 'dark']
@@ -153,10 +162,16 @@ try {
         deviceScaleFactor: screen.dpr,
         isMobile: Boolean(screen.mobile),
         colorScheme: theme,
-        ...(process.env.VERCEL_PROTECTION_BYPASS
-          ? { extraHTTPHeaders: { 'x-vercel-protection-bypass': process.env.VERCEL_PROTECTION_BYPASS, 'x-vercel-set-bypass-cookie': 'true' } }
-          : {}),
       })
+      // The bypass secret goes to the preview's own origin and nowhere else. The mark requests cross to
+      // Logo.dev's CDN, and a context-wide header (extraHTTPHeaders) would hand them the credential; a
+      // route matched by origin adds it to the preview's requests alone.
+      if (bypass) {
+        await context.route(
+          (url) => url.origin === origin,
+          (route, request) => route.continue({ headers: { ...request.headers(), 'x-vercel-protection-bypass': bypass } }),
+        )
+      }
       // The app reads its theme from localStorage (no system-preference detection).
       await context.addInitScript((t) => localStorage.setItem('theme', t), theme)
       const page = await context.newPage()
