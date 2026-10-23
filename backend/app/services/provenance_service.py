@@ -156,6 +156,8 @@ _EXACT_SCOPE_TAGS: dict[str, frozenset[str]] = {
         "Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax",
         "RevenueFromContractWithCustomerIncludingAssessedTax", "SalesRevenueNet", "NetSales", "TotalRevenue",
         "Revenue", "RevenueFromContractsWithCustomers",
+        # A bank's own reported total ("Total net revenue"), read from its statement (``financial_profiles``).
+        "RevenuesNetOfInterestExpense",
     }),
     "net_income": frozenset({"NetIncomeLoss", "ProfitLossAttributableToOwnersOfParent"}),
     "operating_cash_flow": frozenset({

@@ -517,6 +517,7 @@ class TestFigureCheck:
         ("Net sales", "revenue", "us-gaap:Revenues", "unchecked"),
         ("Total revenues", "revenue", "us-gaap:Revenues", "replaced"),
         ("Net sales", "revenue", REVENUE_TAG, "replaced"),
+        ("Total net revenue", "revenue", "us-gaap:RevenuesNetOfInterestExpense", "replaced"),  # a bank's own total
         ("Revenue", "revenue", None, "unchecked"),  # the companyfacts path records no revenue tag
         ("Net income", "net_income", "us-gaap:ProfitLoss", "unchecked"),  # adds noncontrolling interests
         ("Net income", "net_income", "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic", "unchecked"),
