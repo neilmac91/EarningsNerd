@@ -13,6 +13,7 @@
 import {
   Component,
   Fragment,
+  PureComponent,
   createContext,
   createElement,
   forwardRef,
@@ -1580,6 +1581,46 @@ export function N235({ ev }: { ev: CalendarEvent }) {
     which is no text React renders. */
 export function N236({ ev }: { ev: CalendarEvent }) {
   return { label: ev.company_name, ticker: ev.ticker }
+}
+
+// Class components, whose render React calls and prints.
+
+/** N237 flag: a class component whose render returns a served name (Codex's form). */
+export class N237 extends Component<{ ev: CalendarEvent }> {
+  render() {
+    return this.props.ev.company_name
+  }
+}
+
+/** N238's base, a class component with no render of its own. */
+class N238Base extends Component<{ ev: CalendarEvent }> {}
+
+/** N238 flag: a class component that extends another, whose render returns a served name. */
+export class N238 extends N238Base {
+  render() {
+    return this.props.ev.company_name
+  }
+}
+
+/** N239 flag: a pure class component whose render returns an array holding a served name. */
+export class N239 extends PureComponent<{ ev: CalendarEvent }> {
+  render() {
+    return [this.props.ev.company_name]
+  }
+}
+
+/** N240 clean: a class component whose render returns the display form. */
+export class N240 extends Component<{ ev: CalendarEvent }> {
+  render() {
+    return formatCompanyName(this.props.ev.company_name)
+  }
+}
+
+/** N241 clean: a class that is no component, whose method named render hands back a served name as data. */
+export class N241 {
+  render(ev: CalendarEvent) {
+    return ev.company_name
+  }
 }
 
 // Forms the rule forbids that the gate leaves to review, each named in the spec's header.

@@ -64,10 +64,12 @@ import { componentTag, heldValues, leavesOf, propertyOf, renderedLeavesOf, scope
  *     component returns as text, or in an array or a Set it returns (React renders an iterable's items), nested, a
  *     component being a function its module renders as a tag or names for one (PascalCase), one another module
  *     renders (RENDERED_IN: through an import's alias, a re-export, a default export, an object's member or a
- *     wrapper such as memo) and one its module exports as its default (a page Next renders, or one a module loads
- *     lazily), whatever its name; and the words Next prints from a page's metadata (METADATA_TEXT: the tab's title,
- *     the description, a social card's), by the keys Next's metadata types declare. A same-file component's props
- *     and children bind its parameters, so a name handed to one fails where the component prints it.
+ *     wrapper such as memo), one its module exports as its default (a page Next renders, or one a module loads
+ *     lazily), whatever its name, and a class component's `render` (a class that extends React's Component or
+ *     PureComponent, through any chain of classes); and the words Next prints from a page's metadata (METADATA_TEXT:
+ *     the tab's title, the description, a social card's), by the keys Next's metadata types declare. A same-file
+ *     component's props and children bind its parameters, so a name handed to one fails where the component prints
+ *     it.
  *  B. a field of the app's own filled with a served name: an object literal's property (a getter by what it
  *     returns), placed by the type the literal is given (a declared type, a return type, a parameter's type, read
  *     through Object.freeze, parentheses, `as`, `satisfies` and `!`), a spread of a served object into such a
@@ -310,6 +312,28 @@ const membersAlong = (source: ts.Type, path: Step[]): ts.Symbol[] => {
   const last = path[path.length - 1]
   return last ? types.flatMap((type) => sidesOf(type)).flatMap((side) => side.getProperty(last.key) ?? []) : []
 }
+
+/** Whether a class is a React class component: it extends React's Component or PureComponent, through any chain of
+    classes. */
+const isClassComponent = (cls: ts.ClassLikeDeclaration): boolean => {
+  const seen = new Set<ts.Type>()
+  const extendsReact = (type: ts.Type): boolean => {
+    const t = type.flags & ts.TypeFlags.Object && (type as ts.ObjectType).objectFlags & ts.ObjectFlags.Reference ? (type as ts.TypeReference).target : type
+    if (seen.has(t)) return false
+    seen.add(t)
+    const symbol = t.getSymbol()
+    const react = (symbol?.declarations ?? []).some((d) => /[\\/]node_modules[\\/]@types[\\/]react[\\/]/.test(d.getSourceFile().fileName))
+    if (react && (symbol?.name === 'Component' || symbol?.name === 'PureComponent')) return true
+    return t.isClassOrInterface() && CHECKER.getBaseTypes(t).some(extendsReact)
+  }
+  return extendsReact(CHECKER.getTypeAtLocation(cls))
+}
+/** A class component's render, which React calls and prints what it returns. */
+const renderOf = (cls: ts.ClassLikeDeclaration): ts.MethodDeclaration | undefined =>
+  cls.members.find(
+    (m): m is ts.MethodDeclaration =>
+      ts.isMethodDeclaration(m) && keyText(m.name) === 'render' && !!m.body && !m.modifiers?.some((x) => x.kind === ts.SyntaxKind.StaticKeyword),
+  )
 
 const resolved = (symbol: ts.Symbol | undefined) => (symbol && symbol.flags & ts.SymbolFlags.Alias ? CHECKER.getAliasedSymbol(symbol) : symbol)
 const FORMATTER = (() => {
@@ -797,8 +821,8 @@ function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
   }
 
   // The same-file components: each rendered here as a tag, rendered by another module (RENDERED_IN), exported as the
-  // module's default (a page Next renders, or one a module renders through its default import, lazily or not), or named
-  // for one (PascalCase).
+  // module's default (a page Next renders, or one a module renders through its default import, lazily or not), named
+  // for one (PascalCase), or a class component's render.
   const components = new Set<Fn>(RENDERED_IN.get(sf))
   const heldHere = (d: ts.Node): Fn[] => (isFnNode(d) ? [d] : ts.isVariableDeclaration(d) && d.initializer ? [...(values.valueOf(d.initializer).fns ?? [])] : [])
   const collect = (node: ts.Node): void => {
@@ -815,6 +839,9 @@ function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
     if (ts.isExportSpecifier(node) && node.name.text === 'default') {
       for (const d of CHECKER.getExportSpecifierLocalTargetSymbol(node)?.declarations ?? []) for (const fn of heldHere(d)) components.add(fn)
     }
+    // A class component: React calls its render.
+    const render = ts.isClassLike(node) && isClassComponent(node) ? renderOf(node) : undefined
+    if (render) components.add(render)
     ts.forEachChild(node, collect)
   }
   collect(sf)
@@ -889,7 +916,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       }
     }
     const count = (mark: string) => [...forms.values()].filter((m) => m === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([157, 47, 32])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([160, 49, 32])
     const misread = [...forms].filter(([name, mark]) => named.has(name) !== (mark === 'flag')).map(([name, mark]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])
