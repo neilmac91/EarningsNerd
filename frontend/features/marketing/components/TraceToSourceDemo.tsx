@@ -33,7 +33,7 @@ export default function TraceToSourceDemo({ trace }: { trace: TraceSample }) {
         Hover or tap the chip to see the section, the passage in the filing’s own words, and a link
         into SEC EDGAR.
       </p>
-      {/* The demo's boxes give way from the outside in under enlarged text (E143, chief design's rule on #1462): below
+      {/* The demo's boxes give way from the outside in (E143, chief design's rule on #1462): below
           a 24rem viewport (384px at the default size, 768px under a 200% text setting) the claim box gives up its frame,
           its border, fill and side padding, and sits on the card, which is already the summary's surface; the panel keeps
           its frame and shadow with the capped inset (p-cap-3), the card's inset is capped too (p-cap-5), and the quote
