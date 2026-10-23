@@ -160,6 +160,7 @@ export default function InsiderActivityPanel({
         <SegmentedControl
           label="Time window"
           size="adaptive"
+          fullWidth
           value={String(windowDays)}
           onChange={(v) => setWindowDays(Number(v))}
           options={WINDOWS.map((w) => ({ value: String(w.days), label: w.label, mono: true }))}
@@ -177,19 +178,21 @@ export default function InsiderActivityPanel({
         </p>
       ) : (
         <>
-          {/* Signal headline */}
-          <div className="mb-5 flex items-center gap-3">
+          {/* Signal headline: the row wraps as a Notice's does (components/ui/Notice.tsx), so where the text cannot
+              keep its 9rem beside the glyph it goes under it at the card's whole width. Each separator dot is held to
+              the word before it by a no-break space, so a line never starts with one. */}
+          <div className="mb-5 flex flex-wrap items-center gap-3">
             <SignalIcon className={`h-7 w-7 shrink-0 ${signalColor}`} aria-hidden="true" />
-            <div>
+            <div className="min-w-0 flex-[1_1_9rem]">
               <p className={`text-lg font-semibold ${signalColor}`}>
                 {signalText}
-                {direction !== 'flat' && <> · {signalMagnitude}</>}
+                {direction !== 'flat' && <>&nbsp;· {signalMagnitude}</>}
               </p>
               {planSells > 0 && (
                 <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
                   Excludes {fmtShares(planSells)} shares sold under pre-scheduled 10b5-1 plans
                   {summary.discretionary_net_shares !== summary.net_shares && (
-                    <> · discretionary net {fmtShares(summary.discretionary_net_shares, { signed: true })} shares</>
+                    <>&nbsp;· discretionary net {fmtShares(summary.discretionary_net_shares, { signed: true })} shares</>
                   )}
                 </p>
               )}
@@ -198,15 +201,17 @@ export default function InsiderActivityPanel({
 
           {/* Buy / Sell / Net stats: equal tracks of at least 5.5rem, as many as fit, so the three tinted tiles keep
               one width whatever their figures say and stack when enlarged text leaves no room for three (a rem
-              minimum grows with the text); a figure wider than its tile breaks inside it. The figures are in the
-              data face (frontend/DESIGN_SYSTEM.md §3; lessons/frontend-variable-text-must-not-size-a-wrapping-row.md,
+              minimum grows with the text). A figure never breaks inside itself: at 320px under 200% text "$900.0K"
+              broke as "$900.0" over "K", and with the card's capped inset (E120) a stacked tile holds it whole; a
+              figure with a space ("+10.0K shares") still wraps at its space. The figures are in the data face
+              (frontend/DESIGN_SYSTEM.md §3; lessons/frontend-variable-text-must-not-size-a-wrapping-row.md,
               lessons/frontend-check-brand-layouts-at-200-percent-text.md). */}
           <div className="mb-5 grid grid-cols-[repeat(auto-fit,minmax(min(5.5rem,100%),1fr))] gap-3">
             <div className="min-w-0 rounded-lg bg-gain-soft p-3 dark:bg-gain-soft-dark">
               <p className="text-xs font-medium text-gain-text dark:text-gain-dark">
                 Buys ({summary.buy_count})
               </p>
-              <p className="mt-0.5 break-words font-data text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
+              <p className="mt-0.5 font-data text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
                 {summary.buy_value != null ? fmtMoney(summary.buy_value) : `${fmtShares(summary.buy_shares)} sh`}
               </p>
             </div>
@@ -214,13 +219,13 @@ export default function InsiderActivityPanel({
               <p className="text-xs font-medium text-loss-text dark:text-loss-dark">
                 Sells ({summary.sell_count})
               </p>
-              <p className="mt-0.5 break-words font-data text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
+              <p className="mt-0.5 font-data text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
                 {summary.sell_value != null ? fmtMoney(summary.sell_value) : `${fmtShares(summary.sell_shares)} sh`}
               </p>
             </div>
             <div className="min-w-0 rounded-lg bg-background-light p-3 dark:bg-white/5">
               <p className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">Net</p>
-              <p className={`mt-0.5 break-words font-data text-sm font-semibold tabular-nums ${signalColor}`}>
+              <p className={`mt-0.5 font-data text-sm font-semibold tabular-nums ${signalColor}`}>
                 {direction === 'sell' ? '−' : direction === 'buy' ? '+' : ''}
                 {signalMagnitude}
               </p>
