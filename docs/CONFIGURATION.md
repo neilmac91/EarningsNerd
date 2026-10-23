@@ -84,7 +84,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `REGISTRATION_MODE` | `"public"` | Validated public or invite_only registration, enforced on `/api/auth/register` and on the Google/Apple callbacks (an invited social sign-up sends the invite in the body of `POST /api/auth/google|apple/start`, never in a URL); CI explicitly sets invite_only on the service. |
 | `INVITE_EXPIRY_HOURS` | `168` | Invite token lifetime, hours. |
 | `INTERNAL_JOB_TOKEN` | `""` | Shared internal-job endpoint secret; unset endpoints return 503. |
-| `DURABLE_TASKS_ENABLED` | `false` | Opt-in queue handoff for on-visit work and internal jobs. Enable after authenticated worker delivery is verified; keep CPU always allocated until then. |
+| `DURABLE_TASKS_ENABLED` | `false` | Opt-in queue handoff for on-visit work, internal jobs and the account mail of forgot-password and resend-verification (F60). Enable after authenticated worker delivery is verified; keep CPU always allocated until then. |
 | `TASKS_PROJECT_ID` | `""` | Project containing the task queue; required when durable delivery is enabled. |
 | `TASKS_LOCATION` | `"us-west1"` | Queue region; co-locate with the API and worker. |
 | `TASKS_QUEUE` | `"earningsnerd-background"` | Dedicated background queue with one concurrent delivery. |
