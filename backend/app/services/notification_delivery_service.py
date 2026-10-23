@@ -34,15 +34,17 @@ from datetime import datetime, timedelta
 from typing import Awaitable, Callable, Optional
 from uuid import uuid4
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import case, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import Case
 
 from app.config import settings
 from app.models import Company, Filing, User, Watchlist
 from app.models.notification_delivery import (
     KIND_FILING_DIGEST,
     KIND_FILING_REALTIME,
+    REPLY_TO_STATUSES,
     STATUS_ACCEPTED,
     STATUS_AMBIGUOUS,
     STATUS_CLAIMED,
@@ -182,7 +184,8 @@ def create_batch(
             subject, html, to_email=to_email, from_email=from_email, text=text, reply_to=reply_to,
         ),
         idempotency_key=uuid4().hex,
-        status=STATUS_READY, attempts=0, created_at=now, updated_at=now,
+        status=REPLY_TO_STATUSES[STATUS_READY] if reply_to is not None else STATUS_READY,
+        attempts=0, created_at=now, updated_at=now,
     )
     batch.items = [
         DeliveryItem(user_id=user_id, filing_id=fid, channel=channel, position=i)
@@ -203,10 +206,33 @@ def create_batch(
 # Updates skip the ORM's in-Python session sync: SQLite hands back naive datetimes that the
 # 'evaluate' strategy cannot compare with the aware clock; the database decides, and callers re-read.
 
+def _states(*logical_states: str) -> tuple[str, ...]:
+    """The persisted spellings a compatible reader accepts for a logical state."""
+    return tuple(value for status in logical_states
+                 for value in ((status, REPLY_TO_STATUSES[status]) if status in REPLY_TO_STATUSES else (status,)))
+
+
+def _next_status(logical_state: str) -> str | Case[str]:
+    """Preserve the row's protocol atomically with its fenced transition.
+
+    The persisted status, never current settings or reply_to, identifies the protocol. Even a
+    NULL-tampered Reply-To must stay hidden from old readers until payload validation parks it.
+    Legacy NULL envelopes keep legacy states; either image can replay their unchanged wire bytes.
+    """
+    if logical_state not in REPLY_TO_STATUSES:
+        return logical_state
+    return case(
+        (DeliveryBatch.status.in_(tuple(REPLY_TO_STATUSES.values())), REPLY_TO_STATUSES[logical_state]),
+        else_=logical_state,
+    )
+
+
 def _transition(db: Session, batch_id: int, token: Optional[str], from_status: str, now: datetime, **values) -> bool:
     """One conditional update; True iff this worker still owned the batch in ``from_status``."""
+    if "status" in values:
+        values["status"] = _next_status(values["status"])
     stmt = update(DeliveryBatch).where(
-        DeliveryBatch.id == batch_id, DeliveryBatch.status == from_status, DeliveryBatch.owner_token == token,
+        DeliveryBatch.id == batch_id, DeliveryBatch.status.in_(_states(from_status)), DeliveryBatch.owner_token == token,
     ).values(updated_at=now, **values)
     changed = db.execute(stmt.execution_options(synchronize_session=False)).rowcount == 1
     db.commit()
@@ -217,11 +243,11 @@ def claim(db: Session, batch_id: int, owner_token: str, now: datetime) -> bool:
     """ready/retryable (due, unowned) → claimed under a short preparation lease."""
     stmt = update(DeliveryBatch).where(
         DeliveryBatch.id == batch_id,
-        DeliveryBatch.status.in_([STATUS_READY, STATUS_RETRYABLE]),
+        DeliveryBatch.status.in_(_states(STATUS_READY, STATUS_RETRYABLE)),
         DeliveryBatch.owner_token.is_(None),
         or_(DeliveryBatch.next_attempt_at.is_(None), DeliveryBatch.next_attempt_at <= now),
     ).values(
-        status=STATUS_CLAIMED, owner_token=owner_token, updated_at=now,
+        status=_next_status(STATUS_CLAIMED), owner_token=owner_token, updated_at=now,
         lease_expires_at=now + timedelta(seconds=settings.DELIVERY_CLAIM_TTL_SECONDS),
     )
     changed = db.execute(stmt.execution_options(synchronize_session=False)).rowcount == 1
@@ -232,12 +258,12 @@ def claim(db: Session, batch_id: int, owner_token: str, now: datetime) -> bool:
 def authorize_send(db: Session, batch_id: int, owner_token: str, now: datetime) -> bool:
     """claimed → sending. Committed before any network I/O; anchors the replay window once."""
     stmt = update(DeliveryBatch).where(
-        DeliveryBatch.id == batch_id, DeliveryBatch.status == STATUS_CLAIMED,
+        DeliveryBatch.id == batch_id, DeliveryBatch.status.in_(_states(STATUS_CLAIMED)),
         DeliveryBatch.owner_token == owner_token, DeliveryBatch.lease_expires_at > now,
         or_(DeliveryBatch.first_dispatch_at.is_(None),
             DeliveryBatch.first_dispatch_at > now - timedelta(seconds=settings.DELIVERY_REPLAY_WINDOW_SECONDS)),
     ).values(
-        status=STATUS_SENDING, attempts=DeliveryBatch.attempts + 1, updated_at=now,
+        status=_next_status(STATUS_SENDING), attempts=DeliveryBatch.attempts + 1, updated_at=now,
         first_dispatch_at=func.coalesce(DeliveryBatch.first_dispatch_at, now),
         lease_expires_at=now + timedelta(seconds=settings.DELIVERY_SEND_TTL_SECONDS),
     )
@@ -269,7 +295,7 @@ def finalize_accepted(db: Session, batch: DeliveryBatch, owner_token: str, provi
     from app.services.filing_scan_service import _advance_watermark, _write_log  # single source of truth
 
     stmt = update(DeliveryBatch).where(
-        DeliveryBatch.id == batch.id, DeliveryBatch.status == STATUS_SENDING, DeliveryBatch.owner_token == owner_token,
+        DeliveryBatch.id == batch.id, DeliveryBatch.status.in_(_states(STATUS_SENDING)), DeliveryBatch.owner_token == owner_token,
     ).values(
         status=STATUS_ACCEPTED, owner_token=None, lease_expires_at=None, last_error_kind=None,
         provider_email_id=(provider_email_id or None), updated_at=now,
@@ -296,22 +322,22 @@ def expire_stale(db: Session, now: datetime, *, kind: Optional[str] = None) -> d
     counts = {"reclaimed": 0, "lease_expired": 0, "rekeyed": 0}
     window = timedelta(seconds=settings.DELIVERY_REPLAY_WINDOW_SECONDS)
     query = db.query(DeliveryBatch).filter(
-        DeliveryBatch.status.in_([STATUS_CLAIMED, STATUS_SENDING, STATUS_RETRYABLE]),
+        DeliveryBatch.status.in_(_states(STATUS_CLAIMED, STATUS_SENDING, STATUS_RETRYABLE)),
     )
     if kind is not None:
         query = query.filter(DeliveryBatch.kind == kind)
     for batch in query.all():
         lease = _aware(batch.lease_expires_at)
         first = _aware(batch.first_dispatch_at)
-        if batch.status == STATUS_CLAIMED and lease is not None and lease <= now:
+        if batch.status in _states(STATUS_CLAIMED) and lease is not None and lease <= now:
             if _transition(db, batch.id, batch.owner_token, STATUS_CLAIMED, now,
                            status=STATUS_READY, owner_token=None, lease_expires_at=None):
                 counts["reclaimed"] += 1
-        elif batch.status == STATUS_SENDING and lease is not None and lease <= now:
+        elif batch.status in _states(STATUS_SENDING) and lease is not None and lease <= now:
             # The owner may have been accepted by the provider and died before finalising.
             if park(db, batch.id, batch.owner_token, STATUS_SENDING, STATUS_AMBIGUOUS, ERROR_LEASE_EXPIRED, now):
                 counts["lease_expired"] += 1
-        elif batch.status == STATUS_RETRYABLE and first is not None and first + window <= now:
+        elif batch.status in _states(STATUS_RETRYABLE) and first is not None and first + window <= now:
             if _rekey(db, batch.id, None, STATUS_RETRYABLE, now):
                 counts["rekeyed"] += 1
     return counts
@@ -334,7 +360,7 @@ def park_and_release(
     can never leave a suppressed batch that still owns what the digest should now deliver."""
     db.query(DeliveryItem).filter(DeliveryItem.batch_id == batch_id).delete(synchronize_session=False)
     stmt = update(DeliveryBatch).where(
-        DeliveryBatch.id == batch_id, DeliveryBatch.status == STATUS_CLAIMED, DeliveryBatch.owner_token == owner_token,
+        DeliveryBatch.id == batch_id, DeliveryBatch.status.in_(_states(STATUS_CLAIMED)), DeliveryBatch.owner_token == owner_token,
     ).values(status=STATUS_SUPPRESSED, owner_token=None, lease_expires_at=None, last_error_kind=reason, updated_at=now)
     if db.execute(stmt.execution_options(synchronize_session=False)).rowcount != 1:
         db.rollback()  # lost ownership: the items stay with whoever owns the batch now
@@ -348,7 +374,7 @@ def due_batch_ids(db: Session, kind: str, now: datetime) -> list[int]:
     """Durable records only: selection never consults watchlist watermarks."""
     return [row[0] for row in db.query(DeliveryBatch.id).filter(
         DeliveryBatch.kind == kind,
-        DeliveryBatch.status.in_([STATUS_READY, STATUS_RETRYABLE]),
+        DeliveryBatch.status.in_(_states(STATUS_READY, STATUS_RETRYABLE)),
         DeliveryBatch.owner_token.is_(None),
         or_(DeliveryBatch.next_attempt_at.is_(None), DeliveryBatch.next_attempt_at <= now),
     ).order_by(DeliveryBatch.id).all()]

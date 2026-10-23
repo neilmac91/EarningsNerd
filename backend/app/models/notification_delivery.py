@@ -28,6 +28,14 @@ STATUS_AMBIGUOUS = "ambiguous"    # acceptance unknown; never auto-dispatched ag
 STATUS_SUPPRESSED = "suppressed"  # current user/watch/preference/entitlement state forbids dispatch
 TERMINAL_STATUSES = frozenset({STATUS_ACCEPTED, STATUS_AMBIGUOUS, STATUS_SUPPRESSED})
 
+# Old images select/claim/reap only the four legacy spellings above. Every live state of a
+# new Reply-To envelope stays outside that vocabulary, including preparation and sending leases.
+# Terminal outcomes are shared. Keep these strings within the existing VARCHAR(20).
+REPLY_TO_STATUSES = {
+    status: f"reply_to:{status}"
+    for status in (STATUS_READY, STATUS_CLAIMED, STATUS_SENDING, STATUS_RETRYABLE)
+}
+
 
 class DeliveryBatch(Base):
     __tablename__ = "earningsnerd_delivery_batches"

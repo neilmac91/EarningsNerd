@@ -348,6 +348,22 @@ outbound email: frozen recipient/sender/subject/HTML and plain-text part, the pr
 filings each batch owns). The plain-text part (`body_text`, E110) is covered by the batch's
 `payload_sha256`; a batch frozen before the column holds NULL there and replays as it was frozen,
 its page alone, under the digest it was frozen with.
+Reply-To is also frozen in that envelope and covered by `payload_sha256`. Batches with a
+frozen Reply-To use `reply_to:ready`, `reply_to:claimed`, `reply_to:sending` and
+`reply_to:retryable`; all four remain outside older workers' due, claim and stale-lease
+predicates. Compatible workers accept both state families and retain the family from the
+persisted status on every claim, retry, re-key and lease recovery, even if `reply_to` changes or
+becomes NULL. Legacy NULL Reply-To batches retain their legacy states, omitted header, payload
+hash and provider key. No batch kinds, queues or job schedules change.
+
+During a rollback to an older image, new-protocol batches wait until a compatible worker is
+restored; the older image can continue processing legacy batches. Retain the nullable column,
+status values, provider keys and item ownership. Do not use SQL to relabel states, re-key these
+batches or release their filings to bypass the protocol boundary. Ready/retryable batches
+resume with a compatible worker, and expired preparation leases recover normally. An expired
+sending lease still becomes `ambiguous` and needs the human reconciliation below; rollback
+preserves that uncertainty.
+
 `accepted`, `suppressed` and `ambiguous` are terminal. `ambiguous` means the provider's answer
 was lost after bytes may have left (timeout, dropped connection, unparsable or non-object 5xx
 response, expired sending lease, exhausted attempts, payload drift): the job never dispatches it

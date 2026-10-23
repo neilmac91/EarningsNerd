@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, or_, update
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -22,6 +22,7 @@ from app.models import Base, Company, Filing, NotificationLog, NotificationPrefe
 from app.models.notification_delivery import (
     KIND_FILING_DIGEST,
     KIND_FILING_REALTIME,
+    REPLY_TO_STATUSES,
     STATUS_ACCEPTED,
     STATUS_AMBIGUOUS,
     STATUS_CLAIMED,
@@ -140,7 +141,7 @@ async def test_batch_is_durable_and_sending_is_committed_before_the_provider_cal
         (batch,) = _batches(db)
         # The text part is frozen with the page (E110), and the transport is handed the frozen text.
         assert batch.body_text and "Read the AI summary: " in batch.body_text
-        assert observed == {"in_transaction": False, "status": STATUS_SENDING, "attempts": 1,
+        assert observed == {"in_transaction": False, "status": REPLY_TO_STATUSES[STATUS_SENDING], "attempts": 1,
                             "first_dispatch_at": NOW.replace(tzinfo=None), "log_rows": 0, "watermark": None,
                             "text": batch.body_text}
         assert batch.status == STATUS_ACCEPTED and batch.provider_email_id == "email_1"
@@ -175,7 +176,7 @@ async def test_retry_replays_the_same_key_and_bytes_and_counts_only_on_acceptanc
         first = _recorder(resend_service.ResendRetryableError("429"))
         stats = await _scan_with_transport(db, first)
         (batch,) = _batches(db)
-        assert batch.status == STATUS_RETRYABLE and batch.attempts == 1 and batch.owner_token is None
+        assert batch.status == REPLY_TO_STATUSES[STATUS_RETRYABLE] and batch.attempts == 1 and batch.owner_token is None
         assert batch.next_attempt_at.replace(tzinfo=timezone.utc) == NOW + timedelta(seconds=300)
         assert stats["alerts_failed"] == 1 and stats["delivery_retryable"] == 1
         assert _log_count(db) == 0 and _watermark(db) is None  # nothing counted until acceptance
@@ -237,7 +238,7 @@ async def test_closed_replay_window_rekeys_a_retryable_batch_and_exhausted_attem
         old_key = batch.idempotency_key
         assert delivery.expire_stale(db, NOW + timedelta(seconds=3600)) == {"reclaimed": 0, "lease_expired": 0, "rekeyed": 1}
         (batch,) = _batches(db)
-        assert batch.status == STATUS_RETRYABLE and batch.idempotency_key != old_key
+        assert batch.status == REPLY_TO_STATUSES[STATUS_RETRYABLE] and batch.idempotency_key != old_key
         assert batch.first_dispatch_at is None and batch.last_error_kind == delivery.ERROR_WINDOW_REKEYED
         late = _recorder()
         drained = await delivery.drain(db, kind=KIND_FILING_REALTIME, send=late, now=NOW + timedelta(seconds=3600))
@@ -290,7 +291,7 @@ async def test_realtime_batch_is_rerouted_to_the_digest_when_the_user_leaves_rea
         assert old.status == STATUS_SUPPRESSED and old.last_error_kind == delivery.ERROR_REROUTED_TO_DIGEST
         # Ownership moved to a fresh digest batch built right away (selection could not: the
         # filing may be outside the next run's window), left for the digest drain.
-        assert rebuilt.kind == KIND_FILING_DIGEST and rebuilt.status == STATUS_READY
+        assert rebuilt.kind == KIND_FILING_DIGEST and rebuilt.status == REPLY_TO_STATUSES[STATUS_READY]
         assert [i.batch_id for i in db.query(DeliveryItem)] == [rebuilt.id]
         assert rebuilt.idempotency_key != old.idempotency_key and rebuilt.subject != old.subject
         digest = AsyncMock()
@@ -323,7 +324,7 @@ async def test_realtime_batch_is_rerouted_to_the_digest_when_the_user_leaves_rea
         assert delivery.claim(db, other.id, "owner", NOW)
         assert delivery.park_and_release(db, other.id, "stale", delivery.ERROR_REROUTED_TO_DIGEST, NOW) is False
         assert db.query(DeliveryItem).filter_by(batch_id=other.id).count() == 1
-        assert db.get(DeliveryBatch, other.id).status == STATUS_CLAIMED
+        assert db.get(DeliveryBatch, other.id).status == REPLY_TO_STATUSES[STATUS_CLAIMED]
 
 
 @pytest.mark.asyncio
@@ -358,7 +359,7 @@ async def test_replacement_failure_preserves_old_ownership_for_retry_outside_sel
 
     with Session(engine) as db:
         original = db.get(DeliveryBatch, batch_id)
-        assert original.status == STATUS_CLAIMED
+        assert original.status == REPLY_TO_STATUSES[STATUS_CLAIMED]
         assert [i.filing_id for i in original.items] == [99]
         assert db.query(DeliveryBatch).count() == 1
         resumed_at = NOW + timedelta(seconds=settings.DELIVERY_CLAIM_TTL_SECONDS + 1)
@@ -512,7 +513,7 @@ async def test_expired_preparation_claim_is_reclaimed_but_expired_sending_lease_
                                  to_email=base.to_email, from_email=base.from_email, expected_item_count=1,
                                  reply_to=base.reply_to,
                                  body_html=base.body_html, body_text=base.body_text, payload_sha256=base.payload_sha256,
-                                 idempotency_key=f"k{i}", status=status, owner_token="dead-worker",
+                                 idempotency_key=f"k{i}", status=REPLY_TO_STATUSES[status], owner_token="dead-worker",
                                  lease_expires_at=lease, first_dispatch_at=NOW if status == STATUS_SENDING else None,
                                  attempts=1 if status == STATUS_SENDING else 0, created_at=NOW, updated_at=NOW))
             db.flush()
@@ -907,12 +908,12 @@ async def test_expired_ambiguity_is_reported_once_for_its_own_kind(engine):
         _seed(db, is_pro=True, realtime=True)
         await _scan_with_transport(db, _recorder(resend_service.ResendRetryableError("429")))
         batch = _batches(db)[0]
-        batch.status = STATUS_SENDING
+        batch.status = REPLY_TO_STATUSES[STATUS_SENDING]
         batch.owner_token = "dead"
         batch.lease_expires_at = NOW
         db.commit()
         other = await delivery.drain(db, kind=KIND_FILING_DIGEST, now=NOW + timedelta(seconds=1))
-        assert other.ambiguous == 0 and _batches(db)[0].status == STATUS_SENDING
+        assert other.ambiguous == 0 and _batches(db)[0].status == REPLY_TO_STATUSES[STATUS_SENDING]
         result = await _scan_with_transport(db, _recorder(), now=NOW + timedelta(seconds=1))
         assert result["delivery_ambiguous"] == 1 and result["alerts_failed"] == 1
         again = await _scan_with_transport(db, _recorder(), now=NOW + timedelta(seconds=2))
@@ -945,3 +946,108 @@ async def test_production_entrypoints_do_not_use_selection_time_for_delivery(eng
         batch = _batches(db)[0]
         assert batch.created_at.replace(tzinfo=timezone.utc) == NOW
         assert batch.first_dispatch_at.replace(tzinfo=timezone.utc) == NOW + timedelta(minutes=5)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", [KIND_FILING_REALTIME, KIND_FILING_DIGEST])
+@pytest.mark.parametrize("reply_to", [None, "support@example.com"], ids=["legacy-null", "reply-to"])
+async def test_reply_to_protocol_isolates_all_live_states_from_old_readers(engine, monkeypatch, kind, reply_to):
+    """Frozen old reader predicates (production 552ad54), not a git-dependent CI fixture.
+
+    Old due/claim predicates accept ready/retryable; its reaper reads claimed/sending/retryable.
+    A rolling job must see none of a Reply-To batch's four live states. Legacy NULL envelopes
+    remain readable by either version. Exercise real SQL transitions, recovery and dispatch;
+    PostgreSQL's competing-owner fence remains covered by the existing integration gate.
+    """
+    monkeypatch.setattr(settings, "RESEND_REPLY_TO_EMAIL", reply_to or "")
+    monkeypatch.setattr(settings, "DELIVERY_REPLAY_WINDOW_SECONDS", 3600)
+    monkeypatch.setattr(settings, "DELIVERY_RETRY_BACKOFF_SECONDS", 1)
+    with Session(engine) as db:
+        _seed(db, is_pro=True, realtime=True)
+
+        def make_batch(ident):
+            db.add(Filing(id=ident, company_id=1, accession_number=f"protocol-{ident}", filing_type="10-Q",
+                          filing_date=NOW, sec_url="https://sec.example/p/", document_url="https://sec.example/p/doc.htm"))
+            db.commit()
+            return delivery.create_batch(db, kind=kind, user_id=1, subject="s", html="h", text="t",
+                                         filing_ids=[ident], now=NOW)
+
+        def check_readers(batch, logical, at):
+            db.refresh(batch)
+            due = (
+                DeliveryBatch.kind == kind,
+                DeliveryBatch.status.in_(["ready", "retryable"]),
+                DeliveryBatch.owner_token.is_(None),
+                or_(DeliveryBatch.next_attempt_at.is_(None), DeliveryBatch.next_attempt_at <= at),
+            )
+            # These are the old SQL predicates, including its direct conditional claim. Roll the
+            # probe back so a readable legacy row remains available to the new reader afterwards.
+            old_due = db.query(DeliveryBatch.id).filter(*due, DeliveryBatch.id == batch.id).all()
+            claimable = reply_to is None and logical in {"ready", "retryable"}
+            assert bool(old_due) is claimable
+            with db.begin_nested() as probe:
+                claimed = db.execute(update(DeliveryBatch).where(*due, DeliveryBatch.id == batch.id).values(
+                    status="claimed", owner_token="old-reader",
+                ).execution_options(synchronize_session=False)).rowcount
+                probe.rollback()
+            assert claimed == int(claimable)
+            old_reaper = db.query(DeliveryBatch.id).filter(
+                DeliveryBatch.id == batch.id, DeliveryBatch.kind == kind,
+                DeliveryBatch.status.in_(["claimed", "sending", "retryable"]),
+            ).all()
+            assert bool(old_reaper) is (reply_to is None and logical in {"claimed", "sending", "retryable"})
+            db.refresh(batch)
+            assert batch.status == (f"reply_to:{logical}" if reply_to is not None else logical)
+
+        batch = make_batch(1)
+        check_readers(batch, "ready", NOW)
+        frozen = (batch.payload_sha256, batch.reply_to, batch.body_html, batch.body_text)
+        original_key = batch.idempotency_key
+        observed = []
+
+        async def retry_then_accept(prepared):
+            check_readers(batch, "sending", NOW)
+            observed.append((prepared.reply_to, prepared.html, prepared.text))
+            if len(observed) == 1:
+                raise resend_service.ResendRetryableError("429")
+            return "email_protocol"
+
+        first = await delivery.drain(db, kind=kind, send=retry_then_accept, now=NOW)
+        assert first.retryable == 1
+        check_readers(batch, "retryable", NOW + timedelta(seconds=1))
+        later = NOW + timedelta(seconds=3600)
+        assert delivery.expire_stale(db, later, kind=kind) == {"reclaimed": 0, "lease_expired": 0, "rekeyed": 1}
+        check_readers(batch, "retryable", later)
+        assert batch.idempotency_key != original_key and batch.first_dispatch_at is None
+        accepted = await delivery.drain(db, kind=kind, send=retry_then_accept, now=later)
+        db.refresh(batch)
+        assert accepted.accepted == 1 and batch.status == "accepted" and batch.attempts == 2
+        assert observed == [(reply_to, "h", "t"), (reply_to, "h", "t")]
+        assert (batch.payload_sha256, batch.reply_to, batch.body_html, batch.body_text) == frozen
+
+        # A dead preparation owner is reclaimed in the SAME protocol. Even a NULL-tampered
+        # Reply-To must not downgrade the persisted state family and become visible to old code.
+        claimed = make_batch(2)
+        key = claimed.idempotency_key
+        assert delivery.claim(db, claimed.id, "dead", NOW)
+        if reply_to is not None:
+            claimed.reply_to = None
+            db.commit()
+        expired = NOW + timedelta(seconds=settings.DELIVERY_CLAIM_TTL_SECONDS + 1)
+        check_readers(claimed, "claimed", expired)
+        assert delivery.expire_stale(db, expired, kind=kind) == {"reclaimed": 1, "lease_expired": 0, "rekeyed": 0}
+        check_readers(claimed, "ready", expired)
+        claimed.reply_to = reply_to
+        db.commit()  # restore the frozen envelope before dispatch, not an application repair path
+        recovered = await delivery.drain(db, kind=kind, send=_recorder(), now=expired)
+        db.refresh(claimed)
+        assert recovered.accepted == 1 and claimed.status == "accepted" and claimed.idempotency_key == key
+
+        sending = make_batch(3)
+        assert delivery.claim(db, sending.id, "dead", NOW)
+        assert delivery.authorize_send(db, sending.id, "dead", NOW)
+        expired = NOW + timedelta(seconds=settings.DELIVERY_SEND_TTL_SECONDS + 1)
+        check_readers(sending, "sending", expired)
+        assert delivery.expire_stale(db, expired, kind=kind) == {"reclaimed": 0, "lease_expired": 1, "rekeyed": 0}
+        db.refresh(sending)
+        assert sending.status == "ambiguous" and sending.last_error_kind == delivery.ERROR_LEASE_EXPIRED
