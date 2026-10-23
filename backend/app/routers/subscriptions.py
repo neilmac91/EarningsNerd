@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from fastapi import APIRouter, HTTPException, Depends, status, Request, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -170,6 +172,19 @@ async def get_serving_prices():
     """
     return await run_in_threadpool(serving_pro_prices)
 
+
+@dataclass(frozen=True)
+class _CheckoutAccount:
+    """What checkout reads from the database before its first Stripe call (E144)."""
+    user_id: int
+    email: str
+    email_verified: bool
+    entitled: bool
+    is_beta: bool
+    stripe_customer_id: Optional[str]
+    first_monthly_trial: bool
+
+
 @router.post("/create-checkout-session")
 async def create_checkout_session(
     price_id: str,
@@ -196,12 +211,50 @@ async def create_checkout_session(
     it through would double-bill — and the per-user Subscription row upsert would orphan the first
     sub in-app while Stripe keeps charging it (staff review, PR #619).
     """
-    if not current_user.email_verified:
+    resolved_price_id = _resolve_price_id(price_id)
+    billing_cycle = "monthly" if resolved_price_id == settings.STRIPE_PRICE_MONTHLY_ID else "yearly"
+
+    def read_account() -> _CheckoutAccount:
+        # One unit in the thread pool, released before any Stripe call: what the refusals below read
+        # (the plan loads the reader's subscription row) and the trial's row check, each only when
+        # the checks before it pass, so no Stripe call holds the request's connection
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            verified = bool(current_user.email_verified)
+            entitled = verified and is_pro_user(current_user)
+            is_beta = bool(getattr(current_user, "is_beta", False))
+            proceeds = verified and not entitled and bool(settings.STRIPE_SECRET_KEY) and bool(resolved_price_id)
+            return _CheckoutAccount(
+                user_id=current_user.id,
+                email=current_user.email,
+                email_verified=verified,
+                entitled=entitled,
+                is_beta=is_beta,
+                stripe_customer_id=current_user.stripe_customer_id,
+                # Beta users NEVER enter the trial cohort, even when the promo id is unconfigured —
+                # the pinned fallback for that misconfig is a plain paid checkout
+                # (test_beta_user_no_discount_when_promo_unconfigured), not a card-required trial
+                # that silently auto-charges the cohort promised "$0 forever, no card". A prior
+                # Subscription row of ANY status (canceled, expired reverse-trial, …) means this account
+                # already had its trial or a paid run, so cancel→resubscribe can't re-farm free weeks.
+                first_monthly_trial=(
+                    proceeds
+                    and not is_beta
+                    and billing_cycle == "monthly"
+                    and settings.PRO_TRIAL_DAYS > 0
+                    and billing_account_service.find_subscription(db, current_user.id) is None
+                ),
+            )
+        finally:
+            filing_list_service.release_request_session(db)
+
+    account = await run_in_threadpool(read_account)
+    if not account.email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Verify your email address before you subscribe.",
         )
-    if is_pro_user(current_user):
+    if account.entitled:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="You already have an active subscription. Manage it from the billing portal.",
@@ -211,7 +264,6 @@ async def create_checkout_session(
             status_code=500,
             detail="Checkout is not available right now."
         )
-    resolved_price_id = _resolve_price_id(price_id)
     if not resolved_price_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -219,26 +271,31 @@ async def create_checkout_session(
         )
     price_id = resolved_price_id
 
+    def claim_customer(customer_id: str) -> Optional[str]:
+        # The claim's own unit: its conditional write, commit and read-back, then the release (E166).
+        try:
+            return billing_account_service.claim_stripe_customer_id(db, account.user_id, customer_id)
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        # Create or retrieve Stripe customer
-        if not current_user.stripe_customer_id:
-            customer = stripe.Customer.create(
-                email=current_user.email,
-                metadata={"user_id": str(current_user.id)}
+        # Create or retrieve Stripe customer; every Stripe call runs in the thread pool.
+        if not account.stripe_customer_id:
+            customer = await run_in_threadpool(
+                stripe.Customer.create, email=account.email, metadata={"user_id": str(account.user_id)}
             )
-            stored_customer_id = billing_account_service.claim_stripe_customer_id(db, current_user, customer.id)
+            stored_customer_id = await run_in_threadpool(claim_customer, customer.id)
             if stored_customer_id != customer.id:
                 # Another checkout of this account stored its customer first: check out with that one,
                 # so a payment through either session finds the account (E166).
                 logger.info("Checkout for user_id=%s uses the customer stored first; %s has no subscription",
-                            current_user.id, customer.id)
-                customer = stripe.Customer.retrieve(stored_customer_id)
+                            account.user_id, customer.id)
+                customer = await run_in_threadpool(stripe.Customer.retrieve, stored_customer_id)
         else:
-            customer = stripe.Customer.retrieve(current_user.stripe_customer_id)
-        
+            customer = await run_in_threadpool(stripe.Customer.retrieve, account.stripe_customer_id)
+
         # Create checkout session
         frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
-        billing_cycle = "monthly" if price_id == settings.STRIPE_PRICE_MONTHLY_ID else "yearly"
         session_kwargs = {
             "customer": customer.id,
             # Stripe API 2026-09-30.endive (the version stripe-python 16 pins) removed
@@ -260,7 +317,7 @@ async def create_checkout_session(
             "success_url": f"{frontend_url}/dashboard?success=true",
             "cancel_url": f"{frontend_url}/pricing?canceled=true",
             "metadata": {
-                "user_id": str(current_user.id),
+                "user_id": str(account.user_id),
                 "plan": "pro",
                 "price_id": price_id,
                 "billing_cycle": billing_cycle,
@@ -271,31 +328,19 @@ async def create_checkout_session(
         # the 100%-off promo: the amount due is $0 and, with payment_method_collection="if_required"
         # above, no card is collected. Mutually exclusive with allow_promotion_codes (which we don't
         # set), so Stripe never 400s on conflicting discount params.
-        is_beta = bool(getattr(current_user, "is_beta", False))
-        if is_beta and settings.STRIPE_BETA_PROMO_CODE_ID:
+        if account.is_beta and settings.STRIPE_BETA_PROMO_CODE_ID:
             session_kwargs["discounts"] = [{"promotion_code": settings.STRIPE_BETA_PROMO_CODE_ID}]
-        elif (
-            # Beta users NEVER enter the trial cohort, even when the promo id is unconfigured —
-            # the pinned fallback for that misconfig is a plain paid checkout
-            # (test_beta_user_no_discount_when_promo_unconfigured), not a card-required trial
-            # that silently auto-charges the cohort promised "$0 forever, no card".
-            not is_beta
-            and billing_cycle == "monthly"
-            and settings.PRO_TRIAL_DAYS > 0
-            and billing_account_service.find_subscription(db, current_user.id) is None
-        ):
-            # First-time monthly subscriber → 7-day card-required trial. A prior Subscription row of
-            # ANY status (canceled, expired reverse-trial, …) means this account already had its
-            # trial or a paid run — plain paid checkout instead, so cancel→resubscribe can't re-farm
-            # free weeks. Card is collected up front ("always") and Stripe auto-charges at trial end;
-            # a trial that somehow lacks a card cancels instead of going unpaid.
+        elif account.first_monthly_trial:
+            # First-time monthly subscriber → 7-day card-required trial. Card is collected up front
+            # ("always") and Stripe auto-charges at trial end; a trial that somehow lacks a card
+            # cancels instead of going unpaid.
             session_kwargs["subscription_data"] = {
                 "trial_period_days": settings.PRO_TRIAL_DAYS,
                 "trial_settings": {"end_behavior": {"missing_payment_method": "cancel"}},
             }
             session_kwargs["payment_method_collection"] = "always"
 
-        checkout_session = stripe.checkout.Session.create(**session_kwargs)
+        checkout_session = await run_in_threadpool(stripe.checkout.Session.create, **session_kwargs)
 
         return {"url": checkout_session.url}
     except stripe.error.StripeError as e:
@@ -306,22 +351,34 @@ async def create_checkout_session(
 
 @router.post("/create-portal-session")
 async def create_portal_session(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Create Stripe Customer Portal session for subscription management"""
-    if not current_user.stripe_customer_id:
+
+    def read_customer() -> Optional[str]:
+        # The customer the auth lookup loaded, then the release, in the thread pool, so the Stripe call
+        # below holds no connection (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            return current_user.stripe_customer_id
+        finally:
+            filing_list_service.release_request_session(db)
+
+    customer_id = await run_in_threadpool(read_customer)
+    if not customer_id:
         raise HTTPException(
             status_code=400,
             detail="No subscription found"
         )
-    
+
     try:
         frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
-        portal_session = stripe.billing_portal.Session.create(
-            customer=current_user.stripe_customer_id,
+        portal_session = await run_in_threadpool(
+            stripe.billing_portal.Session.create,
+            customer=customer_id,
             return_url=f"{frontend_url}/dashboard",
         )
-        
+
         return {"url": portal_session.url}
     except stripe.error.StripeError as e:
         raise HTTPException(

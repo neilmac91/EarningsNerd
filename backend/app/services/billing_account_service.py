@@ -19,9 +19,11 @@ def find_subscription(db: Session, user_id: int) -> Optional[Subscription]:
     return db.query(Subscription).filter(Subscription.user_id == user_id).first()
 
 
-def claim_stripe_customer_id(db: Session, user: User, customer_id: str) -> Optional[str]:
-    """Store the Stripe customer checkout created for ``user`` unless the account already has one,
-    commit, and return the account's customer: this one, or the one another checkout stored first.
+def claim_stripe_customer_id(db: Session, user_id: int, customer_id: str) -> Optional[str]:
+    """Store the Stripe customer checkout created for the account ``user_id`` unless it already has
+    one, commit, and return the account's customer: this one, or the one another checkout stored
+    first. It takes the id, not the user, since checkout has released the session that loaded the
+    user before its Stripe calls (E144).
 
     Checkout checks for a customer as the auth lookup loaded the user, so two checkouts of one
     account can each find none and create one. The write lands only while the column is empty, so
@@ -32,7 +34,6 @@ def claim_stripe_customer_id(db: Session, user: User, customer_id: str) -> Optio
     before it creates the checkout session, so a Stripe failure after that keeps the customer for
     the next attempt.
     """
-    user_id = user.id
     db.query(User).filter(User.id == user_id, User.stripe_customer_id.is_(None)).update(
         {User.stripe_customer_id: customer_id}, synchronize_session=False)
     db.commit()
