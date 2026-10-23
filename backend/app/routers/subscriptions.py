@@ -182,7 +182,6 @@ class _CheckoutAccount:
     entitled: bool
     is_beta: bool
     stripe_customer_id: Optional[str]
-    first_monthly_trial: bool
 
 
 @router.post("/create-checkout-session")
@@ -211,39 +210,20 @@ async def create_checkout_session(
     it through would double-bill — and the per-user Subscription row upsert would orphan the first
     sub in-app while Stripe keeps charging it (staff review, PR #619).
     """
-    resolved_price_id = _resolve_price_id(price_id)
-    billing_cycle = "monthly" if resolved_price_id == settings.STRIPE_PRICE_MONTHLY_ID else "yearly"
-
     def read_account() -> _CheckoutAccount:
-        # One unit in the thread pool, released before any Stripe call: what the refusals below read
-        # (the plan loads the reader's subscription row) and the trial's row check, each only when
-        # the checks before it pass, so no Stripe call holds the request's connection
+        # One unit in the thread pool, released before any Stripe call, so no Stripe call holds the
+        # request's connection: what the refusals below read (the plan loads the reader's
+        # subscription row, once the reader is verified) and what the Stripe calls need
         # (lessons/ops-release-cached-filing-reads-before-yield.md).
         try:
             verified = bool(current_user.email_verified)
-            entitled = verified and is_pro_user(current_user)
-            is_beta = bool(getattr(current_user, "is_beta", False))
-            proceeds = verified and not entitled and bool(settings.STRIPE_SECRET_KEY) and bool(resolved_price_id)
             return _CheckoutAccount(
                 user_id=current_user.id,
                 email=current_user.email,
                 email_verified=verified,
-                entitled=entitled,
-                is_beta=is_beta,
+                entitled=verified and is_pro_user(current_user),
+                is_beta=bool(getattr(current_user, "is_beta", False)),
                 stripe_customer_id=current_user.stripe_customer_id,
-                # Beta users NEVER enter the trial cohort, even when the promo id is unconfigured —
-                # the pinned fallback for that misconfig is a plain paid checkout
-                # (test_beta_user_no_discount_when_promo_unconfigured), not a card-required trial
-                # that silently auto-charges the cohort promised "$0 forever, no card". A prior
-                # Subscription row of ANY status (canceled, expired reverse-trial, …) means this account
-                # already had its trial or a paid run, so cancel→resubscribe can't re-farm free weeks.
-                first_monthly_trial=(
-                    proceeds
-                    and not is_beta
-                    and billing_cycle == "monthly"
-                    and settings.PRO_TRIAL_DAYS > 0
-                    and billing_account_service.find_subscription(db, current_user.id) is None
-                ),
             )
         finally:
             filing_list_service.release_request_session(db)
@@ -264,6 +244,7 @@ async def create_checkout_session(
             status_code=500,
             detail="Checkout is not available right now."
         )
+    resolved_price_id = _resolve_price_id(price_id)
     if not resolved_price_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -278,6 +259,13 @@ async def create_checkout_session(
         finally:
             filing_list_service.release_request_session(db)
 
+    def has_no_subscription() -> bool:
+        # The trial's row check, after the customer step as before, in a unit of its own.
+        try:
+            return billing_account_service.find_subscription(db, account.user_id) is None
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
         # Create or retrieve Stripe customer; every Stripe call runs in the thread pool.
         if not account.stripe_customer_id:
@@ -285,6 +273,13 @@ async def create_checkout_session(
                 stripe.Customer.create, email=account.email, metadata={"user_id": str(account.user_id)}
             )
             stored_customer_id = await run_in_threadpool(claim_customer, customer.id)
+            if stored_customer_id is None:
+                # The account was deleted (from another tab) while its customer was created: refuse
+                # before any other Stripe call, with the 500 that rereading the deleted row raised
+                # before E144.
+                logger.warning("Checkout for user_id=%s found the account deleted; %s has no subscription",
+                               account.user_id, customer.id)
+                raise HTTPException(status_code=500, detail="Checkout is not available right now.")
             if stored_customer_id != customer.id:
                 # Another checkout of this account stored its customer first: check out with that one,
                 # so a payment through either session finds the account (E166).
@@ -296,6 +291,7 @@ async def create_checkout_session(
 
         # Create checkout session
         frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
+        billing_cycle = "monthly" if price_id == settings.STRIPE_PRICE_MONTHLY_ID else "yearly"
         session_kwargs = {
             "customer": customer.id,
             # Stripe API 2026-09-30.endive (the version stripe-python 16 pins) removed
@@ -330,10 +326,21 @@ async def create_checkout_session(
         # set), so Stripe never 400s on conflicting discount params.
         if account.is_beta and settings.STRIPE_BETA_PROMO_CODE_ID:
             session_kwargs["discounts"] = [{"promotion_code": settings.STRIPE_BETA_PROMO_CODE_ID}]
-        elif account.first_monthly_trial:
-            # First-time monthly subscriber → 7-day card-required trial. Card is collected up front
-            # ("always") and Stripe auto-charges at trial end; a trial that somehow lacks a card
-            # cancels instead of going unpaid.
+        elif (
+            # Beta users NEVER enter the trial cohort, even when the promo id is unconfigured —
+            # the pinned fallback for that misconfig is a plain paid checkout
+            # (test_beta_user_no_discount_when_promo_unconfigured), not a card-required trial
+            # that silently auto-charges the cohort promised "$0 forever, no card".
+            not account.is_beta
+            and billing_cycle == "monthly"
+            and settings.PRO_TRIAL_DAYS > 0
+            and await run_in_threadpool(has_no_subscription)
+        ):
+            # First-time monthly subscriber → 7-day card-required trial. A prior Subscription row of
+            # ANY status (canceled, expired reverse-trial, …) means this account already had its
+            # trial or a paid run — plain paid checkout instead, so cancel→resubscribe can't re-farm
+            # free weeks. Card is collected up front ("always") and Stripe auto-charges at trial end;
+            # a trial that somehow lacks a card cancels instead of going unpaid.
             session_kwargs["subscription_data"] = {
                 "trial_period_days": settings.PRO_TRIAL_DAYS,
                 "trial_settings": {"end_behavior": {"missing_payment_method": "cancel"}},

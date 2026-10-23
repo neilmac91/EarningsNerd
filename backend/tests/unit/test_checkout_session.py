@@ -96,6 +96,8 @@ def _create_and_capture(client, **params):
     assert resp.json()["url"] == "https://checkout.stripe.test/session"
     create.assert_called_once()
     kwargs = create.call_args.kwargs
+    # The webhook binds the paid subscription to the reader by the session's metadata.
+    assert kwargs["metadata"]["user_id"] == str(app.dependency_overrides[get_current_user]().id)
     assert "payment_method_types" not in kwargs
     assert kwargs["allowed_payment_method_types"] == ["card"]
     declared = set(SessionCreateParams.__annotations__)

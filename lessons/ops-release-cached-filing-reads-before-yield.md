@@ -103,7 +103,7 @@ The pool-lifetime file's AST ratchet reads every async router function and fails
 loop in its own body above that function's ceiling (on main before the fix it named both summaries
 routes). Neither half sees a session handed to a service that runs on the loop where the burst does
 not list the route (the rest of the
-auth router, E121), or a background task's own session worked on the loop
+auth router, E121, and 29 routes in six other routers, E169), or a background task's own session worked on the loop
 (E123 moved the company list's units into the thread pool, `test_filings_endpoint_db_first.py`'s
 off-the-loop cases; the flag-off job runners are E150), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.

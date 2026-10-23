@@ -1368,8 +1368,8 @@ def _billing_fixture(monkeypatch, tmp_path, *, with_customer: bool, rival: bool 
     the billing portal wired to it, and every Stripe call they make faked as a blocking 0.3 s call, as
     the synchronous SDK is. With ``rival``, another checkout of the account stores its customer while
     this one creates its own (E166). Returns the engine, a session factory, the request sessions as they
-    open, what ran on the loop (checkouts, statements, checkins) and each Stripe call with the
-    connections checked out while it ran and whether it ran on the loop."""
+    open, what ran on the loop (checkouts, statements, checkins), each Stripe call with the connections
+    checked out while it ran and whether it ran on the loop, and each call's last keyword arguments."""
     from types import SimpleNamespace
 
     import stripe
@@ -1416,10 +1416,12 @@ def _billing_fixture(monkeypatch, tmp_path, *, with_customer: bool, rival: bool 
     event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
 
     stripe_calls: list[tuple[str, int, bool]] = []
+    stripe_kwargs: dict[str, dict[str, Any]] = {}
 
     def slow(name: str, result):
         def call(*args: Any, **kwargs: Any):
             stripe_calls.append((name, engine.pool.checkedout(), threading.get_ident() == loop_thread))
+            stripe_kwargs[name] = kwargs
             time.sleep(0.3)
             return result(*args, **kwargs)
         return call
@@ -1444,7 +1446,7 @@ def _billing_fixture(monkeypatch, tmp_path, *, with_customer: bool, rival: bool 
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
     monkeypatch.setattr(app, "dependency_overrides", {})
     monkeypatch.setattr(auth, "sentry_sdk", None)
-    return engine, sessions, request_sessions, on_loop, stripe_calls
+    return engine, sessions, request_sessions, on_loop, stripe_calls, stripe_kwargs
 
 
 async def _bill(transport: httpx.ASGITransport, route: str, i: int) -> httpx.Response:
@@ -1460,7 +1462,8 @@ async def _bill(transport: httpx.ASGITransport, route: str, i: int) -> httpx.Res
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("route,with_customer", [("checkout", False), ("checkout", True), ("portal", True)])
+@pytest.mark.parametrize("route,with_customer", [("checkout", False), ("checkout", True), ("portal", True)],
+                         ids=["checkout-new-customer", "checkout-stored-customer", "portal"])
 async def test_checkout_and_portal_release_their_connection_before_stripe(monkeypatch, tmp_path, route, with_customer):
     """Checkout reads what it needs in one thread-pool unit and releases it before any Stripe call, a new
     customer's claim is a unit of its own, and the billing portal releases before its one call; every
@@ -1469,7 +1472,7 @@ async def test_checkout_and_portal_release_their_connection_before_stripe(monkey
     and each new customer stored on its own payer (E144)."""
     from app.models import User
 
-    engine, sessions, request_sessions, on_loop, stripe_calls = _billing_fixture(
+    engine, sessions, request_sessions, on_loop, stripe_calls, _ = _billing_fixture(
         monkeypatch, tmp_path, with_customer=with_customer)
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
     try:
@@ -1496,17 +1499,29 @@ async def test_checkout_and_portal_release_their_connection_before_stripe(monkey
     ("checkout", False, True, ["Customer.create", "Customer.retrieve", "checkout.Session.create"]),
     ("checkout", True, False, ["Customer.retrieve", "checkout.Session.create"]),
     ("portal", True, False, ["billing_portal.Session.create"]),
-])
+], ids=["checkout-new-customer", "checkout-lost-claim", "checkout-stored-customer", "portal"])
 async def test_checkout_and_portal_hold_no_connection_while_stripe_answers(
         monkeypatch, tmp_path, route, with_customer, rival, calls):
     """One checkout, or one portal session: every Stripe call runs in the thread pool with no connection
-    checked out, the losing checkout's retrieve of the customer stored first included."""
-    engine, _, _, _, stripe_calls = _billing_fixture(monkeypatch, tmp_path, with_customer=with_customer, rival=rival)
+    checked out, the losing checkout's retrieve of the customer stored first included, and each session
+    names the payer's customer (and checkout the payer, whom the webhook binds the subscription to)."""
+    from app.models import User
+
+    engine, sessions, _, _, stripe_calls, stripe_kwargs = _billing_fixture(
+        monkeypatch, tmp_path, with_customer=with_customer, rival=rival)
     try:
         response = await _bill(httpx.ASGITransport(app=app, raise_app_exceptions=False), route, 0)
         assert response.status_code == 200, response.text
         assert stripe_calls == [(name, 0, False) for name in calls]
         assert engine.pool.checkedout() == 0
+        customer = "cus_rival_0" if rival else "cus_0"
+        if route == "checkout":
+            with sessions() as db:
+                payer = db.query(User.id).filter(User.email == "payer-0@example.com").scalar()
+            sent = stripe_kwargs["checkout.Session.create"]
+            assert (sent["customer"], sent["metadata"]["user_id"]) == (customer, str(payer))
+        else:
+            assert stripe_kwargs["billing_portal.Session.create"]["customer"] == customer
     finally:
         engine.dispose()
 
