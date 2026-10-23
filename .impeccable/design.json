@@ -616,6 +616,7 @@
     ],
     "donts": [
       "**Don't** restore retired mint branding, decorative gradients or general-purpose glow effects.",
+      "**Don't** fade content with a gradient painted in a ground colour, which must match whatever sits behind it in each theme; a fade is a mask on the content alone, as the locked preview's foot is, and never covers its action.",
       "**Don't** use sage as a chart-series or financial-direction color.",
       "**Don't** use light gain/loss graphic colors for small delta text or tertiary dark ink for muted labels.",
       "**Don't** use the legacy 10px radius for new components or uppercase ordinary card titles.",
