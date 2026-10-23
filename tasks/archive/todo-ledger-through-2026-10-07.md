@@ -6838,6 +6838,18 @@ Full local and hosted verification plus independent exact-head review precede re
   No CODE RED spend; no ledger event; ten other writers' paid runs and thirteen balance readouts on GitHub. Chief
   defects 26 (four searches printed without the excluded-directory filter) and 27 (a `gh api` path with a command
   substitution); no classifier denial and no hook refusal of the chief's commands in the window. Closure 199.
+- 2026-10-23 (record 49, `runtime/control/DECISIONS-49.md`): PR #1511 (record 48) merged `d0e97467` by the chief
+  under record 35's founder action 9, answered, after the founder's "Continue" (forty-fourth deploy-skip proof:
+  its main run succeeded and its deploy job skipped every deploy step), with no classifier refusal, after its
+  fact-check, cut off by a container restart and resumed, its reviewer's three passes and Codex's three findings,
+  each answered and taken, with one ready mark and its own clean review. Closure 200 registers record 48's survey,
+  fact-check and reviewer and pre-registers this record's survey and fact-check and record 50's reviewer. A
+  read-only survey of the window before the record was written. Eleven main merges, two of them backend deploys,
+  each healthy, and a third backend change at the window's end, deployed healthy after the stamp; no job cut off
+  at the browser tests' limit; production not read live. No CODE RED spend; no ledger event; three other writers'
+  paid runs and six balance readouts on GitHub. Chief defects 28 (a loop over `gh api` calls with a variable in
+  the path) and 29 (reads of agents' reports printed with neither the mask nor a filter); no classifier denial
+  and no hook refusal of the chief's commands in the window. Closure 200.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
