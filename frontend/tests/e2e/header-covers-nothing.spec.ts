@@ -31,7 +31,8 @@ import { test, expect, type Page } from '@playwright/test'
  * The open menu is a disclosure: it closes when focus leaves the header (E167, chief design's ruling on #1521). Under
  * 200% text the open menu fills the screen, and it stayed open when a Tab left it, so the next control was scrolled
  * into view past the screen's foot (784 to 904px). It closes inside the focusout, before the browser scrolls the
- * next control into view, or that scroll would still reserve the open menu's height.
+ * next control into view, or that scroll would still reserve the open menu's height; a focus moved by script out
+ * of the open menu, which leaves no microtask between the two, closes it and lands below the bar too.
  *
  * 200% text is Chromium's own text setting (`Page.setFontSizes`, as tests/e2e/reflow-200.spec.ts doubles it), not
  * an inline style on <html>, which no media query reads. CI runs e2e with no backend
@@ -244,6 +245,29 @@ test.describe("the site header's own stops hold the page in place", () => {
           expect(tabs, `${name}: the walk through the open menu ends`).toBeLessThan(40)
         }
         expect(tabs, `${name}: the walk went through the menu's stops`).toBeGreaterThan(3)
+      })
+
+      // A focus moved by script runs with script on the stack, so no microtask runs between the focusout and the
+      // browser's scroll: only a close inside the focusout clears the open menu's height from the padding in time.
+      // Without it, under 200% text, the control landed at 91 to 211px, partly under a 151px bar.
+      test('a focus moved by script out of the open menu closes it and lands below the bar', async ({ page, baseURL }) => {
+        await open(page, baseURL!, '/', 'light')
+        if (doubled) await doubleText(page)
+        await settle(page)
+        await page.evaluate(() => window.scrollTo(0, 2000))
+        await settle(page)
+        await page.getByRole('button', { name: 'Open menu' }).evaluate((el: HTMLElement) => el.focus({ preventScroll: true }))
+        await page.keyboard.press('Enter')
+        await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible()
+        await settle(page)
+        await page.locator('main').locator('a[href], button').first().evaluate((el: HTMLElement) => el.focus())
+        await settle(page)
+        const now = await focusState(page)
+        await expect(page.getByRole('navigation', { name: 'Mobile navigation' }), `${name}: a focus moved by script onto ${now.label} closes the open menu`).toHaveCount(0)
+        expect(
+          [now.inHeader, now.top >= now.barBottom - 0.5, now.bottom <= 844.5],
+          `${name}: a focus moved by script out of the open menu lands on ${now.label} at ${now.top.toFixed(0)} to ${now.bottom.toFixed(0)}px, inside the screen and below the bar ending at ${now.barBottom.toFixed(0)}px`,
+        ).toEqual([false, true, true])
       })
     })
   }
