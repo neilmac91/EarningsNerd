@@ -214,6 +214,7 @@ detectors, dataset construction, observation selection, citation resolution, num
 persistence and narrative streaming. `narrative.py` keeps database sessions and the provider singleton
 lazily imported at call time. `trend_analysis_service.py` re-exports the original public and private
 names, so the analysis router continues to resolve them through the same module.
+`fact_provenance` links each fact to its filing row's `document_url` when available, and `trend_analysis/source_documents.py` folds each looked-up link to its accession folder for the snapshot hash, keeping links with a stored `source_sha256` receipt as stored (E149, #1481).
 
 Analysis datasets carry versioned `data_notes` from the pure `trend_analysis/data_notes.py`
 builder. The web, chart downloads, PDF and Excel use the same reason groups, letters and counts;
