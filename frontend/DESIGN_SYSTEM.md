@@ -1032,7 +1032,7 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  the header's full width, under the ✕ too, every painted line inside the panel and clear of
                  the ✕, the ✕ at the header's top right, no word broken, read a character at a time, the page
                  not scrolling sideways, nor the two icon dialogs' panels; the feedback dialog's type row
-                 widens its panel, E168).
+                 widens its panel, E169).
                  Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
                  viewer / workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
                  below lg, where it is a sheet, and a complementary landmark on lg+), and the calendar's
