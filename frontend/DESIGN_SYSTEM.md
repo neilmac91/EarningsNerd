@@ -1230,8 +1230,10 @@ Filing identity  <FilingIdentity filing>  (features/filings, 2026-10 critique P-
                  checkable figures match the filing · 1 corrected from the filing · 3 of 4 risk excerpts
                  located in the filing text · 1 withheld"; the check glyph only when nothing was left
                  unmatched. Checkable = the rows the server could check (`source_checkable`: a whole label
-                 it maps to a concept of at least $1M, its figure a number); corrected = the rows whose
-                 figure differed and the server replaced with the filed one (`source_replaced`); per-share
+                 it maps to a concept of at least $1M, its figure a displayed number with its scale, in a
+                 currency the filing's data confirms and dated to the filed period if dated, and every prior it
+                 shows checkable too); corrected = the rows whose figure differed from the filed line its label
+                 names and the server replaced with the filed one (`source_replaced`); per-share
                  figures, ratios, margins and segment lines are never counted as misses.
 
 Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page ground with no card: index + h2 (see
@@ -1375,8 +1377,8 @@ Hero example     <HeroExample example>  (features/marketing, critique 1d) — th
                  and padding, and the first row's top rule, outside the clip; a value breaks inside only when
                  wider than the strip; ▲/▼ aria-hidden before the signed delta), one evidence row when the live summary
                  has a located risk excerpt (pickEvidence: source_verified under the source owner; heading =
-                 excerptHeadings, blockquote clipped at 180 on a word with " …", a chip link "Located in the
-                 filing"), the EDGAR receipt (a no-break space holds its middot to the word before it), and a
+                 excerptHeadings, blockquote clipped at 180 on a word with " …", a chip link "Quote found in
+                 filing", `PASSAGE_FOUND`), the SEC.gov receipt (a no-break space holds its middot to the word before it), and a
                  text-link CTA. No browser-frame mockup, no card in the
                  card, no sparkle chip, no tinted CTA. The static fallback has no evidence row. Under 200% text
                  the three figures sat in equal thirds and ran into each other at 390px, the identity line's

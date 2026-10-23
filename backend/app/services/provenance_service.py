@@ -136,6 +136,11 @@ _SOURCE_EXTRA_KEYS = {
     "total gross profit": "gross_profit",
     "operating income (loss)": "operating_income",
     "operating income/(loss)": "operating_income",
+    # The filing line names the prompts quote for the model to report a row by (each prompt's "Where to find it").
+    "net earnings": "net_income",
+    "profit for the year": "net_income",
+    "profit/(loss) for the year": "net_income",
+    "net cash from operating activities": "operating_cash_flow",
 }
 # Balance-sheet lines are instants. A 10-Q's balance sheet sets the quarter-end beside the last fiscal
 # year-end, a period the same-quarter rule (``metric_delta_service.comparable_facts``) refuses, and the

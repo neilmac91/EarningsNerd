@@ -1,6 +1,7 @@
 """Unit tests for Trace-to-Source provenance enrichment."""
 
 import copy
+import re
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import unquote
@@ -653,6 +654,8 @@ class TestFigureCheck:
         ("Net Operating Revenues", "revenue"), ("Total net revenue", "revenue"), ("Total net revenues", "revenue"),
         ("Gross profit (loss)", "gross_profit"), ("Total gross profit", "gross_profit"),
         ("Operating income (loss)", "operating_income"), ("Operating income/(loss)", "operating_income"),
+        ("Net earnings", "net_income"), ("Profit for the year", "net_income"), ("Profit/(loss) for the year", "net_income"),
+        ("Net cash from operating activities", "operating_cash_flow"),
     ])
     def test_each_plain_alias_is_checked_against_its_own_concept(self, metric, key):
         assert prov.source_metric_key(metric) == key
@@ -804,7 +807,8 @@ class TestFiledFigureSwap:
 class TestLabelsTheModelIsGiven:
     """Every label the model is handed for a line the figure check covers is one the check reads (the backend review
     of #1530: the prompts' own "Cash & Equivalents" went unchecked, though main had checked it). A label added to a
-    prompt or to the narrative's grounding block is either read by ``source_metric_key`` or named below with why."""
+    prompt's Metric table (its metric, or a filing line name it quotes for the model to report) or to the narrative's
+    grounding block is either read by ``source_metric_key`` or named below with why."""
 
     # Concepts the check covers that it deliberately leaves unchecked.
     UNCHECKED = {"free_cash_flow": "computed, not filed", "capital_expenditures": "filers sign it either way"}
@@ -813,13 +817,19 @@ class TestLabelsTheModelIsGiven:
         "eps": "per-share figures are never checked",
         "eps (diluted)": "per-share figures are never checked",
         "eps / per-ads": "per-share figures are never checked",
+        "diluted eps": "per-share figures are never checked",
+        "earnings per share": "per-share figures are never checked",
+        "earnings per share - diluted": "per-share figures are never checked",
+        "earnings per share — diluted": "per-share figures are never checked",
+        "earnings per ads": "per-share figures are never checked",
         "total debt": "the current portion plus long-term debt: no one filed concept",
+        "current portion of long-term debt": "the current portion alone: no standardized concept",
         "cash": "cash alone may exclude its equivalents",
     }
+    # Where-to-find-it cells also name the statements a line sits in, which are no line of their own.
+    STATEMENT_TITLE = re.compile(r"\b(?:statements?|balance sheets?)\b", re.IGNORECASE)
 
     def test_the_narratives_dollar_labels_map_to_their_own_concepts(self):
-        # The spec's static labels. At run time the debt line takes its scope's label (debt_balance_label), which
-        # maps to nothing, so it is left unchecked: long-term debt is never replaced anyway (_EXACT_SCOPE_TAGS).
         from app.services.ai.xbrl_narrative import _XBRL_NARRATIVE_SPEC
 
         checked = set(prov._SOURCE_KEY_LABELS) - prov._NEVER_CHECKED_KEYS - set(self.UNCHECKED)
@@ -831,20 +841,38 @@ class TestLabelsTheModelIsGiven:
         prompts = sorted((Path(__file__).resolve().parents[2] / "prompts").glob("*.md"))
         labels = set()
         for prompt in prompts:
-            # A table's first row is its header; only a table headed "Metric" lists metrics.
+            # A table's first row is its header; only a table headed "Metric" lists metrics. Its first column names the
+            # metric, and its second may quote the filing's own line names, which the model reports a row by.
             metric_table, previous = False, ""
             for line in prompt.read_text().splitlines():
                 if line.startswith("|"):
-                    first = line.strip("|").split("|")[0].replace("*", "").strip()
+                    cells = [cell.strip() for cell in line.strip("|").split("|")]
+                    first = cells[0].replace("*", "").strip()
                     if not previous.startswith("|"):
                         metric_table = first == "Metric"
                     elif metric_table and first and not set(first) <= set("-: "):
                         labels.add(first)
+                        quoted = re.findall(r'"([^"]+)"', cells[1]) if len(cells) > 1 else []
+                        labels.update(name for name in quoted if not self.STATEMENT_TITLE.search(name))
                 previous = line
-        assert {"Revenue", "Cash & Equivalents", "Total Debt", "Cash"} <= labels, "the scan reads the prompts' metric tables"
+        assert {"Revenue", "Cash & Equivalents", "Total Debt", "Cash", "Net earnings", "Profit for the year"} <= labels, (
+            "the scan reads the prompts' metric tables and the line names they quote"
+        )
         unread = sorted(label for label in labels
                         if prov.source_metric_key(label) is None and label.casefold() not in self.UNMAPPED)
         assert unread == []
+
+    def test_the_debt_lines_run_time_labels_are_left_unchecked(self):
+        # The grounding labels the debt line by its scope at run time (debt_balance_label), never the spec's static
+        # "Long-term Debt" the test above reads. Each names a scope no one filed line carries, so each is left
+        # unchecked, as long-term debt always is where a figure differs (_EXACT_SCOPE_TAGS).
+        from app.services.ai.debt_scope import UNKNOWN_SCOPE_PHRASE
+        from app.services.edgar.debt_concepts import SCOPE_PHRASE
+
+        labels = [f"Debt — {phrase}" for phrase in [*SCOPE_PHRASE.values(), UNKNOWN_SCOPE_PHRASE]]
+        labels.append("Debt Balance (maturity scope unavailable)")
+        assert len(labels) >= 7
+        assert [label for label in labels if prov.source_metric_key(label) is not None] == []
 
 
 class TestRefreshNormalized:

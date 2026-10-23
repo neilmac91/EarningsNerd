@@ -23,13 +23,30 @@ describe('partialBadgeLabel', () => {
         'financial figures not grounded in SEC XBRL data',
         'only 3/9 sections populated',
       ]),
-    ).toBe('Partial · the filed revenue or net income is not stated in the summary')
-    // Each in words for what its check covers: the grounding check looks for the filed figures in the summary's text.
+    ).toBe('Partial · filed revenue or net income not stated')
+    expect(partialBadgeLabel(['filing grounding unavailable: no usable excerpt or numeric XBRL data'])).toBe(
+      'Partial · no filing text or figures to check',
+    )
+    // The tooltip reads each in full, in words for what its check covers: the grounding check looks for the filed
+    // figures in the summary's text.
     expect(reasonWords('financial figures not grounded in SEC XBRL data')).toBe('the filed revenue or net income is not stated in the summary')
     expect(reasonWords('filing grounding unavailable: no usable excerpt or numeric XBRL data')).toBe(
       'the filing’s text and figures were unavailable to check against',
     )
     expect(reasonWords('only 3/9 sections populated')).toBe('only 3/9 sections populated')
+  })
+
+  it('keeps the badge to one line on a phone for every reason the server writes', () => {
+    // Badge is nowrap, and the filing page's content box is 358px at 390px. Measured in Chromium at the badge's 12px/600
+    // Inter: the 59 characters of "Partial · 12 summary figure(s) not traceable to filing data" are 351px, and the
+    // long words this replaced (70 and 73 characters) were 422px and 429px. 59 characters is the budget.
+    const firsts = [
+      ['financial figures not grounded in SEC XBRL data', 'only 3/9 sections populated'],
+      ['filing grounding unavailable: no usable excerpt or numeric XBRL data'],
+      ['only 3/9 sections populated'],
+      ['12 summary figure(s) not traceable to filing data'],
+    ]
+    for (const reasons of firsts) expect(partialBadgeLabel(reasons).length, partialBadgeLabel(reasons)).toBeLessThanOrEqual(59)
   })
 
   it('handles missing reasons', () => {

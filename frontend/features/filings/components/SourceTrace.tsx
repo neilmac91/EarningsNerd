@@ -22,8 +22,8 @@ import { passageLabel, passageNote, sourceLinkLabel } from '@/features/filings/l
  * highlights the passage when the filing text is available and matched, or shows the pane's truthful
  * empty state with its original-document action; activation never does nothing (EN-01). On a coarse
  * pointer (touch) a tap opens the bottom sheet, which carries the same detail plus "Show in filing",
- * the in-app jump, so provenance is first-class on mobile rather than a straight drop onto EDGAR.
- * Keyboard: Tab from a focused chip reaches the popover's EDGAR link and Tab again resumes the page
+ * the in-app jump, so provenance is first-class on mobile rather than a straight drop onto SEC.gov.
+ * Keyboard: Tab from a focused chip reaches the popover's SEC.gov link and Tab again resumes the page
  * after the chip; Escape closes the popover or sheet and returns focus to the chip; the sheet traps
  * focus while open. Nothing here reads plan or auth state: the route to the source is the same for
  * anonymous, free and Pro visitors.
@@ -44,7 +44,7 @@ interface SourceTraceProps {
   /**
    * Verbatim filing text to scroll-highlight in the IN-APP viewer (item 1.4). When a
    * `FilingViewerProvider` is mounted, activating the chip jumps to the source in-app (opening the
-   * pane); the EDGAR link stays available in the popover and the sheet. A verified risk excerpt
+   * pane); the SEC.gov link stays available in the popover and the sheet. A verified risk excerpt
    * anchors precisely; metrics (no verbatim excerpt) fall back to the section heading.
    */
   excerpt?: string | null
@@ -88,9 +88,9 @@ export function SourceTracePanelBody({
   url: string | null
   /** Optional verbatim passage, slotted between the header and the status line. */
   excerpt?: ReactNode
-  /** Optional in-app action (the sheet's "Show in filing"), slotted before the EDGAR link. */
+  /** Optional in-app action (the sheet's "Show in filing"), slotted before the SEC.gov link. */
   action?: ReactNode
-  /** The EDGAR link's ref, for the popover's keyboard hand-off. */
+  /** The SEC.gov link's ref, for the popover's keyboard hand-off. */
   linkRef?: Ref<HTMLAnchorElement>
 }) {
   // The status line rests in the ink and only the check is sage: a figure's note states the filed amounts, and sage
@@ -312,7 +312,7 @@ function SourceTraceInner({
         if (layer && !layer.contains(triggerRef.current)) return
       }
       e.stopPropagation()
-      // A keyboard user who tabbed into the popover's EDGAR link gets the chip back, not <body>.
+      // A keyboard user who tabbed into the popover's SEC.gov link gets the chip back, not <body>.
       // (The sheet's trap restores focus to the chip itself on close.)
       if (!isCoarse && popoverRef.current?.contains(document.activeElement)) triggerRef.current?.focus()
       setOpen(false)
@@ -341,9 +341,9 @@ function SourceTraceInner({
   )
   useSheetFocusTrap({ active: open && isCoarse, containerRef: sheetRef, onClose: closePanel, restoreFocusRef: returnTarget })
 
-  // Fine pointer: Tab reaches the popover's EDGAR link and resumes the page after the chip; Escape
+  // Fine pointer: Tab reaches the popover's SEC.gov link and resumes the page after the chip; Escape
   // is handled above. See useEvidencePopoverKeys for the shared contract with CitationChip. With no
-  // viewer the chip is itself the EDGAR anchor, so the hand-off would only add a second stop for the
+  // viewer the chip is itself the SEC.gov anchor, so the hand-off would only add a second stop for the
   // same link: it stays off there.
   const triggerIsLink = !isCoarse && !canHighlight && !!url
   const keys = useEvidencePopoverKeys({
@@ -389,8 +389,8 @@ function SourceTraceInner({
   }
 
   // The chip is an anchor when linkable and no viewer is mounted (so fine-pointer click + middle-click
-  // open EDGAR, and it's keyboard-reachable); with a viewer it is the in-app jump; on coarse pointers
-  // it is always the sheet's trigger, with the jump and the EDGAR link inside the sheet.
+  // open SEC.gov, and it's keyboard-reachable); with a viewer it is the in-app jump; on coarse pointers
+  // it is always the sheet's trigger, with the jump and the SEC.gov link inside the sheet.
   const triggerCommon = {
     ref: triggerRef as React.RefObject<HTMLButtonElement> & React.RefObject<HTMLAnchorElement>,
     'aria-label': `Source: ${chipLabel}`,
@@ -434,7 +434,7 @@ function SourceTraceInner({
 
   const trigger = isCoarse ? (
     // Touch: the documented bottom sheet, which holds the in-app jump (when a viewer is mounted) and
-    // the EDGAR link. Even with a viewer the tap opens the sheet, never a silent jump.
+    // the SEC.gov link. Even with a viewer the tap opens the sheet, never a silent jump.
     <button
       type="button"
       {...triggerCommon}

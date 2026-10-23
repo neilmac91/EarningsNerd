@@ -1,4 +1,7 @@
 """A complete-looking summary cannot compensate for absent filing evidence."""
+import re
+from pathlib import Path
+
 import pytest
 
 from app.config import settings
@@ -53,3 +56,15 @@ def test_trace_source_corroborates_figures_without_attesting_excerpt_presence(mo
     assert result["figures_untraceable"] == []
     assert result["tier"] == expected_tier
     assert (REASON in result["reasons"]) == (xbrl is None)
+
+
+def test_the_page_badge_keys_on_the_reasons_this_writes(monkeypatch):
+    # SummaryDisplay.tsx gives each grounding reason the page's own words by its exact string. Reworded here alone,
+    # the badge would show the server's text, "XBRL" included, where D-058 keeps acronyms out of labels.
+    monkeypatch.setattr(settings, "AI_FIGURE_TRACE_GATE", False)
+    display = (Path(__file__).resolve().parents[3] / "frontend/features/summaries/components/SummaryDisplay.tsx").read_text()
+    keys = dict(re.findall(r"const (GROUNDING_REASON|NO_GROUNDING_REASON) = '([^']*)'", display))
+    unavailable = assess_quality(SUMMARY, None, excerpt=None)["reasons"]
+    ungrounded = assess_quality(SUMMARY, {"revenue": {"current": {"value": 391_035e6}}}, excerpt="Revenue grew.")["reasons"]
+    assert keys["NO_GROUNDING_REASON"] in unavailable
+    assert keys["GROUNDING_REASON"] in ungrounded

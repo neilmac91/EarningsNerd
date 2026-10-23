@@ -22,7 +22,7 @@ Still pending: E172, the comprehension rounds (§4.3), and the screen-reader, to
 **Scope.** The landing page's second row (`#evidence`): [`EvidenceSection`](../frontend/features/marketing/components/EvidenceSection.tsx),
 the shared [`FinancialMetricsTable`](../frontend/features/summaries/components/FinancialMetricsTable.tsx) it renders (also the filing
 page's Financial Highlights, through [`SummaryBlocks`](../frontend/features/summaries/components/SummaryBlocks.tsx)),
-[`TraceToSourceDemo`](../frontend/features/marketing/components/TraceToSourceDemo.tsx), [`CatchCard`](../frontend/features/marketing/components/CatchCard.tsx),
+[`TraceToSourceDemo`](../frontend/features/marketing/components/TraceToSourceDemo.tsx), [`CatchCard`](https://github.com/neilmac91/EarningsNerd/blob/1556a0137b790f56603e7c7817204a09bde03572/frontend/features/marketing/components/CatchCard.tsx) (retired by #1530, D-058),
 the static data in [`landing-samples.ts`](../frontend/features/marketing/lib/landing-samples.ts), the chip and panel in
 [`SourceTrace`](../frontend/features/filings/components/SourceTrace.tsx) and [`MetricSourceLink`](../frontend/features/filings/components/MetricSourceLink.tsx),
 and the server logic that sets the figure labels, `build_metric_source` in
