@@ -62,13 +62,16 @@ _filings_synced_lock = threading.Lock()
 
 
 def filings_cache_fresh(ticker: str, types_list: List[str]) -> bool:
-    """True when this (ticker, types) was synced from SEC within the TTL."""
+    """True when this (ticker, types) was synced from SEC within the TTL. The stored rows then answer
+    for that listing, and the route serves them even when there are none: the listing found nothing."""
     synced = _filings_synced_at.get((ticker, tuple(types_list)))
     return synced is not None and (utcnow() - synced) < FILINGS_LIST_TTL
 
 
 def _mark_filings_synced(ticker: str, types_list: List[str]) -> None:
-    """Record a successful live SEC sync for this (ticker, types), evicting the oldest if full."""
+    """Record a successful live SEC sync for this (ticker, types), evicting the oldest if full. Called
+    only after SEC answered the listing: a fetch that failed or timed out raised before it, so its
+    visit is answered from whatever is stored and the next visit fetches again."""
     with _filings_synced_lock:
         if len(_filings_synced_at) >= MAX_FILINGS_SYNC_ENTRIES:
             _filings_synced_at.pop(next(iter(_filings_synced_at)), None)  # insertion-ordered → oldest
@@ -332,10 +335,11 @@ def persist_live_filings(
 
     New rows are inserted, existing rows on the old ``cgi-bin/viewer`` URL are rewritten, superseded
     filings are marked and everything commits in one transaction; the (ticker, types) is then
-    stamped fresh. Every listed row is persisted; an explicit ``limit`` caps each group of the
-    response (the 6-Ks, and every other form), as :func:`cached_filings` does. The DTOs are built
-    last, after the commit, while the session is still open: the router's unit releases it once
-    this returns or raises. Any exception propagates to the router's fallbacks.
+    stamped fresh when its stored rows answer for the listing. Every listed row is persisted; an
+    explicit ``limit`` caps each group of the response (the 6-Ks, and every other form), as
+    :func:`cached_filings` does. The DTOs are built last, after the commit, while the session is
+    still open: the router's unit releases it once this returns or raises. Any exception propagates
+    to the router's fallbacks.
     """
     from app.services.filing_amendment_service import lock_company_filings, mark_superseded_filings
 
@@ -409,6 +413,14 @@ def persist_live_filings(
 
         filings.append(filing)
 
+    # The stamp lets the route answer this key from the stored rows until the TTL passes, so it is
+    # written only when they answer for this listing: it listed nothing, or a row stored under this
+    # company. Accession numbers are unique, so a filing two companies list (a combined report of
+    # co-registrants, a Form 4 in its issuer's and its reporting owner's listings) is stored once, under
+    # the company whose listing stored it first. A listing of only such rows stays unstamped, and the
+    # next visit fetches it again rather than being answered an empty list.
+    stored_rows_answer = not filings or any(f.company_id == company_id for f in filings)
+
     # Batch commit: single transaction for all database changes
     if new_filings or db.dirty:
         db.flush()
@@ -419,7 +431,8 @@ def persist_live_filings(
             db.refresh(filing)
 
     # Mark this (ticker, types) freshly synced so subsequent loads take the B2 fast path.
-    _mark_filings_synced(ticker_upper, types_list)
+    if stored_rows_answer:
+        _mark_filings_synced(ticker_upper, types_list)
 
     # Convert to response models after commit; ?limit= keeps the newest `limit` of each group with
     # the live fetch's own per-group rule.

@@ -19,7 +19,7 @@ import base64
 import json
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fractions import Fraction
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -907,9 +907,10 @@ def test_live_fetches_past_the_per_ip_budget_answer_429_only_when_nothing_is_sto
     process's shared SEC pacing (1 request/s in production), so the fetch spends a per-client-IP budget,
     as search's does. Past it that client gets the 429, detail and Retry-After of the other limited
     public routes; a company with stored rows is still served to it, and another client's fetch proceeds.
-    A listing with nothing in the requested forms persists nothing, so each visit to that company fetches
-    and spends again. Before the budget a ``?filing_types=`` naming a form the company never filed took
-    this path on every request (#1373)."""
+    A listing that finds nothing is answered from its freshness stamp until the TTL passes (below), so
+    each fetch here names other forms. A caller can still name a new set of forms per request; before the
+    budget each such ``?filing_types=`` took this path, and one naming a form the company never filed
+    took it on every request (#1373)."""
     with sessions() as s:
         _seed_company(s)  # COLD: nothing stored
         warm_id = _seed_company(s, ticker="WARM", cik="0000000003").id
@@ -925,13 +926,16 @@ def test_live_fetches_past_the_per_ip_budget_answer_429_only_when_nothing_is_sto
     monkeypatch.setattr(filings_mod, "LIVE_FETCH_LIMITER", RateLimiter(limit=2, window_seconds=60))
     monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
 
-    def get(ticker, client_ip):
-        return client.get(f"/api/filings/company/{ticker}", headers={"X-Forwarded-For": client_ip})
+    def get(ticker, client_ip, forms=None):
+        return client.get(
+            f"/api/filings/company/{ticker}", params={"filing_types": forms} if forms else None,
+            headers={"X-Forwarded-For": client_ip},
+        )
 
-    allowed = [get("cold", "203.0.113.7") for _ in range(2)]
-    refused = get("cold", "203.0.113.7")
+    allowed = [get("cold", "203.0.113.7", forms) for forms in ("10-K", "10-Q")]
+    refused = get("cold", "203.0.113.7", "8-K")
     warm = get("warm", "203.0.113.7")
-    other = get("cold", "198.51.100.9")
+    other = get("cold", "198.51.100.9", "8-K")
 
     assert [r.status_code for r in allowed] == [200, 200]
     assert refused.status_code == 429
@@ -941,6 +945,153 @@ def test_live_fetches_past_the_per_ip_budget_answer_429_only_when_nothing_is_sto
     assert [row["accession_number"] for row in warm.json()] == ["0000000003-25-000001"]
     assert other.status_code == 200
     assert fetched == ["0000000002"] * 3  # the refused request made no SEC call
+
+
+def _listing_clock(monkeypatch):
+    """The freshness stamp's clock, held still until the test moves it."""
+    now = [datetime(2026, 10, 23, 12, tzinfo=timezone.utc)]
+    monkeypatch.setattr(filing_list_service, "utcnow", lambda: now[0])
+    return now
+
+
+def test_a_listing_that_found_nothing_is_answered_from_its_stamp_until_the_ttl_passes(client, sessions, monkeypatch):
+    """A fund, a trust, or a company with only 8-K or Form 3/4/5 rows has nothing in the default forms, so
+    its live fetch persists nothing. That successful empty listing is the answer until the freshness TTL
+    passes: the site's ISR renders of the page, all from one Vercel IP, cost one SEC fetch and one
+    live-fetch slot per TTL, hand nothing off, and are never refused. Before, every render fetched again,
+    and the eleventh in a minute from one IP got the 429 that ISR caches as an unavailable page for 30
+    minutes."""
+    with sessions() as s:
+        company_id = _seed_company(s).id
+        _seed_filing(s, company_id, "0000000002", "0000000002-25-000001", "8-K")  # not a default form
+    handed = _recording_queue(monkeypatch)
+    fetched = []
+
+    async def get_filings(cik, types):
+        fetched.append((cik, types))
+        return []
+
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
+    now = _listing_clock(monkeypatch)
+
+    def render():
+        return client.get("/api/filings/company/cold", headers={"X-Forwarded-For": "76.76.21.21"})
+
+    first = render()
+    # From here a visit that spent a live-fetch slot would be refused.
+    monkeypatch.setattr(filings_mod, "LIVE_FETCH_LIMITER", RateLimiter(limit=0, window_seconds=60))
+    renders = [render() for _ in range(30)]
+    now[0] += filing_list_service.FILINGS_LIST_TTL - timedelta(seconds=1)
+    last_inside = render()
+    assert len(fetched) == 1
+
+    now[0] += timedelta(seconds=1)  # the stamp is a TTL old: the next visit lists again, once
+    monkeypatch.setattr(filings_mod, "LIVE_FETCH_LIMITER", RateLimiter(limit=1, window_seconds=60))
+    after = [render() for _ in range(5)]
+
+    assert [(r.status_code, r.json()) for r in [first, *renders, last_inside, *after]] == [(200, [])] * 37
+    assert fetched == [("0000000002", DEFAULT_TYPES)] * 2
+    assert handed == []
+
+
+@pytest.mark.parametrize("kind", sorted(_COLD_FAILURES))
+def test_a_failed_live_listing_stamps_nothing_so_the_next_visit_fetches_again(client, sessions, monkeypatch, kind):
+    """Only a listing SEC answered is cached (``lessons/arch-cache-only-reads-that-succeeded.md``). A fetch
+    that times out or fails is answered with its error when nothing is stored, and leaves the key as it
+    was, on a cold key and on a stale one alike, so the next visit fetches again instead of being answered
+    an empty list. On the stale key a failure that wrote its stamp would make the visit after it a hit."""
+    error, status, detail, _logs = _COLD_FAILURES[kind]
+    with sessions() as s:
+        _seed_company(s)
+    monkeypatch.setattr(filing_list_service, "SEC_REQUEST_TIMEOUT_SECONDS", 0.05)
+    script = [kind, "listed nothing", kind, "listed nothing"]
+    fetched = []
+
+    async def get_filings(cik, types):
+        outcome = script[len(fetched)]
+        fetched.append(outcome)
+        if outcome != "listed nothing":
+            if error is None:
+                await asyncio.sleep(5)  # outlives the route's timeout
+            raise error
+        return []
+
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+    now = _listing_clock(monkeypatch)
+
+    def visit():
+        return client.get("/api/filings/company/cold")
+
+    cold_failure = visit()
+    cold_retry = visit()
+    stamped = visit()
+    now[0] += filing_list_service.FILINGS_LIST_TTL
+    stale_failure = visit()
+    stale_retry = visit()
+
+    for failed in (cold_failure, stale_failure):
+        assert (failed.status_code, failed.json()) == (status, {"detail": detail})
+    for served in (cold_retry, stamped, stale_retry):
+        assert (served.status_code, served.json()) == (200, [])
+    assert fetched == script  # each failure was followed by a fetch; the stamped visit made none
+
+
+def test_stored_rows_are_served_as_before_whether_the_stamp_is_fresh_or_stale(client, sessions, monkeypatch):
+    """The stamp changes only how a key with nothing stored is answered. A company with rows in the
+    requested forms is served them with no SEC fetch and no live-fetch slot: while its stamp is stale its
+    refresh is handed off once per bucket, and while it is fresh not at all."""
+    with sessions() as s:
+        stale_id = _seed_company(s, ticker="STALE", cik="0000000003").id
+        _seed_filing(s, stale_id, "0000000003", "0000000003-25-000001")
+        fresh_id = _seed_company(s, ticker="FRESH", cik="0000000004").id
+        _seed_filing(s, fresh_id, "0000000004", "0000000004-25-000001")
+    handed = _recording_queue(monkeypatch)
+    fetch = AsyncMock(return_value=[])
+    monkeypatch.setattr(sec_edgar_service, "get_filings", fetch)
+    monkeypatch.setattr(filings_mod, "LIVE_FETCH_LIMITER", RateLimiter(limit=0, window_seconds=60))
+    filing_list_service._mark_filings_synced("FRESH", DEFAULT_TYPES)
+
+    stale = [client.get("/api/filings/company/stale") for _ in range(3)]
+    fresh = [client.get("/api/filings/company/fresh") for _ in range(3)]
+
+    assert [(r.status_code, [row["accession_number"] for row in r.json()]) for r in stale] == [
+        (200, ["0000000003-25-000001"])
+    ] * 3
+    assert [(r.status_code, [row["accession_number"] for row in r.json()]) for r in fresh] == [
+        (200, ["0000000004-25-000001"])
+    ] * 3
+    assert handed == [stale_id]
+    fetch.assert_not_called()
+
+
+def test_a_listing_of_rows_another_company_stores_is_fetched_again_not_answered_empty(client, sessions, monkeypatch):
+    """Accession numbers are unique, so a filing two companies list (a combined annual report of
+    co-registrants, or a Form 4 in its issuer's and its reporting owner's listings) is stored once, under
+    the company whose listing stored it first. The live fetch answers it to the other company too, but
+    that company's stored rows hold nothing, so its stamp could not answer for the listing: the key is
+    left unstamped and the next visit fetches and answers it again, as before, rather than an empty list."""
+    accession = "0000000003-25-000001"
+    with sessions() as s:
+        _seed_company(s)  # COLD: nothing stored of its own
+        parent_id = _seed_company(s, ticker="PARENT", cik="0000000003").id
+        _seed_filing(s, parent_id, "0000000003", accession)
+    fetched = []
+
+    async def get_filings(cik, types):
+        fetched.append(cik)
+        return [{"accession_number": accession, "filing_type": "10-K", "filing_date": "2025-02-19",
+                 "sec_url": _archive("0000000003", accession),
+                 "document_url": _archive("0000000003", accession) + "primary.htm"}]
+
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+
+    visits = [client.get("/api/filings/company/cold") for _ in range(2)]
+
+    assert [(r.status_code, [row["accession_number"] for row in r.json()]) for r in visits] == [
+        (200, [accession])
+    ] * 2
+    assert fetched == ["0000000002"] * 2
 
 
 # The queue every durable job shares, as docs/DEPLOYMENT.md provisions it: one concurrent dispatch, at most
