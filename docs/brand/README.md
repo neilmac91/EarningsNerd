@@ -12,8 +12,8 @@ sage highlight with a hairline under a phrase of ours, a bracket twin in the mar
 figure's marker, the filing's own words in the editorial face inside a marked block. Sage never
 colours a number; gain and loss keep their own tokens and always carry a sign. The voice is dry
 with a pulse, says what the product does in behaviours rather than hedges, and never claims a
-figure nobody measured. Every sample figure on every surface is Apple's FY2025 10-K against
-FY2024, verified against SEC XBRL.
+figure nobody measured. The static promotional figures use Apple's FY2025 10-K against FY2024, verified against SEC XBRL;
+the labelled Multi-Period sample is one saved run from FY2020 to FY2025.
 
 **Current promotional emphasis (C5).** The original studio treatment above is historical.
 Current headline accents and brand templates use a solid Bright Sage fill, crisp italic ink and
@@ -77,9 +77,9 @@ mark.
 | 6 | [06-system.md](06-system.md) | Palette measured, type, spacing, icons, imagery, the device; docs and sidecar in parity |
 | 7 | [07-voice.md](07-voice.md) | The voice guide rewritten; every microcopy site changed, with its before and after |
 | 8 | [08-applications.md](08-applications.md) | The landing page and every other surface in code; templates; the empty founder slot retired; Notable filings back under D-046's rule (E90) |
-| 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; three fixes; second score 11 of 42 (12 until D-045's rows rescored T4) |
+| 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; original second score 11 of 42; current-main rescore 9 of 42, T4's move retained |
 | 10 | this page | The handoff |
-| all | [decisions-log.md](decisions-log.md) | D-001 to D-028 |
+| all | [decisions-log.md](decisions-log.md) | D-001 to D-057 |
 
 ## The pull request
 
@@ -172,11 +172,38 @@ The founder took the last four on 2026-10-17 (D-045 and D-046):
 Two items still wait on the founder: that privacy text (F4) and the founder sentence, which the
 site goes without (A5) unless the founder writes one (D6, F48).
 
+## The sweep's record
+
+Current-main check: 2026-10-23, `5897d602`, after #1457 (`ab6962ec`). E120's capped
+surface insets (#1495) are included; E146's company-name formatting (#1491) is still a draft
+at this checkpoint. A draft is not a shipped closure. The [current capture set](stress/closeout-2026-10-23/README.md)
+and [fourteen-tell rescore](09-stress-test.md#2-the-sameness-test-rerun) separate new evidence
+from carried scores: 9 of 42, with T4's move from 3 to 1 confirmed.
+
+Done: the ruled landing composition; the shared promotional emphasis; the located-passage device
+on Risks, located summary quotes and the Source pane; public and account-page voice; shared
+controls, status chips and missing-value treatment; homepage receipts opening the filing document;
+the curated Notable filings query and row; consent-gated web analytics; and the saved FY2020 to
+FY2025 analysis demo. #1515 bounds that teaser to one screen with its action centred and the preview
+fading at its foot. The existing gates and each implementation PR's committed-state mutation
+proofs remain their evidence; this records-only change introduces no new rule. #1476 already records
+D-056's opening reservation and the rule to await the ready mark's own completed clean review.
+
+What remains is not listed here. Each open item is a row in [the open-items page](../../tasks/todo.md)
+with its owner and next step, and leaves it in the pull request that closes it (AGENTS.md §7), so
+a second list on this page would go stale as they close.
+
+The fresh matrix covers eight local routes, both themes, 390/1440px and default/200% text;
+all 64 route measurements fit the document width and logged no uncaught page error. It does not
+replace each PR's before/after evidence, establish production behaviour, or retest mail clients,
+PDFs, provider consoles and successful feed states. The source-pane and export work retain their
+own capture and gate evidence. The founder's held items keep their rows in the open-items page,
+and the founder receives the final sweep report as a message, not as a committed release verdict.
+
 ## Closing
 
 The brief asked for a brand that could be recognised with the logo covered. On the rebuilt pages
 the thing you would recognise is small and specific: a phrase with a pale mark under it, a
 bracket in the margin, a figure beside the sentence it came from. That is the product's own habit
 made visible, which is why it will hold: nothing in it needs a campaign to stay true, only the
-rules the gates above now hold. What remains is a page layout that has yet to be as particular
-as the copy it carries.
+rules the gates above now hold. The landing composition now follows the filing's ruled items; the remaining work follows the open-items page above.
