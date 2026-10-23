@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -323,5 +324,94 @@ describe('Header mobile menu closes as a disclosure', () => {
     fireEvent.keyDown(home, { key: 'Escape' })
     expect(menuOpen()).toBe(false)
     expect(document.activeElement).toBe(home)
+  })
+
+  it('leaves the menu open when a layer above already took Escape', async () => {
+    renderWithPage()
+    const menu = await openMenu()
+    const link = within(menu).getAllByRole('link')[0]
+    act(() => link.focus())
+    // A layer's own capture handler takes the key first, as the Ask sheet's does: one press closes one layer.
+    const take = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') event.preventDefault()
+    }
+    document.addEventListener('keydown', take, true)
+    try {
+      fireEvent.keyDown(link, { key: 'Escape' })
+      expect(menuOpen()).toBe(true)
+    } finally {
+      document.removeEventListener('keydown', take, true)
+    }
+  })
+
+  // A press moves focus to what is pressed on its mousedown, before its release. The header is in the page's flow, so
+  // a close on that focusout moved the page under the pointer at the top of a page, and the release landed elsewhere:
+  // a tap on a link below the open menu followed nothing (the e2e's tap case holds that in a browser).
+  it('closes a task after the click of a press that moved focus out of the header, never on the press', async () => {
+    renderWithPage()
+    await openMenu()
+    // A tap on the toggle focused it.
+    act(() => screen.getByRole('button', { name: 'Close menu' }).focus())
+    const onPage = screen.getByRole('button', { name: 'A control on the page' })
+    fireEvent.pointerDown(onPage)
+    act(() => onPage.focus())
+    expect(menuOpen(), 'the press moved focus out; the menu waits for its click').toBe(true)
+    fireEvent.click(onPage)
+    expect(menuOpen(), 'the click reaches the pressed control with the menu still open').toBe(true)
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(menuOpen(), 'a task after the click').toBe(false)
+  })
+
+  it('ends a press on a key press, so a press with no click never holds up the keyboard close', async () => {
+    renderWithPage()
+    await openMenu()
+    act(() => screen.getByRole('button', { name: 'Close menu' }).focus())
+    const onPage = screen.getByRole('button', { name: 'A control on the page' })
+    fireEvent.pointerDown(onPage)
+    fireEvent.keyDown(document.body, { key: 'Tab' })
+    act(() => onPage.focus())
+    expect(menuOpen()).toBe(false)
+  })
+
+  it('closes without a synchronous flush when a modal layer takes the focus from an effect', async () => {
+    // A layer that traps focus moves it from its own effect, inside React's commit, where React refuses flushSync.
+    function Sheet() {
+      const first = useRef<HTMLButtonElement>(null)
+      useEffect(() => first.current?.focus(), [])
+      return (
+        <div role="dialog" aria-modal="true" aria-label="A sheet">
+          <button ref={first} type="button">In the sheet</button>
+        </div>
+      )
+    }
+    function PageWithSheet() {
+      const [open, setOpen] = useState(false)
+      return (
+        <main>
+          <button type="button" onClick={() => setOpen(true)}>Open the sheet</button>
+          {open && <Sheet />}
+        </main>
+      )
+    }
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      render(
+        <QueryClientProvider client={queryClient}>
+          <Header />
+          <PageWithSheet />
+        </QueryClientProvider>,
+      )
+      const menu = await openMenu()
+      act(() => within(menu).getAllByRole('link')[0].focus())
+      fireEvent.click(screen.getByRole('button', { name: 'Open the sheet' }))
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'In the sheet' }))
+      expect(menuOpen()).toBe(false)
+      expect(errors.mock.calls.map((call) => String(call[0])).filter((message) => /flushSync/.test(message))).toEqual([])
+    } finally {
+      errors.mockRestore()
+    }
   })
 })

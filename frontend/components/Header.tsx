@@ -88,20 +88,68 @@ export default function Header({
     if (headerRef.current) publishHeaderHeight(headerRef.current)
   }, [mobileMenuOpen])
 
-  // The open menu is a disclosure: it closes when focus leaves the header (a Tab past its last item, or a press on a
-  // control outside it). It closes inside the focusout, before the browser scrolls the next control into view, so
-  // that scroll reserves the bar alone, not the open menu, which fills the screen under 200% text and left the
-  // control past the screen's foot (E167). A blur with no next target (another window, a tap on text) leaves it open.
+  // A pointer press in progress while the menu is open, from its pointerdown to its click (or its cancel), and
+  // whether focus left the header during it. A key press ends it, so a press with no click never holds up the
+  // keyboard's close.
+  const pressRef = useRef({ active: false, closeAfterClick: false })
+  useEffect(() => {
+    if (!mobileMenuOpen) return
+    const press = pressRef.current
+    const start = () => {
+      press.active = true
+      press.closeAfterClick = false
+    }
+    const end = () => {
+      const close = press.closeAfterClick
+      press.active = false
+      press.closeAfterClick = false
+      // A task after the click, so the click and its default action reach the control the press began on first.
+      if (close) window.setTimeout(() => setMobileMenuOpen(false), 0)
+    }
+    const typed = () => {
+      press.active = false
+    }
+    document.addEventListener('pointerdown', start, true)
+    document.addEventListener('click', end, true)
+    document.addEventListener('pointercancel', end, true)
+    document.addEventListener('keydown', typed, true)
+    return () => {
+      document.removeEventListener('pointerdown', start, true)
+      document.removeEventListener('click', end, true)
+      document.removeEventListener('pointercancel', end, true)
+      document.removeEventListener('keydown', typed, true)
+      press.active = false
+      press.closeAfterClick = false
+    }
+  }, [mobileMenuOpen])
+
+  // The open menu is a disclosure: it closes when focus leaves the header (E167). A Tab past its last item, or a focus
+  // moved by script, closes it inside the focusout, before the browser scrolls the next control into view, so that
+  // scroll reserves the bar alone, not the open menu, which fills the screen under 200% text and left the control past
+  // the screen's foot. A press on a control outside it (where the browser focuses what is pressed) closes it after the
+  // press's click instead: the header is in the page's flow, and at the top of a page nothing anchors the scroll, so a
+  // close on the press would move the page under the pointer and the release would activate nothing. A modal layer that
+  // takes the focus (a focus trap, from an effect) is fixed and needs no padding, and is closed without a synchronous
+  // flush, which React refuses inside its own effects. A blur with no next target (another window, a tap on text)
+  // leaves the menu open.
   const closeMenuWhenFocusLeaves = (event: React.FocusEvent<HTMLElement>) => {
     const next = event.relatedTarget
     if (!mobileMenuOpen || !(next instanceof Node) || event.currentTarget.contains(next)) return
+    if (pressRef.current.active) {
+      pressRef.current.closeAfterClick = true
+      return
+    }
+    if (next instanceof Element && next.closest('[aria-modal="true"]')) {
+      setMobileMenuOpen(false)
+      return
+    }
     flushSync(() => setMobileMenuOpen(false))
   }
 
-  // Escape closes the open menu. A focus inside the menu goes back to its toggle, as a popover's does, since the menu
-  // leaves with it; a focus elsewhere in the bar stays where it is.
+  // Escape closes the open menu, unless a layer above already took it. A focus inside the menu goes back to its toggle,
+  // as a popover's does, since the menu leaves with it; a focus elsewhere in the bar stays where it is.
   const closeMenuOnEscape = (event: React.KeyboardEvent<HTMLElement>) => {
-    if (event.key !== 'Escape' || !mobileMenuOpen) return
+    if (event.key !== 'Escape' || !mobileMenuOpen || event.defaultPrevented) return
     const focusInMenu = menuRef.current?.contains(document.activeElement) ?? false
     setMobileMenuOpen(false)
     if (focusInMenu) menuButtonRef.current?.focus({ preventScroll: true })

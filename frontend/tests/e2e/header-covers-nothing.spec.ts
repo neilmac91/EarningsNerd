@@ -252,6 +252,37 @@ test.describe("the site header's own stops hold the page in place", () => {
         expect(tabs, `${name}: the walk went through the menu's stops`).toBeGreaterThan(3)
       })
 
+      // A tap or a click moves focus to what it presses on its mousedown, before its release. The header is in the
+      // page's flow, and at the top of a page nothing anchors the scroll, so a menu that closed on that focusout moved
+      // the page under the finger and the release followed nothing. The menu closes after the press's click instead.
+      // Under 200% text the open menu fills the screen, so no page control shows below it to press.
+      if (!doubled) {
+        test('a tap on a page link below the open menu, at the top of the page, follows it', async ({ page, baseURL }) => {
+          await open(page, baseURL!, '/', 'light')
+          await settle(page)
+          expect(await page.evaluate(() => window.scrollY), `${name}: the page is at its top`).toBe(0)
+          const toggle = (await page.getByRole('button', { name: 'Open menu' }).boundingBox())!
+          await page.touchscreen.tap(toggle.x + toggle.width / 2, toggle.y + toggle.height / 2)
+          await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible()
+          await settle(page)
+          const target = await page.evaluate(() => {
+            const menuEnd = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+            const link = [...document.querySelectorAll<HTMLAnchorElement>('main a[href^="/"]')].find((a) => {
+              const r = a.getBoundingClientRect()
+              return r.width > 0 && r.top > menuEnd + 8 && r.bottom < window.innerHeight - 8
+            })
+            if (!link) return null
+            const r = link.getBoundingClientRect()
+            return { href: link.getAttribute('href')!, label: link.textContent!.replace(/\s+/g, ' ').trim(), x: r.x + r.width / 2, y: r.y + r.height / 2, menuEnd }
+          })
+          expect(target, `${name}: a page link shows below the open menu`).not.toBeNull()
+          await page.touchscreen.tap(target!.x, target!.y)
+          await expect(page, `${name}: a tap on "${target!.label}" at ${target!.y.toFixed(0)}px, below the open menu ending at ${target!.menuEnd.toFixed(0)}px, follows it`).toHaveURL(
+            (url) => url.pathname === target!.href,
+          )
+        })
+      }
+
       // A focus moved by script runs with script on the stack, so no microtask runs between the focusout and the
       // browser's scroll: only a close inside the focusout clears the open menu's height from the padding in time.
       // Without it, under 200% text, the control landed at 91 to 211px, partly under a 151px bar.
