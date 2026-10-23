@@ -20,7 +20,11 @@ other writer waiting for it, so each race runs with either writer holding the lo
 
 Each race case also asserts that both writers found the accessions missing at their check, and that the other writer
 waited at the insert lock while the holder held it, so a case whose writers did not meet there fails rather than
-passes. FILING_INSERT_CONCURRENCY_TEST_DATABASE_URL enables these cases in CI ("Verify filing insert concurrency on
+passes. Every race case takes the same lock key in one database, and a run under pytest.ini's ``-n auto``, the
+default for a run by hand, runs the cases at once on its workers (CI's job clears addopts, so its step runs them one at
+a time), so that check counts only the case's own sessions, which name themselves after its schema
+(``application_name``): another case's writer waiting for the key does not count.
+FILING_INSERT_CONCURRENCY_TEST_DATABASE_URL enables these cases in CI ("Verify filing insert concurrency on
 PostgreSQL"); each case owns a disposable schema, and without the variable they skip.
 """
 import os
@@ -42,11 +46,12 @@ from app.services import filing_amendment_service, filing_list_service
 from app.services.filing_scan_service import upsert_filings
 
 PARENT, SUBSIDIARY = "XPAR", "YSUB"  # two registrants of one combined filing
-# A session waiting for the filing-insert lock. PostgreSQL lists a one-bigint advisory key as its high and low halves.
+# A session of this case's engine waiting for the filing-insert lock: the checking connection is the case's own, so
+# its application_name is the case's schema. PostgreSQL lists a one-bigint advisory key as its high and low halves.
 WAITING_FOR_THE_INSERT_LOCK = text(
-    "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND objsubid = 1"
-    " AND database = (SELECT oid FROM pg_database WHERE datname = current_database())"
-    " AND classid::bigint = :high AND objid::bigint = :low"
+    "SELECT count(*) FROM pg_locks JOIN pg_stat_activity USING (pid) WHERE locktype = 'advisory' AND NOT granted"
+    " AND objsubid = 1 AND pg_locks.database = (SELECT oid FROM pg_database WHERE datname = current_database())"
+    " AND classid::bigint = :high AND objid::bigint = :low AND application_name = current_setting('application_name')"
 )
 
 
@@ -57,7 +62,8 @@ def postgres_engine():
         pytest.skip("FILING_INSERT_CONCURRENCY_TEST_DATABASE_URL is not configured")
     assert make_url(url).get_backend_name() == "postgresql", "The filing insert gate requires PostgreSQL"
     schema = f"filing_insert_transactions_{uuid.uuid4().hex}"
-    engine = create_engine(url, connect_args={"options": f"-csearch_path={schema} -cstatement_timeout=30000"})
+    engine = create_engine(url, connect_args={"options": f"-csearch_path={schema} -cstatement_timeout=30000",
+                                              "application_name": schema})
     with engine.begin() as conn:
         conn.execute(CreateSchema(schema))
     try:
@@ -107,8 +113,8 @@ class _HoldAfterCheck:
     """Holds each writer's thread after its check, its first read of filings by accession once it has locked its
     company, until every writer has made its own or 5 s pass, so each checks before any inserts, and records how many
     of its accessions each check found stored. At the insert lock it lets the holder take the lock first, then keeps
-    the holder there, the lock granted, until PostgreSQL shows another session waiting for it or 5 s pass, and records
-    whether one did. With no holder, it leaves the insert lock alone."""
+    the holder there, the lock granted, until PostgreSQL shows another of the case's sessions waiting for it or 5 s
+    pass, and records whether one did. With no holder, it leaves the insert lock alone."""
 
     def __init__(self, engine, writers: int, holder: int | None):
         self.engine = engine
@@ -149,7 +155,9 @@ class _HoldAfterCheck:
         deadline = time.monotonic() + 5
         with self.engine.connect() as conn:
             while time.monotonic() < deadline:
-                if conn.execute(WAITING_FOR_THE_INSERT_LOCK, {"high": key >> 32, "low": key & 0xFFFFFFFF}).scalar():
+                waiting = conn.execute(WAITING_FOR_THE_INSERT_LOCK, {"high": key >> 32, "low": key & 0xFFFFFFFF}).scalar()
+                conn.rollback()  # PostgreSQL reads pg_stat_activity once a transaction: each poll reads it afresh
+                if waiting:
                     return True
                 time.sleep(0.002)
         return False
@@ -168,8 +176,8 @@ def _write(engine, hold: _HoldAfterCheck, index: int, writer):
 
 def _race(engine, writers: list, holder: int | None) -> tuple[list[int], list, bool]:
     """Runs the writers at once, one thread and session each, each held after its check, ``writers[holder]`` taking the
-    insert lock first; returns what each check found stored, each writer's error, and whether another session waited
-    for the insert lock while the holder held it."""
+    insert lock first; returns what each check found stored, each writer's error, and whether another of the case's
+    sessions waited for the insert lock while the holder held it."""
     hold = _HoldAfterCheck(engine, len(writers), holder)
     event.listen(Session, "do_orm_execute", hold)
     try:
