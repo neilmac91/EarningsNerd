@@ -38,8 +38,8 @@
               ties with the bar (equal z is DOM order).
      sticky   every sticky site ranks below z-consent, so in-page sticky chrome
               passing through the bar's region never paints over a consent
-              choice; the top-anchored site and page headers are pinned (they
-              stick at the top of the viewport, away from the bar).
+              choice; the top-anchored site header is pinned (it sticks at the
+              top of the viewport, away from the bar).
      rungs    the tokens themselves are pinned to their rungs (sticky < consent
               < scrim < the pinned workspace level 40 < header): every check
               above compares against the tokens, so consent at 45 would pass
@@ -125,12 +125,12 @@ const OFFSET_OBJECTS: Record<string, string[]> = {
   'features/feedback/components/FeedbackWidget.tsx': ['LAUNCHER_OFFSET'],
 }
 const CONSENT_BAR = 'components/CookieConsent.tsx'
-/** Sticky chrome that outranks the bar: top-anchored headers only, pinned to their exact z counts. */
+/** Sticky chrome that outranks the bar: the top-anchored site header only, pinned to its exact z count. A page's own
+    header (SecondaryHeader) scrolls with the page, so it holds no sticky z (headerOffsetReadsTheVariable.spec.ts). */
 const STICKY_ABOVE_CONSENT: Record<string, { z: Record<string, number>; reason: string }> = {
   'components/Header.tsx': { z: { '50': 1 }, reason: 'the site header sticks at the top of the viewport' },
-  'components/SecondaryHeader.tsx': { z: { '40': 1 }, reason: 'the page header (dashboard, watchlist, pricing, admin) sticks at the top' },
 }
-const STICKY_LIMITS = { files: 2, maxZ: 50 }
+const STICKY_LIMITS = { files: 1, maxZ: 50 }
 /** Inline `position: 'fixed'` style objects — anchored popovers at their trigger, never bottom chrome. */
 const INLINE_FIXED: Record<string, number> = {
   'features/filings/components/copilot/AskAboutSelection.tsx': 1,
@@ -495,7 +495,7 @@ describe('no fixed bottom chrome outranks the workspace layers at the launcher c
     ).toEqual([])
   })
 
-  it('no in-page sticky chrome ranks at or above z-consent (the top-anchored headers are pinned)', () => {
+  it('no in-page sticky chrome ranks at or above z-consent (the top-anchored site header is pinned)', () => {
     const offenders = [...scan()]
       .filter(([file]) => !(file in STICKY_ABOVE_CONSENT))
       .flatMap(([file, { sticky }]) =>

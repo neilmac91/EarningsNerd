@@ -270,7 +270,7 @@ export function WhatChanged({
   }
 
   return (
-    <Card as="section" id={id} aria-label="What changed" className="scroll-mt-[calc(var(--site-header-h,4rem)_+_4rem)] p-cap-6 lg:scroll-mt-[calc(var(--site-header-h,4rem)_+_2rem)]">
+    <Card as="section" id={id} aria-label="What changed" className="scroll-mt-16 p-cap-6 lg:scroll-mt-8">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <Heading className={cx('text-lg font-semibold', INK)}>What changed</Heading>
