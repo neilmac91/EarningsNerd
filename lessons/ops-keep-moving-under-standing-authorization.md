@@ -103,3 +103,15 @@ completed with no unresolved finding (F58), and the delta check's verdict
 (`tasks/code-red-20261004/runtime/control/DECISIONS-46.md`'s "After the cutoff" for the commits; DECISIONS-47 for the
 rest). This section records one pull request and sets no rule: no gate can tell a real issue from a nit (rule 12;
 `AGENTS.md` section 4), and no merge step changes.
+
+**The same steer on #1457 (2026-10-22 and 2026-10-23).** After its ready mark at 2026-10-22T20:57:47Z, #1457 took three
+Codex findings as rounds (a lesson's stale wording, the teaser's preview left in the tab order, a test that pinned one
+cited filing's document of six) and merged main in seven times as main moved, each merge a new CI run and Codex review;
+twice its e2e job was cut at the 25-minute limit by a stalled browser install (F59, since raised to 30 minutes). Asked
+whether a move of main that merges cleanly should restart the cycle, the founder said: "Please ensure 1457 merges as
+soon as it's ready. For minor observations, there's no need to continue to make updates." No round followed. Main's
+moves that night were left until #1495's conflicted in `tasks/todo.md`, when main was merged in to clear it, and #1508's,
+which merged cleanly after that, was left. The merge, `ab6962ec` at 2026-10-23T06:18:41Z, came after CI's success on
+`0a99c04f`, Codex's clean review of that head and `review-gate`'s pass on the re-run of a job that had timed out while
+that review ran (the pull request's body; comments 6353802336 and 6358733855). Like the section above, this records one
+pull request and sets no rule.
