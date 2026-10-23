@@ -126,10 +126,21 @@ writer (the scan's `upsert_filings`, which the refresh, the backfill and the dur
 through; the live listing's `persist_live_filings`; `precompute_one`) now takes that row lock before it
 reads or writes a filing row (`filing_amendment_service.lock_company_filings`), which reaches every
 process and instance (2026-10-21). It serializes one company's writers only: a filing listed under two
-companies, a co-registrant filing, is checked under two locks. SQLite omits the lock, so
-`backend/tests/unit/test_filing_writers_lock_before_they_check.py` reads each writer's statements,
-compiled for PostgreSQL: a lock that waits, then the check, with no end of a transaction between them.
-No PostgreSQL gate races two writers.
+companies, a co-registrant filing, is checked under two locks, so two writers of the two companies
+could both find it missing, and the second insert failed (Codex on #1483). Since E153 a writer that
+finds an accession missing also takes the filing-insert lock after its company's, a transaction-level
+advisory lock that every inserting writer shares, and reads the missing accessions again before it
+inserts (`filing_amendment_service.existing_filings_for_insert`), so a writer that waited there inserts
+only what is still missing. One lock serves every accession: a first listing or a history backfill
+inserts hundreds of rows, and a lock apiece would hold as many entries of PostgreSQL's shared lock
+table. A writer with nothing to insert takes no lock, and one that takes it ends its transaction soon
+after (its commit, or its caller's commit or close), with no network call between. SQLite omits both
+locks, so `backend/tests/unit/test_filing_writers_lock_before_they_check.py` reads each writer's
+statements, compiled for PostgreSQL: a lock that waits, then the check, with no end of a transaction
+between them; `backend/tests/unit/test_filing_inserts_lock_across_companies.py` reads the insert lock
+after the check, the second read and the commit, runs the race in one thread, and holds every builder of
+a filing row under `app/` to the three writers. No PostgreSQL gate races two writers; E153's local run
+did, and E161 carries a CI case.
 
 The refresh token's rotation was one more. It read its token, checked it live, minted a successor and
 marked the token rotated, so two refreshes with one cookie both minted, and a refresh racing a logout or
