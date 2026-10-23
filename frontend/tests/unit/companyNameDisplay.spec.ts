@@ -55,14 +55,18 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  *
  * It fails (findingsIn):
  *  A. a served name printed raw: an expression child of an intrinsic element, a fragment or a component the scan
- *     cannot read (an import, React's Fragment); the text an intrinsic element shows from a prop (HOST_TEXT_PROPS: its
- *     children and inner HTML, a field's value, default value and placeholder, an option's label, an iframe's
- *     document); every prop of a component the scan cannot read but the attribute ones (ATTRIBUTE_PROPS), since it may
- *     print any other (a Notice's title, the Ask callout's `subjectLabel`), and what a function such a prop holds
- *     returns (a column's `render`); what a same-file component returns as text; and the words Next prints from a
- *     page's metadata (METADATA_TEXT: the tab's title, the description, a social card's), by the keys Next's metadata
- *     types declare. A same-file component's props and children bind its parameters, so a name handed to one fails
- *     where the component prints it.
+ *     cannot read (an import, React's Fragment); the text an intrinsic element shows from a prop (HOST_TEXT_PROPS:
+ *     its children and inner HTML, a field's value, default value and placeholder, an option's label, an iframe's
+ *     document); every prop of a component the scan cannot read but the attribute ones (ATTRIBUTE_PROPS), since it
+ *     may print any other (a Notice's title, the Ask callout's `subjectLabel`), and what a function such a prop
+ *     holds returns (a column's `render`), another module's function that hands back a served name included; what a
+ *     component returns as text, a component being a function its module renders as a tag or names for one
+ *     (PascalCase), one another module renders (RENDERED_IN: through an import's alias, a re-export, a default
+ *     export, an object's member or a wrapper such as memo) and one its module exports as its default (a page Next
+ *     renders, or one a module loads lazily), whatever its name; and the words Next prints from a page's metadata
+ *     (METADATA_TEXT: the tab's title, the description, a social card's), by the keys Next's metadata types declare.
+ *     A same-file component's props and children bind its parameters, so a name handed to one fails where the
+ *     component prints it.
  *  B. a field of the app's own filled with a served name: an object literal's property (a getter by what it
  *     returns), placed by the type the literal is given (a declared type, a return type, a parameter's type, read
  *     through Object.freeze, parentheses, `as`, `satisfies` and `!`), a spread of a served object into such a
@@ -88,33 +92,33 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * row typed as the API's own type, a CSV, a comparison, an object a function named like a component returns (a
  * mapper's), which is no text, and text drawn outside React (the chart export paints its header on a canvas from
  * ChartExportHeader's `company`, a field of the app's own, which rule B holds). Out of reach, each planted as a gap
- * in tests/unit/fixtures/companyNameForms.tsx and review-checked: text a call puts on the screen outside JSX (a
- * toast's message, `document.title`), since a call's arguments are data to the gate; a name served under another
- * field of an object a component the scan cannot read prints by key (a DataTable column with no `render`, which
- * prints `row[key]`); a name that crosses modules in a prop typed as a plain string (`label: string`, or an indexed
- * access type such as `CalendarEvent['company_name']`), or inside an object another module's function hands back;
- * what a child hands its parent's ref through useImperativeHandle; a state's setter or a reducer's dispatcher handed
- * to another module's code (a function or a component it imports) and called there, where the reader does not look;
- * a name served under another field (the census fails a string field of an API type named for a company, an issuer,
- * a filer, a registrant or an entity until it joins the reading or NOT_NAMES); a read by a key the scan cannot read
- * (`ev[key]`) or from a type that declares no field for it (an index signature, `any`), and a served object handed
- * whole to a view of the app's own through such a type (cast through `unknown`, or JSON.parse's `any`); a piece of
- * the name read by index from what a call hands back (`n.split(' ')[0]`); a display form shouted again
- * (`formatCompanyName(n).toUpperCase()`); a utility known by its name (an array's method) called through
- * Function.prototype's `call` or `apply`, which the reader reads as a call of the method; a served name copied into
- * a class component's field or its state and printed through `this` (`label = this.props.ev.company_name`, then
- * `{this.label}`), since the shared reader follows no class's fields and no class's `this` (a served field read
- * through `this.props` is still read by its type, as a class's getter is, above, and so is a field declared as a
- * view of the app's own, by rule B; the app's class components, two error boundaries, print no name); a getter read
- * through a type that declares its property (another module's object held under a declared type, or a class's getter
- * read through an interface it implements), since the checker places the read on the declared property; an object
- * literal's `this` handed on whole (a getter that hands back its own object, then a member of what it gives); what
- * an assignment through a `set` accessor hands the accessor, kept for a getter of another name; a property
- * descriptor's `get` that reads `this`, which the reader binds to the descriptor; a Proxy's traps; a Map's entries
- * iterated as `[key, value]` pairs, since the reader holds a Map's values as its elements (`get`, `forEach`,
- * `values()` and `entries()` read them), and a served name a Map holds as a key; a promise's `then` and a
- * generator's yields; and React's element calls, which app code may not write
- * (earningsnerd/elements-built-with-jsx).
+ * in tests/unit/fixtures/companyNameForms.tsx or companyNameRendered/ and review-checked: text a call puts on the
+ * screen outside JSX (a toast's message, `document.title`), since a call's arguments are data to the gate; a name
+ * served under another field of an object a component the scan cannot read prints by key (a DataTable column with no
+ * `render`, which prints `row[key]`); a name that crosses modules in a prop typed as a plain string (`label:
+ * string`, or an indexed access type such as `CalendarEvent['company_name']`), or inside an object another module's
+ * function hands back; what a child hands its parent's ref through useImperativeHandle; a state's setter or a
+ * reducer's dispatcher handed to another module's code (a function or a component it imports) and called there,
+ * where the reader does not look; a name served under another field (the census fails a string field of an API type
+ * named for a company, an issuer, a filer, a registrant or an entity until it joins the reading or NOT_NAMES); a
+ * read by a key the scan cannot read (`ev[key]`) or from a type that declares no field for it (an index signature,
+ * `any`), and a served object handed whole to a view of the app's own through such a type (cast through `unknown`,
+ * or JSON.parse's `any`); a piece of the name read by index from what a call hands back (`n.split(' ')[0]`); a
+ * display form shouted again (`formatCompanyName(n).toUpperCase()`); a utility known by its name (an array's method)
+ * called through Function.prototype's `call` or `apply`, which the reader reads as a call of the method; a served
+ * name copied into a class component's field or its state and printed through `this` (`label =
+ * this.props.ev.company_name`, then `{this.label}`), since the shared reader follows no class's fields and no
+ * class's `this` (a served field read through `this.props` is still read by its type, as a class's getter is, above,
+ * and so is a field declared as a view of the app's own, by rule B; the app's class components, two error
+ * boundaries, print no name); a getter read through a type that declares its property (another module's object held
+ * under a declared type, or a class's getter read through an interface it implements), since the checker places the
+ * read on the declared property; an object literal's `this` handed on whole (a getter that hands back its own
+ * object, then a member of what it gives); what an assignment through a `set` accessor hands the accessor, kept for
+ * a getter of another name; a property descriptor's `get` that reads `this`, which the reader binds to the
+ * descriptor; a Proxy's traps; a Map's entries iterated as `[key, value]` pairs, since the reader holds a Map's
+ * values as its elements (`get`, `forEach`, `values()` and `entries()` read them), and a served name a Map holds as
+ * a key; a promise's `then` and a generator's yields (a component another module loads lazily through a `then` among
+ * them); and React's element calls, which app code may not write (earningsnerd/elements-built-with-jsx).
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -122,6 +126,10 @@ const SCANNED_DIRS = ['app', 'components', 'features', 'lib', 'hooks']
 /** The planted forms: one exported function per form, marked in the comment before it, scored by the self-check. In the
     program beside the app, so the checker reads the app's types there; outside the scan. */
 const FORMS = path.join(ROOT, 'tests/unit/fixtures/companyNameForms.tsx')
+/** The forms that need a module of their own (a module's default export, a component another module renders), scored
+    with FORMS. */
+const RENDERED_FORMS = path.join(ROOT, 'tests/unit/fixtures/companyNameRendered')
+const FORM_MODULES = [FORMS, ...sourceFiles(RENDERED_FORMS).sort()]
 const FORMATTER_FILE = path.join(ROOT, 'lib/formatCompanyName.ts')
 /** Where the types of what the backend serves are declared: a feature's api/ modules, the server-side fetch layer
     (lib/serverApi.ts, whose hero data the landing prints), the HTTP client's types and the payload types in types/. */
@@ -162,7 +170,7 @@ const FILES = SCANNED_DIRS.flatMap((dir) => sourceFiles(path.join(ROOT, dir)))
     asking the checker which declaration a read reaches, which no source scan can see across modules. */
 const TSCONFIG = ts.readConfigFile(path.join(ROOT, 'tsconfig.json'), ts.sys.readFile)
 const PARSED = ts.parseJsonConfigFileContent(TSCONFIG.config, ts.sys, ROOT)
-const PROGRAM = ts.createProgram([...FILES, FORMS], { ...PARSED.options, noEmit: true, skipLibCheck: true })
+const PROGRAM = ts.createProgram([...FILES, ...FORM_MODULES], { ...PARSED.options, noEmit: true, skipLibCheck: true })
 const CHECKER = PROGRAM.getTypeChecker()
 const relative = (file: string) => path.relative(ROOT, file).split(path.sep).join('/')
 const isApiModule = (file: string) => API_MODULES.some((re) => re.test(relative(file)))
@@ -468,6 +476,38 @@ const { SERVED_RETURNS, READERS } = (() => {
   throw new Error('the functions that hand back a served name never settle')
 })()
 
+/**
+ * The functions some module renders as an element of a function another module declares: each tag in the program that
+ * reaches one through an import's alias, a re-export, a module's default export, an object's member or a wrapper such as
+ * memo (what the declaring module's reader holds there). Each is a component in the module that declares it, whatever
+ * its name.
+ */
+const RENDERED_IN = (() => {
+  const out = new Map<ts.SourceFile, Set<Fn>>()
+  const held = (e: ts.Expression): Fn[] => [...(READERS.get(e.getSourceFile())?.values.valueOf(e).fns ?? [])]
+  const declared = (d: ts.Node): Fn[] => {
+    if (isFnNode(d)) return [d]
+    if (ts.isExportAssignment(d)) return held(d.expression)
+    if ((ts.isVariableDeclaration(d) || ts.isPropertyAssignment(d)) && d.initializer) return held(d.initializer)
+    if (ts.isShorthandPropertyAssignment(d)) return (CHECKER.getShorthandAssignmentValueSymbol(d)?.declarations ?? []).flatMap(declared)
+    return []
+  }
+  for (const sf of PROGRAM_SOURCES) {
+    const walk = (node: ts.Node): void => {
+      if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+        for (const d of calleeTarget(node.tagName as ts.Expression)?.declarations ?? []) {
+          const home = d.getSourceFile()
+          if (home === sf || !READERS.has(home)) continue
+          for (const fn of declared(d)) out.set(home, (out.get(home) ?? new Set<Fn>()).add(fn))
+        }
+      }
+      ts.forEachChild(node, walk)
+    }
+    walk(sf)
+  }
+  return out
+})()
+
 /** Every served name printed raw (A) and every field of the app's own filled with one (B) in one source. */
 function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
   const { declarationOf, values } = READERS.get(sf) ?? readerOf(sf, SERVED_RETURNS)
@@ -531,7 +571,10 @@ function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
       if (fields.length > 0) return fill(fields, servedIn(value), at)
       if (!prints(name)) return
       if (servedIn(value)) flag(at, 'A')
-      if (kind === 'unread') fnsIn(value).forEach(returnsServed)
+      if (kind !== 'unread') return
+      fnsIn(value).forEach(returnsServed)
+      // Another module's function that hands back a served name, which the component may call and print (a column's render).
+      if (leavesOf(value).has('serving')) flag(at, 'A')
     }
     const attributes = opening.attributes.properties
     attributes.forEach((attr, i) => {
@@ -734,8 +777,11 @@ function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
     }
   }
 
-  // The same-file components: each rendered here as a tag, or named for one (PascalCase).
-  const components = new Set<Fn>()
+  // The same-file components: each rendered here as a tag, rendered by another module (RENDERED_IN), exported as the
+  // module's default (a page Next renders, or one a module renders through its default import, lazily or not), or named
+  // for one (PascalCase).
+  const components = new Set<Fn>(RENDERED_IN.get(sf))
+  const heldHere = (d: ts.Node): Fn[] => (isFnNode(d) ? [d] : ts.isVariableDeclaration(d) && d.initializer ? [...(values.valueOf(d.initializer).fns ?? [])] : [])
   const collect = (node: ts.Node): void => {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       const tag = componentTag(node)
@@ -744,6 +790,11 @@ function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
     if (ts.isFunctionDeclaration(node) && node.name && /^[A-Z]/.test(node.name.text)) components.add(node)
     if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && /^[A-Z]/.test(node.name.text) && node.initializer) {
       for (const fn of values.valueOf(node.initializer).fns ?? []) components.add(fn)
+    }
+    if (ts.isFunctionDeclaration(node) && node.modifiers?.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword)) components.add(node)
+    if (ts.isExportAssignment(node) && !node.isExportEquals) for (const fn of values.valueOf(node.expression).fns ?? []) components.add(fn)
+    if (ts.isExportSpecifier(node) && node.name.text === 'default') {
+      for (const d of CHECKER.getExportSpecifierLocalTargetSymbol(node)?.declarations ?? []) for (const fn of heldHere(d)) components.add(fn)
     }
     ts.forEachChild(node, collect)
   }
@@ -787,31 +838,39 @@ const DECLARED: Field[] = APP_SOURCES.flatMap((sf) => {
 })
 
 describe('a served company name prints through formatCompanyName (E146)', () => {
-  it('scores every planted form in tests/unit/fixtures/companyNameForms.tsx as its mark says', () => {
-    const sf = sourceOf(FORMS)
-    // A form is a function or a class (a class component's), named for its mark.
-    const forms = new Map<string, { mark: string; fn: ts.FunctionDeclaration | ts.ClassDeclaration }>()
-    for (const stmt of sf.statements) {
-      if (!(ts.isFunctionDeclaration(stmt) || ts.isClassDeclaration(stmt)) || !stmt.name) continue
-      const mark = ts.getLeadingCommentRanges(sf.text, stmt.pos)?.map((r) => /^\/\*\*\s*(N\d+) (flag|clean|gap):/.exec(sf.text.slice(r.pos, r.end))).find(Boolean)
-      if (mark && mark[1] === stmt.name.text) forms.set(mark[1], { mark: mark[2], fn: stmt })
-    }
-    // A top-level helper named for a form (N23Line) is that form's.
-    const formOf = (node: ts.Node): string | undefined => {
-      const top = sf.statements.find((s) => node.pos >= s.pos && node.end <= s.end)
-      const name = top && (ts.isFunctionDeclaration(top) || ts.isClassDeclaration(top)) ? top.name?.text : undefined
-      return name ? /^N\d+/.exec(name)?.[0] : undefined
-    }
+  it('scores every planted form in tests/unit/fixtures/companyNameForms.tsx and companyNameRendered/ as its mark says', () => {
+    // A form is a top-level statement its comment marks: in companyNameForms.tsx a function or a class (a class
+    // component's) named for its mark, and in a module of companyNameRendered/ whatever statement holds the form (a
+    // default export, a const). A top-level helper named for a form (N23Line) is that form's.
+    const forms = new Map<string, string>()
     const named = new Set<string>()
     const strays: string[] = []
-    for (const f of findingsIn(sf).findings) {
-      const form = formOf(f.node)
-      if (form && forms.has(form)) named.add(form)
-      else strays.push(`line ${f.line}: ${f.shown}`)
+    for (const file of FORM_MODULES) {
+      const sf = sourceOf(file)
+      const markOf = (stmt: ts.Statement) =>
+        ts.getLeadingCommentRanges(sf.text, stmt.pos)?.map((r) => /^\/\*\*\s*(N\d+) (flag|clean|gap):/.exec(sf.text.slice(r.pos, r.end))).find(Boolean)
+      const nameOf = (stmt: ts.Statement) => (ts.isFunctionDeclaration(stmt) || ts.isClassDeclaration(stmt) ? stmt.name?.text : undefined)
+      const marks = new Map<ts.Statement, string>()
+      for (const stmt of sf.statements) {
+        const mark = markOf(stmt)
+        if (!mark || (file === FORMS && mark[1] !== nameOf(stmt))) continue
+        forms.set(mark[1], mark[2])
+        marks.set(stmt, mark[1])
+      }
+      const formOf = (node: ts.Node): string | undefined => {
+        const top = sf.statements.find((s) => node.pos >= s.pos && node.end <= s.end)
+        if (!top) return undefined
+        return marks.get(top) ?? /^N\d+/.exec(nameOf(top) ?? '')?.[0]
+      }
+      for (const f of findingsIn(sf).findings) {
+        const form = formOf(f.node)
+        if (form && forms.has(form)) named.add(form)
+        else strays.push(`${relative(file)} line ${f.line}: ${f.shown}`)
+      }
     }
-    const count = (mark: string) => [...forms.values()].filter((f) => f.mark === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([140, 41, 30])
-    const misread = [...forms].filter(([name, { mark }]) => named.has(name) !== (mark === 'flag')).map(([name, { mark }]) => `${name} (${mark})`)
+    const count = (mark: string) => [...forms.values()].filter((m) => m === mark).length
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([149, 44, 31])
+    const misread = [...forms].filter(([name, mark]) => named.has(name) !== (mark === 'flag')).map(([name, mark]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])
   })

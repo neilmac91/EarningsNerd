@@ -6,7 +6,9 @@
  * mark flips. The spec reads this file in the same program as the app, so the checker reads the app's own types here,
  * and scores every form on every run: a change to the gate that loses a form, or catches a look-alike, fails there.
  * A top-level helper named for a form (N23Line) is that form's, so what the gate names inside it scores there.
- * Outside the scan roots. Sample companies only. A new form the rule can take joins it with its mark.
+ * Forms that need a module of their own (a module's default export, a component another module renders) live in
+ * companyNameRendered/, scored with these, each the statement its comment marks. Outside the scan roots. Sample
+ * companies only. A new form the rule can take joins it with its mark.
  */
 import {
   Component,
@@ -14,6 +16,7 @@ import {
   createContext,
   createElement,
   forwardRef,
+  lazy,
   useActionState,
   useContext,
   useDeferredValue,
@@ -64,6 +67,7 @@ import {
   pickFirst,
 } from './companyNameKit'
 import { shortNameOf } from './companyNameKit2'
+import { rawKey, rowLine as RowLine, rowName, Rows, shownLine as ShownLine } from './companyNameRendered/rows'
 
 /** A view model of this file's own, so its fields are the app's own (declared outside an API module). */
 interface LineView {
@@ -1454,6 +1458,48 @@ function N207Keep<T>(value: T): T {
 export function N207({ ev }: { ev: CalendarEvent }) {
   const raw: CalendarEvent = N207Keep(ev)
   return <span>{formatCompanyName(raw.company_name)}</span>
+}
+
+// Components another module renders, and functions handed to one: their forms in tests/unit/fixtures/companyNameRendered/.
+
+/** N218's render site: another module's component of a lowercase name, rendered under an alias. */
+export function N218Use({ ev }: { ev: CalendarEvent }) {
+  return <RowLine ev={ev} />
+}
+
+/** N219's render site: another module's component held as an object's member. */
+export function N219Use({ ev }: { ev: CalendarEvent }) {
+  return <Rows.line ev={ev} />
+}
+
+/** N220 flag: another module's function that hands back a served name, handed to a DataTable column's render, which
+    prints what it returns. */
+export function N220({ events }: { events: CalendarEvent[] }) {
+  return <DataTable rows={events} rowKey={(ev) => ev.ticker} columns={[{ key: 'name', header: 'Company', render: rowName }]} />
+}
+
+/** N222's render site: another module's component that returns the display form. */
+export function N222Use({ ev }: { ev: CalendarEvent }) {
+  return <ShownLine ev={ev} />
+}
+
+/** N223's call site: another module's helper that hands back a served name, called for a key. */
+export function N223Use({ events }: { events: CalendarEvent[] }) {
+  return (
+    <ul>
+      {events.map((ev) => (
+        <li key={rawKey(ev)}>{ev.ticker}</li>
+      ))}
+    </ul>
+  )
+}
+
+/** N224's component, another module's loaded lazily through a promise's then. */
+const N224Line = lazy(() => import('./companyNameRendered/rows').then((m) => ({ default: m.lazyLine })))
+
+/** N224's render site. */
+export function N224Use({ ev }: { ev: CalendarEvent }) {
+  return <N224Line ev={ev} />
 }
 
 // Forms the rule forbids that the gate leaves to review, each named in the spec's header.
