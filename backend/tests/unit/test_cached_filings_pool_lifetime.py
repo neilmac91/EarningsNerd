@@ -1466,8 +1466,8 @@ async def _bill(transport: httpx.ASGITransport, route: str, i: int) -> httpx.Res
                          ids=["checkout-new-customer", "checkout-stored-customer", "portal"])
 async def test_checkout_and_portal_release_their_connection_before_stripe(monkeypatch, tmp_path, route, with_customer):
     """Checkout reads what it needs in one thread-pool unit and releases it before any Stripe call, a new
-    customer's claim is a unit of its own, and the billing portal releases before its one call; every
-    Stripe call runs in the thread pool. Eight payers on four slots, each Stripe call taking 0.3 s, so
+    customer's claim and the trial's row check after the customer step are units of their own, and the
+    billing portal releases before its one call; every Stripe call runs in the thread pool. Eight payers on four slots, each Stripe call taking 0.3 s, so
     answer 8x200 with no checkout, statement or release on the loop, nothing left for the finalizer,
     and each new customer stored on its own payer (E144)."""
     from app.models import User

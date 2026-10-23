@@ -12,7 +12,7 @@ what that mock cannot:
 - Two checkouts of one account that each found no customer check out with the one stored first,
   never one written over it (E166), and an account deleted while checkout creates its customer gets
   no checkout session.
-- Checkout's plan comes from the reader's own row, never the ``is_pro`` mirror (E144).
+- Checkout's plan comes from the reader's own row when there is one, not the ``is_pro`` mirror (E144).
 
 The reader is loaded through the request's own ``get_db`` session, as ``get_current_user`` does, so
 checkout's first unit reads it, and the row its plan loads, on that session and releases the session
@@ -130,6 +130,14 @@ def test_status_never_serves_another_users_row(client):
     assert (body["stripe_customer_id"], body["stripe_subscription_id"], body["status"]) == ("cus_reader", None, None)
 
 
+def _retrieved(customer_id):
+    """``Customer.retrieve`` as stripe-python answers it: an id that is not a string is refused before any
+    request, so a checkout that retrieves a customer it has not got answers 400, as in production."""
+    if not isinstance(customer_id, str):
+        raise stripe.error.InvalidRequestError(f"Customer instance has invalid ID: {customer_id!r}", "id")
+    return SimpleNamespace(id=customer_id)
+
+
 def _checkout(client, monkeypatch, *, session_error: Exception | None = None,
               customer_created: Callable[..., SimpleNamespace] | None = None):
     """Post a monthly checkout with Stripe mocked; return (response, Customer.create, Session.create).
@@ -139,7 +147,7 @@ def _checkout(client, monkeypatch, *, session_error: Exception | None = None,
     session = MagicMock(url="https://checkout.stripe.test/session")
     with patch.object(stripe.Customer, "create", return_value=SimpleNamespace(id="cus_new"),
                       side_effect=customer_created) as create_customer, \
-            patch.object(stripe.Customer, "retrieve", side_effect=lambda cid: SimpleNamespace(id=cid)), \
+            patch.object(stripe.Customer, "retrieve", side_effect=_retrieved), \
             patch.object(stripe.checkout.Session, "create", return_value=session,
                          side_effect=session_error) as create_session:
         resp = client.post("/api/subscriptions/create-checkout-session", params={"price_id": "monthly"})

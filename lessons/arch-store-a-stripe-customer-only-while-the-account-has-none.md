@@ -39,7 +39,7 @@ itself or under a lock taken before the re-read
 
   The first fails on a blind write, and passes a check and a write in two statements. Since E144
   moved the claim into the thread pool, the two claims of the second interleave as threads do: in the
-  review's runs it failed a blind write 31 times in 32, and two statements in 20 to 75 percent of each
+  review's runs it failed a blind write 31 times in 32, and two statements in 20 to 88 percent of each
   batch's runs.
 - `backend/tests/integration/test_subscription_event_transactions.py`'s
   `test_postgres_concurrent_customer_claims_keep_the_first` (CI's PostgreSQL job): two claims for
