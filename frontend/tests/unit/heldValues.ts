@@ -70,10 +70,11 @@ import ts from 'typescript'
  *  - a call: a same-file function's returns (an arrow's expression, each `return` outside nested functions); an
  *    array's `find`, `findLast`, `at`, `pop` and `shift` (an element), `filter`, `slice`, `splice`, `concat`, `sort`,
  *    `reverse`, `flat` and their copying forms (its elements), `map` and `flatMap` (what the callback returns) and
- *    `reduce` (its accumulator); `Object.values`, `Object.entries` (each value at index 1), `Object.assign` (its
- *    target, with every source's properties), `Object.fromEntries` (each entry's value under its key, as `new Map`
- *    holds it), `Object.defineProperty` and `Object.defineProperties` (their target, with
- *    what they define), `Object.create` (its prototype's properties, with what it defines), `Object.freeze`,
+ *    `reduce` (its accumulator), and `values()` (its elements) and `entries()` (each element at index 1) of a value
+ *    without a same-file method of that name; `Object.values`, `Object.entries` (each value at index 1),
+ *    `Object.assign` (its target, with every source's properties), `Object.fromEntries` (each entry's value under its
+ *    key, as `new Map` holds it), `Object.defineProperty` and `Object.defineProperties` (their target, with what they
+ *    define), `Object.create` (its prototype's properties, with what it defines), `Object.freeze`,
  *    `Object.seal` and `Object.preventExtensions` (what they are given), `Array.from`; React's `Children.map` (what the
  *    callback returns), `Children.toArray` and
  *    `Children.only`, `useMemo` (what its callback returns), `useCallback` (its callback), and `memo` and
@@ -100,14 +101,21 @@ import ts from 'typescript'
  * context's, or a setter handed to another module's code), what React state holds after its setter or a reducer runs
  * unless the gate reads state (HeldOptions.state), a class's members and its `this` (a field, a getter, a method),
  * `this` handed on whole (returned, passed or held by another name), what an assignment through a `set` accessor hands
- * the accessor, a Proxy's traps, a Map's entries iterated as `[key, value]` pairs (a Map holds its values as its
- * elements, so `forEach` hands on a value and a destructured pair holds nothing), a promise's `then`, a generator's
- * yields, and a utility known by its name (an array's method, React's Children) called through Function.prototype's
- * `call` or `apply`, which reads as a call of the method. One over-count, which fails closed: a parameter is not told
- * apart by call, so it holds what every same-file call passes it, and a function called with different values reads all
- * of them at each call (a component rendered once with each of two glyphs counts both at each render). A value that
- * grows through its own reads (`const a = <>{a}</>`, or a component that passes its own children back to itself with
- * more added) never settles: the scan throws instead of settling on an arbitrary count.
+ * the accessor, a property descriptor's `get` that reads `this` (the reading binds it to the descriptor, where it runs
+ * on the object), a Proxy's traps, a Map's entries iterated as `[key, value]` pairs (a Map holds its values as its
+ * elements, so `forEach`, `values()` and `entries()` hand on a value, and a pair destructured from the Map itself holds
+ * nothing), a Map's keys (it holds a value under a key the scan can read, never the key), a promise's `then`, a
+ * generator's yields, and a utility known by its name (an array's method, React's Children) called through
+ * Function.prototype's `call` or `apply`, which reads as a call of the method. One over-count, which fails closed: a
+ * parameter is not told apart by call, so it holds what every same-file call passes it, and a function called with
+ * different values reads all of them at each call (a component rendered once with each of two glyphs counts both at
+ * each render).
+ * The reading settles on code that runs: an array's elements past a spread are keyed by where they are written, so an
+ * array that appends to itself (`setNames((prev) => [...prev, name])`) holds the same keys on every pass, and a value
+ * nests at most DEPTH levels, past which it is what it holds anywhere below, so a value that nests itself (a getter
+ * that hands back an object holding its own object) stops deepening. A value whose counts grow through its own reads
+ * (`const a = <>{a}</>`, which no runtime allows, or a component that passes its own children back to itself with more
+ * added) never settles: the scan throws instead of settling on an arbitrary count.
  */
 export interface Held<L> {
   /** Each leaf the value may be, with how many times it renders. */
@@ -234,6 +242,31 @@ const argumentsOf = <L>(passed: Array<Held<L>>, tail?: Held<L>): Held<L> => {
   })
   if (tail && !vacant(tail)) props.set(`${REST}0`, tail)
   return { leaves: new Map(), props, fns: null }
+}
+
+/** How deep a held value nests: past it, a value is what it holds anywhere below, each leaf at its largest count, with
+    no properties of its own, so a value that nests itself on every pass (a getter or a function that hands back an
+    object holding its own object, an array put inside itself) settles instead of growing without end. */
+const DEPTH = 16
+/** Everything a value holds, at any depth, in one value: its leaves (each at its largest count), functions and
+    setters. */
+const flattened = <L>(value: Held<L>): Held<L> =>
+  [...(value.props?.values() ?? [])].reduce(
+    (out, prop) => union(out, flattened(prop)),
+    { leaves: value.leaves, props: null, fns: value.fns, setters: value.setters } as Held<L>,
+  )
+/** A value nested at most DEPTH levels: each property past the bound is flattened. */
+const bounded = <L>(value: Held<L>, depth = 0): Held<L> => {
+  if (!value.props?.size) return value
+  if (depth >= DEPTH) return flattened(value)
+  let changed = false
+  const props = new Map<string, Held<L>>()
+  for (const [key, prop] of value.props) {
+    const next = bounded(prop, depth + 1)
+    if (next !== prop) changed = true
+    props.set(key, next)
+  }
+  return changed ? { ...value, props } : value
 }
 
 const size = <L>(value: Held<L>): number =>
@@ -780,17 +813,27 @@ export function heldValues<L>(
     if (ts.isArrayLiteralExpression(x)) {
       const props = new Map<string, Held<L>>()
       let index = 0
-      let rest = 0
-      const place = (value: Held<L>) => {
-        if (!vacant(value)) props.set(index < 0 ? `${REST}${rest++}` : String(index), value)
+      // Past a spread the indices are unknown, so an element is keyed by where it is written (unplaced): one after a
+      // spread by its own place, and a spread's by the spread and the key it had. A key this literal gave on an earlier
+      // pass, and a key read as any element, are kept as they are, so an array that appends to itself (`[...prev, x]`,
+      // in a state's updater or a `let`) holds the same keys on every pass and settles.
+      const places = new Set(x.elements.map((el) => el.pos))
+      const unplaced = (key: string, spread: ts.SpreadElement): string => {
+        if (key === ANY) return key
+        const at = key.startsWith(REST) ? /^\d+/.exec(key.slice(REST.length))?.[0] : undefined
+        return at !== undefined && places.has(Number(at)) ? key : `${REST}${spread.pos}.${key}`
+      }
+      const put = (key: string, value: Held<L>) => {
+        if (vacant(value)) return
+        props.set(key, props.has(key) ? union(props.get(key)!, value) : value)
       }
       for (const el of x.elements) {
         if (ts.isSpreadElement(el)) {
           index = -1
-          for (const value of valueOf(el.expression, record).props?.values() ?? []) place(value)
+          for (const [key, value] of valueOf(el.expression, record).props ?? []) put(unplaced(key, el), value)
           continue
         }
-        if (!ts.isOmittedExpression(el)) place(valueOf(el, record))
+        if (!ts.isOmittedExpression(el)) put(index < 0 ? `${REST}${el.pos}` : String(index), valueOf(el, record))
         if (index >= 0) index++
       }
       return { leaves: new Map(), props, fns: null }
@@ -935,6 +978,12 @@ export function heldValues<L>(
         return arrayOf(element)
       }
       if (name === 'map' || name === 'flatMap') return arrayOf(calledAt(0))
+      // `values()` iterates the elements (a Map's values, a Set's items), and `entries()` pairs each at index 1, unless
+      // the receiver's own method of that name is a same-file function.
+      if ((name === 'values' || name === 'entries') && args.length === 0 && !valueOf(x.expression).fns?.size) {
+        const element = elementOf(valueOf(recv, record))
+        return arrayOf(name === 'entries' ? withProps([['1', element]]) : element)
+      }
       if (name === 'reduce' || name === 'reduceRight') return union(arg(1), calledAt(0))
       if (name === 'get' && args.length === 1) {
         const base = valueOf(recv)
@@ -955,11 +1004,11 @@ export function heldValues<L>(
     return union(asText(handed), called(callee, record))
   }
 
-  /** Gives a holder a value it may hold, beside those it holds already. */
+  /** Gives a holder a value it may hold, beside those it holds already, nested at most DEPTH levels (bounded). */
   const give = (key: ts.Node, value: Held<L>) => {
     if (vacant(value)) return
     const before = holders.get(key)
-    holders.set(key, before ? union(before, value) : value)
+    holders.set(key, bounded(before ? union(before, value) : value))
   }
   /** Gives a declared name its part of a value: a bare name the whole, each element of an object or array pattern its
       member, nested patterns included, with its default (which renders when the member is missing), and a rest element
@@ -1270,13 +1319,14 @@ export function heldValues<L>(
   count(sf)
 
   // To a fixed point: each pass reads every source with what the passes before it found, and a holder only gains. In
-  // code that runs, a value stops growing within a pass per source. A value that reads itself (`const a = <>{a}</>`,
-  // which no runtime allows, or a component handing its own children back to itself with more added) would count
-  // without end: the scan throws instead of settling on an arbitrary count.
+  // code that runs, a value stops growing within a pass per source, or within DEPTH passes for a value that nests
+  // itself (bounded). A value whose counts grow through its own reads (`const a = <>{a}</>`, which no runtime allows,
+  // or a component handing its own children back to itself with more added) would count without end: the scan throws
+  // instead of settling on an arbitrary count.
   const total = () =>
     [...holders.values()].reduce((n, value) => n + size(value), 0) + [...boundShifts.values()].reduce((n, shifts) => n + shifts.size, 0)
   let settled = false
-  for (let pass = 0; !settled && pass <= sites + 1; pass++) {
+  for (let pass = 0; !settled && pass <= sites + DEPTH + 1; pass++) {
     const before = total()
     sources()
     settled = total() === before

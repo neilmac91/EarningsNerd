@@ -53,6 +53,7 @@ import {
   keepLatest,
   labelsOf,
   latestEvent,
+  latestRow,
   lengthOf,
   nameFromEvent,
   nameOf,
@@ -1099,7 +1100,7 @@ export function N164({ ev }: { ev: CalendarEvent }) {
 }
 
 /** N165 clean: a Map and Object.fromEntries holding a served name under one key and the display form under another,
-    read under the display form's key; a Set of display forms; and a WeakSet, which gives nothing back to read. */
+    read under the display form's key, and a Set of display forms. */
 export function N165({ ev }: { ev: CalendarEvent }) {
   const shown = formatCompanyName(ev.company_name)
   const names = new Map([
@@ -1111,12 +1112,66 @@ export function N165({ ev }: { ev: CalendarEvent }) {
     ['shown', shown],
   ])
   const display = new Set([shown])
-  const seen = new WeakSet([ev])
   return (
     <span>
-      {names.get('shown')} {labels.shown} {[...display].join(', ')} {seen.has(ev) ? 'seen' : ''}
+      {names.get('shown')} {labels.shown} {[...display].join(', ')}
     </span>
   )
+}
+
+/** N167 clean: React's append idiom, a state's updater spreading the state it is handed, given the display form. */
+export function N167({ ev }: { ev: CalendarEvent }) {
+  const [names, setNames] = useState<string[]>([])
+  return (
+    <button type="button" onClick={() => setNames((prev) => [...prev, formatCompanyName(ev.company_name)])}>
+      {names.join(', ')}
+    </button>
+  )
+}
+
+/** N168 flag: React's append idiom given a served name. */
+export function N168({ ev }: { ev: CalendarEvent }) {
+  const [names, setNames] = useState<string[]>([])
+  return (
+    <button type="button" onClick={() => setNames((prev) => [...prev, ev.company_name])}>
+      {names.join(', ')}
+    </button>
+  )
+}
+
+/** N169 flag: an object literal's method that appends a served name to an array it keeps on `this`. */
+export function N169({ ev }: { ev: CalendarEvent }) {
+  const list = {
+    items: [] as string[],
+    add(name: string) {
+      this.items = [...this.items, name]
+    },
+  }
+  list.add(ev.company_name)
+  return <span>{list.items.join(', ')}</span>
+}
+
+/** N170 flag: a getter that hands back an object holding its own object by name, a served name read through it. */
+export function N170({ ev }: { ev: CalendarEvent }) {
+  const row = {
+    raw: ev.company_name,
+    get parent(): { child: { raw: string } } {
+      return { child: row }
+    },
+  }
+  return <span>{row.parent.child.raw}</span>
+}
+
+/** N171 flag: a Map's values() iterated, a served name among them. */
+export function N171({ ev }: { ev: CalendarEvent }) {
+  const names = new Map([['current', ev.company_name]])
+  return <span>{[...names.values()].join(', ')}</span>
+}
+
+/** N172 flag: a Map's entries() iterated as pairs, a served name the pair's value. */
+export function N172({ ev }: { ev: CalendarEvent }) {
+  const names = new Map([['current', ev.company_name]])
+  return <span>{Array.from(names.entries(), ([, name]) => name).join(', ')}</span>
 }
 
 // Forms the rule forbids that the gate leaves to review, each named in the spec's header.
@@ -1283,6 +1338,63 @@ export function N166({ ev }: { ev: CalendarEvent }) {
         <li key={key}>{name}</li>
       ))}
     </ul>
+  )
+}
+
+/** N173 gap: a served name a promise's `then` hands a state's setter. */
+export function N173({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useState('')
+  return (
+    <button type="button" onClick={() => Promise.resolve(ev.company_name).then(setName)}>
+      {name}
+    </button>
+  )
+}
+
+/** N174's generator, which yields a served name. */
+function* N174Names(ev: CalendarEvent) {
+  yield ev.company_name
+}
+
+/** N174 gap: a served name a generator yields, read by spreading what it gives. */
+export function N174({ ev }: { ev: CalendarEvent }) {
+  return <span>{[...N174Names(ev)].join(', ')}</span>
+}
+
+/** N175 gap: another module's getter that hands back a served name, read through a type that declares the property. */
+export function N175() {
+  return <span>{latestRow.name}</span>
+}
+
+/** N176 gap: a property descriptor's getter that reads `this`, which the reading binds to the descriptor. */
+export function N176({ ev }: { ev: CalendarEvent }) {
+  const row: { raw: string; label?: string } = { raw: ev.company_name }
+  Object.defineProperty(row, 'label', {
+    get() {
+      return this.raw
+    },
+  })
+  return <span>{row.label}</span>
+}
+
+/** N177 gap: a served name a Map holds as a key, read through keys(). */
+export function N177({ ev }: { ev: CalendarEvent }) {
+  const counts = new Map([[ev.company_name, 1]])
+  return <span>{[...counts.keys()].join(', ')}</span>
+}
+
+/** N178 gap: a served name read from a value typed `any`, which declares no field for it. */
+export function N178({ row }: { row: any }) {
+  return <span>{row.company_name}</span>
+}
+
+/** N179 gap: a reducer's dispatcher handed to another module's function, and called there. */
+export function N179({ events }: { events: CalendarEvent[] }) {
+  const [name, dispatch] = useReducer(keepLatest, '')
+  return (
+    <button type="button" onClick={() => pickFirst(events, dispatch)}>
+      {name}
+    </button>
   )
 }
 
