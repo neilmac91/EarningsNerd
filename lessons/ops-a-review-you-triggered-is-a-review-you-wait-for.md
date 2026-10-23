@@ -28,7 +28,7 @@ attempt skipped and cancelled the ready run: runs 38483245956 and 38483284762 on
 commenting `@codex review`, returns for the pull request's current head before you merge, or you
 record why you did not as a line `Review override: <reason>` in the pull request body. After pushing
 commits that address findings, comment `@codex review` immediately, or, while a review still shows Running,
-once it settles (`ops-merge-after-the-ready-marks-own-codex-review.md`): a push alone re-triggers
+once it completes or is an hour old (`ops-merge-after-the-ready-marks-own-codex-review.md`): a push alone re-triggers
 nothing here, and that comment also re-runs the gate. The `review-gate` check (`.github/workflows/review-gate.yml`,
 `backend/scripts/review_gate.py`) enforces this once a ruleset on `main` requires it, by checking
 the current full-head machine state and trusted review-cycle history: the latest review must
