@@ -273,8 +273,8 @@ filings index's header and rows, the admin lists' rows). Each takes the cap from
 body takes it from step 4, since the dialog's own inset already halves the measure there: the cookie dialog's category
 cards (`p-cap-4`) left their text 92, 132 and 162px at 320, 360 and 390px under 200% text and broke its longest words
 ("Essen" over "tial"), and with the body's and the cards' caps keep 188, 220 and 244px and break none. A step under the
-threshold stays as it is (a Notice's `px-4`, the KPI strip's `p-3 sm:p-4`, the Trace to Source demo's claim box), and
-a page's gutter is no surface. Gate: the ESLint rule `earningsnerd/surface-padding-cap` (`eslint.designRules.mjs`; its
+threshold stays as it is (a Notice's `px-4`, the KPI strip's `p-3 sm:p-4`; the Trace to Source demo's boxes give way by
+their own rule, §7), and a page's gutter is no surface. Gate: the ESLint rule `earningsnerd/surface-padding-cap` (`eslint.designRules.mjs`; its
 planted cases in `tests/unit/designRules.spec.ts`), which reads a step by its resolved size (`p-gutter`, `p-[24px]`),
 fails a value it cannot read as a length, reads a class a same-file binding holds with any class attribute that names
 it, in each branch where it is named (`cx(SHELL, 'p-6')`, `framed ? FRAME : PAD`), reads pieces under separate
@@ -1716,6 +1716,18 @@ hero's at 320, 390 and 1440px under 200% text, and every waitlist code at 320 an
 a 768px and an 834px tablet over its route loop; a 320px phone under 200% text over it too, the three
 legal pages among its routes; and, read a character at a time, every word of the legal pages whole at
 390px under 200% text and each one's title at 320px).
+
+The landing's Trace to Source demo (`TraceToSourceDemo.tsx`) gives way from the outside in, by what each box is
+for (E143, chief design's rule on #1462). Below a 24rem viewport (384px at the default size, 768px under a 200% text
+setting) the claim box gives up its frame, its border, fill and side padding, and sits on the card, which is already
+the summary's surface; the panel keeps its frame and shadow, since the popover is what the demo shows, with the capped
+inset (`p-cap-3`); the card's inset is capped (`p-cap-5`); and the quote keeps its rule and its `pl-2`, the mark that
+never goes. `SourceTracePanelBody` is unchanged: its `break-words` breaks only a word that has no room. At 320px under
+200% text the quote keeps 183px, where it kept 40px inside the four insets and 88px with the card's cap alone, so
+"advertising," (171px) holds whole; 216px at 360px and 242px at 390px. Before, its words ran up to 32px past the card
+and the section reference broke inside "Management’s" and "Discussion". Gate: `tests/e2e/reflow-200.spec.ts` (the
+quote's and the section reference's painted lines inside the panel's content box, and no word of either broken, read a
+character at a time, at 320, 360 and 390px under 200% text).
 
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:
