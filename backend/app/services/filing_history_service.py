@@ -10,7 +10,11 @@ Uses the EFTS full-text-search integration (``app.integrations.sec_api`` — Pat
 page-0 request per window (EFTS returns HTTP 500 for ``from>0`` on query-less searches), windows
 sized so a company's per-window hit count stays under the ~100-hit page cap. Rows are written
 through ``filing_scan_service.upsert_filings`` (NOT-NULL-safe, accession-deduped). Each company is
-stamped ``companies.history_backfilled_at`` so the on-visit enqueue never re-walks it.
+stamped ``companies.history_backfilled_at`` so the on-visit enqueue never re-walks it. The stamp does
+not record the forms walked (each walk's log line does): a process with ``ENABLE_FPI_FILINGS`` off
+walks 10-K/10-Q only and still stamps a foreign issuer, so every process that runs the walk carries
+the service's flag, and ``migrations/20261023_rewalk_foreign_issuer_history.sql`` cleared the stamps
+the 10-K/10-Q-only walk had left on foreign issuers.
 
 Annual and quarterly amendments are included; same-period originals remain available and are marked superseded.
 A foreign issuer's 20-F/40-F amendments are not walked, as the company list does not serve them.
@@ -70,8 +74,9 @@ def _windows(since_year: int, end: datetime, window_years: int) -> list[tuple[st
 def _hit_to_filing_dict(hit: Any) -> Optional[dict]:
     """Adapt an ``EftsHit`` to the ``upsert_filings`` dict shape, or ``None`` to skip.
 
-    Skips rows missing the NOT-NULL keys (accession/sec_url/document_url), unknown/other forms,
-    so only clean annual/quarterly reports and their amendments are inserted."""
+    Skips rows missing the NOT-NULL keys (accession/sec_url/document_url) and any form the walk does
+    not list (``_backfill_forms``), so only 10-K/10-Q reports and their amendments are inserted, and
+    with ``ENABLE_FPI_FILINGS`` on 20-F/40-F originals."""
     accession = getattr(hit, "accession_no", None)
     sec_url = getattr(hit, "sec_url", None)
     document_url = getattr(hit, "document_url", None)
@@ -168,6 +173,8 @@ def _persist_history_rows(
     stats = {
         "ticker": ticker, "windows": windows, "windows_ok": windows_ok,
         "hits": len(rows), "inserted": len(inserted),
+        # The forms this process walks, so a walk with ENABLE_FPI_FILINGS off shows in its log line.
+        "forms": ",".join(_backfill_forms()),
     }
     logger.info("History backfill %s", stats)
     if require_complete and windows_ok != windows:

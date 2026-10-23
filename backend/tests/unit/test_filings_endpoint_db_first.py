@@ -8,6 +8,7 @@ DB (so the actual queries execute) with SEC faked at the compat boundary.
 import asyncio
 import contextlib
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import httpx
 import pytest
@@ -735,9 +736,9 @@ def test_domestic_lists_are_unchanged_by_the_6k_budget(client, monkeypatch):
     assert [f["accession_number"] for f in cached] == newest_first[:filing_list_service.CACHED_FILINGS_LIMIT]
 
 
-# ---- History backfill: a heavy 6-K filer's older annual reports reach its company page ----
-# SEC's recent window holds about a year or about 1,000 filings, only weeks for a daily 6-K filer, so
-# the live list stores none of its 20-Fs; with ENABLE_FPI_FILINGS on, the EFTS history walk does.
+# ---- History backfill: a foreign issuer's older annual reports reach its company page ----
+# The live list reads SEC's recent window, the greater of about a year or about 1,000 filings, so it
+# stores no 20-F older than that window; with ENABLE_FPI_FILINGS on, the EFTS history walk does.
 
 
 def _efts_listing(filings):
@@ -779,18 +780,19 @@ def _stored_fields(session, accession):
 
 
 def test_history_backfill_lists_a_6k_filers_older_annual_reports(client, monkeypatch):
-    """A first visit to a daily 6-K filer lists only 6-Ks: its recent window holds nothing else. The
-    visit's history backfill walks EFTS (faked at the transport), and the next visit lists the 20-Fs
-    newest first, each with its period end and canonical archive URLs, so the page's year groups and
-    "Compare periods" have the annual reports. The 20-F/A EFTS lists beside them is not stored, as
-    the default company list neither serves nor stores one."""
+    """A first visit to a daily 6-K filer lists what its recent window holds: daily 6-Ks and its
+    newest 20-F (the fake window is cut short; SEC's spans at least a year). The visit's history
+    backfill walks EFTS (faked at the transport), and the next visit lists every 20-F newest first,
+    the one the live list stored once, each with its period end and canonical archive URLs, so the
+    page's year groups and "Compare periods" have the older annual reports. The 20-F/A EFTS lists
+    beside them is not stored, as the default company list neither serves nor stores one."""
     tc, TestingSession = client
     monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
     monkeypatch.setattr(settings, "HISTORY_BACKFILL_SINCE_YEAR", 2017)
-    window = _daily("6-K", 60, date(2026, 8, 31), "1")
-    monkeypatch.setattr(edgar_client_mod, "EdgarCompany", _fake_edgar_company(window))
-    annuals = [_annual("20-F", year, year - 2016) for year in range(2017, 2025)]
+    annuals = [_annual("20-F", year, year - 2016) for year in range(2017, 2026)]
     amendment = _annual("20-F/A", 2022, 99)
+    window = _daily("6-K", 60, date(2026, 8, 31), "1") + annuals[-1:]
+    monkeypatch.setattr(edgar_client_mod, "EdgarCompany", _fake_edgar_company(window))
     monkeypatch.setattr(filing_history_service, "_fetch_history_rows", _REAL_FETCH_HISTORY_ROWS)
     monkeypatch.setattr(sec_api, "sec_full_text_search_client", _efts_listing(annuals + [amendment] + window))
     with TestingSession() as s:
@@ -799,7 +801,7 @@ def test_history_backfill_lists_a_6k_filers_older_annual_reports(client, monkeyp
     first = tc.get("/api/filings/company/BPX").json()  # cold: the live list, then the backfill
     listed = tc.get("/api/filings/company/BPX").json()
 
-    assert {f["filing_type"] for f in first} == {"6-K"}
+    assert [f["accession_number"] for f in first if f["filing_type"] != "6-K"] == [annuals[-1].accession_number]
     reports = [f for f in listed if f["filing_type"] != "6-K"]
     newest_first = sorted(annuals, key=lambda f: f.filing_date, reverse=True)
     assert [f["accession_number"] for f in reports] == [f.accession_number for f in newest_first]
@@ -812,6 +814,52 @@ def test_history_backfill_lists_a_6k_filers_older_annual_reports(client, monkeyp
     assert [f["filing_type"] for f in listed].count("6-K") == filing_list_service.CACHED_FILINGS_LIMIT
     with TestingSession() as s:
         assert s.query(Filing).filter(Filing.accession_number == amendment.accession_number).count() == 0
+        assert s.get(Company, company_id).history_backfilled_at is not None
+
+
+REWALK_MIGRATION = Path(__file__).resolve().parents[2] / "migrations/20261023_rewalk_foreign_issuer_history.sql"
+
+
+def test_a_foreign_issuer_the_old_walk_stamped_is_walked_again_after_the_migration(client, db_engine, monkeypatch):
+    """Before this release the walk listed 10-K/10-Q only, so a foreign issuer opened then holds what
+    the live list stored (its recent 6-Ks and newest 20-F) and a stamp that stops every later visit
+    from walking it, whatever forms the walk now lists. The deploy's migration clears that stamp, so
+    the next visit walks EFTS with the foreign forms and the company lists its older 20-Fs."""
+    tc, TestingSession = client
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
+    monkeypatch.setattr(settings, "HISTORY_BACKFILL_SINCE_YEAR", 2017)
+    annuals = [_annual("20-F", year, year - 2016) for year in range(2017, 2026)]
+    window = _daily("6-K", 60, date(2026, 8, 31), "1") + annuals[-1:]
+    monkeypatch.setattr(edgar_client_mod, "EdgarCompany", _fake_edgar_company(window))
+    monkeypatch.setattr(filing_history_service, "_fetch_history_rows", _REAL_FETCH_HISTORY_ROWS)
+    monkeypatch.setattr(sec_api, "sec_full_text_search_client", _efts_listing(annuals + window))
+    with TestingSession() as s:
+        company_id = _seed_company(s, ticker="BPX", cik=FPI_CIK).id
+
+    def reports() -> list[str]:
+        filing_list_service._filings_synced_at.clear()  # each visit reads the stored rows afresh
+        return [f["accession_number"] for f in tc.get("/api/filings/company/BPX").json() if f["filing_type"] != "6-K"]
+
+    foreign_forms = filing_history_service._FPI_BACKFILL_FORMS
+    monkeypatch.setattr(filing_history_service, "_FPI_BACKFILL_FORMS", ())  # the walk before this release
+    assert reports() == [annuals[-1].accession_number]  # the first visit walks 10-K/10-Q only and stamps
+    monkeypatch.setattr(filing_history_service, "_FPI_BACKFILL_FORMS", foreign_forms)
+    with TestingSession() as s:
+        assert s.get(Company, company_id).history_backfilled_at is not None
+    assert reports() == [annuals[-1].accession_number]  # stamped: no visit walks it again
+
+    raw = db_engine.raw_connection()
+    try:  # the migration as the deploy applies it, its PostgreSQL session settings aside
+        raw.driver_connection.executescript("\n".join(
+            line for line in REWALK_MIGRATION.read_text().splitlines()
+            if not line.startswith(("SET lock_timeout", "SET statement_timeout", "RESET "))
+        ))
+    finally:
+        raw.close()
+    reports()  # the visit queues the walk again
+
+    assert reports() == [f.accession_number for f in sorted(annuals, key=lambda f: f.filing_date, reverse=True)]
+    with TestingSession() as s:
         assert s.get(Company, company_id).history_backfilled_at is not None
 
 

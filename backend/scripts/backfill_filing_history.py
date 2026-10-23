@@ -48,7 +48,9 @@ if __name__ == "__main__":
     os.environ.setdefault("SKIP_REDIS_INIT", "true")
     logging.basicConfig(level=logging.INFO)
 
-    parser = argparse.ArgumentParser(description="Backfill deep 10-K/10-Q history from EFTS.")
+    parser = argparse.ArgumentParser(
+        description="Backfill deep 10-K/10-Q history (and 20-F/40-F with ENABLE_FPI_FILINGS on) from EFTS."
+    )
     parser.add_argument(
         "--tickers", type=str, default=None,
         help="Comma-separated tickers to backfill (default: all un-backfilled, or --watchlist-only).",

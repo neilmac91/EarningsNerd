@@ -2,14 +2,19 @@
 
 Pins: query-less windowing since 2001; EftsHit → NOT-NULL-safe filing dict; 10-K/10-Q amendments
 (/A) kept and unknown/legacy forms excluded (matching the display form set); a foreign issuer's
-20-F/40-F, without their amendments, walked in the same query only behind ENABLE_FPI_FILINGS;
+20-F/40-F, without their amendments, walked in the same query only behind ENABLE_FPI_FILINGS, by
+every process that runs the walk, and walked again once for a foreign issuer stamped before;
 accession dedupe across windows; the company stamped only when a window succeeded; the 5xx retry
 bounded at 3; a per-window failure tolerated without losing the other windows' rows.
 """
+import re
 from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import unquote
 
 import httpx
 import pytest
+import yaml
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -17,7 +22,11 @@ from app.integrations.sec_api import EftsHit, EftsSearchResult, SECFullTextSearc
 from app.models import Base, Company, Filing
 from app.services import filing_history_service as fh
 from app.services.edgar.config import FilingType
+from app.services.filing_list_service import CompanyIdentity
 from app.services.latest_filing_service import company_list_forms
+from app.utils.sec_urls import build_sec_archive_url
+
+REPO = Path(__file__).resolve().parents[3]
 
 
 def _engine_session():
@@ -186,9 +195,9 @@ async def test_backfill_all_windows_fail_does_not_stamp(monkeypatch):
 
 
 # ---- Foreign private issuers: 20-F and 40-F annual reports behind ENABLE_FPI_FILINGS ----
-# SEC's recent submissions window holds about a year (or about 1,000 filings), only weeks for an
-# issuer that furnishes a 6-K most business days, so the live list never reaches its older annual
-# reports; the history walk is the path that does.
+# The live list reads SEC's recent submissions window, the greater of about a year or about 1,000
+# filings, so a foreign issuer's annual reports older than that window reach its company page only
+# through the history walk.
 
 FPI_CIK = "0000313807"
 # A switcher: a Canadian issuer on 40-F through 2019, then a domestic 10-K/10-Q filer, with the 6-Ks
@@ -251,6 +260,7 @@ async def test_walk_sends_one_query_per_window_whatever_the_flag(monkeypatch, fp
     windows = [("2017-01-01", "2020-12-31"), ("2021-01-01", "2024-12-31"), ("2025-01-01", "2026-07-08")]
     assert sent == [f"forms={forms}&startdt={start}&enddt={end}&ciks={FPI_CIK}" for start, end in windows]
     assert stats["windows"] == stats["windows_ok"] == 3
+    assert stats["forms"] == unquote(forms)  # the log line names the forms walked, so a flagless walk shows
     rows = db.query(Filing).filter(Filing.company_id == company.id).order_by(Filing.accession_number).all()
     assert [row.filing_type for row in rows] == stored
     base = "https://www.sec.gov/Archives/edgar/data/313807/"
@@ -283,7 +293,9 @@ async def test_backfill_walks_every_report_form_the_company_list_serves(monkeypa
     .is_interim) aside, is a form the history walk queries and keeps under the same
     ENABLE_FPI_FILINGS state, and the walk queries and keeps no other form. The walk only reaches
     what SEC's recent window no longer holds, so a list form it skips loses its older reports for
-    good once the company is stamped, and a form it adds stores rows no list serves."""
+    good once the company is stamped, and a form it adds stores rows no list serves. This holds the
+    form sets in one process; that every process running the walk has the service's flag is
+    test_every_process_that_walks_history_carries_the_services_fpi_flag."""
     monkeypatch.setattr(fh.settings, "ENABLE_FPI_FILINGS", fpi)
     monkeypatch.setattr(fh.settings, "HISTORY_BACKFILL_SINCE_YEAR", 2024)
     fake = _FakeEfts({})
@@ -296,3 +308,98 @@ async def test_backfill_walks_every_report_form_the_company_list_serves(monkeypa
     }
     assert walked == reports
     assert {form.value for form in FilingType if fh._hit_to_filing_dict(_hit("acc", form.value))} == walked
+
+
+# ---- The deploy's one-time re-walk of the companies the 10-K/10-Q-only walk stamped ----
+REWALK_MIGRATION = REPO / "backend/migrations/20261023_rewalk_foreign_issuer_history.sql"
+
+
+def test_migration_clears_the_stamp_of_each_foreign_issuer_the_old_walk_stamped():
+    """The old walk listed 10-K/10-Q only and stamped every company it walked, and a visit never walks
+    a stamped company again. The migration clears the stamp of each stamped company that holds no
+    10-K/10-Q row, original or amendment, and either holds a 20-F, 40-F or 6-K row (a foreign issuer)
+    or holds no row at all, so its next visit walks it with the foreign forms. A company holding a
+    10-K/10-Q row (a switcher too) or only other forms keeps its stamp, an unstamped one stays
+    unstamped, and a second run changes nothing more."""
+    db = _engine_session()
+    stamp = datetime(2026, 9, 1, tzinfo=timezone.utc)
+    held = {
+        "FPI": ["6-K", "20-F"], "CAN": ["40-F/A"], "BARE": [], "DOM": ["10-K", "8-K"],
+        "AMND": ["10-Q/A"], "SWCH": ["40-F", "10-K"], "8K": ["8-K"], "NEW": ["20-F"],
+    }
+    companies = {
+        ticker: Company(cik=f"{n:010d}", ticker=ticker, name=ticker, history_backfilled_at=stamp)
+        for n, ticker in enumerate(held, start=1)
+    }
+    companies["NEW"].history_backfilled_at = None
+    db.add_all(companies.values())
+    db.commit()
+    for n, (ticker, form) in enumerate((t, f) for t, forms in held.items() for f in forms):
+        cik, accession = companies[ticker].cik, f"{companies[ticker].cik}-26-{n:06d}"
+        sec_url = build_sec_archive_url(cik, accession)
+        db.add(Filing(
+            company_id=companies[ticker].id, accession_number=accession, filing_type=form,
+            filing_date=datetime(2026, 3, 1, tzinfo=timezone.utc), sec_url=sec_url,
+            document_url=sec_url + "doc.htm",
+        ))
+    db.commit()
+    script = REWALK_MIGRATION.read_text()
+    # It bounds its PostgreSQL session as the recent migrations do; SQLite runs the UPDATE alone.
+    assert "SET lock_timeout" in script and "SET statement_timeout" in script
+    update = "\n".join(
+        line for line in script.splitlines()
+        if not line.startswith(("SET lock_timeout", "SET statement_timeout", "RESET "))
+    )
+
+    def migrate() -> dict[str, bool]:
+        raw = db.get_bind().raw_connection()
+        try:
+            raw.driver_connection.executescript(update)
+        finally:
+            raw.close()
+        db.expire_all()
+        return {ticker: CompanyIdentity.of(company).needs_history_backfill for ticker, company in companies.items()}
+
+    walked_again = {
+        "FPI": True, "CAN": True, "BARE": True, "DOM": False,
+        "AMND": False, "SWCH": False, "8K": False, "NEW": True,
+    }
+    assert migrate() == walked_again
+    assert migrate() == walked_again
+    assert db.get(Company, companies["DOM"].id).history_backfilled_at.replace(tzinfo=timezone.utc) == stamp
+
+
+def _commands(run: str, marker: str) -> list[str]:
+    """The commands of a step's script that contain ``marker``, comments dropped and continuation
+    lines joined."""
+    script = "\n".join(line for line in run.splitlines() if not line.lstrip().startswith("#"))
+    return [command.strip() for command in script.replace("\\\n", " ").splitlines() if marker in command]
+
+
+def _fpi_flag(command: str) -> str | None:
+    """The ENABLE_FPI_FILINGS value a command's ``--update-env-vars`` sets, or None."""
+    found = re.search(r"--update-env-vars=(\S+)", command)
+    return dict(item.split("=", 1) for item in found.group(1).split(",")).get("ENABLE_FPI_FILINGS") if found else None
+
+
+def test_every_process_that_walks_history_carries_the_services_fpi_flag():
+    """The walk reads ENABLE_FPI_FILINGS in whichever process runs it, and a walk with the flag off
+    stamps a foreign issuer without its 20-F/40-F, after which no visit walks it again. Every process
+    that runs the walk in production carries the service's value: the API service and the task worker
+    (the on-visit walk and the internal endpoint), from their deploy maps, and each Ops jobs-channel
+    execution of scripts/backfill_filing_history.py, whose job's own map does not set the flag, from
+    its execution's override."""
+    workflows = REPO / ".github/workflows"
+    deploy = yaml.load((workflows / "ci.yml").read_text(), Loader=yaml.BaseLoader)["jobs"]["deploy-backend"]["steps"]
+    ops = yaml.load((workflows / "ops.yml").read_text(), Loader=yaml.BaseLoader)["jobs"]["ops"]["steps"]
+    step = {s["name"]: s["run"] for s in deploy + ops if "name" in s and "run" in s}
+
+    service = [_fpi_flag(c) for c in _commands(step["Deploy Cloud Run service"], "--update-env-vars")]
+    worker = [_fpi_flag(c) for c in _commands(step["Update configured private task worker"], "--update-env-vars")]
+    channel = [
+        _fpi_flag(c)
+        for c in _commands(step["Trigger filing-history backfill (internal endpoint; jobs-channel fallback)"], "jobs execute")
+        if "backfill_filing_history.py" in c
+    ]
+    assert service == ["true"] and len(worker) == 1 and len(channel) == 2, (service, worker, channel)
+    assert worker == service and channel == service * 2, (service, worker, channel)
