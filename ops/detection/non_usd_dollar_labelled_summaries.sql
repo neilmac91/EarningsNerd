@@ -4,30 +4,40 @@
 -- (fallback_summary.py) and the prior-period backfill (schemas/summary.py _format_xbrl_value) wrote
 -- "$" for every filer, as the primary filler (ai/markdown_render.py) did until the v2 cutover
 -- (d7a80010e, 2026-07-09). A CNY figure under "$" reads ~7x too large, and the SEC-verified chip
--- matches its number only.
+-- matches its number only. Retire this file once F61's fix lands.
 --
 -- Fix boundary 2026-10-18 10:51:13 UTC: the end of the deploy-backend job that shipped 1f72f89f
 -- (CI run 39119761394; the service took traffic at 10:50:25, the worker and job images by
 -- 10:50:56). The merge was 10:34:00; rows written in between count as before the fix
 -- (written_merge_to_deploy). An old-revision generation still in flight can land just after the
--- boundary: the after-fix "$" columns are the control. Stored at = COALESCE(updated_at,
+-- boundary: the after-fix dollar_in_cells column is the control. Stored at = COALESCE(updated_at,
 -- created_at): finalize.py sets created_at on insert, updated_at on an in-place regeneration. One
 -- summary per filing (uq_summaries_filing_id).
+-- Stamp: stale mirrors summary_versioning.is_stale, which is refresh-stale's default filter
+-- (summary_refresh.py stale_filter): a missing stamp, or one other than schema 2 and prompt
+-- summary-2026-09-u, main's stamps when this was written (update params if they move first).
 -- Reporting currency: filings.xbrl_data->>'reporting_currency' (what the writers read); when
--- absent, the most frequent non-USD amount unit of financial_fact rows with the filing's
--- accession; else "none recorded" (a context row, like USD).
+-- absent, the most frequent three-letter unit of financial_fact rows with the filing's accession,
+-- USD included (a tie goes to the non-USD unit, as facts/currency.py ranks); else "none recorded"
+-- (a context row, like USD). A filing whose xbrl_data records no currency still printed "$" after
+-- the fix (money_prefix_for(None), utils/numbers.py), so after-fix hits among currency_from_facts
+-- rows come from that default.
 -- Fallback: generate_xbrl_summary's fixed text, the headline "<name> <form> Filing - Partial
 -- Analysis" in the_print (v2, an em dash) or executive_snapshot (v1, a hyphen), or the markdown's
 -- "Click 'Regenerate Analysis'" line. raw_summary.status = 'partial' is no marker: the model path
 -- stores it at low coverage too (summary_finalize.py determine_status). Full: every other summary.
+-- A fallback stored before 2026-01-26 (184701c4d) may carry neither marker and counts as full; the
+-- all-non-USD totals hold.
 -- "$" figure: "$" then a digit, or "-" and a digit ($941.2B, $868,687,000,000, $-0.50), not after
 -- an ASCII letter (US$, HK$ and NT$ are labels the old writers never wrote). JSON is matched as
 -- stored, so a JSON escape before the "$" (a newline, a non-ASCII character) counts as no letter.
 -- Reader fields: business_overview, management_discussion, key_changes, financial_highlights,
 -- risk_factors and raw_summary's sections (not its audits). Cells: the P&L table rows of
 -- financial_highlights and of sections.results_that_matter (v2) or .financial_highlights (v1);
--- current = current_period (the cell the chip checks), prior = prior_period (where the backfill
--- wrote), camelCase twins included.
+-- current = current_period, prior = prior_period (where the backfill wrote), camelCase twins
+-- included. in_current_cells is an upper bound on what the chip shows: the chip checks the
+-- current_period of a mapped metric worth at least 1e6 (provenance_service.py
+-- build_metric_source), so an EPS cell never carries it.
 -- -> and ->> raise for a whole json value that holds a NUL or a lone-surrogate escape, so a value
 -- holding a NUL or any surrogate escape is read after those escapes are rewritten to the escape of
 -- U+FFFD (same length, nothing else moves). Patterns assume standard_conforming_strings = on (the
@@ -44,6 +54,8 @@ BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 WITH params AS (
     SELECT timestamptz '2026-10-18 10:34:00+00' AS merged_at,
            timestamptz '2026-10-18 10:51:13+00' AS fix_live_at,
+           2 AS current_schema,
+           'summary-2026-09-u'::text AS current_prompt,
            '(^|[^A-Za-z]|\\[nrtbf]|\\u[0-9A-Fa-f]{4})[$]-?[0-9]'::text AS dollar_re,
            '(?:^|[^A-Za-z]|\\[nrtbf]|\\u[0-9A-Fa-f]{4})([$]-?[0-9][0-9.,]*[A-Za-z]?)'::text
                AS figure_re,
@@ -51,6 +63,9 @@ WITH params AS (
 ), summary_currency AS MATERIALIZED (
     SELECT s.id AS summary_id, f.id AS filing_id, f.accession_number,
            COALESCE(s.updated_at, s.created_at, '-infinity') AS stored_at,
+           s.prompt_version,
+           (s.schema_version IS NULL OR s.prompt_version IS NULL
+            OR s.schema_version <> p.current_schema OR s.prompt_version <> p.current_prompt) AS stale,
            NULLIF(upper(btrim(
                (CASE WHEN f.xbrl_data::text ~ p.json_hazard
                      THEN regexp_replace(f.xbrl_data::text, p.json_hazard, '\\ufffd', 'g')::json
@@ -59,7 +74,7 @@ WITH params AS (
     JOIN filings f ON f.id = s.filing_id
     CROSS JOIN params p
 ), classified AS MATERIALIZED (
-    SELECT sc.summary_id, sc.filing_id, sc.stored_at,
+    SELECT sc.summary_id, sc.filing_id, sc.stored_at, sc.prompt_version, sc.stale,
            COALESCE(sc.xbrl_currency, fact.unit) AS reporting_currency,
            sc.xbrl_currency IS NULL AND fact.unit IS NOT NULL AS currency_from_facts
     FROM summary_currency sc
@@ -68,9 +83,9 @@ WITH params AS (
         FROM financial_fact ff
         WHERE sc.xbrl_currency IS NULL
           AND ff.accession = sc.accession_number
-          AND ff.unit ~ '^[A-Z]{3}$' AND ff.unit <> 'USD'
+          AND ff.unit ~ '^[A-Z]{3}$'
         GROUP BY ff.unit
-        ORDER BY count(*) DESC, ff.unit
+        ORDER BY count(*) DESC, ff.unit = 'USD', ff.unit
         LIMIT 1
     ) fact ON true
 ), non_usd AS MATERIALIZED (
@@ -149,11 +164,18 @@ SELECT CASE WHEN grp = 2 THEN currency || ' (context)' ELSE currency END AS repo
        written_merge_to_deploy
 FROM grouped
 ORDER BY grp, currency, before_fix DESC;
+\echo '   The fix''s control is dollar_in_cells, not with_dollar_figure: current writers still copy'
+\echo '   filing text (risk factors, MD&A, quoted evidence) that can carry a filer''s own "$".'
 
 \echo '2. Non-USD summaries stored before the fix, by kind: how many carry a "$" figure, and where.'
+\echo '   A stale row (a missing or old stamp, refresh-stale''s default filter) is one refresh-stale'
+\echo '   already regenerates without a bump; a current-stamped row is reached only by a version bump'
+\echo '   or a per-filing regeneration.'
 WITH params AS (
     SELECT timestamptz '2026-10-18 10:34:00+00' AS merged_at,
            timestamptz '2026-10-18 10:51:13+00' AS fix_live_at,
+           2 AS current_schema,
+           'summary-2026-09-u'::text AS current_prompt,
            '(^|[^A-Za-z]|\\[nrtbf]|\\u[0-9A-Fa-f]{4})[$]-?[0-9]'::text AS dollar_re,
            '(?:^|[^A-Za-z]|\\[nrtbf]|\\u[0-9A-Fa-f]{4})([$]-?[0-9][0-9.,]*[A-Za-z]?)'::text
                AS figure_re,
@@ -161,6 +183,9 @@ WITH params AS (
 ), summary_currency AS MATERIALIZED (
     SELECT s.id AS summary_id, f.id AS filing_id, f.accession_number,
            COALESCE(s.updated_at, s.created_at, '-infinity') AS stored_at,
+           s.prompt_version,
+           (s.schema_version IS NULL OR s.prompt_version IS NULL
+            OR s.schema_version <> p.current_schema OR s.prompt_version <> p.current_prompt) AS stale,
            NULLIF(upper(btrim(
                (CASE WHEN f.xbrl_data::text ~ p.json_hazard
                      THEN regexp_replace(f.xbrl_data::text, p.json_hazard, '\\ufffd', 'g')::json
@@ -169,7 +194,7 @@ WITH params AS (
     JOIN filings f ON f.id = s.filing_id
     CROSS JOIN params p
 ), classified AS MATERIALIZED (
-    SELECT sc.summary_id, sc.filing_id, sc.stored_at,
+    SELECT sc.summary_id, sc.filing_id, sc.stored_at, sc.prompt_version, sc.stale,
            COALESCE(sc.xbrl_currency, fact.unit) AS reporting_currency,
            sc.xbrl_currency IS NULL AND fact.unit IS NOT NULL AS currency_from_facts
     FROM summary_currency sc
@@ -178,9 +203,9 @@ WITH params AS (
         FROM financial_fact ff
         WHERE sc.xbrl_currency IS NULL
           AND ff.accession = sc.accession_number
-          AND ff.unit ~ '^[A-Z]{3}$' AND ff.unit <> 'USD'
+          AND ff.unit ~ '^[A-Z]{3}$'
         GROUP BY ff.unit
-        ORDER BY count(*) DESC, ff.unit
+        ORDER BY count(*) DESC, ff.unit = 'USD', ff.unit
         LIMIT 1
     ) fact ON true
 ), non_usd AS MATERIALIZED (
@@ -241,16 +266,21 @@ SELECT k.kind,
        count(*) FILTER (WHERE n.d_any) AS with_dollar_figure,
        count(*) FILTER (WHERE n.d_current) AS in_current_cells,
        count(*) FILTER (WHERE n.d_prior) AS in_prior_cells,
-       count(*) FILTER (WHERE n.d_any AND NOT (n.d_current OR n.d_prior)) AS outside_cells_only
+       count(*) FILTER (WHERE n.d_any AND NOT (n.d_current OR n.d_prior)) AS outside_cells_only,
+       count(*) FILTER (WHERE (n.d_current OR n.d_prior) AND n.stale) AS cell_hits_already_stale,
+       count(*) FILTER (WHERE (n.d_current OR n.d_prior) AND NOT n.stale) AS cell_hits_current_stamp
 FROM (VALUES (1, 'fallback'), (2, 'full'), (3, 'all non-USD')) AS k(ord, kind)
 LEFT JOIN before_fix n ON k.kind IN (n.kind, 'all non-USD')
 GROUP BY k.ord, k.kind
 ORDER BY k.ord;
 
-\echo '3. Affected filings (non-USD, stored before the fix, a "$" figure), newest first, at most 50.'
+\echo '3. Affected filings (non-USD, stored before the fix, a "$" figure), at most 50: cell hits'
+\echo '   first, then newest first.'
 WITH params AS (
     SELECT timestamptz '2026-10-18 10:34:00+00' AS merged_at,
            timestamptz '2026-10-18 10:51:13+00' AS fix_live_at,
+           2 AS current_schema,
+           'summary-2026-09-u'::text AS current_prompt,
            '(^|[^A-Za-z]|\\[nrtbf]|\\u[0-9A-Fa-f]{4})[$]-?[0-9]'::text AS dollar_re,
            '(?:^|[^A-Za-z]|\\[nrtbf]|\\u[0-9A-Fa-f]{4})([$]-?[0-9][0-9.,]*[A-Za-z]?)'::text
                AS figure_re,
@@ -258,6 +288,9 @@ WITH params AS (
 ), summary_currency AS MATERIALIZED (
     SELECT s.id AS summary_id, f.id AS filing_id, f.accession_number,
            COALESCE(s.updated_at, s.created_at, '-infinity') AS stored_at,
+           s.prompt_version,
+           (s.schema_version IS NULL OR s.prompt_version IS NULL
+            OR s.schema_version <> p.current_schema OR s.prompt_version <> p.current_prompt) AS stale,
            NULLIF(upper(btrim(
                (CASE WHEN f.xbrl_data::text ~ p.json_hazard
                      THEN regexp_replace(f.xbrl_data::text, p.json_hazard, '\\ufffd', 'g')::json
@@ -266,7 +299,7 @@ WITH params AS (
     JOIN filings f ON f.id = s.filing_id
     CROSS JOIN params p
 ), classified AS MATERIALIZED (
-    SELECT sc.summary_id, sc.filing_id, sc.stored_at,
+    SELECT sc.summary_id, sc.filing_id, sc.stored_at, sc.prompt_version, sc.stale,
            COALESCE(sc.xbrl_currency, fact.unit) AS reporting_currency,
            sc.xbrl_currency IS NULL AND fact.unit IS NOT NULL AS currency_from_facts
     FROM summary_currency sc
@@ -275,9 +308,9 @@ WITH params AS (
         FROM financial_fact ff
         WHERE sc.xbrl_currency IS NULL
           AND ff.accession = sc.accession_number
-          AND ff.unit ~ '^[A-Z]{3}$' AND ff.unit <> 'USD'
+          AND ff.unit ~ '^[A-Z]{3}$'
         GROUP BY ff.unit
-        ORDER BY count(*) DESC, ff.unit
+        ORDER BY count(*) DESC, ff.unit = 'USD', ff.unit
         LIMIT 1
     ) fact ON true
 ), non_usd AS MATERIALIZED (
@@ -334,7 +367,7 @@ WITH params AS (
     SELECT n.*
     FROM non_usd n CROSS JOIN params p
     WHERE n.stored_at < p.fix_live_at AND n.d_any
-    ORDER BY n.stored_at DESC, n.summary_id DESC
+    ORDER BY (n.d_current OR n.d_prior) DESC, n.stored_at DESC, n.summary_id DESC
     LIMIT 50
 )
 SELECT co.ticker,
@@ -344,6 +377,8 @@ SELECT co.ticker,
        a.reporting_currency,
        a.kind,
        (a.stored_at AT TIME ZONE 'UTC')::timestamp(0) AS stored_at_utc,
+       a.prompt_version,
+       CASE WHEN a.stale THEN 'stale' ELSE 'current' END AS stamp,
        CASE WHEN a.d_current THEN 'current cell' WHEN a.d_prior THEN 'prior cell' ELSE 'text only' END
            AS dollar_in,
        a.first_dollar_figure,
@@ -351,6 +386,6 @@ SELECT co.ticker,
 FROM affected a
 JOIN filings f ON f.id = a.filing_id
 JOIN companies co ON co.id = f.company_id
-ORDER BY a.stored_at DESC, a.summary_id DESC;
+ORDER BY (a.d_current OR a.d_prior) DESC, a.stored_at DESC, a.summary_id DESC;
 
 COMMIT;
