@@ -6849,7 +6849,7 @@ Full local and hosted verification plus independent exact-head review precede re
   at the browser tests' limit; production not read live. No CODE RED spend; no ledger event; three paid runs by
   other writers and six balance readouts on GitHub. Chief defects 28 (a loop over `gh api` calls with a variable
   in the path) and 29 (reads of agents' reports printed with neither the mask nor a filter); no classifier
-  denial and no hook refusal of the chief's commands in the window. Closure 200.
+  denial of the chief's commands and no hook refusal in the window. Closure 200.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
