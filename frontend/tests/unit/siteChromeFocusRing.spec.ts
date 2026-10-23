@@ -206,10 +206,11 @@ function thirdPartyTags(source: string, fileName: string): string[] {
  * `export … from` that is not type-only, and every lazy `import('…')`, through `@/` or relative paths,
  * including .ts modules such as a barrel's index.ts. A module reached at all is read whole, but a named
  * re-export (`export { Modal } from './Modal'`) leads on only when the chrome takes that name; an
- * `export *` passes the names on. Only the .tsx modules are returned; a .ts module renders nothing itself.
+ * `export *` passes the names on. Only the .tsx and .jsx modules are returned; a .ts or .js module renders nothing
+ * itself.
  */
 function chromeFiles(roots: string[] = CHROME_ROOTS, root: string = ROOT): string[] {
-  return walkImports(roots, root).filter((file) => file.endsWith('.tsx'))
+  return walkImports(roots, root).filter((file) => /\.[jt]sx$/.test(file))
 }
 
 const RINGS = [
@@ -878,6 +879,8 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       'components/ui/Modal.tsx': 'export const Modal = () => null\nexport const ModalHeader = () => null',
       'components/ui/Input.tsx': 'export const Input = () => null',
       'components/ui/InputProps.tsx': 'export type InputProps = object',
+      'app/js/layout.tsx': "import { Strip } from '@/components/chrome/Strip'",
+      'components/chrome/Strip.jsx': 'export const Strip = () => null',
     }
     try {
       for (const [file, source] of Object.entries(files)) {
@@ -890,6 +893,8 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       expect(chromeFiles(['app/admin/layout.tsx'], dir)).toEqual(['app/admin/layout.tsx', 'components/ui/Input.tsx', 'components/ui/Modal.tsx'])
       // A module loaded lazily is chrome too.
       expect(chromeFiles(['app/lazy/layout.tsx'], dir)).toEqual(['app/lazy/layout.tsx', 'components/chrome/Menu.tsx'])
+      // A .jsx module renders as a .tsx one does (allowJs).
+      expect(chromeFiles(['app/js/layout.tsx'], dir)).toEqual(['app/js/layout.tsx', 'components/chrome/Strip.jsx'])
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

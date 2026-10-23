@@ -40,25 +40,28 @@ export function importedNames(clause: ts.ImportClause | undefined): Set<string> 
   return names
 }
 
+/** The script module (.ts, .tsx, .js or .jsx) a local specifier in `from` names, relative to `root`, or null. */
+export function resolveModule(root: string, from: string, spec: string): string | null {
+  let base: string
+  if (spec.startsWith('@/')) base = path.join(root, spec.slice(2))
+  else if (spec.startsWith('.')) base = path.resolve(path.dirname(path.join(root, from)), spec)
+  else return null
+  // The path as written when it names a script, then a file before a folder's index, as TypeScript resolves them.
+  const extensions = ['.tsx', '.ts', '.jsx', '.js']
+  const candidates = [
+    ...(/\.[jt]sx?$/.test(base) ? [base] : []),
+    ...extensions.map((ext) => `${base}${ext}`),
+    ...extensions.map((ext) => path.join(base, `index${ext}`)),
+  ]
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return path.relative(root, candidate).split(path.sep).join('/')
+  }
+  return null
+}
+
 /** Every module (.ts, .tsx, .js and .jsx) reached from `roots`, the roots included, sorted. */
 export function walkImports(roots: string[], root: string): string[] {
-  const resolveImport = (from: string, spec: string): string | null => {
-    let base: string
-    if (spec.startsWith('@/')) base = path.join(root, spec.slice(2))
-    else if (spec.startsWith('.')) base = path.resolve(path.dirname(path.join(root, from)), spec)
-    else return null
-    // The path as written when it names a script, then a file before a folder's index, as TypeScript resolves them.
-    const extensions = ['.tsx', '.ts', '.jsx', '.js']
-    const candidates = [
-      ...(/\.[jt]sx?$/.test(base) ? [base] : []),
-      ...extensions.map((ext) => `${base}${ext}`),
-      ...extensions.map((ext) => path.join(base, `index${ext}`)),
-    ]
-    for (const candidate of candidates) {
-      if (existsSync(candidate)) return path.relative(root, candidate).split(path.sep).join('/')
-    }
-    return null
-  }
+  const resolveImport = (from: string, spec: string) => resolveModule(root, from, spec)
   // What the walk takes from each module it reaches: all of it ('*') or the names it imports. A module
   // reached again for a name it was not taken for is read again, for the re-exports that name leads to.
   const taken = new Map<string, Set<string> | '*'>()

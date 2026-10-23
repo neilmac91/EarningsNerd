@@ -4,8 +4,8 @@ Date: 2026-10-23   Area: ops, review
 
 **Context**: #1530's high-tier pre-merge review (three Opus lenses, two Opus refuters per finding) found 17 should-fix
 findings and queued 34 refuters. Seven had reported, each finding standing, when the session stopped the workflow to
-save the rest of their spend. Two were running and 25 had not started: one of the correctness lens's, all ten of the
-rules lens's and all sixteen of the tests-and-gates lens's. Every finding had already been reproduced by its lens and
+save the rest of their spend. Two were running and 25 had not started; the 27 cut were one of the correctness lens's,
+all ten of the rules lens's and all sixteen of the tests-and-gates lens's. Every finding had already been reproduced by its lens and
 fixed in the working tree. The founder's next message: "please always ensure to do your best work. work you're proud
 of. use lots of tokens to get this right". The stop saved tokens. It also left the fixes, 61 files, with no reader but
 their author.

@@ -443,6 +443,12 @@ class TestFigureCheck:
         out = prov.build_metric_source(row, _filing(), APPLE, None)
         assert out["source_checkable"] is False and "source_mismatched" not in out
 
+    def test_a_stored_number_prior_is_a_shown_prior_that_leaves_the_row_unchecked(self):
+        # A number is a figure the row shows, so the row cannot match on its current year alone.
+        row = {"metric": "Total net sales", "current_period": "$416.2B", "prior_period": 391_035_000_000}
+        out = prov.build_metric_source(row, _filing(), APPLE, None)
+        assert out["source_checkable"] is False and out["source_verified"] is False
+
     # A 10-Q's balance sheet sets the quarter-end beside the last fiscal year-end (Apple's Q3 FY25 10-Q). The
     # standardized prior is the series' next period, which the same-quarter rule refuses (Q4 against Q3).
     QUARTER = {"reporting_currency": "USD", "total_assets": {
@@ -459,6 +465,17 @@ class TestFigureCheck:
         out = self._check("Total assets", "$331.5B", "$365.0B", self.QUARTER)
         assert out["source_verified"] is True
         assert out["source_filed"] == {"current_period": "$331,495 million", "prior_period": "$364,980 million"}
+
+    @pytest.mark.parametrize("metric, key, tag", [
+        ("Cash and cash equivalents", "cash_and_equivalents", "us-gaap:CashAndCashEquivalentsAtCarryingValue"),
+        ("Shareholders' equity", "shareholders_equity", "us-gaap:StockholdersEquity"),
+        ("Long-term debt", "long_term_debt", "us-gaap:LongTermDebtNoncurrent"),
+    ])
+    def test_every_balance_sheet_line_reads_its_prior_from_the_filings_earlier_instants(self, metric, key, tag):
+        # Each instant concept, as total assets: the standardized prior is a quarter the same-quarter rule refuses.
+        series = [{**fact, "raw_tag": tag} for fact in self.QUARTER["total_assets"]["series"]]
+        quarter = {"reporting_currency": "USD", key: {"current": series[0], "prior": series[2], "series": series}}
+        assert self._check(metric, "$331.5B", "$365.0B", quarter)["source_verified"] is True
 
     def test_a_wrong_quarter_end_is_still_replaced_beside_a_prior_the_filing_states(self):
         out = self._check("Total assets", "$313.5B", "$365.0B", self.QUARTER)
@@ -635,6 +652,10 @@ class TestFigureCheck:
         # figure must not read as one to replace, and a wrong one is still caught.
         assert self._check("Total net sales", "¥45.1T", "¥37.2T", self.YEN)["source_verified"] is True
         assert self._check("Total net sales", "¥45.9T", "¥37.2T", self.YEN)["source_mismatched"] == ["current_period"]
+        # Nor against a renminbi fact.
+        renminbi = {"reporting_currency": "CNY", "revenue": {
+            period: {**fact, "currency": "CNY"} for period, fact in self.YEN["revenue"].items()}}
+        assert self._check("Total net sales", "¥45.1T", "¥37.2T", renminbi)["source_verified"] is True
 
     # The plain aliases keep the statement lines main checked by substring (the strict mapper owns none of these), each
     # on its own concept; a dropped or mistyped alias leaves its line silently "Linked, not checked".
@@ -654,8 +675,11 @@ class TestFigureCheck:
         ("Net Operating Revenues", "revenue"), ("Total net revenue", "revenue"), ("Total net revenues", "revenue"),
         ("Gross profit (loss)", "gross_profit"), ("Total gross profit", "gross_profit"),
         ("Operating income (loss)", "operating_income"), ("Operating income/(loss)", "operating_income"),
+        ("Operating (loss) income", "operating_income"),
+        ("Net income (loss)", "net_income"), ("Net income/(loss)", "net_income"), ("Net (loss) income", "net_income"),
         ("Net earnings", "net_income"), ("Profit for the year", "net_income"), ("Profit/(loss) for the year", "net_income"),
         ("Net cash from operating activities", "operating_cash_flow"),
+        ("Net profit", "net_income"), ("Earnings attributable to shareholders", "net_income"),
     ])
     def test_each_plain_alias_is_checked_against_its_own_concept(self, metric, key):
         assert prov.source_metric_key(metric) == key
@@ -704,6 +728,8 @@ class TestFiledFigureSwap:
         "H2 15% growth.",
         "See Note 3, 25% of revenue.",
         "FY25 rose 12%; Item 7, 8.5% of it from Services.",
+        # An amount that reads like a year, with no scale word after it.
+        "Each seat brought in $2025.",
     ])
     def test_a_takeaway_that_states_a_number_is_withheld(self, commentary):
         row = self._enrich({"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
@@ -807,8 +833,9 @@ class TestFiledFigureSwap:
 class TestLabelsTheModelIsGiven:
     """Every label the model is handed for a line the figure check covers is one the check reads (the backend review
     of #1530: the prompts' own "Cash & Equivalents" went unchecked, though main had checked it). A label added to a
-    prompt's Metric table (its metric, or a filing line name it quotes for the model to report) or to the narrative's
-    grounding block is either read by ``source_metric_key`` or named below with why."""
+    prompt's Metric table (its metric, or a filing line name it quotes for the model to report), to the 6-K earnings
+    prompt's headline lines, or to the narrative's grounding block is either read by ``source_metric_key`` or named
+    below with why, and a label named below is one the check still leaves unread."""
 
     # Concepts the check covers that it deliberately leaves unchecked.
     UNCHECKED = {"free_cash_flow": "computed, not filed", "capital_expenditures": "filers sign it either way"}
@@ -828,6 +855,9 @@ class TestLabelsTheModelIsGiven:
     }
     # Where-to-find-it cells also name the statements a line sits in, which are no line of their own.
     STATEMENT_TITLE = re.compile(r"\b(?:statements?|balance sheets?)\b", re.IGNORECASE)
+    # The 6-K earnings prompt names its headline lines in prose: "- Revenue (or total net sales), net income (or …)".
+    HEADLINE_BULLET = re.compile(r"^\s*-\s+(Revenue\s+\(or\b.*)$", re.MULTILINE)
+    SYNONYMS = re.compile(r"([A-Za-z][A-Za-z ]*?)\s*\(or\s+([^)]+)\)")
 
     def test_the_narratives_dollar_labels_map_to_their_own_concepts(self):
         from app.services.ai.xbrl_narrative import _XBRL_NARRATIVE_SPEC
@@ -837,30 +867,71 @@ class TestLabelsTheModelIsGiven:
         assert len(pairs) >= 10, "the scan reads the grounding block"
         assert [(label, prov.source_metric_key(label)) for label, _ in pairs] == pairs
 
+    @classmethod
+    def table_labels(cls, text: str) -> set[str]:
+        """A prompt's Metric-table labels: each row's metric and the filing line names its next cell quotes."""
+        labels: set[str] = set()
+        # A table's first row is its header; only a table headed "Metric" or "Metrics" lists metrics, indented or
+        # not. Its first column names the metric, and its second may quote the filing's own line names, which the
+        # model reports a row by.
+        metric_table, previous = False, ""
+        for line in (raw.strip() for raw in text.splitlines()):
+            if line.startswith("|"):
+                cells = [cell.strip() for cell in line.strip("|").split("|")]
+                first = cells[0].replace("*", "").strip()
+                if not previous.startswith("|"):
+                    metric_table = first.casefold() in {"metric", "metrics"}
+                elif metric_table and first and not set(first) <= set("-: "):
+                    labels.add(first)
+                    quoted = re.findall(r'"([^"]+)"', cells[1]) if len(cells) > 1 else []
+                    labels.update(name for name in quoted if not cls.STATEMENT_TITLE.search(name))
+            previous = line
+        return labels
+
+    @classmethod
+    def headline_labels(cls, text: str) -> set[str]:
+        """The headline lines a prompt names in prose, each with the names it allows for it."""
+        labels: set[str] = set()
+        for bullet in cls.HEADLINE_BULLET.findall(text):
+            for line, others in cls.SYNONYMS.findall(bullet):
+                labels.update(name.strip() for name in [line, *others.split("/")])
+        return labels
+
     def test_each_prompts_standard_metric_is_read_or_named(self):
         prompts = sorted((Path(__file__).resolve().parents[2] / "prompts").glob("*.md"))
-        labels = set()
-        for prompt in prompts:
-            # A table's first row is its header; only a table headed "Metric" lists metrics. Its first column names the
-            # metric, and its second may quote the filing's own line names, which the model reports a row by.
-            metric_table, previous = False, ""
-            for line in prompt.read_text().splitlines():
-                if line.startswith("|"):
-                    cells = [cell.strip() for cell in line.strip("|").split("|")]
-                    first = cells[0].replace("*", "").strip()
-                    if not previous.startswith("|"):
-                        metric_table = first == "Metric"
-                    elif metric_table and first and not set(first) <= set("-: "):
-                        labels.add(first)
-                        quoted = re.findall(r'"([^"]+)"', cells[1]) if len(cells) > 1 else []
-                        labels.update(name for name in quoted if not self.STATEMENT_TITLE.search(name))
-                previous = line
+        labels = set().union(*(self.table_labels(prompt.read_text()) | self.headline_labels(prompt.read_text()) for prompt in prompts))
         assert {"Revenue", "Cash & Equivalents", "Total Debt", "Cash", "Net earnings", "Profit for the year"} <= labels, (
             "the scan reads the prompts' metric tables and the line names they quote"
+        )
+        assert {"total net sales", "net profit", "earnings attributable to shareholders"} <= labels, (
+            "and the 6-K earnings prompt's headline lines"
         )
         unread = sorted(label for label in labels
                         if prov.source_metric_key(label) is None and label.casefold() not in self.UNMAPPED)
         assert unread == []
+
+    def test_the_label_reader_reads_every_table_form(self):
+        text = "\n".join([
+            "  | **Metrics** | Where |", "  |---|---|", '  | Revenue | "Total net sales" |', "",
+            "| metric | where |", "|---|---|", "| Net income | bottom line |", "",
+            "| Segment | where |", "|---|---|", "| Services | Note 13 |",
+            "- Revenue (or total net sales), net income (or net profit / earnings attributable to shareholders),",
+        ])
+        assert self.table_labels(text) == {"Revenue", "Total net sales", "Net income"}
+        assert self.headline_labels(text) == {
+            "Revenue", "total net sales", "net income", "net profit", "earnings attributable to shareholders"}
+
+    def test_each_label_named_above_is_still_left_unread(self):
+        # The other way round (lessons/arch-structural-gates-over-prose-rules.md): an excused label that starts mapping
+        # is a figure the check reads and may replace, "Total Debt" with long-term debt's filed value, so its excuse
+        # goes with it.
+        from app.services.ai.xbrl_narrative import _XBRL_NARRATIVE_SPEC
+
+        assert [label for label in self.UNMAPPED if prov.source_metric_key(label) is not None] == []
+        unchecked = [prov._SOURCE_KEY_LABELS[key] for key in self.UNCHECKED]
+        unchecked += [label for label, key, _kind in _XBRL_NARRATIVE_SPEC if key in self.UNCHECKED]
+        assert len(unchecked) >= 4, "each unchecked concept's own label and its grounding labels"
+        assert [label for label in unchecked if prov.source_metric_key(label) is not None] == []
 
     def test_the_debt_lines_run_time_labels_are_left_unchecked(self):
         # The grounding labels the debt line by its scope at run time (debt_balance_label), never the spec's static

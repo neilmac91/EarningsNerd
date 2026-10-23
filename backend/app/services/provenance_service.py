@@ -136,11 +136,20 @@ _SOURCE_EXTRA_KEYS = {
     "total gross profit": "gross_profit",
     "operating income (loss)": "operating_income",
     "operating income/(loss)": "operating_income",
-    # The filing line names the prompts quote for the model to report a row by (each prompt's "Where to find it").
+    "operating (loss) income": "operating_income",
+    # A loss signs its figure under these, as under "Operating income (loss)"; "Net loss", whose label carries
+    # the sign, is never mapped.
+    "net income (loss)": "net_income",
+    "net income/(loss)": "net_income",
+    "net (loss) income": "net_income",
+    # The filing line names the prompts quote for the model to report a row by (each prompt's "Where to find it"),
+    # and the names the 6-K earnings prompt gives its headline lines in prose.
     "net earnings": "net_income",
     "profit for the year": "net_income",
     "profit/(loss) for the year": "net_income",
     "net cash from operating activities": "operating_cash_flow",
+    "net profit": "net_income",
+    "earnings attributable to shareholders": "net_income",
 }
 # Balance-sheet lines are instants. A 10-Q's balance sheet sets the quarter-end beside the last fiscal
 # year-end, a period the same-quarter rule (``metric_delta_service.comparable_facts``) refuses, and the
