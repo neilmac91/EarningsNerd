@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { BellIcon } from '@/lib/icons'
 import { formatLocalDate } from '@/lib/format'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import {
   getNotifications,
   markNotificationsSeen,
@@ -128,7 +129,7 @@ export default function NotificationBell() {
                         <span className="font-data font-semibold">{item.ticker}</span>
                       </span>
                       <span className="block truncate text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                        {item.company_name}
+                        {formatCompanyName(item.company_name)}
                         {item.filing_date ? ` · ${formatLocalDate(item.filing_date, 'MMM d, yyyy')}` : ''}
                       </span>
                     </span>
