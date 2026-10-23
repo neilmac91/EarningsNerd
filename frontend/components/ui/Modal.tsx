@@ -221,23 +221,27 @@ export interface ModalHeaderProps extends HTMLAttributes<HTMLDivElement> {
   onClose?: () => void
 }
 
-// The icon, the title and the close button share one row while the title can keep 9rem beside the icon, as a Notice's
-// glyph and text do. Where it cannot (a phone at 200% text), the title goes to its own line under the icon and the ✕,
-// at the header's full width, under the close button too, and the ✕ keeps the top right (E158, chief design on #1495).
-// flex-wrap alone, as the Notice uses, would carry the ✕ down after a wrapped title, so a header with a ✕ is a
-// container that moves the title at the row's own width: the 2.5rem icon, two 0.75rem gaps, the 9rem title and the ✕'s
-// 1.25rem margin box (14.25rem), where the title would have wrapped. With no ✕, flex-wrap alone does it. The type never
-// steps down. The row gap (4px) and the title's pt-2 put a title under the icon the column gap (12px) below it. At the
-// default size nothing moves, and a header with no icon keeps its title beside the ✕.
-const STACKED_TITLE = '[@container(width<14.25rem)]:order-last [@container(width<14.25rem)]:basis-full'
+// The icon, the title and the close button share one row while the title can keep 9rem beside what shares it, as a
+// Notice's glyph and text do. Where it cannot (a phone at 200% text), the title goes to a line of its own at the header's
+// full width, under the icon and the ✕ or under the ✕ alone, and the ✕ keeps the top right (E158 and E165, chief design
+// on #1495 and #1519). flex-wrap alone, as the Notice uses, would carry the ✕ down after a wrapped title, so a header
+// with a ✕ is a container that moves the title at the row's own width, where the title would have wrapped: the 9rem
+// title, a 0.75rem gap and the ✕'s 1.25rem margin box (11rem), and with an icon its 2.5rem and a second gap (14.25rem).
+// With no ✕, flex-wrap alone does it. The type never steps down. justify-between holds the icon left and the ✕ right;
+// with no icon, justify-end keeps a ✕ alone on its line at the right. Under the icon, the row gap (4px) and the title's
+// pt-2 put the title the column gap (12px) below the icon; under the ✕ alone, its mt-2 puts it the column gap below the
+// glyph, its box clear of the ✕'s padded hit area. At the default size nothing moves.
+const UNDER_ICON = '[@container(width<14.25rem)]:order-last [@container(width<14.25rem)]:basis-full'
+const UNDER_CLOSE =
+  '[@container(width<11rem)]:order-last [@container(width<11rem)]:basis-full [@container(width<11rem)]:mt-2'
 
 export function ModalHeader({ id, icon, tone = 'brand', onClose, className, children, ...rest }: ModalHeaderProps) {
   return (
     <div
       className={cx(
-        'flex items-start justify-between gap-x-3 gap-y-1 px-cap-6 pt-cap-6',
-        icon ? 'flex-wrap' : undefined,
-        icon && onClose ? '[container-type:inline-size]' : undefined,
+        'flex flex-wrap items-start gap-x-3 gap-y-1 px-cap-6 pt-cap-6',
+        icon ? 'justify-between' : 'justify-end',
+        onClose ? '[container-type:inline-size]' : undefined,
         className,
       )}
       {...rest}
@@ -254,7 +258,8 @@ export function ModalHeader({ id, icon, tone = 'brand', onClose, className, chil
         id={id}
         className={cx(
           'min-w-0 flex-[1_1_9rem] break-words text-lg',
-          icon ? cx('pt-2', onClose ? STACKED_TITLE : undefined) : undefined,
+          icon ? 'pt-2' : undefined,
+          onClose ? (icon ? UNDER_ICON : UNDER_CLOSE) : undefined,
         )}
       >
         {children}

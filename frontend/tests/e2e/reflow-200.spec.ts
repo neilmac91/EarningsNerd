@@ -68,8 +68,9 @@ import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
  * 812-886px; the card is the landing's one-line close since D-045, and the landing's rows open their label
  * column at 64rem the same way. At 1440x900 at the default size the site header's bar spans its container and
  * the logo keeps its top-left place, which the bar's w-full holds. At 390, 360 and 320px under 200% text a dialog's
- * header keeps its title inside the panel and clear of its close button, and a title under its icon takes the header's
- * full width, under the close button too, with no word broken inside it (E158; the last cases in this file).
+ * header keeps its title inside the panel and clear of its close button, and a title on a line of its own, under its
+ * icon or under the close button alone, takes the header's full width, under the close button too, with no word
+ * broken inside it (E158 and E165; the last cases in this file).
  *
  * An auth page's "Request an invite" link draws its focus ring closed at 320, 360 and 390px, at both text sizes.
  * As an inline link it broke inside its label at 320px and, under 200% text, at 390 and 320px, and drew an open
@@ -85,7 +86,7 @@ import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
  * lessons/frontend-check-brand-layouts-at-200-percent-text.md asks: a dark: utility on ModalHeader would move it
  * in one theme alone. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is
  * answered in the browser, as a guest, and the filing page from fixtures/filing3Api.ts (for a guest, and
- * for its Pro reader in the signed-in menu case). CI's e2e build turns /calendar and /search on, so both
+ * for its Pro reader in the signed-in menu case and the feedback dialog's). CI's e2e build turns /calendar and /search on, so both
  * join the route loop with their rows painted: the calendar on its own fixtures with the clock pinned to one
  * week (fixtures/calendarWeek.ts), the search answered and run (fixtures/searchApi.ts).
  */
@@ -1707,21 +1708,24 @@ test.describe('a 1440px desktop at the default text size', () => {
 })
 
 /** A dialog's header (components/ui/Modal.tsx, ModalHeader) on a phone at 200% text, at 390, 360 and 320px. The icon, the
-    title and the close button share a row while the title can keep 9rem beside the icon, as a Notice's glyph and text do;
-    where it cannot, the title goes to its own line under the icon and the close button, at the header's full width, under
-    the close button too, and the close button keeps the top right (E158, chief design on #1495). Every painted line of
-    the title stays inside the title's box, clear of the close button and inside the panel, and no word of it breaks
-    inside itself. Before E158 the stacked title kept the group's width beside the close button's column, 64px narrower
-    than the header, so "preferences" (197px) broke in a 152px title at 320px and a 187px one at 360px. Before the title
-    wrapped at all, at 390px under 200% text the icon and the close button left it 60px, and its words painted past it,
-    under the close button: "Cookie preferences" to 383px, 26px past the panel's edge, and each word of "Verify your email
-    to continue" (Chrome 156). The scrim is fixed, so a dialog adds
+    title and the close button share a row while the title can keep 9rem beside what shares it, as a Notice's glyph and
+    text do; where it cannot, the title goes to a line of its own at the header's full width, under the icon and the close
+    button or under the close button alone, and the close button keeps the top right (E158 and E165, chief design on
+    #1495 and #1519). Every painted line of the title stays inside the title's box, clear of the close button and inside
+    the panel, and no word of it breaks inside itself. Before E158 the stacked title kept the group's width beside the
+    close button's column, 64px narrower than the header, so "preferences" (197px) broke in a 152px title at 320px and a
+    187px one at 360px; before E165 a title with no icon kept that column too, so "feedback" (153px) broke in a 152px one
+    at 320px. Before the title wrapped at all, at 390px under 200% text the icon and the close button left it 60px, and
+    its words painted past it, under the close button: "Cookie preferences" to 383px, 26px past the panel's edge, and each
+    word of "Verify your email to continue" (Chrome 156). The scrim is fixed, so a dialog adds
     nothing to the page's scroll width: the title's painted lines are read, a character at a time, against the panel and
     the close button, with the page's width checked as well, and the panel's own sideways scroll where its body is
-    clean. The consent dialog's is not, yet: on main its category rows push the Essential checkbox 25px past the panel at
-    390px, which #1399 fixes. Two dialogs with an icon and a close button, from two surfaces, both over /pricing: the
-    consent dialog (Customize on a first visit) and checkout's email verification prompt, opened by its event, as
-    email-verification-resend.spec.ts opens it. At the default size the title sits beside the icon, as it always has. */
+    clean. The feedback dialog's is not, yet: its type row widens it under 200% text (E168). Three dialogs from three
+    surfaces, all over /pricing: the consent dialog (Customize on a first
+    visit) and checkout's email verification prompt, opened by its event as email-verification-resend.spec.ts opens it,
+    each with an icon and a close button; and the feedback dialog, with a close button and no icon, opened from its
+    launcher by a signed-in reader, as consent-bar-yields.spec.ts signs one in. At the default size the title sits beside
+    the icon, or beside the close button, as it always has. */
 type HeaderFit = { problems: string[]; panelScroll: string | null; beside: boolean; stacked: boolean; full: boolean; where: string }
 
 const headerFit = (dialog: Locator): Promise<HeaderFit> =>
@@ -1729,19 +1733,24 @@ const headerFit = (dialog: Locator): Promise<HeaderFit> =>
     const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
     const title = panel.querySelector('h2')
     const closeButton = panel.querySelector('button[aria-label="Close"]')
-    const iconTile = title?.parentElement?.querySelector(':scope > [aria-hidden="true"]')
-    if (!title || !closeButton || !iconTile) return { problems: ['the header has no title, close button or icon'], panelScroll: null, beside: false, stacked: false, full: false, where: '' }
+    if (!title || !closeButton) return { problems: ['the header has no title or close button'], panelScroll: null, beside: false, stacked: false, full: false, where: '' }
+    // A header with no icon has no tile: its title shares the first row with the close button alone (E165).
+    const iconTile = title.parentElement?.querySelector(':scope > [aria-hidden="true"]')
     const close = closeButton.getBoundingClientRect()
-    const icon = iconTile.getBoundingClientRect()
+    const icon = iconTile?.getBoundingClientRect() ?? null
     const box = title.getBoundingClientRect()
     const outer = panel.getBoundingClientRect()
     const inner = { left: outer.left + panel.clientLeft, right: outer.left + panel.clientLeft + panel.clientWidth }
-    // The header's content box (the close button's parent): a title under the icon takes all of it, under the close
-    // button too (E158).
+    // The header's content box (the close button's parent): a title on a line of its own takes all of it, under the
+    // close button too (E158, E165).
     const header = closeButton.parentElement!
     const headerBox = header.getBoundingClientRect()
     const headerStyle = getComputedStyle(header)
-    const content = { left: headerBox.left + parseFloat(headerStyle.paddingLeft), right: headerBox.right - parseFloat(headerStyle.paddingRight) }
+    const content = {
+      left: headerBox.left + parseFloat(headerStyle.paddingLeft),
+      right: headerBox.right - parseFloat(headerStyle.paddingRight),
+      top: headerBox.top + parseFloat(headerStyle.paddingTop),
+    }
     const overlaps = (r: { left: number; right: number; top: number; bottom: number }) =>
       r.left < close.right - 0.5 && r.right > close.left + 0.5 && r.top < close.bottom - 0.5 && r.bottom > close.top + 0.5
 
@@ -1775,7 +1784,8 @@ const headerFit = (dialog: Locator): Promise<HeaderFit> =>
     }
     if (box.left < inner.left - 0.5 || box.right > inner.right + 0.5) problems.push(`the title's box at ${px(box.left, box.right)} passes the panel's ${px(inner.left, inner.right)}`)
     if (overlaps(box)) problems.push(`the title's box at ${px(box.left, box.right)} by ${px(box.top, box.bottom)} overlaps the close button at ${px(close.left, close.right)} by ${px(close.top, close.bottom)}`)
-    if (close.top > icon.top + 0.5 || close.right > inner.right + 0.5) problems.push(`the close button at ${px(close.left, close.right)}, top ${Math.round(close.top)}px, is not at the header's top right (the icon's top ${Math.round(icon.top)}px, the panel's right edge ${Math.round(inner.right)}px)`)
+    // The close button keeps the header's top right: on its first row, at the right edge of its content, inside the panel.
+    if (close.top > content.top + 0.5 || close.right < content.right - 0.5 || close.right > inner.right + 0.5) problems.push(`the close button at ${px(close.left, close.right)}, top ${Math.round(close.top)}px, is not at the header's top right (the header's content ${px(content.left, content.right)} from ${Math.round(content.top)}px, the panel's right edge ${Math.round(inner.right)}px)`)
 
     // A word on two lines was broken inside itself: none may be (E158).
     const words: { text: string; tops: Set<number> }[] = []
@@ -1803,10 +1813,12 @@ const headerFit = (dialog: Locator): Promise<HeaderFit> =>
     return {
       problems,
       panelScroll: panel.scrollWidth > panel.clientWidth ? `the panel scrolls sideways: ${panel.scrollWidth}px of content in ${panel.clientWidth}px` : null,
-      beside: box.left >= icon.right - 0.5 && box.top < icon.bottom,
-      stacked: box.top >= icon.bottom - 0.5 && Math.abs(box.left - icon.left) <= 0.5,
+      // Beside: on the first row, after the icon, or before the close button where there is no icon. Stacked: below the
+      // first row (the icon and the close button's padded box), from the header content's left edge.
+      beside: icon ? box.left >= icon.right - 0.5 && box.top < icon.bottom : box.right <= close.left + 0.5 && box.top < close.bottom,
+      stacked: box.top >= Math.max(close.bottom, icon?.bottom ?? close.bottom) - 0.5 && Math.abs(box.left - content.left) <= 0.5,
       full: Math.abs(box.left - content.left) <= 0.5 && Math.abs(box.right - content.right) <= 0.5 && box.right > close.left,
-      where: `panel ${px(inner.left, inner.right)}, header content ${px(content.left, content.right)}, icon ${px(icon.left, icon.right)} by ${px(icon.top, icon.bottom)}, title ${px(box.left, box.right)} by ${px(box.top, box.bottom)} painting ${painted.map((l) => `"${l.text}" ${px(l.left, l.right)}`).join(', ')}, close button ${px(close.left, close.right)} by ${px(close.top, close.bottom)}`,
+      where: `panel ${px(inner.left, inner.right)}, header content ${px(content.left, content.right)}, ${icon ? `icon ${px(icon.left, icon.right)} by ${px(icon.top, icon.bottom)}` : 'no icon'}, title ${px(box.left, box.right)} by ${px(box.top, box.bottom)} painting ${painted.map((l) => `"${l.text}" ${px(l.left, l.right)}`).join(', ')}, close button ${px(close.left, close.right)} by ${px(close.top, close.bottom)}`,
     }
   })
 
@@ -1814,6 +1826,8 @@ const DIALOG_HEADERS = [
   {
     name: 'the consent dialog',
     firstVisit: true,
+    signedIn: false,
+    icon: true,
     title: 'Cookie preferences',
     /** Its category rows wrap under 200% text (#1399), so nothing in its body widens the panel: its panel is held too. */
     holdsPanel: true,
@@ -1825,6 +1839,8 @@ const DIALOG_HEADERS = [
   {
     name: 'the email verification prompt',
     firstVisit: false,
+    signedIn: false,
+    icon: true,
     title: 'Verify your email to continue',
     holdsPanel: true,
     // The prompt listens once the page has hydrated; a second event while it is open is the same prompt.
@@ -1834,21 +1850,39 @@ const DIALOG_HEADERS = [
         await expect(dialog).toBeVisible({ timeout: 1000 })
       }).toPass(),
   },
+  {
+    name: 'the feedback dialog',
+    firstVisit: false,
+    /** Its launcher shows for a session (FeedbackWidget): a signed-in reader. */
+    signedIn: true,
+    icon: false,
+    title: 'Send feedback',
+    /** Its type row (Bug, Idea, General) does not wrap, so under 200% text it widens the panel by 79, 42 and 14px at
+        320, 360 and 390px (E168): its header is held, its panel not yet. */
+    holdsPanel: false,
+    open: async (p: Page, dialog: Locator) => {
+      await p.getByRole('button', { name: 'Send feedback', exact: true }).click()
+      await expect(dialog).toBeVisible()
+    },
+  },
 ]
 
 for (const width of [390, 360, 320]) {
   test.describe(`a ${width}px phone at 200% text, a dialog's header`, () => {
     test.use({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true })
     for (const d of DIALOG_HEADERS) {
+      const lead = d.icon ? 'the icon' : 'the close button'
       for (const theme of ['light', 'dark'] as const) {
-        test(`${d.name} keeps its title beside the icon at the default size and under it at 200% text, at the header's full width with no word broken, clear of the close button and inside the panel, at ${width}px in the ${theme} theme`, async ({ page, baseURL }) => {
-          await page.addInitScript(([firstVisit, chosen]) => {
+        test(`${d.name} keeps its title beside ${lead} at the default size and under it at 200% text, at the header's full width with no word broken, clear of the close button and inside the panel, at ${width}px in the ${theme} theme`, async ({ page, baseURL }) => {
+          await page.addInitScript(([firstVisit, signedIn, chosen]) => {
             try {
               localStorage.setItem('theme', chosen)
               if (!firstVisit) localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+              if (signedIn) localStorage.setItem('en_session_active', '1')
             } catch {}
-          }, [d.firstVisit, theme] as const)
-          await answerGuest(page, baseURL!)
+          }, [d.firstVisit, d.signedIn, theme] as const)
+          if (d.signedIn) await answerApi(page, baseURL!, 'pro')
+          else await answerGuest(page, baseURL!)
           await page.goto('/pricing')
           await h1(page, 'Pricing')
           expect(await page.evaluate(() => document.documentElement.classList.contains('dark')), `/pricing in the ${theme} theme`).toBe(theme === 'dark')
@@ -1859,14 +1893,14 @@ for (const width of [390, 360, 320]) {
 
           const atDefault = await headerFit(dialog)
           expect(atDefault.problems, `${at} at the default text size (${atDefault.where})`).toEqual([])
-          expect(atDefault.beside, `${at} at the default text size: the title sits beside the icon (${atDefault.where})`).toBe(true)
+          expect(atDefault.beside, `${at} at the default text size: the title sits beside ${lead} (${atDefault.where})`).toBe(true)
           if (d.holdsPanel) expect(atDefault.panelScroll, `${at} at the default text size`).toBeNull()
 
           await doubleText(page)
 
           const enlarged = await headerFit(dialog)
           expect(enlarged.problems, `${at} and 200% text (${enlarged.where})`).toEqual([])
-          expect(enlarged.stacked, `${at} and 200% text: the title goes under the icon (${enlarged.where})`).toBe(true)
+          expect(enlarged.stacked, `${at} and 200% text: the title goes under ${lead} (${enlarged.where})`).toBe(true)
           expect(enlarged.full, `${at} and 200% text: the title takes the header's full width, under the close button too (${enlarged.where})`).toBe(true)
           if (d.holdsPanel) expect(enlarged.panelScroll, `${at} and 200% text`).toBeNull()
           const widths = await measure(page)
