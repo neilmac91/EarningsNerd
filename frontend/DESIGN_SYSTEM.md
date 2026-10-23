@@ -1121,12 +1121,19 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  focus is inside the site header (`html:has([data-site-header]:focus-within)`): the header is
                  stuck in view, and the padding, which counts its open mobile menu, would scroll the page
                  behind the menu at every Tab through it, and move the page when a control in the bar took
-                 focus while it was scrolled; a Tab out of the open menu lands below it. Gates:
-                 tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/e2e/reflow-200.spec.ts (the filing
+                 focus while it was scrolled. The open menu is a disclosure: it closes when focus leaves the
+                 header (a focusout whose next target is outside it), inside that focusout, and the menu's
+                 close publishes the bar's height in the same commit, before the browser scrolls the next
+                 control into view; otherwise that scroll reserves the open menu, which fills the screen under
+                 200% text. Escape closes it too, returning a focus inside the menu to its toggle; a blur with
+                 no next target (another window, a tap on text) leaves it open. Gates:
+                 tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/unit/Header.spec.tsx (the menu's
+                 close and its height in the same focusout, Escape), tests/e2e/reflow-200.spec.ts (the filing
                  page's section nav at 200% text) and tests/e2e/header-covers-nothing.spec.ts (a Shift+Tab walk
                  of /, /pricing and /analysis with no stop wholly under the bar; /pricing's page header off the
                  screen once scrolled past; the open menu's Tab walk and the bar's own stops leaving the page where
-                 it is).
+                 it is, and a Tab out of the open menu closing it and landing inside the screen, below the bar,
+                 at both text sizes).
                  The open mobile menu scrolls inside the viewport: the header is a column no taller than it
                  (`flex max-h-dvh flex-col`), the bar keeps its own height (`w-full shrink-0`; a column's child
                  with auto side margins is not stretched) and the menu panel takes the rest

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -36,6 +37,10 @@ const NAV_LINKS = [
  *  tests/e2e/header-covers-nothing.spec.ts; DESIGN_SYSTEM.md §4 Stacking). */
 export const SITE_HEADER_HEIGHT_PROPERTY = '--site-header-h'
 
+function publishHeaderHeight(header: HTMLElement) {
+  document.documentElement.style.setProperty(SITE_HEADER_HEIGHT_PROPERTY, `${Math.ceil(header.getBoundingClientRect().height)}px`)
+}
+
 // Isomorphic layout effect (the repo's SSR-safe alias, as in CookieConsent): the header renders on
 // the server too, where useLayoutEffect warns.
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
@@ -60,24 +65,47 @@ export default function Header({
   const account = ACCESS_COPY[accessMode]
   const headerRef = useRef<HTMLElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   // Publish the header's height (SITE_HEADER_HEIGHT_PROPERTY) before the first paint and on every
   // reflow (a wrapped bar, an open menu, a theme or text-size change); cleared when the header leaves.
   useIsoLayoutEffect(() => {
     const header = headerRef.current
     if (!header) return
-    const root = document.documentElement
-    const measure = () => {
-      root.style.setProperty(SITE_HEADER_HEIGHT_PROPERTY, `${Math.ceil(header.getBoundingClientRect().height)}px`)
-    }
+    const measure = () => publishHeaderHeight(header)
     measure()
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null
     observer?.observe(header)
     return () => {
       observer?.disconnect()
-      root.style.removeProperty(SITE_HEADER_HEIGHT_PROPERTY)
+      document.documentElement.style.removeProperty(SITE_HEADER_HEIGHT_PROPERTY)
     }
   }, [])
+
+  // The menu opening or closing publishes the new height in the same commit, not a frame later through the
+  // observer, so the document's scroll padding already reads it when the browser next scrolls a focus into view.
+  useIsoLayoutEffect(() => {
+    if (headerRef.current) publishHeaderHeight(headerRef.current)
+  }, [mobileMenuOpen])
+
+  // The open menu is a disclosure: it closes when focus leaves the header (a Tab past its last item, or a press on a
+  // control outside it). It closes inside the focusout, before the browser scrolls the next control into view, so
+  // that scroll reserves the bar alone, not the open menu, which fills the screen under 200% text and left the
+  // control past the screen's foot (E167). A blur with no next target (another window, a tap on text) leaves it open.
+  const closeMenuWhenFocusLeaves = (event: React.FocusEvent<HTMLElement>) => {
+    const next = event.relatedTarget
+    if (!mobileMenuOpen || !(next instanceof Node) || event.currentTarget.contains(next)) return
+    flushSync(() => setMobileMenuOpen(false))
+  }
+
+  // Escape closes the open menu. A focus inside the menu goes back to its toggle, as a popover's does, since the menu
+  // leaves with it; a focus elsewhere in the bar stays where it is.
+  const closeMenuOnEscape = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key !== 'Escape' || !mobileMenuOpen) return
+    const focusInMenu = menuRef.current?.contains(document.activeElement) ?? false
+    setMobileMenuOpen(false)
+    if (focusInMenu) menuButtonRef.current?.focus({ preventScroll: true })
+  }
 
   // `user` is tri-state: a user object (logged in), `null` (definitive 401 → logged out), or
   // `undefined` (still resolving, or errored with no data). getCurrentUserSafe returns `null`
@@ -122,7 +150,7 @@ export default function Header({
   // out, the account CTA) only there: 36,942px down the landing at 200% text on a 390x664 phone. The cap is the
   // bar's own height, never --site-header-h, which counts the open menu (tests/e2e/reflow-200.spec.ts).
   return (
-    <header ref={headerRef} data-site-header className="sticky top-0 z-50 flex max-h-dvh flex-col border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
+    <header ref={headerRef} data-site-header onBlur={closeMenuWhenFocusLeaves} onKeyDown={closeMenuOnEscape} className="sticky top-0 z-50 flex max-h-dvh flex-col border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
       {/* gap-x-1.5 (6px, 12px at 200% text) keeps the logo's clear space, one E-bar or 11.6% of the mark (4.2px, 8.4px;
           frontend/public/assets/LOGO_README.md), when a full bar sets the account link beside the mark: at 390px and
           200% text the link touched it (tests/e2e/reflow-200.spec.ts). w-full: a column's child with auto side
@@ -218,7 +246,7 @@ export default function Header({
           scroll padding equals the nav's inset, as the Modal panel's does, for a browser that scrolls a focused row
           to the nearest edge; Chromium centres it, and the nav's own padding ends the range. */}
       {mobileMenuOpen && (
-        <div className="overflow-y-auto overscroll-contain scroll-pb-4 scroll-pt-2 border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark lg:hidden">
+        <div ref={menuRef} className="overflow-y-auto overscroll-contain scroll-pb-4 scroll-pt-2 border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark lg:hidden">
           <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 pb-4 pt-2" aria-label="Mobile navigation">
             {/* Below a 24rem viewport the theme toggle lives here, not in the bar (see the mobile actions), as the
                 menu's first row: directly under the bar, so it opens in view, before any scrolling of the menu

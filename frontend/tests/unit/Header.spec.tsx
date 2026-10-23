@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 vi.mock('next/link', () => ({
@@ -216,5 +216,112 @@ describe('Header publishes its height', () => {
       rect.mockRestore()
       vi.unstubAllGlobals()
     }
+  })
+})
+
+// The open mobile menu is a disclosure (E167, chief design's ruling on #1521): it closes when focus leaves the
+// header, and Escape closes it. Under 200% text on a phone the open menu fills the screen, and it stayed open when
+// a Tab left it, so the next control was scrolled into view under the menu, past the screen's foot. The browser
+// scrolls a newly focused control into view after its focus event, reading the document's scroll padding, which reads
+// --site-header-h; so by that focus event the menu is gone and the closed bar's height is published. The geometry is
+// tests/e2e/header-covers-nothing.spec.ts's open-menu walk.
+describe('Header mobile menu closes as a disclosure', () => {
+  const OPEN_HEIGHT = 844
+  const CLOSED_HEIGHT = 64.5
+
+  function renderWithPage() {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <Header />
+        <main>
+          <button type="button">A control on the page</button>
+        </main>
+      </QueryClientProvider>,
+    )
+  }
+
+  /** The header's box: the open menu's height while the menu is mounted, the bar's otherwise. No ResizeObserver
+      fires, so only a publish in the commit itself moves the property. */
+  function measureByMenu() {
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      disconnect() {}
+    })
+    return vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.tagName !== 'HEADER') return { height: 0 } as DOMRect
+      return { height: this.querySelector('nav[aria-label="Mobile navigation"]') ? OPEN_HEIGHT : CLOSED_HEIGHT } as DOMRect
+    })
+  }
+
+  async function openMenu() {
+    await screen.findByRole('link', { name: ACCESS_COPY.invite.ctaShort })
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))
+    return screen.getByRole('navigation', { name: 'Mobile navigation' })
+  }
+
+  const menuOpen = () => screen.queryByRole('navigation', { name: 'Mobile navigation' }) !== null
+  const published = () => document.documentElement.style.getPropertyValue(SITE_HEADER_HEIGHT_PROPERTY)
+
+  beforeEach(() => {
+    vi.mocked(getCurrentUserSafe).mockReset()
+    vi.mocked(getCurrentUserSafe).mockResolvedValue(null)
+  })
+
+  it("closes when focus moves to a control outside the header, before that control's focus event", async () => {
+    const rect = measureByMenu()
+    try {
+      renderWithPage()
+      const menu = await openMenu()
+      expect(published(), 'the commit that opens the menu publishes its height').toBe(`${OPEN_HEIGHT}px`)
+      const last = within(menu).getAllByRole('link').at(-1)!
+      act(() => last.focus())
+
+      const onPage = screen.getByRole('button', { name: 'A control on the page' })
+      let atFocus: { menuOpen: boolean; published: string } | undefined
+      onPage.addEventListener('focus', () => {
+        atFocus = { menuOpen: menuOpen(), published: published() }
+      })
+      act(() => onPage.focus())
+      expect(atFocus, 'the menu closed, and the closed bar was published, inside the focusout').toEqual({ menuOpen: false, published: '65px' })
+      expect(document.activeElement).toBe(onPage)
+    } finally {
+      rect.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('stays open while focus moves inside the header, and when focus leaves with no next target', async () => {
+    renderWithPage()
+    const menu = await openMenu()
+    const [first, second] = within(menu).getAllByRole('link')
+    act(() => first.focus())
+    act(() => second.focus())
+    expect(menuOpen(), 'a Tab from one menu link to the next').toBe(true)
+    act(() => screen.getByRole('button', { name: 'Close menu' }).focus())
+    expect(menuOpen(), 'a Shift+Tab back to the toggle').toBe(true)
+    // Another window, or a tap on text: focus goes nowhere in particular, so the menu stays as the reader left it.
+    fireEvent.blur(screen.getByRole('button', { name: 'Close menu' }), { relatedTarget: null })
+    expect(menuOpen(), 'a blur with no next target').toBe(true)
+  })
+
+  it('closes on Escape and returns a focus inside the menu to its toggle', async () => {
+    renderWithPage()
+    const menu = await openMenu()
+    const link = within(menu).getAllByRole('link')[0]
+    act(() => link.focus())
+    fireEvent.keyDown(link, { key: 'Escape' })
+    expect(menuOpen()).toBe(false)
+    expect(document.activeElement, 'the menu left with the focus, so the focus goes back to its toggle').toBe(screen.getByRole('button', { name: 'Open menu' }))
+  })
+
+  it('closes on Escape and leaves a focus elsewhere in the bar where it is', async () => {
+    renderWithPage()
+    await openMenu()
+    const home = screen.getByRole('link', { name: 'EarningsNerd home' })
+    act(() => home.focus())
+    fireEvent.keyDown(home, { key: 'Escape' })
+    expect(menuOpen()).toBe(false)
+    expect(document.activeElement).toBe(home)
   })
 })
