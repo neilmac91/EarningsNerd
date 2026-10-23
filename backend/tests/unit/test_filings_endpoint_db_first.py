@@ -742,7 +742,8 @@ def test_domestic_lists_are_unchanged_by_the_6k_budget(client, monkeypatch):
 
 def _efts_listing(filings):
     """The real EFTS client over a fake transport: a query-less listing answers with the ``filings``
-    (``_WindowFiling``) of a requested form filed in the request's window, as EFTS lists them."""
+    (``_WindowFiling``) of a requested form filed in the request's window, as EFTS lists them, an
+    amendment under its root form too (the P1-6 live walk dropped seven /A hits)."""
 
     def respond(request: httpx.Request) -> httpx.Response:
         params = request.url.params
@@ -752,7 +753,7 @@ def _efts_listing(filings):
                 "ciks": [FPI_CIK], "display_names": [f"Test Co (BPX) (CIK {FPI_CIK})"],
             }}
             for f in filings
-            if f.form in params["forms"].split(",")
+            if {f.form, f.form.removesuffix("/A")} & set(params["forms"].split(","))
             and params["startdt"] <= f.filing_date.isoformat() <= params["enddt"]
         ]
         return httpx.Response(200, json={"hits": {"total": {"value": len(hits)}, "hits": hits}})
@@ -781,7 +782,8 @@ def test_history_backfill_lists_a_6k_filers_older_annual_reports(client, monkeyp
     """A first visit to a daily 6-K filer lists only 6-Ks: its recent window holds nothing else. The
     visit's history backfill walks EFTS (faked at the transport), and the next visit lists the 20-Fs
     newest first, each with its period end and canonical archive URLs, so the page's year groups and
-    "Compare periods" have the annual reports. The 20-F/A is stored as the explicit-form list would."""
+    "Compare periods" have the annual reports. The 20-F/A EFTS lists beside them is not stored, as
+    the default company list neither serves nor stores one."""
     tc, TestingSession = client
     monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
     monkeypatch.setattr(settings, "HISTORY_BACKFILL_SINCE_YEAR", 2017)
@@ -809,7 +811,7 @@ def test_history_backfill_lists_a_6k_filers_older_annual_reports(client, monkeyp
         assert (listed_report["sec_url"], listed_report["document_url"]) == (sec_url, sec_url + "doc.htm")
     assert [f["filing_type"] for f in listed].count("6-K") == filing_list_service.CACHED_FILINGS_LIMIT
     with TestingSession() as s:
-        assert _stored_fields(s, amendment.accession_number)["filing_type"] == "20-F/A"
+        assert s.query(Filing).filter(Filing.accession_number == amendment.accession_number).count() == 0
         assert s.get(Company, company_id).history_backfilled_at is not None
 
 

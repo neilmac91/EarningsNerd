@@ -12,8 +12,8 @@ sized so a company's per-window hit count stays under the ~100-hit page cap. Row
 through ``filing_scan_service.upsert_filings`` (NOT-NULL-safe, accession-deduped). Each company is
 stamped ``companies.history_backfilled_at`` so the on-visit enqueue never re-walks it.
 
-Annual and quarterly amendments are included; same-period originals remain available, and 10-K/10-Q
-originals are marked superseded (``mark_superseded_filings`` covers those two forms only).
+Annual and quarterly amendments are included; same-period originals remain available and are marked superseded.
+A foreign issuer's 20-F/40-F amendments are not walked, as the company list does not serve them.
 """
 from __future__ import annotations
 
@@ -35,12 +35,14 @@ logger = logging.getLogger(__name__)
 # Match the company display: retain both originals and same-period amendments.
 _BACKFILL_FORMS = ("10-K", "10-K/A", "10-Q", "10-Q/A")
 # A foreign private issuer's annual reports, walked while ENABLE_FPI_FILINGS lists 20-F and 40-F on
-# the company page. Their amendments are stored too, as the walk runs once per company, though the
-# default list serves only the originals. They join the same per-window query, so they cost no EFTS
-# request, and a filer adds hits only for forms it files: about one a year, under the four reports a
-# year the windows are sized for. 6-K stays out: a high-volume interim form (a heavy filer furnishes
-# one most business days) would fill a window's ~100-hit page and push the annual reports off it.
-_FPI_BACKFILL_FORMS = ("20-F", "20-F/A", "40-F", "40-F/A")
+# the company page. They join the same per-window query, so they cost no EFTS request, and a filer
+# adds hits only for forms it files: about one a year, under the four reports a year the windows are
+# sized for. Originals only, as the list serves them: the default list, the filing scan and
+# precompute store no 20-F/A or 40-F/A (expand_amendment_forms expands the domestic reports only),
+# and one stored here would become the Change Report's prior for the next year. 6-K stays out: a
+# high-volume interim form (a heavy filer furnishes one most business days) would fill a window's
+# ~100-hit page and push the annual reports off it.
+_FPI_BACKFILL_FORMS = ("20-F", "40-F")
 # Transient-5xx retries scoped to THIS path — the shared limiter's execute_with_backoff only
 # retries rate-limit errors, not the sporadic 5xx EFTS emits, so we add a small bounded ladder.
 _BACKFILL_RETRY_ATTEMPTS = 3

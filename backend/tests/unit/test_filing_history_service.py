@@ -1,10 +1,10 @@
 """P1-6 guardrail (data-quality plan): the EFTS deep-history backfill service.
 
-Pins: query-less windowing since 2001; EftsHit → NOT-NULL-safe filing dict; amendments (/A) kept
-and unknown/legacy forms excluded (matching the display form set); a foreign issuer's 20-F/40-F
-walked in the same query only behind ENABLE_FPI_FILINGS; accession dedupe across windows; the
-company stamped only when a window succeeded; the 5xx retry bounded at 3; a per-window failure
-tolerated without losing the other windows' rows.
+Pins: query-less windowing since 2001; EftsHit → NOT-NULL-safe filing dict; 10-K/10-Q amendments
+(/A) kept and unknown/legacy forms excluded (matching the display form set); a foreign issuer's
+20-F/40-F, without their amendments, walked in the same query only behind ENABLE_FPI_FILINGS;
+accession dedupe across windows; the company stamped only when a window succeeded; the 5xx retry
+bounded at 3; a per-window failure tolerated without losing the other windows' rows.
 """
 from datetime import datetime, timezone
 
@@ -205,7 +205,9 @@ _SWITCHER = [
 
 def _efts_client(filings, sent):
     """The real EFTS client over a fake transport. Each request's query string is recorded in
-    ``sent`` as sent, and answered with the ``filings`` of a requested form filed in its window."""
+    ``sent`` as sent, and answered with the ``filings`` of a requested form filed in its window. An
+    amendment is answered under its root form too, as the P1-6 live walk saw (it dropped seven /A
+    hits), so the walk's own filter must drop what it does not keep."""
 
     def respond(request: httpx.Request) -> httpx.Response:
         sent.append(request.url.query.decode())
@@ -216,7 +218,8 @@ def _efts_client(filings, sent):
                 "ciks": [FPI_CIK], "display_names": [f"Test Co (TCO) (CIK {FPI_CIK})"],
             }}
             for accession, form, filed, period in filings
-            if form in params["forms"].split(",") and params["startdt"] <= filed <= params["enddt"]
+            if {form, form.removesuffix("/A")} & set(params["forms"].split(","))
+            and params["startdt"] <= filed <= params["enddt"]
         ]
         return httpx.Response(200, json={"hits": {"total": {"value": len(hits)}, "hits": hits}})
 
@@ -226,13 +229,13 @@ def _efts_client(filings, sent):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("fpi, forms, stored", [
     (False, "10-K%2C10-K%2FA%2C10-Q%2C10-Q%2FA", ["10-K", "10-Q"]),
-    (True, "10-K%2C10-K%2FA%2C10-Q%2C10-Q%2FA%2C20-F%2C20-F%2FA%2C40-F%2C40-F%2FA",
-     ["40-F", "40-F/A", "40-F", "10-K", "10-Q"]),
+    (True, "10-K%2C10-K%2FA%2C10-Q%2C10-Q%2FA%2C20-F%2C40-F", ["40-F", "40-F", "10-K", "10-Q"]),
 ], ids=["fpi-off", "fpi-on"])
 async def test_walk_sends_one_query_per_window_whatever_the_flag(monkeypatch, fpi, forms, stored):
     """One EFTS request per window with the flag on or off: the foreign annual reports join the same
     query, so they cost no request, and a domestic filer's hits are unchanged. With the flag off the
-    queries and the stored rows are byte for byte those of the walk before FPI forms were added."""
+    queries and the stored rows are byte for byte those of the walk before FPI forms were added; with
+    it on the 40-F/A that EFTS lists under its root form is dropped, as the company list drops it."""
     monkeypatch.setattr(fh.settings, "ENABLE_FPI_FILINGS", fpi)
     monkeypatch.setattr(fh.settings, "HISTORY_BACKFILL_SINCE_YEAR", 2017)
     monkeypatch.setattr(fh.settings, "HISTORY_BACKFILL_WINDOW_YEARS", 4)
@@ -260,11 +263,12 @@ async def test_walk_sends_one_query_per_window_whatever_the_flag(monkeypatch, fp
 
 
 @pytest.mark.parametrize("form, kept_with_fpi", [
-    ("20-F", True), ("20-F/A", True), ("40-F", True), ("40-F/A", True), ("6-K", False), ("6-K/A", False),
+    ("20-F", True), ("40-F", True), ("20-F/A", False), ("40-F/A", False), ("6-K", False), ("6-K/A", False),
 ])
 def test_hit_to_filing_dict_keeps_fpi_annual_reports_only_behind_the_flag(monkeypatch, form, kept_with_fpi):
-    """With the flag off a foreign form's hit is dropped, as before; with it on the annual reports
-    and their amendments are kept, and the 6-K group stays out (a high-volume interim form)."""
+    """With the flag off a foreign form's hit is dropped, as before; with it on the 20-F and 40-F are
+    kept, and their amendments and the 6-K group (a high-volume interim form) stay out, as the
+    company list leaves them out."""
     monkeypatch.setattr(fh.settings, "ENABLE_FPI_FILINGS", False)
     assert fh._hit_to_filing_dict(_hit("acc", form)) is None
     monkeypatch.setattr(fh.settings, "ENABLE_FPI_FILINGS", True)
@@ -277,9 +281,9 @@ def test_hit_to_filing_dict_keeps_fpi_annual_reports_only_behind_the_flag(monkey
 async def test_backfill_walks_every_report_form_the_company_list_serves(monkeypatch, fpi):
     """Rule 12 gate: every form the company list serves by default, the 6-K group (FilingType
     .is_interim) aside, is a form the history walk queries and keeps under the same
-    ENABLE_FPI_FILINGS state, with its amendment; the walk queries no other form. The walk only
-    reaches what SEC's recent window no longer holds, so a list form it skips loses its older
-    reports for good once the company is stamped."""
+    ENABLE_FPI_FILINGS state, and the walk queries and keeps no other form. The walk only reaches
+    what SEC's recent window no longer holds, so a list form it skips loses its older reports for
+    good once the company is stamped, and a form it adds stores rows no list serves."""
     monkeypatch.setattr(fh.settings, "ENABLE_FPI_FILINGS", fpi)
     monkeypatch.setattr(fh.settings, "HISTORY_BACKFILL_SINCE_YEAR", 2024)
     fake = _FakeEfts({})
@@ -288,8 +292,7 @@ async def test_backfill_walks_every_report_form_the_company_list_serves(monkeypa
 
     walked = {form for call in fake.calls for form in call["forms"].split(",")}
     reports = {
-        form.removesuffix("/A") for form in company_list_forms(fpi=fpi)
-        if not FilingType.from_string(form, strict=False).is_interim
+        form for form in company_list_forms(fpi=fpi) if not FilingType.from_string(form, strict=False).is_interim
     }
-    assert walked == reports | {f"{form}/A" for form in reports}
-    assert all(fh._hit_to_filing_dict(_hit("acc", form)) for form in walked)
+    assert walked == reports
+    assert {form.value for form in FilingType if fh._hit_to_filing_dict(_hit("acc", form.value))} == walked
