@@ -23,6 +23,10 @@ def _filing(document_url="https://www.sec.gov/Archives/edgar/data/320193/000.../
     return SimpleNamespace(id=filing_id, document_url=document_url, sec_url=sec_url, content_cache=cache)
 
 
+# The tag the extractor records for Apple's total net sales (``edgar/instance/concepts.py`` candidates, ``raw_tag``).
+REVENUE_TAG = "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax"
+
+
 class TestExtractQuotedSpan:
     def test_pulls_straight_quoted_span(self):
         assert (
@@ -319,8 +323,8 @@ class TestMapMetricToXbrlKey:
 class TestBuildMetricSource:
     XBRL = {
         # A shown prior is checked too, so the revenue row's prior has its filed fact (Apple FY2023, 383,285).
-        "revenue": {"current": {"period": "2024-09-28", "value": 391035000000.0, "form": "10-K"},
-                    "prior": {"period": "2023-09-30", "value": 383285000000.0, "form": "10-K"}},
+        "revenue": {"current": {"period": "2024-09-28", "value": 391035000000.0, "form": "10-K", "raw_tag": REVENUE_TAG},
+                    "prior": {"period": "2023-09-30", "value": 383285000000.0, "form": "10-K", "raw_tag": REVENUE_TAG}},
         "net_income": {"current": {"value": 93736000000.0}},
         "total_assets": {"current": {"value": 364980000000.0}},
     }
@@ -373,8 +377,8 @@ def _annual(value, end, start):
 # Apple's FY2025 10-K (accession 0000320193-25-000079): the filed pairs, in USD.
 APPLE = {
     "reporting_currency": "USD",
-    "revenue": {"current": _annual(416_161e6, "2025-09-27", "2024-09-29"),
-                "prior": _annual(391_035e6, "2024-09-28", "2023-10-01")},
+    "revenue": {"current": {**_annual(416_161e6, "2025-09-27", "2024-09-29"), "raw_tag": REVENUE_TAG},
+                "prior": {**_annual(391_035e6, "2024-09-28", "2023-10-01"), "raw_tag": REVENUE_TAG}},
     "operating_income": {"current": _annual(133_050e6, "2025-09-27", "2024-09-29"),
                          "prior": _annual(123_216e6, "2024-09-28", "2023-10-01")},
     "free_cash_flow": {"current": _annual(98_767e6, "2025-09-27", "2024-09-29")},
@@ -464,6 +468,77 @@ class TestFigureCheck:
         out = self._check("Total assets", "$313.5B", "$356.0B", self.QUARTER)
         assert out["source_checkable"] is False and "source_mismatched" not in out
 
+    def test_a_prior_that_repeats_the_current_quarter_end_is_not_read_against_it(self):
+        # The series holds the current instant too: a prior the summary copied from the current year is no
+        # earlier date the filing states.
+        out = self._check("Total assets", "$331.5B", "$331.5B", self.QUARTER)
+        assert out["source_checkable"] is False and out["source_verified"] is False
+
+    @pytest.mark.parametrize("field, other", [("currency", "EUR"), ("raw_tag", "AssetsNet"), ("form", "10-K")])
+    def test_an_earlier_instant_of_another_currency_tag_or_form_is_not_the_concepts(self, field, other):
+        current = {**self.QUARTER["total_assets"]["current"], "raw_tag": "Assets"}
+        earlier = {"period": "2024-09-28", "value": 364_980e6, "form": "10-Q", "currency": "USD", "raw_tag": "Assets",
+                   field: other}
+        quarter = {"reporting_currency": "USD", "total_assets": {
+            "current": current, "prior": {**earlier, "fiscal_period": "Q4"}, "series": [current, earlier]}}
+        assert self._check("Total assets", "$331.5B", "$365.0B", quarter)["source_checkable"] is False
+
+    # A concept's extraction candidates differ in scope (edgar/instance/concepts.py), and the extractor records the
+    # winner as raw_tag. A figure is replaced only by the line its label names; one that differs from another line is
+    # not shown wrong, and the row is left unchecked (the expert review of #1530).
+    OUTCOMES = {"matched": (True, True, None), "replaced": (False, True, ["current_period"]), "unchecked": (False, False, None)}
+
+    @pytest.mark.parametrize("metric, key, tag, shown, outcome", [
+        # "Long-term debt" names no single scope: noncurrent, or with its current maturities.
+        ("Long-term debt", "long_term_debt", "us-gaap:LongTermDebtNoncurrent", "$12.0B", "unchecked"),
+        ("Long-term debt", "long_term_debt", "us-gaap:LongTermDebt", "$12.0B", "unchecked"),
+        ("Long-term debt", "long_term_debt", "us-gaap:LongTermDebtNoncurrent", "$10.0B", "matched"),
+        # A cash total with restricted cash or short-term investments is another line.
+        ("Cash and cash equivalents", "cash_and_equivalents",
+         "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents", "$8.0B", "unchecked"),
+        ("Cash and cash equivalents", "cash_and_equivalents", "us-gaap:CashCashEquivalentsAndShortTermInvestments", "$8.0B", "unchecked"),
+        ("Cash and cash equivalents", "cash_and_equivalents",
+         "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents", "$10.0B", "matched"),
+        ("Cash and cash equivalents", "cash_and_equivalents", "us-gaap:CashAndCashEquivalentsAtCarryingValue", "$8.0B", "replaced"),
+        ("Cash & equivalents", "cash_and_equivalents", None, "$8.0B", "unchecked"),
+        # Equity with noncontrolling interests is another line; the instance extractor records no equity tag.
+        ("Shareholders' equity", "shareholders_equity",
+         "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", "$8.0B", "unchecked"),
+        ("Shareholders' equity", "shareholders_equity", None, "$8.0B", "unchecked"),
+        ("Shareholders' equity", "shareholders_equity", "us-gaap:StockholdersEquity", "$8.0B", "replaced"),
+    ])
+    def test_a_balance_sheet_figure_is_replaced_only_by_the_line_its_label_names(self, metric, key, tag, shown, outcome):
+        fact = {"period": "2025-09-27", "value": 10_000e6, "form": "10-K", "currency": "USD", **({"raw_tag": tag} if tag else {})}
+        out = self._check(metric, shown, "—", {"reporting_currency": "USD", key: {"current": fact}})
+        assert (out["source_verified"], out["source_checkable"], out.get("source_mismatched")) == self.OUTCOMES[outcome]
+
+    @pytest.mark.parametrize("metric, key, tag, outcome", [
+        # "Revenues" is the top line, which may add other income to net sales (Walmart's membership fees).
+        ("Net sales", "revenue", "us-gaap:Revenues", "unchecked"),
+        ("Total revenues", "revenue", "us-gaap:Revenues", "replaced"),
+        ("Net sales", "revenue", REVENUE_TAG, "replaced"),
+        ("Revenue", "revenue", None, "unchecked"),  # the companyfacts path records no revenue tag
+        ("Net income", "net_income", "us-gaap:ProfitLoss", "unchecked"),  # adds noncontrolling interests
+        ("Net income", "net_income", "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic", "unchecked"),
+        ("Net income", "net_income", "us-gaap:NetIncomeLoss", "replaced"),
+        ("Operating cash flow", "operating_cash_flow",
+         "us-gaap:NetCashProvidedByUsedInOperatingActivitiesContinuingOperations", "unchecked"),
+        ("Operating cash flow", "operating_cash_flow", "us-gaap:NetCashProvidedByUsedInOperatingActivities", "replaced"),
+        ("Operating income", "operating_income", None, "replaced"),  # one scope across its candidates
+    ])
+    def test_a_period_figure_is_replaced_only_by_the_line_its_label_names(self, metric, key, tag, outcome):
+        fact = {**_annual(10_000e6, "2025-09-27", "2024-09-29"), **({"raw_tag": tag} if tag else {})}
+        out = self._check(metric, "$8.0B", "—", {"reporting_currency": "USD", key: {"current": fact}})
+        assert (out["source_verified"], out["source_checkable"], out.get("source_mismatched")) == self.OUTCOMES[outcome]
+
+    def test_a_cash_figure_of_another_line_is_shown_as_the_summary_wrote_it(self):
+        restricted = {"period": "2025-09-27", "value": 10_000e6, "form": "10-K", "currency": "USD",
+                      "raw_tag": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"}
+        fh = {"table": [{"metric": "Cash and cash equivalents", "current_period": "$8.0B", "commentary": "Cash fell to $8.0B."}]}
+        row = prov.enrich_financial_highlights(fh, _filing(), {"reporting_currency": "USD", "cash_and_equivalents": {"current": restricted}})["table"][0]
+        assert (row["current_period"], row["commentary"], row["source_checkable"]) == ("$8.0B", "Cash fell to $8.0B.", False)
+        assert "source_replaced" not in row and "commentary_withheld" not in row
+
     def test_a_durations_prior_is_never_read_from_the_series(self):
         # Only instants: a P&L line's series mixes durations under one period end.
         quarter = {**APPLE, "revenue": {
@@ -473,8 +548,8 @@ class TestFigureCheck:
         assert self._check("Total net sales", "$416.2B", "$391.0B", quarter)["source_checkable"] is False
 
     YEN = {"reporting_currency": "JPY", "revenue": {
-        "current": {**_annual(45_095_325e6, "2025-03-31", "2024-04-01"), "currency": "JPY"},
-        "prior": {**_annual(37_154_298e6, "2024-03-31", "2023-04-01"), "currency": "JPY"}}}
+        "current": {**_annual(45_095_325e6, "2025-03-31", "2024-04-01"), "currency": "JPY", "raw_tag": "ifrs-full:Revenue"},
+        "prior": {**_annual(37_154_298e6, "2024-03-31", "2023-04-01"), "currency": "JPY", "raw_tag": "ifrs-full:Revenue"}}}
 
     @pytest.mark.parametrize("filed, shown, verified, checkable", [
         ("USD", "¥416.2B", False, True),  # a bare yen is not a dollar: replaced by the filed figure
@@ -523,11 +598,8 @@ class TestFigureCheck:
     def test_a_bare_yen_sign_is_checked_by_its_number(self):
         # "¥" names no single currency (JPY or CNY), so it is no evidence against a JPY fact: a correct
         # figure must not read as one to replace, and a wrong one is still caught.
-        yen = {"reporting_currency": "JPY", "revenue": {
-            "current": {**_annual(45_095_325e6, "2025-03-31", "2024-04-01"), "currency": "JPY"},
-            "prior": {**_annual(37_154_298e6, "2024-03-31", "2023-04-01"), "currency": "JPY"}}}
-        assert self._check("Total net sales", "¥45.1T", "¥37.2T", yen)["source_verified"] is True
-        assert self._check("Total net sales", "¥45.9T", "¥37.2T", yen)["source_mismatched"] == ["current_period"]
+        assert self._check("Total net sales", "¥45.1T", "¥37.2T", self.YEN)["source_verified"] is True
+        assert self._check("Total net sales", "¥45.9T", "¥37.2T", self.YEN)["source_mismatched"] == ["current_period"]
 
     # The plain aliases keep the statement lines main checked by substring (the strict mapper owns none of these), each
     # on its own concept; a dropped or mistyped alias leaves its line silently "Linked, not checked".
@@ -661,6 +733,20 @@ class TestFiledFigureSwap:
         )
         assert [r["current_period"] for r in out["table"]] == ["$416,161M", "$109,158M"]
         assert all("source_replaced" not in r for r in out["table"])
+
+    def test_the_heros_change_is_the_tables_at_a_rounding_boundary(self):
+        # A prior shown as "$50.0M" matches a filed 50,040,000 and stays. The table's change is computed from the filed
+        # pair, and so is the normalized fact the hero reads: from the display text it would read +10.0%.
+        xbrl = {"reporting_currency": "USD", "revenue": {
+            "current": {**_annual(55_000_000, "2025-09-27", "2024-09-29"), "raw_tag": REVENUE_TAG},
+            "prior": {**_annual(50_040_000, "2024-09-28", "2023-10-01"), "raw_tag": REVENUE_TAG}}}
+        fh = {"table": [{"metric": "Revenue", "current_period": "$54M", "prior_period": "$50.0M"}],
+              "normalized": {"metrics": [{"metric": "Revenue", "currentPeriod": "$54M", "priorPeriod": "$50.0M", "deltaPercent": 8.0}]}}
+        out = prov.enrich_financial_highlights(fh, _filing(), xbrl)
+        row, fact = out["table"][0], out["normalized"]["metrics"][0]
+        assert (row["current_period"], row["prior_period"], row["change_display"]) == ("$55,000,000", "$50.0M", "+9.9%")
+        assert f"+{fact['deltaPercent']:.1f}%" == row["change_display"]
+        assert (fact["currentValue"], fact["priorValue"]) == (55_000_000, 50_040_000)
 
     def test_the_stored_normalized_fact_follows_the_swap(self):
         stale = {"metric": "Operating income", "currentPeriod": "$132,100M", "priorPeriod": "$123,216M", "deltaPercent": 7.2}

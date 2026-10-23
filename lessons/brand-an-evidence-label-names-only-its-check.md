@@ -30,6 +30,11 @@ and a screen reader never heard the strike.
   balance-sheet prior is read against the filing's own earlier dates, since a 10-Q compares its quarter
   end with the fiscal year end. The check's tests carry the wrong-scale, wrong-digit, wrong-concept and
   wrong-period cases (`TestFigureCheck` in `backend/tests/unit/test_provenance_service.py`).
+- Replace a figure only with the filed line its label names. A concept's extraction candidates differ
+  in scope (cash with restricted cash, debt noncurrent or with current maturities, equity or net income
+  with noncontrolling interests, "Revenues" beside net sales), so a figure that differs from a fact of
+  another scope, or of a tag the extractor did not record, may be another line's, never a wrong one: the
+  row is left unchecked (`_EXACT_SCOPE_TAGS`; `test_a_*_figure_is_replaced_only_by_the_line_its_label_names`).
 - Take a label's kind (a figure or a quote) only from a field the server sets and a model cannot write. A
   Copilot passage's section label is the model's own words and may start "XBRL ·", so "Matches filing"
   follows the fact payload the server sends (`fact`, admitted in `copilot-api.ts` parseCompletion), never
@@ -45,4 +50,6 @@ and a screen reader never heard the strike.
   reach a screen reader.
 
 **Evidence**: the founder's review and answers of 2026-10-22 (`docs/brand/decisions-log.md` D-058);
-the probe and reconciliation in the plan's §4.1; commit 3bee6a5 (the check and the filed-value swap).
+the probe and reconciliation in the plan's §4.1; commit 3bee6a5 (the check and the filed-value swap);
+the expert review of #1530 on 2026-10-23, which found a $12B debt total that included current
+maturities replaced by a $10B noncurrent fact and marked as matching.

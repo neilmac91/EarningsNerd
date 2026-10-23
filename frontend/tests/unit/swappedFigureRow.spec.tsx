@@ -31,6 +31,25 @@ const citedPassage = {
 const takeaways = (container: HTMLElement) =>
   [...container.querySelectorAll('[data-metric-field="takeaway"]')].map((field) => field.textContent?.trim())
 
+// Sage never colours a value at rest (DESIGN.md, the Separate Signals Rule; D-030). A figure's note states the filed
+// amounts in a string the server's fields fill, which no source scan reads, so the rendered panel is read instead: no
+// text with a digit sits inside an element whose own colour is sage (brandCopyRules.spec.ts rule 2's colour family).
+const SAGE = /^(?:dark:)?(?:text|fill)-(?:brand(?:-[a-z]+)*|accent-strong)(?:\/\S+)?$/
+function digitsInSage(root: HTMLElement): string[] {
+  const out: string[] = []
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!/\d/.test(node.textContent ?? '')) continue
+    for (let element = node.parentElement; element && root.contains(element); element = element.parentElement) {
+      if ((element.getAttribute('class') ?? '').split(/\s+/).some((name) => SAGE.test(name))) {
+        out.push(node.textContent!.trim())
+        break
+      }
+    }
+  }
+  return out
+}
+
 describe('a replaced figure', () => {
   it('names the filed amount shown, the summary’s figure it replaced and the withheld takeaway in its panel', () => {
     render(<FinancialMetricsTable metrics={[replaced]} bare />)
@@ -39,6 +58,24 @@ describe('a replaced figure', () => {
       'Shown as the company filed it: $133,050 million. The summary’s figure, $132,100M, was replaced. ' +
         'Its takeaway was written before the correction, so it is withheld.',
     )
+  })
+})
+
+describe('the figure panel', () => {
+  it.each([
+    ['a replaced figure', replaced],
+    ['a matched figure', { ...replaced, current_period: '$133.1B', source_replaced: null, commentary_withheld: null }],
+  ])('rests the amounts in %s’s note in the ink, its check alone in sage', (_, row) => {
+    render(<FinancialMetricsTable metrics={[row]} bare />)
+    act(() => screen.getAllByRole('link', { name: 'Source: Matches filing (opens in a new tab)' })[0].focus())
+    const panel = screen.getByRole('group', { name: 'Source detail' })
+    expect(panel.textContent).toContain('$133,050 million')
+    expect(digitsInSage(panel)).toEqual([])
+  })
+
+  it('reads a sage digit as one, so the check above can fail', () => {
+    const { container } = render(<p><span className="text-xs text-brand-strong dark:text-brand-strong-dark">$133,050 million</span></p>)
+    expect(digitsInSage(container)).toEqual(['$133,050 million'])
   })
 })
 

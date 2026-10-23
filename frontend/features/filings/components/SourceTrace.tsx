@@ -93,9 +93,11 @@ export function SourceTracePanelBody({
   /** The EDGAR link's ref, for the popover's keyboard hand-off. */
   linkRef?: Ref<HTMLAnchorElement>
 }) {
+  // The status line rests in the ink and only the check is sage: a figure's note states the filed amounts, and sage
+  // never colours a value at rest (DESIGN.md, the Separate Signals Rule; D-030).
   const statusLine = isVerified ? (
-    <span className="mt-2 flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark">
-      <CheckCircleIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+    <span className="mt-2 flex items-center gap-1 text-xs font-medium text-text-primary-light dark:text-text-primary-dark">
+      <CheckCircleIcon className="h-3 w-3 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
       {note || passageNote(true, header)}
     </span>
   ) : (

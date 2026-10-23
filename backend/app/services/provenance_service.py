@@ -142,6 +142,30 @@ _SOURCE_EXTRA_KEYS = {
 _INSTANT_KEYS = frozenset({"total_assets", "cash_and_equivalents", "shareholders_equity", "long_term_debt"})
 # A bare "¥" names one of two currencies (``app.utils.numbers.display_currency``).
 _YEN_CURRENCIES = frozenset({"JPY", "CNY"})
+# The filed lines a row's label names exactly, for each concept whose extraction candidates differ in scope
+# (``edgar/instance/concepts.py``, which records the winning tag as ``raw_tag``). A filer that tags no such
+# line has another stand in: cash that adds restricted cash or short-term investments, or leaves out its
+# equivalents; equity that adds noncontrolling interests; net income that adds them, or is what is left for
+# common stockholders; operating cash flow from continuing operations alone; "Revenues", the top line, which
+# may add other income to net sales (``_names_the_filed_line``). "Long-term debt" names no single scope,
+# noncurrent or with its current maturities (``edgar/debt_concepts.py``), so no tag qualifies. A figure that
+# differs from a filed fact whose tag is not listed, or not recorded, is never replaced: the row is left
+# unchecked, as main left it. A concept not listed has one scope across its candidates.
+_EXACT_SCOPE_TAGS: dict[str, frozenset[str]] = {
+    "revenue": frozenset({
+        "Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax",
+        "RevenueFromContractWithCustomerIncludingAssessedTax", "SalesRevenueNet", "NetSales", "TotalRevenue",
+        "Revenue", "RevenueFromContractsWithCustomers",
+    }),
+    "net_income": frozenset({"NetIncomeLoss", "ProfitLossAttributableToOwnersOfParent"}),
+    "operating_cash_flow": frozenset({
+        "NetCashProvidedByUsedInOperatingActivities", "CashFlowsFromUsedInOperatingActivities",
+    }),
+    "cash_and_equivalents": frozenset({"CashAndCashEquivalentsAtCarryingValue", "CashAndCashEquivalents"}),
+    "shareholders_equity": frozenset({"StockholdersEquity", "EquityAttributableToOwnersOfParent"}),
+    "long_term_debt": frozenset(),
+}
+_SALES_LABEL_RE = re.compile(r"\bsales\b", re.IGNORECASE)
 _NEVER_CHECKED_KEYS = frozenset({"eps_diluted", "net_margin", "gross_margin", "operating_margin"})
 _SOURCE_KEY_LABELS = {key: label for _pattern, key, label in _METRIC_XBRL_PATTERNS}
 _ROW_PERIOD_FACT = {"current_period": "current", "prior_period": "prior"}
@@ -626,6 +650,19 @@ def _filed_prior(
     return None, False
 
 
+def _names_the_filed_line(key: str, label: Any, fact: dict) -> bool:
+    """Whether a row's label names the filed fact's own line (``_EXACT_SCOPE_TAGS``), so a figure that differs
+    from it may be replaced by it rather than be another line's."""
+    tags = _EXACT_SCOPE_TAGS.get(key)
+    if tags is None:
+        return True
+    raw_tag = fact.get("raw_tag")
+    tag = raw_tag.rsplit(":", 1)[-1] if isinstance(raw_tag, str) else None
+    if tag not in tags:
+        return False
+    return not (tag == "Revenues" and isinstance(label, str) and _SALES_LABEL_RE.search(label) is not None)
+
+
 def _filed_amount(fact: dict, reporting_currency: Any) -> str:
     """A filed amount in millions, the way a statement prints it ("$133,050 million")."""
     millions = Decimal(str(fact["value"])) / Decimal(1_000_000)
@@ -652,7 +689,9 @@ def build_metric_source(
     its denominator from these rows only. ``source_verified`` is True only when every figure the row
     shows matches at its own scale and last stated digit (``metric_delta_service.display_matches_value``):
     "Matches filing" covers the whole row, never the current period alone. A period that does not is
-    named in ``source_mismatched``, and ``enrich_financial_highlights`` swaps the filed figure in for it.
+    named in ``source_mismatched``, and ``enrich_financial_highlights`` swaps the filed figure in for it,
+    but only where the row's label names the filed fact's own line (``_names_the_filed_line``): a figure
+    that differs from a line of another scope leaves the row unchecked.
     """
     base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
     out: dict[str, Any] = {
@@ -692,6 +731,13 @@ def build_metric_source(
             compared["prior_period"] = prior
     shows = {field: _shows_filed_value(shown[field], fact, reporting_currency) for field, fact in compared.items()}
     if any(result is None for result in shows.values()):
+        return out
+    if any(
+        result is False and not _names_the_filed_line(key, metric_row.get("metric"), compared[field])
+        for field, result in shows.items()
+    ):
+        # A figure that differs from a filed line its label may not name (a cash total with restricted cash,
+        # noncurrent debt beside debt with its current maturities) may be another line's, never a wrong one.
         return out
 
     out["source_checkable"] = True
@@ -787,12 +833,14 @@ def _excerpt_section_ref(excerpt: str) -> Optional[str]:
     return match.group(1).strip() if match else None
 
 
-def _refresh_normalized(section: dict) -> None:
+def _refresh_normalized(section: dict, xbrl_standardized: Optional[dict]) -> None:
     """Rewrite each swapped row's stored normalized fact from its new figures.
 
     ``attach_normalized_facts`` derived these from the summary's own figures at generation; the
     homepage hero reads them (``frontend/lib/serverApi.ts``, ``pickMetrics``), so a stale fact would
-    show the figure the table replaced.
+    show the figure the table replaced. A change the exact binder computed from the filed pair is
+    computed from the same pair here (``metric_delta_service.exact_operands``): from the display text,
+    a prior shown as "$50.0M" for a filed 50,040,000 would give the hero +10.0% beside the table's +9.9%.
     """
     normalized = section.get("normalized")
     facts = normalized.get("metrics") if isinstance(normalized, dict) else None
@@ -805,12 +853,14 @@ def _refresh_normalized(section: dict) -> None:
     for index, fact in enumerate(facts):
         row = swapped.get(fact.get("metric")) if isinstance(fact, dict) else None
         if row is not None:
+            operands = metric_delta_service.exact_operands(row, xbrl_standardized)
             # The model's other fields may be any JSON; the fact takes text only.
             facts[index] = json.loads(NormalizedFact(
                 metric=row["metric"],
                 current_period=_text_or_none(_row_figure(row, "current_period")),
                 prior_period=_text_or_none(_row_figure(row, "prior_period")),
                 commentary=_text_or_none(row.get("commentary")) or None,
+                **({"current_value": operands[0], "prior_value": operands[1]} if operands else {}),
             ).model_dump_json(by_alias=True))
 
 
@@ -981,8 +1031,6 @@ def enrich_financial_highlights(
             if mismatched:
                 _swap_in_filed_figures(row, mismatched, xbrl_standardized)
     result["table"] = rows
-    if any(isinstance(row, dict) and row.get("source_replaced") for row in rows):
-        _refresh_normalized(result)
     # A generation-stamped envelope may retain each already-bound exact delta when the best-effort
     # XBRL reload lacks that row's complete operand pair. Every unmarked/forged envelope is scrubbed;
     # a complete reloaded pair always re-enters strict binding, so conflicting facts are refused. It
@@ -992,6 +1040,8 @@ def enrich_financial_highlights(
         xbrl_standardized,
         preserve_owned_when_unavailable=exact_delta_owned,
     )
+    if any(isinstance(row, dict) and row.get("source_replaced") for row in result["table"]):
+        _refresh_normalized(result, xbrl_standardized)
     enriched_rows: list[Any] = []
     for row in result["table"]:
         if isinstance(row, dict):

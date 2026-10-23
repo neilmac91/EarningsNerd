@@ -21,8 +21,10 @@ import { describe, expect, it } from 'vitest'
  *
  * Copy is what the TypeScript syntax tree holds as text: string literals, template text and JSX text, and, inside a
  * link, a same-file constant it renders by name: a string or a template (`as const` and `satisfies` aside), or one
- * field of a same-file object. Not copy: comments, identifiers, addresses (edgarCompanyUrl, an href), event handlers,
- * data-* attributes, ids and the references to them, and a value a comparison reads (`s === 'Verified'`, a `case`).
+ * field of a same-file object. Not copy: comments, identifiers, the values of attributes that are never shown (an
+ * address such as an href or edgarCompanyUrl's result, a class, a data-* hook, an id and the references to one), and a
+ * value a comparison reads (`s === 'Verified'`, a `case`). An event handler's strings are not a link's copy, but rule 1
+ * still reads them, since a handler may set text that is shown (a toast, a label held in state).
  * An attribution outside a link ("Data sourced from SEC EDGAR" in the footer and AiDisclaimer) is not a label, and the
  * plan's R9 leaves it, as it leaves the legal pages (LEGAL, whose links keep their published words). The scan reads
  * .ts, .tsx, .js and .jsx modules.
@@ -30,9 +32,8 @@ import { describe, expect, it } from 'vitest'
  * It cannot follow copy another module hands a link. The vocabulary module, whose labels other modules render in
  * links (sourceLinkLabel(url), which evidenceLabels.spec.ts pins), names EDGAR nowhere in its copy, which the second
  * case checks; copy any other module hands a link stays review-checked, as does a label built by concatenation, split
- * across elements or read from an array. The OG card's template is read
- * for rule 1, each of its text segments as a label. The planted forms below hold the scan's reach: each way to break a
- * rule fails, each look-alike passes.
+ * across elements or read from an array. The OG card's template is read for rule 1, each of its text segments as a
+ * label. The planted forms below hold the scan's reach: each way to break a rule fails, each look-alike passes.
  */
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCANNED = ['app', 'components', 'features', 'lib']
@@ -58,14 +59,39 @@ export function retiredText(text: string, rendered: boolean): boolean {
   return rendered && parts.some((part) => WHOLE_LABELS_ANY_CASE.has(part.toLowerCase()))
 }
 
-/** Where JSX shows a value as it stands: JSX text, an attribute's value or a `{…}` (through `?:`, `||`, `??`, parentheses). */
-function rendered(node: ts.Node): boolean {
-  if (ts.isJsxText(node)) return true
+// An element given an address is a link: an href, a url or a link, or a prop named for one (backHref, ctaHref, secUrl).
+const ADDRESS_ATTRIBUTE = /^(?:href|url|link)$|(?:Href|Url)$/
+// Attributes whose values are never shown: sources, classes, link and loading hints, keys, data-* hooks, and ids with
+// the references to them. An event handler's strings are not a link's copy, though one may set text that is shown.
+const UNSHOWN_ATTRIBUTE = /^(?:src|className|rel|target|id|key|prefetch|htmlFor|aria-(?:controls|describedby|labelledby|owns))$|^data-/
+const HANDLER_ATTRIBUTE = /^on[A-Z]/
+const isLinkTag = (tag: string) => tag === 'a' || tag === 'Link'
+const attributeName = (attribute: ts.JsxAttribute) => attribute.name.getText()
+const shownAttribute = (attribute: ts.JsxAttribute) =>
+  !ADDRESS_ATTRIBUTE.test(attributeName(attribute)) && !UNSHOWN_ATTRIBUTE.test(attributeName(attribute)) && !HANDLER_ATTRIBUTE.test(attributeName(attribute))
+
+/** Where a value is written as it stands (through `?:`, `||`, `??` and parentheses): an attribute, a `{…}` child, or neither. */
+function writtenTo(node: ts.Node): ts.JsxAttribute | 'child' | null {
   let at: ts.Node = node
   while (ts.isConditionalExpression(at.parent) || ts.isParenthesizedExpression(at.parent) || ts.isBinaryExpression(at.parent)) {
     at = at.parent
   }
-  return ts.isJsxAttribute(at.parent) || ts.isJsxExpression(at.parent)
+  if (ts.isJsxExpression(at.parent)) at = at.parent
+  if (ts.isJsxAttribute(at.parent)) return at.parent
+  return ts.isJsxExpression(at) ? 'child' : null
+}
+
+/** Where JSX shows a value as it stands: JSX text, a `{…}` child, or the value of an attribute that is shown. */
+function rendered(node: ts.Node): boolean {
+  if (ts.isJsxText(node)) return true
+  const to = writtenTo(node)
+  return to === 'child' || (to !== null && shownAttribute(to))
+}
+
+/** A value written to an attribute that is never shown (an address, a class, a data-* hook, an id): not copy. */
+function unshown(node: ts.Node): boolean {
+  const to = writtenTo(node)
+  return to !== null && to !== 'child' && !shownAttribute(to) && !HANDLER_ATTRIBUTE.test(attributeName(to))
 }
 
 const EQUALITY = new Set([
@@ -78,14 +104,6 @@ const EQUALITY = new Set([
 const compared = (node: ts.Node) =>
   (ts.isBinaryExpression(node.parent) && EQUALITY.has(node.parent.operatorToken.kind)) ||
   (ts.isCaseClause(node.parent) && node.parent.expression === node)
-
-// An element given an address is a link: an href, a url or a link, or a prop named for one (backHref, ctaHref, secUrl).
-const ADDRESS_ATTRIBUTE = /^(?:href|url|link)$|(?:Href|Url)$/
-// Attributes whose strings are not copy: sources, classes, link and loading hints, keys, event handlers, data-* hooks,
-// and ids with the references to them.
-const NOT_COPY_ATTRIBUTE = /^(?:src|className|rel|target|id|key|prefetch|htmlFor|aria-(?:controls|describedby|labelledby|owns))$|^on[A-Z]|^data-/
-const isLinkTag = (tag: string) => tag === 'a' || tag === 'Link'
-const attributeName = (attribute: ts.JsxAttribute) => attribute.name.getText()
 
 const SOURCE_FILE = /\.[jt]sx?$/
 export const isSourceFile = (name: string) => SOURCE_FILE.test(name) && !name.endsWith('.d.ts')
@@ -168,7 +186,7 @@ function constantText(node: ts.Node, constants: Map<string, string>): string | n
 function linkCopy(element: ts.JsxElement | ts.JsxSelfClosingElement, constants: Map<string, string>): string[] {
   const out: string[] = []
   const read = (node: ts.Node) => {
-    if (ts.isJsxAttribute(node) && (NOT_COPY_ATTRIBUTE.test(attributeName(node)) || ADDRESS_ATTRIBUTE.test(attributeName(node)))) return
+    if (ts.isJsxAttribute(node) && !shownAttribute(node)) return
     const text = textOf(node) ?? constantText(node, constants)
     if (text !== null) out.push(text)
     node.forEachChild(read)
@@ -195,7 +213,7 @@ export function scan(rel: string, source: string): Breach[] {
     const text = own ?? constantText(node, constants)
     if (text !== null) {
       const shown = rendered(node)
-      if ((own !== null || shown) && !compared(node) && retiredText(text, shown) && !RETIRED_ALLOWED.has(`${rel}: ${text}`)) {
+      if ((own !== null || shown) && !compared(node) && !unshown(node) && retiredText(text, shown) && !RETIRED_ALLOWED.has(`${rel}: ${text}`)) {
         breaches.push({ rule: 'retired label', at: at(node), text: text.trim() })
       }
     }
@@ -301,6 +319,8 @@ describe('the vocabulary scan holds its reach', () => {
     ['a bare source name behind a condition', `export const T = ({ x }: { x: boolean }) => <span>{x ? 'SEC EDGAR' : null}</span>`],
     ['a bare source name rendered by name', `const SOURCE = 'SEC EDGAR'\nexport const T = () => <span>{SOURCE}</span>`],
     ['a constant badge in capitals rendered by name', `const BADGE = 'VERIFIED'\nexport const T = () => <Badge label={BADGE} />`],
+    ['a label a handler sets', `export const B = () => <button onClick={() => setLabel('Verified')}>Check</button>`],
+    ['a shown attribute in capitals behind a condition', `export const B = ({ ok }: { ok: boolean }) => <Chip label={ok ? 'CITED' : ''} />`],
   ])('fails %s', (_, source) => {
     expect(breaches(source)).toContain('retired label')
   })
@@ -324,6 +344,8 @@ describe('the vocabulary scan holds its reach', () => {
     ['a case a switch reads', `export function words(s: string) { switch (s) { case 'Cited': return 'Quote found in filing'; default: return s } }`],
     ['a status value that is never shown', `export const STATUS = 'verified'`],
     ['a type that names a field', `type Evidence = Omit<FigureEvidence, 'verified'>`],
+    ['a state a data attribute carries', `export const S = ({ ok }: { ok: boolean }) => <span data-state={ok ? 'Verified' : 'pending'}>Matches filing</span>`],
+    ['an id that reads like a label', `export const S = () => <section id="Cited" aria-labelledby="SEC EDGAR">Quote found in filing</section>`],
   ])('passes %s', (_, source) => {
     expect(breaches(source)).toEqual([])
   })

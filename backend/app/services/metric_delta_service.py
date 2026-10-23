@@ -261,6 +261,26 @@ def comparable_facts(current: Any, prior: Any) -> bool:
 
 def _exact_delta_for_row(row: dict, metric: Any, metric_key: str) -> Optional[MetricDelta]:
     """Return a delta only when exact XBRL operands match the row's basis and displayed values."""
+    operands = _exact_operands_for_row(row, metric, metric_key)
+    if operands is None:
+        return None
+    current_value, prior_value, is_ratio = operands
+    return compute(float(current_value), float(prior_value), is_ratio=is_ratio)
+
+
+def exact_operands(row: Any, xbrl_metrics: Any) -> Optional[tuple[Decimal, Decimal]]:
+    """The filed current and prior values ``bind_exact_xbrl_deltas`` computes a row's change from, or ``None``
+    when it binds none, so another reading of the row (its normalized fact) states the same change."""
+    if not isinstance(row, dict):
+        return None
+    metric_key = strict_xbrl_metric_key(row.get("metric"))
+    metric = xbrl_metrics.get(metric_key) if metric_key and isinstance(xbrl_metrics, dict) else None
+    operands = _exact_operands_for_row(row, metric, metric_key) if metric_key else None
+    return None if operands is None else (operands[0], operands[1])
+
+
+def _exact_operands_for_row(row: dict, metric: Any, metric_key: str) -> Optional[tuple[Decimal, Decimal, bool]]:
+    """Both filed values and whether the row is a ratio, when they match its basis and displayed values."""
     if not isinstance(metric, dict):
         return None
     current = metric.get("current")
@@ -290,7 +310,7 @@ def _exact_delta_for_row(row: dict, metric: Any, metric_key: str) -> Optional[Me
         return None
     if not _display_matches_exact(prior_text, prior_value):
         return None
-    return compute(float(current_value), float(prior_value), is_ratio=is_ratio)
+    return current_value, prior_value, is_ratio
 
 
 def _has_complete_exact_operands(metric: Any) -> bool:

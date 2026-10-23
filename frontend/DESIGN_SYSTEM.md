@@ -1464,7 +1464,9 @@ Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12p
                  find that names no section, whose panel says the link opens the filing); the accessible name
                  is "Source: <label>", with
                  " (opens in a new tab)" where the chip is itself the link, and the panel's link reads "Open
-                 the filing on SEC.gov" ("the passage" for a text-fragment URL). The recipe lives in `features/filings/lib/sourceTraceChip.ts`, outside the
+                 the filing on SEC.gov" ("the passage" for a text-fragment URL). The panel's status line rests
+                 in the ink with only its check in sage, since a figure's note states the filed amounts (D-030;
+                 `tests/unit/swappedFigureRow.spec.tsx`). The recipe lives in `features/filings/lib/sourceTraceChip.ts`, outside the
                  'use client' SourceTrace, so a server component can call it (the homepage example does; gate:
                  `tests/unit/serverCallsClientExport.spec.ts`).
 
