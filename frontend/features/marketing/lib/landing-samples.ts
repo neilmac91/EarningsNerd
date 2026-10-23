@@ -12,12 +12,16 @@ import demo from '@/features/analysis/demo/demo-analysis.json'
  * payloads. Every figure is from Apple's FY2025 10-K (accession 0000320193-25-000079, filed
  * 2025-10-31), the same filing the live hero example summarises, verified against the SEC
  * companyfacts XBRL on 2026-10-11 (docs/brand/00-audit.md §4); the excerpts are verbatim from that
- * filing's Item 7. The takeaway sentences are editorial. The Multi-Period demo below still comes
- * from the FY2019–FY2024 pipeline snapshot (regenerate it through the pipeline, never by hand).
+ * filing's Item 7. The takeaway sentences are editorial. The Multi-Period demo below is the
+ * pipeline's FY2020–FY2025 run of 2026-10-22: its FY2025 and FY2024 revenue, net income, diluted EPS
+ * and operating cash flow are the same verified values, and each source link opens the primary document
+ * of the filing it cites (tests/unit/landingSamplesVerified.spec.ts). Regenerate it through the pipeline,
+ * never by hand, with the company's filings listed first.
  */
 
+// The primary 10-K document, not its accession directory: every sample receipt opens the filing.
 export const AAPL_FY25_EDGAR_URL =
-  'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
+  'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm'
 
 export const SAMPLE_FILING = {
   ticker: 'AAPL',
@@ -58,7 +62,7 @@ export const SAMPLE_FINANCIAL_METRICS: FinancialMetric[] = [
     commentary: 'Grew three times as fast as revenue; the provision for income taxes fell.',
     source_url: AAPL_FY25_EDGAR_URL,
     source_verified: true,
-    xbrl_concept: 'NetIncomeLoss',
+    xbrl_concept: 'Net income',
     source_section_ref: 'Consolidated Statements of Operations',
   },
   {
@@ -97,23 +101,34 @@ export const SAMPLE_CATCH = {
   url: AAPL_FY25_EDGAR_URL,
 } as const
 
-/** Ask this Filing demo: one answer with an XBRL figure chip ([F1]) and a passage chip ([1]).
- *  Services net sales from the Products and Services Performance table: $109,158M vs $96,169M. */
+/** Ask this Filing demo: one answer as a live run returns it. Two XBRL figure chips in
+ *  fact_to_citation's own format (backend/app/services/copilot_tools.py: total net sales, a fact the
+ *  tool can fetch, and its year-over-year growth, which compute_metric derives from the same fact) and
+ *  one passage chip. The server renumbers every marker in first-appearance order
+ *  (copilot/resolution.py), so the answer carries [1] [2] [3], never [F1]. Figures: 416,161M vs
+ *  391,035M (docs/brand/00-audit.md §4); tests/unit/landingSamplesVerified.spec.ts holds it. */
 export const SAMPLE_ASK = {
-  question: 'How much did Services revenue grow, and what drove it?',
+  question: 'How much did net sales grow, and what drove Services?',
   // Markers are injected as CitationChips by lib/citationMarkers, exactly as CopilotMessage does.
   answer:
-    'Services net sales were $109.2B, up 13.5% from $96.2B [F1]. Management attributes the increase to advertising, the App Store and cloud services [1].',
+    'Total net sales were $416.2B [1], up 6.4% on the prior year [2]. Management attributes the Services increase to advertising, the App Store and cloud services [3].',
   citations: [
     {
-      n: 'F1',
-      excerpt: 'Services net sales: $109,158 million (FY2025) vs $96,169 million (FY2024)',
-      section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax · Services',
+      n: 1,
+      excerpt: 'Revenue = $416.16B USD (FY2025/FY)',
+      section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
       verified: true,
       fragment_url: AAPL_FY25_EDGAR_URL,
     },
     {
-      n: 1,
+      n: 2,
+      excerpt: 'Revenue YoY growth = 6.4% (FY2025/FY)',
+      section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+      verified: true,
+      fragment_url: AAPL_FY25_EDGAR_URL,
+    },
+    {
+      n: 3,
       excerpt:
         'Services net sales increased during 2025 compared to 2024 primarily due to higher net sales from advertising, the App Store and cloud services.',
       section_ref: 'Item 7 · Products and Services Performance',
@@ -147,13 +162,16 @@ export const SAMPLE_CHANGE_REPORT: ChangeReport = {
 
 /**
  * Multi-Period Analysis demo: the checked-in sample payload the free-user AnalysisTeaser already
- * renders (Apple, annual, FY2019–FY2024, XBRL-reconciled), narrowed to the three series the
- * landing screen shows. KpiStrip and MetricsTable render it unchanged.
+ * renders (Apple, annual, FY2020–FY2025, the pipeline's own run), narrowed to the three series the
+ * landing screen shows. KpiStrip and MetricsTable render it unchanged. The run's data notes count
+ * every series it holds, so they leave with the other series and the three shown count their own,
+ * as any dataset without notes does (resolveDataNotes in features/analysis/lib/dataNotes.ts).
  */
 const DEMO_DATASET = demo.dataset as unknown as AnalysisDataset
 const LANDING_SERIES = new Set(['revenue', 'net_income', 'net_margin'])
+const { data_notes: _everySeriesNotes, ...DEMO_WITHOUT_NOTES } = DEMO_DATASET
 
 export const SAMPLE_ANALYSIS_DATASET: AnalysisDataset = {
-  ...DEMO_DATASET,
+  ...DEMO_WITHOUT_NOTES,
   series: DEMO_DATASET.series.filter((series) => LANDING_SERIES.has(series.concept)),
 }

@@ -33,6 +33,8 @@ import { SummaryDisplay } from '@/features/summaries/components/SummaryDisplay'
 import { GenerateSignupGate } from '@/features/summaries/components/GenerateSignupGate'
 import { ChangeReportCard } from '@/features/summaries/components/ChangeReportCard'
 import { useSummaryGeneration } from '@/features/summaries/hooks/useSummaryGeneration'
+import { useFocusOnArrival } from '@/hooks/useFocusHandoff'
+import { isSummaryFailure } from '@/features/summaries/lib/summaryPlaceholder'
 
 // StreamingSummaryDisplay + its stage constants live in ./StreamingSummaryDisplay.
 // The summary-generation state machine lives in features/summaries/hooks/useSummaryGeneration;
@@ -66,6 +68,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
   // "Ask about this" text selection → open the rail + pre-fill the composer.
   const [copilotPrefill, setCopilotPrefill] = useState<{ text: string; nonce: number } | null>(null)
   const summaryContentRef = useRef<HTMLElement>(null)
+  const completedSummaryHeadingRef = useRef<HTMLHeadingElement>(null)
   const hasTrackedFilingView = useRef(false)
   const hasTrackedSummaryGenerated = useRef(false)
   const hasTrackedSummaryViewed = useRef(false)
@@ -106,6 +109,14 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
     hasSummaryContent,
     handleRegenerateSummary,
   } = useSummaryGeneration({ filingId, filing, isAuthenticated, isAuthResolved, entryPoint, initialSummary })
+
+  // This owner survives the progress-to-summary swap. Cached reads never claim focus, and a
+  // failed regeneration must not announce the retained previous summary as a completed run.
+  useFocusOnArrival(
+    completedSummaryHeadingRef,
+    hasStartedGeneration && !isStreaming && !generationError && hasSummaryContent
+      && Boolean(summary && !isSummaryFailure(summary)),
+  )
 
   // Single entry point for every "Ask" affordance (callout CTA, starter chips, tappable follow-ups,
   // coachmark, text selection): open the rail, optionally pre-fill, and attribute the surface. FREE
@@ -240,7 +251,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
       <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
         <div className="text-center">
           <h1 className="text-2xl font-semibold mb-4 text-text-primary-light dark:text-text-primary-dark">Filing not found</h1>
-          <Link href="/" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
+          <Link href="/" className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
             Go back home
           </Link>
         </div>
@@ -261,7 +272,13 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
   // The change report needs no summary (stored XBRL, free to read): where the page settles without one,
   // under the signup gate and under a run that ended in an error or at the monthly limit, it is a card
   // of its own, and the company page's "Open change report" lands on it there.
-  const changeReportCard = <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} />
+  const changeReportCard = (
+    <ChangeReportCard
+      filingId={filing.id}
+      initialReport={initialChangeReport}
+      context={{ filingId: filing.id, ticker: filing.company?.ticker ?? null, filingType: filing.filing_type, isAuthenticated }}
+    />
+  )
 
   return (
     <FilingViewerProvider
@@ -343,6 +360,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
               onRetry={handleRegenerateSummary}
               onAsk={handleAskCopilot}
               initialChangeReport={initialChangeReport}
+              headingRef={completedSummaryHeadingRef}
             />
           ) : isAuthResolved && !isAuthenticated && filing && !summaryLoading ? (
             // No displayable summary (query settled) + signed out: generation requires an account,
@@ -351,7 +369,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
             // gate is only reached when there's genuinely nothing to show; !summaryLoading stops it
             // flashing while the query loads. Deliberately NOT gated on !activeErrorMessage: a
             // transient getSummary error must keep the working gate for a guest, not fall through
-            // to the error card whose "Retry generation" dead-ends at "please sign in" for them
+            // to the error card whose "Try again" dead-ends at "please sign in" for them
             // (it self-heals on reload if a cached summary did exist).
             <div className="space-y-6">
               <GenerateSignupGate filing={filing} entryPoint={entryPoint} />

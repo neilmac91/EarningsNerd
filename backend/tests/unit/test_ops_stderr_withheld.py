@@ -1,13 +1,12 @@
-"""No gcloud call in the describe-service, describe-jobs or logs-probe steps lets its error text reach the job log,
-inherited or echoed, and no other ops.yml gcloud call may start letting it through (rule 12).
+"""No gcloud call in the describe-service, describe-jobs, logs-probe or Cloud SQL proxy steps lets its error text
+reach the job log, inherited or echoed, and no other ops.yml gcloud call may start letting it through (rule 12).
 
 gcloud's stderr can name the acting principal, a host or a URL, and the Actions log of this public
 repository is public. Two leaks were found after #1181: describe-service's shell read inherited
 gcloud's stderr, and logs-probe printed the stderr it had captured. Both now print a closed class.
 These gates keep it that way: every gcloud call in ops.yml discards or captures its stderr unless INHERITED
-lists it (the jobs-channel and rollback actions, and the Cloud SQL proxy step's secret read that
-capacity-readout, detection-sql and the repair-ticker operations run, a recorded follow-up), a file that
-captures stderr is only ever tested with `grep -q`, the logs-probe classifier names the class
+lists it (the jobs-channel and rollback actions whose progress output remains operator evidence), a file that
+captures stderr is only ever tested with `grep -q`, the logs-probe and proxy-secret classifiers name the class
 describe-service's gcloud_json() names, and an ops/ module never lets a child process inherit stderr and
 captures or reads one only in gcloud_json(). Python a step runs is a file run by path from ops/ or scripts/,
 or a one-line `python3 -c` helper (three today); never a program fed through a heredoc or stdin, nor a step
@@ -19,7 +18,8 @@ Not covered (review concerns): gcloud run through a variable, a function, its fu
 or pipes into a shell, or a `python3 -c` helper; a file a step writes and then runs by path; `|&` after a gcloud
 call; a capture file named without its literal path (a relative path, a brace or variable expansion); a step in a
 job other than `ops` (only its steps are read); and a dynamic import or lookup (importlib, __import__,
-sys.modules) in an ops/ module.
+sys.modules) in an ops/ module. The stdin-program check does not recognise an interpreter invoked through a
+variable or another name (for example `$INTERPRETER -` or `pypy3 -`).
 """
 import ast
 import importlib.util
@@ -40,6 +40,7 @@ BASH = shutil.which("bash")
 SERVICE_STEP = "Describe service env (values only for known feature flags)"
 JOBS_STEP = "Describe expected job release configuration"
 PROBE_STEP = "Logs read probe (safeguard-2 alert feasibility)"
+PROXY_STEP = "Start Cloud SQL proxy and export connection env"
 SERVICE_MODULE = ROOT / "ops/describe/service.py"
 JOBS_MODULE = ROOT / "ops/describe/jobs.py"
 SENTINEL = "PRIVATE_STDERR_SENTINEL principal@example.invalid"
@@ -66,8 +67,53 @@ gcloud logging read 'jsonPayload.event="company_upsert_conflict" OR textPayload:
 if [ $? -eq 0 ]; then
   echo "company_upsert_conflict entries in last 7d: $(python3 -c 'import json;print(len(json.load(open("/tmp/conflicts.json"))))' 2>/dev/null || echo 0)"
 fi
+# Sentry at startup: main.py prints one of four lines as an API-service revision starts (the task worker
+# runs task_worker_main.py, which starts no Sentry and prints none). Name the revisions that printed each in
+# the last seven days, with a count from the newest 500 entries per kind; never a line itself, which can
+# quote an exception. A read that fails prints UNVERIFIED with a closed class, never gcloud's text, and the
+# step adds one warning naming those kinds and the remedy (lessons/ops-denied-reads-report-unverified.md).
+SCOPE='resource.type="cloud_run_revision" AND resource.labels.service_name="earningsnerd-backend"'
+UNVERIFIED=""
+for KIND in "initialized:Sentry error tracking initialized" "failed:Sentry initialization failed" \\
+    "dsn-unset:SENTRY_DSN not configured" "sdk-missing:Sentry SDK not available"; do
+  if gcloud logging read "$SCOPE AND textPayload:\\"${KIND#*:}\\"" --freshness=7d --limit=500 \\
+      --format='value(resource.labels.revision_name)' >/tmp/sentry.txt 2>/tmp/sentry.err; then
+    echo "sentry startup (7d) ${KIND%%:*}:$(sort /tmp/sentry.txt | uniq -c | awk '{printf " %s x%s", $2, $1} END {if (!NR) printf " none"}')"
+  else
+    RC=$?
+    if grep -qsF PERMISSION_DENIED /tmp/sentry.err; then CLASS=permission_denied
+    elif grep -qsF NOT_FOUND /tmp/sentry.err; then CLASS=not_found
+    elif grep -qsF -e UNAVAILABLE -e DEADLINE_EXCEEDED /tmp/sentry.err; then CLASS=unavailable
+    else CLASS="error (gcloud exit $RC)"; fi
+    echo "sentry startup (7d) ${KIND%%:*}: UNVERIFIED ($CLASS; gcloud's error text withheld)"
+    UNVERIFIED="$UNVERIFIED ${KIND%%:*}=$CLASS"
+  fi
+done
+if [ -n "$UNVERIFIED" ]; then
+  echo "::warning::sentry startup UNVERIFIED:$UNVERIFIED. Not evidence that Sentry started or failed; for permission_denied the Ops identity needs its Logging read role, for not_found check the project and the service, otherwise dispatch logs-probe again."
+fi
 """
-# (gcloud's stderr, its exit status, the closed class both classifiers name), precedence cases included.
+# The four lines main.py prints as Sentry starts, or does not, by the kind the logs-probe step names for each.
+SENTRY_KINDS = (("initialized", "Sentry error tracking initialized"), ("failed", "Sentry initialization failed"),
+                ("dsn-unset", "SENTRY_DSN not configured"), ("sdk-missing", "Sentry SDK not available"))
+SENTRY_LINES = tuple(line for _, line in SENTRY_KINDS)
+# What the fake answers for each Sentry read, in SENTRY_KINDS order, and the lines the step prints for them. Each kind
+# names revisions in one fixture and none in the other; only API-service revisions, as the task worker starts no Sentry.
+SENTRY_ANSWERS = {
+    "permitted": ("earningsnerd-backend-00509-zl7\nearningsnerd-backend-00508-62h\nearningsnerd-backend-00509-zl7\n",
+                  "", "", ""),
+    "denied": ("", "earningsnerd-backend-00507-dwb\n", "earningsnerd-backend-00506-6wv\nearningsnerd-backend-00506-6wv\n",
+               "earningsnerd-backend-00505-q2x\n"),
+}
+SENTRY_PRINTED = {
+    "permitted": ["sentry startup (7d) initialized: earningsnerd-backend-00508-62h x1 earningsnerd-backend-00509-zl7 x2",
+                  "sentry startup (7d) failed: none", "sentry startup (7d) dsn-unset: none",
+                  "sentry startup (7d) sdk-missing: none"],
+    "denied": ["sentry startup (7d) initialized: none", "sentry startup (7d) failed: earningsnerd-backend-00507-dwb x1",
+               "sentry startup (7d) dsn-unset: earningsnerd-backend-00506-6wv x2",
+               "sentry startup (7d) sdk-missing: earningsnerd-backend-00505-q2x x1"],
+}
+# (gcloud's stderr, its exit status, the closed class all three classifiers name), precedence cases included.
 CORPUS = [
     ("ERROR: (gcloud.logging.read) PERMISSION_DENIED: Permission denied for all log views. " + SENTINEL, 1,
      "permission_denied"),
@@ -81,11 +127,11 @@ CORPUS = [
     ("sh: gcloud: not found " + SENTINEL, 127, "error (gcloud exit 127)"),
 ]
 # gcloud calls that still let stderr reach the log, by (step, command group): actions whose progress
-# output is the operator's evidence, and the Cloud SQL proxy step's secret read (a recorded follow-up).
+# output remains the operator's evidence. Retain these existing jobs-channel/rollback exceptions explicitly;
+# never dispatch a mutating action merely to test this gate.
 # A new inheriting call fails; a fixed one must leave this map, which can only shrink.
 INHERITED = {
     ("Jobs-channel no-op probe (args override on an existing job)", "run jobs execute"): 1,
-    ("Start Cloud SQL proxy and export connection env", "secrets versions access"): 1,
     ("Trigger companyfacts resync (internal endpoint; jobs-channel fallback)", "run jobs execute"): 1,
     ("Trigger filing-history backfill (internal endpoint; jobs-channel fallback)", "run jobs execute"): 2,
     ("Run the weekly data-quality report once (P1-9; jobs channel)", "run jobs execute"): 1,
@@ -126,10 +172,10 @@ def _steps():
     return workflow, {step.get("name"): step for step in workflow["jobs"]["ops"]["steps"]}
 
 
-def _fakebin(tmp_path, answers=None):
+def _fakebin(tmp_path, answers=None, stubs=None):
     """A PATH directory holding python3 (this interpreter) and, when `answers` is given, a fake gcloud: it answers
     each exact argv from `answers` (json.dumps(argv) -> stdout/stderr/rc; "*" for any other), records every call
-    and writes a sentinel to stderr on every call, success included."""
+    and writes a sentinel to stderr on every call, success included. Optional shell stubs replace setup tools."""
     directory = tmp_path / "bin"
     directory.mkdir()
     (directory / "python3").write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n')
@@ -139,20 +185,24 @@ def _fakebin(tmp_path, answers=None):
         (tmp_path / "answers.json").write_text(json.dumps(answers))
         (directory / "gcloud").write_text(f'#!/bin/sh\nexec "{sys.executable}" "{tmp_path / "fake_gcloud.py"}" "$@"\n')
         (directory / "gcloud").chmod(0o755)
+    for name, body in (stubs or {}).items():
+        (directory / name).write_text("#!/bin/sh\n" + body)
+        (directory / name).chmod(0o755)
     return directory
 
 
-def _step_shell(run, tmp_path, answers=None, env=None):
+def _step_shell(run, tmp_path, answers=None, env=None, *, stubs=None, cwd=ROOT):
     """Run a step's script as GitHub runs an unspecified shell (bash -e), with its /tmp/ files moved into tmp_path
-    and only the given env; PATH holds the fake bin (no gcloud when `answers` is None) and the system tools."""
+    and only the given env; PATH holds the fake bin (no gcloud when `answers` is None) and the system tools.
+    Proxy setup runs in a scratch cwd with its install/download/launch tools stubbed, never live."""
     calls = tmp_path / "calls.jsonl"
     calls.write_text("")
-    bindir = _fakebin(tmp_path, answers)
+    bindir = _fakebin(tmp_path, answers, stubs)
     full_env = {"PATH": f"{bindir}" + ("" if answers is None else ":/usr/bin:/bin"), "HOME": str(tmp_path),
                 "FAKE_GCLOUD_CALLS": str(calls), "FAKE_GCLOUD_ANSWERS": str(tmp_path / "answers.json"),
                 "FAKE_GCLOUD_SENTINEL": "WARNING: PRIVATE_FAKE_GCLOUD_STDERR_SENTINEL principal@example.invalid",
                 **(env or {})}
-    result = subprocess.run([BASH, "-e", "-c", run.replace("/tmp/", f"{tmp_path}/")], cwd=ROOT, env=full_env,
+    result = subprocess.run([BASH, "-e", "-c", run.replace("/tmp/", f"{tmp_path}/")], cwd=cwd, env=full_env,
                             capture_output=True, text=True, timeout=120, check=False)
     return result, [json.loads(line) for line in calls.read_text().splitlines()]
 
@@ -247,24 +297,33 @@ def test_describe_jobs_step_never_prints_gcloud_stderr(tmp_path, failing):
         assert result.stdout == f"::error::expected Cloud Run job '{jobs[failing]}' is missing or unreadable\n"
 
 
-def _probe_answers(stdout, stderr, code):
+def _sentry_ok(fixture):
+    """Each Sentry read answering as a passing gcloud does (a warning on stderr), with this fixture's revisions."""
+    return [{"stdout": out, "stderr": "WARNING: " + SENTINEL} for out in SENTRY_ANSWERS[fixture]]
+
+
+def _probe_answers(stdout, stderr, code, sentry):
     probe = ["logging", "read", 'resource.type="cloud_run_revision" AND resource.labels.service_name="earningsnerd-backend"',
              "--freshness=15m", "--limit=3", "--format=value(timestamp)"]
     conflicts = ["logging", "read", 'jsonPayload.event="company_upsert_conflict" OR textPayload:"company_upsert_conflict"',
                  "--freshness=7d", "--limit=20", "--format=json"]
+    scope = 'resource.type="cloud_run_revision" AND resource.labels.service_name="earningsnerd-backend"'
+    sentry_reads = [["logging", "read", f'{scope} AND textPayload:"{line}"', "--freshness=7d", "--limit=500",
+                     "--format=value(resource.labels.revision_name)"] for line in SENTRY_LINES]
     answers = {json.dumps(probe): {"stdout": stdout, "stderr": stderr, "rc": code},
                json.dumps(conflicts): {"stdout": '[{"x": 1}, {"x": 2}]', "stderr": "WARNING: " + SENTINEL},
+               **{json.dumps(read): answer for read, answer in zip(sentry_reads, sentry)},
                "*": {"stderr": "ERROR: unexpected call " + SENTINEL, "rc": 2}}
-    return answers, [probe, conflicts]
+    return answers, [probe, conflicts, *sentry_reads]
 
 
-def _probe(tmp_path, stdout, stderr, code):
+def _probe(tmp_path, stdout, stderr, code, sentry):
     _, steps = _steps()
     run = steps[PROBE_STEP]["run"]
     assert run == PROBE_RUN
     # The step's own /tmp files move into this test's directory; nothing else in the script changes.
-    assert run.count("/tmp/") == 8
-    answers, reads = _probe_answers(stdout, stderr, code)
+    assert run.count("/tmp/") == 14
+    answers, reads = _probe_answers(stdout, stderr, code, sentry)
     result, calls = _step_shell(run, tmp_path, answers)
     assert calls == reads and result.returncode == 0 and result.stderr == ""
     assert "PRIVATE_" not in result.stdout and "example.invalid" not in result.stdout
@@ -272,10 +331,80 @@ def _probe(tmp_path, stdout, stderr, code):
 
 
 def test_logs_probe_prints_permitted_reads_and_conflicts_unchanged(tmp_path):
-    lines = _probe(tmp_path, "t1\nt2\nt3\n", "WARNING: " + SENTINEL, 0)
+    lines = _probe(tmp_path, "t1\nt2\nt3\n", "WARNING: " + SENTINEL, 0, _sentry_ok("permitted"))
     # GNU wc (the runner) prints "3"; BSD wc (a Mac's local gate) pads the count with spaces.
-    assert len(lines) == 2 and re.fullmatch(r"logs-probe: logging\.read PERMITTED \( *3 recent entries visible\)", lines[0])
-    assert lines[1] == "company_upsert_conflict entries in last 7d: 2"
+    assert len(lines) == 6 and re.fullmatch(r"logs-probe: logging\.read PERMITTED \( *3 recent entries visible\)", lines[0])
+    assert lines[1:] == ["company_upsert_conflict entries in last 7d: 2", *SENTRY_PRINTED["permitted"]]
+
+
+@pytest.mark.parametrize("stderr,code,klass", CORPUS)
+def test_logs_probe_reports_a_failed_sentry_read_as_unverified(tmp_path, stderr, code, klass):
+    """A Sentry read that fails prints its kind as UNVERIFIED with the closed class, never gcloud's text and never a
+    verdict (lessons/ops-denied-reads-report-unverified.md); the other reads still print theirs, and the step passes."""
+    # gcloud prints entries page by page, so a read that fails late has already written some: never a verdict.
+    failing = {"stdout": "PRIVATE_PARTIAL_REVISION\n", "stderr": stderr, "rc": code}
+    unverified = {kind: f"sentry startup (7d) {kind}: UNVERIFIED ({klass}; gcloud's error text withheld)"
+                  for kind, _ in SENTRY_KINDS}
+    (tmp_path / "all").mkdir()
+    lines = _probe(tmp_path / "all", "t1\n", "", 0, [failing] * 4)
+    warning = ("::warning::sentry startup UNVERIFIED: " + " ".join(f"{kind}={klass}" for kind, _ in SENTRY_KINDS) +
+               ". Not evidence that Sentry started or failed; for permission_denied the Ops identity needs its Logging read"
+               " role, for not_found check the project and the service, otherwise dispatch logs-probe again.")
+    assert len(lines) == 7 and lines[2:] == [*unverified.values(), warning]
+    (tmp_path / "one").mkdir()
+    ok = _sentry_ok("denied")
+    lines = _probe(tmp_path / "one", "t1\n", "", 0, [ok[0], failing, ok[2], ok[3]])
+    printed = SENTRY_PRINTED["denied"]
+    assert lines[2:] == [printed[0], unverified["failed"], printed[2], printed[3],
+                         warning.replace(" ".join(f"{kind}={klass}" for kind, _ in SENTRY_KINDS), f"failed={klass}")]
+
+
+def _import_time_prints(tree):
+    """The literal text of each one-argument print a module makes as it is imported: its top-level statements and,
+    nested to any depth, the bodies of its if, try, with, for and while blocks, never a function, a class or an
+    `if __name__ == "__main__"` block; the argument a str constant or an f-string (its literal parts), never a value a
+    call builds. It reads the source only (a block under `if False:` or a rebound print still counts)."""
+    texts, stack = [], list(tree.body)
+    while stack:
+        node = stack.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) or (
+                isinstance(node, ast.If)
+                and ast.unparse(node.test).replace("'", '"') in ('__name__ == "__main__"', '"__main__" == __name__')):
+            continue
+        call = node.value if isinstance(node, ast.Expr) else None
+        if (isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == "print"
+                and len(call.args) == 1 and isinstance(call.args[0], (ast.Constant, ast.JoinedStr))):
+            parts = call.args[0].values if isinstance(call.args[0], ast.JoinedStr) else [call.args[0]]
+            texts += [part.value for part in parts if isinstance(part, ast.Constant) and isinstance(part.value, str)]
+        for field in ("body", "handlers", "orelse", "finalbody"):
+            stack.extend(getattr(node, field, None) or [])
+    return texts
+
+
+@pytest.mark.parametrize("source,seen", [
+    ('print("✓ Sentry error tracking initialized")', True),
+    ('try:\n    import x\nexcept ImportError:\n    print("Sentry SDK not available")', True),
+    ('if a:\n    print(f"⚠️  Sentry initialization failed ({e})")', True),
+    ('def f():\n    print("Sentry SDK not available")', False),
+    ('if __name__ == "__main__":\n    print("Sentry SDK not available")', False),
+    ('if "__main__" == __name__:\n    print("Sentry SDK not available")', False),
+    ('print("Sentry SDK not available".lower())', False),
+    ('print(json.dumps({"message": "Sentry SDK not available"}))', False),
+])
+def test_import_time_prints_sees_only_a_plain_print_that_runs_on_import(source, seen):
+    assert any("Sentry" in text for text in _import_time_prints(ast.parse(source))) is seen
+
+
+def test_logs_probe_counts_the_lines_main_prints_as_sentry_starts():
+    # The probe's Sentry reads name the lines main.py prints as Sentry starts or does not, so a reworded line there
+    # cannot leave the probe counting nothing. Only a plain print that runs on import counts: a line kept in a
+    # function, under `if __name__ == "__main__"`, or built by a call (a JSON line lands in jsonPayload, which the
+    # probe's textPayload filter never reads) would leave the probe counting nothing while the text stayed in main.py.
+    texts = _import_time_prints(ast.parse((ROOT / "backend/main.py").read_text(encoding="utf-8")))
+    missing = [line for line in SENTRY_LINES if not any(line in text for text in texts)]
+    assert not missing, f"main.py no longer prints {missing} on import: update the logs-probe step's Sentry reads"
+    for kind, line in SENTRY_KINDS:
+        assert f'"{kind}:{line}"' in PROBE_RUN
 
 
 def _policy_class(monkeypatch, capsys, failure, code):
@@ -303,11 +432,52 @@ def _policy_class(monkeypatch, capsys, failure, code):
 def test_logs_probe_names_the_class_gcloud_json_names_never_the_text(tmp_path, monkeypatch, capsys, stderr, code, klass):
     """The denied branch prints the class line, never gcloud's text; and the shell chain names the class the
     describe-service seam names for the same stderr and exit status, precedence included."""
-    lines = _probe(tmp_path, "", stderr, code)
+    lines = _probe(tmp_path, "", stderr, code, _sentry_ok("denied"))
     assert lines == [f"logs-probe: logging.read DENIED (rc={code})",
                      f"logs-probe: failure class {klass} (gcloud's error text withheld)",
-                     "company_upsert_conflict entries in last 7d: 2"]
+                     "company_upsert_conflict entries in last 7d: 2", *SENTRY_PRINTED["denied"]]
     assert _policy_class(monkeypatch, capsys, stderr, code) == klass
+
+
+@pytest.mark.parametrize("stderr,code,klass", [("WARNING: " + SENTINEL, 0, None), *CORPUS])
+def test_proxy_secret_read_withholds_stderr_and_stops_on_failure(tmp_path, monkeypatch, capsys, stderr, code, klass):
+    """Run the whole proxy step with fake setup tools and gcloud; failures must never reach env export or launch."""
+    workflow, steps = _steps()
+    argv = ["secrets", "versions", "access", "latest", "--secret=DATABASE_URL"]
+    database_url = "postgresql://fixture-user:fixture-password@/fixture-db?host=/cloudsql/fixture:region:instance"
+    local_url = "postgresql://fixture-user:fixture-password@127.0.0.1:5432/fixture-db"
+    answers = {json.dumps(argv): {"stdout": database_url if code == 0 else "PRIVATE_STDOUT_SENTINEL",
+                                "stderr": stderr, "rc": code},
+               "*": {"stderr": "ERROR: unexpected call " + SENTINEL, "rc": 2}}
+    progress = tmp_path / "setup-progress"
+    stubs = {name: f"printf '%s\\n' '{name}' >> \"$FAKE_PROXY_PROGRESS\"\n"
+             for name in ("sudo", "curl", "chmod", "nohup", "pg_isready")}
+    stubs["sha256sum"] = 'cat >/dev/null\n'
+    stubs["nohup"] += ': > "$FAKE_PROXY_STARTED"\n'
+    stubs["pg_isready"] += 'test -f "$FAKE_PROXY_STARTED"\n'
+    env_file = tmp_path / "github-env"
+    result, calls = _step_shell(steps[PROXY_STEP]["run"], tmp_path, answers,
+                               {"CLOUD_SQL_PROXY_VERSION": workflow["env"]["CLOUD_SQL_PROXY_VERSION"],
+                                "CLOUD_SQL_PROXY_SHA256": workflow["env"]["CLOUD_SQL_PROXY_SHA256"],
+                                "GITHUB_ENV": str(env_file), "FAKE_PROXY_PROGRESS": str(progress),
+                                "FAKE_PROXY_STARTED": str(tmp_path / "proxy-started")},
+                               stubs=stubs, cwd=tmp_path)
+    assert calls == [argv] and result.returncode == code and result.stderr == ""
+    assert "PRIVATE_" not in result.stdout and "example.invalid" not in result.stdout
+    reached = progress.read_text().splitlines()
+    assert reached[:4] == ["sudo", "sudo", "curl", "chmod"]
+    if code:
+        assert result.stdout == (f"::error::Cloud SQL proxy: cannot read DATABASE_URL "
+                                 f"({klass}; gcloud's error text withheld)\n")
+        assert not env_file.exists() and len(reached) == 4
+        assert _policy_class(monkeypatch, capsys, stderr, code) == klass
+    else:
+        assert result.stdout == (f"::add-mask::{database_url}\n::add-mask::fixture-password\n"
+                                 f"::add-mask::{local_url}\n")
+        assert env_file.read_text() == ("PGUSER=fixture-user\nPGPASSWORD=fixture-password\nPGDATABASE=fixture-db\n"
+                                       f"PGHOST=127.0.0.1\nPGPORT=5432\nDATABASE_URL={local_url}\n")
+        # A readiness attempt can precede the detached fake launch, just as on the runner.
+        assert reached.count("nohup") == 1 and reached.count("pg_isready") >= 2
 
 
 def _executable_lines(run):
@@ -413,7 +583,7 @@ def test_ops_workflow_gcloud_stderr_is_discarded_or_captured_except_listed_actio
         elif where != "discarded":
             captured.append((name, where))
     assert inherited == INHERITED, "a gcloud call lets its stderr reach the job log; discard or classify it"
-    assert captured == [(PROBE_STEP, "/tmp/probe.err")]
+    assert captured == [(PROBE_STEP, "/tmp/probe.err"), (PROBE_STEP, "/tmp/sentry.err"), (PROXY_STEP, "/tmp/proxy-secret.err")]
     # A file that captured stderr is only tested, never printed: every other command naming it, in any step, is
     # a grep -q.
     for _, path in captured:

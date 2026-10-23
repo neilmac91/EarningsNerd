@@ -19,6 +19,9 @@ from app import database
 from app.models import Base, Company, Filing, FinancialFact
 from app.services import facts_service, filing_amendment_service as amendments
 from app.services import trend_analysis_service as analysis
+# Import before sessions patches database.SessionLocal; importing inside a test makes seed
+# retain that temporary factory after teardown.
+from app.services import universe_seed_service
 from app.services.edgar import xbrl_instance
 from app.services.edgar import xbrl_service as xbrl
 from app.services.edgar.fiscal_periods import fiscal_label
@@ -219,7 +222,7 @@ def test_growth_citations_and_excel_keep_input_reconciliation(sessions):
 
 
 def test_universe_seed_previews_then_is_idempotent_without_generation(sessions, monkeypatch):
-    from app.services import universe_seed_service as seed
+    seed = universe_seed_service
     monkeypatch.setattr(seed, "SessionLocal", sessions)
     monkeypatch.setattr(seed, "member_tickers", lambda: frozenset({"A", "B", "B.B", "MISSING"}))
     ticker_file = {"0": {"cik_str": 1, "ticker": "A", "title": "A"},
@@ -401,7 +404,7 @@ def test_precompute_prefers_latest_period_over_late_old_amendment(sessions, monk
 def test_seed_script_records_distinct_dry_and_applied_attempts(sessions, monkeypatch):
     import importlib.util
     from app.models import JobRun
-    from app.services import universe_seed_service, job_run_service
+    from app.services import job_run_service
     monkeypatch.setattr(job_run_service, "SessionLocal", sessions)
     seed = AsyncMock(return_value={"would_create": 2, "source_errors": 0})
     monkeypatch.setattr(universe_seed_service, "seed_universe_companies", seed)

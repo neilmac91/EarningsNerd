@@ -1,40 +1,26 @@
 'use client'
 
 import { formatCompanyName } from '@/lib/formatCompanyName'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { formatLocalDate } from '@/lib/format'
-import { ArrowsCounterClockwiseIcon, CalendarDotsIcon, ClockIcon, SparkleIcon, WarningCircleIcon } from '@/lib/icons'
+import { ArrowsCounterClockwiseIcon, CalendarDotsIcon, ChartBarIcon, ClockIcon, WarningCircleIcon } from '@/lib/icons'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { isConfirmedGuest } from '@/features/auth/lib/confirmedGuest'
+import AccountLoadFailure from '@/features/auth/components/AccountLoadFailure'
 import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSearch'
-import SummaryStatusBadge from '@/features/watchlist/components/SummaryStatusBadge'
+import SummaryStatusBadge, { summaryNextStep } from '@/features/watchlist/components/SummaryStatusBadge'
 import CompanyLogo from '@/components/CompanyLogo'
 import { ENABLE_ANALYSIS } from '@/lib/featureFlags'
-import { Badge, buttonVariants, Card, cx, GuidanceCard, Skeleton } from '@/components/ui'
+import { Badge, buttonVariants, Card, cx, GuidanceCard, MissingValue, Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { useContentIn } from '@/hooks/useContentIn'
-
-function useAuthGate() {
-  const router = useRouter()
-  const { data: user, isLoading } = useQuery({
-    queryKey: queryKeys.currentUser(),
-    queryFn: getCurrentUserSafe,
-    retry: false,
-  })
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login')
-    }
-  }, [router, isLoading, user])
-
-  return { isReady: !isLoading, hasUser: Boolean(user) }
-}
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 
 function formatRelative(dateLike?: string | null) {
   if (!dateLike) return 'Unknown'
@@ -44,23 +30,47 @@ function formatRelative(dateLike?: string | null) {
 }
 
 export default function WatchlistDashboardPage() {
-  const { isReady, hasUser } = useAuthGate()
+  const router = useRouter()
 
-  const { data, isLoading, isError } = useQuery({
+  // The account read as the dashboard reads it. isPending, not isLoading: a first load paused offline is still loading
+  // the page, not a blank one.
+  const userQuery = useQuery({
+    queryKey: queryKeys.currentUser(),
+    queryFn: getCurrentUserSafe,
+    retry: false,
+  })
+  const { data: user, isPending: userPending } = userQuery
+  // A failed read keeps the account card, and a focused Try again in it, mounted through the refetch until data
+  // replaces it.
+  const userFailure = useRetainedFailure(userQuery, queryKeys.currentUser())
+
+  // Only a confirmed guest leaves for /login: never a null still being read, or a read that failed.
+  const guest = isConfirmedGuest(userQuery)
+  useEffect(() => {
+    if (guest) router.push('/login')
+  }, [router, guest])
+
+  const insightsQuery = useQuery({
     queryKey: queryKeys.watchlistInsights(),
     queryFn: getWatchlistInsights,
     retry: false,
-    enabled: hasUser,
+    enabled: Boolean(user),
   })
+  const { data, isLoading } = insightsQuery
+  // A failure keeps the error card, and a focused Retry in it, mounted through the refetch until data
+  // replaces it: read raw, the refetch would put the page back on its bones.
+  const failure = useRetainedFailure(insightsQuery, queryKeys.watchlistInsights())
+  const titleRef = useRef<HTMLHeadingElement>(null)
 
   const insights = useMemo(() => data ?? [], [data])
   // The list crossfades in when it replaces the bones below; a cached list paints at once.
-  const enterClass = useContentIn(!isReady || isLoading)
+  const enterClass = useContentIn((userPending && !userFailure.failed) || (isLoading && !failure.failed))
 
   // One header for the skeleton and the loaded page, and the add field in both (it needs no data, so
   // it is live while the list loads): the flip moves nothing above the list.
   const header = (
     <SecondaryHeader
+      titleRef={titleRef}
       title="Watchlist insights"
       subtitle="Monitor filings and summary freshness for tracked companies."
       backHref="/dashboard"
@@ -68,7 +78,7 @@ export default function WatchlistDashboardPage() {
       actions={
         ENABLE_ANALYSIS ? (
           <Link href="/analysis" className={buttonVariants({ variant: 'primary' })}>
-            <SparkleIcon className="h-4 w-4" />
+            <ChartBarIcon className="h-4 w-4" />
             Analyze trends
           </Link>
         ) : undefined
@@ -76,7 +86,7 @@ export default function WatchlistDashboardPage() {
     />
   )
 
-  if (!isReady || isLoading) {
+  if ((userPending && !userFailure.failed) || (isLoading && !failure.failed)) {
     return (
       <div className="min-h-screen bg-background-light dark:bg-background-dark">
         {header}
@@ -87,7 +97,7 @@ export default function WatchlistDashboardPage() {
               aria-hidden: one status names the wait. */}
           <div role="status" aria-label="Loading your watchlist" className="grid grid-cols-1 gap-6">
             {[0, 1].map((i) => (
-              <Card key={i} className="p-6">
+              <Card key={i} className="p-cap-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-center gap-3">
                     <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
@@ -115,7 +125,13 @@ export default function WatchlistDashboardPage() {
     )
   }
 
-  if (!hasUser) {
+  // The account could not be read (offline, a 5xx) and there is no user to show: neither the page nor a guest to send
+  // to /login. A refetch that fails with the user in hand keeps the page.
+  if (userFailure.failed && !user) {
+    return <AccountLoadFailure failure={userFailure} focusTarget={titleRef} title="Unable to load your watchlist" />
+  }
+
+  if (!user) {
     return null
   }
 
@@ -127,22 +143,26 @@ export default function WatchlistDashboardPage() {
         {/* Add-from-search: track a company without visiting its page first. */}
         <WatchlistAddSearch />
 
-        {isError && (
+        {failure.failed && (
           <GuidanceCard
             variant="error"
-            title="Unable to load watchlist insights"
+            title="Couldn't load your watchlist"
             headingLevel="h2"
-            description="Please retry in a moment, or confirm you are signed in with an active session."
+            description="Try again in a moment."
+            action={
+              <RetryButton failures={[failure]} focusTarget={titleRef} />
+            }
             className={enterClass}
           />
         )}
 
-        {insights.length === 0 ? (
+        {/* A failed load has no list to call empty: the error card stands alone. */}
+        {failure.failed && insights.length === 0 ? null : insights.length === 0 ? (
           <GuidanceCard
             variant="empty"
             title="No watchlist companies yet"
             headingLevel="h2"
-            description="Use the search above to track your first company. You'll get an alert here and by email whenever it files with the SEC."
+            description="Use the search above to follow your first company. When it files a form you chose in Filing alerts, we email you and list it under Notifications."
             className={enterClass}
           />
         ) : (
@@ -156,7 +176,7 @@ export default function WatchlistDashboardPage() {
               return (
                 // Non-interactive card (nothing on it is clickable as a whole) —
                 // no hover affordance; the buttons inside carry the actions.
-                <Card key={insight.company.id} className="p-6">
+                <Card key={insight.company.id} className="p-cap-6">
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
                       {/* Below sm, logo and name fill the first line and the ticker and status badges sit
@@ -208,11 +228,13 @@ export default function WatchlistDashboardPage() {
                           </div>
                           <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                             <CalendarDotsIcon className="h-4 w-4" />
-                            <span>{formatLocalDate(latest.filing_date, 'MMM dd, yyyy', '—')}</span>
+                            {/* formatLocalDate gives '' for a date that is missing or does not read, and MissingValue stands in
+                                its place. The filed date's line has no label of its own, so its words name the date. */}
+                            <span>{formatLocalDate(latest.filing_date, 'MMM dd, yyyy') || <MissingValue label="filing date unavailable" />}</span>
                           </div>
                           <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                             <ClockIcon className="h-4 w-4" />
-                            <span>Period end: {formatLocalDate(latest.period_end_date, 'MMM dd, yyyy', '—')}</span>
+                            <span>Period end: {formatLocalDate(latest.period_end_date, 'MMM dd, yyyy') || <MissingValue />}</span>
                           </div>
                         </>
                       ) : (
@@ -255,15 +277,9 @@ export default function WatchlistDashboardPage() {
                     <div className="bg-background-light dark:bg-background-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
                       <div className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">Next steps</div>
                       {latest ? (
-                        latest.needs_regeneration ? (
-                          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                            This summary needs regenerating. Open the filing and run it again.
-                          </p>
-                        ) : (
-                          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                            Summary is current. Nothing to do here.
-                          </p>
-                        )
+                        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                          {summaryNextStep(latest.summary_status, latest.needs_regeneration)}
+                        </p>
                       ) : (
                         <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                           Open the company page to load its filings from SEC EDGAR.

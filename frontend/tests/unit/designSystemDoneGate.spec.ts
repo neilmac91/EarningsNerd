@@ -5,6 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import postcss from 'postcss'
 import tailwindcss, { type Config } from 'tailwindcss'
+import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { directionChip, directionText } from '@/lib/financialTone'
 
@@ -28,6 +29,9 @@ import { directionChip, directionText } from '@/lib/financialTone'
  * tailwind.config.js `content` glob scans the module that composes it. lib/ was missing, so
  * lib/financialTone's directionChip shipped without its /20 borders or its flat tint.
  *
+ * And §3's Source Voice Rule, the one type role a surface can misuse without a token change: the editorial face
+ * (Newsreader) sets only the filing's own words, on the surfaces EDITORIAL_SURFACES names (below).
+ *
  * Deliberately NOT gated:
  *   - item 2's second grep (raw durations / cubic-bezier outside token homes). It returns ~39 hits
  *     today, overwhelmingly false positives — prose in comments, "308s"/"404s" in copy, and the
@@ -47,7 +51,7 @@ const read = (rel: string) => readFileSync(path.join(frontendDir, rel), 'utf8')
 
 const designSystem = read('DESIGN_SYSTEM.md')
 const globalsCssRaw = read('app/globals.css')
-const layoutRaw = read('app/layout.tsx')
+const fontsRaw = read('app/fonts.ts')
 
 /** Source with comments removed, so a matcher can never be satisfied by code that is switched off.
  *  Quote-aware, because `//` inside a string literal is not a comment. Two separate findings on this
@@ -95,7 +99,7 @@ const stripComments = (src: string, { lineComments = true } = {}): string => {
 
 /** Every matcher below reads the comment-free view, never the raw file. */
 const globalsCss = stripComments(globalsCssRaw, { lineComments: false })
-const layout = stripComments(layoutRaw)
+const fonts = stripComments(fontsRaw)
 
 /** The three next/font variables. next/font self-hosts under hashed family names exposed ONLY as
  *  these vars, so a literal-only stack silently never resolves. */
@@ -222,17 +226,17 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
   /** The variables the next/font loaders actually emit, read from each call's OPTIONS rather than
    *  from the file's text. A whole-file substring search passes on a stale mention. */
   const emittedFontVars = (): string[] => {
-    const imported = layout.match(/import \{([^}]*)\} from 'next\/font\/google'/)
-    if (!imported) throw new Error('app/layout.tsx no longer imports from next/font/google')
+    const imported = fonts.match(/import \{([^}]*)\} from 'next\/font\/google'/)
+    if (!imported) throw new Error('app/fonts.ts no longer imports from next/font/google')
     const loaders = imported[1].split(',').map((n) => n.trim()).filter(Boolean)
     return loaders.flatMap((loader) =>
-      [...layout.matchAll(new RegExp(`\\b${loader}\\(\\{([^{}]*)\\}\\)`, 'g'))].flatMap((call) =>
+      [...fonts.matchAll(new RegExp(`\\b${loader}\\(\\{([^{}]*)\\}\\)`, 'g'))].flatMap((call) =>
         [...call[1].matchAll(/variable:\s*'([^']+)'/g)].map((v) => v[1]),
       ),
     )
   }
 
-  it('emits exactly the three next/font variables from layout.tsx', () => {
+  it('emits exactly the three next/font variables from app/fonts.ts, the root fonts the layout imports', () => {
     // Bidirectional: renaming a live option fails, and so does adding a fourth loader without
     // classifying it. If a variable is renamed here, every stack below points at nothing.
     expect(emittedFontVars().sort()).toEqual([...NEXT_FONT_VARS].sort())
@@ -343,7 +347,7 @@ describe('tailwind content scans every module that composes classes', () => {
     'tailwind.config.js': 'the token definitions themselves; class names appear as keys and comments',
     'eslint.config.mjs': 'lint config; its design-rule selectors and messages name the banned classes, and it never ships',
     'eslint.gridBaseTrack.mjs': 'lint rule; its comments and message name the grid classes it checks, and it never ships',
-    'eslint.designRules.mjs': 'lint rules; their patterns and messages name the stripe and form-code classes they ban, and they never ship',
+    'eslint.designRules.mjs': 'lint rules; their patterns and messages name the stripe, form-code and four-up grid classes they ban, and they never ship',
   }
   const isAppCode = (file: string): boolean =>
     !Object.keys(NOT_APP_CODE).some((p) => (p.endsWith('/') ? file.startsWith(p) : file === p))
@@ -389,4 +393,102 @@ describe('tailwind content scans every module that composes classes', () => {
     )
     expect(composed.filter((c) => !built.has(c)), 'purged from production CSS').toEqual([])
   }, 30_000)
+})
+
+// --------------------------------------------------------------------------- §3, the Source Voice Rule
+describe("DESIGN_SYSTEM §3 — Newsreader sets only the filing's own words (the Source Voice Rule)", () => {
+  /** Every file that sets the editorial face, and on what. An equality: a file that sets the face and is not listed
+   *  fails, and so does a listed file that no longer sets it. The face means the filing's own words: the real filing
+   *  viewer, a located quoted passage on a public page and, since D-044, the passages the server located inside the
+   *  product. Outside the reader it sets only a marked block (`en-marked`, a passage the server located), whose places
+   *  and whose located test tests/unit/brandCopyRules.spec.ts rule 3 holds (DEVICE_PLACES). app/fonts.ts loads the
+   *  font and is not a surface: it names the loader and its variable, never the face's class or a var() of it. */
+  const EDITORIAL_SURFACES: Record<string, string> = {
+    'features/filings/components/copilot/FilingViewer.tsx': 'the real filing viewer: `.filing-reader`, the filing text',
+    'features/marketing/components/HeroExample.tsx': "a located quoted passage on a public page: the hero example's evidence row, a marked block",
+    'features/summaries/components/SummaryRisks.tsx': "the located excerpts inside the product: the filing page's Risks rows, each a marked block (D-044)",
+    'features/summaries/components/SummaryBlocks.tsx': "the summary's quote blocks whose evidence the server located, each a marked block (D-044)",
+  }
+  const READER = 'features/filings/components/copilot/FilingViewer.tsx'
+  /** Planted forms, one component per form, its mark (`flag` or `clean`) in the comment before it: scored by the check
+   *  below on every run, so a change to the check that loses a form, or catches a look-alike, fails. */
+  const FORMS = 'tests/unit/fixtures/sourceVoiceForms.tsx'
+
+  /** The utilities that set the face: every fontFamily stack Tailwind consumes that leads with Newsreader's variable
+   *  (`font-editorial` today), read from the evaluated config, so a second stack is read the day it lands. */
+  const families = (createRequire(import.meta.url)(path.join(frontendDir, 'tailwind.config.js')) as {
+    theme: { extend: { fontFamily: Record<string, string[]> } }
+  }).theme.extend.fontFamily
+  const FACE_UTILITIES = Object.entries(families).filter(([, stack]) => stack[0] === 'var(--font-newsreader)').map(([key]) => `font-${key}`)
+  const token = (name: string, before = '[\\w-]') => new RegExp(`(?<!${before})${name}(?![\\w-])`)
+  const READER_CLASS = token('filing-reader', '[\\w.-]')
+  /** What sets the face in a string of app code: a face utility, the reader's own class (a selector's `.filing-reader`
+   *  reads the reader and sets nothing), a var() of the face, or the family by name. */
+  const SETS_FACE = [
+    ...FACE_UTILITIES.map((u) => token(u)),
+    READER_CLASS,
+    /var\(\s*--font-(?:editorial|newsreader)\s*\)/,
+    /^\s*['"]?Newsreader['"]?\s*(?:,|$)/,
+  ]
+
+  /** Every string a module writes (literals, template chunks and JSX text), from its syntax tree, so a comment never
+   *  counts. */
+  const strings = (file: string): { node: ts.Node; text: string }[] => {
+    const sf = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const out: { node: ts.Node; text: string }[] = []
+    const visit = (n: ts.Node) => {
+      if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n) || ts.isJsxText(n)) out.push({ node: n, text: n.text })
+      ts.forEachChild(n, visit)
+    }
+    visit(sf)
+    return out
+  }
+  const settingFace = (file: string) => strings(file).filter(({ text }) => SETS_FACE.some((re) => re.test(text)))
+  /** Outside the reader the face sits only on a marked block, in its own class list: a string that sets the face and
+   *  names no `en-marked`, or names the reader's class, is set on something else. */
+  const loose = (file: string) => settingFace(file).filter(({ text }) => !token('en-marked').test(text) || READER_CLASS.test(text))
+  const APP = execFileSync('git', ['ls-files', '-z', 'app', 'components', 'features', 'hooks', 'lib'], { cwd: frontendDir, encoding: 'utf8' })
+    .split('\0')
+    .filter((f) => /\.(ts|tsx)$/.test(f))
+
+  it('reads the face from the config and the app (anti-vacuity)', () => {
+    expect(FACE_UTILITIES).toEqual(['font-editorial'])
+    expect(APP.length).toBeGreaterThan(200)
+  })
+
+  it('sets the face only on the surfaces EDITORIAL_SURFACES names, each a passage of the filing (D-044)', () => {
+    const surfaces = APP.filter((file) => settingFace(file).length > 0).sort()
+    expect(surfaces, "Newsreader means the filing's own words: name the surface and why in EDITORIAL_SURFACES, or set the copy in the body face")
+      .toEqual(Object.keys(EDITORIAL_SURFACES).sort())
+  })
+
+  it('outside the reader, sets the face only on a marked block, a passage the server located', () => {
+    const found = APP.filter((file) => file !== READER).flatMap((file) => loose(file).map(({ text }) => `${file}: ${text.trim()}`))
+    expect(found, 'the face sits on the marked block (`en-marked`) of a located passage, in the same class list').toEqual([])
+  })
+
+  it(`scores every planted form in ${FORMS} as its mark says`, () => {
+    const sf = ts.createSourceFile(FORMS, read(FORMS), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const forms = sf.statements.flatMap((stmt) => {
+      if (!ts.isFunctionDeclaration(stmt) || !stmt.name) return []
+      const mark = ts.getLeadingCommentRanges(sf.text, stmt.pos)?.map((r) => /^\/\*\*\s*(V\d+) (flag|clean):/.exec(sf.text.slice(r.pos, r.end))).find(Boolean)
+      return mark && mark[1] === stmt.name.text ? [{ name: mark[1], mark: mark[2], fn: stmt }] : []
+    })
+    const named = new Set(loose(FORMS).map(({ node }) => forms.find(({ fn }) => node.pos >= fn.pos && node.end <= fn.end)?.name ?? `outside a form at ${node.pos}`))
+    expect(forms.filter((f) => f.mark === 'flag').length, 'the fixture plants forms that break the rule').toBeGreaterThan(0)
+    expect(forms.filter((f) => f.mark === 'clean').length, 'the fixture plants look-alikes').toBeGreaterThan(0)
+    expect(forms.filter((f) => named.has(f.name) !== (f.mark === 'flag')).map((f) => `${f.name} (${f.mark})`), 'the check reads these forms against their marks').toEqual([])
+    expect([...named].filter((name) => !forms.some((f) => f.name === name)), 'the check named a string that is not in a planted form').toEqual([])
+  })
+
+  it('in the stylesheet, sets the face only on the reader', () => {
+    const rules: string[] = []
+    postcss.parse(globalsCssRaw).walkRules((rule) => {
+      const sets = rule.nodes.some((n) =>
+        (n.type === 'decl' && n.prop === 'font-family' && /--font-(?:editorial|newsreader)|Newsreader/.test(n.value))
+        || (n.type === 'atrule' && n.name === 'apply' && FACE_UTILITIES.some((u) => token(u).test(n.params))))
+      if (sets) rules.push(rule.selector.replace(/\s+/g, ' ').trim())
+    })
+    expect(rules, "globals.css sets Newsreader on the filing reader's own rule alone").toEqual(['.filing-reader'])
+  })
 })

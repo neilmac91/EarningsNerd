@@ -1,20 +1,22 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { Button, Card, DataTable, SegmentedControl, type Column } from '@/components/ui'
+import { useMemo } from 'react'
+import { Button, Card, DataTable, MissingValue, SegmentedControl, type Column } from '@/components/ui'
 import { FileXlsIcon } from '@/lib/icons'
 import { directionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import { formatTableGrowth, formatTableValue, tableCurrencyLabel, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
+import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
+import { tableComparisonBasis, tablePeriods, tablePresentation, type TableWindow } from '@/features/analysis/lib/reportPresentation'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import DataNoteMark from './DataNoteMark'
-import { useDataNotes } from './DataNotesContext'
+import { useAnalysisTableWindow, useDataNotes } from './DataNotesContext'
+import DataNotesLink from './DataNotesLink'
 import SourceValue from './SourceValue'
 
 // DataTable's generic requires an index signature (Record<string, unknown>).
 type Row = { series: AnalysisSeries } & Record<string, unknown>
-type TableWindow = 'all' | 'newest' | 'earliest'
 
 /**
  * Metrics × periods grid: every value in the data face, the period-over-period delta beneath it
@@ -26,10 +28,13 @@ export default function MetricsTable({
   onExportXlsx,
   exporting = false,
   headingLevel: Heading = 'h2',
+  sample = false,
 }: {
   dataset: AnalysisDataset
   /** Heading element for "Metrics by period"; the landing page nests the table under an h3. */
   headingLevel?: 'h2' | 'h3' | 'h4'
+  /** Illustrative samples always show their complete fixed range. */
+  sample?: boolean
   /** Branded Excel workbook of the whole dataset (built server-side) — the page passes this on
    *  the Pro results surface only. */
   onExportXlsx?: () => void
@@ -38,21 +43,24 @@ export default function MetricsTable({
   exporting?: boolean
 }) {
   const notes = useDataNotes(dataset)
-  const datasetKey = `${dataset.ticker}:${dataset.mode}:${dataset.period_key}`
-  const [selection, setSelection] = useState<{ datasetKey: string; window: TableWindow }>({ datasetKey, window: 'all' })
-  if (selection.datasetKey !== datasetKey) setSelection({ datasetKey, window: 'all' })
-  const window = selection.datasetKey === datasetKey ? selection.window : 'all'
-  const periods = useMemo(() => window === 'newest' ? dataset.periods.slice(-6)
-    : window === 'earliest' ? dataset.periods.slice(0, 6) : dataset.periods, [dataset.periods, window])
+  const selection = useAnalysisTableWindow(dataset)
+  const window = sample ? 'all' : selection.window
+  const periods = useMemo(() => tablePeriods(dataset, window), [dataset, window])
+  const visibleNotes = useMemo(() => tablePresentation(dataset, periods, notes).notes, [dataset, periods, notes])
   const periodUnit = dataset.mode === 'quarterly' ? 'quarters' : 'years'
   const basis = dataset.mode === 'quarterly' ? 'prior quarter' : 'prior year'
   const columns = useMemo<Column<Row>[]>(() => {
-    const periodColumns: Column<Row>[] = periods.map((period) => ({
+    const periodColumns: Column<Row>[] = periods.map((period) => {
+      const derivedQuarter = period.fiscal_period === 'Q4' && dataset.series.some(series => series.points.some(point => point.period === period.key && point.value != null && point.derived && point.provenance?.method !== 'reported'))
+      return {
       key: period.key,
       header: dataset.mode === 'quarterly' ? (
         <span className="font-data tracking-normal">
-          {period.fiscal_period}
-          <span className="block font-normal">’{String(period.fiscal_year).slice(-2)}{period.fiscal_period === 'Q4' && dataset.series.some((series) => series.points.some((point) => point.period === period.key && point.value != null && point.derived && point.provenance?.method !== 'reported')) ? <span title="Includes calculated fourth-quarter figures"> †</span> : null}</span>
+          <span className="sr-only">{formatAnalysisPeriod(period.key)}{derivedQuarter ? ', includes calculated fourth-quarter flow figures' : ''}</span>
+          <span aria-hidden="true" data-period-label>
+            {period.fiscal_period}
+            <span className="block font-normal">’{String(period.fiscal_year).slice(-2)}{derivedQuarter ? <span title="Includes calculated fourth-quarter flow figures"> †</span> : null}</span>
+          </span>
         </span>
       ) : period.key,
       align: 'right' as const,
@@ -61,17 +69,18 @@ export default function MetricsTable({
         const point = row.series.points.find((p) => p.period === period.key) ?? { period: period.key, value: null }
         const currencyLabel = tableCurrencyLabel(row.series)
         const sourceLabel = `${row.series.label}${currencyLabel ? ` (${currencyLabel})` : ''}`
-        if (point.value == null) return <SourceValue compactMarks point={point} label={sourceLabel} concept={row.series.concept} note={notes.noteFor(point)}>—</SourceValue>
-        const growth = dataset.mode === 'quarterly' ? point.qoq ?? point.yoy : point.yoy
-        const growthReconciled = dataset.mode === 'quarterly' && point.qoq != null
-          ? point.qoq_reconciled : point.yoy_reconciled
-        const growthLabel = dataset.mode === 'quarterly' && point.qoq != null ? 'QoQ' : 'YoY'
-        const growthProvenance = dataset.mode === 'quarterly' && point.qoq != null ? point.qoq_provenance : point.yoy_provenance
+        // A missing figure is MissingValue in its source control; the control's own name reads "unavailable" too.
+        if (point.value == null) return <SourceValue compactMarks point={point} label={sourceLabel} concept={row.series.concept} note={notes.noteFor(point)}><MissingValue /></SourceValue>
+        const growthBasis = tableComparisonBasis(dataset.mode, point)
+        const growth = point[growthBasis]
+        const growthReconciled = point[`${growthBasis}_reconciled`]
+        const growthLabel = growthBasis === 'qoq' ? 'QoQ' : 'YoY'
+        const growthProvenance = point[`${growthBasis}_provenance`]
         const { text: growthText, direction } = formatGrowth(growth, row.series.percent)
         const tone = applySeriesTone(row.series.tone, direction)
         const note = notes.noteFor(point)
         const calculated = point.provenance?.method === 'calculated' || (!point.provenance && point.derived)
-        const growthNote = notes.noteForComparison(point, growthLabel === 'QoQ' ? 'qoq' : 'yoy')
+        const growthNote = notes.noteForComparison(point, growthBasis)
         const compactGrowth = formatTableGrowth(growth, row.series.percent, tableTokenBudget(false, growthNote?.letter))
         return (
           <div className="relative flex flex-col items-end gap-0.5">
@@ -79,15 +88,19 @@ export default function MetricsTable({
               <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote } : undefined}><span className="inline-block">{formatTableValue(point.value, row.series, tableTokenBudget(calculated, note?.letter))}</span></SourceValue>
             </span>
             {growthText && (
-              <span className={`text-xs ${directionText[tone]}`}>
-                {dataset.mode === 'quarterly' && growthLabel === 'YoY' ? 'YoY ' : <span className="sr-only">Change vs {basis} </span>}<span className="inline-block">{compactGrowth}</span>
-                <DataNoteMark compact note={growthNote} announce />
+              <span className={`flex flex-col items-end text-xs ${directionText[tone]}`}>
+                {dataset.mode === 'quarterly' && growthLabel === 'YoY' && <span>YoY </span>}
+                <span className="inline-flex items-baseline">
+                  <span className="sr-only">Change vs {dataset.mode === 'quarterly' && growthLabel === 'YoY' ? 'same quarter last year' : basis} </span>
+                  {compactGrowth}<DataNoteMark compact note={growthNote} />
+                </span>
               </span>
             )}
           </div>
         )
       },
-    }))
+      }
+    })
     const metricColumn: Column<Row> = {
       key: 'metric',
       header: <><span>Metric</span><span className="block font-normal normal-case tracking-normal text-data-xs">value · Δ vs {basis}</span></>,
@@ -107,7 +120,7 @@ export default function MetricsTable({
     }
     const cagrColumn: Column<Row> = {
       key: 'cagr',
-      header: 'CAGR',
+      header: <><span className="sr-only">{dataset.periods[0]?.key}–{dataset.periods.at(-1)?.key} CAGR</span><span aria-hidden="true" className="block font-data normal-case tracking-normal">{dataset.periods[0]?.key}–<wbr />{dataset.periods.at(-1)?.key}<span className="block">CAGR</span></span></>,
       align: 'right' as const,
       numeric: true,
       render: (row: Row) => {
@@ -134,11 +147,11 @@ export default function MetricsTable({
             <SourceValue compactMarks
               point={{ value: win.value, period: (win.isPercent ? row.series.window_pp_range : row.series.cagr_window) ?? dataset.period_key, unit: win.isPercent ? 'percentage points' : 'growth fraction', provenance, reconciled: reconciled ?? undefined }}
               label={`${row.series.label} ${win.label}`} note={note}
-              comparison={{ label: win.isPercent ? 'Window change' : 'CAGR', display: text, provenance, reconciled }}
+              comparison={{ label: win.isPercent ? 'Window change' : 'CAGR', display: text, provenance, reconciled, note }}
             ><span className="inline-block">{compactText}</span></SourceValue>
           </span>
         ) : (
-          <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
+          <MissingValue className="text-text-tertiary-light dark:text-text-secondary-dark" />
         )
       },
     }
@@ -149,12 +162,13 @@ export default function MetricsTable({
   const hasDerived = dataset.series.some((s) => s.points.some((p) => p.provenance?.method === 'calculated' || (!p.provenance && p.derived)) || s.cagr_provenance?.method === 'calculated' || s.window_pp_provenance?.method === 'calculated')
 
   return (
-    <Card as="section" className="min-w-0 p-4 sm:p-6" data-analysis-metrics>
+    <Card as="section" className="[container-type:inline-size] min-w-0 p-4 sm:p-cap-6" data-analysis-metrics>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Heading className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Metrics by period
           </Heading>
+          <DataNotesLink notes={visibleNotes} />
           {hasDerived && (
             <span
               className="text-xs text-text-secondary-light dark:text-text-secondary-dark"
@@ -177,19 +191,22 @@ export default function MetricsTable({
         )}
       </div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">Showing {periods.length} of {dataset.periods.length} {periodUnit}</p>
-        {dataset.periods.length > 6 && <SegmentedControl<TableWindow>
+        <p role="status" className="text-xs text-text-secondary-light dark:text-text-secondary-dark">Showing {periods.length} of {dataset.periods.length} {periodUnit}</p>
+        {!sample && dataset.periods.length > 6 && <SegmentedControl<TableWindow>
           label="Table window"
           size="md"
           fullWidth
           value={window}
-          onChange={(value) => setSelection({ datasetKey, window: value })}
+          onChange={selection.setWindow}
           options={[{ value: 'all', label: `All ${dataset.periods.length}` }, { value: 'newest', label: 'Newest 6' }, { value: 'earliest', label: 'Earliest 6' }]}
         />}
       </div>
       <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">Figures are rounded for display. Select a value for full precision.</p>
+      <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">n/m means not meaningful. {dataset.mode === 'quarterly'
+        ? 'Fiscal quarters follow the company’s reporting calendar. A Q4 header † means some flow figures are calculated from annual totals less the first nine months; it does not mark the column’s balance-sheet figures as calculated.'
+        : 'The final column shows CAGR, or percentage-point change for percent-unit rows. Each value’s source detail states its calculation range.'}</p>
       <DataTable<Row>
-        key={datasetKey}
+        key={selection.identity}
         columns={columns}
         rows={rows}
         rowKey={(row) => row.series.concept}
@@ -197,14 +214,14 @@ export default function MetricsTable({
         cellPadding="compact"
         layout="fixed"
         colWidths={columns.map((column) => column.key === 'metric' ? 'var(--metric-col)' : 'var(--period-col)')}
-        className="[--metric-col:6.5rem] [--period-col:4.25rem] md:[--metric-col:8.25rem] md:[--period-col:4.75rem]"
+        className="[--metric-col:min(6.5rem,100cqi)] [--period-col:4.25rem] md:[--metric-col:min(8.25rem,100cqi)] md:[--period-col:4.75rem]"
         snapColumns
         scrollRegion={{
           label: `Metrics by period, scrollable table of ${periods.length} ${periodUnit}`,
-          hint: `Scroll for earlier or later ${periodUnit}, or use the arrow keys. Snaps to whole columns.`,
+          hint: `← Earlier ${periodUnit}`,
           startAtEndOnMobile: true,
         }}
-        caption={`Metrics by period, ${periods.length} of ${dataset.periods.length} ${periodUnit}: value and change versus ${basis}. ${dataset.mode === 'quarterly' ? 'YoY labels identify comparisons versus the prior year when a quarterly comparison is unavailable.' : 'The final column shows the full selected window CAGR, or percentage-point change for margins.'}`}
+        caption={`Metrics by period, ${periods.length} of ${dataset.periods.length} ${periodUnit}: value and change versus ${basis}. ${dataset.mode === 'quarterly' ? 'Fiscal quarters follow the company’s reporting calendar. YoY labels identify comparisons versus the prior year when a quarterly comparison is unavailable.' : 'The final column shows the full selected window CAGR, or percentage-point change for margins.'}`}
         stickyFirstColumn
         empty="No metrics available for the selected periods."
       />

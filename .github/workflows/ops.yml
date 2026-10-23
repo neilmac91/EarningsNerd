@@ -4,26 +4,50 @@ name: Ops
 # execution log: docs/data-quality-remediation-log.md).
 #
 # The remediation is driven from an environment with no direct GCP/Cloud SQL access, so the
-# production operations the plan requires (detection SQL snapshots, the ticker repair script,
-# the companyfacts resync, env verification) run HERE, with the same keyless WIF auth the
-# deploy-backend job already uses. Design constraints:
+# production operations the plan requires (detection SQL snapshots, the ticker repair script, the
+# companyfacts resync, env verification) run HERE, with the same keyless WIF auth the deploy-backend
+# job already uses. So, since 2026-10-19, does the fiscal-year relabel (P6 of the 2026-10-15 bug
+# hunt, docs/fiscal-year-label-repair.md). Design constraints:
 #   - Enum-selected operations ONLY. No free-form command or SQL inputs; everything executed is
 #     committed to the repo (ops/detection/*.sql, backend/scripts/*.py).
 #   - Read paths are restricted to app data tables (companies/financial_fact/filings/summaries);
 #     detection SQL never touches user/auth/billing tables.
 #   - Secrets (DATABASE_URL, PGPASSWORD, INTERNAL_JOB_TOKEN) are masked before first use,
 #     mirroring the deploy-backend migrations step.
-#   - `concurrency: ops` serializes ops runs. Deploys keep their own group on purpose: GitHub holds
-#     ONE pending run per group, so sharing `deploy-backend`'s group would let an ops dispatch
-#     silently cancel a queued release. Instead the pre-flight step below refuses to run while a
-#     CI run for a push to `main` is in flight (read-only inspection and rollback are exempt).
+#   - Every -apply operation (relabel-fy-apply, repair-ticker-apply, reset-filing-summary-apply)
+#     waits for the founder's approval before any step runs: the approve-apply job runs in the
+#     `ops-apply` environment, whose required reviewer is the founder (Settings > Environments). The
+#     ops job runs an -apply only after that job has passed, and only in a run's first attempt: any
+#     re-run of an apply writes nothing and fails visibly (the refuse-rerun job), so a retry is a
+#     fresh dispatch the founder approves again.
+#     A rejected, cancelled or expired approval runs nothing. The run executes the commit main had
+#     at dispatch, so an approval given after main has moved is a reason to reject and re-dispatch.
+#     The ops job keeps its own OIDC subject: no environment on it. Ungated on purpose:
+#     rollback-traffic (an incident rollback must not wait on a person), and sync-companyfacts and
+#     backfill-filing-history (writes the app makes on its own).
+#     Known limits: the gate binds main's ops.yml, not the credential (WIF trusts every ref, so a
+#     workflow on another branch could write unapproved; docs/data-quality-remediation-log.md);
+#     approve-apply passes at once when the environment requires no reviewer, so the ops job
+#     refuses an apply unless this run records the repository owner's approval of `ops-apply`
+#     (fail closed; another reviewer's approval does not count); and
+#     sessions act through the founder's account, so .claude/hooks/ops_approval_guard.py refuses a
+#     Claude Code session the approval and environment calls, while Codex and Astra load no hooks
+#     (AGENTS.md §5).
+#   - The ops job's `concurrency: ops` serializes operations; the approval job sits outside the
+#     group, so an apply waiting for approval holds up no other dispatch. Once approved, an apply
+#     queues like any dispatch, and GitHub holds ONE pending run per group, so a later pending
+#     dispatch replaces it and wastes the approval. Deploys keep their own group on purpose: sharing
+#     `deploy-backend`'s group would let an ops dispatch silently cancel a queued release. Instead
+#     the pre-flight step below refuses to run while a CI run for a push to `main` is in flight
+#     (read-only inspection and rollback are exempt); for an apply it runs after the approval.
 #     Known limit: the check is point-in-time and one-directional — a main push that lands AFTER
 #     it passes can still overlap this run, and a deploy never waits for ops. Do not dispatch
 #     write operations when a backend merge is imminent.
-#   - Every Cloud SQL step sets PGOPTIONS with lock_timeout=10s (fail fast, never queue behind a
-#     held lock). statement_timeout is per step: the write path (repair script) matches the deploy
-#     migration step (120s); the read-only detection snapshots full-scan financial_fact and get
-#     600s. The proxy binary is checksum-pinned (lessons/ops-migrations-need-lock-timeout.md).
+#   - Every Cloud SQL step sets PGOPTIONS with a lock_timeout of at most 10s (fail fast, never queue
+#     behind a held lock; the capacity ledger uses 2s). statement_timeout is per step: the write
+#     paths (the repair and relabel scripts) match the deploy migration step (120s); the read-only
+#     detection snapshots full-scan financial_fact and get 600s. The proxy binary is checksum-pinned
+#     (lessons/ops-migrations-need-lock-timeout.md).
 
 on:
   workflow_dispatch:
@@ -41,6 +65,8 @@ on:
           - jobs-channel-noop-probe
           - repair-ticker-dry-run
           - repair-ticker-apply
+          - relabel-fy-dry-run
+          - relabel-fy-apply
           - sync-companyfacts
           - backfill-filing-history
           - data-quality-report
@@ -56,17 +82,13 @@ on:
         required: false
         default: ""
       tickers:
-        description: 'Comma-separated tickers (sync-companyfacts / backfill-filing-history); a SINGLE ticker for reset-filing-summary'
+        description: 'Comma-separated tickers: sync-companyfacts; backfill-filing-history (empty = the watchlist cohort); relabel-fy-* (empty = every company). A SINGLE ticker for reset-filing-summary'
         required: false
         default: ''
       revision:
         description: 'Cloud Run revision name (rollback-traffic only)'
         required: false
         default: ''
-
-concurrency:
-  group: ops
-  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -82,10 +104,30 @@ env:
   CLOUD_SQL_PROXY_SHA256: c0af803c07157530c9159b6179e3288298950af5a39c8ca38ad28c8a2b52ae3d
 
 jobs:
+  approve-apply:
+    # An -apply operation waits here until the founder approves it in GitHub: the `ops-apply`
+    # environment names the founder as its required reviewer. Every other operation skips this job.
+    if: github.ref == 'refs/heads/main' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply', inputs.operation)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: ops-apply
+    permissions: {}
+    steps:
+      - name: Record the approval
+        env:
+          OP: ${{ inputs.operation }}
+        run: echo "ops-apply approval passed for $OP"
+
   ops:
     # Operations run against production, so only the reviewed definition on main may run: a
-    # dispatch from another ref is skipped before any step executes.
-    if: github.ref == 'refs/heads/main'
+    # dispatch from another ref is skipped before any step executes. An -apply operation runs only
+    # after approve-apply passes, and only in the run's first attempt (refuse-rerun fails a later
+    # one); any other operation runs when approve-apply is skipped.
+    needs: approve-apply
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' && !contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply', inputs.operation)) || (needs.approve-apply.result == 'success' && github.run_attempt == '1')) }}
+    concurrency:
+      group: ops
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -112,7 +154,7 @@ jobs:
           [[ "$REVISION" =~ ^[a-z0-9-]*$ ]] \
             || { echo "::error::revision may contain only lowercase letters, digits and '-'"; exit 1; }
           case "$OP" in
-            describe-service|describe-jobs|detection-sql|logs-probe|capacity-readout|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
+            describe-service|describe-jobs|detection-sql|logs-probe|capacity-readout|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -123,8 +165,9 @@ jobs:
               COUNT=$(echo "$TICKERS" | tr ',' '\n' | wc -l)
               [ "$COUNT" -le 50 ] || { echo "::error::max 50 tickers per dispatch"; exit 1; }
               ;;
-            backfill-filing-history)
-              # tickers OPTIONAL (empty => watchlist cohort); when given, a comma-separated list ≤50.
+            backfill-filing-history|relabel-fy-dry-run|relabel-fy-apply)
+              # tickers OPTIONAL (empty => the watchlist cohort for a backfill, every company for a
+              # relabel); when given, a comma-separated list ≤50.
               if [ -n "$TICKERS" ]; then
                 [[ "$TICKERS" =~ ^[A-Za-z0-9.-]+(,[A-Za-z0-9.-]+)*$ ]] \
                   || { echo "::error::tickers must be a comma-separated symbol list"; exit 1; }
@@ -148,6 +191,30 @@ jobs:
             echo "revision=$REVISION"
           } >> "$GITHUB_OUTPUT"
           echo "Requested operation: $OP"
+
+      - name: Refuse an apply that no one approved in this run
+        # approve-apply passes at once while the ops-apply environment requires no reviewer: before the
+        # founder adds one (docs/DEPLOYMENT.md), or after anyone removes it or deletes the environment.
+        # So an apply stops here unless this run's review history records an approval of ops-apply: the
+        # gate fails closed. It reads the run's approvals, not the environment's settings, which a reviewer added
+        # while this job queued behind another dispatch would satisfy with no one having approved. Only the
+        # repository owner's approval counts, the founder's, so a reviewer added to ops-apply later cannot
+        # approve a production write. The owner's login goes into the filter after a check that it is one.
+        if: contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply', steps.request.outputs.operation)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          case "$OWNER" in ''|*[!A-Za-z0-9-]*) OWNER='' ;; esac  # not a GitHub login: no approval can match
+          APPROVED="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" \
+            --jq "[.[] | select(.state == \"approved\" and .user.login == \"$OWNER\") | .environments[]? | select(.name == \"ops-apply\")] | length" 2>/dev/null || true)"
+          case "$APPROVED" in ''|*[!0-9]*) APPROVED=0 ;; esac  # an unreadable or non-numeric answer counts as none
+          if [ "$APPROVED" -lt 1 ]; then
+            echo "::error::no approval of ops-apply is recorded for this run from the repository owner ($OWNER): none was given, or the answer could not be read, so this apply stops; docs/DEPLOYMENT.md, \"One-shot maintenance runs\", says how the ops-apply environment is set up"
+            exit 1
+          fi
+          echo "This run records the repository owner's approval of ops-apply; the apply proceeds."
 
       - name: Refuse to run while a main push (deploy) is in flight
         # deploy-backend (ci.yml) applies migrations to the same database and re-images the jobs this
@@ -243,6 +310,31 @@ jobs:
           if [ $? -eq 0 ]; then
             echo "company_upsert_conflict entries in last 7d: $(python3 -c 'import json;print(len(json.load(open("/tmp/conflicts.json"))))' 2>/dev/null || echo 0)"
           fi
+          # Sentry at startup: main.py prints one of four lines as an API-service revision starts (the task worker
+          # runs task_worker_main.py, which starts no Sentry and prints none). Name the revisions that printed each in
+          # the last seven days, with a count from the newest 500 entries per kind; never a line itself, which can
+          # quote an exception. A read that fails prints UNVERIFIED with a closed class, never gcloud's text, and the
+          # step adds one warning naming those kinds and the remedy (lessons/ops-denied-reads-report-unverified.md).
+          SCOPE='resource.type="cloud_run_revision" AND resource.labels.service_name="earningsnerd-backend"'
+          UNVERIFIED=""
+          for KIND in "initialized:Sentry error tracking initialized" "failed:Sentry initialization failed" \
+              "dsn-unset:SENTRY_DSN not configured" "sdk-missing:Sentry SDK not available"; do
+            if gcloud logging read "$SCOPE AND textPayload:\"${KIND#*:}\"" --freshness=7d --limit=500 \
+                --format='value(resource.labels.revision_name)' >/tmp/sentry.txt 2>/tmp/sentry.err; then
+              echo "sentry startup (7d) ${KIND%%:*}:$(sort /tmp/sentry.txt | uniq -c | awk '{printf " %s x%s", $2, $1} END {if (!NR) printf " none"}')"
+            else
+              RC=$?
+              if grep -qsF PERMISSION_DENIED /tmp/sentry.err; then CLASS=permission_denied
+              elif grep -qsF NOT_FOUND /tmp/sentry.err; then CLASS=not_found
+              elif grep -qsF -e UNAVAILABLE -e DEADLINE_EXCEEDED /tmp/sentry.err; then CLASS=unavailable
+              else CLASS="error (gcloud exit $RC)"; fi
+              echo "sentry startup (7d) ${KIND%%:*}: UNVERIFIED ($CLASS; gcloud's error text withheld)"
+              UNVERIFIED="$UNVERIFIED ${KIND%%:*}=$CLASS"
+            fi
+          done
+          if [ -n "$UNVERIFIED" ]; then
+            echo "::warning::sentry startup UNVERIFIED:$UNVERIFIED. Not evidence that Sentry started or failed; for permission_denied the Ops identity needs its Logging read role, for not_found check the project and the service, otherwise dispatch logs-probe again."
+          fi
 
       - name: Jobs-channel no-op probe (args override on an existing job)
         if: steps.request.outputs.operation == 'jobs-channel-noop-probe'
@@ -264,7 +356,7 @@ jobs:
 
       # ------------------------------------------------------------------ Cloud SQL access
       - name: Start Cloud SQL proxy and export connection env
-        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply capacity-readout', steps.request.outputs.operation)
+        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply capacity-readout', steps.request.outputs.operation)
         # Mirrors the deploy-backend migrations step (ci.yml) — same secret, same masking.
         run: |
           set -euo pipefail
@@ -273,8 +365,18 @@ jobs:
             "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/${CLOUD_SQL_PROXY_VERSION}/cloud-sql-proxy.linux.amd64"
           echo "${CLOUD_SQL_PROXY_SHA256}  cloud-sql-proxy" | sha256sum -c -
           chmod +x cloud-sql-proxy
-          DB_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL)"
-          echo "::add-mask::$DB_URL"
+          if DB_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL 2>/tmp/proxy-secret.err)"; then
+            echo "::add-mask::$DB_URL"
+          else
+            RC=$?
+            # Match logs-probe and gcloud_json(): report a closed class, never the diagnostic text.
+            if grep -qsF PERMISSION_DENIED /tmp/proxy-secret.err; then CLASS=permission_denied
+            elif grep -qsF NOT_FOUND /tmp/proxy-secret.err; then CLASS=not_found
+            elif grep -qsF -e UNAVAILABLE -e DEADLINE_EXCEEDED /tmp/proxy-secret.err; then CLASS=unavailable
+            else CLASS="error (gcloud exit $RC)"; fi
+            echo "::error::Cloud SQL proxy: cannot read DATABASE_URL ($CLASS; gcloud's error text withheld)"
+            exit "$RC"
+          fi
           CONN="${DB_URL##*host=/cloudsql/}"; CONN="${CONN%%&*}"
           USERPASS="${DB_URL#*://}"; USERPASS="${USERPASS%%@*}"
           PGUSER="${USERPASS%%:*}"
@@ -333,7 +435,7 @@ jobs:
 
       # ------------------------------------------------------------------ committed scripts (runner)
       - name: Install backend dependencies
-        if: contains('repair-ticker-dry-run repair-ticker-apply', steps.request.outputs.operation)
+        if: contains('repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply', steps.request.outputs.operation)
         run: |
           pip install -q -r backend/requirements.txt
 
@@ -345,6 +447,9 @@ jobs:
           # points at the proxy from the step above. libpq honours PGOPTIONS, so the SQLAlchemy
           # session gets the deploy migration step's guards (fail fast on a held lock; bound writes).
           PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s
+          # The SEC budgets every SEC-calling process is pinned to (docs/OPERATIONS.md, D3).
+          SEC_RATE_LIMIT_PER_SECOND: '1'
+          EDGAR_RATE_LIMIT_PER_SEC: '1'
           SKIP_REDIS_INIT: 'true'
           SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
           STRIPE_SECRET_KEY: sk_test_ops
@@ -359,6 +464,46 @@ jobs:
           else
             python scripts/repair_ticker_by_cik.py
           fi
+
+      - name: Run fiscal-year relabel script
+        # backend/scripts/relabel_filing_fy_facts.py (docs/fiscal-year-label-repair.md): a dry run reads
+        # and prints its plan, one JSON line per company and a summary, in read-only transactions, so
+        # Postgres refuses any write it might attempt; the apply writes the plan, one company per
+        # transaction under the fact writers' lock, journaled for the audited rollback. Before each
+        # company's session opens, it reads that company's companyfacts from SEC (the shared limiter),
+        # its evidence where no stored row vouches for a year. It runs here rather than in the jobs
+        # channel so its lines reach this log.
+        if: contains('relabel-fy-dry-run relabel-fy-apply', steps.request.outputs.operation)
+        working-directory: backend
+        timeout-minutes: 60
+        env:
+          # The ticker repair's hermetic env and guards; DATABASE_URL points at the proxy above.
+          PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s
+          # The SEC budgets every SEC-calling process is pinned to (docs/OPERATIONS.md, D3).
+          SEC_RATE_LIMIT_PER_SECOND: '1'
+          EDGAR_RATE_LIMIT_PER_SEC: '1'
+          SKIP_REDIS_INIT: 'true'
+          SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
+          STRIPE_SECRET_KEY: sk_test_ops
+          STRIPE_WEBHOOK_SECRET: whsec_ops
+          PWNED_PASSWORD_CHECK_ENABLED: 'false'
+          OP: ${{ steps.request.outputs.operation }}
+          TICKERS: ${{ steps.request.outputs.tickers }}
+        run: |
+          set -euo pipefail
+          [ -f scripts/relabel_filing_fy_facts.py ] || { echo "::error::relabel script not committed yet"; exit 1; }
+          ARGS=()
+          READ_ONLY=on
+          if [ "$OP" = "relabel-fy-apply" ]; then ARGS+=(--apply); READ_ONLY=off
+          else PGOPTIONS="$PGOPTIONS -c default_transaction_read_only=on"; fi
+          if [ -n "$TICKERS" ]; then ARGS+=(--tickers "$TICKERS"); fi
+          # The settings a session gets through the proxy, read back so this log proves them, and
+          # compared with this step's, so a lost or weakened guard stops the run before the script.
+          SESSION=$(psql -X -t -A -c "SELECT 'session read_only=' || current_setting('default_transaction_read_only') || ' lock_timeout=' || current_setting('lock_timeout') || ' statement_timeout=' || current_setting('statement_timeout')")
+          echo "$SESSION"
+          EXPECTED="session read_only=$READ_ONLY lock_timeout=10s statement_timeout=2min"
+          [ "$SESSION" = "$EXPECTED" ] || { echo "::error::the session's settings are not this step's ($EXPECTED)"; exit 1; }
+          python scripts/relabel_filing_fy_facts.py "${ARGS[@]}"
 
       # ------------------------------------------------------------------ internal jobs
       - name: Trigger companyfacts resync (internal endpoint; jobs-channel fallback)
@@ -465,3 +610,22 @@ jobs:
           gcloud run services update-traffic "$SERVICE" --region="$REGION" \
             --to-revisions="${REVISION}=100"
           echo "traffic pinned to ${REVISION} — remember to re-run update-traffic --to-latest after the fix deploys"
+
+  refuse-rerun:
+    # A re-run of an -apply writes nothing: the ops job runs an apply only in a run's first attempt,
+    # so a re-run skips it, and GitHub would then mark the run green, which is easy to report as done.
+    # This job fails such a re-run instead, so it reads as a refusal, not a success. GitHub re-runs a
+    # job's dependents with it, so "Re-run failed jobs" re-runs this job with ops; a first attempt,
+    # and every other operation, skips it.
+    needs: ops
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.run_attempt != '1' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply', inputs.operation) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Refuse a re-run of an apply
+        env:
+          OP: ${{ inputs.operation }}
+        run: |
+          echo "::error::a re-run of $OP writes nothing: an apply runs only in a run's first attempt, so dispatch it again and approve the new run"
+          exit 1

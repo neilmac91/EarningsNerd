@@ -7,7 +7,11 @@ commas, ``%`` or currency symbols are NOT stripped — callers must strip those 
 Previously covered only incidentally by the deleted FMP/Stocktwits integration tests (WS-8a);
 the helper itself is still live in ``alpha_vantage.py`` and ``earnings_calendar_service.py``.
 """
+import functools
+import hashlib
+import itertools
 import math
+import sys
 from decimal import Decimal
 
 import pytest
@@ -152,3 +156,181 @@ def test_normalized_loss_changes_agree_with_shared_delta_direction():
         assert fact.delta_value == fact.current_value
         assert fact.delta_percent is None
         assert row_delta_fields({"current_period": current, "prior_period": "$0"}) == {}
+
+
+# ISO 4217 List One as of February 2026 (pycountry 26.2.16's iso4217.json), less its nine fund codes
+# and the 14 X-codes that name no national currency. When ISO changes the list, re-derive both.
+ISO_4217_COUNT = 155
+ISO_4217_SHA256 = "0b9d5f081d87f7714b2e30857b4cba0b350b5ffa26ffc0696f1d4abf8c33a8d3"
+
+
+def test_every_currency_a_money_label_can_carry_parses_and_names_its_code():
+    """Rule 12 gate: ``money_prefix_for`` labels a figure with the filer's reporting currency, which
+    comes from its XBRL units, so the display parser and the exact-delta currency reader read every
+    ISO 4217 currency it can write. Before the full list, an AED, SAR or ILS figure parsed to
+    nothing and its row stored no change figure. The list itself is pinned, so dropping a code fails
+    here as well as one that stops reading."""
+    from app.utils.numbers import ISO_4217_CURRENCIES, display_currency, money_prefix_for, parse_display_number
+
+    codes = " ".join(sorted(ISO_4217_CURRENCIES))
+    assert (len(ISO_4217_CURRENCIES), hashlib.sha256(codes.encode()).hexdigest()) == (
+        ISO_4217_COUNT, ISO_4217_SHA256), codes
+    assert not {"XYZ", "XXX", "XTS", "XAU", "XDR", "CLF", "ANG", "HRK", "BGN"} & ISO_4217_CURRENCIES
+    for code in sorted(ISO_4217_CURRENCIES):
+        label = f"{money_prefix_for(code)}30.6B"
+        assert parse_display_number(label) == (Decimal("30600000000"), False), label
+        assert display_currency(label) == (True, code), label
+
+    # A code reads in capitals, as money_prefix_for writes it, so a word never reads as a currency.
+    # The 21 codes the parser read before the full list still read in any case.
+    for text in ["aed 30.6B", "top 5", "all 5", "Try 5", "XYZ 5M", "XXX 5M", "XAU 5M", "CLF 5M"]:
+        assert parse_display_number(text) == (None, False), text
+    assert parse_display_number("usd 5m") == (Decimal("5000000"), False)
+    assert display_currency("top 5 segments") == (False, None)
+
+
+@pytest.mark.parametrize("text, named", [
+    ("AED 941.2B", (True, "AED")),
+    ("AED941.2B", (True, "AED")),  # glued to its figure: the exact-delta reader used to miss it
+    ("(AED 1.2B)", (True, "AED")),
+    ("US$941.2B", (True, "USD")),  # the exact-delta reader used to read "S$", Singapore's
+    ("S$5B", (True, "SGD")),
+    ("NT$5B", (True, "TWD")),
+    ("HK$5B", (True, "HKD")),
+    ("RMB 5B", (True, "CNY")),
+    ("usd 5m", (True, "USD")),
+    ("$941.2B", (True, "USD")),
+    ("-€5B", (True, "EUR")),
+    ("¥100.0B", (True, None)),  # JPY or CNY: no code, so exact binding refuses it
+    ("941.2B", (False, None)),
+    ("941.2B AED", (False, None)),  # not a figure the parser reads, so nothing binds to it
+    ("top 5 segments", (False, None)),
+    (None, (False, None)),
+])
+def test_a_figure_names_the_currency_of_the_prefix_the_parser_reads(text, named):
+    from app.utils.numbers import display_currency
+
+    assert display_currency(text) == named
+
+
+PREFIX_CODES = {
+    "US$": "USD", "NT$": "TWD", "HK$": "HKD", "S$": "SGD", "A$": "AUD", "C$": "CAD", "R$": "BRL",
+    "$": "USD", "€": "EUR", "£": "GBP", "¥": None, "₹": "INR", "₩": "KRW", "RMB": "CNY",
+}
+
+
+def test_every_currency_prefix_has_its_expected_code():
+    """A prefix added to the reader needs its code written here too."""
+    from app.utils.numbers import _PREFIX_CURRENCY
+
+    assert _PREFIX_CURRENCY == PREFIX_CODES
+
+
+@pytest.mark.parametrize("prefix", sorted(PREFIX_CODES))
+def test_every_currency_prefix_names_its_code_in_any_case(prefix):
+    """The parser reads a prefix in any case ("hk$5B"), so its code does too: the delta reader's old
+    case-sensitive scan read "hk$" as a bare "$", USD."""
+    from app.utils.numbers import display_currency
+
+    for spelling in {prefix, prefix.lower(), prefix.upper()}:
+        assert display_currency(f"{spelling}5B") == (True, PREFIX_CODES[prefix]), spelling
+
+
+@functools.cache
+def _whitespace_strings() -> tuple[str, ...]:
+    """Whitespace-only strings to try a repeated item on: every whitespace character alone and up to
+    four times over, and every mix of up to three of the common ones, so a composite item such as
+    ``(?:\\s\\s)`` or ``(?:[ \\t]\\n)`` counts too."""
+    spaces = [chr(point) for point in range(sys.maxunicode + 1) if chr(point).isspace()]
+    common = (" ", "\t", "\n", "\xa0")
+    return (*(space * count for space in spaces for count in range(1, 5)),
+            *("".join(mix) for count in (2, 3) for mix in itertools.product(common, repeat=count)))
+
+
+def _backtracking_whitespace_runs(pattern: str, flags: int) -> list[str]:
+    """Each repeat in ``pattern`` that can backtrack (greedy or lazy, with a choice of counts above one)
+    through an item that matches whitespace alone. It reads the parsed pattern (CPython's own parser, ``re._parser``,
+    private but stable since 3.11), so every spelling of such a run counts: ``\\s{0,}``, ``[ \\t]*``,
+    `` +``, ``(?:\\s)*``, ``[\\s,]*``, ``(?:\\s\\s)*``."""
+    from re import _compiler, _constants as sre, _parser
+
+    found = []
+
+    def walk(items) -> None:
+        for op, av in items:
+            if op in (sre.MAX_REPEAT, sre.MIN_REPEAT):
+                low, high, item = av
+                if high > max(low, 1) and any(_compiler.compile(item, flags).fullmatch(run) for run in _whitespace_strings()):
+                    found.append(f"{op} {{{low},{high}}} {item}")
+                walk(item)
+            elif op is sre.POSSESSIVE_REPEAT:
+                walk(av[2])
+            elif op is sre.SUBPATTERN:
+                walk(av[3])
+            elif op is sre.BRANCH:
+                for branch in av[1]:
+                    walk(branch)
+            elif op is sre.GROUPREF_EXISTS:
+                walk(av[1])
+                if av[2] is not None:
+                    walk(av[2])
+            elif op in (sre.ASSERT, sre.ASSERT_NOT):
+                walk(av[1])
+            elif op is sre.ATOMIC_GROUP:
+                walk(av)
+
+    walk(_parser.parse(pattern, flags))
+    return found
+
+
+def test_the_display_grammar_never_backtracks_into_whitespace():
+    """Every whitespace run in the display grammar is possessive, so a cell with a long run of spaces
+    is refused at once. A greedy run tried every split of it: "-" and 400 spaces before "Q" took about
+    55 s per pass, and the exact-delta check alone makes four passes over each cell. The possessive
+    runs accept exactly what greedy ones did because no token of the grammar begins with whitespace."""
+    from app.utils.numbers import _DISPLAY_SCALAR
+
+    assert _backtracking_whitespace_runs(_DISPLAY_SCALAR.pattern, _DISPLAY_SCALAR.flags) == [], _DISPLAY_SCALAR.pattern
+
+
+# Spellings of a run the gate must read as backtracking, and look-alikes it must let pass.
+BACKTRACKING_RUNS = [r"\s*", r"\s+", r"\s*?", r"\s+?", r"\s{0,}", r"\s{1,}", r"\s{2,}", r"\s{0,500}", r"[ \t]*", r" *",
+                     r" +", r"(?:\s)*", r"[^\S]*", r"[\s,]*", r"\x20*", "\u00a0*", r"(?: |\t)*",
+                     r"(?:\s\s)*", r"(?:[ \t][ \t])*", r"(?:\s{2})+", r"(?: \t\n)*", r"(?:\s\s\s\s)*?"]
+SAFE_RUNS = [r"\s++", r"\s{0,}+", r"\s?", r"\s{0,1}", r"\S*", r"[0-9]+", r"(?:,[0-9]{3})+", r"[kmbt]*",
+             r"(?:\s\s)*+", r"(?:\s\S)*", r"(?:[0-9]\s)*"]
+
+
+@pytest.mark.parametrize("run", BACKTRACKING_RUNS + SAFE_RUNS)
+def test_the_whitespace_gate_reads_every_spelling_of_a_run(run):
+    """The gate is as wide as its rule: each spelling, planted in place of the grammar's first run."""
+    from app.utils.numbers import _DISPLAY_SCALAR
+
+    planted = _DISPLAY_SCALAR.pattern.replace(r"\s*+", run, 1)
+    assert planted != _DISPLAY_SCALAR.pattern
+    before = len(_backtracking_whitespace_runs(_DISPLAY_SCALAR.pattern, _DISPLAY_SCALAR.flags))
+    after = len(_backtracking_whitespace_runs(planted, _DISPLAY_SCALAR.flags))
+    assert after - before == int(run in BACKTRACKING_RUNS), run
+
+
+@pytest.mark.parametrize("found, planted", [
+    (r"basis\s++points", r"basis\s+points"),  # inside the unit's capture group and its alternation
+    (r"basis\s++points", r"basis[ ]*points"),
+    (r"(?(paren)\))", r"(?(paren)\s*\))"),  # inside the closing parenthesis's conditional
+])
+def test_the_whitespace_gate_reads_runs_inside_groups(found, planted):
+    from app.utils.numbers import _DISPLAY_SCALAR
+
+    assert found in _DISPLAY_SCALAR.pattern
+    before = len(_backtracking_whitespace_runs(_DISPLAY_SCALAR.pattern, _DISPLAY_SCALAR.flags))
+    after = len(_backtracking_whitespace_runs(_DISPLAY_SCALAR.pattern.replace(found, planted), _DISPLAY_SCALAR.flags))
+    assert after > before, planted
+
+
+@pytest.mark.parametrize("hostile", ["-" + " " * 400 + "Q", "5" + " " * 400 + "Q", "$" + " " * 300 + "(" + " " * 300],
+                         ids=["sign-then-400-spaces", "digit-then-400-spaces", "prefix-paren-600-spaces"])
+def test_a_long_run_of_spaces_is_refused(hostile):
+    from app.utils.numbers import display_currency, parse_display_number
+
+    assert parse_display_number(hostile) == (None, False)
+    assert display_currency(hostile) == (False, None)

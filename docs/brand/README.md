@@ -12,8 +12,14 @@ sage highlight with a hairline under a phrase of ours, a bracket twin in the mar
 figure's marker, the filing's own words in the editorial face inside a marked block. Sage never
 colours a number; gain and loss keep their own tokens and always carry a sign. The voice is dry
 with a pulse, says what the product does in behaviours rather than hedges, and never claims a
-figure nobody measured. Every sample figure on every surface is Apple's FY2025 10-K against
-FY2024, verified against SEC XBRL.
+figure nobody measured. The static promotional figures use Apple's FY2025 10-K against FY2024, verified against SEC XBRL;
+the labelled Multi-Period sample is one saved run from FY2020 to FY2025.
+
+**Current promotional emphasis (C5).** The original studio treatment above is historical.
+Current headline accents and brand templates use a solid Bright Sage fill, crisp italic ink and
+soft corners. The web shares `BrandEmphasis`; located filing passages keep their annotation
+paint. See [the current device specification](06-system.md#6-the-graphic-device-the-margin-and-the-mark)
+and [the implementation recipe](../../frontend/DESIGN_SYSTEM.md#7-marketing-surfaces).
 
 ## Logo files
 
@@ -47,15 +53,16 @@ FY2024, verified against SEC XBRL.
 - `frontend/app/globals.css`: the "Brand device" block: `.en-mark` (the highlight), `.en-marked`
   (the marked block), `.en-margin` (the gutter) and `.en-margin-mark` (the bracket twin), each
   with its dark pair.
-- `frontend/features/marketing/components/MarkedCopy.tsx`: the component that measures the
-  markers and places their twins (`EnRef` renders a marker).
+- `frontend/components/ui/MarkedCopy.tsx`: the component that measures the markers and places
+  their twins (`EnRef` renders a marker), on the landing page and the filing page's Risks (D-044).
 
 ## Templates
 
 [templates/](templates/) with its own README: the social post (1080 × 1350, HTML and PNG), the
 business card front and back (SVG with trim guide and fill-in layer), the PDF cover (A4), the
-email header (600 px tables) and the A5 notebook cover (SVG and preview). Every figure is from
-the verified set; every colour is a token; the mark's paths are byte-identical to the mono mark.
+email header (a fluid column up to 600 px) and the A5 notebook cover (SVG and preview). Every figure
+is from the verified set; every colour is a token; the mark's paths are byte-identical to the mono
+mark.
 
 ## Records by phase
 
@@ -69,10 +76,10 @@ the verified set; every colour is a token; the mark's paths are byte-identical t
 | 5 | [05-mark.md](05-mark.md), [mark/](mark/) | The mark's audit, arrangements, rules and renditions; the drawing unchanged |
 | 6 | [06-system.md](06-system.md) | Palette measured, type, spacing, icons, imagery, the device; docs and sidecar in parity |
 | 7 | [07-voice.md](07-voice.md) | The voice guide rewritten; every microcopy site changed, with its before and after |
-| 8 | [08-applications.md](08-applications.md) | The landing page and every other surface in code; templates; the founder slot; Notable filings dormant |
-| 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; three fixes; second score 12 of 42 |
+| 8 | [08-applications.md](08-applications.md) | The landing page and every other surface in code; templates; the empty founder slot retired; Notable filings back under D-046's rule (E90) |
+| 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; original second score 11 of 42; current-main rescore 9 of 42, T4's move retained |
 | 10 | this page | The handoff |
-| all | [decisions-log.md](decisions-log.md) | D-001 to D-028 |
+| all | [decisions-log.md](decisions-log.md) | D-001 to D-057 |
 
 ## The pull request
 
@@ -96,10 +103,10 @@ hierarchy check) followed, each fixed in the branch.
 
 Each fails on a deliberate break of its rule (the PR lists the mutation proofs):
 
-- `frontend/tests/unit/brandCopyRules.spec.ts`: matching claims keep the server's scope, the
-  outline is "up to nine parts", and only risk excerpts are promised as located or withheld; no
-  sage number on a public surface; the highlight never on a figure or price; the margin only
-  inside `MarkedCopy`, and never without a marker.
+- `frontend/tests/unit/brandCopyRules.spec.ts`: matching claims keep the server's scope, the outline
+  is "up to nine parts", and only risk excerpts are promised as located or withheld; no sage number
+  on a public surface (D-030 widened this to the whole app); the highlight never on a figure or
+  price; the margin only inside `MarkedCopy`, and never without a marker.
 - `frontend/tests/unit/markSingleSource.spec.ts`: every rendition of the EN monogram copies the
   canonical outlines byte for byte, places them through the canonical groups and nothing else,
   and never stretches them.
@@ -107,8 +114,8 @@ Each fails on a deliberate break of its rule (the PR lists the mutation proofs):
   margin twin centres on its marker at any root size; the catch card's amounts never overlap or
   leave the card, at 390px and 320px under a 200% root font and in the desktop column, in both
   themes.
-- `frontend/tests/unit/founderNote.spec.tsx` and `waitlistCounter.spec.tsx`: no placeholder in the
-  founder slot, no counter below its floor or passing through "0+", the count in neutral ink.
+- `frontend/tests/unit/waitlistCounter.spec.tsx`: no counter below its floor or passing through
+  "0+", the count in neutral ink. The former `founderNote.spec.tsx` was retired with the empty slot.
 
 ## Gate tails
 
@@ -145,18 +152,53 @@ and CI's backend job, on its pinned toolchain, passed on the same commit.
 - `lessons/frontend-check-brand-layouts-at-200-percent-text.md`: a figure pair wraps on its own
   width; a positioned twin centres on its anchor's measured midpoint.
 
-## Left for the founder
+## Decided by the founder
 
-1. The first-person sentence for the founder slot (`frontend/features/marketing/lib/founderNote.ts`;
-   it renders nothing until written).
-2. The Multi-Period demo regenerated through the pipeline to end at FY2025
-   (`frontend/features/analysis/demo/demo-analysis.json`).
-3. A curation rule before Notable filings returns to the homepage (`NotableFilings.tsx`).
-4. The landing page's section composition (tell T4), as its own PR.
-5. Vercel Web Analytics on the privacy page, or gated on consent: `/privacy` does not name it today.
-6. Whether sage may mark a count inside the product (three calendar sites, D-023).
+The founder took the last four on 2026-10-17 (D-045 and D-046):
 
-Each has its own line in `tasks/todo.md`.
+1. The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`) is regenerated
+   through the pipeline to end at FY2025: one run, FY2020 to FY2025, USD 0.000196 against the
+   USD 0.10 ceiling (E93), made on 2026-10-22 once E149 let each source link open its filing's
+   document. A first run on 2026-10-20 cost USD 0.00046.
+2. Notable filings returned to the homepage as a ruled row after Reporting this week, with 10-K
+   and 10-Q filings only, from companies that hold a full summary (one the filing page shows,
+   D-052), newest first, at most six: the backend's query in #1437 and the row in E90's frontend
+   half (`NotableFilings.tsx`).
+3. The landing page's sections after the hero became ruled rows (tell T4, D-045, #1398).
+4. Vercel Web Analytics loads only after the visitor allows analytics (D-046, #1387), so the consent
+   bar's promise is true in code. What `/privacy` says of Do Not Track is settled (D-049); what it says
+   of analytics, in draft #1265, stays with the founder (F4).
+
+Two items still wait on the founder: that privacy text (F4) and the founder sentence, which the
+site goes without (A5) unless the founder writes one (D6, F48).
+
+## The sweep's record
+
+Current-main check: 2026-10-23, `5897d602`, after #1457 (`ab6962ec`). E120's capped
+surface insets (#1495) are included; E146's company-name formatting (#1491) is still a draft
+at this checkpoint. A draft is not a shipped closure. The [current capture set](stress/closeout-2026-10-23/README.md)
+and [fourteen-tell rescore](09-stress-test.md#2-the-sameness-test-rerun) separate new evidence
+from carried scores: 9 of 42, with T4's move from 3 to 1 confirmed.
+
+Done: the ruled landing composition; the shared promotional emphasis; the located-passage device
+on Risks, located summary quotes and the Source pane; public and account-page voice; shared
+controls, status chips and missing-value treatment; homepage receipts opening the filing document;
+the curated Notable filings query and row; consent-gated web analytics; and the saved FY2020 to
+FY2025 analysis demo. #1515 bounds that teaser to one screen with its action centred and the preview
+fading at its foot. The existing gates and each implementation PR's committed-state mutation
+proofs remain their evidence; this records-only change introduces no new rule. #1476 already records
+D-056's opening reservation and the rule to await the ready mark's own completed clean review.
+
+What remains is not listed here. Each open item is a row in [the open-items page](../../tasks/todo.md)
+with its owner and next step, and leaves it in the pull request that closes it (AGENTS.md §7), so
+a second list on this page would go stale as they close.
+
+The fresh matrix covers eight local routes, both themes, 390/1440px and default/200% text;
+all 64 route measurements fit the document width and logged no uncaught page error. It does not
+replace each PR's before/after evidence, establish production behaviour, or retest mail clients,
+PDFs, provider consoles and successful feed states. The source-pane and export work retain their
+own capture and gate evidence. The founder's held items keep their rows in the open-items page,
+and the founder receives the final sweep report as a message, not as a committed release verdict.
 
 ## Closing
 
@@ -164,5 +206,4 @@ The brief asked for a brand that could be recognised with the logo covered. On t
 the thing you would recognise is small and specific: a phrase with a pale mark under it, a
 bracket in the margin, a figure beside the sentence it came from. That is the product's own habit
 made visible, which is why it will hold: nothing in it needs a campaign to stay true, only the
-rules the gates above now hold. What remains is the founder's voice in the one slot kept for it, and
-a page layout that has yet to be as particular as the copy it carries.
+rules the gates above now hold. The landing composition now follows the filing's ruled items; the remaining work follows the open-items page above.

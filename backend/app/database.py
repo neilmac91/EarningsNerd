@@ -1,10 +1,16 @@
 import logging
 import os
+from typing import TYPE_CHECKING
 
-from sqlalchemy import create_engine, inspect as sa_inspect, text
+from sqlalchemy import create_engine, event, inspect as sa_inspect, text
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.config import settings
+
+if TYPE_CHECKING:
+    from psycopg2.extensions import connection as Psycopg2Connection
+    from sqlalchemy.pool import ConnectionPoolEntry
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +27,67 @@ DB_CONNECT_TIMEOUT = int(os.getenv("DB_CONNECT_TIMEOUT", "10"))
 # hung request. Overridable per-process so the Cloud Run Jobs (serial, tiny pools) can tune it.
 DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "10"))
 
+
+def _database_url() -> URL:
+    """settings.DATABASE_URL, parsed. The parser's message is withheld: a URL missing its `@host` puts the
+    password where the port goes, and the int() that reads the port quotes it into a startup traceback. A URL holding
+    more than one "@" is refused too: an unescaped "@" in the password ends the password there, and the rest becomes
+    the host, the database or a query key, which a driver's connection error quotes. The refusal does not advise
+    encoding the "@": the app decodes one, but the deploy's migration step and the Ops workflow's Cloud SQL proxy step
+    split the URL at its first "@" and ":" and hand both parts to psql as written (docs/CONFIGURATION.md)."""
+    try:
+        url = make_url(settings.DATABASE_URL)
+    except Exception as exc:  # noqa: BLE001 — any parse failure
+        problem = type(exc).__name__
+    else:
+        if settings.DATABASE_URL.count("@") <= 1:
+            return url
+        problem = (
+            "more than one '@'; keep the user name and password to characters that need no percent-encoding: the "
+            "deploy's migration step and the Ops proxy step read them undecoded"
+        )
+    # Raised after the handler, so no traceback chains the parser's error.
+    raise RuntimeError(f"DATABASE_URL could not be parsed ({problem}; message withheld: it can quote the password)")
+
+
+_DATABASE_URL = _database_url()
+
+
+def _set_session_time_zone_utc(
+    dbapi_connection: "Psycopg2Connection", _connection_record: "ConnectionPoolEntry",
+) -> None:
+    """Run each new session of the app's PostgreSQL engine at UTC (E151).
+
+    PostgreSQL binds a naive datetime, and renders each ``timestamptz`` it returns, in the session's ``TimeZone``,
+    which a session takes from the server's, the database's or the role's default, or from the client's startup
+    settings (``PGTZ``, ``PGOPTIONS``). So the app's dates hold only while its sessions run at UTC: under
+    America/Los_Angeles a filing stored at its true instant, the 15th at midnight UTC, reads back as the 14th at 16:00
+    -08:00 and its page shows the 14th. The SET runs outside a transaction, with autocommit on, so it holds for the
+    connection's life: inside the transaction psycopg2 opens, the rollback the pool makes when the connection comes back
+    would undo it. It sets nothing else, so the Ops steps' guards, which reach the session only through ``PGOPTIONS``,
+    stand; an ``options`` connect argument would replace ``PGOPTIONS`` and drop them
+    (``tests/unit/test_ops_workflow_wiring.py``). On a connection that died before the SET, the server's error stands:
+    autocommit is given back only to a connection still open."""
+    autocommit = dbapi_connection.autocommit
+    dbapi_connection.autocommit = True
+    try:
+        with dbapi_connection.cursor() as cursor:
+            cursor.execute("SET TIME ZONE 'UTC'")
+    finally:
+        if not dbapi_connection.closed:
+            dbapi_connection.autocommit = autocommit
+
+
 # SQLite requires check_same_thread=False for async operations
 if settings.DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
-        settings.DATABASE_URL,
+        _DATABASE_URL,
         connect_args={"check_same_thread": False},
         pool_pre_ping=True,
     )
 else:
     engine = create_engine(
-        settings.DATABASE_URL,
+        _DATABASE_URL,
         pool_pre_ping=True,
         pool_size=DB_POOL_SIZE,
         max_overflow=DB_MAX_OVERFLOW,
@@ -38,6 +95,7 @@ else:
         pool_timeout=DB_POOL_TIMEOUT,
         connect_args={"connect_timeout": DB_CONNECT_TIMEOUT},
     )
+    event.listen(engine, "connect", _set_session_time_zone_utc)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -76,6 +134,10 @@ _ADDITIVE_COLUMNS: list[tuple[str, str, str]] = [
     ("filing_content_cache", "risk_source_text", "TEXT"),
     # Invite hash carried through a social sign-in under REGISTRATION_MODE=invite_only.
     ("oauth_states", "invite_code_hash", "VARCHAR(64)"),
+    # A delivery batch's frozen plain-text part (E110); NULL on a batch frozen before it, which replays as frozen.
+    ("earningsnerd_delivery_batches", "body_text", "TEXT"),
+    # No default/backfill: legacy envelopes must keep omitting Reply-To under their existing keys.
+    ("earningsnerd_delivery_batches", "reply_to", "TEXT"),
 ]
 
 

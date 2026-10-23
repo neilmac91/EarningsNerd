@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render as renderTesting, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
+import { queryKeys } from '@/lib/queryKeys'
 
 vi.mock('@/features/filings/api/filing-content-api', () => ({
   fetchFilingContent: vi.fn(async () => ({
@@ -18,11 +21,16 @@ import {
   FilingViewerProvider,
   useFilingViewer,
 } from '@/features/filings/components/copilot/FilingViewerContext'
-import { fetchFilingContent } from '@/features/filings/api/filing-content-api'
+import { fetchFilingContent, type FilingContent } from '@/features/filings/api/filing-content-api'
 import { highlightExcerptInDom } from '@/features/filings/components/copilot/highlightInDom'
 import type { CopilotCitation } from '@/features/filings/api/copilot-api'
 
-function Harness() {
+function render(ui: ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
+  return { ...renderTesting(ui, { wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> }), client }
+}
+
+function Harness({ filingId = 1, embedded = true }: { filingId?: number; embedded?: boolean } = {}) {
   const v = useFilingViewer()!
   const citation: CopilotCitation = {
     n: 1,
@@ -39,7 +47,7 @@ function Harness() {
       <button type="button" onClick={() => v.requestHighlight(citation)}>
         cite
       </button>
-      <FilingViewer embedded filingId={1} filingLabel="AAPL 10-K" secUrl="https://sec.gov/x" />
+      <FilingViewer embedded={embedded} filingId={filingId} filingLabel="AAPL 10-K" secUrl="https://sec.gov/x" />
     </>
   )
 }
@@ -71,7 +79,7 @@ describe('FilingViewer (embedded)', () => {
 
     expect(await screen.findByText(/Revenue grew strongly this year/)).toBeInTheDocument()
     await waitFor(() =>
-      expect(highlightExcerptInDom).toHaveBeenCalledWith(expect.anything(), 'Revenue grew strongly'),
+      expect(highlightExcerptInDom).toHaveBeenCalledWith(expect.anything(), 'Revenue grew strongly', { located: true }),
     )
   })
 
@@ -88,6 +96,71 @@ describe('FilingViewer (embedded)', () => {
     fireEvent.click(retry)
 
     expect(await screen.findByText(/Revenue grew strongly this year/)).toBeInTheDocument()
+  })
+
+  it('retains the same failure during a retry, and another press or citation joins the in-flight read', async () => {
+    let rejectRead!: (reason: Error) => void
+    vi.mocked(fetchFilingContent)
+      .mockRejectedValueOnce(new Error('network'))
+      .mockImplementationOnce(() => new Promise((_, reject) => { rejectRead = reject }))
+    render(<FilingViewerProvider><Harness /></FilingViewerProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'cite' }))
+    const retry = await screen.findByRole('button', { name: /try again/i })
+    retry.focus()
+    fireEvent.click(retry)
+    fireEvent.click(retry)
+    fireEvent.click(screen.getByRole('button', { name: 'cite' }))
+    expect(fetchFilingContent).toHaveBeenCalledTimes(2)
+    expect(screen.getByText('Could not load the filing text.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /trying again/i })).toBe(retry)
+    await act(async () => rejectRead(new Error('still unavailable')))
+    expect(await screen.findByRole('button', { name: /try again/i })).toBe(retry)
+    expect(retry).toHaveFocus()
+    fireEvent.click(retry)
+    expect(await screen.findByText(/Revenue grew strongly this year/)).toBeInTheDocument()
+    expect(fetchFilingContent).toHaveBeenCalledTimes(3)
+  })
+
+  it('retains a failure through an invalidation nobody pressed, then hands focus to the empty-result status', async () => {
+    let finish!: (content: FilingContent) => void
+    vi.mocked(fetchFilingContent)
+      .mockRejectedValueOnce(new Error('network'))
+      .mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
+    const { client } = render(<FilingViewerProvider><Harness /></FilingViewerProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'open-filing' }))
+    const retry = await screen.findByRole('button', { name: /try again/i })
+    retry.focus()
+    await act(async () => { void client.invalidateQueries({ queryKey: queryKeys.filingContent(1) }) })
+    expect(screen.getByRole('button', { name: /try again/i })).toBe(retry)
+    expect(screen.getByText('Could not load the filing text.')).toBeInTheDocument()
+    await act(async () => finish({ filingId: 1, hasContent: false, markdownContent: null }))
+    expect(await screen.findByText('The full filing text is not available to view in-app yet.')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('status')).toHaveFocus())
+  })
+
+  it('a new filing gets its own pending read and ignores a late result from the previous filing', async () => {
+    let finishOld!: (content: FilingContent) => void
+    vi.mocked(fetchFilingContent).mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve }))
+    const { rerender } = render(<FilingViewerProvider><Harness /></FilingViewerProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'cite' }))
+    rerender(<FilingViewerProvider><Harness filingId={2} /></FilingViewerProvider>)
+    expect(await screen.findByText(/Revenue grew strongly this year/)).toBeInTheDocument()
+    await act(async () => finishOld({ filingId: 1, hasContent: true, markdownContent: 'Outdated previous filing' }))
+    expect(screen.queryByText('Outdated previous filing')).not.toBeInTheDocument()
+    expect(fetchFilingContent).toHaveBeenCalledTimes(2)
+    expect(fetchFilingContent).toHaveBeenLastCalledWith(2)
+  })
+
+  it('the standalone drawer still loads on its first citation and reuses the text on reopening', async () => {
+    render(<FilingViewerProvider><Harness embedded={false} /></FilingViewerProvider>)
+    expect(fetchFilingContent).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'cite' }))
+    expect(await screen.findByText(/Revenue grew strongly this year/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Close filing viewer' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'cite' }))
+    expect(await screen.findByText(/Revenue grew strongly this year/)).toBeInTheDocument()
+    expect(fetchFilingContent).toHaveBeenCalledTimes(1)
   })
 
   // EN-01: the pane's states after a chip activation are truthful, and every one of them keeps the

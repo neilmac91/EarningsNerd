@@ -7,10 +7,11 @@ import json
 import logging
 import stripe
 from app.database import get_db
-from app.models import User, Subscription
+from app.models import User
 from app.routers.auth import get_current_user
 from app.config import settings
 from starlette.concurrency import run_in_threadpool
+from app.services import billing_account_service, filing_list_service
 from app.services.billing_serving_prices import serving_pro_prices
 from app.services.subscription_webhook_service import process_stripe_event, SubscriptionEventBusy
 from app.services.stripe_subscription_reader import SubscriptionReconciliationUnavailable
@@ -30,7 +31,7 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 # Logical plan tokens the frontend may send, mapped to the configured Stripe price IDs. Lets the
 # UI reference stable names instead of hard-coding live price ids (which it previously did,
-# guaranteeing an "Invalid price_id" 400 in production).
+# guaranteeing the unknown-plan 400 in production).
 def _resolve_price_id(price_id: str) -> Optional[str]:
     aliases = {
         "monthly": settings.STRIPE_PRICE_MONTHLY_ID,
@@ -54,7 +55,8 @@ class UsageResponse(BaseModel):
     qa_limit: int
     # Free "taste" of Copilot (roadmap 2.2): lifetime grounded questions a FREE user has spent and
     # the plan's total allowance, so the UI can show "N of M free questions" and switch to the upsell
-    # at exhaustion. For Pro these are 0 (Pro is unlimited via qa_limit).
+    # at exhaustion. For Pro the total is 0 (Pro has no taste; its monthly cap is qa_limit); the used
+    # count stays what the account spent while Free, since Pro questions never spend the taste.
     copilot_free_taste_used: int
     copilot_free_taste_total: int
     # Multi-Period Analysis generations this month vs the Pro fair-use cap (fresh AI narratives
@@ -79,24 +81,34 @@ async def get_usage(
     db: Session = Depends(get_db)
 ):
     """Get current user's usage for the month"""
-    month = get_current_month()
-    current_count = get_user_usage_count(current_user.id, month, db)
-    
-    # Resolve via the entitlements SSoT (subscription row first, is_pro mirror as fallback) so an
-    # active subscriber with a momentarily-stale is_pro mirror still gets the right limits/status.
-    ent = get_entitlements(current_user)
-    return UsageResponse(
-        summaries_used=current_count,
-        summaries_limit=ent.monthly_summary_limit,
-        is_pro=is_pro_user(current_user),
-        month=month,
-        qa_used=get_user_qa_count(current_user.id, month, db),
-        qa_limit=settings.COPILOT_MONTHLY_QUESTION_CAP,
-        copilot_free_taste_used=getattr(current_user, "copilot_free_taste_used", 0) or 0,
-        copilot_free_taste_total=ent.copilot_free_taste,
-        analysis_used=get_user_analysis_count(current_user.id, month, db),
-        analysis_limit=settings.ANALYSIS_MONTHLY_CAP,
-    )
+
+    def usage_for_reader() -> UsageResponse:
+        # One unit in the thread pool: the three counts, the plan the entitlements read from the
+        # reader's subscription row, the payload and the release, so no checkout or statement waits
+        # on the event loop (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            month = get_current_month()
+            current_count = get_user_usage_count(current_user.id, month, db)
+
+            # Resolve via the entitlements SSoT (subscription row first, is_pro mirror as fallback) so an
+            # active subscriber with a momentarily-stale is_pro mirror still gets the right limits/status.
+            ent = get_entitlements(current_user)
+            return UsageResponse(
+                summaries_used=current_count,
+                summaries_limit=ent.monthly_summary_limit,
+                is_pro=is_pro_user(current_user),
+                month=month,
+                qa_used=get_user_qa_count(current_user.id, month, db),
+                qa_limit=settings.COPILOT_MONTHLY_QUESTION_CAP,
+                copilot_free_taste_used=getattr(current_user, "copilot_free_taste_used", 0) or 0,
+                copilot_free_taste_total=ent.copilot_free_taste,
+                analysis_used=get_user_analysis_count(current_user.id, month, db),
+                analysis_limit=settings.ANALYSIS_MONTHLY_CAP,
+            )
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(usage_for_reader)
 
 @router.get("/subscription", response_model=SubscriptionStatus)
 async def get_subscription_status(
@@ -108,20 +120,31 @@ async def get_subscription_status(
     Reads the local `subscriptions` row (kept authoritative by the webhook) so the common case
     needs no live Stripe round-trip. Falls back to the `is_pro` mirror when no row exists yet.
     """
-    sub = db.query(Subscription).filter(Subscription.user_id == current_user.id).first()
-    plan = get_plan(current_user).value
 
-    return SubscriptionStatus(
-        is_pro=plan == "pro",
-        stripe_customer_id=(sub.stripe_customer_id if sub else None) or current_user.stripe_customer_id,
-        stripe_subscription_id=(sub.stripe_subscription_id if sub else None) or current_user.stripe_subscription_id,
-        subscription_status=sub.status if sub else None,
-        plan=plan,
-        status=sub.status if sub else None,
-        trial_end=sub.trial_end if sub else None,
-        current_period_end=sub.current_period_end if sub else None,
-        cancel_at_period_end=bool(sub.cancel_at_period_end) if sub else False,
-    )
+    def status_for_reader() -> SubscriptionStatus:
+        # One unit in the thread pool: the reader's row, the plan, the payload and the release
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            sub = billing_account_service.find_subscription(db, current_user.id)
+            plan = get_plan(current_user).value
+
+            return SubscriptionStatus(
+                is_pro=plan == "pro",
+                stripe_customer_id=(sub.stripe_customer_id if sub else None) or current_user.stripe_customer_id,
+                stripe_subscription_id=(
+                    (sub.stripe_subscription_id if sub else None) or current_user.stripe_subscription_id
+                ),
+                subscription_status=sub.status if sub else None,
+                plan=plan,
+                status=sub.status if sub else None,
+                trial_end=sub.trial_end if sub else None,
+                current_period_end=sub.current_period_end if sub else None,
+                cancel_at_period_end=bool(sub.cancel_at_period_end) if sub else False,
+            )
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(status_for_reader)
 
 
 class ProPriceCharge(BaseModel):
@@ -176,7 +199,7 @@ async def create_checkout_session(
     if not current_user.email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Please verify your email address before subscribing.",
+            detail="Verify your email address before you subscribe.",
         )
     if is_pro_user(current_user):
         raise HTTPException(
@@ -186,13 +209,13 @@ async def create_checkout_session(
     if not settings.STRIPE_SECRET_KEY:
         raise HTTPException(
             status_code=500,
-            detail="Stripe is not configured. Please set STRIPE_SECRET_KEY."
+            detail="Checkout is not available right now."
         )
     resolved_price_id = _resolve_price_id(price_id)
     if not resolved_price_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid price_id. Please select a supported subscription plan.",
+            detail="That plan is not available. Reload the page and try again.",
         )
     price_id = resolved_price_id
 
@@ -203,8 +226,13 @@ async def create_checkout_session(
                 email=current_user.email,
                 metadata={"user_id": str(current_user.id)}
             )
-            current_user.stripe_customer_id = customer.id
-            db.commit()
+            stored_customer_id = billing_account_service.claim_stripe_customer_id(db, current_user, customer.id)
+            if stored_customer_id != customer.id:
+                # Another checkout of this account stored its customer first: check out with that one,
+                # so a payment through either session finds the account (E166).
+                logger.info("Checkout for user_id=%s uses the customer stored first; %s has no subscription",
+                            current_user.id, customer.id)
+                customer = stripe.Customer.retrieve(stored_customer_id)
         else:
             customer = stripe.Customer.retrieve(current_user.stripe_customer_id)
         
@@ -213,7 +241,12 @@ async def create_checkout_session(
         billing_cycle = "monthly" if price_id == settings.STRIPE_PRICE_MONTHLY_ID else "yearly"
         session_kwargs = {
             "customer": customer.id,
-            "payment_method_types": ["card"],
+            # Stripe API 2026-09-30.endive (the version stripe-python 16 pins) removed
+            # `payment_method_types` from Checkout Session create and answers it with a 400.
+            # `allowed_payment_method_types` filters the Dashboard's payment-method
+            # configuration, so this checkout stays card-only for as long as card is enabled
+            # there; an incompatible method is dropped instead of erroring.
+            "allowed_payment_method_types": ["card"],
             "line_items": [{
                 "price": price_id,
                 "quantity": 1,
@@ -249,7 +282,7 @@ async def create_checkout_session(
             not is_beta
             and billing_cycle == "monthly"
             and settings.PRO_TRIAL_DAYS > 0
-            and db.query(Subscription).filter(Subscription.user_id == current_user.id).first() is None
+            and billing_account_service.find_subscription(db, current_user.id) is None
         ):
             # First-time monthly subscriber → 7-day card-required trial. A prior Subscription row of
             # ANY status (canceled, expired reverse-trial, …) means this account already had its
@@ -318,7 +351,7 @@ async def stripe_webhook(
         except stripe.error.SignatureVerificationError:
             raise HTTPException(status_code=400, detail="Invalid signature")
 
-        # stripe-python v15's StripeObject is not dict-like. Verification above authenticates
+        # stripe-python's StripeObject (v15 onward) is not dict-like. Verification above authenticates
         # these exact bytes; validate/consume their plain JSON representation instead.
         event = json.loads(payload)
         if not isinstance(event, dict):

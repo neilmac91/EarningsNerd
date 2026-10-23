@@ -25,6 +25,7 @@ export default function Error({
         <GuidanceCard
           variant="error"
           title="Something went wrong"
+          headingLevel="h1"
           description={
             <>
               The error has been logged and we&apos;ll look into it.
@@ -53,7 +54,7 @@ export default function Error({
         {process.env.NODE_ENV === 'development' && (
           <div className="rounded-lg border border-border-light bg-background-light p-4 text-left dark:border-border-dark dark:bg-white/5">
             <h2 className="mb-2 font-mono text-sm font-semibold text-error-light dark:text-error-dark">
-              Development Error Details:
+              Development error details
             </h2>
             <pre className="overflow-x-auto text-xs text-text-secondary-light dark:text-text-secondary-dark">
               {error.message}

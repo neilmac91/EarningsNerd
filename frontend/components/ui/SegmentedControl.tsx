@@ -14,12 +14,18 @@
                  Selected = the primary-button colorway: bg-brand + white;
                  dark FLIPS to navy ink on brand-dark (white on brand.fill-dark
                  is 3.7:1 — never revert to it).
-     - sizes:    sm 26px (desktop toolbars — the calendar) · md 36px (touch) ·
-                 adaptive = 36px below sm, 26px from sm up.
+     - sizes:    sm 1.625rem, 26px at the default root (desktop toolbars — the
+                 calendar) · md 36px (touch) · adaptive = 36px below sm,
+                 1.625rem from sm up. Heights are rem (px figures here are at
+                 the 16px root), so enlarged text keeps its segments: at a 32px
+                 root text-xs's 32px line box overflowed a fixed 26px.
      - mono:     an option whose label is a code (10-K, 10-Q) sets it in the
                  data face, so a form code reads the same here as in the rows.
      - labels never break (10-K/A breaks at its hyphen and slash otherwise);
                  fullWidth wraps whole segments onto another row instead.
+     - cap:      at most MAX_SEGMENTS (five) options; a longer set is a compact
+                 select beside its label (DESIGN.md). A set known only at run
+                 time (the filings form filter) checks itself against it.
    Focus-visible = ring-brand. No hover:opacity anywhere (it darkens).
 ============================================================================= */
 
@@ -28,6 +34,12 @@ import { cx } from './cx'
 
 export type SegmentedControlSize = 'sm' | 'md' | 'adaptive'
 
+/** The most options one control holds (DESIGN.md, the SegmentedControl paragraph): every segment shows at once
+ *  and a label never breaks, so a longer set is a compact select. FilingIndex's form filter, a set known only at
+ *  run time, renders as the select past it; tests/unit/segmentedControlOptionCount.spec.ts holds every set it can
+ *  count statically to it. */
+export const MAX_SEGMENTS = 5
+
 export interface SegmentedOption<T extends string> {
   value: T
   label: ReactNode
@@ -35,6 +47,8 @@ export interface SegmentedOption<T extends string> {
   mono?: boolean
   /** Unavailable before selection (for example, a mode with no data). */
   disabled?: boolean
+  /** ID of visible explanatory copy, useful when an unavailable option stays focusable. */
+  descriptionId?: string
 }
 
 export interface SegmentedControlProps<T extends string> {
@@ -47,6 +61,8 @@ export interface SegmentedControlProps<T extends string> {
   /** Stretch the segments across the row below sm (phone toolbars), wrapping onto another row when
    *  they do not fit, so every option stays visible; one auto-width row from sm up. */
   fullWidth?: boolean
+  /** Keep unavailable modes in the Tab order so their explanation can be read. Defaults to native disabled. */
+  focusableDisabled?: boolean
   className?: string
 }
 
@@ -57,13 +73,13 @@ const SHELL = cx(
 
 const SEGMENT = cx(
   'inline-flex items-center justify-center whitespace-nowrap rounded font-semibold transition-colors duration-fast',
-  'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark disabled:cursor-not-allowed disabled:opacity-40',
+  'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark aria-disabled:cursor-not-allowed disabled:cursor-not-allowed disabled:opacity-40',
 )
 
 const SIZE: Record<SegmentedControlSize, string> = {
-  sm: 'h-[26px] px-3.5 text-xs',
+  sm: 'h-[1.625rem] px-3.5 text-xs',
   md: 'h-9 px-3 text-sm',
-  adaptive: 'h-9 px-3 text-sm sm:h-[26px] sm:px-3.5 sm:text-xs',
+  adaptive: 'h-9 px-3 text-sm sm:h-[1.625rem] sm:px-3.5 sm:text-xs',
 }
 
 const SELECTED = 'bg-brand text-white shadow-e1 dark:bg-brand-dark dark:text-background-dark'
@@ -71,6 +87,7 @@ const RESTING = cx(
   'text-text-secondary-light hover:text-text-primary-light',
   'dark:text-text-secondary-dark dark:hover:text-text-primary-dark',
 )
+const UNAVAILABLE = 'bg-background-light text-text-secondary-light dark:bg-background-dark dark:text-text-secondary-dark'
 
 export function SegmentedControl<T extends string>({
   label,
@@ -79,6 +96,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   size = 'sm',
   fullWidth = false,
+  focusableDisabled = false,
   className,
 }: SegmentedControlProps<T>) {
   return (
@@ -90,7 +108,9 @@ export function SegmentedControl<T extends string>({
             key={option.value}
             type="button"
             aria-pressed={selected}
-            disabled={option.disabled}
+            disabled={option.disabled && !focusableDisabled}
+            aria-disabled={option.disabled && focusableDisabled ? true : undefined}
+            aria-describedby={option.descriptionId}
             onClick={() => {
               if (!selected && !option.disabled) onChange(option.value)
             }}
@@ -99,7 +119,7 @@ export function SegmentedControl<T extends string>({
               SIZE[size],
               fullWidth && 'flex-1 sm:flex-none',
               option.mono && 'font-data tabular-nums',
-              selected ? SELECTED : RESTING,
+              selected ? SELECTED : option.disabled && focusableDisabled ? UNAVAILABLE : RESTING,
             )}
           >
             {option.label}

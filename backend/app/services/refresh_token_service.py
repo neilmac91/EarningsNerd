@@ -2,8 +2,16 @@
 
 Refresh tokens are opaque random strings. Only their SHA-256 hash is stored, so the
 database never holds a usable credential. Every refresh rotates the token (the old one is
-revoked and points at its replacement); presenting an already-revoked token is treated as a
-reuse/theft signal and revokes the user's entire active chain.
+revoked and points at its replacement); presenting a token that was already rotated away is
+treated as a reuse/theft signal and revokes the user's entire active chain. A token revoked any
+other way (logout, logout-all, a password change or reset, or that theft sweep) is simply refused.
+
+Every rotation and revocation of a user's tokens (a refresh, logout, logout-all, the sweep, a password
+change or reset) first takes the account's users row lock and reads what it writes under it, so two of
+them for one user run one after the other, on one API instance or across both (``lock_user_tokens``).
+A token minted at sign-in writes no existing row and takes no lock, except a password login's: a password
+login and a password change take the lock, and act only while the hash they verified is still the account's
+(``auth_account_service.record_password_login`` and ``stage_password_change``, E121).
 """
 from __future__ import annotations
 
@@ -26,12 +34,36 @@ class RefreshTokenError(Exception):
 
 
 class RefreshTokenReuseError(RefreshTokenError):
-    """Raised when an already-revoked refresh token is replayed (reuse/theft signal).
+    """Raised when a rotated-away refresh token is replayed (reuse/theft signal).
 
     Distinct from the base error because handling it modifies the database (the user's
     active token chain is revoked), so the caller must commit — whereas a missing/expired/
     unknown token makes no writes and must not trigger a commit on unauthenticated traffic.
     """
+
+
+def lock_user_tokens(db: Session, user_id: int) -> None:
+    """Take ``user_id``'s users row lock for the rest of the caller's transaction.
+
+    Every rotation and revocation of a user's refresh tokens takes it before it reads the tokens it
+    writes. Two refreshes with one cookie both read the token live otherwise, and both mint a
+    successor. A refresh racing a logout or logout-all writes on its stale read, leaving a live
+    successor. A guarded UPDATE alone would not stop the logout-all case: its bulk UPDATE sees only
+    rows committed when it starts, so a successor committed after that survives it. The lock makes
+    the second writer wait for the first's commit, and the reads it then makes see that commit (READ
+    COMMITTED). The account's deletion takes it as well (``user_account_service.delete_user``), as its
+    cascade deletes the tokens, and so do a password login and a password change before they check the
+    hash they verified (``auth_account_service.record_password_login`` and ``stage_password_change``).
+    FOR NO KEY UPDATE: it serializes these writers but not the foreign-key checks of inserts that name
+    the user, a sign-in's new token among them. Unbounded, as the holders are short transactions, and a
+    timeout would turn a moment's wait into a failed refresh. SQLite ignores it."""
+    db.query(User.id).filter(User.id == user_id).with_for_update(key_share=True).first()
+
+
+def _read_again(db: Session, token: RefreshToken) -> Optional[RefreshToken]:
+    """``token`` as committed now, read under the users row lock, or ``None`` once it is gone (the
+    account deleted while this request waited, or a dead token purged)."""
+    return db.query(RefreshToken).filter(RefreshToken.id == token.id).populate_existing().first()
 
 
 def _hash_token(raw_token: str) -> str:
@@ -83,8 +115,9 @@ def rotate_refresh_token(
 
     Single-use rotation: the presented token is revoked and superseded by a fresh one.
     Raises :class:`RefreshTokenError` if the token is unknown, expired, or already revoked.
-    Reuse of a revoked token revokes the user's entire active chain (theft mitigation).
-    The caller is responsible for committing the session.
+    Replaying a token that was already rotated away revokes the user's entire active chain and
+    raises :class:`RefreshTokenReuseError` (theft mitigation); a token revoked without rotation
+    writes nothing. The caller is responsible for committing the session.
     """
     if not raw_token:
         raise RefreshTokenError("Missing refresh token")
@@ -96,12 +129,24 @@ def rotate_refresh_token(
     )
     if token is None:
         raise RefreshTokenError("Unknown refresh token")
+    lock_user_tokens(db, token.user_id)
+    token = _read_again(db, token)  # a rotation, revocation or deletion committed since shows here
+    if token is None:
+        raise RefreshTokenError("Unknown refresh token")
 
     now = datetime.utcnow()
 
     if token.revoked_at is not None:
-        # A revoked token is being replayed — the legitimate holder already rotated it, so
-        # this is a stolen/leaked copy. Revoke every active token for the user.
+        if token.replaced_by_id is None:
+            # Revoked without rotation (logout, logout-all, a password change or reset, or the
+            # theft sweep below): its holder was signed out, nobody holds a successor, and the
+            # token grants nothing. Refusing it is enough; sweeping would only revoke the sessions
+            # the user signed in to since.
+            raise RefreshTokenError("Refresh token has been revoked")
+        # A rotated-away token is being replayed — the legitimate holder already rotated it, so
+        # this is a stolen/leaked copy. Revoke every active token for the user. The sweep is
+        # user-wide, so it also ends sessions minted after a later reset or logout-all
+        # (lessons/arch-only-a-rotated-refresh-token-signals-theft.md).
         revoked = revoke_all_for_user(db, token.user_id)
         logger.warning(
             "Refresh token reuse detected for user_id=%s; revoked %s active token(s)",
@@ -126,27 +171,42 @@ def rotate_refresh_token(
     return user, new_raw_token
 
 
-def revoke_refresh_token(db: Session, raw_token: Optional[str]) -> bool:
-    """Revoke a single refresh token (e.g. on logout). Returns True if one was revoked.
+def revoke_refresh_token(db: Session, raw_token: Optional[str]) -> Optional[int]:
+    """Revoke a single refresh token (e.g. on logout). Returns its user's id if one was revoked.
 
-    Idempotent and best-effort: unknown or already-revoked tokens return False. The caller
-    is responsible for committing the session.
+    Idempotent and best-effort: unknown or already-revoked tokens return None. A token that refreshes
+    rotated away revokes its chain's live tip instead, the session it belonged to: a refresh may have
+    taken the lock first with the same cookie, or another tab may have rotated the chain on, and their
+    new cookie may reach the browser after the logout clears it. The caller is responsible for
+    committing the session.
     """
     if not raw_token:
-        return False
+        return None
     token = (
         db.query(RefreshToken)
         .filter(RefreshToken.token_hash == _hash_token(raw_token))
         .first()
     )
+    if token is None:
+        return None
+    lock_user_tokens(db, token.user_id)
+    token = _read_again(db, token)  # as a rotation does
+    # Each link points at a newer token (only a rotation writes it, to the successor it mints), so the
+    # walk ends, at the chain's live tip or at a token revoked some other way.
+    while token is not None and token.revoked_at is not None and token.replaced_by_id is not None:
+        token = db.get(RefreshToken, token.replaced_by_id)
     if token is None or token.revoked_at is not None:
-        return False
+        return None
     token.revoked_at = datetime.utcnow()
-    return True
+    return token.user_id
 
 
 def revoke_all_for_user(db: Session, user_id: int) -> int:
-    """Revoke all of a user's active refresh tokens. Returns the number revoked."""
+    """Revoke all of a user's active refresh tokens. Returns the number revoked.
+
+    Under the users row lock, so the bulk UPDATE starts after any rotation of this user's has committed
+    and revokes its successor too."""
+    lock_user_tokens(db, user_id)
     now = datetime.utcnow()
     count = (
         db.query(RefreshToken)
@@ -189,7 +249,7 @@ def rotate_and_commit(
 ) -> Tuple[User, str]:
     """Rotate ``raw_token`` and commit; return ``(user, new_raw_token)``.
 
-    A replayed token's chain revocation is committed before the same
+    A replayed rotated-away token's chain revocation is committed before the same
     :class:`RefreshTokenReuseError` propagates. Any other :class:`RefreshTokenError` made no writes
     and commits nothing.
     """
@@ -202,12 +262,19 @@ def rotate_and_commit(
     return user, new_raw_token
 
 
-def revoke_and_commit(db: Session, raw_token: Optional[str]) -> bool:
-    """Revoke one refresh token (logout) and commit when one was revoked. Returns whether it was."""
-    if revoke_refresh_token(db, raw_token):
-        db.commit()
-        return True
-    return False
+def revoke_and_commit(db: Session, raw_token: Optional[str]) -> Optional[Tuple[int, Optional[str]]]:
+    """Revoke one refresh token (logout) and commit when one was revoked.
+
+    Returns the ``(id, email)`` of the user whose session it ended, read under the users row lock before
+    the commit expires the row, or ``None`` when it revoked none. A logout whose session token has
+    expired knows its user only from this (E137).
+    """
+    user_id = revoke_refresh_token(db, raw_token)
+    if user_id is None:
+        return None
+    email = db.query(User.email).filter(User.id == user_id).scalar()
+    db.commit()
+    return user_id, email
 
 
 def revoke_all_and_commit(db: Session, user_id: int) -> int:

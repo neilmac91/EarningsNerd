@@ -17,12 +17,19 @@ const ALLOWED_PATHS = new Set([
   '/robots.txt',
   '/sitemap.xml',
   '/favicon.ico',
+  // The site's own files stay reachable while the gate is up (WAITLIST_MODE=true is the rollback
+  // state): the social card every shared link previews with, the touch icon and the PWA manifest.
+  '/og-image.png',
+  '/apple-touch-icon.png',
+  '/manifest.webmanifest',
 ])
 
 // Demo surfaces are reachable even while the waitlist gate is up, so prospective users
 // can experience the core product (choose company -> pick filing -> get summary) before
-// signing up. The homepage `/` stays gated and still routes to /waitlist.
-const ALLOWED_PREFIXES = ['/_next', '/api', '/public', '/assets', '/company', '/filing']
+// signing up. The homepage `/` stays gated and still routes to /waitlist. '/icons/' keeps its trailing
+// slash because it passes a directory of files, not a route, so a look-alike such as /iconsx stays gated
+// (middleware.spec.ts); the older prefixes are left in their original form.
+const ALLOWED_PREFIXES = ['/_next', '/api', '/public', '/assets', '/icons/', '/company', '/filing']
 
 // Protected routes that require authentication
 const PROTECTED_ROUTES = ['/dashboard', '/profile', '/settings', '/admin']
@@ -70,5 +77,8 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image).*)'],
+  // /assets/ holds the brand files that sent mail shows by URL (public/assets/LOGO_README.md › Rules). They are
+  // served as they are, so this middleware never runs on them and no branch of it can move one; the register's
+  // gate, tests/unit/publishedAssetUrls.spec.ts, holds the matcher to that.
+  matcher: ['/((?!_next/static|_next/image|assets/).*)'],
 }

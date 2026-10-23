@@ -80,8 +80,10 @@ export default function NotificationBell() {
         className="relative flex h-9 w-9 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
       >
         <BellIcon className="h-5 w-5" />
+        {/* The count is a number, so it rests in the ink, never on sage (D-030); the sage dot marks an
+            unread row in the list below. */}
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark px-1 text-data-xs font-semibold ring-2 ring-background-light dark:ring-background-dark">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-text-primary-light text-white dark:bg-text-primary-dark dark:text-background-dark px-1 text-data-xs font-semibold ring-2 ring-background-light dark:ring-background-dark">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
@@ -91,14 +93,14 @@ export default function NotificationBell() {
         <div
           role="menu"
           aria-label="Notifications"
-          className="absolute right-0 z-50 mt-2 w-80 origin-top-right overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none"
+          className="absolute right-0 z-header mt-2 w-80 origin-top-right overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none"
         >
           <div className="border-b border-border-light dark:border-white/10 px-3 py-2.5">
             <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Notifications</p>
           </div>
 
           {items.length === 0 ? (
-            <div className="px-3 py-6 text-center">
+            <div className="px-3 py-cap-6 text-center">
               <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">No filing alerts yet</p>
               <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 We&apos;ll notify you when a company on your watchlist files.
@@ -122,7 +124,8 @@ export default function NotificationBell() {
                     />
                     <span className="min-w-0">
                       <span className="block truncate text-sm text-text-primary-light dark:text-text-primary-dark">
-                        <span className="font-semibold">{item.ticker}</span> filed a {item.filing_type}
+                        New <span className="font-data">{item.filing_type}</span> from{' '}
+                        <span className="font-data font-semibold">{item.ticker}</span>
                       </span>
                       <span className="block truncate text-xs text-text-secondary-light dark:text-text-secondary-dark">
                         {item.company_name}

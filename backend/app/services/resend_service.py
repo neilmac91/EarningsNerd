@@ -11,6 +11,7 @@ for a repeated request with the same key and payload.
 """
 from __future__ import annotations
 
+from enum import Enum
 from typing import Iterable
 
 import httpx
@@ -39,6 +40,10 @@ _CONCURRENT_IDEMPOTENT = "concurrent_idempotent_requests"
 _INVALID_IDEMPOTENT = "invalid_idempotent_request"
 
 
+class _ReplyToDefault(Enum):
+    SETTINGS = "settings"
+
+
 def _error_name(response: httpx.Response) -> str:
     try:
         body = response.json()
@@ -53,9 +58,17 @@ async def send_email(
     html: str,
     from_email: str | None = None,
     *,
+    text: str | None = None,
     idempotency_key: str | None = None,
-    reply_to: str | None = None,
+    reply_to: str | None | _ReplyToDefault = _ReplyToDefault.SETTINGS,
 ) -> dict:
+    """Send one email. ``text`` is its plain-text part, sent only when given (an empty string asks for none).
+    Given none, Resend builds one from the HTML: so it does for the mails the routers send (the contact form's
+    confirmation and its notice, the feedback notice and the admin's test mails), and for a delivery batch frozen
+    before batches held their text part, whose replay must be the request its key was bound to (E110).
+    Omitting ``reply_to`` uses the current setting; explicit ``None`` omits the header, so a durable
+    batch can replay the omission it froze before Reply-To was introduced. A string overrides the setting;
+    an empty string also omits the header."""
     if not settings.RESEND_API_KEY:
         # Nothing was sent: a durable delivery may retry once the secret is configured.
         raise ResendRetryableError("Resend is not configured. Set RESEND_API_KEY.")
@@ -66,11 +79,13 @@ async def send_email(
         "subject": subject,
         "html": html,
     }
-    # Every transactional message is reply-able; form/feedback notices override this with the
-    # submitter so Neil can answer the person directly from Gmail.
-    reply_address = settings.RESEND_REPLY_TO_EMAIL if reply_to is None else reply_to
+    # Direct transactional sends use the role by default; durable sends explicitly supply their
+    # frozen value, including None for legacy omission. Contact notices use the submitter's address.
+    reply_address = settings.RESEND_REPLY_TO_EMAIL if reply_to is _ReplyToDefault.SETTINGS else reply_to
     if reply_address:
         payload["reply_to"] = reply_address
+    if text is not None:
+        payload["text"] = text
     headers = {
         "Authorization": f"Bearer {settings.RESEND_API_KEY}",
         "Content-Type": "application/json",

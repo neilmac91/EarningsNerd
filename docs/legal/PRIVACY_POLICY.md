@@ -1,13 +1,13 @@
 # Privacy notice — source review
 
-Reviewed **12 October 2026**. The maintained customer notice is [the privacy page](../../frontend/app/privacy/page.tsx); [the security page](../../frontend/app/security/page.tsx) describes application controls. This companion records source facts and review needs, rather than defining a separate notice or certifying compliance. The proposed changes remain unmerged and undeployed.
+Reviewed **23 October 2026**. The maintained customer notice is [the privacy page](../../frontend/app/privacy/page.tsx); [the security page](../../frontend/app/security/page.tsx) describes application controls. This companion records source facts and review needs, rather than defining a separate notice or certifying compliance. The proposed changes remain unmerged and undeployed.
 
 ## Current data facts
 
 - Account, waitlist, support and product activity records support sign-in, access, subscriptions, saved features and correspondence.
 - The configured AI provider is DeepSeek. Requests include filing material and financial context; Copilot also sends typed questions and recent conversation text. These inputs are not automatically stripped of personal information. Account-linked usage/cost telemetry is separate.
 - Hosting, payments, email, diagnostics and optional browser analytics use service providers. Social sign-in, bot checks, password screening and externally delivered company images add recipients where used. Provider names, purposes and relevant transfer information should reflect actual configuration.
-- Optional PostHog browser analytics and recording use saved choices and can be withdrawn through Cookie settings. Recording also requires analytics. Those choices do not disable separate server operational metrics, error reporting or cookieless Vercel traffic measurements. Saved choices take precedence over Do Not Track.
+- Optional PostHog and Vercel browser analytics stay off until allowed through Cookie settings. Session recording requires a separate enabling choice and also requires analytics. Choices can be withdrawn there. Version 2 re-asks for older analytics allows. Do Not Track does not change these choices. The browser switches do not disable account events, separate server operational metrics or security/error reporting; the privacy and security pages use the shared account-events disclosure.
 - Search/contact records older than 365 days qualify for scheduled cleanup. Inactivity-based account deletion, waitlist/referrals, audit, usage and billing records are outside that purge. Account deletion removes the records handled by its application process; retained billing/audit records and provider copies can remain. The export feature does not cover every provider's records.
 - Current source configures telemetry sanitization and recording input masking. These controls do not establish that all collection is anonymous or that every displayed detail is removed. See [retention/deletion review](../DATA_RETENTION_POLICY.md) and [cookie review](COOKIE_POLICY.md).
 

@@ -257,10 +257,18 @@ async def test_timeout_routes_alternate_before_total_budget_expires(monkeypatch,
     monkeypatch.setattr(settings, "AI_FALLBACK_MODEL", "alternate")
     monkeypatch.setattr(settings, "AI_FALLBACK_BASE_URL", "https://alternate.invalid/v1")
     calls = []
+    attempt_seconds = 10
+    timeout_seconds = []
+    deadlines = []
+    armed_deadlines = []
 
     async def primary(req):
         calls.append("primary")
-        await asyncio.sleep(10)
+        # Pin the actual attempt cap before expiring its real timeout after transport entry.
+        assert timeout_seconds[1] == attempt_seconds
+        assert armed_deadlines[1] < armed_deadlines[0] - 30
+        deadlines[1].reschedule(asyncio.get_running_loop().time())
+        await asyncio.Event().wait()
 
     def fallback(req):
         body = json.loads(req.content)
@@ -269,11 +277,14 @@ async def test_timeout_routes_alternate_before_total_budget_expires(monkeypatch,
         assert req.headers["authorization"] == "Bearer offline-alternate"
         return httpx2.Response(200, json=completion())
 
-    deadlines = []
-
     def recorded_timeout(seconds):
-        deadlines.append(asyncio.timeout(seconds))
-        return deadlines[-1]
+        if deadlines:
+            assert seconds == attempt_seconds
+        timeout = asyncio.timeout(seconds)
+        timeout_seconds.append(seconds)
+        deadlines.append(timeout)
+        armed_deadlines.append(timeout.when())
+        return timeout
 
     monkeypatch.setattr(requests, "asyncio", SimpleNamespace(**{**vars(asyncio), "timeout": recorded_timeout}))
     async with service_for(primary) as service:
@@ -284,19 +295,21 @@ async def test_timeout_routes_alternate_before_total_budget_expires(monkeypatch,
             http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(fallback)),
         ) as alternate:
             service.fallback_client = alternate
-            # A shared budget the fallback cannot race: 0.15 s left it ~70 ms after the 0.08 s
-            # attempt timeout, which ran out under parallel load. The hanging primary still times
-            # out on its own 0.08 s, which the deadline assertion below pins.
+            # Leave time for real SDK setup, then expire the attempt only once the primary is
+            # in flight. Its configured cap is pinned separately from this controlled expiry;
+            # neither primary entry nor successful fallback must race an 80 ms setup margin.
             budget = requests.RequestBudget(asyncio.get_running_loop().time() + 60)
             token = requests._budget.set(budget)
             try:
-                assert await service._request_content(KW, timeout=0.08) == '{"fresh":true}'
+                assert await service._request_content(KW, timeout=attempt_seconds) == '{"fresh":true}'
             finally:
                 requests._budget.reset(token)
     assert calls == ["primary", "fallback"] and observations[-1]["provider"] == "fallback"
     # deadlines[0] is the shared budget's timeout, deadlines[1] the primary attempt's: the attempt is
     # bounded by its own timeout, far inside the budget, not by what remains of the budget.
     assert deadlines[1].when() < deadlines[0].when() - 30
+    assert timeout_seconds[1:] == [attempt_seconds, attempt_seconds]
+    assert deadlines[1].expired() and not deadlines[0].expired()
 
 
 @pytest.mark.asyncio
@@ -569,8 +582,22 @@ async def test_summary_context_reports_once_and_isolates_concurrent_records(monk
 @pytest.mark.asyncio
 async def test_recovery_semaphore_wait_is_inside_parent_deadline(monkeypatch):
     called = []
+    waiting, cancelled = asyncio.Event(), []
+
+    class NoFreeSlot:  # the recovery semaphore, never acquired, saying when the wait starts and ends
+        async def __aenter__(self):
+            waiting.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                cancelled.append(True)
+                raise
+
+        async def __aexit__(self, *exc):
+            return False
+
     async with service_for(lambda req: called.append(req)) as service:
-        service._recovery_semaphore = asyncio.Semaphore(0)
+        service._recovery_semaphore = NoFreeSlot()
         service._get_section_schema_snippet = lambda key: "{}"
         service._build_section_context = lambda *args: "selected filing excerpt"
 
@@ -578,11 +605,30 @@ async def test_recovery_semaphore_wait_is_inside_parent_deadline(monkeypatch):
         async def generate():
             return await service._recover_missing_sections(["risks"], "10-K", {}, "filing", {})
 
-        monkeypatch.setattr(requests, "SUMMARY_SECONDS", 0.02)
-        started = asyncio.get_running_loop().time()
-        with pytest.raises(TimeoutError):
-            await asyncio.wait_for(generate(), 0.2)
-        assert asyncio.get_running_loop().time() - started < 0.15
+        deadlines = []
+
+        def recorded_timeout(seconds):
+            deadlines.append(asyncio.timeout(seconds))
+            return deadlines[-1]
+
+        monkeypatch.setattr(requests, "asyncio", SimpleNamespace(**{**vars(asyncio), "timeout": recorded_timeout}))
+        # A long parent budget, expired by hand once the semaphore wait has started. A real 20 ms budget
+        # with a wall-clock bound (elapsed < 0.15 s against an outer 0.2 s wait_for) told the timeouts
+        # apart only on an idle loop, and covered the setup before the wait too.
+        budget = requests.RequestBudget(asyncio.get_running_loop().time() + 60)
+        token = requests._budget.set(budget)
+        try:
+            task = asyncio.create_task(generate())
+            await asyncio.wait_for(waiting.wait(), 10)  # hang guards only, here and below
+            # The wait runs inside the timeout bounded_summary entered for the parent's budget.
+            assert len(deadlines) == 1 and deadlines[0].when() == pytest.approx(budget.deadline, abs=0.05)
+            deadlines[0].reschedule(asyncio.get_running_loop().time())
+            with pytest.raises(TimeoutError):
+                await asyncio.wait_for(task, 10)
+        finally:
+            requests._budget.reset(token)
+        # The deadline cancelled the wait itself; a shielded or detached wait would outlive the parent.
+        assert deadlines[0].expired() and cancelled == [True]
     assert called == []
 
 

@@ -19,7 +19,6 @@ const ALLOWLIST = [
   'ChartErrorBoundary.tsx',
   'CompanyLogo.tsx',
   'CookieConsent.tsx',
-  'CookieSettingsButton.tsx', // sitewide cookie-choice control; keeps the footer import lightweight
   'EarningsNerdLogo.tsx',
   'EarningsNerdLogoIcon.tsx',
   'Footer.tsx',

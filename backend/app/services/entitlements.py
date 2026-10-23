@@ -12,8 +12,8 @@ dependency in ``app.dependencies``) rather than reading ``is_pro`` directly. Add
 new gated capability is then a change to this module plus Stripe price wiring — not a hunt through
 scattered ``if user.is_pro`` checks.
 
-Note: ``monthly_summary_limit``, ``can_export``, ``copilot`` and ``can_analyze_trends`` are
-enforced today, and ``realtime_alerts`` + ``eightk_coverage`` are enforced by the notification
+Note: ``monthly_summary_limit``, ``can_export``, ``copilot``, ``can_analyze_trends`` and
+``section_changes`` are enforced today, and ``realtime_alerts`` + ``eightk_coverage`` are enforced by the notification
 engine (``notification_service`` / ``filing_scan_service``). The remaining flags
 (``history_retention_days``, ``priority_model``) are forward-looking and do not yet change
 behaviour on their own.
@@ -72,6 +72,12 @@ class Entitlements:
     # without the full `copilot` entitlement, after which they hit the upsell. 0 = no taste (Pro
     # doesn't need one — it's unlimited via `copilot=True`).
     copilot_free_taste: int = 0
+    # "What changed" wording diff (Change Report `section_changes`, behind ENABLE_SECTION_CHANGES).
+    # `section_changes` reads every changed paragraph; without it a viewer (Free, or anonymous,
+    # which resolves to Free) gets the counts and the first `section_changes_items` items as a
+    # teaser. None = no cap.
+    section_changes: bool = False
+    section_changes_items: Optional[int] = 3
 
     @property
     def has_unlimited_summaries(self) -> bool:
@@ -109,6 +115,8 @@ _PRO = Entitlements(
     priority_model=True,
     copilot=True,
     can_analyze_trends=True,
+    section_changes=True,
+    section_changes_items=None,
 )
 
 
@@ -120,6 +128,18 @@ def _is_in_future(dt: Optional[datetime]) -> bool:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt > datetime.now(timezone.utc)
+
+
+def subscription_state_grants_pro(status: Optional[str], trial_end: Optional[datetime]) -> bool:
+    """True if a subscription in this status/trial state grants Pro (an elapsed trial does not)."""
+    status = (status or "").lower()
+    if status not in _ACTIVE_STATUSES:
+        return False
+    # A trialing row whose trial has elapsed is no longer entitled (the webhook normally flips this,
+    # but never trust a stale clock for access decisions).
+    if status == "trialing" and trial_end is not None:
+        return _is_in_future(trial_end)
+    return True
 
 
 def _subscription_grants_pro(user: User) -> Optional[bool]:
@@ -134,14 +154,7 @@ def _subscription_grants_pro(user: User) -> Optional[bool]:
         return None
     if sub is None:
         return None
-    status = (getattr(sub, "status", None) or "").lower()
-    if status not in _ACTIVE_STATUSES:
-        return False
-    # A trialing row whose trial has elapsed is no longer entitled (the webhook normally flips this,
-    # but never trust a stale clock for access decisions).
-    if status == "trialing" and getattr(sub, "trial_end", None) is not None:
-        return _is_in_future(sub.trial_end)
-    return True
+    return subscription_state_grants_pro(getattr(sub, "status", None), getattr(sub, "trial_end", None))
 
 
 def get_plan(user: User) -> Plan:

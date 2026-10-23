@@ -16,6 +16,7 @@ from app.models import ContactSubmission
 from app.routers import contact as contact_router
 from app.services import rate_limiter
 from app.services import turnstile
+from app.services.contact_submission_service import ContactPersistenceError
 from app.services.resend_service import ResendError
 
 IP_A = "203.0.113.7"
@@ -149,6 +150,21 @@ def test_email_failure_still_returns_201_with_the_row_saved(client, session_fact
     with session_factory() as s:
         assert s.query(ContactSubmission).count() == 1
     assert len(sent_emails) == 2  # both sends were attempted; neither failure surfaced
+
+
+def test_persistence_failure_is_500_and_notifies_no_one(client, session_factory, monkeypatch, sent_emails):
+    """The service's persistence failure maps to the 500, and no email goes out for a row that was never
+    saved."""
+    def _fail(db, **fields):
+        raise ContactPersistenceError from RuntimeError("database is down")
+
+    monkeypatch.setattr(contact_router, "persist_contact_submission", _fail)
+    resp = _post(client, IP_A)
+    assert resp.status_code == 500
+    assert resp.json()["detail"] == "Failed to save contact form submission"
+    assert sent_emails == []
+    with session_factory() as s:
+        assert s.query(ContactSubmission).count() == 0
 
 
 def test_turnstile_configured_without_token_is_403_and_saves_nothing(client, session_factory, monkeypatch, sent_emails):

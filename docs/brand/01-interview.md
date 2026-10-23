@@ -26,7 +26,7 @@ founder's private notes, not in this repository
 | What is the type system? | Inter (headings, 600), system-first body, Geist Mono for data and Ask answers, Newsreader only for the filing's own words. | DESIGN.md "Typography", "The Source Voice Rule" |
 | How old is the mark? | Three months: the July 2026 rebrand replaced a teal and amber mark with the sage EN. | `frontend/public/assets/LOGO_README.md` |
 | What has the founder already decided about the hero? | Headline A ships in the HTML; B and C are a PostHog copy test, not a brand decision. "See a live example" stays the primary action while access is invite-only (decision B). | `frontend/features/marketing/lib/headline.ts`; `tasks/decisions-2026-10-09-design-followups.md` |
-| What must stay honest? | Every price, limit, coverage, response-time and security claim stays as it is; no invented metrics, testimonials, logos or press; the reader-quote slot stays unrendered. | `docs/voice-and-style.md` "Claims"; `frontend/app/page.tsx` (`SHOW_QUOTE_SLOT`) |
+| What must stay honest? | Every price, limit, coverage, response-time and security claim stays as it is; no invented metrics, testimonials, logos or press; the reader-quote slot stays unrendered. | `docs/voice-and-style.md` "Claims"; `frontend/features/marketing/lib/readerQuote.ts` (`READER_QUOTE`) |
 
 ## 2. What the founder decided
 
@@ -48,8 +48,8 @@ with A3 tightened by the instruction about the mark; any of them changes on the 
   arrow, wordmark). Brand work adds arrangements and rules only (`lessons/brand-the-mark-is-protected.md`).
 - **A4 (naming).** No competitor is named on a brand surface; the catch is shown with two real
   figures from two real fiscal years.
-- **A5 (founder presence).** A first-person sentence slot is designed and built; it renders only with
-  an approved sentence, like the reader-quote slot.
+- **A5 (founder presence).** Keep the founder absent from the website. The previously built empty
+  sentence slot, configuration and hero mount are retired; see [08-applications.md §6](08-applications.md#6-the-founder-slot).
 - **A6 (job of the page).** Qualify, with "See a live example" primary.
 - **A7 (price).** The price is whatever the code states ($39 / $390 at the audit; $25 / $240 since main's #1009); no price copy is authored by the brand work.
 - **A8 (notable filings).** Self-omit until curated.

@@ -4,9 +4,9 @@ import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRightIcon, NewspaperIcon } from '@/lib/icons'
+import { ArrowRightIcon } from '@/lib/icons'
 import { getDashboardFeed } from '@/features/dashboard/api/dashboard-api'
-import { GuidanceCard, Skeleton } from '@/components/ui'
+import { GuidanceCard, Skeleton, countControlClass, cx } from '@/components/ui'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import WhatChangedCard from './WhatChangedCard'
 import FeedOnboarding from './FeedOnboarding'
@@ -38,7 +38,7 @@ export default function FilingFeed({
   const isLoading = feedQuery.isLoading && !failure.failed
 
   const visible = data ? data.slice(0, MAX_CARDS) : []
-  // Overflow count comes from the watchlist (companies followed), never data.length — the feed array
+  // Overflow count comes from the watchlist (companies followed), never data.length: the feed array
   // is capped at the fetch limit, so data.length would misreport "See all 20 companies" for a user
   // following 30. When the true count isn't known, drop the number rather than show a wrong one.
   const hasMore =
@@ -62,7 +62,6 @@ export default function FilingFeed({
     <section>
       <div className="mb-4">
         <div className="flex items-center gap-2">
-          <NewspaperIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
           <h2
             ref={headingRef}
             tabIndex={-1}
@@ -72,7 +71,7 @@ export default function FilingFeed({
           </h2>
         </div>
         <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          The latest filing from each company you follow.
+          The latest annual or quarterly report from the companies you follow.
         </p>
       </div>
 
@@ -87,11 +86,9 @@ export default function FilingFeed({
         <GuidanceCard
           variant="error"
           title="Couldn't load your feed"
-          description="Please retry in a moment."
+          description="Try again in a moment."
           action={
-            <RetryButton failures={[failure]} focusTarget={headingRef}>
-              Retry
-            </RetryButton>
+            <RetryButton failures={[failure]} focusTarget={headingRef} />
           }
         />
       ) : !data || data.length === 0 ? (
@@ -121,9 +118,11 @@ export default function FilingFeed({
           </div>
           {hasMore && (
             <div className="mt-4 text-right">
+              {/* The label carries a count, so the link rests in the secondary ink and turns sage under
+                  the pointer (the count control, DESIGN_SYSTEM.md; D-030): one text run, one underline. */}
               <Link
                 href="/dashboard/watchlist"
-                className="inline-flex items-center gap-1 rounded-lg text-sm font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+                className={cx('inline-flex items-center gap-1 rounded-lg text-sm font-medium', countControlClass('link'))}
               >
                 {overflowLabel}
                 <ArrowRightIcon className="h-4 w-4" />

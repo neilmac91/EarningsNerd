@@ -14,6 +14,19 @@
    hover/active/focus-visible. role="alert" for error (interrupts the reader);
    role="status" for info/success. Both themes audited: title = primary ink,
    message = secondary/secondary-dark, icons ≥3:1 inside their tints.
+
+   The row wraps. The text column's basis is 9rem (about 20 characters), so
+   where it cannot keep that beside the glyph (a card on a phone at 200%
+   text) it goes under the glyph at the Notice's whole inner width: the glyph
+   sits alone over the title, and the title, description and action share
+   the full width. The title breaks a long word, as the description does. No
+   container query: a container-type collapses a Notice wherever a parent
+   sizes it to its content. Gate: tests/e2e/reflow-200.spec.ts.
+
+   A Notice owns its alignment: its root sets text-left, so inside a column
+   that centres its text (the waitlist page below lg) its title and
+   description stay at the start with the glyph and the action row (E120;
+   gate: tests/unit/waitlistSuccessCard.spec.tsx, through the waitlist form).
 ============================================================================= */
 
 import { type ReactNode } from 'react'
@@ -79,7 +92,7 @@ export interface NoticeProps {
   title: ReactNode
   /** Supporting copy under the title. */
   description?: ReactNode
-  /** Usually a small secondary/ghost <Button> ("Retry", "Reset password"). */
+  /** Usually a small secondary/ghost <Button> ("Try again", "Reset password"). */
   action?: ReactNode
   className?: string
 }
@@ -88,15 +101,15 @@ export function Notice({ variant = 'info', icon, title, description, action, cla
   return (
     <div
       role={variant === 'error' ? 'alert' : 'status'}
-      className={cx('flex items-start gap-3 rounded-lg border px-4 py-3.5', WRAP[variant], className)}
+      className={cx('flex flex-wrap items-start gap-3 rounded-lg border px-4 py-3.5 text-left', WRAP[variant], className)}
     >
       {icon === null ? null : (
         <span aria-hidden="true" className={cx('mt-px flex-none', ICON[variant])}>
           {icon ?? <DefaultIcon variant={variant} />}
         </span>
       )}
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{title}</p>
+      <div className="min-w-0 flex-[1_1_9rem]">
+        <p className="break-words text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{title}</p>
         {description ? (
           <p className="mt-0.5 break-words text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
             {description}

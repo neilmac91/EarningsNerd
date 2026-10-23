@@ -1,13 +1,14 @@
 'use client'
 
-import { OPEN_COOKIE_SETTINGS_EVENT } from '@/components/CookieSettingsButton'
 import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { CookieIcon } from '@/lib/icons'
+import { OPEN_COOKIE_SETTINGS_EVENT } from '@/lib/cookieSettings'
 import Link from 'next/link'
-import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
+import { Button, Checkbox, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
 import { isConsentLayerVisible, publishConsentLayer } from '@/lib/consentLayer'
+import { ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 
 // Isomorphic layout effect (the repo's SSR-safe alias, as in ui/Input and useCountUp): useLayoutEffect
 // in the browser, where the consent inset must land before the bar's first paint; useEffect on a server
@@ -19,6 +20,8 @@ export interface CookiePreferences {
   analytics: boolean
   sessionRecording: boolean
   timestamp: string
+  /** The analytics clause the choice was made under (CONSENT_VERSION); a choice stored before it has none. */
+  version?: number
 }
 
 const DEFAULT_PREFERENCES: CookiePreferences = {
@@ -29,6 +32,17 @@ const DEFAULT_PREFERENCES: CookiePreferences = {
 }
 
 const STORAGE_KEY = 'cookie_consent'
+
+/**
+ * The analytics clause a stored choice was made under. Version 2 is ANALYTICS_CONSENT_CLAUSE (D-046, F33), which says
+ * a logged-in reader's statistics are tied to an internal account id; a choice stored before it carries no version,
+ * made while the dialog called them anonymous usage statistics. An allow made under an earlier clause reads as no
+ * choice, so the bar asks again, once; a refusal stands, since nothing is collected on it. A clause that changes what
+ * an allow covers moves this in the same commit. tests/unit/legalTruth.spec.tsx pins the two side by side, but whether
+ * a change to the clause calls for the bump is review-checked.
+ */
+export const CONSENT_VERSION = 2
+
 export function getCookiePreferences(): CookiePreferences | null {
   if (typeof window === 'undefined') return null
 
@@ -37,6 +51,8 @@ export function getCookiePreferences(): CookiePreferences | null {
     if (!stored) return null
 
     const preferences = JSON.parse(stored) as CookiePreferences
+    // An allow made under an earlier clause is no choice: the bar asks again (CONSENT_VERSION).
+    if (preferences.analytics && preferences.version !== CONSENT_VERSION) return null
     // Ensure essential is always true
     preferences.essential = true
     return preferences
@@ -53,6 +69,7 @@ export function saveCookiePreferences(preferences: CookiePreferences): void {
     // Ensure essential is always true
     preferences.essential = true
     preferences.timestamp = new Date().toISOString()
+    preferences.version = CONSENT_VERSION
     localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences))
 
     // Dispatch event so PostHog can react to changes
@@ -78,41 +95,19 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   const barRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const openSettings = () => {
-      setPreferences(getCookiePreferences() ?? DEFAULT_PREFERENCES)
-      setShowSettings(true)
-    }
-    window.addEventListener(OPEN_COOKIE_SETTINGS_EVENT, openSettings)
-    return () => window.removeEventListener(OPEN_COOKIE_SETTINGS_EVENT, openSettings)
-  }, [])
-
-  useEffect(() => {
     // Check if user has already set preferences
     const existingPreferences = getCookiePreferences()
 
     if (!existingPreferences) {
-      // Check "Do Not Track" browser setting
-      // Note: window.doNotTrack is non-standard but supported by some browsers
-      const windowDoNotTrack = 'doNotTrack' in window ? (window as Window & { doNotTrack?: string }).doNotTrack : undefined
-      const doNotTrack =
-        navigator.doNotTrack === '1' ||
-        windowDoNotTrack === '1'
-
-      if (doNotTrack) {
-        // Respect DNT by only enabling essential cookies
-        const dntPreferences = { ...DEFAULT_PREFERENCES }
-        saveCookiePreferences(dntPreferences)
-        onPreferencesChanged?.(dntPreferences)
-      } else {
-        // Show banner for first-time visitors. Announce the consent layer in the same effect pass
-        // (height still 0): FilingWorkspace mounts earlier in the tree, so its coachmark decision
-        // and this flag land in one batched render and the nudge never points at a covered
-        // launcher, not even for a frame. The bar's layout effect below publishes the real height
-        // (and owns it: a re-run of this effect must not reset a measured inset to 0).
-        if (!isConsentLayerVisible()) publishConsentLayer(0)
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time init: banner visibility depends on localStorage/DNT, only readable client-side after hydration
-        setShowBanner(true)
-      }
+      // Show banner for first-time visitors, every one: the banner is the only control, and no browser
+      // privacy signal stands in for the visitor's choice (D-049). Announce the consent layer in the same
+      // effect pass (height still 0): FilingWorkspace mounts earlier in the tree, so its coachmark decision
+      // and this flag land in one batched render and the nudge never points at a covered
+      // launcher, not even for a frame. The bar's layout effect below publishes the real height
+      // (and owns it: a re-run of this effect must not reset a measured inset to 0).
+      if (!isConsentLayerVisible()) publishConsentLayer(0)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time init: banner visibility depends on localStorage, only readable client-side after hydration
+      setShowBanner(true)
     } else {
       // Use existing preferences
       setPreferences(existingPreferences)
@@ -145,7 +140,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   // launcher it used to cover.
   const confirmSaved = () => toast.success('Cookie preferences saved')
 
-  const handleAcceptAll = () => {
+  const handleAllowAnalytics = () => {
     const newPreferences: CookiePreferences = {
       essential: true,
       analytics: true,
@@ -159,7 +154,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
     confirmSaved()
   }
 
-  const handleRejectAll = () => {
+  const handleEssentialOnly = () => {
     const newPreferences: CookiePreferences = {
       ...DEFAULT_PREFERENCES,
       timestamp: new Date().toISOString(),
@@ -183,10 +178,19 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   // the Customize button that opened it (Save still dismisses both). Its state stays mounted too, so
   // the draft starts from the saved choices on every open: a dismissed edit must not come back, or be
   // saved by a later Save.
-  const handleOpenSettings = () => {
+  const handleOpenSettings = useCallback(() => {
     setPreferences(getCookiePreferences() ?? DEFAULT_PREFERENCES)
     setShowSettings(true)
-  }
+  }, [])
+
+  // After a first choice the bar is gone; the footer's "Cookie settings" (lib/cookieSettings.ts) opens this
+  // same dialog on the stored choices, and Save writes them and fires cookieConsentChanged as the bar does,
+  // so /privacy's withdrawal sentence holds ("You can withdraw consent for analytics and session recording at
+  // any time through our cookie consent banner or settings."). ui/Modal returns focus to the control that opened it.
+  useEffect(() => {
+    window.addEventListener(OPEN_COOKIE_SETTINGS_EVENT, handleOpenSettings)
+    return () => window.removeEventListener(OPEN_COOKIE_SETTINGS_EVENT, handleOpenSettings)
+  }, [handleOpenSettings])
 
   if (!showBanner && !showSettings) return null
 
@@ -205,101 +209,97 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
         icon={<CookieIcon className="h-5 w-5" />}
         onClose={() => setShowSettings(false)}
       >
-        Cookie Preferences
+        Cookie preferences
       </ModalHeader>
 
       <ModalBody>
         <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
-          Essential cookies keep you signed in and the site working. Analytics cookies and session
+          Essential cookies keep you logged in and the site working. Analytics cookies and session
           recording are off until you allow them here. Choose the ones you are comfortable with.
         </p>
 
+        {/* Each category row takes the Notice's recipe (components/ui/Notice.tsx): it wraps, and its text keeps
+            9rem beside the box or takes the card's width with the box under it, so at 200% text no box leaves
+            its card (tests/e2e/reflow-200.spec.ts). At the default size the box stays beside its text. */}
         <div className="space-y-4">
-          {/* Essential Cookies */}
-          <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
+          {/* Essential cookies */}
+          <div className="border border-border-light dark:border-border-dark rounded-lg p-cap-4">
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+              <div className="min-w-0 flex-[1_1_9rem] break-words">
                 <h3
                   id="cookie-essential-title"
                   className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
                 >
-                  Essential Cookies
+                  Essential cookies
                 </h3>
                 <p id="cookie-essential-desc" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Required for the website to function properly. These include authentication,
                   security, and basic functionality. Cannot be disabled.
                 </p>
               </div>
-              <div className="ml-4">
-                <input
-                  type="checkbox"
+              <div>
+                <Checkbox
                   checked={true}
                   disabled
                   aria-labelledby="cookie-essential-title"
                   aria-describedby="cookie-essential-desc"
-                  className="h-5 w-5 rounded border-border-light text-brand-strong focus:shadow-ring-brand opacity-50 cursor-not-allowed"
                 />
               </div>
             </div>
           </div>
 
-          {/* Analytics Cookies */}
-          <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
+          {/* Analytics cookies */}
+          <div className="border border-border-light dark:border-border-dark rounded-lg p-cap-4">
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+              <div className="min-w-0 flex-[1_1_9rem] break-words">
                 <h3
                   id="cookie-analytics-title"
                   className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
                 >
-                  Analytics Cookies
+                  Analytics cookies
                 </h3>
                 <p id="cookie-analytics-desc" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  Collects browser usage events through PostHog to help improve the service.
-                  These events may be linked to your account when you sign in.
+                  {ANALYTICS_CONSENT_CLAUSE}
                 </p>
               </div>
-              <div className="ml-4">
-                <input
-                  type="checkbox"
+              <div>
+                <Checkbox
                   checked={preferences.analytics}
                   onChange={(e) =>
                     setPreferences({ ...preferences, analytics: e.target.checked })
                   }
                   aria-labelledby="cookie-analytics-title"
                   aria-describedby="cookie-analytics-desc"
-                  className="h-5 w-5 rounded border-border-light text-brand-strong focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 />
               </div>
             </div>
           </div>
 
-          {/* Session Recording */}
-          <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
+          {/* Session recording */}
+          <div className="border border-border-light dark:border-border-dark rounded-lg p-cap-4">
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+              <div className="min-w-0 flex-[1_1_9rem] break-words">
                 <h3
                   id="cookie-recording-title"
                   className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
                 >
-                  Session Recording
+                  Session recording
                 </h3>
                 <p id="cookie-recording-desc" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Records your interactions with the site to help us identify and fix bugs.
-                  Recording also requires Analytics Cookies to be enabled.
-                  Input fields are configured to be masked, but information displayed elsewhere
-                  on a page may still appear. This is opt-in only.
+                  Recording also requires Analytics cookies to be enabled. Input fields are configured
+                  to be masked, but information displayed elsewhere on a page may still appear.
+                  This is opt-in only.
                 </p>
               </div>
-              <div className="ml-4">
-                <input
-                  type="checkbox"
+              <div>
+                <Checkbox
                   checked={preferences.sessionRecording}
                   onChange={(e) =>
                     setPreferences({ ...preferences, sessionRecording: e.target.checked })
                   }
                   aria-labelledby="cookie-recording-title"
                   aria-describedby="cookie-recording-desc"
-                  className="h-5 w-5 rounded border-border-light text-brand-strong focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 />
               </div>
             </div>
@@ -320,7 +320,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
           Cancel
         </Button>
         <Button onClick={handleSavePreferences} className="w-full sm:w-auto">
-          Save Preferences
+          Save preferences
         </Button>
       </ModalFooter>
     </Modal>
@@ -350,7 +350,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   Cookies on this site
                 </h3>
                 <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  Essential cookies keep you signed in. Analytics cookies and session recording stay
+                  Essential cookies keep you logged in. Analytics cookies and session recording stay
                   off until you allow them.{' '}
                   <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                     Learn more
@@ -360,14 +360,14 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
             </div>
 
             <div className="flex flex-wrap gap-3 w-full sm:w-auto">
-              <Button variant="secondary" onClick={handleOpenSettings}>
+              <Button variant="ghost" onClick={handleOpenSettings}>
                 Customize
               </Button>
-              <Button variant="ghost" onClick={handleRejectAll}>
-                Reject All
+              <Button variant="secondary" onClick={handleEssentialOnly}>
+                Essential only
               </Button>
-              <Button onClick={handleAcceptAll}>
-                Accept All
+              <Button variant="secondary" onClick={handleAllowAnalytics}>
+                Allow analytics
               </Button>
             </div>
           </div>

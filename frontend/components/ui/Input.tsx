@@ -35,6 +35,15 @@
    :focus-within and hold while the shell is hovered, where Tailwind's variant
    order let the hover border win. fieldUnavailableClass likewise keeps a focused
    field's brand border under hover.
+   v3.8: raw destructive-confirm fields use `tone: 'danger'` for an error-toned
+   focus only. Their resting border stays neutral; `invalid` still means an
+   invalid value and takes precedence over this focus treatment.
+   v3.9: every field is at least 44px tall, the touch height: FIELD_BASE's `min-h-11` (2.75rem, so
+   it holds at 200% text) lifts the box that 10px padding, a 20px line and 1px borders make. A
+   floor, never `h-11`: the Textarea, the raw textareas and the composer shell share FIELD_BASE and
+   PAD and stand taller. `compact` drops the floor from sm (`sm:min-h-0`), where its `sm:h-9` sets
+   the 36px toolbar field (gate: tests/unit/inputClassesNoOverrides.spec.tsx, "the field's height
+   is the documented one", against DESIGN.md's input and input-compact heights).
    Assumes @tailwindcss/forms (already in the config plugins).
 ============================================================================= */
 
@@ -55,9 +64,11 @@ import { cx } from './cx'
     the client so composer auto-grow never flashes; plain effect on the server. */
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
-/** The field's look without a width or a tone: inputClasses({ autoWidth }) picks the width, and `invalid` the tone. */
+/** The field's look without a width or a tone: inputClasses() picks them through its options. */
 const FIELD_BASE = cx(
   'rounded-lg border text-sm transition-[border-color,box-shadow] duration-fast',
+  // v3.9: the 44px touch height, as a floor (multi-line fields clear it) in rem (it holds at 200% text).
+  'min-h-11',
   'bg-white text-text-primary-light placeholder:text-text-tertiary-light',
   // v3.6: the forms plugin's `:focus` rule sets --tw-ring-shadow (a 1px #2563EB ring; 2px past a 2px white offset on
   // a checkbox or radio), and the shadow-ring-* tokens composite it without resetting it, listed first, so it painted
@@ -76,17 +87,21 @@ const FIELD = cx('w-full', FIELD_BASE)
     `error` holds its border on hover, since the red names the problem; a disabled field's hover changes
     nothing in either tone. Each tone states its focus border in both themes even where it equals the rest
     border: the forms plugin's `input:where([type='text']):focus` border (#2563EB, specificity 0,1,1) beats a
-    bare `border-*` class (0,1,0). The error ring is `shadow-ring-error` in dark too, until a dark ring-error
-    token exists (the focus-ring item #1178 recorded). */
+    bare `border-*` class (0,1,0). Error focus uses the error ring's light/dark pair. */
 const TONE = {
   default: cx(
     'border-border-light hover:border-flat-light focus:border-brand focus:shadow-ring-brand disabled:hover:border-border-light',
     'dark:border-border-dark dark:hover:border-flat-dark dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark',
     'dark:disabled:hover:border-border-dark',
   ),
+  danger: cx(
+    'border-border-light hover:border-flat-light focus:border-error-light focus:shadow-ring-error disabled:hover:border-border-light',
+    'dark:border-border-dark dark:hover:border-flat-dark dark:focus:border-error-dark dark:focus:shadow-ring-error-dark',
+    'dark:disabled:hover:border-border-dark',
+  ),
   error: cx(
     'border-error-light focus:border-error-light focus:shadow-ring-error',
-    'dark:border-error-dark dark:focus:border-error-dark dark:focus:shadow-ring-error',
+    'dark:border-error-dark dark:focus:border-error-dark dark:focus:shadow-ring-error-dark',
   ),
 } as const
 /** v3.7 — the tone of a field SHELL: a wrapper that draws the field around a chrome-free control (the chat composer's
@@ -100,12 +115,18 @@ const SHELL_TONE = {
     'dark:border-border-dark dark:hover:border-flat-dark dark:focus-within:border-brand-dark dark:focus-within:shadow-ring-brand-dark',
     'dark:hover:focus-within:border-brand-dark',
   ),
+  danger: cx(
+    'border-border-light hover:border-flat-light focus-within:border-error-light focus-within:shadow-ring-error hover:focus-within:border-error-light',
+    'dark:border-border-dark dark:hover:border-flat-dark dark:focus-within:border-error-dark dark:focus-within:shadow-ring-error-dark',
+    'dark:hover:focus-within:border-error-dark',
+  ),
   error: cx(
     'border-error-light focus-within:border-error-light focus-within:shadow-ring-error',
-    'dark:border-error-dark dark:focus-within:border-error-dark dark:focus-within:shadow-ring-error',
+    'dark:border-error-dark dark:focus-within:border-error-dark dark:focus-within:shadow-ring-error-dark',
   ),
 } as const
-const tone = (invalid: unknown, shell = false) => (shell ? SHELL_TONE : TONE)[invalid ? 'error' : 'default']
+type FieldTone = 'default' | 'danger'
+const fieldTone = (invalid: unknown, shell = false, tone: FieldTone = 'default') => (shell ? SHELL_TONE : TONE)[invalid ? 'error' : tone]
 
 const PAD = 'px-3.5 py-2.5'
 /** Leading-icon inset — EXPLICIT sides. px-3.5 + a pl-11 override is Tailwind
@@ -113,24 +134,24 @@ const PAD = 'px-3.5 py-2.5'
     class order, wins) — the two search fields hand-rolled that gamble (v2.2). */
 const PAD_ICON = 'py-2.5 pl-11 pr-3.5'
 
-/** v3.1 — field density. `comfortable` (default) is the form field (42px: 10px padding, a 20px line,
-    1px borders). `compact` is the TOOLBAR field (the filings index's year filter, beside a
-    SegmentedControl) and the field inside a table row (the admin feedback status): 36px from sm
-    up, while phones keep the standard 42px. Named `density`
-    (DataTable's vocabulary), not `size` — `size` is a native <input>/<select> attribute. EXPLICIT
-    sides per density, never an override on top of PAD: cx does no tailwind-merge, so two padding
-    utilities resolve by stylesheet order, not class order. */
+/** v3.1 — field density. `comfortable` (default) is the form field (44px: FIELD_BASE's min-h-11 over
+    10px padding, a 20px line and 1px borders). `compact` is the TOOLBAR field (the filings index's year
+    filter, beside a SegmentedControl) and the field inside a table row (the admin feedback status): 36px
+    from sm up (`sm:h-9`, with `sm:min-h-0` dropping the floor), while phones keep the 44px touch
+    height. Named `density` (DataTable's vocabulary), not `size` — `size` is a native <input>/<select>
+    attribute. EXPLICIT sides per density, never an override on top of PAD: cx does no tailwind-merge,
+    so two padding utilities resolve by stylesheet order, not class order. */
 export type FieldDensity = 'comfortable' | 'compact'
-const PAD_COMPACT = 'px-3.5 py-2.5 sm:h-9 sm:px-3 sm:py-1.5'
-const PAD_ICON_COMPACT = 'py-2.5 pl-11 pr-3.5 sm:h-9 sm:py-1.5 sm:pl-10 sm:pr-3'
-const SELECT_PAD = { comfortable: 'py-2.5 pl-3.5 pr-9', compact: 'py-2.5 pl-3.5 pr-9 sm:h-9 sm:py-1.5 sm:pl-3' } as const
+const PAD_COMPACT = 'px-3.5 py-2.5 sm:h-9 sm:min-h-0 sm:px-3 sm:py-1.5'
+const PAD_ICON_COMPACT = 'py-2.5 pl-11 pr-3.5 sm:h-9 sm:min-h-0 sm:py-1.5 sm:pl-10 sm:pr-3'
+const SELECT_PAD = { comfortable: 'py-2.5 pl-3.5 pr-9', compact: 'py-2.5 pl-3.5 pr-9 sm:h-9 sm:min-h-0 sm:py-1.5 sm:pl-3' } as const
 /** v3.3 — trailing inset: pr-10 (40px) in both densities, as SELECT_PAD keeps pr-9, because the control does
     not move with density. EXPLICIT sides, never pr-10 on top of PAD: that pair resolves by stylesheet order
     (the padding plugin emits sides after axes), the conflict the leading inset already avoids. */
 const PAD_TRAILING = 'py-2.5 pl-3.5 pr-10'
 const PAD_ICON_TRAILING = 'py-2.5 pl-11 pr-10'
-const PAD_TRAILING_COMPACT = 'py-2.5 pl-3.5 pr-10 sm:h-9 sm:py-1.5 sm:pl-3'
-const PAD_ICON_TRAILING_COMPACT = 'py-2.5 pl-11 pr-10 sm:h-9 sm:py-1.5 sm:pl-10'
+const PAD_TRAILING_COMPACT = 'py-2.5 pl-3.5 pr-10 sm:h-9 sm:min-h-0 sm:py-1.5 sm:pl-3'
+const PAD_ICON_TRAILING_COMPACT = 'py-2.5 pl-11 pr-10 sm:h-9 sm:min-h-0 sm:py-1.5 sm:pl-10'
 /** A field's padding by density and inset: one explicit literal each. */
 const FIELD_PAD = {
   comfortable: { plain: PAD, leading: PAD_ICON, trailing: PAD_TRAILING, both: PAD_ICON_TRAILING },
@@ -138,9 +159,11 @@ const FIELD_PAD = {
 } as const
 
 interface InputClassesBase {
-  /** Renders the error-ring treatment (mirrors what the `error` prop wires). */
+  /** An invalid value: error border at rest/hover and error focus ring. Wire aria-invalid on the raw field. */
   invalid?: boolean
-  /** v3.1: `compact` = the 36px toolbar field from sm up (phones keep the standard 42px). */
+  /** Destructive confirmation: neutral at rest, error border/ring on focus only. `invalid` takes precedence. */
+  tone?: FieldTone
+  /** v3.1: `compact` = the 36px toolbar field from sm up (phones keep the 44px touch height). */
   density?: FieldDensity
   /** v3.2: the field sizes to its content instead of filling its container: a select beside its
       label in a flex row, a toolbar filter, a table cell. Capped at its container (`max-w-full`)
@@ -189,6 +212,7 @@ export type InputClassesOptions = InputClassesBase &
     below compose the same pieces — one source of truth. */
 export function inputClasses({
   invalid = false,
+  tone = 'default',
   leadingIcon = false,
   trailingIcon = false,
   select = false,
@@ -199,7 +223,7 @@ export function inputClasses({
 }: InputClassesOptions = {}): string {
   const inset = leadingIcon ? (trailingIcon ? 'both' : 'leading') : trailingIcon ? 'trailing' : 'plain'
   const pad = select ? SELECT_PAD[density] : FIELD_PAD[density][inset]
-  return cx(autoWidth ? cx('max-w-full', FIELD_BASE) : FIELD, tone(invalid, shell), pad, className)
+  return cx(autoWidth ? cx('max-w-full', FIELD_BASE) : FIELD, fieldTone(invalid, shell, tone), pad, className)
 }
 
 /** The field's `disabled:` look keyed to `aria-disabled`, for a field (a <select> here) that is
@@ -311,7 +335,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
             'py-2.5',
             icon ? 'pl-11' : 'pl-3.5',
             loading !== undefined ? 'pr-10' : 'pr-3.5',
-            tone(error),
+            fieldTone(error),
           )}
           {...rest}
         />
@@ -390,7 +414,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
           if (composer) grow()
           onInput?.(e)
         }}
-        className={composer ? COMPOSER : cx(FIELD, tone(error), PAD, 'resize-y')}
+        className={composer ? COMPOSER : cx(FIELD, fieldTone(error), PAD, 'resize-y')}
         {...rest}
       />
     </Shell>
@@ -400,7 +424,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
 /* --------------------------------------------------------------- Select -- */
 
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement>, FieldExtras {
-  /** v3.1: `compact` = the 36px toolbar select from sm up (phones keep the standard 42px). */
+  /** v3.1: `compact` = the 36px toolbar select from sm up (phones keep the 44px touch height). */
   density?: FieldDensity
 }
 
@@ -418,7 +442,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         id={id}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className={cx(FIELD, tone(error), SELECT_PAD[density])}
+        className={cx(FIELD, fieldTone(error), SELECT_PAD[density])}
         {...rest}
       >
         {children}

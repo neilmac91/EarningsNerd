@@ -31,8 +31,11 @@ def workflow():
 def history(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
+    # An empty global config of its own, never /dev/null: a config write would rename git's lock file over it.
+    global_config = tmp_path / "gitconfig"
+    global_config.write_text("", encoding="utf-8")
     env = {
-        **os.environ, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull,
+        **os.environ, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": str(global_config),
         "GIT_AUTHOR_NAME": "CI scope test", "GIT_AUTHOR_EMAIL": "ci@example.invalid",
         "GIT_COMMITTER_NAME": "CI scope test", "GIT_COMMITTER_EMAIL": "ci@example.invalid",
     }
@@ -256,6 +259,12 @@ def test_browser_checks_report_records_and_reject_failed_or_missing_scope(tmp_pa
     assert "continue-on-error" not in jobs["e2e-tests"]
     for event in ("push", "pull_request"):
         assert not {"paths", "paths-ignore"} & (workflow()["on"][event] or {}).keys()
+
+
+def test_e2e_tests_keeps_the_founders_35_minute_limit():
+    # F59, the founder's decision (2026-10-23): deploy-backend needs e2e-tests, so a run cancelled at the limit skips
+    # its deploy. The suite takes about 20 minutes, and a slow npm registry or apt mirror adds minutes to the installs.
+    assert workflow()["jobs"]["e2e-tests"]["timeout-minutes"] == "35"
 
 
 def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():

@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PAGE_LEAVE_TIMEOUT_MS, untilPageReturns } from '@/lib/untilPageReturns'
 
-// The hold a mutation returns while its success navigates the page away (Manage billing, Manage
-// subscription). Those controls' own specs pin the pageshow path in place. This pins when else the
+// The hold a mutation returns while its success navigates the page away (Manage billing, on the
+// dashboard and in settings). Those controls' own specs pin the pageshow path in place. This pins when else the
 // hold lets go: on an aborted navigation (Navigation API `navigateerror`) and never on a slow one,
 // and only where that API is missing, after a bounded timeout. Whichever fires first cleans up the rest.
 describe('untilPageReturns', () => {

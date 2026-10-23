@@ -22,9 +22,8 @@ export const HEADLINES: Record<HeadlineVariant, Headline> = {
     title: 'Read the filing faster. Keep the source in view',
   },
   // B and C are two of the five brand headlines (docs/voice-and-style.md › Headlines); A survives
-  // from the July copy pass as the served default. The accent phrase carries the mark (.en-mark),
-  // so it stays short enough never to break across lines at phone width (docs/brand/06-system.md
-  // §6, Misuse): on A the mark sits under "the source", the words the device stands for.
+  // from the July copy pass as the served default. Every accent uses BrandEmphasis (C5), keeping
+  // the phrase together where it fits and allowing word-boundary wrapping under enlarged text.
   B: {
     pre: 'Read it faster. ',
     accent: 'Check it anyway',
@@ -52,4 +51,4 @@ export const resolveHeadlineVariant = (flag: unknown): HeadlineVariant => {
 }
 
 export const pageTitleFor = (variant: HeadlineVariant): string =>
-  `EarningsNerd | ${HEADLINES[variant].title}`
+  `${HEADLINES[variant].title} | EarningsNerd`

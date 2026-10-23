@@ -6,11 +6,12 @@ from SEC in the BACKGROUND — the request never blocks on a SEC round-trip. Onl
 DB (so the actual queries execute) with SEC faked at the compat boundary.
 """
 import asyncio
-from datetime import datetime, timezone
+import contextlib
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool, StaticPool
 from unittest.mock import AsyncMock
@@ -22,6 +23,10 @@ import app.models  # noqa: F401 — register models on Base.metadata
 from app.models import Company, Filing
 from app.routers import filings as filings_mod
 from app.services import filing_history_service, filing_list_service
+from app.services.edgar import client as edgar_client_mod
+from app.services.edgar.exceptions import EdgarError
+from app.services.latest_filing_service import company_list_forms
+from app.services.request_work import request_work_scope
 
 
 @pytest.fixture
@@ -69,6 +74,16 @@ def client(db_engine, monkeypatch):
         filing_list_service._filings_synced_at.clear()
         filing_list_service._refreshing_keys.clear()
         filing_list_service._history_backfilling_ids.clear()
+
+
+def _on_event_loop() -> bool:
+    """Whether the calling thread is running an event loop: a request unit handed to the thread
+    pool runs in a worker thread, which has none."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return False
+    return True
 
 
 def _seed_company(session, ticker="TESTCO", cik="0000895421"):
@@ -215,6 +230,73 @@ async def test_history_backfill_collapses_a_concurrent_burst(monkeypatch):
     assert filing_list_service._history_backfilling_ids == set()
 
 
+def _begins_recorded(session_factory, begins):
+    """A session factory whose sessions record, as each begins a transaction, whether it began on the
+    event loop."""
+    def factory():
+        session = session_factory()
+        event.listen(session, "after_begin", lambda *_: begins.append(_on_event_loop()))
+        return session
+    return factory
+
+
+@pytest.mark.asyncio
+async def test_background_refresh_works_its_session_off_the_event_loop(client, monkeypatch):
+    """With DURABLE_TASKS_ENABLED off the refresh runs in the API process after the response. Its
+    upsert is one unit in the thread pool, so its checkout never freezes the loop while the pool is
+    full (E123)."""
+    _tc, TestingSession = client
+    with TestingSession() as s:
+        company_id = _seed_company(s).id
+    url = "https://www.sec.gov/Archives/edgar/data/895421/000089542126000011/"
+    monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", AsyncMock(return_value=[{
+        "accession_number": "0000895421-26-000011", "filing_type": "10-K",
+        "filing_date": "2026-02-19", "report_date": "2025-12-31",
+        "document_url": url + "primary.htm", "sec_url": url,
+    }]))
+    begins = []
+    monkeypatch.setattr(filing_list_service, "SessionLocal", _begins_recorded(TestingSession, begins))
+
+    await filing_list_service.refresh_company_filings("0000895421", "TESTCO", ["10-K"], company_id)
+
+    assert begins and not any(begins), f"a refresh session began on the event loop: {begins}"
+    with TestingSession() as s:
+        assert s.query(Filing).filter(Filing.accession_number == "0000895421-26-000011").count() == 1
+    assert ("TESTCO", ("10-K",)) in filing_list_service._filings_synced_at
+
+
+@pytest.mark.asyncio
+async def test_background_refresh_of_a_company_gone_marks_nothing_fresh(client, monkeypatch):
+    """A company deleted before the refresh's unit runs leaves its list unmarked, so the next visit
+    refreshes again rather than serving the fast path."""
+    monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
+
+    await filing_list_service.refresh_company_filings("0000895421", "TESTCO", ["10-K"], 999_999)
+
+    assert ("TESTCO", ("10-K",)) not in filing_list_service._filings_synced_at
+    assert filing_list_service._refreshing_keys == set()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("owned", [False, True], ids=["unowned", "in-a-request-work-scope"])
+async def test_history_backfill_works_its_sessions_off_the_event_loop(client, owned):
+    """The on-visit backfill's two short units, its read before the EFTS walk and its persistence
+    after it, each run in the thread pool (E123): AnyIO's, or inside a request-work scope, as the
+    durable worker's task process runs it, the owned executor."""
+    _tc, TestingSession = client
+    with TestingSession() as s:
+        company_id = _seed_company(s).id
+    begins = []
+
+    async with request_work_scope() if owned else contextlib.nullcontext():
+        await filing_history_service.backfill_company_by_id(
+            company_id, session_factory=_begins_recorded(TestingSession, begins)
+        )
+
+    # Both units began a transaction (each reads the company), and neither on the loop.
+    assert len(begins) >= 2 and not any(begins), f"a backfill session began on the event loop: {begins}"
+
+
 def test_cold_empty_db_does_synchronous_bounded_fetch_and_persists(client, monkeypatch):
     tc, TestingSession = client
     with TestingSession() as s:
@@ -248,7 +330,10 @@ def test_cold_empty_db_does_synchronous_bounded_fetch_and_persists(client, monke
 
 def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkeypatch):
     """Warm background, cold-list and company-miss SEC waits all release the one-slot pool, and
-    each route returns with it released, before the dependency finalizer runs."""
+    each route returns with it released, before the dependency finalizer runs. Every transaction
+    the request session begins, the lookup, the company persist, the cached read and the live
+    persist, begins in the thread pool: a checkout on the event loop would freeze it for the pool
+    timeout once the pool is full (lessons/ops-release-cached-filing-reads-before-yield.md)."""
     engine = create_engine(
         f"sqlite:///{tmp_path / 'filings-lifetime.db'}",
         connect_args={"check_same_thread": False},
@@ -260,13 +345,17 @@ def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkey
     Base.metadata.create_all(bind=engine)
     TestingSession = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     held_at_finalizer = []
+    # Only the request session's own transactions: the history backfill runs after the response and
+    # opens its own sessions (filing_list_service.SessionLocal).
+    request_begins_on_loop = []
 
     def override_get_db():
         with TestingSession() as db:
+            event.listen(db, "after_begin", lambda *_: request_begins_on_loop.append(_on_event_loop()))
             yield db
             # The function-scoped finalizer runs once the route has returned (in the thread pool).
-            # The route must already have released its connection; the live path does that in its
-            # finally, after building the response.
+            # The route must already have released its connection; each unit does that before it
+            # returns, after building its response.
             held_at_finalizer.append(engine.pool.checkedout())
 
     phases = []
@@ -349,6 +438,66 @@ def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkey
         "history:MISSING",
     ]
     assert held_at_finalizer == [0, 0, 0]  # WARM (cached), COLD (live), MISSING (miss + live)
+    # The lookups, the company persist, the cached reads and the live persists: none began on the loop.
+    assert request_begins_on_loop and not any(request_begins_on_loop)
+
+
+@pytest.mark.parametrize("failure, status", [("timeout", 503), ("edgar", 503), ("persist", 500)])
+def test_cold_fetch_fallbacks_keep_the_request_session_off_the_event_loop(tmp_path, monkeypatch, failure, status):
+    """The cold live fetch's fallbacks (an SEC timeout, an SEC error, a persist that raises) read
+    the cached rows in the thread pool as well: no request-session transaction begins on the event
+    loop, and the route returns with its connection released."""
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'filings-fallbacks.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=1,
+        max_overflow=0,
+        pool_timeout=0.05,
+    )
+    Base.metadata.create_all(bind=engine)
+    TestingSession = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    held_at_finalizer = []
+    request_begins_on_loop = []
+
+    def override_get_db():
+        with TestingSession() as db:
+            event.listen(db, "after_begin", lambda *_: request_begins_on_loop.append(_on_event_loop()))
+            try:
+                yield db
+            finally:  # the route's HTTPException is thrown in at the yield
+                held_at_finalizer.append(engine.pool.checkedout())
+
+    async def get_filings(cik, _types):
+        if failure == "timeout":
+            raise asyncio.TimeoutError
+        if failure == "edgar":
+            raise EdgarError("edgar down")
+        accession = f"{cik}-26-000001"
+        sec_url = f"https://www.sec.gov/Archives/edgar/data/{cik.lstrip('0')}/{accession.replace('-', '')}/"
+        return [{"accession_number": accession, "filing_type": "10-K", "filing_date": "not-a-date",
+                 "document_url": sec_url + "primary.htm", "sec_url": sec_url}]
+
+    monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", get_filings)
+    filing_list_service._filings_synced_at.clear()
+
+    with TestingSession() as db:
+        cold = _seed_company(db, ticker="COLD", cik="0000000002")
+        cold.history_backfilled_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        db.commit()
+
+    main.app.dependency_overrides[get_db] = override_get_db
+    try:
+        assert TestClient(main.app).get("/api/filings/company/COLD").status_code == status
+    finally:
+        main.app.dependency_overrides.pop(get_db, None)
+        filing_list_service._filings_synced_at.clear()
+        engine.dispose()
+
+    assert held_at_finalizer == [0]
+    assert not any(request_begins_on_loop)
+    # The lookup, the cached read, the persist that raised (for that case) and the fallback read.
+    assert len(request_begins_on_loop) >= 3
 
 
 @pytest.mark.parametrize("synced_forms, expected_fetches", [
@@ -409,3 +558,172 @@ def test_filings_limit_param_default_unchanged(client, monkeypatch):
     # Newest-first ordering preserved.
     dates = [f["filing_date"] for f in full_resp.json()]
     assert dates == sorted(dates, reverse=True)
+
+
+# ---- 6-K budget: a daily 6-K filer still lists its 20-F ----
+# Foreign issuers such as BP, Shell and HSBC furnish a 6-K most business days (buyback notices). A
+# single row cap across every form let those 6-Ks push the 20-F annual report out of the list, on the
+# live SEC path (the recent-window materialize cap) and on the DB-first path (the cached row cap).
+
+FPI_CIK = "0000313807"
+
+
+class _WindowFiling:
+    """An edgartools EntityFiling as the recent submissions window lists it (cheap fields only)."""
+
+    def __init__(self, form, filing_date, accession):
+        self.form = form
+        self.filing_date = filing_date
+        self.report_date = "2025-12-31" if form in ("10-K", "20-F") else None
+        self.accession_number = accession
+        self.primary_document = "doc.htm"
+        self.company = "Test Co"
+
+
+def _fake_edgar_company(window):
+    """An EdgarCompany whose recent window is ``window`` (newest first), filtered like edgartools."""
+
+    class _FakeEdgarCompany:
+        cik = int(FPI_CIK)
+
+        def __init__(self, ident):
+            pass
+
+        def get_filings(self, form=None, amendments=None, trigger_full_load=None, sort_by=None):
+            assert trigger_full_load is False  # the list path never loads the full history
+            return [f for f in window if f.form.replace("/A", "") in form]
+
+    return _FakeEdgarCompany
+
+
+def _daily(form, n, newest, prefix):
+    """``n`` filings of ``form``, one a day back from ``newest``, newest first."""
+    return [
+        _WindowFiling(form, newest - timedelta(days=i), f"{FPI_CIK}-26-{prefix}{i:05d}")
+        for i in range(n)
+    ]
+
+
+def _seed_dated(session, company, accession, filing_type, filed):
+    cik_clean = company.cik.lstrip("0") or "0"
+    sec_url = f"https://www.sec.gov/Archives/edgar/data/{cik_clean}/{accession.replace('-', '')}/"
+    session.add(Filing(
+        company_id=company.id,
+        accession_number=accession,
+        filing_type=filing_type,
+        filing_date=datetime(filed.year, filed.month, filed.day, tzinfo=timezone.utc),
+        document_url=sec_url + "doc.htm",
+        sec_url=sec_url,
+    ))
+
+
+def _seed_stamped_company(session, ticker):
+    company = _seed_company(session, ticker=ticker, cik=FPI_CIK)
+    company.history_backfilled_at = datetime(2026, 1, 1, tzinfo=timezone.utc)  # no on-visit walk
+    session.commit()
+    return company
+
+
+def test_live_list_keeps_the_20f_behind_sixty_newer_6ks(client, monkeypatch):
+    """Cold view (empty DB): the route's own SEC fetch lists and persists the 20-F although 60 6-Ks
+    are newer; the 6-Ks keep a budget of their own, so they stay bounded too."""
+    tc, TestingSession = client
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
+    window = _daily("6-K", 60, date(2026, 8, 31), "1") + [
+        _WindowFiling("20-F", date(2026, 3, 5), f"{FPI_CIK}-26-900001")
+    ]
+    monkeypatch.setattr(edgar_client_mod, "EdgarCompany", _fake_edgar_company(window))
+    with TestingSession() as s:
+        _seed_stamped_company(s, "BPX")
+
+    resp = tc.get("/api/filings/company/BPX")
+
+    assert resp.status_code == 200
+    types = [f["filing_type"] for f in resp.json()]
+    assert "20-F" in types
+    assert types.count("6-K") == edgar_client_mod.RECENT_FILINGS_MATERIALIZE_CAP
+    with TestingSession() as s:
+        assert s.query(Filing).filter(Filing.filing_type == "20-F").count() == 1
+
+
+def test_cached_list_keeps_the_20f_behind_sixty_newer_6ks(client, monkeypatch):
+    """DB-first serving: the default list shows the stored 20-F next to the newest 6-Ks, newest
+    first, and an explicit ?limit= caps the 6-Ks, a 6-K/A among them, apart from the reports."""
+    tc, TestingSession = client
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
+    with TestingSession() as s:
+        company = _seed_stamped_company(s, "BPX")
+        for f in _daily("6-K", 60, date(2026, 8, 31), "1"):
+            _seed_dated(s, company, f.accession_number, "6-K", f.filing_date)
+        _seed_dated(s, company, f"{FPI_CIK}-26-900001", "20-F", date(2026, 3, 5))
+        _seed_dated(s, company, f"{FPI_CIK}-26-800001", "6-K/A", date(2026, 9, 1))  # not a default form
+        s.commit()
+    filing_list_service._mark_filings_synced("BPX", company_list_forms())  # serve from the DB
+    monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
+
+    default = tc.get("/api/filings/company/BPX").json()
+
+    types = [f["filing_type"] for f in default]
+    assert types == ["6-K"] * filing_list_service.CACHED_FILINGS_LIMIT + ["20-F"]
+    dates = [f["filing_date"] for f in default]
+    assert dates == sorted(dates, reverse=True)
+
+    limited = [f["filing_type"] for f in tc.get("/api/filings/company/BPX?limit=5").json()]
+    assert limited == ["6-K"] * 5 + ["20-F"]
+    amended = tc.get("/api/filings/company/BPX?filing_types=20-F,6-K,6-K/A&limit=5").json()
+    assert [f["filing_type"] for f in amended] == ["6-K/A"] + ["6-K"] * 4 + ["20-F"]
+
+
+@pytest.mark.parametrize("query, kept_6ks, kept_20fs", [("", 50, 10), ("?limit=5", 5, 5)])
+def test_cold_list_caps_each_group_at_the_requested_limit(client, monkeypatch, query, kept_6ks, kept_20fs):
+    """Cold view (empty DB): the live fetch persists every row it lists, the newest 50 6-Ks and all
+    ten 20-Fs. The default response is all of them; an explicit ?limit=5 serves the newest five of
+    each group, in SEC order, as the DB-first list does."""
+    tc, TestingSession = client
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
+    # Synthetic: a 20-F every week among daily 6-Ks, so the groups interleave and each holds more than 5.
+    window = [
+        _WindowFiling("20-F" if i % 7 == 3 else "6-K", date(2026, 8, 31) - timedelta(days=i),
+                      f"{FPI_CIK}-26-{i:06d}")
+        for i in range(70)
+    ]
+    monkeypatch.setattr(edgar_client_mod, "EdgarCompany", _fake_edgar_company(window))
+    # The error fallbacks also cap each group in SQL, so a live path that raised after its commit
+    # would still serve these rows from them; refusing the fallback proves the live path served it.
+    def _no_fallback(*_args, **_kwargs):
+        raise AssertionError("the cold list was served by an error fallback, not the live fetch")
+
+    monkeypatch.setattr(filing_list_service, "cached_filings_after_rollback", _no_fallback)
+    with TestingSession() as s:
+        _seed_stamped_company(s, "BPX")
+
+    cold = [f["accession_number"] for f in tc.get(f"/api/filings/company/BPX{query}").json()]
+
+    six_ks = [f.accession_number for f in window if f.form == "6-K"]
+    twenty_fs = [f.accession_number for f in window if f.form == "20-F"]
+    newest = set(six_ks[:kept_6ks] + twenty_fs[:kept_20fs])
+    assert cold == [f.accession_number for f in window if f.accession_number in newest]
+    with TestingSession() as s:
+        assert s.query(Filing).count() == 60
+
+
+def test_domestic_lists_are_unchanged_by_the_6k_budget(client, monkeypatch):
+    """With the foreign forms on (production), a 10-K/10-Q filer's live list is still the newest 50
+    rows and its cached default the newest 20, each in filing-date order."""
+    tc, TestingSession = client
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
+    window = [
+        _WindowFiling("10-K" if i % 4 == 0 else "10-Q", date(2026, 8, 31) - timedelta(days=30 * i),
+                      f"{FPI_CIK}-26-{i:06d}")
+        for i in range(60)
+    ]
+    newest_first = [f.accession_number for f in window]
+    monkeypatch.setattr(edgar_client_mod, "EdgarCompany", _fake_edgar_company(window))
+    with TestingSession() as s:
+        _seed_stamped_company(s, "DOMX")
+
+    live = tc.get("/api/filings/company/DOMX").json()  # cold: the live SEC path persists the rows
+    cached = tc.get("/api/filings/company/DOMX").json()  # stamped fresh: the DB-first path
+
+    assert [f["accession_number"] for f in live] == newest_first[:50]
+    assert [f["accession_number"] for f in cached] == newest_first[:filing_list_service.CACHED_FILINGS_LIMIT]

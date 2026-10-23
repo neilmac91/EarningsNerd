@@ -14,9 +14,10 @@ Cohort guarantees pinned here:
 
 The endpoint is mocked at the Stripe boundary; we assert on the kwargs passed to
 ``stripe.checkout.Session.create`` — no network, no DB (the test user already has a Stripe customer
-id, so the Customer.create + db.commit branch is skipped). The mocked DB's
-``query().filter().first()`` stands in for the prior-Subscription lookup: a MagicMock (truthy) means
-"has subscribed before" (the autouse default), ``None`` means "first-time subscriber".
+id, so the Customer.create + db.commit branch is skipped). The prior-Subscription lookup,
+``billing_account_service.find_subscription``, is patched: a stub row means "has subscribed before"
+(the autouse default), ``None`` means "first-time subscriber". ``test_subscription_routes.py`` runs
+the real query on SQLite, so this suite pins the cohort decision, not how the row is read.
 """
 
 from types import SimpleNamespace
@@ -25,11 +26,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 from fastapi.testclient import TestClient
+from stripe.params.checkout import SessionCreateParams
 
 from main import app
 from app.config import MIN_SECRET_KEY_LENGTH, Settings, settings
 from app.database import get_db
 from app.routers.auth import get_current_user
+from app.services import billing_account_service
 from app.services.entitlements import Plan, get_entitlements, is_pro_user
 
 
@@ -39,12 +42,14 @@ def _user(**overrides):
     return SimpleNamespace(**base)
 
 
-def _use_first_time_subscriber_db():
-    """Swap the mocked DB for one whose prior-Subscription lookup returns None — the endpoint then
-    sees a first-time subscriber (trial-eligible)."""
-    db = MagicMock()
-    db.query.return_value.filter.return_value.first.return_value = None
-    app.dependency_overrides[get_db] = lambda: db
+# Any row at all: checkout asks only whether the user has subscribed before.
+_PRIOR_SUBSCRIPTION = SimpleNamespace(user_id=1, status="canceled")
+
+
+def _use_first_time_subscriber(monkeypatch):
+    """Make the prior-Subscription lookup find no row — the endpoint then sees a first-time
+    subscriber (trial-eligible)."""
+    monkeypatch.setattr(billing_account_service, "find_subscription", lambda db, user_id: None)
 
 
 @pytest.fixture
@@ -56,17 +61,28 @@ def client():
 @pytest.fixture(autouse=True)
 def _overrides(monkeypatch):
     """Default: a verified, non-beta user with an existing Stripe customer + a resolvable price id.
-    The bare MagicMock DB returns a truthy ``query().filter().first()`` — i.e. a PRIOR Subscription
-    row exists, so the default cohort is a repeat subscriber (no trial)."""
+    The prior-Subscription lookup finds a row, so the default cohort is a repeat subscriber (no
+    trial)."""
     app.dependency_overrides[get_current_user] = lambda: _user()
     app.dependency_overrides[get_db] = lambda: MagicMock()
+    monkeypatch.setattr(
+        billing_account_service, "find_subscription", lambda db, user_id: _PRIOR_SUBSCRIPTION
+    )
     monkeypatch.setattr(settings, "STRIPE_PRICE_MONTHLY_ID", "price_monthly_test")
     yield
     app.dependency_overrides.clear()
 
 
 def _create_and_capture(client, **params):
-    """Call the endpoint with Stripe mocked; return the kwargs passed to Session.create."""
+    """Call the endpoint with Stripe mocked; return the kwargs passed to Session.create.
+
+    ``Session.create`` is mocked, so a Stripe 400 can never reach this suite. Every cohort's
+    kwargs are therefore pinned here (rule 12): Stripe API 2026-09-30.endive, the version
+    stripe-python 16 pins, removed ``payment_method_types`` from Checkout Session create and
+    returns 400 when it is sent; ``allowed_payment_method_types`` keeps the checkout card-only;
+    and every key must be one the installed SDK declares for the call, so the next removed
+    parameter fails here instead of in production.
+    """
     session = MagicMock(url="https://checkout.stripe.test/session")
     with patch(
         "app.routers.subscriptions.stripe.Customer.retrieve",
@@ -79,12 +95,18 @@ def _create_and_capture(client, **params):
     assert resp.status_code == 200, resp.text
     assert resp.json()["url"] == "https://checkout.stripe.test/session"
     create.assert_called_once()
-    return create.call_args.kwargs
+    kwargs = create.call_args.kwargs
+    assert "payment_method_types" not in kwargs
+    assert kwargs["allowed_payment_method_types"] == ["card"]
+    declared = set(SessionCreateParams.__annotations__)
+    assert set(kwargs) <= declared, set(kwargs) - declared
+    return kwargs
 
 
-def test_repeat_subscriber_gets_plain_checkout(client):
+def test_repeat_subscriber_gets_plain_checkout(client, monkeypatch):
     """A repeat subscriber (prior Subscription row exists — the autouse default) gets no trial and
     keeps the ``if_required`` no-card lever (Stripe still collects a card on a non-zero total)."""
+    monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)  # trial on, so the prior row decides
     kwargs = _create_and_capture(client, price_id="price_monthly_test")
     assert kwargs["payment_method_collection"] == "if_required"
     assert kwargs["mode"] == "subscription"
@@ -97,7 +119,7 @@ def test_first_time_monthly_subscriber_gets_card_required_trial(client, monkeypa
     with a trial the amount due today is $0, so ``if_required`` would skip the card and Stripe
     could never auto-charge at trial end."""
     monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)
-    _use_first_time_subscriber_db()
+    _use_first_time_subscriber(monkeypatch)
     kwargs = _create_and_capture(client, price_id="price_monthly_test")
     assert kwargs["subscription_data"] == {
         "trial_period_days": 7,
@@ -111,7 +133,7 @@ def test_yearly_checkout_gets_no_trial(client, monkeypatch):
     checkout (no subscription_data, if_required) even with the trial enabled."""
     monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)
     monkeypatch.setattr(settings, "STRIPE_PRICE_YEARLY_ID", "price_yearly_test")
-    _use_first_time_subscriber_db()
+    _use_first_time_subscriber(monkeypatch)
     kwargs = _create_and_capture(client, price_id="price_yearly_test")
     assert "subscription_data" not in kwargs
     assert kwargs["payment_method_collection"] == "if_required"
@@ -135,7 +157,7 @@ def test_trial_disabled_when_pro_trial_days_zero(client, monkeypatch):
     """PRO_TRIAL_DAYS=0 (the default) turns the trial off entirely — even a first-time monthly
     subscriber gets a plain paid checkout."""
     monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 0)
-    _use_first_time_subscriber_db()
+    _use_first_time_subscriber(monkeypatch)
     kwargs = _create_and_capture(client, price_id="price_monthly_test")
     assert "subscription_data" not in kwargs
     assert kwargs["payment_method_collection"] == "if_required"
@@ -147,7 +169,7 @@ def test_beta_user_gets_coupon_not_trial(client, monkeypatch):
     monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)
     monkeypatch.setattr(settings, "STRIPE_BETA_PROMO_CODE_ID", "promo_beta_123")
     app.dependency_overrides[get_current_user] = lambda: _user(id=4, is_beta=True)
-    _use_first_time_subscriber_db()
+    _use_first_time_subscriber(monkeypatch)
     kwargs = _create_and_capture(client, price_id="price_monthly_test")
     assert kwargs["discounts"] == [{"promotion_code": "promo_beta_123"}]
     assert "subscription_data" not in kwargs
@@ -162,7 +184,7 @@ def test_beta_user_without_promo_config_gets_no_trial_either(client, monkeypatch
     monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)
     monkeypatch.setattr(settings, "STRIPE_BETA_PROMO_CODE_ID", "")
     app.dependency_overrides[get_current_user] = lambda: _user(id=8, is_beta=True)
-    _use_first_time_subscriber_db()
+    _use_first_time_subscriber(monkeypatch)
     kwargs = _create_and_capture(client, price_id="price_monthly_test")
     assert "discounts" not in kwargs
     assert "subscription_data" not in kwargs
@@ -223,12 +245,13 @@ def test_live_trialing_subscriber_gets_409(client):
     create.assert_not_called()
 
 
-def test_expired_trial_remnant_can_resubscribe_without_trial(client):
+def test_expired_trial_remnant_can_resubscribe_without_trial(client, monkeypatch):
     """The 409 gate resolves through entitlements, NOT the raw status string: a stale
     ``trialing`` row whose trial_end has passed (reverse-trial remnant / lagging webhook) is
     Free by plan truth, so the user can subscribe again — but the prior row means no new trial."""
     from datetime import datetime, timedelta, timezone
 
+    monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)  # trial on, so the prior row decides
     past = datetime.now(timezone.utc) - timedelta(days=3)
     app.dependency_overrides[get_current_user] = lambda: _user(
         id=7, subscription=SimpleNamespace(status="trialing", trial_end=past)
@@ -313,4 +336,4 @@ def test_unknown_price_id_is_rejected_with_400(client):
         params={"price_id": "price_not_on_the_allowlist"},
     )
     assert resp.status_code == 400
-    assert "Invalid price_id" in resp.json()["detail"]
+    assert "That plan is not available" in resp.json()["detail"]

@@ -1,6 +1,6 @@
 # Data retention and deletion — implementation review
 
-Reviewed **12 October 2026**. This records current source behaviour and remaining operational checks. It is not an approved legal retention schedule, a compliance certification or proof that every production cleanup has succeeded. The maintained customer copy is [the privacy page source](../frontend/app/privacy/page.tsx); [privacy review notes](legal/PRIVACY_POLICY.md) track unresolved disclosures.
+Reviewed **23 October 2026**. This records current source behaviour and remaining operational checks. It is not an approved legal retention schedule, a compliance certification or proof that every production cleanup has succeeded. The maintained customer copy is [the privacy page source](../frontend/app/privacy/page.tsx); [privacy review notes](legal/PRIVACY_POLICY.md) track unresolved disclosures.
 
 ## 1. Implementation owners
 
@@ -48,7 +48,7 @@ An authenticated `DELETE /api/users/me` request drives the following source beha
 4. It writes an audit record, then calls `user_account_service.delete_user` to delete the user row and commit the ORM cascades.
 5. It clears sign-in cookies and returns the provider-result statuses. A final confirmation email is a future integration in the current router; this review establishes no separate confirmation-link or twenty-four-hour grace-period workflow.
 
-Stripe, audit, operational logs and backup copies can remain. The router success message and source comments now acknowledge retained billing, audit and provider records. No fixed tax deadline or jurisdiction is asserted. Only the success-message expectation changed in the deletion endpoint test; its cookie, audit, rollback and Stripe assertions remain intact.
+Stripe, audit, operational logs and backup copies can remain. The router success message and source comments now acknowledge retained billing, audit and provider records. No fixed tax deadline or jurisdiction is asserted. The endpoint test keeps the qualified success expectation separate from the failure message, “We could not delete your account. Contact support.” Its cookie, audit, rollback and Stripe assertions remain intact.
 
 The authenticated export route is `GET /api/users/export`. [user_data_export_service.py](../backend/app/services/user_data_export_service.py) builds the feature's export. It is not a complete export of every provider's logs, correspondence or backups. Users can use Account Settings or contact **privacy@earningsnerd.io** for help; no response commitment faster than two business days is added.
 

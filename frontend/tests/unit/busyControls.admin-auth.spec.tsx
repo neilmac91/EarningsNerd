@@ -1,5 +1,5 @@
 import React from 'react'
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -9,36 +9,41 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // that turns disabled and jsdom does not, so these cases pin the attributes, the kept focus, and
 // that a second activation fires no second request (lessons/frontend-busy-controls-stay-focusable.md).
 
-const { usePathname, useSearchParams } = vi.hoisted(() => ({
+const { usePathname, useSearchParams, refresh } = vi.hoisted(() => ({
   usePathname: vi.fn<() => string>(),
   useSearchParams: vi.fn<() => URLSearchParams>(),
+  refresh: vi.fn(),
 }))
-vi.mock('next/navigation', () => ({ usePathname, useSearchParams, useRouter: () => ({ refresh: vi.fn() }) }))
+vi.mock('next/navigation', () => ({ usePathname, useSearchParams, useRouter: () => ({ refresh }) }))
+vi.mock('next/font/local', () => ({ default: () => ({ variable: '' }) }))
 
 vi.mock('@/features/admin/api/admin-api', () => ({
   listInvites: vi.fn(),
   createInvite: vi.fn(),
   resendInvite: vi.fn(),
   revokeInvite: vi.fn(),
+  listFeedback: vi.fn(),
   updateFeedbackStatus: vi.fn(),
 }))
 vi.mock('@/features/auth/api/auth-api', () => ({
   getCurrentUserSafe: vi.fn(),
   resendVerification: vi.fn(),
 }))
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
 // Chrome around the units under test: AuthShell's theme toggle, SiteChrome's header/footer.
 vi.mock('@/components/ThemeToggle', () => ({ ThemeToggle: () => null }))
 vi.mock('@/components/Header', () => ({ default: () => null }))
 vi.mock('@/components/Footer', () => ({ default: () => null }))
 
 import AdminInvitesPage from '@/app/admin/invites/page'
+import AdminFeedbackPage from '@/app/admin/feedback/page'
 import CheckEmailPage from '@/app/check-email/page'
 import FeedbackRow from '@/features/admin/components/FeedbackRow'
 import VerificationBanner from '@/features/auth/components/VerificationBanner'
 import EmailVerificationModal from '@/features/auth/components/EmailVerificationModal'
 import {
   createInvite,
+  listFeedback,
   listInvites,
   updateFeedbackStatus,
   type FeedbackRecord,
@@ -177,7 +182,7 @@ describe('Admin invites: Send invites stays focusable', () => {
     expect(createInvite).toHaveBeenCalledTimes(1)
     // Only the early return stops a no-op send now: without it this run would clear the batch's
     // results (and their invite links) and relist the just-sent address as skipped.
-    expect(screen.getByText('1 invite sent')).toBeInTheDocument()
+    expect(screen.getByText('1 created · 1 emailed')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument()
     expect(toast.success).toHaveBeenCalledTimes(1)
   })
@@ -194,10 +199,84 @@ describe('Admin invites: Send invites stays focusable', () => {
 
     expectInertButFocused(send)
     expect(send).not.toHaveAttribute('aria-busy')
-    // No "0 invites sent" toast and no post-send refetch of the list.
+    // No "0 invites created" toast and no post-send refetch of the list.
     expect(toast.success).not.toHaveBeenCalled()
     expect(toast.error).not.toHaveBeenCalled()
     expect(listInvites).toHaveBeenCalledTimes(1)
+  })
+})
+
+// A list that failed to load is a Notice with a Retry (ADM-11, ADM-12). The failure is retained
+// (useRetainedFailure), so the Notice and its focused Retry stay up, busy, through the refetch the Retry
+// starts; when data replaces them, the Retry unmounts and hands focus to the list heading.
+describe('Admin list Retry: the Notice holds through the refetch, then focus goes to the list heading', () => {
+  const invite: InviteRecord = {
+    id: 1,
+    email: 'alice@example.com',
+    status: 'pending',
+    cohort: 'beta',
+    expires_at: '2026-07-01T00:00:00Z',
+    used_at: null,
+    user_id: null,
+    created_at: '2026-06-20T00:00:00Z',
+  }
+  const bugReport: FeedbackRecord = {
+    id: 1,
+    user_id: 42,
+    user_email: 'alice@example.com',
+    type: 'bug',
+    message: 'The summary export button does nothing on Safari.',
+    page_url: '/filing/123',
+    status: 'new',
+    created_at: '2026-06-20T00:00:00Z',
+  }
+  const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+
+  async function pressRetryAndHold(list: { mock: { calls: unknown[] } }, failedTitle: string) {
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(failedTitle)
+    const retry = within(alert).getByRole('button', { name: 'Try again' })
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => expect(list.mock.calls).toHaveLength(2))
+    await settle()
+    // Still the Notice, not the skeleton: Retry is busy, focused, and a second press refetches nothing.
+    expect(alert.isConnected).toBe(true)
+    expect(alert).toHaveTextContent(failedTitle)
+    expectBusyAndFocused(retry)
+    fireEvent.click(retry)
+    await settle()
+    expect(list.mock.calls).toHaveLength(2)
+    return retry
+  }
+
+  beforeEach(() => {
+    vi.mocked(listInvites).mockReset()
+    vi.mocked(listFeedback).mockReset()
+  })
+
+  it('invites: keeps the Notice and its focused Retry busy, then hands focus to the Invites heading', async () => {
+    const refetched = deferred<InviteRecord[]>()
+    vi.mocked(listInvites).mockRejectedValueOnce(new Error('network')).mockReturnValueOnce(refetched.promise)
+    withQueryClient(<AdminInvitesPage />)
+    const retry = await pressRetryAndHold(vi.mocked(listInvites), 'Could not load the invites.')
+
+    await act(async () => refetched.resolve([invite]))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    expect(screen.getByText('alice@example.com')).toBeInTheDocument()
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Invites', level: 2 })))
+  })
+
+  it('feedback: keeps the Notice and its focused Retry busy, then hands focus to the Feedback heading', async () => {
+    const refetched = deferred<FeedbackRecord[]>()
+    vi.mocked(listFeedback).mockRejectedValueOnce(new Error('network')).mockReturnValueOnce(refetched.promise)
+    withQueryClient(<AdminFeedbackPage />)
+    const retry = await pressRetryAndHold(vi.mocked(listFeedback), 'Could not load the feedback.')
+
+    await act(async () => refetched.resolve([bugReport]))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    expect(screen.getByText(bugReport.message)).toBeInTheDocument()
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Feedback', level: 2 })))
   })
 })
 
@@ -299,10 +378,13 @@ describe('Check email: Resend stays focusable', () => {
     expect(resendVerification).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps Resend natively disabled when the URL carries no email', () => {
+  it('offers no Resend when the URL carries no email, and says where a new link comes from', () => {
     useSearchParams.mockReturnValue(new URLSearchParams(''))
     render(<CheckEmailPage />)
-    expect(screen.getByRole('button', { name: 'Resend email' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /resend/i })).toBeNull()
+    expect(screen.queryByText('We send verification links to')).toBeNull()
+    expect(screen.getByText('Open the newest verification link we sent you.')).toBeInTheDocument()
+    expect(screen.getByText('Need a new one? Log in, open the account menu and choose Verify your email.')).toBeInTheDocument()
   })
 })
 
@@ -342,6 +424,31 @@ describe('Verification banner: Resend link stays focusable', () => {
     await waitFor(() => expect(resend).not.toHaveAttribute('aria-busy'))
     expect(resend).not.toHaveAttribute('aria-disabled')
     expect(resend).toHaveFocus()
+  })
+
+  it('announces the server cap and keeps Resend focused but unavailable after a 429', async () => {
+    vi.mocked(resendVerification).mockRejectedValue(new ApiError(429, 'Too many resend requests'))
+    const user = userEvent.setup()
+    const view = withQueryClient(<VerificationBanner />)
+    const resend = await screen.findByRole('button', { name: 'Resend link' })
+    resend.focus()
+    await user.keyboard('{Enter}')
+    expect(await screen.findByRole('alert')).toHaveTextContent("We can't send another link right now.")
+    expect(screen.getByRole('alert')).toHaveTextContent('reload this page to try again later')
+    expectInertButFocused(resend)
+    await user.keyboard('{Enter}')
+    await user.click(resend)
+    expect(resendVerification).toHaveBeenCalledTimes(1)
+    // A document reload remounts the layout. The stated boundary offers one fresh attempt;
+    // route navigation alone leaves the current document's rate-cap guard in place.
+    view.unmount()
+    vi.mocked(resendVerification).mockResolvedValue({})
+    withQueryClient(<VerificationBanner />)
+    const reopened = await screen.findByRole('button', { name: 'Resend link' })
+    expect(reopened).not.toHaveAttribute('aria-disabled')
+    await user.click(reopened)
+    expect(resendVerification).toHaveBeenCalledTimes(2)
+    expect(await screen.findByText('Verification email sent. Check your inbox.')).toBeInTheDocument()
   })
 
   it('hands focus to the sent line when a successful resend removes the button', async () => {
@@ -472,7 +579,7 @@ describe('Email verification modal: Resend link stays focusable', () => {
 
   it('keeps Resend link focused but unavailable after a 429, and says what to do', async () => {
     vi.mocked(resendVerification).mockRejectedValue(
-      new ApiError(429, 'Too many resend requests. Please wait before trying again.'),
+      new ApiError(429, 'Too many resend requests. Try again later.'),
     )
     const user = userEvent.setup()
     withQueryClient(<EmailVerificationModal />)
@@ -545,6 +652,40 @@ describe('Email verification modal: Resend link stays focusable', () => {
     expect(resendVerification).toHaveBeenCalledTimes(1)
     sent.resolve({})
     await screen.findByRole('button', { name: 'Link sent' })
+  })
+
+  it.each(['unverified', 'failed', 'signed-out'] as const)('checks once and keeps the prompt open when identity is %s', async (outcome) => {
+    const user = userEvent.setup()
+    withQueryClient(<EmailVerificationModal />)
+    await openPrompt()
+    const initial = await vi.mocked(getCurrentUserSafe).mock.results[0].value
+    const check = deferred<Awaited<ReturnType<typeof getCurrentUserSafe>>>()
+    vi.mocked(getCurrentUserSafe).mockReturnValueOnce(check.promise)
+    const before = vi.mocked(getCurrentUserSafe).mock.calls.length
+    const verified = screen.getByRole('button', { name: "I've verified" })
+    verified.focus()
+    await user.keyboard('{Enter}')
+    expectBusyAndFocused(verified)
+    await user.keyboard('{Enter}')
+    expect(getCurrentUserSafe).toHaveBeenCalledTimes(before + 1)
+    if (outcome === 'failed') check.reject(new Error('network'))
+    else check.resolve(outcome === 'signed-out' ? null : initial)
+    expect(await screen.findByRole('alert')).toHaveTextContent(outcome === 'unverified' ? 'Email still unverified' : "Couldn't check verification")
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(verified).toHaveFocus()
+    expect(verified).not.toHaveAttribute('aria-disabled')
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('closes and refreshes the route only after a confirmed verified identity', async () => {
+    const user = userEvent.setup()
+    withQueryClient(<EmailVerificationModal />)
+    await openPrompt()
+    const initial = await vi.mocked(getCurrentUserSafe).mock.results[0].value
+    vi.mocked(getCurrentUserSafe).mockResolvedValueOnce({ ...initial!, email_verified: true })
+    await user.click(screen.getByRole('button', { name: "I've verified" }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(refresh).toHaveBeenCalledTimes(1)
   })
 
   it('reads sensibly before the address loads, and Resend sends nothing without one', async () => {

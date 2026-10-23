@@ -8,6 +8,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any, Optional
 
+from app.services.copilot.exceptions import _RegenerableEvidenceMismatch
 from app.services.provenance_service import _MIN_VERIFIABLE_LEN
 
 
@@ -28,6 +29,25 @@ copy one exact contiguous source span. Citation excerpts must preserve all sourc
 including quotation marks inside the passage; escape them correctly in JSON, never remove them.
 Keep displayed follow-up questions and not-disclosed
 explanations free of quotation marks. Finish the complete citation and follow-up envelopes."""
+# Added after the guidance above only when the first candidate failed citation-excerpt matching.
+_CITATION_EXCERPT_RETRY_GUIDANCE = f"""A filing-text citation did not match. Most such failures are
+table text: a lone figure or short label, a row with cells skipped or replaced by an ellipsis, or one
+citation number declared twice. A figure that carries its [F#] marker needs no text citation. To cite any other figure, copy
+one whole sentence that states it, or its table row exactly as the filing shows it: the row label and
+every following cell in order, nothing skipped or reordered. If no such span exists, leave that
+figure and its citation out. Each excerpt is one unbroken span of at least {_MIN_VERIFIABLE_LEN}
+characters, and each citation number has exactly one declaration."""
+
+
+def _retry_guidance(rejection: Exception, retryable_quotations: frozenset[str]) -> str:
+    """The text added to the private regeneration's system message, or "" when none may run.
+
+    Chosen by the owned exception class or reason code, never from candidate text. A decision-F
+    quotation reason keeps the evidence guidance alone; an excerpt failure adds the table guidance.
+    """
+    if isinstance(rejection, _RegenerableEvidenceMismatch):
+        return _EVIDENCE_RETRY_GUIDANCE + "\n\n" + _CITATION_EXCERPT_RETRY_GUIDANCE
+    return _EVIDENCE_RETRY_GUIDANCE if str(rejection) in retryable_quotations else ""
 
 
 SYSTEM_PROMPT = f"""You are EarningsNerd's "Ask this Filing" assistant. You answer questions about a \
@@ -80,6 +100,10 @@ support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided fig
 [{{"n": 1, "excerpt": "<verbatim quote copied exactly from the filing>", "section": "Item 7 — MD&A"}}]
    - "excerpt" MUST be copied verbatim from the filing content (so it can be verified). Keep each
      excerpt to the SHORTEST contiguous span that supports the claim — one sentence, at most ~30 words.
+     Exception: a text excerpt for a figure from a table is that figure's WHOLE row, one contiguous span from
+     the row label through its last cell with every cell in between; never a lone figure, header or partial row.
+     Copy every excerpt exactly as the supplied filing text shows it: never join or split words, figures or
+     currency signs that the text separates or joins.
      Each text excerpt must contain at least {_MIN_VERIFIABLE_LEN} characters after whitespace is collapsed.
      When a span is too short, choose a longer contiguous source span; never pad or paraphrase it.
      Never stitch separated table cells or sentences together, or insert an ellipsis into an excerpt.
@@ -158,11 +182,16 @@ def snapshot_filing(filing: Any) -> SimpleNamespace:
 
 
 def _without_source_durations(xbrl_data: Any) -> Any:
-    """Model-facing metrics without source durations or internal comparison descriptors."""
+    """Model-facing metrics without source durations, annual fiscal labels or internal comparison descriptors.
+
+    One filing cannot tell a lagging DEI focus from a year named by its start, so an annual label is left to
+    the filing's text and the numeric tools, which read the corrected financial_fact rows.
+    """
     if not isinstance(xbrl_data, dict):
         return xbrl_data
     return {
-        key: [{k: v for k, v in point.items() if k != "period_start"}
+        key: [{k: v for k, v in point.items() if k != "period_start"
+               and not (point.get("fiscal_period") == "FY" and k in ("fiscal_year", "fiscal_period"))}
               if isinstance(point, dict) else point for point in value]
         if isinstance(value, list) else value
         for key, value in xbrl_data.items()

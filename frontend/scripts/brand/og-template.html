@@ -12,6 +12,12 @@
     src: url('./fonts/Inter-Variable-latin.woff2') format('woff2');
   }
   @font-face {
+    font-family: 'Inter Claim';
+    font-style: italic;
+    font-weight: 600;
+    src: url('./fonts/Inter-Variable-Italic-latin.woff2') format('woff2');
+  }
+  @font-face {
     font-family: 'Geist Mono';
     font-style: normal;
     font-weight: 100 900;
@@ -43,8 +49,25 @@
     color: #1A1A17;
     max-width: 1040px;
   }
-  /* The mark: the brand's highlight. A phrase, never a figure. */
-  .mark { background: linear-gradient(transparent 64%, #ECF2EE 64%); box-shadow: inset 0 -3px 0 #CFE0D6; }
+  /* C5 claim emphasis: the fixed canvas breaks before the whole phrase. The separate italic
+     face leaves the wordmark unchanged; the citation below keeps its source annotation. */
+  .claim-emphasis {
+    display: inline-block;
+    vertical-align: baseline;
+    white-space: nowrap;
+    line-height: 0.9;
+    padding: calc(0.04em - 1px) 0.18em 0.06em;
+    margin-inline: -0.1em 0; /* keep the following full stop clear of the fill */
+    border: 0;
+    border-radius: 8px;
+    background: #98C5AD;
+    box-shadow: none;
+    color: #1A1A17;
+    font-family: 'Inter Claim', 'Inter', sans-serif;
+    font-style: italic;
+    font-weight: 600;
+    font-synthesis: none;
+  }
   /* The margin: a bracketed citation beside the line it belongs to. */
   .marked { display: grid; grid-template-columns: 72px 1fr; align-items: center; }
   .margin { border-right: 2px solid #CFE0D6; height: 100%; display: flex; align-items: flex-start; padding-top: 6px; }
@@ -67,7 +90,7 @@
     </svg>
     <div class="wordmark">Earnings<em>Nerd</em></div>
   </div>
-  <div class="headline">The summary that <span class="mark">shows its work</span>.</div>
+  <div class="headline">The summary that<br><span class="claim-emphasis">shows its work</span>.</div>
   <div class="marked">
     <div class="margin"><span>[F1]</span></div>
     <div class="line">

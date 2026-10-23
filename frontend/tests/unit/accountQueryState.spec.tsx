@@ -9,7 +9,7 @@ import type { InternalAxiosRequestConfig } from 'axios'
 import api from '@/lib/api/client'
 import { getCurrentUser, getCurrentUserSafe, login, logout, type CurrentUser } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
-import { logoutAndResetAccount, resetAccountQueries, subscribeAccountQueryReset, acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryState'
+import { ACCOUNT_QUERY_FAMILIES, logoutAndResetAccount, resetAccountQueries, subscribeAccountQueryReset, acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryState'
 import { advanceSessionGeneration, clearSessionActive, getSessionGeneration, getExplicitSessionGeneration, assertExplicitSessionGeneration, hasActiveSession, markSessionActive, notifySessionLost } from '@/lib/api/session'
 import { queryKeys } from '@/lib/queryKeys'
 import { refreshAccessToken } from '@/lib/api/refresh'
@@ -110,23 +110,32 @@ describe('account snapshots follow the resolved identity', () => {
     markSessionActive()
     const credential = deferred<unknown>()
     const logoutDone = deferred<unknown>()
-    vi.mocked(refreshAccessToken).mockRejectedValue({ response: { status: 401 } })
+    const refreshAnswer = deferred<void>()
+    let logoutRequests = 0
+    vi.mocked(refreshAccessToken).mockImplementation(() => refreshAnswer.promise)
     api.defaults.adapter = async (config) => {
       if (config.url === '/api/auth/login') return response(config, await credential.promise)
-      if (config.url === '/api/auth/logout') return response(config, await logoutDone.promise)
+      if (config.url === '/api/auth/logout') {
+        logoutRequests += 1
+        return response(config, await logoutDone.promise)
+      }
       throw Object.assign(new Error('expired A'), { config, response: { status: 401, data: { detail: 'Expired access' } } })
     }
     const explicitGeneration = getExplicitSessionGeneration()
     const signedIn = login('2@example.test', 'test-only-password').catch((error) => error)
-    const pendingLogout = order === 'passive-loss-then-logout' ? logoutAndResetAccount(client, logout) : null
     const oldIdentity = client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }).catch((error) => error)
     await waitFor(() => expect(refreshAccessToken).toHaveBeenCalledTimes(1))
+    // The logout starts while that refresh is in flight and waits for its answer (E133); the refresh's 401 then
+    // lands as a passive loss while the logout is under way, and the logout must still send its request.
+    const pendingLogout = order === 'passive-loss-then-logout' ? logoutAndResetAccount(client, logout) : null
+    refreshAnswer.reject({ response: { status: 401 } })
     await oldIdentity
     expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
     expect(getExplicitSessionGeneration()).toBe(explicitGeneration)
     if (pendingLogout) {
       logoutDone.resolve({ ok: true })
       await pendingLogout
+      expect(logoutRequests).toBe(1)
       expect(getExplicitSessionGeneration()).not.toBe(explicitGeneration)
     }
     credential.resolve({ ok: true })
@@ -197,6 +206,8 @@ describe('account snapshots follow the resolved identity', () => {
     expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
 
     const requestError = new Error('current logout failed')
+    // A failed logout reads /me before it settles (logoutAndResetAccount); offline, that read cannot tell either.
+    api.defaults.adapter = async () => { throw new Error('offline') }
     const current = new MutationObserver(client, {
       mutationFn: () => logoutAndResetAccount(client, async () => {
         if (!succeeded) throw requestError
@@ -207,7 +218,8 @@ describe('account snapshots follow the resolved identity', () => {
     expect(continued).toHaveBeenCalledWith(succeeded)
     expect(navigate).toHaveBeenCalledTimes(1)
     expect(clearAnalytics).toHaveBeenCalledTimes(succeeded ? 1 : 0)
-    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+    // A logout that did not take, and whose /me read could not tell, puts back the identity it reset.
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(succeeded ? null : makeUser(2))
   })
 
   it('a late unmounted profile mutation cannot publish A while the canonical B refetch waits', async () => {
@@ -339,18 +351,47 @@ describe('account snapshots follow the resolved identity', () => {
     expect(client.getQueryData(queryKeys.subscription.byUser(2))).toBeUndefined()
   })
 
-  it('resets both families even when the ordinary logout request fails', async () => {
+  it('resets the account families, the wording reviews included, even when the ordinary logout request fails', async () => {
     const client = newClient()
     client.setQueryData(queryKeys.currentUser(), makeUser(1))
     client.setQueryData(queryKeys.subscription.byUser(1), { is_pro: true })
     client.setQueryData(queryKeys.usage.byUser(1), { summaries_used: 9 })
+    client.setQueryData(queryKeys.wordingReview.byFiling(42), { status: 'ok', labels: { a1: 'reviewed' } })
     markSessionActive()
     api.defaults.adapter = async () => { throw new Error('offline logout') }
     await expect(logoutAndResetAccount(client, logout)).rejects.toThrow('offline logout')
-    expect(hasActiveSession()).toBe(false)
-    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+    // Its /me read failed too, so nothing says the session ended: the flag and the identity stay as the logout found them.
+    expect(hasActiveSession()).toBe(true)
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(1))
     expect(client.getQueryCache().findAll({ queryKey: queryKeys.subscription.all() })).toHaveLength(0)
     expect(client.getQueryCache().findAll({ queryKey: queryKeys.usage.all() })).toHaveLength(0)
+    // The previous account's labels and receipts never show to the next account in this tab.
+    expect(client.getQueryCache().findAll({ queryKey: queryKeys.wordingReview.all() })).toHaveLength(0)
+  })
+
+  it('an account change removes every account-owned snapshot and keeps the shared ones', async () => {
+    const client = newClient()
+    // One entry in each account-owned family; most keys name no reader, so the next account would read them.
+    const owned = [
+      queryKeys.subscription.byUser(1), queryKeys.usage.byUser(1), queryKeys.wordingReview.byFiling(42),
+      queryKeys.whatChanged.byViewer(7, 1),
+      queryKeys.whatChanged.byViewer(7, null), // the anonymous entry, which a reader whose /me failed reads with their session
+      queryKeys.savedSummaries(), queryKeys.savedSummaryStatus(5, 1), queryKeys.watchlist(), queryKeys.watchlistInsights(),
+      queryKeys.earningsAlertTickers(), queryKeys.dashboardFeed(), queryKeys.dashboardCalendar(), queryKeys.notifications(),
+      queryKeys.notificationPreferences(), queryKeys.authConnections(), queryKeys.adminInvites(),
+      queryKeys.adminFeedback.list({ status: 'new' }),
+    ]
+    const shared = [
+      queryKeys.company('AAPL'), queryKeys.summary(7), queryKeys.filing(7), queryKeys.registrationConfig(),
+    ]
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    for (const key of [...owned, ...shared]) client.setQueryData(key, { owner: 1 })
+    markSessionActive()
+    api.defaults.adapter = async (config) => response(config, {})
+    await logoutAndResetAccount(client, logout)
+    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+    expect(owned.filter((key) => client.getQueryData(key) !== undefined)).toEqual([])
+    expect(shared.filter((key) => client.getQueryData(key) === undefined)).toEqual([])
   })
 })
 
@@ -363,6 +404,40 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('account query ownership structural gate', () => {
+  it('every query family is classified, and an account change removes exactly the account-owned ones', () => {
+    // A new family in lib/queryKeys.ts fails here until it is placed. An account-owned one joins
+    // ACCOUNT_QUERY_FAMILIES (features/auth/lib/accountQueryState.ts), which logout and login remove.
+    const accountOwned = [
+      'subscription', 'usage', 'wordingReview', 'whatChanged', 'savedSummaries', 'savedSummaryStatus', 'watchlist',
+      'watchlistInsights', 'earningsAlertTickers', 'dashboardFeed', 'dashboardCalendar', 'notifications',
+      'notificationPreferences', 'authConnections', 'adminInvites', 'adminFeedback',
+    ]
+    const identity = ['currentUser'] // the reset publishes null for it
+    const shared = [
+      'registrationConfig', 'turnstileScript', 'insiders', 'peers', 'calendar', 'fullTextSearch', 'filingFundamentals',
+      'analysisCoverage', 'analysisCompany', 'tickerCompany', 'tickerFilings', 'filing', 'filingContent', 'summary',
+      'summaryProgress', 'company', 'companyFilings', 'companies',
+    ]
+    const classified = [...accountOwned, ...identity, ...shared]
+    expect(new Set(classified).size).toBe(classified.length)
+    expect([...classified].sort()).toEqual(Object.keys(queryKeys).sort())
+    type Factory = (...args: unknown[]) => readonly unknown[]
+    // The first element of every key a family builds: its one factory, or each member of an object family.
+    const prefixesOf = (name: string) => {
+      const entry = (queryKeys as unknown as Record<string, Factory | Record<string, Factory>>)[name]
+      const factories = typeof entry === 'function' ? [entry] : Object.values(entry)
+      return new Set(factories.map((factory) => factory(...Array<unknown>(factory.length).fill('x'))[0]))
+    }
+    // An owned family's members share one prefix, so removing it removes them all; a member under a
+    // prefix of its own (a re-split like the copilot usage key F1 merged) would outlive the account.
+    expect(accountOwned.filter((name) => prefixesOf(name).size !== 1)).toEqual([])
+    const ownedPrefixes = new Set(accountOwned.flatMap((name) => [...prefixesOf(name)]))
+    expect(new Set(ACCOUNT_QUERY_FAMILIES.map((key) => key[0]))).toEqual(ownedPrefixes)
+    expect(ACCOUNT_QUERY_FAMILIES.every((key) => key.length === 1)).toBe(true) // whole families, by prefix
+    // No other family builds a key under an owned prefix, or the reset would remove it too.
+    expect([...identity, ...shared].filter((name) => [...prefixesOf(name)].some((prefix) => ownedPrefixes.has(prefix)))).toEqual([])
+  })
+
   it('the canonical fetcher is the only positive current-user publisher', () => {
     const errors: string[] = []
     const identityWrites: string[] = []
@@ -380,8 +455,14 @@ describe('account query ownership structural gate', () => {
           if (!key.startsWith('queryKeys.')) errors.push(`${relative}: indirect cache writer ${key}`)
           if (key.includes('currentUser')) {
             identityWrites.push(relative)
-            if (relative !== 'features/auth/lib/accountQueryState.ts' || node.arguments[1]?.kind !== ts.SyntaxKind.NullKeyword) {
-              errors.push(`${relative}: only the reset owner may directly publish null identity`)
+            // The reset owner publishes null, and puts back the snapshot its own reset took (restoreIdentity: a logout
+            // whose request failed, while no transition has followed its reset).
+            let owner: ts.Node | undefined = node.parent
+            while (owner && !ts.isFunctionDeclaration(owner)) owner = owner.parent
+            const restores = owner !== undefined && ts.isFunctionDeclaration(owner) && owner.name?.text === 'restoreIdentity' &&
+              node.arguments[1]?.getText(source) === 'shown.data'
+            if (relative !== 'features/auth/lib/accountQueryState.ts' || (node.arguments[1]?.kind !== ts.SyntaxKind.NullKeyword && !restores)) {
+              errors.push(`${relative}: only the reset owner may directly publish null identity, or restore its own snapshot`)
             }
           }
         }
@@ -401,8 +482,10 @@ describe('account query ownership structural gate', () => {
       visit(source)
     }
     expect(errors).toEqual([])
-    expect(identityWrites).toEqual(['features/auth/lib/accountQueryState.ts'])
-    expect(allWrites).toHaveLength(6) // current user null, watchlist x2, notification x2, saved summaries x1 (Delete prunes its row).
+    expect(identityWrites).toEqual(['features/auth/lib/accountQueryState.ts', 'features/auth/lib/accountQueryState.ts'])
+    // current user null and its restore, watchlist x2, notification x2, saved summaries x1 (Delete prunes its row),
+    // wording review x3 (the label applied as it is pressed, its rollback, the server's state).
+    expect(allWrites).toHaveLength(10)
   })
 
   it('all subscription/usage reads carry identity and an enabled condition, never a family prefix', () => {
@@ -430,31 +513,14 @@ describe('account query ownership structural gate', () => {
       visit(source)
     }
     expect(errors).toEqual([])
-    expect(owners.size).toBe(12) // Deliberately inventory new consumers alongside the key owner.
+    expect(owners.size).toBe(11) // Deliberately inventory new consumers alongside the key owner (SubscriptionGate, deleted unused, was the twelfth).
   })
 
   it('ordinary transitions use the shared owner, and completion invalidates both scoped families', () => {
     for (const file of ['components/Header.tsx', 'features/auth/components/UserMenu.tsx', 'app/dashboard/page.tsx']) {
       const source = readFileSync(path.join(frontend, file), 'utf8')
-      expect(source, file).toContain('logoutAndResetAccount(queryClient, logout,')
-      const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-      const callbacks: ts.ArrowFunction[] = []
-      const find = (node: ts.Node) => {
-        if (ts.isCallExpression(node) && node.expression.getText(ast) === 'logoutAndResetAccount') {
-          const callback = node.arguments[2]
-          if (callback && ts.isArrowFunction(callback)) callbacks.push(callback)
-        }
-        ts.forEachChild(node, find)
-      }
-      find(ast)
-      expect(callbacks).toHaveLength(1)
-      expect(callbacks[0].modifiers?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword) ?? false).toBe(false)
-      expect(callbacks[0].body.getText(ast)).toContain('router.push(')
-      expect(callbacks[0].body.getText(ast)).toContain('router.refresh()')
-      if (file === 'app/dashboard/page.tsx') {
-        expect(callbacks[0].body.getText(ast)).toContain('if (!succeeded) return')
-        expect(callbacks[0].body.getText(ast)).toContain('analytics.logout()')
-      }
+      // Which files call logoutAndResetAccount, each call's continuation, and what runs whatever the logout's outcome:
+      // tests/unit/logoutCallSitesGate.spec.ts.
       expect(source, file).not.toMatch(/invalidateQueries\(\{ queryKey: queryKeys\.currentUser\(\)/)
     }
     const login = readFileSync(path.join(frontend, 'app/login/page.tsx'), 'utf8')

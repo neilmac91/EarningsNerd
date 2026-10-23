@@ -14,7 +14,9 @@ import { bindingResolver, type Binding } from './astBindings'
  *
  * What it reads, in every .tsx under app/ (the pages and layouts):
  *  - shared queries: a `useQuery` / `useSuspenseQuery` / `useInfiniteQuery` call whose key family (the
- *    `queryKey` with its call arguments dropped: `queryKeys.usage.byUser`) is observed in at least two modules
+ *    `queryKey` with its call arguments dropped: `queryKeys.usage.byUser`; a key held in a same-file const is
+ *    read as the family of what the const holds, so two modules that name their key const alike, the company
+ *    page's `companyKey` and the ticker route's, share nothing) is observed in at least two modules
  *    under app/, components/, features/, hooks/ and lib/. That over-approximates "a child observes it": the
  *    scan cannot follow JSX into what a page renders, so a family two pages share counts too.
  *  - loading gates: `if (cond) return <render>` (either branch, a block's direct `return` included) and
@@ -37,11 +39,10 @@ import { bindingResolver, type Binding } from './astBindings'
  * shared families it reads (`expr [families]`), with a reason: a pinned condition that starts reading another
  * shared family fails too. A fetch flag is never pinnable: a gate that reads one fails whatever ALLOW pins, so a
  * pinned name that starts reading `isFetching` of a family it already reads (`const isLoading = firstLoad ||
- * isFetching`, the watchlist hook's `isReady: !isLoading && !isFetching`), its text and families unchanged,
- * still fails.
+ * isFetching`, a hook's `isReady: !isLoading && !isFetching`), its text and families unchanged, still fails.
  *
  * Limits, so a reviewer still reads new gates: a key family built outside a `queryKey:` property (an options
- * helper), a loading state passed in through props, a hold read through an alias
+ * helper), a key handed in as a parameter or a prop (read by its name), a loading state passed in through props, a hold read through an alias
  * (`const failed = failure.failed`), a gate inside a component under features/ or components/, and
  * `cond && <JSX>`, which adds content beside the page rather than replacing it (so `!isLoading && <Panel />`,
  * which unmounts the panel, is not seen).
@@ -76,9 +77,26 @@ const unwrap = (e: ts.Expression): ts.Expression => {
   return e
 }
 
-/** `queryKeys.usage.byUser(id)` → `queryKeys.usage.byUser`; `['feed', id]` → `'feed'`. */
-function keyFamily(key: ts.Expression): string {
+const resolvers = new WeakMap<ts.SourceFile, (ref: ts.Identifier) => Binding | undefined>()
+/** The lexical resolver of a parsed module, built once per module. */
+const resolverOf = (sf: ts.SourceFile) => {
+  let resolve = resolvers.get(sf)
+  if (!resolve) resolvers.set(sf, (resolve = bindingResolver(sf)))
+  return resolve
+}
+
+/** `queryKeys.usage.byUser(id)` → `queryKeys.usage.byUser`; `['feed', id]` → `'feed'`; a key held in a same-file
+    const → the family of what it holds (`const companyKey = queryKeys.company(t)` → `queryKeys.company`). */
+function keyFamily(key: ts.Expression, seen = new Set<ts.Node>()): string {
   let e = unwrap(key)
+  if (ts.isIdentifier(e)) {
+    const binding = resolverOf(e.getSourceFile())(e)
+    const held = binding && ts.isVariableDeclaration(binding.decl) && binding.decl.parent.flags & ts.NodeFlags.Const ? binding.init : undefined
+    if (held && !seen.has(binding!.decl)) {
+      seen.add(binding!.decl)
+      return keyFamily(held, seen)
+    }
+  }
   while (ts.isCallExpression(e)) e = unwrap(e.expression)
   if (ts.isArrayLiteralExpression(e)) return e.elements[0]?.getText() ?? '[]'
   return e.getText()
@@ -358,18 +376,6 @@ function unheldGates(source: string, fileName: string, shared: Set<string>): Gat
  */
 type Allow = Record<string, { sites: string[]; reason: string }>
 const ALLOW: Allow = {
-  'app/admin/layout.tsx': {
-    sites: ['isLoading [queryKeys.currentUser]'],
-    reason:
-      'A failed /me renders null (`!user`) and redirects: the admin pages, and any observer in them, mount only ' +
-      'with a user, so no child refetches the failure and the skeleton cannot loop.',
-  },
-  'app/dashboard/watchlist/page.tsx': {
-    sites: ['!isReady || isLoading [queryKeys.currentUser, queryKeys.watchlistInsights]'],
-    reason:
-      'A failed /me renders null (`!hasUser`), so nothing below mounts over it. Its watchlist-insights query is ' +
-      'shared only with the dashboard page, another route: nothing this page renders observes it.',
-  },
   'app/delete-account/page.tsx': {
     sites: ['isLoading [queryKeys.currentUser]'],
     reason:
@@ -387,8 +393,8 @@ const ALLOW: Allow = {
       "(AskCopilotRail), which observes /me, is FilingWorkspace's copilotBody, outside the swap.",
   },
 }
-const MAX_ALLOWLIST_SIZE = 4
-const MAX_PINNED_SITES = 5
+const MAX_ALLOWLIST_SIZE = 2
+const MAX_PINNED_SITES = 3
 
 /**
  * The gates `allow` does not pin, each pin covering one gate. A gate that reads a fetch flag of a shared query
@@ -621,10 +627,10 @@ describe('a page loading gate over a shared query holds its shown failure (rule-
     expect(offendersIn(loading, allow)).toEqual([])
   })
 
-  it("the admin layout's and the watchlist page's pins do not cover a fetch flag folded into their pinned names", () => {
+  it("the admin layout's and the watchlist page's held gates fail once a fetch flag is folded into a name they read", () => {
     const fold = (file: string, edits: Array<[string, string]>) => {
       let source = readFileSync(path.join(frontendRoot, file), 'utf8')
-      expect(offendersIn(new Map([[file, unheldGates(source, file, shared)]]), ALLOW)).toEqual([])
+      expect(unheldGates(source, file, shared)).toEqual([])
       for (const [from, to] of edits) {
         expect(source).toContain(from)
         source = source.replace(from, to)
@@ -632,15 +638,21 @@ describe('a page loading gate over a shared query holds its shown failure (rule-
       return offendersIn(new Map([[file, unheldGates(source, file, shared)]]), ALLOW)
     }
     expect(fold('app/admin/layout.tsx', [
-      ['const { data: user, isLoading } = useQuery({', 'const { data: user, isLoading: firstLoad, isFetching } = useQuery({'],
-      ['  const isAdmin = ', '  const isLoading = firstLoad || isFetching\n  const isAdmin = '],
-    ])).toEqual([expect.stringMatching(/^app\/admin\/layout\.tsx:\d+: isLoading \[queryKeys\.currentUser\] reads a fetch flag of queryKeys\.currentUser$/)])
-    expect(fold('app/dashboard/watchlist/page.tsx', [
-      ['const { data: user, isLoading } = useQuery({', 'const { data: user, isLoading, isFetching } = useQuery({'],
-      ['isReady: !isLoading,', 'isReady: !isLoading && !isFetching,'],
+      ['const { data: user, isPending } = userQuery', 'const { data: user, isPending: firstLoad, isFetching } = userQuery'],
+      ['  const isAdmin = ', '  const isPending = firstLoad || isFetching\n  const isAdmin = '],
     ])).toEqual([
       expect.stringMatching(
-        /^app\/dashboard\/watchlist\/page\.tsx:\d+: !isReady \|\| isLoading \[queryKeys\.currentUser, queryKeys\.watchlistInsights\] reads a fetch flag of queryKeys\.currentUser$/,
+        /^app\/admin\/layout\.tsx:\d+: isPending && !userFailure\.failed \[queryKeys\.currentUser\] reads a fetch flag of queryKeys\.currentUser$/,
+      ),
+    ])
+    expect(fold('app/dashboard/watchlist/page.tsx', [
+      [
+        'const { data: user, isPending: userPending } = userQuery',
+        'const { data: user, isPending: firstLoad, isFetching } = userQuery\n  const userPending = firstLoad || isFetching',
+      ],
+    ])).toEqual([
+      expect.stringMatching(
+        /^app\/dashboard\/watchlist\/page\.tsx:\d+: \(userPending && !userFailure\.failed\) \|\| \(isLoading && !failure\.failed\) \[queryKeys\.currentUser\] reads a fetch flag of queryKeys\.currentUser$/,
       ),
     ])
   })
@@ -652,6 +664,17 @@ describe('a page loading gate over a shared query holds its shown failure (rule-
     expect(unheldGates(settings, 'app/dashboard/settings/page.tsx', shared)).toEqual([])
     const old = unheldGates(settings.replace(held, 'if (userLoading) {'), 'app/dashboard/settings/page.tsx', shared)
     expect(old.map(pin)).toEqual(['userLoading [queryKeys.currentUser]'])
+  })
+
+  it('reads a key held in a same-file const as the family it holds, never by the const\'s name', () => {
+    const families = (source: string) => [...observedFamilies(source, 'fixture.tsx')]
+    expect(families('const companyKey = queryKeys.company(t)\nuseQuery({ queryKey: companyKey })')).toEqual(['queryKeys.company'])
+    expect(families('const companyKey = queryKeys.tickerCompany(t)\nuseQuery({ queryKey: companyKey })')).toEqual(['queryKeys.tickerCompany'])
+    expect(families('const k = queryKeys.usage.byUser(id)\nconst key = k\nuseQuery({ queryKey: key })')).toEqual(['queryKeys.usage.byUser'])
+    expect(families("const key = ['feed', id] as const\nuseQuery({ queryKey: key })")).toEqual(["'feed'"])
+    // A let can be reassigned, and a parameter holds what each caller hands it: both stay read by their name.
+    expect(families('let key = queryKeys.company(t)\nkey = other\nuseQuery({ queryKey: key })')).toEqual(['key'])
+    expect(families('function F({ queryKey }) { return useQuery({ queryKey: queryKey }) }')).toEqual(['queryKey'])
   })
 
   it('finds the shared queries it is meant to guard', () => {

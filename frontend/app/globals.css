@@ -14,11 +14,14 @@
      Roboto shadow it on Windows/Android.
    - data: Geist Mono + tabular-nums — money, %, tickers, XBRL, verbatim
      excerpts, Ask-this-Filing output. Columns must never jitter.
-   Editorial serif (Newsreader) is opt-in for long-form filing reading only.
+   Editorial serif (Newsreader) is opt-in for the filing's own words: long-form filing reading, and
+   inside the product a passage the server located, set as a marked block (D-044).
 ============================================================================= */
 :root {
-  /* next/font self-hosts under HASHED family names exposed ONLY as CSS vars
-     (--font-inter / --font-geist-mono / --font-newsreader — layout.tsx Option A):
+  /* next/font declares each family under its plain name ("Inter", with an "Inter
+     Fallback"), so two loader calls of one family collide under it (E147: app/fonts.ts
+     declares each once, held by tests/unit/oneFontInstance.spec.ts), and exposes it as a
+     CSS var (--font-inter / --font-geist-mono / --font-newsreader), which is the contract:
      every stack LEADS with its next/font variable, literals are fallbacks
      (Option B <link> / non-Next consumers). EXCEPTION: --font-body is
      system-first BY DESIGN — -apple-system stays first (Apple hardware renders
@@ -35,6 +38,13 @@
   /* Heading ink: ONE value — same espresso as body text (hierarchy comes from
      size + weight, not a second ink). Walnut #3A2E26 retired. */
   --heading-color: #1A1A17;
+
+  /* The checked Checkbox's check in dark (components/ui/Checkbox.tsx): the forms plugin's own check
+     path, drawn in navy #0B1120 (background.dark), the ink every dark primary state puts on Light Sage.
+     Navy on brand-dark is 7.8:1; the plugin's white check on it would be 2.4:1. Applied as
+     dark:checked:[background-image:var(--check-navy)]; tests/unit/checkboxRecipe.spec.tsx reads the
+     fill from here. */
+  --check-navy: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='%230B1120' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
 
   /* Tracking ramp — SF-style dynamic tracking: tracked OUT at caption sizes,
      progressively tighter as display sizes grow. Sign flips near 20px.
@@ -78,6 +88,19 @@
        behind the bar — opening the desktop Ask pane scrolls its composer clear of the bar.
        Unset without the bar (0px). Gate: tests/unit/bottomChromeLadder.spec.ts. */
     scroll-padding-bottom: var(--consent-inset, 0px);
+    /* The sticky site header reserves the top of the scrollport (--site-header-h, components/Header.tsx;
+       4rem before the first measurement and on routes without it): a keyboard focus, an anchor jump or a
+       scrollIntoView lands below the bar, never behind it (WCAG 2.2 SC 2.4.11). A section's own scroll
+       margin adds only its room beyond the header. Gate: tests/unit/headerOffsetReadsTheVariable.spec.ts,
+       tests/e2e/header-covers-nothing.spec.ts. */
+    scroll-padding-top: var(--site-header-h, 4rem);
+  }
+  /* A focus inside the site header needs no room: the header is stuck in view, and the padding, which counts its open
+     mobile menu, would scroll the page behind the menu at every Tab through it, and move the page when a control in
+     the bar took focus while scrolled. The padding steps aside while focus is there; a browser without :has() keeps
+     it. Gate: tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/e2e/header-covers-nothing.spec.ts. */
+  html:has([data-site-header]:focus-within) {
+    scroll-padding-top: 0px;
   }
   @media (prefers-reduced-motion: reduce) {
     html {
@@ -183,7 +206,10 @@
    The product's own behaviour made visible: a located passage is highlighted, a cited figure
    carries a bracketed marker, and the marker's twin sits in a margin on the line it belongs to.
    Theme pairs switch on .dark (DESIGN_SYSTEM.md §2). A mark never sits on a figure (the Separate
-   Signals Rule); the tint is a surface, never a text fill. */
+   Signals Rule); the tint is a surface, never a text fill. Inside the product the device marks every
+   passage the server located (D-044): the filing page's Risks rows (a marker, its twin and a marked
+   block) and the Source pane's located passage, whose ::highlight paint takes .en-mark's tint and
+   hairline (highlightInDom.ts, below the reader rules). */
 .en-mark {
   background: linear-gradient(transparent 62%, #ECF2EE 62%); /* brand-weak */
   box-shadow: inset 0 -2px 0 #CFE0D6; /* brand-border */
@@ -194,19 +220,106 @@
   background: linear-gradient(transparent 62%, rgba(127, 178, 149, 0.14) 62%); /* brand-weak-dark */
   box-shadow: inset 0 -2px 0 rgba(127, 178, 149, 0.28); /* brand-border-dark */
 }
+/* Approved C5 promotional emphasis, shared by every headline/brand promise through BrandEmphasis.
+   Its genuine italic face is local to those phrases; located-passage paint keeps the recipe above. */
+.en-mark.en-hero-emphasis {
+  /* The heading isolates this layer below neighboring glyphs. */
+  position: relative;
+  z-index: -1;
+  display: inline-block;
+  max-width: 100%;
+  /* Keep the phrase together where it fits; enlarged text can wrap between its words. */
+  white-space: normal;
+  vertical-align: baseline;
+  line-height: 0.9;
+  /* The 1px top trim clears the preceding line's descender at 2× pixel density. */
+  padding: calc(0.04em - 1px) 0.18em 0.06em;
+  margin-inline: -0.1em;
+  border-radius: theme('borderRadius.DEFAULT');
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--font-hero-italic), var(--font-heading);
+  font-style: italic;
+  font-synthesis: none;
+  color: theme('colors.text.primary.light');
+}
+.en-mark.en-hero-emphasis::before {
+  content: '';
+  position: absolute;
+  /* Zero on one line; a wrapped box gains descender clearance without moving its text. */
+  inset: max(0px, calc(6% - 0.06em)) 0 0;
+  background: theme('colors.brand.strong-dark');
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
+}
+.dark .en-mark.en-hero-emphasis {
+  color: theme('colors.background.dark / 90%');
+}
+/* Keep the stop with the phrase, while its words can wrap inside the filled box. The group's
+   intrinsic minimum keeps the final word, padding and stop together even at enlarged text. */
+.en-hero-emphasis-group {
+  display: inline-block;
+  max-width: 100%;
+  min-width: min-content;
+  white-space: nowrap;
+}
+.en-hero-emphasis-group > .en-hero-emphasis {
+  margin-inline-end: 0;
+  min-width: min-content;
+  max-width: calc(100% - 0.1em);
+  /* Longer promotional phrases include p/y descenders; keep their ink inside the full fill. */
+  padding-bottom: 0.18em;
+}
+.en-hero-emphasis-group > .en-hero-emphasis::before {
+  /* Cap the wrapped-box inset to enclose capitals while clearing the preceding descender. */
+  top: max(0px, min(calc(6% - 0.06em), calc(0.06em - 1px)));
+}
+/* At enlarged text sizes, borrow only the side space needed by an oversized phrase and stop.
+   Fitting groups keep their normal alignment; ordinary mobile text stays above this threshold. */
+@container (width < 13rem) {
+  .en-hero-emphasis-group {
+    max-width: 100%;
+    margin-inline: 0;
+    /* The transform creates a stacking context; keep the whole group below neighboring ink. */
+    position: relative;
+    z-index: -1;
+    transform: translateX(min(0px, calc((100cqi - 100%) / 2)));
+  }
+  .en-hero-emphasis-group > .en-hero-emphasis {
+    margin-inline-start: 0;
+    max-width: calc(100% - 0.3em);
+  }
+}
+@container (width < 9rem) {
+  .en-hero-emphasis-group > .en-hero-emphasis {
+    /* Leave visible screen-edge clearance around long words at the narrowest enlarged measure. */
+    padding-inline: 0.12em;
+  }
+}
 /* A marked block: the located passage, in the filing's voice, with the bar on its left edge. */
 .en-marked {
   border-left: 3px solid #4F7A63; /* brand */
   background: #ECF2EE; /* brand-weak */
   /* Square corners: a stripe never sits on a rounded container (DESIGN.md, the side-tab stripe). */
   border-radius: 0;
+  /* The block quotes the filing, so the browser adds no hyphen to its words: a Chromium that carries
+     a hyphenation dictionary (CI's does, the container's does not) hyphenated ordinary words at every
+     width under auto hyphenation, "re-sults" at 1440px. A word longer than the block's measure (a
+     phone under 200% text) breaks inside the block, never past it: on the landing's card at 320px
+     under 200% text the measure was 115px, and seven words ran up to 49px past the block. Below a
+     measure MarkedCopy's margin gives way first, and the block's side padding narrows
+     (markedBlockInsetClass), which leaves that card about 139px. */
+  -webkit-hyphens: manual;
+  hyphens: manual;
+  overflow-wrap: anywhere;
 }
 .dark .en-marked {
   border-left-color: #7FB295; /* brand-dark */
   background: rgba(127, 178, 149, 0.14); /* brand-weak-dark */
 }
 /* The margin: a gutter with a hairline on its inner edge; marks are absolutely positioned on
-   the line of the marker they twin (features/marketing/components/MarkedCopy.tsx measures them). */
+   the line of the marker they twin (components/ui/MarkedCopy.tsx measures them). */
 .en-margin {
   position: relative;
   border-right: 1px solid #CFE0D6; /* brand-border */
@@ -296,12 +409,13 @@
    "Filing Reader" spec DC. TWO classes, ONE layout:
 
    - .filing-reader — the REAL filing viewer (Item 1A, MD&A, notes). The
-     editorial serif's ONE surface: Newsreader 19/1.7, opsz auto. Serif =
-     the filing's own words.
+     editorial serif's long-form surface: Newsreader 19/1.7, opsz auto.
+     Serif = the filing's own words.
    - .markdown-body — markdown that is NOT the filing's own words (its only
      app consumer today is the AI-generated summary). Body sans, default
-     size — UI, AI summaries and Ask output never render serif, so the
-     serif register stays unambiguous.
+     size — UI, AI summaries and Ask output stay sans, except a passage the
+     server located, which the summary sets as a marked block in the serif
+     (D-044), so the serif still means the filing's own words.
 
    SHARED LAYOUT (both classes):
    - MEASURE lives on the CHILDREN (68ch), never globally; tables, figures
@@ -423,10 +537,25 @@
 
 /* links — Tailwind preflight strips BOTH anchor color and underline, so links
    inside the reader/summary rendered indistinguishable from body text (caught
-   by review on #497). Accent ink + 4px-offset underline, both themes. */
-:is(.markdown-body, .filing-reader) a {
-  @apply text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark;
+   by review on #497). A prose link prints words the product does not write
+   (the filing's own, the model's), a figure or a date among them, so it rests
+   in its prose's own ink, marked by a quiet underline (the tertiary ink; the
+   secondary on navy), and takes sage, its underline with it, only under the
+   pointer, keyboard focus drawing the brand ring (D-030: sage never colours a
+   number at rest). The whole label turns: an emphasis inside it set in an ink
+   of its own (the Copilot's bold, in the primary ink) takes the link's sage
+   too. The Copilot's answers (.copilot-answer) take the same rule.
+   A citation chip there ([data-citation-kind], CitationChip's anchor when no
+   viewer is mounted, as in the homepage's Ask demo) is no prose link and keeps
+   its own chip. A link that wraps draws its ring around each of its lines
+   (box-decoration-clone). Gates: brandCopyRules.spec.ts rule 2, its stylesheet
+   check; tests/e2e/prose-links.spec.ts, what the cascade paints. */
+:is(.markdown-body, .filing-reader, .copilot-answer) a:not([data-citation-kind]) {
+  @apply rounded-sm underline decoration-text-tertiary-light underline-offset-4 box-decoration-clone transition-colors duration-fast;
+  @apply hover:text-brand-strong hover:decoration-current focus-visible:outline-none focus-visible:shadow-ring-brand;
+  @apply dark:decoration-text-secondary-dark dark:hover:text-brand-strong-dark dark:hover:decoration-current dark:focus-visible:shadow-ring-brand-dark;
 }
+:is(.markdown-body, .filing-reader, .copilot-answer) a:not([data-citation-kind]):hover * { color: inherit; }
 
 :is(.markdown-body, .filing-reader) blockquote {
   @apply border-brand-border dark:border-brand-border-dark text-text-secondary-light dark:text-text-secondary-dark;
@@ -484,7 +613,9 @@
    in features/filings/components/copilot/highlightInDom.ts (CITATION_HIGHLIGHT_CSS). lightningcss
    (Next 16.3's CSS pipeline) does not know the ::highlight() pseudo-element: it emits a SelectorError
    warning and, with error recovery, keeps the rule, but Next's build surfaces that as "Parsing CSS
-   source code failed" on every build. Keep its colour in step with .citation-flash below. */
+   source code failed" on every build. It is the device's mark (D-044): .en-mark's tint and 2px
+   hairline above, light and dark, held to them by tests/unit/highlightInDom.spec.ts. .citation-flash
+   below is the block's attention pulse, which fades; the mark is what stays. */
 @keyframes citation-flash {
   0% { background-color: rgba(79, 122, 99, 0.30); }
   100% { background-color: transparent; }

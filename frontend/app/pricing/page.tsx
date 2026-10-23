@@ -12,14 +12,15 @@ import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { CheckIcon } from '@/lib/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import SecondaryHeader from '@/components/SecondaryHeader'
-import { Badge, Button, Card, Notice, Switch } from '@/components/ui'
+import { Button, Card, Notice, Switch } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
-import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
+import { ANALYSIS_LINES, FILING_FORMS_LINE, FREE_SUMMARY_LIMIT, PRO_FAIR_USE_LINE, TRIAL_DAYS, shipped } from '@/lib/planLimits'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { PRO_PRICING } from './prices'
 import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
+import { takeCarriedReturnNotice, useCarryReturnNotice } from '@/features/subscriptions/lib/returnNotice'
 import { registerHrefWithRedirect, stashPostAuthRedirect } from '@/lib/postAuthRedirect'
 
 interface CurrentUser {
@@ -37,33 +38,47 @@ interface CurrentUser {
 // while it lived in PricingContent the whole body (H1, plans, prices, FAQ) shipped as the spinner
 // fallback and crawlers saw no content. Renders nothing — it resolves the incoming billing cycle
 // and reacts to Stripe's return params without removing the plans from server HTML.
-function PricingQueryEffects({ onBillingResolved }: { onBillingResolved: (cycle: BillingCycle) => void }) {
+function PricingQueryEffects({ onBillingResolved, onCheckoutCanceled }: {
+  onBillingResolved: (cycle: BillingCycle) => void
+  onCheckoutCanceled: () => void
+}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const requestedBilling = searchParams.get('billing')
+  const checkoutCanceled = searchParams.get('canceled') === 'true'
 
   useEffect(() => {
     onBillingResolved(billingCycleFromQuery(requestedBilling))
   }, [requestedBilling, onBillingResolved])
 
+  // Stripe's cancel_url (backend routers/subscriptions.py) returns here with ?canceled=true; the page
+  // says so beside its intro. The flag is read once, then dropped from the address (other params kept),
+  // so a reload, a history entry or a bookmark of the return URL does not say it again. Presentation
+  // only: nothing about the plan or checkout changes.
   useEffect(() => {
-    // Handle success/cancel from Stripe
+    if (!checkoutCanceled) return
+    onCheckoutCanceled()
+    const rest = new URLSearchParams(searchParams.toString())
+    rest.delete('canceled')
+    const query = rest.toString()
+    router.replace(query ? `/pricing?${query}` : '/pricing', { scroll: false })
+  }, [checkoutCanceled, searchParams, router, onCheckoutCanceled])
+
+  useEffect(() => {
+    // Handle success from Stripe: refresh subscription status
     if (searchParams.get('success') === 'true') {
-      // Refresh subscription status
       router.refresh()
-    }
-    if (searchParams.get('canceled') === 'true') {
-      // Handle cancellation
     }
   }, [searchParams, router])
 
   return null
 }
 
-function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
+function PricingContent({ billingCycle, setBillingCycle, billingResolved, checkoutCanceled }: {
   billingCycle: BillingCycle
   setBillingCycle: (cycle: BillingCycle) => void
   billingResolved: boolean
+  checkoutCanceled: boolean
 }) {
   const router = useRouter()
   const yearlyLabelId = useId()
@@ -242,20 +257,26 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       price: '$0',
       period: 'forever',
       description: 'For reading a few filings a month',
-      features: [
-        `${FREE_SUMMARY_LIMIT} summaries per month`,
-        'Access to all filings',
-        'The same summaries Pro reads',
-        'Company search',
-        'Historical filing access',
-      ],
+      // 20-F lists only while NEXT_PUBLIC_ENABLE_FPI_FILINGS mirrors the API's flag (tasks/todo.md F39):
+      // lib/planLimits.ts FILING_FORMS_LINE, read through shipped().
+      features: shipped([
+        { text: `${FREE_SUMMARY_LIMIT} summaries per month` },
+        FILING_FORMS_LINE,
+        { text: 'The same summaries Pro reads' },
+        { text: 'Company search' },
+        { text: 'Historical filing access' },
+      ]),
       // Only the genuinely-free user is "on" the Free plan. A Pro user (paid or trialing) would
-      // otherwise see "Current plan" on BOTH cards, which reads as a contradiction.
+      // otherwise see "Current plan" on BOTH cards, which reads as a contradiction. Nor is a Pro
+      // account offered the guest's access CTA ("Request an invite" or "Create a free account") for
+      // a plan it does not need: its disabled Free button names the plan, a fact and no call to action.
       cta: !accountResolved
         ? unresolvedCta
-        : isAuthenticated && !subscription?.is_pro
-        ? 'Current plan'
-        : access.cta,
+        : !isAuthenticated
+        ? access.cta
+        : subscription?.is_pro
+        ? 'Free plan'
+        : 'Current plan',
       disabled: !accountResolved || isAuthenticated,
       priceId: null,
       betaOriginal: null,
@@ -269,15 +290,17 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       betaOriginal: showBetaOffer ? proPriceDisplay : null,
       billingNote: showBetaOffer ? null : billingNote,
       description: 'For deeper filing research',
-      features: [
-        'Unlimited summaries',
-        'Unlimited Multi-Period Analysis: 10-year trends, quarterly deltas & AI narrative',
-        'Ask this Filing: Get answers on any filing',
-        'Hourly filing alerts',
-        '8-K filing alerts',
-        'PDF, CSV & Excel exports',
-        'Priority support',
-      ],
+      // Multi-Period Analysis and its Excel workbook list only while the analysis route ships (it 404s
+      // with the flag off): lib/planLimits.ts types those lines once and shipped() reads the flag.
+      features: shipped([
+        { text: 'Unlimited summaries' },
+        ANALYSIS_LINES.pricingPro,
+        { text: 'Ask this Filing, with cited passages you can check' },
+        { text: 'Hourly filing alerts' },
+        { text: '8-K filing alerts' },
+        ANALYSIS_LINES.exports,
+        { text: 'Priority support' },
+      ]),
       cta: !accountResolved
         ? unresolvedCta
         : isPaidPro
@@ -287,7 +310,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
         : showBetaOffer
         ? 'Claim Pro'
         : trialEligible
-        ? 'Start 7-day free trial'
+        ? `Start ${TRIAL_DAYS}-day free trial`
         : 'Upgrade to Pro',
       // Trialing counts as current-plan: their card-required trial IS a live subscription that
       // auto-charges at trial end; an enabled buy button here creates a duplicate (see comment
@@ -295,7 +318,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       disabled: !accountResolved || isPaidPro || isTrialing,
       priceId: billingCycle === 'monthly' ? 'price_pro_monthly' : 'price_pro_yearly',
       popular: true,
-      trialNote: trialEligible ? 'First 7 days free · cancel anytime, no charge' : null,
+      trialNote: trialEligible ? `First ${TRIAL_DAYS} days free · cancel anytime, no charge` : null,
     },
   ]
 
@@ -317,20 +340,31 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
             downgrade at any time.
           </p>
 
+          {/* The return URL says only that the visitor came back from Stripe's checkout, not what was charged,
+              so the notice claims no payment outcome. The plan, once the subscription query resolves, is the
+              one fact it adds. */}
+          {checkoutCanceled && (
+            <div className="mt-6 mx-auto max-w-2xl text-left">
+              <Notice
+                variant="info"
+                title="You returned from checkout"
+                description={
+                  !accountResolved ? undefined : subscription?.is_pro ? 'Your plan is Pro.' : 'You can choose a plan below.'
+                }
+              />
+            </div>
+          )}
+
           {identityUnavailable ? (
             // Identity failed with nothing retained: an account error, not a guest view. Each Notice is
-            // keyed: unkeyed, React would reuse "Retry account check" as "Retry subscription" when one
+            // keyed: unkeyed, React would reuse the account Notice's Retry as the details Notice's when one
             // Notice replaces the other, and a Retry must never outlive its Notice (RetryButton).
             <div key="identity" className="mt-6 mx-auto max-w-2xl text-left">
               <Notice
                 variant="error"
                 title="We couldn't check your account"
-                description={identityFailure.error instanceof Error ? identityFailure.error.message : 'Please retry.'}
-                action={
-                  <RetryButton size="sm" failures={[identityFailure]} focusTarget={introRef}>
-                    Retry account check
-                  </RetryButton>
-                }
+                description={identityFailure.error instanceof Error ? identityFailure.error.message : 'Please try again.'}
+                action={<RetryButton size="sm" failures={[identityFailure]} focusTarget={introRef} />}
               />
             </div>
           ) : (subscriptionFailure.failed || usageFailure.failed) && (
@@ -340,37 +374,27 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
                 title={subscriptionStale ? "We couldn't refresh your plan details" : "We couldn't load all pricing details"}
                 description={
                   subscriptionStale
-                    ? 'Showing your last loaded plan. Retry to refresh it.'
+                    ? 'Showing your last loaded plan. Try again to refresh it.'
                     : subscriptionFailure.error instanceof Error
                     ? subscriptionFailure.error.message
                     : usageFailure.error instanceof Error
                     ? usageFailure.error.message
-                    : 'Please retry.'
+                    : 'Please try again.'
                 }
-                action={
-                  // Each Retry only for its own failure: a press on a healthy one would do nothing.
-                  <>
-                    {subscriptionFailure.failed && (
-                      <RetryButton size="sm" failures={[subscriptionFailure]} focusTarget={introRef}>
-                        Retry subscription
-                      </RetryButton>
-                    )}
-                    {usageFailure.failed && (
-                      <RetryButton size="sm" failures={[usageFailure]} focusTarget={introRef}>
-                        Retry usage
-                      </RetryButton>
-                    )}
-                  </>
-                }
+                // One Retry for both reads: a press retries only the failed ones (RetryButton), and two
+                // buttons with the one label side by side could not say which read each retries.
+                action={<RetryButton size="sm" failures={[subscriptionFailure, usageFailure]} focusTarget={introRef} />}
               />
             </div>
           )}
 
           {/* Billing Toggle — free users only. A card-trial user already holds a subscription
               (their buy CTA is disabled as current-plan), so the toggle would only move a
-              button they can't press. */}
+              button they can't press. The row wraps where it cannot fit (a 320px phone at 200%
+              text), the yearly label on a centred line of its own; on one line it pushed
+              "Monthly" past the screen's left edge. */}
           {!isPaidPro && !isTrialing && (
-            <div className="mt-8 flex items-center justify-center space-x-4">
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
               <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                 Monthly
               </span>
@@ -424,7 +448,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
 
         {/* Beta member: Pro is free via the 100%-off forever promo. Make their $0 total clear. */}
         {showBetaOffer && (
-          <div className="mb-8 mx-auto max-w-2xl rounded-2xl border border-brand-strong/40 bg-brand-strong/10 p-5 text-center dark:border-brand-strong-dark/40 dark:bg-brand-strong-dark/15">
+          <div className="mb-8 mx-auto max-w-2xl rounded-2xl border border-brand-strong/40 bg-brand-strong/10 p-cap-5 text-center dark:border-brand-strong-dark/40 dark:bg-brand-strong-dark/15">
             <p className="text-base font-semibold text-text-heading-light dark:text-text-heading-dark">
               You&apos;re a beta member. Pro is on us.
             </p>
@@ -449,16 +473,12 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
             <Card
               key={plan.name}
               elevation={plan.popular ? 'e3' : 'e2'}
-              className={`relative p-8 ${
+              className={`relative p-cap-6 sm:p-cap-8 ${
                 plan.popular ? 'ring-1 ring-inset ring-brand-strong dark:ring-brand-dark' : ''
               }`}
             >
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge variant="solid">Most popular</Badge>
-                </div>
-              )}
-
+              {/* No "Most popular" badge: the beta has no popularity figure behind one, and the brand ring
+                  already carries the emphasis. */}
               <div className="text-center mb-6">
                 {/* h2: each plan is a top-level section of the page, beside the FAQ (no h1 → h3 skip). */}
                 <h2 className="text-2xl font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">{plan.name}</h2>
@@ -490,7 +510,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
               <ul className="space-y-4 mb-8">
                 {plan.features.map((feature, index) => (
                   <li key={index} className="flex items-start">
-                    <CheckIcon className="h-5 w-5 text-success-light dark:text-success-dark mr-3 flex-shrink-0 mt-0.5" />
+                    <CheckIcon aria-hidden="true" className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark mr-3 flex-shrink-0 mt-0.5" />
                     <span className="text-text-secondary-light dark:text-text-secondary-dark">{feature}</span>
                   </li>
                 ))}
@@ -499,6 +519,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
               <Button
                 variant={plan.popular ? 'primary' : 'secondary'}
                 size="lg"
+                wrap
                 className="w-full"
                 onClick={() => (plan.priceId ? handleUpgrade(plan.priceId) : handleGetStartedFree())}
                 disabled={plan.disabled || (isAuthenticated && !plan.priceId)}
@@ -532,16 +553,24 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
                 You&apos;ll need to upgrade to Pro to generate more summaries. Your existing summaries remain accessible.
               </p>
             </div>
+            {/* The Pro fair-use guardrail, stated once app-wide (lib/planLimits.ts PRO_FAIR_USE_LINE, E58): the plan
+                cards keep "Unlimited", and this answer says what bounds it. */}
+            <div>
+              <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
+                Are Pro summaries unlimited?
+              </h3>
+              <p className="text-text-secondary-light dark:text-text-secondary-dark">{PRO_FAIR_USE_LINE}</p>
+            </div>
             {ENABLE_PRO_TRIAL && (
               <div>
                 <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
-                  How does the 7-day free trial work?
+                  How does the {TRIAL_DAYS}-day free trial work?
                 </h3>
                 <p className="text-text-secondary-light dark:text-text-secondary-dark">
-                  Subscribing to Pro monthly for the first time starts with 7 days free. A card is
+                  Subscribing to Pro monthly for the first time starts with {TRIAL_DAYS} days free. A card is
                   required to start the trial, but you won&apos;t be charged until the trial ends.
-                  Cancel anytime in those 7 days from your billing settings and you pay nothing.
-                  After 7 days, your subscription starts automatically. One trial per account.
+                  Cancel anytime in those {TRIAL_DAYS} days from your billing settings and you pay nothing.
+                  After {TRIAL_DAYS} days, your subscription starts automatically. One trial per account.
                 </p>
               </div>
             )}
@@ -552,11 +581,11 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
               <p className="text-text-secondary-light dark:text-text-secondary-dark">
                 You can cancel anytime and keep Pro until the end of the period you&apos;ve paid for,
                 with no further charges. Except where required by law, fees already paid are
-                non-refundable (see our Terms). If you have a billing question, email me at{' '}
-                <a href={contactMailto('billing')} className="text-brand-strong underline dark:text-brand-strong-dark">
+                non-refundable (see our Terms). For billing questions, email{' '}
+                <a href={contactMailto('billing')} className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                   {CONTACT_ADDRESSES.billing}
                 </a>. For product help, use{' '}
-                <a href={contactMailto('support')} className="text-brand-strong underline dark:text-brand-strong-dark">
+                <a href={contactMailto('support')} className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                   {CONTACT_ADDRESSES.support}
                 </a>.
               </p>
@@ -573,6 +602,15 @@ export default function PricingPage() {
   // until it resolves, do not record a view or offer a checkout for the wrong incoming cycle.
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('yearly')
   const [billingResolved, setBillingResolved] = useState(false)
+  const [checkoutCanceled, setCheckoutCanceled] = useState(false)
+  const noteCheckoutCanceled = useCallback(() => setCheckoutCanceled(true), [])
+  // The flag is gone from the address once read, so a remount in the same commit (any parent that swaps
+  // its element type) keeps the notice (features/subscriptions/lib/returnNotice.ts).
+  useCarryReturnNotice('pricing-checkout-canceled', checkoutCanceled)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- takes the notice a remount in this same commit carried; it exists only after the commit that unmounted the page showing it
+    if (takeCarriedReturnNotice('pricing-checkout-canceled')) setCheckoutCanceled(true)
+  }, [])
   const resolveBilling = useCallback((cycle: BillingCycle) => {
     setBillingCycle(cycle)
     setBillingResolved(true)
@@ -581,9 +619,14 @@ export default function PricingPage() {
   return (
     <>
       <Suspense fallback={null}>
-        <PricingQueryEffects onBillingResolved={resolveBilling} />
+        <PricingQueryEffects onBillingResolved={resolveBilling} onCheckoutCanceled={noteCheckoutCanceled} />
       </Suspense>
-      <PricingContent billingCycle={billingCycle} setBillingCycle={setBillingCycle} billingResolved={billingResolved} />
+      <PricingContent
+        billingCycle={billingCycle}
+        setBillingCycle={setBillingCycle}
+        billingResolved={billingResolved}
+        checkoutCanceled={checkoutCanceled}
+      />
     </>
   )
 }

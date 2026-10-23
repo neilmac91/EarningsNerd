@@ -98,7 +98,8 @@ Confirmed: **no user PII reaches the LLM** (only filing text + financial metrics
 **Already in the codebase (verified — no work needed):**
 - **Analytics consent-gating:** `posthog-provider.tsx` already waits for consent, opts out when
   analytics are rejected, masks inputs, and reacts to consent changes; the cookie banner already
-  has reject-all == accept-all and respects DNT. (Sentry loads unconditionally as error-monitoring
+  has reject-all == accept-all and is the only control: Do Not Track changes nothing (D-049).
+  (Sentry loads unconditionally as error-monitoring
   under legitimate interest — defensible; revisit if you add session replay.)
 - **Privacy Policy** (`/privacy`) and **DSAR UI** (export + delete with type-to-confirm in
   `/dashboard/settings`) already exist.

@@ -11,9 +11,9 @@ import {
   InsiderTransaction,
 } from '@/features/insiders/api/insiders-api'
 import { ApiError } from '@/lib/api/client'
-import { fmtCurrency, fmtScale } from '@/lib/format'
+import { fmtCurrency, fmtShares } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
-import { Badge, Card, DataTable, Skeleton, type Column } from '@/components/ui'
+import { Badge, Card, DataTable, MissingValue, SegmentedControl, Skeleton, type Column } from '@/components/ui'
 
 const WINDOWS: { days: number; label: string }[] = [
   { days: 90, label: '90D' },
@@ -23,19 +23,19 @@ const WINDOWS: { days: number; label: string }[] = [
 
 const MAX_ROWS = 8
 
-const fmtShares = (n: number | null | undefined): string =>
-  n === null || n === undefined ? '—' : fmtScale(Math.abs(n), { digits: 1 })
+/** A dollar amount's size, compact ("$1.8M"); the panel states its direction beside it, in words or a sign. */
+const fmtMoney = (n: number): string => fmtCurrency(Math.abs(n), { compact: true })
 
-const fmtMoney = (n: number | null | undefined): string =>
-  n === null || n === undefined ? '—' : fmtCurrency(Math.abs(n), { compact: true })
-
-function roleOf(t: InsiderTransaction): string {
+/** The insider's role: the filing's title for them, else the relationships it flags, else null, and the cell shows
+ *  MissingValue read as "no role listed". Not "unavailable": with every flag false the filing names none of the
+ *  three roles, and the words claim no more than the row lists. */
+function roleOf(t: InsiderTransaction): string | null {
   if (t.insider_title) return t.insider_title
   const roles: string[] = []
   if (t.is_officer) roles.push('Officer')
   if (t.is_director) roles.push('Director')
   if (t.is_ten_pct_owner) roles.push('10% Owner')
-  return roles.join(', ') || '—'
+  return roles.join(', ') || null
 }
 
 // 'A' (acquired) is a buy, 'D' (disposed) a sell; fall back to the label text.
@@ -45,8 +45,12 @@ function isBuy(t: InsiderTransaction): boolean {
 }
 
 // v2 DataTable columns: Shares/Value/Date are numeric (data face + tabular-nums,
-// right-aligned); the Type cell tone carries buy/sell as gain/loss — the label
-// text ("Buy"/"Sell") means color is never the sole cue.
+// right-aligned); the Type cell tone carries buy/sell as gain/loss, with a ▲/▼ glyph
+// and the label text ("Buy"/"Sell"), so color is never the sole cue. A trade's missing share count, value or
+// date is MissingValue alone in its cell, read as "unavailable"; the summary never needs it, since the API always
+// sends its share counts and a missing dollar value falls back to them. A missing name reads "name unavailable", so
+// the cell never reads as the insider being unavailable: a Form 4 always names its reporting owner, so the name is
+// one this read lacks.
 const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
   {
     key: 'insider',
@@ -54,9 +58,9 @@ const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
     render: (t) => (
       <>
         <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
-          {t.insider_name ?? '—'}
+          {t.insider_name ?? <MissingValue label="name unavailable" />}
         </span>
-        <span className="block text-xs text-text-tertiary-light dark:text-text-secondary-dark">{roleOf(t)}</span>
+        <span className="block text-xs text-text-tertiary-light dark:text-text-secondary-dark">{roleOf(t) ?? <MissingValue label="no role listed" />}</span>
       </>
     ),
   },
@@ -66,6 +70,7 @@ const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
     tone: (t) => (isBuy(t) ? 'gain' : 'loss'),
     render: (t) => (
       <>
+        <span aria-hidden="true">{isBuy(t) ? '▲' : '▼'} </span>
         {t.transaction_label ?? (isBuy(t) ? 'Buy' : 'Sell')}
         {t.is_10b5_1 && (
           <Badge variant="neutral" icon={null} className="ml-1.5">
@@ -75,9 +80,9 @@ const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
       </>
     ),
   },
-  { key: 'shares', header: 'Shares', align: 'right', numeric: true, render: (t) => fmtShares(t.shares) },
-  { key: 'value', header: 'Value', align: 'right', numeric: true, render: (t) => fmtMoney(t.value) },
-  { key: 'date', header: 'Date', align: 'right', numeric: true, render: (t) => t.transaction_date ?? '—' },
+  { key: 'shares', header: 'Shares', align: 'right', numeric: true, render: (t) => (t.shares == null ? <MissingValue /> : fmtShares(t.shares)) },
+  { key: 'value', header: 'Value', align: 'right', numeric: true, render: (t) => (t.value == null ? <MissingValue /> : fmtMoney(t.value)) },
+  { key: 'date', header: 'Date', align: 'right', numeric: true, render: (t) => t.transaction_date ?? <MissingValue /> },
 ]
 
 export default function InsiderActivityPanel({
@@ -113,8 +118,8 @@ export default function InsiderActivityPanel({
   // panel (the live SEC read is disabled for FPIs via `enabled` above).
   if (isFpi) {
     return (
-      <Card as="section" className="mb-8 p-6">
-        <h2 className="mb-3 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider Activity</h2>
+      <Card as="section" className="mb-8 p-cap-6">
+        <h2 className="mb-3 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider activity</h2>
         <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Insider (Form&nbsp;4) reporting is not generally required for foreign private issuers, so
           no open-market insider trades are available for this company.
@@ -149,26 +154,17 @@ export default function InsiderActivityPanel({
   const signalMagnitude = signalIsValue ? fmtMoney(signalValue) : `${fmtShares(signalValue)} shares`
 
   return (
-    <Card as="section" className="mb-8 p-6">
+    <Card as="section" className="mb-8 p-cap-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider Activity</h2>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Select window">
-          {WINDOWS.map((w) => (
-            <button
-              key={w.days}
-              type="button"
-              onClick={() => setWindowDays(w.days)}
-              aria-pressed={w.days === windowDays}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                w.days === windowDays
-                  ? 'bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
-                  : 'bg-background-light text-text-secondary-light hover:bg-brand-weak dark:bg-white/5 dark:text-text-secondary-dark dark:hover:bg-white/10'
-              }`}
-            >
-              {w.label}
-            </button>
-          ))}
-        </div>
+        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider activity</h2>
+        <SegmentedControl
+          label="Time window"
+          size="adaptive"
+          fullWidth
+          value={String(windowDays)}
+          onChange={(v) => setWindowDays(Number(v))}
+          options={WINDOWS.map((w) => ({ value: String(w.days), label: w.label, mono: true }))}
+        />
       </div>
 
       {isLoading && !hasTrades ? (
@@ -182,46 +178,54 @@ export default function InsiderActivityPanel({
         </p>
       ) : (
         <>
-          {/* Signal headline */}
-          <div className="mb-5 flex items-center gap-3">
+          {/* Signal headline: the row wraps as a Notice's does (components/ui/Notice.tsx), so where the text cannot
+              keep its 9rem beside the glyph it goes under it at the card's whole width. Each separator dot is held to
+              the word before it by a no-break space, so a line never starts with one. */}
+          <div className="mb-5 flex flex-wrap items-center gap-3">
             <SignalIcon className={`h-7 w-7 shrink-0 ${signalColor}`} aria-hidden="true" />
-            <div>
+            <div className="min-w-0 flex-[1_1_9rem]">
               <p className={`text-lg font-semibold ${signalColor}`}>
                 {signalText}
-                {direction !== 'flat' && <> · {signalMagnitude}</>}
+                {direction !== 'flat' && <>&nbsp;· {signalMagnitude}</>}
               </p>
               {planSells > 0 && (
                 <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
                   Excludes {fmtShares(planSells)} shares sold under pre-scheduled 10b5-1 plans
                   {summary.discretionary_net_shares !== summary.net_shares && (
-                    <> · discretionary net {fmtShares(summary.discretionary_net_shares)} shares</>
+                    <>&nbsp;· discretionary net {fmtShares(summary.discretionary_net_shares, { signed: true })} shares</>
                   )}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Buy / Sell / Net stats */}
-          <div className="mb-5 grid grid-cols-3 gap-3">
-            <div className="rounded-lg bg-gain-soft p-3 dark:bg-gain-soft-dark">
-              <p className="text-xs font-medium text-gain-light dark:text-gain-dark">
+          {/* Buy / Sell / Net stats: equal tracks of at least 5.5rem, as many as fit, so the three tinted tiles keep
+              one width whatever their figures say and stack when enlarged text leaves no room for three (a rem
+              minimum grows with the text). A figure never breaks inside itself: at 320px under 200% text "$900.0K"
+              broke as "$900.0" over "K", and with the card's capped inset (E120) a stacked tile holds it whole; a
+              figure with a space ("+10.0K shares") still wraps at its space. The figures are in the data face
+              (frontend/DESIGN_SYSTEM.md §3; lessons/frontend-variable-text-must-not-size-a-wrapping-row.md,
+              lessons/frontend-check-brand-layouts-at-200-percent-text.md). */}
+          <div className="mb-5 grid grid-cols-[repeat(auto-fit,minmax(min(5.5rem,100%),1fr))] gap-3">
+            <div className="min-w-0 rounded-lg bg-gain-soft p-3 dark:bg-gain-soft-dark">
+              <p className="text-xs font-medium text-gain-text dark:text-gain-dark">
                 Buys ({summary.buy_count})
               </p>
-              <p className="mt-0.5 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                {fmtMoney(summary.buy_value) !== '—' ? fmtMoney(summary.buy_value) : `${fmtShares(summary.buy_shares)} sh`}
+              <p className="mt-0.5 font-data text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
+                {summary.buy_value != null ? fmtMoney(summary.buy_value) : `${fmtShares(summary.buy_shares)} sh`}
               </p>
             </div>
-            <div className="rounded-lg bg-loss-soft p-3 dark:bg-loss-soft-dark">
-              <p className="text-xs font-medium text-loss-light dark:text-loss-dark">
+            <div className="min-w-0 rounded-lg bg-loss-soft p-3 dark:bg-loss-soft-dark">
+              <p className="text-xs font-medium text-loss-text dark:text-loss-dark">
                 Sells ({summary.sell_count})
               </p>
-              <p className="mt-0.5 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                {fmtMoney(summary.sell_value) !== '—' ? fmtMoney(summary.sell_value) : `${fmtShares(summary.sell_shares)} sh`}
+              <p className="mt-0.5 font-data text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
+                {summary.sell_value != null ? fmtMoney(summary.sell_value) : `${fmtShares(summary.sell_shares)} sh`}
               </p>
             </div>
-            <div className="rounded-lg bg-background-light p-3 dark:bg-white/5">
+            <div className="min-w-0 rounded-lg bg-background-light p-3 dark:bg-white/5">
               <p className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">Net</p>
-              <p className={`mt-0.5 text-sm font-semibold ${signalColor}`}>
+              <p className={`mt-0.5 font-data text-sm font-semibold tabular-nums ${signalColor}`}>
                 {direction === 'sell' ? '−' : direction === 'buy' ? '+' : ''}
                 {signalMagnitude}
               </p>
@@ -239,7 +243,7 @@ export default function InsiderActivityPanel({
       )}
 
       <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-        Open-market Form 4 trades from SEC EDGAR. 10b5-1 marks pre-scheduled trades (weaker signal).
+        Open-market Form 4 trades from SEC EDGAR. 10b5-1 marks a trade scheduled in advance under a trading plan.
       </p>
     </Card>
   )

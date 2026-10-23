@@ -38,6 +38,16 @@ const flat = {
   dark: '#9CA3AF',  // gray-400
 }
 
+// E120 (chief design, 2026-10-19): under enlarged text a surface's inset stops growing at narrow widths.
+// Padding step N becomes `p-cap-N` = min(N × 0.25rem, N vw): the step itself from a 25rem viewport up
+// (400px at the default text size, 800px under a 200% text setting) and N% of the viewport below it, so a
+// p-6 card keeps 24px at 1440px, 23.4px at 390px and 19.2px at 320px, and 19.2px at 320px under 200% text
+// instead of 48px. A Card, a frame and a dialog's sections take it from step 5, a frame inside a dialog's
+// body from step 4 (gate: the ESLint rule earningsnerd/surface-padding-cap, eslint.designRules.mjs, which
+// reads these keys). The Modal panel's scroll padding takes the same value as its capped inset.
+const PADDING_CAP_STEPS = [3, 4, 5, 6, 8, 10]
+const paddingCap = Object.fromEntries(PADDING_CAP_STEPS.map((n) => [`cap-${n}`, `min(${n * 0.25}rem, ${n}vw)`]))
+
 module.exports = {
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
@@ -165,9 +175,9 @@ module.exports = {
 
       fontFamily: {
         // Type v2 — three FIXED roles (not user-selectable). Must mirror the CSS vars in globals.css.
-        // next/font self-hosts under HASHED family names exposed ONLY as CSS vars
-        // (--font-inter / --font-geist-mono / --font-newsreader — see layout.tsx Option A), so
-        // every stack LEADS with its next/font variable; the literals are fallbacks (Option B /
+        // next/font declares each family under its plain name and exposes it as a CSS var
+        // (--font-inter / --font-geist-mono / --font-newsreader, declared once in app/fonts.ts), the
+        // contract, so every stack LEADS with its next/font variable; the literals are fallbacks (Option B /
         // non-Next consumers). EXCEPTION: `body` is system-first BY DESIGN — -apple-system stays
         // first and the var precedes generic system-ui; do not "fix" it to lead. PACKAGING GATE:
         // every fontFamily stack and :root font var leads with its next/font variable (body: the
@@ -245,6 +255,10 @@ module.exports = {
         18: '4.5rem',
         gutter: '1.5rem',
       },
+      // The capped inset steps (PADDING_CAP_STEPS above): p-cap-6, px-cap-6, sm:p-cap-8 and the scroll padding
+      // that matches a capped inset (scroll-py-cap-6).
+      padding: paddingCap,
+      scrollPadding: paddingCap,
 
       boxShadow: {
         // Elevation scale (light-mode tuned; pair with ring/border in dark)
@@ -253,10 +267,14 @@ module.exports = {
         e3: '0 4px 6px -1px rgba(16, 24, 40, 0.10), 0 2px 4px -2px rgba(16, 24, 40, 0.10)',
         e4: '0 10px 15px -3px rgba(16, 24, 40, 0.10), 0 4px 6px -4px rgba(16, 24, 40, 0.10)',
         e5: '0 20px 25px -5px rgba(16, 24, 40, 0.12), 0 8px 10px -6px rgba(16, 24, 40, 0.10)',
-        // Focus rings — use with focus-visible for keyboard users
-        'ring-brand': '0 0 0 3px rgba(79, 122, 99, 0.50)',
-        'ring-brand-dark': '0 0 0 3px rgba(127, 178, 149, 0.55)',
-        'ring-error': '0 0 0 3px rgba(185, 28, 28, 0.45)',
+        // Opaque focus ink holds 3:1 on page, panel and tinted controls in each theme.
+        // Inset twins keep clipped scroll regions and calendar cells visibly focused.
+        'ring-brand': '0 0 0 3px rgba(79, 122, 99, 1)',
+        'ring-brand-dark': '0 0 0 3px rgba(127, 178, 149, 1)',
+        'ring-brand-inset': 'inset 0 0 0 3px rgba(79, 122, 99, 1)',
+        'ring-brand-inset-dark': 'inset 0 0 0 3px rgba(127, 178, 149, 1)',
+        'ring-error': '0 0 0 3px rgba(185, 28, 28, 1)',
+        'ring-error-dark': '0 0 0 3px rgba(248, 113, 113, 1)',
         // Brand glow — sage (replaces the legacy mint glow)
         'glow-brand': '0 0 40px -10px rgba(79, 122, 99, 0.30)',
         'glow-brand-sm': '0 0 20px -5px rgba(79, 122, 99, 0.20)',
@@ -284,7 +302,7 @@ module.exports = {
           '0%': { opacity: '0', transform: 'translateY(20px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
-        // Skeleton→content handoff (DataTable, AskFilingAnswer) on the loading flip.
+        // Skeleton→content handoff (DataTable, the account settings and watchlist pages) on the loading flip.
         'content-in': { from: { opacity: '0' }, to: { opacity: '1' } },
         // count-up keyframe RETIRED — it was a fade impostor. The real signature
         // is hooks/useCountUp (rAF, duration-slow, ease-standard, tabular-nums).

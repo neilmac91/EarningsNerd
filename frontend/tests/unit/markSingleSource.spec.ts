@@ -181,3 +181,51 @@ describe('the EN monogram has one source and is never redrawn', () => {
     }
   })
 })
+
+/**
+ * The social card (public/og-image.png, rendered from og-template.html by `npm run brand:assets`) carries
+ * C5 claim emphasis as well as the mark. Keep its solid fill, genuine scoped italic and spacing
+ * aligned with the live claim treatment (docs/brand/06-system.md §6). Its fixed canvas breaks
+ * before the complete phrase rather than letting it wrap at 84px (OG-01, BG-18).
+ */
+describe('the social card template keeps C5 claim emphasis whole and consistent', () => {
+  const template = readFileSync(path.join(FRONTEND, 'scripts/brand/og-template.html'), 'utf8')
+  const markRule = template.match(/\.claim-emphasis\s*\{([^}]*)\}/)?.[1] ?? ''
+  const headline = template.match(/<div class="headline">([\s\S]*?)<\/div>/)?.[1] ?? ''
+  const marked = [...headline.matchAll(/<span class="claim-emphasis">([\s\S]*?)<\/span>/g)]
+
+  it('uses the approved full fill, crisp ink and comfortable enclosure without a hairline', () => {
+    expect(markRule, 'the claim rule is missing').not.toBe('')
+    expect(markRule).toMatch(/background:\s*#98C5AD\s*;/i)
+    expect(markRule).toMatch(/color:\s*#1A1A17\s*;/i)
+    expect(markRule).toMatch(/border-radius:\s*8px\s*;/)
+    expect(markRule).toMatch(/border:\s*0\s*;/)
+    expect(markRule).toMatch(/box-shadow:\s*none\s*;/)
+    expect(markRule).toMatch(/padding:\s*calc\(0\.04em - 1px\) 0\.18em 0\.06em\s*;/)
+    expect(markRule).toMatch(/margin-inline:\s*-0\.1em 0\s*;/)
+    expect(markRule).toMatch(/line-height:\s*0\.9\s*;/)
+  })
+
+  it('loads genuine Inter italic 600 only for the claim', () => {
+    const faces = [...template.matchAll(/@font-face\s*\{([^}]*)\}/g)].map((match) => match[1])
+    const claimFaces = faces.filter((face) => /font-family:\s*'Inter Claim'\s*;/.test(face))
+    expect(claimFaces).toHaveLength(1)
+    expect(claimFaces[0]).toMatch(/font-style:\s*italic\s*;/)
+    expect(claimFaces[0]).toMatch(/font-weight:\s*600\s*;/)
+    expect(claimFaces[0]).toContain("./fonts/Inter-Variable-Italic-latin.woff2")
+    expect(markRule).toMatch(/font-family:\s*'Inter Claim', 'Inter', sans-serif\s*;/)
+    expect(markRule).toMatch(/font-style:\s*italic\s*;/)
+    expect(markRule).toMatch(/font-weight:\s*600\s*;/)
+    expect(markRule).toMatch(/font-synthesis:\s*none\s*;/)
+    expect(faces.filter((face) => /font-family:\s*'Inter'\s*;/.test(face)))
+      .toEqual([expect.stringMatching(/font-style:\s*normal\s*;/)])
+  })
+
+  it('starts the marked phrase on its own line and never breaks inside it', () => {
+    expect(marked.length, 'the headline carries one marked phrase').toBe(1)
+    const [whole, phrase] = marked[0]
+    expect(phrase, 'a line break inside the marked phrase').not.toMatch(/<br/i)
+    expect(headline.slice(0, headline.indexOf(whole)), 'the headline breaks before the marked phrase').toMatch(/<br\s*\/?>\s*$/i)
+    expect(markRule).toMatch(/white-space:\s*nowrap\s*;/)
+  })
+})

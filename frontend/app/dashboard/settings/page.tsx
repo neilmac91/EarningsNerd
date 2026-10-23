@@ -1,7 +1,7 @@
 'use client'
 
-import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useState } from 'react'
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUserSafe, exportUserData, deleteUserAccount } from '@/features/auth/api/auth-api'
 import { useRouter } from 'next/navigation'
@@ -83,7 +83,7 @@ export default function SettingsPage() {
     <div className="mb-8">
       <Link
         href="/dashboard"
-        className="inline-flex items-center text-sm text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark mb-4"
+        className="rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center text-sm text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark mb-4"
       >
         <ArrowLeftIcon className="h-4 w-4 mr-1" />
         Back to dashboard
@@ -106,7 +106,7 @@ export default function SettingsPage() {
               Profile's email, display name and Save; Billing's plan and usage rows and its action. Raw bones
               are aria-hidden: one status names the wait. */}
           <div role="status" aria-label="Loading your settings">
-            <Card className="p-6 mb-6">
+            <Card className="p-cap-6 mb-6">
               <Skeleton className="mb-4 h-7 w-32" />
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -120,7 +120,7 @@ export default function SettingsPage() {
                 <Skeleton className="h-10 w-36 rounded-lg" />
               </div>
             </Card>
-            <Card className="p-6 mb-6">
+            <Card className="p-cap-6 mb-6">
               <Skeleton className="mb-4 h-7 w-28" />
               {[0, 1].map((i) => (
                 <div key={i} className="flex items-center justify-between py-3">
@@ -146,7 +146,7 @@ export default function SettingsPage() {
           {/* Profile — email (read-only) + editable display name */}
           <ProfileForm />
 
-          {/* Billing — plan, usage, trial countdown, renew/cancel, manage portal */}
+          {/* Billing: plan, usage, the trial end date, renewal or access-until date, manage portal */}
           <BillingPanel />
 
           {/* Connected accounts & sessions */}
@@ -159,7 +159,7 @@ export default function SettingsPage() {
           <NotificationPreferencesForm />
 
           {/* Data Export */}
-          <Card className="p-6 mb-6">
+          <Card className="p-cap-6 mb-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
@@ -167,19 +167,21 @@ export default function SettingsPage() {
                 </h2>
                 <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
                   Download the account records available through this feature, including your profile, search history,
-                  saved summaries, watchlist, and usage statistics in JSON format.
+                  saved summaries, watchlist and usage statistics, in JSON format.
                 </p>
                 <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mb-4">
-                  For other personal information or a data-rights request, see the Privacy Policy.
+                  For other personal information or data rights requests, see the Privacy Policy below.
                 </p>
               </div>
             </div>
 
             <Button
+              wrap
+              className="max-w-full"
               onClick={handleExportData}
               loading={exportMutation.isPending}
               loadingText="Exporting..."
-              leftIcon={<DownloadSimpleIcon className="h-4 w-4" />}
+              leftIcon={<DownloadSimpleIcon className="h-4 w-4 shrink-0" />}
             >
               Download my data
             </Button>
@@ -194,27 +196,27 @@ export default function SettingsPage() {
             {exportMutation.isError && (
               <div className="mt-4 flex items-center text-sm text-error-light dark:text-error-dark">
                 <WarningCircleIcon className="h-4 w-4 mr-2" />
-                <span>Failed to export data. Please try again or email{' '}
-                    <a href={contactMailto('privacy')} className="underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.privacy}</a>.</span>
+                <span>Could not export your data. Please try again or email{' '}
+                  <a href={contactMailto('privacy')} className="break-all underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.privacy}</a>.</span>
               </div>
             )}
           </Card>
 
           {/* Delete Account — Card with the border overridden to the loss hairline */}
-          <Card className="border-loss-light/40 p-6 dark:border-loss-dark/30">
+          <Card className="border-loss-light/40 p-cap-6 dark:border-loss-dark/30">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <h2 className="text-xl font-semibold text-error-light dark:text-error-dark mb-2">
                   Delete account
                 </h2>
                 <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
-                  Permanently delete your account and its associated application records. Some billing, audit and provider records can remain, as explained in the Privacy Policy. This action cannot be undone.
+                  Delete your account and associated application records. Some billing, audit and provider records can remain, as explained in the Privacy Policy. This action cannot be undone.
                 </p>
               </div>
             </div>
 
             {!showDeleteConfirm ? (
-              <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} leftIcon={<TrashIcon className="h-4 w-4" />}>
+              <Button variant="destructive" wrap className="max-w-full" onClick={() => setShowDeleteConfirm(true)} leftIcon={<TrashIcon className="h-4 w-4 shrink-0" />}>
                 Delete my account
               </Button>
             ) : (
@@ -234,11 +236,11 @@ export default function SettingsPage() {
                         <li>Delete all your search history</li>
                         <li>Delete all your saved summaries and notes</li>
                         <li>Delete your watchlist</li>
-                        <li>Attempt to cancel Stripe subscriptions; cancellation can fail, so check your billing separately</li>
-                        <li>Remove the usage records associated with your account in the application database</li>
+                        <li>Attempt to cancel active Stripe subscriptions; check billing if cancellation fails</li>
+                        <li>Remove associated application database usage records</li>
                       </ul>
                       <p className="text-sm text-error-light dark:text-error-dark font-medium">
-                        This action cannot be undone and the deleted application records cannot be recovered.
+                        The deleted application records cannot be recovered through the service.
                       </p>
                     </div>
                   </div>
@@ -257,24 +259,26 @@ export default function SettingsPage() {
                     type="text"
                     value={deleteConfirmText}
                     onChange={(e) => setDeleteConfirmText(e.target.value)}
-                    className={inputClasses({ className: 'focus:border-error-light focus:shadow-ring-error' })}
+                    className={inputClasses({ tone: 'danger' })}
                     placeholder="delete my account"
                     disabled={deleteMutation.isPending}
                   />
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                   {/* `loading` (not disabled) while pending — loading keeps the resting
                       fill and refuses activation; disabled is only for the unmet confirm text. */}
                   <Button
                     variant="destructive"
+                    wrap
+                    className="max-w-full"
                     onClick={handleDeleteAccount}
                     disabled={deleteConfirmText.toLowerCase() !== 'delete my account'}
                     loading={deleteMutation.isPending}
                     loadingText="Deleting..."
-                    leftIcon={<TrashIcon className="h-4 w-4" />}
+                    leftIcon={<TrashIcon className="h-4 w-4 shrink-0" />}
                   >
-                    Confirm Deletion
+                    Delete my account
                   </Button>
 
                   <Button
@@ -292,8 +296,8 @@ export default function SettingsPage() {
                 {deleteMutation.isError && (
                   <div className="flex items-center text-sm text-error-light dark:text-error-dark">
                     <WarningCircleIcon className="h-4 w-4 mr-2" />
-                    <span>Failed to delete account. Please email{' '}
-                      <a href={contactMailto('privacy')} className="underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.privacy}</a>.</span>
+                    <span>We could not delete your account. Contact support.{' '}
+                      <a href={contactMailto('privacy')} className="break-all underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.privacy}</a>.</span>
                   </div>
                 )}
               </div>
@@ -304,7 +308,7 @@ export default function SettingsPage() {
           <div className="mt-8 text-sm text-text-tertiary-light dark:text-text-secondary-dark text-center">
             <p>
               For more information about how we handle your data, please read our{' '}
-              <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
+              <Link href="/privacy" className="rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-brand-strong dark:text-brand-strong-dark hover:underline">
                 Privacy Policy
               </Link>
               .

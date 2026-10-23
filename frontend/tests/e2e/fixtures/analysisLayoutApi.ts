@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { expect, type Page } from '@playwright/test'
 import type { AnalysisCompletion, AnalysisCoverage, AnalysisDataset } from '../../../features/analysis/api/analysis-api'
+import type { DataNotesDataset, DataNoteQuality } from '../../../features/analysis/lib/dataNotes'
+import type { FactProvenance } from '../../../features/analysis/lib/provenance'
 
 /**
  * Approved redesign VISUAL fixtures (reference commit and source hashes in the JSON).
@@ -12,6 +15,7 @@ import type { AnalysisCompletion, AnalysisCoverage, AnalysisDataset } from '../.
  * CI boots next start only: all API paths are answered here, with no backend or AI.
  */
 export type AnalysisState = 'clean' | 'legacy' | 'discrepancy'
+export type AnalysisGeometryState = 'captured' | 'edge' | 'annual'
 export type AnalysisTheme = 'light' | 'dark'
 type Fixture = { dataset: AnalysisDataset; completion: AnalysisCompletion & { type: 'complete' } }
 type Replacement = { path: Array<string | number>; value?: unknown; remove?: boolean }
@@ -30,6 +34,83 @@ function fixtureFor(state: AnalysisState): Fixture {
     if (replacement.remove) delete parent[key]
     else parent[key] = structuredClone(replacement.value)
   }
+  return fixture
+}
+
+// The captured projection remains separate from the historical prototype fixtures above.
+// Display metadata (unit, tone and period fields) comes from the archived map.
+// The quality-only projection omits lineage: complete the API envelope with
+// synthetic structural defaults, never archived or invented source operands.
+const captureBytes = readFileSync(path.join(__dirname, '../../unit/fixtures/meta-data-notes.json'))
+const capture = JSON.parse(captureBytes.toString()) as {
+  source: { snapshot_id: string; dataset_version: string }
+  dataset: DataNotesDataset
+}
+const projectedProvenance = (value: DataNoteQuality['provenance']): FactProvenance | null | undefined => value
+  ? { version: 1, formula: null, inputs: [], ...structuredClone(value) }
+  : value
+
+function geometryFixture(state: AnalysisGeometryState): Fixture {
+  expect(createHash('sha256').update(captureBytes).digest('hex')).toBe('67c83050dfd78bab0dd379f3e98806e429dbde024f412574091d595b85e33cad')
+  const fixture = fixtureFor('legacy')
+  fixture.dataset = {
+    ...fixture.dataset, ...structuredClone(capture.dataset),
+    series: capture.dataset.series.map(series => ({
+      ...structuredClone(archive.legacy.dataset.series.find(item => item.concept === series.concept)!),
+      ...structuredClone(series),
+      cagr_provenance: projectedProvenance(series.cagr_provenance),
+      window_pp_provenance: projectedProvenance(series.window_pp_provenance),
+      points: series.points.map(point => ({
+        ...structuredClone(point),
+        provenance: projectedProvenance(point.provenance),
+        qoq_provenance: projectedProvenance(point.qoq_provenance),
+        yoy_provenance: projectedProvenance(point.yoy_provenance),
+      })),
+    })),
+    periods: structuredClone(archive.legacy.dataset.periods),
+    inflections: [],
+    snapshot_id: state === 'captured' ? capture.source.snapshot_id : `geometry-${state}`,
+    dataset_version: state === 'captured' ? capture.source.dataset_version : `geometry-${state}`,
+    data_as_of: null,
+  }
+  // These cases test presentation only; no prose from another state claims these values.
+  fixture.completion = { ...fixture.completion, narrative: '## The trajectory\nSynthetic geometry fixture.', citations: [], grounded: 0 }
+  const dataset = fixture.dataset
+  const review = (reasons: string[]) => ({ version: 1, method: 'calculated' as const, validation: 'needs_review' as const, reasons, formula: null, inputs: [] })
+  if (state === 'edge') {
+    // More than 26 reason groups force actual multi-letter affixes through table formatting.
+    dataset.series.slice(0, 3).forEach((series, row) => series.points.forEach((point, column) => {
+      point.provenance = review([`layout_reason_${row * 12 + column}`])
+    }))
+    const revenue = dataset.series.find(series => series.concept === 'revenue')!
+    Object.assign(revenue.points.at(-1)!, { value: 0, qoq: 0, yoy: 0 })
+    const cash = dataset.series.find(series => series.concept === 'free_cash_flow')!
+    Object.assign(cash.points.at(-1)!, { value: null, qoq: null, yoy: null })
+    const margin = dataset.series.find(series => series.concept === 'operating_margin')!
+    Object.assign(margin.points[0], { value: -12345.678, qoq: 12345.678 })
+    const eps = dataset.series.find(series => series.concept === 'eps_diluted')!
+    eps.unit = 'CAD/shares'
+    Object.assign(eps.points[0], { value: -15154, qoq: null, yoy: 1234.567, yoy_provenance: review(['source_check_needed']) })
+    Object.assign(eps.points[2], { value: 0, qoq: 'nm' })
+    Object.assign(eps.points[3], { provenance: review(['unit_mismatch', 'source_check_needed']) })
+    Object.assign(eps.points[4], { provenance: review(['source_check_needed', 'unit_mismatch']) })
+    delete eps.points[5].provenance
+    delete eps.points[5].reconciled
+    delete eps.points[6].provenance
+    eps.points[6].reconciled = false
+  }
+  if (state === 'annual') {
+    dataset.mode = 'annual'
+    dataset.periods = Array.from({ length: 10 }, (_, index) => ({ key: `FY${2016 + index}`, fiscal_year: 2016 + index, fiscal_period: 'FY', period_end: `${2016 + index}-12-31` }))
+    dataset.period_key = 'FY2016..FY2025'
+    for (const series of dataset.series) {
+      series.points = series.points.slice(0, 10).map((point, index) => ({ ...point, period: dataset.periods[index].key, qoq: null, qoq_provenance: null }))
+      if (series.percent) Object.assign(series, { cagr: null, window_pp: -12.345, window_pp_range: dataset.period_key, window_pp_provenance: review(['source_check_needed']) })
+      else Object.assign(series, { cagr: 0.1234, cagr_window: dataset.period_key, cagr_provenance: review(['source_check_needed']) })
+    }
+  }
+  fixture.completion.n_periods = dataset.periods.length
+  fixture.completion.snapshot_id = dataset.snapshot_id!
   return fixture
 }
 
@@ -114,17 +195,16 @@ export const EXPECTED_TABLE_COMPARISON_REVIEWS = {
   discrepancy: { all: 3, earliest: 0, newest: 3 },
 } as const
 
-export async function openAnalysis(page: Page, baseURL: string, state: AnalysisState, theme: AnalysisTheme, textScale = 1) {
+/**
+ * The analysis page's API for a signed-in Pro reader, answered in the browser: META's company, coverage, dataset
+ * and narrative stream from `fixture` (the legacy state by default). Only the target frontend's own GET and HEAD
+ * reads reach the network; anything else is aborted, and an API path the page should not call is answered 404 and
+ * recorded in the returned traffic. Shared by openAnalysis and text-floors.spec.ts's /analysis entry.
+ */
+export async function answerAnalysisApi(page: Page, baseURL: string, fixture: Fixture = fixtureFor('legacy')) {
   const origin = new URL(baseURL).origin
-  const fixture = fixtureFor(state)
   const traffic = { dataset: 0, stream: 0, unexpectedApi: [] as string[], submittedRanges: [] as unknown[] }
   await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
-  await page.addInitScript(({ theme, textScale }) => {
-    localStorage.setItem('theme', theme)
-    localStorage.setItem('cookie_consent', JSON.stringify({ necessary: true, analytics: false, marketing: false, timestamp: '2026-10-10T00:00:00Z' }))
-    // Root text-size emulation, not a claim about native browser zoom. Apply before render.
-    if (textScale !== 1) document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${100 * textScale}%` }, { once: true })
-  }, { theme, textScale })
   await page.route('**/*', route => {
     const request = route.request()
     const url = new URL(request.url())
@@ -159,17 +239,44 @@ export async function openAnalysis(page: Page, baseURL: string, state: AnalysisS
     if (url.origin === origin && ['GET', 'HEAD'].includes(request.method())) return route.continue()
     return route.abort()
   })
-  await page.goto('/analysis?ticker=META')
-  await page.getByRole('button', { name: 'Quarterly', exact: true }).click()
+  return traffic
+}
+
+/** Runs the analysis in `mode` on /analysis?ticker=META, then waits for what only a finished run shows: the four KPI
+    cards, the metrics table's heading and the refresh control. */
+export async function runAnalysis(page: Page, mode: AnalysisDataset['mode']) {
+  await page.getByRole('button', { name: mode === 'annual' ? 'Annual' : 'Quarterly', exact: true }).click()
   await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
   await expect(page.locator('[data-analysis-kpi]')).toHaveCount(4)
   await expect(page.getByRole('heading', { name: 'Metrics by period', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Refresh analysis', exact: true })).toBeVisible()
+}
+
+export async function openAnalysis(page: Page, baseURL: string, state: AnalysisState | AnalysisGeometryState, theme: AnalysisTheme, textScale = 1, legacyEvidenceNote = false) {
+  const fixture = state === 'captured' || state === 'edge' || state === 'annual' ? geometryFixture(state) : fixtureFor(state)
+  if (legacyEvidenceNote) {
+    expect(state).toBe('legacy')
+    // The archived long FCF/net-income group has only passed citations. Give one
+    // operand the existing legacy concern for the folded-letter browser case;
+    // retain its financial value, calculation and source fields unchanged.
+    const operand = fixture.completion.citations.find(citation => citation.n === 23)!
+    operand.reconciled = false
+    operand.provenance = { ...operand.provenance!, validation: 'needs_review', reasons: ['legacy_calculation'] }
+  }
+  await page.addInitScript(({ theme, textScale }) => {
+    localStorage.setItem('theme', theme)
+    localStorage.setItem('cookie_consent', JSON.stringify({ necessary: true, analytics: false, marketing: false, timestamp: '2026-10-10T00:00:00Z' }))
+    // Root text-size emulation, not a claim about native browser zoom. Apply before render.
+    if (textScale !== 1) document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${100 * textScale}%` }, { once: true })
+  }, { theme, textScale })
+  const traffic = await answerAnalysisApi(page, baseURL, fixture)
+  await page.goto('/analysis?ticker=META')
+  await runAnalysis(page, fixture.dataset.mode)
   await page.evaluate(() => document.fonts.ready)
   await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /\bdark\b/ : /^(?!.*\bdark\b)/)
   expect(traffic.dataset).toBe(1)
   expect(traffic.stream).toBe(1)
-  expect(traffic.submittedRanges).toEqual([{ mode: 'quarterly', start_period: PERIODS[0], end_period: PERIODS.at(-1) }])
+  expect(traffic.submittedRanges).toEqual([{ mode: fixture.dataset.mode, start_period: fixture.dataset.periods[0].key, end_period: fixture.dataset.periods.at(-1)!.key }])
   expect(traffic.unexpectedApi).toEqual([])
   return traffic
 }

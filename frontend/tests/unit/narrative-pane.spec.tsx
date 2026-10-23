@@ -8,7 +8,9 @@ import NarrativePane, { type NarrativeState } from '@/features/analysis/componen
 import type { AnalysisCitation, AnalysisCompletion, AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import DataNotes from '@/features/analysis/components/DataNotes'
+import demo from '@/features/analysis/demo/demo-analysis.json'
 import type { NarrativePresentation } from '@/features/analysis/lib/narrativePresentation'
+import { groupQualityNotes } from '@/features/analysis/lib/dataNotes'
 
 const citation: AnalysisCitation = {
   n: 1,
@@ -54,25 +56,37 @@ describe('NarrativePane readable evidence', () => {
     expect(renderer).toContain(`f"${SOURCE_OPERANDS_PREFIX}{operands}."`)
   })
 
-  it('folds each finding without swallowing the next sentence, preserving its same source chips', () => {
+  it('keeps short findings inline without swallowing the next sentence or hiding their source chips', () => {
     const text = 'Cash conversion fell. Source operands: Free cash flow USD 1,746,000,000 in 2026Q2 [1]; Net income USD 15,848,000,000 in 2026Q2 [2]. Net income declined. Source operands: Net income USD 15,848,000,000 in 2026Q2 [2]. Watch cash next.'
     const { container } = renderText(text)
     expect(screen.getByText('Cash conversion fell.')).toBeInTheDocument()
     expect(screen.getByText('Net income declined.')).toBeInTheDocument()
     expect(screen.getByText('Watch cash next.')).toBeInTheDocument()
     const disclosures = Array.from(container.querySelectorAll('details')).filter((element) => element.textContent?.includes('behind this'))
-    expect(disclosures).toHaveLength(2)
-    expect(disclosures[0]).not.toHaveAttribute('open')
-    fireEvent.click(screen.getByText('Show the 2 figures behind this'))
-    expect(within(disclosures[0]).getByRole('list', { hidden: true })).toHaveAccessibleName('Figures behind this finding')
-    expect(within(disclosures[0]).getAllByRole('button', { hidden: true })).toHaveLength(2)
-    expect(disclosures[0]).toHaveTextContent('Q2 2026')
-    expect(disclosures[0]).toHaveTextContent('$1.7B')
+    expect(disclosures).toHaveLength(0)
+    const evidence = screen.getAllByRole('list', { name: 'Figures behind this finding' })
+    expect(evidence).toHaveLength(2)
+    expect(within(evidence[0]).getAllByRole('button')).toHaveLength(2)
+    expect(evidence[0]).toHaveTextContent('Free cash flow $1.7B, Q2 2026')
+    expect(evidence[0].querySelectorAll('[data-note-letter]')).toHaveLength(2)
     expect(document.getElementById('analysis-source-1')).toHaveTextContent('1.7B (1,746,000,000)')
     expect(document.getElementById('analysis-source-2')).toHaveTextContent('15.8B (15,848,000,000)')
   })
 
   it('compacts explicit-currency prose and preserves threshold precision, links and code', () => {
+    for (const { ratio, relation } of [
+      { ratio: '1.0033', relation: 'above' },
+      { ratio: '0.996', relation: 'below' },
+      { ratio: '1.00001', relation: 'above' },
+    ]) {
+      const text = `The current ratio was ${ratio}x, ${relation} 1.00x.`
+      const expected = `The current ratio was ${ratio}×, ${relation} 1.00×.`
+      expect.soft(compactNarrativeText(text), `${ratio} ${relation}: formatter`).toBe(expected)
+      const { container, unmount } = renderText(text)
+      expect.soft(container.querySelector('.markdown-body'), `${ratio} ${relation}: rendered prose`).toHaveTextContent(expected)
+      unmount()
+    }
+
     const { container } = renderText('Revenue was USD 60,801,000,000 in 2026Q2 [1]. EPS was EUR 6.23 per share. The current ratio was 1.00004x, above 1.00x. Other ratio 2.2256x. [Filing](https://example.com/2026Q2) and `USD 60,801,000,000 in 2026Q2`.')
     expect(container.querySelector('.markdown-body')).toHaveTextContent('Revenue was $60.8B in Q2 2026')
     expect(container.querySelector('.markdown-body')).toHaveTextContent('EPS was €6.23')
@@ -83,6 +97,24 @@ describe('NarrativePane readable evidence', () => {
   })
 
   it('preserves distinct close amounts across citation and Markdown nodes without rewriting the relation', () => {
+    {
+      const exact = 'Free cash flow of USD 19,960,000,000 [1] was below net income of USD 20,040,000,000 [2].'
+      expect.soft(compactNarrativeText(exact), '$19.96B below $20.04B: formatter').toBe(exact)
+      const citations: AnalysisCitation[] = [
+        { ...operands[0], value: 19960000000, excerpt: 'Free cash flow = 19,960,000,000 (2026Q2)' },
+        { ...operands[1], value: 20040000000, excerpt: 'Net income = 20,040,000,000 (2026Q2)' },
+      ]
+      const text = 'Free cash flow of **USD 19,960,000,000** [1] was below net income of _USD 20,040,000,000_ [2]. Source operands: Free cash flow USD 19,960,000,000 in 2026Q2 [1]; Net income USD 20,040,000,000 in 2026Q2 [2].'
+      const { container, unmount } = render(<NarrativePane state={doneState({ text, completion: doneCompletion({ narrative: text, citations, grounded: 2 }) })} />)
+      const prose = container.querySelector('.markdown-body')!
+      expect.soft(prose, '$19.96B below $20.04B: rendered relation').toHaveTextContent('Free cash flow of USD 19,960,000,000 [1]a was below net income of USD 20,040,000,000 [2]a')
+      expect.soft(prose, '$19.96B below $20.04B: no rounding collision').not.toHaveTextContent('$20.0B')
+      const evidence = screen.getByRole('list', { name: 'Figures behind this finding', hidden: true })
+      expect.soft(evidence, '$19.96B below $20.04B: free cash flow evidence').toHaveTextContent('Free cash flow USD 19,960,000,000')
+      expect.soft(evidence, '$19.96B below $20.04B: net income evidence').toHaveTextContent('Net income USD 20,040,000,000')
+      unmount()
+    }
+
     const exact = 'In 2026Q2, free cash flow of USD 1,001,000,000 [1] was below net income of USD 1,004,000,000 [2].'
     expect(compactNarrativeText(exact)).toBe('In Q2 2026, free cash flow of USD 1,001,000,000 [1] was below net income of USD 1,004,000,000 [2].')
     const { container } = renderText('In 2026Q2, free cash flow of **USD 1,001,000,000** [1] was below net income of _USD 1,004,000,000_ [2]. Source operands: Free cash flow USD 1,001,000,000 in 2026Q2 [1]; Net income USD 1,004,000,000 in 2026Q2 [2]. Revenue was USD 60,801,000,000. EPS EUR 6.231 per share was below EUR 6.234 per share.')
@@ -130,6 +162,52 @@ describe('NarrativePane readable evidence', () => {
     expect(evidence).toHaveTextContent('$1.746B')
     expect(evidence).toHaveTextContent('Q2 2026')
     expect(within(evidence).getByRole('button', { hidden: true })).toHaveAccessibleName(/Citation 1:/)
+    expect(evidence.closest('details')).toBeNull()
+  })
+
+  it('names original filing links by their source, figure and period', () => {
+    const sources = operands.map((operand) => ({ ...operand, source_url: 'https://www.sec.gov/Archives/edgar/data/1326801/000132680126000001/meta-20260630.htm' }))
+    render(<NarrativePane state={doneState({ completion: doneCompletion({ citations: sources }) })} />)
+    expect(screen.getByRole('link', { name: 'Original filing for source 1: free cash flow, Q2 2026' })).toHaveAttribute('href', sources[0].source_url)
+    expect(screen.getByRole('link', { name: 'Original filing for source 2: net income, Q2 2026' })).toHaveAttribute('href', sources[1].source_url)
+  })
+
+  it.each(['legacy', 'structured'] as const)('keeps every letter in a long %s evidence summary and restores disclosures after print', (mode) => {
+    const sources: AnalysisCitation[] = [
+      { ...operands[0], n: 1 },
+      { ...operands[1], n: 2, reconciled: false },
+      { ...operands[0], n: 3, provenance: { version: 1, method: 'reported', validation: 'needs_review', reasons: ['source_conflict'], formula: null, inputs: [] } },
+      { ...operands[1], n: 4 },
+    ]
+    const lead = 'Watch the cash conversion pattern.'
+    const tail = `${SOURCE_OPERANDS_PREFIX}${sources.map((source) => `${source.concept} USD ${source.value} in ${source.period} [${source.n}]`).join('; ')}.`
+    const text = `${lead}${tail}`
+    const presentation: NarrativePresentation = {
+      format_version: 'analysis-narrative-v1', snapshot_id: 'snapshot-1', data_notes_version: 1, offset_encoding: 'utf-16',
+      notes: { version: 1, notes: groupQualityNotes(sources).notes, totals: { reviewValues: 2, reviewComparisons: 0, unavailable: 0, passed: 0, unknown: 2, calculated: 0, total: 4 } },
+      evidence: [{ observation_id: 'cash_conversion', section: 'red_flags', tail: { start: lead.length, end: text.length, text: tail },
+        operands: sources.map((source) => ({ marker: `F${source.n}`, concept: source.concept!, label: source.concept!, value: source.value!, unit: 'USD', percent: false, period: source.period!, citation_id: source.n, derived: false, display_value: `$${source.value}` })),
+      }],
+    }
+    const completion = doneCompletion({ narrative: text, citations: sources, ...(mode === 'structured' ? { narrative_presentation: presentation } : {}) })
+    const empty: AnalysisDataset = { ticker: 'META', company_name: 'Meta Platforms', mode: 'quarterly', period_key: '2026Q2', periods: [], series: [], inflections: [] }
+    const { container } = render(<><DataNotes dataset={empty} /><NarrativePane state={doneState({ text, completion })} /></>)
+    const evidence = container.querySelector('.markdown-body details')!
+    expect(evidence).not.toHaveAttribute('open')
+    const summary = evidence.querySelector('summary')!
+    expect(summary).toHaveTextContent('Show the 4 source figures behind this · figures carry notes a, b, c')
+    expect(summary).not.toHaveClass('text-brand-strong')
+    expect(within(evidence).getAllByRole('button', { hidden: true })).toHaveLength(4)
+    const notes = container.querySelector<HTMLDetailsElement>('[data-analysis-data-notes] > details')!
+    notes.open = true
+    const prior = [...container.querySelectorAll('details')].map((details) => details.open)
+    expect(prior).toContain(false)
+    expect(prior).toContain(true)
+    fireEvent(window, new Event('beforeprint'))
+    fireEvent(window, new Event('beforeprint'))
+    expect([...container.querySelectorAll('details')].every((details) => details.open)).toBe(true)
+    fireEvent(window, new Event('afterprint'))
+    expect([...container.querySelectorAll('details')].map((details) => details.open)).toEqual(prior)
   })
 
   it.each(['legacy', 'structured'] as const)('folds the backend-produced compatibility fixture in %s tabs', (mode) => {
@@ -169,6 +247,17 @@ describe('NarrativePane readable evidence', () => {
       .toContain('-3.3pp (-3.25 percentage points)')
   })
 
+  it("reads a derived Q4 citation in the server's middot and in the em-dash a report cached before E45 carries", () => {
+    const derived = { ...citation, value: 25100000000, unit: 'USD', period: '2025Q4', derived: true }
+    const shown = [' · derived Q4', ' \u2014 derived Q4'].map((label) =>
+      citationDisplay({ ...derived, excerpt: `Revenue = 25,100,000,000 (2025Q4)${label}` }),
+    )
+    expect(shown[0]).toMatch(/^Revenue · Q4 2025 · /)
+    expect(shown[1]).toBe(shown[0])
+    expect(citationDisplay({ ...derived, excerpt: 'Revenue = 25,100,000,000 (2025Q4) derived Q4' }))
+      .toBe('Revenue = 25,100,000,000 (2025Q4) derived Q4')
+  })
+
   it('retains exact citation precision and describes a legacy calculation without implying recorded inputs', () => {
     const citations = [
       { ...citation, value: 26.065360767092647, excerpt: 'Net margin = 26.1% (2026Q2)', section_ref: 'XBRL · net_margin', provenance: { version: 1 as const, method: 'calculated' as const, validation: 'needs_review' as const, reasons: ['legacy_calculation'], formula: null, inputs: [] } },
@@ -201,7 +290,7 @@ describe('NarrativePane citation chips', () => {
     expect(note.closest('details')).toHaveAttribute('open')
     expect(note).toHaveFocus()
     expect(note).toHaveTextContent('A source check remains unresolved')
-    expect(screen.getByText('Sources · SEC XBRL values and computed figures')).toBeInTheDocument()
+    expect(screen.getByText('Sources · SEC XBRL values and calculated figures')).toBeInTheDocument()
     rerender(<NarrativePane state={doneState()} />)
     expect(document.querySelector('[data-note-kind="review"]')).not.toBeInTheDocument()
     expect(document.querySelector('[data-note-kind="unknown"]')).toBeInTheDocument()
@@ -233,7 +322,7 @@ describe('NarrativePane citation chips', () => {
     passed.series[0].points[0].provenance!.validation = 'passed'
     passed.series[0].points[0].provenance!.reasons = []
     rerender(<DataNotesProvider dataset={passed}><DataNotes dataset={passed} /><NarrativePane state={state} /></DataNotesProvider>)
-    expect(screen.getByText(/1 figure passed automated checks/)).toBeInTheDocument()
+    expect(screen.getByText(/No figures need review · 1 checked/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Citation 1:.*data note a/ }).querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
     expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('A source check remains unresolved')
   })
@@ -298,13 +387,48 @@ describe('NarrativePane citation chips', () => {
     expect(screen.queryByText('Some source references need attention')).not.toBeInTheDocument()
   })
 
+  it('says what the Cached badge knows in a visible line beside it, never in a title tooltip', () => {
+    render(<NarrativePane state={doneState({ completion: doneCompletion({ cached: true }) })} />)
+    // A phone and a keyboard never show a title, so the explanation is on the page, in muted ink.
+    expect(screen.getByText('Cached')).not.toHaveAttribute('title')
+    const line = screen.getByText('Served from an earlier run · regenerates if these figures change')
+    expect(line).toHaveClass('text-text-tertiary-light', 'dark:text-text-secondary-dark')
+    expect(line.parentElement).toBe(screen.getByText('Cached').parentElement)
+  })
+
+  it('shows no Cached line on a fresh run', () => {
+    render(<NarrativePane state={doneState()} />)
+    expect(screen.queryByText('Cached')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Served from an earlier run/)).not.toBeInTheDocument()
+  })
+
   it('replaces the verified/cached badges with a Sample badge in teaser mode (F3)', () => {
     const state = doneState({ completion: doneCompletion({ cached: true }) })
-    render(<NarrativePane state={state} sample />)
-    // Approximate demo figures must never wear the "verified" claim.
+    const { container } = render(<NarrativePane state={state} sample />)
+    // A saved sample run is not the reader's analysis: it never wears a live run's source count or Cached line.
     expect(screen.getByText('Sample data')).toBeInTheDocument()
     expect(screen.queryByText(/^\d+ sources?$/)).not.toBeInTheDocument()
     expect(screen.queryByText('Cached')).not.toBeInTheDocument()
-    expect(screen.getByText(/Sources · sample data/)).toBeInTheDocument()
+    expect(screen.queryByText(/Served from an earlier run/)).not.toBeInTheDocument()
+    // The sample is one saved run of the pipeline (D-046), and its labels say what it is in a reader's words.
+    expect(screen.getByText('Sources · sample data (one saved run)')).toBeInTheDocument()
+    const note = 'Sample data: figures and narrative from one saved analysis run. Run an analysis to see cited figures checked against SEC XBRL and source warnings shown for review.'
+    expect(screen.getByText('Sample data')).toHaveAttribute('title', note)
+    expect(container).toHaveTextContent(note)
+  })
+
+  it('never calls the sample approximate or illustrative, and never says "pipeline", a word readers do not know (D-046)', () => {
+    // The teaser's sample as the teaser renders it: the checked-in run's data notes and narrative, both in sample mode.
+    const dataset = demo.dataset as unknown as AnalysisDataset
+    const completion = demo.completion as unknown as AnalysisCompletion
+    const { container } = render(
+      <DataNotesProvider dataset={dataset}>
+        <DataNotes dataset={dataset} sample />
+        <NarrativePane state={{ status: 'done', text: completion.narrative, completion }} sample />
+      </DataNotesProvider>,
+    )
+    expect(container).toHaveTextContent('Data notes · sample data (one saved run)')
+    // The markup, so the badge's title and the other attributes are read with the text.
+    expect(container.innerHTML.match(/approximat\w*|illustrative\w*|pipeline\w*/gi) ?? [], 'words the sample must not use').toEqual([])
   })
 })

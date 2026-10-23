@@ -75,16 +75,21 @@ whsec_1234567890abcdefghijklmnopqrstuvwxyz
 
 ## Step 3: Add Webhook Secret to Environment Variables
 
-### For Production (Vercel)
+### For Production (Cloud Run)
 
-1. Go to your Vercel project dashboard
-2. Navigate to **Settings** → **Environment Variables**
-3. Add a new variable:
-   - **Name**: `RESEND_WEBHOOK_SECRET`
-   - **Value**: Your webhook signing secret (e.g., `whsec_...`)
-   - **Environment**: Select "Production" (and "Preview" if needed)
-4. Click **"Save"**
-5. **Redeploy** your application for the changes to take effect
+The backend runs on Cloud Run and reads its secrets from Secret Manager (`docs/DEPLOYMENT.md` §4–§6).
+The runtime service account already holds `secretmanager.secretAccessor`, and the CI deploy merges
+secrets (`--update-secrets`), so a secret bound once survives later deploys:
+
+```bash
+# Paste the whole signing secret from the webhook's page; it already starts with whsec_.
+printf '%s' 'PASTE_THE_WHOLE_SECRET' | gcloud secrets create RESEND_WEBHOOK_SECRET --data-file=-
+gcloud run services update earningsnerd-backend --region=us-west1 \
+  --update-secrets=RESEND_WEBHOOK_SECRET=RESEND_WEBHOOK_SECRET:latest
+```
+
+While the secret is unset, production refuses every webhook with 401 and logs
+"RESEND_WEBHOOK_SECRET is not set in production".
 
 ### For Development (Local)
 
@@ -170,8 +175,8 @@ Check your backend logs:
 # Development
 tail -f /var/log/your-app.log
 
-# Production (Vercel)
-# View logs in Vercel dashboard under "Deployments" → [Your deployment] → "Logs"
+# Production (Cloud Run)
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="earningsnerd-backend" AND ("Resend webhook" OR "RESEND_WEBHOOK_SECRET")' --limit=20
 ```
 
 ## Webhook Events Reference
@@ -248,11 +253,19 @@ Every webhook request includes three critical headers:
 
 ### Signature Construction
 
-The signature is computed using HMAC-SHA256 over a concatenated string:
+The signature is an HMAC-SHA256 over a concatenated string:
 
 ```
 signed_content = svix-id + "." + svix-timestamp + "." + request_body
 ```
+
+The HMAC key is not the secret's text: it is the base64-decoded part after the `whsec_` prefix. The
+digest is sent base64-encoded, with its version: `v1,<base64 digest>`. The backend
+(`verify_webhook_signature` in `backend/app/routers/webhooks.py`) follows Svix's manual verification
+page (https://docs.svix.com/receiving/verifying-payloads/how-manual), and
+`backend/tests/unit/test_resend_webhook_signature.py` checks it against that page's example. Resend's
+own page (https://resend.com/docs/webhooks/verify-webhooks-requests) names the same three headers,
+shows a signature in the same `v1,<base64>` form and points to Svix's libraries.
 
 Example:
 ```
@@ -262,6 +275,15 @@ request body: {"type":"email.sent","data":{...}}
 
 Signed content: "msg_abc123.1674321000.{"type":"email.sent","data":{...}}"
 ```
+
+### Timestamp Window
+
+A delivery whose `svix-timestamp` is more than five minutes from the server's clock is refused, as
+Svix's own libraries refuse it, so a captured delivery cannot be replayed after that. Within the window
+a repeat is accepted, as Svix's libraries accept it: the handlers only log, and the click handler stamps a
+batch's first click once. A retry carries
+its own attempt's timestamp and a signature over it ("Every time an attempt is retried the timestamp
+of the attempt is updated", in the Standard Webhooks specification Svix follows), so retries pass.
 
 ### Multiple Signatures
 
@@ -308,9 +330,10 @@ Handle duplicate webhook events gracefully (Resend may retry failed deliveries).
 
 ### Signature Verification Failing
 
-1. **Check Secret**: Ensure `RESEND_WEBHOOK_SECRET` matches Resend dashboard
-2. **Check Format**: Secret should start with `whsec_`
-3. **Redeploy**: After adding secret to Vercel, redeploy the app
+1. **Check Secret**: Ensure `RESEND_WEBHOOK_SECRET` matches the signing secret on the webhook's page in the Resend dashboard
+2. **Check Format**: The secret is `whsec_` followed by base64, pasted whole. If what follows the prefix is empty or not base64 (a doubled `whsec_whsec_` is one case), the log says "RESEND_WEBHOOK_SECRET is not a Svix signing secret". A well-formed but wrong key, such as another webhook's secret, logs only "Invalid Resend webhook signature" on each delivery
+3. **Check the Clock**: A delivery more than five minutes from the server's clock logs "Resend webhook timestamp is more than five minutes from the server clock" and is refused
+4. **Check the Binding**: After creating the secret, bind it to the service (`--update-secrets`, above); the new revision reads it
 
 ### Events Not Being Processed
 
@@ -394,8 +417,7 @@ If you encounter issues:
 - [ ] Webhook created in Resend dashboard
 - [ ] All desired events subscribed
 - [ ] Webhook signing secret copied
-- [ ] `RESEND_WEBHOOK_SECRET` added to Vercel environment variables
-- [ ] Application redeployed
+- [ ] `RESEND_WEBHOOK_SECRET` created in Secret Manager and bound to `earningsnerd-backend`
 - [ ] Test webhook sent and received
 - [ ] Webhook logs showing successful events
 - [ ] Email events being processed correctly

@@ -10,8 +10,11 @@
 > Treat the model file as authoritative.
 > - **Rotation chain.** The RFC grouped a lineage with a `family_id` (uuid4) column. The shipped
 >   model has **no `family_id`**; the chain is a self-referential FK — `replaced_by_id`
->   (`ForeignKey("refresh_tokens.id", ondelete="SET NULL")`) — and reuse detection revokes the
->   lineage by walking that chain in `refresh_token_service.rotate_refresh_token`.
+>   (`ForeignKey("refresh_tokens.id", ondelete="SET NULL")`). Reuse detection does not walk that
+>   chain: `refresh_token_service.rotate_refresh_token` revokes every live token of the user, and
+>   only for a token that was rotated away (`replaced_by_id` set). A token revoked any other way
+>   (logout, logout-all, a password change or reset) is refused without revoking anything, unlike
+>   §5 step 2, which sends every revoked token down the reuse path.
 > - **Successor pointer.** `replaced_by` (hash of the successor) shipped as **`replaced_by_id`**
 >   (FK to the successor row, not a hash).
 > - **Audit IP.** `ip_address` (`String(45)`) shipped as **`ip_hash`** (`String(64)`) — the IP is

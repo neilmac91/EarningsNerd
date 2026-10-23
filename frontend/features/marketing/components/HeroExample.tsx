@@ -2,7 +2,7 @@ import { format, parseISO } from 'date-fns'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge } from '@/components/ui/Badge'
-import { cx } from '@/components/ui'
+import { EnRef, MarkedCopy, cx, markedBlockInsetClass, markedRowInsetClass } from '@/components/ui'
 import { ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, QuotesIcon } from '@/lib/icons'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { directionOf, directionText } from '@/lib/financialTone'
@@ -10,7 +10,6 @@ import { Sep } from '@/features/filings/components/FilingIdentity'
 import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
 import { excerptHeadings } from '@/features/summaries/lib/riskTitle'
 import { AAPL_FY25_EDGAR_URL } from '@/features/marketing/lib/landing-samples'
-import MarkedCopy, { EnRef } from '@/features/marketing/components/MarkedCopy'
 import type { ExampleData, ExampleMetric } from '@/lib/serverApi'
 
 /**
@@ -43,15 +42,18 @@ const FALLBACK: ExampleData = {
   qualityTier: null,
   metrics: [
     { label: 'Revenue', value: '$416.2B', deltaPercent: 6.4 },
-    { label: 'Net Income', value: '$112.0B', deltaPercent: 19.5 },
+    { label: 'Net income', value: '$112.0B', deltaPercent: 19.5 },
     { label: 'Diluted EPS', value: '$7.46', deltaPercent: 22.7 },
   ],
 }
 
-// XBRL concepts behind the fallback metrics (shown as hover receipts).
+// XBRL concepts behind the fallback metrics: the receipt is text inside each term, visually hidden
+// so every reader reaches it (the hover repeats it for a mouse). Only the fallback carries them: its
+// values were checked against the XBRL by hand, while a live figure is the summary's own financial
+// highlight, which the hero cannot vouch for as an XBRL match.
 const FALLBACK_CONCEPTS: Record<string, string> = {
   Revenue: 'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
-  'Net Income': 'us-gaap:NetIncomeLoss',
+  'Net income': 'us-gaap:NetIncomeLoss',
   'Diluted EPS': 'us-gaap:EarningsPerShareDiluted',
 }
 
@@ -63,6 +65,8 @@ const formatDelta = (delta?: number | null): string | null => {
 const INK = 'text-text-primary-light dark:text-text-primary-dark'
 const MUTED = 'text-text-secondary-light dark:text-text-secondary-dark'
 const HAIRLINE = 'border-border-light dark:border-white/10'
+/** A fact of the identity line and the middot after it, one item of the wrapping line, spaced as the line is. */
+const FACT = 'flex items-center gap-x-2'
 const GLYPH = { up: '▲', down: '▼', flat: '' } as const
 /** The evidence row's excerpt, cut on a word with an ellipsis: the chip links to the whole passage. */
 const MAX_EXCERPT = 180
@@ -73,16 +77,32 @@ function clip(text: string): string {
   return `${cut.slice(0, cut.lastIndexOf(' ')).replace(/[\s.,;:]+$/, '')} …`
 }
 
-/** One figure in the hairline strip: label, value, and its change, direction in a glyph, never colour alone. */
+/**
+ * One figure in the hairline strip: label, value, and its change, direction in a glyph, never colour alone. A figure
+ * takes its own content as its width (flex-auto) in a row that wraps, so where the three do not fit side by side
+ * (a phone under 200% text) a figure moves under the one before it rather than running into it, as the catch card's
+ * pair does (lessons/frontend-check-brand-layouts-at-200-percent-text.md); in equal thirds, at 390px under 200% text
+ * each value ran across its 81px cell into the next. A value wider than the whole strip breaks inside rather than
+ * being cut. Its left and top edges are the strip's hairlines, which the strip clips where a figure starts a row or
+ * sits on the first one, so a hairline only ever stands between two figures.
+ */
 function Figure({ metric, isFallback }: { metric: ExampleMetric; isFallback: boolean }) {
   const delta = formatDelta(metric.deltaPercent)
   const direction = directionOf(metric.deltaPercent)
+  const concept = isFallback ? FALLBACK_CONCEPTS[metric.label] : undefined
   return (
-    <div className="min-w-0 py-3 pl-3 first:pl-0" title={isFallback ? FALLBACK_CONCEPTS[metric.label] : 'Reported in the filing’s XBRL data'}>
-      <dt className={cx('truncate text-xs', MUTED)}>{metric.label}</dt>
-      <dd className={cx('mt-1 whitespace-nowrap font-data text-sm font-semibold tabular-nums sm:text-base', INK)}>{metric.value}</dd>
+    <div className={cx('min-w-0 flex-auto border-l border-t py-3 pl-3', HAIRLINE)} title={concept}>
+      {/* relative: the receipt's sr-only span is absolutely positioned, and an overflow clip holds such a box
+          only when the box's containing block is inside it. Without it the span sits at its static place past
+          the truncated label, outside the clip, and at 390px and 200% text the third term's receipt widened
+          the page by 5px (tests/e2e/reflow-200.spec.ts). */}
+      <dt className={cx('relative truncate text-xs', MUTED)}>
+        {metric.label}
+        {concept && <span className="sr-only">, XBRL concept {concept}</span>}
+      </dt>
+      <dd className={cx('mt-1 break-words font-data text-sm font-semibold tabular-nums sm:text-base', INK)}>{metric.value}</dd>
       {delta && (
-        <dd className={cx('mt-0.5 whitespace-nowrap font-data text-xs font-medium tabular-nums', directionText[direction])}>
+        <dd className={cx('mt-0.5 break-words font-data text-xs font-medium tabular-nums', directionText[direction])}>
           {GLYPH[direction] && (
             <span aria-hidden="true" className="mr-1">
               {GLYPH[direction]}
@@ -115,9 +135,9 @@ function HeroExample({
   // a malformed upstream date: format() throws on invalid dates, which would
   // crash the homepage render; omit the label instead.
   const parsedDate = parseISO(data.filingDate.slice(0, 10))
-  const filedLabel = Number.isNaN(parsedDate.getTime())
+  const filed = Number.isNaN(parsedDate.getTime())
     ? null
-    : format(parsedDate, 'MMM d, yyyy')
+    : { day: format(parsedDate, 'MMM d,'), year: format(parsedDate, 'yyyy') }
   const evidence = data.evidence ?? null
 
   return (
@@ -125,7 +145,7 @@ function HeroExample({
       aria-label="Example summary"
       className="min-w-0 max-w-full rounded-xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
     >
-      <div className="flex flex-col gap-4 p-5 sm:p-6">
+      <div className="flex flex-col gap-4 p-cap-5 sm:p-cap-6">
         <div className="flex items-center justify-between gap-3">
           <p className={cx('text-xs font-medium', MUTED)}>Example summary</p>
           {data.qualityTier === 'full' && (
@@ -136,46 +156,62 @@ function HeroExample({
           {data.qualityTier === 'partial' && <Badge variant="warning">Partial</Badge>}
         </div>
 
-        {/* The filing's identity, as the filing page states it: company, then one data-face line. */}
+        {/* The filing's identity, as the filing page states it: company, then one data-face line. The line wraps
+            between its facts, each middot held to the fact before it (FACT) so no line starts or stands with one;
+            the form is one run; and the date moves under "filed" whole before it breaks, and then only after its
+            day ("Oct 31," over "2025"). As one nowrap run, "filed Oct 31, 2025" took the page to 329px at 320px
+            under 200% text (tests/e2e/reflow-200.spec.ts). */}
         <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
           <CompanyLogo decorative ticker={data.ticker} name={data.companyName} size={24} priority />
           <span className={cx('min-w-0 break-words text-sm font-semibold', INK)}>{data.companyName}</span>
           <span className={cx('flex flex-wrap items-center gap-x-2 font-data text-xs tabular-nums', MUTED)}>
-            <span>{data.ticker}</span>
-            <Sep />
-            {/* The form is text in the data face, never a Badge (2026-10 critique P-04). */}
-            <span className={cx('font-semibold', INK)}>{data.filingType}</span>
-            {filedLabel && (
-              <>
-                <Sep />
-                <span className="whitespace-nowrap">filed {filedLabel}</span>
-              </>
+            <span className={FACT}>
+              {data.ticker}
+              <Sep />
+            </span>
+            <span className={FACT}>
+              {/* The form is text in the data face, never a Badge (2026-10 critique P-04). */}
+              <span className={cx('whitespace-nowrap font-semibold', INK)}>{data.filingType}</span>
+              {filed && <Sep />}
+            </span>
+            {filed && (
+              <span>
+                filed{' '}
+                <span className="inline-block">
+                  <span className="whitespace-nowrap">{filed.day}</span> {filed.year}
+                </span>
+              </span>
             )}
           </span>
         </div>
 
         <p className={cx('text-sm leading-relaxed', MUTED)}>{data.excerpt}</p>
 
-        {/* The filing's figures: one hairline strip, no boxes. */}
+        {/* The filing's figures: one hairline strip, no boxes. The figures wrap inside it (Figure), and the strip clips
+            what a figure draws where it starts a row (its left hairline and the 0.75rem after it, which the list's
+            negative margin puts outside) and on the first row (its top hairline, under the strip's own). */}
         {data.metrics.length > 0 && (
-          <dl className={cx('grid grid-cols-3 divide-x border-y', HAIRLINE, 'divide-border-light dark:divide-white/10')}>
-            {data.metrics.map((metric) => (
-              <Figure key={metric.label} metric={metric} isFallback={isFallback} />
-            ))}
-          </dl>
+          <div className={cx('overflow-hidden border-y', HAIRLINE)}>
+            <dl className="-ml-[calc(0.75rem_+_1px)] -mt-px flex flex-wrap">
+              {data.metrics.map((metric) => (
+                <Figure key={metric.label} metric={metric} isFallback={isFallback} />
+              ))}
+            </dl>
+          </div>
         )}
 
         {/* One evidence row, the filing page's own (P-03): the filing's words, located in its text, as
             a marked block in the filing's face with its margin twin (the brand device). */}
         {evidence && (
           <MarkedCopy>
-            <div className="flex flex-col gap-2 pl-3 sm:pl-3.5">
+            <div className={cx('flex flex-col gap-2', markedRowInsetClass)}>
               <p className={cx('text-sm font-semibold', INK)}>
                 {excerptHeadings([evidence.excerpt])[0]}
                 <EnRef label="[1]" />
               </p>
-              <blockquote className={cx('en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed', INK)}>
-                {clip(evidence.excerpt)}
+              {/* The filing's words, so they wear quotation marks; the closing one follows the ellipsis. */}
+              <blockquote className={cx('en-marked py-2.5 font-editorial text-base leading-relaxed', markedBlockInsetClass, INK)}>
+                “{clip(evidence.excerpt)}”
               </blockquote>
               {evidence.url && (
                 <div>
@@ -195,15 +231,22 @@ function HeroExample({
           target="_blank"
           rel="noopener noreferrer"
           className={cx(
-            'inline-flex items-center gap-1 font-data text-xs underline-offset-2 transition-colors duration-fast',
+            'inline-flex items-center gap-1 self-start rounded-sm font-data text-xs underline-offset-2 transition-colors duration-fast',
             'hover:text-brand-strong hover:underline dark:hover:text-brand-strong-dark',
+            'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
             MUTED,
           )}
         >
           <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-          {data.metrics.length > 0
-            ? "Figures from the company's XBRL filing · verify on SEC EDGAR"
-            : 'Source filing · read on SEC EDGAR'}
+          {/* Only the checked fallback says its figures came from the XBRL; live figures are the
+              summary's, so the link sends the reader to the filing to check them. A no-break space holds the
+              middot to the word before it, so the line breaks only after it: at 1440px under 200% text the
+              receipt's second line began with "·" (tests/e2e/reflow-200.spec.ts). */}
+          {data.metrics.length === 0
+            ? 'Source filing\u00a0· read on SEC EDGAR'
+            : isFallback
+              ? "Figures from the company's XBRL\u00a0· check them on SEC EDGAR"
+              : 'Source filing\u00a0· check the figures on SEC EDGAR'}
         </a>
 
         {/* Into the real example: a text link (the hero's primary action lives beside the headline). */}

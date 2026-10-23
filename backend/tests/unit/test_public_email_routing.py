@@ -1,12 +1,11 @@
 """Capture real outbound payloads and routing without contacting an email provider."""
-from types import SimpleNamespace
-
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from main import app
 from app.routers import feedback
+from app.schemas.feedback import FeedbackCreate
 from app.services import resend_service
 
 _REAL_CLIENT = httpx.AsyncClient
@@ -34,10 +33,13 @@ async def test_transactional_reply_to_default_and_override(monkeypatch):
     await resend_service.send_email(
         ["support@example.com"], "Contact", "<p>Message</p>", reply_to="customer@example.com",
     )
+    await resend_service.send_email(["recipient@example.com"], "Legacy", "<p>Hello</p>", reply_to=None)
+    await resend_service.send_email(["recipient@example.com"], "No reply header", "<p>Hello</p>", reply_to="")
 
     assert captured[0]["from"] == captured[1]["from"] == "Verified <sender@example.com>"
     assert captured[0]["reply_to"] == "support@example.com"
     assert captured[1]["reply_to"] == "customer@example.com"
+    assert "reply_to" not in captured[2] and "reply_to" not in captured[3]
 
 
 @pytest.mark.asyncio
@@ -52,8 +54,8 @@ async def test_feedback_destination_does_not_follow_transactional_sender(monkeyp
     monkeypatch.setattr(feedback.settings, "RESEND_FROM_EMAIL", "Verified <sender@example.com>")
     monkeypatch.setattr(feedback.settings, "FEEDBACK_NOTIFICATION_EMAIL", "support@example.com")
     await feedback._notify_admin(
-        SimpleNamespace(id=42, email="customer@example.com"),
-        SimpleNamespace(id=1, type="bug", message="I found a broken link", page_url="/contact"),
+        42, "customer@example.com", 1,
+        FeedbackCreate(type="bug", message="I found a broken link", page_url="/contact"),
     )
 
     assert captured[0]["to"] == ["support@example.com"]

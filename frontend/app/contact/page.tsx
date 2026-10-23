@@ -1,7 +1,7 @@
 import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
+import { Card } from '@/components/ui/Card'
 import { Metadata } from 'next'
 import ContactForm from '@/features/contact/components/ContactForm'
-import { Card } from '@/components/ui/Card'
 
 export const metadata: Metadata = {
   title: 'Contact | EarningsNerd',
@@ -23,7 +23,7 @@ export default function ContactPage() {
           </p>
         </div>
 
-        <Card as="section" className="mt-8 p-6">
+        <Card as="section" className="mt-8 p-cap-6">
           <h2 className="text-lg font-semibold">Email directly</h2>
           <dl className="mt-4 space-y-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             {([
@@ -34,7 +34,7 @@ export default function ContactPage() {
             ] as const).map(([role, purpose]) => (
               <div key={role}>
                 <dt>
-                  <a href={contactMailto(role)} className="break-all font-medium text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark">
+                  <a href={contactMailto(role)} className="break-all rounded-sm font-medium text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                     {CONTACT_ADDRESSES[role]}
                   </a>
                 </dt>
@@ -50,16 +50,13 @@ export default function ContactPage() {
         </div>
 
         {/* Contact Information */}
-        <div className="mt-12 rounded-lg border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
+        <div className="mt-12 rounded-lg border border-border-light bg-panel-light p-cap-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
-            What to Expect
+            What to expect
           </h2>
           <div className="mt-4 space-y-3 text-text-secondary-light dark:text-text-secondary-dark">
             <div>
               <span className="font-medium">Response time:</span> The aim is to reply within 2 business days.
-            </div>
-            <div>
-              Use the form or email the relevant address above.
             </div>
           </div>
         </div>
@@ -70,14 +67,14 @@ export default function ContactPage() {
             Looking for quick answers? Check out our{' '}
             <a
               href="/privacy"
-              className="font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand-strong-dark"
+              className="rounded-sm font-medium text-brand-strong underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
             >
               Privacy Policy
             </a>{' '}
             or{' '}
             <a
               href="/security"
-              className="font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand-strong-dark"
+              className="rounded-sm font-medium text-brand-strong underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
             >
               Security
             </a>{' '}

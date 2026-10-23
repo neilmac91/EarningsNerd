@@ -106,9 +106,11 @@ export function remarkCompactAnalysis(options: { preciseAmounts?: ReadonlySet<st
 }
 
 /** New citations carry explicit display units; legacy citations keep their supplied currency
- * omission. The appendix retains the exact numeric payload alongside the compact figure. */
+ * omission. The appendix retains the exact numeric payload alongside the compact figure. A derived Q4's
+ * label follows a middot (trend_analysis/citations.py since E45) or, in a report cached before then, an
+ * em-dash. */
 export function citationDisplay(citation: AnalysisCitation): string {
-  const match = /^(.*?) = (.*?) \(([^)]+)\)(?: — derived Q4)?$/.exec(citation.excerpt)
+  const match = /^(.*?) = (.*?) \(([^)]+)\)(?: [—·] derived Q4)?$/.exec(citation.excerpt)
   if (!match) return citation.excerpt
   const [, label, sourceValue, period] = match
   if (citation.unit && typeof citation.value === 'number' && Number.isFinite(citation.value)) {

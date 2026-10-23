@@ -3,10 +3,8 @@
 import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import * as Sentry from '@sentry/nextjs'
 
-import { Inter } from 'next/font/google'
 import { useEffect } from 'react'
-
-const inter = Inter({ subsets: ['latin'] })
+import { geistMono, inter } from './fonts'
 
 export default function GlobalError({
     error,
@@ -20,17 +18,20 @@ export default function GlobalError({
     }, [error])
 
     return (
-        <html lang="en" className={inter.className}>
+        // The layout's own instances (E147): their variables, so the stylesheet's stacks resolve as on every page (the
+        // data face in the development detail below among them), and Inter's class.
+        <html lang="en" className={`${inter.variable} ${geistMono.variable} ${inter.className}`}>
             <body>
                 <div className="flex min-h-screen flex-col items-center justify-center bg-background-light p-4 text-center dark:bg-background-dark">
                     <div className="mx-auto max-w-md space-y-4">
-                        <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+                        <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                             Something went wrong
-                        </h2>
+                        </h1>
                         <p className="text-text-secondary-light dark:text-text-secondary-dark">
                             The error has been logged. Try again, or reload the page.
                         </p>
-                        <div className="flex justify-center gap-4">
+                        {/* The two buttons wrap to two rows when they do not fit side by side (a phone at 200% text). */}
+                        <div className="flex flex-wrap justify-center gap-4">
                             <button
                                 onClick={() => reset()}
                                 className="rounded-lg bg-brand px-4 py-2 font-medium text-white transition-colors hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"

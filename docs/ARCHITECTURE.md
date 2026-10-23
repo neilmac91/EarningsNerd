@@ -76,7 +76,9 @@ Every consumer drains it:
 stream_filing_summary(filing_id, ...)
   a. Fetch filing text from SEC EDGAR   (24h FilingContentCache short-circuit)
   b. Extract XBRL financials in parallel (edgar/xbrl_service, accession-aware)
-  c. Extract critical sections from the filing text
+  c. Parse critical sections locally from the fetched primary-document HTML (edgar/xbrl_sections;
+                                         no SEC call; starts once (a) has the text; awaited (30 s /
+                                         40 s bound) before the excerpt is built and joined with (b))
   d. Summarize with the AI model; the admission lease is counted as one usage unit when the
                                          request dispatcher signals the first provider request
                                          (in-stage timeout → deterministic XBRL fallback)
@@ -96,8 +98,8 @@ The generator itself is a short stage map (`_stage_sequence()` in `summary_pipel
 |---|---|
 | `generation_run.py` | the run state (timings, lease/charge, owned tasks, filing snapshot) and the former closures: `run_sync_db`, `settle_charge`, `refund_charge`, `begin_charge`/`charge_lease` (metering at provider start), `release()` (the `finally`) |
 | `admission.py` | `load_filing` (snapshot + existing-summary short-circuit), `join_or_lead` (A3 in-flight dedup), `admit` (24h cache validity, usage/fair-use gate, generation slot) |
-| `fetch.py` | `fetch_document` (starts the XBRL/section tasks; cached text, 6-K exhibits, or the SEC fetch with heartbeats) |
-| `enrichment.py` | `start_enrichment_tasks`, `parse_and_enrich` (progress, excerpt, bounded join) |
+| `fetch.py` | `fetch_document` (starts the XBRL task; cached text, 6-K exhibits, or the SEC fetch with heartbeats) |
+| `enrichment.py` | `start_enrichment_tasks` (XBRL), `start_section_parse` (local parse of the fetched document), `parse_and_enrich` (progress, excerpt, bounded join) |
 | `generation.py` | `generate` (provider task under the metering signal, heartbeats/previews, 75s fallback, error payload) |
 | `finalize.py` | `finalize` (projection, quality verdict + measurement logs, persist, usage, telemetry, terminal events) |
 | `failure.py` | `timed_out`, `failed` (the two `except` bodies) |
@@ -129,9 +131,9 @@ backend/
 │   ├── models/           # SQLAlchemy ORM (core in __init__.py, rest in submodules)
 │   ├── schemas/          # Pydantic request/response contracts
 │   ├── integrations/     # external market-data APIs
-│   ├── utils/            # datetimes.py (aware utcnow + iso_z), numbers.py (coerce_float)
+│   ├── utils/            # datetimes.py (aware utcnow, iso_z, ensure_utc, utc_from_iso), numbers.py (coerce_float)
 │   ├── config.py         # Pydantic Settings — ALL env access goes through it
-│   └── database.py       # session management + ensure_additive_columns
+│   └── database.py       # session management (each engine session at UTC) + ensure_additive_columns
 ├── evals/                # AI eval harness + regression gate (see evals/RUNBOOK.md)
 ├── prompts/              # 9 prompt files: 10k/10q/20f/6k analyst+structured, trends-analyst
 ├── migrations/           # idempotent SQL, applied once via the migration_ledger table (ADR-0007; no Alembic)
@@ -168,17 +170,38 @@ frontend/
 | `subscription_webhook_service.py` | Worker-owned webhook transactions, per-account PostgreSQL locks, current-bound-ID created/updated reconciliation and post-commit analytics; cross-ID chronology remains separate |
 | `stripe_subscription_reader.py` | Dedicated exact-ID provider read, validated identity/status/consumed optional fields, zero retries and connect/read inactivity limits; a failed reconciliation read rolls back the event, a failed serving-Price read reports `unavailable` |
 | `billing_serving_prices.py` | The public serving-charge report (`GET /api/subscriptions/prices`): what the bound Pro Prices charge, without IDs, cached per process; one read at a time, and no request waits on another's; the price-agreement checks compare it with the page (`docs/PRICING_OFFER.md`) |
-| `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage |
+| `billing_account_service.py` | The reader's `subscriptions` row (served by `GET /api/subscriptions/subscription`, counted by checkout's first-time-trial check) and the claim of a new Stripe customer id before checkout, stored only while the account has none, returning the stored id that checkout then uses (E166); the subscriptions router owns Stripe calls and HTTP responses |
+| `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage; every rotation and revocation of a user's tokens, a password login's mint, a password change and the account's deletion take the users row lock first |
 | `oauth_verify.py` / `password_utils.py` | Google/Apple JWKS + id-token verification; bcrypt + policy (extracted from the auth router) |
+| `auth_account_service.py` | Password-account persistence, verification/reset tokens and login/password writes; the auth router keeps HTTP gates, password hashing, mail and audit events |
+| `oauth_account_service.py` | OAuth state, account creation/linking, refresh-token persistence and provider connections; the auth router owns provider exchange, cookies and responses |
+| `user_account_service.py` | Profile updates and the database commit/rollback for account deletion; the users router owns third-party erasure and audit events |
+| `user_data_export_service.py` | Read-only assembly of the account's personal-data export; the users router records the export and returns the download |
+| `admin_account_service.py` | Provision a new Free account, send its password-setup link and audit the admin action; existing accounts are never changed |
+| `admin_feedback_service.py` | Feedback listing, status updates and submitter-email lookup for admin triage; the router owns authorization and audit events |
+| `admin_filing_service.py` | Per-filing summary/XBRL resets and stale-XBRL audit/bulk reset; the router owns authorization and error responses |
+| `admin_summary_service.py` | Select and delete reset candidates or regenerate stale summaries through the single headless generation path; the router owns authorization, batch limits and responses |
+| `watchlist_service.py` | Watchlist membership reads/writes and latest-filing, count, summary and generation-progress rows for insights; the watchlist router runs each route's session work, payload and release as one unit in the thread pool, and owns authentication, generation-status presentation and HTTP responses |
+| `saved_summary_service.py` | Saved-summary bookmarks, notes, status and library row shaping; the router owns authentication, request validation and HTTP error mapping |
+| `contact_submission_service.py` | Contact row construction and commit/refresh/rollback with the router's logger; the router owns request policy, HTTP error mapping and post-commit notifications |
+| `user_notification_feed_service.py` | Sent-alert feed reads, unread counts and the seen-at write for the in-app bell; the users router owns authentication, request limits and response models |
+| `company_lookup_service.py` | Company lookups, search upserts/CIK-conflict recovery and response snapshots with session release; the companies router owns SEC/quote I/O and HTTP error mapping |
+| `filing_list_service.py` | Company filing-list freshness, cached reads, persistence, background refresh and on-visit history backfill, each request unit releasing its session; the filings router runs those units in the thread pool and keeps request-path SEC awaits, task scheduling/handoff, response models and error mapping |
+| `filing_read_service.py` | Single/recent filing, cached-content and fundamentals reads, with payload construction and session release in one unit, which the filings router runs in the thread pool; the router owns response models/converters and missing-filing HTTP errors |
 | `copilot_service.py` / `copilot_tools.py` | "Ask this Filing" Pro Q&A with verifiable deep-linked citations; numeric tool-use from `financial_fact` |
+| `sitemap_service.py` | Eligible company/filing queries and bounded XML assembly; the sitemap router owns the hourly cache, single-flight lock and HTTP response |
 | `provenance_service.py` | Trace-to-Source: verifies AI excerpts, builds deep-link citations |
 | `facts_service.py` | Normalized XBRL metrics (`financial_fact`) + SEC **companyfacts** multi-period ingest (duration-window Q1–Q4 labelling, derived Q4, latest-filed-wins) |
+| `analysis_data_access.py` | Analysis record reads and short-session ingest, metering and reservation-release units; the analysis router runs its request-session work in thread-pool units that release through `filing_list_service.release_request_session`, and keeps HTTP policy, task/stream ownership and call-time collaborator seams |
+| `job_sessions.py` | Runs one job in a session of its own and closes it however the job ends, for work outside a request's `get_db` session: the internal triggers' flag-off background runs and the Resend click record; the callers keep their log lines and pass the job by an attribute resolved at call time |
 | `trend_analysis_service.py` + `trend_analysis/` | Compatibility façade over domain modules: deterministic YoY/QoQ/CAGR datasets and `F#` markers, code-owned observations, validated selection and cached narrative streaming |
 | `precompute_service.py` | Idempotent per-ticker filing resolution + summary precompute (cron + internal job) |
-| `change_report_service.py` | Period-over-period change report (financial deltas + risk diffs) |
+| `change_report_service.py` | Period-over-period change report (financial deltas; risk diffs withheld) plus, behind `ENABLE_SECTION_CHANGES`, the `section_changes` wording diff block |
+| `section_review_service.py` | The Pro review of a filing's Item 1A wording changes (`section_reviews`): labels per content-addressed change id, completion when every change is labelled, the receipt (both texts' fingerprints, engine and extractor versions, counts, follow-ups) frozen then; a write locks the reader's row (`FOR UPDATE`) and recovers the insert race; `review_progress` gives the dashboard feed the same reconciled reading (live ids, receipt still matching); served by `routers/section_reviews.py` under `/api/summaries/filing/{id}/wording-review` behind the `section_changes` entitlement |
+| `filing_section_service.py` / `section_diff.py` | Item 1A text per filing (`filing_section_text`): fetched through the SEC transport, located with edgartools' HTML parser (local), stored with status and a cached comparison summary; the watched-cohort batch the filing-scan job runs; `section_diff` is the pure paragraph-paired, word-level diff (page furniture dropped, line-wrapped typesetting re-flowed, exact/moved/fuzzy pairing, content-addressed item ids) |
 | `peers_service.py` / `insider_service.py` | Peer comparison by SIC; Form 4 insider activity (`ownership_extractor.py` parses the Form 4 tables DEFENSIVELY — EdgarTools' DataFrame column casing varies across versions; don't "simplify" the guards) |
-| `dashboard_feed_service.py` / `calendar_service.py` / `filing_scan_service.py` / `notification_service.py` | Personalized feed; earnings calendar; new-filing alerts (dedup); alert prefs |
-| `notable_filings_service.py` | Homepage "Notable filings": market-wide EFTS scan (8-K item materiality + form weights + owned demand), serve-from-Postgres, self-omitting |
+| `dashboard_feed_service.py` / `calendar_service.py` / `filing_scan_service.py` / `notification_service.py` | Personalized feed (with the Item 1A wording-change counts and the reader's review progress per card, behind `ENABLE_SECTION_CHANGES`); earnings calendar; new-filing alerts (dedup; a Pro recipient's alert and digest carry the "Risk factor wording" line when the filing's comparison is cached); alert prefs |
+| `notable_filings_service.py` | Homepage "Notable filings": market-wide EFTS scan (8-K item materiality + form weights + owned demand) into Postgres; serves 10-K and 10-Q filings from companies holding a summary the filing page shows, newest first, at most six (D-046); self-omitting |
 | `pulse_service.py` | Filing Pulse gauge (pure scoring; kept for roadmap A3). Its original producer — the FMP/Finnhub-backed hot-filings scorer — and the Stocktwits/FMP trending pipeline were torn down 2026-09 (WS-8a) |
 | `turnstile.py` / `pwned_passwords.py` | Turnstile bot defense (dark when unset, fails OPEN on Cloudflare infra errors); breached-password screening |
 | `fallback_summary.py` | Deterministic summary when AI fails |
@@ -191,6 +214,11 @@ detectors, dataset construction, observation selection, citation resolution, num
 persistence and narrative streaming. `narrative.py` keeps database sessions and the provider singleton
 lazily imported at call time. `trend_analysis_service.py` re-exports the original public and private
 names, so the analysis router continues to resolve them through the same module.
+
+`fact_provenance` links each fact to its filing row's `document_url` when that is an SEC archive
+URL inside the fact's accession folder, and to the folder otherwise; `trend_analysis/source_documents.py`
+folds each looked-up link back to its folder for the snapshot hash, keeping links with a stored
+`source_sha256` receipt as stored (E149, #1481).
 
 Analysis datasets carry versioned `data_notes` from the pure `trend_analysis/data_notes.py`
 builder. The web, chart downloads, PDF and Excel use the same reason groups, letters and counts;
@@ -222,6 +250,8 @@ by `__all__`); a pkgutil-walking test asserts no submodule can see the `User` mo
 
 `client.py` (EdgarTools calls, breaker-wrapped), `xbrl_service.py` (persisted accession snapshot first, then two-tier cached XBRL),
 `xbrl_companyfacts.py` (companyfacts fallback transport and parser, delegated by the service class),
+`xbrl_sections.py` (the summary's sections, parsed locally from the primary document the pipeline
+fetched: no SEC request, breaker-exempt CPU work on its own single worker, off the SEC pool),
 `compat.py` (ticker cache + document fetch), `circuit_breaker.py`, `async_executor.py`
 (dedicated thread pool; `run_with_circuit_breaker` is the standard wrapper),
 `instance_extractor.py` (**accession-aware**: selects facts for the filing's own reporting
@@ -249,6 +279,7 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 | Router | Prefix | Notes |
 |---|---|---|
 | `summaries.py` | `/api/summaries` | SSE generation, copilot Q&A, change reports, exports |
+| `section_reviews.py` | `/api/summaries` | `/filing/{id}/wording-review` (+ `/labels`): the Pro review of a filing's Item 1A wording changes, behind the `section_changes` entitlement |
 | `filings.py` / `companies.py` | `/api/filings`, `/api/companies` | retrieval, search, details |
 | `peers.py` / `insiders.py` | `/api/companies` | `/{ticker}/peers`, `/{ticker}/insiders` |
 | `analysis.py` | `/api/analysis` | Multi-Period Analysis: coverage (auth), dataset + SSE narrative + PDF (Pro `can_analyze_trends` gate) |
@@ -261,7 +292,7 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 | `saved_summaries.py` / `contact.py` / `feedback.py` / `email.py` | `/api/...` | saved items, forms (rate-limited + Turnstile), email mgmt |
 | `webhooks.py` | `/api` | Resend webhook (`POST /api/webhooks/resend`, Svix-verified) |
 | `admin.py` | `/api/admin` | admin surface (see docs/OPERATIONS.md) |
-| `internal.py` | `/internal` | token-gated Cloud Scheduler jobs: filing-scan, filing-digest, backfill-facts, sync-companyfacts, precompute, notable-filings-scan |
+| `internal.py` | `/internal` | token-gated Cloud Scheduler jobs: filing-scan, filing-digest, retention-purge, earnings-calendar-refresh, earnings-day-alerts, backfill-facts, notable-filings-scan, sync-companyfacts, backfill-filing-history, precompute; with `DURABLE_TASKS_ENABLED` each is queued to `services/internal_task_runner.py`, otherwise it runs as a background task after the 202, and one that uses the database opens its own session (`services/job_sessions.py`); a precompute `dry_run` answers synchronously |
 | `sitemap.py` | `/` | sitemap.xml |
 
 ## Frontend architecture
@@ -270,7 +301,7 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
   chrome + `ui/` only (allowlist-enforced). Key components and homes:
   `features/summaries/components/` (SummarySections + section renderers,
   FinancialMetricsTable, SummaryDisplay), `features/filings/components/` (NotableFilings,
-  AskFilingAnswer, copilot/), `features/companies/components/` (CompanySearch),
+  copilot/), `features/companies/components/` (CompanySearch),
   `features/analysis/components/` (Multi-Period Analysis),
   `app/filing/[id]/StreamingSummaryDisplay.tsx` (live generation UX).
 - **Query keys** come exclusively from `lib/queryKeys.ts` (ESLint-enforced) — one factory
@@ -296,7 +327,8 @@ Submodules: `financial_fact.py` (normalized XBRL for peers/time-series),
 `trend_analysis.py` (cached Multi-Period runs keyed by company/mode/range),
 `notifications.py` (prefs + dedup ledger), `refresh_token.py` (rotation chain),
 `subscription.py` (`Subscription` + `StripeEvent` idempotency ledger), `waitlist.py`,
-`contact.py`, `audit_log.py`, `job_run.py` (`earningsnerd_job_runs`, independent scheduled-job attempts). Additional tables via migrations: `invite_codes`,
+`contact.py`, `audit_log.py`, `job_run.py` (`earningsnerd_job_runs`, independent scheduled-job attempts),
+`filing_section_text.py` (`filing_section_text`: Item 1A text per filing with its extraction status, attempt times and the cached comparison summary), `section_review.py` (`section_reviews`: a reader's labels, completion time and frozen receipt for one filing section). Additional tables via migrations: `invite_codes`,
 `feedback`, `login_attempts`, `earnings_events` (plus the orphaned `guest_daily_usage` —
 unused since generation became account-required in #619; kept because migrations are re-run-safe, never destructive).
 
@@ -310,12 +342,61 @@ unused since generation became account-required in #619; kept because migrations
 - Per-filing discrete-quarter facts retain fiscal labels anchored to the XBRL filing focus and
   their own distance from its report date. Comparative quarters move across fiscal years;
   non-calendar years do not use calendar-quarter labels. Missing/irregular metadata stays unknown.
+  Annual-report (10-K/20-F/40-F and their amendments) points take the issuer's fiscal year from the
+  same anchor (the DEI FY focus year less whole years back from the report date) wherever the
+  calendar year of the period end misnames it: a year ending 1 February 2025 is fiscal 2024, a
+  52-week year ending 1 January 2023 is fiscal 2022. The focus is trusted within the companyfacts
+  writer's year bound (the end year or the year before), and the year before only where most of the
+  year lies in it, so a December filer's lagging focus cannot move its years. One filing cannot
+  outvote a lagging focus on a year ending January to early July (Salesforce's 10-K for its fiscal
+  2026, ended 31 January 2026, says 2025), as the companyfacts year chain can, so the per-filing
+  writer moves an annual report's FY rows onto the years companyfacts already stores for its period
+  ends (`facts/fiscal_evidence`: FY rows from the fiscal-year-window writer that name one year and
+  include a duration), by one offset for the whole filing; offsets that disagree keep the filing's
+  labels, quarter labels never move, and a report opened before the first sync keeps its own (a
+  known limit). Without a trusted focus, or for a point more than 18 days off a whole number of
+  years from the report date (a transition period), the label is the calendar year of the end,
+  never NULL (a NULL year would drop the period from Multi-Period Analysis). The fact identity
+  leaves the year out, so this is what lets the per-filing and companyfacts writers name a period
+  alike whichever stores it first, wherever a timely annual report (filed within 180 days of its
+  end) anchors the companyfacts year chain, short of that limit. Where a contiguous chain holds
+  none, the companyfacts writer keeps calendar years, for the chain's quarters too, while the
+  per-filing labellers, which see no filing date, name the fiscal year. So a delinquent filer whose
+  fiscal year is named for the calendar year before its end (in practice a year ending in January
+  or February, a 52-week year ending in early January, or a March 20-F named by its start) carries
+  two labels for one period end when its report is opened before the sync; synced first, the
+  report takes the calendar years. A 10-Q filer's quarter rows were already mixed this way before
+  the annual labeller (a 20-F filer has none, so for it the annual mix is new); the open follow-up,
+  in the companyfacts writer, fixes both. The Multi-Period Analysis dataset reads current rows in
+  period-end order, so a label that two period ends carry resolves to the later one, the axis
+  bucket's own end.
   New labelled quarters demote legacy NULL-period twins; existing persisted snapshots require
   deliberate re-extraction to gain metadata they never contained. Fact writes serialize on the
   company row and preserve a known newer accession. The per-filing writer also preserves untied
   current companyfacts rows when their filing chronology cannot be established; the bulk writer
   uses the received normalizer ordering where local Filing chronology is unavailable. Older accession facts remain
   available for their own filing even when they are not the current company value.
+- Companyfacts reads each concept from its reporting-currency unit list (`facts/currency.py`).
+  A foreign list is read only when the USD list is its convenience translation (every USD
+  period the collector keeps, by period end and span, is also kept from the foreign list; an
+  item it drops counts on neither side); among such lists the per-filing extractor's
+  `_reporting_currency` rule picks. A foreign US-GAAP filer's history is therefore stored as
+  reported (CNY, JPY), never from its USD convenience translations. A filer with no USD list at
+  all, such as a 10-K filer that reports in CAD, is stored in its own currency too, since no USD
+  period then needs a twin; a USD-only read stored nothing for it. Any other shape keeps the USD
+  list: a stray foreign fact, whatever its date, and a currency switch in either direction. A
+  switcher's years reported in a non-USD currency are not ingested in that currency; after a
+  switch to USD, its earlier years come from the USD convenience translations, as before. Quarter
+  derivation works in any currency. Once the native row arrives, a sync demotes, never deletes,
+  any current USD row at the same concept, period end and fiscal period, whatever its source or
+  filing. The newer-accession rule above is per unit; across units the pick has already chosen
+  the series currency. A derived ratio (`pure`) keeps its unit, so where a known filing date kept
+  one computed from USD operands current, the sync demotes it and promotes the native
+  calculation. A ratio stored before operands were recorded (2026-10-10) counts as USD-derived
+  when it is derived and has no filing owner, because companyfacts was then read only in USD.
+  One stored under the native calculation's own identity (same filing) keeps its
+  USD operands, because ingestion never rewrites an identity; the journaled repair
+  (`docs/quarterly-data-repair.md`) recomputes it.
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional
@@ -343,8 +424,20 @@ unused since generation became account-required in #619; kept because migrations
 ## Patterns & invariants
 
 - **Datetime:** tz-aware UTC via `app/utils/datetimes.utcnow()` (+ `iso_z()` for the
-  legacy `…Z` wire format). A deliberate 6-site **naive** allowlist exists for the
-  OAuthState/RefreshToken token-expiry columns — enforced by
+  legacy `…Z` wire format); `utc_from_iso()` parses an ISO date or date-time from outside,
+  such as an SEC listing's, as aware UTC. Every session `database.py`'s engine opens (the API, the
+  jobs, the durable worker and the scripts that import it) runs at UTC (its `connect` listener, E151),
+  so a `timestamptz` reads back at +00:00 and a naive value binds as UTC whatever zone the session
+  would start in; gated on PostgreSQL by `tests/integration/test_session_time_zone.py`. Other sessions
+  (psql's, for the deploy's migrations and the Ops SQL steps, and the engine
+  `scripts/validate_db_performance.py` builds) start at the server's default zone, UTC on production's
+  instance, which sets no `timezone` flag; of the SQL run there, `ops/capacity/snapshot.sql` sets its
+  zone and `ops/detection/notable_homepage_candidates.sql` names one. The pin moves no stored instant.
+  A database whose sessions ran at another zone before E100 holds SEC's bare dates at that zone's local
+  midnight: east of UTC they read, pinned, as the day before, and either side they miss an amendment's
+  period end, so such rows need normalizing before that database runs the pin. Production's sessions
+  ran at UTC, so none is due there. A deliberate 6-site **naive**
+  allowlist exists for the OAuthState/RefreshToken token-expiry columns — enforced by
   `tests/unit/test_naive_utcnow_allowlist.py`.
 - **Resilience numbers:** circuit breaker CLOSED → OPEN at 5 consecutive network failures,
   HALF_OPEN retry after 30s; only network errors trip it (404s/parse errors never do).
@@ -370,7 +463,8 @@ unused since generation became account-required in #619; kept because migrations
   `GET /metrics` (breaker/cache/thread-pool/DB-pool stats) — details in docs/OPERATIONS.md.
 - Sentry (backend + frontend), PostHog product analytics + inference-cost telemetry
   (`copilot_inference_cost`, `analysis_inference_cost` with grounding counters),
-  Vercel Analytics on the frontend (auto-enabled via `@vercel/analytics` in `app/layout.tsx`).
+  Vercel Analytics on the frontend (`@vercel/analytics`, mounted from `app/layout.tsx` by
+  `app/private-analytics.tsx` only once the visitor allows analytics, D-046).
 - The eval harness (`backend/evals/`) pins summary quality (`baseline_scores.json`) with a
   CI regression gate on AI-relevant PRs.
 

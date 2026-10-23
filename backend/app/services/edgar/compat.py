@@ -23,6 +23,7 @@ from .exceptions import EdgarError, EdgarNetworkError, EdgarRateLimitError, Edga
 from .config import FilingType, EDGAR_IDENTITY
 from .circuit_breaker import edgar_circuit_breaker, CircuitOpenError
 from app.services.sec_rate_limiter import sec_rate_limiter
+from app.utils.datetimes import utcnow
 from app.utils.sec_urls import build_sec_archive_url, normalize_accession, normalize_cik
 
 logger = logging.getLogger(__name__)
@@ -115,7 +116,7 @@ class SECEdgarServiceCompat:
         if (
             self._tickers_cache is not None
             and self._tickers_cache_time is not None
-            and datetime.now() - self._tickers_cache_time < self._cache_ttl
+            and utcnow() - self._tickers_cache_time < self._cache_ttl
         ):
             return self._tickers_cache
 
@@ -125,7 +126,7 @@ class SECEdgarServiceCompat:
         if redis_data is not None:
             logger.debug("SEC tickers L2 cache hit")
             SECEdgarServiceCompat._tickers_cache = redis_data
-            SECEdgarServiceCompat._tickers_cache_time = datetime.now()
+            SECEdgarServiceCompat._tickers_cache_time = utcnow()
             return redis_data
 
         # Fetch from SEC EDGAR
@@ -151,7 +152,7 @@ class SECEdgarServiceCompat:
 
                     # Update both cache tiers
                     SECEdgarServiceCompat._tickers_cache = data
-                    SECEdgarServiceCompat._tickers_cache_time = datetime.now()
+                    SECEdgarServiceCompat._tickers_cache_time = utcnow()
                     await self._set_tickers_to_redis(redis_key, data)
 
                     logger.debug("SEC tickers fetched and cached (L1+L2)")
@@ -263,6 +264,10 @@ class SECEdgarServiceCompat:
         old EdgarTools fuzzy fallback is gone: it always failed after up to ten submissions
         downloads on the event loop, so it never returned a company — CODE RED record 17.)
 
+        Exact ticker hits come first, then entries whose name or ticker merely contains the query.
+        That suits the typeahead; to bind a requested ticker to its company use
+        :meth:`resolve_ticker`, never this method's first hit.
+
         Returns legacy format:
         [{"ticker": "AAPL", "name": "Apple Inc.", "cik": "0000320193", "exchange": None}]
 
@@ -277,6 +282,24 @@ class SECEdgarServiceCompat:
         except Exception as e:
             logger.error(f"Unexpected error searching company: {e}")
             raise EdgarError(f"Failed to search companies: {e}", cause=e)
+
+    async def resolve_ticker(self, ticker: str) -> Optional[Dict[str, Any]]:
+        """The SEC ticker-file entry whose ticker IS ``ticker``, in :meth:`search_company`'s format,
+        or None when the file does not list it. The match is exact and case-insensitive, the same
+        comparison as the search's exact tier; no other spelling is mapped onto the file's.
+
+        A retired, renamed or mistyped ticker therefore resolves to nothing instead of to the first
+        partial name/ticker match (RTN once bound to Enterprise Products PARTNERS). The search ranks
+        exact ticker hits ahead of partial ones, so its result cap never drops the exact entry.
+
+        Raises:
+            EdgarError: If the ticker file cannot be fetched
+        """
+        wanted = ticker.lower().strip()
+        if not wanted:
+            return None
+        hits = await self.search_company(ticker)
+        return next((hit for hit in hits if hit["ticker"].lower() == wanted), None)
 
     async def get_filings(
         self,
@@ -554,16 +577,18 @@ class XBRLServiceCompat:
     async def get_filing_sections(
         self,
         accession_number: str,
-        cik: str,
         filing_type: str,
+        *,
+        html: str,
     ) -> Optional[Dict[str, str]]:
         """
-        Extract critical sections (financials / mda / risk) via edgartools' native parser.
+        Parse critical sections (financials / mda / risk) from the fetched primary document.
 
         Returns a dict of clean section text, or None when unavailable (callers fall back
-        to the legacy regex extractor).
+        to the legacy regex extractor). No SEC request: ``html`` is the document the caller
+        already downloaded through ``sec_edgar_service``.
         """
-        return await edgar_xbrl_service.get_filing_sections(accession_number, cik, filing_type)
+        return await edgar_xbrl_service.get_filing_sections(accession_number, filing_type, html=html)
 
 
 # Singleton instances for drop-in replacement

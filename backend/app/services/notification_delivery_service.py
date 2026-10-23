@@ -1,7 +1,8 @@
 """Durable alert delivery (E11b-1): persist first, claim with a fence, send with no session open.
 
 Selection (``filing_scan_service``) renders the exact email and calls :func:`create_batch`, which
-commits the frozen payload, its provider idempotency key and the owned filings BEFORE any send.
+commits the frozen envelope (addresses, subject, page and plain-text part), its provider idempotency key and the
+owned filings BEFORE any send.
 :func:`drain` then walks due batches through fenced conditional transitions::
 
     ready ─claim─▶ claimed ─authorize─▶ sending ─finalize─▶ accepted | retryable | ambiguous
@@ -87,7 +88,9 @@ class PreparedSend:
     name: Optional[str]
     subject: str
     html: str
+    text: Optional[str]  # the frozen text part; None on a batch frozen before it (E110), which sends its page alone
     idempotency_key: str
+    reply_to: Optional[str] = None  # None freezes header omission, not a request for the current default
     items: list[dict] = field(default_factory=list)  # digest/alert item dicts (legacy sender shape)
 
 
@@ -116,8 +119,20 @@ class DrainStats:
         }
 
 
-def payload_digest(subject: str, html: str, *, to_email: str, from_email: str) -> str:
+def payload_digest(
+    subject: str, html: str, *, to_email: str, from_email: str,
+    text: Optional[str] = None, reply_to: Optional[str] = None,
+) -> str:
+    """The sha256 of the payload bound to the provider key, including its frozen Reply-To.
+
+    Legacy batches have no Reply-To and may also have no text part (E110). Leaving those keys
+    out preserves their original digest and request, whether or not dispatch was attempted.
+    """
     envelope = {"to": [to_email], "from": from_email, "subject": subject, "html": html}
+    if text is not None:
+        envelope["text"] = text
+    if reply_to is not None:
+        envelope["reply_to"] = reply_to
     return hashlib.sha256(json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
@@ -141,12 +156,14 @@ def create_batch(
     user_id: int,
     subject: str,
     html: str,
+    text: str,
     filing_ids: list[int],
     channel: str = CHANNEL_EMAIL,
     now: Optional[datetime] = None,
     commit: bool = True,
 ) -> Optional[DeliveryBatch]:
-    """Commit the frozen payload, its idempotency key and the ordered owned filings, or nothing.
+    """Commit the frozen envelope (addresses, subject, page and text part), its idempotency key and the ordered owned
+    filings, or nothing.
 
     Returns ``None`` when another batch already owns one of the filings for this user (the
     unique constraint fires inside a SAVEPOINT, so the caller's pending work survives).
@@ -157,10 +174,14 @@ def create_batch(
     if user is None or not filing_ids:
         raise ValueError("Delivery selection requires a user and at least one filing")
     to_email, from_email = user.email, settings.RESEND_FROM_EMAIL
+    reply_to = settings.RESEND_REPLY_TO_EMAIL or None
     batch = DeliveryBatch(
-        to_email=to_email, from_email=from_email, expected_item_count=len(filing_ids),
-        kind=kind, user_id=user_id, channel=channel, subject=subject, body_html=html,
-        payload_sha256=payload_digest(subject, html, to_email=to_email, from_email=from_email), idempotency_key=uuid4().hex,
+        to_email=to_email, from_email=from_email, reply_to=reply_to, expected_item_count=len(filing_ids),
+        kind=kind, user_id=user_id, channel=channel, subject=subject, body_html=html, body_text=text,
+        payload_sha256=payload_digest(
+            subject, html, to_email=to_email, from_email=from_email, text=text, reply_to=reply_to,
+        ),
+        idempotency_key=uuid4().hex,
         status=STATUS_READY, attempts=0, created_at=now, updated_at=now,
     )
     batch.items = [
@@ -335,8 +356,11 @@ def due_batch_ids(db: Session, kind: str, now: datetime) -> list[int]:
 
 # --------------------------------------------------------------------------- dispatch
 
-def _item_dicts(db: Session, batch: DeliveryBatch) -> list[dict]:
-    from app.services.filing_scan_service import _filing_date_str
+def _item_dicts(db: Session, batch: DeliveryBatch, user: Optional[User] = None) -> list[dict]:
+    """The batch's filings in the legacy sender / rebuild shape. With the recipient, each item also
+    carries the Item 1A wording summary their plan may read (``alert_wording_changes``), so a
+    rebuilt payload gets the line the selection pass may have been too early for."""
+    from app.services.filing_scan_service import _filing_date_str, alert_wording_changes
 
     out = []
     for item in batch.items:
@@ -348,6 +372,10 @@ def _item_dicts(db: Session, batch: DeliveryBatch) -> list[dict]:
             "company_name": company.name, "ticker": company.ticker, "filing_type": filing.filing_type,
             "filing_date": _filing_date_str(filing.filing_date), "filing_id": filing.id, "filing_url": filing.sec_url,
         })
+    if user is not None and out:
+        wording = alert_wording_changes(db, get_entitlements(user), [d["filing_id"] for d in out])
+        for d in out:
+            d["wording_changes"] = wording.get(d["filing_id"])
     return out
 
 
@@ -402,6 +430,7 @@ class RebuildPlan:
     kind: str
     subject: str
     html: str
+    text: str
     filing_ids: list[int]
 
 
@@ -414,17 +443,17 @@ def _rebuild_plan(db: Session, batch: DeliveryBatch, user: User, wanted: list[tu
 
     if not wanted:
         return None
-    by_id = {d["filing_id"]: d for d in _item_dicts(db, batch)}
+    by_id = {d["filing_id"]: d for d in _item_dicts(db, batch, user)}
     items = [by_id[item.filing_id] for item, _realtime in wanted if item.filing_id in by_id]
     if not items:
         return None
     if batch.kind == KIND_FILING_REALTIME and len(items) == 1 and all(realtime for _item, realtime in wanted):
-        subject, html = email_service.build_new_filing_alert(name=user.full_name, **items[0])
+        subject, html, text = email_service.build_new_filing_alert(name=user.full_name, **items[0])
         kind = KIND_FILING_REALTIME
     else:
-        subject, html = email_service.build_daily_digest(name=user.full_name, items=items)
+        subject, html, text = email_service.build_daily_digest(name=user.full_name, items=items)
         kind = KIND_FILING_DIGEST
-    return RebuildPlan(kind=kind, subject=subject, html=html, filing_ids=[d["filing_id"] for d in items])
+    return RebuildPlan(kind=kind, subject=subject, html=html, text=text, filing_ids=[d["filing_id"] for d in items])
 
 
 def replace_batch(
@@ -440,7 +469,7 @@ def replace_batch(
         if not park_and_release(db, batch_id, owner_token, reason, now, commit=False):
             return None
         rebuilt = create_batch(
-            db, kind=plan.kind, user_id=user_id, subject=plan.subject, html=plan.html,
+            db, kind=plan.kind, user_id=user_id, subject=plan.subject, html=plan.html, text=plan.text,
             filing_ids=plan.filing_ids, now=now, commit=False,
         )
         if rebuilt is None:
@@ -453,10 +482,11 @@ def replace_batch(
 
 
 async def send_prepared(prepared: PreparedSend) -> Optional[str]:
-    """Default transport: the frozen payload under its persisted idempotency key."""
+    """Default transport: the frozen payload under its persisted idempotency key. A batch frozen before its text
+    part sends none, so the provider receives the payload that batch was frozen with."""
     result = await resend_service.send_email(
-        to=[prepared.to_email], subject=prepared.subject, html=prepared.html,
-        idempotency_key=prepared.idempotency_key, from_email=prepared.from_email,
+        to=[prepared.to_email], subject=prepared.subject, html=prepared.html, text=prepared.text,
+        idempotency_key=prepared.idempotency_key, from_email=prepared.from_email, reply_to=prepared.reply_to,
     )
     return str(result.get("id")) if isinstance(result, dict) and result.get("id") else None
 
@@ -499,7 +529,10 @@ async def drain(
                 stats.lost_claims += 1
                 continue
             db.refresh(batch)
-        if payload_digest(batch.subject, batch.body_html, to_email=batch.to_email, from_email=batch.from_email) != batch.payload_sha256:
+        if payload_digest(
+            batch.subject, batch.body_html, to_email=batch.to_email, from_email=batch.from_email, text=batch.body_text,
+            reply_to=batch.reply_to,
+        ) != batch.payload_sha256:
             if park(db, batch_id, token, STATUS_CLAIMED, STATUS_AMBIGUOUS, ERROR_PAYLOAD_DRIFT, now):
                 stats.ambiguous += 1
             else:
@@ -530,8 +563,9 @@ async def drain(
             continue
         prepared = PreparedSend(
             batch_id=batch.id, kind=batch.kind, to_email=batch.to_email, from_email=batch.from_email, name=user.full_name,
-            subject=batch.subject, html=batch.body_html, idempotency_key=batch.idempotency_key,
-            items=_item_dicts(db, batch),
+            subject=batch.subject, html=batch.body_html, text=batch.body_text, idempotency_key=batch.idempotency_key,
+            reply_to=batch.reply_to,
+            items=_item_dicts(db, batch, user),
         )
         item_count = len(batch.items)
         now = clock()

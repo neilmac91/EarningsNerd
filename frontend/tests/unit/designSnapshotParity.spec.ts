@@ -7,7 +7,8 @@
    when a copy drifts, so this spec compares the copies that must agree:
      1. frontmatter tokens vs source, for the documented subset. Omissions and
         aliases are listed below; units are compared by value (#FFF = #ffffff,
-        0 = 0em), not by spelling.
+        0 = 0em), not by spelling. Of the component tokens, `badge-new` is
+        held to the colours Badge.tsx's `new` variant paints (E51).
      2. sidecar colorMeta vs frontmatter. Tonal-ramp and roundedMeta values
         must be documented tokens: Impeccable's detector treats every one as an
         allowed palette color or radius, so synthetic steps silently widen it.
@@ -24,6 +25,9 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { Badge } from '@/components/ui'
 
 const config = require('../../tailwind.config.js')
 const defaultTheme = require('tailwindcss/defaultTheme')
@@ -154,6 +158,7 @@ const SPECIMEN_ROLES: Record<string, [string, string | null]> = {
   'primary-disabled': ['brand@0.45', 'brand-dark@0.35'],
   'primary-disabled-ink': ['white@0.8', 'background-dark@0.6'],
   ring: ['shadow:ring-brand', 'shadow:ring-brand-dark'],
+  'error-ring': ['shadow:ring-error', 'shadow:ring-error-dark'],
   e1: ['shadow:e1', null],
   e2: ['shadow:e2', 'none'],
   e5: ['shadow:e5', 'none'],
@@ -161,8 +166,6 @@ const SPECIMEN_ROLES: Record<string, [string, string | null]> = {
   'field-disabled': ['background-light', 'white@0.05'],
   error: ['error-light', 'error-dark'],
   flat: ['flat-light', 'flat-dark'],
-  warning: ['warning-light', 'warning-dark'],
-  'warning-tint': ['warning-light@0.1', 'warning-dark@0.15'],
   gain: ['gain-text', 'gain-dark'],
   loss: ['loss-text', 'loss-dark'],
   hover: ['white', 'white@0.03'],
@@ -234,6 +237,26 @@ describe('DESIGN.md frontmatter matches the token sources', () => {
     }
     const reader = globalsCss.match(/\.filing-reader \{[^}]*font-size:\s*([^;]+);[^}]*line-height:\s*([^;]+);/)
     expect([roles['filing-reader'].fontSize, roles['filing-reader'].lineHeight]).toEqual([reader?.[1], reader?.[2]])
+  })
+
+  it('badge-new paints the colours Badge.tsx gives its `new` variant, in both themes (E51)', () => {
+    // The variant's classes, as it renders: each theme's label ink and fill, a source token with an optional opacity.
+    const html = renderToStaticMarkup(createElement(Badge, { variant: 'new' }, 'New'))
+    const classes = (html.match(/^<span[^>]*?\bclass="([^"]*)"/)?.[1] ?? '').split(/\s+/)
+    const painted = (prefix: string) => {
+      const utility = classes.find((c) => c.startsWith(prefix) && c.slice(prefix.length).split('/')[0] in SOURCE_COLORS)
+      if (!utility) return `no ${prefix}<colour> in ${classes.join(' ')}`
+      const [name, pct] = utility.slice(prefix.length).split('/')
+      const value = rgba(SOURCE_COLORS[name])
+      return String(pct ? [...value.slice(0, 3), Number(pct) / 100] : value)
+    }
+    // A frontmatter colour is a `{colors.<token>}` reference or a literal.
+    const documented = (value: string) => String(rgba(value.replace(/^\{colors\.([\w-]+)\}$/, (_, name) => fmColors[name] ?? value)))
+    const components = fm.components as Record<string, Record<string, string>>
+    for (const [component, prefix] of [['badge-new', ''], ['badge-new-dark', 'dark:']] as const) {
+      expect(documented(components[component].textColor), `${component}.textColor`).toBe(painted(`${prefix}text-`))
+      expect(documented(components[component].backgroundColor), `${component}.backgroundColor`).toBe(painted(`${prefix}bg-`))
+    }
   })
 })
 

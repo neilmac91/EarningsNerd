@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# E125: run SpamAssassin 4.0.0 (local tests only) over each .eml in a directory with sa_contrast.pl, which prints
+# each text its HTML parser first reads as low contrast, with the ink and the ground it reads, then the score and
+# the tests hit. Usage: contrast_mails.sh <sa_contrast.pl> <dir>  (one line per mail, sorted by name)
+set -eu
+probe="$1"; dir="$2"
+for f in "$dir"/*.eml; do
+  printf '%s: %s\n' "$(basename "$f" .eml)" "$(perl "$probe" < "$f" | tr '\n' ' ' | sed 's/ $//')"
+done | sort

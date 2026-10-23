@@ -2,7 +2,7 @@
 
 Date: 2026-10-10 · Scope: `/analysis` results surface (KPI strip, Sources & methods, charts, narrative,
 metrics table, period picker) and the PDF, Excel and PNG exports that mirror it · Status: the five original §9
-decisions are taken (2026-10-10), the amended decision 4 and decisions 6–9 await the founder's confirmation; Phase 1 items 1–10 and 11 of §7 are merged (#1199, #1200, #1202, #1203, #1206) and Phase 2 in #1225 (the status note under §7's Phase 2 says where it departs from the brief and what stays open);
+decisions are taken (2026-10-10); amended decision 4 and decisions 6–9 were adopted on 2026-10-11 under the founder's delegation to Astra's recommendation; Phase 1 items 1–10 and 11 of §7 are merged (#1199, #1200, #1202, #1203, #1206) and Phase 2 in #1225 (the status note under §7's Phase 2 says where it departs from the brief and what stays open);
 the follow-ups in §11 are open; this document itself ships nothing · Support
 material:
 [`tasks/analysis-redesign-2026-10/`](../../tasks/analysis-redesign-2026-10/README.md) (runnable
@@ -46,7 +46,7 @@ The proposal replaces label-per-instance with **note-per-issue**:
 8. A **period selector** of presets, two compact selects and one summary line, in place of 61 equally
    weighted chips.
 9. One vocabulary across web, PDF, Excel and PNG: the same letters, the same note sentences, the same
-   counts; the narrative stays readable, the Sources & Methods appendix keeps full precision.
+   counts; the narrative stays readable, the Sources & methods appendix keeps full precision.
 
 Measured on the prototype with the real Meta Platforms 12-quarter dataset in its production-like
 state, with probes that read the rendered text and visit every scroll rest position (§2.3): no page
@@ -550,7 +550,8 @@ corrections of §11:
   option that stays focusable and carries its reason ("Quarterly data isn't available for this company"),
   the established unavailable recipe, never native `disabled` (#1203 shipped a native `disabled` option;
   §11).
-- Presets as plain actions, `Button variant="ghost" size="sm"`: Last 4 · Last 8 · Last 12 (Last 5 ·
+- Presets as plain actions in the secondary ink with Button sm's shape (not the ghost Button, whose sage
+  label D-030 keeps off a count): Last 4 · Last 8 · Last 12 (Last 5 ·
   Last 10 in annual mode), without `aria-pressed` and without a selected tint: the mode control is the
   one single-choice group in this toolbar, and the summary line already states the range (#1203 shipped
   tinted `aria-pressed` pills; §11).
@@ -565,7 +566,7 @@ corrections of §11:
   annual totals. Fiscal quarters. Data from Q2 2011; up to 12 quarters at a time.", then Run analysis.
   (The Run button keeps native `disabled` while running: `analysis-api.spec.ts` pins it, a rule-6
   contract; #1203's one-line change to that spec was the pre-approved contract change for the chips.)
-- The 61-chip grid is retired. On phones the selects are full width and 42 px tall; from 640 px up they
+- The 61-chip grid is retired. On phones the selects are full width and 44 px tall; from 640 px up they
   are 36 px toolbar fields beside the segmented control.
 
 ### 4.10 One vocabulary across exports
@@ -573,8 +574,8 @@ corrections of §11:
 | Surface | Affected value | Comparison built on it | Unavailable value | Summary | Full precision |
 |---|---|---|---|---|---|
 | Web | `26.1%†ᵃ` | `−9.7ppᵃ` | `—ᵇ` | Data notes strip (counts + grouped notes) | evidence dialog, Sources list |
-| PDF | the same letters as `<sup>` footnote marks in the grid and after narrative citations (never the U+1D43 modifier letter, which the bundled fonts may lack) | on the appendix YoY/QoQ rows, the only place the PDF prints comparisons | `—ᵇ` | "Data notes" list in the same order under the grid, replacing "[note n]" / "[unreconciled]" | Sources & Methods appendix (unchanged, with a Note column appended as column 17; columns 1–16 are positional and pinned) |
-| Excel | the letter in the cell's number format (`#,##0" (a)"`), so the cell stays numeric, sorts and prints; the sentence in the cell comment | the same on the growth cells the workbook has (window and top-line YoY) | empty cell with the comment | "Data notes" block on the cover sheet with the same counts | Sources & Methods sheet (unchanged, with the Note column) |
+| PDF | the same letters as `<sup>` footnote marks in the grid and after narrative citations (never the U+1D43 modifier letter, which the bundled fonts may lack) | on the appendix YoY/QoQ rows, the only place the PDF prints comparisons | `—ᵇ` | "Data notes" list in the same order under the grid, replacing "[note n]" / "[unreconciled]" | Sources & methods appendix (unchanged, with a Note column appended as column 17; columns 1–16 are positional and pinned) |
+| Excel | the letter in the cell's number format (`#,##0" (a)"`), so the cell stays numeric, sorts and prints; the sentence in the cell comment | the same on the growth cells the workbook has (window and top-line YoY) | empty cell with the comment | "Data notes" block on the cover sheet with the same counts | Sources & methods sheet (unchanged, with the Note column) |
 | PNG | hollow marker / filled bar + letter | letter on the growth line | gap | "Note a: …" lines under the plot | not applicable |
 
 Period headers in Excel read "Q2 2026" (the straight form; a typed filter cannot match a typographic
@@ -607,7 +608,7 @@ grouping and the sentences so the four cannot disagree (Phase 2); the exports re
   focus to the note's list item (`tabIndex=-1`, visible ring) without forced smooth scrolling.
 - Touch: `SegmentedControl` `size="adaptive"` is 36 px below the `sm` breakpoint and 26 px from it;
   the mode and window controls use `size="md"` (36 px) and full width on phones; the range selects are
-  42 px on phones. Figure buttons are not inline text: they meet WCAG 2.5.8 by size (the KPI buttons) or
+  44 px on phones. Figure buttons are not inline text: they meet WCAG 2.5.8 by size (the KPI buttons) or
   by the spacing exception (table rows about 41 px apart, columns at least 68 px); repeated "Open filing
   ↗" links carry distinct names. The table scrolls by swipe and snaps to columns; the chart plot scrolls
   by swipe inside its region, never the page.
@@ -701,10 +702,10 @@ operational action and is not part of this brief.
    caption. Update `metrics-table.spec.tsx`.
 6. **`SourceValue.tsx`** (M; partly landed in #1203: the display form, the stored value, the bound
    operands, the comparison block and the lineage copy; the status vocabulary of decision 9, "Unavailable"
-   for "Withheld", waits on that decision's confirmation): display form, the stored value, the formula with
+   for "Withheld", authorized by the 2026-10-11 decision): display form, the stored value, the formula with
    its operands bound by concept, the status vocabulary, the comparison block, the lineage block with the
    absent-lineage copy; never a storage unit (§4.6). Leftovers on `main`: `review-2026-10-10.md` items 1
-   and 13, item 28's "As stored" label, and the paused vocabulary (item 16 and the rest of 28 are satisfied
+   and 13, item 28's "As stored" label, and the authorized vocabulary follow-up (item 16 and the rest of 28 are satisfied
    there).
 7. **`NarrativePane.tsx`** (M; partly landed in #1203: the render-time compaction, the evidence fold, the
    header chips and the Sources lines; `main` folds every operand list and its summary names only the count,
@@ -714,20 +715,20 @@ operational action and is not part of this brief.
    the markers name; header chips; Sources list lines. Update `narrative-pane.spec.tsx`. Leftovers on
    `main`: `review-2026-10-10.md` items 2 and 11.
 8. **`TrendCharts.tsx`** (S; partly landed in #1203: the hollow markers with their letters, the chip and
-   the PNG notes; the filled affected bars wait on decision 7's confirmation, and `main` still draws a
+   the PNG notes; filled affected bars are authorized by decision 7 (2026-10-11), and `main` still draws a
    dashed outline): `dot` render for hollow markers with the letter above,
    affected bars keeping their fill with the letter above (never a dashed outline: §4.7, decision 7),
    letters in the chart label ink as SVG attributes from the chart theme, "Notes a" chip, PNG note
    sentences from `groupDataNotes`. Leftovers on `main`: `review-2026-10-10.md` items 25 and 29 (29 is
-   the filled affected bar, paused under decision 7; item 22's label ink is satisfied there). Update
+   the filled affected bar, authorized under decision 7; item 22's label ink is satisfied there). Update
    `trend-charts-annotation.spec.tsx`, `trend-charts-legend.spec.tsx` (it owns the warning and PNG
    metadata assertions) and `chart-export.spec.ts`.
 9. **`PeriodPicker.tsx`** (M; partly landed in #1203 as a rule-6 contract change: the `SegmentedControl`,
-   the From/To selects and the summary line; presets as plain buttons wait on decision 8's confirmation,
+   the From/To selects and the summary line; plain preset buttons are authorized by decision 8 (2026-10-11),
    and `main` still renders an `aria-pressed` group): `SegmentedControl`, presets as
    plain buttons, From/To selects with the announced clamp, summary line (§4.9); `chipsFor`/`nextRange`
    become option builders. Update `period-picker-helpers.spec.ts`. Leftovers on `main`:
-   `review-2026-10-10.md` item 19, which carries the paused presets.
+   `review-2026-10-10.md` item 19, which carries the authorized preset follow-up.
    `SegmentedControl` has no unavailable-option API today and the picker disables Quarterly when a
    company has no quarterly coverage: add an `aria-disabled` option (early return in the handler, the
    DS unavailable recipe, never native `disabled`) so that state survives the migration. Note the Run
@@ -863,7 +864,7 @@ tabs, and the web replaces its exact spans with evidence disclosures.
    copy; "calculated" and † everywhere ("derived Q4", "(marked Computed)" retire).
 3. **Exports** (M): §4.10; the PDF grid holds values only, so comparison letters go on the appendix
    YoY/QoQ rows; Excel growth comments exist only on the window and top-line YoY cells; the Note column
-   is column 17 of Sources & Methods (columns 1–16 are positional and pinned in `test_excel_export.py`);
+   is column 17 of Sources & methods (columns 1–16 are positional and pinned in `test_excel_export.py`);
    letters as `<sup>` in the PDF; one compact money formatter matching `Intl`. Tests:
    `test_export_service.py`, `test_excel_export.py`, `test_data_completeness.py`'s export pins.
 4. **Narrative rendering** (M): compact amounts, "Q2 2026" periods and the relation-safe rule of §4.8
@@ -920,8 +921,12 @@ Taken on 2026-10-10: the founder aligned with all five recommendations below ("r
 founder - i'm aligned with your recommendations"). They are recorded here and in
 `tasks/analysis-redesign-2026-10/astra-prompt.md`, the hand-over prompt for the implementing agent.
 The amendment to decision 4 and decisions 6–9, under "Amended and added by the comprehensive review"
-below, are not yet confirmed: each is a founder pause until confirmed in writing (the hand-over says so,
-and the Engineering row in `tasks/todo.md` does not pre-authorize them).
+below, were adopted on 2026-10-11 under the founder's open-items-sweep instruction: "I will go with
+the Astra agent’s expert recommend for all points above." The recommendation is to adopt all five:
+text-relative stacking prevents the measured 200%-text overflow; the glyph budget keeps columns
+readable while exact values remain available; filled bars avoid implying estimates; plain presets
+avoid a second competing selection state; and neutral status copy avoids promising substantive
+verification. Implementation and its measurement gates remain separate from this decision.
 
 1. Letters (a, b, c) as the note mark, or one warning glyph for all notes. Recommended: letters.
 2. `scroll-snap-type: x mandatory` (every rest position whole columns) or `proximity` (gentler
@@ -933,12 +938,26 @@ and the Engineering row in `tasks/todo.md` does not pre-authorize them).
 5. Whether the table window should also drive the charts. Recommended: no.
 
 **Amended and added by the comprehensive review (2026-10-10, evening).** Each is implemented in the
-prototype as recommended; the founder may overrule any of them. On `main` at `dd7b9ce` (2026-10-11):
-decision 6 is shipped (#1202) and stands pending ratification, so overruling it is a rollback follow-up;
-the amended 4, 7, 8 and 9 are not shipped (`TrendCharts.tsx` still draws an affected bar as a dashed
-outline, `PeriodPicker.tsx`'s presets are still an `aria-pressed` group, `SourceValue.tsx` still says
-"Withheld" and `DataNotes.tsx` still counts figures that "passed"), so the implementation pause applies to
-those four.
+prototype as recommended; the founder may overrule any of them. Historical release checkpoint:
+on `main` at `dd7b9ce` (2026-10-11), decision 6 was merged in #1202 and was ratified by the
+2026-10-11 sweep; amended 4 and decisions 7, 8 and 9 still awaited implementation. That dated
+checkpoint does not describe later implementation branches. Branch updates below record code
+available for review, separately from a verified merge and deployment.
+
+**Branch implementation (2026-10-12).** Decision 9 is implemented on this branch in #1264: evidence dialogs say "Unavailable" and
+clean reports say "No figures need review", independently of comparison concerns. Merge and
+deployment verification remain pending.
+
+**Branch implementation (2026-10-12).** Decision 4 (amended) is implemented on this branch in #1273:
+the KPI cards remain two-up at ordinary phone text and become one-up below 17 em of their own
+text size. Merge and deployment verification for this geometry change remain pending.
+
+**Branch implementation (2026-10-12).** Decision 7 is implemented on this branch in #1274: affected bars retain their series fill
+and carry the note letter above, with SVG/PNG halos. Merge and deployment verification
+remain pending.
+
+**Branch implementation (2026-10-12).** Decision 8 is implemented on this branch in #1275: recent-period presets are plain buttons
+without a second pressed selection state. Merge and deployment verification remain pending.
 
 4 (amended). Decision 4 was measured at 100% text only. At 200% text a 390 px phone shows 55 px of
    card overflow two-up and 90 px at 320. Recommended and implemented: two-up stays at 320 px and 100%

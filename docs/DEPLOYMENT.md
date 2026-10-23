@@ -144,7 +144,9 @@ and latency during the billing-mode change rather than claiming all thread opera
 Dispatch the `Ops` workflow with `describe-service`, then `describe-jobs`, when an operator needs
 independent release evidence through the repository's existing keyless WIF identity. Dispatch one
 Ops operation at a time and wait for it to finish: GitHub keeps one pending run per concurrency
-group, so a second pending dispatch in the `ops` group replaces the first. Dispatch after the
+group, so a second pending dispatch in the `ops` group replaces the first. An `-apply` waits for the
+founder's approval outside that group, but once approved it queues like any dispatch, so a later
+dispatch can still replace it and waste the approval. Dispatch after the
 merge's `deploy-backend` job has concluded: a describe during a deploy can fail transiently
 (`latest created revision … is not ready`) or show the worker and the API on different images. Both
 describe operations carry a ten-minute step timeout and run committed stdlib-only modules,
@@ -153,6 +155,16 @@ API service's own describe included, prints only its closed class (`permission_d
 `unavailable`, `timeout` after 100 s, `unreadable_response`, `error (gcloud exit N)` or
 `error (gcloud not executable)`), never gcloud's error text, which can name the acting principal, a
 host or a URL; `describe-jobs`' shell loop discards gcloud's stderr and prints its own closed line.
+
+The Cloud SQL proxy step used by `capacity-readout`, `detection-sql`, the repair-ticker and the
+fiscal-year relabel (`relabel-fy-*`) operations captures the `DATABASE_URL` secret read's stderr, including success-path warnings.
+A failed read stops setup with its exit status and only `permission_denied`, `not_found`,
+`unavailable` or `error (gcloud exit N)`, using the same classifier order as `logs-probe`.
+The five existing jobs-channel steps and the rollback step retain gcloud's progress output as
+operator evidence; their six step/command pairs (eight call sites) remain explicitly listed in
+[the stderr gate](../backend/tests/unit/test_ops_stderr_withheld.py)'s `INHERITED` map.
+These mutating actions are not live-test probes. The gate's stdin-program check does not
+recognise an interpreter invoked through a variable or another name (`$INTERPRETER -`, `pypy3 -`).
 
 `describe-service` reports, for the API service, traffic (100 % on the latest ready revision, no
 tags, revision names and percentages only), the serving revision image, `SENTRY_RELEASE`, pool
@@ -223,7 +235,8 @@ be read or parsed, only `body` (`non_json_or_unreadable` or `truncated_or_non_js
 leaves none. The redaction is shape-based: a dotted name is withheld whenever its last label could
 end a host name, except an IAM permission name ending in `.get`, `.list` or `.use`; a single-label
 host name, a host name followed by a label that cannot end one (`.1`, `_1`), a name dotted with a
-non-ASCII dot (U+3002, U+FF0E), an IPv4 address glued to a letter, digit, `_` or `-` and an IPv6
+non-ASCII dot (U+3002, U+FF0E) or encoded dots (`%2E`), an IPv4 address glued to a letter, digit,
+`_` or `-`, an integer or hexadecimal IPv4 address (`3221225991`, `0xc0000207`) and an IPv6
 address after a `label:` prefix are kept, and a host name in a script written with combining marks
 (Indic) is not covered.
 The response body itself is never kept.
@@ -234,8 +247,19 @@ The receipt is retained as the `capacity-readout-<run id>` Actions artifact for 
 `logs-probe: logging.read DENIED (rc=N)` followed by
 `logs-probe: failure class <class> (gcloud's error text withheld)` (`permission_denied`, `not_found`,
 `unavailable` or `error (gcloud exit N)`, classified as `describe-service` classifies), then the number
-of `company_upsert_conflict` entries in the last seven days when that read succeeds. It never prints
-gcloud's own error text, which names the acting principal, and never fails the step.
+of `company_upsert_conflict` entries in the last seven days when that read succeeds. Then, for each of
+the four lines `main.py` prints as Sentry starts or does not, it names the API service's revisions that
+printed it in the last seven days, with a count from the newest 500 entries per kind:
+`sentry startup (7d) initialized: <revision> x<n> ...`, and likewise `failed`, `dsn-unset` (no
+`SENTRY_DSN`) and `sdk-missing`, or `none`; a read that fails prints
+`sentry startup (7d) <kind>: UNVERIFIED (<class>; gcloud's error text withheld)`, with the classes above,
+and the step adds one `::warning::` that names those kinds and the remedy for each class.
+The task worker runs `task_worker_main.py`, which never imports `main.py` and starts no Sentry, so its
+revisions appear under no kind. After a deploy, the API service's new revision should appear under
+`initialized` and nowhere else, with none of the four lines `UNVERIFIED`. Without the SDK, each start
+would count twice under `sdk-missing`, as `app/routers/users.py` logs the same words. It never prints a
+log line (the failure line can quote an exception) or gcloud's own error text, which names the acting
+principal, and never fails the step.
 
 ### Rollback (when a bad revision is live)
 
@@ -255,7 +279,9 @@ gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-r
 ```
 
 Then revert the offending commit on `main` so the next CD deploy doesn't re-ship it (a plain
-`--to-latest` deploy would otherwise route traffic straight back to the bad image).
+`--to-latest` deploy would otherwise route traffic straight back to the bad image). A rollback past
+E110 parks the pending alert batches frozen with a plain-text part as `payload_drift`, unsent;
+`docs/OPERATIONS.md` (Durable alert delivery) says how to give their filings back.
 
 > **Feature flags are set in the deploy command, not the console.** `ci.yml`'s `--update-env-vars`
 > (e.g. `REGISTRATION_MODE`, `ENABLE_GUEST_DAILY_QUOTA`, `DB_POOL_SIZE`) is re-asserted on every
@@ -352,6 +378,7 @@ printf '%s' 'PASTE_VALUE' | gcloud secrets create STRIPE_PUBLISHABLE_KEY --data-
 printf '%s' 'PASTE_VALUE' | gcloud secrets create STRIPE_WEBHOOK_SECRET --data-file=-
 printf '%s' 'PASTE_VALUE' | gcloud secrets create RESEND_API_KEY        --data-file=-
 printf '%s' 'PASTE_VALUE' | gcloud secrets create RESEND_FROM_EMAIL     --data-file=-
+printf '%s' 'PASTE_VALUE' | gcloud secrets create RESEND_WEBHOOK_SECRET --data-file=-   # the webhook's whsec_ signing secret
 ```
 
 ### 5. Grant the runtime service account access
@@ -375,7 +402,7 @@ gcloud run deploy earningsnerd-backend \
   --region=us-west1 --allow-unauthenticated \
   --add-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
   --cpu=1 --memory=1Gi --cpu-boost --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
-  --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest \
+  --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,RESEND_WEBHOOK_SECRET=RESEND_WEBHOOK_SECRET:latest \
   --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1@ENABLE_INSIDER_ACTIVITY=false"
 ```
 
@@ -466,6 +493,15 @@ gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --sc
   --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-backfill-facts:run" \
   --http-method=POST --oauth-service-account-email="${SA}"
 ```
+
+`ENABLE_SECTION_CHANGES` ("what changed" wording diff) goes on **both** the scan job and the
+service: the job's real-time pass stores the Item 1A text (its own `section-extraction` job record;
+`SECTION_EXTRACTION_BATCH_LIMIT` filings per run, one SEC request each through the shared limiter)
+and the service's what-changed endpoint serves the diff. Neither `$ENVV` above nor the service's
+`--update-env-vars` in `ci.yml` sets it, so add it to both when it flips, and add `section-extraction`
+to `JOB_CADENCES`. `python scripts/extract_sections.py --tickers AAPL,MSFT` (or `--all --limit N`)
+warms the `filing_section_text` table by hand before the flip, under its own
+`section-extraction-manual` record; `docs/CONFIGURATION.md` lists the three settings.
 
 Smoke-test each before trusting the schedule:
 ```bash
@@ -633,9 +669,20 @@ check whether separately managed database routines need their own backup coverag
 arguments for THAT execution only — the job definition keeps `--command=python`, and the next
 scheduled run is unaffected. Do not use `gcloud run jobs update --args=…` for one-shot work. The
 backend deploy owns the persistent `earningsnerd-backfill-facts` contract and restores
-`python scripts/backfill_facts.py --only-new` while updating its image. Since the DB is only
-reachable from Cloud Run, execution-scoped arguments are also the way to run any
-`backend/scripts/*` maintenance script against prod. `backfill_facts.py --dry-run` is accepted only
+`python scripts/backfill_facts.py --only-new` while updating its image. The DB is reachable only
+from Cloud Run and through the Ops workflow's Cloud SQL proxy, so apart from the Ops workflow's
+committed script operations (`repair-ticker-*`, `relabel-fy-*`), execution-scoped arguments are the
+way to run a `backend/scripts/*` maintenance script against prod. Every Ops `-apply` operation waits
+for the founder's approval on the `ops-apply` environment before any step runs, writes only in the
+run's first attempt (a retry is a fresh dispatch), and a Claude Code session is refused the approval
+call (`.claude/hooks/ops_approval_guard.py`). The gate binds main's `ops.yml`, not the credential, and
+every apply stops at the workflow's approval check, which finds no approval of `ops-apply` recorded
+for the run, until the founder configures the environment (`ops.yml`'s header lists its limits).
+The founder sets it up once: Settings > Environments > New environment `ops-apply`, with the founder
+as its required reviewer and "Prevent self-review" left off (sessions dispatch through the
+founder's account). Each apply then shows "Review deployments" on its run page, where the founder
+approves it; the check counts only the repository owner's approval, so a reviewer added to the
+environment later cannot approve a production write. `backfill_facts.py --dry-run` is accepted only
 with `--remediate-financials` or `--backfill-company-sic`; the normal and `--only-new` paths write,
 so combining either with `--dry-run` exits before application initialization. Used for the 2026-07
 false-"reported" cleanup (unguarded 8-K 2.02 flips — BIIB shown as reported on its pre-announcement
@@ -821,8 +868,12 @@ inspector continues to report the actual code default separately from the live p
 
 Merge the activation only after #1002's source-faithful reason labels and responsive card layout
 are released and independently verified. After the activation deployment, verify the migration
-summary, detailed health, live flag, `GET /api/notable_filings?limit=8`, issuer diversity, canonical
-SEC URLs, filing freshness and the homepage after revalidation. The homepage ISR interval is
+summary, detailed health, live flag, `GET /api/notable_filings?limit=6` (the homepage's own request:
+under D-046's rule at most six 10-K and 10-Q filings, one per company), canonical SEC URLs in its
+payload, filing freshness (each `filed_date` today or in the seven days before, in New York) and the
+homepage after revalidation, where the row follows Reporting this week and each line opens its
+company page, prints the company's name as Reporting this week does and states its filing's date
+("filed Oct 20, 2026"). The homepage ISR interval is
 **3,600 seconds**, distinct from the backend's fifteen-minute serve-cache TTL. An API flag change
 does not immediately purge existing homepage HTML. An empty feed is legitimate when fewer than
 three companies qualify; do not infer success or failure from HTTP status alone.

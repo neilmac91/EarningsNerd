@@ -43,6 +43,9 @@ export const queryKeys = {
    *  that offer an account CTA on the client (the pricing page), so none advertises a signup the
    *  API would reject (features/marketing/lib/access.ts). */
   registrationConfig: () => ['registration-config'] as const,
+  /** Cloudflare's Turnstile script, loaded once a page by TurnstileWidget: a load that fails is its notice's
+   *  Try again, as a failed read's is. */
+  turnstileScript: () => ['turnstile-script'] as const,
 
   // Same prefix as the library: save/delete invalidation refreshes every saved-state consumer.
   savedSummaryStatus: (summaryId: number | undefined, userId: number | undefined) =>
@@ -69,9 +72,27 @@ export const queryKeys = {
   tickerCompany: (ticker: string) => ['ticker-company', ticker] as const,
   tickerFilings: (ticker: string) => ['ticker-filings', ticker] as const,
   filing: (filingId: string | number) => ['filing', filingId] as const,
+  filingContent: (filingId: number) => ['filing-content', filingId] as const,
   summary: (filingId: string | number) => ['summary', filingId] as const,
   summaryProgress: (filingId: string | number) => ['summary-progress', filingId] as const,
-  whatChanged: (filingId: string | number) => ['what-changed', filingId] as const,
+  // The change report differs by viewer: a Pro reader gets every Item 1A wording change, everyone
+  // else the teaser. The key carries the signed-in reader's id (null for anonymous), so anonymous
+  // readers share one entry (the one the filing page seeds from its server read) and no signed-in
+  // reader's own read overwrites it. Read through features/summaries/hooks/useWhatChanged. A reader
+  // whose /me failed reads under the anonymous key with their own session, so the family is removed
+  // on logout and login (features/auth/lib/accountQueryState); the seed returns as initial data.
+  whatChanged: {
+    all: () => ['what-changed'] as const,
+    byViewer: (filingId: string | number, viewerId: number | null) => ['what-changed', filingId, viewerId] as const,
+  },
+  // The signed-in Pro reader's own review of a filing's wording changes (labels, receipt); read
+  // only with the full change list in front of them (features/summaries/hooks/useWordingReview).
+  // One family, removed with the account's other snapshots on logout and login
+  // (features/auth/lib/accountQueryState), so the next account in this tab never sees these labels.
+  wordingReview: {
+    all: () => ['wording-review'] as const,
+    byFiling: (filingId: string | number) => ['wording-review', filingId] as const,
+  },
   company: (ticker: string) => ['company', ticker] as const,
   companyFilings: (ticker: string, limit?: number) => ['filings', ticker, limit ?? null] as const,
   companies: (query: string) => ['companies', query] as const,

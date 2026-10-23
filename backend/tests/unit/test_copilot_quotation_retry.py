@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from main import app
 from app.services import copilot_service
-from app.services.copilot import envelope as copilot_envelope
+from app.services.copilot import prompt as copilot_prompt
 from app.services.ai import copilot_chat
 from app.services.ai.copilot_chat import merge_chat_usage
 from app.services.ai.provider_requests import signal_provider_start
@@ -122,9 +122,15 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
 
     monkeypatch.setattr(copilot_service, "_select_source_text", select)
     monkeypatch.setattr(copilot_service, "normalize_for_match", normalized)
-    monkeypatch.setattr(copilot_envelope, "normalize_for_match", normalized)
     monkeypatch.setattr(copilot_service.copilot_tools, "run_tool", fact)
     monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
+    question_budgets, real_chat_deadline = [], copilot_service.chat_deadline
+
+    def recording_chat_deadline():
+        question_budgets.append(real_chat_deadline())
+        return question_budgets[-1]
+
+    monkeypatch.setattr(copilot_service, "chat_deadline", recording_chat_deadline)
     before = asyncio.get_running_loop().time()
     rows = await collect(selected)
     terminal = [row for row in rows if row["type"] in {"complete", "error"}]
@@ -139,7 +145,9 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
     assert source_reads == [selected] and normalizations.count(SOURCE) == 1
     assert calls[0]["usage_sink"] == calls[1]["usage_sink"]
     assert isinstance(calls[0]["deadline"], (int, float))
-    assert before < calls[0]["deadline"] <= before + 75.1
+    # Both attempts carry the one budget the question fixed (75 s from chat_deadline), compared as
+    # values: an upper bound of `before + 75.1` left 0.1 s of wall clock for the service's awaits.
+    assert before < calls[0]["deadline"] and [calls[0]["deadline"]] == question_budgets
     assert calls[0]["deadline"] == calls[1]["deadline"]
     assert SOURCE in json.dumps(calls[1]["messages"])
     assert "UNRELATED CACHE REPLACEMENT" not in json.dumps(calls[1]["messages"])
@@ -148,6 +156,13 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
     assert first_system["role"] == retry_system["role"] == "system"
     assert retry_system["content"] != first_system["content"]
     assert "quot" in retry_system["content"].lower() and "contiguous" in retry_system["content"].lower()
+    # The first generation keeps SYSTEM_PROMPT's bytes. A decision-F retry adds the evidence guidance
+    # alone; only an excerpt failure adds the table guidance, chosen by its owned exception class.
+    added = "\n\n" + copilot_prompt._EVIDENCE_RETRY_GUIDANCE
+    if surface == "citation_excerpt":
+        added += "\n\n" + copilot_prompt._CITATION_EXCERPT_RETRY_GUIDANCE
+    assert first_system["content"].startswith(copilot_prompt.SYSTEM_PROMPT)
+    assert retry_system["content"] == first_system["content"] + added
     assert complete["usage"]["total_tokens"] == 26
     assert complete["usage"]["call_count"] == 2
     assert complete["usage"]["estimated_cost_usd"] == pytest.approx(0.003)
@@ -185,18 +200,15 @@ async def test_retry_exhaustion_has_one_terminal_error_without_private_candidate
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", [
-    "malformed", "citation", "upstream", "ambiguous", "missing_source",
+    "malformed", "upstream", "ambiguous", "missing_source",
     "missing_source_excerpt", "quoted_section", "missing_id",
-    "short_excerpt", "short_source", "leading_zero_missing", "late_quoted_label",
+    "short_source", "leading_zero_missing", "late_quoted_label",
+    "short_excerpt_with_quoted_label", "duplicate_id_with_missing_id",
 ])
 async def test_other_rejections_do_not_buy_another_generation(monkeypatch, case):
     selected = filing()
     payload = {
         "malformed": 'A private answer [1].\n===CITATIONS===[{"n":1,',
-        "citation": envelope("The filing supports this claim [1].", declarations=[
-            {"n": 1, "excerpt": INVENTED, "section": "Item 2 — MD&A"},
-            {"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"},
-        ]),
         "upstream": STREAM_ERROR_SENTINEL + "offline provider failed",
         "ambiguous": envelope(f'The filing said "{KNOWN}" [1]. [More](https://example.invalid)'),
         "missing_source": f'The filing said "{KNOWN}".\n===CITATIONS===[]',
@@ -205,7 +217,18 @@ async def test_other_rejections_do_not_buy_another_generation(monkeypatch, case)
                                    section='Item 2 — "Management demand commentary"'),
         "missing_id": envelope(f'Management said "{KNOWN}" [1]. Capacity investment continued [2].',
                                excerpt=INVENTED),
-        "short_excerpt": envelope(f'Management said "{KNOWN}" [1].', excerpt='"Changed demand"'),
+        "short_excerpt_with_quoted_label": envelope(
+            f'Management said "{KNOWN}" [1]. Capacity investment continued [2].', declarations=[
+                {"n": 1, "excerpt": '"Changed demand"', "section": "Item 2 — MD&A"},
+                {"n": 2, "excerpt": KNOWN, "section": 'Item 2 — "Management demand commentary"'},
+            ],
+        ),
+        "duplicate_id_with_missing_id": envelope(
+            f'Management said "{KNOWN}" [1]. Capacity investment continued [2].', declarations=[
+                {"n": 1, "excerpt": INVENTED, "section": "Item 2 — MD&A"},
+                {"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"},
+            ],
+        ),
         "short_source": rejected("citation_excerpt"),
         "leading_zero_missing": envelope(
             f'Management said "{KNOWN}" [1]. Capacity investment continued [01].', excerpt=INVENTED,
@@ -232,6 +255,50 @@ async def test_other_rejections_do_not_buy_another_generation(monkeypatch, case)
     assert len(calls) == 1
     assert len([row for row in rows if row["type"] == "error"]) == 1
     assert all(row["type"] in {"progress", "error"} for row in rows)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["recovered", "exhausted"])
+@pytest.mark.parametrize("case", ["short_excerpt", "duplicate_id", "bare_figure"])
+async def test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_table_guidance(
+    monkeypatch, case, outcome,
+):
+    """The table-text failures copilot-eval withholds earn the one private regeneration, nothing more.
+
+    The replacement still passes every admission check: a second failure is the same single generic
+    error, and the rejected candidate never reaches the client or the replacement prompt.
+    """
+    first = {
+        "short_excerpt": envelope(f'{POISON}: management said "{KNOWN}" [1].', excerpt='"Changed demand"'),
+        "duplicate_id": envelope(f"{POISON}: the filing supports this claim [1].", declarations=[
+            {"n": 1, "excerpt": INVENTED, "section": "Item 2 — MD&A"},
+            {"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"},
+        ]),
+        "bare_figure": envelope(f"{POISON}: demand remained robust [1].", excerpt="robust"),
+    }[case]
+    calls = []
+
+    async def stream(messages, *_args, **_kwargs):
+        calls.append(copy.deepcopy(messages))
+        if len(calls) == 1 or outcome == "exhausted":
+            yield first
+        else:
+            yield envelope(f'Management said "{KNOWN}" [1].')
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
+    rows = await collect()
+    assert len(calls) == 2
+    assert calls[0][0]["content"] == copilot_prompt.SYSTEM_PROMPT
+    assert calls[1][0]["content"] == (copilot_prompt.SYSTEM_PROMPT + "\n\n" + copilot_prompt._EVIDENCE_RETRY_GUIDANCE
+                                      + "\n\n" + copilot_prompt._CITATION_EXCERPT_RETRY_GUIDANCE)
+    assert POISON not in json.dumps(calls[1]) and POISON not in json.dumps(rows)
+    terminal = [row for row in rows if row["type"] in {"complete", "error"}]
+    if outcome == "recovered":
+        assert len(terminal) == 1 and terminal[0]["type"] == "complete"
+        assert [c["excerpt"] for c in terminal[0]["citations"]] == [KNOWN]
+        assert all(c["verified"] is True for c in terminal[0]["citations"])
+    else:
+        assert terminal == [{"type": "error", "message": copilot_service._PUBLICATION_ERROR}]
 
 
 @pytest.mark.asyncio
@@ -286,18 +353,48 @@ async def test_retry_cancellation_closes_the_active_provider_without_terminal_pr
 @pytest.mark.asyncio
 @pytest.mark.parametrize("limit", ["caller", "wrapper", "expired"])
 async def test_native_sdk_retry_deadline_is_the_earlier_caller_or_75s_budget(monkeypatch, limit):
-    # The deadline the wrapper must honour is 0.5s away (or already past); the one it must not
-    # honour is 2s away. The elapsed bound sits between them, so on a loaded xdist runner the
-    # request has half a second to reach the handler (the SDK's first request on a client detects
-    # the platform in a thread) and the stream half a second more to end, while honouring the
-    # wrong deadline overshoots the bound by a full second (#1241 saw 0.34s against a 0.2s bound).
-    honoured, decoy = 0.5, 2.0
-    calls, closed = [], []
+    # The deadline the wrapper must honour is 30s away (or already past); the one it must not
+    # honour is 60s away. The test records the wrapper's own budget and the deadline the chat path
+    # cuts the stream at (the asyncio.timeout_at it enters), compares those values, and expires the
+    # entered timeout by hand once the first chunk is consumed; before it, an expiry is a retryable
+    # attempt timeout with 30s still left. The request goes out inside that timeout, so a provider
+    # that never answers is bounded by the same deadline. No real deadline races the test: an
+    # elapsed bound told the two apart only with slack to spare on a loaded xdist runner (#1241 saw
+    # 0.34s against a 0.2s bound), and a real 0.5s deadline still covered the SDK's first request,
+    # which detects the platform in a worker thread.
+    honoured, decoy = 30.0, 60.0
+    calls, closed, own, cutoffs, timers, entered, entered_at_request = [], [], [], [], [], [], []
+    first_chunk_consumed = asyncio.Event()
     monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", honoured if limit == "wrapper" else decoy)
+    real_chat_deadline = copilot_chat.chat_deadline
+
+    def recording_chat_deadline():
+        own.append(real_chat_deadline())
+        return own[-1]
+
+    class Entered:  # the timeout the chat path builds, saying when it is entered
+        def __init__(self, timeout):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            entered.append(self.timeout)
+            return await self.timeout.__aenter__()
+
+        async def __aexit__(self, *exc):
+            return await self.timeout.__aexit__(*exc)
+
+    def recording_timeout_at(when):
+        cutoffs.append(when)
+        timers.append(asyncio.timeout_at(when))
+        return Entered(timers[-1])
+
+    monkeypatch.setattr(copilot_chat, "chat_deadline", recording_chat_deadline)
+    monkeypatch.setattr(copilot_chat, "asyncio", SimpleNamespace(**{**vars(asyncio), "timeout_at": recording_timeout_at}))
 
     class Body(httpx2.AsyncByteStream):
         async def __aiter__(self):
             yield event(chunk("a" * 300))
+            first_chunk_consumed.set()  # the consumer asked for the next one
             await asyncio.Event().wait()
 
         async def aclose(self):
@@ -305,25 +402,28 @@ async def test_native_sdk_retry_deadline_is_the_earlier_caller_or_75s_budget(mon
 
     def handler(request):
         calls.append(request)
+        entered_at_request.append(len(entered))
         return httpx2.Response(200, headers={"content-type": "text/event-stream"}, stream=Body())
 
     async with service_for(handler) as service:
-        # Build the SDK client before starting the caller's budget. Its first request still pays
-        # the platform detection inside the budget, which `honoured` leaves room for.
         before = asyncio.get_running_loop().time()
         deadline = before + (honoured if limit == "caller" else decoy if limit == "wrapper" else -1)
         async def receive():
             return [piece async for piece in service.stream_chat_with_tools(
                 [], [], lambda *_args: {}, deadline=deadline,
             )]
-        # Outlasts the decoy, so honouring the wrong deadline fails the elapsed bound below with
-        # its measured time rather than as a bare cancellation.
-        output = await asyncio.wait_for(receive(), decoy + 1.0)
-    elapsed = asyncio.get_running_loop().time() - before
-    assert elapsed < 1.0, elapsed
+        task = asyncio.create_task(receive())
+        if limit != "expired":
+            await asyncio.wait_for(first_chunk_consumed.wait(), 10)  # hang guards only, here and below
+            timers[0].reschedule(asyncio.get_running_loop().time())  # the honoured deadline passes
+        output = await asyncio.wait_for(task, 10)
     assert output[-1].startswith(STREAM_ERROR_SENTINEL)
     assert len(calls) == (0 if limit == "expired" else 1)
+    assert entered_at_request == ([] if limit == "expired" else [1])  # the request went out inside the timeout
     assert len(closed) == len(calls)
+    [own_budget] = own
+    expected = {"caller": [deadline], "wrapper": [own_budget], "expired": []}[limit]  # an expired one enters none
+    assert cutoffs == expected, (cutoffs, deadline, own_budget)
 
 
 @pytest.fixture

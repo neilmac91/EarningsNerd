@@ -2,9 +2,9 @@
 
 One row per SEC filing the EDGAR scan (``notable_filings_service.run_scan``) judged notable:
 high-signal form types (10-K/10-Q/S-1/SC 13D) and 8-Ks with material item codes. Rows are
-upserted on ``accession_number`` by the twice-daily scan and pruned after 14 days; the serve
-path re-ranks them with a recency decay at read time, so the stored ``score`` is deliberately
-decay-free (base signal + demand) and never goes stale over a weekend.
+upserted on ``accession_number`` by the twice-daily scan and pruned after 14 days. The stored
+``score`` is base signal + demand, with no recency decay; the serve path (D-046) orders the window
+newest first and reads the score only to break a tie.
 
 Deliberately NOT a ``Filing`` row: ``Filing`` requires a ``company_id`` FK (and ingestion), while
 this table is a lightweight market-wide candidate list keyed by ticker/accession — a card links to
@@ -45,7 +45,7 @@ class NotableFiling(Base):
     items = Column(JSON, nullable=True)  # 8-K item codes, e.g. ["2.02", "9.01"]; NULL otherwise
     reason = Column(String(32), nullable=False)  # slug, e.g. earnings_results — see service weights
     filed_date = Column(Date, nullable=False)
-    # Base signal + demand boost, WITHOUT recency decay (applied at serve time).
+    # Base signal + demand boost, with no recency decay; the serve path reads it to break a tie.
     score = Column(Numeric, nullable=False, default=0, server_default="0")
     sec_url = Column(Text, nullable=False)  # filing index page, rule-10 URL format
     first_seen_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

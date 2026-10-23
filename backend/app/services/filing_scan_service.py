@@ -7,7 +7,10 @@ Pro with real-time off) into one email per user.
 
 Eligibility and delivery limits:
 - **No historical spam:** a watcher is only alerted about filings dated after they started watching
-  (``Watchlist.created_at``) or after the last alert (``last_alerted_at``) — the baseline.
+  (``Watchlist.created_at``) or on or after the date of the last alerted filing (``last_alerted_at``)
+  — the baseline; that date itself counts only while it is recent (the digest window).
+  ``Filing.filing_date`` is a calendar date stored as UTC midnight, never an instant, so the
+  baseline and the digest window compare whole days.
 - **Durable delivery (E11b-1):** selection persists a delivery batch (frozen email, provider
   idempotency key, owned filings) before any send; ``notification_delivery_service.drain`` then
   dispatches through fenced claims, so concurrent runs cannot both send one batch and a failed
@@ -31,8 +34,9 @@ from app.models.notification_delivery import KIND_FILING_DIGEST, KIND_FILING_REA
 from app.models.notifications import CHANNEL_EMAIL
 from app.services import email_service
 from app.services import notification_delivery_service as delivery
-from app.services.entitlements import get_entitlements
+from app.services.entitlements import Entitlements, get_entitlements
 from app.services.notification_service import evaluate_delivery, get_or_create_preferences
+from app.utils.datetimes import utc_from_iso
 
 logger = logging.getLogger(__name__)
 
@@ -102,9 +106,30 @@ def _as_utc(dt: Optional[datetime]) -> Optional[datetime]:
     return dt.astimezone(timezone.utc)
 
 
+def _window_start(now: datetime, window_hours: int = DEFAULT_DIGEST_WINDOW_HOURS) -> datetime:
+    """Start of the UTC day ``window_hours`` before ``now``. ``filing_date`` is a calendar date
+    stored as UTC midnight, so a bound on it is a whole day: an hour-granular one would drop every
+    filing dated the day before a run (production digests at 08:00 UTC)."""
+    return (now - timedelta(hours=window_hours)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 def _filing_date_str(dt: Optional[datetime]) -> str:
     d = _as_utc(dt)
     return d.date().isoformat() if d else ""
+
+
+def alert_wording_changes(db: Session, ent: Entitlements, filing_ids: list[int]) -> dict[int, dict]:
+    """Per filing, the Item 1A comparison summary the alert's wording line reads
+    (``email_service.wording_changes_line``), for a recipient whose plan has the full change list
+    (``section_changes``) while ENABLE_SECTION_CHANGES is on; empty otherwise, and for every
+    filing whose comparison is not cached yet (the real-time pass usually runs before the
+    extraction batch stores it, so the digest and a rebuilt batch carry the line more often)."""
+    from app.config import settings
+    from app.services.filing_section_service import wording_change_summaries
+
+    if not settings.ENABLE_SECTION_CHANGES or not ent.section_changes or not filing_ids:
+        return {}
+    return wording_change_summaries(db, filing_ids)
 
 
 # --------------------------------------------------------------------------- filing upsert
@@ -118,11 +143,14 @@ def upsert_filings(db: Session, company: Company, sec_filings: list[dict]) -> li
     if not sec_filings:
         return []
 
+    from app.services.filing_amendment_service import (
+        existing_filings_for_insert,
+        lock_company_filings,
+        mark_superseded_filings,
+    )
+    lock_company_filings(db, company.id)  # before the check below reads which rows exist
     accession_numbers = [f.get("accession_number") for f in sec_filings if f.get("accession_number")]
-    existing = {
-        f.accession_number: f
-        for f in db.query(Filing).filter(Filing.accession_number.in_(accession_numbers)).all()
-    } if accession_numbers else {}
+    existing = existing_filings_for_insert(db, accession_numbers)
 
     result: list[Filing] = []
     new_filings: list[Filing] = []
@@ -141,8 +169,8 @@ def upsert_filings(db: Session, company: Company, sec_filings: list[dict]) -> li
                     company_id=company.id,
                     accession_number=accession,
                     filing_type=sf["filing_type"],
-                    filing_date=datetime.fromisoformat(sf["filing_date"]),
-                    period_end_date=datetime.fromisoformat(sf["report_date"]) if sf.get("report_date") else None,
+                    filing_date=utc_from_iso(sf["filing_date"]),
+                    period_end_date=utc_from_iso(sf["report_date"]) if sf.get("report_date") else None,
                     document_url=document_url,
                     sec_url=sec_url,
                 )
@@ -153,7 +181,6 @@ def upsert_filings(db: Session, company: Company, sec_filings: list[dict]) -> li
             new_filings.append(filing)
         result.append(filing)
 
-    from app.services.filing_amendment_service import mark_superseded_filings
     changed_links = mark_superseded_filings(db, company.id)
     if new_filings or changed_links:
         db.commit()
@@ -189,23 +216,33 @@ def _write_log(db: Session, user_id: int, filing_id: int, channel: str, status: 
         return False
 
 
-def _candidate_filings(filings: list[Filing], baseline: Optional[datetime]) -> list[Filing]:
-    """Filings dated strictly after the baseline (what's new since the user started watching),
-    newest first. This is what prevents alerting on a company's back-catalogue."""
+def _candidate_filings(filings: list[Filing], watch: Watchlist, recent_since: datetime) -> list[Filing]:
+    """Filings new to this watcher (what's new since the user started watching), newest first.
+    This is what prevents alerting on a company's back-catalogue.
+
+    ``filing_date`` is a calendar date stored as UTC midnight. After an alert the baseline is the
+    last alerted filing's date (``last_alerted_at``). A filing dated that same day is still new while
+    the day is recent (on or after ``recent_since``, the digest window's start): an 8-K and the 10-Q
+    often share a date but land in different scan ticks, and ``_already_logged`` /
+    ``delivery.already_owned`` stop the alerted one from being sent again. An un-alerted filing from
+    an older watermark day is back-catalogue, not news. Before any alert a filing must be dated
+    strictly after the watch began (``created_at``): a filing dated the day the user started
+    watching cannot be told apart from one filed before they did."""
+    watermark = _as_utc(watch.last_alerted_at)
+    started = _as_utc(watch.created_at)
     out = []
     for f in filings:
         fdate = _as_utc(f.filing_date)
         if fdate is None:
             continue
-        if baseline is not None and fdate <= baseline:
+        if watermark is not None:
+            if fdate < watermark or (fdate == watermark and fdate < recent_since):
+                continue
+        elif started is not None and fdate <= started:
             continue
         out.append(f)
     out.sort(key=lambda f: _as_utc(f.filing_date), reverse=True)
     return out
-
-
-def _baseline_for(watch: Watchlist) -> Optional[datetime]:
-    return _as_utc(watch.last_alerted_at) if watch.last_alerted_at else _as_utc(watch.created_at)
 
 
 def _advance_watermark(watch: Watchlist, filing: Filing) -> None:
@@ -239,6 +276,7 @@ async def run_filing_scan(
         fetch_filings = sec_edgar_service.get_filings
 
     stats = {"companies_scanned": 0, "filings_upserted": 0, "alerts_sent": 0, "alerts_failed": 0, "source_errors": 0}
+    recent_since = _window_start(now)  # a watermark's own day stays open for the span a digest covers
 
     company_ids = [row[0] for row in db.query(Watchlist.company_id).distinct().all()]
     form_types = _scan_form_types()  # resolve once (flag read + concat) — not per company
@@ -271,7 +309,7 @@ async def run_filing_scan(
                 continue
             prefs = get_or_create_preferences(db, user.id)
             ent = get_entitlements(user)
-            for filing in _candidate_filings(filings, _baseline_for(watch)):
+            for filing in _candidate_filings(filings, watch, recent_since):
                 eligible, realtime = evaluate_delivery(prefs, ent, filing.filing_type)
                 if not eligible or not realtime:
                     continue  # ineligible, or queued for the digest
@@ -279,7 +317,7 @@ async def run_filing_scan(
                     continue  # historical rows are never replayed
                 if delivery.already_owned(db, user.id, filing.id, CHANNEL_EMAIL):
                     continue  # owned by a durable batch (any state)
-                subject, html = email_service.build_new_filing_alert(
+                subject, html, text = email_service.build_new_filing_alert(
                     name=user.full_name,
                     company_name=company.name,
                     ticker=company.ticker,
@@ -287,9 +325,10 @@ async def run_filing_scan(
                     filing_date=_filing_date_str(filing.filing_date),
                     filing_id=filing.id,
                     filing_url=filing.sec_url,
+                    wording_changes=alert_wording_changes(db, ent, [filing.id]).get(filing.id),
                 )
                 delivery.create_batch(
-                    db, kind=KIND_FILING_REALTIME, user_id=user.id, subject=subject, html=html,
+                    db, kind=KIND_FILING_REALTIME, user_id=user.id, subject=subject, html=html, text=text,
                     filing_ids=[filing.id], now=now,
                 )
             db.commit()
@@ -308,12 +347,14 @@ async def run_daily_digest(
 ) -> dict:
     """Send one batched email per user for eligible, not-yet-alerted filings in the window.
 
-    Historical NotificationLog rows and filings already owned by a delivery batch are excluded;
-    the digest's membership and payload are frozen on its batch before dispatch.
+    The window opens at the start of the UTC day ``window_hours`` before ``now`` (``_window_start``).
+    A filing that falls in two consecutive windows is still sent once: historical NotificationLog
+    rows and filings already owned by a delivery batch are excluded; the digest's membership and
+    payload are frozen on its batch before dispatch.
     """
     delivery_now = now  # Explicit test clock only; production delivery uses its own live clock.
     now = _as_utc(now or datetime.now(timezone.utc))  # tolerate a naive `now` from callers/tests
-    window_start = now - timedelta(hours=window_hours)
+    window_start = _window_start(now, window_hours)
 
     stats = {"digests_sent": 0, "digests_failed": 0, "filings_included": 0}
 
@@ -343,9 +384,8 @@ async def run_daily_digest(
             company = db.get(Company, watch.company_id)
             if company is None:
                 continue
-            baseline = _baseline_for(watch)
             recent = filings_by_company.get(watch.company_id, [])
-            for filing in _candidate_filings(recent, baseline):
+            for filing in _candidate_filings(recent, watch, window_start):
                 fdate = _as_utc(filing.filing_date)
                 if fdate is None or fdate < window_start:
                     continue
@@ -369,9 +409,12 @@ async def run_daily_digest(
         if not items:
             continue
 
-        subject, html = email_service.build_daily_digest(name=user.full_name, items=items)
+        wording = alert_wording_changes(db, ent, [filing.id for _watch, filing in to_log])
+        for (_watch, filing), item in zip(to_log, items):
+            item["wording_changes"] = wording.get(filing.id)
+        subject, html, text = email_service.build_daily_digest(name=user.full_name, items=items)
         created = delivery.create_batch(
-            db, kind=KIND_FILING_DIGEST, user_id=uid, subject=subject, html=html,
+            db, kind=KIND_FILING_DIGEST, user_id=uid, subject=subject, html=html, text=text,
             filing_ids=[filing.id for _watch, filing in to_log], now=now,
         )
         if created is None:
@@ -380,9 +423,9 @@ async def run_daily_digest(
             kept = [(watch, filing, item) for (watch, filing), item in zip(to_log, items)
                     if not delivery.already_owned(db, uid, filing.id, CHANNEL_EMAIL)]
             if kept:
-                subject, html = email_service.build_daily_digest(name=user.full_name, items=[i for _, _, i in kept])
+                subject, html, text = email_service.build_daily_digest(name=user.full_name, items=[i for _, _, i in kept])
                 delivery.create_batch(
-                    db, kind=KIND_FILING_DIGEST, user_id=uid, subject=subject, html=html,
+                    db, kind=KIND_FILING_DIGEST, user_id=uid, subject=subject, html=html, text=text,
                     filing_ids=[filing.id for _watch, filing, _item in kept], now=now,
                 )
 

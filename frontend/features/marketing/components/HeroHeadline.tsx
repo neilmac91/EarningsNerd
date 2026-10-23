@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useFeatureFlagVariantKey } from 'posthog-js/react'
+import BrandEmphasis from './BrandEmphasis'
 import {
   DEFAULT_HEADLINE,
   HEADLINES,
@@ -28,12 +29,11 @@ export default function HeroHeadline() {
     <h1
       id="hero-h"
       data-headline-variant={variant}
-      className="text-4xl font-semibold leading-[1.1] text-text-primary-light dark:text-text-primary-dark sm:text-5xl lg:text-6xl"
+      className="isolate [container-type:inline-size] text-4xl font-semibold leading-[1.1] text-text-primary-light dark:text-text-primary-dark sm:text-5xl lg:text-6xl"
     >
       {headline.pre}
-      {/* The brand device: the accent phrase carries the mark on the primary ink (DESIGN.md › Graphic device). */}
-      <span className="en-mark">{headline.accent}</span>
-      {headline.post}
+      <BrandEmphasis trailingPeriod={headline.post === '.'}>{headline.accent}</BrandEmphasis>
+      {headline.post === '.' ? null : headline.post}
     </h1>
   )
 }

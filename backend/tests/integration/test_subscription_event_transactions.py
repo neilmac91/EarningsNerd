@@ -8,21 +8,22 @@ import asyncio
 import json
 import os
 import threading
+import time
 import uuid
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine, event as sqlalchemy_event
+from sqlalchemy import create_engine, event as sqlalchemy_event, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
 from starlette.requests import Request
 
 from app import database
-from app.database import Base
+from app.database import Base, SessionLocal
 from app.models import BillingPayment, InviteCode, StripeEvent, Subscription, User
 from app.routers import subscriptions
-from app.services import subscription_sync, subscription_webhook_service as service
+from app.services import billing_account_service, subscription_sync, subscription_webhook_service as service
 
 
 TABLES = [User.__table__, Subscription.__table__, StripeEvent.__table__, InviteCode.__table__, BillingPayment.__table__]
@@ -55,6 +56,13 @@ def postgres_engine():
         engine.dispose()
 
 
+def _session(bind) -> Session:
+    """A session with production's settings (``SessionLocal``'s, which do not autoflush) on this case's engine
+    or connection: an autoflushing one flushes a pending write at its next query, where production waits for
+    the commit, and can serialize two requests that production does not (E132)."""
+    return sessionmaker(**{**SessionLocal.kw, "bind": bind})()
+
+
 @pytest.fixture(autouse=True)
 def stripe_boundary(monkeypatch):
     monkeypatch.setattr(subscriptions.stripe.Webhook, "construct_event", lambda *args: object())
@@ -62,14 +70,14 @@ def stripe_boundary(monkeypatch):
 
 
 def _install_factory(monkeypatch, engine, cls=Session):
-    factory = sessionmaker(bind=engine, class_=cls, autoflush=False)
+    factory = sessionmaker(**{**SessionLocal.kw, "bind": engine}, class_=cls)
     monkeypatch.setattr(database, "SessionLocal", factory)
     return factory
 
 
-def _seed(engine):
-    with Session(engine) as db:
-        user = User(email=f"{uuid.uuid4().hex}@example.com", email_verified=True, stripe_customer_id="cus_test")
+def _seed(engine, *, customer="cus_test"):
+    with _session(engine) as db:
+        user = User(email=f"{uuid.uuid4().hex}@example.com", email_verified=True, stripe_customer_id=customer)
         db.add(user)
         db.commit()
         return user.id
@@ -90,7 +98,7 @@ async def _deliver(payload):
 
 
 def _billing(engine, user_id):
-    with Session(engine) as db:
+    with _session(engine) as db:
         user = db.get(User, user_id)
         sub = db.query(Subscription).filter_by(user_id=user_id).first()
         return (user.is_pro, sub.status if sub else None,
@@ -249,7 +257,7 @@ async def test_postgres_account_contention_is_retryable_without_mutation(postgre
     payload = _event(user_id, kind)
     if kind == "customer.subscription.updated":
         monkeypatch.setattr(service, "retrieve_subscription_snapshot", lambda *_: payload["data"]["object"])
-    with Session(postgres_engine) as holder:
+    with _session(postgres_engine) as holder:
         holder.query(User).filter_by(id=user_id).with_for_update().one()
         with pytest.raises(HTTPException) as error:
             await _deliver(payload)
@@ -299,7 +307,7 @@ async def test_postgres_concurrent_first_subscription_retries_without_duplicate_
 async def test_postgres_owner_is_rechecked_after_account_lock(postgres_engine, monkeypatch):
     user_id = _seed(postgres_engine)
     _install_factory(monkeypatch, postgres_engine)
-    with Session(postgres_engine) as db:
+    with _session(postgres_engine) as db:
         other = User(email="other@example.com", email_verified=True)
         db.add(other)
         db.commit()
@@ -312,7 +320,7 @@ async def test_postgres_owner_is_rechecked_after_account_lock(postgres_engine, m
         result = original(db, kind, obj)
         if not changed:
             changed = True
-            with Session(postgres_engine) as writer:
+            with _session(postgres_engine) as writer:
                 writer.get(User, user_id).stripe_customer_id = None
                 writer.get(User, other_id).stripe_customer_id = "cus_test"
                 writer.commit()
@@ -390,7 +398,7 @@ def _payment_invoice():
 
 
 def _payments(engine):
-    with Session(engine) as db:
+    with _session(engine) as db:
         return (db.query(BillingPayment).count(), db.query(StripeEvent).count(),
                 sum(row.amount_minor for row in db.query(BillingPayment)))
 
@@ -497,7 +505,7 @@ def test_postgres_report_first_payment_insert_between_reads_uses_one_snapshot(po
         if inserted or "min(" not in statement.lower() or "earningsnerd_billing_payments" not in statement:
             return
         inserted = True
-        with Session(postgres_engine) as writer:
+        with _session(postgres_engine) as writer:
             writer.add(BillingPayment(
                 stripe_payment_id="inpay_concurrent_report", livemode=True,
                 stripe_invoice_id="in_concurrent_report", source_event_id="evt_concurrent_report",
@@ -508,7 +516,7 @@ def test_postgres_report_first_payment_insert_between_reads_uses_one_snapshot(po
 
     sqlalchemy_event.listen(postgres_engine, "after_cursor_execute", insert_after_snapshot)
     try:
-        with Session(postgres_engine) as reader:
+        with _session(postgres_engine) as reader:
             report = payment_report(reader, since, until)
     finally:
         sqlalchemy_event.remove(postgres_engine, "after_cursor_execute", insert_after_snapshot)
@@ -517,7 +525,60 @@ def test_postgres_report_first_payment_insert_between_reads_uses_one_snapshot(po
     assert report["first_observed_payment_cohorts"] == []
     # This separate coverage-metadata statement can see a newer committed observation.
     assert report["earliest_retained_observation"] is not None
-    with Session(postgres_engine) as reader:
+    with _session(postgres_engine) as reader:
         next_report = payment_report(reader, since, until)
     assert next_report["currencies"][0]["observed_paying_users"] == 1
     assert next_report["first_observed_payment_cohorts"][0]["users"] == 1
+
+
+def test_postgres_concurrent_customer_claims_keep_the_first(postgres_engine):
+    """Two checkouts of one account, on two instances, each claim the account's Stripe customer after both
+    loaded it with none. The first claim's write holds the row until PostgreSQL shows the second waiting for it;
+    the second then finds the column set, and both return the first's customer, which the account keeps. A
+    check and a write in two statements, or a blind write, lets the second write over the first, and the first
+    checkout's session would name a customer the account no longer holds (E166)."""
+    user_id = _seed(postgres_engine, customer=None)
+    first, second = _session(postgres_engine), _session(postgres_engine)
+    entered, waited, results = threading.Event(), [], {}
+    try:
+        # Each session holds the account as its auth lookup loaded it, with no customer.
+        users = {"first": first.get(User, user_id), "second": second.get(User, user_id)}
+        assert [user.stripe_customer_id for user in users.values()] == [None, None]
+        second_pid = second.execute(text("SELECT pg_backend_pid()")).scalar()
+
+        def hold_until_the_second_waits(_session):
+            entered.set()
+            deadline, waiting = time.monotonic() + 10, False
+            with postgres_engine.connect() as watcher:
+                while not waiting and time.monotonic() < deadline:
+                    waiting = bool(watcher.execute(text(
+                        "SELECT wait_event_type = 'Lock' FROM pg_stat_activity WHERE pid = :pid"),
+                        {"pid": second_pid}).scalar())
+                    watcher.rollback()  # pg_stat_activity is read once per transaction
+                    if not waiting:
+                        time.sleep(0.02)
+            waited.append(waiting)
+
+        sqlalchemy_event.listen(first, "before_commit", hold_until_the_second_waits, once=True)
+
+        def claim(name, db, customer):
+            try:
+                results[name] = billing_account_service.claim_stripe_customer_id(db, users[name], customer)
+            except Exception as error:  # reported in the assertion below
+                results[name] = error
+
+        first_claim = threading.Thread(target=claim, args=("first", first, "cus_first"))
+        first_claim.start()
+        assert entered.wait(10), "the first claim never reached its commit"
+        second_claim = threading.Thread(target=claim, args=("second", second, "cus_second"))
+        second_claim.start()
+        for thread in (first_claim, second_claim):
+            thread.join(30)
+            assert not thread.is_alive()
+        assert waited == [True], "the second claim never waited for the first's row"
+        assert results == {"first": "cus_first", "second": "cus_first"}
+    finally:
+        first.close()
+        second.close()
+    with _session(postgres_engine) as reader:
+        assert reader.get(User, user_id).stripe_customer_id == "cus_first"

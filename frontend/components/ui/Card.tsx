@@ -4,7 +4,8 @@
    Cards LIFT, never tint: lighter-than-page fill + hairline + soft e-shadow in
    light; in dark they separate via fill contrast + hairline with shadow:none.
    `interactive` hover BRIGHTENS (toward white + brand hairline), never darkens
-   — and never hover:opacity. Focus-visible = brand ring for keyboard users.
+   — and never hover:opacity. Pressed takes the sage tint, its dark twin in dark.
+   Focus-visible = brand ring for keyboard users.
 ============================================================================= */
 
 import { type ElementType, type HTMLAttributes } from 'react'
@@ -44,7 +45,7 @@ export function Card({
           cx(
             'cursor-pointer transition-colors duration-fast',
             'hover:border-brand-border hover:bg-white',
-            'active:bg-brand-weak/60',
+            'active:bg-brand-weak/60 dark:active:bg-brand-weak-dark',
             'focus-visible:outline-none focus-visible:shadow-ring-brand',
             'dark:hover:border-brand-border-dark dark:focus-visible:shadow-ring-brand-dark',
           ),
@@ -55,10 +56,13 @@ export function Card({
   )
 }
 
+/* The sections' side padding is the capped step, px-cap-5 = min(1.25rem, 5vw) (E120; gate:
+   earningsnerd/surface-padding-cap). A caller's numbered step on top (className="px-6") loses to it: the
+   stylesheet emits px-cap-5 after every numbered step, and cx does no tailwind-merge. */
 export function CardHeader({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cx('flex items-center gap-3 border-b border-border-light px-5 py-4 dark:border-border-dark', className)}
+      className={cx('flex items-center gap-3 border-b border-border-light px-cap-5 py-4 dark:border-border-dark', className)}
       {...rest}
     />
   )
@@ -81,14 +85,14 @@ export function CardTitle({ className, ...rest }: HTMLAttributes<HTMLHeadingElem
 }
 
 export function CardBody({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cx('px-5 py-4', className)} {...rest} />
+  return <div className={cx('px-cap-5 py-4', className)} {...rest} />
 }
 
 export function CardFooter({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cx(
-        'flex items-center gap-3 border-t border-border-light px-5 py-3 dark:border-border-dark',
+        'flex items-center gap-3 border-t border-border-light px-cap-5 py-3 dark:border-border-dark',
         className,
       )}
       {...rest}

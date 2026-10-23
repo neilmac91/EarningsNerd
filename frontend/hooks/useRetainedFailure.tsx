@@ -7,12 +7,13 @@ import { useFocusHandoff } from '@/hooks/useFocusHandoff'
 
 /**
  * A Retry for a failed query: `useRetainedFailure` owns the error UI's condition, `<RetryButton>` owns the
- * control (busy state, the press, the focus hand-off). Every Retry of a query goes through both. A Retry that
- * restarts a stream instead (the filing page's Retry generation) has no query to hold: it gives RetryButton a
- * failure built from the stream's own state, pinned in the gate's ALLOW_HAND_BUILT_FAILURE. Gates:
- * tests/unit/busyControlsStayFocusable.spec.ts (every Retry is RetryButton, and each of its failures is
- * useRetainedFailure's or pinned) and tests/unit/useRetainedFailure.spec.tsx (every caller passes its own
- * query's key); rules: lessons/frontend-busy-controls-stay-focusable.md (d), (g).
+ * control (busy state, the press, the focus hand-off, the label). Every Retry of a query goes through both. A
+ * Retry that restarts a stream instead (the filing page's generation restart) has no query to hold: it gives
+ * RetryButton a failure built from the stream's own state, pinned in the gate's ALLOW_HAND_BUILT_FAILURE. Gates:
+ * tests/unit/busyControlsStayFocusable.spec.ts (every Retry is RetryButton, each of its failures is
+ * useRetainedFailure's or pinned, and every retry control reads the one retry verb) and
+ * tests/unit/useRetainedFailure.spec.tsx (every caller passes its own query's key); rules:
+ * lessons/frontend-busy-controls-stay-focusable.md (d), (g).
  *
  * Why RetryButton lives here and not in a file of its own: it has no clean home. components/ui is the
  * design system's primitives, kept free of react-query; components/ root is app chrome only
@@ -63,12 +64,21 @@ interface Shown {
  * count over, so its refetch is a first load, and a failure after it may repeat the old count. A fresh mount over a failure it never rendered (a child
  * observer whose mount refetches it) shows the ordinary pending state.
  *
+ * Placeholder data: a query with `placeholderData` (the search's `keepPreviousData`) reports a refetch of
+ * its failure as `success` with `isPlaceholderData`, carrying the previous query's data: the query itself
+ * is still `pending` with no data. So while a failure is held, a placeholder-backed result counts as
+ * pending, never as success: the error UI and its Retry stay mounted, busy and focused through the
+ * refetch, and only the query's own data ends the hold. A caller without `placeholderData` never sees
+ * `isPlaceholderData`, so nothing changes for it (at this commit the search is the only caller with one).
+ *
  * Derived from the query's state on each render, with no record of presses or of fetches seen: a second
  * press, a paused fetch, or a fetch that settles inside one notify batch cannot wedge it.
  */
 export function useRetainedFailure(query: UseQueryResult<unknown>, queryKey: QueryKey): RetainedFailure {
-  const { isError, error, status, fetchStatus, errorUpdatedAt, errorUpdateCount, refetch } = query
+  const { isError, error, status, isPlaceholderData, fetchStatus, errorUpdatedAt, errorUpdateCount, refetch } = query
   const key = hashKey(queryKey)
+  // A placeholder stands in for data the query does not have yet: the query is still pending.
+  const pending = status === 'pending' || isPlaceholderData
   const busy = fetchStatus !== 'idle'
   const [shown, setShown] = useState<Shown | null>(null)
   // The query state is still the failure `shown` recorded: the same query, at the same failure.
@@ -80,10 +90,10 @@ export function useRetainedFailure(query: UseQueryResult<unknown>, queryKey: Que
   if (isError) {
     // A new failure (a failure of the same query moves its count, or after a reset its time), or another query's.
     if (!same) next = { error, key, at: errorUpdatedAt, count: errorUpdateCount }
-  } else if (shown !== null && status === 'pending' && failedAgain) {
+  } else if (shown !== null && pending && failedAgain) {
     // Held through it: keep the error that was shown (a pending refetch has cleared the newer one), at the new count.
     next = { ...shown, at: errorUpdatedAt, count: errorUpdateCount }
-  } else if (shown !== null && (status !== 'pending' || !same)) {
+  } else if (shown !== null && (!pending || !same)) {
     // Data replaced it, or this is another query's state (the key changed, or the query started over).
     next = null
   }
@@ -103,14 +113,37 @@ export function useRetainedFailure(query: UseQueryResult<unknown>, queryKey: Que
   }
 }
 
+/** The one retry verb's busy form (D-032): shown while this button's own press runs, and its room kept at rest. */
+const BUSY_LABEL = 'Trying again…'
+
 export interface RetryButtonProps
-  extends Omit<ButtonProps, 'loading' | 'loadingText' | 'onClick' | 'onFocus' | 'onPointerDown'> {
+  extends Omit<
+    ButtonProps,
+    | 'children'
+    | 'aria-label'
+    | 'aria-labelledby'
+    | 'loading'
+    | 'loadingText'
+    | 'reserveLoadingText'
+    | 'onClick'
+    | 'onFocus'
+    | 'onPointerDown'
+  > {
   /** The failures this control retries. Busy while any has a fetch in flight; a press retries the failed ones. */
   failures: RetainedFailure[]
-  /** Where focus goes if the Retry unmounts while it holds focus: a heading or status line with tabIndex={-1}. */
+  /** Where focus goes if the Retry unmounts while it holds focus: a heading or status line with tabIndex={-1}, or
+   * the region its success renders in (TurnstileWidget's security check). Any { current } object works; a getter
+   * resolves at focus time, as in the dashboard's saved-summary retry. */
   focusTarget: RefObject<HTMLElement | null>
   /** The target is a text field: skip the hand-off after a pointer press (a tap on it busy included), so a tap never raises the touch keyboard. */
   textField?: boolean
+  /** No label of a caller's own: the label is RetryButton's (D-032). Each is declared `never`, so TypeScript refuses
+   * one (an omitted name alone would not do: JSX leaves an undeclared hyphenated name such as aria-label unchecked),
+   * and RetryButton drops each at run time too, for one that a spread or a cast brings in. The gate in
+   * tests/unit/busyControlsStayFocusable.spec.ts holds these three declarations. */
+  children?: never
+  'aria-label'?: never
+  'aria-labelledby'?: never
 }
 
 /**
@@ -119,15 +152,43 @@ export interface RetryButtonProps
  * retries only the failures that failed: a healthy sibling refetched too could settle first and end the
  * error UI early.
  *
- * "Retrying…" replaces the label only while this button's own press runs. The Retry usually sits inside
- * its card's role=alert, which Chromium presents again, whole, on any text change inside it: a label swap
- * on every refetch nobody pressed (a reconnect, window focus) would re-announce the failure each time. A
- * press is the user asking, so its "Retrying…", and the swap back to "Retry" when it fails again, are
- * announced (lessons/frontend-busy-controls-stay-focusable.md (g)).
+ * Its label is the product's one retry verb (docs/brand/decisions-log.md D-032): "Try again", and "Trying
+ * again…" only while this button's own press runs. The label is RetryButton's own, so no caller names it
+ * otherwise: TypeScript refuses a child, an aria-label and an aria-labelledby (RetryButtonProps declares them
+ * `never`), RetryButton drops all three before the rest of its props reach Button (one a spread or a cast brings
+ * in never replaces the name), and the one-verb clause of tests/unit/busyControlsStayFocusable.spec.ts fails a
+ * call site that passes one (useRetainedFailure.spec.tsx renders each and finds the name "Try again").
+ *
+ * Its size never changes with its state: the room of the spinner and "Trying again…" is kept at rest (Button's
+ * reserveLoadingText), so neither a press nor a refetch nobody pressed resizes it or moves what sits beside it
+ * (without it, at 390px under 200% text the swap wrapped the label and grew the card 22 to 24px; e2e
+ * filing-source-chip.spec.ts holds the box through the swap in a real browser). That room is wider than "Try
+ * again", so a caller gives it its own row under its message, as a Notice gives its action: beside a `flex-1`
+ * message in a row that cannot wrap, it ran past the screen in the homepage search alert at 200% text (e2e
+ * reflow-200.spec.ts holds that alert).
+ *
+ * The Retry usually sits inside its card's role=alert, which Chromium presents again, whole, on any text change
+ * inside it: a label swap on every refetch nobody pressed (a reconnect, window focus) would re-announce the
+ * failure each time. A press is the user asking, so its "Trying again…", and the swap back to "Try again" when
+ * it fails again, are announced (lessons/frontend-busy-controls-stay-focusable.md (g)).
  *
  * When it unmounts while it holds focus, for any reason, focus goes to `focusTarget` (useFocusHandoff).
  */
-export function RetryButton({ failures, focusTarget, textField = false, variant = 'secondary', ...rest }: RetryButtonProps) {
+export function RetryButton({
+  failures,
+  focusTarget,
+  textField = false,
+  variant = 'secondary',
+  // The caller's classes, handed to Button by name: the site chrome renders a Retry (the admin section's account card),
+  // and its focus-ring scan reads the spread below only as the rest of a component's props beside the className it
+  // passes on (tests/unit/siteChromeFocusRing.spec.ts, ownRestProps).
+  className,
+  // A label of a caller's own is dropped here, so it never reaches the button and replaces the one verb.
+  children: _child,
+  'aria-label': _label,
+  'aria-labelledby': _labelledBy,
+  ...rest
+}: RetryButtonProps) {
   const busy = failures.some((failure) => failure.busy)
   // This button's press started the fetch now running. The press renders busy at once (retry() renders
   // the fetch it started), so the first render that sees no fetch is the end of the press's retry.
@@ -138,9 +199,13 @@ export function RetryButton({ failures, focusTarget, textField = false, variant 
     <Button
       {...rest}
       ref={attach}
+      className={className}
       variant={variant}
       loading={busy}
-      loadingText={pressed ? 'Retrying…' : undefined}
+      loadingText={pressed ? BUSY_LABEL : undefined}
+      // Its room is kept at rest: "Trying again…" with the spinner is wider than "Try again", and the swap
+      // would otherwise resize the button and move what sits beside it.
+      reserveLoadingText={BUSY_LABEL}
       onFocus={onFocus}
       // A busy Button refuses the click before onClick runs; pointerdown still reaches us, so a tap on a
       // busy Retry counts as a pointer press (no touch keyboard when it then unmounts).
@@ -150,6 +215,8 @@ export function RetryButton({ failures, focusTarget, textField = false, variant 
         setPressed(true)
         for (const failure of failures) if (failure.failed) failure.retry()
       }}
-    />
+    >
+      Try again
+    </Button>
   )
 }

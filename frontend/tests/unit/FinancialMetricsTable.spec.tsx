@@ -8,16 +8,19 @@ const PER_ADS = {
   ordinary_per_ads: 8,
   currency: 'CNY',
   as_of: '2026-06-28',
-  source: 'Alibaba 20-F cover / deposit agreement — 1 ADS = 8 ordinary shares',
+  source: 'Alibaba 20-F cover / deposit agreement: 1 ADS = 8 ordinary shares',
   arithmetic: 'CNY 5.7 per ordinary share × 8 = CNY 45.6 per ADS',
 }
+// The row's takeaway, as a served ADR row carries one, so the em-dash checks below read the whole table: a takeaway the
+// summary did not write is the missing-value element (E145), whose token FinancialMetricsCards.spec.tsx reads.
+const TAKEAWAY = 'Per-share earnings rose with net income.'
 
 describe('FinancialMetricsTable — per-ADS EPS (item 1.5)', () => {
   it('renders the per-ADS figure + auditable arithmetic on an ADR EPS row', () => {
     const { container } = render(
       <FinancialMetricsTable
         metrics={[
-          { metric: 'Diluted EPS', current_period: 'CN¥5.70', prior_period: 'CN¥5.50', per_ads: PER_ADS },
+          { metric: 'Diluted EPS', current_period: 'CN¥5.70', prior_period: 'CN¥5.50', per_ads: PER_ADS, commentary: TAKEAWAY },
         ]}
       />,
     )
@@ -25,6 +28,25 @@ describe('FinancialMetricsTable — per-ADS EPS (item 1.5)', () => {
     expect(container).toHaveTextContent('per ADS')
     // ... alongside the full conversion arithmetic so it's auditable.
     expect(container).toHaveTextContent('CNY 5.7 per ordinary share × 8 = CNY 45.6 per ADS')
+    // The ratio source is a visible line, in the registry's own words.
+    expect(container).toHaveTextContent(
+      'Ratio source: Alibaba 20-F cover / deposit agreement: 1 ADS = 8 ordinary shares · as of 2026-06-28',
+    )
+    expect(container.textContent).not.toContain('\u2014')
+  })
+
+  it('reads a ratio source cached before the registry took the colon with the same colon', () => {
+    // xbrl_data caches the registry's source, so a summary generated before E45 still carries its em-dash.
+    const cached = { ...PER_ADS, source: 'Alibaba 20-F cover / deposit agreement \u2014 1 ADS = 8 ordinary shares' }
+    const { container } = render(
+      <FinancialMetricsTable
+        metrics={[{ metric: 'Diluted EPS', current_period: 'CN¥5.70', prior_period: 'CN¥5.50', per_ads: cached, commentary: TAKEAWAY }]}
+      />,
+    )
+    expect(container).toHaveTextContent(
+      'Ratio source: Alibaba 20-F cover / deposit agreement: 1 ADS = 8 ordinary shares · as of 2026-06-28',
+    )
+    expect(container.textContent).not.toContain('\u2014')
   })
 
   it('omits the per-ADS note for a domestic / non-ADR row', () => {

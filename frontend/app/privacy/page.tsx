@@ -1,8 +1,9 @@
 import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
-import CookieSettingsButton from '@/components/CookieSettingsButton'
+import { ACCOUNT_EVENTS_DISCLOSURE, ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { LEGAL_DATES } from '@/lib/legalDates'
+import { legalPageMainClass } from '@/lib/legalPageLayout'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy | EarningsNerd',
@@ -11,14 +12,15 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+    <div className="[container-type:inline-size]">
+      <main className={legalPageMainClass}>
       <div className="max-w-none">
         <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark">Privacy Policy</h1>
         <p className="text-lg text-text-secondary-light dark:text-text-secondary-dark">Last updated: {LEGAL_DATES.privacy}</p>
         <p className="mt-8 text-text-secondary-light dark:text-text-secondary-dark">
           This policy explains how personal information is handled through the EarningsNerd website and service.
           For privacy questions, requests or complaints, contact{' '}
-          <a href={contactMailto('privacy')} className="text-brand-strong underline dark:text-brand-strong-dark">{CONTACT_ADDRESSES.privacy}</a>.
+          <a href={contactMailto('privacy')} className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.privacy}</a>.
         </p>
 
         <section className="mt-8">
@@ -100,13 +102,19 @@ export default function PrivacyPage() {
             Essential browser storage supports sign-in and site functionality. Optional PostHog browser
             analytics and session recording require an enabling choice. Recording has a separate preference
             and also requires analytics. These activities can be linked to your account; recording can include
-            displayed page content despite input masking. Review or withdraw choices using <CookieSettingsButton />.
+            displayed page content despite input masking. Review or withdraw choices using Cookie settings in the footer.
           </p>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
-            Do Not Track starts optional browser features off when no saved preference exists; saved choices
-            take precedence. These controls do not disable operational usage records, security logs, error
-            reporting or cookieless Vercel traffic measurements. Do Not Track is distinct from legal opt-out
-            rights described below.
+            Analytics and session recording in your browser stay off until you allow them, and you can change your choice at any time in Cookie settings. We don&apos;t change this based on your browser&apos;s Do Not Track setting.
+          </p>
+          <ul className="mt-4 list-disc pl-6 text-text-secondary-light dark:text-text-secondary-dark">
+            <li><strong>Analytics Cookies:</strong>{' '}{ANALYTICS_CONSENT_CLAUSE}</li>
+          </ul>
+          <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">{ACCOUNT_EVENTS_DISCLOSURE}</p>
+          <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
+            These controls do not disable operational usage records, security logs, error reporting or
+            cookieless Vercel traffic measurements. Do Not Track is distinct from legal opt-out rights
+            described below.
           </p>
         </section>
 
@@ -129,7 +137,7 @@ export default function PrivacyPage() {
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">Your rights and complaints</h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
             Email{' '}
-            <a href={contactMailto('privacy')} className="text-brand-strong underline dark:text-brand-strong-dark">{CONTACT_ADDRESSES.privacy}</a>{' '}
+            <a href={contactMailto('privacy')} className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.privacy}</a>{' '}
             to request access or correction, withdraw consent, or raise a privacy complaint. Depending on
             applicable law, you may also request deletion, a portable copy or restriction, or object to processing.
             Rights have conditions and exceptions.
@@ -139,7 +147,7 @@ export default function PrivacyPage() {
           </p>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
             Available account updates, deletion and a JSON export are in{' '}
-            <Link href="/dashboard/settings" className="text-brand-strong underline dark:text-brand-strong-dark">Account Settings</Link>.
+            <Link href="/dashboard/settings" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Account Settings</Link>.
             The export covers records available through that feature, rather than every provider&apos;s records.
             Requests may require proportionate identity verification. Requests and complaints are reviewed,
             investigated as appropriate, and answered within applicable legal deadlines, with an explanation
@@ -155,15 +163,15 @@ export default function PrivacyPage() {
           </ul>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
             You may contact the relevant regulator directly, including an{' '}
-            <a href="https://www.edpb.europa.eu/about-edpb/our-members_en" className="text-brand-strong underline dark:text-brand-strong-dark">EU authority</a>,{' '}
-            <a href="https://ico.org.uk/make-a-complaint/" className="text-brand-strong underline dark:text-brand-strong-dark">UK ICO</a>,{' '}
-            <a href="https://www.edoeb.admin.ch/en" className="text-brand-strong underline dark:text-brand-strong-dark">Swiss FDPIC</a>,{' '}
-            <a href="https://www.priv.gc.ca/en/report-a-concern/" className="text-brand-strong underline dark:text-brand-strong-dark">Canadian privacy commissioner</a>,{' '}
-            <a href="https://www.pdpc.gov.sg/" className="text-brand-strong underline dark:text-brand-strong-dark">Singapore PDPC</a>,{' '}
-            <a href="https://www.oaic.gov.au/privacy/privacy-complaints" className="text-brand-strong underline dark:text-brand-strong-dark">Australian OAIC</a>,{' '}
-            <a href="https://www.privacy.org.nz/your-rights/making-a-complaint-to-the-privacy-commissioner/" className="text-brand-strong underline dark:text-brand-strong-dark">New Zealand privacy commissioner</a>{' '}
+            <a href="https://www.edpb.europa.eu/about-edpb/our-members_en" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">EU authority</a>,{' '}
+            <a href="https://ico.org.uk/make-a-complaint/" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">UK ICO</a>,{' '}
+            <a href="https://www.edoeb.admin.ch/en" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Swiss FDPIC</a>,{' '}
+            <a href="https://www.priv.gc.ca/en/report-a-concern/" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Canadian privacy commissioner</a>,{' '}
+            <a href="https://www.pdpc.gov.sg/" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Singapore PDPC</a>,{' '}
+            <a href="https://www.oaic.gov.au/privacy/privacy-complaints" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Australian OAIC</a>,{' '}
+            <a href="https://www.privacy.org.nz/your-rights/making-a-complaint-to-the-privacy-commissioner/" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">New Zealand privacy commissioner</a>{' '}
             or the{' '}
-            <a href="https://inforegulator.org.za/complaints/" className="text-brand-strong underline dark:text-brand-strong-dark">South African Information Regulator</a>.
+            <a href="https://inforegulator.org.za/complaints/" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">South African Information Regulator</a>.
           </p>
         </section>
 
@@ -171,21 +179,22 @@ export default function PrivacyPage() {
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">Security, eligibility and changes</h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
             Connections use HTTPS and password sign-in stores password hashes. See{' '}
-            <Link href="/security" className="text-brand-strong underline dark:text-brand-strong-dark">Security</Link>{' '}
+            <Link href="/security" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Security</Link>{' '}
             to report a concern. No internet service can guarantee absolute security.
           </p>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
             EarningsNerd is intended for people who have reached the age of majority under the{' '}
-            <Link href="/terms" className="text-brand-strong underline dark:text-brand-strong-dark">Terms</Link>.
+            <Link href="/terms" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Terms</Link>.
             Contact the privacy address if a child has supplied personal information. Policy changes are posted
             here with an updated date; additional notice will be provided where required by law.
           </p>
         </section>
 
         <div className="mt-12 border-t border-border-light pt-8 dark:border-border-dark">
-          <Link href="/" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">← Back to Home</Link>
+          <Link href="/" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">← Back to Home</Link>
         </div>
       </div>
-    </main>
+      </main>
+    </div>
   )
 }

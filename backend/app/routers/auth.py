@@ -28,6 +28,7 @@ from app.utils.text import has_control_characters
 from app.services import (
     audit_service,
     auth_account_service,
+    filing_list_service,
     invite_service,
     login_lockout,
     oauth_account_service,
@@ -322,12 +323,14 @@ def issue_session(
 ) -> str:
     """Issue a full session on ``response``: set the access + presence cookies and the refresh cookie.
 
-    The single mint point for the login paths. By default a NEW refresh token is minted and committed
-    (login, change-password) through ``refresh_token_service.mint_refresh_token``; an
+    The single session-issue point for the login paths. By default a NEW refresh token is minted and
+    committed (change-password) through ``refresh_token_service.mint_refresh_token``; an
     ``IntegrityError`` there propagates. Pass ``refresh_token=`` with ``commit=False`` when the caller
-    already minted or rotated and committed one: the ``/refresh`` endpoint, and the OAuth callbacks,
-    whose ``oauth_account_service.mint_oauth_refresh_token`` turns a concurrent first-login
-    ``IntegrityError`` into the conflict redirect. Returns the raw access token (body responses echo it).
+    already minted or rotated and committed one: the password login, whose
+    ``auth_account_service.record_password_login`` mints under the account's lock, the ``/refresh``
+    endpoint, and the OAuth callbacks, whose ``oauth_account_service.mint_oauth_refresh_token`` turns a
+    concurrent first-login ``IntegrityError`` into the conflict redirect. Returns the raw access token
+    (body responses echo it).
     """
     access_token = create_access_token(data={"sub": user.email})
     _set_auth_cookie(response, access_token)
@@ -360,7 +363,7 @@ async def get_current_user(
 ):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="You are not logged in.",
         headers={"WWW-Authenticate": "Bearer"},
     )
     token = _get_token_from_request(credentials, request)
@@ -390,7 +393,7 @@ async def get_current_user(
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive",
+            detail="This account is inactive. Contact support with any questions.",
         )
 
     # Attribute Sentry errors on this request to the authenticated user + beta cohort. Id only —
@@ -502,7 +505,7 @@ async def _send_oauth_linked_email_safe(user: User, provider: str) -> None:
 # concurrent-create race — so the endpoint never reveals whether an account exists
 # (anti-enumeration). Differentiation happens only out-of-band, in the recipient's inbox.
 _REGISTER_OPAQUE = {
-    "message": "Thanks! Check your email for a link to finish setting up your account."
+    "message": "Check your email for a link to finish setting up your account."
 }
 
 
@@ -550,7 +553,7 @@ async def register(
         request,
         REGISTER_LIMITER,
         "register",
-        error_detail="Too many registration attempts. Please try again in a minute.",
+        error_detail="Too many registration attempts. Try again in a minute.",
     )
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
 
@@ -572,7 +575,7 @@ async def register(
     if await is_password_pwned(user_data.password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This password has appeared in a known data breach. Please choose a different password.",
+            detail="This password has appeared in a known data breach. Choose a different one.",
         )
 
     # Always pay the bcrypt cost, even for an existing email, so response timing doesn't reveal
@@ -641,47 +644,71 @@ async def login(
         request,
         LOGIN_LIMITER,
         "login",
-        error_detail="Too many login attempts. Please try again in a minute.",
+        error_detail="Too many login attempts. Try again in a minute.",
     )
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
-    # Durable per-account lockout: bounds distributed brute-force/spray against one account across
-    # many IPs, holds across instances/restarts, and is keyed on the email hash so a non-existent
-    # address locks the same as a real one (no 429-vs-401 enumeration). Peek before bcrypt.
-    lock_seconds = login_lockout.seconds_until_unlock(db, user_data.email)
+    email, hashed_ip = user_data.email, _hashed_client_ip(request)
+    user_agent, ip = request.headers.get("user-agent"), _client_ip(request)
+
+    def look_up() -> tuple[Optional[int], Optional[tuple[int, Optional[str], bool]]]:
+        # One unit in the thread pool, released before bcrypt, so no login holds a pool slot while it
+        # hashes (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            # Durable per-account lockout: bounds distributed brute-force/spray against one account
+            # across many IPs, holds across instances/restarts, and is keyed on the email hash so a
+            # non-existent address locks the same as a real one (no 429-vs-401 enumeration). Peek
+            # before bcrypt.
+            lock_seconds = login_lockout.seconds_until_unlock(db, email)
+            if lock_seconds is not None:
+                return lock_seconds, None
+            user = auth_account_service.find_user_by_email(db, email)
+            return None, (user.id, user.hashed_password, user.is_active) if user else None
+        finally:
+            filing_list_service.release_request_session(db)
+
+    lock_seconds, account = await run_in_threadpool(look_up)
     if lock_seconds is not None:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many failed login attempts for this account. Please try again later.",
+            detail="Too many failed login attempts for this account. Try again later.",
             headers={"Retry-After": str(lock_seconds)},
         )
-
-    user = auth_account_service.find_user_by_email(db, user_data.email)
-    hashed_ip = _hashed_client_ip(request)
+    user_id, verified_hash, is_active = account or (None, None, False)
 
     # Always run bcrypt — against the real hash if we have one, else a fixed dummy — so the
     # response timing is the same whether or not the email exists (no timing oracle). Offloaded
     # to a worker thread so the ~250ms hash doesn't block the event loop under login load.
-    password_ok = await asyncio.to_thread(
-        verify_password,
-        user_data.password,
-        user.hashed_password if (user and user.hashed_password) else _DUMMY_PASSWORD_HASH,
-    )
+    password_ok = await asyncio.to_thread(verify_password, user_data.password, verified_hash or _DUMMY_PASSWORD_HASH)
 
+    def finish() -> Optional[str]:
+        # One unit in the thread pool after bcrypt, released before the route returns.
+        try:
+            if verified_hash and password_ok and is_active:
+                # Under the account's lock, and only while the hash just verified is still its own (E121).
+                login = auth_account_service.record_password_login(
+                    db, user_id, verified_hash, email, user_agent=user_agent, ip=ip,
+                )
+                if login is not None:
+                    user, refresh_token = login
+                    access_token = issue_session(db, user, response, request, refresh_token=refresh_token, commit=False)
+                    audit_service.log_login_success(db, user.id, user.email, ip_address=hashed_ip)
+                    return access_token
+            login_lockout.record_failure(db, email)  # counts against the email (existent or not)
+            audit_service.log_failed_login(db, email, ip_address=hashed_ip)
+            return None
+        finally:
+            filing_list_service.release_request_session(db)
+
+    access_token = await run_in_threadpool(finish)
     # Collapse every failure mode (unknown email, wrong password, social-only account, inactive
-    # account) into one generic 401 so the response never reveals whether an account exists or
-    # is disabled — closing the account-enumeration channel that a distinct 403 opened.
-    if not user or not user.hashed_password or not password_ok or not user.is_active:
-        login_lockout.record_failure(db, user_data.email)  # counts against the email (existent or not)
-        audit_service.log_failed_login(db, user_data.email, ip_address=hashed_ip)
+    # account, a password reset or change since the hash was read) into one generic 401 so the
+    # response never reveals whether an account exists or is disabled — closing the
+    # account-enumeration channel that a distinct 403 opened.
+    if access_token is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
         )
-
-    # Resets the lockout and stamps last_login_at in one commit.
-    auth_account_service.record_password_login(db, user, user_data.email)
-    access_token = issue_session(db, user, response, request)
-    audit_service.log_login_success(db, user.id, user.email, ip_address=hashed_ip)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -696,22 +723,30 @@ async def refresh(
     raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     if not raw_token and body is not None:
         raw_token = body.refresh_token
+    user_agent, ip = request.headers.get("user-agent"), _client_ip(request)
+
+    def rotate_and_issue() -> str:
+        # One unit in the thread pool, released before the route returns: the rotation's checkout,
+        # and the user read its commit expires, never wait on the event loop
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            # Commits the rotation; on a replay it commits the chain revocation before re-raising.
+            user, new_refresh_token = refresh_token_service.rotate_and_commit(
+                db, raw_token, user_agent=user_agent, ip=ip,
+            )
+            return issue_session(db, user, response, request, refresh_token=new_refresh_token, commit=False)
+        finally:
+            filing_list_service.release_request_session(db)
 
     try:
-        # Commits the rotation; on a replay it commits the chain revocation before re-raising.
-        user, new_refresh_token = refresh_token_service.rotate_and_commit(
-            db,
-            raw_token,
-            user_agent=request.headers.get("user-agent"),
-            ip=_client_ip(request),
-        )
+        access_token = await run_in_threadpool(rotate_and_issue)
     except RefreshTokenReuseError as exc:
         _clear_refresh_cookie(response)
         _clear_auth_cookie(response)
         logger.warning(f"Refresh reuse detected: {exc}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token",
+            detail="Your session has ended. Log in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     except RefreshTokenError as exc:
@@ -720,11 +755,10 @@ async def refresh(
         logger.info(f"Refresh rejected: {exc}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token",
+            detail="Your session has ended. Log in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = issue_session(db, user, response, request, refresh_token=new_refresh_token, commit=False)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -777,12 +811,12 @@ async def resend_verification(
     # Per-IP cap across all addresses (stops one IP spraying verification mail to many emails)...
     enforce_rate_limit(
         request, RESET_RESEND_IP_LIMITER, "resend-ip",
-        error_detail="Too many resend requests. Please wait before trying again.",
+        error_detail="Too many resend requests. Try again later.",
     )
     # ...plus the per-email cap (email already normalized by the schema validator).
     enforce_rate_limit(
         request, RESEND_VERIFY_LIMITER, f"resend:{payload.email}",
-        error_detail="Too many resend requests. Please wait before trying again.",
+        error_detail="Too many resend requests. Try again later.",
         include_client_ip=False,
     )
     user = auth_account_service.find_user_by_email(db, payload.email)
@@ -805,12 +839,12 @@ async def forgot_password(
     # Per-IP cap across all addresses (stops one IP spraying reset mail to many emails)...
     enforce_rate_limit(
         request, RESET_RESEND_IP_LIMITER, "reset-ip",
-        error_detail="Too many reset requests. Please wait before trying again.",
+        error_detail="Too many reset requests. Try again later.",
     )
     # ...plus the per-email cap (email already normalized by the schema validator).
     enforce_rate_limit(
         request, RESET_REQUEST_LIMITER, f"reset:{payload.email}",
-        error_detail="Too many reset requests. Please wait before trying again.",
+        error_detail="Too many reset requests. Try again later.",
         include_client_ip=False,
     )
     opaque = {"message": "If an account exists for that email, a password reset link is on its way."}
@@ -850,7 +884,7 @@ async def reset_password(
     if await is_password_pwned(payload.new_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This password has appeared in a known data breach. Please choose a different password.",
+            detail="This password has appeared in a known data breach. Choose a different one.",
         )
 
     hashed_password = await asyncio.to_thread(get_password_hash, payload.new_password)
@@ -881,13 +915,12 @@ async def change_password(
         request,
         LOGIN_LIMITER,
         f"change-password:{current_user.id}",
-        error_detail="Too many password change attempts. Please try again later.",
+        error_detail="Too many password change attempts. Try again later.",
         include_client_ip=False,  # per-account cap: an IP pool must not multiply it
     )
-    if current_user.hashed_password:
-        ok = await asyncio.to_thread(
-            verify_password, payload.current_password or "", current_user.hashed_password
-        )
+    verified_hash = current_user.hashed_password
+    if verified_hash:
+        ok = await asyncio.to_thread(verify_password, payload.current_password or "", verified_hash)
         if not ok:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect."
@@ -896,7 +929,7 @@ async def change_password(
     if await is_password_pwned(payload.new_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This password has appeared in a known data breach. Please choose a different password.",
+            detail="This password has appeared in a known data breach. Choose a different one.",
         )
 
     new_password_hash = await asyncio.to_thread(get_password_hash, payload.new_password)
@@ -907,7 +940,11 @@ async def change_password(
     # inside issue_session (refresh_token_service.mint_refresh_token, default commit=True) commits
     # them with the new token, so a failure there rolls the whole change back (no
     # password-changed-but-500 inconsistency) and saves a commit round-trip.
-    auth_account_service.stage_password_change(db, current_user, new_password_hash)
+    if not auth_account_service.stage_password_change(db, current_user, new_password_hash, verified_hash):
+        # A reset or another change committed while this request hashed (E121).
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect."
+        )
     issue_session(db, current_user, response, request)
     return {"message": "Password updated."}
 
@@ -934,10 +971,10 @@ def _start_google(request: Request, db: Session, invite: Optional[str]) -> tuple
     """Rate limit, save the state (with the invite's hash when the invite is live) and build
     Google's consent URL. Returns ``(url, state)``; the caller sets the state cookie."""
     if not settings.GOOGLE_CLIENT_ID:
-        raise HTTPException(status_code=503, detail="Google Sign-In is not configured.")
+        raise HTTPException(status_code=503, detail="Logging in with Google is not available.")
     enforce_rate_limit(
         request, OAUTH_START_LIMITER, "oauth-start",
-        error_detail="Too many sign-in attempts. Please try again shortly.",
+        error_detail="Too many login attempts. Try again shortly.",
     )
     state = secrets.token_urlsafe(32)
     # Commits a state row only for a live invite; a plain sign-in persists nothing.
@@ -1005,7 +1042,8 @@ async def google_callback(
         return RedirectResponse(f"{frontend_url}/login?error=google_invalid", status_code=302)
 
     stored_state = request.cookies.get(_OAUTH_STATE_COOKIE)
-    if not stored_state or not secrets.compare_digest(stored_state, state):
+    # Bytes, not str: compare_digest raises TypeError on a non-ASCII str (a 500 instead of the mismatch redirect).
+    if not stored_state or not secrets.compare_digest(stored_state.encode(), state.encode()):
         return RedirectResponse(f"{frontend_url}/login?error=oauth_state_mismatch", status_code=302)
 
     # An invited sign-up stored its invite hash against this state (google_login); plain sign-ins
@@ -1048,7 +1086,7 @@ async def google_callback(
     # Existing link → existing verified account (linked) → new account through the invite gate;
     # stages the link and last_login_at for the commit below.
     try:
-        user, linked_existing = oauth_account_service.resolve_google_user(
+        user, linked_existing, created = oauth_account_service.resolve_google_user(
             db,
             subject=google_sub,
             email=email,
@@ -1074,6 +1112,10 @@ async def google_callback(
     issue_session(db, user, redirect, request, refresh_token=refresh_token, commit=False)
 
     hashed_ip = _hashed_client_ip(request)
+    if created:
+        # A sign-up as well as a login: the register row a password sign-up writes, so the log tells
+        # this sign-up from a later login (D-054). Written only now, after the sign-in committed.
+        audit_service.log_register(db, user.id, user.email, ip_address=hashed_ip)
     audit_service.log_oauth_login(db, user.id, user.email, provider="google", ip_address=hashed_ip)
     if linked_existing:
         # Security-relevant: a federated identity was just attached to a pre-existing account.
@@ -1089,10 +1131,10 @@ def _start_apple(request: Request, db: Session, invite: Optional[str]) -> tuple[
     Apple's consent URL. Returns ``(url, state)``; the row is committed before the caller returns
     the URL and sets the browser-binding cookie."""
     if not settings.APPLE_CLIENT_ID:
-        raise HTTPException(status_code=503, detail="Apple Sign In is not configured.")
+        raise HTTPException(status_code=503, detail="Logging in with Apple is not available.")
     enforce_rate_limit(
         request, OAUTH_START_LIMITER, "oauth-start",
-        error_detail="Too many sign-in attempts. Please try again shortly.",
+        error_detail="Too many login attempts. Try again shortly.",
     )
 
     state = secrets.token_urlsafe(32)
@@ -1202,7 +1244,7 @@ async def apple_callback(
 
     # Resolve user: existing oauth link → existing verified account → new account
     try:
-        user_obj, linked_existing = oauth_account_service.resolve_apple_user(
+        user_obj, linked_existing, created = oauth_account_service.resolve_apple_user(
             db,
             subject=apple_sub,
             email=email,
@@ -1227,6 +1269,9 @@ async def apple_callback(
     issue_session(db, user_obj, redirect, request, refresh_token=refresh_token, commit=False)
 
     hashed_ip = _hashed_client_ip(request)
+    if created:
+        # As for Google: the sign-up's register row, after the sign-in committed (D-054).
+        audit_service.log_register(db, user_obj.id, user_obj.email, ip_address=hashed_ip)
     audit_service.log_oauth_login(db, user_obj.id, user_obj.email, provider="apple", ip_address=hashed_ip)
     if linked_existing:
         audit_service.log_oauth_linked(db, user_obj.id, user_obj.email, provider="apple", ip_address=hashed_ip)
@@ -1255,13 +1300,53 @@ async def logout(
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ):
-    """Revoke the refresh token (if present) and clear both auth cookies."""
+    """Revoke the refresh token (if present) and clear the session cookies, on a 503 when the revoke fails."""
     raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
-    refresh_token_service.revoke_and_commit(db, raw_token)
+    # Read before the revoke commits: the commit expires the user, and a read after it refreshes the row.
+    actor = (current_user.id, current_user.email) if current_user else None
+    hashed_ip = _hashed_client_ip(request)
+    # Set once revoke_and_commit has returned: the session it ended stays ended, whatever the unit does after it.
+    revoked = False
+
+    def revoke() -> None:
+        nonlocal revoked
+        # One unit in the thread pool, released before the route returns: a revoke that finds no live
+        # token commits nothing, and the audit write reads its row back, so either would otherwise
+        # hold a connection for the dependency's finalizer.
+        try:
+            ended = refresh_token_service.revoke_and_commit(db, raw_token)
+            revoked = True
+            # The row names the user whose session the logout ended: the one whose refresh token it revoked,
+            # which a logout after the session token's 30 minutes knows only from that token, and otherwise
+            # the signed-in user. A logout that ends no session and names no user writes none (E137).
+            logged = ended or actor
+            if logged:
+                audit_service.log_logout(db, logged[0], logged[1], ip_address=hashed_ip)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    try:
+        await run_in_threadpool(revoke)
+    except Exception:
+        if not revoked:
+            # The revoke failed (the token store down, the pool exhausted) and its unit rolled back: the session may
+            # live on in the database, but this browser's cookies go regardless, or a shared computer stays signed
+            # in. The deletions ride a response of our own: FastAPI drops the injected Response's headers from the
+            # fresh response it builds for an exception, the global handler's 500 included. No audit row: no session
+            # is known to have ended.
+            logger.exception("Logout could not revoke the refresh token; clearing this browser's session cookies")
+            incomplete = JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"detail": "This browser is logged out, but we could not end the session on the server."},
+            )
+            _clear_auth_cookie(incomplete)
+            _clear_refresh_cookie(incomplete)
+            return incomplete
+        # The revoke committed and a step after it raised (the audit write, the release): the session ended, so this
+        # is a logout that succeeded and answers as one. The audit row is whatever that step left.
+        logger.exception("Logout ended the session, but a step after the revoke's commit failed")
     _clear_auth_cookie(response)
     _clear_refresh_cookie(response)
-    if current_user:
-        audit_service.log_logout(db, current_user.id, current_user.email, ip_address=_hashed_client_ip(request))
     return {"status": "success"}
 
 
@@ -1273,10 +1358,22 @@ async def logout_all(
     current_user: User = Depends(get_current_user),
 ):
     """Revoke every refresh token for the user (sign out all devices) and clear this session."""
-    revoked = refresh_token_service.revoke_all_and_commit(db, current_user.id)
+    # Read before the revoke commits: the commit expires the user, and a read after it refreshes the row.
+    user_id, user_email = current_user.id, current_user.email
+    hashed_ip = _hashed_client_ip(request)
+
+    def revoke_all() -> int:
+        # One unit in the thread pool, released before the route returns (see ``logout``).
+        try:
+            revoked = refresh_token_service.revoke_all_and_commit(db, user_id)
+            audit_service.log_logout(db, user_id, user_email, ip_address=hashed_ip)
+            return revoked
+        finally:
+            filing_list_service.release_request_session(db)
+
+    revoked = await run_in_threadpool(revoke_all)
     _clear_auth_cookie(response)
     _clear_refresh_cookie(response)
-    audit_service.log_logout(db, current_user.id, current_user.email, ip_address=_hashed_client_ip(request))
     return {"status": "success", "sessions_revoked": revoked}
 
 

@@ -13,21 +13,26 @@ export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: Analysis
     references.set(key, metrics)
   }
   const unavailable: string[] = []
+  const unnotedGaps: string[] = []
   let hasCalculated = false
   for (const series of plottedSeries) {
     const missing: string[] = []
+    const missingWithoutNote: string[] = []
     for (const period of dataset.periods) {
       const point = series.points.find((entry) => entry.period === period.key) ?? { period: period.key, value: null }
       const note = notes.noteFor(point)
       if (note) addReference(note.key, series.label, period.key)
-      if (point.value == null) missing.push(formatAnalysisPeriod(period.key))
-      else if (point.provenance ? point.provenance.method === 'calculated' : point.derived) hasCalculated = true
+      if (point.value == null) {
+        missing.push(formatAnalysisPeriod(period.key))
+        if (!note) missingWithoutNote.push(formatAnalysisPeriod(period.key))
+      } else if (point.provenance ? point.provenance.method === 'calculated' : point.derived) hasCalculated = true
       if (includeYoY && typeof point.yoy === 'number') {
         const comparison = notes.noteForComparison(point, 'yoy')
         if (comparison) addReference(comparison.key, `${series.label} YoY`, period.key)
       }
     }
     if (missing.length) unavailable.push(`${series.label}: unavailable for ${missing.join(', ')}.`)
+    if (missingWithoutNote.length) unnotedGaps.push(`${series.label}: unavailable for ${missingWithoutNote.join(', ')}.`)
   }
   const panelNotes = notes.notes.filter((note) => references.has(note.key))
   return {
@@ -35,7 +40,7 @@ export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: Analysis
     unavailable,
     exportNotes: [
       ...panelNotes.map((note) => `Note ${note.letter}: ${note.message} ${[...references.get(note.key)!].map(([label, periods]) => `${label} (${periods.join(', ')})`).join('; ')}.`),
-      ...unavailable,
+      ...unnotedGaps,
       ...(hasCalculated ? ['Includes figures calculated by EarningsNerd.'] : []),
       ...(plottedSeries.some((series) => series.concept === 'free_cash_flow') ? [FCF_DEFINITION] : []),
     ],
@@ -119,14 +124,14 @@ export function buildMarkSvg(fill: string): string {
  *  drowning against a same-hue bar — a footer is legible on every panel/theme with zero data
  *  collision). */
 export const MARK_STAMP = {
-  stripHeight: 32,
-  markHeight: 20,
+  stripHeight: 33, // 25px mark plus one E-bar of clear space (11/73.2 of its height, 3.76px) above and below
+  markHeight: 25, // about 32px wide: the bare mark's minimum size (smaller needs the app tile)
   inset: 12,
-  alpha: 0.85,
+  alpha: 1, // opaque, bottom-right: the founder's call (decisions-log D-039), never a translucent watermark
   fillLight: '#3C6650', // brand-strong (the mark's own sage)
-  fillDark: '#7FB295', // lightened sage — legible on the dark panel without glowing
-  wordmarkSize: 14, // "EarningsNerd" wordmark next to the mark
-  wordmarkGap: 9, // wordmark → mark
+  fillDark: '#7FB295', // brand-dark: lightened sage, legible on the dark panel without glowing
+  wordmarkSize: 14, // "EarningsNerd" wordmark after the mark
+  wordmarkGap: 9, // mark → wordmark
 } as const
 
 /** Canvas mirrors of the text tokens (canvas draws hexes, not CSS vars) — the single source for
@@ -138,11 +143,11 @@ export const EXPORT_TEXT = {
   secondary: { light: '#374151', dark: '#9CA3AF' },
 } as const
 
-/** Draw the branded footer strip bottom-right: the "EarningsNerd" wordmark (two-tone like the site
- *  logo — ink "Earnings" + sage "Nerd", so a shared image names its source rather than an
- *  ambiguous monogram) followed by the EN mark. A mark decode failure still leaves the wordmark
- *  (branding never blocks a download). Coordinates are CSS px — the caller's retina scale is
- *  already applied. `footerTop` is the y where the strip begins (below the plot). */
+/** Draw the branded footer strip bottom-right, opaque, as the logo's lockup: the EN mark, then the
+ *  "EarningsNerd" wordmark (like the site logo: upright ink "Earnings" + italic 600 sage "Nerd", so a
+ *  shared image names its source rather than an ambiguous monogram). A mark decode failure still
+ *  leaves the wordmark (branding never blocks a download). Coordinates are CSS px — the caller's
+ *  retina scale is already applied. `footerTop` is the y where the strip begins (below the plot). */
 async function drawBrandFooter(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -155,26 +160,33 @@ async function drawBrandFooter(
   const markW = mark ? (MARK_STAMP.markHeight * MARK_WIDTH) / MARK_HEIGHT : 0
   const centerY = footerTop + MARK_STAMP.stripHeight / 2
 
+  const upright = font(600, MARK_STAMP.wordmarkSize)
+  const italic = `italic ${upright}` // the wordmark's "Nerd" (components/EarningsNerdLogo.tsx)
+
   ctx.save()
   ctx.globalAlpha = MARK_STAMP.alpha
-  ctx.font = font(600, MARK_STAMP.wordmarkSize)
   ctx.textBaseline = 'middle'
   ctx.textAlign = 'left'
+  ctx.font = upright
   const w1 = ctx.measureText('Earnings').width
+  ctx.font = italic
   const w2 = ctx.measureText('Nerd').width
-  const markX = width - markW - MARK_STAMP.inset
-  const textRight = markX - (mark ? MARK_STAMP.wordmarkGap : 0)
-  const textLeft = textRight - (w1 + w2)
+  const textLeft = width - MARK_STAMP.inset - (w1 + w2)
+  const lockupLeft = textLeft - (mark ? markW + MARK_STAMP.wordmarkGap : 0)
   // Skip the wordmark on a pathologically narrow export rather than overrun the left edge.
-  if (textLeft > MARK_STAMP.inset) {
-    ctx.fillStyle = ink
-    ctx.fillText('Earnings', textLeft, centerY)
-    ctx.fillStyle = accent
-    ctx.fillText('Nerd', textLeft + w1, centerY)
-  }
+  const withWordmark = lockupLeft > MARK_STAMP.inset
   if (mark) {
+    const markX = withWordmark ? lockupLeft : width - markW - MARK_STAMP.inset
     const markY = footerTop + (MARK_STAMP.stripHeight - MARK_STAMP.markHeight) / 2
     ctx.drawImage(mark, markX, markY, markW, MARK_STAMP.markHeight)
+  }
+  if (withWordmark) {
+    ctx.font = upright
+    ctx.fillStyle = ink
+    ctx.fillText('Earnings', textLeft, centerY)
+    ctx.font = italic
+    ctx.fillStyle = accent
+    ctx.fillText('Nerd', textLeft + w1, centerY)
   }
   ctx.restore()
 }

@@ -98,7 +98,7 @@ afterEach(() => {
   Object.values(api).forEach((mock) => mock.mockReset())
 })
 
-describe('SummaryActionsBar Save Summary', () => {
+describe('SummaryActionsBar Save summary', () => {
   it('stays focused and busy while the save is in flight, and refuses a second click or Enter', async () => {
     const ui = (saveMutation: SaveMutation) => (
       <SummaryActionsBar
@@ -108,6 +108,7 @@ describe('SummaryActionsBar Save Summary', () => {
         isSaved={false}
         saveMutation={saveMutation}
         isPro={false}
+        summaryFinished
         onExportPdf={() => {}}
         onExportCsv={() => {}}
       />
@@ -143,6 +144,7 @@ describe('SummaryActionsBar Save Summary', () => {
         isSaved={isSaved}
         saveMutation={saveMutation}
         isPro={false}
+        summaryFinished
         onExportPdf={() => {}}
         onExportCsv={() => {}}
       />
@@ -169,6 +171,7 @@ describe('SummaryActionsBar Save Summary', () => {
         isSaved
         saveMutation={{ mutate: vi.fn(), isPending: false }}
         isPro={false}
+        summaryFinished
         onExportPdf={() => {}}
         onExportCsv={() => {}}
       />,
@@ -341,7 +344,7 @@ describe('AskCopilotRail conversation controls replaced by the turn they start',
     act(() => handlers().onError('The connection dropped.'))
     textarea.focus()
     await user.tab({ shift: true })
-    const retry = screen.getByRole('button', { name: /retry/i })
+    const retry = screen.getByRole('button', { name: /try again/i })
     expect(document.activeElement).toBe(retry)
 
     await user.keyboard('{Enter}')

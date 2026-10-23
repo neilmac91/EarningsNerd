@@ -67,6 +67,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
           <div className="w-full max-w-md space-y-4">
             <GuidanceCard
               variant="error"
+              headingLevel="h1"
               icon={<WarningIcon className="h-5 w-5" />}
               title="Something went wrong"
               description="This has been reported automatically. Try again, or head back home."

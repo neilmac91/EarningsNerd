@@ -43,6 +43,7 @@ vi.mock('@/features/auth/api/auth-api', () => ({
   getConnections: api.getConnections,
   unlinkProvider: api.unlinkProvider,
   logoutAllSessions: api.logoutAllSessions,
+  LogoutAllSuperseded: class LogoutAllSuperseded extends Error {},
   exportUserData: vi.fn(),
   deleteUserAccount: vi.fn(),
 }))
@@ -55,7 +56,8 @@ vi.mock('@/features/notifications/api/notifications-api', () => ({
   getNotificationPreferences: api.getNotificationPreferences,
   updateNotificationPreferences: api.updateNotificationPreferences,
 }))
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+const router = vi.hoisted(() => ({ push: vi.fn() }))
+vi.mock('next/navigation', () => ({ useRouter: () => router }))
 vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: { children: ReactNode; href: string; [key: string]: unknown }) => (
     <a href={href} {...props}>{children}</a>
@@ -254,7 +256,7 @@ describe('ConnectedAccounts', () => {
     expect(api.unlinkProvider).toHaveBeenCalledTimes(1)
 
     await act(async () => refetch.resolve({ has_password: true, providers: [] }))
-    expect(await screen.findByText('No social sign-ins linked.')).toBeInTheDocument()
+    expect(await screen.findByText('No social logins linked.')).toBeInTheDocument()
     expect(screen.queryByText(/Could not unlink/)).not.toBeInTheDocument()
     // The refetch dropped the row and the focused Unlink with it: focus lands on the section heading.
     expect(unlink.isConnected).toBe(false)
@@ -304,13 +306,13 @@ describe('ConnectedAccounts', () => {
     expect(api.unlinkProvider).toHaveBeenCalledTimes(1)
   })
 
-  it('Sign out of all devices keeps focus while in flight and ignores a second click', async () => {
+  it('Log out of all devices keeps focus while in flight and ignores a second click', async () => {
     api.getConnections.mockResolvedValue({ has_password: true, providers: [] })
     const post = deferred<unknown>()
     api.logoutAllSessions.mockReturnValue(post.promise)
     renderWithClient(<ConnectedAccounts />)
 
-    const signOut = await screen.findByRole('button', { name: 'Sign out of all devices' })
+    const signOut = await screen.findByRole('button', { name: 'Log out of all devices' })
     signOut.focus()
     fireEvent.click(signOut)
     await waitFor(() => expect(signOut).toHaveAttribute('aria-busy', 'true'))
@@ -323,6 +325,25 @@ describe('ConnectedAccounts', () => {
     expect(await screen.findByText('Sign-out failed')).toBeInTheDocument()
     expect(signOut).not.toHaveAttribute('aria-disabled')
     expect(document.activeElement).toBe(signOut)
+  })
+
+  it('Log out of all devices refused for a login accepted while it waited neither clears, leaves nor shows an error', async () => {
+    const { LogoutAllSuperseded } = await import('@/features/auth/api/auth-api')
+    api.getConnections.mockResolvedValue({ has_password: true, providers: [] })
+    api.logoutAllSessions.mockRejectedValue(new LogoutAllSuperseded())
+    router.push.mockClear()
+    const { client, container } = renderWithClient(<ConnectedAccounts />)
+    const clear = vi.spyOn(client, 'clear')
+
+    const signOut = await screen.findByRole('button', { name: 'Log out of all devices' })
+    const before = container.textContent
+    fireEvent.click(signOut)
+    await waitFor(() => expect(api.logoutAllSessions).toHaveBeenCalledTimes(1))
+    await settle()
+    expect(clear).not.toHaveBeenCalled()
+    expect(router.push).not.toHaveBeenCalled()
+    // No error line, in any wording: the card reads as it did before the press.
+    expect(container.textContent).toBe(before)
   })
 })
 
@@ -414,7 +435,7 @@ describe('BillingPanel Retry', () => {
     const refetched = deferred<SubscriptionStatus>()
     api.getSubscriptionStatus.mockRejectedValueOnce(new Error('down')).mockReturnValueOnce(refetched.promise)
     renderWithClient(<BillingPanel />)
-    const retry = await screen.findByRole('button', { name: 'Retry' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     await settle()
@@ -433,7 +454,7 @@ describe('BillingPanel Retry', () => {
     api.getSubscriptionStatus.mockResolvedValue(freeSub)
     api.getUsage.mockResolvedValue(usage)
     renderWithClient(<BillingPanel />)
-    const retry = await screen.findByRole('button', { name: 'Retry' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     await settle()
@@ -450,7 +471,7 @@ describe('BillingPanel Retry', () => {
     const again = deferred<SubscriptionStatus>()
     api.getSubscriptionStatus.mockRejectedValueOnce(new Error('down')).mockReturnValueOnce(again.promise)
     renderWithClient(<BillingPanel />)
-    const retry = await screen.findByRole('button', { name: 'Retry' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     fireEvent.click(retry)
     await settle()
@@ -467,7 +488,7 @@ describe('BillingPanel Retry', () => {
     const refetched = deferred<SubscriptionStatus>()
     api.getSubscriptionStatus.mockRejectedValueOnce(new Error('down')).mockReturnValueOnce(refetched.promise)
     renderWithClient(<BillingPanel />)
-    const retry = await screen.findByRole('button', { name: 'Retry' })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     retry.focus()
     act(() => onlineManager.setOnline(false))
     act(() => onlineManager.setOnline(true))
@@ -494,7 +515,7 @@ describe('BillingPanel Retry', () => {
     await waitFor(() => expect(api.getSubscriptionStatus).toHaveBeenCalledTimes(2))
     await settle()
     expect(screen.queryByText('Failed to load billing information')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
     expect(screen.getByRole('status')).toBeInTheDocument()
     await act(async () => secondPlan.resolve(proSub))
     expect(await screen.findByText('Pro')).toBeInTheDocument()
@@ -507,7 +528,7 @@ describe('BillingPanel Retry', () => {
     api.getSubscriptionStatus.mockRejectedValueOnce(new Error('refresh failed')).mockReturnValueOnce(refetched.promise)
     renderWithClient(<BillingPanel />, staleClient())
     await screen.findByText("Couldn't refresh billing details")
-    const retry = screen.getByRole('button', { name: 'Retry' })
+    const retry = screen.getByRole('button', { name: 'Try again' })
     retry.focus()
     onlineManager.setOnline(false)
     fireEvent.click(retry)
@@ -528,7 +549,7 @@ describe('BillingPanel Retry', () => {
     api.getSubscriptionStatus.mockRejectedValueOnce(new Error('refresh failed')).mockReturnValue(refetched.promise)
     renderWithClient(<BillingPanel />, staleClient())
     await screen.findByText("Couldn't refresh billing details")
-    const retry = screen.getByRole('button', { name: 'Retry' })
+    const retry = screen.getByRole('button', { name: 'Try again' })
     fireEvent.click(retry)
     expect(retry).toHaveAttribute('aria-busy', 'true')
     fireEvent.click(retry)
@@ -580,11 +601,9 @@ describe('NotificationPreferencesForm', () => {
     expectBusyAndFocused(tenK)
     fireEvent.click(tenK)
     fireEvent.click(screen.getByRole('switch', { name: 'Quarterly reports (10-Q)' }))
-    fireEvent.change(screen.getByRole('combobox', { name: 'Digest frequency' }), { target: { value: 'weekly' } })
     await settle()
     expect(api.updateNotificationPreferences).toHaveBeenCalledTimes(1)
     expect(api.updateNotificationPreferences.mock.calls[0][0]).toEqual({ notify_10k: true })
-    expect(screen.getByRole('combobox', { name: 'Digest frequency' })).toHaveValue('daily')
 
     await act(async () => put.resolve({ ...prefs, notify_10k: true }))
     await waitFor(() => expect(tenK).toHaveAttribute('aria-checked', 'true'))
@@ -593,26 +612,16 @@ describe('NotificationPreferencesForm', () => {
     expect(document.activeElement).toBe(tenK)
   })
 
-  it('the digest select keeps focus through its save and ignores a second change meanwhile', async () => {
-    api.getNotificationPreferences.mockResolvedValue(prefs)
-    const put = deferred<NotificationPreferences>()
-    api.updateNotificationPreferences.mockReturnValue(put.promise)
+  // DSW-01: no job reads a digest frequency (run_daily_digest sends once a day for everyone), so the
+  // row states the cadence and offers no choice; notificationPreferencesConsumed.spec.ts holds it. The
+  // cadence is the row's value in the data face, as the filing identity sets its facts.
+  it('states the daily digest as a fact, with no control that saves a frequency', async () => {
+    api.getNotificationPreferences.mockResolvedValue({ ...prefs, digest: 'weekly' })
     renderWithClient(<NotificationPreferencesForm />)
 
-    const digest = await screen.findByRole('combobox', { name: 'Digest frequency' })
-    digest.focus()
-    fireEvent.change(digest, { target: { value: 'weekly' } })
-    await waitFor(() => expect(digest).toHaveAttribute('aria-busy', 'true'))
-    expectBusyAndFocused(digest)
-    fireEvent.change(digest, { target: { value: 'immediate' } })
-    await settle()
-    expect(api.updateNotificationPreferences).toHaveBeenCalledTimes(1)
-    expect(api.updateNotificationPreferences.mock.calls[0][0]).toEqual({ digest: 'weekly' })
-
-    await act(async () => put.resolve({ ...prefs, digest: 'weekly' }))
-    await waitFor(() => expect(digest).toHaveValue('weekly'))
-    expect(digest).not.toHaveAttribute('aria-disabled')
-    expect(digest).not.toBeDisabled()
-    expect(document.activeElement).toBe(digest)
+    expect(await screen.findByText('Alerts that aren\'t real-time arrive in one email a day.')).toBeInTheDocument()
+    expect(screen.getByText('Daily')).toHaveClass('font-data')
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Filing alerts' })).toBeInTheDocument()
   })
 })

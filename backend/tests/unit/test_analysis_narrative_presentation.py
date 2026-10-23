@@ -312,7 +312,8 @@ async def test_pdf_uses_the_same_presentation_admission_as_cache(monkeypatch, ob
                              grounded=grounded, unverified=0, company_id=1, mode="quarterly",
                              period_key=dataset["period_key"], dataset_fingerprint=dataset["snapshot_id"],
                              prompt_version=PROMPT_VERSION)
-    db = SimpleNamespace(get=lambda model, identifier: record if model is TrendAnalysis else SimpleNamespace(ticker="TST"))
+    db = SimpleNamespace(get=lambda model, identifier: record if model is TrendAnalysis else SimpleNamespace(ticker="TST"),
+                         close=lambda: None)
     monkeypatch.setattr(entitlements, "get_entitlements", lambda _: SimpleNamespace(can_export=True))
     monkeypatch.setattr(router.trend_analysis_service, "build_dataset", lambda *args: _dataset())
     render = AsyncMock(return_value=b"%PDF-presentation")

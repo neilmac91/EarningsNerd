@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CircleNotchIcon } from '@/lib/icons'
 import { fieldUnavailableClass, inputClasses } from '@/components/ui/Input'
+import { MissingValue } from '@/components/ui/MissingValue'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import {
   updateFeedbackStatus,
@@ -18,10 +19,12 @@ import FeedbackTypeBadge from '@/features/admin/components/FeedbackTypeBadge'
 
 const STATUS_OPTIONS: FeedbackStatus[] = ['new', 'triaged', 'resolved']
 
-function fmtDate(value: string | null): string {
-  if (!value) return '—'
+/** A stored instant as its day, or null when there is none or it does not parse: the cell then shows MissingValue
+ *  ("unavailable"), never a bare token. */
+function fmtDate(value: string | null): string | null {
+  if (!value) return null
   const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return null
   return format(d, 'MMM d, yyyy')
 }
 
@@ -53,13 +56,17 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
       <td className="whitespace-nowrap px-4 py-3 align-top text-sm">
         <FeedbackTypeBadge type={feedback.type} />
       </td>
-      <td className="max-w-md px-4 py-3 align-top text-sm text-text-primary-light dark:text-text-primary-dark">
+      {/* The message column takes the width the others leave (w-full), so the status select keeps its own at 1440,
+          where it was cut off at the card's edge. The button's intrinsic width is contained, or a one-line
+          (truncate) message would size the column by its whole text; min-w-64 is the floor it keeps when the
+          table scrolls on a phone. */}
+      <td className="w-full px-4 py-3 align-top text-sm text-text-primary-light dark:text-text-primary-dark">
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
           title={feedback.message}
           aria-expanded={expanded}
-          className={`block w-full text-left transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark ${
+          className={`block w-full min-w-64 rounded text-left [contain:inline-size] transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark ${
             expanded ? 'whitespace-pre-wrap break-words' : 'truncate'
           }`}
         >
@@ -72,16 +79,23 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
             {feedback.page_url}
           </span>
         ) : (
-          <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
+          // Feedback sent from no page carries none: the words say so rather than "unavailable".
+          <MissingValue label="no page" className="text-text-tertiary-light dark:text-text-secondary-dark" />
         )}
       </td>
-      <td className="whitespace-nowrap px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        {feedback.user_email ?? (
-          <span className="text-text-tertiary-light dark:text-text-secondary-dark">Anonymous</span>
-        )}
+      {/* The reporter's address is never cut: it keeps its own width up to 14rem and wraps inside that beyond it, so
+          a 50-character address no longer takes the table past its box at 1440 (it was nowrap: 1264px in 1214px).
+          The width lives on a block inside the cell, w-max under the cap: the message column's w-full holds every
+          other column at its narrowest, so wrapping the cell itself broke even alice@example.com over four lines. */}
+      <td className="px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
+        <span className="block w-max max-w-[14rem] [overflow-wrap:anywhere]">
+          {feedback.user_email ?? (
+            <span className="text-text-tertiary-light dark:text-text-secondary-dark">Anonymous</span>
+          )}
+        </span>
       </td>
       <td className="whitespace-nowrap px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        {fmtDate(feedback.created_at)}
+        {fmtDate(feedback.created_at) ?? <MissingValue />}
       </td>
       <td className="whitespace-nowrap px-4 py-3 align-top text-sm">
         <div className="flex items-center gap-2">

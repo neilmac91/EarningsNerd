@@ -3,7 +3,7 @@
 **Last updated: 22-JUL-2026 · Version 1.1**
 
 This End-User License Agreement (the "**Agreement**") is a binding agreement between you, the end
-user ("**you**"), and **Neil Mac Aogain** (the
+user ("**you**"), and the operator of **EarningsNerd** (the
 "**Developer**", "**we**", "**us**"), governing your use of the **EarningsNerd** mobile and web
 application and related services (the "**App**").
 
@@ -211,12 +211,12 @@ apply prospectively. If any provision is held unenforceable, the remainder stays
 Agreement, together with the app store terms and the Privacy Policy, is the entire agreement between
 you and the Developer regarding the App.
 
-## 18. Developer name, address, and contact
+## 18. Contact
 
 For any question or claim regarding the App or this Agreement, contact:
 
-> **Neil Mac Aogain**, individual operator of EarningsNerd.
+> **EarningsNerd**
 > Email: **support@earningsnerd.io**
 
-A suitable correspondence address remains a founder review item before launch.
+This historical draft requires review of applicable party/contact disclosures before use. No entity, personal name or address is supplied here.
 

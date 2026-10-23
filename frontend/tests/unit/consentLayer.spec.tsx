@@ -19,8 +19,9 @@ import {
  * publishes its height as `--consent-inset` + `data-consent-visible` on <html>; the bottom chrome
  * adds that inset to its offset and FilingWorkspace keeps the first-run coachmark quiet. These cases
  * pin the publish / clear contract on every state transition (fresh storage, a choice, the settings
- * dialog opened and dismissed, stored preferences, Do Not Track), the hook, and the coachmark
- * deferral. Geometry (that nothing overlaps in a real viewport) is tests/e2e/consent-bar-yields.spec.ts.
+ * dialog opened and dismissed, stored preferences, a first visit with Do Not Track, which changes
+ * nothing: D-049), the hook, and the coachmark deferral. Geometry (that nothing overlaps in a real
+ * viewport) is tests/e2e/consent-bar-yields.spec.ts.
  */
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn() } }))
@@ -93,7 +94,7 @@ describe('CookieConsent owns the consent layer', () => {
     expect(inset()).toMatch(/^\d+px$/) // jsdom measures 0; the attribute, not the number, is the contract here
     expect(consentEvents).toBe(0) // nothing is accepted by the layout
 
-    await user.click(screen.getByRole('button', { name: 'Accept All' }))
+    await user.click(screen.getByRole('button', { name: 'Allow analytics' }))
     expect(screen.queryByRole('region', { name: 'Cookie consent' })).not.toBeInTheDocument()
     expect(layerVisible()).toBe(false)
     expect(inset()).toBe('')
@@ -105,13 +106,13 @@ describe('CookieConsent owns the consent layer', () => {
     const user = userEvent.setup()
     render(<CookieConsent />)
     await user.click(await screen.findByRole('button', { name: 'Customize' }))
-    expect(screen.getByRole('dialog', { name: 'Cookie Preferences' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Cookie preferences' })).toBeInTheDocument()
     expect(layerVisible()).toBe(true) // inert under the modal, still laid out beneath it
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(layerVisible()).toBe(true)
     expect(screen.getByRole('button', { name: 'Customize' })).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Customize' }))
-    await user.click(screen.getByRole('button', { name: 'Save Preferences' }))
+    await user.click(screen.getByRole('button', { name: 'Save preferences' }))
     expect(layerVisible()).toBe(false)
     expect(inset()).toBe('')
     expect(consentEvents).toBe(1)
@@ -138,16 +139,16 @@ describe('CookieConsent owns the consent layer', () => {
     expect(consentEvents).toBe(0)
   })
 
-  it('Do Not Track: defaults are saved silently (as before) and no layer is published', async () => {
-    // jsdom's navigator has no doNotTrack; define the non-standard property the component reads.
+  it('Do Not Track: the bar shows and its layer is published as for any first visit, and nothing is decided (D-049)', async () => {
+    // jsdom's navigator sends no Do Not Track; define it where a browser reports it.
     Object.defineProperty(navigator, 'doNotTrack', { value: '1', configurable: true })
     try {
       render(<CookieConsent />)
-      await act(async () => {})
-      expect(screen.queryByRole('region', { name: 'Cookie consent' })).not.toBeInTheDocument()
-      expect(layerVisible()).toBe(false)
-      expect(JSON.parse(localStorage.getItem('cookie_consent') as string)).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
-      expect(consentEvents).toBe(1)
+      expect(await screen.findByRole('region', { name: 'Cookie consent' })).toBeInTheDocument()
+      expect(layerVisible()).toBe(true)
+      expect(inset()).toMatch(/^\d+px$/)
+      expect(localStorage.getItem('cookie_consent')).toBeNull()
+      expect(consentEvents).toBe(0)
     } finally {
       delete (navigator as { doNotTrack?: string }).doNotTrack
     }

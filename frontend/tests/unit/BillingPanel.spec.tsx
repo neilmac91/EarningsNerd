@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
@@ -55,12 +55,19 @@ const baseUsage: Usage = { summaries_used: 0, summaries_limit: null, is_pro: tru
 
 describe('BillingPanel', () => {
   beforeEach(() => {
+    // The midday-UTC fixtures name the same day only from UTC-12 to UTC+11, so the cases read in UTC unless
+    // one pins a zone of its own (a pin vitest's default forks pool applies; TrialBanner.spec.tsx says why).
+    vi.stubEnv('TZ', 'UTC')
     mockGetCurrentUserSafe.mockReset()
     mockGetCurrentUserSafe.mockResolvedValue({ id: 1 })
     mockGetSubscriptionStatus.mockReset()
     mockGetUsage.mockReset()
     mockCreatePortalSession.mockReset()
     mockGetUsage.mockResolvedValue(baseUsage)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('sends a no-card trial user to /pricing to subscribe instead of the failing billing portal', async () => {
@@ -70,21 +77,47 @@ describe('BillingPanel', () => {
       is_pro: true,
       status: 'trialing',
       plan: 'pro',
-      trial_end: '2026-06-25T00:00:00Z',
+      trial_end: '2026-06-25T12:00:00Z',
     })
 
     renderPanel()
 
     const subscribeLink = await screen.findByRole('link', { name: /subscribe to pro/i })
     expect(subscribeLink).toHaveAttribute('href', '/pricing')
+    // The trial line states the end date, never a countdown from the browser clock (DSW-17).
+    expect(screen.getByText('Pro trial ends Jun 25, 2026.')).toBeInTheDocument()
+    expect(screen.queryByText(/days? left/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /manage billing/i })).not.toBeInTheDocument()
+  })
+
+  // Both dates are Stripe instants, named by the day each falls on where the reader is (TrialBanner.spec pins
+  // the banner the same way). Under a pinned US zone, 01:05 UTC on Oct 21 is Oct 20.
+  it.each([
+    ['the trial line', { status: 'trialing', trial_end: '2026-10-21T01:05:33Z' }, 'Pro trial ends Oct 20, 2026.'],
+    ['the renewal line', { status: 'active', stripe_customer_id: 'cus_123', current_period_end: '2026-10-21T01:05:33Z' }, 'Oct 20, 2026'],
+  ] as const)('dates %s by the day it falls on where the reader is', async (_, fields, text) => {
+    vi.stubEnv('TZ', 'America/New_York')
+    // Control: the pin applied, so the UTC day (Oct 21) and the reader's day differ.
+    expect(new Date('2026-10-21T01:05:33Z').getTimezoneOffset()).toBe(240)
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: true, plan: 'pro', ...fields })
+
+    renderPanel()
+    expect(await screen.findByText(text)).toBeInTheDocument()
+  })
+
+  it.each(['soon', '2026-13-45T00:00:00Z'])('states no trial line for an unreadable trial_end (%s), as TrialBanner does', async (trialEnd) => {
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: true, status: 'trialing', plan: 'pro', trial_end: trialEnd })
+
+    renderPanel()
+    expect(await screen.findByText('Pro (trial)', { exact: true })).toBeInTheDocument()
+    expect(screen.queryByText(/Pro trial ends/)).not.toBeInTheDocument()
   })
 
   it.each([null, 'cus_expired'])('labels an expired trial Free and preserves portal routing (%s)', async (customerId) => {
     mockGetSubscriptionStatus.mockResolvedValue({
       ...baseSub,
       status: 'trialing',
-      trial_end: '2026-01-01T00:00:00Z',
+      trial_end: '2026-01-01T12:00:00Z',
       stripe_customer_id: customerId,
     })
     mockGetUsage.mockResolvedValue({ ...baseUsage, is_pro: false, summaries_limit: 5 })
@@ -92,7 +125,7 @@ describe('BillingPanel', () => {
     renderPanel()
     expect(await screen.findByText('Free', { exact: true })).toBeInTheDocument()
     expect(screen.queryByText('Pro (trial)', { exact: true })).not.toBeInTheDocument()
-    expect(screen.queryByText(/in your Pro trial/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Pro trial ends/)).not.toBeInTheDocument()
     if (customerId) {
       expect(screen.getByRole('button', { name: /manage billing/i })).toBeInTheDocument()
       expect(screen.queryByRole('link', { name: /upgrade to pro/i })).not.toBeInTheDocument()
@@ -109,7 +142,7 @@ describe('BillingPanel', () => {
       status: 'active',
       plan: 'pro',
       stripe_customer_id: 'cus_123',
-      current_period_end: '2027-06-18T00:00:00Z',
+      current_period_end: '2027-06-18T12:00:00Z',
     })
 
     renderPanel()
@@ -121,7 +154,7 @@ describe('BillingPanel', () => {
   it('keeps same-account details visible after a failed refresh, with a retry that clears the notice', async () => {
     const cached: SubscriptionStatus = {
       ...baseSub, is_pro: true, status: 'active', plan: 'pro', stripe_customer_id: 'cus_123',
-      current_period_end: '2027-06-18T00:00:00Z',
+      current_period_end: '2027-06-18T12:00:00Z',
     }
     mockGetSubscriptionStatus.mockRejectedValueOnce(new Error('refresh failed'))
     mockGetSubscriptionStatus.mockResolvedValue({ ...cached, cancel_at_period_end: true })
@@ -134,7 +167,7 @@ describe('BillingPanel', () => {
     expect(screen.getByRole('button', { name: /manage billing/i })).toBeInTheDocument()
     expect(screen.queryByText(/failed to load billing information/i)).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /^retry$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^try again$/i }))
     await waitFor(() => expect(screen.queryByText(/couldn't refresh billing details/i)).not.toBeInTheDocument())
     expect(await screen.findByText('Access until')).toBeInTheDocument()
     expect(screen.getByText('Pro', { exact: true })).toBeInTheDocument()
@@ -150,7 +183,7 @@ describe('BillingPanel', () => {
     expect(screen.queryByText('Plan')).not.toBeInTheDocument()
     expect(screen.queryByText('Free', { exact: true })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /^retry$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^try again$/i }))
     expect(await screen.findByText('Free', { exact: true })).toBeInTheDocument()
     expect(screen.queryByText(/failed to load billing information/i)).not.toBeInTheDocument()
   })

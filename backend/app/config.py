@@ -138,7 +138,10 @@ class Settings(BaseSettings):
     CONTACT_NOTIFICATION_EMAIL: str = SUPPORT_EMAIL
     FEEDBACK_NOTIFICATION_EMAIL: str = SUPPORT_EMAIL
     RESEND_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Resend dashboard
-    FRONTEND_URL: str = "https://earningsnerd.io"
+    # The site's origin that answers without a redirect (the apex redirects to it). Mail links,
+    # sign-in redirects and the mail header's tile are built on it, and sent mail keeps the whole
+    # address, so it stays the redirect-free origin. Production sets none and runs on this default.
+    FRONTEND_URL: str = "https://www.earningsnerd.io"
     # Recipient for the weekly data-quality report (P1-9). Founder inbox by default.
     DATA_QUALITY_REPORT_EMAIL: str = "neil@earningsnerd.io"
 
@@ -343,17 +346,18 @@ class Settings(BaseSettings):
     # Settings, so the env var name matches the field name; case-insensitive).
     USE_STRUCTURED_OUTPUT: bool = False
 
-    # Native section extraction via edgartools (report-quality fix). The legacy regex extractor
-    # in openai_service.extract_critical_sections assumes a line-oriented plain-text 10-K layout;
-    # on modern inline-XBRL filings BeautifulSoup.get_text(separator='\n') shreds the item headers
+    # Native section extraction (report-quality fix; E28). The legacy regex extractor in
+    # openai_service.extract_critical_sections assumes a line-oriented plain-text 10-K layout; on
+    # modern inline-XBRL filings BeautifulSoup.get_text(separator='\n') shreds the item headers
     # across many lines, so the targeted regex captures ~0 chars and the pipeline silently falls
-    # back to keyword "dense windows" (~260k chars of lower-precision text). edgartools' own parser
-    # (filing.obj().sections / obj['Item 7']) resolves the real section boundaries, yielding a
-    # smaller, higher-precision excerpt (verified: AAPL 10-K ~147k precise chars vs ~260k window).
-    # When True (default), the pipeline prefers edgartools sections and falls back to the legacy
-    # regex + dense-window path whenever sections come back empty/thin or parsing fails — so the
-    # safety net is preserved. Set USE_EDGARTOOLS_SECTIONS=false for instant rollback to the
-    # legacy-only behavior.
+    # back to keyword "dense windows" (~260k chars of lower-precision text). edgartools' HTML parser
+    # resolves the real section boundaries, yielding a smaller, higher-precision excerpt (AAPL
+    # 10-K: 124k chars vs 260k). When True (default), the pipeline parses the 10-K/10-Q/20-F
+    # sections from the primary document it already fetched (edgar/xbrl_sections.py; no SEC
+    # request) and falls back to the legacy regex + dense-window path whenever sections come back
+    # empty/thin, the document is over the size cap, or the parse fails or runs past its 30 s
+    # bound (40 s for a 20-F) — so the safety net is preserved. Set USE_EDGARTOOLS_SECTIONS=false for
+    # instant rollback to the legacy-only behavior.
     USE_EDGARTOOLS_SECTIONS: bool = True
 
     # Semantic quality gate (roadmap S4). When True, a summary assessed "partial" (thin coverage
@@ -436,6 +440,24 @@ class Settings(BaseSettings):
     # unless this is set. Its company-page panel is dark too (frontend NEXT_PUBLIC_ENABLE_INSIDER_
     # ACTIVITY); turning both on needs a budget-aware insider scan first (decision record 17).
     ENABLE_INSIDER_ACTIVITY: bool = False
+
+    # "What changed" wording diff (the Change Report's `section_changes` block; tasks/todo.md E27).
+    # When True, the hourly filing-scan job also extracts and stores Item 1A text for the watched
+    # companies' 10-K/10-Q filings (one SEC request per filing, serial, through the shared limiter)
+    # and GET /api/summaries/filing/{id}/what-changed serves the paragraph-paired wording diff
+    # against the prior same-form filing: the first few items for Free/anonymous readers, the whole
+    # list for Pro (entitlements.section_changes). Ships OFF: nothing is fetched or stored and the
+    # report carries `section_changes: null`. scripts/extract_sections.py backfills regardless of
+    # this flag so an operator can warm the table before flipping it.
+    ENABLE_SECTION_CHANGES: bool = False
+    # Filings extracted per scan run (one SEC request each, up to three attempts). The 2026-10
+    # corpus averaged 2.7 s per filing for fetch plus parse (7.7 s for the largest 10-K), so 25
+    # keeps a typical hourly run near a minute and still backfills a watchlist's recent filings
+    # within a day; a document that times out on every attempt costs about three minutes on its own.
+    SECTION_EXTRACTION_BATCH_LIMIT: int = Field(default=25, ge=0, le=500)
+    # Section texts longer than this are recorded as `oversize` without their text. The longest
+    # Item 1A in the 2026-10 corpus of 56 filings was 161k characters.
+    SECTION_TEXT_MAX_CHARS: int = Field(default=400_000, gt=0)
 
     # Restrict the public earnings calendar (and homepage "Reporting This Week" strip) to companies
     # in the S&P 500 or Nasdaq 100 — a tight, defensible, high-signal universe (~515 tickers) instead

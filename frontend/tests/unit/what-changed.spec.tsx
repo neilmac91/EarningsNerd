@@ -127,7 +127,8 @@ describe('WhatChanged (A5)', () => {
     expect(debtRow.querySelector('.sr-only')).toBeNull()
   })
 
-  it('speaks the direction wherever no signed string states it: the dash for a zero prior, an unsigned 0.0%', () => {
+  // E88: the zero prior's missing percentage is MissingValue, read after the direction as "no percentage".
+  it('speaks the direction wherever no signed string states it: no percentage from a zero prior, an unsigned 0.0%', () => {
     const unsigned: ChangeReport = {
       ...baseReport,
       metrics: {
@@ -145,17 +146,18 @@ describe('WhatChanged (A5)', () => {
     const table = within(container.querySelector<HTMLElement>('[data-change-layout="table"]')!)
     const changeCell = (name: RegExp) => within(table.getByRole('row', { name })).getAllByRole('cell')[2]
     const fromZero = changeCell(/Net income/)
-    expect(fromZero).toHaveTextContent(/^▲Up —$/)
+    expect(fromZero).toHaveTextContent(/^▲Up, —no percentage$/)
     expect(within(fromZero).getByText('—')).toHaveAttribute('aria-hidden', 'true')
-    expect(within(fromZero).getByText('Up')).toHaveClass('sr-only')
-    expect(changeCell(/Operating income/)).toHaveTextContent(/^Unchanged —$/)
+    expect(within(fromZero).getByText('Up,')).toHaveClass('sr-only')
+    expect(within(fromZero).getByText('no percentage')).toHaveClass('sr-only')
+    expect(changeCell(/Operating income/)).toHaveTextContent(/^Unchanged, —no percentage$/)
     const roundedAway = changeCell(/Revenue/)
     expect(roundedAway).toHaveTextContent(/^▼Down 0\.0%$/)
     expect(within(roundedAway).getByText('Down')).toHaveClass('sr-only')
     // The stacked phone rows render the same Change.
     const rows = within(container.querySelector<HTMLElement>('[data-change-layout="rows"]')!).getAllByRole('listitem')
-    expect(rows[0]).toHaveTextContent(/^Net income▲Up —/)
-    expect(rows[1]).toHaveTextContent(/^Operating incomeUnchanged —/)
+    expect(rows[0]).toHaveTextContent(/^Net income▲Up, —no percentage/)
+    expect(rows[1]).toHaveTextContent(/^Operating incomeUnchanged, —no percentage/)
     expect(rows[2]).toHaveTextContent(/^Revenue▼Down 0\.0%/)
   })
 
@@ -170,6 +172,35 @@ describe('WhatChanged (A5)', () => {
     expect(items[0]).toHaveTextContent('Prior $80.0 → , current $100.0')
     expect(items[0]).toHaveTextContent('Favorable')
     expect(items[1]).toHaveTextContent('Unfavorable')
+  })
+
+  // E76: a missing figure is the token in an element of its own, never bare text beside the phone rows' sr-only
+  // "Prior" and "current" and the arrow, and assistive tech reads it as "unavailable", in both layouts.
+  it('shows a missing figure as the dash in its own element, read as unavailable, in both layouts', () => {
+    const missing: ChangeReport = {
+      ...baseReport,
+      metrics: {
+        ...baseReport.metrics!,
+        items: [{ metric: 'revenue', label: 'Revenue', direction: 'up', pct: null, current: 100, prior: null, display: null, tone: 'gain' }],
+      },
+    }
+    const { container } = render(<WhatChanged report={missing} />)
+    const table = within(container.querySelector<HTMLElement>('[data-change-layout="table"]')!)
+    const [prior, current] = within(table.getByRole('row', { name: /Revenue/ })).getAllByRole('cell')
+    expect(prior).toHaveAccessibleName('unavailable')
+    expect(within(prior).getByText('—')).toHaveAttribute('aria-hidden', 'true')
+    expect(current).toHaveTextContent(/^\$100\.0$/)
+
+    // The phone row: what the eye sees, and what assistive tech reads, each as one unit.
+    const figures = within(container.querySelector<HTMLElement>('[data-change-layout="rows"]')!).getByText('Prior').parentElement!
+    const without = (selector: string) => {
+      const copy = figures.cloneNode(true) as HTMLElement
+      copy.querySelectorAll(selector).forEach((part) => part.remove())
+      return copy.textContent!.replace(/\s+/g, ' ').trim()
+    }
+    expect(without('.sr-only')).toBe('— → $100.0')
+    expect(without('[aria-hidden="true"]')).toBe('Prior unavailable, current $100.0')
+    expect(within(figures).getByText('—').parentElement!.parentElement).toBe(figures)
   })
 
   it('renders bare inside a summary section: no card and no heading of its own', () => {

@@ -3,7 +3,7 @@ filings it owns.
 
 The scan services used to send first and log afterwards, so a concurrent run could send twice
 and a failed attempt suppressed every retry. Now selection persists a ``DeliveryBatch`` (frozen
-subject + HTML, a provider idempotency key bound to that payload) with its ordered
+addresses, subject, HTML and plain text, a provider idempotency key bound to that payload) with its ordered
 ``DeliveryItem`` rows BEFORE any external send, and delivery moves through fenced conditional
 transitions (``notification_delivery_service``). The compatibility ``NotificationLog`` row and the
 watchlist watermark are written only when the provider accepts the email.
@@ -45,9 +45,15 @@ class DeliveryBatch(Base):
     # Frozen at selection: a retry replays these bytes, never a re-query or a re-render.
     to_email = Column(Text, nullable=False)
     from_email = Column(Text, nullable=False)
+    # Frozen with the envelope. NULL preserves the omitted header on pre-Reply-To batches,
+    # including those already attempted under their persisted provider idempotency key.
+    reply_to = Column(Text, nullable=True)
     expected_item_count = Column(Integer, nullable=False)
     subject = Column(Text, nullable=False)
     body_html = Column(Text, nullable=False)
+    # The mail's plain-text part, frozen with its page (E110). NULL on a batch frozen before the column: it
+    # replays as it was frozen, its page alone, and the provider builds its text part from the page.
+    body_text = Column(Text, nullable=True)
     payload_sha256 = Column(String(64), nullable=False)
     # Provider idempotency key, assigned once and bound to payload_sha256; never regenerated.
     idempotency_key = Column(String(36), nullable=False, unique=True)

@@ -1,12 +1,14 @@
 'use client'
 
-import { useMemo, type ReactNode } from 'react'
-import { Badge } from '@/components/ui'
+import { useId, useMemo, useRef, type ReactNode, type Ref } from 'react'
+import { Badge, countControlClass, cx } from '@/components/ui'
+import { useOverflowRegion } from '@/hooks/useOverflowRegion'
 import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
 import { Callout } from '@/features/summaries/components/Callout'
 import { SummaryRisks } from '@/features/summaries/components/SummaryRisks'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
-import { WHAT_CHANGED_ID, WhatChanged } from '@/features/filings/components/WhatChanged'
+import { WHAT_CHANGED_ID, WhatChanged, reportHasContent } from '@/features/filings/components/WhatChanged'
+import type { WordingContext } from '@/features/filings/components/WordingChanges'
 import { useSectionArrival } from '@/features/summaries/hooks/useSectionArrival'
 import { SectionEmpty } from './SectionEmpty'
 import { normalizeRisk } from '@/lib/formatters'
@@ -36,11 +38,12 @@ const RISKS_SECTION_ID = 'investment-risks-concerns'
 const isRisksSection = (section: RenderedSection): boolean =>
   section.role === 'risks' || section.id === RISKS_SECTION_ID
 
-// tone -> Badge variant (T1.2 treatment). neutral/unknown render nothing: tone is a schema field
-// name, not user copy.
-const TONE_VARIANT: Record<string, 'brand' | 'warning'> = {
-  positive: 'brand',
-  cautious: 'warning',
+// tone -> the header Badge's label. One neutral Badge for both: a tone is the model's reading of
+// management's language, not a status, so it takes neither the brand nor a warning colour, and the
+// label names what it is. neutral/unknown render nothing: tone is a schema field name, not user copy.
+const TONE_LABEL: Record<string, string> = {
+  positive: 'Management tone: positive',
+  cautious: 'Management tone: cautious',
 }
 
 const INK = 'text-text-primary-light dark:text-text-primary-dark'
@@ -61,8 +64,13 @@ interface SummaryBlocksProps {
   sections: RenderedSection[]
   /** The full summary — read only for the risks section's enriched provenance (source traces). */
   summary: Summary
-  /** The period-over-period change report; rendered as section 02 territory when it has changes. */
+  /** The period-over-period change report; rendered as section 02 territory when it has something
+   *  to show (metric deltas, or the Item 1A wording comparison). */
   whatChanged?: ChangeReport | null
+  /** Who is reading the report, for its wording block's events and teaser. */
+  whatChangedContext?: WordingContext
+  /** Optional completion-focus target without introducing a second document heading. */
+  firstHeadingRef?: Ref<HTMLHeadingElement>
 }
 
 /**
@@ -78,7 +86,7 @@ interface SummaryBlocksProps {
  * metrics section. Subheadings are 14/600 headings, never uppercase eyebrows (eyebrows are for
  * metric labels only).
  */
-export function SummaryBlocks({ sections, summary, whatChanged }: SummaryBlocksProps) {
+export function SummaryBlocks({ sections, summary, whatChanged, whatChangedContext, firstHeadingRef }: SummaryBlocksProps) {
   // Enriched, placeholder-filtered risks (with source_url/verified) for the risks special-case.
   const risks = useMemo<RiskFactor[]>(() => {
     const sections = summary.raw_summary?.sections as { risks?: unknown; risk_factors?: unknown } | undefined
@@ -98,29 +106,37 @@ export function SummaryBlocks({ sections, summary, whatChanged }: SummaryBlocksP
       }
     } | undefined
   )?._risk_source_projection : undefined
-  const withChanges = Boolean(whatChanged?.has_changes) && !(sections ?? []).some((section) => section.id === WHAT_CHANGED_ID)
+  const withChanges = reportHasContent(whatChanged) && !(sections ?? []).some((section) => section.id === WHAT_CHANGED_ID)
   useSectionArrival([...(sections ?? []).map((section) => section.id), ...(withChanges ? [WHAT_CHANGED_ID] : [])].join(' '))
 
   if (!sections?.length) {
     return <SectionEmpty label="summary" />
   }
 
-  const pageSections: PageSection[] = sections.map((section) => ({
-    id: section.id,
-    title: section.title,
-    tone: section.tone,
-    body: isRisksSection(section) ? (
-      <SummaryRisks risks={risks} projection={riskProjection} />
-    ) : (
-      section.blocks.map((block, i) => <BlockView key={i} block={block} />)
-    ),
-  }))
+  const pageSections: PageSection[] = sections.map((section) => {
+    const tableCount = section.blocks.filter((block) => block.kind === 'table').length
+    let tableNumber = 0
+    return {
+      id: section.id,
+      title: section.title,
+      tone: section.tone,
+      body: isRisksSection(section) ? (
+        <SummaryRisks risks={risks} projection={riskProjection} />
+      ) : (
+        section.blocks.map((block, i) => <BlockView key={i} block={block}
+          tableLabel={block.kind === 'table'
+            ? `${section.title}${tableCount > 1 ? `, table ${++tableNumber} of ${tableCount}` : ''}`
+            : undefined}
+        />)
+      ),
+    }
+  })
   if (whatChanged && withChanges) {
     const metricsAt = sections.findIndex((section) => section.blocks.some((block) => block.kind === 'metrics'))
     pageSections.splice(metricsAt === -1 ? 1 : metricsAt + 1, 0, {
       id: WHAT_CHANGED_ID,
       title: 'What changed',
-      body: <WhatChanged report={whatChanged} bare />,
+      body: <WhatChanged report={whatChanged} bare context={whatChangedContext} />,
     })
   }
 
@@ -129,7 +145,7 @@ export function SummaryBlocks({ sections, summary, whatChanged }: SummaryBlocksP
       {/* Sticky table of contents, widescreen only (it would crowd a reflowed reading column), on the
           reading side of the page: each entry carries its section's index. */}
       <aside className="hidden lg:block">
-        <nav aria-label="Summary sections" className="sticky top-24">
+        <nav aria-label="Summary sections" className="sticky top-[calc(var(--site-header-h,4rem)_+_2rem)]">
           <p className={`mb-3 text-xs font-medium ${MUTED}`}>On this page</p>
           <ol role="list" className="space-y-1">
             {pageSections.map((section, i) => (
@@ -138,7 +154,7 @@ export function SummaryBlocks({ sections, summary, whatChanged }: SummaryBlocksP
                   href={`#${section.id}`}
                   className={`flex gap-2.5 rounded py-1 text-sm transition-colors duration-fast hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark ${MUTED}`}
                 >
-                  <span aria-hidden="true" className="font-data text-xs leading-5 text-brand-strong dark:text-brand-strong-dark">
+                  <span aria-hidden="true" className="font-data text-xs leading-5 text-text-tertiary-light dark:text-text-secondary-dark">
                     {sectionIndex(i)}
                   </span>
                   <span className="min-w-0">{section.title}</span>
@@ -156,24 +172,37 @@ export function SummaryBlocks({ sections, summary, whatChanged }: SummaryBlocksP
         <MobileSectionNav sections={pageSections} />
         <div className="space-y-11">
           {pageSections.map((section, i) => {
-            const toneVariant = section.tone ? TONE_VARIANT[section.tone.toLowerCase()] : undefined
+            const toneLabel = section.tone ? TONE_LABEL[section.tone.toLowerCase()] : undefined
             return (
               <section
                 key={section.id}
                 id={section.id}
                 aria-labelledby={`${section.id}-heading`}
-                className="scroll-mt-32 lg:scroll-mt-24"
+                className="scroll-mt-16 lg:scroll-mt-8"
               >
-                <div className="flex items-baseline gap-3">
-                  <span aria-hidden="true" className={`font-data text-xs tabular-nums ${MUTED}`}>
-                    {sectionIndex(i)}
-                  </span>
-                  <h2 id={`${section.id}-heading`} className="min-w-0 text-xl font-semibold">
-                    {section.title}
-                  </h2>
-                  {toneVariant && (
-                    <Badge variant={toneVariant} className="shrink-0 self-center capitalize">
-                      {section.tone}
+                {/* Only the tone badge wraps: the index and the heading are one group that never wraps,
+                    so a long heading wraps its own words beside its index, never drops beneath it. When
+                    the group and the badge do not fit on one line (a 320px phone, or 200% text) the badge
+                    moves beneath the heading instead of squeezing it or pushing the page wider, and its
+                    label wraps inside the badge if even a line of its own is too narrow (the label's span
+                    overrides the Badge's nowrap). */}
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <div className="flex min-w-0 items-baseline gap-3">
+                    <span aria-hidden="true" className={`font-data text-xs tabular-nums ${MUTED}`}>
+                      {sectionIndex(i)}
+                    </span>
+                    <h2
+                      ref={i === 0 ? firstHeadingRef : undefined}
+                      tabIndex={i === 0 && firstHeadingRef ? -1 : undefined}
+                      id={`${section.id}-heading`}
+                      className={`min-w-0 text-xl font-semibold${i === 0 && firstHeadingRef ? ' outline-none' : ''}`}
+                    >
+                      {section.title}
+                    </h2>
+                  </div>
+                  {toneLabel && (
+                    <Badge variant="neutral" className="max-w-full self-center">
+                      <span className="min-w-0 whitespace-normal">{toneLabel}</span>
                     </Badge>
                   )}
                 </div>
@@ -198,16 +227,16 @@ function MobileSectionNav({ sections }: { sections: PageSection[] }) {
   return (
     <nav
       aria-label="Jump to section"
-      className="sticky top-16 z-sticky -mx-4 mb-11 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
+      className="sticky top-[var(--site-header-h,4rem)] z-sticky -mx-4 mb-11 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
     >
       <ul className="flex gap-2 overflow-x-auto py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {sections.map((section, i) => (
           <li key={section.id} className="shrink-0">
             <a
               href={`#${section.id}`}
-              className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border border-border-light bg-panel-light px-3 text-xs font-medium text-text-secondary-light shadow-e1 transition-colors hover:bg-brand-weak hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:shadow-none dark:hover:bg-white/5 dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+              className={cx('inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border border-border-light bg-panel-light px-3 text-xs font-medium shadow-e1 dark:border-white/10 dark:bg-panel-dark dark:shadow-none', countControlClass('button'))}
             >
-              <span aria-hidden="true" className="font-data text-brand-strong dark:text-brand-strong-dark">
+              <span aria-hidden="true" className="font-data text-text-tertiary-light dark:text-text-secondary-dark">
                 {sectionIndex(i)}
               </span>
               {section.title}
@@ -221,7 +250,7 @@ function MobileSectionNav({ sections }: { sections: PageSection[] }) {
 
 /** One Block.kind → one renderer. The backend already strips field-name scaffolding, so text
     blocks render as plain prose (no ReactMarkdown needed). Unknown kinds render nothing. */
-function BlockView({ block }: { block: RenderedBlock }) {
+function BlockView({ block, tableLabel }: { block: RenderedBlock; tableLabel?: string }) {
   switch (block.kind) {
     case 'paragraph':
       return block.text ? (
@@ -236,22 +265,35 @@ function BlockView({ block }: { block: RenderedBlock }) {
       // A 14/600 heading under the section's h2, in sentence register: never an uppercase eyebrow.
       return block.text ? <h3 className="text-sm font-semibold">{block.text}</h3> : null
 
-    case 'quote':
-      return block.text ? (
-        <blockquote className={`border-l-2 pl-3.5 italic ${HAIRLINE} ${MUTED}`}>
+    case 'quote': {
+      if (!block.text) return null
+      const quote = (
+        <>
           <p>“{block.text}”</p>
           {(block.speaker || block.evidence) && (
-            <div className="mt-1 flex items-center gap-2">
+            // Wraps, so the chip drops under the speaker where the line cannot hold both (the marked block's padding
+            // narrows it: at 390 under 200% text the chip ran 4px past the page).
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+              {/* The speaker is attribution, not the filing's words: the body face, inside a marked block too. */}
               {block.speaker && (
-                <cite className="block text-sm not-italic text-text-tertiary-light dark:text-text-secondary-dark">
-                  — {block.speaker}
+                <cite className="block font-sans text-sm not-italic text-text-tertiary-light dark:text-text-secondary-dark">
+                  {block.speaker}
                 </cite>
               )}
               <EvidenceChip evidence={block.evidence} />
             </div>
           )}
-        </blockquote>
-      ) : null
+        </>
+      )
+      // The device marks a quote whose evidence the server located (D-044): the marked block, the quote in the
+      // filing's face, and no marker or twin, since a quote block has no heading to carry one. Any other quote
+      // keeps the neutral hairline.
+      return block.evidence?.verified === true ? (
+        <blockquote className={cx('en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed', INK)}>{quote}</blockquote>
+      ) : (
+        <blockquote className={`border-l-2 pl-3.5 italic ${HAIRLINE} ${MUTED}`}>{quote}</blockquote>
+      )
+    }
 
     case 'bullets':
       return block.items && block.items.length > 0 ? (
@@ -270,6 +312,7 @@ function BlockView({ block }: { block: RenderedBlock }) {
     case 'table':
       return (
         <GenericTable
+          label={tableLabel ?? 'Summary table'}
           headers={block.headers ?? []}
           rows={block.rows ?? []}
           rowEvidence={block.row_evidence}
@@ -302,14 +345,23 @@ const WHOLE_FIGURE = /^\P{L}*[KMBT]?$/iu
 /** A plain string-cell table (segments, footnotes) on reader-table manners: hairline rows with no
     outer frame, no header fill, eyebrow header, and numeric COLUMNS detected via parseNumeric and
     rendered right-aligned in the data face (segment-revenue grids were left-aligned prose). The
-    outer cells sit flush with the section's text edge. Horizontal scroll keeps wide grids from
-    pushing the page sideways. When `rowEvidence` is present (T4 — footnotes), a per-row
+    outer cells sit flush with the section's text edge. On phones, prose columns keep a readable
+    measure instead of shrinking into tall word stacks. Wide tables scroll in a named keyboard
+    region; tables that fit add no stop. When `rowEvidence` is present (T4 — footnotes), a per-row
     Trace-to-Source chip is appended under the row's last cell. */
-function GenericTable({ headers, rows, rowEvidence }: {
+function GenericTable({ label, headers, rows, rowEvidence }: {
+  label: string
   headers: string[]
   rows: string[][]
   rowEvidence?: (BlockEvidence | null)[]
 }) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  const hintId = useId()
+  const { overflowing, regionProps } = useOverflowRegion(boxRef, {
+    label: `Scrollable table: ${label}`,
+    describedBy: hintId,
+    enabled: rows.length > 0,
+  })
   if (rows.length === 0) return null
   const hasRowEvidence = rowEvidence?.some(Boolean) ?? false
   const colCount = Math.max(headers.length, ...rows.map((r) => r.length))
@@ -322,8 +374,13 @@ function GenericTable({ headers, rows, rowEvidence }: {
       cells.every((v) => v === '' || v === '—' || v === '-' || (WHOLE_FIGURE.test(v) && parseNumeric(v) !== null))
   })
   return (
-    <div className="overflow-x-auto">
+    <div>
+      {overflowing && <p id={hintId} className={`mb-2 text-xs ${MUTED}`}>Scroll horizontally to read all columns.</p>}
+      <div ref={boxRef}
+        className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+        {...regionProps}>
       <table className="min-w-full border-collapse">
+        <caption className="sr-only">{label}</caption>
         {headers.length > 0 && (
           <thead>
             <tr className={`border-b ${HAIRLINE}`}>
@@ -349,18 +406,20 @@ function GenericTable({ headers, rows, rowEvidence }: {
               <tr key={r} className={`border-b ${HAIRLINE}`}>
                 {row.map((cell, c) => (
                   <td key={c}
-                    className={`px-3 py-2.5 text-sm first:pl-0 last:pr-0 ${MUTED}${cellAlign}${numericCol[c] ? ' text-right font-data tabular-nums whitespace-nowrap' : ''}`}>
+                    className={`px-3 py-2.5 text-sm first:pl-0 last:pr-0 ${MUTED}${cellAlign}${numericCol[c] ? ' text-right font-data tabular-nums whitespace-nowrap' : ' min-w-[12rem] [overflow-wrap:anywhere] md:min-w-0'}`}>
                     {cell}
                     {c === last && ev && (
                       <span className="mt-1 block"><EvidenceChip evidence={ev} /></span>
                     )}
                   </td>
                 ))}
+                {row.length === 0 && ev && <td colSpan={Math.max(1, colCount)} className="py-2.5"><EvidenceChip evidence={ev} /></td>}
               </tr>
             )
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

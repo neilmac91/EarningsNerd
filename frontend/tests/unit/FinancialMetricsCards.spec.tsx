@@ -26,7 +26,7 @@ const PER_ADS = {
   ordinary_per_ads: 8,
   currency: 'CNY',
   as_of: '2026-06-28',
-  source: 'Alibaba 20-F cover / deposit agreement — 1 ADS = 8 ordinary shares',
+  source: 'Alibaba 20-F cover / deposit agreement: 1 ADS = 8 ordinary shares',
   arithmetic: 'CNY 5.7 per ordinary share × 8 = CNY 45.6 per ADS',
 }
 
@@ -75,14 +75,39 @@ const NO_COMPARATIVES: FinancialMetric[] = [
 const NO_COMMENTARY: FinancialMetric[] = [
   { metric: 'Net income', current_period: '$112,010M', prior_period: '$93,736M', change_display: '+19.5%', change_direction: 'up', change_tone: 'gain', source_url: SEC, source_verified: true, xbrl_concept: 'Net income' },
 ]
+/** Takeaways the field reads as missing beside one it shows: whitespace, the token alone, and evidence with no takeaway,
+    which takes no chip (E145). */
+const MISSING_TAKEAWAYS: FinancialMetric[] = [
+  { metric: 'Revenue', current_period: '$1.2B', prior_period: '$1.1B', change_display: '+9.1%', change_direction: 'up', change_tone: 'gain', commentary: '   ' },
+  { metric: 'Net income', current_period: '$210.0M', prior_period: '$190.0M', change_display: '+10.5%', change_direction: 'up', change_tone: 'gain', commentary: '—' },
+  { metric: 'Operating income', current_period: '$300.0M', prior_period: '$280.0M', change_display: '+7.1%', change_direction: 'up', change_tone: 'gain', commentary_evidence: EVIDENCE },
+  { metric: 'Gross margin', current_period: '48%', prior_period: '47%', change_display: '+1.0 pp', change_direction: 'up', change_tone: 'gain', commentary: 'Held.' },
+]
 const NO_EVIDENCE: FinancialMetric[] = [
   { metric: 'Net income', current_period: '$112,010M', prior_period: '$93,736M', change_display: '+19.5%', change_direction: 'up', change_tone: 'gain', commentary: 'Lower tax rate.' },
 ]
 const NO_CHANGE: FinancialMetric[] = [{ metric: 'Revenue', current_period: '$100', prior_period: '$80' }]
-/** A row without a prior value among rows that have one: the table shows an empty Prior cell. */
+/** A row without a prior value among rows that have one: its Prior cell is MissingValue, read as unavailable. */
 const MIXED_PRIOR: FinancialMetric[] = [
   { metric: 'Revenue', current_period: '$100', prior_period: '$80', change_display: '+25.0%', change_direction: 'up', change_tone: 'gain' },
   { metric: 'New metric', current_period: '$5', prior_period: '' },
+]
+/** A degraded summary's rows as backend/app/services/fallback_summary.py writes them and _metrics_block serves them
+ *  (generate_xbrl_summary run offline): the missing-value token for a figure the fallback lacks, and in the `change`
+ *  the table never reads. With XBRL, the net income has no prior; without, no row has a figure. */
+const FALLBACK_XBRL: Array<FinancialMetric & { change: string }> = [
+  { metric: 'Revenue', current_period: '$1.2B', prior_period: '$1.1B', change: '—', commentary: 'From XBRL data', change_display: '+9.1%', change_direction: 'up', change_tone: 'gain' },
+  { metric: 'Net Income', current_period: '$210.0M', prior_period: '—', change: '—', commentary: 'From XBRL data' },
+]
+const FALLBACK_NO_XBRL: Array<FinancialMetric & { change: string }> = [
+  { metric: 'Revenue', current_period: '—', prior_period: '—', change: '—', commentary: 'Regenerate for financial data' },
+  { metric: 'Net Income', current_period: '—', prior_period: '—', change: '—', commentary: 'Regenerate for financial data' },
+]
+/** Figures that are not missing and render as they did before MissingValue reached these cells: a genuine zero, and
+ *  words a summary reports in a figure's place ("Not disclosed", the degraded summary's own for a figure XBRL lacks). */
+const ZERO_AND_TEXT: FinancialMetric[] = [
+  { metric: 'Deferred revenue', current_period: '$0', prior_period: '$12M', change_display: '-100.0%', change_direction: 'down', change_tone: 'loss' },
+  { metric: 'Revenue', current_period: 'Not disclosed', prior_period: '0%' },
 ]
 // Long values that SURVIVE formatMetricValue: a leading non-numeric token makes parseNumeric null,
 // so the string renders verbatim (a numeric '$1,234,567,890,123 (restated)' would compact to $1.2T
@@ -112,6 +137,12 @@ const all = (root: Element, sel: string) => Array.from(root.querySelectorAll<HTM
 const text = (e: Element | null | undefined) => (e?.textContent ?? '').replace(/\s+/g, ' ').trim()
 const cardList = (c: HTMLElement) => all(layout(c, 'cards'), '[data-metric-card]')
 const bodyRows = (c: HTMLElement) => all(layout(c, 'table'), 'tbody tr')
+/** What assistive tech reads of an element: its text with every aria-hidden part (MissingValue's token) left out. */
+const spoken = (e: Element) => {
+  const copy = e.cloneNode(true) as Element
+  copy.querySelectorAll('[aria-hidden="true"]').forEach((hidden) => hidden.remove())
+  return text(copy)
+}
 
 /** Everything the acceptance row says must be equal across layouts, read the same way in both. */
 function factsOf(root: HTMLElement) {
@@ -130,6 +161,9 @@ function factsOf(root: HTMLElement) {
   }
 }
 
+/** A served takeaway as the field shows it, or null where it renders MissingValue: empty, whitespace or the token alone. */
+const takeawayOf = (r: FinancialMetric): string | null => (!r.commentary?.trim() || r.commentary.trim() === '—' ? null : r.commentary)
+
 /** The same facts, computed from the served rows — no client math anywhere in here either. */
 const servedFacts = (rows: FinancialMetric[], hasComparatives: boolean) => ({
   caption: hasComparatives ? CAPTION_WITH : CAPTION_WITHOUT,
@@ -141,12 +175,12 @@ const servedFacts = (rows: FinancialMetric[], hasComparatives: boolean) => ({
     ? rows.map((r) =>
         r.change_display
           ? { text: r.change_display, direction: r.change_direction ?? null, tone: r.change_tone ?? null }
-          : { text: '—', direction: null, tone: null },
+          : { text: '—unavailable', direction: null, tone: null },
       )
     : [],
-  takeaways: rows.map((r) => r.commentary || '-'),
+  takeaways: rows.map((r) => (takeawayOf(r) ?? '—no takeaway')),
   xbrlChips: rows.filter((r) => r.source_url).map((r) => (r.source_verified ? `Source: ${r.xbrl_concept ? `${r.xbrl_concept} · ` : ''}SEC XBRL` : 'Source: Cited')),
-  takeawayChips: rows.filter((r) => r.commentary_evidence).map((r) => (r.commentary_evidence!.verified ? 'Source: Verified in filing' : 'Source: Cited')),
+  takeawayChips: rows.filter((r) => r.commentary_evidence && takeawayOf(r) !== null).map((r) => (r.commentary_evidence!.verified ? 'Source: Verified in filing' : 'Source: Cited')),
 })
 
 const TONE_TOKENS = /^(font-semibold|(dark:)?text-(gain|loss)-(text|dark)|(dark:)?text-flat-(light|dark))$/
@@ -157,10 +191,14 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
   it.each([
     ['the full fixture (verified + cited XBRL, evidence, per-ADS, up and down)', FULL, true],
     ['no comparatives (no prior / change anywhere, the short caption)', NO_COMPARATIVES, false],
-    ['no commentary (the "-" placeholder, no chip)', NO_COMMENTARY, true],
+    ['no commentary (MissingValue, read as "no takeaway"; no chip)', NO_COMMENTARY, true],
     ['no evidence (a takeaway without a chip, nothing invented)', NO_EVIDENCE, true],
-    ['no server change (the em dash, no percentage)', NO_CHANGE, true],
-    ['a row without a prior among rows with one (the empty Prior cell, mirrored)', MIXED_PRIOR, true],
+    ['takeaways read as missing (whitespace, the token alone, evidence without a takeaway: MissingValue, no chip)', MISSING_TAKEAWAYS, true],
+    ['no server change (MissingValue, read as unavailable; no percentage)', NO_CHANGE, true],
+    ['a row without a prior among rows with one (MissingValue in the Prior cell, mirrored)', MIXED_PRIOR, true],
+    ['a degraded summary with XBRL (a prior served as the token: MissingValue)', FALLBACK_XBRL, true],
+    ['a degraded summary without XBRL (every figure the token: MissingValue, no comparatives)', FALLBACK_NO_XBRL, false],
+    ['a genuine zero and reported words (as served, never MissingValue)', ZERO_AND_TEXT, true],
     ['long values (verbatim in both layouts)', LONG, true],
   ] as const)('%s: cards === table === served', (_name, rows, hasComparatives) => {
     const { container } = render(<FinancialMetricsTable metrics={[...rows]} bare />)
@@ -170,6 +208,8 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     expect(cards).toEqual(table)
     expect(table).toMatchObject(servedFacts([...rows], hasComparatives))
     expect(cards.currents).toHaveLength(rows.length)
+    // No field lets assistive tech read the token, in either layout: a missing figure is MissingValue's words.
+    for (const field of all(container, '[data-metric-field]')) expect(spoken(field), field.dataset.metricField).not.toContain('—')
     if (!hasComparatives) {
       expect(cards.priors).toEqual([])
       expect(cards.changes).toEqual([])
@@ -181,7 +221,7 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
       for (const card of cardList(container)) expect(within(card).getAllByRole('term')).toHaveLength(1) // Current only
     }
     if (rows === NO_CHANGE) {
-      expect(cards.changes).toEqual([{ text: '—', direction: null, tone: null }])
+      expect(cards.changes).toEqual([{ text: '—unavailable', direction: null, tone: null }])
       expect(layout(container, 'cards')).not.toHaveTextContent('%')
     }
     if (rows === NO_EVIDENCE || rows === NO_COMMENTARY) {
@@ -190,10 +230,20 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
       expect(within(container).queryByText(/Verified in filing/)).toBeNull()
     }
     if (rows === MIXED_PRIOR) {
-      // strict mirroring: the Prior group is rendered for every row, empty where the table's cell is
-      expect(cards.priors).toEqual(['$80.0', ''])
-      expect(cards.changes[1]).toEqual({ text: '—', direction: null, tone: null })
+      // strict mirroring: the Prior group is rendered for every row, MissingValue where the row has no prior
+      expect(cards.priors).toEqual(['$80.0', '—unavailable'])
+      expect(cards.changes[1]).toEqual({ text: '—unavailable', direction: null, tone: null })
       for (const card of cardList(container)) expect(within(card).getAllByRole('term').map(text)).toEqual(['Current period', 'Prior period', 'Change'])
+    }
+    if (rows === FALLBACK_XBRL) {
+      expect(cards.currents).toEqual(['$1.2B', '$210.0M'])
+      expect(cards.priors).toEqual(['$1.1B', '—unavailable'])
+      expect(cards.changes[1]).toEqual({ text: '—unavailable', direction: null, tone: null })
+    }
+    if (rows === FALLBACK_NO_XBRL) expect(cards.currents).toEqual(['—unavailable', '—unavailable'])
+    if (rows === ZERO_AND_TEXT) {
+      expect(cards.currents).toEqual(['$0.00', 'Not disclosed'])
+      expect(cards.priors).toEqual(['$12.0M', '0.0%'])
     }
   })
 
@@ -359,8 +409,12 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     const ids = all(document.body, '[id]').map((e) => e.id)
     expect(ids).toEqual([]) // chip ids exist only while a popover is open
     expect(new Set(ids).size).toBe(ids.length)
-    // nothing is hidden from AT by hand: the hiding is display:none at the breakpoint (browser spec)
-    expect(all(container, '[aria-hidden="true"]').filter((e) => e.tagName.toLowerCase() !== 'svg')).toHaveLength(0)
+    // nothing is hidden from AT by hand: the hiding is display:none at the breakpoint (browser spec). The one other hidden
+    // part is MissingValue's own token beside its words: FULL's per-ADS row has no takeaway (2 instances x 2 layouts).
+    const missingValueToken = (e: Element) => e.textContent === '—' && e.nextElementSibling?.classList.contains('sr-only') === true
+    const hidden = all(container, '[aria-hidden="true"]').filter((e) => e.tagName.toLowerCase() !== 'svg')
+    expect(hidden.filter((e) => !missingValueToken(e))).toHaveLength(0)
+    expect(hidden.filter(missingValueToken).map((e) => text(e.parentElement))).toEqual(Array(4).fill('—no takeaway'))
   })
 
   it('pairs every chip with exactly one twin: one copy per layout, keyed by its instance, row and field', () => {
@@ -402,16 +456,16 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
   it('composes with bare and with the self-contained Card: notes once, title once, both layouts inside', () => {
     const bare = render(<FinancialMetricsTable metrics={FULL} notes="Figures in millions." bare />)
     expect(bare.getAllByText('Figures in millions.')).toHaveLength(1)
-    expect(bare.queryByText('Financial Highlights')).toBeNull()
-    expect(tokens(layout(bare.container, 'cards'))).not.toContain('px-5')
+    expect(bare.queryByText(/^Financial highlights$/i)).toBeNull()
+    expect(tokens(layout(bare.container, 'cards'))).not.toContain('px-cap-5')
     expect(cardList(bare.container)).toHaveLength(3)
     expect(bodyRows(bare.container)).toHaveLength(3)
     bare.unmount()
 
     const card = render(<FinancialMetricsTable metrics={FULL} notes="Figures in millions." />)
     expect(card.getAllByText('Figures in millions.')).toHaveLength(1)
-    expect(card.getByText('Financial Highlights')).toBeInTheDocument()
-    expect(tokens(layout(card.container, 'cards'))).toEqual(expect.arrayContaining(['px-5', 'py-4']))
+    expect(card.getByText('Financial highlights')).toBeInTheDocument()
+    expect(tokens(layout(card.container, 'cards'))).toEqual(expect.arrayContaining(['px-cap-5', 'py-4']))
     expect(factsOf(layout(card.container, 'cards'))).toEqual(factsOf(layout(card.container, 'table')))
   })
 

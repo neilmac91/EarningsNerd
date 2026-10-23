@@ -49,41 +49,27 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 
 # Router file (relative to backend/) -> its ceiling. Counted on origin/main da636f6 (2026-10-08) by
-# this file's own walk. Lower an entry when a PR moves work into app/services/, and set it to 0 (do
+# this file's own walk; summaries.py's lowered to 30, its count since #1286, by E105. Lower an entry when a PR moves work into app/services/, and set it to 0 (do
 # not delete it) when the router is done. Git conflicts on edits to adjacent lines: the blank line
 # between entries keeps in-place number edits on different entries mergeable in any order, which
 # deleting a line (with or without its blank line) would not be. A cleanup PR prunes the zero rows
 # once no sibling branch is editing the table.
 ROUTER_ORM_CEILINGS: dict[str, int] = {
-    "app/routers/admin.py": 0,
+    "app/routers/analysis.py": 0,
 
-    "app/routers/analysis.py": 10,
-
-    "app/routers/auth.py": 0,
-
-    "app/routers/companies.py": 0,
-
-    "app/routers/contact.py": 5,
+    "app/routers/contact.py": 0,
 
     "app/routers/feedback.py": 5,
 
-    "app/routers/filings.py": 0,
+    "app/routers/internal.py": 0,
 
-    "app/routers/internal.py": 18,
+    "app/routers/sitemap.py": 0,
 
-    "app/routers/saved_summaries.py": 0,
+    "app/routers/subscriptions.py": 0,
 
-    "app/routers/sitemap.py": 8,  # was 7; #1147 (29493b53) added the func.lower readiness filter
+    "app/routers/summaries.py": 30,
 
-    "app/routers/subscriptions.py": 3,
-
-    "app/routers/summaries.py": 31,
-
-    "app/routers/users.py": 0,
-
-    "app/routers/watchlist.py": 0,
-
-    "app/routers/webhooks.py": 1,
+    "app/routers/webhooks.py": 0,
 }
 
 _SQLALCHEMY = "sqlalchemy"

@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
-import CookieConsent, { type CookiePreferences } from '@/components/CookieConsent'
-import CookieSettingsButton from '@/components/CookieSettingsButton'
+import CookieConsent, { CONSENT_VERSION, getCookiePreferences, type CookiePreferences } from '@/components/CookieConsent'
+import { buttonVariants } from '@/components/ui'
+import { ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 
 // The "Cookie preferences saved" confirmation is a sonner toast (top-centre Toaster in app/providers.tsx)
 // since EN-02: it must not share the bottom-right corner with the "Ask this Filing" launcher.
@@ -44,7 +45,7 @@ describe('CookieConsent settings dialog', () => {
     render(<CookieConsent onPreferencesChanged={onPreferencesChanged} />)
     const customize = await screen.findByRole('button', { name: 'Customize' })
     await user.click(customize)
-    return { user, onPreferencesChanged, customize, dialog: screen.getByRole('dialog', { name: 'Cookie Preferences' }) }
+    return { user, onPreferencesChanged, customize, dialog: screen.getByRole('dialog', { name: 'Cookie preferences' }) }
   }
 
   it('opens a labelled modal dialog with named category switches, and focus moves inside it', async () => {
@@ -52,15 +53,21 @@ describe('CookieConsent settings dialog', () => {
     expect(dialog).toHaveAttribute('aria-modal', 'true')
     expect(dialog).toContainElement(document.activeElement as HTMLElement)
     expect(screen.getByText('Cookies on this site')).toBeInTheDocument() // the banner stays beneath it
-    expect(screen.getByRole('checkbox', { name: 'Essential Cookies' })).toBeDisabled()
-    expect(screen.getByRole('checkbox', { name: 'Analytics Cookies' })).not.toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'Session Recording' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Essential cookies' })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Session recording' })).not.toBeChecked()
+    // Checkbox lists its props by name, so each category's description reaches the input only through its
+    // aria-describedby forward; a dropped forward would strip these from screen readers.
+    expect(screen.getByRole('checkbox', { name: 'Essential cookies' })).toHaveAccessibleDescription(/^Required for the website to function properly\./)
+    // D-046 (F33): the clause names PostHog, its purpose and the account link, in the words /privacy also reads.
+    expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).toHaveAccessibleDescription(ANALYTICS_CONSENT_CLAUSE)
+    expect(screen.getByRole('checkbox', { name: 'Session recording' })).toHaveAccessibleDescription(/^Records your interactions with the site/)
   })
 
-  it('Save Preferences stores the choices, fires cookieConsentChanged and calls onPreferencesChanged', async () => {
+  it('Save preferences stores the choices, fires cookieConsentChanged and calls onPreferencesChanged', async () => {
     const { user, onPreferencesChanged } = await openSettings()
-    await user.click(screen.getByRole('checkbox', { name: 'Analytics Cookies' }))
-    await user.click(screen.getByRole('button', { name: 'Save Preferences' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Analytics cookies' }))
+    await user.click(screen.getByRole('button', { name: 'Save preferences' }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByText('Cookies on this site')).not.toBeInTheDocument() // Save dismisses both
@@ -81,7 +88,7 @@ describe('CookieConsent settings dialog', () => {
     ['the ✕', async (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Close' }))],
   ])('%s closes without saving anything and returns focus to Customize on the banner', async (_how, close) => {
     const { user, onPreferencesChanged, customize } = await openSettings()
-    await user.click(screen.getByRole('checkbox', { name: 'Analytics Cookies' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Analytics cookies' }))
     await close(user)
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -94,56 +101,95 @@ describe('CookieConsent settings dialog', () => {
 
     // The dismissed edit does not come back on the next open, and a Save there stores the saved choices.
     await user.click(customize)
-    expect(screen.getByRole('checkbox', { name: 'Analytics Cookies' })).not.toBeChecked()
-    await user.click(screen.getByRole('button', { name: 'Save Preferences' }))
+    expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).not.toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'Save preferences' }))
     expect(stored()).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
   })
 
-  it('the banner handlers are unchanged: Accept All opts into analytics only, Reject All into neither', async () => {
+  it('each bar button names what its handler sets: Allow analytics opts into analytics only, Essential only into neither', async () => {
     const user = userEvent.setup()
     const { unmount } = render(<CookieConsent />)
-    await user.click(await screen.findByRole('button', { name: 'Accept All' }))
+    // chrome/F2: "Accept All" promised every category while session recording stayed off. The bar
+    // offers exactly these three, and no label claims "all".
+    const bar = await screen.findByRole('region', { name: 'Cookie consent' })
+    const labels = within(bar).getAllByRole('button').map((b) => b.textContent?.trim())
+    expect(labels).toEqual(['Customize', 'Essential only', 'Allow analytics'])
+    expect(labels.filter((l) => /\ball\b/i.test(l ?? ''))).toEqual([])
+    await user.click(await screen.findByRole('button', { name: 'Allow analytics' }))
     expect(stored()).toMatchObject({ essential: true, analytics: true, sessionRecording: false })
     unmount()
 
     localStorage.clear()
     render(<CookieConsent />)
-    await user.click(await screen.findByRole('button', { name: 'Reject All' }))
+    await user.click(await screen.findByRole('button', { name: 'Essential only' }))
     expect(stored()).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
     expect(consentEvents.map((e) => e.analytics)).toEqual([true, false])
     expect(toast.success).toHaveBeenCalledTimes(2)
   })
 
-  it('reopens saved choices after the banner is gone and lets the user withdraw consent', async () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      essential: true, analytics: true, sessionRecording: true, timestamp: '2026-10-01T00:00:00Z',
-    }))
+  it('the two choices carry equal weight: Essential only and Allow analytics are both secondary, Customize the ghost', async () => {
+    // Refusing must be as easy and as visible as allowing (the EDPB, CNIL and ICO reading of consent): the
+    // two choices share one recipe, and the third action, Customize, sits a step below both.
+    render(<CookieConsent />)
+    const bar = await screen.findByRole('region', { name: 'Cookie consent' })
+    const cls = (name: string) => within(bar).getByRole('button', { name }).className
+    expect(cls('Essential only')).toBe(buttonVariants({ variant: 'secondary' }))
+    expect(cls('Allow analytics')).toBe(buttonVariants({ variant: 'secondary' }))
+    expect(cls('Customize')).toBe(buttonVariants({ variant: 'ghost' }))
+  })
+})
+
+describe('a choice stored before the account-id clause (CONSENT_VERSION)', () => {
+  // Until D-046 the dialog called the statistics anonymous; a reader who allowed them then never read the clause they
+  // are identified under now. Such an allow reads as no choice, once; a refusal stands, since nothing is collected on it.
+  const EARLIER: CookiePreferences = { essential: true, analytics: true, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z' }
+  const bar = () => screen.queryByRole('region', { name: 'Cookie consent' })
+
+  beforeEach(() => localStorage.clear())
+  afterEach(() => localStorage.clear())
+
+  it('an allow made before it reads as no choice: the bar asks again, the dialog starts unchecked, and the new choice holds', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(EARLIER))
+    expect(getCookiePreferences()).toBeNull()
+    const onPreferencesChanged = vi.fn()
     const user = userEvent.setup()
-    render(<><CookieConsent /><CookieSettingsButton /></>)
-    expect(screen.queryByText('We value your privacy')).not.toBeInTheDocument()
-
-    const reopen = screen.getByRole('button', { name: 'Cookie settings' })
-    await user.click(reopen)
-    expect(screen.getByRole('dialog', { name: 'Cookie Preferences' })).toContainElement(document.activeElement as HTMLElement)
-    expect(screen.getByRole('checkbox', { name: 'Analytics Cookies' })).toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'Session Recording' })).toBeChecked()
-    await user.click(screen.getByRole('checkbox', { name: 'Analytics Cookies' }))
+    const { unmount } = render(<CookieConsent onPreferencesChanged={onPreferencesChanged} />)
+    await user.click(await screen.findByRole('button', { name: 'Customize' }))
+    expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).not.toBeChecked()
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(stored()).toMatchObject({ analytics: true, sessionRecording: true })
-    expect(consentEvents).toHaveLength(0)
-    expect(document.activeElement).toBe(reopen)
+    expect(onPreferencesChanged).not.toHaveBeenCalled()
 
-    await user.click(reopen)
-    expect(screen.getByRole('checkbox', { name: 'Analytics Cookies' })).toBeChecked()
-    await user.click(screen.getByRole('checkbox', { name: 'Analytics Cookies' }))
-    await user.click(screen.getByRole('checkbox', { name: 'Session Recording' }))
-    await user.click(screen.getByRole('button', { name: 'Save Preferences' }))
-    expect(stored()).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
-    expect(consentEvents).toHaveLength(1)
-    expect(consentEvents[0]).toMatchObject({ analytics: false, sessionRecording: false })
+    await user.click(screen.getByRole('button', { name: 'Allow analytics' }))
+    expect(stored()).toMatchObject({ analytics: true, version: CONSENT_VERSION })
+    unmount()
 
-    await user.click(reopen)
-    expect(screen.getByRole('checkbox', { name: 'Analytics Cookies' })).not.toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'Session Recording' })).not.toBeChecked()
+    const again = vi.fn()
+    render(<CookieConsent onPreferencesChanged={again} />)
+    expect(bar()).not.toBeInTheDocument()
+    expect(again).toHaveBeenCalledWith(expect.objectContaining({ analytics: true, version: CONSENT_VERSION }))
+  })
+
+  it('an allow stored under an earlier version than the current one reads as no choice, so a later bump asks again', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...EARLIER, version: CONSENT_VERSION - 1 }))
+    expect(getCookiePreferences()).toBeNull()
+  })
+
+  it('a refusal made before it stands: no bar, and the stored choice is read as it is', () => {
+    const refused: CookiePreferences = { ...EARLIER, analytics: false }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(refused))
+    const onPreferencesChanged = vi.fn()
+    render(<CookieConsent onPreferencesChanged={onPreferencesChanged} />)
+    expect(bar()).not.toBeInTheDocument()
+    expect(onPreferencesChanged).toHaveBeenCalledWith(refused)
+  })
+
+  it('an allow made under the current clause holds: no bar, and the stored choice is read as it is', () => {
+    const current: CookiePreferences = { ...EARLIER, version: CONSENT_VERSION }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(current))
+    expect(getCookiePreferences()).toEqual(current)
+    const onPreferencesChanged = vi.fn()
+    render(<CookieConsent onPreferencesChanged={onPreferencesChanged} />)
+    expect(bar()).not.toBeInTheDocument()
+    expect(onPreferencesChanged).toHaveBeenCalledWith(current)
   })
 })

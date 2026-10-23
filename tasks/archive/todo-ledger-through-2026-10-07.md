@@ -6650,6 +6650,206 @@ Full local and hosted verification plus independent exact-head review precede re
   map. Live read-backs after it: `describe-service` PASS (the worker invoker policy PRIVATE), `describe-jobs` PASS,
   `logs-probe` PERMITTED. Thirty-nine main runs classified; twenty-three deploys by other writers read back (healthy;
   every pin in place, read from the logs). A review agent's environment echo, the second (founder: key rotation). Closure 174.
+- 2026-10-11 to 2026-10-12 (record 24, `runtime/control/DECISIONS-24.md`): PR #1229 (record 23) merged `1268e8ee`
+  (nineteenth deploy-skip proof). The settings hardening (`settings-errors-hide-input-pr-01`) reviewed in draft (two review
+  workflows with refuters and a delta reviewer over two checks: no blocker) and merged as PR #1238 → `8d92dfb4` under the
+  founder's account (one login with the chief's), deployed and verified healthy: a settings secret no longer reaches an output through five gated
+  paths; Sentry's other routes and the gate's late findings go to `secret-output-followups-pr-01`. The founder keeps the
+  AI-provider key for now. The Monday 06:00–08:00Z readout clean at near-idle load. Twenty-four main runs classified; ten
+  deploys read back (healthy; every pin in place). Ledger events 46–52 (USD 0.511964). Closure 175.
+- 2026-10-12 to 2026-10-13 (record 25, `runtime/control/DECISIONS-25.md`): PR #1277 (record 24) merged `3da1c520`
+  (twentieth deploy-skip proof). The founder turned Sentry's frame locals off. The secret-output follow-ups
+  (`secret-output-followups-pr-01`) designed by a workflow, implemented by the chief, reviewed in draft (a high-tier review
+  workflow with refuters and a delta reviewer over three checks: no blocker) and marked ready as PR #1281; its merge held
+  at a request relayed on the PR for another agent's review (founder: F22). The `INHERITED` residue closed by another
+  writer's #1258. Twenty-five main runs classified; one deploy read back (healthy; every pin in place); production read
+  live. Ledger events 53–62 (USD 0.996534). Chief defect 15. Closure 176.
+- 2026-10-13 (record 26, `runtime/control/DECISIONS-26.md`): PR #1294 (record 25) merged `dc2d2d4b` (twenty-first
+  deploy-skip proof). Codex cleared #1281's `3c52519`. E19, the value-level Sentry scrubber
+  (`sentry-value-scrubber-pr-01`), built as PR #1297 on #1281's branch: designed by a workflow, implemented by the
+  chief, reviewed by two high-tier review workflows, design checks and a delta reviewer (no blocker found; the second
+  review four refuters short), redesigned at a relayed request; its release with #1281 held for the founder (F22).
+  Another writer's #1306 left #1281 conflicting with main in `tasks/todo.md`; the resolution prepared, not pushed. Six
+  main runs classified; two other writers' deploys read back (healthy; every pin in place); production read live. Ledger
+  events 63–64 (USD 0.366538). Closure 177.
+- 2026-10-13 to 2026-10-14 (record 27, `runtime/control/DECISIONS-27.md`): PR #1296 (record 26) merged `fd6f44c9`
+  (twenty-second deploy-skip proof). #1297's second review completed with no blocker. On the founder's go
+  (2026-10-13T23:15:05Z), #1297 went through thirteen more rounds, each with no blocker, and was folded into #1281's
+  branch (`873a8469`); main merged in (`106fd04c`); one paid round (ledger events 65–66, USD 0.185539); a release
+  check (no blocker). The founder confirmed the merge and accepted three security findings as limits (JSON syntax,
+  profiles, the floor); #1281 merged `378c6e63` and deployed healthy (`earningsnerd-backend-00507-dwb`). E23's draws
+  recorded (event 67, USD 0.189836); #1281's D-5 follow-up is E30. Twenty-two main runs classified; two deploys read
+  back (healthy; every pin in place); production read live. Classifier denial 13; chief defect 16. Closure 178.
+- 2026-10-14 to 2026-10-19 (record 28, `runtime/control/DECISIONS-28.md`): PR #1314 (record 27) merged `c2c936a1`
+  (twenty-third deploy-skip proof). On the founder's go (2026-10-14T22:58:13Z), the Sentry startup check
+  (`optional-addons-pr-01`) built as PR #1333 in three rounds with no blocker and merged `a59b7fc4`: Sentry started on
+  every API-service revision created in the seven days the probe read, and the task worker starts none (founder). E30
+  (`database-url-advice-pr-01`, PR #1332): both `DATABASE_URL` '@' refusals advise characters the deploy can read; five
+  review rounds with no blocker, three of them during a provider outage, then a pause of four and a half days and main
+  merged in; merged `b9c69808` and deployed healthy (`earningsnerd-backend-00551-8jb`). Ninety-three main runs
+  classified; E30's deploy read back (healthy; every pin in place); production read live. Ledger events 68–75 (USD
+  1.603888). Closure 179.
+- 2026-10-19 to 2026-10-20 (record 29, `runtime/control/DECISIONS-29.md`): PR #1330 (record 28) merged `fc5aa352`
+  (twenty-fourth deploy-skip proof). Closure 180 registers record 28's window's launches (E30's six check workflows,
+  the add-on's three, record 28's fact-check and its reviewer). Another writer's #1414 (backend dependency updates,
+  `sentry-sdk` 2.72.0 among them) deployed healthy (`earningsnerd-backend-00552-w9z`); production read live, Sentry
+  starting on that revision. No CODE RED spend; no ledger event. Classifier denial 14. Closure 180.
+- 2026-10-20 (record 30, `runtime/control/DECISIONS-30.md`): PR #1415 (record 29) merged `cd04cbe7` (twenty-fifth
+  deploy-skip proof). Closure 181 registers record 29's fact-check and its reviewer. Other writers' #1418 (fastapi,
+  the OpenAI client and posthog) and #1420 (the fiscal-year relabel's evidence) deployed healthy
+  (`earningsnerd-backend-00554-fr2`, then `00555-9dh`); production not read live. No CODE RED spend; no ledger
+  event. Classifier denial 15. Founder row F51. Closure 181.
+- 2026-10-20 (record 31, `runtime/control/DECISIONS-31.md`): PR #1423 (record 30) merged `f4c3354d` (twenty-sixth
+  deploy-skip proof). Closure 182 registers record 30's fact-check and its reviewer. Another writer's #1422
+  (refresh-token rotation and revocation under the users row lock, E127) deployed healthy
+  (`earningsnerd-backend-00556-cp4`); production not read live. No CODE RED spend; no ledger event. No classifier
+  denial of the chief's. Closure 182.
+- 2026-10-20 (record 32, `runtime/control/DECISIONS-32.md`): PR #1424 (record 31) merged `02b55b46` (twenty-seventh
+  deploy-skip proof). Closure 183 registers record 31's fact-check and its reviewer. Another writer's #1398 (the
+  landing page) deployed nothing to the backend; production unchanged since #1422's deploy, not read live. No CODE
+  RED spend; no ledger event. No classifier denial of the chief's. Closure 183.
+- 2026-10-20 (record 33, `runtime/control/DECISIONS-33.md`): PR #1427 (record 32) merged `0ddc9aa0` (twenty-eighth
+  deploy-skip proof). Closure 184 registers record 32's fact-check and its reviewer. Six wording corrections to
+  record 32. No CI deploy since #1422's; production not read live. No CODE RED spend; no ledger event. No classifier
+  denial of the chief's. Closure 184.
+- 2026-10-20 (record 34, `runtime/control/DECISIONS-34.md`): PR #1428 (record 33) merged `c2e7eb7f` (twenty-ninth
+  deploy-skip proof). Closure 185 registers record 33's fact-check and its reviewer, and annotates two of closure
+  183's role texts. One wording correction to record 33. No CI deploy since #1422's; production not read live. No
+  CODE RED spend; no ledger event. No classifier denial of the chief's. Closure 185.
+- 2026-10-20 (record 35, `runtime/control/DECISIONS-35.md`): PR #1430 (record 34) merged `eb03636a` on the founder's
+  word (thirtieth deploy-skip proof), after classifier denials 16 and 17 of the chief's merge. Closure 186 registers
+  record 34's fact-check and its reviewer. One wording correction to record 34. Four main runs classified, none
+  deploying, a fifth still running; no CI deploy since #1422's; production not read live. No CODE RED spend; no
+  ledger event. Chief defects 17 and 18. Founder row F52. Closure 186.
+- 2026-10-20 (record 36, `runtime/control/DECISIONS-36.md`): PR #1434 (record 35) merged `00962b01` on the founder's
+  word (thirty-first deploy-skip proof), with no classifier refusal. Closure 187 registers record 35's fact-check and
+  its reviewer and pre-registers the founder's check of the other pull requests, this record's fact-check and record
+  37's reviewer. Four wording corrections to record 35. Eleven main merges; three other writers' backend deploys,
+  each verified healthy by its deploy job; production not read live. No CODE RED spend; no ledger event. No chief
+  defect and no classifier denial. Founder row F52 closed by the founder's answer. Closure 187.
+- 2026-10-21 (record 37, `runtime/control/DECISIONS-37.md`): PR #1439 (record 36) merged `881400a0` by the chief
+  under record 35's founder action 9, answered (thirty-second deploy-skip proof), with no classifier refusal.
+  Closure 188 registers the founder's check, record 36's fact-check and its reviewer and pre-registers this
+  record's survey and fact-check and record 38's reviewer; Codex's finding on its role texts is corrected. Five
+  wording corrections to record 36. A read-only survey of the window before the draft. Six main merges; two other
+  writers' backend deploys, each verified healthy by its deploy job; production not read live. No CODE RED spend;
+  no ledger event. No chief defect and no classifier denial; the scratch disk filled, without effect. Closure 188.
+- 2026-10-21 (record 38, `runtime/control/DECISIONS-38.md`): PR #1450 (record 37) merged `47eb769a` by the chief
+  under record 35's founder action 9, answered (thirty-third deploy-skip proof), with no classifier refusal, onto
+  #1451's merge of fifteen seconds before; result verified; #1451's deploy ended before record 37's deploy job began.
+  Closure 189 registers record 37's survey, fact-check and reviewer and pre-registers this record's survey and
+  fact-check and record 39's reviewer; a refuter label, which the records tier forbids, withdrawn before any
+  launch on Codex's finding. A read-only survey of the window before the record was written. Four main merges;
+  two other writers' backend deploys, each verified healthy by its deploy job; production not read live. No CODE
+  RED spend; no ledger event; another writer's request to settle its paid runs in the ledger put to the founder.
+  No chief defect and no classifier denial. Closure 189.
+- 2026-10-21 (record 39, `runtime/control/DECISIONS-39.md`): PR #1453 (record 38) merged `04b2b334` by the chief
+  under record 35's founder action 9, answered (thirty-fourth deploy-skip proof), with no classifier refusal, after
+  two Codex findings that followed its ready marking: an archive line named no deploy job, and closure 189 had been
+  rewritten after its launches. Closure 189 keeps its pre-launch bytes; closure 190 registers record 38's survey,
+  fact-check and reviewer, carries the corrected convention date and pre-registers this record's survey and
+  fact-check and record 40's reviewer. A read-only survey of the window before the record was written. Two main
+  merges, no backend deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid
+  run outside it. No chief defect and no classifier denial of the chief's commands. Closure 190.
+- 2026-10-21 (record 40, `runtime/control/DECISIONS-40.md`): PR #1458 (record 39) merged `d26454f9` by the chief
+  under record 35's founder action 9, answered (thirty-fifth deploy-skip proof), with no classifier refusal, after
+  its fact-check, two reviewer passes and one re-run of a CI job that failed on the image registry's quota. Closure
+  191 registers record 39's survey, fact-check and reviewer and pre-registers this record's survey and fact-check
+  and record 41's reviewer. A read-only survey of the window before the record was written. One main merge, no
+  backend deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid run
+  outside it. No chief defect, no classifier denial and no hook refusal of the chief's commands in the window.
+  Closure 191.
+- 2026-10-21 (record 41, `runtime/control/DECISIONS-41.md`): PR #1463 (record 40) merged `5b5c402f` by the chief
+  under record 35's founder action 9, answered (thirty-sixth deploy-skip proof), with no classifier refusal, after
+  Codex's one P2, its fact-check and two reviewer passes. Closure 192 registers record 40's survey, fact-check and
+  reviewer and pre-registers this record's survey and fact-check and record 42's reviewer. A read-only survey of
+  the window before the record was written. One main merge, no backend deploy; production not read live. No CODE
+  RED spend; no ledger event; no other writer's paid run on GitHub. No chief defect and no classifier denial;
+  two hook refusals of the chief's commands in the window, nothing running. Closure 192.
+- 2026-10-21 (record 42, `runtime/control/DECISIONS-42.md`): PR #1464 (record 41) merged `4974af78` by the chief
+  under record 35's founder action 9, answered (thirty-seventh deploy-skip proof), with no classifier refusal, after
+  Codex's three P2s, its fact-check and five reviewer passes. Closure 193 registers record 41's survey, fact-check
+  and reviewer and pre-registers this record's survey and fact-check and record 43's reviewer. A read-only survey
+  of the window before the record was written. Four main merges, three of them other writers', no backend deploy;
+  production not read live. No CODE RED spend; no ledger event; no other writer's paid run on GitHub. Chief defect
+  19 (a repeated foreground sleep) and no classifier denial; one hook refusal of the chief's commands in the
+  window, nothing running. Closure 193.
+- 2026-10-21 (record 43, `runtime/control/DECISIONS-43.md`): PR #1467 (record 42) merged `87e5331d` by the chief
+  under record 35's founder action 9, answered, on the founder's word (thirty-eighth deploy-skip proof), with no
+  classifier refusal, after its fact-check, three reviewer passes and Codex's clean reviews; its ready marking's
+  review gate passed on one re-run after an HTTP 503 from GitHub's API. Closure 194 registers record 42's survey,
+  fact-check and reviewer and pre-registers this record's survey and fact-check and record 44's reviewer. A
+  read-only survey of the window before the record was written. Three main merges, two of them other writers', no
+  backend deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid run on
+  GitHub (#1455's). Chief defect 20 (a printed path name, the class of chief defect 14) and no classifier denial;
+  two hook refusals of the chief's commands in the window, nothing running. Closure 194.
+- 2026-10-22 (record 44, `runtime/control/DECISIONS-44.md`): PR #1470 (record 43) merged `45d0a8e5` by the chief
+  under record 35's founder action 9, answered (thirty-ninth deploy-skip proof, in a new form: its main run was
+  cancelled when `e2e-tests` reached its 25-minute limit, so its deploy job never ran and nothing deployed to the
+  backend), with no classifier refusal, after its fact-check, three reviewer passes and Codex's one finding,
+  taken. Closure 195 registers record 43's survey, fact-check and reviewer and pre-registers this record's survey
+  and fact-check and record 45's reviewer. A read-only survey of the window before the record was written. Six
+  main merges, five of them other writers', no backend deploy; six CI runs cut off by the same limit within the
+  hour (founder action 13, new); production not read live. No CODE RED spend; no ledger event; five other
+  writers' paid runs on GitHub (#1474's and #1455's). Chief defect 21 (an unfiltered search, the class of chief
+  defect 20); no classifier denial and no hook refusal of the chief's commands in the window. Closure 195.
+- 2026-10-22 (record 45, `runtime/control/DECISIONS-45.md`): PR #1477 (record 44) merged `dbc2a732` by the chief
+  under record 35's founder action 9, answered, and the founder's word for it (fortieth deploy-skip proof: its
+  main run succeeded and its deploy job skipped every deploy step), with no classifier refusal, after its
+  fact-check, three reviewer passes and Codex's four findings, taken, two of them from its review on the ready
+  marking, whose clean review of the final head the merge waited for. Closure 196 registers record 44's survey,
+  fact-check and reviewer and pre-registers this record's survey and fact-check and record 46's reviewer. A
+  read-only survey of the window before the record was written. Two main merges, #1476 and record 44's, no
+  backend deploy; production not read live. No CODE RED spend; no ledger event; one other writer's paid run on
+  GitHub (#1455's). Chief defects 22 (an unfiltered search, the class of chief defects 20 and 21) and 23 (shell
+  variables in `gh api` paths); no classifier denial and two hook refusals of the chief's commands in the window,
+  nothing running. Closure 196, amended in place before merge to pre-register a fresh reviewer after a container
+  restart ended the first one's context.
+- 2026-10-22 (record 46, `runtime/control/DECISIONS-46.md`): PR #1479 (record 45) merged `690aa3fc` by the chief
+  under record 35's founder action 9, answered (forty-first deploy-skip proof: its main run succeeded and its
+  deploy job skipped every deploy step), with no classifier refusal, after its fact-check, its replacement
+  reviewer's three passes and Codex's one P2, answered and kept, the merge waiting for Codex's clean review of the
+  final head and a re-run of CI's browser tests, cut off at their limit. Closure 197 registers record 45's survey,
+  fact-check and both reviewer contexts and pre-registers this record's survey and fact-check and record 47's
+  reviewer. A read-only survey of the window before the record was written. Ten main merges, three of them backend
+  deploys, each healthy; production not read live. No CODE RED spend; no ledger event; twenty other writers' paid
+  runs and thirteen balance readouts on GitHub. Chief defect 24 (a mask that missed a digit-masked name, the class
+  of chief defects 14 and 20); no classifier denial and two hook refusals of the chief's commands in the window,
+  nothing running. Closure 197.
+- 2026-10-22 (record 47, `runtime/control/DECISIONS-47.md`): PR #1488 (record 46) merged `888cf06a` by the chief
+  under record 35's founder action 9, answered, and on the founder's word (forty-second deploy-skip proof: its main
+  run succeeded and its deploy job skipped every deploy step), with no classifier refusal, after its fact-check, its
+  reviewer's two passes and Codex's three findings, each answered and taken, the ready mark coming before the
+  reviewer's last result. Closure 198 registers record 46's survey, fact-check and reviewer and pre-registers this
+  record's survey and fact-check and record 48's reviewer; a lesson section records the founder's steer as context.
+  A read-only survey of the window before the record was written. Eleven main merges, five of them backend deploys,
+  each healthy, and one main run cut off at the browser tests' limit; production not read live. No CODE RED spend;
+  no ledger event; five other writers' paid runs and seven balance readouts on GitHub. Chief defect 25 (a loop over
+  two `gh api` calls with a variable in the path, the class of chief defect 23); no classifier denial and three hook
+  refusals of the chief's commands in the window, nothing running. Closure 198.
+- 2026-10-23 (record 48, `runtime/control/DECISIONS-48.md`): PR #1497 (record 47) merged `383b6f73` by the chief
+  under record 35's founder action 9, answered, on the founder's word and the founder's call on a Codex review that
+  hung (forty-third deploy-skip proof: its main run succeeded and its deploy job skipped every deploy step), with no
+  classifier refusal, after its fact-check, its reviewer's three passes and Codex's two findings, each answered and
+  taken, with a ready mark and one fresh draft-to-ready transition. Closure 199 registers record 47's survey,
+  fact-check and reviewer and pre-registers this record's survey and fact-check and record 49's reviewer. A
+  read-only survey of the window before the record was written. Thirteen main merges, three of them backend
+  deploys, each healthy, each on a re-run after a cut-off at the browser tests' limit; production not read live.
+  No CODE RED spend; no ledger event; ten other writers' paid runs and thirteen balance readouts on GitHub. Chief
+  defects 26 (four searches printed without the excluded-directory filter) and 27 (a `gh api` path with a command
+  substitution); no classifier denial and no hook refusal of the chief's commands in the window. Closure 199.
+- 2026-10-23 (record 49, `runtime/control/DECISIONS-49.md`): PR #1511 (record 48) merged `d0e97467` by the chief
+  under record 35's founder action 9, answered, after the founder's "Continue" (forty-fourth deploy-skip proof:
+  its main run succeeded and its deploy job skipped every deploy step), with no classifier refusal, after its
+  fact-check, cut off by a container restart and resumed, its reviewer's three passes and Codex's three findings,
+  each answered and taken, with one ready mark and its own clean review. Closure 200 registers record 48's survey,
+  fact-check and reviewer and pre-registers this record's survey and fact-check and record 50's reviewer. A
+  read-only survey of the window before the record was written. Eleven main merges, two of them backend deploys,
+  each healthy, and a third backend change at the window's end, deployed healthy after the stamp; no job cut off
+  at the browser tests' limit; production not read live. No CODE RED spend; no ledger event; three paid runs by
+  other writers and six balance readouts on GitHub. Chief defects 28 (a loop over `gh api` calls with a variable
+  in the path) and 29 (reads of agents' reports printed with neither the mask nor a filter); no classifier
+  denial of the chief's commands and no hook refusal in the window. Closure 200.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
@@ -6676,8 +6876,10 @@ Full local and hosted verification plus independent exact-head review precede re
       that fires `eval-baseline` reserved at USD 0.730000 first (record 18). Merged `ae5b0f1c` (PR #1151) and deployed;
       the service's and pregenerate's pins read back with `describe-service`, the worker's and the seven other jobs' from
       the deploy's echoed commands (record 19).
-- [ ] Chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window (the first with the whole fleet pinned and
+- [x] Chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window (the first with the whole fleet pinned and
       backfill-facts at 07:30) with the read-only `capacity-readout`: SEC errors, breaker opens, job outcomes (record 19).
+      Read 2026-10-12 (ops run 38223107648, record 24): every job succeeded on its first attempt, no error-level entry; SEC
+      `403`/`429` and breaker opens are not receipt channels, and the window ran at near-idle load (B32 unchanged).
 - [x] Chief: the read-back PR (`ops-readback-pr-01`, record 20): `describe-service` reads back the task worker (revision,
       traffic, command, sizing, ingress, invoker policy, SEC pins) and the service's minimum instances, CPU and memory;
       `describe-jobs` prints and checks both SEC pins per job; `capacity-readout` adds the worker's requests and errors and
@@ -6690,6 +6892,10 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] Chief: the read-back follow-ups (`readback-followups-pr-01`, record 22): describe-service's shell read and logs-probe's
       denied branch print no gcloud error text, the receipt's message is address-redacted, both heredocs are committed
       modules, the not-executable class is pinned; a rule-12 gate. Merged `f64d6040` (PR #1195), deploying nothing (record 23).
+- [x] Chief: the settings hardening (`settings-errors-hide-input-pr-01`, record 23): a settings validation error's rendered
+      text carries no input value, and four more paths are closed and gated (the structured form at call sites, the settings
+      object's repr, config.py's messages, deploy_check's checks). Merged `8d92dfb4` (PR #1238), deployed and verified (record 24).
+- [x] Founder (record 23): the key fragment — decided 2026-10-11: no rotation for now (record 24).
 - [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", including Codex's own
       summary boilerplate, which cancelled a required run on PR #1131 (record 17); exclude the Codex connector's comments.
 - [x] Founder (optional, now; folded into record 17's option A): the D3 staging answer rested on an overstated premise (the insider panel is off in production;

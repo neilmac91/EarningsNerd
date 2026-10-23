@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
-import { PANE, answerApi, type Theme } from './fixtures/filing3Api'
+import { API_ORIGIN, DOCUMENT, EXCERPT, PANE, SUMMARY, answerApi, type Theme } from './fixtures/filing3Api'
 
 /**
  * EN-02: the cookie-consent bar yields to the research chrome, in a real Chromium.
@@ -23,12 +23,9 @@ import { PANE, answerApi, type Theme } from './fixtures/filing3Api'
  * Consent semantics are unchanged: nothing is accepted or dismissed by the layout, and a choice
  * persists and fires `cookieConsentChanged` exactly as before.
  *
- * Desktop note: the pane is a static column that sticks under the header once the page has scrolled
- * past its own header; unscrolled, its bottom overhangs the viewport (on main too: 152px at
- * 1440x900). Opening the pane focuses its composer, and the document's scroll-padding-bottom
- * (the bar's inset) makes that focus scroll the pane into its stuck position, clear of the bar —
- * before, the focus scroll stopped at the viewport edge and left the composer 9px under the bar.
- * The composer checks below perform no scroll of their own.
+ * Desktop note: the pane measures its actual top before and after it sticks under the header, so
+ * its footer and composer fit above the bar even when a source chip opens it on an unscrolled page.
+ * Opening a source must not scroll the page to compensate for an oversized pane.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API is answered inside
  * the browser with page.route (the summary fixture is a trimmed copy of the public Apple FY2025 10-K
@@ -37,7 +34,7 @@ import { PANE, answerApi, type Theme } from './fixtures/filing3Api'
 
 const COACH_TEXT = 'New: ask this filing anything'
 const SAVED_TEXT = 'Cookie preferences saved'
-const CONSENT_CHOICES = ['Accept All', 'Reject All', 'Customize'] as const
+const CONSENT_CHOICES = ['Allow analytics', 'Essential only', 'Customize'] as const
 
 type Rect = { x: number; y: number; w: number; h: number }
 
@@ -51,14 +48,28 @@ interface OpenOptions {
   theme?: Theme
   /** Stored preferences: the bar must not show. */
   consented?: boolean
-  /** Do Not Track: defaults are saved silently and the bar must not show. */
+  /** Do Not Track sent: it changes nothing, so a first visit shows the bar as any other does (D-049). */
   dnt?: boolean
+  /** A cited opening quote keeps the pointer target in view at scroll zero. */
+  earlySource?: boolean
 }
 
 /** Fresh storage by default: no consent choice, first-run coachmark not yet seen, logged in (feedback launcher shown). */
-async function openFiling(page: Page, baseURL: string, { theme = 'light', consented = false, dnt = false }: OpenOptions = {}) {
+async function openFiling(page: Page, baseURL: string, { theme = 'light', consented = false, dnt = false, earlySource = false }: OpenOptions = {}) {
   // A Pro session: the Answer tab then carries the composer textarea the sheet checks are about.
   await answerApi(page, baseURL, 'pro')
+  if (earlySource) {
+    await page.route(`${API_ORIGIN}/api/summaries/filing/3`, (route) => route.fulfill({
+      headers: { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' },
+      json: {
+        ...SUMMARY,
+        rendered_sections: [{ id: 'opening-source', title: 'Opening source', blocks: [{
+          kind: 'quote', text: EXCERPT,
+          evidence: { verified: true, excerpt: EXCERPT, section_ref: 'Net sales', fragment_url: DOCUMENT },
+        }] }, ...(SUMMARY.rendered_sections as unknown[])],
+      },
+    }))
+  }
   await page.addInitScript(
     ({ theme, consented, dnt }: { theme: Theme; consented: boolean; dnt: boolean }) => {
       try {
@@ -103,6 +114,15 @@ const hitsItself = (loc: Locator) =>
     const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
     return at === el || el.contains(at)
   })
+/** document.elementFromPoint at the element's centre is in the site header (the first `header`, as headerBottom reads
+    it), not a page's own header: the element lies under the open mobile menu. */
+const hitsHeader = (loc: Locator) =>
+  loc.evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+    const site = document.querySelector('header')
+    return !!at && !!site && !el.contains(at) && site.contains(at)
+  })
 /** document.elementFromPoint at the element's centre is a sheet scrim: the element is inert under a real modal. */
 const hitsScrim = (loc: Locator) =>
   loc.evaluate((el) => {
@@ -110,8 +130,14 @@ const hitsScrim = (loc: Locator) =>
     const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
     return !!at && at !== el && !el.contains(at) && at.classList.contains('bg-overlay')
   })
+/** The site header's bottom edge: the desktop pane sticks there (`lg:top-[var(--site-header-h,4rem)]`), at
+    the header's measured height (61px at 1440 at the default text size), not at a fixed 4rem. */
+const headerBottom = (page: Page) => page.evaluate(() => Math.round(document.querySelector('header')!.getBoundingClientRect().bottom))
 const viewport = (page: Page) => page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+/** The box's centre lies inside `area`: the point hitsItself and hitsHeader read. */
+const centreIn = (r: Rect, area: Rect) =>
+  r.x + r.w / 2 >= area.x && r.x + r.w / 2 <= area.x + area.w && r.y + r.h / 2 >= area.y && r.y + r.h / 2 <= area.y + area.h
 const inside = (r: Rect, vp: { w: number; h: number }) => r.x >= 0 && r.y >= 0 && r.x + r.w <= vp.w + 0.5 && r.y + r.h <= vp.h + 0.5
 const layer = (page: Page) =>
   page.evaluate(() => ({
@@ -121,8 +147,12 @@ const layer = (page: Page) =>
 const stored = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('cookie_consent') ?? 'null'))
 const consentEvents = (page: Page) => page.evaluate(() => window.__consentEvents ?? [])
 
-/** Every consent choice and both launchers hit themselves, sit inside the viewport and clear the bar. */
-async function expectBothControlSetsUsable(page: Page) {
+/** Every consent choice and both launchers hit themselves, sit inside the viewport and clear the bar. With the mobile
+    menu open (`menu`, the header's box), a launcher whose centre the menu covers lies under the menu instead, and
+    under nothing else: the header ranks above the workspace chrome (DESIGN_SYSTEM §4), and the reader closes the menu
+    to reach it. The branch reads the centre, the point both hit checks read, so a menu that only grazes a launcher's
+    edge still leaves the launcher to hit itself. */
+async function expectBothControlSetsUsable(page: Page, menu?: Rect) {
   const vp = await viewport(page)
   await expect.poll(async () => ({ ...(await layer(page)), height: Math.ceil((await rectOf(bar(page))).h) })).toMatchObject({ visible: true })
   const barRect = await rectOf(bar(page))
@@ -134,7 +164,8 @@ async function expectBothControlSetsUsable(page: Page) {
   }
   for (const [label, loc] of [['launcher', launcher(page)], ['feedback launcher', feedbackLauncher(page)]] as const) {
     const r = await rectOf(loc)
-    expect(await hitsItself(loc), `${label} is covered`).toBe(true)
+    if (menu && centreIn(r, menu)) expect(await hitsHeader(loc), `${label} is covered by something other than the open menu`).toBe(true)
+    else expect(await hitsItself(loc), `${label} is covered`).toBe(true)
     expect(inside(r, vp), `${label} is outside the viewport`).toBe(true)
     expect(overlaps(r, barRect), `${label} overlaps the bar`).toBe(false)
     expect(r.y + r.h, `${label} is not above the bar`).toBeLessThanOrEqual(barRect.y + 0.5)
@@ -145,11 +176,12 @@ async function expectBothControlSetsUsable(page: Page) {
 
 /**
  * The site header (z-50, top-anchored) ranks above the bar by design; its mobile menu opens in flow
- * inside the header. Where the open menu ends above the bar (390x844: 427px of header against a bar
- * at 667) every choice stays operable with it open; on a short phone (320x568) the open menu reaches
- * the bar's region and covers a choice until the user closes it — a user-opened, user-closed surface,
- * documented in DESIGN_SYSTEM §4 (before this change the bar covered the menu's lower items instead).
- * Either way the choices are operable again once the menu is closed.
+ * inside the header. Where the open menu ends above the bar (390x844: a signed-in reader's menu, with the
+ * Search and Calendar links CI's e2e build turns on, ends at 607px against a bar at 615) every choice
+ * stays operable with it open, and both launchers lie under the menu until it closes; on a short phone
+ * (320x568) the open menu reaches the bar's region and covers a choice until the user closes it — a
+ * user-opened, user-closed surface, documented in DESIGN_SYSTEM §4 (before this change the bar covered
+ * the menu's lower items instead). Either way the choices are operable again once the menu is closed.
  */
 async function expectMenuYields(page: Page, menuClearsBar: boolean) {
   await page.getByRole('button', { name: 'Open menu' }).click()
@@ -158,7 +190,7 @@ async function expectMenuYields(page: Page, menuClearsBar: boolean) {
   const barTop = (await rectOf(bar(page))).y
   if (menuClearsBar) {
     expect(header.y + header.h, 'the open menu reaches the bar').toBeLessThanOrEqual(barTop + 0.5)
-    await expectBothControlSetsUsable(page)
+    await expectBothControlSetsUsable(page, header)
   } else {
     expect(header.y + header.h, 'the open menu was expected to reach the bar on this short viewport').toBeGreaterThan(barTop)
   }
@@ -172,7 +204,7 @@ async function expectComposerClear(page: Page) {
   const vp = await viewport(page)
   const barRect = await rectOf(bar(page))
   await expect(composer(page)).toBeVisible()
-  // Desktop: the focus scroll on open is smooth; wait for it to settle before reading rects.
+  // Desktop geometry settles after the resize/scroll measurement frame.
   if (vp.w >= 1024) await expect.poll(() => rectOf(page.locator(PANE)).then((r) => Math.round(r.y + r.h))).toBeLessThanOrEqual(Math.round(barRect.y) + 1)
   const c = await rectOf(composer(page))
   expect(inside(c, vp), 'composer outside the viewport').toBe(true)
@@ -186,6 +218,47 @@ async function expectComposerClear(page: Page) {
 for (const theme of ['light', 'dark'] as const) {
   test.describe(`desktop 1440x900, ${theme}`, () => {
     test.use({ viewport: { width: 1440, height: 900 } })
+
+    for (const consented of [false, true]) {
+      test(`a chip-opened source fits its actual top without page scrolling, consented=${consented}`, async ({ page, baseURL }) => {
+        await openFiling(page, baseURL!, { theme, consented, earlySource: true })
+        const chip = page.getByRole('button', { name: 'Source: Verified in filing' }).first()
+        await expect(chip).toBeVisible()
+        expect(await page.evaluate(() => window.scrollY)).toBe(0)
+        await chip.click()
+        const pane = page.locator(PANE)
+        await expect(pane.getByRole('tab', { name: 'Filing', exact: true })).toHaveAttribute('aria-selected', 'true')
+        expect(await page.evaluate(() => window.scrollY), 'opening a citation scrolls the page').toBe(0)
+        const stuckAt = await headerBottom(page)
+        expect((await rectOf(pane)).y, 'the first check must exercise the unstuck pane').toBeGreaterThan(stuckAt)
+
+        const expectFooterClear = async () => {
+          const vp = await viewport(page)
+          const bottom = consented ? vp.h : (await rectOf(bar(page))).y
+          await expect.poll(async () => {
+            const rect = await rectOf(pane)
+            return rect.y + rect.h
+          }).toBeLessThanOrEqual(bottom + 0.5)
+          const original = pane.getByRole('link', { name: 'Original on SEC EDGAR' })
+          expect(inside(await rectOf(original), vp), 'source footer outside the viewport').toBe(true)
+          expect(await hitsItself(original), 'source footer is covered').toBe(true)
+        }
+        await expectFooterClear()
+        await page.evaluate(() => window.scrollTo({ top: 400, behavior: 'instant' }))
+        await expect.poll(() => rectOf(pane).then((rect) => Math.round(rect.y))).toBe(stuckAt)
+        await expectFooterClear()
+        await page.setViewportSize({ width: 1440, height: 640 })
+        await expectFooterClear()
+        await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
+        await page.setViewportSize({ width: 1280, height: 900 })
+        await expectFooterClear()
+        await pane.getByRole('tab', { name: 'Ask', exact: true }).click()
+        const vp = await viewport(page)
+        expect(inside(await rectOf(composer(page)), vp), 'composer outside the viewport').toBe(true)
+        expect(await hitsItself(composer(page)), 'composer is covered').toBe(true)
+        expect(await page.evaluate(() => window.scrollY), 'switching source tabs scrolls the page').toBe(0)
+      })
+    }
 
     test('consent choices and research controls are usable together; a modal makes the page inert only while open; a choice persists and clears the layer', async ({ page, baseURL }) => {
       await openFiling(page, baseURL!, { theme })
@@ -202,9 +275,9 @@ for (const theme of ['light', 'dark'] as const) {
 
       // The settings dialog is a real modal: everything beneath is inert, and operable again on Escape.
       await page.getByRole('button', { name: 'Customize' }).click()
-      await expect(page.getByRole('dialog', { name: 'Cookie Preferences' })).toBeVisible()
+      await expect(page.getByRole('dialog', { name: 'Cookie preferences' })).toBeVisible()
       expect(await hitsItself(launcher(page))).toBe(false)
-      expect(await hitsItself(page.getByRole('button', { name: 'Accept All' }))).toBe(false)
+      expect(await hitsItself(page.getByRole('button', { name: 'Allow analytics' }))).toBe(false)
       await page.keyboard.press('Escape')
       await expect(page.getByRole('dialog')).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Customize' })).toBeFocused()
@@ -212,10 +285,10 @@ for (const theme of ['light', 'dark'] as const) {
       expect(await consentEvents(page)).toEqual([])
       await expectBothControlSetsUsable(page)
 
-      // Accept All: persisted exactly as before, one event, the layer cleared, the chrome back at its
+      // Allow analytics: persisted exactly as before, one event, the layer cleared, the chrome back at its
       // normal offset, the confirmation toast away from the launcher corner, and the deferred coachmark
       // now pointing at a visible launcher.
-      await page.getByRole('button', { name: 'Accept All' }).click()
+      await page.getByRole('button', { name: 'Allow analytics' }).click()
       await expect(bar(page)).toHaveCount(0)
       expect(await layer(page)).toEqual({ visible: false, inset: '' })
       expect(await stored(page)).toMatchObject({ essential: true, analytics: true, sessionRecording: false })
@@ -237,7 +310,7 @@ for (const theme of ['light', 'dark'] as const) {
       await openFiling(page, baseURL!, { theme })
       await expect(bar(page)).toBeVisible()
       await expectCoachmarkDeferred(page)
-      await page.getByRole('button', { name: 'Accept All' }).click()
+      await page.getByRole('button', { name: 'Allow analytics' }).click()
       await expect(bar(page)).toHaveCount(0)
       await expect(coachmark(page)).toBeVisible()
       const launcherRect = await rectOf(launcher(page))
@@ -268,15 +341,15 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page.locator(PANE)).toBeHidden()
       await expectBothControlSetsUsable(page)
 
-      // Keyboard: Enter opens the settings dialog, Escape returns to Customize, Tab reaches Reject All,
+      // Keyboard: Enter opens the settings dialog, Escape returns to Customize, Tab reaches Essential only,
       // Space activates it. The choice is stored and announced exactly as a click would be.
       await page.getByRole('button', { name: 'Customize' }).focus()
       await page.keyboard.press('Enter')
-      await expect(page.getByRole('dialog', { name: 'Cookie Preferences' })).toBeVisible()
+      await expect(page.getByRole('dialog', { name: 'Cookie preferences' })).toBeVisible()
       await page.keyboard.press('Escape')
       await expect(page.getByRole('button', { name: 'Customize' })).toBeFocused()
       await page.keyboard.press('Tab')
-      await expect(page.getByRole('button', { name: 'Reject All' })).toBeFocused()
+      await expect(page.getByRole('button', { name: 'Essential only' })).toBeFocused()
       await page.keyboard.press('Space')
       await expect(bar(page)).toHaveCount(0)
       expect(await stored(page)).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
@@ -295,8 +368,8 @@ for (const theme of ['light', 'dark'] as const) {
       await launcher(page).tap()
       await expect(page.locator(PANE)).toBeVisible()
       await expectComposerClear(page)
-      const accept = page.getByRole('button', { name: 'Accept All', exact: true })
-      expect(await hitsScrim(accept), 'Accept All is not under the sheet scrim').toBe(true)
+      const accept = page.getByRole('button', { name: 'Allow analytics', exact: true })
+      expect(await hitsScrim(accept), 'Allow analytics is not under the sheet scrim').toBe(true)
       expect(await hitsItself(feedbackLauncher(page)), 'the feedback launcher is not under the sheet scrim').toBe(false)
       // A real touch at the choice's centre lands on the scrim: the sheet closes and consent is untouched.
       const r = await rectOf(accept)
@@ -322,7 +395,7 @@ for (const theme of ['light', 'dark'] as const) {
       await openFiling(page, baseURL!, { theme })
       await expect(bar(page)).toBeVisible()
       await expectCoachmarkDeferred(page)
-      await page.getByRole('button', { name: 'Reject All' }).tap()
+      await page.getByRole('button', { name: 'Essential only' }).tap()
       await expect(bar(page)).toHaveCount(0)
       await expect(coachmark(page)).toBeVisible()
       const launcherRect = await rectOf(launcher(page))
@@ -403,15 +476,20 @@ test.describe('no bar', () => {
     await expect(coachmark(page)).toBeVisible()
     expect(await consentEvents(page)).toEqual([])
   })
+})
 
-  test('Do Not Track: defaults saved silently, no bar, no layer', async ({ page, baseURL }) => {
+/** The banner is the only control (D-049): a first visit whose browser sends Do Not Track shows the bar and publishes
+    its layer as any first visit does, and nothing is stored or fired until the visitor chooses. */
+test.describe('Do Not Track', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('Do Not Track: the bar shows and its layer is published as for any first visit, and nothing is decided', async ({ page, baseURL }) => {
     await openFiling(page, baseURL!, { dnt: true })
-    // The defaults are written by CookieConsent's mount effect, which can land after the launcher is
-    // visible on a busy machine: poll for the write rather than reading storage once.
-    await expect.poll(() => stored(page)).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
-    await expect(bar(page)).toHaveCount(0)
-    expect(await layer(page)).toEqual({ visible: false, inset: '' })
-    expect(await consentEvents(page)).toHaveLength(1)
+    expect(await page.evaluate(() => navigator.doNotTrack)).toBe('1')
+    await expect(bar(page)).toBeVisible()
+    await expectBothControlSetsUsable(page)
+    expect(await stored(page)).toBeNull()
+    expect(await consentEvents(page)).toEqual([])
     expect(await page.getByText(SAVED_TEXT).count()).toBe(0)
   })
 })

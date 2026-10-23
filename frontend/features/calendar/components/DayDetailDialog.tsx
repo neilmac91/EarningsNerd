@@ -64,12 +64,12 @@ export function DayDetailDialog({
         'motion-safe:animate-content-in',
       )}
     >
-      <header className="flex items-start justify-between gap-3 border-b border-border-light px-5 py-4 dark:border-white/10">
+      <header className="flex items-start justify-between gap-3 border-b border-border-light px-cap-5 py-4 dark:border-white/10">
         <div>
           <h2 className="text-lg font-semibold">{formatLocalDate(iso, 'EEEE, MMMM d')}</h2>
           <p className="mt-0.5 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
             {holiday ? 'Market holiday' : `${events.length} ${events.length === 1 ? 'company reports' : 'companies report'}`} ·
-            ranked by anticipation · U.S. Eastern
+            grouped by report time, large caps and most followed first in each · U.S. Eastern
           </p>
         </div>
         <button
@@ -105,7 +105,7 @@ export function DayDetailDialog({
           </div>
         ))}
       </div>
-      <footer className="border-t border-border-light px-5 py-2.5 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-secondary-dark">
+      <footer className="border-t border-border-light px-cap-5 py-2.5 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-secondary-dark">
         Alert emails arrive the morning a company reports, U.S. Eastern.
       </footer>
     </dialog>

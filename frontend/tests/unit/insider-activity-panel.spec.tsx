@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -71,7 +71,7 @@ describe('InsiderActivityPanel', () => {
     getInsiderActivity.mockResolvedValue(RESP)
     renderPanel()
 
-    expect(await screen.findByText('Insider Activity')).toBeInTheDocument()
+    expect(await screen.findByText('Insider activity')).toBeInTheDocument()
     expect(screen.getByText(/Net insider buying/)).toBeInTheDocument()
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
     // The 10b5-1 sale row carries the badge.
@@ -88,12 +88,151 @@ describe('InsiderActivityPanel', () => {
     expect(await screen.findByText(/pre-scheduled 10b5-1 plans/)).toBeInTheDocument()
   })
 
+  it('signs the discretionary net, so a net sale never reads as a purchase (CO-21)', async () => {
+    getInsiderActivity.mockResolvedValue({
+      ...RESP,
+      summary: { ...RESP.summary, plan_10b5_1_sell_shares: 50000, discretionary_net_shares: -1_200_000 },
+    })
+    renderPanel()
+    expect(await screen.findByText(/pre-scheduled 10b5-1 plans/)).toHaveTextContent('discretionary net \u22121.2M shares')
+  })
+
+  // E76: the summary reads share counts the API always sends, so a missing dollar value falls back to them and no
+  // line joins the missing-value token with a unit, a sign or a middot. A trade's missing share count, value or date
+  // is the token alone in its cell, which assistive tech reads as "unavailable".
+  it('never joins the missing-value dash with copy: missing dollar values fall back to shares, a missing cell reads as unavailable', async () => {
+    getInsiderActivity.mockResolvedValue({
+      ...RESP,
+      summary: { ...RESP.summary, buy_value: null, sell_value: null, net_value: null, plan_10b5_1_sell_shares: 50000, discretionary_net_shares: -1_200_000 },
+      transactions: [txn({ shares: null, value: null, transaction_date: null })],
+    })
+    renderPanel()
+
+    expect(await screen.findByText(/Net insider buying/)).toHaveTextContent(/^Net insider buying · 10\.0K shares$/)
+    expect(screen.getByText(/pre-scheduled 10b5-1 plans/)).toHaveTextContent(
+      /^Excludes 50\.0K shares sold under pre-scheduled 10b5-1 plans · discretionary net −1\.2M shares$/,
+    )
+    expect(screen.getByText('15.0K sh')).toBeInTheDocument()
+    expect(screen.getByText('5.0K sh')).toBeInTheDocument()
+    expect(screen.getByText('+10.0K shares')).toBeInTheDocument()
+
+    const [, , sharesCell, valueCell, dateCell] = within(screen.getByRole('row', { name: /Jane Doe/ })).getAllByRole('cell')
+    for (const cell of [sharesCell, valueCell, dateCell]) {
+      expect(cell).toHaveAccessibleName('unavailable')
+      expect(within(cell).getByText('—')).toHaveAttribute('aria-hidden', 'true')
+      expect(cell).toHaveTextContent(/^—unavailable$/)
+    }
+  })
+
+  // E88: a missing name or role is MissingValue with words of its own, never the bare token and never "unavailable"
+  // alone, which would read as the insider being unavailable: "name unavailable", and "no role listed" where the
+  // filing gives no title and flags none of the three roles.
+  it('reads a missing name and role in words of their own', async () => {
+    getInsiderActivity.mockResolvedValue({
+      ...RESP,
+      transactions: [txn({ insider_name: null, insider_title: null, is_officer: false, is_director: false, is_ten_pct_owner: false })],
+    })
+    renderPanel()
+
+    const [insider] = within(await screen.findByRole('row', { name: /name unavailable/ })).getAllByRole('cell')
+    expect(insider).toHaveTextContent(/^—name unavailable—no role listed$/)
+    for (const words of ['name unavailable', 'no role listed']) expect(within(insider).getByText(words)).toHaveClass('sr-only')
+    const dashes = within(insider).getAllByText('—')
+    expect(dashes).toHaveLength(2)
+    for (const dash of dashes) expect(dash).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  // Three fixed tracks left each tile about 13px for its figure at 200% text on a 390px phone, and content-sized tiles
+  // made the tinted row change shape with the data. The tiles take equal tracks of at least 5.5rem, as many as fit, so
+  // they stay one width and stack when enlarged text leaves no room; the figures are in the data face (DESIGN_SYSTEM.md §3).
+  // E89: a figure never breaks inside itself ("$900.0" over "K" at 320px under 200% text); a stacked tile holds it.
+  it('lays the buy, sell and net tiles in equal tracks with a rem minimum, figures in the data face, whole', async () => {
+    getInsiderActivity.mockResolvedValue(RESP)
+    renderPanel()
+    const row = (await screen.findByText(/^Buys \(2\)$/)).parentElement!.parentElement!
+    expect(row).toHaveClass('grid', 'grid-cols-[repeat(auto-fit,minmax(min(5.5rem,100%),1fr))]')
+    expect(row.className).not.toMatch(/\bflex\b|flex-wrap|grid-cols-3/)
+    expect(row.children).toHaveLength(3)
+    for (const tile of Array.from(row.children)) {
+      expect(tile).toHaveClass('min-w-0')
+      expect(tile.className).not.toMatch(/flex-auto|flex-1/)
+      expect(tile.lastElementChild).toHaveClass('font-data', 'tabular-nums')
+      expect(tile.lastElementChild!.className).not.toMatch(/break-(?:words|all)|overflow-wrap|word-break/)
+    }
+  })
+
+  // E89 (chief design's approach, #1381's thread): at 320 to 390px under 200% text the panel broke four ways, so the
+  // card takes E120's capped inset, the window control spans the card below sm and wraps whole segments rather than
+  // running past it, the signal row wraps as a Notice's does, and each separator dot is held to the word before it.
+  it('takes the capped inset and spans the time window across the card below sm', async () => {
+    getInsiderActivity.mockResolvedValue(RESP)
+    renderPanel()
+    expect((await screen.findByText('Insider activity')).closest('section')).toHaveClass('p-cap-6')
+    const group = screen.getByRole('group', { name: 'Time window' })
+    expect(group).toHaveClass('w-full', 'flex-wrap', 'sm:w-auto')
+    for (const segment of within(group).getAllByRole('button')) expect(segment).toHaveClass('flex-1')
+  })
+
+  it('wraps the signal row as a Notice does, its text column under the glyph when it cannot keep 9rem beside it', async () => {
+    getInsiderActivity.mockResolvedValue({
+      ...RESP,
+      summary: { ...RESP.summary, plan_10b5_1_sell_shares: 50000, discretionary_net_shares: 12000 },
+    })
+    renderPanel()
+    const headline = await screen.findByText(/Net insider buying/)
+    const column = headline.parentElement!
+    expect(column).toHaveClass('min-w-0', 'flex-[1_1_9rem]')
+    expect(column.parentElement).toHaveClass('flex', 'flex-wrap')
+    expect(column.parentElement!.firstElementChild).toHaveClass('shrink-0')
+  })
+
+  it('holds each separator dot to the word before it with a no-break space, so no line starts with a dot', async () => {
+    getInsiderActivity.mockResolvedValue({
+      ...RESP,
+      summary: { ...RESP.summary, plan_10b5_1_sell_shares: 50000, discretionary_net_shares: 12000 },
+    })
+    renderPanel()
+    const dots = [await screen.findByText(/Net insider buying/), screen.getByText(/pre-scheduled 10b5-1 plans/)]
+    expect(dots[0].textContent).toBe('Net insider buying\u00a0· $1.8M')
+    expect(dots[1].textContent).toBe('Excludes 50.0K shares sold under pre-scheduled 10b5-1 plans\u00a0· discretionary net +12.0K shares')
+    for (const line of dots) expect(line.textContent).not.toMatch(/ ·/)
+  })
+
+  it('marks each trade type with a hidden ▲/▼ beside its label, and names the 10b5-1 badge plainly', async () => {
+    getInsiderActivity.mockResolvedValue(RESP)
+    renderPanel()
+    const buy = await screen.findByText('Purchase', { exact: false })
+    expect(buy.closest('td')).toHaveTextContent('▲ Purchase')
+    expect(screen.getByText('Sale', { exact: false }).closest('td')).toHaveTextContent('▼ Sale')
+    for (const glyph of screen.getAllByText(/^[▲▼]\s*$/)) expect(glyph).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByText(/10b5-1 marks a trade scheduled in advance under a trading plan\./)).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Time window' })).toBeInTheDocument()
+  })
+
+  // The company page reaches phones and 200% text, so both segment heights are rem and grow with the root:
+  // below sm h-9 (2.25rem) with text-sm, the touch size; from sm up 1.625rem (26px at the default root) with
+  // text-xs, whose line box (32px at a 32px root) a fixed 26px could not hold. size="sm" would hold the phone
+  // at the desktop size. FilingIndex's filter does the same.
+  it('sizes the time window with the text: adaptive segments, 2.25rem below sm and 1.625rem from sm up', async () => {
+    getInsiderActivity.mockResolvedValue(RESP)
+    renderPanel()
+    const group = await screen.findByRole('group', { name: 'Time window' })
+    const segments = within(group).getAllByRole('button')
+    expect(segments.map((segment) => segment.textContent)).toEqual(['90D', '180D', '1Y'])
+    for (const segment of segments) {
+      const classes = segment.className.split(/\s+/)
+      expect(classes).toEqual(expect.arrayContaining(['h-9', 'text-sm', 'sm:h-[1.625rem]', 'sm:text-xs']))
+      expect(classes).not.toContain('h-[26px]')
+      expect(classes).not.toContain('text-xs')
+    }
+  })
+
   it('refetches with a new window when the window is changed', async () => {
     getInsiderActivity.mockResolvedValue(RESP)
     const user = userEvent.setup()
     renderPanel('AAPL')
 
-    await screen.findByText('Insider Activity')
+    await screen.findByText('Insider activity')
     await user.click(screen.getByRole('button', { name: '1Y' }))
     await waitFor(() => expect(getInsiderActivity).toHaveBeenCalledWith('AAPL', 365))
   })
@@ -106,7 +245,7 @@ describe('InsiderActivityPanel', () => {
     })
     renderPanel()
 
-    await waitFor(() => expect(screen.queryByText('Insider Activity')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Insider activity')).not.toBeInTheDocument())
   })
 
   it('shows the FPI note and skips the live SEC read for foreign private issuers', async () => {
@@ -131,6 +270,6 @@ describe('InsiderActivityPanel', () => {
     )
 
     await waitFor(() => expect(getInsiderActivity).not.toHaveBeenCalled())
-    expect(screen.queryByText('Insider Activity')).not.toBeInTheDocument()
+    expect(screen.queryByText('Insider activity')).not.toBeInTheDocument()
   })
 })

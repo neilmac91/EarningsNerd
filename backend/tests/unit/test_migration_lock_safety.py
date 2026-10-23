@@ -57,6 +57,7 @@ outside the "only the script applies SQL" pin below (they run ops SQL, never mig
 
 Everything here is text-level and runs in the hermetic unit suite (no Postgres needed).
 """
+import ast
 import re
 import shutil
 import subprocess
@@ -66,6 +67,8 @@ from pathlib import Path
 
 import pytest
 import yaml
+
+from tests.support.ops_workflow import cloud_sql_reach, pg_settings, setting_ms
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_DIR.parent
@@ -496,24 +499,252 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
     )
 
 
-@pytest.mark.parametrize("label,test_home,url_name", [
-    ("Stripe transaction", "test_subscription_event_transactions.py", "STRIPE_CONCURRENCY_TEST_DATABASE_URL"),
-    ("usage counter", "test_usage_counter_transactions.py", "USAGE_CONCURRENCY_TEST_DATABASE_URL"),
-    ("login failure", "test_login_lockout_transactions.py", "LOGIN_CONCURRENCY_TEST_DATABASE_URL"),
-])
-def test_concurrency_has_a_required_postgres_ci_execution_path(label, test_home, url_name):
-    """The ordinary SQLite lane cannot establish PostgreSQL row-lock behavior."""
+# Each PostgreSQL gate's step, "Verify <subject> on PostgreSQL", its test home and the variable the step sets.
+_POSTGRES_STEPS = [
+    ("Stripe transaction concurrency", "test_subscription_event_transactions.py",
+     "STRIPE_CONCURRENCY_TEST_DATABASE_URL"),
+    ("usage counter concurrency", "test_usage_counter_transactions.py", "USAGE_CONCURRENCY_TEST_DATABASE_URL"),
+    ("login failure concurrency", "test_login_lockout_transactions.py", "LOGIN_CONCURRENCY_TEST_DATABASE_URL"),
+    ("alert delivery claim concurrency", "test_notification_delivery_transactions.py",
+     "DELIVERY_CONCURRENCY_TEST_DATABASE_URL"),
+    ("refresh token rotation concurrency", "test_refresh_rotation_transactions.py",
+     "REFRESH_CONCURRENCY_TEST_DATABASE_URL"),
+    ("the session time zone", "test_session_time_zone.py", "SESSION_TIME_ZONE_TEST_DATABASE_URL"),
+    ("filing insert concurrency", "test_filing_insert_transactions.py",
+     "FILING_INSERT_CONCURRENCY_TEST_DATABASE_URL"),
+]
+_GATE_VARIABLE = re.compile(r"[A-Z0-9_]+_TEST_DATABASE_URL")
+
+
+def _last_name(node: ast.expr) -> str | None:
+    return node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
+
+
+def _spreads_production_settings(
+    call: ast.Call, handed: set[str], resolved: Callable[[ast.expr], str | None],
+) -> bool:
+    """``sessionmaker(**{**SessionLocal.kw, "bind": <engine>})``, with at most ``class_=`` beside it: production's
+    settings with only the engine (and a test's Session subclass) replaced, and that engine one the case was handed,
+    a parameter of a function around the call. Any other bind, ``database.engine`` or ``SessionLocal.kw["bind"]``
+    say, is the suite's SQLite file under the test conftest, and a case on it runs nothing on PostgreSQL."""
+    spreads = [keyword.value for keyword in call.keywords if keyword.arg is None]
+    named = {keyword.arg for keyword in call.keywords if keyword.arg is not None}
+    if call.args or len(spreads) != 1 or not named <= {"class_"} or not isinstance(spreads[0], ast.Dict):
+        return False
+    keys, values = spreads[0].keys, spreads[0].values
+    return (
+        len(keys) == 2 and keys[0] is None
+        and isinstance(values[0], ast.Attribute) and values[0].attr == "kw"
+        and resolved(values[0].value) == "SessionLocal"
+        and isinstance(keys[1], ast.Constant) and keys[1].value == "bind"
+        and isinstance(values[1], ast.Name) and values[1].id in handed
+    )
+
+
+def _session_names(tree: ast.Module) -> dict[str, str]:
+    """``Session``, ``sessionmaker`` and ``SessionLocal``, each mapped to itself, and every other name a gate home
+    binds to one of them: an import alias (``Session as OrmSession``), an assignment (``factory = SessionLocal``,
+    chained, unpacked, annotated or a walrus), or a class derived from ``Session``. A name reached through a call,
+    an attribute other than the name itself, or ``getattr`` is not followed; in the steps, the runtime check in
+    ``tests/support/postgres_gates.py`` sees every PostgreSQL case's sessions however they were built."""
+    names = {name: name for name in ("Session", "sessionmaker", "SessionLocal")}
+    names |= {
+        alias.asname: alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+        for alias in node.names if alias.asname and alias.name in names
+    }
+    assignments = [  # every target of `S = T = Session`, and each pair of `S, T = Session, sessionmaker`
+        (target.id, node.value) for node in ast.walk(tree) if isinstance(node, ast.Assign)
+        for target in node.targets if isinstance(target, ast.Name)
+    ] + [
+        (target.id, value) for node in ast.walk(tree) if isinstance(node, ast.Assign)
+        and isinstance(node.value, (ast.Tuple, ast.List))
+        for targets in node.targets if isinstance(targets, (ast.Tuple, ast.List))
+        and len(targets.elts) == len(node.value.elts)
+        for target, value in zip(targets.elts, node.value.elts) if isinstance(target, ast.Name)
+    ] + [  # `S: type = Session`, and `(S := Session)`
+        (node.target.id, node.value) for node in ast.walk(tree)
+        if isinstance(node, (ast.AnnAssign, ast.NamedExpr)) and node.value is not None
+        and isinstance(node.target, ast.Name)
+    ]
+    bases = [(node.name, base) for node in ast.walk(tree) if isinstance(node, ast.ClassDef) for base in node.bases]
+    while found := {
+        **{
+            target: names[_last_name(value)] for target, value in assignments
+            if isinstance(value, (ast.Name, ast.Attribute)) and _last_name(value) in names and target not in names
+        },
+        **{
+            name: "Session" for name, base in bases
+            if names.get(_last_name(base) or "") == "Session" and name not in names
+        },
+    }:
+        names |= found
+    return names
+
+
+def _unapproved_sessions(tree: ast.Module) -> list[str]:
+    """Each session a gate home opens other than with production's settings on the engine its case was handed:
+    ``Session``, or a class derived from it, called directly (it autoflushes); production's ``SessionLocal`` called
+    directly (it is bound to the app's database, which under the test conftest is the suite's SQLite file, so a case
+    that opens it runs nothing on PostgreSQL); or a ``sessionmaker`` that sets anything beyond the engine, or binds
+    one its function was not handed. Each by its own name or any alias ``_session_names`` follows."""
+    names = _session_names(tree)
+
+    def resolved(node: ast.expr) -> str | None:
+        return names.get(_last_name(node) or "")
+
+    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+
+    def handed(node: ast.AST) -> set[str]:
+        """The parameters of every function around ``node``."""
+        params: set[str] = set()
+        while node in parents:
+            node = parents[node]
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                params |= {arg.arg for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]}
+        return params
+
+    return [
+        f"line {node.lineno}: {ast.unparse(node)}" for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and (
+            resolved(node.func) in ("Session", "SessionLocal")
+            or (resolved(node.func) == "sessionmaker"
+                and not _spreads_production_settings(node, handed(node), resolved))
+        )
+    ]
+
+
+def test_session_settings_detector_semantics():
+    def found(source: str) -> list[str]:
+        return _unapproved_sessions(ast.parse(source))
+
+    assert found('def case(engine):\n    sessionmaker(**{**SessionLocal.kw, "bind": engine})()') == []
+    subclass = 'def case(engine, Observed):\n    sessionmaker(**{**SessionLocal.kw, "bind": engine}, class_=Observed)'
+    assert found(subclass) == []
+    closure = 'def outer(conn):\n    def inner():\n        return sessionmaker(**{**SessionLocal.kw, "bind": conn})()'
+    assert found(closure) == []
+    # The engine must be one the case was handed: anything else is the suite's SQLite file under the conftest.
+    for source in (
+        'def case(engine):\n    sessionmaker(**{**SessionLocal.kw, "bind": database.engine})()',
+        'def case(engine):\n    sessionmaker(**{**SessionLocal.kw, "bind": SessionLocal.kw["bind"]})()',
+        'def case():\n    engine = make_engine()\n    sessionmaker(**{**SessionLocal.kw, "bind": engine})()',
+        'sessionmaker(**{**SessionLocal.kw, "bind": engine})()',
+    ):
+        assert len(found(source)) == 1, source
+    # A Session called directly autoflushes, by any spelling and through any class derived from it.
+    assert found("Session(engine)") == ["line 1: Session(engine)"]
+    assert found("orm.Session(bind=conn)") == ["line 1: orm.Session(bind=conn)"]
+    assert found("class A(Session): pass\nclass B(A): pass\nB(engine)") == ["line 3: B(engine)"]
+    # Production's own factory has its settings but the app's database, not the case's engine.
+    assert found("SessionLocal()") == ["line 1: SessionLocal()"]
+    assert found("database.SessionLocal()") == ["line 1: database.SessionLocal()"]
+    # Each is followed through an import alias, any assignment form and a class derived from an alias.
+    for source in (
+        "from sqlalchemy.orm import Session as OrmSession\nOrmSession(engine)",
+        "from sqlalchemy.orm import Session as OrmSession\nclass Observed(OrmSession): pass\nObserved(engine)",
+        "S = Session\nT = S\nT(engine)",
+        "S = T = Session\nS(engine)",
+        "S, T = Session, sessionmaker\nS(engine)",
+        "(S := Session)\nS(engine)",
+        "from app.database import SessionLocal as Local\nLocal()",
+        "factory = database.SessionLocal\nfactory()",
+        "from sqlalchemy.orm import sessionmaker as make\nmake(bind=engine)()",
+        "make: type = sessionmaker\nmake(bind=engine)()",
+    ):
+        assert len(found(source)) == 1, source
+    aliased = (
+        "from sqlalchemy.orm import sessionmaker as make\nfrom app.database import SessionLocal as Local\n"
+        'def case(engine):\n    make(**{**Local.kw, "bind": engine})()'
+    )
+    assert found(aliased) == []
+    # A factory with settings of its own, or without production's: a later key wins a dict merge, so
+    # SessionLocal.kw spread after the engine binds the app's database instead.
+    for source in (
+        "sessionmaker(bind=engine, autoflush=False)",
+        "sessionmaker(engine)",
+        'sessionmaker(**{**SessionLocal.kw, "bind": engine, "autoflush": True})',
+        'sessionmaker(**{**SessionLocal.kw, "bind": engine}, autoflush=True)',
+        'sessionmaker(**{"bind": engine, **SessionLocal.kw})',
+        'sessionmaker(**{**SessionLocal.kw, "bind": engine}, **overrides)',
+    ):
+        assert len(found(source)) == 1, source
+
+
+def _sets_a_gate_variable(scope: dict) -> bool:
+    return any(_GATE_VARIABLE.fullmatch(str(name)) for name in scope.get("env") or {})
+
+
+def test_every_postgres_step_fails_when_its_cases_skip(request):
+    """A home whose fixture stops reading its variable, or whose module carries a skip mark, would pass its
+    required step with nothing run; tests/support/postgres_gates.py fails such a run, and it must know every
+    step (E132)."""
+    from tests.support import postgres_gates
+
+    ci = _load_ci()
+    expected = sorted(f"Verify {label} on PostgreSQL" for label, _, _ in _POSTGRES_STEPS)
+    named = sorted(
+        str(step.get("name", "")) for step in ci["jobs"][MIGRATIONS_JOB]["steps"]
+        if re.fullmatch(r"Verify .+ on PostgreSQL", str(step.get("name", "")))
+    )
+    assert named == expected
+    # Whatever its name: each env, the workflow's, a job's or a step's, that hands a home a gate's database.
+    scopes = [ci, *ci["jobs"].values(), *(step for job in ci["jobs"].values() for step in job.get("steps", []))]
+    armed = sorted(str(scope.get("name", "")) for scope in scopes if _sets_a_gate_variable(scope))
+    assert armed == expected, "a step that sets a *_TEST_DATABASE_URL is a PostgreSQL gate: give it a row here"
+    assert postgres_gates.POSTGRES_GATES == {home: url_name for _, home, url_name in _POSTGRES_STEPS}
+    # Registered by the conftest, which the steps load though they clear pytest.ini's addopts.
+    conftest = ast.parse((BACKEND_DIR / "tests" / "conftest.py").read_text(encoding="utf-8"))
+    plugins = [
+        ast.literal_eval(node.value) for node in conftest.body
+        if isinstance(node, ast.Assign) and [ast.unparse(target) for target in node.targets] == ["pytest_plugins"]
+    ]
+    assert len(plugins) == 1 and "tests.support.postgres_gates" in plugins[0]
+    assert request.config.pluginmanager.get_plugin("tests.support.postgres_gates") is postgres_gates
+
+
+@pytest.mark.parametrize("label,test_home,url_name", _POSTGRES_STEPS)
+def test_each_postgres_gate_has_a_required_ci_execution_path(label, test_home, url_name):
+    """The ordinary SQLite lane cannot establish PostgreSQL behavior: its row locks, or a session's settings (E151's time
+    zone)."""
+    # The test home must read the variable its step sets: renamed on one side only, its cases skip and
+    # the required step passes with nothing run.
+    home = ast.parse((BACKEND_DIR / "tests" / "integration" / test_home).read_text(encoding="utf-8"))
+    read = {
+        node.args[0].value for node in ast.walk(home)
+        if isinstance(node, ast.Call) and ast.unparse(node.func) in ("os.environ.get", "os.getenv")
+        and node.args and isinstance(node.args[0], ast.Constant)
+    }
+    assert url_name in read, f"{test_home} must read {url_name}, the variable its step sets, or its cases skip"
+    # Its PostgreSQL cases take the fixture the session check keys on, or the check sees none of their sessions.
+    from tests.support import postgres_gates
+
+    fixtures = {
+        node.name for node in home.body if isinstance(node, ast.FunctionDef)
+        and any(ast.unparse(decorator).startswith("pytest.fixture") for decorator in node.decorator_list)
+    }
+    assert postgres_gates.POSTGRES_ENGINE_FIXTURE in fixtures, (
+        f"{test_home} must define its PostgreSQL engine fixture as {postgres_gates.POSTGRES_ENGINE_FIXTURE}"
+    )
+    # Every session it opens has production's settings, which do not autoflush, on its case's engine: an
+    # autoflushing session flushes a pending write at the request's next query, and can serialize two requests
+    # that production does not (E127's gate hid a lock moved out of a password reset's revocation that way).
+    unapproved = _unapproved_sessions(home)
+    assert unapproved == [], (
+        f"{test_home} must open every session with production's settings on the engine its case was handed, through "
+        f'a sessionmaker that spreads SessionLocal.kw and replaces only its bind with a parameter of its function '
+        f'(sessionmaker(**{{**SessionLocal.kw, "bind": engine}})), never Session(...) or SessionLocal() itself: '
+        f"{unapproved}"
+    )
     ci = _load_ci()
     job = ci["jobs"][MIGRATIONS_JOB]
-    step = _step(job, f"Verify {label} concurrency on PostgreSQL")
+    step = _step(job, f"Verify {label} on PostgreSQL")
     assert step.get("working-directory") == "backend"
     assert step.get("run") == f"python -m pytest tests/integration/{test_home}"
     assert step.get("env", {}).get(url_name) == (
         "postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd"
-    ), "PostgreSQL concurrency cases must receive the disposable service URL, or they silently skip"
+    ), "PostgreSQL gate cases must receive the disposable service URL, or they silently skip"
     assert step.get("continue-on-error", False) is False
     assert job.get("continue-on-error", False) is False
-    assert "if" not in step, "Concurrency checks must run on every successful migration gate"
+    assert "if" not in step, "PostgreSQL gate checks must run on every successful migration gate"
     assert 0 < step.get("timeout-minutes", 0) <= 5
     assert MIGRATIONS_JOB in _deploy_job(ci)["needs"]
 
@@ -587,17 +818,37 @@ def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
         f"ops.yml must fire only from workflow_dispatch; its push trigger pointed at a branch that no "
         f"longer exists on origin (audit 2026-09). Found: {sorted(triggers)}"
     )
-    # PGOPTIONS is scoped per step: the read-only detection snapshots full-scan financial_fact and
-    # get a larger statement budget; the write path matches the deploy migration step exactly.
+    # PGOPTIONS is scoped per step and read as the Postgres backend parses it (tests/support/ops_workflow.py:
+    # the last setting wins, a name's `-` reads as `_` and its case does not count). Every step that can
+    # reach Cloud SQL, found by position and selection rather than by its command text, bounds its locks
+    # (at most 10 s) and its statements (at most 600 s), and its run: script may only append to PGOPTIONS,
+    # never a timeout. The read-only detection snapshots full-scan financial_fact and get the larger
+    # statement budget; the write paths match the deploy migration step exactly.
     proxy_run = _executable(_step(job, "Start Cloud SQL proxy and export connection env")["run"])
     assert "PGOPTIONS" not in proxy_run, "do not export PGOPTIONS globally — scope it per Cloud SQL step"
-    for step_name, statement_timeout in (
-        ("Run committed detection SQL (read-only snapshots)", "600s"),
-        ("Run ticker repair script", "120s"),
+    reach = cloud_sql_reach()
+    assert len(reach) >= 4  # the capacity ledger, detection SQL, the ticker repair, the FY relabel
+    for _, reach_step in reach:
+        name, options = reach_step["name"], (reach_step.get("env") or {}).get("PGOPTIONS", "")
+        for match in re.finditer(r"(?<!\$)(?<!\$\{)\bPGOPTIONS\b", reach_step["run"]):
+            line = reach_step["run"][match.start():].split("\n", 1)[0]
+            append = re.match(r'PGOPTIONS="\$PGOPTIONS ([^"$`]*)"', line)
+            assert append and not {"lock_timeout", "statement_timeout"} & {key for key, _ in pg_settings(append.group(1))}, (
+                f"{name!r}: its run: script sets PGOPTIONS ({line.strip()!r}); only an append that leaves the bounds alone may"
+            )
+        lock, statement = setting_ms(options, "lock_timeout"), setting_ms(options, "statement_timeout")
+        assert lock and lock <= 10_000, f"{name!r} must set env PGOPTIONS lock_timeout to 1ms..10s (found {options!r})"
+        assert statement and statement <= 600_000, (
+            f"{name!r} must set env PGOPTIONS statement_timeout to 1ms..600s (found {options!r})"
+        )
+    for step_name, statement_ms in (
+        ("Run committed detection SQL (read-only snapshots)", 600_000),
+        ("Run ticker repair script", 120_000),
+        ("Run fiscal-year relabel script", 120_000),
     ):
         opts = (_step(job, step_name).get("env") or {}).get("PGOPTIONS", "")
-        assert "-c lock_timeout=10s" in opts and f"-c statement_timeout={statement_timeout}" in opts, (
-            f"{step_name!r} must set env PGOPTIONS with lock_timeout=10s and statement_timeout={statement_timeout} "
+        assert (setting_ms(opts, "lock_timeout"), setting_ms(opts, "statement_timeout")) == (10_000, statement_ms), (
+            f"{step_name!r} must set env PGOPTIONS with lock_timeout=10s and statement_timeout={statement_ms // 1000}s "
             f"(found {opts!r})"
         )
     # A prose "do not dispatch while a deploy is in flight" rotted into an incident risk; the job

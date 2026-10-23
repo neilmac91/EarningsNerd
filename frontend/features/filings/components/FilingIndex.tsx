@@ -24,7 +24,7 @@
 import Link from 'next/link'
 import { useId, useMemo, useState, type ReactNode, type RefObject } from 'react'
 import { ArrowSquareOutIcon, CaretDownIcon, CaretRightIcon } from '@/lib/icons'
-import { Badge, Button, Card, Notice, SegmentedControl, Select, Skeleton, cx } from '@/components/ui'
+import { Badge, Button, Card, MAX_SEGMENTS, Notice, SegmentedControl, Select, Skeleton, cx } from '@/components/ui'
 import { RetryButton, type RetainedFailure } from '@/hooks/useRetainedFailure'
 import type { Filing } from '@/features/filings/api/filings-api'
 import { fiscalYear, groupByFiscalYear } from '@/features/filings/lib/fiscalYear'
@@ -100,6 +100,10 @@ export function FilingIndex({
   const filtered = form !== ALL || year !== ''
   const countLabel = filtered ? `${view.shown.length} of ${total} filings` : `${total} ${total === 1 ? 'filing' : 'filings'}`
   const showToolbar = status === 'ready' && total > 0 && (view.forms.length > 1 || view.years.length > 1)
+  // The form filter is All plus each form in the list, a set known only at run time. Past MAX_SEGMENTS options
+  // (a filer with both domestic and foreign forms) it is the toolbar's compact select, the year filter's recipe,
+  // so the SegmentedControl never shows more than five (DESIGN.md, the SegmentedControl paragraph).
+  const formSelect = view.forms.length + 1 > MAX_SEGMENTS
 
   const chooseYear = (next: string) => {
     setYear(next)
@@ -113,7 +117,7 @@ export function FilingIndex({
 
   return (
     <Card as="section" aria-labelledby={headingId}>
-      <div className="flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:pt-6">
+      <div className="flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4 sm:px-cap-6 sm:pt-cap-6">
         <div className="flex min-w-0 items-baseline gap-3">
           <h2 id={headingId} ref={headingRef} tabIndex={-1} className={cx('text-xl font-semibold outline-none', INK)}>
             SEC filings
@@ -124,16 +128,30 @@ export function FilingIndex({
         </div>
         {showToolbar && (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            {view.forms.length > 1 && (
-              <SegmentedControl
-                label="Filter by form"
-                size="adaptive"
-                fullWidth
-                value={form}
-                onChange={setForm}
-                options={[{ value: ALL, label: 'All' }, ...view.forms.map((f) => ({ value: f, label: f, mono: true }))]}
-              />
-            )}
+            {view.forms.length > 1 &&
+              (formSelect ? (
+                <Select
+                  aria-label="Filter by form"
+                  density="compact"
+                  className="sm:w-36"
+                  value={form}
+                  onChange={(e) => setForm(e.target.value)}
+                >
+                  <option value={ALL}>All forms</option>
+                  {view.forms.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </Select>
+              ) : (
+                <SegmentedControl
+                  label="Filter by form"
+                  size="adaptive"
+                  fullWidth
+                  value={form}
+                  onChange={setForm}
+                  options={[{ value: ALL, label: 'All' }, ...view.forms.map((f) => ({ value: f, label: f, mono: true }))]}
+                />
+              ))}
             {view.years.length > 1 && (
               <Select
                 aria-label="Filter by report year"
@@ -155,22 +173,20 @@ export function FilingIndex({
       {status === 'loading' && <FilingIndexSkeleton />}
 
       {status === 'error' && (
-        <div className="px-4 pb-5 pt-4 sm:px-6 sm:pb-6">
+        <div className="px-4 pb-cap-5 pt-4 sm:px-cap-6 sm:pb-cap-6">
           <Notice
             variant="error"
             title="Couldn’t load filings"
             description="The filings service didn’t respond. The rest of this page is unaffected."
             action={
-              <RetryButton size="sm" failures={[failure]} focusTarget={headingRef}>
-                Retry
-              </RetryButton>
+              <RetryButton size="sm" failures={[failure]} focusTarget={headingRef} />
             }
           />
         </div>
       )}
 
       {status === 'ready' && total === 0 && (
-        <div role="status" className="px-4 pb-6 pt-4 sm:px-6">
+        <div role="status" className="px-4 pb-cap-6 pt-4 sm:px-cap-6">
           <p className={cx('text-sm font-semibold', INK)}>No filings to show</p>
           <p className={cx('mt-1 max-w-prose text-sm', MUTED)}>
             We haven’t found any periodic reports for this company on EDGAR yet.
@@ -179,7 +195,7 @@ export function FilingIndex({
       )}
 
       {status === 'ready' && total > 0 && (
-        <div className="px-4 pt-2 sm:px-6">
+        <div className="px-4 pt-2 sm:px-cap-6">
           {/* The visible column labels; each row's link already names its form, period and filed date. */}
           <div aria-hidden="true" className={cx('hidden md:grid', ROW_TRACKS, 'pb-2 pt-4 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark')}>
             <span>Form</span>
@@ -245,7 +261,7 @@ export function FilingIndex({
       )}
 
       {status === 'ready' && total > 0 && ((view.oldest && cik) || footerAction) && (
-        <div className={cx(HAIRLINE, 'mt-1 flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6')}>
+        <div className={cx(HAIRLINE, 'mt-1 flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-cap-6')}>
           <FilingsHistoryNote oldestFilingDate={view.oldest} cik={cik} />
           {footerAction}
         </div>
@@ -340,7 +356,9 @@ const BONE_WIDTHS = ['w-3/5', 'w-1/2', 'w-7/12']
 /** The ledger's own shape: raw bones (aria-hidden) inside ONE role="status" wrapper (DS §4). */
 function FilingIndexSkeleton() {
   return (
-    <div role="status" aria-label="Loading filings" className="px-4 pb-4 pt-2 sm:px-6">
+    // The list's sections carry the Card's capped inset (E120); the skeleton, drawn here and not inside the Card's own
+    // markup, carries it by hand so its rows do not move when the list replaces it.
+    <div role="status" aria-label="Loading filings" className="px-4 pb-4 pt-2 sm:px-cap-6">
       <div aria-hidden="true">
         <div className={cx('hidden md:grid', ROW_TRACKS, 'pb-2 pt-4')}>
           <Skeleton className="h-3 w-9" />

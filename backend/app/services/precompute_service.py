@@ -16,7 +16,6 @@ this service), not encoded here — keeping the "how aggressive" decision in con
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import Iterable, Optional
 
 logger = logging.getLogger(__name__)
@@ -54,6 +53,7 @@ async def precompute_one(
     from app.services.company_resolution import resolve_or_create_company_by_cik
     from app.services.edgar.compat import sec_edgar_service
     from app.services.summary_generation_service import generate_summary_background
+    from app.utils.datetimes import utc_from_iso
 
     ticker_u = ticker.upper().strip()
     form_u = form.upper().strip()
@@ -81,11 +81,12 @@ async def precompute_one(
             company_id = company.id
 
     if cik is None:
-        sec_results = await sec_edgar_service.search_company(ticker_u)  # network, no session held
-        if not sec_results:
+        # Exact ticker only: an unlisted one is company_not_found, never the first partial match
+        # (a retired "X" once warmed, and paid for, Exxon's 10-K).
+        sec_company = await sec_edgar_service.resolve_ticker(ticker_u)  # network, no session held
+        if sec_company is None:
             result["status"] = "company_not_found"
             return result
-        sec_company = sec_results[0]
         cik = sec_company["cik"]
         if not dry_run:
             primary = await sec_edgar_service.primary_ticker_for_cik(cik)
@@ -145,25 +146,30 @@ async def precompute_one(
 
     # Get-or-create the Filing row (short write session; mirrors routers/filings.py persistence).
     if filing_id is None:
+        from app.services.filing_amendment_service import (
+            existing_filings_for_insert,
+            lock_company_filings,
+            mark_superseded_filings,
+        )
+
         with SessionLocal() as db:
-            filing = (
-                db.query(Filing).filter(Filing.accession_number == sf["accession_number"]).first()
-            )
+            lock_company_filings(db, company_id)  # before the check below reads whether it exists
+            accession = sf["accession_number"]
+            filing = existing_filings_for_insert(db, [accession]).get(accession)
             if not filing:
                 filing = Filing(
                     company_id=company_id,
                     accession_number=sf["accession_number"],
                     filing_type=sf["filing_type"],
-                    filing_date=datetime.fromisoformat(sf["filing_date"]),
+                    filing_date=utc_from_iso(sf["filing_date"]),
                     period_end_date=(
-                        datetime.fromisoformat(sf["report_date"]) if sf.get("report_date") else None
+                        utc_from_iso(sf["report_date"]) if sf.get("report_date") else None
                     ),
                     document_url=document_url,
                     sec_url=sec_url,
                 )
                 db.add(filing)
                 db.flush()
-                from app.services.filing_amendment_service import mark_superseded_filings
                 mark_superseded_filings(db, company_id)
                 db.commit()
                 db.refresh(filing)

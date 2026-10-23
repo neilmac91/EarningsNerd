@@ -124,8 +124,19 @@ export const ENABLE_ANALYSIS =
   process.env.NEXT_PUBLIC_ENABLE_ANALYSIS === 'true'
 
 /**
+ * Name 20-F filings on the plan cards. Mirrors the API's ENABLE_FPI_FILINGS, which decides whether
+ * foreign private issuers' filings are served at all (backend/app/config.py defaults it off; the API
+ * deploy step sets it on). The Free plan line reads "10-K, 10-Q and 20-F filings from SEC EDGAR" only
+ * while this flag is set and "10-K and 10-Q filings from SEC EDGAR" otherwise, so the cards never name
+ * a form the API keeps off. Set it in lockstep with the API's flag (tasks/todo.md F39).
+ * Default: disabled.
+ */
+export const ENABLE_FPI_FILINGS =
+  process.env.NEXT_PUBLIC_ENABLE_FPI_FILINGS === 'true'
+
+/**
  * Advertise the 7-day card-required Pro trial across the UI (pricing card CTA/note/FAQ, the
- * filing-page paywall card, the signup gate, homepage CTA banner). MUST flip in lockstep with the
+ * landing's plan table, the filing-page paywall card, the signup gate). MUST flip in lockstep with the
  * backend's PRO_TRIAL_DAYS on Cloud Run: the backend defaults the trial OFF (rollout convention —
  * enable per environment only after the Stripe test-mode checklist in PR #619), and showing trial
  * copy while checkout grants no trial is a false billing claim. Ships dark.
@@ -154,3 +165,15 @@ export const ENABLE_FULLTEXT_SEARCH =
  * stay on the ticker monogram and no preconnect is emitted.
  */
 export const LOGO_DEV_ENABLED = Boolean(process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN)
+
+/** Local research evidence pack prototype. Default off; direct route returns 404. */
+export const ENABLE_RESEARCH_EVIDENCE_PACKS =
+  process.env.NEXT_PUBLIC_ENABLE_RESEARCH_EVIDENCE_PACKS === 'true'
+
+/** Local research prototype. Hidden, including direct URLs, unless explicitly enabled. */
+export const ENABLE_FILING_REDLINES =
+  process.env.NEXT_PUBLIC_ENABLE_FILING_REDLINES === 'true'
+
+/** Local financial-refresh review prototype. Default off; no navigation entry. */
+export const ENABLE_FINANCIAL_REFRESH_REVIEW =
+  process.env.NEXT_PUBLIC_ENABLE_FINANCIAL_REFRESH_REVIEW === 'true'

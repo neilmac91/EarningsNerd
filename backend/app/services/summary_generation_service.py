@@ -466,9 +466,9 @@ def get_or_cache_excerpt(
     filing_text: Optional[str],
     sections: Optional[Dict[str, str]] = None,
 ) -> Optional[str]:
-    # ``sections`` (when provided) is edgartools-parsed section text; it lets us build a
-    # high-precision excerpt even when ``filing_text`` is empty (e.g. a cache-hit path). We
-    # still need one of the two inputs to produce anything.
+    # ``sections`` (when provided) is section text parsed from the fetched primary document; it
+    # lets us build a high-precision excerpt even when ``filing_text`` is empty (e.g. a cache-hit
+    # path). We still need one of the two inputs to produce anything.
     if not filing_text and not sections:
         return None
 
@@ -501,8 +501,9 @@ def get_or_cache_excerpt(
 
     filing_type_key = (filing_type or "10-K").upper()
 
-    # Prefer edgartools' native section parser (precise, robust to fragmented HTML); fall back
-    # to the legacy regex + dense-window extractor when sections are unavailable or too thin.
+    # Prefer the sections edgartools' HTML parser found in the fetched document (precise, robust to
+    # fragmented HTML); fall back to the legacy regex + dense-window extractor when sections are
+    # unavailable or too thin.
     excerpt = None
     source = "edgartools"
     if sections and settings.USE_EDGARTOOLS_SECTIONS:
@@ -661,16 +662,3 @@ def mark_stale_progress_as_error(progress: SummaryGenerationProgress) -> bool:
     progress.stage = "error"
     progress.error = "Generation stalled and was abandoned. Please retry."
     return True
-
-
-def get_generation_progress_snapshot(filing_id: int) -> Optional[Dict[str, Any]]:
-    """Return the persisted generation progress for a filing, if available."""
-    with SessionLocal() as session:
-        progress = (
-            session.query(SummaryGenerationProgress)
-            .filter(SummaryGenerationProgress.filing_id == filing_id)
-            .first()
-        )
-        if not progress:
-            return None
-        return progress_as_dict(progress)

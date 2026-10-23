@@ -35,6 +35,7 @@ const MENU_LINKS = [
 export default function UserMenu({ user }: { user: MenuUser }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
   const queryClient = useQueryClient()
 
@@ -58,21 +59,27 @@ export default function UserMenu({ user }: { user: MenuUser }) {
     }
   }, [open])
 
-  const handleLogout = async () => {
+  const handleLogout = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    // Log out leaves with the menu. If the logout does not take, focus goes back to the button that opened the menu,
+    // only when Log out held it and it fell to <body> (lessons/frontend-busy-controls-stay-focusable.md (g)).
+    const heldFocus = document.activeElement === event.currentTarget
     setOpen(false)
     try {
-      await logoutAndResetAccount(queryClient, logout, () => {
+      await logoutAndResetAccount(queryClient, logout, (succeeded) => {
+        if (!succeeded) return
         router.push('/')
         router.refresh()
       })
     } catch {
-      // ignore — clear local state regardless
+      // A logout that did not take has told the reader, and this tab stays signed in (logoutAndResetAccount).
+      if (heldFocus && document.activeElement === document.body) buttonRef.current?.focus({ preventScroll: true })
     }
   }
 
   return (
     <div ref={containerRef} className="relative">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="true"
@@ -84,7 +91,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
           {getInitials(user.full_name, user.email)}
           {unverified && (
             <span
-              className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-warning-light dark:bg-warning-dark ring-2 ring-background-dark"
+              className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-warning-light dark:bg-warning-dark ring-2 ring-background-light dark:ring-background-dark"
               aria-hidden="true"
             />
           )}
@@ -124,7 +131,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
                 href={href}
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak dark:hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 <Icon className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
                 {label}
@@ -138,7 +145,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
                 href="/admin/invites"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak dark:hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 <ShieldIcon className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
                 Admin · Invites
@@ -147,7 +154,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
                 href="/admin/feedback"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak dark:hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 <ChatTextIcon className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
                 Admin · Feedback
@@ -160,7 +167,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
               type="button"
               role="menuitem"
               onClick={handleLogout}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak dark:hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             >
               <SignOutIcon className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
               Log out

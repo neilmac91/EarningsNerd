@@ -4,10 +4,12 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ComparePeriodsCard } from '@/features/filings/components/ComparePeriodsCard'
 import type { Filing } from '@/features/filings/api/filings-api'
-import type { ChangeReport, WhatChangedMetricItem } from '@/features/summaries/api/summaries-api'
+import type { ChangeReport, SectionChangesOk, WhatChangedMetricItem } from '@/features/summaries/api/summaries-api'
 
 const api = vi.hoisted(() => ({ getWhatChanged: vi.fn() }))
 vi.mock('@/features/summaries/api/summaries-api', () => ({ getWhatChanged: api.getWhatChanged }))
+// The report's read is per viewer and waits for /me (useWhatChanged); the reader here is anonymous.
+vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: () => Promise.resolve(null) }))
 vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: { children: ReactNode; href: string; [key: string]: unknown }) => (
     <a href={href} {...props}>
@@ -56,6 +58,27 @@ const REPORT: ChangeReport = {
   has_changes: true,
 }
 
+/** The Item 1A wording comparison the report may carry (E27): four changed paragraphs, teaser form. */
+const SIDE = { status: 'ok', extracted_at: '2026-10-12T00:00:00+00:00', reference_only: false, char_count: 2400, paragraph_count: 12 }
+const WORDING: SectionChangesOk = {
+  section: 'item_1a',
+  section_label: 'Risk factors',
+  access: 'teaser',
+  engine_version: 1,
+  prior_filing: { ...REPORT.prior_filing!, accession_number: 'prior-annual-report' },
+  status: 'ok',
+  reason: null,
+  current: SIDE,
+  prior: SIDE,
+  paragraphs: { prior: 12, later: 12, prior_excluded: 0, later_excluded: 0 },
+  counts: { unchanged: 8, modified: 2, added: 1, removed: 1, moved: 0 },
+  words: { later_total: 900, inserted: 14, deleted: 9, changed_ratio: 0.03 },
+  has_changes: true,
+  items: [{ id: 'a2', kind: 'added', index: 5, after: 'We face new risks from export controls.' }],
+  items_total: 4,
+  truncated: true,
+}
+
 function renderCard() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -92,7 +115,7 @@ describe('ComparePeriodsCard', () => {
     expect(screen.getByText('1 more in the change report.')).toBeInTheDocument()
   })
 
-  it('shows the figure dash for a change from zero and speaks its direction, with no figures to infer it from', async () => {
+  it('shows the missing-value element for a change from zero and speaks its direction, with no figures to infer it from', async () => {
     // No percentage is meaningful from a zero prior: the server sends the direction and display null.
     api.getWhatChanged.mockResolvedValue({
       ...REPORT,
@@ -100,9 +123,10 @@ describe('ComparePeriodsCard', () => {
     })
     renderCard()
     const [row] = within(await screen.findByRole('list')).getAllByRole('listitem')
-    expect(row).toHaveTextContent(/^Net income▲Up —Favorable$/)
+    expect(row).toHaveTextContent(/^Net income▲Up, —no percentageFavorable$/)
     expect(within(row).getByText('—')).toHaveAttribute('aria-hidden', 'true')
-    expect(within(row).getByText('Up')).toHaveClass('sr-only')
+    expect(within(row).getByText('Up,')).toHaveClass('sr-only')
+    expect(within(row).getByText('no percentage')).toHaveClass('sr-only')
   })
 
   it('links to the change report on the filing page', async () => {
@@ -131,12 +155,29 @@ describe('ComparePeriodsCard', () => {
     expect(screen.queryByRole('link')).toBeNull()
   })
 
+  it('counts the risk factor wording changes under the rows, in the section’s own count', async () => {
+    api.getWhatChanged.mockResolvedValue({ ...REPORT, section_changes: WORDING })
+    renderCard()
+    expect(await screen.findByText('4 paragraphs of risk factors changed.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open change report' })).toHaveAttribute('href', '/filing/3#what-changed')
+  })
+
+  it('links to the report for a wording comparison alone, saying that no figures compare', async () => {
+    const none: SectionChangesOk = { ...WORDING, has_changes: false, items: [], items_total: 0, truncated: false, counts: { unchanged: 12, modified: 0, added: 0, removed: 0, moved: 0 } }
+    api.getWhatChanged.mockResolvedValue({ ...REPORT, metrics: null, has_changes: false, section_changes: none })
+    renderCard()
+    expect(await screen.findByText('No wording changes in the risk factors.')).toBeInTheDocument()
+    expect(screen.getByText('These two annual reports share no comparable figures yet.')).toBeInTheDocument()
+    expect(screen.queryByRole('list')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Open change report' })).toHaveAttribute('href', '/filing/3#what-changed')
+  })
+
   it('keeps a failure in place with a Retry that fetches again', async () => {
     api.getWhatChanged.mockRejectedValueOnce(new Error('down'))
     renderCard()
     expect(await screen.findByText('Couldn’t load the comparison')).toBeInTheDocument()
     api.getWhatChanged.mockResolvedValue(REPORT)
-    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Retry' })))
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Try again' })))
     expect(await screen.findByRole('link', { name: 'Open change report' })).toBeInTheDocument()
     expect(api.getWhatChanged).toHaveBeenCalledTimes(2)
   })

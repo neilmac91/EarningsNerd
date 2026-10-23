@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import re
+from types import SimpleNamespace
 from typing import Any
 
 from app.services.trend_analysis.cache import NARRATIVE_FORMAT_VERSION
@@ -17,6 +18,7 @@ from app.services.trend_analysis.narrative_display import (
 from app.services.trend_analysis.observations import (
     TrendObservation, _point_value, render_observation_selection,
 )
+from app.services.trend_analysis.source_documents import current_links, folder_links
 from app.services.trend_analysis.stream_events import analysis_completion
 
 
@@ -60,14 +62,38 @@ def _display_unit(point: dict[str, Any]) -> str | None:
 def cached_analysis_completion(dataset: dict[str, Any], cached: Any) -> dict[str, Any]:
     from app.services.trend_analysis.dataset import marker_index
 
+    index = marker_index(dataset)
     citations = cached.citations_json or []
-    mismatched = scan_numeric_fidelity(cached.narrative_md, citations, marker_index(dataset))
+    mismatched = scan_numeric_fidelity(cached.narrative_md, citations, index)
+    # The saved row stays as it is; the response's links follow the rebuilt dataset (current_links).
+    presentation = deepcopy(cached.dataset_json["narrative_presentation"])
+    for entry in presentation["evidence"]:
+        entry["operands"] = current_links(entry["operands"], index)
     return analysis_completion(
-        {**dataset, "narrative_presentation": deepcopy(cached.dataset_json["narrative_presentation"])},
-        analysis_id=cached.id, narrative=cached.narrative_md, citations=citations,
+        {**dataset, "narrative_presentation": presentation},
+        analysis_id=cached.id, narrative=cached.narrative_md, citations=current_links(citations, index),
         grounded=cached.grounded, unverified=cached.unverified, mismatched=len(mismatched),
         cached=True, invalidated=False, usage={},
     )
+
+
+def cached_analysis_export(dataset: dict[str, Any], cached: Any) -> SimpleNamespace:
+    """A copy of a saved analysis for its PDF, with the links a re-serve gives it.
+
+    The export's checks hold the saved and rebuilt datasets to one snapshot. Where ``folder_links``
+    reads the rebuilt series as it reads the saved ones (so each link, operands' included, stays in
+    the folder it saved), the copy takes the rebuilt series; its citations go through ``current_links``.
+    The saved row is not touched; the copy is the renderer's.
+    """
+    from app.services.trend_analysis.dataset import marker_index
+
+    saved = cached.dataset_json or {}
+    alike = folder_links(dataset["series"]) == folder_links(saved.get("series"))
+    return SimpleNamespace(**{
+        **{key: value for key, value in vars(cached).items() if not key.startswith("_")},
+        "dataset_json": {**saved, "series": dataset["series"]} if alike else saved,
+        "citations_json": current_links(cached.citations_json or [], marker_index(dataset)),
+    })
 
 
 def _operand(

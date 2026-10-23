@@ -9,6 +9,7 @@ import {
   headerHeight,
   layoutLegend,
   layoutExportNotes,
+  MARK_STAMP,
 } from '@/features/analysis/lib/chartExport'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
@@ -92,6 +93,9 @@ describe('chartDataNotes', () => {
     expect(panel.exportNotes).toContain('Includes figures calculated by EarningsNerd.')
     expect(panel.exportNotes).toContain(FCF_DEFINITION)
     expect(panel.exportNotes.some((note) => note.includes('Not available in this dataset.'))).toBe(true)
+    expect(panel.exportNotes.filter((note) => note.includes('Q3 2024'))).toHaveLength(1)
+    const withoutRecordedNotes = chartDataNotes(dataset, [series], { ...groupDataNotes(dataset), noteFor: () => null }, false)
+    expect(withoutRecordedNotes.exportNotes).toContain('Free cash flow: unavailable for Q3 2024.')
   })
 })
 
@@ -110,6 +114,13 @@ describe('EXPORT_TEXT token mirror', () => {
 
   it('mirrors tailwind text.secondary', () => {
     expect(EXPORT_TEXT.secondary).toEqual(text.secondary)
+  })
+
+  it("draws the lockup's accent in brand-strong on the light export and brand-dark on the dark one", () => {
+    const brand = (tailwindConfig as { theme: { extend: { colors: { brand: Record<string, string> } } } }).theme.extend
+      .colors.brand
+    expect(MARK_STAMP.fillLight).toBe(brand.strong)
+    expect(MARK_STAMP.fillDark).toBe(brand.dark)
   })
 })
 
@@ -285,11 +296,88 @@ describe('exportPanelPng header', () => {
     expect(fillTexts).toContain('Nerd')
   })
 
+  it('stamps the logo lockup: the mark first, at its minimum size, then upright "Earnings" and italic 600 "Nerd" in the accent', async () => {
+    // Record the paint order with the font and ink each call ran under.
+    const calls: Array<{ op: string; x: number; w?: number; h?: number; font?: string; fill?: string }> = []
+    // The plot is drawn at x=0 (the header test below relies on it); the footer's mark is the other image.
+    ctx.drawImage = vi.fn((_image: unknown, x: number, _y: number, w?: number, h?: number) => {
+      calls.push({ op: x === 0 ? 'plot' : 'mark', x, w, h })
+    })
+    ctx.fillText = vi.fn((text: string, x: number) => {
+      fillTexts.push(text)
+      calls.push({ op: text, x, font: ctx.font as string, fill: ctx.fillStyle as string })
+    })
+    // "Nerd" is measured in the face it is drawn in, so the lockup's right edge holds the inset.
+    const measured: Record<string, string> = {}
+    ctx.measureText = (text: string) => {
+      measured[text] = ctx.font as string
+      return { width: text.length * 7 }
+    }
+    await exportPanelPng(makeContainer(), 'x.png', { dark: false, header: HEADER })
+    expect(measured.Nerd).toMatch(/^italic 600 14px /)
+    const markIndex = calls.findIndex((c) => c.op === 'mark')
+    const earningsIndex = calls.findIndex((c) => c.op === 'Earnings')
+    const nerdIndex = calls.findIndex((c) => c.op === 'Nerd')
+    expect(markIndex, 'the mark is stamped').toBeGreaterThanOrEqual(0)
+    const mark = calls[markIndex]
+    // The bare mark at 32px wide or more (25px tall); smaller would need the app tile.
+    expect(mark.h).toBeGreaterThanOrEqual(25)
+    expect(mark.w).toBeGreaterThanOrEqual(32)
+    // Mark, then wordmark: painted first and set to the wordmark's left.
+    expect(markIndex).toBeLessThan(earningsIndex)
+    expect(earningsIndex).toBeLessThan(nerdIndex)
+    expect(mark.x + (mark.w ?? 0)).toBeLessThanOrEqual(calls[earningsIndex].x)
+    expect(calls[earningsIndex].font).toMatch(/^600 14px /)
+    expect(calls[nerdIndex].font).toMatch(/^italic 600 14px /)
+    expect(calls[earningsIndex].fill).toBe(EXPORT_TEXT.primary.light)
+    expect(calls[nerdIndex].fill).toBe(MARK_STAMP.fillLight)
+  })
+
+  // D-039 (the founder's call): the lockup is drawn opaque in the bottom-right corner, in either theme.
+  it.each([
+    { dark: false, accent: MARK_STAMP.fillLight },
+    { dark: true, accent: MARK_STAMP.fillDark },
+  ])('stamps the lockup opaque and bottom-right (dark: $dark)', async ({ dark, accent }) => {
+    const calls: Array<{ op: string; x: number; y: number; w?: number; h?: number; alpha: number; fill?: string }> = []
+    ctx.drawImage = vi.fn((_image: unknown, x: number, y: number, w?: number, h?: number) => {
+      calls.push({ op: x === 0 ? 'plot' : 'mark', x, y, w, h, alpha: ctx.globalAlpha as number })
+    })
+    ctx.fillText = vi.fn((text: string, x: number, y: number) => {
+      fillTexts.push(text)
+      calls.push({ op: text, x, y, alpha: ctx.globalAlpha as number, fill: ctx.fillStyle as string })
+    })
+    let canvasHeight = 0
+    vi.mocked(HTMLCanvasElement.prototype.toBlob).mockImplementation(function (this: HTMLCanvasElement, cb: BlobCallback) {
+      canvasHeight = this.height / 2 // the export's retina scale; footer geometry is in CSS px
+      cb(new Blob(['png'], { type: 'image/png' }))
+    } as never)
+    await exportPanelPng(makeContainer(), 'x.png', { dark, header: HEADER })
+    const mark = calls.find((c) => c.op === 'mark')!
+    const earnings = calls.find((c) => c.op === 'Earnings')!
+    const nerd = calls.find((c) => c.op === 'Nerd')!
+    expect(MARK_STAMP.alpha).toBe(1)
+    for (const call of [mark, earnings, nerd]) expect(call.alpha, `${call.op} is drawn opaque`).toBe(1)
+    expect(nerd.fill).toBe(accent)
+    expect(imageSources.at(-1)).toContain(encodeURIComponent(`fill="${accent}"`))
+    // Right: the wordmark ends at the inset from the right edge (the stub measures 7px a glyph).
+    expect(nerd.x + 'Nerd'.length * 7).toBe(PLOT_W - MARK_STAMP.inset)
+    // Bottom: the mark sits inside the last strip of the canvas.
+    expect(mark.y).toBeGreaterThanOrEqual(canvasHeight - MARK_STAMP.stripHeight)
+    expect(mark.y + (mark.h ?? 0)).toBeLessThanOrEqual(canvasHeight)
+    // One lockup: the mark ends exactly one wordmarkGap before "Earnings", so a mark that drifts
+    // from the wordmark (another corner, a wider gap) fails here.
+    expect(mark.x + (mark.w ?? 0) + MARK_STAMP.wordmarkGap).toBe(earnings.x)
+    // Clear space (LOGO_README.md): one E-bar, 11 of the mark's 73.2 viewBox units, above and below.
+    const clearSpace = ((mark.h ?? 0) * 11) / 73.2
+    expect(mark.y - (canvasHeight - MARK_STAMP.stripHeight), 'clear space above the mark').toBeGreaterThanOrEqual(clearSpace)
+    expect(canvasHeight - (mark.y + (mark.h ?? 0)), 'clear space below the mark').toBeGreaterThanOrEqual(clearSpace)
+  })
+
   it('carries resolved text and tspan font stacks into the isolated SVG image', async () => {
     const container = makeContainer()
     const svg = container.querySelector('svg')!
     svg.setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns', 'http://www.w3.org/2000/svg')
-    svg.innerHTML = '<text font-family="var(--font-geist-mono), ui-monospace, monospace" style="font-family: var(--font-geist-mono), ui-monospace, monospace">$10B<tspan style="font-family: var(--font-geist-mono), Menlo, monospace">a</tspan></text>'
+    svg.innerHTML = '<text font-family="var(--font-geist-mono), ui-monospace, monospace" style="font-family: var(--font-geist-mono), ui-monospace, monospace" fill="#6B7280" stroke="#FBFAF6" stroke-width="3" paint-order="stroke">$10B<tspan style="font-family: var(--font-geist-mono), Menlo, monospace">aa</tspan></text>'
     const sourceMarkup = svg.outerHTML
     const originalComputedStyle = window.getComputedStyle.bind(window)
     const families = ['"Geist Mono", ui-monospace, monospace', '"Geist Mono", Menlo, monospace']
@@ -309,7 +397,10 @@ describe('exportPanelPng header', () => {
     expect([...isolated.querySelectorAll('text, tspan')].map(text => (text as SVGTextContentElement).style.fontFamily)).toEqual(families)
     expect([...isolated.querySelectorAll('text, tspan')].map(text => text.getAttribute('font-family'))).toEqual(families)
     expect(markup).not.toContain('var(')
-    expect(isolated.documentElement.textContent).toBe('$10Ba')
+    expect(isolated.documentElement.textContent).toBe('$10Baa')
+    expect(isolated.querySelector('text')?.getAttribute('stroke')).toBe('#FBFAF6')
+    expect(isolated.querySelector('text')?.getAttribute('stroke-width')).toBe('3')
+    expect(isolated.querySelector('text')?.getAttribute('paint-order')).toBe('stroke')
     expect(svg.outerHTML).toBe(sourceMarkup)
   })
 

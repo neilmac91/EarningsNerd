@@ -7,7 +7,7 @@ import { directionText, type Direction } from '@/lib/financialTone'
 import { MetricSourceLink } from '@/features/filings/components/MetricSourceLink'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
 import { PerAdsNote } from '@/features/summaries/components/PerAdsNote'
-import { Card, CardHeader, CardTitle, CardFooter, DataTable, cx, type Column, type CellTone } from '@/components/ui'
+import { Card, CardHeader, CardTitle, CardFooter, DataTable, MissingValue, cx, type Column, type CellTone } from '@/components/ui'
 import type { PerAdsValue } from '@/types/summary'
 import type { BlockEvidence } from '@/features/summaries/api/summaries-api'
 
@@ -43,8 +43,13 @@ interface FinancialMetricsTableProps {
   bare?: boolean
 }
 
+/** Whether a served string holds no value: empty, or the missing-value token alone, which a degraded summary writes
+ *  for a figure it lacks (backend/app/services/fallback_summary.py). Its field renders MissingValue in its place. */
+const isMissing = (value: string | null | undefined): boolean => !value?.trim() || value.trim() === '—'
+
+/** A served figure as the field shows it, or '' for one the row does not have (its field renders MissingValue). */
 const formatMetricValue = (value: string): string => {
-  if (!value) {
+  if (isMissing(value)) {
     return ''
   }
 
@@ -96,7 +101,7 @@ const nameField = (row: FinancialMetric, twin?: string): ReactNode => (
 
 const currentField = (row: FinancialMetric): ReactNode => (
   <span data-metric-field="current" className="text-text-primary-light dark:text-text-primary-dark">
-    {formatMetricValue(row.current_period)}
+    {formatMetricValue(row.current_period) || <MissingValue />}
   </span>
 )
 
@@ -111,7 +116,7 @@ const perAdsField = (row: FinancialMetric): ReactNode =>
 
 const priorField = (row: FinancialMetric): ReactNode => (
   <span data-metric-field="prior" className="text-text-secondary-light dark:text-text-secondary-dark">
-    {formatMetricValue(row.prior_period)}
+    {formatMetricValue(row.prior_period) || <MissingValue />}
   </span>
 )
 
@@ -125,11 +130,12 @@ const changeIcon = (direction: FinancialMetric['change_direction']) =>
  * could never break a long change string.
  */
 const changeField = (row: FinancialMetric, flow = false): ReactNode => {
-  // Server-computed string only — no client-side delta math (single-source gate).
-  if (!row.change_display) {
+  // Server-computed string only — no client-side delta math (single-source gate). With none served, or the token
+  // alone, the change is MissingValue, read as "unavailable".
+  if (isMissing(row.change_display)) {
     return (
       <span data-metric-field="change" className="text-text-tertiary-light dark:text-text-secondary-dark">
-        —
+        <MissingValue />
       </span>
     )
   }
@@ -159,13 +165,20 @@ const changeField = (row: FinancialMetric, flow = false): ReactNode => {
 
 const takeawayField = (row: FinancialMetric, twin?: string): ReactNode => (
   <div data-metric-field="takeaway" className="flex flex-col gap-1">
-    <span className="text-text-secondary-light dark:text-text-secondary-dark">{row.commentary || '-'}</span>
-    {row.commentary_evidence && (
+    {/* A row the summary wrote no takeaway for: the missing-value element, read as "no takeaway" (E145), and no chip,
+        whose panel would cite a passage for a takeaway the row does not have. */}
+    <span className="text-text-secondary-light dark:text-text-secondary-dark">
+      {isMissing(row.commentary) ? <MissingValue label="no takeaway" /> : row.commentary}
+    </span>
+    {row.commentary_evidence && !isMissing(row.commentary) && (
       <SourceTrace
         url={row.commentary_evidence.fragment_url}
         verified={row.commentary_evidence.verified}
         sectionRef={row.commentary_evidence.section_ref}
         excerpt={row.commentary_evidence.verified ? row.commentary_evidence.excerpt : null}
+        // A takeaway is a sentence the summary wrote, so the panel says what was checked: the passage it
+        // cites, not the takeaway itself. Unverified evidence keeps the panel's own "Cited" line.
+        note={row.commentary_evidence.verified ? 'The passage cited for this takeaway was found in the filing text.' : null}
         layoutTwin={twin}
       />
     )}
@@ -274,7 +287,7 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
       role="list"
       aria-label={caption}
       data-metrics-layout="cards"
-      className={cx('space-y-3 text-sm md:hidden', !bare && 'px-5 py-4')}
+      className={cx('space-y-3 text-sm md:hidden', !bare && 'px-cap-5 py-4')}
     >
       {metrics.map((row, index) => (
         <li
@@ -340,7 +353,9 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
   return (
     <Card className="overflow-hidden">
       <CardHeader>
-        <CardTitle>Financial Highlights</CardTitle>
+        {/* Sentence case, as every card title: the summary's own section heading is the backend's schema
+            title ("Financial Highlights", summary_sections.py), which this standalone card does not show. */}
+        <CardTitle>Financial highlights</CardTitle>
       </CardHeader>
       {layouts}
       {notes && (

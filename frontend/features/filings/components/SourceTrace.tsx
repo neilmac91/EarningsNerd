@@ -120,7 +120,7 @@ export function SourceTracePanelBody({
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 flex items-center gap-1 text-xs font-medium text-text-secondary-light transition-colors hover:text-brand-strong dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
+          className="mt-2 flex items-center gap-1 rounded-sm text-xs font-medium text-text-secondary-light transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
         >
           <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
           Open in SEC EDGAR
@@ -417,7 +417,10 @@ function SourceTraceInner({
         n: 0,
         excerpt: highlightTarget,
         section_ref: header,
-        verified: isVerified,
+        // Located only with the excerpt the server checked: a heading fallback (every metric chip, a
+        // verified XBRL figure's included, and every Cited chip) is a best-effort section jump, never a
+        // passage the server located, so the reader paints it without the device (D-044).
+        verified: isVerified && highlightTarget === excerpt,
         fragment_url: url,
       },
       triggerRef.current,
@@ -500,7 +503,7 @@ function SourceTraceInner({
               type="button"
               onClick={closePanel}
               aria-label="Close source detail"
-              className="absolute right-3 top-3 rounded p-1 text-text-tertiary-light hover:bg-border-light/40 dark:text-text-secondary-dark dark:hover:bg-white/5"
+              className="absolute right-3 top-3 rounded p-1 text-text-tertiary-light hover:bg-border-light/40 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:bg-white/5 dark:focus-visible:shadow-ring-brand-dark"
             >
               <XIcon className="h-4 w-4" />
             </button>

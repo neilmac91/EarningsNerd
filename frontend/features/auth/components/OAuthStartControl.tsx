@@ -3,12 +3,17 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { startOAuthWithInvite } from '@/features/auth/api/auth-api'
 import { oauthStartHref } from '@/features/auth/lib/oauthStart'
+import { cx } from '@/components/ui'
+
+/** The provider as the buttons name it ("Continue with Google"), so a failed start says what did not continue. */
+const PROVIDER_NAME = { google: 'Google', apple: 'Apple' } as const
 
 /**
  * The clickable surface shared by the brand sign-in buttons. Without an invite it is a plain link
  * to the redirecting backend start (works without JS). With an invite it is a button: the token is
  * sent in the body of `POST /api/auth/<provider>/start` and the browser then follows the provider
  * URL the backend returns, so the raw single-use invite never appears in any request URL.
+ * The control owns the brand focus ring, so both shapes carry it whatever the caller passes.
  */
 export default function OAuthStartControl({
   apiBase,
@@ -28,7 +33,7 @@ export default function OAuthStartControl({
 
   if (!invite) {
     return (
-      <a href={oauthStartHref(apiBase, provider)} className={className}>
+      <a href={oauthStartHref(apiBase, provider)} className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', className)}>
         {children}
       </a>
     )
@@ -49,12 +54,12 @@ export default function OAuthStartControl({
 
   return (
     <div>
-      <button type="button" onClick={start} className={className}>
+      <button type="button" onClick={start} className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', className)}>
         {children}
       </button>
       {failed && (
         <p role="status" className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Couldn&apos;t start sign-in. Please try again.
+          Couldn&apos;t continue with {PROVIDER_NAME[provider]}. Please try again.
         </p>
       )}
     </div>

@@ -55,7 +55,7 @@ _REPAIRABLE_CLAIM_PHRASES: dict[str, tuple[str, ...]] = {
 _CLAIM_PHRASE_CONCEPT = {p: c for c, phrases in _REPAIRABLE_CLAIM_PHRASES.items() for p in phrases}
 _MONTH_NAMES = ("January", "February", "March", "April", "May", "June", "July", "August",
                 "September", "October", "November", "December")
-_CLAIM_SCALES = {"thousand": 1e3, "million": 1e6, "billion": 1e9}
+_CLAIM_SCALES = {"thousand": 1e3, "million": 1e6, "billion": 1e9, "trillion": 1e12}
 
 # The ONE finite claim shape this repair certifies: subject, explicit full fiscal end date, copula,
 # native currency, amount and optional scale — and nothing else, because the pattern is anchored
@@ -74,7 +74,7 @@ _ANNUAL_FIGURE_CLAIM = re.compile(
     r"(?u:\s)+(?:was|were|totaled|totalled|amounted(?u:\s)+to)(?u:\s)+"
     r"(?P<currency>" + _CURRENCY_TOKEN + r")(?u:\s)*"
     r"(?P<amount>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
-    r"(?:(?u:\s)*(?P<scale>billion|million|thousand))?"
+    r"(?:(?u:\s)*(?P<scale>trillion|billion|million|thousand))?"
     r"\.\Z",
     re.IGNORECASE | re.ASCII,
 )
@@ -153,7 +153,7 @@ _PAIRED_ANNUAL_CLAIM = re.compile(
     + r"(?P<separator>, and net income was )"
     + r"(?P<income_currency>" + _CURRENCY_TOKEN + r")(?u:\s)*"
     + r"(?P<income_amount>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
-    + r"(?:(?u:\s)*(?P<income_scale>billion|million|thousand))?\.\Z", _ANNUAL_FIGURE_CLAIM.flags,
+    + r"(?:(?u:\s)*(?P<income_scale>trillion|billion|million|thousand))?\.\Z", _ANNUAL_FIGURE_CLAIM.flags,
 )
 
 
