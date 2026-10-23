@@ -69,7 +69,7 @@ A change of more than one kind below takes the widest reading. Any of them adds
     `<Button reserveLoadingText>` under Steady loading. This is the only way these recipes are
     read: Analysis evidence, Analysis periods, Analysis reading, Analysis reflow, Callout, Chat
     composer, Checkbox, Data note mark, Data notes strip, Ghost button, Hero example, Input,
-    Password field, Provenance chip, Steady loading, Toast and Trust strip;
+    Locked preview, Password field, Provenance chip, Steady loading, Toast and Trust strip;
   - the triggered recipes, for what the change adds or changes:
     - a keyboard shortcut: Source pane, Wording changes and Search field (the filing page binds
       ⌘K and "/", its wording review list j, k, 1, 2 and the arrows; company search binds "/"
