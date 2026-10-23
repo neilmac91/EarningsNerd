@@ -657,8 +657,9 @@ Locked preview   <PeekLocked feature preview="full|screen"> (features/subscripti
                  action's foot moved from 2,632px to 385px below the teaser's top, inside its first screen.
                  Gate: tests/e2e/analysis-teaser-window.spec.ts (390x844 and 1440x900, and 390x844 and
                  320x640 under a 200% text setting, both themes: the action within one screen of the
-                 teaser's top, the window no taller than the screen, the pill and the action centred in it,
-                 a mask on the preview and none around the action, no sideways scroll).
+                 teaser's top, the window no taller than the screen and holding no scroll of its own, the
+                 pill and the action centred in it, the preview's mask opaque to transparent over its last
+                 quarter, top to bottom, and none around the action, no sideways scroll).
 
 Solid chip       <Badge variant="solid">  — the primary colorway as a chip (brand.strong fill +
                  white label; dark: NAVY ink on brand.dark) for brand-weak TINTED grounds where the

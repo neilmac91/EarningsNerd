@@ -12,10 +12,11 @@ import { test, expect, type Page } from '@playwright/test'
  * At 390x844 and 1440x900 at the default text size, and at 390x844 and 320x640 under a 200% text setting, in both
  * themes, it holds:
  *   - the action's bottom edge within one viewport height of the teaser's top (the todo's done line);
- *   - the window no taller than the viewport, so no inert scroll is left under the blur;
+ *   - the window no taller than the viewport, so no inert scroll is left under the blur, and holding no scroll of its
+ *     own: the preview is cut at the window (overflow-clip), not scrollable under it;
  *   - the pill and the action centred in the window (a pixel of rounding);
- *   - the fade on the preview alone: the preview carries a mask and nothing around the action does, so the action
- *     is never faded;
+ *   - the fade on the preview alone: the preview's mask runs from opaque to transparent over its last quarter, top to
+ *     bottom, and nothing around the action carries a mask, so the action is never faded;
  *   - no sideways scroll.
  * 200% text is Chromium's own text setting (`Page.setFontSizes`, as tests/e2e/reflow-200.spec.ts doubles it), not an
  * inline style on <html>: only the setting reaches a media query, and under the inline style the site header keeps
@@ -107,6 +108,8 @@ for (const theme of THEMES) for (const profile of PROFILES) {
           windowTop: box(win).top,
           windowBottom: box(win).bottom,
           windowHeight: box(win).height,
+          windowScrollHeight: win.scrollHeight,
+          windowClientHeight: win.clientHeight,
           pillTop: box(pill).top,
           buttonBottom: box(button).bottom,
           previewMask: getComputedStyle(preview).maskImage,
@@ -119,10 +122,11 @@ for (const theme of THEMES) for (const profile of PROFILES) {
       const offset = g.buttonBottom - g.teaserTop
       expect(offset, `${at}: the upgrade action's bottom edge is ${offset.toFixed(1)}px below the teaser's top, past one ${profile.height}px screen`).toBeLessThanOrEqual(profile.height)
       expect(g.windowHeight, `${at}: the locked preview is ${g.windowHeight.toFixed(1)}px tall, taller than the ${profile.height}px screen`).toBeLessThanOrEqual(profile.height)
+      expect(g.windowScrollHeight, `${at}: the window holds no scroll of its own (${g.windowScrollHeight}px of content in a ${g.windowClientHeight}px window): the preview is cut at it`).toBeLessThanOrEqual(g.windowClientHeight + 1)
       const above = g.pillTop - g.windowTop
       const below = g.windowBottom - g.buttonBottom
       expect(Math.abs(above - below), `${at}: the pill and the action are centred in the window (${above.toFixed(1)}px above, ${below.toFixed(1)}px below)`).toBeLessThanOrEqual(1)
-      expect(g.previewMask, `${at}: the preview fades out at its foot (a mask on the preview)`).toMatch(/gradient\(/)
+      expect(g.previewMask, `${at}: the preview fades out at its foot, opaque to transparent over its last quarter, top to bottom`).toMatch(/^linear-gradient\((?:to bottom, |180deg, )?rgb\(0, 0, 0\) 75%, rgba\(0, 0, 0, 0\)\)$/)
       expect(g.masked, `${at}: nothing around the upgrade action carries a mask, so the action is never faded`).toEqual([])
       expect(g.scrollWidth, `${at}: /analysis does not scroll sideways (scrollWidth ${g.scrollWidth}px, clientWidth ${g.clientWidth}px)`).toBeLessThanOrEqual(g.clientWidth)
       expect(traffic.me, 'the page read the session as a guest').toBeGreaterThan(0)

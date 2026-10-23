@@ -69,7 +69,7 @@ A change of more than one kind below takes the widest reading. Any of them adds
     `<Button reserveLoadingText>` under Steady loading. This is the only way these recipes are
     read: Analysis evidence, Analysis periods, Analysis reading, Analysis reflow, Callout, Chat
     composer, Checkbox, Data note mark, Data notes strip, Ghost button, Hero example, Input,
-    Locked preview, Password field, Provenance chip, Steady loading, Toast and Trust strip;
+    Password field, Provenance chip, Steady loading, Toast and Trust strip;
   - the triggered recipes, for what the change adds or changes:
     - a keyboard shortcut: Source pane, Wording changes and Search field (the filing page binds
       ⌘K and "/", its wording review list j, k, 1, 2 and the arrows; company search binds "/"
@@ -96,6 +96,7 @@ A change of more than one kind below takes the widest reading. Any of them adds
       scroll is a motion change: §11 too);
     - a filter, window or sort that changes how many items a list shows: Analysis table;
     - Copilot answer rendering (CopilotMessage, the Ask rail): Ask answer;
+    - a fade on content (a mask or a gradient that fades it out at an edge): Locked preview;
     - figure tiles outside /analysis: Analysis KPI.
 
   The ESLint design rules and the vitest gates catch the mechanical slips
