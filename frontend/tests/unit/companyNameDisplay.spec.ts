@@ -161,12 +161,13 @@ const ELEMENT_CALLS = new Set(['createElement', 'cloneElement', 'jsx', 'jsxs', '
 const METADATA_TEXT = new Set(['title', 'description', 'default', 'absolute'])
 const isNextDeclaration = (d: ts.Node) => /[\\/]node_modules[\\/]next[\\/]/.test(d.getSourceFile().fileName)
 
+/** All JS and TS modules, including JSX and explicit ES/CommonJS suffixes; declarations and tests are not app code. */
 function sourceFiles(dir: string): string[] {
   const out: string[] = []
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) out.push(...sourceFiles(full))
-    else if (/\.tsx?$/.test(entry.name) && !/\.(spec|test)\.tsx?$|\.d\.ts$/.test(entry.name)) out.push(full)
+    else if (/\.(?:[cm]?[jt]s|[jt]sx)$/.test(entry.name) && !/\.(spec|test)\.(?:[cm]?[jt]s|[jt]sx)$|\.d\.[cm]?ts$/.test(entry.name)) out.push(full)
   }
   return out
 }
@@ -923,7 +924,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       }
     }
     const count = (mark: string) => [...forms.values()].filter((m) => m === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([166, 52, 32])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([168, 54, 32])
     const misread = [...forms].filter(([name, mark]) => named.has(name) !== (mark === 'flag')).map(([name, mark]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])
