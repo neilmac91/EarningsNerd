@@ -100,9 +100,10 @@ the business card, the footer and the merch; it is the positioning in six words.
 - **Hyphens stay** in compound terms: 10-K, real-time, cold-start, day-of.
 - **En-dashes (–) stay** in genuine numeric or date ranges: Q1–Q4, 30–60s, FY2019–FY2024.
   The analysis page prints a period window through one formatter, `formatAnalysisWindow`
-  (`frontend/features/analysis/lib/periodLabels.ts`), in the form the exports print, and
-  `frontend/tests/unit/analysisPeriodWindows.spec.tsx` keeps a stored key ("FY2019..FY2024") and
-  a spaced range off the page.
+  (`frontend/features/analysis/lib/periodLabels.ts`), in the form the exports print.
+  `frontend/tests/unit/analysisPeriodWindows.spec.tsx` holds it: no stored key ("FY2019..FY2024")
+  or spaced range on the surfaces it renders, no window field printed past the formatter, and no
+  range joined by hand.
 - **The bare `—` null-value token stays.** Tables and detail rows render `—` for missing
   data (see `MISSING_TOKENS` in `frontend/lib/format.ts`). That is a data convention, not
   prose. It is the only sanctioned em-dash, and it stands alone, in a cell or an element of
