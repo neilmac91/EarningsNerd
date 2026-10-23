@@ -19,7 +19,7 @@ import base64
 import json
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from fractions import Fraction
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -40,6 +40,7 @@ from app.routers import filings as filings_mod
 from app.services import background_task_runner, durable_tasks as transport, filing_amendment_service, filing_list_service
 from app.services import rate_limiter
 from app.services.durable_tasks import TaskEnvelope, TaskUnavailable
+from app.services.edgar import client as edgar_client_mod
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.config import FilingType
 from app.services.edgar.exceptions import EdgarError
@@ -1097,6 +1098,42 @@ def test_a_listing_of_rows_another_company_stores_is_fetched_again_not_answered_
         (200, [accession])
     ] * 2
     assert fetched == ["0000000002"] * 2
+
+
+def test_a_listing_whose_rows_were_all_skipped_is_fetched_again_not_answered_empty(client, sessions, monkeypatch):
+    """SEC's submissions window can list a filing without its primary document. The transformer then gives
+    it no document URL, and the live persistence skips a new row without one, so a listing that was not
+    empty stores nothing. Its stamp could not answer for it: the key is left unstamped, and the next visit
+    fetches again and serves the filing once SEC names its document, rather than an empty list until the
+    TTL passes. Driven through the real transformer, with only edgartools' Company faked."""
+    accession = "0000000002-26-000001"
+    with sessions() as s:
+        _seed_company(s)  # COLD, CIK 0000000002: nothing stored
+    filing = SimpleNamespace(form="10-K", filing_date=date(2026, 2, 19), report_date="2025-12-31",
+                             accession_number=accession, primary_document=None, company="COLD Co")
+    reads = []
+
+    class RecentWindow:
+        """edgartools' Company as the live listing reads it: one recent-window fetch per visit."""
+        cik = 2
+
+        def __init__(self, ident):
+            pass
+
+        def get_filings(self, form=None, amendments=None, trigger_full_load=None, sort_by=None):
+            assert trigger_full_load is False
+            reads.append(form)
+            return [filing] if filing.form in form else []
+
+    monkeypatch.setattr(edgar_client_mod, "EdgarCompany", RecentWindow)
+
+    incomplete = client.get("/api/filings/company/cold")
+    filing.primary_document = "doc.htm"  # SEC's window now names it
+    recovered = client.get("/api/filings/company/cold")
+
+    assert (incomplete.status_code, incomplete.json()) == (200, [])
+    assert (recovered.status_code, [row["accession_number"] for row in recovered.json()]) == (200, [accession])
+    assert reads == [["10-K", "10-Q"]] * 2  # one recent-window read per visit
 
 
 def test_a_stamp_answers_only_the_company_whose_listing_wrote_it(client, sessions, monkeypatch):
