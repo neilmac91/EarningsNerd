@@ -33,7 +33,8 @@
  *      "O'REILLY" -> "O'Reilly", "U.S." -> "U.S."), with a trailing possessive "'S" -> "'s".
  *   5. A letter is any script's, with its accents, so an accented capital stays inside its word
  *      ("SOCIÉTÉ GÉNÉRALE" -> "Société Générale", "L'ORÉAL" -> "L'Oréal") and a Cyrillic or Greek
- *      name takes the same rules; a script without case (Japanese, Chinese, Arabic) is left as served.
+ *      name takes the same rules, a word lowercased whole so a Greek final sigma keeps its form
+ *      ("ΤΗΣ" -> "Της"); a script without case (Japanese, Chinese, Arabic) is left as served.
  *
  * Unknown initialisms (a ticker-like "XPO") will come out as "Xpo"; add them to KEEP_UPPER when
  * seen. That is the accepted trade-off of a small, predictable exceptions list over a dictionary.
@@ -109,10 +110,13 @@ const isSuffixToken = (token: string): boolean => {
   return LEGAL_SUFFIX.has(core.toUpperCase())
 }
 
-/** Title-case one alphabetic segment; single letters stay upper ("A O Smith"). */
+/** Title-case one run of letters; single letters stay upper ("A O Smith"). The run is lowercased whole, so a letter
+    whose lowercase depends on its neighbours takes it there (a Greek word's final sigma: "ΟΣ" -> "Ος"), and its first
+    letter, a whole code point, takes its own capital ("İSTANBUL" -> "İstanbul"). */
 const caseSegment = (segment: string): string => {
   if (segment.length <= 1) return segment.toUpperCase()
-  return segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase()
+  const first = String.fromCodePoint(segment.codePointAt(0) ?? 0)
+  return first.toUpperCase() + segment.toLowerCase().slice(first.toLowerCase().length)
 }
 
 const caseToken = (token: string, isFirst: boolean): string => {
