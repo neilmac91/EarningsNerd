@@ -563,7 +563,7 @@ def test_postgres_concurrent_customer_claims_keep_the_first(postgres_engine):
 
         def claim(name, db, customer):
             try:
-                results[name] = billing_account_service.claim_stripe_customer_id(db, users[name], customer)
+                results[name] = billing_account_service.claim_stripe_customer_id(db, users[name].id, customer)
             except Exception as error:  # reported in the assertion below
                 results[name] = error
 
