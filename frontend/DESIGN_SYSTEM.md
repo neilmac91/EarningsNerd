@@ -1116,8 +1116,9 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  controls' ml-auto share the bar's free space, never justify-between alone, which puts a line's
                  only block at its start, so the notification and account menus, anchored at their right edge
                  (right-0), open on the screen (E160; gate: tests/e2e/reflow-200.spec.ts opens each menu at
-                 1024, 1280 and 1440px under 200% text, and holds the one-line bar's nav midway at 1440px). A page's own header (SecondaryHeader: pricing, the
-                 dashboard, the watchlist, admin) scrolls with the page on an opaque panel; only a table's
+                 1024, 1280 and 1440px under 200% text, and holds the one-line bar's nav midway at 1440px).
+                 A page's own header (SecondaryHeader: pricing, the dashboard, the watchlist, admin) scrolls
+                 with the page on an opaque panel; only a table's
                  header cells stick at `top-0`, inside the table's own scroll box. The document's
                  `scroll-padding-top` (globals.css) reads the variable once, so a keyboard focus, an anchor
                  jump or a scrollIntoView lands below the bar, never behind it (WCAG 2.2 SC 2.4.11); a
