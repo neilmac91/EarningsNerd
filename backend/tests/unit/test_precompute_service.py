@@ -255,7 +255,7 @@ FRESH_EXCERPT = "Item 7. MD&A excerpt the current extraction builds."
 PROVIDER_ERROR = {"status": "error", "message": "provider down"}
 
 
-def _seed_forced(*, with_summary: bool = True, updated_at=None):
+def _seed_forced(*, with_summary: bool = True, updated_at=None, excerpt=STORED_EXCERPT):
     from app.database import SessionLocal
     from app.models import FilingContentCache, SavedSummary, Summary, User
 
@@ -264,7 +264,7 @@ def _seed_forced(*, with_summary: bool = True, updated_at=None):
     filing_id = _mk_filing(_mk_company(ticker), acc)
     summary_id = user_id = None
     with SessionLocal() as db:
-        db.add(FilingContentCache(filing_id=filing_id, critical_excerpt=STORED_EXCERPT))
+        db.add(FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt))
         if with_summary:
             summary = Summary(filing_id=filing_id, business_overview=STORED_FULL, updated_at=updated_at,
                               raw_summary={"sections": {}, "quality": {"tier": "full"}})
@@ -336,8 +336,11 @@ def _forced_precompute(monkeypatch, ticker, acc, *, payload=None, side_effect=No
         ("document_fails", "failed"),     # an SEC document-fetch failure ends the run before generation
     ],
 )
-def test_forced_precompute_regenerates_in_place_under_keep_better(monkeypatch, outcome, status):
-    ticker, acc, filing_id, summary_id, user_id = _seed_forced()
+# A summary stored beside no excerpt had its quotes verified against the cached document; a kept one
+# must not be left beside the excerpt this run built (Codex 4364816435 on #1545).
+@pytest.mark.parametrize("stored_excerpt", [STORED_EXCERPT, None], ids=["excerpt", "no-excerpt"])
+def test_forced_precompute_regenerates_in_place_under_keep_better(monkeypatch, outcome, status, stored_excerpt):
+    ticker, acc, filing_id, summary_id, user_id = _seed_forced(excerpt=stored_excerpt)
     side_effect = {"timeout_fallback": TimeoutError("budget exhausted"),
                    "provider_raises": RuntimeError("provider down")}.get(outcome)
 
@@ -354,7 +357,7 @@ def test_forced_precompute_regenerates_in_place_under_keep_better(monkeypatch, o
         assert excerpt == FRESH_EXCERPT  # the refresh's own excerpt sits with its summary
     else:
         assert overview == STORED_FULL
-        assert excerpt == STORED_EXCERPT  # the stored summary keeps the excerpt it was generated from
+        assert excerpt == stored_excerpt  # the stored summary keeps the excerpt it was generated from, or none
 
 
 @pytest.mark.parametrize(("outcome", "status"), [("replaced", "generated"), ("timeout_fallback", "kept")])
@@ -374,15 +377,16 @@ def test_forced_precompute_tells_a_replace_from_a_keep_on_a_row_refreshed_before
         (False, FRESH_EXCERPT) if outcome == "replaced" else (True, STORED_EXCERPT))
 
 
+@pytest.mark.parametrize("stored_excerpt", [STORED_EXCERPT, None], ids=["excerpt", "no-excerpt"])
 @pytest.mark.parametrize("error", [RuntimeError("database down"), asyncio.CancelledError()],
                          ids=["raises", "cancelled"])
-def test_forced_precompute_puts_the_excerpt_back_when_the_run_raises_or_is_cancelled(monkeypatch, error):
+def test_forced_precompute_puts_the_excerpt_back_when_the_run_raises_or_is_cancelled(monkeypatch, error, stored_excerpt):
     # The excerpt is cleared before the run so that it rebuilds with the current extraction. A run that
     # raises (a database error before the pipeline turns failures into events) or is cancelled (the
     # job or the API server stops) still leaves the kept summary with the excerpt it was built from.
     from app.services import summary_generation_service
 
-    ticker, acc, filing_id, summary_id, user_id = _seed_forced()
+    ticker, acc, filing_id, summary_id, user_id = _seed_forced(excerpt=stored_excerpt)
     _patch_sec(monkeypatch, filings=[_sec_filing(acc)])
     mid_run = {}
 
@@ -403,7 +407,7 @@ def test_forced_precompute_puts_the_excerpt_back_when_the_run_raises_or_is_cance
         asyncio.run(precompute_one(ticker, "10-K", force=True))
 
     assert mid_run == {"excerpt": None}  # cleared while the run builds its own
-    assert _stored(filing_id) == (1, summary_id, STORED_FULL, STORED_EXCERPT)
+    assert _stored(filing_id) == (1, summary_id, STORED_FULL, stored_excerpt)
     assert _bookmark_target_exists(user_id)
 
 

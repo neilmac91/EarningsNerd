@@ -192,12 +192,14 @@ async def precompute_one(
     # A forced refresh never deletes the stored summary: the one orchestrator regenerates it IN PLACE
     # under keep-better (force_regenerate below), so its summaries.id and any saved_summaries bookmark
     # survive, and a failed or lower-ranked run keeps it (lessons/arch-fk-safe-bulk-deletes.md). Only
-    # the cached excerpt is cleared, so the run builds it with the current extraction; the stored one
+    # the cached excerpt is cleared, so the run builds it with the current extraction; the stored value
     # goes back in the finally below whenever the stored summary stays (a raise or a cancellation
-    # included, not a killed process), so that summary keeps the excerpt the read-time verification of
-    # its quotes was built from. While the run is in flight, readers fall back to the cached document.
+    # included, not a killed process), none included, so that summary keeps the source the read-time
+    # verification of its quotes was built from. While the run is in flight, readers fall back to the
+    # cached document.
     stored = None
     stored_excerpt: Optional[str] = None
+    had_cache = False
     if force:
         with SessionLocal() as db:
             stored = db.query(Summary.id, Summary.updated_at).filter(Summary.filing_id == filing_id).first()
@@ -207,6 +209,7 @@ async def precompute_one(
                 .first()
             )
             if cache:
+                had_cache = True
                 stored_excerpt, cache.critical_excerpt = cache.critical_excerpt, None
             db.commit()
 
@@ -219,7 +222,7 @@ async def precompute_one(
             summary = db.query(Summary.id, Summary.updated_at).filter(Summary.filing_id == filing_id).first()
             # The in-place UPDATE stamps updated_at, so an unchanged (id, updated_at) was not replaced.
             replaced = stored is None or summary is None or tuple(summary) != tuple(stored)
-            if not replaced and stored_excerpt is not None:
+            if not replaced and had_cache:
                 db.query(FilingContentCache).filter(FilingContentCache.filing_id == filing_id).update(
                     {FilingContentCache.critical_excerpt: stored_excerpt}, synchronize_session=False
                 )
