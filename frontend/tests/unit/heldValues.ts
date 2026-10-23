@@ -471,7 +471,8 @@ export interface HeldOptions<L> {
   /** Whether React's state keeps what it is handed and gives it back (companyNameDisplay.spec.ts). A setter or a
       dispatcher is a value, the hook it came from (Held.setters), followed as any other value is: destructured, read by
       index from the hook's pair, held by another name, put in an object, handed to a same-file function or component,
-      handed back by a custom hook. useState's first element holds its initial value, what its initializer returns and
+      handed back by a custom hook, or handed as the callback of an array's methods, of `Array.from` or of React's
+      `Children.map` and `Children.forEach`, which call it with each element. useState's first element holds its initial value, what its initializer returns and
       what each call through its setter hands it (a value, or what an updater returns, the updater called with the
       state); useReducer's, its initial argument and what its init and its reducer return, the reducer called with the
       state and each action a call through its dispatcher hands it, and useActionState's (react-dom's useFormState
@@ -1191,6 +1192,15 @@ export function heldValues<L>(
     const args = x.arguments
     const recv = receiverOf(x)
     const fnsAt = (i: number) => (args[i] ? valueOf(args[i]).fns : null)
+    /** The value handed at `i` as a callback a built-in calls with each element (an array's methods, Array.from,
+        React's Children), when the reading may call it: a same-file function, or a setter or a dispatcher, which hands
+        its hook each element (callThrough). A callback whose return becomes the state, the accumulator or an order (a
+        reducer, an initializer, an update function, a comparator) is read as a function alone (fnsAt): a setter
+        returns nothing, so the checker refuses one there. */
+    const callbackAt = (i: number) => {
+      const value = args[i] ? valueOf(args[i]) : undefined
+      return value?.fns?.size || value?.setters?.size ? value : undefined
+    }
     // React calls a reducer with the state and each action its dispatcher is handed in the file, and its initializer
     // with the initial argument (HeldOptions.state).
     if (state && (name === 'useReducer' || name === 'useActionState' || name === 'useFormState')) {
@@ -1205,16 +1215,16 @@ export function heldValues<L>(
       if (update?.size) pass(update, [propertyOf(valueOf(x, record), '0'), handedTo(x)])
     }
     if (receiverNamed(x, 'Children') && (name === 'map' || name === 'forEach')) {
-      const fns = fnsAt(1)
-      if (fns?.size && args[0]) {
+      const callback = callbackAt(1)
+      if (callback && args[0]) {
         const children = valueOf(args[0], record)
-        pass(fns, [union(children, elementOf(children))])
+        callThrough(callback, [union(children, elementOf(children))])
       }
       return
     }
     if (receiverNamed(x, 'Array') && name === 'from') {
-      const fns = fnsAt(1)
-      if (fns?.size && args[0]) pass(fns, [elementOf(valueOf(args[0], record))])
+      const callback = callbackAt(1)
+      if (callback && args[0]) callThrough(callback, [elementOf(valueOf(args[0], record))])
       return
     }
     if (receiverNamed(x, 'Object') && name === 'assign') {
@@ -1250,8 +1260,8 @@ export function heldValues<L>(
     }
     if (recv) {
       if (ELEMENT_CALLBACKS.has(name)) {
-        const fns = fnsAt(0)
-        if (fns?.size) pass(fns, [elementOf(valueOf(recv, record))])
+        const callback = callbackAt(0)
+        if (callback) callThrough(callback, [elementOf(valueOf(recv, record))])
       } else if (name === 'reduce' || name === 'reduceRight') {
         const fns = fnsAt(0)
         // The accumulator is the initial value, then each return; the current value is each element.

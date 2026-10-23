@@ -11,6 +11,7 @@
  * companies only. A new form the rule can take joins it with its mark.
  */
 import {
+  Children,
   Component,
   Fragment,
   PureComponent,
@@ -1621,6 +1622,64 @@ export class N241 {
   render(ev: CalendarEvent) {
     return ev.company_name
   }
+}
+
+// Setters and dispatchers handed as a built-in's callback: an array's methods, Array.from and React's Children call
+// them with each element.
+
+/** N242 flag: a state's setter handed to an array's forEach, which hands it a served name (Codex's form). */
+export function N242({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useState('')
+  return (
+    <button type="button" onClick={() => [ev.company_name].forEach(setName)}>
+      {name}
+    </button>
+  )
+}
+
+/** N243 flag: a reducer's dispatcher handed to an array's map, which hands it each served name. */
+export function N243({ events }: { events: CalendarEvent[] }) {
+  const [name, dispatch] = useReducer(keepLatest, '')
+  return (
+    <button type="button" onClick={() => events.map((e) => e.company_name).map(dispatch)}>
+      {name}
+    </button>
+  )
+}
+
+/** N244 flag: a state's setter handed to Array.from as its mapping function, which hands it a served name. */
+export function N244({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useState('')
+  return (
+    <button type="button" onClick={() => Array.from([ev.company_name], setName)}>
+      {name}
+    </button>
+  )
+}
+
+/** N245's component, which keeps its child in state through React's Children.forEach and prints the state. */
+function N245Last({ children }: { children: ReactNode }) {
+  const [last, setLast] = useState<ReactNode>(null)
+  return (
+    <button type="button" onClick={() => Children.forEach(children, setLast)}>
+      {last}
+    </button>
+  )
+}
+
+/** N245 flag: a served name handed as a child to a component that keeps it in state through Children.forEach. */
+export function N245({ ev }: { ev: CalendarEvent }) {
+  return <N245Last>{ev.company_name}</N245Last>
+}
+
+/** N246 clean: a state's setter handed to an array's forEach, which hands it the display form. */
+export function N246({ ev }: { ev: CalendarEvent }) {
+  const [name, setName] = useState('')
+  return (
+    <button type="button" onClick={() => [formatCompanyName(ev.company_name)].forEach(setName)}>
+      {name}
+    </button>
+  )
 }
 
 // Forms the rule forbids that the gate leaves to review, each named in the spec's header.

@@ -35,8 +35,9 @@ import { componentTag, heldValues, leavesOf, propertyOf, renderedLeavesOf, scope
  * what its update function returns, a reducer the reader does not hold (another module's) giving back what React
  * hands it, as a call the reader cannot follow does; the setter and the dispatcher followed as values: destructured,
  * read by index from the hook's pair, held by another name, put in an object, handed to a same-file component or
- * function, handed back by a custom hook, called through Function.prototype's `call`, `apply` or `bind` or through
- * `Reflect.apply`; useRef, useDeferredValue, useSyncExternalStore), a template literal, `+`, an array or a call the
+ * function, handed back by a custom hook, handed as the callback of an array's methods, of `Array.from` or of React's
+ * `Children.map` and `Children.forEach` (each element), called through Function.prototype's `call`, `apply` or `bind`
+ * or through `Reflect.apply`; useRef, useDeferredValue, useSyncExternalStore), a template literal, `+`, an array or a call the
  * reader cannot follow (`String()`, `trim()`, `join()`) is still the name. So is a name an object literal's getter
  * hands back (what the literal's methods and accessors put on `this` and read from it included), one a property
  * holds that Object.defineProperty, Object.defineProperties, Object.create or Reflect.defineProperty defines, or
@@ -916,7 +917,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       }
     }
     const count = (mark: string) => [...forms.values()].filter((m) => m === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([160, 49, 32])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([164, 50, 32])
     const misread = [...forms].filter(([name, mark]) => named.has(name) !== (mark === 'flag')).map(([name, mark]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])
