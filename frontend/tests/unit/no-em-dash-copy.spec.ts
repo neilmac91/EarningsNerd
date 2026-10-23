@@ -98,11 +98,11 @@ import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, property
  * component named Fragment or a context imported from another module, which
  * may be React's re-exported, and an imported component, whose return the
  * reading cannot see); React state; a class's field read through `this` (a
- * class component's render among them); a promise's `then`; a generator's
- * `yield`; and a same-file function invoked through `Function.prototype`
- * (`f.call(null, v)`, `f.apply(null, [v])`, `f.bind(null)(v)`), whose callee
- * is the method, not the function, so the call is not read as the function's
- * and the fallback it returns passes beside a unit. A same-file method under
+ * class component's render among them); a promise's `then`; and a
+ * generator's `yield`. A same-file function invoked through
+ * `Function.prototype` (`f.call(null, v)`, `f.apply(null, [v])`,
+ * `f.bind(null)(v)`) is read as the function, by the shared reader, so the
+ * fallback it returns fails beside a unit. A same-file method under
  * a maker's name, read through an alias
  * (`const make = formatters.createElement`, then `make(v)`), is known by the
  * maker's name, so the gate takes its call for React's element call, an
@@ -791,10 +791,10 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
     // leaves the family to the element-factory lint rule): a same-file method under a maker's name read through an
     // alias (266, aliased at 267, at 268) is taken for React's element call, an element of its own, and React's maker
     // handed through a parameter (269, at 270) is known by the parameter's name, so the fragment it makes goes unread.
-    // Planted gaps, Codex's Function.prototype forms, each beside a unit and passing: a same-file function (271) called
-    // through `call` (272), `apply` (273) or a `bind` of it (274) has the method for its callee, so its fallback goes unread.
+    // Codex's Function.prototype forms, each beside a unit, fail: a same-file function (271) called through `call`
+    // (272), `apply` (273) or a `bind` of it (274) is read as the function (the shared reader), so its fallback is read.
     expect(violationsIn(src, file)).toEqual(
-      [8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28, 31, 39, 42, 43, 46, 51, 51, 51, 52, 53, 56, 58, 60, 61, 63, 69, 71, 72, 73, 74, 74, 75, 75, 76, 78, 82, 83, 84, 85, 86, 89, 90, 91, 92, 92, 94, 95, 96, 97, 103, 104, 105, 122, 123, 124, 125, 126, 128, 131, 132, 133, 134, 135, 143, 144, 146, 151, 152, 153, 154, 155, 157, 159, 162, 163, 164, 166, 167, 168, 169, 171, 172, 173, 175, 176, 177, 178, 179, 180, 181, 183, 185, 188, 189, 192, 193, 194, 195, 204, 205, 209, 212, 214, 216, 218, 220, 222, 224, 226, 228, 231, 235, 236, 237, 238, 239, 241, 243, 245, 246, 249, 255, 259, 260, 262, 264].map(
+      [8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28, 31, 39, 42, 43, 46, 51, 51, 51, 52, 53, 56, 58, 60, 61, 63, 69, 71, 72, 73, 74, 74, 75, 75, 76, 78, 82, 83, 84, 85, 86, 89, 90, 91, 92, 92, 94, 95, 96, 97, 103, 104, 105, 122, 123, 124, 125, 126, 128, 131, 132, 133, 134, 135, 143, 144, 146, 151, 152, 153, 154, 155, 157, 159, 162, 163, 164, 166, 167, 168, 169, 171, 172, 173, 175, 176, 177, 178, 179, 180, 181, 183, 185, 188, 189, 192, 193, 194, 195, 204, 205, 209, 212, 214, 216, 218, 220, 222, 224, 226, 228, 231, 235, 236, 237, 238, 239, 241, 243, 245, 246, 249, 255, 259, 260, 262, 264, 272, 273, 274].map(
         (line) => `features/zzprobe/Probe.tsx:${line} —`,
       ),
     )

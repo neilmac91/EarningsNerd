@@ -117,7 +117,7 @@ export function FilingIndex({
 
   return (
     <Card as="section" aria-labelledby={headingId}>
-      <div className="flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:pt-6">
+      <div className="flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4 sm:px-cap-6 sm:pt-cap-6">
         <div className="flex min-w-0 items-baseline gap-3">
           <h2 id={headingId} ref={headingRef} tabIndex={-1} className={cx('text-xl font-semibold outline-none', INK)}>
             SEC filings
@@ -173,7 +173,7 @@ export function FilingIndex({
       {status === 'loading' && <FilingIndexSkeleton />}
 
       {status === 'error' && (
-        <div className="px-4 pb-5 pt-4 sm:px-6 sm:pb-6">
+        <div className="px-4 pb-cap-5 pt-4 sm:px-cap-6 sm:pb-cap-6">
           <Notice
             variant="error"
             title="Couldn’t load filings"
@@ -186,7 +186,7 @@ export function FilingIndex({
       )}
 
       {status === 'ready' && total === 0 && (
-        <div role="status" className="px-4 pb-6 pt-4 sm:px-6">
+        <div role="status" className="px-4 pb-cap-6 pt-4 sm:px-cap-6">
           <p className={cx('text-sm font-semibold', INK)}>No filings to show</p>
           <p className={cx('mt-1 max-w-prose text-sm', MUTED)}>
             We haven’t found any periodic reports for this company on EDGAR yet.
@@ -195,7 +195,7 @@ export function FilingIndex({
       )}
 
       {status === 'ready' && total > 0 && (
-        <div className="px-4 pt-2 sm:px-6">
+        <div className="px-4 pt-2 sm:px-cap-6">
           {/* The visible column labels; each row's link already names its form, period and filed date. */}
           <div aria-hidden="true" className={cx('hidden md:grid', ROW_TRACKS, 'pb-2 pt-4 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark')}>
             <span>Form</span>
@@ -261,7 +261,7 @@ export function FilingIndex({
       )}
 
       {status === 'ready' && total > 0 && ((view.oldest && cik) || footerAction) && (
-        <div className={cx(HAIRLINE, 'mt-1 flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6')}>
+        <div className={cx(HAIRLINE, 'mt-1 flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-cap-6')}>
           <FilingsHistoryNote oldestFilingDate={view.oldest} cik={cik} />
           {footerAction}
         </div>
@@ -356,7 +356,9 @@ const BONE_WIDTHS = ['w-3/5', 'w-1/2', 'w-7/12']
 /** The ledger's own shape: raw bones (aria-hidden) inside ONE role="status" wrapper (DS §4). */
 function FilingIndexSkeleton() {
   return (
-    <div role="status" aria-label="Loading filings" className="px-4 pb-4 pt-2 sm:px-6">
+    // The list's sections carry the Card's capped inset (E120); the skeleton, drawn here and not inside the Card's own
+    // markup, carries it by hand so its rows do not move when the list replaces it.
+    <div role="status" aria-label="Loading filings" className="px-4 pb-4 pt-2 sm:px-cap-6">
       <div aria-hidden="true">
         <div className={cx('hidden md:grid', ROW_TRACKS, 'pb-2 pt-4')}>
           <Skeleton className="h-3 w-9" />

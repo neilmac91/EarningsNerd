@@ -37,7 +37,7 @@ export default function ProfileForm() {
   const dirty = (user?.full_name ?? '') !== name.trim()
 
   return (
-    <Card className="p-6 mb-6">
+    <Card className="p-cap-6 mb-6">
       <div className="flex items-center gap-3 mb-4">
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Profile</h2>
       </div>

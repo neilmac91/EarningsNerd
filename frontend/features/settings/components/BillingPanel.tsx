@@ -62,7 +62,7 @@ export default function BillingPanel() {
   const subscriptionUnavailable = subscriptionFailure.failed && sub === undefined
   if (identityUnavailable || subscriptionUnavailable) {
     return (
-      <Card className="p-6 mb-6">
+      <Card className="p-cap-6 mb-6">
         <div className="mb-4">
           <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark">Billing</h2>
         </div>
@@ -90,7 +90,7 @@ export default function BillingPanel() {
   const trialEndsOn = isTrialing ? formatInstant(sub?.trial_end, 'MMM d, yyyy') : ''
 
   return (
-    <Card className="p-6 mb-6">
+    <Card className="p-cap-6 mb-6">
       <div className="mb-4">
         <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark">Billing</h2>
       </div>

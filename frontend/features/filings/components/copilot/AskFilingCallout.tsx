@@ -38,7 +38,7 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
       aria-labelledby="ask-filing-callout-heading"
       // An inset well inside the summary (DESIGN.md › Cards): panel fill, one hairline, 8px radius, no
       // shadow; the heading carries the tone, so no icon tile sits beside it.
-      className="rounded border border-border-light bg-panel-light dark:border-white/10 dark:bg-panel-dark p-6"
+      className="rounded border border-border-light bg-panel-light dark:border-white/10 dark:bg-panel-dark p-cap-6"
     >
       {/* h2: a sibling of the summary's sections (each an h2), not a subsection of the last one. */}
       <h2
