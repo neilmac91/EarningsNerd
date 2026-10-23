@@ -252,6 +252,7 @@ def _history(comment: Dict[str, Any]) -> List[Entry]:
 class Replay(NamedTuple):
     starts: Dict[int, Review]   # completion index (newest-first) -> the start it is paired with
     open: List[Entry]           # starts no completion closed, and unreadable versions, oldest first
+    overlapping: List[Review]   # starts begun while a rival was open; no completion ever pairs with them
 
 
 def _open_at(entry: Entry, moment: datetime) -> bool:
@@ -274,10 +275,13 @@ def _replay(states: List[Entry]) -> Replay:
     start of a head and trigger can take a completion, and it does; an earlier completion that took the
     older start when the newer finished first leaves no start the newer run's could wrongly claim. An
     unreadable version under the hour at a completion may hide its start, so that completion pairs with
-    nothing. The one case the replay cannot tell apart is a run that completes more than an hour after it
-    began, while a later run of its head and trigger, begun once the hour was up, is still going: its
-    completion pairs with the later start. The gate accepts that risk; no run in PRs 1380-1486 took more
-    than 21 minutes."""
+    nothing. What the replay cannot tell apart is a run that completes an hour or more after it began,
+    while a later run of its head and trigger, begun once that hour was up, is still going: the late
+    completion pairs with the later start, which then counts as closed, so a run begun after it (a fresh
+    transition or request after that completion) does not overlap it either, and the later run's own
+    completion pairs with the newest start. Either way the gate can pass while a review is still going.
+    The gate accepts that risk, which call 1's abandonment age brings with it: no run in PRs 1380-1486
+    took more than 21 minutes, and none is known to have completed after its hour."""
     starts: Dict[int, Review] = {}
     pending: List[Entry] = []
     overlapping: List[Review] = []
@@ -310,7 +314,11 @@ def _replay(states: List[Entry]) -> Replay:
         if match is not None:
             pending.remove(match)
             starts[index] = seen[key] = match
-    return Replay(starts, pending)
+    return Replay(starts, pending, overlapping)
+
+
+def _overlapped(replay: Replay, review: Review) -> bool:
+    return any(start.cycle_state() == review.cycle_state() for start in replay.overlapping)
 
 
 # The one way out once a completion cannot be placed: a review that starts with nothing else open pairs.
@@ -342,11 +350,17 @@ def _abandoned_from(entry: Entry) -> str:
 def _require_no_live_start(states: List[Entry], now: datetime) -> None:
     """Pass only with no review still running: a start no completion closed blocks until the abandonment
     age, and so does an unreadable version that may hide one (F58 call 1)."""
-    for entry in reversed(_replay(states).open):
+    replay = _replay(states)
+    for entry in reversed(replay.open):
         if _open_at(entry, now):
             if isinstance(entry, Unreadable):
                 raise EvidenceError(f"an unreadable summary version from {entry.at:%H:%M:%S}Z may hide a running "
                                     f"review; it stops counting at {_abandoned_from(entry)}")
+            if _overlapped(replay, entry):
+                raise EvidenceError(f"a Codex review of {entry.short} ({entry.trigger}) started at {entry.at:%H:%M:%S}Z "
+                                    "while another review that may share its head and trigger was open, so no "
+                                    f"completion can count for it; it holds the gate until {_abandoned_from(entry)}, "
+                                    f"and then {FRESH_TRANSITION}")
             raise EvidenceError(f"a Codex review of {entry.short} ({entry.trigger}) started at {entry.at:%H:%M:%S}Z "
                                 f"has not completed; it counts as abandoned from {_abandoned_from(entry)}")
 
@@ -496,6 +510,11 @@ def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[
                 return "wait", (f"review-gate: the Codex review of {current.short} has shown Running since "
                                 f"{current.at:%H:%M:%S}Z, past the one-hour abandonment age, so it counts as abandoned "
                                 f"(F58 call 1); {FRESH_TRANSITION}")
+            if _overlapped(_replay(states), current):
+                return "wait", (f"review-gate: Codex review {current.status} for {current.short} since "
+                                f"{current.at:%H:%M:%S}Z, begun while another review that may share its head and trigger "
+                                f"was open, so its completion cannot count; it holds the gate until "
+                                f"{_abandoned_from(current)}, and then {FRESH_TRANSITION}")
             return "wait", (f"review-gate: Codex review {current.status} for {current.short} since "
                             f"{current.at:%H:%M:%S}Z; if it never completes it counts as abandoned from "
                             f"{_abandoned_from(current)}")

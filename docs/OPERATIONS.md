@@ -530,8 +530,8 @@ or edit the body). The job reports each outcome only in its own log, in the Acti
 on `main`'s latest commit, so the pull request's checks do not show it. Neither a ready mark nor an
 `@codex review` goes in while a review shows Running: the summary carries no run id, so the gate replays
 its history, pairs each completion with the open start of its head and trigger, never with one begun while
-another of them was open, and waits while any start is open, until that review completes or is an hour old,
-when it counts as abandoned (F58 call 1, approved 2026-10-23). A ready review that hangs therefore stops
+another of them was open (such a start holds the gate for its whole hour), and waits while any start is open,
+until that review completes or is an hour old, when it counts as abandoned (F58 call 1, approved 2026-10-23). A ready review that hangs therefore stops
 blocking an hour after it started, and one fresh draft-to-ready transition then passes; a ready mark or
 request made inside that hour costs the hour again (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`
 gives the recovery order). The gate prints each reason as it polls. Logic in
@@ -549,8 +549,8 @@ and latest manual request must agree with that proof. Missing,
 malformed or contradictory evidence waits instead of falling back to an older clean result.
 GitHub retains at most 100 comment revisions and the bot exposes no unique review-run ID, so missing
 required history waits, and so does a start still open, or an unreadable revision, younger than the hour; a
-completion within the hour after an unreadable revision never pairs, and one fresh draft-to-ready transition
-is the way out. Marking ready already requests a review;
+start or completion within the hour after an unreadable revision never pairs, and one fresh draft-to-ready
+transition is the way out. Marking ready already requests a review;
 let that cycle finish before sending another manual request for the same head. Thread disposition
 remains a reviewer responsibility (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`).
 Each run takes the workflow definition from `main` as it

@@ -54,9 +54,13 @@ the same head (F58 changed both; **Gate** below).
   more after its start pairs with nothing, at any later poll. When it was the ready mark's own review, make one fresh
   draft-to-ready transition as above once it is an hour old (the gate's Running message names that time), with no
   manual request: its review pairs and passes. A clean manual review still cannot stand in for it (F58 call 2, open).
+  A transition or request made before that hour is up overlaps the hung run instead: on #1475 the third request came
+  59 minutes into the second hung run, so under this gate it would have held the pull request for that request's own
+  hour and then needed one more request, where the request a minute later would have passed at once.
   The one risk call 1 accepts: if the hung run does complete after its hour while that fresh review is still running,
   the replay cannot tell the two apart and pairs the completion with the fresh start, so the gate can pass before the
-  fresh review ends.
+  fresh review ends; and if that late completion fails or leaves a finding, the review the recovery then starts can
+  take the fresh review's completion the same way. No run is known to have completed after its hour.
 - While Codex cannot review (credits exhausted, service down), AGENTS.md §5's `Review override:` line, naming the tier and
   the substitute review, stands in for that read, as it does for `review-gate`; it is never written while Codex can review.
 
@@ -69,7 +73,10 @@ rule's third line answers), and `review-gate` passed on it at 03:58:51Z (run 397
 120070504428). A draft-to-ready flip at 20:58:18–22Z, while it still showed Running, recorded a second start at
 20:58:28Z, so the clean completion at 21:01:14Z could not be paired (the correction, comment 6351182186). Once the
 summary read Completed, one fresh transition at 21:03:58–59Z with no manual request started a review at 21:04:05Z that
-completed clean at 21:06:17Z; `review-gate` passed at 21:06:49Z (run 39854178499), and the merge is `e8be8ba7`. Every
+completed clean at 21:06:17Z; `review-gate` passed at 21:06:49Z (run 39854178499), and the merge is `e8be8ba7`.
+Under F58 call 1 that sequence waits instead: the start at 20:58:28Z overlapped the ready review, so it holds the gate
+until 21:58:28Z, and the transition at 21:03:58Z, made while it was open, overlaps it too; one transition after
+21:58:28Z passes. Every
 line the gate printed in the timed-out job carries its exit time, and run 39853388960, cancelled at 21:04:56Z, printed
 none (the S1 note, comment 6351439364). On 2026-10-23 four merges waited on the founder's word for a hung review: #1495
 (`b7d4b164`, a manual review Running from 23:12 the night before, merged on a review override), #1497 (`383b6f73`,
@@ -92,12 +99,13 @@ review of the same head requires the ready-triggered cycle itself to be clean. A
 uses its creation time instead. Missing or changed service formats fail closed; the existing
 service-unavailability override remains the only documented exception. The bot exposes no unique
 review-run ID, so the gate replays the edit history: a completion pairs with the open start of its head and
-trigger, never with one begun while another of them was open; a start still open blocks until it completes or is
-an hour old, when it counts as abandoned; and a completion within the hour after an unreadable version never pairs
-(F58 call 1, 2026-10-23).
+trigger, never with one begun while another of them was open, which holds the gate for its whole hour; a start
+still open blocks until it completes or is an hour old, when it counts as abandoned; and an unreadable version may
+hide a start, so neither a start nor a completion within the hour after it ever pairs (F58 call 1, 2026-10-23).
 Marking ready already requests a review: let that automatic review finish before making another
 manual request. If two manual requests overlap after a clean ready cycle, the later one's review never pairs: an
-hour after it started (the gate's message names the time), request a fresh review. If the ready review was one of
+hour after it started (the gate's message names the time), request a fresh review, or make the fresh draft-to-ready
+transition the gate names; either passes. If the ready review was one of
 the overlapping pair, or the ready cycle's required history is missing, only a fresh ready transition clears it:
 make it once pending reviews have completed or are an hour old, and let its automatic review finish. This recovery does not change the normal
 new-head correction path, which keeps a PR ready when its completed ready cycle is provable.

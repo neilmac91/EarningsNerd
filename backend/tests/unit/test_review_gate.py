@@ -767,7 +767,8 @@ B1_TIMELINE = [{"event": "ready_for_review", "created_at": "2026-09-15T18:55:00Z
 
 
 @pytest.mark.parametrize("now, words", [
-    ("2026-09-15T19:02:00Z", ["started at 18:58:01Z has not completed", "abandoned from 2026-09-15T19:58:01Z"]),
+    ("2026-09-15T19:02:00Z", ["started at 18:58:01Z while another review", "no completion can count for it",
+                              "holds the gate until 2026-09-15T19:58:01Z", "fresh draft-to-ready transition"]),
     ("2026-09-15T20:00:00Z", ["does not provably follow", "review started at 18:55:01Z", "fresh draft-to-ready"]),
 ])
 def test_b1_a_completion_never_pairs_past_an_older_open_start_of_its_head_and_trigger(now, words):
@@ -946,6 +947,21 @@ def test_a_start_counts_as_abandoned_from_the_second_its_wait_message_names(star
         assert f"abandoned from {named}" in message, message
 
 
+def test_a_running_review_begun_during_another_says_at_once_that_it_cannot_count():
+    # #1496's shape: a draft flip while the ready review runs. The new run can never pass, so the Running message
+    # says so and names the way out, rather than promising its completion will count.
+    history = [_state_edit("running", "2026-09-15T19:30:05Z"), _state_edit("running", "2026-09-15T19:00:01Z")]
+    timeline = READY_EVENTS + [{"event": "convert_to_draft", "created_at": "2026-09-15T19:30:00Z"},
+                               {"event": "ready_for_review", "created_at": "2026-09-15T19:30:04Z"}]
+    verdict, message = _verdict([_comment(history)], pr_timeline=timeline, now=_at("2026-09-15T19:35:00Z"))
+    assert verdict == "wait", message
+    assert all(words in message for words in ("begun while another review", "its completion cannot count",
+                                              "holds the gate until 2026-09-15T20:30:05Z",
+                                              "fresh draft-to-ready transition")), message
+    single = _verdict([_comment(history[1:])], now=_at("2026-09-15T19:35:00Z"))[1]
+    assert "if it never completes it counts as abandoned from 2026-09-15T20:00:01Z" in single, single
+
+
 def test_every_open_start_blocks_not_only_the_oldest():
     # One hung run long abandoned and another in flight: the one in flight still blocks.
     hung = _state_edit("running", "2026-09-15T17:30:00Z", "Manual request", head=OTHER)
@@ -981,7 +997,7 @@ def test_a_start_begun_within_the_hour_after_an_unreadable_version_never_takes_a
     history = [_state_edit("completed", "2026-09-15T20:01:00Z"), _state_edit("running", "2026-09-15T19:59:00Z"),
                _edit("pre-marker summary text", "2026-09-15T19:00:30Z")]
     verdict, message = _verdict([_comment(history)], now=_at("2026-09-15T20:10:00Z"))
-    assert verdict == "wait" and "started at 19:59:00Z has not completed" in message, message
+    assert verdict == "wait" and "started at 19:59:00Z while another review" in message, message
     verdict, message = _verdict([_comment(history)], now=_at("2026-09-15T21:05:00Z"))
     assert verdict == "wait" and "no start to pair with" in message, message
 
