@@ -73,6 +73,13 @@ says why not the default executor); the leader claims the sync before its read, 
 meanwhile follows it; a leader cancelled during its persist keeps its claim until the persist ends;
 and the burst's `coverage_sync` row runs `ingest_companyfacts_by_id` itself, only its SEC fetch faked,
 with its sessions off the loop (2026-10-19, E129).
+The contact form handed its session to `persist_contact_submission` on the loop, and the feedback
+submit committed and refreshed its row in its own body, so each held a connection through its mails:
+eight contact messages on four slots, each mail taking 0.3 s, answered 4x201 then 4x500, and eight
+feedback reports answered 8x201 but left every transaction for the finalizer. Each is now one
+thread-pool unit, the insert and the response it echoes, released before its first mail; their burst
+case holds every statement off the loop, and a single submit sends each mail with no connection out
+(2026-10-23, E144).
 The pool-lifetime file's AST ratchet reads every async router function and fails a session call on the
 loop in its own body above that function's ceiling (on main before the fix it named both summaries
 routes). Neither half sees a session handed to a service that runs on the loop where the burst does
