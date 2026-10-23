@@ -1,6 +1,8 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useState, Suspense, useRef, useEffect, useCallback, useId } from 'react'
+
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
@@ -576,11 +578,16 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
               <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
                 Do you offer refunds?
               </h3>
-              <p className="text-text-secondary-light dark:text-text-secondary-dark">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark [overflow-wrap:anywhere]">
                 You can cancel anytime and keep Pro until the end of the period you&apos;ve paid for,
                 with no further charges. Except where required by law, fees already paid are
-                non-refundable (see our Terms). If something isn&apos;t working right, contact us and
-                we&apos;ll make it right.
+                non-refundable (see our Terms). For billing questions, email{' '}
+                <a href={contactMailto('billing')} className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+                  {CONTACT_ADDRESSES.billing}
+                </a>. For product help, use{' '}
+                <a href={contactMailto('support')} className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+                  {CONTACT_ADDRESSES.support}
+                </a>.
               </p>
             </div>
           </div>

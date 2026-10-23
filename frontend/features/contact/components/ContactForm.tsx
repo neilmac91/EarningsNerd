@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useEffect, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { submitContactForm } from '@/features/contact/api/contact-api'
@@ -172,7 +173,7 @@ export default function ContactForm() {
             Message sent
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            We have your message and will reply within 1–2 business days.
+            Thanks for your message. The aim is to reply within 2 business days.
           </p>
           <button
             onClick={() => {
@@ -282,7 +283,17 @@ export default function ContactForm() {
         </div>
 
         {/* Error Message */}
-        {error && <Notice variant="error" title="Message not sent" description={error} />}
+        {error && (
+          <div className="space-y-3">
+            <Notice variant="error" title="Message not sent" description={error} />
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              You can also email{' '}
+              <a href={contactMailto('support')} className="break-all text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+                {CONTACT_ADDRESSES.support}
+              </a>.
+            </p>
+          </div>
+        )}
 
         <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />
 

@@ -1,7 +1,7 @@
 """Durable alert delivery (E11b-1): persist first, claim with a fence, send with no session open.
 
 Selection (``filing_scan_service``) renders the exact email and calls :func:`create_batch`, which
-commits the frozen payload (subject, page and plain-text part), its provider idempotency key and the
+commits the frozen envelope (addresses, subject, page and plain-text part), its provider idempotency key and the
 owned filings BEFORE any send.
 :func:`drain` then walks due batches through fenced conditional transitions::
 
@@ -34,15 +34,17 @@ from datetime import datetime, timedelta
 from typing import Awaitable, Callable, Optional
 from uuid import uuid4
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import case, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import Case
 
 from app.config import settings
 from app.models import Company, Filing, User, Watchlist
 from app.models.notification_delivery import (
     KIND_FILING_DIGEST,
     KIND_FILING_REALTIME,
+    REPLY_TO_STATUSES,
     STATUS_ACCEPTED,
     STATUS_AMBIGUOUS,
     STATUS_CLAIMED,
@@ -90,6 +92,7 @@ class PreparedSend:
     html: str
     text: Optional[str]  # the frozen text part; None on a batch frozen before it (E110), which sends its page alone
     idempotency_key: str
+    reply_to: Optional[str] = None  # None freezes header omission, not a request for the current default
     items: list[dict] = field(default_factory=list)  # digest/alert item dicts (legacy sender shape)
 
 
@@ -118,12 +121,20 @@ class DrainStats:
         }
 
 
-def payload_digest(subject: str, html: str, *, to_email: str, from_email: str, text: Optional[str] = None) -> str:
-    """The sha256 of the payload a batch sends, which its idempotency key is bound to. A batch frozen before its
-    text part (E110) holds none, and the digest leaves the text out, so it is the digest that batch was frozen with."""
+def payload_digest(
+    subject: str, html: str, *, to_email: str, from_email: str,
+    text: Optional[str] = None, reply_to: Optional[str] = None,
+) -> str:
+    """The sha256 of the payload bound to the provider key, including its frozen Reply-To.
+
+    Legacy batches have no Reply-To and may also have no text part (E110). Leaving those keys
+    out preserves their original digest and request, whether or not dispatch was attempted.
+    """
     envelope = {"to": [to_email], "from": from_email, "subject": subject, "html": html}
     if text is not None:
         envelope["text"] = text
+    if reply_to is not None:
+        envelope["reply_to"] = reply_to
     return hashlib.sha256(json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
@@ -153,7 +164,7 @@ def create_batch(
     now: Optional[datetime] = None,
     commit: bool = True,
 ) -> Optional[DeliveryBatch]:
-    """Commit the frozen payload (subject, page and text part), its idempotency key and the ordered owned
+    """Commit the frozen envelope (addresses, subject, page and text part), its idempotency key and the ordered owned
     filings, or nothing.
 
     Returns ``None`` when another batch already owns one of the filings for this user (the
@@ -165,12 +176,16 @@ def create_batch(
     if user is None or not filing_ids:
         raise ValueError("Delivery selection requires a user and at least one filing")
     to_email, from_email = user.email, settings.RESEND_FROM_EMAIL
+    reply_to = settings.RESEND_REPLY_TO_EMAIL or None
     batch = DeliveryBatch(
-        to_email=to_email, from_email=from_email, expected_item_count=len(filing_ids),
+        to_email=to_email, from_email=from_email, reply_to=reply_to, expected_item_count=len(filing_ids),
         kind=kind, user_id=user_id, channel=channel, subject=subject, body_html=html, body_text=text,
-        payload_sha256=payload_digest(subject, html, to_email=to_email, from_email=from_email, text=text),
+        payload_sha256=payload_digest(
+            subject, html, to_email=to_email, from_email=from_email, text=text, reply_to=reply_to,
+        ),
         idempotency_key=uuid4().hex,
-        status=STATUS_READY, attempts=0, created_at=now, updated_at=now,
+        status=REPLY_TO_STATUSES[STATUS_READY] if reply_to is not None else STATUS_READY,
+        attempts=0, created_at=now, updated_at=now,
     )
     batch.items = [
         DeliveryItem(user_id=user_id, filing_id=fid, channel=channel, position=i)
@@ -191,10 +206,33 @@ def create_batch(
 # Updates skip the ORM's in-Python session sync: SQLite hands back naive datetimes that the
 # 'evaluate' strategy cannot compare with the aware clock; the database decides, and callers re-read.
 
+def _states(*logical_states: str) -> tuple[str, ...]:
+    """The persisted spellings a compatible reader accepts for a logical state."""
+    return tuple(value for status in logical_states
+                 for value in ((status, REPLY_TO_STATUSES[status]) if status in REPLY_TO_STATUSES else (status,)))
+
+
+def _next_status(logical_state: str) -> str | Case[str]:
+    """Preserve the row's protocol atomically with its fenced transition.
+
+    The persisted status, never current settings or reply_to, identifies the protocol. Even a
+    NULL-tampered Reply-To must stay hidden from old readers until payload validation parks it.
+    Legacy NULL envelopes keep legacy states; either image can replay their unchanged wire bytes.
+    """
+    if logical_state not in REPLY_TO_STATUSES:
+        return logical_state
+    return case(
+        (DeliveryBatch.status.in_(tuple(REPLY_TO_STATUSES.values())), REPLY_TO_STATUSES[logical_state]),
+        else_=logical_state,
+    )
+
+
 def _transition(db: Session, batch_id: int, token: Optional[str], from_status: str, now: datetime, **values) -> bool:
     """One conditional update; True iff this worker still owned the batch in ``from_status``."""
+    if "status" in values:
+        values["status"] = _next_status(values["status"])
     stmt = update(DeliveryBatch).where(
-        DeliveryBatch.id == batch_id, DeliveryBatch.status == from_status, DeliveryBatch.owner_token == token,
+        DeliveryBatch.id == batch_id, DeliveryBatch.status.in_(_states(from_status)), DeliveryBatch.owner_token == token,
     ).values(updated_at=now, **values)
     changed = db.execute(stmt.execution_options(synchronize_session=False)).rowcount == 1
     db.commit()
@@ -205,11 +243,11 @@ def claim(db: Session, batch_id: int, owner_token: str, now: datetime) -> bool:
     """ready/retryable (due, unowned) → claimed under a short preparation lease."""
     stmt = update(DeliveryBatch).where(
         DeliveryBatch.id == batch_id,
-        DeliveryBatch.status.in_([STATUS_READY, STATUS_RETRYABLE]),
+        DeliveryBatch.status.in_(_states(STATUS_READY, STATUS_RETRYABLE)),
         DeliveryBatch.owner_token.is_(None),
         or_(DeliveryBatch.next_attempt_at.is_(None), DeliveryBatch.next_attempt_at <= now),
     ).values(
-        status=STATUS_CLAIMED, owner_token=owner_token, updated_at=now,
+        status=_next_status(STATUS_CLAIMED), owner_token=owner_token, updated_at=now,
         lease_expires_at=now + timedelta(seconds=settings.DELIVERY_CLAIM_TTL_SECONDS),
     )
     changed = db.execute(stmt.execution_options(synchronize_session=False)).rowcount == 1
@@ -220,12 +258,12 @@ def claim(db: Session, batch_id: int, owner_token: str, now: datetime) -> bool:
 def authorize_send(db: Session, batch_id: int, owner_token: str, now: datetime) -> bool:
     """claimed → sending. Committed before any network I/O; anchors the replay window once."""
     stmt = update(DeliveryBatch).where(
-        DeliveryBatch.id == batch_id, DeliveryBatch.status == STATUS_CLAIMED,
+        DeliveryBatch.id == batch_id, DeliveryBatch.status.in_(_states(STATUS_CLAIMED)),
         DeliveryBatch.owner_token == owner_token, DeliveryBatch.lease_expires_at > now,
         or_(DeliveryBatch.first_dispatch_at.is_(None),
             DeliveryBatch.first_dispatch_at > now - timedelta(seconds=settings.DELIVERY_REPLAY_WINDOW_SECONDS)),
     ).values(
-        status=STATUS_SENDING, attempts=DeliveryBatch.attempts + 1, updated_at=now,
+        status=_next_status(STATUS_SENDING), attempts=DeliveryBatch.attempts + 1, updated_at=now,
         first_dispatch_at=func.coalesce(DeliveryBatch.first_dispatch_at, now),
         lease_expires_at=now + timedelta(seconds=settings.DELIVERY_SEND_TTL_SECONDS),
     )
@@ -257,7 +295,7 @@ def finalize_accepted(db: Session, batch: DeliveryBatch, owner_token: str, provi
     from app.services.filing_scan_service import _advance_watermark, _write_log  # single source of truth
 
     stmt = update(DeliveryBatch).where(
-        DeliveryBatch.id == batch.id, DeliveryBatch.status == STATUS_SENDING, DeliveryBatch.owner_token == owner_token,
+        DeliveryBatch.id == batch.id, DeliveryBatch.status.in_(_states(STATUS_SENDING)), DeliveryBatch.owner_token == owner_token,
     ).values(
         status=STATUS_ACCEPTED, owner_token=None, lease_expires_at=None, last_error_kind=None,
         provider_email_id=(provider_email_id or None), updated_at=now,
@@ -284,22 +322,22 @@ def expire_stale(db: Session, now: datetime, *, kind: Optional[str] = None) -> d
     counts = {"reclaimed": 0, "lease_expired": 0, "rekeyed": 0}
     window = timedelta(seconds=settings.DELIVERY_REPLAY_WINDOW_SECONDS)
     query = db.query(DeliveryBatch).filter(
-        DeliveryBatch.status.in_([STATUS_CLAIMED, STATUS_SENDING, STATUS_RETRYABLE]),
+        DeliveryBatch.status.in_(_states(STATUS_CLAIMED, STATUS_SENDING, STATUS_RETRYABLE)),
     )
     if kind is not None:
         query = query.filter(DeliveryBatch.kind == kind)
     for batch in query.all():
         lease = _aware(batch.lease_expires_at)
         first = _aware(batch.first_dispatch_at)
-        if batch.status == STATUS_CLAIMED and lease is not None and lease <= now:
+        if batch.status in _states(STATUS_CLAIMED) and lease is not None and lease <= now:
             if _transition(db, batch.id, batch.owner_token, STATUS_CLAIMED, now,
                            status=STATUS_READY, owner_token=None, lease_expires_at=None):
                 counts["reclaimed"] += 1
-        elif batch.status == STATUS_SENDING and lease is not None and lease <= now:
+        elif batch.status in _states(STATUS_SENDING) and lease is not None and lease <= now:
             # The owner may have been accepted by the provider and died before finalising.
             if park(db, batch.id, batch.owner_token, STATUS_SENDING, STATUS_AMBIGUOUS, ERROR_LEASE_EXPIRED, now):
                 counts["lease_expired"] += 1
-        elif batch.status == STATUS_RETRYABLE and first is not None and first + window <= now:
+        elif batch.status in _states(STATUS_RETRYABLE) and first is not None and first + window <= now:
             if _rekey(db, batch.id, None, STATUS_RETRYABLE, now):
                 counts["rekeyed"] += 1
     return counts
@@ -322,7 +360,7 @@ def park_and_release(
     can never leave a suppressed batch that still owns what the digest should now deliver."""
     db.query(DeliveryItem).filter(DeliveryItem.batch_id == batch_id).delete(synchronize_session=False)
     stmt = update(DeliveryBatch).where(
-        DeliveryBatch.id == batch_id, DeliveryBatch.status == STATUS_CLAIMED, DeliveryBatch.owner_token == owner_token,
+        DeliveryBatch.id == batch_id, DeliveryBatch.status.in_(_states(STATUS_CLAIMED)), DeliveryBatch.owner_token == owner_token,
     ).values(status=STATUS_SUPPRESSED, owner_token=None, lease_expires_at=None, last_error_kind=reason, updated_at=now)
     if db.execute(stmt.execution_options(synchronize_session=False)).rowcount != 1:
         db.rollback()  # lost ownership: the items stay with whoever owns the batch now
@@ -336,7 +374,7 @@ def due_batch_ids(db: Session, kind: str, now: datetime) -> list[int]:
     """Durable records only: selection never consults watchlist watermarks."""
     return [row[0] for row in db.query(DeliveryBatch.id).filter(
         DeliveryBatch.kind == kind,
-        DeliveryBatch.status.in_([STATUS_READY, STATUS_RETRYABLE]),
+        DeliveryBatch.status.in_(_states(STATUS_READY, STATUS_RETRYABLE)),
         DeliveryBatch.owner_token.is_(None),
         or_(DeliveryBatch.next_attempt_at.is_(None), DeliveryBatch.next_attempt_at <= now),
     ).order_by(DeliveryBatch.id).all()]
@@ -474,7 +512,7 @@ async def send_prepared(prepared: PreparedSend) -> Optional[str]:
     part sends none, so the provider receives the payload that batch was frozen with."""
     result = await resend_service.send_email(
         to=[prepared.to_email], subject=prepared.subject, html=prepared.html, text=prepared.text,
-        idempotency_key=prepared.idempotency_key, from_email=prepared.from_email,
+        idempotency_key=prepared.idempotency_key, from_email=prepared.from_email, reply_to=prepared.reply_to,
     )
     return str(result.get("id")) if isinstance(result, dict) and result.get("id") else None
 
@@ -519,6 +557,7 @@ async def drain(
             db.refresh(batch)
         if payload_digest(
             batch.subject, batch.body_html, to_email=batch.to_email, from_email=batch.from_email, text=batch.body_text,
+            reply_to=batch.reply_to,
         ) != batch.payload_sha256:
             if park(db, batch_id, token, STATUS_CLAIMED, STATUS_AMBIGUOUS, ERROR_PAYLOAD_DRIFT, now):
                 stats.ambiguous += 1
@@ -551,6 +590,7 @@ async def drain(
         prepared = PreparedSend(
             batch_id=batch.id, kind=batch.kind, to_email=batch.to_email, from_email=batch.from_email, name=user.full_name,
             subject=batch.subject, html=batch.body_html, text=batch.body_text, idempotency_key=batch.idempotency_key,
+            reply_to=batch.reply_to,
             items=_item_dicts(db, batch, user),
         )
         item_count = len(batch.items)

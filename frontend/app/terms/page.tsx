@@ -1,3 +1,4 @@
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { LEGAL_DATES } from '@/lib/legalDates'
@@ -34,10 +35,10 @@ export default function TermsPage() {
               These Terms of Service (&quot;Terms&quot;) govern your access to and use of EarningsNerd
               (the &quot;Service&quot;). By creating an account, joining the waitlist, or otherwise using the
               Service, you agree to be bound by these Terms and by our{' '}
-              <Link href="/privacy" className="text-brand-strong hover:underline dark:text-brand-strong-dark">
+              <Link href="/privacy" className="text-brand-strong hover:underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                 Privacy Policy
               </Link>
-              . If you do not agree, do not use the Service.
+              . References to &quot;we,&quot; &quot;us&quot; and &quot;our&quot; mean the operator of EarningsNerd. If you do not agree, do not use the Service.
             </p>
           </section>
 
@@ -81,7 +82,7 @@ export default function TermsPage() {
                 href="https://www.sec.gov/edgar"
                 target="_blank"
                 rel="noreferrer"
-                className="text-brand-strong hover:underline dark:text-brand-strong-dark"
+                className="text-brand-strong hover:underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 SEC EDGAR
               </a>{' '}
@@ -131,7 +132,8 @@ export default function TermsPage() {
               we do not store your full card details. Subscriptions renew automatically until cancelled,
               and you may cancel at any time effective at the end of the current billing period. Except
               where required by law, fees are non-refundable. We may change pricing or plan features on
-              reasonable notice.
+              reasonable notice. For billing questions, email{' '}
+              <a href={contactMailto('billing')} className="break-all text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.billing}</a>.
             </p>
           </section>
 
@@ -165,7 +167,7 @@ export default function TermsPage() {
               10. Limitation of liability
             </h2>
             <p className="text-text-secondary-light dark:text-text-secondary-dark">
-              TO THE MAXIMUM EXTENT PERMITTED BY LAW, EARNINGSNERD AND ITS OFFICERS, EMPLOYEES, AND
+              TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE OPERATOR OF EARNINGSNERD AND ITS
               SUPPLIERS WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR
               PUNITIVE DAMAGES, OR FOR ANY INVESTMENT OR TRADING LOSSES, ARISING OUT OF OR RELATED TO
               YOUR USE OF THE SERVICE. OUR TOTAL LIABILITY FOR ANY CLAIM WILL NOT EXCEED THE GREATER OF
@@ -192,7 +194,7 @@ export default function TermsPage() {
               You may stop using the Service and delete your account at any time from your{' '}
               <Link
                 href="/dashboard/settings"
-                className="text-brand-strong hover:underline dark:text-brand-strong-dark"
+                className="text-brand-strong hover:underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 account settings
               </Link>
@@ -227,8 +229,10 @@ export default function TermsPage() {
               15. Contact
             </h2>
             <p className="text-text-secondary-light dark:text-text-secondary-dark">
-              Questions about these Terms? Reach us through our{' '}
-              <Link href="/contact" className="text-brand-strong hover:underline dark:text-brand-strong-dark">
+              Questions about these Terms? Email{' '}
+              <a href={contactMailto('support')} className="break-all text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.support}</a>{' '}
+              or use the{' '}
+              <Link href="/contact" className="text-brand-strong hover:underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                 contact page
               </Link>
               .
