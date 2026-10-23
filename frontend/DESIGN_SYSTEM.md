@@ -964,8 +964,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  under another name. WordingChanges' review row (LabelToggle) carries the rule's one
                  disable: a second press clears its label, a state the control cannot hold (D-046). A row
                  without role="group", a wrapper imported from another file and a wrapper that renders
-                 another wrapper are outside its reach (review-checked); FeedbackWidget's type row, the one
-                 such row, is the control now (E35).
+                 another wrapper are outside its reach (review-checked); FeedbackWidget's type row, once the
+                 example named here, is the control now (E35).
                  Gate: tests/unit/segmentedControlOptionCount.spec.ts fails a SegmentedControl given
                  more than five options (MAX_SEGMENTS, which the primitive exports), and pins a site it
                  cannot count statically (FilingIndex's form filter). FilingIndex counts that set, All
