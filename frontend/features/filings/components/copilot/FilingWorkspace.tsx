@@ -67,7 +67,7 @@ function readStoredWidth(): number {
 // cookie-consent bar while that is mounted (bottom = --consent-inset) and gives up the same height
 // from its 85vh cap, so its composer stays inside the viewport above the bar (EN-02).
 const SHELL_CLASSES =
-  'fixed inset-x-0 bottom-[var(--consent-inset,0px)] z-40 flex max-h-[calc(85vh_-_var(--consent-inset,0px))] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:static lg:inset-auto lg:z-auto lg:h-full lg:max-h-none lg:w-full lg:rounded-none lg:border-y-0 lg:shadow-none'
+  'fixed inset-x-0 bottom-[var(--consent-inset,0px)] z-modal flex max-h-[calc(85vh_-_var(--consent-inset,0px))] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:static lg:inset-auto lg:z-auto lg:h-full lg:max-h-none lg:w-full lg:rounded-none lg:border-y-0 lg:shadow-none'
 
 interface FilingWorkspaceProps {
   /** Whether the Copilot pane is open (drives the two-column desktop layout + launcher). */
@@ -411,16 +411,16 @@ export default function FilingWorkspace({
               />
             )}
 
-            {/* Mobile-only scrim behind the bottom-sheet (z-scrim: above the consent bar, which it dims
-                and makes inert like any modal backdrop; below the shell's z-40). Tapping it closes the
-                sheet. `lg:hidden` keeps it out of the desktop static-pane layout entirely. */}
+            {/* Mobile-only modal scrim: covers the site header and consent bar. The shell follows
+                at the same modal rung, so DOM order keeps its controls above the scrim. Tapping it
+                closes the sheet. `lg:hidden` keeps it out of the desktop static-pane layout entirely. */}
             {paneOpen && (
               <button
                 type="button"
                 aria-hidden="true"
                 tabIndex={-1}
                 onClick={handleClose}
-                className="lg:hidden fixed inset-0 z-scrim bg-overlay"
+                className="lg:hidden fixed inset-0 z-modal bg-overlay"
               />
             )}
 

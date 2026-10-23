@@ -8,7 +8,7 @@ import { API_ORIGIN, DOCUMENT, EXCERPT, PANE, SUMMARY, answerApi, type Theme } f
  * at the launcher's centre returned "Accept All", a pointer click on it timed out, the first-run
  * coachmark pointed at the covered launcher, and with the mobile sheet open the composer textarea
  * was entirely behind the bar. Now the bar is on z-consent (32: above the page's sticky section nav,
- * beneath the sheets' z-scrim scrims and that z-40 chrome) and publishes its height as --consent-inset,
+ * beneath the sheets' z-modal scrims and that z-40 chrome) and publishes its height as --consent-inset,
  * which the launcher, the coachmark, the feedback launcher and the sheets add to their bottom offset
  * while the bar is mounted; the coachmark waits until the bar is gone and the "preferences saved"
  * confirmation is a top-centre toast.
@@ -17,7 +17,7 @@ import { API_ORIGIN, DOCUMENT, EXCERPT, PANE, SUMMARY, answerApi, type Theme } f
  * every consent choice and the launcher hit themselves and are inside the viewport, and they activate
  * by pointer and by keyboard; under a real modal (the settings dialog) the controls beneath are
  * legitimately inert and are re-tested operable after dismissal; under the mobile sheet the bar is
- * dimmed by the sheet's scrim (z-scrim, above it) and inert like any modal's backdrop — a tap there
+ * dimmed by the sheet's scrim (z-modal, above it) and inert like any modal's backdrop — a tap there
  * closes the sheet and stores nothing — and the choices are operable again once it is closed, which
  * is what aria-modal and the sheet's focus trap already tell keyboard and AT users.
  * Consent semantics are unchanged: nothing is accepted or dismissed by the layout, and a choice
@@ -130,6 +130,27 @@ const hitsScrim = (loc: Locator) =>
     const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
     return !!at && at !== el && !el.contains(at) && at.classList.contains('bg-overlay')
   })
+/** The sheet is pointer-modal over the site header too; a header tap only dismisses it. */
+async function expectHeaderUnderSheet(page: Page) {
+  const controls = page.locator('header').first().locator('a, button')
+  for (const control of await controls.all()) {
+    if (await control.isVisible()) expect(await hitsScrim(control), `header control escapes sheet scrim: ${await control.getAttribute('aria-label') ?? await control.textContent()}`).toBe(true)
+  }
+  const menu = page.getByRole('button', { name: 'Open menu' })
+  const r = await rectOf(menu)
+  const before = page.url()
+  await page.touchscreen.tap(r.x + r.w / 2, r.y + r.h / 2)
+  await expect(page.locator(PANE)).toBeHidden()
+  await expect(menu).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Close menu' })).toHaveCount(0)
+  await expect(launcher(page)).toBeFocused()
+  expect(page.url()).toBe(before)
+  expect(await stored(page)).toBeNull()
+  expect(await consentEvents(page)).toEqual([])
+  expect(await hitsItself(menu), 'the header is operable after sheet dismissal').toBe(true)
+  await launcher(page).tap()
+  await expect(page.locator(PANE)).toBeVisible()
+}
 /** The site header's bottom edge: the desktop pane sticks there (`lg:top-[var(--site-header-h,4rem)]`), at
     the header's measured height (61px at 1440 at the default text size), not at a fixed 4rem. */
 const headerBottom = (page: Page) => page.evaluate(() => Math.round(document.querySelector('header')!.getBoundingClientRect().bottom))
@@ -333,7 +354,7 @@ for (const theme of ['light', 'dark'] as const) {
       await launcher(page).tap()
       await expect(page.locator(PANE)).toBeVisible()
       await expectComposerClear(page)
-      // The sheet's scrim (z-scrim) sits above the bar: beneath this real modal every choice is inert, and the
+      // The sheet's scrim (z-modal) sits above the bar: beneath this real modal every choice is inert, and the
       // bar is dimmed, not hidden or clipped — still rendered at its full height under the scrim.
       for (const name of CONSENT_CHOICES) expect(await hitsScrim(page.getByRole('button', { name, exact: true })), `${name} is not under the scrim`).toBe(true)
       await expect(bar(page)).toBeVisible()
@@ -368,6 +389,7 @@ for (const theme of ['light', 'dark'] as const) {
       await launcher(page).tap()
       await expect(page.locator(PANE)).toBeVisible()
       await expectComposerClear(page)
+      await expectHeaderUnderSheet(page)
       const accept = page.getByRole('button', { name: 'Allow analytics', exact: true })
       expect(await hitsScrim(accept), 'Allow analytics is not under the sheet scrim').toBe(true)
       expect(await hitsItself(feedbackLauncher(page)), 'the feedback launcher is not under the sheet scrim').toBe(false)
@@ -423,6 +445,7 @@ test.describe('narrow and short viewports', () => {
         await launcher(page).click()
         await expect(page.locator(PANE)).toBeVisible()
         await expectComposerClear(page)
+        if (w < 1024) await expectHeaderUnderSheet(page)
         await page.keyboard.press('Escape')
         await expect(page.locator(PANE)).toBeHidden()
         await expectBothControlSetsUsable(page)

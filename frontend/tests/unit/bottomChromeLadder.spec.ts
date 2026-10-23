@@ -3,7 +3,7 @@
    -----------------------------------------------------------------------------
    The research chrome on the filing page is fixed bottom chrome: the "Ask this
    Filing" launcher and the first-run coachmark (z-40), the workspace / copilot
-   bottom sheets (z-40) over their scrims (z-scrim 35), and the feedback launcher
+   bottom sheets and scrims (z-modal 70), and the feedback launcher
    (z-30, bottom-left). The cookie-consent bar used to sit over all of it at
    z-50: elementFromPoint at the launcher's centre returned "Accept All", the
    coachmark pointed at a covered launcher and the mobile sheet's composer was
@@ -28,11 +28,11 @@
               is gone on dismissal. z-toast is transient only as the top-anchored
               skip link: bottom-anchored or unanchored it ranks as z-80 (the
               retired cookie toast's shape — confirmations go through sonner).
-     pinned   the workspace layers (sheets and launcher at 40 over their z-scrim
-              scrims) and the feedback launcher, each file pinned to its exact z
+     pinned   the workspace launchers and coachmark at 40 and the feedback launcher,
+              each file pinned to its exact z
               counts with a reason (the dialogAllowlist idiom). A pinned site
-              that moves up OR down fails: lowering the sheet to the consent
-              layer would put it under the bar again.
+              that moves up OR down fails. The sheets and scrims use the modal
+              rung above the header, with the sheet following its scrim in DOM order.
      other    every other fixed site must rank below z-consent: no fixed chrome
               outranks the workspace layers at the launcher corner, and nothing
               ties with the bar (equal z is DOM order).
@@ -41,7 +41,7 @@
               choice; the top-anchored site header is pinned (it sticks at the
               top of the viewport, away from the bar).
      rungs    the tokens themselves are pinned to their rungs (sticky < consent
-              < scrim < the pinned workspace level 40 < header): every check
+              < scrim < the pinned workspace level 40 < header < modal): every check
               above compares against the tokens, so consent at 45 would pass
               them all while putting the bar back over the launcher corner.
    Because a z can be written apart from its `fixed` (`clsx('fixed', 'z-50')`,
@@ -100,12 +100,12 @@ const TRANSIENT_LAYERS = new Set(['overlay', 'modal', 'toast'])
 // Shrink-only: lower a count or drop an entry when a site goes; never raise one to fit new fixed chrome.
 const PINNED: Record<string, { z: Record<string, number>; reason: string }> = {
   'features/filings/components/copilot/FilingWorkspace.tsx': {
-    z: { '40': 2, '35': 1 },
-    reason: 'the workspace sheet and the "Ask this Filing" launcher (z-40) over the mobile scrim (z-scrim, above the bar)',
+    z: { '40': 1 },
+    reason: 'the Source launcher stays above the consent bar; the open sheet and scrim use the modal rung',
   },
   'features/filings/components/copilot/AskCopilotRail.tsx': {
-    z: { '40': 2, '35': 1 },
-    reason: 'the standalone copilot sheet and launcher (z-40) over their scrim (z-scrim, above the bar)',
+    z: { '40': 1 },
+    reason: 'the standalone Ask launcher stays above the consent bar; the open sheet and scrim use the modal rung',
   },
   'features/filings/components/copilot/CopilotCoachmark.tsx': {
     z: { '40': 1 },
@@ -117,7 +117,11 @@ const PINNED: Record<string, { z: Record<string, number>; reason: string }> = {
   },
 }
 /** The pins' frozen totals: files, sites and the highest z any pinned site may use. */
-const PINNED_LIMITS = { files: 4, sites: 8, maxZ: 40 }
+const PINNED_LIMITS = { files: 4, sites: 4, maxZ: 40 }
+const MODAL_SHEETS = [
+  'features/filings/components/copilot/FilingWorkspace.tsx',
+  'features/filings/components/copilot/AskCopilotRail.tsx',
+]
 /** Inline-style offset objects of fixed chrome: their `bottom` must come from BOTTOM_CHROME_OFFSET. */
 const OFFSET_OBJECTS: Record<string, string[]> = {
   'features/filings/components/copilot/FilingWorkspace.tsx': ['LAUNCHER_OFFSET', 'COACHMARK_OFFSET'],
@@ -516,16 +520,17 @@ describe('no fixed bottom chrome outranks the workspace layers at the launcher c
     }
   })
 
-  it('the ladder tokens sit on their rungs: sticky < consent < scrim < the pinned workspace level (40) < header', () => {
+  it('the ladder tokens sit on their rungs: sticky < consent < scrim < the pinned workspace level (40) < header < modal', () => {
     // Every check in this file compares against the tokens, so the tokens themselves are pinned here:
     // consent at 45 would pass them all while putting the bar back over the launcher corner, and a
     // scrim at or below the bar would leave it bright and pointer-operable under an open sheet.
     const WORKSPACE_Z = Math.max(...Object.values(PINNED).flatMap(({ z }) => Object.keys(z).map(Number)))
-    expect(WORKSPACE_Z, 'the pinned workspace sheets / launcher / coachmark level').toBe(40)
+    expect(WORKSPACE_Z, 'the pinned launcher / coachmark level').toBe(40)
     expect(CONSENT_Z, 'the bar must outrank in-page sticky chrome').toBeGreaterThan(Number(Z_INDEX.sticky))
-    expect(SCRIM_Z, 'the sheet scrims must dim the bar').toBeGreaterThan(CONSENT_Z)
-    expect(SCRIM_Z, 'the scrims sit under the sheets they belong to').toBeLessThan(WORKSPACE_Z)
+    expect(SCRIM_Z, 'the legacy scrim rung stays above consent').toBeGreaterThan(CONSENT_Z)
+    expect(SCRIM_Z, 'the legacy scrim rung stays below the workspace').toBeLessThan(WORKSPACE_Z)
     expect(Number(Z_INDEX.header), 'the site header stays above the workspace').toBeGreaterThan(WORKSPACE_Z)
+    expect(Number(Z_INDEX.modal), 'modal sheets must cover the site header').toBeGreaterThan(Number(Z_INDEX.header))
   })
 
   it.each(Object.entries(PINNED))('%s still declares exactly its pinned fixed sites', (file, { z, reason }) => {
@@ -542,15 +547,27 @@ describe('no fixed bottom chrome outranks the workspace layers at the launcher c
     const problems: string[] = []
     for (const file of Object.keys(PINNED)) {
       const r = scan().get(file)
+      if (MODAL_SHEETS.includes(file)) {
+        const layers = r?.fixed.filter((site) => site.rank === 'transient') ?? []
+        if (layers.length !== 2) problems.push(`${file}: expected exactly two modal sites (sheet and scrim), found ${layers.length}`)
+        if (layers.filter((site) => classTokens(site.text).includes('bg-overlay')).length !== 1) {
+          problems.push(`${file}: expected exactly one modal scrim with bg-overlay`)
+        }
+        for (const site of layers) {
+          const z = classTokens(site.text).filter((token) => /(?:^|:)z-/.test(token))
+          if (!z.includes('z-modal') || z.some((token) => token !== 'z-modal' && token !== 'lg:z-auto')) {
+            problems.push(`${file}: sheet and scrim must use z-modal below lg — "${z.join(' ')}"`)
+          }
+        }
+      }
       for (const site of r?.fixed ?? []) {
-        if (site.rank === SCRIM_Z) {
-          // A pinned z-scrim site is a full-viewport scrim and nothing else: bottom chrome of its own there would sit over the bar uninset.
-          const base = classTokens(site.text).filter((token) => !token.includes(':'))
-          if (!base.includes('inset-0') || !base.includes('bg-overlay')) problems.push(`${file}: a z-scrim site that is not a full-viewport scrim (inset-0 bg-overlay) — "${site.text.slice(0, 60)}"`)
+        const tokens = classTokens(site.text).filter((token) => !token.includes(':'))
+        if (tokens.includes('bg-overlay')) {
+          // A modal scrim covers the whole viewport, including the site header and consent bar.
+          if (!tokens.includes('inset-0')) problems.push(`${file}: a scrim that is not full-viewport (inset-0) — "${site.text.slice(0, 60)}"`)
           continue
         }
-        if (site.rank !== 40) continue
-        const tokens = classTokens(site.text).filter((token) => !token.includes(':'))
+        if (site.rank !== 40 && !tokens.includes('z-modal')) continue
         const bottom = tokens.filter((token) => /^bottom-/.test(token))
         const vhCaps = tokens.filter((token) => /^max-h-\[.*vh/.test(token))
         for (const token of bottom) if (token !== INSET_ANCHOR) problems.push(`${file}: "${token}" is not ${INSET_ANCHOR}`)
