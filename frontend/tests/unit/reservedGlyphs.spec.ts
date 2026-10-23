@@ -30,7 +30,9 @@ import { heldValues, isWrite, leavesOf, memberKey, scopeResolver } from './heldV
  * nobody reads counts once, as a bare import does. The reading follows every other way a name is given a glyph too:
  * each assignment, a loop's variable, a parameter at each same-file call (a component's props and children included),
  * a callback however it is handed over, a function's return, what is put in an object or an array after it is made,
- * and React's createElement, cloneElement, Children and useMemo; a glyph handed to a same-file function or component
+ * and React's createElement, cloneElement, Children and useMemo. A Map's `get` and Reflect.get read a member where they
+ * are called, and the object Object.assign, a definition or Reflect.set puts a property on is written there, not read
+ * whole. A glyph handed to a same-file function or component
  * counts where it is read there, not where it is passed, and a glyph a same-file component draws counts at each place
  * the component is rendered (by JSX or createElement), not inside it. It counts every hand-drawn stand-in (a local component
  * named for one of them that draws its own <svg>), and the ✨ emoji, against two lists:
@@ -203,6 +205,24 @@ export function glyphUses(source: string, fileName: string): Counts {
   // A variable's or a parameter's own name declares it: not a read.
   const declares = (n: ts.Identifier) => (ts.isVariableDeclaration(n.parent) || ts.isParameter(n.parent)) && n.parent.name === n
   const ownsMember = (n: ts.Identifier) => (ts.isPropertyAccessExpression(n.parent) || ts.isElementAccessExpression(n.parent)) && n.parent.expression === n
+  /** A global's method by name (`Object.assign`, `Reflect.get`): no declaration in the file for the receiver. */
+  const globalMethod = (callee: ts.Expression, owner: string, names: string[]) =>
+    ts.isPropertyAccessExpression(callee) &&
+    ts.isIdentifier(callee.expression) &&
+    callee.expression.text === owner &&
+    !declarationOf(callee.expression) &&
+    names.includes(callee.name.text)
+  // The object Object.assign, a definition or Reflect.set puts a property on is written there, not read: what it then
+  // holds counts where it is read.
+  const writtenOn = (n: ts.Identifier) =>
+    ts.isCallExpression(n.parent) &&
+    n.parent.arguments[0] === n &&
+    (globalMethod(n.parent.expression, 'Object', ['assign', 'defineProperty', 'defineProperties']) || globalMethod(n.parent.expression, 'Reflect', ['set', 'defineProperty']))
+  // A member read through a call, a Map's `get` or Reflect.get, read as `.` reads one.
+  const readsMember = (call: ts.CallExpression) =>
+    globalMethod(call.expression, 'Reflect', ['get'])
+      ? call.arguments.length >= 2
+      : ts.isPropertyAccessExpression(call.expression) && call.expression.name.text === 'get' && call.arguments.length === 1
   const visit = (node: ts.Node): void => {
     // Every ✨ in a literal is a use, so a second one in an already-listed literal counts.
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isJsxText(node)) {
@@ -216,12 +236,20 @@ export function glyphUses(source: string, fileName: string): Counts {
       const rendered = leavesOf(values.renderOf(node))
       if (rendered.size > 0) tally(rendered)
     }
+    // What a Map's `get` or Reflect.get reads: read here once, as a member is, so the holder is not read again whole.
+    if (ts.isCallExpression(node) && readsMember(node)) {
+      const read = leavesOf(values.valueOf(node))
+      if (read.size > 0) {
+        tally(read)
+        return
+      }
+    }
     // An assignment's target is written, not read.
     if (ts.isIdentifier(node) && isReference(node) && !isWrite(node)) {
       const own = rootsOf(node)
       if (own) tally(own)
       // A holder read whole (rendered, passed on, spread, iterated) reads every glyph it holds, as often as it renders it.
-      else if (!declares(node) && !ownsMember(node)) {
+      else if (!declares(node) && !ownsMember(node) && !writtenOn(node)) {
         const holder = values.holderOf(node)
         if (holder) tally(leavesOf(holder))
       }
@@ -409,6 +437,18 @@ describe('reserved glyphs keep their one meaning', () => {
       'export const I = () => <><Mark /><Mark /><Passage /></>',
     ].join('\n')
     expect(glyphUses(destructured, 'features/zzprobe/Destructured.tsx')).toEqual({ QuotesIcon: 2, SparkleIcon: 1 })
+    // What a Map is made with, a definition defines and Reflect.set puts counts where it is read (the shared reader's
+    // reading since #1491): a Map's `get` and Reflect.get read a member as `.` does, and the object a definition or
+    // Reflect.set puts a property on is written there, not read whole. Each glyph here renders twice.
+    const collections = [
+      "import { QuotesIcon, SparkleIcon } from '@/lib/icons'",
+      "const nodes = new Map([['k', <SparkleIcon />]])",
+      'const box: Record<string, unknown> = {}',
+      "Object.defineProperty(box, 'mark', { value: <QuotesIcon /> })",
+      "Reflect.set(box, 'other', <QuotesIcon />)",
+      "export const C = () => <>{nodes.get('k')}<SparkleIcon />{box.mark}{Reflect.get(box, 'other')}</>",
+    ].join('\n')
+    expect(glyphUses(collections, 'features/zzprobe/Collections.tsx')).toEqual({ SparkleIcon: 2, QuotesIcon: 2 })
     // A destructuring default holds its glyph where the member is missing (the review's case), and so does a
     // parameter's default: Mark and G are each read twice, Glyph once.
     const defaults = [

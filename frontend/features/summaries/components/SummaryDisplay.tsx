@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge, Card, CardBody, GuidanceCard } from '@/components/ui'
 import { ChatCircleTextIcon } from '@/lib/icons'
 import { ENABLE_QUALITY_BADGE, ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { ChangeReportCard } from './ChangeReportCard'
 import { SummaryActionsBar, type SaveMutation } from './SummaryActionsBar'
 import { useSummaryExports } from '../hooks/useSummaryExports'
@@ -147,8 +148,9 @@ export function SummaryDisplay({
 
   const metadata: MetadataSections | null = rawSummary ? (rawSummary.sections as MetadataSections ?? null) : null
 
-  // "AAPL’s 10-K" when the issuer is known, else the cleaner "this 10-K".
-  const subjectName = filing.company?.ticker || filing.company?.name
+  // "AAPL’s 10-K" when the issuer is known, else the cleaner "this 10-K"; a filing with no ticker names its company in
+  // its display casing.
+  const subjectName = filing.company?.ticker || formatCompanyName(filing.company?.name)
   const askSubjectLabel = subjectName ? `${subjectName}’s ${filing.filing_type}` : `this ${filing.filing_type}`
 
   return (

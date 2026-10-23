@@ -938,10 +938,11 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  1.625rem, so it scales with the root and holds its label at 200% text. `mono` options set
                  codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
                  `fullWidth` stretches the segments across a phone row and wraps them onto another row when
-                 they do not fit (a form filter with amendments), so every option stays visible; from sm up
-                 it is one auto-width row. Optional disabled options remain visible and use native
-                 disabled semantics by default. `focusableDisabled` keeps unavailable options in
-                 the Tab order with aria-disabled and `descriptionId`; activation is refused.
+                 they do not fit (a form filter with amendments; the feedback form's type under 200% text,
+                 E169), so every option stays visible; from sm up it is one auto-width row. Optional
+                 disabled options remain visible and use native disabled semantics by default.
+                 `focusableDisabled` keeps unavailable options in the Tab order with aria-disabled and
+                 `descriptionId`; activation is refused.
                  The controlled selected option keeps its primary colourway even if unavailable,
                  so newly loaded coverage never silently changes the selected mode. This is not
                  a busy-state API.
@@ -962,8 +963,9 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  through a same-file wrapper component (one level) and through the DS Button imported
                  under another name. WordingChanges' review row (LabelToggle) carries the rule's one
                  disable: a second press clears its label, a state the control cannot hold (D-046). A row
-                 without role="group" (FeedbackWidget's type row, E35), a wrapper imported from another
-                 file and a wrapper that renders another wrapper are outside its reach (review-checked).
+                 without role="group", a wrapper imported from another file and a wrapper that renders
+                 another wrapper are outside its reach (review-checked); FeedbackWidget's type row, once the
+                 example named here, is the control now (E35).
                  Gate: tests/unit/segmentedControlOptionCount.spec.ts fails a SegmentedControl given
                  more than five options (MAX_SEGMENTS, which the primitive exports), and pins a site it
                  cannot count statically (FilingIndex's form filter). FilingIndex counts that set, All
@@ -1006,26 +1008,33 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  cannot handle Tab/Escape itself. The header icon tile takes the dialog's tone: brand for a
                  neutral prompt, a status hue for a state glyph (brand never signals a state).
                  The header's icon, title and ✕ share one row while the title can keep 9rem (144px at the
-                 default size, 288px under 200% text) beside the icon, as a Notice's glyph and text column do
-                 (Inline notice). Where it cannot (a phone at 200% text), the title goes to its own line under
-                 the icon and the ✕, at the header's full width, under the ✕ too, the column gap below the
-                 icon (gap-y-1 and the title's pt-2), and the ✕ keeps the top right; the type never steps down
-                 (E158, chief design on #1495). A header with a ✕ is a container for this
-                 ([container-type:inline-size]): below 14.25rem, the row's own width (the 2.5rem icon, two
-                 0.75rem gaps, the 9rem title and the ✕'s 1.25rem margin box), the title takes order-last and
-                 basis-full, since flex-wrap alone, as the Notice uses, would carry the ✕ down after a wrapped
-                 title. With no ✕, flex-wrap alone stacks the title, and with no icon it stays beside the ✕.
-                 The title never overlaps the ✕ or runs past the panel, and a stacked title breaks no word:
-                 under 200% text the consent dialog's is 216, 251 and 277px wide at 320, 360 and 390px (a
-                 header with no icon keeps its title beside the ✕, 64px narrower, E165).
-                 Before E158 it kept the group's width beside the ✕'s column, 152, 187 and 213px, so
-                 "preferences" (197px) broke at 320 and 360px. At the default size nothing moves: at 320, 360,
-                 390 and 1440px the icon, the title and the ✕ keep their boxes, in both themes, and at 1440px
-                 under 200% text the title still sits beside the icon. Gate: e2e reflow-200.spec.ts (the
-                 consent dialog and the email verification prompt at 390, 360 and 320px: the title beside the
-                 icon at the default size and under it at 200% text at the header's full width, under the ✕
-                 too, every painted line inside the panel and clear of the ✕, no word broken, read a character
-                 at a time, the page not scrolling sideways, nor the prompt's panel).
+                 default size, 288px under 200% text) beside what shares it, as a Notice's glyph and text
+                 column do (Inline notice). Where it cannot (a phone at 200% text), the title goes to a line of
+                 its own at the header's full width, under the icon and the ✕ or under the ✕ alone, and the ✕
+                 keeps the top right; the type never steps down (E158 and E165, chief design on #1495 and
+                 #1519). A header with a ✕ is a container for this ([container-type:inline-size]): below the
+                 row's own width the title takes order-last and basis-full, since flex-wrap alone, as the
+                 Notice uses, would carry the ✕ down after a wrapped title. That width is 11rem (the 9rem
+                 title, a 0.75rem gap and the ✕'s 1.25rem margin box), or 14.25rem with an icon (its 2.5rem and
+                 a second gap). justify-between holds the icon left and the ✕ right; with no icon, justify-end
+                 keeps the ✕ alone on its line at the right. A title under the icon sits the column gap below
+                 it (gap-y-1 and the title's pt-2); a title under the ✕ alone sits the column gap below its
+                 glyph (gap-y-1 and the title's mt-2), its box clear of the ✕'s padded hit area. With no ✕,
+                 flex-wrap alone stacks the title. The title never overlaps the ✕ or runs past the panel, and
+                 a title on its own line breaks no word the header's width holds: under 200% text the consent
+                 dialog's is 216, 251 and 277px wide at 320, 360 and 390px, where before E158 it kept the ✕'s
+                 column, 152, 187 and 213px, and "preferences" (197px) broke at 320 and 360px; before E165 the
+                 feedback dialog's kept that column too, and "feedback" (153px) broke at 320px. A word wider
+                 than the whole header still breaks, since nothing can hold it (the analysis evidence dialog's
+                 "Shareholders'", 226px, at 320px). At the default size nothing moves: at 320, 360, 390 and
+                 1440px the icon, the title and the ✕ keep their boxes, in both themes, and at 1440px under
+                 200% text the title still sits beside the icon or the ✕. Gate: e2e reflow-200.spec.ts (the
+                 consent dialog, the email verification prompt and the feedback dialog at 390, 360 and 320px:
+                 the title beside the icon, or the ✕, at the default size and on its own line at 200% text at
+                 the header's full width, under the ✕ too, every painted line inside the panel and clear of
+                 the ✕, the ✕ at the header's top right, no word broken, read a character at a time, the page
+                 not scrolling sideways, nor any dialog's panel: the feedback dialog's type row is the
+                 SegmentedControl, whose segments wrap whole, E169).
                  Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
                  viewer / workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
                  below lg, where it is a sheet, and a complementary landmark on lg+), and the calendar's
@@ -1102,8 +1111,19 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  `--site-header-h` (components/Header.tsx), the one offset under it, and is the one bar that
                  sticks at the top of the viewport. Sticky and fixed chrome below the header reads it,
                  `top-[var(--site-header-h,4rem)]`, never a fixed `top-16` or a `sticky top-0`, so a bar that
-                 wraps under enlarged text covers nothing. A page's own header (SecondaryHeader: pricing, the
-                 dashboard, the watchlist, admin) scrolls with the page on an opaque panel; only a table's
+                 wraps under enlarged text covers nothing. Where the bar wraps from lg (1024 to 1440px under
+                 200% text), the desktop controls keep the right of their own line: the logo's mr-auto and the
+                 controls' ml-auto share the bar's free space, never justify-between alone, which puts a line's
+                 only block at its start, so the notification and account menus, anchored at their right edge
+                 (right-0), open on the screen (E160; gate: tests/e2e/reflow-200.spec.ts opens each menu at
+                 1024, 1280 and 1440px under 200% text, and holds the one-line bar's nav midway at 1440px).
+                 The desktop controls block holds min-h-10, the md button's height, so the bar is one height
+                 while the auth check runs and after it, for a guest and a signed-in reader (E174; gate:
+                 tests/e2e/header-covers-nothing.spec.ts holds the check open, scrolls, and answers it at 1280
+                 and 1440px, and at 1024 and 1440px under 200% text). Where the check changes the bar's lines
+                 it does not hold yet: E173 at 1024 to 1031px, E175 under 200% text at 1280 and 390px.
+                 A page's own header (SecondaryHeader: pricing, the dashboard, the watchlist, admin) scrolls
+                 with the page on an opaque panel; only a table's
                  header cells stick at `top-0`, inside the table's own scroll box. The document's
                  `scroll-padding-top` (globals.css) reads the variable once, so a keyboard focus, an anchor
                  jump or a scrollIntoView lands below the bar, never behind it (WCAG 2.2 SC 2.4.11); a
