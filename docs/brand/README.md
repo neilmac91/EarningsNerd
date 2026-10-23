@@ -77,9 +77,10 @@ mark.
 | 6 | [06-system.md](06-system.md) | Palette measured, type, spacing, icons, imagery, the device; docs and sidecar in parity |
 | 7 | [07-voice.md](07-voice.md) | The voice guide rewritten; every microcopy site changed, with its before and after |
 | 8 | [08-applications.md](08-applications.md) | The landing page and every other surface in code; templates; the empty founder slot retired; Notable filings back under D-046's rule (E90) |
-| 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; three fixes; second score 11 of 42 (12 until D-045's rows rescored T4) |
+| 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; three fixes; second score 12 of 42, and 9 of 42 on main's build of 2026-10-23 |
 | 10 | this page | The handoff |
-| all | [decisions-log.md](decisions-log.md) | D-001 to D-028 |
+| 11 | [the sweep](#the-sweep-after-the-studio), below | The system on every surface the product has; D-030 to D-057 |
+| all | [decisions-log.md](decisions-log.md) | D-001 to D-057 |
 
 ## The pull request
 
@@ -172,11 +173,38 @@ The founder took the last four on 2026-10-17 (D-045 and D-046):
 Two items still wait on the founder: that privacy text (F4) and the founder sentence, which the
 site goes without (A5) unless the founder writes one (D6, F48).
 
+## The sweep after the studio
+
+The founder's brief of 2026-10-12 carried the system to every surface the product has, under the
+decisions logged as phase 11 (D-030 to D-057). Done, on main:
+
+- Every surface reviewed against the system in both themes at 390 and 1440 px and with the
+  browser's text doubled; the fixes are held by the design lint rules, `reflow-200.spec.ts` and
+  `text-floors.spec.ts`.
+- The device inside the product wherever the server located a passage (D-044), the landing's ruled
+  rows (D-045), and D-046's decisions, Notable filings and the Multi-Period demo among them.
+- Each rule landed with its gate and a mutation proof in its own pull request (CLAUDE.md rule 12).
+- The sameness test rescored on main's build: 9 of 42 ([09-stress-test.md](09-stress-test.md) §2).
+
+Open, each a row in `tasks/todo.md`:
+
+- Frontend: E146 (every served company name through `formatCompanyName`, in flight), E158 (dialog
+  titles under doubled text), E163 (the company page's filing index at 320 px), E154 and E155 (the
+  field and segment recipes), E79 (whether the web loads Inter's italic), E34 and E35 (chart labels
+  and the feedback row), the gate lists (E59, E64), and E162, the legal gate's reader.
+- Backend, so each merges alone and its deploy is checked (AGENTS.md §6): E78 (one form for a
+  period window, whose export half is the backend's), E75 (the device on the PDF's located
+  excerpts), E46 and E56 (the mail's copy and the contact confirmation's shell), E37 and E68 (the
+  Copilot's and the summary's backend-written sentences), E43 (a stale progress row on the
+  watchlist) and E74 (the PDF cover, after the founder's masthead decision).
+- The founder's: F4 and F48 above, F34 and F38 (Stripe's and the sign-in consent screens'
+  branding) and F53 (the retention sentences on `/privacy`).
+
 ## Closing
 
 The brief asked for a brand that could be recognised with the logo covered. On the rebuilt pages
 the thing you would recognise is small and specific: a phrase with a pale mark under it, a
 bracket in the margin, a figure beside the sentence it came from. That is the product's own habit
 made visible, which is why it will hold: nothing in it needs a campaign to stay true, only the
-rules the gates above now hold. What remains is a page layout that has yet to be as particular
-as the copy it carries.
+rules the gates above now hold. The page layout has since caught up with the copy it carries
+(D-045); what remains is in the sweep's list above.

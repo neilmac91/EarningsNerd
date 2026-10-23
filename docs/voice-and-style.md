@@ -192,9 +192,12 @@ Before editing a string, check what it's wired to:
 - Object keys (OAuth error codes), analytics event names, storage keys, and backend status
   values are not copy.
 - Shared constants (`AiDisclaimer.SEC_EDGAR_NOT_ADVICE`) are edited in place, never forked.
-- Copy duplicated across frontend and backend (the beta invite message in
-  `features/admin/lib/shareLinks.ts` and `backend/app/services/email_service.py`) must be
-  changed on both sides in the same PR.
+- Copy duplicated across frontend and backend must be changed on both sides in the same PR.
+  The beta invite is not such a pair: the message an admin copies (`DEFAULT_INVITE_MESSAGE` in
+  `features/admin/lib/shareLinks.ts`) and the invite email (`send_invite_email` in
+  `backend/app/services/email_service.py`) open with the same two sentences and differ after
+  them on purpose, the message carrying its link inline and asking not to be forwarded, the email
+  carrying a button and "No credit card required." Keep their intent aligned, not their wording.
 - Component and e2e tests assert exact copy (headings such as "Generation interrupted" and
   "Page not found" are pinned by name). Any copy change runs `npx vitest run` before push and
   updates the coupled assertion in the same PR (see `lessons/test-vitest-for-copy-changes.md`).

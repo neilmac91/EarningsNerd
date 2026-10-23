@@ -20,34 +20,41 @@ pages, with the evidence beside each score.
 
 ## 2. The sameness test, rerun
 
-Same fourteen tells, same 0 to 3 scale ([00-audit.md](00-audit.md) §2). Scored on the rebuilt
-pages after the three fixes in §3. These scores and captures precede the retirement of the empty
-Founder slot; [A5](01-interview.md#3-the-answers-in-force) records its current absence. T4 alone
-was rescored on 2026-10-18, on the production build of D-045's rows in both themes at 1440 and
-390 px and with 200% text; the rows change nothing the other tells measure (T9 reads `/pricing`,
-which keeps its cards), so their scores stand. T7's evidence was rewritten on 2026-10-21, when E90
-remounted Notable filings under D-046's rule; its score stands, for the reason in its row.
+Same fourteen tells, same 0 to 3 scale ([00-audit.md](00-audit.md) §2). After is the second
+review's score, on the rebuilt pages after the three fixes in §3; its captures (§1 and §4) precede
+the retirement of the empty Founder slot ([A5](01-interview.md#3-the-answers-in-force)), D-045's
+rows, D-046's decisions and E93's demo. Now rescores all fourteen on 2026-10-23, on the production
+build of main at `5fe15d28` (`next build`, then `next start` with CI's e2e environment and no
+backend), in both themes at 1440 and 390 px and at 390 px with the browser's text doubled
+(Chromium's `Page.setFontSizes`, as `reflow-200.spec.ts` sets it): [the landing in both themes,
+`/pricing`, the company page's lead, the phone folds and the doubled text](stress/rescore-2026-10-23.jpg).
+The evidence describes what Now scores. T4 was first rescored on 2026-10-18, on the production
+build of D-045's rows, and T7's evidence was rewritten on 2026-10-21, when E90 remounted Notable
+filings; both are folded into Now. With no backend the hero shows its checked fallback, and
+Reporting this week and Notable filings render nothing, so T7 is scored on its rule.
 
-| # | Tell | Before | After | Evidence |
-|---|---|---|---|---|
-| T1 | Default palette and type, no device; nothing recognisable without the logo | 3 | 1 | The palette and faces stay by decision (06-system.md §1 to §2). The device is now on the hero headline, the evidence row, the auth pane, the waitlist headline, the social card, the templates: cover the lockup on the [fold](stress/after-home-1440-both-themes.jpg) and the marked phrase and the bracket twins still name the house. |
-| T2 | Copy scoped into neutrality | 3 | 1 | The sixteen hedge sites are gone (07-voice.md, table). The trust strip still carries one scope statement and "Not investment advice"; both are kept on purpose, and that is the trace. |
-| T3 | The Nerd missing: no point of view, wit, human | 3 | 1 | The catch card, the quips signed "Reading the filing", the 404, the stalled line. The Founder sentence was still absent in these captures; the empty slot has since been retired under A5. |
-| T4 | Template composition | 3 | 1 | The hero keeps its two columns, the copy beside the live example, by the founder's decision (D-045); that is the trace. Every section after it is one ruled row: a hairline across the container, then the section's number, title and one line in a 224 px label column beside the content: the margin of a 10-K, so the page reads as a filing's items. The four-up strip is four claims two across inside the first row, the alternating feature rows stack in one order, the four-up extras grid is a ruled list, the two pricing cards are one table of the plans against what each includes, and the banner is one closing line. On a phone, and under 200% text at any width, the label sits above its content, as one column must. `landing-sections-mounted.spec.ts` holds the order and the rows, and the `no-four-up-grid` lint rule the grids. |
-| T5 | Sample-data drift | 3 | 1 | Every surface is FY2025 against FY2024 from one verified set, and the Financial Highlights table now shows "$7.46 / $6.08" like the Change Report two screens later ([after](stress/after-home-evidence-light.jpg)). The Multi-Period demo alone ended at FY2024 when this test ran: a pipeline snapshot, labelled. It has since been regenerated through the pipeline to end at FY2025, not edited (D-046, E93). |
-| T6 | No human, no reason, no "aha" | 3 | 1 | "The number you remember" is on the page with two real figures. The Founder slot rendered nothing in these captures and has since been retired (08-applications.md §6). |
-| T7 | Notable filings | 3 | 0 | Remounted under D-046's curation rule (E90, [08-applications.md](08-applications.md) §7): the backend's query serves only 10-K and 10-Q filings, from companies that hold a summary the filing page shows (D-052), newest first, at most six (#1437), and the row's line says what the feed is where the section said "High-signal SEC filings from the past week, across the whole market." No 8-K can reach the row, and the line promises nothing the query does not do, so the list cannot contradict its heading, which was the tell; the score stays 0. A small company can still appear when it holds a summary, which the line says. Scored on the rule and on a local render of sample rows, not on a production week. |
-| T8 | A second homepage in a second voice | 3 | 0 | The waitlist page shares the subhead, the voice and the fourth brand headline ([after, both themes](stress/after-waitlist-1440-both-themes.jpg)); no urgency, no counter at zero. |
-| T9 | Pricing off-voice and off-fact | 2 | 1 | The call to action reads the registration mode ("Request an invite" under the gate); the plan copy says what each is for. The yearly toggle still shows the derived "$32.50 /month"; it is arithmetic on the stated price and is left. |
-| T10 | Placeholder as decoration | 2 | 0 | The grey bars are gone; the counter has a floor of 25. |
-| T11 | The disclaimer forgot to be a product | 2 | 1 | The trust strip's fourth line and the Multi-Period data notes remain, both true, both the product's own scope. |
-| T12 | A boilerplate consent bar | 3 | 0 | "Cookies on this site", then what the cookies do, checked against the analytics gate ([after](stress/after-home-1440-both-themes.jpg)). |
-| T13 | The mark fails at the sizes it is used most | 2 | 2 | Unchanged by the founder's decision (D-015). The Safari pinned-tab icon is the one new small rendition. |
-| T14 | A ticker-tape element on the company page | 1 | 1 | Outside this brief's surfaces; correct and sourced. |
+| # | Tell | Before | After | Now | Evidence |
+|---|---|---|---|---|---|
+| T1 | Default palette and type, no device; nothing recognisable without the logo | 3 | 1 | 1 | The palette and faces stay by decision (06-system.md §1 to §2). The device marks the hero headline, the waitlist headline and the auth pane in C5's form, a solid sage fill under an italic phrase, as it does the social card and the templates; inside the product since D-044 it marks what the server located, the filing page's Risks rows and quotes and the Source pane's passage, and a live hero example with a located risk excerpt adds its evidence row, the bracket's twin in the margin. Cover the lockup on the [fold](stress/rescore-2026-10-23.jpg) and the marked phrase still names the house. |
+| T2 | Copy scoped into neutrality | 3 | 1 | 1 | The sixteen hedge sites are gone (07-voice.md, table). The trust strip still carries one scope statement and "Not investment advice"; both are kept on purpose, and that is the trace. |
+| T3 | The Nerd missing: no point of view, wit, human | 3 | 1 | 1 | The catch card, the loading quips signed "Reading the filing", the 404's "We looked.", the stalled line signed "Still running". No founder sentence: the slot is retired under A5, and the site goes without one unless the founder writes it (F48). |
+| T4 | Template composition | 3 | 2 | 1 | The hero keeps its two columns, the copy beside the live example, by the founder's decision (D-045); that is the trace. Every section after it is one ruled row: a hairline across the container, then the section's number, title and one line in a 224 px label column beside the content: the margin of a 10-K, so the page reads as a filing's items. The four-up strip is four claims two across inside the first row, the alternating feature rows stack in one order, the four-up extras grid is a ruled list, the two pricing cards are one table of the plans against what each includes, and the banner is one closing line. On a phone, and under 200% text at any width, the label sits above its content, as one column must. `landing-sections-mounted.spec.ts` holds the order and the rows, and the `no-four-up-grid` lint rule the grids. The waitlist page, which this tell does not score, keeps its cards: three across, four steps, two by two, three across. |
+| T5 | Sample-data drift | 3 | 1 | 0 | Every sample on every surface is Apple's FY2025 10-K against FY2024 from one verified set: the hero's fallback, the Financial Highlights table ("$7.46 / $6.08", as the Change Report shows them), the Ask and Change Report demos, the auth pane, and since E93 the Multi-Period demo, FY2020 to FY2025, "one saved run" of the pipeline (#1457), where the second review found it ending at FY2024. `landingSamplesVerified.spec.ts` holds the samples to the set, so nothing drifts. |
+| T6 | No human, no reason, no "aha" | 3 | 1 | 1 | "The number you remember" is on the page with two real figures. No founder sentence (A5); the slot is retired (08-applications.md §6), and that absence is the trace. |
+| T7 | Notable filings | 3 | 0 | 0 | Remounted under D-046's curation rule (E90, [08-applications.md](08-applications.md) §7): the backend's query serves only 10-K and 10-Q filings, from companies that hold a summary the filing page shows (D-052), newest first, at most six (#1437), and the row's line says what the feed is where the section said "High-signal SEC filings from the past week, across the whole market." No 8-K can reach the row, and the line promises nothing the query does not do, so the list cannot contradict its heading, which was the tell; the score stays 0. A small company can still appear when it holds a summary, which the line says. Scored on the rule and on a local render of sample rows, not on a production week. |
+| T8 | A second homepage in a second voice | 3 | 0 | 0 | The waitlist page shares the subhead, the voice and the fourth brand headline ([after, both themes](stress/after-waitlist-1440-both-themes.jpg)); no urgency, no counter at zero. |
+| T9 | Pricing off-voice and off-fact | 2 | 1 | 1 | The calls to action read the registration mode ("Request an invite" while access is by invite, "Upgrade to Pro"), the plan copy says what each plan is for, and the annual price reads as the offer states it, "$20 /month" billed annually at $240 (`app/pricing/prices.ts`, held by `pricingFollowsModule.spec.tsx`), where the second review left the derived "$32.50 /month". The trace is "Unlimited": the summaries' fair-use ceiling (300 a month) is stated once, in /pricing's questions (E58), and Multi-Period Analysis's (`ANALYSIS_MONTHLY_CAP`, 100 fresh runs a month) nowhere; E122 states both where "Unlimited" is read (D-050). |
+| T10 | Placeholder as decoration | 2 | 0 | 0 | The grey bars are gone; the counter has a floor of 25. |
+| T11 | The disclaimer forgot to be a product | 2 | 1 | 1 | The trust strip's fourth line and the Multi-Period data notes remain, both true, both the product's own scope. |
+| T12 | A boilerplate consent bar | 3 | 0 | 0 | "Cookies on this site", then what the cookies do, checked against the analytics gate ([after](stress/after-home-1440-both-themes.jpg)); since D-046 Vercel Web Analytics waits for the same consent (#1387). |
+| T13 | The mark fails at the sizes it is used most | 2 | 2 | 2 | Unchanged by the founder's decision (D-015). The Safari pinned-tab icon is the one new small rendition. |
+| T14 | A ticker-tape element on the company page | 1 | 1 | 0 | The market quote ("$336.64 −1.11%" in loss red beside the name) left the company page's lead under D-046 (#1388): the lead reads the exchange, the CIK with its SEC EDGAR link and the latest filing, with no live field ([the lead](stress/rescore-2026-10-23.jpg)). |
 
-**Second sameness score: 11 of 42** (from 36; 12 until T4's rescoring). Of the eleven points
-left, two sit in T13 (a protected mark), one in T14 (scope), and the rest are single traces that
-are each a decision rather than an oversight, the hero D-045 keeps among them.
+**Sameness score now: 9 of 42** (from 36 at the audit; 12 at the second review, 11 once T4 was
+rescored). Of the nine points left, two sit in T13 (a protected mark, D-015), six are single
+traces that are each a decision rather than an oversight (the device kept to its rules, the scope
+statement and the disclaimer kept on purpose, the founder sentence the site goes without, the hero
+D-045 keeps), and one waits on work already queued: "Unlimited" until E122 states Pro's ceilings.
 
 ## 3. The three weakest points, fixed
 
@@ -85,8 +92,8 @@ The October 2026 audit found two more on the hero (pub/F08, pub/F09): the eviden
 filing's words without quotation marks, and a live figure's hover and link said its figures came
 from the XBRL filing, which the hero cannot vouch for. The excerpt now wears quotation marks, and a
 live example's link reads "Source filing · check the figures on SEC EDGAR" with no XBRL hover; the
-XBRL wording stays on the checked fallback (08-applications.md §1). The sameness scores above are
-not rescored here; that waits for the records PR.
+XBRL wording stays on the checked fallback (08-applications.md §1). §2's Now column scores the hero
+as it reads after both.
 
 ## 4. The second review
 
@@ -135,6 +142,11 @@ PR #1226) found two P2s and two P3s, none in the mark's drawing, and all four ar
 - The print checks are grayscale conversions of screen renders, not proofs from a printer.
 - The phone checks are an emulated 390px viewport, not a device.
 - Simply Wall St's hero is still missing from the lineup (D-019).
-- The Multi-Period demo was regenerated through the pipeline to end at FY2025 after this test
-  (D-046, E93), so the captures here show its FY2019 to FY2024 sample; the mark's small-size
-  drawing is closed by decision.
+- The Multi-Period demo was regenerated through the pipeline to end at FY2025 after the second
+  review (D-046, E93), so §1's and §4's captures show its FY2019 to FY2024 sample and §2's rescore
+  its FY2020 to FY2025 run; the mark's small-size drawing is closed by decision.
+- §2's rescore ran with no backend: the hero shows its checked fallback, and the two rows fed by
+  the week's filings render nothing, so T7 is scored on its rule, not on a production week.
+- The doubled text is the browser's own setting in an emulated viewport. Under it, at 320 px, the
+  company page's SEC filings card paints its year rows' counts and chevrons past its own edge
+  (`tasks/todo.md` E163); the page does not scroll sideways, and at 360 px nothing crosses.

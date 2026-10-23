@@ -221,6 +221,13 @@ old snapshots without this field use a presentation-only fallback. The web admit
 at the API boundary against the dataset's quality fields, rejecting malformed or mismatched
 metadata rather than silently falling back. Notes do not change financial values or validation.
 
+A reported fact's source link opens the primary document of the filing it cites (E149):
+`trend_analysis/source_documents.py` reads the company's own filing rows by accession, with no SEC
+request, and `fact_provenance._source_url` keeps the accession folder when no row is stored or the
+stored document lies outside that folder. The snapshot hashes each looked-up link folded back to its
+folder (`folder_links`), so a filing row that lands later moves no `snapshot_id`, and a re-served
+analysis takes its citations' links as they are now (`current_links`).
+
 `presentation.py` formats selected observations after selection, preserving the model-facing
 catalogue and prompt. Its `narrative_presentation` completion member binds structured red-flag
 operands and UTF-16 text spans to the financial snapshot. Inline operand text remains in stored
