@@ -1,7 +1,7 @@
 import type { AnalysisCitation } from '../api/analysis-api'
 import { fmtScale } from '@/lib/format'
 import { compactFigure, exactFigure, exactNumber } from './figureDisplay'
-import { formatAnalysisPeriod } from './periodLabels'
+import { formatAnalysisPeriod, formatAnalysisPeriods } from './periodLabels'
 
 /** Pinned to the code-owned renderer by narrative-pane.spec.tsx until structured evidence ships. */
 export const SOURCE_OPERANDS_PREFIX = ' Source operands: '
@@ -73,7 +73,7 @@ export function currencyAmountsNeedingPrecision(text: string): ReadonlySet<strin
 
 /** Receives prose text nodes, never Markdown source, links, code or source excerpts. */
 export function compactNarrativeText(text: string, preciseAmounts: ReadonlySet<string> = currencyAmountsNeedingPrecision(text)): string {
-  return text
+  return formatAnalysisPeriods(text
     .replace(CURRENCY_AMOUNT, (original, currency: string, amount: string, perShare: string | undefined) => {
       const value = Number(amount.replaceAll(',', ''))
       const unit = currency + (perShare ? '/shares' : '')
@@ -85,8 +85,7 @@ export function compactNarrativeText(text: string, preciseAmounts: ReadonlySet<s
       // The server intentionally adds precision around its 1.00x liquidity threshold.
       // Keep that relation visible: 1.00004x above 1.00x must not become 1.00× above 1.00×.
       return `${value !== 1 && Number(rounded) === 1 ? amount : rounded}×`
-    })
-    .replace(/\b\d{4}Q[1-4]\b/g, (period) => formatAnalysisPeriod(period))
+    }))
 }
 
 interface TextNode { type: string; value?: string; children?: TextNode[] }
@@ -102,6 +101,18 @@ export function remarkCompactAnalysis(options: { preciseAmounts?: ReadonlySet<st
     visit(tree)
     const preciseAmounts = options.preciseAmounts ?? currencyAmountsNeedingPrecision(textNodes.map((node) => node.value).join(' '))
     for (const node of textNodes) node.value = compactNarrativeText(node.value!, preciseAmounts)
+  }
+}
+
+/** Period keys only, for prose whose figures the server already compacted (a structured presentation) and for the
+ * streamed text: a window key reads as its range, as everywhere else on the page. */
+export function remarkAnalysisPeriods() {
+  return (tree: TextNode) => {
+    const visit = (node: TextNode) => {
+      if (node.type === 'text' && node.value) node.value = formatAnalysisPeriods(node.value)
+      node.children?.forEach(visit)
+    }
+    visit(tree)
   }
 }
 

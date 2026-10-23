@@ -99,6 +99,10 @@ the business card, the footer and the merch; it is the positioning in six words.
   dash: split it into two sentences, use a colon, or just cut the aside.
 - **Hyphens stay** in compound terms: 10-K, real-time, cold-start, day-of.
 - **En-dashes (–) stay** in genuine numeric or date ranges: Q1–Q4, 30–60s, FY2019–FY2024.
+  The analysis page prints a period window through one formatter, `formatAnalysisWindow`
+  (`frontend/features/analysis/lib/periodLabels.ts`), in the form the exports print, and
+  `frontend/tests/unit/analysisPeriodWindows.spec.tsx` keeps a stored key ("FY2019..FY2024") and
+  a spaced range off the page.
 - **The bare `—` null-value token stays.** Tables and detail rows render `—` for missing
   data (see `MISSING_TOKENS` in `frontend/lib/format.ts`). That is a data convention, not
   prose. It is the only sanctioned em-dash, and it stands alone, in a cell or an element of

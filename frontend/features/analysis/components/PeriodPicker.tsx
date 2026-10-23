@@ -3,7 +3,7 @@
 import { useId, useMemo, useState } from 'react'
 import { SegmentedControl, countControlClass, cx, inputClasses } from '@/components/ui'
 import type { AnalysisCoverage, AnalysisMode } from '@/features/analysis/api/analysis-api'
-import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
+import { formatAnalysisPeriod, formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
 
 export interface PeriodRange {
   start: string
@@ -155,7 +155,7 @@ export default function PeriodPicker({ coverage, mode, range, onModeChange, onRa
         </div>
       )}
       {selected.length > 0 && range && <p className="font-data text-xs tabular-nums text-text-secondary-light dark:text-text-secondary-dark">
-        {formatAnalysisPeriod(range.start)} – {formatAnalysisPeriod(range.end)} · {selected.length} {noun}
+        {formatAnalysisWindow(range.start, range.end)} · {selected.length} {noun}
       </p>}
       <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
         {derivedCount > 0 && <>† Fourth-quarter flows are calculated from annual totals. </>}

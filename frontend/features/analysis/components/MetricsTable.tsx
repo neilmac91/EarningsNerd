@@ -7,7 +7,7 @@ import { directionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import { formatTableGrowth, formatTableValue, tableCurrencyLabel, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
-import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
+import { formatAnalysisPeriod, formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
 import { tableComparisonBasis, tablePeriods, tablePresentation, type TableWindow } from '@/features/analysis/lib/reportPresentation'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import DataNoteMark from './DataNoteMark'
@@ -118,9 +118,11 @@ export default function MetricsTable({
     if (dataset.mode !== 'annual') {
       return [metricColumn, ...periodColumns]
     }
+    // An en-dash already offers a line break after it, so the window wraps there in a narrow column.
+    const cagrWindow = formatAnalysisWindow(dataset.periods[0]?.key ?? '', dataset.periods.at(-1)?.key ?? '')
     const cagrColumn: Column<Row> = {
       key: 'cagr',
-      header: <><span className="sr-only">{dataset.periods[0]?.key}–{dataset.periods.at(-1)?.key} CAGR</span><span aria-hidden="true" className="block font-data normal-case tracking-normal">{dataset.periods[0]?.key}–<wbr />{dataset.periods.at(-1)?.key}<span className="block">CAGR</span></span></>,
+      header: <><span className="sr-only">{cagrWindow} CAGR</span><span aria-hidden="true" className="block font-data normal-case tracking-normal">{cagrWindow}<span className="block">CAGR</span></span></>,
       align: 'right' as const,
       numeric: true,
       render: (row: Row) => {
@@ -137,7 +139,7 @@ export default function MetricsTable({
         // cursor-help only when the tooltip actually exists — same condition for both.
         const windowTooltip =
           win.isPercent && row.series.window_pp_range
-            ? `Percentage-point change over ${row.series.window_pp_range}. CAGR doesn't apply to a percent-unit series.`
+            ? `Percentage-point change over ${formatAnalysisPeriod(row.series.window_pp_range)}. CAGR doesn't apply to a percent-unit series.`
             : undefined
         return text ? (
           <span
