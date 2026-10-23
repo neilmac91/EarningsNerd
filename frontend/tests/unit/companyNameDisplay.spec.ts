@@ -30,10 +30,11 @@ import { componentTag, heldValues, leavesOf, propertyOf, renderedLeavesOf, scope
  *
  * Values are followed through each file by the shared reader (tests/unit/heldValues.ts) with `passThrough` and
  * `state` on, so a name held in a const, a destructuring, a parameter a same-file call fills, a same-file function's
- * return, a callback, React's state (useState with what its setter is handed, useReducer with what its dispatcher is
- * handed, useActionState and react-dom's useFormState as a reducer, useOptimistic with what its setter is handed or
- * what its update function returns, a reducer the reader does not hold (another module's) giving back what React
- * hands it, as a call the reader cannot follow does; the setter and the dispatcher followed as values: destructured,
+ * return, a callback the reader holds, React's state (useState with what its setter is handed, useReducer with
+ * what its dispatcher is handed, useActionState and react-dom's useFormState as a reducer, useOptimistic with what
+ * its setter is handed or what its update function returns, a reducer the reader does not hold (another module's)
+ * giving back what React hands it, as a call the reader cannot follow does; the setter and the dispatcher followed
+ * as values: destructured,
  * read by index from the hook's pair, held by another name, put in an object, handed to a same-file component or
  * function, handed back by a custom hook, handed as the callback of an array's methods, of `Array.from` or of React's
  * `Children.map` and `Children.forEach` (each element), called through Function.prototype's `call`, `apply` or `bind`
@@ -102,8 +103,12 @@ import { componentTag, heldValues, leavesOf, propertyOf, renderedLeavesOf, scope
  * served under another field of an object a component the scan cannot read prints by key (a DataTable column with no
  * `render`, which prints `row[key]`); a name that crosses modules in a prop typed as a plain string (`label:
  * string`, or an indexed access type such as `CalendarEvent['company_name']`), or inside an object another module's
- * function hands back; what a child hands its parent's ref through useImperativeHandle; a state's setter or a
- * reducer's dispatcher handed to another module's code (a function or a component it imports) and called there,
+ * function hands back; a served name carried through an unheld callback whose return the gate does not recognize
+ * as served, when handed to an array's `map`, `flatMap`, `reduce` or `reduceRight`, to `Array.from` or to React's
+ * `Children.map` (`map(String)`, or a reducer imported from another module that returns its plain-string
+ * argument): these callback results do not conservatively hold their inputs, though a reducer's supplied initial
+ * accumulator is still held; what a child hands its parent's ref through useImperativeHandle; a state's setter or
+ * a reducer's dispatcher handed to another module's code (a function or a component it imports) and called there,
  * where the reader does not look; a name served under another field (the census fails a string field of an API type
  * named for a company, an issuer, a filer, a registrant or an entity until it joins the reading or NOT_NAMES); a
  * read by a key the scan cannot read (`ev[key]`) or from a type that declares no field for it (an index signature,
@@ -924,7 +929,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       }
     }
     const count = (mark: string) => [...forms.values()].filter((m) => m === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([168, 54, 32])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([168, 56, 38])
     const misread = [...forms].filter(([name, mark]) => named.has(name) !== (mark === 'flag')).map(([name, mark]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])

@@ -1975,3 +1975,43 @@ export function N209({ ev }: { ev: CalendarEvent }) {
 export function N231({ ev }: { ev: CalendarEvent }) {
   return new Map([['name', ev.company_name]])
 }
+
+/** N255 gap: an unheld global callback of map prints the raw name; direct String(name) is followed. */
+export function N255({ ev }: { ev: CalendarEvent }) {
+  return <span>{[ev.company_name].map(String).join(', ')}</span>
+}
+
+/** N256 gap: flatMap also takes an unheld callback's return without conservatively keeping its input. */
+export function N256({ ev }: { ev: CalendarEvent }) {
+  return <span>{[ev.company_name].flatMap(String).join(', ')}</span>
+}
+
+/** N257 gap: Array.from with an unheld mapping callback loses the served input. */
+export function N257({ ev }: { ev: CalendarEvent }) {
+  return <span>{Array.from([ev.company_name], String).join(', ')}</span>
+}
+
+/** N258 gap: React's Children.map also reads only a held or recognized callback's return. */
+export function N258({ ev }: { ev: CalendarEvent }) {
+  return <span>{Children.map([ev.company_name], String)}</span>
+}
+
+/** N259 gap: an imported reducer returns its plain-string argument, with no served initial accumulator to retain. */
+export function N259({ ev }: { ev: CalendarEvent }) {
+  return <span>{[ev.company_name].reduce(keepLatest, '')}</span>
+}
+
+/** N260 gap: reduceRight has the same unheld-reducer boundary. */
+export function N260({ ev }: { ev: CalendarEvent }) {
+  return <span>{[ev.company_name].reduceRight(keepLatest, '')}</span>
+}
+
+/** N261 clean: a formatter handed as map's callback really gives back display names, not its raw inputs. */
+export function N261({ ev }: { ev: CalendarEvent }) {
+  return <span>{[ev.company_name].map(formatCompanyName).join(', ')}</span>
+}
+
+/** N262 clean: Array.from can also take the formatter itself as its mapping callback. */
+export function N262({ ev }: { ev: CalendarEvent }) {
+  return <span>{Array.from([ev.company_name], formatCompanyName).join(', ')}</span>
+}

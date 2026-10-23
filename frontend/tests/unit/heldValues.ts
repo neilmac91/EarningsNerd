@@ -69,16 +69,17 @@ import ts from 'typescript'
  *    `<my-chart>`) is a string to React, never the binding of that name a file may declare;
  *  - a call: a same-file function's returns (an arrow's expression, each `return` outside nested functions); an
  *    array's `find`, `findLast`, `at`, `pop` and `shift` (an element), `filter`, `slice`, `splice`, `concat`, `sort`,
- *    `reverse`, `flat` and their copying forms (its elements), `map` and `flatMap` (what the callback returns) and
- *    `reduce` (its accumulator), and `values()` (its elements) and `entries()` (each element at index 1) of a value
- *    without a same-file method of that name; `Object.values`, `Object.entries` (each value at index 1),
+ *    `reverse`, `flat` and their copying forms (its elements), `map` and `flatMap` (what a held or gate-recognized
+ *    callback returns) and `reduce` (its accumulator), and `values()` (its elements) and `entries()` (each element
+ *    at index 1) of a value without a same-file method of that name; `Object.values`, `Object.entries` (each value
+ *    at index 1),
  *    `Object.assign` (its target, with every source's properties), `Object.fromEntries` (each entry's value under its
  *    key, as `new Map` holds it), `Object.defineProperty` and `Object.defineProperties` (their target, with what they
  *    define), `Object.create` (its prototype's properties, with what it defines), `Object.freeze`,
- *    `Object.seal` and `Object.preventExtensions` (what they are given), `Array.from`; React's `Children.map` (what the
- *    callback returns), `Children.toArray` and
- *    `Children.only`, `useMemo` (what its callback returns), `useCallback` (its callback), and `memo` and
- *    `forwardRef` (the component they wrap); and, for a gate that reads React's state (`state`), `useState`,
+ *    `Object.seal` and `Object.preventExtensions` (what they are given), `Array.from`; React's `Children.map`
+ *    (what a held or gate-recognized callback returns), `Children.toArray` and `Children.only`, `useMemo` (what
+ *    its callback returns), `useCallback` (its callback), and `memo` and `forwardRef` (the component they wrap); and,
+ *    for a gate that reads React's state (`state`), `useState`,
  *    `useReducer`, `useActionState` (and react-dom's `useFormState`), `useOptimistic`, `useRef`, `useDeferredValue`
  *    and `useSyncExternalStore` (what each keeps, HeldOptions.state).
  *    Wherever the reading calls a value (a callee, a callback, a hook's initializer, reducer, updater or snapshot), a
@@ -91,13 +92,13 @@ import ts from 'typescript'
  * A call is known by the name its callee is known by (knownAs), so React's utilities and the globals are read under
  * any local name: an import renamed (`Children as Kids`), a member destructured under another name, a same-file
  * alias (`const h = createElement`).
- * A gate that fails closed on code the reading cannot see (`passThrough`, the missing-value gate's) also has a call of
- * a function it does not hold (an import's, a global's, a method of a value it does not hold) hold what it is handed,
- * each argument and a method's receiver, since a formatter may give back its fallback (`formatLocalDate(value, pattern,
- * '—')`) and `String()` or `trim()` the value it is given (React's call of a reducer it does not hold among them, for a
- * gate that reads state: the state may be what the reducer is handed); a template literal, tagged or not, hold its
- * substitutions, `+` both sides and a comma expression its last; and `+=` give its target what it adds. Without it each
- * holds nothing.
+ * A gate that fails closed on code the reading cannot see (`passThrough`, the missing-value gate's) also has a
+ * call of a function it does not hold, called directly (an import's, a global's or a method of an unheld value),
+ * hold what it is handed, each argument and a method's receiver, since a formatter may give back its fallback
+ * (`formatLocalDate(value, pattern, '—')`) and `String()` or `trim()` the value it is given (React's call of a
+ * reducer it does not hold among them, for a gate that reads state: the state may be what the reducer is handed);
+ * a template literal, tagged or not, hold its substitutions, `+` both sides and a comma expression its last; and
+ * `+=` give its target what it adds. Without it each holds nothing.
  * Out of its reach, for each gate to name and plant as a gap: a value that crosses modules (an app module's export or a
  * context's, or a setter handed to another module's code), what React state holds after its setter or a reducer runs
  * unless the gate reads state (HeldOptions.state), what a child hands its parent's ref through useImperativeHandle, a
@@ -106,7 +107,10 @@ import ts from 'typescript'
  * reads `this` (the reading binds it to the descriptor, where it runs on the object), a Proxy's traps, a Map's entries
  * iterated as `[key, value]` pairs (a Map holds its values as its elements, so `forEach`, `values()` and `entries()`
  * hand on a value, and a pair destructured from the Map itself holds nothing), a Map's keys (it holds a value under a
- * key the scan can read, never the key), a promise's `then`, a generator's yields, and a utility known by its name (an
+ * key the scan can read, never the key); a callback with neither a held body nor a result supplied by HeldOptions.calls,
+ * handed to an array's `map`, `flatMap`, `reduce` or `reduceRight`, to `Array.from` or to React's `Children.map`: these
+ * callback results do not hold their inputs even with passThrough, though a reducer's supplied initial accumulator
+ * is still held; a promise's `then`, a generator's yields, and a utility known by its name (an
  * array's method, React's Children) called through Function.prototype's `call` or `apply`, which reads as a call of the
  * method. One over-count, which fails closed: a parameter is not told apart by call, so it holds what every same-file
  * call passes it, and a function called with different values reads all of them at each call (a component rendered once
