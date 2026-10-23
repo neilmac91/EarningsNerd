@@ -25,7 +25,8 @@ import { test, expect, type Page } from '@playwright/test'
  * open mobile menu, scrolled the page behind the menu at every Tab through it (from 2,350px to the top in five
  * Tabs at 390px), and a control in the bar that took focus while the page was scrolled moved the page by half a
  * screen. With the page scrolled, the menu opened at 390x844 at both text sizes keeps the page where it is through
- * every Tab in it, and a Tab out of it lands on a control the open menu does not wholly cover; at 1440x900 a focus
+ * every Tab in it, and a Tab out of it lands on a control the open menu does not wholly cover, at the default size
+ * inside the screen and below the menu (under 200% text the open menu fills the screen: E167); at 1440x900 a focus
  * on the bar's logo or theme toggle leaves the page where it is.
  *
  * 200% text is Chromium's own text setting (`Page.setFontSizes`, as tests/e2e/reflow-200.spec.ts doubles it), not
@@ -228,6 +229,15 @@ test.describe("the site header's own stops hold the page in place", () => {
           const now = await focusState(page)
           if (!now.inHeader) {
             expect(now.bottom, `${name}: a Tab out of the open menu lands on ${now.label} at ${now.top.toFixed(0)} to ${now.bottom.toFixed(0)}px, wholly under a header ending at ${now.barBottom.toFixed(0)}px`).toBeGreaterThan(now.barBottom + 0.5)
+            // At the default size the open menu leaves room below it, and the control lands there, inside the screen. Under
+            // 200% text the menu fills the screen and stays open, so the control lands past its foot: E167 closes the menu
+            // when focus leaves it, and then holds this at both sizes.
+            if (!doubled) {
+              expect(
+                [now.top >= now.barBottom - 0.5, now.bottom <= 844.5],
+                `${name}: a Tab out of the open menu lands on ${now.label} at ${now.top.toFixed(0)} to ${now.bottom.toFixed(0)}px, inside the screen and below the open menu ending at ${now.barBottom.toFixed(0)}px`,
+              ).toEqual([true, true])
+            }
             break
           }
           tabs++
