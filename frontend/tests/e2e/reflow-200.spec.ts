@@ -2,6 +2,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
 import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
 import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
 import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
+import { ACCESS_COPY } from '../../features/marketing/lib/access'
 
 /**
  * No sideways scroll at 200% text on a phone. At 390x844, at the default text size and with the
@@ -1667,14 +1668,15 @@ for (const viewport of [{ width: 768, height: 1024 }, { width: 834, height: 1194
   })
 }
 
-/** The site header's two menus on a desktop at 200% text, signed in (E160). With the text doubled the bar wraps at 1024,
-    1280 and 1440px, and the desktop controls (theme toggle, notification bell, account menu) take a line of their own
-    below the logo. Under the bar's justify-between a line's only block sits at its start, so the bell sat 160px from the
-    left edge and its menu, 20rem wide and anchored at the bell's right edge (right-0), spanned -408 to 232px, and the
-    account menu -108 to 372px, every item losing its first letters. The logo's mr-auto and the controls' ml-auto keep
-    the controls at the right of their line, so each menu opens inside the screen: at 1024px the bell's 180 to 820px and
-    the account menu's 480 to 960px. Each open menu's box, and every painted line of its text, lies inside the viewport;
-    the controls' own line below the logo is checked first, so a bar that stopped wrapping cannot pass unread. */
+/** The site header's two menus where the full bar shows at 200% text, signed in (E160). Before E173 and E175 the full
+    bar showed from lg, and with the text doubled it wrapped at 1024 to 1440px, its controls (theme toggle, notification
+    bell, account menu) on a line of their own below the logo. Under the bar's justify-between a line's only block sat at
+    its start, so the bell's menu, 20rem wide and anchored at the bell's right edge (right-0), spanned -408 to 232px and
+    the account menu -108 to 372px, every item losing its first letters; the logo's mr-auto and the controls' ml-auto
+    keep the controls at the right of their line. The full bar now shows from 72rem, 2304px with the text doubled, where
+    it keeps one line (below), and the menus open from there: at 2304 and 2560px each open menu's box, and every painted
+    line of its text, lies inside the viewport. The full bar's nav is checked first, so a width where the full bar no
+    longer shows cannot pass unread. */
 const HEADER_MENUS = [
   { menu: 'Notifications', button: /^Notifications/ },
   { menu: 'Account', button: 'Account menu' },
@@ -1701,7 +1703,21 @@ const headerMenuFit = (page: Page, menu: string) =>
     return { lines, problems }
   })
 
-for (const viewport of [{ width: 1024, height: 768 }, { width: 1280, height: 800 }, { width: 1440, height: 900 }]) {
+/** Chromium's text setting doubled on a desktop, confirmed taken: the root computes to 32px, and the full bar's 72rem
+    query (2304px with the text doubled) matches or not as the width expects. */
+async function doubleTextOnADesktop(page: Page, fullBar: boolean) {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+  await expect
+    .poll(() => page.evaluate(() => ({ root: getComputedStyle(document.documentElement).fontSize, fullBar: matchMedia('(min-width: 72rem)').matches })), {
+      message: `the 200% text setting took: the root computes to 32px and the 72rem query ${fullBar ? 'matches' : 'does not match'}`,
+    })
+    .toEqual({ root: '32px', fullBar })
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+  await page.evaluate(() => document.fonts.ready)
+}
+
+for (const viewport of [{ width: 2304, height: 1296 }, { width: 2560, height: 1440 }]) {
   test.describe(`a ${viewport.width}px desktop at 200% text, signed in, the header's menus`, () => {
     test.use({ viewport, isMobile: false, hasTouch: false })
     for (const { menu, button } of HEADER_MENUS) {
@@ -1719,18 +1735,96 @@ for (const viewport of [{ width: 1024, height: 768 }, { width: 1280, height: 800
         const trigger = page.getByRole('button', { name: button })
         await expect(trigger).toBeVisible()
         await page.evaluate(() => document.fonts.ready)
-        await doubleTextOnATablet(page)
+        await doubleTextOnADesktop(page, true)
 
-        const wrapped = await trigger.evaluate((el) => {
-          const logo = document.querySelector('header[data-site-header] a[aria-label="EarningsNerd home"]')!.getBoundingClientRect()
-          return el.getBoundingClientRect().top >= logo.bottom
-        })
-        expect(wrapped, `${viewport.width}px and 200% text: the bar wraps, the controls on a line below the logo`).toBe(true)
+        await expect(page.getByRole('banner').getByRole('navigation', { name: 'Main navigation' }), `${viewport.width}px and 200% text: the full bar shows`).toBeVisible()
         await trigger.click()
         await expect(page.getByRole('menu', { name: menu })).toBeVisible()
         const fit = await headerMenuFit(page, menu)
         expect(fit.lines, `the ${menu} menu's text lines read at ${viewport.width}px`).toBeGreaterThanOrEqual(2)
         expect(fit.problems, `the ${menu} menu at ${viewport.width}px and 200% text`).toEqual([])
+      })
+    }
+  })
+}
+
+/** The site header's two bars switch at one width, 72rem (components/Header.tsx; E173 and E175, chief design on #1544,
+    comment 6375980005): 1152px at the default size and 2304px with the text doubled. Below it the compact bar shows,
+    its menu button and, opened, its menu, while the full bar's nav and controls are display:none; from it, the other way
+    round, a menu left open included. At the threshold the full bar keeps one line with its widest settled controls: a
+    signed-in reader's, and a guest's with either access mode's account link (ACCESS_COPY's cta, set into the link as a
+    copy fixture, since the build answers one mode). So the auth check never changes the bar's lines. Before, the full
+    bar showed from lg, 1024px at any text size: a guest's row, about 1030px, wrapped at 1024 to 1031px (E173), and with
+    the text doubled the bar wrapped at 1024 to 1440px, where the placeholder could share a line the settled controls
+    could not (E175). */
+const ACCOUNT_FULL = new RegExp(`^(${ACCESS_COPY.invite.cta}|${ACCESS_COPY.public.cta})$`)
+/** The full bar's line: its three blocks (the logo, the nav and the desktop controls) are on one line when their middles
+    lie within a pixel of each other, as items-center lays out one line; a wrapped bar sets a block a row lower. */
+const fullBarLine = (page: Page) =>
+  page.locator('header[data-site-header]').evaluate((header) => {
+    const blocks = [...header.firstElementChild!.children].filter((el) => getComputedStyle(el).display !== 'none')
+    const middles = blocks.map((el) => {
+      const box = el.getBoundingClientRect()
+      return box.top + box.height / 2
+    })
+    return { blocks: blocks.length, spread: Math.round(Math.max(...middles) - Math.min(...middles)) }
+  })
+
+for (const { below, at, doubled } of [
+  { below: 1151, at: 1152, doubled: false },
+  { below: 2303, at: 2304, doubled: true },
+] as const) {
+  const size = doubled ? '200% text' : 'the default text size'
+  test.describe(`the site header's two bars at ${size}`, () => {
+    test.use({ viewport: { width: below, height: 900 }, isMobile: false, hasTouch: false })
+    for (const who of ['guest', 'reader'] as const) {
+      test(`${who === 'guest' ? 'a guest' : 'a signed-in reader'} gets the compact bar at ${below}px and the full bar, on one line, at ${at}px`, async ({ page, baseURL }) => {
+        await page.addInitScript((reader) => {
+          try {
+            localStorage.setItem('theme', 'light')
+            if (reader) localStorage.setItem('en_session_active', '1')
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+          } catch {}
+        }, who === 'reader')
+        if (who === 'reader') await answerApi(page, baseURL!, 'pro')
+        else await answerGuest(page, baseURL!)
+        await page.goto('/')
+        await h1(page)
+        await expect(page.getByRole('status', { name: 'Checking whether you are logged in', includeHidden: true })).toHaveCount(0)
+        await page.evaluate(() => document.fonts.ready)
+        if (doubled) await doubleTextOnADesktop(page, false)
+        const banner = page.getByRole('banner')
+        const nav = banner.getByRole('navigation', { name: 'Main navigation' })
+        const controls = who === 'guest' ? banner.getByRole('link', { name: 'Log in' }) : banner.getByRole('button', { name: 'Account menu' })
+
+        await expect(nav, `${below}px at ${size}: the full bar's nav is hidden`).toBeHidden()
+        await expect(controls, `${below}px at ${size}: the full bar's controls are hidden`).toBeHidden()
+        await banner.getByRole('button', { name: 'Open menu' }).click()
+        const menu = page.getByRole('navigation', { name: 'Mobile navigation' })
+        await expect(menu, `${below}px at ${size}: the compact bar's menu opens`).toBeVisible()
+
+        await page.setViewportSize({ width: at, height: 900 })
+        await expect(nav, `${at}px at ${size}: the full bar's nav shows`).toBeVisible()
+        await expect(controls, `${at}px at ${size}: the full bar's controls show`).toBeVisible()
+        await expect(banner.getByRole('button', { name: 'Close menu' }), `${at}px at ${size}: the compact bar's menu button is hidden`).toBeHidden()
+        await expect(menu, `${at}px at ${size}: the menu left open is hidden with the compact bar`).toBeHidden()
+
+        const link = banner.getByRole('link', { name: ACCOUNT_FULL })
+        for (const label of who === 'guest' ? [ACCESS_COPY.invite.cta, ACCESS_COPY.public.cta] : [null]) {
+          if (label) {
+            await link.evaluate((el, text) => {
+              const node = [...el.childNodes].find((child) => child.nodeType === Node.TEXT_NODE && child.textContent?.trim())
+              if (!node) throw new Error('the account link has no text of its own')
+              node.textContent = text
+            }, label)
+            await expect(link).toHaveText(label)
+          }
+          await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+          const line = await fullBarLine(page)
+          const what = label ? `a guest's "${label}"` : "a signed-in reader's controls"
+          expect(line.blocks, `${at}px at ${size}, ${what}: the logo, the nav and the controls show`).toBe(3)
+          expect(line.spread, `${at}px at ${size}, ${what}: the full bar keeps one line (its blocks' middles ${line.spread}px apart)`).toBeLessThanOrEqual(1)
+        }
       })
     }
   })

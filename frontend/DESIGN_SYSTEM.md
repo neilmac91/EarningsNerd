@@ -1111,17 +1111,25 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  `--site-header-h` (components/Header.tsx), the one offset under it, and is the one bar that
                  sticks at the top of the viewport. Sticky and fixed chrome below the header reads it,
                  `top-[var(--site-header-h,4rem)]`, never a fixed `top-16` or a `sticky top-0`, so a bar that
-                 wraps under enlarged text covers nothing. Where the bar wraps from lg (1024 to 1440px under
-                 200% text), the desktop controls keep the right of their own line: the logo's mr-auto and the
-                 controls' ml-auto share the bar's free space, never justify-between alone, which puts a line's
-                 only block at its start, so the notification and account menus, anchored at their right edge
-                 (right-0), open on the screen (E160; gate: tests/e2e/reflow-200.spec.ts opens each menu at
-                 1024, 1280 and 1440px under 200% text, and holds the one-line bar's nav midway at 1440px).
-                 The desktop controls block holds min-h-10, the md button's height, so the bar is one height
-                 while the auth check runs and after it, for a guest and a signed-in reader (E174; gate:
-                 tests/e2e/header-covers-nothing.spec.ts holds the check open, scrolls, and answers it at 1280
-                 and 1440px, and at 1024 and 1440px under 200% text). Where the check changes the bar's lines
-                 it does not hold yet: E173 at 1024 to 1031px, E175 under 200% text at 1280 and 390px.
+                 wraps under enlarged text covers nothing. The full bar (the nav and the desktop controls)
+                 shows from 72rem and the compact bar (the mobile actions and the menu) below it, all four on
+                 one arbitrary variant, `[@media(min-width:72rem)]`: a media query's rem is the reader's text
+                 size, 1152px at the default size and 2304px under 200% text. 72rem leaves the full bar's
+                 widest row (every flag-gated link and a guest's longest account label) room to spare in Inter
+                 and in a wider fallback, so the full bar never wraps and the auth check never changes its
+                 lines (E173, E175; gate: tests/e2e/reflow-200.spec.ts holds the compact bar at 1151 and
+                 2303px and the full bar on one line at 1152 and 2304px, with either access mode's label). The
+                 logo's mr-auto and the controls' ml-auto share the full bar's free space, never
+                 justify-between alone, which puts a line's only block at its start, so should the bar ever
+                 wrap, the notification and account menus, anchored at their right edge (right-0), still open
+                 on the screen (E160; gate: the same spec opens each menu at 2304 and 2560px under 200% text,
+                 and holds the one-line bar's nav midway at 1440px). The desktop controls block holds
+                 min-h-10, the md button's height, so the bar is one height while the auth check runs and
+                 after it, for a guest and a signed-in reader (E174; gate:
+                 tests/e2e/header-covers-nothing.spec.ts holds the check open, scrolls, and answers it in the
+                 compact bar at 1024px and the full bar at 1152 and 1440px, and under 200% text in the compact
+                 bar at 1024 and 1440px and the full bar at 2304px). Below 1024px under 200% text a guest's
+                 account link can still change the compact bar's lines as it appears (E175).
                  A page's own header (SecondaryHeader: pricing, the dashboard, the watchlist, admin) scrolls
                  with the page on an opaque panel; only a table's
                  header cells stick at `top-0`, inside the table's own scroll box. The document's

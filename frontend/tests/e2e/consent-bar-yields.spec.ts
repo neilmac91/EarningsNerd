@@ -419,7 +419,7 @@ test.describe('narrow and short viewports', () => {
         // At 320x568 the unscrolled section nav (sticky, z-sticky) sits in the bar's region: the hit
         // tests below prove the bar paints over it (a consent layer at 20 lost "Accept All" to it).
         await expectBothControlSetsUsable(page)
-        if (w < 1024) await expectMenuYields(page, false)
+        if (w < 1152) await expectMenuYields(page, false)
         await launcher(page).click()
         await expect(page.locator(PANE)).toBeVisible()
         await expectComposerClear(page)

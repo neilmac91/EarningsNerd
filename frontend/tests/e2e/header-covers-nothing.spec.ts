@@ -72,11 +72,11 @@ async function open(page: Page, baseURL: string, route: string, theme: 'light' |
   await answerGuest(page, baseURL)
   await page.goto(route)
   await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /\bdark\b/ : /^(?!.*\bdark\b)/)
-  // The header's auth check settles before a test scrolls: where the check changes the bar's lines (E173, E175) the
+  // The header's auth check settles before a test scrolls: where the check changes the phone bar's lines (E175) the
   // header still grows when it settles, and scroll anchoring then moves a page already scrolled by the difference,
   // which a test of the page holding still would read as a focus moving it; the held-check case below holds the
-  // states where the header must keep its height (E174). Hidden
-  // included: below lg the placeholder sits in the desktop block, display:none, until the check settles.
+  // states where the header must keep its height (E174, E173, E175). Hidden included: below 72rem the placeholder
+  // sits in the full bar's controls, display:none, until the check settles.
   await expect(page.getByRole('status', { name: 'Checking whether you are logged in', includeHidden: true })).toHaveCount(0)
 }
 
@@ -274,19 +274,18 @@ test.describe("the site header's own stops hold the page in place", () => {
 })
 
 /**
- * The header holds one height as its auth check settles (E174; chief design on #1538, comment 6375148655). The check
- * shows a 36px placeholder, then a guest's Log in and account links (the md button, 40px) or a signed-in reader's
- * 36px avatar, so the header was 61px while the check ran and for a reader, and 65px for a guest: when the check
- * settled for a guest the header grew 4px, and scroll anchoring moved a page already scrolled by those 4px. The
- * desktop controls block takes min-h-10, the md button's height, so every state gives the 65px header (217px at 1440px
- * and 313px at 1024px under 200% text, where it grew 8px). With the check held open the page is scrolled, then the
- * check is answered (a guest's 401, or a reader), and the header keeps its height and the page its place. The bar
- * must keep its lines in every state for the height to hold, so the states are 1280 and 1440px at the default size
- * and 1024 and 1440px under 200% text. Where the check changes the bar's lines it does not hold yet: at 1024 to
- * 1031px a guest's bar wraps where a reader's does not (E173), and under 200% text at 1280px the placeholder fits
- * beside the nav where the settled controls do not, and at 390px a guest's account link wraps (E175). At 1440px under
- * 200% text the logo and the nav share the first line in CI's fonts; in fonts where they miss it by a few pixels a
- * guest's bar gains a line as the check settles too (E175, chief design on #1544).
+ * The header holds one height as its auth check settles (E174, chief design on #1538, comment 6375148655; E173 and
+ * E175, on #1544, comment 6375980005). The check shows a 36px placeholder, then a guest's Log in and account links
+ * (the md button, 40px) or a signed-in reader's 36px avatar: the full bar's controls take min-h-10, the md button's
+ * height, so every state gives it one height. The check also changed the full bar's lines: a guest's row wrapped at
+ * 1024 to 1031px (E173), and with the text doubled the placeholder shared a line the settled controls could not
+ * (E175). The full bar now shows only from 72rem, where it keeps one line with its widest settled controls, and the
+ * compact bar below it keeps one line from 1024px. With the check held open the page is scrolled, then the check is
+ * answered (a guest's 401, or a reader), and the header keeps its height and the page its place, in the bar each width
+ * shows: the compact bar at 1024px and the full bar at 1152px (72rem) and 1440px at the default size; with the text
+ * doubled the compact bar at 1024 and 1440px and the full bar at 2304px. Below 1024px under 200% text a guest's
+ * account link can still wrap or take a row as it appears (14px at 390px, which chief design accepts, and a whole row
+ * at some widths), which stays E175's.
  */
 async function answerHeld(page: Page, baseURL: string, who: 'guest' | 'reader'): Promise<() => void> {
   const origin = new URL(baseURL).origin
@@ -318,14 +317,18 @@ const headerAt = (page: Page) =>
   page.evaluate(() => ({ height: document.querySelector('header[data-site-header]')!.getBoundingClientRect().height, scrollY: window.scrollY }))
 
 const HELD_STATES = [
-  { width: 1280, doubled: false },
-  { width: 1440, doubled: false },
-  { width: 1024, doubled: true },
-  { width: 1440, doubled: true },
-]
+  { width: 1024, doubled: false, bar: 'compact' },
+  { width: 1152, doubled: false, bar: 'full' },
+  { width: 1440, doubled: false, bar: 'full' },
+  { width: 1024, doubled: true, bar: 'compact' },
+  { width: 1440, doubled: true, bar: 'compact' },
+  { width: 2304, doubled: true, bar: 'full' },
+] as const
+/** The compact bar's account link (ACCESS_COPY's ctaShort, for either access mode). */
+const ACCOUNT_SHORT = /^(Sign up|Request invite)$/
 
-test.describe('the site header holds one height as its auth check settles (E174)', () => {
-  for (const { width, doubled } of HELD_STATES) {
+test.describe('the site header holds one height as its auth check settles (E174, E173, E175)', () => {
+  for (const { width, doubled, bar } of HELD_STATES) {
     for (const who of ['guest', 'reader'] as const) {
       test.describe(`${width}px${doubled ? ' and 200% text' : ''}, ${who === 'guest' ? 'a guest' : 'a signed-in reader'}`, () => {
         test.use({ viewport: { width, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
@@ -348,8 +351,25 @@ test.describe('the site header holds one height as its auth check settles (E174)
 
           release()
           await expect(placeholder).toHaveCount(0)
-          const settled = page.getByRole('banner').getByRole(who === 'guest' ? 'link' : 'button', { name: who === 'guest' ? 'Log in' : 'Account menu' })
-          await expect(settled, `the bar shows ${who === 'guest' ? "a guest's Log in" : "a reader's account menu"} once the check settles`).toBeVisible()
+          const banner = page.getByRole('banner')
+          const nav = banner.getByRole('navigation', { name: 'Main navigation' })
+          if (bar === 'full') {
+            await expect(nav, `the full bar at ${width}px`).toBeVisible()
+          } else {
+            await expect(banner.getByRole('button', { name: 'Open menu' }), `the compact bar at ${width}px`).toBeVisible()
+            await expect(nav, `the full bar's nav hidden at ${width}px`).toBeHidden()
+          }
+          // The settled controls: the full bar's Log in or account menu; the compact bar's account link for a guest, and
+          // for a reader, whose compact bar adds nothing, the account menu rendered in the hidden full bar.
+          if (bar === 'compact' && who === 'reader') {
+            await expect(banner.getByRole('button', { name: 'Account menu', includeHidden: true }), 'the check settled for a reader').toHaveCount(1)
+            await expect(banner.getByRole('link', { name: ACCOUNT_SHORT }), "a reader's compact bar has no account link").toHaveCount(0)
+          } else {
+            const settled = bar === 'compact'
+              ? banner.getByRole('link', { name: ACCOUNT_SHORT })
+              : banner.getByRole(who === 'guest' ? 'link' : 'button', { name: who === 'guest' ? 'Log in' : 'Account menu' })
+            await expect(settled, `the ${bar} bar shows a ${who}'s controls once the check settles`).toBeVisible()
+          }
           await settle(page)
           const after = await headerAt(page)
           expect(after.height, `the header while the check ran (${pending.height}px) and after (${after.height}px)`).toBe(pending.height)
