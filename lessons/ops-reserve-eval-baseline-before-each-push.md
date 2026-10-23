@@ -43,9 +43,9 @@ draw, about USD 0.27 a run. The readings cannot separate production traffic.
 **Evidence**:
 - `.github/workflows/ci.yml:3-7`: CI's triggers, `pull_request` with the default types and the
   dispatch.
-- `.github/workflows/ci.yml:444-454`: the job, its trigger with no draft condition, and its
-  concurrency group.
-- `.github/workflows/ci.yml:493`: the paths that start it on a pull request.
+- `.github/workflows/ci.yml`, job `eval-baseline`: its `if:`, with no draft condition, and its
+  `concurrency:` group.
+- The same job's `Detect AI-relevant changes` step: the paths that start it on a pull request.
 - `.github/workflows/copilot-eval.yml:5,54`: `copilot-eval`'s events, and its skip of drafts.
 - `tasks/code-red-20261004/runtime/control/DECISIONS-18.md:119-127`: the measured cost and the USD
   0.73 rule.
