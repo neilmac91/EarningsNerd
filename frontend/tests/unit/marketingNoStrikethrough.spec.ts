@@ -26,11 +26,12 @@ import { isLocal, lazyImport, resolveModule, routeFiles, walkImports } from './i
  * A module draws a strike-through with "line-through" (a class, or a CSS value in a style object, a template or a
  * stylesheet) or with an element that strikes through by default (<del>, <s> or <strike>, written as JSX, as markup in
  * a string, or through one of React's element makers: createElement, jsx, jsxs and jsxDEV, the compiled _jsx forms,
- * and any name a module imports or binds one to, `createElement as h`). Markup and CSS are read in any case
- * (`<DEL>`, `Line-Through`); a JSX tag in capitals names a component. Comments are not read. A class or tag built by
- * concatenation, a tag held in a variable, a maker handed in from another module, and markup set from data stay
- * review-checked; the e2e reflow spec reads the rendered evidence row's own text decoration. A Markdown renderer turns
- * data into elements no source holds (GFM's `~~` is a <del>), so the landing imports none, which a case below holds.
+ * and any name a module imports or declares one under, `createElement as h`, `const h = createElement`, a `.bind()`).
+ * Markup and CSS are read in any case (`<DEL>`, `Line-Through`); a JSX tag in capitals names a component. Comments are
+ * not read. A class or tag built by concatenation, a tag held in a variable, a maker handed in from another module or
+ * assigned after its declaration, and markup set from data stay review-checked; the e2e reflow spec reads the rendered
+ * evidence row's own text decoration. A Markdown renderer turns data into elements no source holds (GFM's `~~` is a
+ * <del>), so the landing imports none, which a case below holds.
  *
  * One module keeps its strike-through by meaning: the change report's removed words (WordingChanges). The landing
  * reaches it by one path and does not render it: only WhatChanged renders it, for a report with a wording block, and
@@ -66,21 +67,32 @@ const textOf = (node: ts.Node): string | null =>
     : null
 
 /** The names a module makes elements with: React's makers, and each name it imports or binds one to
-    (`import { createElement as h }`, `const h = React.createElement`, `const { createElement: h } = React`). */
+    (`import { createElement as h }`, `const h = React.createElement`, `const h = createElement`, a `.bind()` of one,
+    `const { createElement: h } = React`), followed until no new name turns up. */
 function elementMakers(sf: ts.SourceFile): Set<string> {
   const names = new Set(ELEMENT_MAKERS)
-  const visit = (node: ts.Node) => {
-    if (ts.isImportSpecifier(node) && ELEMENT_MAKERS.has((node.propertyName ?? node.name).text)) names.add(node.name.text)
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && ts.isPropertyAccessExpression(node.initializer)) {
-      if (ELEMENT_MAKERS.has(node.initializer.name.text)) names.add(node.name.text)
+  const maker = (node: ts.Expression): boolean => {
+    if (ts.isIdentifier(node)) return names.has(node.text)
+    if (ts.isPropertyAccessExpression(node)) return ELEMENT_MAKERS.has(node.name.text) || names.has(node.name.text)
+    // `createElement.bind(React)`
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'bind') {
+      return maker(node.expression.expression)
     }
-    if (ts.isBindingElement(node) && ts.isIdentifier(node.name)) {
-      const taken = node.propertyName && ts.isIdentifier(node.propertyName) ? node.propertyName.text : node.name.text
-      if (ELEMENT_MAKERS.has(taken)) names.add(node.name.text)
-    }
-    ts.forEachChild(node, visit)
+    return ts.isParenthesizedExpression(node) && maker(node.expression)
   }
-  visit(sf)
+  for (let size = -1; size !== names.size; ) {
+    size = names.size
+    const visit = (node: ts.Node) => {
+      if (ts.isImportSpecifier(node) && ELEMENT_MAKERS.has((node.propertyName ?? node.name).text)) names.add(node.name.text)
+      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && maker(node.initializer)) names.add(node.name.text)
+      if (ts.isBindingElement(node) && ts.isIdentifier(node.name)) {
+        const taken = node.propertyName && ts.isIdentifier(node.propertyName) ? node.propertyName.text : node.name.text
+        if (ELEMENT_MAKERS.has(taken)) names.add(node.name.text)
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(sf)
+  }
   return names
 }
 
@@ -232,6 +244,8 @@ describe('the landing page strikes through no figure', () => {
     ['an element made by a compiled module’s maker', `export const A = () => _jsxs('strike', { children: ['$391.0B'] })`],
     ['an element made by a maker held in a constant', `const make = React.createElement\nexport const A = () => make('del', null, '$391.0B')`],
     ['an element made by a maker taken from React', `const { createElement: make } = React\nexport const A = () => make('del', null, '$391.0B')`],
+    ['an element made by an imported maker bound to a name', `import { createElement } from 'react'\nconst h = createElement\nexport const A = () => h('del', null, '$391.0B')`],
+    ['an element made by a bound maker', `const h = React.createElement.bind(React)\nexport const A = () => h('s', null, '$391.0B')`],
   ])('fails a planted %s', (_, source) => {
     expect(strikesIn('features/x/Planted.tsx', source)).toBe(true)
   })

@@ -74,8 +74,9 @@ def test_the_page_badge_keys_on_the_reasons_this_writes(monkeypatch):
 
 
 # Every reason the quality check writes, as written. The page's partial badge shows the first, on one line that does
-# not wrap, and frontend/tests/unit/summary-quality-badge.spec.tsx measures each against a phone's width: a new or
-# reworded reason is measured there first, and given the badge's own words (SummaryDisplay BADGE_WORDS) if it is long.
+# not wrap, and frontend/tests/unit/summary-quality-badge.spec.tsx counts each, as a first reason, against the
+# characters measured to fit a phone: a new or reworded reason is counted there first, and given the badge's own words
+# (SummaryDisplay BADGE_WORDS) if it is long.
 BADGE_MEASURED_REASONS = {
     "filing grounding unavailable: no usable excerpt or numeric XBRL data",
     "financial figures not grounded in SEC XBRL data",
@@ -101,7 +102,11 @@ def test_each_reason_the_badge_may_show_is_one_its_spec_measures():
     }
     assert written == BADGE_MEASURED_REASONS
     spec = (Path(__file__).resolve().parents[3] / "frontend/tests/unit/summary-quality-badge.spec.tsx").read_text()
+    counted = re.search(r"const firsts = \[\n(.*?)\n\s*\]\n", spec, re.S)
+    assert counted, "the badge spec lists the reasons it counts in `firsts`"
+    # The badge shows a list's first reason, so each counted reason is the first string of an entry.
+    firsts = re.findall(r"^\s*\['([^']*)'", counted.group(1), re.M)
     for reason in BADGE_MEASURED_REASONS:
-        measured = re.escape(reason).replace(re.escape("{}"), r"\d+")
-        assert re.search(measured, spec), f"the badge spec measures {reason!r}"
+        shape = re.escape(reason).replace(re.escape("{}"), r"\d+")
+        assert any(re.fullmatch(shape, first) for first in firsts), f"the badge spec counts {reason!r} as a first reason"
 

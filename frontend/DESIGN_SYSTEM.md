@@ -1250,7 +1250,8 @@ Filing identity  <FilingIdentity filing>  (features/filings, 2026-10 critique P-
                  checkable figures match the filing · 1 corrected from the filing · 3 of 4 risk excerpts
                  located in the filing text · 1 withheld"; the check glyph only when nothing was left
                  unmatched. Checkable = the rows the server could check (`source_checkable`: a whole label
-                 it maps to a concept of at least $1M, its figure a displayed number with its scale, in a
+                 it maps to a concept of at least a million in the filing's currency, its figure a displayed
+                 number with its scale, in a
                  currency the filing's data can confirm or refute and dated to the filed period if dated,
                  every prior it shows checkable too, and, where a figure differs, a label that names the filed
                  line, `_EXACT_SCOPE_TAGS`); corrected = the rows whose figure differed from the filed line its

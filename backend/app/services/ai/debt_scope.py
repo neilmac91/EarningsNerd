@@ -54,8 +54,6 @@ from app.services.edgar.debt_concepts import (
 # The scope phrase used when a balance exists but its concept is not admissible (an issuer
 # extension, an unrecognized namespace, or a pre-slice cached row with no recorded concept).
 UNKNOWN_SCOPE_PHRASE = "reported debt balance of unestablished maturity scope"
-# The grounding's label for a printed balance whose scope its concept does not establish.
-UNAVAILABLE_SCOPE_LABEL = "Debt Balance (maturity scope unavailable)"
 
 # Borrowing scopes a complete partition could still be missing, in the order they are named when
 # absent. `SCOPE_CURRENT_ALL` is omitted deliberately: it is the IFRS spelling of the two US-GAAP
@@ -305,12 +303,7 @@ def debt_balance_label(view: DebtScopeView) -> str:
     selected = view.selected_balance
     if selected is not None and selected.scope:
         return f"Debt — {SCOPE_PHRASE[selected.scope]}"
-    return UNAVAILABLE_SCOPE_LABEL
-
-
-# Every label ``debt_balance_label`` gives, which the figure check reads as the debt line it names
-# (``provenance_service._SOURCE_EXTRA_KEYS``).
-DEBT_BALANCE_LABELS = frozenset({*(f"Debt — {phrase}" for phrase in SCOPE_PHRASE.values()), UNAVAILABLE_SCOPE_LABEL})
+    return "Debt Balance (maturity scope unavailable)"
 
 
 def debt_grounding_lines(view: DebtScopeView, format_amount: Any) -> List[str]:

@@ -91,10 +91,13 @@ describe('the figure panel', () => {
     const panel = screen.getByRole('group', { name: 'Source detail' })
     expect(panel.textContent).toContain('$133,050 million')
     expect(digitsInSage(panel)).toEqual([])
-    // The status line's check is the sage mark; the line it sits in rests in the ink.
+    // The status line's check is its one sage mark; the line it sits in rests in the ink.
     const check = panel.querySelector('svg[class~="text-brand-strong"]')
     expect(check, 'the check is in sage').not.toBeNull()
-    expect(check!.parentElement!.getAttribute('class')).toContain('text-text-primary-light')
+    const line = check!.parentElement!
+    expect(line.getAttribute('class')).toContain('text-text-primary-light')
+    const sage = [line, ...line.querySelectorAll('*')].filter((el) => (el.getAttribute('class') ?? '').split(/\s+/).some(restsInSage))
+    expect(sage).toEqual([check])
   })
 
   it.each([

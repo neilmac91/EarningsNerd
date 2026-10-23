@@ -32,7 +32,8 @@ and a screen reader never heard the strike.
   wrong-period cases (`TestFigureCheck` in `backend/tests/unit/test_provenance_service.py`).
 - Replace a figure only with the filed line its label names. A concept's extraction candidates differ
   in scope (cash with restricted cash, debt noncurrent or with current maturities, equity with
-  noncontrolling interests, "Revenues" beside net sales or net revenues), and some labels name no single
+  noncontrolling interests, "Revenues" beside net sales or net revenues, a contract-revenue total beside
+  Costco's narrower net sales), and some labels name no single
   scope ("Net income", the consolidated total or the parent's share; "Long-term debt"). A figure that
   differs from a fact of another scope, of a tag the extractor did not record, or under a label of no
   single scope may be another line's, never a wrong one: the row is left unchecked (`_EXACT_SCOPE_TAGS`,

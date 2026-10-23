@@ -28,7 +28,7 @@ from urllib.parse import quote
 from app.schemas.summary import NormalizedFact, _format_xbrl_value
 from app.services import metric_delta_service
 from app.services.facts.calendar import ANNUAL_FORMS
-from app.services.ai.debt_scope import DEBT_BALANCE_LABELS
+from app.services.ai.debt_scope import build_debt_scope_view, debt_balance_label
 from app.services.ai.recovery_context import clean_filing_source
 from app.services.summary_schema import RISK_SOURCE_CONTEXT_KEY, RISK_SOURCE_CONTEXT_VERSION
 from app.services.summary_sections import render_sections, render_sections_json, sections_to_markdown
@@ -151,10 +151,6 @@ _SOURCE_EXTRA_KEYS = {
     "net cash from operating activities": "operating_cash_flow",
     "net profit": "net_income",
     "earnings attributable to shareholders": "net_income",
-    # The labels the grounding gives the debt balance at run time (``ai.debt_scope.debt_balance_label``), each
-    # naming the scope of the very fact this check reads, as main checked them by substring. A debt figure that
-    # differs is never replaced (``_EXACT_SCOPE_TAGS``).
-    **{" ".join(label.casefold().split()): "long_term_debt" for label in DEBT_BALANCE_LABELS},
 }
 # Balance-sheet lines are instants. A 10-Q's balance sheet sets the quarter-end beside the last fiscal
 # year-end, a period the same-quarter rule (``metric_delta_service.comparable_facts``) refuses, and the
@@ -169,7 +165,8 @@ _YEN_CURRENCIES = frozenset({"JPY", "CNY"})
 # line has another stand in: cash that adds restricted cash or short-term investments, or leaves out its
 # equivalents; equity that adds noncontrolling interests; operating cash flow from continuing operations
 # alone; "Revenues", the top line, which may add other income to net sales or interest expense back to net
-# revenues (``_names_the_filed_line``). Two labels name no single scope, so no tag qualifies: "Long-term
+# revenues, and a contract-revenue tag, which may be the top line beside a narrower net sales line
+# (``_names_the_filed_line``). Two labels name no single scope, so no tag qualifies: "Long-term
 # debt", noncurrent or with its current maturities (``edgar/debt_concepts.py``), and "Net income" (or "Net
 # earnings", "Net profit"), the consolidated total or the parent's share of it, which differ by the
 # noncontrolling interests. The extractor takes the parent's share (NetIncomeLoss) first, while the 20-F
@@ -193,9 +190,15 @@ _EXACT_SCOPE_TAGS: dict[str, frozenset[str]] = {
     "shareholders_equity": frozenset({"StockholdersEquity", "EquityAttributableToOwnersOfParent"}),
     "long_term_debt": frozenset(),
 }
-# A label that names sales or a net figure names a line "Revenues" may exceed: Walmart's net sales beside its
-# membership income, a broker-dealer's net revenues beside its revenues before interest expense.
+# A label that names sales or a net figure may name a line narrower than the top line: Walmart's net sales
+# beside its membership income ("Revenues"), a broker-dealer's net revenues beside its revenues before
+# interest expense ("Revenues"), Costco's net sales of $69,154M beside its total revenue of $70,527M (tagged
+# RevenueFromContractWithCustomerExcludingAssessedTax, its FY2026 Q3 10-Q). Such a label names the filed line
+# only under a tag named for it, or as a total ("Total net sales", Apple's top line) under any tag but
+# "Revenues", which may add other income.
 _NARROWER_THAN_REVENUES_RE = re.compile(r"\b(?:sales|net)\b", re.IGNORECASE)
+_NET_LINE_TAGS = frozenset({"SalesRevenueNet", "NetSales", "RevenuesNetOfInterestExpense"})
+_TOTAL_LABEL_RE = re.compile(r"^\s*total\b", re.IGNORECASE)
 _NEVER_CHECKED_KEYS = frozenset({"eps_diluted", "net_margin", "gross_margin", "operating_margin"})
 _SOURCE_KEY_LABELS = {key: label for _pattern, key, label in _METRIC_XBRL_PATTERNS}
 _ROW_PERIOD_FACT = {"current_period": "current", "prior_period": "prior"}
@@ -689,6 +692,17 @@ def _filed_prior(
     return None, False
 
 
+def _names_the_debt_balance(label: Any, xbrl_standardized: Optional[dict]) -> bool:
+    """Whether a row's label is the one the grounding gives this filing's own debt balance at run time
+    (``ai.debt_scope.debt_balance_label``, "Debt — noncurrent long-term debt"), which names the scope of the
+    very fact the check reads; main's substring check read the two scoped ones. Another scope's label ("Debt —
+    short-term borrowings", which the grounding prints on its component lines) names another line."""
+    if not isinstance(label, str) or not isinstance(xbrl_standardized, dict) or not label.strip().casefold().startswith("debt"):
+        return False
+    given = debt_balance_label(build_debt_scope_view(xbrl_standardized))
+    return " ".join(label.casefold().split()) == " ".join(given.casefold().split())
+
+
 def _names_the_filed_line(key: str, label: Any, fact: dict) -> bool:
     """Whether a row's label names the filed fact's own line (``_EXACT_SCOPE_TAGS``), so a figure that differs
     from it may be replaced by it rather than be another line's."""
@@ -699,7 +713,9 @@ def _names_the_filed_line(key: str, label: Any, fact: dict) -> bool:
     tag = raw_tag.rsplit(":", 1)[-1] if isinstance(raw_tag, str) else None
     if tag not in tags:
         return False
-    return not (tag == "Revenues" and isinstance(label, str) and _NARROWER_THAN_REVENUES_RE.search(label) is not None)
+    if key != "revenue" or not isinstance(label, str) or _NARROWER_THAN_REVENUES_RE.search(label) is None:
+        return True
+    return tag in _NET_LINE_TAGS or (tag != "Revenues" and _TOTAL_LABEL_RE.search(label) is not None)
 
 
 def _filed_amount(fact: dict, reporting_currency: Any) -> str:
@@ -722,8 +738,9 @@ def build_metric_source(
     a checkable row, ``source_filed``: each compared period's filed amount in words, for the evidence
     panel. ``source_checkable`` says the check could run at all: the row's whole label names a
     standardized concept (``source_metric_key``) whose filed value is at least
-    ``_MIN_VERIFIABLE_XBRL_VALUE``, its current figure is a displayed number in a currency the filing's
-    data can confirm, and a prior figure it shows can be checked too (``_filed_prior``). Per-share
+    ``_MIN_VERIFIABLE_XBRL_VALUE`` in the filing's currency, its current figure is a displayed number in a
+    currency the filing's data can confirm or refute, and a prior figure it shows can be checked too
+    (``_filed_prior``). Per-share
     figures, ratios, margins and segment lines are never checked, so a tally of matched figures counts
     its denominator from these rows only. ``source_verified`` is True only when every figure the row
     shows matches at its own scale and last stated digit (``metric_delta_service.display_matches_value``):
@@ -742,6 +759,8 @@ def build_metric_source(
     }
 
     key = source_metric_key(metric_row.get("metric"))
+    if key is None and _names_the_debt_balance(metric_row.get("metric"), xbrl_standardized):
+        key = "long_term_debt"
     entry = xbrl_standardized.get(key) if key and isinstance(xbrl_standardized, dict) else None
     current = _filed_fact(entry, "current")
     shown = {field: _figure_text(_row_figure(metric_row, field)) for field in _ROW_PERIOD_FACT}
@@ -826,9 +845,13 @@ _MONTH = (
 # A number a percent, a scale or basis points follow is an amount, whatever it is shaped like: "2025 million",
 # "Note 7, 120 million", "June 25 percent", "Dec 15 bps". One shaped like a year with no unit ("1999 for the
 # year") reads as a year.
-_NO_UNIT = r"(?!\s*(?:%|(?:percent|per\s?cent|bps|basis\s+points?|thousand|million|billion|trillion|mn|bn|tn|[kmbt])\b))"
-# One number of an Item, Note or Part list, whole, and never one a unit follows ("Note 3, 25%").
-_LISTED = rf"\d+[A-C]?(?!\d){_NO_UNIT}"
+_NO_UNIT = (
+    r"(?!\s*(?:%|(?:percent|per\s?cent|percentage\s+points?|basis\s+points?|bps?|pp|ppts?|pts|thousand|million|billion"
+    r"|trillion|mn|bn|tn)\b|[kmbt]\b(?![&-])))"
+)
+# One number of an Item, Note or Part list, whole (its letter a capital, "7A", never a scale, "2b"), and never
+# one a unit or a thousands group follows ("Note 3, 25%", "Note 12, 1,250 positions").
+_LISTED = rf"\d+(?-i:[A-C])?(?!\d)(?!,\d{{3}}\b){_NO_UNIT}"
 _NON_FIGURE_NUMBER_RE = re.compile(
     rf"(?<![$€£¥\d.,])\b(?:FY|CY)\s?['’]?\d{{2}}(?:\d{{2}})?\b{_NO_UNIT}"
     rf"|\b(?:Q[1-4]|[1-4]Q|H[12]|[12]H){_PERIOD_TAIL}\b{_NO_UNIT}"
@@ -911,9 +934,14 @@ def _refresh_normalized(section: dict, xbrl_standardized: Optional[dict]) -> Non
     facts = normalized.get("metrics") if isinstance(normalized, dict) else None
     if not isinstance(facts, list):
         return
-    rows = {row.get("metric"): row for row in section["table"] if isinstance(row, dict)}
+    # Generation writes the facts in the table's order, so the k-th fact a name carries is the k-th row of that name.
+    rows: dict[str, list[dict]] = {}
+    for row in section["table"]:
+        if isinstance(row, dict) and isinstance(row.get("metric"), str):
+            rows.setdefault(row["metric"], []).append(row)
     for index, fact in enumerate(facts):
-        row = rows.get(fact.get("metric")) if isinstance(fact, dict) else None
+        name = fact.get("metric") if isinstance(fact, dict) else None
+        row = rows[name].pop(0) if isinstance(name, str) and rows.get(name) else None
         if row is None:
             continue
         operands = metric_delta_service.exact_operands(row, xbrl_standardized)
@@ -1209,15 +1237,17 @@ def enrich_raw_summary(
     has_risks = isinstance(risks, list)
     fh = sections.get(metrics_key)
     has_fh = isinstance(fh, dict) and isinstance(fh.get("table"), list)
-    # Quotes and footnotes are independent citable surfaces (T4): a summary with only those (no risks
+    # v2 quotes/footnotes are independent citable surfaces (T4): a summary with only those (no risks
     # list, no metrics table — e.g. a degraded generation or a form that populates forward signals but
-    # no standardized table) must still get its citation enrichment (v2) or lose the evidence its stored
-    # JSON carries (v1, or nothing searched), not short-circuit here.
-    has_cite = isinstance(sections.get("forward_signals"), dict) or isinstance(sections.get("notable_footnotes"), list)
-    if not has_risks and not has_fh and not has_cite:
+    # no standardized table) must still get its citation enrichment, not short-circuit here.
+    has_v2_cite = version >= 2 and (
+        isinstance(sections.get("forward_signals"), dict)
+        or isinstance(sections.get("notable_footnotes"), list)
+    )
+    if not has_risks and not has_fh and not has_v2_cite:
         return result
 
-    if cite_passages and version >= 2 and normalized_source is None:
+    if cite_passages and normalized_source is None:
         raw_source = _select_source_text(filing) if filing is not None else None
         normalized_source = normalize_for_match(raw_source)
     delta_marker = raw_summary.get(metric_delta_service.EXACT_CONTEXT_KEY)

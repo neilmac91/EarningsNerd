@@ -541,7 +541,13 @@ class TestFigureCheck:
         ("Total net revenue", "revenue", "us-gaap:Revenues", "unchecked"),
         ("Total revenues", "revenue", "us-gaap:Revenues", "replaced"),
         ("Revenue", "revenue", "us-gaap:Revenues", "replaced"),
-        ("Net sales", "revenue", REVENUE_TAG, "replaced"),
+        # A contract-revenue tag may be the top line beside a narrower net sales line: Costco's FY2026 Q3 10-Q tags
+        # its $70,527M of total revenue so, beside $69,154M of net sales. A total ("Total net sales", Apple's) is
+        # the top line, and a tag named for a net line is that line.
+        ("Net sales", "revenue", REVENUE_TAG, "unchecked"),
+        ("Total net sales", "revenue", REVENUE_TAG, "replaced"),
+        ("Total revenue", "revenue", REVENUE_TAG, "replaced"),
+        ("Net sales", "revenue", "us-gaap:SalesRevenueNet", "replaced"),
         ("Total net revenue", "revenue", "us-gaap:RevenuesNetOfInterestExpense", "replaced"),  # a bank's own total
         ("Revenue", "revenue", None, "unchecked"),  # the companyfacts path records no revenue tag
         # "Net income" names the consolidated total or the parent's share (test below), so no tag qualifies.
@@ -558,6 +564,17 @@ class TestFigureCheck:
         fact = {**_annual(10_000e6, "2025-09-27", "2024-09-29"), **({"raw_tag": tag} if tag else {})}
         out = self._check(metric, "$8.0B", "—", {"reporting_currency": "USD", key: {"current": fact}})
         assert (out["source_verified"], out["source_checkable"], out.get("source_mismatched")) == self.OUTCOMES[outcome]
+
+    def test_costcos_net_sales_are_never_replaced_by_its_total_revenue(self):
+        # The eval baselines' own rows (COST, FY2026 Q3): the standardized revenue fact is the total.
+        fact = {**_annual(70_527e6, "2026-05-10", "2026-02-16"), "raw_tag": REVENUE_TAG}
+        fh = {"table": [{"metric": "Total revenue", "current_period": "$70,527M", "prior_period": "—"},
+                        {"metric": "Net sales", "current_period": "$69,154M", "prior_period": "—",
+                         "commentary": "Net sales rose on comparable sales growth."}]}
+        total, net = prov.enrich_financial_highlights(fh, _filing(), {"reporting_currency": "USD", "revenue": {"current": fact}})["table"]
+        assert total["source_verified"] is True
+        assert (net["current_period"], net["commentary"], net["source_checkable"]) == ("$69,154M", "Net sales rose on comparable sales growth.", False)
+        assert "source_replaced" not in net and "commentary_withheld" not in net
 
     @pytest.mark.parametrize("metric, total, share, filed, currency", [
         # Alibaba's FY2026 20-F: net income CNY 102,127M, of which CNY 103,592M attributable to it (NetIncomeLoss).
@@ -702,10 +719,11 @@ class TestFigureCheck:
             period: {**fact, "currency": "CNY"} for period, fact in self.YEN["revenue"].items()}}
         assert self._check("Total net sales", "¥45.1T", "¥37.2T", renminbi)["source_verified"] is True
 
-    # The plain aliases keep the statement lines main checked by substring (the strict mapper owns none of these), each
-    # on its own concept; a dropped or mistyped alias leaves its line silently "Linked, not checked".
+    # The plain aliases read the statement lines the strict mapper owns none of: most main's substring check read, and the
+    # rest lines the prompts name or the eval baselines write ("Income from operations", "Profit for the year"), each on
+    # its own concept; a dropped or mistyped alias leaves its line silently "Linked, not checked".
     @pytest.mark.parametrize("metric, key", [
-        ("Net revenue", "revenue"), ("Net revenues", "revenue"),
+        ("Net revenue", "revenue"), ("Net revenues", "revenue"), ("Net operating revenue", "revenue"),
         ("Income from operations", "operating_income"),
         ("Total assets", "total_assets"),
         ("Cash and cash equivalents", "cash_and_equivalents"), ("Cash & cash equivalents", "cash_and_equivalents"),
@@ -785,6 +803,10 @@ class TestFiledFigureSwap:
         "Openings decreased 40 year over year.",
         "Q4 25 new stores opened.",
         "Revenue rose in March 8% on services.",
+        # A thousands group, a scale written in lower case and percentage points after a listed number.
+        "As described in Note 12, 1,250 positions were eliminated.",
+        "See Note 7, 2b impairment charges.",
+        "See Note 3, 4 percentage points came from pricing.",
     ])
     def test_a_takeaway_that_states_a_number_is_withheld(self, commentary):
         row = self._enrich({"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
@@ -808,6 +830,10 @@ class TestFiledFigureSwap:
         "q4 demand lifted the 10-k's operating income.",
         "Balances held at December 31, 2025 and June 30, 2025.",
         "Q4 '25 demand held; Items 7 and 7A explain it.",
+        # An initial is no scale: M&A, T-Mobile.
+        "Q4 M&A activity added scale.",
+        "FY2025 M&A spending rose.",
+        "Services grew on Q3 T-Mobile demand.",
     ])
     def test_a_takeaway_that_names_no_figure_stays(self, commentary):
         # Years, quarters and the filing's own Items and Notes are not figures the swap replaced.
@@ -878,6 +904,23 @@ class TestFiledFigureSwap:
         assert f"+{fact['deltaPercent']:.1f}%" == row["change_display"]
         assert (fact["currentPeriod"], fact["currentValue"], fact["priorValue"]) == (shown, 55_000_000, 50_040_000)
 
+    def test_two_rows_of_one_name_each_refresh_their_own_fact(self):
+        # Generation writes the facts in the table's order (attach_normalized_facts), so the second "Revenue" fact is
+        # the second row's: the hero never takes one row's figure beside the other's change.
+        fh = {"table": [{"metric": "Revenue", "current_period": "$400.0B", "prior_period": "$391.0B"},
+                        {"metric": "Revenue", "current_period": "$416.2B", "prior_period": "$391.0B"}],
+              "normalized": {"metrics": [{"metric": "Revenue", "currentPeriod": "$400.0B", "priorPeriod": "$391.0B", "deltaPercent": 2.3},
+                                         {"metric": "Revenue", "currentPeriod": "$416.2B", "priorPeriod": "$391.0B", "deltaPercent": 6.4}]}}
+        out = prov.enrich_financial_highlights(fh, _filing(), APPLE)
+        assert [row["current_period"] for row in out["table"]] == ["$416,161,000,000", "$416.2B"]
+        assert [(fact["currentPeriod"], round(fact["deltaPercent"], 1)) for fact in out["normalized"]["metrics"]] == [
+            ("$416,161,000,000", 6.4), ("$416.2B", 6.4)]
+
+    def test_a_row_whose_name_is_not_text_leaves_the_facts_as_stored(self):
+        fh = {"table": [{"metric": ["Revenue"], "current_period": "$416.2B"}],
+              "normalized": {"metrics": [{"metric": "Revenue", "currentPeriod": "$416.2B"}]}}
+        assert prov.enrich_financial_highlights(fh, _filing(), APPLE)["normalized"]["metrics"] == [{"metric": "Revenue", "currentPeriod": "$416.2B"}]
+
     def test_a_fact_whose_row_the_binder_did_not_compute_is_kept(self):
         # A row the check cannot bind (a segment line) keeps the fact generation stored.
         stored = {"metric": "Services net sales", "currentPeriod": "$109.2B", "priorPeriod": "$96.2B", "deltaPercent": 13.5}
@@ -898,9 +941,9 @@ class TestLabelsTheModelIsGiven:
     """Every label the model is handed for a line the figure check covers is one the check reads (the backend review
     of #1530: the prompts' own "Cash & Equivalents" went unchecked, though main had checked it). A label added to a
     prompt's Metric table (its metric, or a filing line name it quotes for the model to report), to the 6-K earnings
-    prompt's headline lines, or to the narrative's grounding block (its static labels and the debt line's run-time
-    ones) is either read by ``source_metric_key`` or named below with why, and a label named below is one the check
-    still leaves unread."""
+    prompt's headline lines, or to the narrative's grounding block is either read by ``source_metric_key`` or named
+    below with why, and a label named below is one the check still leaves unread. The debt line's run-time label is
+    read where it is the one the grounding gives the filing's own balance (the last case)."""
 
     # Concepts the check covers that it deliberately leaves unchecked.
     UNCHECKED = {"free_cash_flow": "computed, not filed", "capital_expenditures": "filers sign it either way"}
@@ -989,8 +1032,8 @@ class TestLabelsTheModelIsGiven:
 
     def test_each_label_named_above_is_still_left_unread(self):
         # The other way round (lessons/arch-structural-gates-over-prose-rules.md): an excused label that starts mapping
-        # is a figure the check reads and may replace, "Total Debt" with long-term debt's filed value, so its excuse
-        # goes with it.
+        # is a figure the check reads and may mark as matching, "Total Debt" beside long-term debt's filed value, so its
+        # excuse goes with it.
         from app.services.ai.xbrl_narrative import _XBRL_NARRATIVE_SPEC
 
         assert [label for label in self.UNMAPPED if prov.source_metric_key(label) is not None] == []
@@ -999,29 +1042,30 @@ class TestLabelsTheModelIsGiven:
         assert len(unchecked) >= 4, "each unchecked concept's own label and its grounding labels"
         assert [label for label in unchecked if prov.source_metric_key(label) is not None] == []
 
-    def test_the_debt_lines_run_time_labels_are_matched_never_replaced(self):
+    @pytest.mark.parametrize("tag", ["us-gaap:LongTermDebtNoncurrent", "us-gaap:LongTermDebt", "ifrs-full:NoncurrentBorrowings",
+                                     "acme:TermLoans", None])
+    def test_the_debt_lines_run_time_label_is_read_only_for_the_filings_own_balance(self, tag):
         # The grounding labels the debt line by the scope of its own fact at run time (debt_balance_label), never the
-        # spec's static "Long-term Debt" the test above reads, so each label names the very fact this check reads, as
-        # main checked it by substring. A figure that matches reads as matching; one that differs is left unchecked,
-        # as long-term debt always is (_EXACT_SCOPE_TAGS).
-        from app.services.ai.debt_scope import DEBT_BALANCE_LABELS, DebtObservation, DebtScopeView, debt_balance_label
+        # spec's static "Long-term Debt" the test above reads, so that label names the very fact this check reads, as
+        # main checked it by substring: a figure that matches reads as matching, one that differs is left unchecked,
+        # as long-term debt always is (_EXACT_SCOPE_TAGS). Another scope's label, which the grounding prints on its
+        # component lines, names another line, and is read for none.
+        from app.services.ai.debt_scope import build_debt_scope_view, debt_balance_label
         from app.services.edgar.debt_concepts import SCOPE_PHRASE
 
-        def balance(scope):
-            return DebtObservation(concept="us-gaap:LongTermDebt", scope=scope, basis="", value=10_000e6, instant=None, currency="USD")
-
-        views = [DebtScopeView(selected_balance=balance(scope)) for scope in SCOPE_PHRASE]
-        views += [DebtScopeView(selected_balance=balance("")), DebtScopeView()]
-        labels = {debt_balance_label(view) for view in views}
-        assert labels == DEBT_BALANCE_LABELS and len(labels) == len(SCOPE_PHRASE) + 1
-        fact = {"period": "2025-09-27", "value": 10_000e6, "form": "10-K", "currency": "USD", "raw_tag": "us-gaap:LongTermDebt"}
+        fact = {"period": "2025-09-27", "value": 10_000e6, "form": "10-K", "currency": "USD", **({"raw_tag": tag} if tag else {})}
         xbrl = {"reporting_currency": "USD", "long_term_debt": {"current": fact}}
-        for label in sorted(labels):
-            row = {"metric": label, "prior_period": "—"}
-            assert prov.source_metric_key(label) == "long_term_debt", label
-            assert prov.build_metric_source({**row, "current_period": "$10.0B"}, _filing(), xbrl, None)["source_verified"] is True
-            differs = prov.build_metric_source({**row, "current_period": "$12.0B"}, _filing(), xbrl, None)
-            assert differs["source_checkable"] is False and "source_mismatched" not in differs
+        label = debt_balance_label(build_debt_scope_view(xbrl))
+
+        def check(metric, shown):
+            return prov.build_metric_source({"metric": metric, "current_period": shown, "prior_period": "—"}, _filing(), xbrl, None)
+
+        assert check(label, "$10.0B")["source_verified"] is True, label
+        assert check(f"  {label.upper()} ", "$10.0B")["source_verified"] is True  # case and spacing are not the label
+        differs = check(label, "$12.0B")
+        assert differs["source_checkable"] is False and "source_mismatched" not in differs
+        others = [f"Debt — {phrase}" for phrase in SCOPE_PHRASE.values()] + ["Debt Balance (maturity scope unavailable)"]
+        assert [other for other in others if other != label and check(other, "$10.0B")["source_checkable"]] == []
 
 
 class TestScopeTagsHoldTheirSources:
@@ -1072,8 +1116,9 @@ class TestScopeTagsHoldTheirSources:
 
     @staticmethod
     def recorded_candidates() -> dict[str, set[str]]:
-        """The tags each path records as ``raw_tag``: the instance extractor's candidates and financial profiles'
-        anchors, and the companyfacts path's cash candidates (it records no other tag)."""
+        """Every tag a path may record as ``raw_tag``: the instance extractor's candidates and financial profiles'
+        anchors (``xbrl_instance.py`` records a tag for some keys only), and the companyfacts path's cash candidates
+        (it records no other tag). Classifying each errs on the safe side."""
         from app.services.edgar.instance.concepts import DURATION_CONCEPTS, INSTANT_CONCEPTS
         from app.services.edgar.instance.financial_profiles import FINANCIAL_PROFILES
         from app.services.edgar.xbrl_companyfacts import CASH_TAG_CANDIDATES
