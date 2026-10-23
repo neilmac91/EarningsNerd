@@ -140,8 +140,9 @@ the business card, the footer and the merch; it is the positioning in six words.
   record a reader downloads (the evidence pack's JSON, the redlines' review receipt), which keeps EDGAR's name
   as the filing's header gives it, kept beside the display form as `conformedName`.
   `frontend/tests/unit/companyNameDisplay.spec.ts` fails a served name printed raw, a `CompanyLogo` given
-  one, a field of the app's own filled with one and a printed `conformedName`, except the forms its header
-  names as gaps (text a call puts on the screen outside JSX, such as a toast's message, among them).
+  one, a field of the app's own filled with one (a served object handed whole to a view of the app's own
+  among them) and a printed `conformedName`, except the forms its header names as gaps (text a call puts on
+  the screen outside JSX, such as a toast's message, among them).
 - Ellipsis character `…` on loading states ("Logging in…") is fine.
 - One retry verb ([D-032](brand/decisions-log.md)): "Try again", and "Trying again…" while it runs, on every
   retry control and in the copy beside it ("Try again in a moment."); never "Retry" or "please retry".

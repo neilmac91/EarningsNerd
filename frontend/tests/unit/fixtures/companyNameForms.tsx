@@ -1219,6 +1219,243 @@ export function N183({ ev }: { ev: CalendarEvent }) {
   )
 }
 
+// A served object handed whole to a type of the app's own, whose fields the gate reads as the display form.
+
+/** N185 flag: a served object assigned whole to a view of the app's own by a declared type (Codex's form). */
+export function N185({ ev }: { ev: CalendarEvent }) {
+  const view: LineView = ev
+  return <span>{view.company_name}</span>
+}
+
+/** N186 flag: a served object assigned to a `let` declared as the view. */
+export function N186({ events }: { events: CalendarEvent[] }) {
+  let view: LineView | undefined
+  for (const ev of events) view = ev
+  return <span>{view?.company_name}</span>
+}
+
+/** N187's helper, whose parameter is the view. */
+function N187Text(view: LineView) {
+  return view.company_name
+}
+
+/** N187 flag: a served object handed to a parameter typed as the view. */
+export function N187({ ev }: { ev: CalendarEvent }) {
+  return <span>{N187Text(ev)}</span>
+}
+
+/** N188's helper, whose return type is the view. */
+function N188View(ev: CalendarEvent): LineView {
+  return ev
+}
+
+/** N188 flag: a served object returned as the view. */
+export function N188({ ev }: { ev: CalendarEvent }) {
+  return <span>{N188View(ev).company_name}</span>
+}
+
+/** N189 flag: a callback that returns a served object as the view, by its declared return type. */
+export function N189({ events }: { events: CalendarEvent[] }) {
+  return (
+    <ul>
+      {events
+        .map((e): LineView => e)
+        .map((view) => (
+          <li key={view.ticker}>{view.company_name}</li>
+        ))}
+    </ul>
+  )
+}
+
+/** N190's component, whose prop is the view. */
+function N190Line({ view }: { view: LineView }) {
+  return <p>{view.company_name}</p>
+}
+
+/** N190 flag: a served object handed to a component's prop typed as the view. */
+export function N190({ ev }: { ev: CalendarEvent }) {
+  return <N190Line view={ev} />
+}
+
+/** N191 flag: served objects assigned to an array of views, by its elements. */
+export function N191({ events }: { events: CalendarEvent[] }) {
+  const views: LineView[] = events
+  return (
+    <ul>
+      {views.map((view) => (
+        <li key={view.ticker}>{view.company_name}</li>
+      ))}
+    </ul>
+  )
+}
+
+/** N192's row, whose member is the view. */
+interface N192Row {
+  view: LineView
+}
+
+/** N192 flag: a served object as an object literal's member, placed by a type whose member is the view. */
+export function N192({ ev }: { ev: CalendarEvent }) {
+  const row: N192Row = { view: ev }
+  return <span>{row.view.company_name}</span>
+}
+
+/** N193 flag: a served object asserted to be the view. */
+export function N193({ ev }: { ev: CalendarEvent }) {
+  const view = ev as LineView
+  return <span>{view.company_name}</span>
+}
+
+/** N194 flag: a served object as the default of a destructured prop typed as the view. */
+export function N194({ ev, view = ev }: { ev: CalendarEvent; view?: LineView }) {
+  return <span>{view.company_name}</span>
+}
+
+/** N195 flag: a served object put in React state typed as the view, through its setter. */
+export function N195({ ev }: { ev: CalendarEvent }) {
+  const [view, setView] = useState<LineView | null>(null)
+  return (
+    <button type="button" onClick={() => setView(ev)}>
+      {view?.company_name}
+    </button>
+  )
+}
+
+/** N196's helper, a generic whose parameter is constrained to the view. */
+function N196Text<T extends LineView>(view: T) {
+  return view.company_name
+}
+
+/** N196 flag: a served object handed to a generic constrained to the view, which infers the served type for the call. */
+export function N196({ ev }: { ev: CalendarEvent }) {
+  return <span>{N196Text(ev)}</span>
+}
+
+/** N197 flag: a map of served objects assigned to a map of views, by its type arguments. */
+export function N197({ byTicker }: { byTicker: Map<string, CalendarEvent> }) {
+  const views: ReadonlyMap<string, LineView> = byTicker
+  return <span>{views.get('AAPL')?.company_name}</span>
+}
+
+/** N198's helper, which hands back the served object. */
+function N198Raw(ev: CalendarEvent) {
+  return ev
+}
+
+/** N198 flag: a function that hands back a served object assigned to a function typed to return the view. */
+export function N198({ ev }: { ev: CalendarEvent }) {
+  const viewOf: (e: CalendarEvent) => LineView = N198Raw
+  return <span>{viewOf(ev).company_name}</span>
+}
+
+/** N199 flag: a served object in props spread into a component, under the prop typed as the view. */
+export function N199({ ev }: { ev: CalendarEvent }) {
+  const props = { view: ev }
+  return <N190Line {...props} />
+}
+
+/** N200 flag: a served object spread into an object literal under a member typed as the view. */
+export function N200({ ev }: { ev: CalendarEvent }) {
+  const wrapped = { view: ev }
+  const row: N192Row = { ...wrapped }
+  return <span>{row.view.company_name}</span>
+}
+
+/** N201 flag: served objects spread into an array of views. */
+export function N201({ events }: { events: CalendarEvent[] }) {
+  const views: LineView[] = [...events]
+  return (
+    <ul>
+      {views.map((view) => (
+        <li key={view.ticker}>{view.company_name}</li>
+      ))}
+    </ul>
+  )
+}
+
+/** N202's generator, typed to yield the view. */
+function* N202Views(events: CalendarEvent[]): Generator<LineView> {
+  for (const ev of events) yield ev
+}
+
+/** N202 flag: served objects yielded by a generator typed to yield the view. */
+export function N202({ events }: { events: CalendarEvent[] }) {
+  return (
+    <ul>
+      {[...N202Views(events)].map((view) => (
+        <li key={view.ticker}>{view.company_name}</li>
+      ))}
+    </ul>
+  )
+}
+
+/** N203 flag: a served object in a class component's field typed as the view. */
+export class N203 extends Component<{ ev: CalendarEvent }> {
+  view: LineView = this.props.ev
+
+  render() {
+    return <span>{this.view.company_name}</span>
+  }
+}
+
+/** N204 flag: a served object's members copied onto the view by Object.assign. */
+export function N204({ ev }: { ev: CalendarEvent }) {
+  const view: LineView = { ticker: '', company_name: '' }
+  Object.assign(view, ev)
+  return <span>{view.company_name}</span>
+}
+
+/** N210 flag: a record of served objects assigned to a record of views, by its index signature. */
+export function N210({ byTicker }: { byTicker: Record<string, CalendarEvent> }) {
+  const views: Record<string, LineView> = byTicker
+  return <span>{views.AAPL?.company_name}</span>
+}
+
+/** N211's helper, whose rest parameter takes views. */
+function N211Texts(...views: LineView[]) {
+  return views.map((view) => view.company_name).join(', ')
+}
+
+/** N211 flag: served objects spread into a rest parameter of views. */
+export function N211({ events }: { events: CalendarEvent[] }) {
+  return <span>{N211Texts(...events)}</span>
+}
+
+/** N205 clean: the view built from a served object's spread, its name formatted over the spread. */
+export function N205({ ev }: { ev: CalendarEvent }) {
+  const view: LineView = { ...ev, company_name: formatCompanyName(ev.company_name) }
+  return <span>{view.company_name}</span>
+}
+
+/** N206's mapper, which builds the view with the display form. */
+function N206View(ev: CalendarEvent): LineView {
+  return { ticker: ev.ticker, company_name: formatCompanyName(ev.company_name) }
+}
+
+/** N206 clean: a view the app's own mapper builds, handed whole to places typed as the view. */
+export function N206({ ev }: { ev: CalendarEvent }) {
+  const view: LineView = N206View(ev)
+  const views: LineView[] = [view]
+  return (
+    <>
+      <N190Line view={view} />
+      <span>{views.map((v) => v.ticker).join(', ')}</span>
+    </>
+  )
+}
+
+/** N207's helper, a generic with no constraint. */
+function N207Keep<T>(value: T): T {
+  return value
+}
+
+/** N207 clean: a served object kept under its own type, through a generic with no constraint, formatted where it
+    prints. */
+export function N207({ ev }: { ev: CalendarEvent }) {
+  const raw: CalendarEvent = N207Keep(ev)
+  return <span>{formatCompanyName(raw.company_name)}</span>
+}
+
 // Forms the rule forbids that the gate leaves to review, each named in the spec's header.
 
 /** N87 gap: a prop typed as a plain string, filled in another module. */
@@ -1467,4 +1704,16 @@ export function N179({ events }: { events: CalendarEvent[] }) {
 /** N113 gap: a name inside an object another module's function hands back. */
 export function N113({ ev }: { ev: CalendarEvent }) {
   return <span>{labelsOf(ev).title}</span>
+}
+
+/** N208 gap: a served object cast to the view through `unknown`, which declares no field. */
+export function N208({ ev }: { ev: CalendarEvent }) {
+  const view = ev as unknown as LineView
+  return <span>{view.company_name}</span>
+}
+
+/** N209 gap: a served object's copy through JSON, which the checker types `any`, assigned to the view. */
+export function N209({ ev }: { ev: CalendarEvent }) {
+  const view: LineView = JSON.parse(JSON.stringify(ev))
+  return <span>{view.company_name}</span>
 }

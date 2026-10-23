@@ -13,18 +13,20 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * the next.
  *
  * What reads as a served company name is taken from the types, in one program over the scanned files and the planted
- * forms, so the checker says which declaration a read reaches, through imports, destructuring and the type a callback
- * is given. A company-name field is a property of an interface, a type literal or a class that holds a string and is
- * named `company_name`, `companyName` or `company` (NAME_KEYS), or `name` in a type that also declares `ticker` (a
- * company: the filing's, the summary's, the watchlist's and the dashboard's, Reporting this week's, CompanyLogo's
- * props). A field declared in an API module (API_MODULES: a feature's api/ directory, lib/serverApi.ts, lib/api/ and
- * the payload types in types/) is served: it holds the name as the backend sends it. A field declared anywhere else is
- * the app's own (a view model such as the redlines' RedlineSource, a component's props such as CompanyLogo's `name`):
- * the app fills it, the gate checks every fill it can place, and a read of it is the display form. The census below
- * fails a field of the app's own that nothing the gate can see fills, since its value would then come from somewhere
- * the gate cannot check. A field the app keeps the served name in on purpose, as data (SERVED_KEYS: the evidence
- * pack's and the redlines' `conformedName`, which their JSON downloads write), is served wherever it is declared: a
- * fill of it is data and never checked, and a read of it is the served name, so printing it fails.
+ * forms, so the checker says which declaration a read reaches, through imports, destructuring and the type a
+ * callback is given. A company-name field is a property of an interface, a type literal or a class that holds a
+ * string and is named `company_name`, `companyName` or `company` (NAME_KEYS), or `name` in a type that also declares
+ * `ticker` (a company: the filing's, the summary's, the watchlist's and the dashboard's, Reporting this week's,
+ * CompanyLogo's props). A field declared in an API module (API_MODULES: a feature's api/ directory,
+ * lib/serverApi.ts, lib/api/ and the payload types in types/) is served: it holds the name as the backend sends it.
+ * A field declared anywhere else is the app's own (a view model such as the redlines' RedlineSource, a component's
+ * props such as CompanyLogo's `name`): the app fills it, the gate checks every fill it can place, and a read of it
+ * is the display form. The census below fails a field of the app's own that nothing the gate can see fills, since
+ * its value would then come from somewhere the gate cannot check (a value handed whole fills one when its member
+ * there is another company-name field, not the same field handed on). A field the app keeps the served name in on
+ * purpose, as data (SERVED_KEYS: the evidence pack's and the redlines' `conformedName`, which their JSON downloads
+ * write), is served wherever it is declared: a fill of it is data and never checked, and a read of it is the served
+ * name, so printing it fails.
  *
  * Values are followed through each file by the shared reader (tests/unit/heldValues.ts) with `passThrough` and `state`
  * on, so a name held in a const, a destructuring, a parameter a same-file call fills, a same-file function's return, a
@@ -61,47 +63,57 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  *     page's metadata (METADATA_TEXT: the tab's title, the description, a social card's), by the keys Next's metadata
  *     types declare. A same-file component's props and children bind its parameters, so a name handed to one fails
  *     where the component prints it.
- *  B. a field of the app's own filled with a served name: an object literal's property (a getter by what it returns),
- *     placed by the type the literal is given (a declared type, a return type, a parameter's type, read through
- *     Object.freeze, parentheses, `as`, `satisfies` and `!`), a spread of a served object into such a literal, a JSX
- *     attribute or a spread of a served object into a component's props (so CompanyLogo's `name` takes the display
- *     form), and an assignment to the field (`=`, `||=`, `&&=`, `??=`). A mapper that stops formatting fails here, at
- *     the line that fills its field. An object literal the checker cannot place that holds a company-name key (a
- *     NAME_KEYS key, or `name` beside `ticker`) filled with a served name fails too, unless the type it is given has an
- *     index signature (a data payload, as analytics' properties).
+ *  B. a field of the app's own filled with a served name: an object literal's property (a getter by what it
+ *     returns), placed by the type the literal is given (a declared type, a return type, a parameter's type, read
+ *     through Object.freeze, parentheses, `as`, `satisfies` and `!`), a spread of a served object into such a
+ *     literal, a JSX attribute or a spread of a served object into a component's props (so CompanyLogo's `name`
+ *     takes the display form), and an assignment to the field (`=`, `||=`, `&&=`, `??=`). A served object handed
+ *     whole to a type that holds such a field (a view of the app's own) fills it too, wherever the checker gives the
+ *     place a type (handedAt): a declaration's or a default's initializer, a class's field among them, an
+ *     assignment, a return, an arrow's body, a yield, a call's argument (a spread one by its elements, a generic's
+ *     parameter by its constraint, whatever the call infers), Object.assign's sources, an object literal's member,
+ *     an array's element or spread, a JSX attribute's value, a spread's member and an assertion's operand; the
+ *     type's other fields, an array's elements, a record's values, a generic's type arguments and a function's
+ *     return hold the field the same way (slotsOf). A mapper that stops formatting fails here, at the line that
+ *     fills its field. An object literal the checker cannot place that holds a company-name key (a NAME_KEYS key, or
+ *     `name` beside `ticker`) filled with a served name fails too, unless the type it is given has an index
+ *     signature (a data payload, as analytics' properties).
  *
  * Over-reads that fail closed: a prop of a component the scan cannot read that never prints (a table's row key, a
  * link's tooltip `title`), a value an imported function is handed but never gives back (a length), and an object
- * literal the checker cannot place that is data, which a declared type then places. False positives of the reading, which pass: a field named for a company
- * that holds no name (the refresh review's `company` slug) is read as the app's own, filled by hand. Out of scope by
- * design, clean: an attribute that is not printed text (a key, an href, an id, a data attribute, a title attribute, an
- * aria-label, an alt), an analytics call, an API payload or a cache row typed as the API's own type, a CSV, a
- * comparison, an object a function named like a component returns (a mapper's), which is no text, and text drawn
- * outside React (the chart export paints its header on a canvas from ChartExportHeader's `company`, a field of the
- * app's own, which rule B holds). Out of reach, each planted as a gap in tests/unit/fixtures/companyNameForms.tsx and
- * review-checked: text a call puts on the screen outside JSX (a toast's message, `document.title`), since a call's
- * arguments are data to the gate; a name served under another field of an object a component the scan cannot read
- * prints by key (a DataTable column with no `render`, which prints `row[key]`); a name that crosses modules in a prop
- * typed as a plain string (`label: string`, or an indexed access type such as `CalendarEvent['company_name']`), or
- * inside an object another module's function hands back; what a child hands its parent's ref through
- * useImperativeHandle; a state's setter or a reducer's dispatcher handed to another module's code (a function or a
- * component it imports) and called there, where the reader does not look; a name served under another field (the census
- * fails a string field of an API type named for a company, an issuer, a filer, a registrant or an entity until it joins
- * the reading or NOT_NAMES); a read by a key the scan cannot read (`ev[key]`) or from a type that declares no field for
- * it (an index signature, `any`); a piece of the name read by index from what a call hands back (`n.split(' ')[0]`); a
- * display form shouted again (`formatCompanyName(n).toUpperCase()`); a utility known by its name (an array's method)
- * called through Function.prototype's `call` or `apply`, which the reader reads as a call of the method; a served name
- * copied into a class component's field or its state and printed through `this` (`label = this.props.ev.company_name`,
- * then `{this.label}`), since the shared reader follows no class's fields and no class's `this` (a served field read
- * through `this.props` is still read by its type, as a class's getter is, above, and the app's class components, two
- * error boundaries, print no name); a getter read through a type that declares its property (another module's object
- * held under a declared type, or a class's getter read through an interface it implements), since the checker places
- * the read on the declared property; an object literal's `this` handed on whole (a getter that hands back its own
- * object, then a member of what it gives); what an assignment through a `set` accessor hands the accessor, kept for a
- * getter of another name; a property descriptor's `get` that reads `this`, which the reader binds to the descriptor; a
- * Proxy's traps; a Map's entries iterated as `[key, value]` pairs, since the reader holds a Map's values as its
- * elements (`get`, `forEach`, `values()` and `entries()` read them), and a served name a Map holds as a key; a
- * promise's `then` and a generator's yields; and React's element calls, which app code may not write
+ * literal the checker cannot place that is data, which a declared type then places. False positives of the reading,
+ * which pass: a field named for a company that holds no name (the refresh review's `company` slug) is read as the
+ * app's own, filled by hand. Out of scope by design, clean: an attribute that is not printed text (a key, an href,
+ * an id, a data attribute, a title attribute, an aria-label, an alt), an analytics call, an API payload or a cache
+ * row typed as the API's own type, a CSV, a comparison, an object a function named like a component returns (a
+ * mapper's), which is no text, and text drawn outside React (the chart export paints its header on a canvas from
+ * ChartExportHeader's `company`, a field of the app's own, which rule B holds). Out of reach, each planted as a gap
+ * in tests/unit/fixtures/companyNameForms.tsx and review-checked: text a call puts on the screen outside JSX (a
+ * toast's message, `document.title`), since a call's arguments are data to the gate; a name served under another
+ * field of an object a component the scan cannot read prints by key (a DataTable column with no `render`, which
+ * prints `row[key]`); a name that crosses modules in a prop typed as a plain string (`label: string`, or an indexed
+ * access type such as `CalendarEvent['company_name']`), or inside an object another module's function hands back;
+ * what a child hands its parent's ref through useImperativeHandle; a state's setter or a reducer's dispatcher handed
+ * to another module's code (a function or a component it imports) and called there, where the reader does not look;
+ * a name served under another field (the census fails a string field of an API type named for a company, an issuer,
+ * a filer, a registrant or an entity until it joins the reading or NOT_NAMES); a read by a key the scan cannot read
+ * (`ev[key]`) or from a type that declares no field for it (an index signature, `any`), and a served object handed
+ * whole to a view of the app's own through such a type (cast through `unknown`, or JSON.parse's `any`); a piece of
+ * the name read by index from what a call hands back (`n.split(' ')[0]`); a display form shouted again
+ * (`formatCompanyName(n).toUpperCase()`); a utility known by its name (an array's method) called through
+ * Function.prototype's `call` or `apply`, which the reader reads as a call of the method; a served name copied into
+ * a class component's field or its state and printed through `this` (`label = this.props.ev.company_name`, then
+ * `{this.label}`), since the shared reader follows no class's fields and no class's `this` (a served field read
+ * through `this.props` is still read by its type, as a class's getter is, above, and so is a field declared as a
+ * view of the app's own, by rule B; the app's class components, two error boundaries, print no name); a getter read
+ * through a type that declares its property (another module's object held under a declared type, or a class's getter
+ * read through an interface it implements), since the checker places the read on the declared property; an object
+ * literal's `this` handed on whole (a getter that hands back its own object, then a member of what it gives); what
+ * an assignment through a `set` accessor hands the accessor, kept for a getter of another name; a property
+ * descriptor's `get` that reads `this`, which the reader binds to the descriptor; a Proxy's traps; a Map's entries
+ * iterated as `[key, value]` pairs, since the reader holds a Map's values as its elements (`get`, `forEach`,
+ * `values()` and `entries()` read them), and a served name a Map holds as a key; a promise's `then` and a
+ * generator's yields; and React's element calls, which app code may not write
  * (earningsnerd/elements-built-with-jsx).
  */
 
@@ -191,6 +203,95 @@ const fieldName = (d: Field) => {
   const owner = ts.isInterfaceDeclaration(holder) || ts.isClassDeclaration(holder) ? holder.name?.text : undefined
   const { line } = d.getSourceFile().getLineAndCharacterOfPosition(d.getStart())
   return `${owner ?? `{…}@${relative(d.getSourceFile().fileName)}:${line + 1}`}.${keyText(d.name)}`
+}
+
+/** How deep a value handed whole to a type is read (rule B): its fields, an array's elements, a record's values, a
+    generic's type arguments and a function's return, nested. */
+const HANDED_DEPTH = 6
+const isLibDeclared = (symbol: ts.Symbol) =>
+  !!symbol.declarations?.length && symbol.declarations.every((d) => /[\\/]node_modules[\\/]/.test(d.getSourceFile().fileName))
+/** Each side of a type a value may take: a union's members, null and undefined dropped, and a type parameter read as
+    its constraint, which is what a generic's body reads it as. */
+const sidesOf = (type: ts.Type, seen = new Set<ts.Type>()): ts.Type[] => {
+  const t = CHECKER.getNonNullableType(type)
+  if (seen.has(t)) return []
+  seen.add(t)
+  if (t.isUnion()) return t.types.flatMap((part) => sidesOf(part, seen))
+  if (t.flags & ts.TypeFlags.TypeParameter) {
+    const constraint = CHECKER.getBaseConstraintOfType(t)
+    return constraint && constraint !== t ? sidesOf(constraint, seen) : []
+  }
+  return [t]
+}
+/** A generic's type arguments by its type parameters' names, so a Map's `V` meets a ReadonlyMap's (a tuple's, which
+    have no names, by their places). */
+const typeArgumentsOf = (t: ts.Type): Map<string, ts.Type> => {
+  if (!(t.flags & ts.TypeFlags.Object) || !((t as ts.ObjectType).objectFlags & ts.ObjectFlags.Reference)) return new Map()
+  const reference = t as ts.TypeReference
+  const args = CHECKER.getTypeArguments(reference)
+  return new Map((reference.target.typeParameters ?? []).flatMap((p, i) => (args[i] ? [[p.symbol?.name ?? `${i}`, args[i]] as const] : [])))
+}
+/** What a spread hands on from a value: an array's or a tuple's elements, an iterable's items. */
+const elementsOf = (type: ts.Type): ts.Type[] =>
+  sidesOf(type).flatMap((side) => [CHECKER.getIndexInfoOfType(side, ts.IndexKind.Number)?.type ?? typeArgumentsOf(side).get('T') ?? []].flat())
+/** A step from a type to a value it holds: a property by its key, an index signature's value (`number` or `string`),
+    a generic's type argument by its parameter's name, a function's return. */
+interface Step {
+  by: 'prop' | 'index' | 'arg' | 'return'
+  key: string
+}
+/** A field of the app's own a type holds, and the steps that reach it from the type (the field's own key last). */
+interface Slot {
+  own: Field[]
+  path: Step[]
+}
+const SLOTS = new Map<ts.Type, Slot[]>()
+/** The fields of the app's own a type holds, for a value handed to it whole (rule B): its own, and those its other
+    fields, an array's elements, a record's values, a generic's type arguments and a function's return hold, to
+    HANDED_DEPTH levels. A library's members are no field of the app's, though its type arguments may hold one. Read once
+    per type. */
+const slotsOf = (type: ts.Type, depth = 0, open = new Set<ts.Type>()): Slot[] => {
+  const cached = SLOTS.get(type)
+  if (cached) return cached
+  if (depth > HANDED_DEPTH || open.has(type)) return []
+  open.add(type)
+  const out: Slot[] = []
+  const under = (step: Step, inner: ts.Type) => {
+    for (const slot of slotsOf(inner, depth + 1, open)) out.push({ own: slot.own, path: [step, ...slot.path] })
+  }
+  for (const t of sidesOf(type)) {
+    for (const p of t.getProperties()) {
+      const own = fieldsOf(p).filter((f) => !isServed(f))
+      if (own.length > 0) out.push({ own, path: [{ by: 'prop', key: p.name }] })
+      else if (!isLibDeclared(p)) under({ by: 'prop', key: p.name }, CHECKER.getTypeOfSymbol(p))
+    }
+    for (const [key, kind] of [['number', ts.IndexKind.Number], ['string', ts.IndexKind.String]] as const) {
+      const value = CHECKER.getIndexInfoOfType(t, kind)?.type
+      if (value) under({ by: 'index', key }, value)
+    }
+    for (const [key, arg] of typeArgumentsOf(t)) under({ by: 'arg', key }, arg)
+    for (const signature of t.getCallSignatures()) under({ by: 'return', key: '' }, signature.getReturnType())
+  }
+  open.delete(type)
+  if (depth === 0) SLOTS.set(type, out)
+  return out
+}
+/** The members a type holds at the end of a slot's path (each side of a union along it). */
+const membersAlong = (source: ts.Type, path: Step[]): ts.Symbol[] => {
+  let types = [source]
+  for (const step of path.slice(0, -1)) {
+    types = types.flatMap((type) => sidesOf(type)).flatMap((side): ts.Type[] => {
+      if (step.by === 'prop') {
+        const member = side.getProperty(step.key)
+        return member ? [CHECKER.getTypeOfSymbol(member)] : []
+      }
+      if (step.by === 'index') return [CHECKER.getIndexInfoOfType(side, step.key === 'number' ? ts.IndexKind.Number : ts.IndexKind.String)?.type ?? []].flat()
+      if (step.by === 'arg') return [typeArgumentsOf(side).get(step.key) ?? []].flat()
+      return side.getCallSignatures().map((signature) => signature.getReturnType())
+    })
+  }
+  const last = path[path.length - 1]
+  return last ? types.flatMap((type) => sidesOf(type)).flatMap((side) => side.getProperty(last.key) ?? []) : []
 }
 
 const resolved = (symbol: ts.Symbol | undefined) => (symbol && symbol.flags & ts.SymbolFlags.Alias ? CHECKER.getAliasedSymbol(symbol) : symbol)
@@ -438,7 +539,14 @@ function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
         // A later attribute of the same name overrides what the spread hands on.
         const later = new Set(attributes.slice(i + 1).flatMap((a) => (ts.isJsxAttribute(a) ? [a.name.getText(sf)] : [])))
         const keys = kind === 'host' ? HOST_TEXT_PROPS : spreadKeys(attr.expression)
-        for (const key of keys) if (!later.has(key)) prop(key, spreadMember(attr.expression, key), attr)
+        for (const key of keys) {
+          if (later.has(key)) continue
+          prop(key, spreadMember(attr.expression, key), attr)
+          // A member handed on whole, under a prop that is no company-name field (a view under `view`).
+          if (kind !== 'host' && propFields(opening, key).length === 0) {
+            handedMember(propertiesNamed(CHECKER.getContextualType(opening.attributes), key), attr.expression, key, attr)
+          }
+        }
         return
       }
       const init = attr.initializer
@@ -448,10 +556,12 @@ function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
   }
   const rendersChildren = (parent: ts.Node) => ts.isJsxFragment(parent) || (ts.isJsxElement(parent) && kindOf(parent.openingElement) !== 'own')
 
-  const isObjectFreeze = (callee: ts.Expression) => {
+  /** A call of Object's own method of that name (Object not shadowed in the file). */
+  const isObjectMethod = (callee: ts.Expression, name: string) => {
     const e = unwrapHeld(callee)
-    return ts.isPropertyAccessExpression(e) && e.name.text === 'freeze' && ts.isIdentifier(e.expression) && e.expression.text === 'Object' && !declarationOf(e.expression)
+    return ts.isPropertyAccessExpression(e) && e.name.text === name && ts.isIdentifier(e.expression) && e.expression.text === 'Object' && !declarationOf(e.expression)
   }
+  const isObjectFreeze = (callee: ts.Expression) => isObjectMethod(callee, 'freeze')
   const isWithin = (inner: ts.Node, outer: ts.Node) => inner.getSourceFile() === outer.getSourceFile() && inner.pos >= outer.pos && inner.end <= outer.end
   /** The type an object literal is given: its context, read through the wrappers that hand it on whole (parentheses,
       `as`, `satisfies`, `!`, Object.freeze) while that context is only the literal's own type. */
@@ -480,6 +590,8 @@ function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
           if (later.has(key)) continue
           const fields = placed(key)
           if (fields.length > 0) fill(fields, servedIn(spreadMember(p.expression, key)), p)
+          // A member handed on whole, under a key the given type declares outside the literal (a view under `view`).
+          else handedMember(propertiesNamed(type, key).filter((m) => !(m.declarations ?? []).every((d) => isWithin(d, literal))), p.expression, key, p)
         }
         return
       }
@@ -511,6 +623,117 @@ function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
     if (fields.length > 0) fill(fields, holds(node.right), node)
   }
 
+  /** A member read of a getter that hands back a served name (SERVED_RETURNS), an object literal's or a class's. */
+  const servedGetter = (members: ts.Symbol[]) =>
+    members.some((m) => (m.declarations ?? []).some((d) => ts.isGetAccessorDeclaration(d) && SERVED_RETURNS.has(d)))
+  /**
+   * A value handed whole to a type the place it reaches is given: each field of the app's own the type holds (slotsOf) is
+   * filled with the value's member along the same steps, a served name when the value's type serves one there (a field
+   * of an API type, or a getter that hands one back) or, along fields alone, the reader holds one there. A member that is
+   * the same field (a view handed on as itself) is no fill for the census.
+   */
+  const handedInto = (target: ts.Type, source: ts.Type, held: () => Held<Leaf>, at: ts.Node) => {
+    for (const { own, path } of slotsOf(target)) {
+      const members = membersAlong(source, path)
+      const from = members.flatMap(fieldsOf)
+      const kept = () => path.every((step) => step.by === 'prop') && servedIn(path.reduce((value, step) => propertyOf(value, step.key), held()))
+      const served = from.some(isServed) || servedGetter(members) || kept()
+      if (served || from.some((f) => !own.includes(f))) fill(own, served, at)
+    }
+  }
+  /** A spread's member under a key, handed on whole to each member the place declares there. */
+  const handedMember = (into: ts.Symbol[], from: ts.Expression, key: string, at: ts.Node) => {
+    const targets = into.map((m) => CHECKER.getTypeOfSymbol(m)).filter((type) => slotsOf(type).length > 0)
+    if (targets.length === 0) return
+    const members = propertiesNamed(CHECKER.getTypeAtLocation(from), key)
+    for (const target of targets) {
+      for (const m of members) handedInto(target, CHECKER.getTypeOfSymbol(m), () => propertyOf(values.valueOf(from), key), at)
+    }
+  }
+  /** The type a generic's parameter declares, read through its constraint: what a value handed to it fills, whatever
+      the checker infers for the call (an argument, or a JSX attribute's value, of a generic function or component). */
+  const declaredFor = (value: ts.Expression): ts.Type | undefined => {
+    const parent = value.parent
+    if ((ts.isCallExpression(parent) || ts.isNewExpression(parent)) && parent.arguments?.includes(value)) {
+      const declaration = CHECKER.getResolvedSignature(parent)?.getDeclaration()
+      if (!declaration?.typeParameters?.length) return undefined
+      const i = parent.arguments.indexOf(value)
+      const params = declaration.parameters
+      const param = params[Math.min(i, params.length - 1)]
+      if (!param || (i >= params.length && !param.dotDotDotToken)) return undefined
+      const type = CHECKER.getTypeAtLocation(param)
+      return param.dotDotDotToken ? CHECKER.getIndexInfoOfType(type, ts.IndexKind.Number)?.type : type
+    }
+    const attribute = ts.isJsxExpression(parent) ? parent.parent : undefined
+    if (!attribute || !ts.isJsxAttribute(attribute)) return undefined
+    const declaration = CHECKER.getResolvedSignature(attribute.parent.parent)?.getDeclaration()
+    const props = declaration?.typeParameters?.length ? declaration.parameters[0] : undefined
+    const member = props && CHECKER.getTypeAtLocation(props).getProperty(attribute.name.getText(sf))
+    return member && CHECKER.getTypeOfSymbol(member)
+  }
+  interface Handed {
+    value: ts.Expression
+    into: Array<ts.Type | undefined>
+    /** A spread argument, which hands on its elements. */
+    spread?: boolean
+  }
+  const placedBy = (value: ts.Expression): Handed[] => [{ value, into: [CHECKER.getContextualType(value), declaredFor(value)] }]
+  /** Where a value is handed whole to a type, with that type: a declaration's or a default's initializer, an
+      assignment's right side, a return, an arrow's body and a yield (the function's return type, declared or given),
+      a call's argument (a spread one's elements, and a generic's parameter by its constraint), Object.assign's
+      sources (its target's type), an object literal's member, an array's element or spread, a JSX attribute's value,
+      and an assertion's operand (`as`, `<T>`, `satisfies`). A spread's members are handed where the literal or the
+      props read the spread. */
+  const handedAt = (node: ts.Node): Handed[] => {
+    if (ts.isVariableDeclaration(node) || ts.isParameter(node) || ts.isBindingElement(node) || ts.isPropertyDeclaration(node)) {
+      return node.initializer ? placedBy(node.initializer) : []
+    }
+    if (ts.isBinaryExpression(node)) return ASSIGNMENTS.has(node.operatorToken.kind) ? placedBy(node.right) : []
+    if (ts.isReturnStatement(node) || ts.isYieldExpression(node)) return node.expression ? placedBy(node.expression) : []
+    if (ts.isArrowFunction(node)) return ts.isBlock(node.body) ? [] : placedBy(node.body)
+    if (ts.isCallExpression(node) && isObjectMethod(node.expression, 'assign') && node.arguments.length > 1) {
+      const target = CHECKER.getTypeAtLocation(node.arguments[0])
+      return node.arguments.slice(1).flatMap((value) => (ts.isSpreadElement(value) ? [] : [{ value, into: [target] }]))
+    }
+    if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
+      return (node.arguments ?? []).flatMap((a) => (ts.isSpreadElement(a) ? [{ value: a.expression, into: [CHECKER.getContextualType(a)], spread: true }] : placedBy(a)))
+    }
+    if (ts.isPropertyAssignment(node)) return placedBy(node.initializer)
+    if (ts.isShorthandPropertyAssignment(node)) return placedBy(node.name)
+    if (ts.isArrayLiteralExpression(node)) {
+      return node.elements.flatMap((e) =>
+        ts.isSpreadElement(e) ? [{ value: e.expression, into: [CHECKER.getContextualType(node)] }] : ts.isOmittedExpression(e) ? [] : placedBy(e),
+      )
+    }
+    if (ts.isJsxAttribute(node)) return node.initializer && ts.isJsxExpression(node.initializer) && node.initializer.expression ? placedBy(node.initializer.expression) : []
+    if (ts.isAsExpression(node) || ts.isTypeAssertionExpression(node) || ts.isSatisfiesExpression(node)) return placedBy(node.expression)
+    return []
+  }
+  /** The values a handed expression may be: through parentheses and `!`, both arms of a conditional, both sides of `||`
+      and `??`, and the right of `&&` and of a comma. An object or array literal, a function and an element are no value
+      here: each member, element, return and child of theirs is a place of its own. */
+  const handedValues = (e: ts.Expression): ts.Expression[] => {
+    if (ts.isParenthesizedExpression(e) || ts.isNonNullExpression(e)) return handedValues(e.expression)
+    if (ts.isConditionalExpression(e)) return [...handedValues(e.whenTrue), ...handedValues(e.whenFalse)]
+    if (ts.isBinaryExpression(e)) {
+      const op = e.operatorToken.kind
+      if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) return [...handedValues(e.left), ...handedValues(e.right)]
+      if (op === ts.SyntaxKind.AmpersandAmpersandToken || op === ts.SyntaxKind.CommaToken) return handedValues(e.right)
+    }
+    const literal = ts.isObjectLiteralExpression(e) || ts.isArrayLiteralExpression(e) || ts.isClassExpression(e) || ts.isFunctionLike(e)
+    return literal || ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || ts.isJsxFragment(e) ? [] : [e]
+  }
+  const NO_VALUE: Held<Leaf> = { leaves: new Map(), props: null, fns: null }
+  const handed = ({ value, into, spread }: Handed) => {
+    const targets = into.filter((t): t is ts.Type => !!t)
+    if (targets.length === 0) return
+    for (const leaf of handedValues(value)) {
+      const type = CHECKER.getTypeAtLocation(leaf)
+      const sources = spread ? elementsOf(type) : [type]
+      for (const target of targets) for (const source of sources) handedInto(target, source, spread ? () => NO_VALUE : () => values.valueOf(leaf), leaf)
+    }
+  }
+
   // The same-file components: each rendered here as a tag, or named for one (PascalCase).
   const components = new Set<Fn>()
   const collect = (node: ts.Node): void => {
@@ -531,6 +754,7 @@ function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
     if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) element(node)
     if (ts.isObjectLiteralExpression(node)) objectLiteral(node)
     if (ts.isBinaryExpression(node) && ASSIGNMENTS.has(node.operatorToken.kind)) assignment(node)
+    handedAt(node).forEach(handed)
     ts.forEachChild(node, visit)
   }
   visit(sf)
@@ -586,7 +810,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       else strays.push(`line ${f.line}: ${f.shown}`)
     }
     const count = (mark: string) => [...forms.values()].filter((f) => f.mark === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([118, 38, 28])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([140, 41, 30])
     const misread = [...forms].filter(([name, { mark }]) => named.has(name) !== (mark === 'flag')).map(([name, { mark }]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])
