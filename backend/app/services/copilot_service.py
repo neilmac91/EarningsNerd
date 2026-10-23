@@ -251,7 +251,7 @@ async def answer_filing_question(
     question: str,
     history: Optional[list[dict]] = None,
 ) -> AsyncGenerator[dict, None]:
-    """Publish one admitted answer, privately regenerating one mismatched evidence candidate.
+    """Publish one admitted answer, privately regenerating one mismatched evidence or citation-trailer candidate.
 
     Both generations share the original source, usage accounting and provider deadline. Rejected
     prose is never exposed or reused; an incomplete envelope or another failure stays terminal.

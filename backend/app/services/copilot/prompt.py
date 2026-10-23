@@ -8,7 +8,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any, Optional
 
-from app.services.copilot.exceptions import _RegenerableEvidenceMismatch
+from app.services.copilot.exceptions import _RegenerableCitationTrailer, _RegenerableEvidenceMismatch
 from app.services.provenance_service import _MIN_VERIFIABLE_LEN
 
 
@@ -37,16 +37,27 @@ one whole sentence that states it, or its table row exactly as the filing shows 
 every following cell in order, nothing skipped or reordered. If no such span exists, leave that
 figure and its citation out. Each excerpt is one unbroken span of at least {_MIN_VERIFIABLE_LEN}
 characters, and each citation number has exactly one declaration."""
+# Sent alone when anything but the followups block followed the citation array (copilot-eval saw a note,
+# then a second array). That candidate never reached source matching, so the guidance above does not apply.
+_CITATION_TRAILER_RETRY_GUIDANCE = f"""Generate a fresh complete answer from the original filing and question.
+The previous candidate wrote more than the followups block after its citation array, such as a note or a
+second array. Do not reconstruct it. Settle every excerpt under the output format's rules before you
+start the array. Write the {_CITATIONS_SENTINEL} line at most once, followed by exactly one JSON array
+that you never correct or repeat. After that array write only the {_FOLLOWUPS_SENTINEL} line and its
+JSON array, then stop: no note, correction or other text."""
 
 
 def _retry_guidance(rejection: Exception, retryable_quotations: frozenset[str]) -> str:
     """The text added to the private regeneration's system message, or "" when none may run.
 
     Chosen by the owned exception class or reason code, never from candidate text. A decision-F
-    quotation reason keeps the evidence guidance alone; an excerpt failure adds the table guidance.
+    quotation reason keeps the evidence guidance alone; an excerpt failure adds the table guidance;
+    text after the citation array gets the one-array guidance alone.
     """
     if isinstance(rejection, _RegenerableEvidenceMismatch):
         return _EVIDENCE_RETRY_GUIDANCE + "\n\n" + _CITATION_EXCERPT_RETRY_GUIDANCE
+    if isinstance(rejection, _RegenerableCitationTrailer):
+        return _CITATION_TRAILER_RETRY_GUIDANCE
     return _EVIDENCE_RETRY_GUIDANCE if str(rejection) in retryable_quotations else ""
 
 

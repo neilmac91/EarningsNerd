@@ -50,6 +50,14 @@ def envelope(answer, *, excerpt=KNOWN, followups=FOLLOWUPS, section="Item 2 — 
 
 
 def rejected(surface="answer"):
+    if surface == "repeated_citations":
+        # copilot-eval's shape (BABA viewed-native-revenue-2025, run 38942183029): a short-excerpt
+        # array, a note correcting it, then a second array.
+        return (f"{INVENTED} [1].\n===CITATIONS===\n"
+                + json.dumps([{"n": 1, "excerpt": "robust", "section": "Item 2 — MD&A"}])
+                + f"\nNote: {INVENTED} is too short, so here is a proper contiguous span instead.\n"
+                + "===CITATIONS===\n" + json.dumps([{"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"}])
+                + "\n===FOLLOWUPS===\n" + json.dumps(FOLLOWUPS))
     if surface == "not_disclosed":
         return (f'===NOT_DISCLOSED===\nThe filing does not explain "{INVENTED}".'
                 + "\n===FOLLOWUPS===\n" + json.dumps(FOLLOWUPS))
@@ -76,7 +84,8 @@ async def collect(selected_filing=None):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("surface", ["answer", "followup", "not_disclosed", "citation_excerpt", "elided_quote"])
+@pytest.mark.parametrize("surface", ["answer", "followup", "not_disclosed", "citation_excerpt", "elided_quote",
+                                     "repeated_citations"])
 async def test_quotation_retry_safety_gate(monkeypatch, surface):
     """One grouped rule gate: a private mismatch retries fresh, once, with bounded custody."""
     selected = filing()
@@ -155,10 +164,15 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
     first_system, retry_system = calls[0]["messages"][0], calls[1]["messages"][0]
     assert first_system["role"] == retry_system["role"] == "system"
     assert retry_system["content"] != first_system["content"]
-    assert "quot" in retry_system["content"].lower() and "contiguous" in retry_system["content"].lower()
     # The first generation keeps SYSTEM_PROMPT's bytes. A decision-F retry adds the evidence guidance
-    # alone; only an excerpt failure adds the table guidance, chosen by its owned exception class.
-    added = "\n\n" + copilot_prompt._EVIDENCE_RETRY_GUIDANCE
+    # alone; only an excerpt failure adds the table guidance, chosen by its owned exception class. Text
+    # after the citation array never reached source matching, so its owned class adds the one-array
+    # guidance alone.
+    if surface == "repeated_citations":
+        added = "\n\n" + copilot_prompt._CITATION_TRAILER_RETRY_GUIDANCE
+    else:
+        assert "quot" in retry_system["content"].lower() and "contiguous" in retry_system["content"].lower()
+        added = "\n\n" + copilot_prompt._EVIDENCE_RETRY_GUIDANCE
     if surface == "citation_excerpt":
         added += "\n\n" + copilot_prompt._CITATION_EXCERPT_RETRY_GUIDANCE
     assert first_system["content"].startswith(copilot_prompt.SYSTEM_PROMPT)
@@ -175,7 +189,8 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("surface", ["answer", "citation_excerpt", "elided_quote", "cross_cause"])
+@pytest.mark.parametrize("surface", ["answer", "citation_excerpt", "elided_quote", "cross_cause",
+                                     "repeated_citations"])
 async def test_retry_exhaustion_has_one_terminal_error_without_private_candidates(monkeypatch, surface):
     calls, closed = [], []
     surfaces = ("answer", "elided_quote") if surface == "cross_cause" else (surface, surface)
@@ -203,12 +218,16 @@ async def test_retry_exhaustion_has_one_terminal_error_without_private_candidate
     "malformed", "upstream", "ambiguous", "missing_source",
     "missing_source_excerpt", "quoted_section", "missing_id",
     "short_source", "leading_zero_missing", "late_quoted_label",
-    "short_excerpt_with_quoted_label", "duplicate_id_with_missing_id",
+    "short_excerpt_with_quoted_label", "duplicate_id_with_missing_id", "fenced_note",
 ])
 async def test_other_rejections_do_not_buy_another_generation(monkeypatch, case):
     selected = filing()
     payload = {
         "malformed": 'A private answer [1].\n===CITATIONS===[{"n":1,',
+        # A note inside a citation fence is "Unclosed citation fence", not the trailer: still terminal.
+        "fenced_note": (f'Management said "{KNOWN}" [1].\n===CITATIONS===\n```json\n'
+                        + json.dumps([{"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"}])
+                        + "\nNote: corrected below.\n```"),
         "upstream": STREAM_ERROR_SENTINEL + "offline provider failed",
         "ambiguous": envelope(f'The filing said "{KNOWN}" [1]. [More](https://example.invalid)'),
         "missing_source": f'The filing said "{KNOWN}".\n===CITATIONS===[]',
@@ -299,6 +318,31 @@ async def test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_tabl
         assert all(c["verified"] is True for c in terminal[0]["citations"])
     else:
         assert terminal == [{"type": "error", "message": copilot_service._PUBLICATION_ERROR}]
+
+
+@pytest.mark.parametrize("tail", [
+    "\n===CITATIONS===\n[]",  # a second array straight after the first
+    "\nNote: the excerpt above is too short.\n===CITATIONS===\n[]",  # copilot-eval's note, then a second array
+    " Contradictory extra prose.",  # prose after the array
+])
+def test_text_after_the_citation_array_buys_only_the_one_array_guidance(tail):
+    """The trailer reason buys the regeneration through its owned class, never through its text.
+
+    The logged reason is unchanged, so copilot-eval's `publication withheld:` label and the triage
+    replay read it as before. Its guidance is the one-array text alone: nothing was source-matched.
+    """
+    quotations = copilot_service._RETRYABLE_QUOTATION_FAILURES
+    raw = json.dumps([{"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"}]) + tail
+    with pytest.raises(copilot_service._UnpublishableAnswer) as caught:
+        copilot_service._parse_citations(raw)
+    assert str(caught.value) == "Unexpected citation trailer"
+    guidance = copilot_prompt._retry_guidance(caught.value, quotations)
+    assert guidance == copilot_prompt._CITATION_TRAILER_RETRY_GUIDANCE
+    assert copilot_prompt._EVIDENCE_RETRY_GUIDANCE not in guidance
+    assert copilot_prompt._retry_guidance(copilot_service._UnpublishableAnswer(str(caught.value)), quotations) == ""
+    # It names both envelope lines and asks for one array, written once.
+    assert copilot_prompt._CITATIONS_SENTINEL in guidance and copilot_prompt._FOLLOWUPS_SENTINEL in guidance
+    assert "exactly one JSON array" in guidance
 
 
 @pytest.mark.asyncio
@@ -436,7 +480,7 @@ def client():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_pro", [False, True])
 @pytest.mark.parametrize("outcome", ["recovered", "exhausted"])
-@pytest.mark.parametrize("surface", ["answer", "citation_excerpt", "elided_quote"])
+@pytest.mark.parametrize("surface", ["answer", "citation_excerpt", "elided_quote", "repeated_citations"])
 async def test_real_asgi_retry_meters_once_and_refunds_only_terminal_failure(
     client, monkeypatch, is_pro, outcome, surface,
 ):
