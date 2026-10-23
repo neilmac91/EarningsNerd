@@ -28,6 +28,7 @@ from urllib.parse import quote
 from app.schemas.summary import NormalizedFact, _format_xbrl_value
 from app.services import metric_delta_service
 from app.services.facts.calendar import ANNUAL_FORMS
+from app.services.ai.debt_scope import DEBT_BALANCE_LABELS
 from app.services.ai.recovery_context import clean_filing_source
 from app.services.summary_schema import RISK_SOURCE_CONTEXT_KEY, RISK_SOURCE_CONTEXT_VERSION
 from app.services.summary_sections import render_sections, render_sections_json, sections_to_markdown
@@ -150,6 +151,10 @@ _SOURCE_EXTRA_KEYS = {
     "net cash from operating activities": "operating_cash_flow",
     "net profit": "net_income",
     "earnings attributable to shareholders": "net_income",
+    # The labels the grounding gives the debt balance at run time (``ai.debt_scope.debt_balance_label``), each
+    # naming the scope of the very fact this check reads, as main checked them by substring. A debt figure that
+    # differs is never replaced (``_EXACT_SCOPE_TAGS``).
+    **{" ".join(label.casefold().split()): "long_term_debt" for label in DEBT_BALANCE_LABELS},
 }
 # Balance-sheet lines are instants. A 10-Q's balance sheet sets the quarter-end beside the last fiscal
 # year-end, a period the same-quarter rule (``metric_delta_service.comparable_facts``) refuses, and the
@@ -158,14 +163,20 @@ _INSTANT_KEYS = frozenset({"total_assets", "cash_and_equivalents", "shareholders
 # A bare "¥" names one of two currencies (``app.utils.numbers.display_currency``).
 _YEN_CURRENCIES = frozenset({"JPY", "CNY"})
 # The filed lines a row's label names exactly, for each concept whose extraction candidates differ in scope
-# (``edgar/instance/concepts.py``, which records the winning tag as ``raw_tag``). A filer that tags no such
+# (``edgar/instance/concepts.py`` lists them; the instance extractor, ``xbrl_instance.py``, records the
+# winning tag as ``raw_tag``, and the companyfacts path records it for cash alone, so no path records an
+# equity tag today and an equity figure that differs is never replaced). A filer that tags no such
 # line has another stand in: cash that adds restricted cash or short-term investments, or leaves out its
-# equivalents; equity that adds noncontrolling interests; net income that adds them, or is what is left for
-# common stockholders; operating cash flow from continuing operations alone; "Revenues", the top line, which
-# may add other income to net sales (``_names_the_filed_line``). "Long-term debt" names no single scope,
-# noncurrent or with its current maturities (``edgar/debt_concepts.py``), so no tag qualifies. A figure that
-# differs from a filed fact whose tag is not listed, or not recorded, is never replaced: the row is left
-# unchecked, as main left it. A concept not listed has one scope across its candidates.
+# equivalents; equity that adds noncontrolling interests; operating cash flow from continuing operations
+# alone; "Revenues", the top line, which may add other income to net sales or interest expense back to net
+# revenues (``_names_the_filed_line``). Two labels name no single scope, so no tag qualifies: "Long-term
+# debt", noncurrent or with its current maturities (``edgar/debt_concepts.py``), and "Net income" (or "Net
+# earnings", "Net profit"), the consolidated total or the parent's share of it, which differ by the
+# noncontrolling interests. The extractor takes the parent's share (NetIncomeLoss) first, while the 20-F
+# prompt asks for the total: Alibaba's FY2026 20-F reports net income of CNY 102,127 million, and CNY 103,592
+# million attributable to it. A figure that differs from a filed fact whose tag is not listed, or not
+# recorded, is never replaced: the row is left unchecked (main counted it a miss). A concept not listed has
+# one scope across its candidates.
 _EXACT_SCOPE_TAGS: dict[str, frozenset[str]] = {
     "revenue": frozenset({
         "Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax",
@@ -174,7 +185,7 @@ _EXACT_SCOPE_TAGS: dict[str, frozenset[str]] = {
         # A bank's own reported total ("Total net revenue"), read from its statement (``financial_profiles``).
         "RevenuesNetOfInterestExpense",
     }),
-    "net_income": frozenset({"NetIncomeLoss", "ProfitLossAttributableToOwnersOfParent"}),
+    "net_income": frozenset(),
     "operating_cash_flow": frozenset({
         "NetCashProvidedByUsedInOperatingActivities", "CashFlowsFromUsedInOperatingActivities",
     }),
@@ -182,7 +193,9 @@ _EXACT_SCOPE_TAGS: dict[str, frozenset[str]] = {
     "shareholders_equity": frozenset({"StockholdersEquity", "EquityAttributableToOwnersOfParent"}),
     "long_term_debt": frozenset(),
 }
-_SALES_LABEL_RE = re.compile(r"\bsales\b", re.IGNORECASE)
+# A label that names sales or a net figure names a line "Revenues" may exceed: Walmart's net sales beside its
+# membership income, a broker-dealer's net revenues beside its revenues before interest expense.
+_NARROWER_THAN_REVENUES_RE = re.compile(r"\b(?:sales|net)\b", re.IGNORECASE)
 _NEVER_CHECKED_KEYS = frozenset({"eps_diluted", "net_margin", "gross_margin", "operating_margin"})
 _SOURCE_KEY_LABELS = {key: label for _pattern, key, label in _METRIC_XBRL_PATTERNS}
 _ROW_PERIOD_FACT = {"current_period": "current", "prior_period": "prior"}
@@ -686,7 +699,7 @@ def _names_the_filed_line(key: str, label: Any, fact: dict) -> bool:
     tag = raw_tag.rsplit(":", 1)[-1] if isinstance(raw_tag, str) else None
     if tag not in tags:
         return False
-    return not (tag == "Revenues" and isinstance(label, str) and _SALES_LABEL_RE.search(label) is not None)
+    return not (tag == "Revenues" and isinstance(label, str) and _NARROWER_THAN_REVENUES_RE.search(label) is not None)
 
 
 def _filed_amount(fact: dict, reporting_currency: Any) -> str:
@@ -756,8 +769,9 @@ def build_metric_source(
         if replaceable:
             compared["prior_period"] = prior
     for field, fact in filed.items():
-        # A figure that states no scale and reads under a million beside a filed amount of a million or more
-        # may be in its statement's unit ("416,161", in millions): neither a match nor a mismatch can be told.
+        # A figure that states no scale and reads under a million may be in its statement's unit ("416,161", in
+        # millions): neither a match nor a mismatch can be told, so the row is left unchecked, even beside a
+        # filed prior that small (a whole "$512,000").
         no_scale = not metric_delta_service.display_names_scale(shown[field])
         if no_scale and abs(parse_display_number(shown[field])[0]) < _MIN_VERIFIABLE_XBRL_VALUE:
             return out
@@ -799,8 +813,9 @@ _CODE_OWNED_ROW_KEYS = (
 
 # Numbers a takeaway or a period cell may name without stating a figure: years ("2025", "FY25", "the
 # 1990s"), quarters and halves ("Q4'25", "3Q", "1H25", "H1 2025"), dates ("Sept. 27, 2025"), form names
-# ("10-K", "20-F") and the filing's own Items, Notes and Parts ("Notes 3 and 4"). A number written as an
-# amount ("$2025 million", "2025 million") is not a year.
+# ("10-K", "20-F") and the filing's own Items, Notes and Parts ("Notes 3 and 4"). Any other number reads
+# as a figure, the safe way for a takeaway: a product's number ("Microsoft 365", "GLP-1") withholds one
+# beside a replaced figure, and never keeps one that states a figure.
 # A quarter's or a half's year ("Q4'25", "Q4 2025", "1H25"); a number after a space is a figure ("Q4 25%").
 _PERIOD_TAIL = r"(?:\s?['’]\d{2}|\s?(?:19|20)\d{2}|\d{2})?"
 # A month by its name or abbreviation, never a word that starts like one ("declined 8", "Margin 38").
@@ -808,13 +823,17 @@ _MONTH = (
     r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?"
     r"|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
 )
-# One number of an Item, Note or Part list, whole, and never one a percent or a decimal follows ("Note 3, 25%").
-_LISTED = r"\d+[A-C]?(?![\d%]|\.\d)"
+# A number a percent, a scale or basis points follow is an amount, whatever it is shaped like: "2025 million",
+# "Note 7, 120 million", "June 25 percent", "Dec 15 bps". One shaped like a year with no unit ("1999 for the
+# year") reads as a year.
+_NO_UNIT = r"(?!\s*(?:%|(?:percent|per\s?cent|bps|basis\s+points?|thousand|million|billion|trillion|mn|bn|tn|[kmbt])\b))"
+# One number of an Item, Note or Part list, whole, and never one a unit follows ("Note 3, 25%").
+_LISTED = rf"\d+[A-C]?(?!\d){_NO_UNIT}"
 _NON_FIGURE_NUMBER_RE = re.compile(
-    r"(?<![$€£¥\d.,])\b(?:FY|CY)\s?['’]?\d{2}(?:\d{2})?\b(?!\s*%)"
-    rf"|\b(?:Q[1-4]|[1-4]Q|H[12]|[12]H){_PERIOD_TAIL}\b(?!\s*%)"
-    r"|(?<![$€£¥\d.,])\b(?:19|20)\d{2}s?\b(?!\s*%)(?!\s*(?:thousand|million|billion|trillion|mn|bn|tn|[kmbt])\b)"
-    rf"|\b{_MONTH}\.?\s+\d{{1,2}}(?:st|nd|rd|th)?\b(?!\s*%)"
+    rf"(?<![$€£¥\d.,])\b(?:FY|CY)\s?['’]?\d{{2}}(?:\d{{2}})?\b{_NO_UNIT}"
+    rf"|\b(?:Q[1-4]|[1-4]Q|H[12]|[12]H){_PERIOD_TAIL}\b{_NO_UNIT}"
+    rf"|(?<![$€£¥\d.,])\b(?:19|20)\d{{2}}s?\b{_NO_UNIT}"
+    rf"|\b{_MONTH}\.?\s+\d{{1,2}}(?:st|nd|rd|th)?\b{_NO_UNIT}"
     r"|\b(?:10|20|40)-[KQF]\b|\b[68]-K\b|\bS-[14]\b"
     rf"|\b(?:Items?|Notes?|Parts?)\s+{_LISTED}(?:\s*(?:,|&|and|to|-|–)\s*{_LISTED})*",
     re.IGNORECASE,
@@ -879,34 +898,40 @@ def _excerpt_section_ref(excerpt: str) -> Optional[str]:
 
 
 def _refresh_normalized(section: dict, xbrl_standardized: Optional[dict]) -> None:
-    """Rewrite each swapped row's stored normalized fact from its new figures.
+    """Rewrite the stored normalized facts the homepage hero reads (``frontend/lib/serverApi.ts``,
+    ``pickMetrics``) from the checked rows.
 
-    ``attach_normalized_facts`` derived these from the summary's own figures at generation; the
-    homepage hero reads them (``frontend/lib/serverApi.ts``, ``pickMetrics``), so a stale fact would
-    show the figure the table replaced. A change the exact binder computed from the filed pair is
-    computed from the same pair here (``metric_delta_service.exact_operands``): from the display text,
-    a prior shown as "$50.0M" for a filed 50,040,000 would give the hero +10.0% beside the table's +9.9%.
+    ``attach_normalized_facts`` derived them from the summary's own figures at generation. A swapped row's
+    fact takes its new figures, or the hero would show the figure the table replaced. And every row whose
+    change the exact binder computed from the filed pair gives its fact that pair
+    (``metric_delta_service.exact_operands``): from the display text, a prior shown as "$50.0M" for a filed
+    50,040,000 would give the hero +10.0% beside the table's +9.9%.
     """
     normalized = section.get("normalized")
     facts = normalized.get("metrics") if isinstance(normalized, dict) else None
     if not isinstance(facts, list):
         return
-    swapped = {
-        row.get("metric"): row for row in section["table"]
-        if isinstance(row, dict) and row.get("source_replaced")
-    }
+    rows = {row.get("metric"): row for row in section["table"] if isinstance(row, dict)}
     for index, fact in enumerate(facts):
-        row = swapped.get(fact.get("metric")) if isinstance(fact, dict) else None
-        if row is not None:
-            operands = metric_delta_service.exact_operands(row, xbrl_standardized)
-            # The model's other fields may be any JSON; the fact takes text only.
-            facts[index] = json.loads(NormalizedFact(
-                metric=row["metric"],
-                current_period=_text_or_none(_row_figure(row, "current_period")),
-                prior_period=_text_or_none(_row_figure(row, "prior_period")),
-                commentary=_text_or_none(row.get("commentary")) or None,
-                **({"current_value": operands[0], "prior_value": operands[1]} if operands else {}),
-            ).model_dump_json(by_alias=True))
+        row = rows.get(fact.get("metric")) if isinstance(fact, dict) else None
+        if row is None:
+            continue
+        operands = metric_delta_service.exact_operands(row, xbrl_standardized)
+        values = {"current_value": operands[0], "prior_value": operands[1]} if operands else {}
+        # The model's other fields may be any JSON; the fact takes text only.
+        if row.get("source_replaced"):
+            figures = (_row_figure(row, "current_period"), _row_figure(row, "prior_period"), row.get("commentary"))
+        elif values:
+            figures = (fact.get("currentPeriod"), fact.get("priorPeriod"), fact.get("commentary"))
+        else:
+            continue
+        facts[index] = json.loads(NormalizedFact(
+            metric=row["metric"],
+            current_period=_text_or_none(figures[0]),
+            prior_period=_text_or_none(figures[1]),
+            commentary=_text_or_none(figures[2]) or None,
+            **values,
+        ).model_dump_json(by_alias=True))
 
 
 def _text_or_none(value: Any) -> Optional[str]:
@@ -1100,8 +1125,7 @@ def enrich_financial_highlights(
         xbrl_standardized,
         preserve_owned_when_unavailable=exact_delta_owned,
     )
-    if any(isinstance(row, dict) and row.get("source_replaced") for row in result["table"]):
-        _refresh_normalized(result, xbrl_standardized)
+    _refresh_normalized(result, xbrl_standardized)
     enriched_rows: list[Any] = []
     for row in result["table"]:
         if isinstance(row, dict):
@@ -1185,17 +1209,15 @@ def enrich_raw_summary(
     has_risks = isinstance(risks, list)
     fh = sections.get(metrics_key)
     has_fh = isinstance(fh, dict) and isinstance(fh.get("table"), list)
-    # v2 quotes/footnotes are independent citable surfaces (T4): a summary with only those (no risks
+    # Quotes and footnotes are independent citable surfaces (T4): a summary with only those (no risks
     # list, no metrics table — e.g. a degraded generation or a form that populates forward signals but
-    # no standardized table) must still get its citation enrichment, not short-circuit here.
-    has_v2_cite = version >= 2 and (
-        isinstance(sections.get("forward_signals"), dict)
-        or isinstance(sections.get("notable_footnotes"), list)
-    )
-    if not has_risks and not has_fh and not has_v2_cite:
+    # no standardized table) must still get its citation enrichment (v2) or lose the evidence its stored
+    # JSON carries (v1, or nothing searched), not short-circuit here.
+    has_cite = isinstance(sections.get("forward_signals"), dict) or isinstance(sections.get("notable_footnotes"), list)
+    if not has_risks and not has_fh and not has_cite:
         return result
 
-    if cite_passages and normalized_source is None:
+    if cite_passages and version >= 2 and normalized_source is None:
         raw_source = _select_source_text(filing) if filing is not None else None
         normalized_source = normalize_for_match(raw_source)
     delta_marker = raw_summary.get(metric_delta_service.EXACT_CONTEXT_KEY)
@@ -1216,8 +1238,9 @@ def enrich_raw_summary(
         base_url = _base_url(filing)
         _enrich_forward_quotes(result["sections"], base_url, normalized_source)
         _enrich_footnotes(result["sections"], base_url, normalized_source)
-    elif version >= 2:
-        # Nothing was searched, so nothing is cited: a stored quote's or footnote's own ``evidence`` is the
+    else:
+        # Nothing was searched (no filing text, an export, or a v1 summary, whose footnotes render through the
+        # same table as v2's), so nothing is cited: a stored quote's or footnote's own ``evidence`` is the
         # model's JSON, and kept it would read as found.
         _drop_passage_evidence(result["sections"])
     return result

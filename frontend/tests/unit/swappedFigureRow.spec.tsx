@@ -34,14 +34,34 @@ const takeaways = (container: HTMLElement) =>
 // Sage never colours a value at rest (DESIGN.md, the Separate Signals Rule; D-030). A figure's note states the filed
 // amounts in a string the server's fields fill, which no source scan reads, so the rendered panel is read instead: no
 // text with a digit sits inside an element whose own colour is sage (brandCopyRules.spec.ts rule 2's colour family).
-const SAGE = /^(?:dark:)?(?:text|fill)-(?:brand(?:-[a-z]+)*|accent-strong)(?:\/\S+)?$/
+const SAGE = /^(?:text|fill)-(?:brand(?:-[a-z]+)*|accent-strong)(?:\/\S+)?$/
+// The variants under which a colour is not a resting one: the pointer's (hover:, active:) and a pseudo-element's.
+const NOT_AT_REST = /^(?:(?:group|peer)-)?(?:hover|active)(?:\/[\w-]+)?$|^\[.*:(?:hover|active)\b.*\]$|^(?:placeholder|file|marker|selection|before|after|first-letter|first-line|backdrop)$/
+
+/** Whether a class token colours its element sage at rest, as rule 2 reads a resting ink (`tokenInk`): under any
+    variant (dark:, a breakpoint, aria-*, data-*, focus:) and with `!`, but for the pointer's and a pseudo-element's. */
+function restsInSage(token: string): boolean {
+  const variants: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < token.length; i++) {
+    if (token[i] === '[') depth++
+    else if (token[i] === ']') depth--
+    else if (token[i] === ':' && depth === 0) {
+      variants.push(token.slice(start, i))
+      start = i + 1
+    }
+  }
+  return SAGE.test(token.slice(start).replace(/^!/, '')) && !variants.some((variant) => NOT_AT_REST.test(variant))
+}
+
 function digitsInSage(root: HTMLElement): string[] {
   const out: string[] = []
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     if (!/\d/.test(node.textContent ?? '')) continue
     for (let element = node.parentElement; element && root.contains(element); element = element.parentElement) {
-      if ((element.getAttribute('class') ?? '').split(/\s+/).some((name) => SAGE.test(name))) {
+      if ((element.getAttribute('class') ?? '').split(/\s+/).some(restsInSage)) {
         out.push(node.textContent!.trim())
         break
       }
@@ -71,12 +91,31 @@ describe('the figure panel', () => {
     const panel = screen.getByRole('group', { name: 'Source detail' })
     expect(panel.textContent).toContain('$133,050 million')
     expect(digitsInSage(panel)).toEqual([])
+    // The status line's check is the sage mark; the line it sits in rests in the ink.
+    const check = panel.querySelector('svg[class~="text-brand-strong"]')
+    expect(check, 'the check is in sage').not.toBeNull()
+    expect(check!.parentElement!.getAttribute('class')).toContain('text-text-primary-light')
   })
 
-  it('reads a sage digit as one, so the check above can fail', () => {
-    const { container } = render(<p><span className="text-xs text-brand-strong dark:text-brand-strong-dark">$133,050 million</span></p>)
+  it.each([
+    'text-brand-strong dark:text-brand-strong-dark',
+    'md:text-brand-strong',
+    '!text-brand-strong',
+    'sm:dark:text-brand-strong-dark',
+    'aria-[current=page]:text-brand',
+    'fill-accent-strong/80',
+  ])('reads a digit in %s as sage, so the check above can fail', (className) => {
+    const { container } = render(<p><span className={`text-xs ${className}`}>$133,050 million</span></p>)
     expect(digitsInSage(container)).toEqual(['$133,050 million'])
   })
+
+  it.each(['hover:text-brand-strong', 'group-hover:text-brand', 'before:text-brand-strong', 'text-text-primary-light'])(
+    'reads a digit under %s as resting in the ink',
+    (className) => {
+      const { container } = render(<p><span className={`text-xs ${className}`}>$133,050 million</span></p>)
+      expect(digitsInSage(container)).toEqual([])
+    },
+  )
 })
 
 describe('a withheld takeaway', () => {

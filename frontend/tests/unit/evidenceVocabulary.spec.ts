@@ -26,12 +26,14 @@ import { describe, expect, it } from 'vitest'
  * string or a template (`as const` and `satisfies` aside), or one field of a same-file object. A name resolves as
  * TypeScript resolves it, so a parameter or another function's constant that shares the name is not that constant.
  * Not copy: comments, identifiers, the values of attributes that are never shown (an address such as an href or
- * edgarCompanyUrl's result, a class, a data-* hook, a download's file name, an id and the references to one), and,
+ * edgarCompanyUrl's result, a class, a data-* hook but `data-en-ref`, whose value MarkedCopy shows as the margin's
+ * mark, a download's file name, an id and the references to one), and,
  * outside JSX, a value a match reads: a comparison (`s === 'Verified'`), a `case`, a membership or affix test
  * (`includes`, `startsWith`, `endsWith`, `indexOf`, `has`, `get`), an object key, or a literal type. Inside JSX a
  * matched value is copy, since what it matches may be what is shown (`{s === 'Cited' ? s : ''}`). An event handler's
- * strings are not a link's copy, but rule 1 still reads them, since a handler may set text that is shown (a toast, a
- * label held in state). An attribution outside a link ("Data sourced from SEC EDGAR" in the footer and AiDisclaimer)
+ * strings are not a link's copy, and rule 1 reads them as it reads a string outside JSX, since a handler may set text
+ * that is shown (a toast, a label held in state): the retired phrases in any case and the whole labels in their own
+ * case, so a handler's "VERIFIED" or bare "SEC EDGAR" stays review-checked. An attribution outside a link ("Data sourced from SEC EDGAR" in the footer and AiDisclaimer)
  * is not a label, and the plan's R9 leaves it, as it leaves the legal pages (LEGAL, whose links keep their published
  * words). The scan reads the .ts, .tsx, .js and .jsx modules in app, components, features, hooks and lib, and what the
  * stylesheets there add with `content:`.
@@ -74,10 +76,11 @@ export function retiredText(text: string, rendered: boolean): boolean {
 // An element given an address is a link: an href, a url, a link or a `to`, or a prop named for one.
 const ADDRESS_ATTRIBUTE = /^(?:href|url|link|to)$|(?:Href|Url|URL|Link)$|_(?:href|url|link)$/
 // Attributes whose values are never shown: sources, classes, link and loading hints, a download's file name, keys,
-// data-* hooks, and ids with the references to them. An event handler's strings are not a link's copy, though one may
-// set text that is shown.
+// data-* hooks (but `data-en-ref`, which MarkedCopy shows), and ids with the references to them. An event handler's
+// strings are not a link's copy, though one may set text that is shown.
+const SHOWN_DATA_ATTRIBUTE = 'data-en-ref'
 const UNSHOWN_ATTRIBUTE =
-  /^(?:src|className|rel|target|id|key|prefetch|as|download|form|htmlFor|aria-(?:activedescendant|controls|describedby|details|flowto|labelledby|owns))$|^data-/
+  /^(?:src|className|rel|target|id|key|prefetch|as|download|form|htmlFor|aria-(?:activedescendant|controls|describedby|details|flowto|labelledby|owns))$|^data-(?!en-ref$)/
 const HANDLER_ATTRIBUTE = /^on[A-Z]/
 const isLinkTag = (tag: string) => tag === 'a' || tag === 'Link'
 const attributeName = (attribute: ts.JsxAttribute) => attribute.name.getText()
@@ -360,6 +363,13 @@ describe('the evidence vocabulary (D-058)', () => {
     expect(sheets.flatMap((rel) => cssContent(readFileSync(path.join(FRONTEND, rel), 'utf8')).filter((text) => retiredText(text, true)))).toEqual([])
   })
 
+  it('reads the one data attribute the app shows', () => {
+    // MarkedCopy measures each `data-en-ref` mark and shows its value in the margin; another such reader is a data
+    // attribute this gate must read too.
+    expect(readFileSync(path.join(FRONTEND, 'components/ui/MarkedCopy.tsx'), 'utf8')).toContain(`querySelectorAll<HTMLElement>('[${SHOWN_DATA_ATTRIBUTE}]')`)
+    expect(UNSHOWN_ATTRIBUTE.test(SHOWN_DATA_ATTRIBUTE)).toBe(false)
+  })
+
   it('keeps EDGAR out of the vocabulary module, whose labels other modules render in links', () => {
     const sf = ts.createSourceFile(LABELS_MODULE, readFileSync(path.join(FRONTEND, LABELS_MODULE), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
     const copy: string[] = []
@@ -461,6 +471,8 @@ describe('the vocabulary scan holds its reach', () => {
     ['a compared label JSX renders through its variable', `export const A = ({ s }: { s: string }) => <span>{s === 'Cited' ? s : ''}</span>`],
     ['a compared label shown behind &&', `export const A = ({ b }: { b: string }) => <div>{b === 'Verified' && <span>{b}</span>}</div>`],
     ['a matched label inside JSX', `export const A = ({ s }: { s: string }) => <span>{s.startsWith('Cited') ? s : ''}</span>`],
+    ['a margin mark MarkedCopy shows', `export const M = () => <p>Revenue<span data-en-ref="Verified" aria-hidden="true">[1]</span></p>`],
+    ['a retired phrase as a margin mark', `export const M = () => <p>Revenue<span data-en-ref="SEC XBRL">[1]</span></p>`],
   ])('fails %s', (_, source) => {
     expect(breaches(source)).toContain('retired label')
   })

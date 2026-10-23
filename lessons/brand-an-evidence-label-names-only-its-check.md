@@ -31,10 +31,19 @@ and a screen reader never heard the strike.
   end with the fiscal year end. The check's tests carry the wrong-scale, wrong-digit, wrong-concept and
   wrong-period cases (`TestFigureCheck` in `backend/tests/unit/test_provenance_service.py`).
 - Replace a figure only with the filed line its label names. A concept's extraction candidates differ
-  in scope (cash with restricted cash, debt noncurrent or with current maturities, equity or net income
-  with noncontrolling interests, "Revenues" beside net sales), so a figure that differs from a fact of
-  another scope, or of a tag the extractor did not record, may be another line's, never a wrong one: the
-  row is left unchecked (`_EXACT_SCOPE_TAGS`; `test_a_*_figure_is_replaced_only_by_the_line_its_label_names`).
+  in scope (cash with restricted cash, debt noncurrent or with current maturities, equity with
+  noncontrolling interests, "Revenues" beside net sales or net revenues), and some labels name no single
+  scope ("Net income", the consolidated total or the parent's share; "Long-term debt"). A figure that
+  differs from a fact of another scope, of a tag the extractor did not record, or under a label of no
+  single scope may be another line's, never a wrong one: the row is left unchecked (`_EXACT_SCOPE_TAGS`,
+  each recorded candidate classified in `TestScopeTagsHoldTheirSources`;
+  `test_a_*_figure_is_replaced_only_by_the_line_its_label_names`, `test_net_income_is_matched_but_never_replaced`).
+- Show a figure's evidence in the ink: an amount in a status line or a note rests in the ink, and only the
+  check's mark is sage (DESIGN.md's Separate Signals Rule, D-030; `tests/unit/swappedFigureRow.spec.tsx`
+  reads the rendered panel for a digit in sage under any resting variant).
+- Compute a change once for every surface that shows it: the homepage hero's fact takes the filed pair the
+  table's change is computed from (`metric_delta_service.exact_operands`, `_refresh_normalized`), never the
+  display text, which rounds ("$50.0M" for a filed 50,040,000 gives +10.0% beside the table's +9.9%).
 - Take a label's kind (a figure or a quote) only from a field the server sets and a model cannot write. A
   Copilot passage's section label is the model's own words and may start "XBRL ·", so "Matches filing"
   follows the fact payload the server sends (`fact`, admitted in `copilot-api.ts` parseCompletion), never
@@ -52,4 +61,8 @@ and a screen reader never heard the strike.
 **Evidence**: the founder's review and answers of 2026-10-22 (`docs/brand/decisions-log.md` D-058);
 the probe and reconciliation in the plan's §4.1; commit 3bee6a5 (the check and the filed-value swap);
 the expert review of #1530 on 2026-10-23, which found a $12B debt total that included current
-maturities replaced by a $10B noncurrent fact and marked as matching.
+maturities replaced by a $10B noncurrent fact and marked as matching, the figure panel's amounts set in
+sage, and the hero's change read from display text beside the table's from the filed pair; the final
+correctness review of `7768c979`, which found Alibaba's FY2026 net income of CNY 102,127 million, the
+consolidated total its 20-F prompt asks for, replaced by its parent's share of CNY 103,592 million and
+marked as matching.
