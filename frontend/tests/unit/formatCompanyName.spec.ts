@@ -97,6 +97,20 @@ describe('formatCompanyName', () => {
     expect(formatCompanyName('U.S. BANCORP')).toBe('U.S. Bancorp')
   })
 
+  // Codex on #1491: a letter is any script's, with its accents, so an accented capital stays inside its word (a
+  // decomposed accent too), a name cased in another script is trusted, and a script without case is left as served.
+  it.each([
+    ['SOCIÉTÉ GÉNÉRALE', 'Société Générale'],
+    ["L'ORÉAL", "L'Oréal"],
+    ['ÉLECTRICITÉ DE FRANCE SA', 'Électricité de France SA'],
+    ['SOCIÉTÉ ANONYME', 'Société Anonyme'],
+    ['ГАЗПРОМ НЕФТЬ', 'Газпром Нефть'],
+    ['ВКонтакте', 'ВКонтакте'],
+    ['トヨタ自動車', 'トヨタ自動車'],
+  ])('cases the letters of any script: %s -> %s', (input, expected) => {
+    expect(formatCompanyName(input)).toBe(expected)
+  })
+
   it('applies brand overrides and preserves tokens with digits or ampersands', () => {
     expect(formatCompanyName('EBAY INC')).toBe('eBay Inc')
     expect(formatCompanyName('S&P GLOBAL INC')).toBe('S&P Global Inc')

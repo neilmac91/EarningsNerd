@@ -7,8 +7,8 @@
  * request payloads), so the backend and search never see a rewritten string.
  *
  * THE RULE (one rule, applied consistently):
- *   1. A name whose BODY already contains a lowercase letter is trusted as-cased and returned
- *      as-is ("Alphabet Inc." stays "Alphabet Inc."). The body is every token before the trailing
+ *   1. A name whose BODY already contains a lowercase letter, in any script, is trusted as-cased and
+ *      returned as-is ("Alphabet Inc." stays "Alphabet Inc."). The body is every token before the trailing
  *      run of legal-form tokens (Inc, Corp, Co, Ltd, LLC, PLC, "/DE/" state markers, ...): EDGAR
  *      commonly cases ONLY that suffix ("ELI LILLY & Co", "NIKE, Inc.", "CVS HEALTH Corp"), and
  *      a lowercase suffix must not exempt the shouting body in front of it.
@@ -31,6 +31,9 @@
  *      invented), so the display form is always the source form with only its letter case changed.
  *      Hyphen/apostrophe/period-joined segments are cased per segment ("COCA-COLA" -> "Coca-Cola",
  *      "O'REILLY" -> "O'Reilly", "U.S." -> "U.S."), with a trailing possessive "'S" -> "'s".
+ *   5. A letter is any script's, with its accents, so an accented capital stays inside its word
+ *      ("SOCIÉTÉ GÉNÉRALE" -> "Société Générale", "L'ORÉAL" -> "L'Oréal") and a Cyrillic or Greek
+ *      name takes the same rules; a script without case (Japanese, Chinese, Arabic) is left as served.
  *
  * Unknown initialisms (a ticker-like "XPO") will come out as "Xpo"; add them to KEEP_UPPER when
  * seen. That is the accepted trade-off of a small, predictable exceptions list over a dictionary.
@@ -88,7 +91,7 @@ const LOWER_MIDWORD = new Set([
   'de', 'del', 'la', 'da', 'di', 'du', 'van', 'von', 'y', 'et',
 ])
 
-const hasLowercase = (s: string): boolean => /[a-z]/.test(s)
+const hasLowercase = (s: string): boolean => /\p{Ll}/u.test(s)
 
 /** A trailing group of tickers in parentheses, as EDGAR's full-text search folds a filer's tickers into its display name
     ("BOEING CO (BA, BA-PA)", "FLYEXCLUSIVE INC. (FLYX, FLYX-WT)"): each a ticker's shape in capitals, comma-separated. */
@@ -131,8 +134,9 @@ const caseToken = (token: string, isFirst: boolean): string => {
   if (KEEP_UPPER.has(coreUpper)) return lead + coreUpper + trail
   const lower = core.toLowerCase()
   if (!isFirst && LOWER_MIDWORD.has(lower)) return lead + lower + trail
-  // Case each alphabetic run separately so joiners survive: "COCA-COLA", "O'REILLY", "U.S.".
-  return token.replace(/[A-Za-z]+/g, caseSegment).replace(/'S(?=[^A-Za-z0-9]*$)/, "'s")
+  // Case each run of letters separately so joiners survive: "COCA-COLA", "O'REILLY", "U.S.". A letter is any script's,
+  // its accents with it (rule 5), so "SOCIÉTÉ" is one run.
+  return token.replace(/[\p{L}\p{M}]+/gu, caseSegment).replace(/'S(?=[^A-Za-z0-9]*$)/, "'s")
 }
 
 /**
