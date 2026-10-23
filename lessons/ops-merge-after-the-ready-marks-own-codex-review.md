@@ -22,6 +22,13 @@ the same head (F58 changed both; **Gate** below).
 - A push made once the pull request is ready, to answer a finding, moves the head past the ready mark's review. The
   review of the new head that the push's `@codex review` requests is then the one to read, the same way; the pull
   request stays ready.
+- A finding answered without a push (one about the pull request's body) leaves the ready review's unresolved state on
+  the same head. Resolving its thread does not clear that state, and a manual review of the same head cannot replace it.
+  Answer and resolve the thread, then make one fresh draft-to-ready transition, its two steps a few seconds apart, with
+  no manual request, and read that review. On #1523 the ready review's P1 (the body listed sixteen mutation proofs
+  where AGENTS.md §4 asks for one) was fixed in the body. The summary still read unresolved two minutes after the
+  thread was resolved, and review-gate failed on it. The fresh transition's review completed clean, and review-gate
+  passed.
 - A finding that lands after the merge gets its fix in the next pull request, with a reply on its thread naming it.
 - Make no draft-to-ready transition and no `@codex review` while any Codex review of the pull request shows Running,
   the ready mark's own review included, after a push too: the gate's advice to comment `@codex review` holds once the
