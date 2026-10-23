@@ -71,6 +71,7 @@ const TRIGGER_LINES: Record<string, number> = {
   'Evidence rows': 1,
   'Filing identity': 1,
   'Filing reader': 1,
+  'Locked preview': 1,
   'Search option': 1,
   'Segmented ctrl': 1,
 }

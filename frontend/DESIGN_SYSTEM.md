@@ -642,6 +642,25 @@ Data notes strip <DataNotes> — hairlines above and below a native details disc
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
                  FY2026 and all API/snapshot/selection keys retain their original identity.
 
+Locked preview   <PeekLocked feature preview="full|screen"> (features/subscriptions): a Pro feature shown
+                 locked, the real component blurred, dimmed, inert and aria-hidden under a centred Pro pill
+                 and a primary "Upgrade to Pro" that opens UpgradeModal. 'full', the default, shows all of
+                 it, the action centred on its whole height. 'screen', the analysis teaser's (E139), shows
+                 about one screen: the preview's max-height is min(40rem, 75svh), the svh term keeping the
+                 window inside the smallest viewport a phone shows at any text size, the rem term capping it
+                 on a tall screen to about a phone screen of content; overflow-clip cuts the content there
+                 without making the preview a scroll container. Its foot fades through a mask on the preview
+                 alone (black to transparent over the last quarter), which paints no colour, so the ground
+                 behind shows through in either theme, and the action, the preview's sibling, is never under
+                 it; never a gradient painted in a ground colour, which must match whatever sits behind the
+                 preview in each theme. The pill and the action stay centred in the window: at 390px the
+                 action's foot moved from 2,632px to 385px below the teaser's top, inside its first screen.
+                 Gate: tests/e2e/analysis-teaser-window.spec.ts (390x844 and 1440x900, and 390x844 and
+                 320x640 under a 200% text setting, both themes: the action within one screen of the
+                 teaser's top, the window no taller than the screen and holding no scroll of its own, the
+                 pill and the action centred in it, the preview's mask opaque to transparent over its last
+                 quarter, top to bottom, and none around the action, no sideways scroll).
+
 Solid chip       <Badge variant="solid">  — the primary colorway as a chip (brand.strong fill +
                  white label; dark: NAVY ink on brand.dark) for brand-weak TINTED grounds where the
                  tint chips vanish. <Badge variant="info"> = the info STATE tint
