@@ -257,7 +257,6 @@ const EMAIL_VERIFIED_READS: [site: string, what: string][] = [
   ['app/services/oauth_account_service.py::resolve_apple_user', 'the same for Apple'],
   ['app/services/account_mail_service.py::_issue_link', 'sends no verification link to a verified address, after the response; resend-verification answers the same either way'],
   ['app/routers/auth.py::get_current_user_info', 'reports the state (/me), which shows or hides the banner'],
-  ['app/services/admin_account_service.py::_provision_account', "reports a new account's state to the admin who created it"],
 ]
 
 function emailVerifiedReads(): string[] {
