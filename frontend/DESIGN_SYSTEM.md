@@ -1005,21 +1005,26 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  dialog over the copilot sheet never lets a key reach the sheet — and content inside a panel
                  cannot handle Tab/Escape itself. The header icon tile takes the dialog's tone: brand for a
                  neutral prompt, a status hue for a state glyph (brand never signals a state).
-                 The header's icon and title are one group that wraps beside the ✕, as a Notice's glyph and
-                 text column do (Inline notice): the title's basis is 9rem (144px at the default size, 288px
-                 under 200% text), so where it cannot keep that beside the icon (a phone at 200% text) it goes
-                 under the icon at the group's whole width, the column gap below it (gap-y-1 and the title's
-                 pt-2). The ✕ keeps its own column, the row's last control at the top right: the title never
-                 sits under it or runs past the panel, and it breaks a word only when the word is wider than
-                 the group (at 320px under 200% text the email verification prompt's title has 94px, so
-                 "Verify" breaks). At the default size nothing moves: at 1440 and 390px the icon, the title
-                 and the ✕ keep their boxes, in both themes. Before, at 390px under 200% text, the icon and the
-                 ✕ left the title 60px: "Cookie preferences" painted under the ✕ and 26px past the panel's
-                 edge, and "Verify your email to continue" under the ✕. No container query, as for the
-                 Notice. Gate: e2e reflow-200.spec.ts (the consent dialog and the email verification prompt
-                 at 390, 360 and 320px: the title beside the icon at the default size and under it at 200%
-                 text, every painted line inside the panel and left of the ✕, a word broken only when it is
-                 wider than the title, the page not scrolling sideways, nor the prompt's panel).
+                 The header's icon, title and ✕ share one row while the title can keep 9rem (144px at the
+                 default size, 288px under 200% text) beside the icon, as a Notice's glyph and text column do
+                 (Inline notice). Where it cannot (a phone at 200% text), the title goes to its own line under
+                 the icon and the ✕, at the header's full width, under the ✕ too, the column gap below the
+                 icon (gap-y-1 and the title's pt-2), and the ✕ keeps the top right; the type never steps down
+                 (E158, chief design on #1495). A header with a ✕ is a container for this
+                 ([container-type:inline-size]): below 14.25rem, the row's own width (the 2.5rem icon, two
+                 0.75rem gaps, the 9rem title and the ✕'s 1.25rem margin box), the title takes order-last and
+                 basis-full, since flex-wrap alone, as the Notice uses, would carry the ✕ down after a wrapped
+                 title. With no ✕, flex-wrap alone stacks the title, and with no icon it stays beside the ✕.
+                 The title never overlaps the ✕ or runs past the panel, and no word of it breaks: under 200%
+                 text the consent dialog's stacked title is 216, 251 and 277px wide at 320, 360 and 390px.
+                 Before E158 it kept the group's width beside the ✕'s column, 152, 187 and 213px, so
+                 "preferences" (197px) broke at 320 and 360px. At the default size nothing moves: at 320, 360,
+                 390 and 1440px the icon, the title and the ✕ keep their boxes, in both themes, and at 1440px
+                 under 200% text the title still sits beside the icon. Gate: e2e reflow-200.spec.ts (the
+                 consent dialog and the email verification prompt at 390, 360 and 320px: the title beside the
+                 icon at the default size and under it at 200% text at the header's full width, under the ✕
+                 too, every painted line inside the panel and clear of the ✕, no word broken, read a character
+                 at a time, the page not scrolling sideways, nor the prompt's panel).
                  Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
                  viewer / workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
                  below lg, where it is a sheet, and a complementary landmark on lg+), and the calendar's
