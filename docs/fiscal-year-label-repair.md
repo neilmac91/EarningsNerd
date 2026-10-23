@@ -16,9 +16,13 @@ source (a headline value the cross-check corrected is stored as `companyfacts` b
 owner). It changes `fiscal_year` and nothing else: never `period_end`, `value`, `unit`,
 `accession` or `is_latest`, never a quarter row, never a companyfacts, derived or reported-EPS row
 without a filing owner, never a delete. Durations and balance-sheet instants are both relabelled,
-because an annual balance closes the year that ends on its date. It only rewrites the defect's own
-signature, a label equal to the calendar year of the period end; any other label (P5's annual
-label, for example) is left alone.
+because an annual balance closes the year that ends on its date. It rewrites the defect's own
+signature, a label equal to the calendar year of the period end. A label a labeller set (P5's annual
+label) moves only with its whole filing, as the per-filing writer's own adoption (#1364) moves it:
+every row of the filing that has a trusted year gives the same offset, and this run's SEC read names
+the same year at the row's period end. That repairs a 10-K whose DEI focus lags, opened before
+companyfacts stored any year for the company (Salesforce's fiscal 2026 report, focus 2025, stored one
+year low). A NULL label is never filled.
 
 The year comes from the stored companyfacts FY rows at the same company and period end (source
 `companyfacts`, an XBRL tag, no filing owner, current or not, excluding rows a quarterly repair
@@ -47,8 +51,8 @@ Logging, outside the `jsonPayload:*` filter below). Each scanned row is counted 
 | `no_companyfacts_fy` | No companyfacts FY row at that period end, stored or read from SEC; left alone |
 | `legacy_companyfacts_only` | Only rows stored before #1191 (calendar labels) at that period end, and either none read from SEC or a current one that readers still pick, beside which a relabel would split the period end across fiscal years; left alone, never read as agreement |
 | `companyfacts_disagree` | Current-writer rows at that period end name more than one year; left alone, never one picked |
-| `untrusted_instant_only` | Only balance-sheet rows there. The companyfacts writer names its oldest opening balance by one report's fy or, failing that, by calendar year (for a January year, the next year's label), with no fiscal-year window behind it, so an instant-only label is never copied |
-| `not_calendar_default` | The row's label is not the calendar year of its end, so a labeller set it (P5, or a NULL); a stored source never overwrites it |
+| `untrusted_instant_only` | Only balance-sheet rows there. Until 2026-10-23 the companyfacts writer named its oldest opening balance by one report's fy or, failing that, by calendar year (for a January year, the next year's label), with no fiscal-year window behind it; rows it stored then carry the same provenance as later ones, so an instant-only label is never copied |
+| `not_calendar_default` | The row's label is not the calendar year of its end, so a labeller set it (P5, or a NULL), and it cannot move with its whole filing: the filing's trusted years give more than one offset, or this run's SEC read does not name the same year there, or the label is NULL |
 | `label_collision` | The new label is one that another period end of the same filing and concept, or another current row of the concept, would carry; the whole period end is left alone, every concept and filing at it, so the chart and the annual datasets never get two period ends for one year and no period end gets two years |
 
 `held` lists the period ends behind each non-agreeing skip, for spot checks. `partial_filings`
@@ -154,7 +158,21 @@ gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
 The run is idempotent: a relabelled row counts as `already_agrees` next time, and a second apply
 reports `relabel_rows: 0`. Re-run it (dry run first) after any backfill that re-extracts filings
 from persisted `Filing.xbrl_data` snapshots taken before P5, because those snapshots carry no
-annual labels and still write calendar years.
+annual labels and still write calendar years. Re-run the dry run, too, after the companyfacts
+year-naming fix of 2026-10-23 deploys, before any apply: from then on the SEC read names an equity
+statement's oldest opening balance, and a delinquent filer's year chain with no timely annual
+report, by their fiscal years, and a labeller-set filing can move by its one offset, so an earlier
+dry run no longer shows what an apply would do. A 10-K whose focus lags, opened before the
+company's first sync, is still stored one year low, so later runs find such filings too.
+
+**Companyfacts rows the relabel never touches.** The companyfacts writer's rows from before that fix
+keep their labels, since a sync is insert-only: an oldest opening balance one year high (Target,
+Home Depot, J&J), and a delinquent filer's late chain under calendar years, where its next annual
+report's sync stores the re-reported years under fiscal labels beside the older calendar ones. The
+audited quarterly repair, `scripts/repair_quarterly_facts.py --tickers ...` (preview, then
+`--apply` with sign-off), relabels the current ones, journaled. Run it for such a cohort before the
+relabel: a current opening balance one year high holds the filing's next year-end balance as
+`label_collision`.
 
 ## What readers see
 

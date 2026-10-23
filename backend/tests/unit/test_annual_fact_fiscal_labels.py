@@ -11,11 +11,13 @@ the standardized metrics, the per-filing writer, the companyfacts writer, the Mu
 Analysis dataset and coverage, and the filing page's annual chart. Where companyfacts already
 names a period's year, the per-filing writer moves the filing's annual years onto that year chain
 by one offset, so an issuer that names a January year by its end keeps its names when its 10-K's
-focus lags (Salesforce, CrowdStrike, Veeva, Best Buy). Every issuer here files a timely annual
-report; a year chain with none, and a lagging focus opened before the first companyfacts sync, are
-known limits (``lessons/sec-fact-writers-name-a-period-alike.md``).
+focus lags (Salesforce, CrowdStrike, Veeva, Best Buy). Each issuer runs with its annual reports
+filed on time and with all of them filed late, whose year chain the companyfacts writer names from the
+late reports' own years; and each writer names an equity statement's oldest opening balance by the year
+that ends on its date. A lagging focus opened before the first companyfacts sync is repaired by the
+stored-row relabel (``lessons/sec-fact-writers-name-a-period-alike.md``).
 """
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pandas as pd
@@ -24,7 +26,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Query, sessionmaker
 
 from app.models import Base, Company, Filing, FinancialFact
-from app.services import copilot_tools, facts_service
+from app.services import copilot_tools, facts_service, quarterly_fact_repair
 from app.services import trend_analysis_service as analysis
 from app.services.edgar import fiscal_periods, xbrl_instance
 from app.services.facts import fiscal_evidence
@@ -94,6 +96,7 @@ FORMS = {"march_named_by_start": "20-F", "march_named_by_end": "20-F"}
 LAGGING_FOCUS = {"bby": 2021, "crm": 2026, "crwd": 2025, "veev": 2022}  # The 10-K whose focus lags a year.
 DEI_FOCUS = {("december_lagging_focus", 2024): 2023, **{(issuer, fy): fy - 1 for issuer, fy in LAGGING_FOCUS.items()}}
 REVENUE = {fy: 1_000.0 + 100 * (fy - 2021) for fy in range(2018, 2027)}
+EQUITY = {fy: 900.0 + 100 * (fy - 2020) for fy in range(2017, 2027)}
 NET_INCOME = {fy: 100.0 + 10 * (fy - 2021) for fy in range(2018, 2027)}
 ASSETS = {fy: 5_000.0 + 200 * (fy - 2021) for fy in range(2018, 2027)}
 
@@ -108,15 +111,22 @@ def db(tmp_path):
     engine.dispose()
 
 
-def _company(db, issuer: str) -> Company:
+def _filed(issuer: str, report_fy: int, late: bool = False) -> str:
+    """When the annual report was filed: within SEC's timely-original window, or 250 days after its year's end."""
+    if not late:
+        return ANNUAL_REPORTS[issuer][report_fy][1]
+    return (date.fromisoformat(CALENDARS[issuer][report_fy][1]) + timedelta(days=250)).isoformat()
+
+
+def _company(db, issuer: str, late: bool = False) -> Company:
     company = Company(cik="0000000001", ticker=issuer.upper()[:5], name=issuer)
     db.add(company)
     db.flush()
-    for report_fy, (accession, filed) in ANNUAL_REPORTS[issuer].items():
+    for report_fy, (accession, _filed_on_time) in ANNUAL_REPORTS[issuer].items():
         url = build_sec_archive_url(company.cik, accession)
         db.add(Filing(
             company_id=company.id, accession_number=accession, filing_type=FORMS.get(issuer, "10-K"),
-            filing_date=datetime.fromisoformat(filed).replace(tzinfo=timezone.utc),
+            filing_date=datetime.fromisoformat(_filed(issuer, report_fy, late)).replace(tzinfo=timezone.utc),
             period_end_date=datetime.fromisoformat(CALENDARS[issuer][report_fy][1]).replace(tzinfo=timezone.utc),
             sec_url=url, document_url=f"{url}annual.htm",
         ))
@@ -142,8 +152,9 @@ class _Facts:
         return self.selected
 
 
-def _instance_xbrl(monkeypatch, issuer: str, report_fy: int, form: str | None = None) -> dict:
-    """The real instance extractor over one annual report's XBRL; DEI as edgartools reads it."""
+def _instance_xbrl(monkeypatch, issuer: str, report_fy: int, form: str | None = None, equity: bool = False) -> dict:
+    """The real instance extractor over one annual report's XBRL; DEI as edgartools reads it. With
+    ``equity``, its equity statement's four balances, the oldest closing the year before its first."""
     calendar = CALENDARS[issuer]
     years = (report_fy, report_fy - 1, report_fy - 2)
 
@@ -160,6 +171,12 @@ def _instance_xbrl(monkeypatch, issuer: str, report_fy: int, form: str | None = 
             for fy in years[:2]
         ]),
     }
+    if equity:
+        frames["StockholdersEquity"] = pd.DataFrame([
+            {"is_dimensioned": False, "period_start": None, "period_end": None, "period_instant": end,
+             "numeric_value": EQUITY[fy], "decimals": -6, "currency": "USD"}
+            for fy, end in _equity_ends(issuer, report_fy).items()
+        ])
     focus = str(DEI_FOCUS.get((issuer, report_fy), report_fy))
     xb = SimpleNamespace(facts=_Facts(frames), entity_info={"fiscal_year": focus, "fiscal_period": "FY"})
     sec_filing = SimpleNamespace(form=form or FORMS.get(issuer, "10-K"), period_of_report=calendar[report_fy][1],
@@ -169,28 +186,41 @@ def _instance_xbrl(monkeypatch, issuer: str, report_fy: int, form: str | None = 
     return xbrl_instance._extract_from_filing_instance_sync("0000000001", ANNUAL_REPORTS[issuer][report_fy][0])
 
 
-def _open_annual_report(db, monkeypatch, issuer: str, report_fy: int) -> Filing:
+def _equity_ends(issuer: str, report_fy: int) -> dict[int, str]:
+    """An equity statement's balances: the end of each of the report's three years, and of the year before."""
+    calendar = CALENDARS[issuer]
+    ends = {fy: calendar[fy][1] for fy in (report_fy, report_fy - 1, report_fy - 2)}
+    return {**ends, report_fy - 3: (date.fromisoformat(calendar[report_fy - 2][0]) - timedelta(days=1)).isoformat()}
+
+
+def _open_annual_report(db, monkeypatch, issuer: str, report_fy: int, equity: bool = False) -> Filing:
     """A reader opens the annual report: the SSE enrichment path writes that filing's own facts."""
-    raw = _instance_xbrl(monkeypatch, issuer, report_fy)
+    raw = _instance_xbrl(monkeypatch, issuer, report_fy, equity=equity)
     filing = db.query(Filing).filter_by(accession_number=ANNUAL_REPORTS[issuer][report_fy][0]).one()
     facts_service.process_filing_facts(db, filing, standardized=extract_standardized_metrics(raw))
     return filing
 
 
-def _companyfacts(issuer: str, reports: tuple[int, ...], form: str | None = None) -> dict:
-    """SEC companyfacts: every item carries the fy/fp and form of the annual report that reported it."""
+def _companyfacts(issuer: str, reports: tuple[int, ...], form: str | None = None, *, late: bool = False,
+                  equity: bool = False) -> dict:
+    """SEC companyfacts: every item carries the fy/fp and form of the annual report that reported it.
+    ``late`` files every report 250 days after its year's end; ``equity`` adds each report's equity statement."""
     calendar = CALENDARS[issuer]
-    items: dict[str, list] = {"Revenues": [], "NetIncomeLoss": [], "Assets": []}
+    items: dict[str, list] = {"Revenues": [], "NetIncomeLoss": [], "Assets": [], "StockholdersEquity": []}
     for report_fy in reports:
-        accession, filed = ANNUAL_REPORTS[issuer][report_fy]
+        accession, _filed_on_time = ANNUAL_REPORTS[issuer][report_fy]
         source = {"fy": DEI_FOCUS.get((issuer, report_fy), report_fy), "fp": "FY",
-                  "form": form or FORMS.get(issuer, "10-K"), "accn": accession, "filed": filed}
+                  "form": form or FORMS.get(issuer, "10-K"), "accn": accession, "filed": _filed(issuer, report_fy, late)}
         for fy in (report_fy - 2, report_fy - 1, report_fy):
             start, end = calendar[fy]
             items["Revenues"].append({**source, "start": start, "end": end, "val": REVENUE[fy]})
             items["NetIncomeLoss"].append({**source, "start": start, "end": end, "val": NET_INCOME[fy]})
         for fy in (report_fy - 1, report_fy):
             items["Assets"].append({**source, "end": calendar[fy][1], "val": ASSETS[fy]})
+        if equity:
+            items["StockholdersEquity"] += [{**source, "end": end, "val": EQUITY[fy]}
+                                            for fy, end in _equity_ends(issuer, report_fy).items()]
+    items = {tag: rows for tag, rows in items.items() if rows}
     return {"cik": 1, "entityName": issuer,
             "facts": {"us-gaap": {tag: {"units": {"USD": rows}} for tag, rows in items.items()}}}
 
@@ -209,20 +239,25 @@ def _issuer_years(issuer: str, years=(2021, 2022, 2023, 2024)) -> dict[date, int
 ORDERS = ("filing_then_companyfacts", "companyfacts_then_filing", "stale_sync_then_filing_then_resync")
 
 
+@pytest.mark.parametrize("filed", ["on_time", "late"])
 @pytest.mark.parametrize("order", ORDERS)
 @pytest.mark.parametrize("issuer", sorted(set(CALENDARS) - set(LAGGING_FOCUS)))
-def test_both_fact_writers_name_the_issuers_fiscal_year_in_either_order(db, monkeypatch, issuer, order):
-    company = _company(db, issuer)
+def test_both_fact_writers_name_the_issuers_fiscal_year_in_either_order(db, monkeypatch, issuer, order, filed):
+    """Whether the annual reports were filed on time or all of them late. A late report's year chain holds
+    no timely original to name it, so the companyfacts writer names it from the late reports' own years,
+    trusted as the per-filing writer trusts a focus; before, it fell back to calendar years."""
+    late = filed == "late"
+    company = _company(db, issuer, late=late)
     if order == "filing_then_companyfacts":
         _open_annual_report(db, monkeypatch, issuer, 2024)
-        facts_service._persist_companyfacts_payload(db, company, _companyfacts(issuer, (2023, 2024)))
+        facts_service._persist_companyfacts_payload(db, company, _companyfacts(issuer, (2023, 2024), late=late))
     elif order == "companyfacts_then_filing":
-        facts_service._persist_companyfacts_payload(db, company, _companyfacts(issuer, (2023, 2024)))
+        facts_service._persist_companyfacts_payload(db, company, _companyfacts(issuer, (2023, 2024), late=late))
         _open_annual_report(db, monkeypatch, issuer, 2024)
     else:  # Synced before the newest annual report existed; a reader opens it; the next sync runs.
-        facts_service._persist_companyfacts_payload(db, company, _companyfacts(issuer, (2023,)))
+        facts_service._persist_companyfacts_payload(db, company, _companyfacts(issuer, (2023,), late=late))
         _open_annual_report(db, monkeypatch, issuer, 2024)
-        facts_service._persist_companyfacts_payload(db, company, _companyfacts(issuer, (2023, 2024)))
+        facts_service._persist_companyfacts_payload(db, company, _companyfacts(issuer, (2023, 2024), late=late))
 
     assert _latest_fy_labels(db, company, "revenue") == _issuer_years(issuer)
     assert _latest_fy_labels(db, company, "net_income") == _issuer_years(issuer)
@@ -238,6 +273,85 @@ def test_both_fact_writers_name_the_issuers_fiscal_year_in_either_order(db, monk
     assert [point["value"] for point in revenue["points"]] == [REVENUE[fy] for fy in (2021, 2022, 2023, 2024)]
     assert revenue["points"][1]["yoy"] == pytest.approx(0.1)
     assert revenue["cagr_window"] == "FY2021..FY2024"
+
+
+@pytest.mark.parametrize("order", ORDERS[:2])
+@pytest.mark.parametrize("issuer", sorted(set(CALENDARS) - set(LAGGING_FOCUS)))
+def test_both_writers_name_the_oldest_opening_balance_by_the_year_ending_on_its_date(db, monkeypatch, issuer, order):
+    """The fiscal 2023 report's equity statement opens with the balance that closed fiscal 2020, older than
+    every fiscal-year window companyfacts holds. Both writers name it fiscal 2020, whichever stores it
+    first: Target's balance of 30 January 2021 and J&J's of 3 January 2021 close fiscal 2020, not 2021."""
+    company = _company(db, issuer)
+    payload = _companyfacts(issuer, (2023, 2024), equity=True)
+    if order == "filing_then_companyfacts":
+        _open_annual_report(db, monkeypatch, issuer, 2023, equity=True)
+        facts_service._persist_companyfacts_payload(db, company, payload)
+    else:
+        facts_service._persist_companyfacts_payload(db, company, payload)
+        _open_annual_report(db, monkeypatch, issuer, 2023, equity=True)
+
+    opening = date.fromisoformat(_equity_ends(issuer, 2023)[2020])
+    assert _latest_fy_labels(db, company, "shareholders_equity") == {opening: 2020, **_issuer_years(issuer)}
+
+
+@pytest.mark.parametrize("issuer,years", [
+    # The report's own period (fiscal 2024, ended 1 February 2025) names the chain, never the comparative a
+    # year back that the same report also tags fy 2024.
+    ("target", [2022, 2023, 2024]),
+    ("march_named_by_start", [2022, 2023, 2024]),
+    # A lagging focus on a December year is not trusted, here as in the per-filing writer: calendar years.
+    ("december_lagging_focus", [2022, 2023, 2024]),
+])
+def test_a_late_reports_own_period_names_its_year_chain(issuer, years):
+    """The only annual report in companyfacts was filed 250 days late and carries two comparative years."""
+    facts, _meta = facts_service.normalize_companyfacts(1, _companyfacts(issuer, (2024,), late=True))
+
+    revenue = {f["period_end"]: f["fiscal_year"] for f in facts if f["concept"] == "revenue" and f["fiscal_period"] == "FY"}
+    assert revenue == {date.fromisoformat(CALENDARS[issuer][fy][1]): fy for fy in years}
+
+
+def test_a_late_year_chains_quarters_take_its_fiscal_years():
+    """Target's first quarter of fiscal 2024 (ended 4 May 2024) lies in a year chain no timely annual report
+    names. Its 10-Q labeller names it fiscal 2024 from the 10-Q's focus, and so does the companyfacts writer."""
+    payload = _companyfacts("target", (2023, 2024), late=True)
+    payload["facts"]["us-gaap"]["Revenues"]["units"]["USD"].append({
+        "fy": 2024, "fp": "Q1", "form": "10-Q", "accn": "0000027419-24-000020", "filed": "2024-06-05",
+        "start": "2024-02-04", "end": "2024-05-04", "val": 250.0,
+    })
+    facts, _meta = facts_service.normalize_companyfacts(1, payload)
+
+    quarter = [(f["fiscal_year"], f["fiscal_period"]) for f in facts
+               if f["concept"] == "revenue" and f["period_end"] == date(2024, 5, 4)]
+    assert quarter == [(2024, "Q1")]
+    assert fiscal_periods.filing_point_label("10-Q", "2024-05-04", "2024-05-04", 2024, "Q1") == {
+        "fiscal_year": 2024, "fiscal_period": "Q1",
+    }
+
+
+@pytest.mark.parametrize("stored_before", ["opening_balance", "late_chain"])
+def test_the_audited_quarterly_repair_relabels_rows_the_writer_named_before(db, stored_before):
+    """A sync is insert-only, so the rows the companyfacts writer stored before these rules keep their
+    labels: the oldest opening balance under the calendar year of its end, a late chain under calendar
+    years. The audited quarterly repair (``scripts/repair_quarterly_facts.py``) re-normalizes the
+    payload and relabels them, journaled; nothing else in the company changes."""
+    late = stored_before == "late_chain"
+    company = _company(db, "target", late=late)
+    payload = _companyfacts("target", (2023, 2024), late=late, equity=not late)
+    facts_service._persist_companyfacts_payload(db, company, payload)
+    rows = db.query(FinancialFact).filter_by(company_id=company.id, fiscal_period="FY").all()
+    named = {row.id: row.fiscal_year for row in rows}
+    for row in rows:  # the labels the writer gave them before
+        if late or row.period_end == date.fromisoformat(_equity_ends("target", 2023)[2020]):
+            row.fiscal_year = row.period_end.year
+    db.commit()
+    stale = sum(row.fiscal_year != named[row.id] for row in rows)
+
+    result = quarterly_fact_repair.repair_company(db, company.id, payload, dry_run=False, run_id="relabel")
+    db.commit()
+
+    assert stale == result["revisions"] == (15 if late else 1)
+    assert {row.id: row.fiscal_year for row in db.query(FinancialFact).filter_by(
+        company_id=company.id, fiscal_period="FY")} == named
 
 
 @pytest.mark.parametrize("issuer,expected", [
@@ -345,10 +459,11 @@ def test_annual_label_trusts_only_a_full_year_focus(fiscal_period):
 
 
 def test_dataset_reads_a_balance_at_its_periods_end_whatever_its_label(db):
-    """Companyfacts alone names an opening balance older than its first fiscal-year window by the
-    calendar year of its end, which for a January year is the next year's label. The dataset reads
-    rows in period-end order, so a label resolves to its latest period end, the axis bucket's own
-    end, and that label clash never hides the year-end balance.
+    """Companyfacts alone names an opening balance older than its first fiscal-year window by the year
+    that ends on its date, one before that window's. It used to take the calendar year of its end, for
+    a January year the next year's label; the dataset reads rows in period-end order, so a label
+    resolves to its latest period end, the axis bucket's own end, and such a clash never hid the
+    year-end balance.
     """
     company = _company(db, "target")
     payload = _companyfacts("target", (2023,))
@@ -360,7 +475,7 @@ def test_dataset_reads_a_balance_at_its_periods_end_whatever_its_label(db):
     ]}}
     facts_service._persist_companyfacts_payload(db, company, payload)
     assert sorted(_latest_fy_labels(db, company, "shareholders_equity").items()) == [
-        (date(2021, 1, 30), 2021), (date(2022, 1, 29), 2021), (date(2023, 1, 28), 2022), (date(2024, 2, 3), 2023),
+        (date(2021, 1, 30), 2020), (date(2022, 1, 29), 2021), (date(2023, 1, 28), 2022), (date(2024, 2, 3), 2023),
     ]
 
     dataset = analysis.build_dataset(db, company, "annual", "FY2021", "FY2023")
@@ -500,8 +615,8 @@ def test_the_writers_company_lock_comes_before_the_evidence_read(db, monkeypatch
 
 def test_a_late_year_chain_synced_first_gives_each_period_end_one_label(db, monkeypatch):
     """No annual report here was filed within 180 days of its year's end, so companyfacts names Target's
-    chain by calendar year (a known limit). Synced first, those years are still trusted evidence and the
-    10-K takes them: one year off, as on main, but one label per period end and one period end per label."""
+    chain from the late reports' own years. Synced first, those years are trusted evidence and the 10-K
+    takes them: one label per period end, one period end per label, each the issuer's fiscal year."""
     company = _company(db, "target")
     payload = _companyfacts("target", (2023, 2024))
     for node in payload["facts"]["us-gaap"].values():
@@ -513,3 +628,4 @@ def test_a_late_year_chain_synced_first_gives_each_period_end_one_label(db, monk
     current = db.query(FinancialFact).filter_by(company_id=company.id, fiscal_period="FY", is_latest=True).all()
     labels = {(row.period_end, row.fiscal_year) for row in current}
     assert len(labels) == len({end for end, _year in labels}) == len({year for _end, year in labels}) == 4
+    assert labels == set(_issuer_years("target").items())

@@ -7,9 +7,10 @@ companyfacts-reported FY row there (source ``companyfacts``, no filing owner, a 
 not retired by a quarterly repair as ``validation: unavailable``) that the fiscal-year-window writer
 stored or a repair corrected (provenance version ``PROVENANCE_VERSION``), current or not. A row stored
 before that writer (NULL provenance) names every FY period by the calendar year of its end, so it is no
-evidence. The evidence must name one year and include a duration: the writer names an FY balance older
-than every year window it knows by one report's ``fy`` or by calendar year, with no chain behind it.
-The stored-row relabel (#1372) applies the same rule.
+evidence. The evidence must name one year and include a duration: the writer once named an FY balance
+older than every year window it knows by one report's ``fy`` or by calendar year, with no chain behind
+it, and rows it stored then carry the same provenance version. The stored-row relabel (#1372) applies
+the same rule.
 """
 from __future__ import annotations
 
