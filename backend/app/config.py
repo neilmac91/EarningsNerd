@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator, model_validator
 from typing import List
 import os
+from app.public_email_addresses import SUPPORT_EMAIL
 
 # Single source of truth for the app version (FastAPI metadata, "/" payload,
 # /metrics). Bump on notable releases; also serves as a deploy marker.
@@ -29,7 +30,7 @@ class Settings(BaseSettings):
     
     # SEC EDGAR API
     SEC_EDGAR_BASE_URL: str = "https://data.sec.gov"
-    SEC_USER_AGENT: str = "EarningsNerd/1.0 (contact@earningsnerd.io)"
+    SEC_USER_AGENT: str = f"EarningsNerd/1.0 ({SUPPORT_EMAIL})"
     SEC_RATE_LIMIT_PER_SECOND: int = 10
     SEC_MAX_RETRIES: int = 5
     SEC_BASE_BACKOFF_SECONDS: float = 1.0
@@ -131,6 +132,11 @@ class Settings(BaseSettings):
     # own Resend account, so leaving it unset would silently drop verification/reset emails to real
     # users. Matches the prod RESEND_FROM_EMAIL secret (overridden by it in prod regardless).
     RESEND_FROM_EMAIL: str = "EarningsNerd <hello@inbound.earningsnerd.io>"
+    # Replies reach the Workspace role; keep the verified transactional sender independent.
+    RESEND_REPLY_TO_EMAIL: str = SUPPORT_EMAIL
+    # Notifications must not be routed to an outbound-only Resend sender.
+    CONTACT_NOTIFICATION_EMAIL: str = SUPPORT_EMAIL
+    FEEDBACK_NOTIFICATION_EMAIL: str = SUPPORT_EMAIL
     RESEND_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Resend dashboard
     # The site's origin that answers without a redirect (the apex redirects to it). Mail links,
     # sign-in redirects and the mail header's tile are built on it, and sent mail keeps the whole

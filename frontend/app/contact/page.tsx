@@ -1,9 +1,11 @@
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
+import { Card } from '@/components/ui/Card'
 import { Metadata } from 'next'
 import ContactForm from '@/features/contact/components/ContactForm'
 
 export const metadata: Metadata = {
   title: 'Contact | EarningsNerd',
-  description: 'Questions, feedback or support for EarningsNerd.',
+  description: 'Contact EarningsNerd for support, billing, privacy or security questions.',
   alternates: { canonical: '/contact' },
 }
 
@@ -14,12 +16,33 @@ export default function ContactPage() {
         {/* Header */}
         <div className="text-center">
           <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark sm:text-5xl">
-            Contact us
+            Contact
           </h1>
           <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
-            Questions, feedback or a problem with your account: write to us here.
+            Send a question or share feedback about EarningsNerd.
           </p>
         </div>
+
+        <Card as="section" className="mt-8 p-cap-6">
+          <h2 className="text-lg font-semibold">Email directly</h2>
+          <dl className="mt-4 space-y-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            {([
+              ['support', 'Product help, feedback and general questions'],
+              ['billing', 'Subscriptions, payments and invoices'],
+              ['privacy', 'Personal data and privacy requests'],
+              ['security', 'Private vulnerability and security reports'],
+            ] as const).map(([role, purpose]) => (
+              <div key={role}>
+                <dt>
+                  <a href={contactMailto(role)} className="break-all rounded-sm font-medium text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+                    {CONTACT_ADDRESSES[role]}
+                  </a>
+                </dt>
+                <dd className="mt-1">{purpose}</dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
 
         {/* Contact Form */}
         <div className="mt-12">
@@ -33,7 +56,7 @@ export default function ContactPage() {
           </h2>
           <div className="mt-4 space-y-3 text-text-secondary-light dark:text-text-secondary-dark">
             <div>
-              <span className="font-medium">Response time:</span> typically within 1–2 business days
+              <span className="font-medium">Response time:</span> The aim is to reply within 2 business days.
             </div>
           </div>
         </div>
