@@ -34,13 +34,14 @@ The founder's review of PR #1226 measured both on the production build.
   which stops growing below a 25rem viewport (E120; gate: the ESLint rule
   `earningsnerd/surface-padding-cap`, and reflow-200's cookie dialog cards read a character at a time).
 - A title between a leading glyph and a trailing control (a dialog header's icon, title and close
-  button) keeps a rem basis beside the glyph (`min-w-0 flex-[1_1_9rem]`, as a Notice's text column
-  does). Where it cannot, it goes to its own line under the glyph and the control, at the row's full
-  width, under the control too, and the control keeps the top right, so no word of it breaks.
-  flex-wrap alone carries the control down after a wrapped title, so the row is a query container
-  that moves the title at the row's own width (`[container-type:inline-size]`, then
-  `[@container(width<14.25rem)]:order-last` and `basis-full`, E158). A row of the three that only
-  shrinks leaves the title a sliver at 200% text, and its words paint past it.
+  button) keeps a rem basis beside them (`min-w-0 flex-[1_1_9rem]`, as a Notice's text column does).
+  Where it cannot, it goes to a line of its own at the row's full width, under the glyph and the
+  control or under the control alone, and the control keeps the top right, so no word of it breaks
+  that the row's width holds. flex-wrap alone carries the control down after a wrapped title, so the
+  row is a query container that moves the title at the row's own width (`[container-type:inline-size]`,
+  then `[@container(width<14.25rem)]:order-last` and `basis-full`, E158; 11rem with no glyph, whose
+  `justify-end` keeps the control alone on its line at the right, E165). A row that only shrinks
+  leaves the title a sliver at 200% text, and its words paint past it.
 - Prove it in Playwright on the real page at 390px with `document.documentElement.style.fontSize
   = '32px'` (or Chromium's own text size, `Page.setFontSizes`), in both themes, measuring painted
   text with a Range, at 320px with the default size, and in the narrowest desktop column the layout
@@ -155,4 +156,6 @@ at 320 and 360px under 200% text the consent dialog's "preferences" (197px) brok
 187px title. A stacked title now takes the header's full width (216, 251 and 277px at 320, 360 and
 390px), and `frontend/tests/e2e/reflow-200.spec.ts` holds both dialogs: the stacked title at the header's
 full width, under the close button too, every painted line inside the title's box and clear of the close
-button, and no word broken. A header with no icon still keeps its title beside the close button (E165).
+button, and no word broken. A header with no icon kept its title beside the close button until E165
+gave it the same line (the feedback dialog's "feedback", 153px, broke in a 152px title at 320px), and
+the case holds the feedback dialog too.
