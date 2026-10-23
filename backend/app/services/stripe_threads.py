@@ -28,30 +28,32 @@ _T = TypeVar("_T")
 
 _STRIPE_THREADS = ThreadPoolExecutor(max_workers=8, thread_name_prefix="stripe_call")
 
-# Where an iterator that can hold a walk comes from: stripe-python's own, and the wrappers that keep one lazy
-# (a generator, ``filter``, ``map``, ``zip``, ``enumerate``, ``itertools.islice``).
+# Where an iterator that may hold a walk comes from: stripe-python's own, and the builtins' and itertools', which
+# can keep one lazy (a generator, ``filter``, ``map``, ``zip``, ``itertools.islice``).
 _WALK_MODULES = frozenset({"stripe", "builtins", "itertools"})
 
 
 async def run_on_stripe_threads(func: Callable[..., _T], /, *args: Any, **kwargs: Any) -> _T:
     """``asyncio.to_thread`` on the Stripe threads: the same context copy and cancellation.
 
-    It refuses work it can tell would make its Stripe requests after it returns, where its result is used,
-    on the event loop: a generator, coroutine or async generator function, and a result that is a coroutine,
-    an async generator, or an iterator from stripe-python (a list's ``auto_paging_iter()``, whose later
-    pages are fetched as it is iterated), the builtins or ``itertools``. Refused after the call, the work
-    has run up to its return. A list or other Stripe object is not an iterator and passes, and so do a walk
-    inside a container and an iterator from anywhere else, which the gate's scan and review hold.
+    It refuses work that may make its Stripe requests after it returns, where its result is used, on the event
+    loop: before the call, a generator, coroutine or async generator function; after it, a result that is a
+    coroutine, an async generator, or an iterator from stripe-python (a list's ``auto_paging_iter()``, whose
+    later pages are fetched as it is iterated), the builtins or ``itertools``, any of which may hold a walk.
+    Refused after the call, the work has run up to its return. A list or other Stripe object is not an
+    iterator and passes, and so do a walk inside a container and an iterator from anywhere else, which the
+    gate's scan and review hold.
     """
     if inspect.isgeneratorfunction(func) or inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func):
         raise TypeError(f"{func!r} runs where it is iterated or awaited; hand over work that finishes here")
     call = functools.partial(contextvars.copy_context().run, func, *args, **kwargs)
     result = await asyncio.get_running_loop().run_in_executor(_STRIPE_THREADS, call)
-    lazy = inspect.iscoroutine(result) or inspect.isasyncgen(result) or (
-        isinstance(result, Iterator) and type(result).__module__.split(".")[0] in _WALK_MODULES)
-    if not lazy:
-        return result
-    if inspect.iscoroutine(result):
-        result.close()  # never awaited, so it would warn when collected
-    raise TypeError(f"{func!r} returned a lazy {type(result).__name__}, which does its work where it is used; "
-                    "finish the work here")
+    if inspect.iscoroutine(result) or inspect.isasyncgen(result):
+        if inspect.iscoroutine(result):
+            result.close()  # never awaited, so it would warn when collected
+        raise TypeError(f"{func!r} returned a {type(result).__name__}, which runs where it is awaited or iterated; "
+                        "return finished work")
+    if isinstance(result, Iterator) and type(result).__module__.split(".")[0] in _WALK_MODULES:
+        raise TypeError(f"{func!r} returned an iterator ({type(result).__name__}), which may make its requests where "
+                        "it is used; return finished work, such as a list")
+    return result
