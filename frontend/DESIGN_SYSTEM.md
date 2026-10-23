@@ -1117,6 +1117,11 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  only block at its start, so the notification and account menus, anchored at their right edge
                  (right-0), open on the screen (E160; gate: tests/e2e/reflow-200.spec.ts opens each menu at
                  1024, 1280 and 1440px under 200% text, and holds the one-line bar's nav midway at 1440px).
+                 The desktop controls block holds min-h-10, the md button's height, so the bar is one height
+                 while the auth check runs and after it, for a guest and a signed-in reader (E174; gate:
+                 tests/e2e/header-covers-nothing.spec.ts holds the check open, scrolls, and answers it at 1280
+                 and 1440px, and at 1024 and 1440px under 200% text). Where the check changes the bar's lines
+                 it does not hold yet: E173 at 1024 to 1031px, E175 under 200% text at 1280 and 390px.
                  A page's own header (SecondaryHeader: pricing, the dashboard, the watchlist, admin) scrolls
                  with the page on an opaque panel; only a table's
                  header cells stick at `top-0`, inside the table's own scroll box. The document's

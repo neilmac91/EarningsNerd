@@ -77,9 +77,10 @@ async function open(page: Page, baseURL: string, route: string, theme: 'light' |
   await answerGuest(page, baseURL)
   await page.goto(route)
   await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /\bdark\b/ : /^(?!.*\bdark\b)/)
-  // The header's auth check settles before a test scrolls: the header grows from the placeholder's height to the
-  // signed-out buttons' (61 to 65px at 1440px) when it does, and scroll anchoring then moves a page already
-  // scrolled by the difference, which a test of the page holding still would read as a focus moving it. Hidden
+  // The header's auth check settles before a test scrolls: where the check changes the bar's lines (E173, E175) the
+  // header still grows when it settles, and scroll anchoring then moves a page already scrolled by the difference,
+  // which a test of the page holding still would read as a focus moving it; the held-check case below holds the
+  // states where the header must keep its height (E174). Hidden
   // included: below lg the placeholder sits in the desktop block, display:none, until the check settles.
   await expect(page.getByRole('status', { name: 'Checking whether you are logged in', includeHidden: true })).toHaveCount(0)
 }
@@ -326,4 +327,91 @@ test.describe("the site header's own stops hold the page in place", () => {
       }
     })
   })
+})
+
+/**
+ * The header holds one height as its auth check settles (E174; chief design on #1538, comment 6375148655). The check
+ * shows a 36px placeholder, then a guest's Log in and account links (the md button, 40px) or a signed-in reader's
+ * 36px avatar, so the header was 61px while the check ran and for a reader, and 65px for a guest: when the check
+ * settled for a guest the header grew 4px, and scroll anchoring moved a page already scrolled by those 4px. The
+ * desktop controls block takes min-h-10, the md button's height, so every state gives the 65px header (217px at 1440px
+ * and 313px at 1024px under 200% text, where it grew 8px). With the check held open the page is scrolled, then the
+ * check is answered (a guest's 401, or a reader), and the header keeps its height and the page its place. The bar
+ * must keep its lines in every state for the height to hold, so the states are 1280 and 1440px at the default size
+ * and 1024 and 1440px under 200% text. Where the check changes the bar's lines it does not hold yet: at 1024 to
+ * 1031px a guest's bar wraps where a reader's does not (E173), and under 200% text at 1280px the placeholder fits
+ * beside the nav where the settled controls do not, and at 390px a guest's account link wraps (E175). At 1440px under
+ * 200% text the logo and the nav share the first line in CI's fonts; in fonts where they miss it by a few pixels a
+ * guest's bar gains a line as the check settles too (E175, chief design on #1544).
+ */
+async function answerHeld(page: Page, baseURL: string, who: 'guest' | 'reader'): Promise<() => void> {
+  const origin = new URL(baseURL).origin
+  let release!: () => void
+  const held = new Promise<void>((done) => (release = done))
+  if (who === 'reader') await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
+  await page.route('**/*', async (route) => {
+    const request = route.request()
+    const url = new URL(request.url())
+    const headers = { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'GET,POST,OPTIONS' }
+    if (url.hostname.endsWith('.sentry.io')) return route.abort()
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/internal/')) {
+      if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+      if (url.pathname === '/api/auth/me') {
+        await held
+        return who === 'reader'
+          ? route.fulfill({ status: 200, headers, json: { id: 1, email: 'pro@example.com', full_name: 'Pro User', is_pro: true, is_beta: false, is_admin: false, email_verified: true } })
+          : route.fulfill({ status: 401, headers, json: { detail: 'Not authenticated' } })
+      }
+      return route.fulfill({ status: 404, headers, json: { detail: 'No backend is available in the header case' } })
+    }
+    if (url.origin === origin && ['GET', 'HEAD'].includes(request.method())) return route.continue()
+    return route.abort()
+  })
+  return release
+}
+
+const headerAt = (page: Page) =>
+  page.evaluate(() => ({ height: document.querySelector('header[data-site-header]')!.getBoundingClientRect().height, scrollY: window.scrollY }))
+
+const HELD_STATES = [
+  { width: 1280, doubled: false },
+  { width: 1440, doubled: false },
+  { width: 1024, doubled: true },
+  { width: 1440, doubled: true },
+]
+
+test.describe('the site header holds one height as its auth check settles (E174)', () => {
+  for (const { width, doubled } of HELD_STATES) {
+    for (const who of ['guest', 'reader'] as const) {
+      test.describe(`${width}px${doubled ? ' and 200% text' : ''}, ${who === 'guest' ? 'a guest' : 'a signed-in reader'}`, () => {
+        test.use({ viewport: { width, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
+        test('the header keeps its height, and a scrolled page its place, when the check settles', async ({ page, baseURL }) => {
+          await page.addInitScript((reader) => {
+            localStorage.setItem('theme', 'light')
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+            if (reader) localStorage.setItem('en_session_active', '1')
+          }, who === 'reader')
+          const release = await answerHeld(page, baseURL!, who)
+          await page.goto('/')
+          const placeholder = page.getByRole('status', { name: 'Checking whether you are logged in', includeHidden: true })
+          await expect(placeholder, 'the check is held open, its placeholder in the bar').not.toHaveCount(0)
+          if (doubled) await doubleText(page)
+          await settle(page)
+          await page.evaluate(() => window.scrollTo(0, 2000))
+          await settle(page)
+          const pending = await headerAt(page)
+          expect(pending.scrollY, 'the page is scrolled while the check is held').toBeGreaterThan(1000)
+
+          release()
+          await expect(placeholder).toHaveCount(0)
+          const settled = page.getByRole('banner').getByRole(who === 'guest' ? 'link' : 'button', { name: who === 'guest' ? 'Log in' : 'Account menu' })
+          await expect(settled, `the bar shows ${who === 'guest' ? "a guest's Log in" : "a reader's account menu"} once the check settles`).toBeVisible()
+          await settle(page)
+          const after = await headerAt(page)
+          expect(after.height, `the header while the check ran (${pending.height}px) and after (${after.height}px)`).toBe(pending.height)
+          expect(after.scrollY, `the page scrolled to ${pending.scrollY}px while the check ran`).toBe(pending.scrollY)
+        })
+      })
+    }
+  }
 })

@@ -223,8 +223,11 @@ export default function Header({
           ))}
         </nav>
 
-        {/* Right: CTAs / user menu (desktop) */}
-        <div className="ml-auto hidden items-center gap-3 lg:flex">
+        {/* Right: CTAs / user menu (desktop). min-h-10, the md button's height, holds the bar at one height whatever
+            the auth check shows: the 36px placeholder and a signed-in reader's 36px avatar sit centred in the guest's
+            40px row, so the header no longer grows 4px when the check settles for a guest and moves a page already
+            scrolled (E174). */}
+        <div className="ml-auto hidden min-h-10 items-center gap-3 lg:flex">
           <ThemeToggle />
           {user ? (
             <>
