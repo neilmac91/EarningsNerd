@@ -59,6 +59,8 @@ interface CompanyLogoProps {
  * marks were drawn for (a dark mark on the dark theme's tint was invisible; DESIGN_SYSTEM.md §9).
  * The image is offered at exactly 1x, 2x and 3x the slot, so a whole-number pixel ratio draws it
  * 1:1 and a fractional one resamples from the nearest candidate rather than from a 4x oversample.
+ * The slot carries `data-company-mark`, the mark's CDN key, which scripts/capture-company-marks.mjs
+ * finds and labels every mark by for the both-themes check.
  */
 export default function CompanyLogo({
   ticker,
@@ -75,7 +77,6 @@ export default function CompanyLogo({
   return (
     <span
       {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': label })}
-      // The hook scripts/capture-company-marks.mjs crops every mark by, for the both-themes check.
       data-company-mark={key}
       className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden bg-white ring-1 ring-border-light dark:ring-white/10 ${radius} ${className}`}
       style={{ width: size, height: size }}

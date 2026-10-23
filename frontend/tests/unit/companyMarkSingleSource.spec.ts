@@ -12,7 +12,9 @@ import { describe, expect, it } from 'vitest'
  * CDN's mark path and holds it to the one file. A preconnect to the host (`<link rel="preconnect"
  * href="https://img.logo.dev">`) names the origin only, never a mark, so it is not read.
  *
- * Planted forms: the three literal shapes below are what the scan reads, scored on every run.
+ * Planted forms, scored on every run: a ticker URL and a name URL are read; a URL assembled from a
+ * variable (`img.logo.dev/${domain}`) is not, since the host is followed by no literal path, and stays
+ * review-checked; a preconnect is not read.
  */
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCANNED = ['app', 'components', 'features', 'hooks', 'lib']

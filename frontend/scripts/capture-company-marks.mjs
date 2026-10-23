@@ -126,7 +126,10 @@ async function writeSheet(browser, crops, file, title) {
     img{image-rendering:pixelated;display:block}
     figcaption{max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   </style><h1>${title}</h1><main>${cells}</main>
-  <script>for (const i of document.images) i.onload = () => { i.width = i.naturalWidth * 3; i.height = i.naturalHeight * 3 }</script>`
+  <script>
+    const enlarge = (i) => { i.width = i.naturalWidth * 3; i.height = i.naturalHeight * 3 }
+    for (const i of document.images) { if (i.complete && i.naturalWidth > 0) enlarge(i); else i.onload = () => enlarge(i) }
+  </script>`
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 })
   await page.setContent(html, { waitUntil: 'load' })
   await page.waitForTimeout(200)
