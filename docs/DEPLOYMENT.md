@@ -4,7 +4,7 @@ EarningsNerd runs on two platforms:
 
 | Tier | Platform | How it deploys |
 |------|----------|----------------|
-| **Backend** (FastAPI) | Google Cloud Run — service `earningsnerd-backend`, project `earnings-nerd`, region `us-west1` | **Automated** via GitHub Actions on push to `main` (gated on tests) |
+| **Backend** (FastAPI) | Google Cloud Run — service `earningsnerd-backend`, project `earnings-nerd`, region `us-west1` | **Automated** via GitHub Actions on push to `main` (gated on tests and the secret scan) |
 | **Frontend** (Next.js) | Vercel | **Automated** via Vercel's GitHub integration on push to `main` |
 | **Database** | Cloud SQL for PostgreSQL 15 (`earningsnerd-db`) | Reached over the Cloud SQL connector socket |
 | **Cache** | None in production (`SKIP_REDIS_INIT=true`) — L1 in-memory only | Redis is local-dev only (docker-compose) |
@@ -20,8 +20,10 @@ EarningsNerd runs on two platforms:
 The `deploy-backend` job in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) deploys automatically when:
 
 - the push is to `main`, **and**
+- the repository variable `GCP_WIF_PROVIDER` is set (the job is skipped without it), **and**
 - `backend/` changed outside `backend/tests/`, **and**
-- all test jobs (`backend-tests`, `migrations-postgres`, `frontend-tests`, `e2e-tests`) passed.
+- all test jobs (`backend-tests`, `migrations-postgres`, `frontend-tests`, `e2e-tests`) passed, **and**
+- `secret-scan` (gitleaks over every branch's history) found no committed credential.
 
 It builds `backend/Dockerfile`, pushes to Artifact Registry
 (`us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend`), applies every not-yet-recorded
