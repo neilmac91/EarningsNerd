@@ -6,7 +6,7 @@ import { LEGAL_DATES } from '@/lib/legalDates'
 import { legalPageMainClass } from '@/lib/legalPageLayout'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | EarningsNerd',
+  title: 'Privacy policy | EarningsNerd',
   description: 'How EarningsNerd handles personal information, AI inputs, cookies and privacy requests.',
 }
 
@@ -15,7 +15,7 @@ export default function PrivacyPage() {
     <div className="[container-type:inline-size]">
       <main className={legalPageMainClass}>
       <div className="max-w-none">
-        <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark">Privacy Policy</h1>
+        <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark">Privacy policy</h1>
         <p className="text-lg text-text-secondary-light dark:text-text-secondary-dark">Last updated: {LEGAL_DATES.privacy}</p>
         <p className="mt-8 text-text-secondary-light dark:text-text-secondary-dark">
           This policy explains how personal information is handled through the EarningsNerd website and service.
@@ -33,9 +33,9 @@ export default function PrivacyPage() {
             <li><strong>Technical information:</strong> Browser, device, IP address and request information, account identifiers, diagnostic and security records. Some records include account email.</li>
           </ul>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
-            Information comes from you, use of the service, your chosen Google or Apple sign-in provider, and
+            Information comes from you, use of the service, your chosen Google or Apple login provider, and
             payment providers. Public SEC filings and related financial sources can include information about
-            people named in those records. Account email and sign-in details, relevant billing details and
+            people named in those records. Account email and login details, relevant billing details and
             required contact-form details are needed to complete those requests. Optional fields can be left blank.
           </p>
         </section>
@@ -58,8 +58,8 @@ export default function PrivacyPage() {
         <section className="mt-8">
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">AI processing</h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            DeepSeek processes selected filing and financial information for AI analysis. Copilot also sends
-            your question and recent conversation text to DeepSeek. Personal information in that text is not
+            DeepSeek processes selected filing and financial information for AI analysis. Filing questions and recent
+            conversation text are also sent to DeepSeek. Personal information in that text is not
             automatically removed. Avoid submitting passwords, financial account details or other sensitive
             information. Account-linked usage records are processed separately.
           </p>
@@ -71,7 +71,7 @@ export default function PrivacyPage() {
           <ul className="mt-4 list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li><strong>Hosting and content delivery:</strong> Google Cloud, Vercel and, where enabled, Logo.dev for company images.</li>
             <li><strong>AI and payments:</strong> DeepSeek for the inputs described above; Stripe for billing and subscriptions.</li>
-            <li><strong>Sign-in and security:</strong> Google or Apple for chosen social sign-in; Cloudflare Turnstile for bot checks and Have I Been Pwned for partial password-hash breach checks, where enabled.</li>
+            <li><strong>Login and security:</strong> Google or Apple for chosen social login; Cloudflare Turnstile for bot checks and Have I Been Pwned for partial password-hash breach checks, where enabled.</li>
             <li><strong>Email:</strong> Resend and Google Workspace for recipient details, service messages and correspondence.</li>
             <li><strong>Analytics and diagnostics:</strong> PostHog for optional browser analytics/recording and separate account-linked operational usage; Sentry for errors and performance; Vercel Web Analytics for cookieless traffic measurement.</li>
           </ul>
@@ -99,7 +99,7 @@ export default function PrivacyPage() {
         <section className="mt-8">
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">Cookies and choices</h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            Essential browser storage supports sign-in and site functionality. Optional PostHog and Vercel
+            Essential browser storage supports login and site functionality. Optional PostHog and Vercel
             browser analytics require an enabling choice. PostHog recording has a separate preference
             and also requires analytics. These activities can be linked to your account; recording can include
             displayed page content despite input masking. Review or withdraw choices using Cookie settings in the footer.
@@ -113,8 +113,6 @@ export default function PrivacyPage() {
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">{ACCOUNT_EVENTS_DISCLOSURE}</p>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
             These controls do not disable operational usage records, security logs or error reporting.
-            Do Not Track is distinct from legal opt-out rights
-            described below.
           </p>
         </section>
 
@@ -178,7 +176,7 @@ export default function PrivacyPage() {
         <section className="mt-8">
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">Security, eligibility and changes</h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            Connections use HTTPS and password sign-in stores password hashes. See{' '}
+            Connections use HTTPS and passwords are stored as hashes. See{' '}
             <Link href="/security" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Security</Link>{' '}
             to report a concern. No internet service can guarantee absolute security.
           </p>

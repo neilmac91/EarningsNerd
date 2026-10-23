@@ -98,9 +98,6 @@ const PAGE_ROOTS = routeFiles('app', ['page.tsx'], ROOT)
 const RING_RESIDUE: Record<string, number> = {
   // Each line names the sweep PR that owns the file, or why it waits. A "props spread" finding in a chart
   // or Markdown renderer is the scan's limit (it cannot read what the spread holds), not always a stop.
-  'app/delete-account/page.tsx': 4, // auth-adjacent page with no sweep owner yet
-  'app/privacy/page.tsx': 10, // legal page: waits on the founder (presentation follow-up)
-  'app/terms/page.tsx': 4, // legal page: waits on the founder (presentation follow-up)
   'features/analysis/components/DataNotesLink.tsx': 1, // its button's class is sourceTraceChipClass, imported from features/filings/lib/sourceTraceChip, which carries the ring; the scan does not read across files (review-checked)
   'features/analysis/components/NarrativePane.tsx': 1, // Markdown renderer props spread on p, li, strong, em and td, which the scan cannot read (no Tab stop)
   'features/analysis/components/TrendCharts.tsx': 17, // chart props spreads the scan cannot read
@@ -121,7 +118,7 @@ const RING_RESIDUE: Record<string, number> = {
   'features/summaries/components/FinancialMetricsTable.tsx': 2, // brand-filing-page
   'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
 }
-const RING_RESIDUE_MAX = { files: 22, stops: 75 }
+const RING_RESIDUE_MAX = { files: 19, stops: 57 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the

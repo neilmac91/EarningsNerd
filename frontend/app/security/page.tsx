@@ -280,7 +280,7 @@ export default function SecurityPage() {
                 <strong>Resend:</strong> Sends account and alert emails
               </li>
               <li>
-                <strong>DeepSeek:</strong> AI provider powering summaries and Ask this Filing. Selected filing and financial information is sent for analysis; Copilot also sends your question and recent conversation text. Personal information in that text is not automatically removed.
+                <strong>DeepSeek:</strong> AI provider powering summaries and Ask this Filing. Selected filing and financial information is sent for analysis; filing questions and recent conversation text are also sent. Personal information in that text is not automatically removed.
               </li>
               <li>
                 <strong>Sentry:</strong> Error reports, as Monitoring above describes

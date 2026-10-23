@@ -142,7 +142,7 @@ export default function DeleteAccountPage() {
               </p>
               <Link
                 href="/login?redirect=/delete-account"
-                className={`${buttonVariants({ variant: 'primary' })} mt-3`}
+                className={buttonVariants({ variant: 'primary', className: 'mt-3' })}
               >
                 Log in to continue
               </Link>

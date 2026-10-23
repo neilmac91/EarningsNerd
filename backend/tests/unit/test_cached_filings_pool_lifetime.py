@@ -1163,6 +1163,8 @@ def _submit_fixture(monkeypatch, tmp_path, send_email):
     monkeypatch.setattr(auth, "sentry_sdk", None)
     monkeypatch.setattr(turnstile.settings, "TURNSTILE_SECRET_KEY", "")
     monkeypatch.setattr(contact.settings, "RESEND_FROM_EMAIL", "Ops <ops@example.com>")
+    monkeypatch.setattr(contact.settings, "CONTACT_NOTIFICATION_EMAIL", "ops@example.com")
+    monkeypatch.setattr(feedback.settings, "FEEDBACK_NOTIFICATION_EMAIL", "ops@example.com")
     monkeypatch.setattr(contact, "send_email", send_email)
     monkeypatch.setattr(feedback, "send_email", send_email)
     # Each route's limiter is process-wide; each burst starts with a fresh window.
