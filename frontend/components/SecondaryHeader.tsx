@@ -24,7 +24,10 @@ export default function SecondaryHeader({
   titleRef,
 }: SecondaryHeaderProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-border-light dark:border-white/10 bg-panel-light/80 dark:bg-panel-dark/80 backdrop-blur">
+    // A page's own header scrolls with the page: the site header (Header.tsx) is the one bar that sticks
+    // at the top, so nothing passes under this one and it sits on an opaque panel (DESIGN_SYSTEM.md §4
+    // Stacking; tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/e2e/header-covers-nothing.spec.ts).
+    <header className="relative border-b border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-6 lg:px-8">
         {/* The subtitle (often per-user, e.g. "Welcome back, <name>") never sizes the row: it is
             inline-size contained, so only the back link, title and actions decide where the row

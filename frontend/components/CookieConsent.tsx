@@ -222,7 +222,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
             its card (tests/e2e/reflow-200.spec.ts). At the default size the box stays beside its text. */}
         <div className="space-y-4">
           {/* Essential cookies */}
-          <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
+          <div className="border border-border-light dark:border-border-dark rounded-lg p-cap-4">
             <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
               <div className="min-w-0 flex-[1_1_9rem] break-words">
                 <h3
@@ -248,7 +248,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
           </div>
 
           {/* Analytics cookies */}
-          <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
+          <div className="border border-border-light dark:border-border-dark rounded-lg p-cap-4">
             <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
               <div className="min-w-0 flex-[1_1_9rem] break-words">
                 <h3
@@ -275,7 +275,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
           </div>
 
           {/* Session recording */}
-          <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
+          <div className="border border-border-light dark:border-border-dark rounded-lg p-cap-4">
             <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
               <div className="min-w-0 flex-[1_1_9rem] break-words">
                 <h3

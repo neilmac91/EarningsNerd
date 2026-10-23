@@ -154,30 +154,32 @@ export default function EmailChipsInput({
             // stays inside the chip (at 200% text a marker that could not shrink left the address no room and pushed
             // the button past the card). The 16px radius is a pill on one line and a rounded box once the chip
             // wraps, as SourceTrace's chip is.
-            // Below 8em of the row's own text size the group is too narrow for "· already", so it dissolves
+            // Below 9.6em of the row's own text size an invited chip no longer fits on one line, so the group dissolves
             // (`contents`) and the address takes the first line whole (order-first, basis-full), wrapping anywhere
             // instead of truncating: beside the button it kept 52px at 320px under 200% text, too little to tell one
             // chip from another ("al…", "bo…"). The marker, the invalid glyph and the remove button follow under it,
             // the button on the marker's line wherever "· already" and the button fit side by side (flex-1 lets the
             // marker wrap "invited" under "· already"), and the marker never paints over the button. The × ends the
-            // chip on whatever line it lands (ml-auto), as it does above 8em. An invited chip needs about 9.6em on one
-            // line, so the narrow state never splits a chip that fits; at the default size it starts at a 128px row,
-            // which no phone reaches. Reading and Tab order stay address, marker, button.
+            // chip on whatever line it lands (ml-auto), as it does above 9.6em. An invited chip needs about 9.6em on
+            // one line, so the narrow state starts where it no longer fits and never splits a chip that fits, and no
+            // address truncates beside its marker below it; at the default size it starts at a 154px row, which no
+            // phone reaches. The capped card inset (E120) widened the row at 390px under 200% text from 7.1em to
+            // 8.7em, inside the band an 8em switch left truncating. Reading and Tab order stay address, marker, button.
             <span
               key={chip.email}
               aria-invalid={chip.kind === 'invalid' || undefined}
               className={clsx(
-                'inline-flex max-w-full items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-medium [@container(width<8em)]:flex-wrap [@container(width<8em)]:gap-y-0',
+                'inline-flex max-w-full items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-medium [@container(width<9.6em)]:flex-wrap [@container(width<9.6em)]:gap-y-0',
                 chipClasses(chip.kind),
               )}
             >
               {chip.kind === 'invalid' && <WarningCircleIcon className="h-3.5 w-3.5 flex-shrink-0" />}
-              <span className="flex min-w-0 flex-wrap gap-x-1.5 [@container(width<8em)]:contents">
-                <span className="truncate [@container(width<8em)]:order-first [@container(width<8em)]:basis-full [@container(width<8em)]:whitespace-normal [@container(width<8em)]:[overflow-wrap:anywhere]">
+              <span className="flex min-w-0 flex-wrap gap-x-1.5 [@container(width<9.6em)]:contents">
+                <span className="truncate [@container(width<9.6em)]:order-first [@container(width<9.6em)]:basis-full [@container(width<9.6em)]:whitespace-normal [@container(width<9.6em)]:[overflow-wrap:anywhere]">
                   {chip.email}
                 </span>
                 {chip.kind === 'invited' && (
-                  <span className="[@container(width<8em)]:flex-1">·&nbsp;already invited</span>
+                  <span className="[@container(width<9.6em)]:flex-1">·&nbsp;already invited</span>
                 )}
               </span>
               <button
@@ -185,7 +187,7 @@ export default function EmailChipsInput({
                 onClick={() => removeChip(chip.email)}
                 disabled={disabled}
                 aria-label={`Remove ${chip.email}`}
-                className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ml-0.5 rounded-full p-1.5 transition-colors hover:bg-white/40 disabled:opacity-50 dark:hover:bg-white/10 [@container(width<8em)]:ml-auto"
+                className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ml-0.5 rounded-full p-1.5 transition-colors hover:bg-white/40 disabled:opacity-50 dark:hover:bg-white/10 [@container(width<9.6em)]:ml-auto"
               >
                 <XIcon className="h-3 w-3" />
               </button>

@@ -374,6 +374,7 @@ const config = [
       'earningsnerd/no-hand-rolled-toggle-group': 'error',
       'earningsnerd/elements-built-with-jsx': 'error',
       'earningsnerd/date-helpers-called-directly': ['error', { helpers: DATE_HELPERS, modules: DATE_HELPER_MODULES }],
+      'earningsnerd/surface-padding-cap': 'error',
     },
   },
   // The password scan parses every script it finds (passwordRulesLockstep.spec.tsx), JavaScript included, so the rule
