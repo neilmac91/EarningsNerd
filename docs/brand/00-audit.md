@@ -117,7 +117,9 @@ a stranger sees first.
   for income taxes related to the State Aid Decision (refer to Note 7, “Income Taxes” in the Notes to
   Consolidated Financial Statements in Part II, Item 8 of this Form 10-K) and the impact of changes in
   unrecognized tax benefits, partially offset by a change in valuation allowance and a higher
-  effective tax rate on foreign earnings."
+  effective tax rate on foreign earnings."; and under Products and Services Performance, "Services net
+  sales increased during 2025 compared to 2024 primarily due to higher net sales from advertising, the
+  App Store and cloud services."
 - Prices are `PRICE_VARIANTS.control` $39 / $390 (`frontend/app/pricing/prices.ts`), with a $29 arm
   behind the `pricing-experiment` flag. The code is the price fact, and the brand work authors no
   price. Since the audit, main's #1009 set Pro at $25 a month or $240 a year.

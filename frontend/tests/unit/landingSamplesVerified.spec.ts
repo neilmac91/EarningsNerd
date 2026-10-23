@@ -361,6 +361,14 @@ describe("the evidence row shows the live example's own rows, and follows one of
     }
   })
 
+  it('names the section the demo\u2019s passage sits in, as the audit reads it from the filing', () => {
+    const { SAMPLE_TRACE } = samples
+    expect(SAMPLE_TRACE.sectionRef, 'the Trace demo names its passage\u2019s section (the plan\u2019s \u00a73.6)').toBeTruthy()
+    const [item, heading] = SAMPLE_TRACE.sectionRef!.split(' \u00b7 ')
+    expect(NORMALIZED_AUDIT).toContain(`The passages the rows cite are verbatim in ${item}:`)
+    expect(NORMALIZED_AUDIT).toContain(`under ${heading}, "${SAMPLE_TRACE.excerpt}"`)
+  })
+
   it('takes its filing identity and its receipt from the snapshot\u2019s own filing', () => {
     const { SAMPLE_FILING, SAMPLE_RECEIPT } = samples
     expect(SAMPLE_RECEIPT.accession, 'a receipt read from another filing').toBe(SAMPLE_FILING.accession)

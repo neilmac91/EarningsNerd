@@ -50,10 +50,20 @@ export const SAMPLE_FINANCIAL_METRICS = example.rows as FinancialMetric[]
 const services = SAMPLE_FINANCIAL_METRICS.find((row) => row.metric === 'Services net sales')
 
 /** Trace-to-Source demo: the Services row's takeaway and the passage the server located for it. */
+/** Where a cited passage sits in the 10-K, read from the document (docs/brand/00-audit.md §4). The server names a
+ *  takeaway passage's section only when its excerpt carries one (provenance_service._excerpt_section_ref), and this
+ *  one does not, so the demo's panel names the filing's own heading, as the plan's §3.6 asks. Keyed by the exact
+ *  passage: a snapshot that cites another names none until its heading is read from the filing (E167), and
+ *  landingSamplesVerified.spec.ts holds each to the audit. */
+const PASSAGE_SECTIONS: Record<string, string> = {
+  'Services net sales increased during 2025 compared to 2024 primarily due to higher net sales from advertising, the App Store and cloud services.':
+    'Item 7 · Products and Services Performance',
+}
+
 export const SAMPLE_TRACE = {
   metric: services?.metric ?? '',
   claim: services?.commentary ?? '',
-  sectionRef: services?.commentary_evidence?.section_ref ?? null,
+  sectionRef: services?.commentary_evidence?.section_ref ?? PASSAGE_SECTIONS[services?.commentary_evidence?.excerpt ?? ''] ?? null,
   excerpt: services?.commentary_evidence?.excerpt ?? '',
   url: services?.commentary_evidence?.fragment_url ?? AAPL_FY25_EDGAR_URL,
 }
