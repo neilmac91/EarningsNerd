@@ -145,7 +145,8 @@ describe('InsiderActivityPanel', () => {
   // Three fixed tracks left each tile about 13px for its figure at 200% text on a 390px phone, and content-sized tiles
   // made the tinted row change shape with the data. The tiles take equal tracks of at least 5.5rem, as many as fit, so
   // they stay one width and stack when enlarged text leaves no room; the figures are in the data face (DESIGN_SYSTEM.md §3).
-  it('lays the buy, sell and net tiles in equal tracks with a rem minimum, figures in the data face', async () => {
+  // E89: a figure never breaks inside itself ("$900.0" over "K" at 320px under 200% text); a stacked tile holds it.
+  it('lays the buy, sell and net tiles in equal tracks with a rem minimum, figures in the data face, whole', async () => {
     getInsiderActivity.mockResolvedValue(RESP)
     renderPanel()
     const row = (await screen.findByText(/^Buys \(2\)$/)).parentElement!.parentElement!
@@ -155,8 +156,46 @@ describe('InsiderActivityPanel', () => {
     for (const tile of Array.from(row.children)) {
       expect(tile).toHaveClass('min-w-0')
       expect(tile.className).not.toMatch(/flex-auto|flex-1/)
-      expect(tile.lastElementChild).toHaveClass('break-words', 'font-data', 'tabular-nums')
+      expect(tile.lastElementChild).toHaveClass('font-data', 'tabular-nums')
+      expect(tile.lastElementChild!.className).not.toMatch(/break-(?:words|all)|overflow-wrap|word-break/)
     }
+  })
+
+  // E89 (chief design's approach, #1381's thread): at 320 to 390px under 200% text the panel broke four ways, so the
+  // card takes E120's capped inset, the window control spans the card below sm and wraps whole segments rather than
+  // running past it, the signal row wraps as a Notice's does, and each separator dot is held to the word before it.
+  it('takes the capped inset and spans the time window across the card below sm', async () => {
+    getInsiderActivity.mockResolvedValue(RESP)
+    renderPanel()
+    expect((await screen.findByText('Insider activity')).closest('section')).toHaveClass('p-cap-6')
+    const group = screen.getByRole('group', { name: 'Time window' })
+    expect(group).toHaveClass('w-full', 'flex-wrap', 'sm:w-auto')
+    for (const segment of within(group).getAllByRole('button')) expect(segment).toHaveClass('flex-1')
+  })
+
+  it('wraps the signal row as a Notice does, its text column under the glyph when it cannot keep 9rem beside it', async () => {
+    getInsiderActivity.mockResolvedValue({
+      ...RESP,
+      summary: { ...RESP.summary, plan_10b5_1_sell_shares: 50000, discretionary_net_shares: 12000 },
+    })
+    renderPanel()
+    const headline = await screen.findByText(/Net insider buying/)
+    const column = headline.parentElement!
+    expect(column).toHaveClass('min-w-0', 'flex-[1_1_9rem]')
+    expect(column.parentElement).toHaveClass('flex', 'flex-wrap')
+    expect(column.parentElement!.firstElementChild).toHaveClass('shrink-0')
+  })
+
+  it('holds each separator dot to the word before it with a no-break space, so no line starts with a dot', async () => {
+    getInsiderActivity.mockResolvedValue({
+      ...RESP,
+      summary: { ...RESP.summary, plan_10b5_1_sell_shares: 50000, discretionary_net_shares: 12000 },
+    })
+    renderPanel()
+    const dots = [await screen.findByText(/Net insider buying/), screen.getByText(/pre-scheduled 10b5-1 plans/)]
+    expect(dots[0].textContent).toBe('Net insider buying\u00a0· $1.8M')
+    expect(dots[1].textContent).toBe('Excludes 50.0K shares sold under pre-scheduled 10b5-1 plans\u00a0· discretionary net +12.0K shares')
+    for (const line of dots) expect(line.textContent).not.toMatch(/ ·/)
   })
 
   it('marks each trade type with a hidden ▲/▼ beside its label, and names the 10b5-1 badge plainly', async () => {

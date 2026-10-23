@@ -27,7 +27,7 @@ export default function ContactPage() {
         </div>
 
         {/* Contact Information */}
-        <div className="mt-12 rounded-lg border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
+        <div className="mt-12 rounded-lg border border-border-light bg-panel-light p-cap-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
             What to expect
           </h2>

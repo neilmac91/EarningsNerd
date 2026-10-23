@@ -18,8 +18,6 @@ Only the ticker file is faked (seeded into the L1 cache, so ``_get_cached_ticker
 ``_local_search`` and ``primary_ticker_for_cik`` run for real), plus the filings listing and the
 stock quote. Rows live in the shared test DB; every row this file can create is deleted.
 """
-from datetime import datetime
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -30,6 +28,7 @@ from app.models import Company, Filing
 from app.services import filing_list_service
 from app.services.edgar.compat import SECEdgarServiceCompat, sec_edgar_service
 from app.services.precompute_service import precompute_one
+from app.utils.datetimes import utcnow
 from main import app
 from tests.support.filings_budgets import unspend_filings_budgets
 
@@ -90,7 +89,7 @@ def _stored_ciks() -> list[str]:
 def _seed_ticker_file(monkeypatch, ticker_file: dict) -> None:
     """Serve ``ticker_file`` from the fresh L1 cache (no network) and drop the primary-ticker memo."""
     monkeypatch.setattr(SECEdgarServiceCompat, "_tickers_cache", ticker_file)
-    monkeypatch.setattr(SECEdgarServiceCompat, "_tickers_cache_time", datetime.now())
+    monkeypatch.setattr(SECEdgarServiceCompat, "_tickers_cache_time", utcnow())
     monkeypatch.setattr(SECEdgarServiceCompat, "_primary_map", None)
     monkeypatch.setattr(SECEdgarServiceCompat, "_primary_map_built_at", None)
 

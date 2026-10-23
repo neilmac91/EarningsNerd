@@ -143,13 +143,14 @@ def upsert_filings(db: Session, company: Company, sec_filings: list[dict]) -> li
     if not sec_filings:
         return []
 
-    from app.services.filing_amendment_service import lock_company_filings, mark_superseded_filings
+    from app.services.filing_amendment_service import (
+        existing_filings_for_insert,
+        lock_company_filings,
+        mark_superseded_filings,
+    )
     lock_company_filings(db, company.id)  # before the check below reads which rows exist
     accession_numbers = [f.get("accession_number") for f in sec_filings if f.get("accession_number")]
-    existing = {
-        f.accession_number: f
-        for f in db.query(Filing).filter(Filing.accession_number.in_(accession_numbers)).all()
-    } if accession_numbers else {}
+    existing = existing_filings_for_insert(db, accession_numbers)
 
     result: list[Filing] = []
     new_filings: list[Filing] = []

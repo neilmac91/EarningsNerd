@@ -129,6 +129,20 @@ the business card, the footer and the merch; it is the positioning in six words.
   "The Print", "Results That Matter", "Forward Signals", "Notable Footnotes" …) and keep their
   casing everywhere they are named, including on the sales page.
 - "AI-powered", lowercase p, except at the start of a sentence or in title-case page titles.
+- A company's name prints in its display casing. EDGAR serves the conformed name, often in capitals
+  ("NVIDIA CORP"); `frontend/lib/formatCompanyName.ts` gives "NVIDIA Corp", so a company reads the same in
+  every row, line, mark and on-screen export that names it. Only letter case changes: a legal form keeps its
+  glued marker in capitals ("QUALCOMM INC/DE" prints "Qualcomm Inc/DE"), and a group of tickers EDGAR's
+  full-text search folds into a name stays as served ("Boeing Co (BA, BA-PA)"). Format it once where the name
+  enters a feature (a mapper such as the redlines' `filingPair.ts`, or a component before it prints the line
+  and the mark) and print that. The served name stays the data value: a key, a URL, a search query, an
+  analytics property, an API payload or a cache row, a CSV, a title attribute that quotes the filing, and a
+  record a reader downloads (the evidence pack's JSON, the redlines' review receipt), which keeps EDGAR's name
+  as the filing's header gives it, kept beside the display form as `conformedName`.
+  `frontend/tests/unit/companyNameDisplay.spec.ts` fails a served name printed raw, a `CompanyLogo` given
+  one, a field of the app's own filled with one (a served object handed whole to a view of the app's own
+  among them) and a printed `conformedName`, except the forms its header names as gaps (text a call puts on
+  the screen outside JSX, such as a toast's message, among them).
 - Ellipsis character `…` on loading states ("Logging in…") is fine.
 - One retry verb ([D-032](brand/decisions-log.md)): "Try again", and "Trying again…" while it runs, on every
   retry control and in the copy beside it ("Try again in a moment."); never "Retry" or "please retry".
@@ -192,9 +206,14 @@ Before editing a string, check what it's wired to:
 - Object keys (OAuth error codes), analytics event names, storage keys, and backend status
   values are not copy.
 - Shared constants (`AiDisclaimer.SEC_EDGAR_NOT_ADVICE`) are edited in place, never forked.
-- Copy duplicated across frontend and backend (the beta invite message in
-  `features/admin/lib/shareLinks.ts` and `backend/app/services/email_service.py`) must be
-  changed on both sides in the same PR.
+- Copy duplicated across frontend and backend must be changed on both sides in the same PR.
+  The beta invite is not such a pair: the message an admin copies (`DEFAULT_INVITE_MESSAGE` in
+  `features/admin/lib/shareLinks.ts`) and the invite email (`send_invite_email` in
+  `backend/app/services/email_service.py`) both say "You're invited to the EarningsNerd private
+  beta. Full Pro access, on us.", and the rest differs on purpose: the message adds that figures
+  are checked against the SEC filing where they can be, carries its link inline and asks not to be
+  forwarded; the email greets the reader first, carries a button and says "No credit card required."
+  Keep their intent aligned, not their wording.
 - Component and e2e tests assert exact copy (headings such as "Generation interrupted" and
   "Page not found" are pinned by name). Any copy change runs `npx vitest run` before push and
   updates the coupled assertion in the same PR (see `lessons/test-vitest-for-copy-changes.md`).

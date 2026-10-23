@@ -1,5 +1,5 @@
 import { MAX_COMPARISON_CHARACTERS, MAX_COMPARISON_PARAGRAPHS, type ParagraphComparison } from './compareParagraphs'
-import type { RedlinePair } from './filingPair'
+import type { RedlinePair, RedlineSource } from './filingPair'
 
 export type ReviewStatus = 'unreviewed' | 'reviewed' | 'needs-follow-up'
 export type ReviewLabels = Record<string, ReviewStatus>
@@ -12,6 +12,12 @@ export function reviewChanges(comparison: ParagraphComparison, labels: ReviewLab
   }))
 }
 
+/** A source as the downloaded receipt writes it: EDGAR's conformed name, as served, in `companyName`, since a record a
+    reader has downloaded cannot take a later fix to the display casing (chief design on #1491). A data payload. */
+function receiptSource({ conformedName, ...source }: RedlineSource): Record<string, unknown> {
+  return { ...source, companyName: conformedName, form: '10-K' }
+}
+
 /** Always export the complete comparison; the display filter is deliberately not an input. */
 export function createReviewReceipt(pair: RedlinePair, comparison: ParagraphComparison, labels: ReviewLabels, exportedAt: string) {
   const changes = reviewChanges(comparison, labels)
@@ -20,7 +26,7 @@ export function createReviewReceipt(pair: RedlinePair, comparison: ParagraphComp
     schemaVersion: 1,
     exportedAt,
     fictional: pair.fictional,
-    sources: { earlier: { ...pair.earlier, form: '10-K' }, later: { ...pair.current, form: '10-K' } },
+    sources: { earlier: receiptSource(pair.earlier), later: receiptSource(pair.current) },
     scope: {
       text: pair.fictional ? 'Invented excerpts; no real issuer or SEC source.' : 'Available cached text; full-filing coverage has not been verified.',
       fullFilingCoverageVerified: false,

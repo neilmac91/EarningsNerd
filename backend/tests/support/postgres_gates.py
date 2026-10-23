@@ -40,6 +40,8 @@ POSTGRES_GATES = {
     "test_login_lockout_transactions.py": "LOGIN_CONCURRENCY_TEST_DATABASE_URL",
     "test_notification_delivery_transactions.py": "DELIVERY_CONCURRENCY_TEST_DATABASE_URL",
     "test_refresh_rotation_transactions.py": "REFRESH_CONCURRENCY_TEST_DATABASE_URL",
+    "test_session_time_zone.py": "SESSION_TIME_ZONE_TEST_DATABASE_URL",
+    "test_filing_insert_transactions.py": "FILING_INSERT_CONCURRENCY_TEST_DATABASE_URL",
 }
 # Each gate home's PostgreSQL engine fixture: a case that takes it, directly or through another fixture, is one of
 # the home's PostgreSQL cases.

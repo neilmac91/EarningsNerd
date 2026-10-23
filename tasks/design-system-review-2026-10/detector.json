@@ -1,0 +1,184 @@
+[
+  {
+    "antipattern": "border-accent-on-rounded",
+    "name": "Border accent on rounded element",
+    "description": "Thick accent border on a rounded card — the border clashes with the rounded corners. Remove the border or the border-radius.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/app/admin/layout.tsx",
+    "line": 32,
+    "snippet": "border-b-2"
+  },
+  {
+    "antipattern": "bounce-easing",
+    "name": "Bounce or elastic easing",
+    "description": "Bounce and elastic easing feel dated and tacky. Real objects decelerate smoothly — use exponential easing (ease-out-quart/quint/expo) instead.",
+    "severity": "advisory",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/app/globals.css",
+    "line": 64,
+    "snippet": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+    "advisory": true
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/scripts/brand/og-template.html",
+    "line": 0,
+    "snippet": "Primary font: inter"
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/scripts/brand/og-template.html",
+    "line": 0,
+    "snippet": "Primary font: geist mono"
+  },
+  {
+    "antipattern": "cream-palette",
+    "name": "Cream / beige palette",
+    "description": "A warm cream or beige page background has become the default \"tasteful\" AI surface, reached for by reflex. Choose a background that comes from a deliberate palette, not the safe warm off-white.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/scripts/brand/og-template.html",
+    "line": 0,
+    "snippet": "cream/beige page background rgb(244, 243, 238)"
+  },
+  {
+    "antipattern": "broken-image",
+    "name": "Broken or placeholder image",
+    "description": "<img> tags with empty src, missing src, or placeholder values ship as broken-image boxes. Use real images, generated assets, or remove the tag.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/workspace/earningsnerd-design-review/frontend/tests/unit/ariaDisabledKeepsItsRing.spec.ts",
+    "line": 761,
+    "snippet": "<img loading=\"lazy\" className=\"opacity-0\" />"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/tests/unit/designRules.spec.ts",
+    "line": 31,
+    "snippet": "border-l-4"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/tests/unit/designRules.spec.ts",
+    "line": 32,
+    "snippet": "border-l-2"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/tests/unit/designRules.spec.ts",
+    "line": 33,
+    "snippet": "border-s-8"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/tests/unit/designRules.spec.ts",
+    "line": 34,
+    "snippet": "border-l-4"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/tests/unit/designRules.spec.ts",
+    "line": 42,
+    "snippet": "border-l-4"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/tests/unit/designRules.spec.ts",
+    "line": 61,
+    "snippet": "border-l-4"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/tests/unit/designRules.spec.ts",
+    "line": 67,
+    "snippet": "border-l-4"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/tests/unit/designRules.spec.ts",
+    "line": 71,
+    "snippet": "border-l-4"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/tests/unit/designRules.spec.ts",
+    "line": 73,
+    "snippet": "border-l-8"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/tests/unit/designRules.spec.ts",
+    "line": 76,
+    "snippet": "border-l-4"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/tests/unit/designRules.spec.ts",
+    "line": 238,
+    "snippet": "border-l-4"
+  },
+  {
+    "antipattern": "bounce-easing",
+    "name": "Bounce or elastic easing",
+    "description": "Bounce and elastic easing feel dated and tacky. Real objects decelerate smoothly — use exponential easing (ease-out-quart/quint/expo) instead.",
+    "severity": "advisory",
+    "category": "slop",
+    "file": "/workspace/earningsnerd-design-review/frontend/tests/unit/designRules.spec.ts",
+    "line": 135,
+    "snippet": "animate-bounce (Tailwind)",
+    "advisory": true
+  }
+]

@@ -12,8 +12,11 @@ import demo from '@/features/analysis/demo/demo-analysis.json'
  * payloads. Every figure is from Apple's FY2025 10-K (accession 0000320193-25-000079, filed
  * 2025-10-31), the same filing the live hero example summarises, verified against the SEC
  * companyfacts XBRL on 2026-10-11 (docs/brand/00-audit.md §4); the excerpts are verbatim from that
- * filing's Item 7. The takeaway sentences are editorial. The Multi-Period demo below still comes
- * from the FY2019–FY2024 pipeline snapshot (regenerate it through the pipeline, never by hand).
+ * filing's Item 7. The takeaway sentences are editorial. The Multi-Period demo below is the
+ * pipeline's FY2020–FY2025 run of 2026-10-22: its FY2025 and FY2024 revenue, net income, diluted EPS
+ * and operating cash flow are the same verified values, and each source link opens the primary document
+ * of the filing it cites (tests/unit/landingSamplesVerified.spec.ts). Regenerate it through the pipeline,
+ * never by hand, with the company's filings listed first.
  */
 
 // The primary 10-K document, not its accession directory: every sample receipt opens the filing.
@@ -159,13 +162,16 @@ export const SAMPLE_CHANGE_REPORT: ChangeReport = {
 
 /**
  * Multi-Period Analysis demo: the checked-in sample payload the free-user AnalysisTeaser already
- * renders (Apple, annual, FY2019–FY2024, XBRL-reconciled), narrowed to the three series the
- * landing screen shows. KpiStrip and MetricsTable render it unchanged.
+ * renders (Apple, annual, FY2020–FY2025, the pipeline's own run), narrowed to the three series the
+ * landing screen shows. KpiStrip and MetricsTable render it unchanged. The run's data notes count
+ * every series it holds, so they leave with the other series and the three shown count their own,
+ * as any dataset without notes does (resolveDataNotes in features/analysis/lib/dataNotes.ts).
  */
 const DEMO_DATASET = demo.dataset as unknown as AnalysisDataset
 const LANDING_SERIES = new Set(['revenue', 'net_income', 'net_margin'])
+const { data_notes: _everySeriesNotes, ...DEMO_WITHOUT_NOTES } = DEMO_DATASET
 
 export const SAMPLE_ANALYSIS_DATASET: AnalysisDataset = {
-  ...DEMO_DATASET,
+  ...DEMO_WITHOUT_NOTES,
   series: DEMO_DATASET.series.filter((series) => LANDING_SERIES.has(series.concept)),
 }

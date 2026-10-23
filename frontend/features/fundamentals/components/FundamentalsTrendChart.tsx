@@ -141,7 +141,7 @@ export default function FundamentalsTrendChart({
   if (isError || (!isLoading && available.length === 0)) return null
 
   return (
-    <Card as="section" className="mb-8 p-6">
+    <Card as="section" className="mb-8 p-cap-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2">

@@ -1,0 +1,346 @@
+[
+  {
+    "route": "/",
+    "preflight": {
+      "title": "EarningsNerd | Read the filing faster. Keep the source in view [Review injection preflight]",
+      "scriptExecuted": true
+    },
+    "injection": {
+      "success": true
+    },
+    "signal": {
+      "title": "EarningsNerd | Read the filing faster. Keep the source in view [Review injection preflight]",
+      "messages": [],
+      "overlayElements": [
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "tiny body text"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "tiny body text"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "cramped padding"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "cramped padding"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ icon tile stacked above heading"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ icon tile stacked above heading"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ icon tile stacked above heading"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ icon tile stacked above heading"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ icon tile stacked above heading"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ icon tile stacked above heading"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ icon tile stacked above heading"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ icon tile stacked above heading"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ kicker / eyebrow label above heading"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ kicker / eyebrow label above heading"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ kicker / eyebrow label above heading"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ kicker / eyebrow label above heading"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ kicker / eyebrow label above heading"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ kicker / eyebrow label above heading"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "✦ nested cards"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-banner",
+          "text": "overused fontPrimary font: geist mono (47% of text)cream / beige palettecream/beige page background rgb(244, 243, 238)bounce or elastic easingcubic-bezier(0.34, 1.56, 0.64, 1)◉×"
+        }
+      ],
+      "script": true
+    },
+    "logs": [
+      {
+        "type": "startGroup",
+        "text": "%c[impeccable] 18 anti-patterns found color: oklch(84% 0.19 80.46); font-weight: bold"
+      }
+    ]
+  },
+  {
+    "route": "/pricing",
+    "preflight": {
+      "title": "Pricing | EarningsNerd [Review injection preflight]",
+      "scriptExecuted": true
+    },
+    "injection": {
+      "success": true
+    },
+    "signal": {
+      "title": "Pricing | EarningsNerd [Review injection preflight]",
+      "messages": [],
+      "overlayElements": [
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "line length too long"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "line length too long"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-banner",
+          "text": "cream / beige palettecream/beige page background rgb(244, 243, 238)bounce or elastic easingcubic-bezier(0.34, 1.56, 0.64, 1)◉×"
+        }
+      ],
+      "script": true
+    },
+    "logs": [
+      {
+        "type": "startGroup",
+        "text": "%c[impeccable] 2 anti-patterns found color: oklch(84% 0.19 80.46); font-weight: bold"
+      }
+    ]
+  },
+  {
+    "route": "/login",
+    "preflight": {
+      "title": "Sign in | EarningsNerd [Review injection preflight]",
+      "scriptExecuted": true
+    },
+    "injection": {
+      "success": true
+    },
+    "signal": {
+      "title": "Sign in | EarningsNerd [Review injection preflight]",
+      "messages": [],
+      "overlayElements": [
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-banner",
+          "text": "cream / beige palettecream/beige page background rgb(244, 243, 238)bounce or elastic easingcubic-bezier(0.34, 1.56, 0.64, 1)◉×"
+        }
+      ],
+      "script": true
+    },
+    "logs": [
+      {
+        "type": "startGroup",
+        "text": "%c[impeccable] 1 anti-pattern found color: oklch(84% 0.19 80.46); font-weight: bold"
+      }
+    ]
+  },
+  {
+    "route": "/filing/3",
+    "preflight": {
+      "title": "SEC Filing Summary | EarningsNerd [Review injection preflight]",
+      "scriptExecuted": true
+    },
+    "injection": {
+      "success": true
+    },
+    "signal": {
+      "title": "SEC Filing Summary | EarningsNerd [Review injection preflight]",
+      "messages": [],
+      "overlayElements": [
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-visible",
+          "text": "line length too long"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-label",
+          "text": "line length too long"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "impeccable-overlay impeccable-banner",
+          "text": "cream / beige palettecream/beige page background rgb(244, 243, 238)bounce or elastic easingcubic-bezier(0.34, 1.56, 0.64, 1)◉×"
+        }
+      ],
+      "script": true
+    },
+    "logs": [
+      {
+        "type": "startGroup",
+        "text": "%c[impeccable] 2 anti-patterns found color: oklch(84% 0.19 80.46); font-weight: bold"
+      }
+    ]
+  }
+]

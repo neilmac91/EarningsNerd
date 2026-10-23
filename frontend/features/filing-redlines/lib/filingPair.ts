@@ -1,9 +1,14 @@
 import type { Filing } from '@/features/filings/api/filings-api'
 import { originalDocumentUrl } from '@/features/filings/lib/originalDocumentUrl'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 
 export interface RedlineSource {
   filingId: number | null
+  /** The company's name in its display casing (formatCompanyName), formatted here where the filing enters. */
   companyName: string
+  /** EDGAR's conformed name as the API served it, the data value: the downloaded review receipt writes it as
+      `companyName`, so the record matches the filing's own header (chief design on #1491). */
+  conformedName: string
   ticker: string
   reportDate: string
   filingDate: string
@@ -61,7 +66,8 @@ export function validateFilingPair(earlier: Filing, current: Filing, earlierId: 
   }
   const source = (filing: Filing, reportDate: string, filingDate: string): RedlineSource => ({
     filingId: filing.id,
-    companyName: filing.company!.name,
+    companyName: formatCompanyName(filing.company!.name),
+    conformedName: filing.company!.name,
     ticker: filing.company!.ticker,
     reportDate,
     filingDate,

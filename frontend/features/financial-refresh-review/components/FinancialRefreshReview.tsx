@@ -86,7 +86,7 @@ export function FinancialRefreshReview() {
           </div>
           <Card className="divide-y divide-border-light dark:divide-border-dark">
             {reviewed.map((row) => (
-              <article key={row.id} aria-labelledby={`metric-${row.id}`} className="space-y-4 p-4 sm:p-5">
+              <article key={row.id} aria-labelledby={`metric-${row.id}`} className="space-y-4 p-4 sm:p-cap-5">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h3 id={`metric-${row.id}`} className="text-base font-semibold">{row.baseline.label}</h3>
                   <p className={`text-sm ${SECONDARY}`}>{CHANGE_LABELS[row.comparison.kind]}</p>

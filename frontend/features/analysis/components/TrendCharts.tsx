@@ -39,7 +39,7 @@ import {
 import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, ImageSquareIcon } from '@/lib/icons'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import analytics from '@/lib/analytics'
-import { fmtCurrency, fmtPercent } from '@/lib/format'
+import { fmtCurrency, fmtPercent, formatInstant } from '@/lib/format'
 import { chartDataNotes, exportFilename, exportPanelPng } from '@/features/analysis/lib/chartExport'
 import {
   ANNUAL_AXIS_HEIGHT,
@@ -48,6 +48,7 @@ import {
   periodAxisLabel,
 } from '@/features/analysis/lib/periodAxis'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import DataNotesLink from './DataNotesLink'
 import { useDataNotes } from './DataNotesContext'
 import type { DataNote, DataNotesModel } from '@/features/analysis/lib/dataNotes'
@@ -429,6 +430,8 @@ function PanelCard({
 
   const exportPng = async () => {
     if (!plotRef.current) return
+    // The source data's sync time, an instant, as the day it falls on in the reader's zone (DataNotes prints the long form).
+    const sourceDate = formatInstant(dataset.data_as_of, 'MMM d, yyyy')
     const downloaded = await exportPanelPng(
       plotRef.current,
       exportFilename(dataset, panel.title, 'png'),
@@ -439,11 +442,11 @@ function PanelCard({
       {
         dark,
         header: {
-          company: dataset.company_name,
+          company: formatCompanyName(dataset.company_name),
           ticker: dataset.ticker,
           title: panel.title,
           legend: legendItems.length >= 2 ? legendItems : [],
-          sourceNote: `Source: SEC filings via EarningsNerd · ${dataset.data_as_of ? `data as of ${dataset.data_as_of}` : 'source refresh time unavailable'}`,
+          sourceNote: `Source: SEC filings via EarningsNerd · ${sourceDate ? `data as of ${sourceDate}` : 'source refresh time unavailable'}`,
           disclosure: 'Research only. Not investment advice. Data may contain errors or omissions. earningsnerd.io/terms',
           notes: exportNotes,
         },
@@ -462,7 +465,7 @@ function PanelCard({
   }
 
   return (
-    <Card as="section" className={cx('min-w-0 p-5', expanded && 'md:col-span-2')}>
+    <Card as="section" className={cx('min-w-0 p-cap-5', expanded && 'md:col-span-2')}>
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
           {/* h2: the chart panels sit beside the narrative's and the metrics table's h2 sections

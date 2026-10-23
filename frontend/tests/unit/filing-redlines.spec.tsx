@@ -20,6 +20,9 @@ vi.mock('@/features/filings/api/filing-content-api', () => ({
 vi.mock('@/lib/downloadBlob', () => ({ downloadBlob: (blob: Blob) => { api.downloads.push(blob) } }))
 
 import FilingRedlines from '@/features/filing-redlines/components/FilingRedlines'
+import { validateFilingPair } from '@/features/filing-redlines/lib/filingPair'
+import { compareParagraphs } from '@/features/filing-redlines/lib/compareParagraphs'
+import { createReviewReceipt } from '@/features/filing-redlines/lib/review'
 
 function filing(id: number): Filing {
   const earlier = id === 1
@@ -336,5 +339,20 @@ describe('filing redlines prototype', () => {
     expect(screen.getByLabelText('Find in changed paragraphs')).toHaveValue('')
     expect(screen.getByLabelText('Added paragraph 1 review status')).toHaveValue('unreviewed')
     expect(screen.getByText('0 of 2 reviewed · 2 remaining · 0 needs follow-up')).toBeInTheDocument()
+  })
+})
+
+// EDGAR serves a conformed name, often in capitals. The pages print it in its display casing (E146, held by
+// companyNameDisplay.spec.ts); the receipt a reader downloads is a record of the filings, so it keeps the name as served.
+describe('the source identities', () => {
+  it("keep EDGAR's conformed name, as served, in the downloaded review receipt, a record of the filings (chief design on #1491)", () => {
+    const shouting = (id: number): Filing => ({ ...filing(id), company: { id: 123, ticker: 'TEST', name: 'SAMPLE INDUSTRIES A INC' } })
+    const pair = validateFilingPair(shouting(1), shouting(2), 1, 2)
+    const receipt = createReviewReceipt(pair, compareParagraphs('Earlier text.', 'Later text.'), {}, '2026-10-22T00:00:00.000Z')
+    for (const source of [receipt.sources.earlier, receipt.sources.later]) {
+      expect(source.companyName).toBe('SAMPLE INDUSTRIES A INC')
+      expect(source).not.toHaveProperty('conformedName')
+      expect(source.form).toBe('10-K')
+    }
   })
 })

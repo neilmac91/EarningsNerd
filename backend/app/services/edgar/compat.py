@@ -23,6 +23,7 @@ from .exceptions import EdgarError, EdgarNetworkError, EdgarRateLimitError, Edga
 from .config import FilingType, EDGAR_IDENTITY
 from .circuit_breaker import edgar_circuit_breaker, CircuitOpenError
 from app.services.sec_rate_limiter import sec_rate_limiter
+from app.utils.datetimes import utcnow
 from app.utils.sec_urls import build_sec_archive_url, normalize_accession, normalize_cik
 
 logger = logging.getLogger(__name__)
@@ -115,7 +116,7 @@ class SECEdgarServiceCompat:
         if (
             self._tickers_cache is not None
             and self._tickers_cache_time is not None
-            and datetime.now() - self._tickers_cache_time < self._cache_ttl
+            and utcnow() - self._tickers_cache_time < self._cache_ttl
         ):
             return self._tickers_cache
 
@@ -125,7 +126,7 @@ class SECEdgarServiceCompat:
         if redis_data is not None:
             logger.debug("SEC tickers L2 cache hit")
             SECEdgarServiceCompat._tickers_cache = redis_data
-            SECEdgarServiceCompat._tickers_cache_time = datetime.now()
+            SECEdgarServiceCompat._tickers_cache_time = utcnow()
             return redis_data
 
         # Fetch from SEC EDGAR
@@ -151,7 +152,7 @@ class SECEdgarServiceCompat:
 
                     # Update both cache tiers
                     SECEdgarServiceCompat._tickers_cache = data
-                    SECEdgarServiceCompat._tickers_cache_time = datetime.now()
+                    SECEdgarServiceCompat._tickers_cache_time = utcnow()
                     await self._set_tickers_to_redis(redis_key, data)
 
                     logger.debug("SEC tickers fetched and cached (L1+L2)")

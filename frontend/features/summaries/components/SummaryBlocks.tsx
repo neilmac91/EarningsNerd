@@ -178,7 +178,7 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
                 key={section.id}
                 id={section.id}
                 aria-labelledby={`${section.id}-heading`}
-                className="scroll-mt-[calc(var(--site-header-h,4rem)_+_4rem)] lg:scroll-mt-[calc(var(--site-header-h,4rem)_+_2rem)]"
+                className="scroll-mt-16 lg:scroll-mt-8"
               >
                 {/* Only the tone badge wraps: the index and the heading are one group that never wraps,
                     so a long heading wraps its own words beside its index, never drops beneath it. When
