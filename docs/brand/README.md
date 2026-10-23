@@ -77,9 +77,9 @@ mark.
 | 6 | [06-system.md](06-system.md) | Palette measured, type, spacing, icons, imagery, the device; docs and sidecar in parity |
 | 7 | [07-voice.md](07-voice.md) | The voice guide rewritten; every microcopy site changed, with its before and after |
 | 8 | [08-applications.md](08-applications.md) | The landing page and every other surface in code; templates; the empty founder slot retired; Notable filings back under D-046's rule (E90) |
-| 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; original second score 11 of 42; current-main rescore 8 of 42, T4's move retained |
+| 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; original second score 11 of 42; current-main rescore 9 of 42, T4's move retained |
 | 10 | this page | The handoff |
-| all | [decisions-log.md](decisions-log.md) | D-001 to D-028 |
+| all | [decisions-log.md](decisions-log.md) | D-001 to D-057 |
 
 ## The pull request
 
@@ -178,7 +178,7 @@ Current-main check: 2026-10-23, `5897d602`, after #1457 (`ab6962ec`). E120's cap
 surface insets (#1495) are included; E146's company-name formatting (#1491) is still a draft
 at this checkpoint. A draft is not a shipped closure. The [current capture set](stress/closeout-2026-10-23/README.md)
 and [fourteen-tell rescore](09-stress-test.md#2-the-sameness-test-rerun) separate new evidence
-from carried scores: 8 of 42, with T4's move from 3 to 1 confirmed.
+from carried scores: 9 of 42, with T4's move from 3 to 1 confirmed.
 
 Done: the ruled landing composition; the shared promotional emphasis; the located-passage device
 on Risks, located summary quotes and the Source pane; public and account-page voice; shared
@@ -194,10 +194,12 @@ queue. E78 aligns analysis window display; E146 normalizes served company names;
 remaining list ceilings and E64 shrinks the owned residues. E46's mail truth and copy, E75's PDF
 located excerpts and E37's backend-written answer copy each deploy the backend and need their own
 balance reservation and isolated merge. E74's cover, E79's shared italic decision, E138's prompt
-wording, E68's export and label-in-name follow-ups, E34/E35/E36, E40, E43, E50, E56, E111,
-E116, E122 and the newer E154/E155/E158 also remain with the owners and holds their rows name.
+wording, E68's export and label-in-name follow-ups, E34/E35/E36, E43, E50, E56, E111, E116,
+E122 and the newer E154/E155/E165 also remain with the owners and holds their rows name.
 E162 records the clause-aware legal-claim reader left by #1456; the current regex families fail
-loudly when a page sentence trips them. No legal text changes here.
+loudly when a page sentence trips them. No legal text changes here. E168 records the company
+page's SEC filings card at 320px under 200% text, whose chevrons, count and a period paint past
+its edge.
 
 The fresh matrix covers eight local routes, both themes, 390/1440px and default/200% text;
 all 64 route measurements fit the document width and logged no uncaught page error. It does not
