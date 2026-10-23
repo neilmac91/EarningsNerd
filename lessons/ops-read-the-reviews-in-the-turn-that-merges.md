@@ -1,4 +1,4 @@
-# Read the pull request's reviews and open threads in the turn that merges it, and merge only when every one is answered
+# Read the pull request's new activity in the turn that merges it, and merge only when every actionable finding or request has its answer
 
 Date: 2026-10-23 · Area: ops / merging
 
@@ -16,10 +16,11 @@ request. The reviewer's own follow-up, #1536, made the correction after the merg
 - its conversation comments;
 - any notifications queued for the session.
 
-Merge only when every review, thread and comment posted since your last read is answered. An answer is
-either a fix pushed, which restarts the merge conditions, or a reply that says why not. A review that
-asks for something before merge stops the merge until it is answered, whatever CI and `review-gate`
-say.
+Every finding or request among what arrived since your last read needs an explicit answer before the
+merge: a review thread, a review that asks for a change, or a comment that asks for something. An answer
+is either a fix pushed, which restarts the merge conditions, or a reply that says why not. A request made
+"before merge" stops the merge until it is answered, whatever CI and `review-gate` say. Clean review
+receipts, bot status updates and informational comments need no reply.
 
 **Gate.** Thread disposition stays review-checked. `review-gate` reads Codex's review only. Main's
 rules could refuse such a merge with "Require conversation resolution before merging", and turning that
