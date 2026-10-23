@@ -172,7 +172,7 @@ The founder took the last four on 2026-10-17 (D-045 and D-046):
 Two items still wait on the founder: that privacy text (F4) and the founder sentence, which the
 site goes without (A5) unless the founder writes one (D6, F48).
 
-## Sweep handoff
+## The sweep's record
 
 Current-main check: 2026-10-23, `5897d602`, after #1457 (`ab6962ec`). E120's capped
 surface insets (#1495) are included; E146's company-name formatting (#1491) is still a draft
@@ -189,25 +189,16 @@ fading at its foot. The existing gates and each implementation PR's committed-st
 proofs remain their evidence; this records-only change introduces no new rule. #1476 already records
 D-056's opening reservation and the rule to await the ready mark's own completed clean review.
 
-Remaining work stays in [the open-items page](../../tasks/todo.md), not in this handoff as a second
-queue. E78 aligns analysis window display; E146 normalizes served company names; E59 converts the
-remaining list ceilings and E64 shrinks the owned residues. E46's mail truth and copy, E75's PDF
-located excerpts and E37's backend-written answer copy each deploy the backend and need their own
-balance reservation and isolated merge. E74's cover, E79's shared italic decision, E138's prompt
-wording, E68's export and label-in-name follow-ups, E34/E35/E36, E43, E50, E56, E111, E116,
-E122 and the newer E154/E155 also remain with the owners and holds their rows name.
-E162 records the clause-aware legal-claim reader left by #1456; the current regex families fail
-loudly when a page sentence trips them. No legal text changes here. E168 records the company
-page's SEC filings card at 320px under 200% text, whose chevrons, count and a period paint past
-its edge.
+What remains is not listed here. Each open item is a row in [the open-items page](../../tasks/todo.md)
+with its owner and next step, and leaves it in the pull request that closes it (AGENTS.md §7), so
+a second list on this page would go stale as they close.
 
 The fresh matrix covers eight local routes, both themes, 390/1440px and default/200% text;
 all 64 route measurements fit the document width and logged no uncaught page error. It does not
 replace each PR's before/after evidence, establish production behaviour, or retest mail clients,
 PDFs, provider consoles and successful feed states. The source-pane and export work retain their
-own capture and gate evidence. Founder-held privacy wording, the founder sentence, Stripe branding
-and OAuth consent screens remain held. The founder receives the final sweep report as a message,
-not as a committed release verdict.
+own capture and gate evidence. The founder's held items keep their rows in the open-items page,
+and the founder receives the final sweep report as a message, not as a committed release verdict.
 
 ## Closing
 
