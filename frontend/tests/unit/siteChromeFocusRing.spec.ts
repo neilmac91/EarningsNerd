@@ -64,7 +64,9 @@ import { isLocal, lazyImport, routeFiles, walkImports } from './importWalk'
  * verification banner and prompt, the cookie-consent bar, the providers' error boundary and feedback
  * widget), every route layout, template or error boundary under app/ (the admin section's nav, the
  * root error fallback), the auth routes' shell and the page header, with every module they import, the
- * DS primitives they render included (Modal's close ✕ is one of their stops). The page header also
+ * DS primitives they render included (Modal's close ✕ is one of their stops), but the DS field module
+ * (FIELD_FACTORY, reached through the feedback form's inputClasses(), E154), whose three fields are held by
+ * tests/unit/inputClassesNoOverrides.spec.tsx, as in the field clause. The page header also
  * renders the controls a page passes into its `actions` slot (the dashboard's "Log out"), so every
  * `<SecondaryHeader actions={…}>` in the app is scanned too, and its controls must be written inline. A
  * page's other controls are held by the page scan instead: every page.tsx under app/ and the feature modules it
@@ -147,13 +149,7 @@ function routeShells(root: string = ROOT): string[] {
 }
 
 /** Chrome files the scan skips, each with its reason. Shrink-only: fix the file and delete its line. */
-const NOT_SCANNED: Record<string, string> = {
-  'components/ui/Input.tsx':
-    'the DS field module, reached through the feedback form\'s inputClasses() (E154): its fields are held by ' +
-    'tests/unit/inputClassesNoOverrides.spec.tsx, each inputClasses() combination and the Input, Textarea and Select ' +
-    'components taking the forms ring off and drawing the DS ring, as the app-wide field clause below leaves it ' +
-    '(FIELD_FACTORY). A chrome field built with the recipe is read here by calling it (fieldFactoryTokens).',
-}
+const NOT_SCANNED: Record<string, string> = {}
 
 /**
  * Third-party components the chrome renders (`module Tag`), and how their Tab stops meet the rule. The
@@ -994,7 +990,9 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
     }
   })
 
-  for (const file of discovered.filter((f) => !(f in NOT_SCANNED))) {
+  // The DS field module's fields are held by inputClassesNoOverrides.spec.tsx; a chrome field built with its recipe is
+  // read here by calling it (fieldFactoryTokens).
+  for (const file of discovered.filter((f) => !(f in NOT_SCANNED) && f !== FIELD_FACTORY)) {
     it(file, () => {
       const { findings } = missingRings(readFileSync(path.join(ROOT, file), 'utf8'), file)
       expect(findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`)).toEqual([])
