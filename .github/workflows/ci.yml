@@ -291,6 +291,12 @@ jobs:
         env:
           SESSION_TIME_ZONE_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
         run: python -m pytest tests/integration/test_session_time_zone.py
+      - name: Verify filing insert concurrency on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          FILING_INSERT_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_filing_insert_transactions.py
 
   frontend-tests:
     runs-on: ubuntu-latest
