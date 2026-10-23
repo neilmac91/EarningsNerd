@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { answerApi } from './fixtures/filing3Api'
 
 /**
  * The site header (components/Header.tsx) is the one bar that sticks at the top of the viewport, and it covers
@@ -19,6 +20,12 @@ import { test, expect, type Page } from '@playwright/test'
  * and finds no stop wholly under the bar. The bar's own controls are its own, and fixed chrome (the skip link, the
  * launchers) does not scroll, so neither is a page stop here, and the walk must reach the bar, so a walk cut short
  * fails. The walk runs in the light theme: a theme changes no geometry the walk reads.
+ *
+ * Both bars on the filing page: below lg its section nav sticks under the site header, a second bar, and the
+ * document's padding reserves it too (E164, chief design's ruling on #1521). The walk counts a stop hidden when it
+ * lies wholly under the site header, or under the nav while the nav is stuck at the bar's foot; the nav's own chips
+ * are measured against the site header alone. /filing/3 is walked at 390x844 at both text sizes, its API answered
+ * from the filing fixtures (tests/e2e/fixtures/filing3Api.ts).
  *
  * The header's own stops: the padding steps aside while focus is inside the site header
  * (`html:has([data-site-header]:focus-within)`). The header is stuck in view, and the padding, which counts its
@@ -132,14 +139,20 @@ async function walkBack(page: Page): Promise<{ stops: number; reachedBar: boolea
       const label = (el.getAttribute('aria-label') || el.textContent || el.getAttribute('placeholder') || el.tagName).replace(/\s+/g, ' ').trim().slice(0, 60)
       const inBar = bar.contains(el)
       const own = inBar || fixed || r.width === 0 || r.height === 0
-      return { done: false as const, own, inBar, label: `${el.tagName.toLowerCase()} "${label}"`, top: r.top, bottom: r.bottom, barTop: b.top, barBottom: b.bottom, scrollY: window.scrollY }
+      // The filing page's section nav, while it reaches the bar's foot (stuck there, or leaving with its column), covers
+      // what passes beneath it as the bar does; a chip of its own can only lie under the bar.
+      const nav = document.querySelector('[data-section-nav]')
+      const n = nav?.getBoundingClientRect()
+      const inNav = !!nav && nav.contains(el)
+      const navCovers = !!n && n.height > 0 && n.top <= b.bottom + 1 && !inNav
+      return { done: false as const, own, inBar, label: `${el.tagName.toLowerCase()} "${label}"`, top: r.top, bottom: r.bottom, barTop: b.top, barBottom: navCovers ? Math.max(b.bottom, n.bottom) : b.bottom, scrollY: window.scrollY }
     })
     if (stop.done) break
     stops++
     if (stops > MAX_STOPS) throw new Error(`the walk passed ${MAX_STOPS} stops without coming back round`)
     if (stop.inBar) reachedBar = true
-    // The bar sits at the top of the viewport, so a stop that ends above its bottom edge is wholly behind it (or above
-    // the screen altogether).
+    // The bar (and a stuck section nav below it) sits at the top of the viewport, so a stop that ends above its bottom
+    // edge is wholly behind it (or above the screen altogether).
     if (!stop.own && stop.bottom <= stop.barBottom + 0.5) {
       hidden.push({ label: stop.label, top: stop.top, bottom: stop.bottom, barBottom: stop.barBottom, scrollY: stop.scrollY })
     }
@@ -209,6 +222,33 @@ for (const viewport of VIEWPORTS) {
     }
   }
 }
+
+test.describe('a keyboard focus clears both bars / /filing/3 / 390px', () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
+  for (const doubled of [false, true]) {
+    const name = `390px${doubled ? ' under 200% text' : ''}`
+    test(`a Shift+Tab walk of /filing/3 finds no stop wholly under the bar or the section nav, ${name}`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem('theme', 'light')
+        localStorage.setItem('en:copilot-coachmark-v1', '1')
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+      })
+      await answerApi(page, baseURL!, 'anon')
+      await page.goto('/filing/3')
+      // Only a rendered summary has its section nav.
+      await expect(page.getByRole('navigation', { name: 'Jump to section' })).toBeVisible()
+      if (doubled) await doubleText(page)
+      await settle(page)
+      const walk = await walkBack(page)
+      expect(walk.stops, `/filing/3, ${name}: the walk reached the page's stops`).toBeGreaterThan(3)
+      expect(walk.reachedBar, `/filing/3, ${name}: the walk came back round to the site header`).toBe(true)
+      expect(
+        walk.hidden.map((s) => `${s.label} at ${s.top.toFixed(0)} to ${s.bottom.toFixed(0)}px, under bars ending at ${s.barBottom.toFixed(0)}px (scrollY ${s.scrollY.toFixed(0)})`),
+        `/filing/3, ${name}: a focused control wholly behind the site header or the section nav`,
+      ).toEqual([])
+    })
+  }
+})
 
 test.describe("the site header's own stops hold the page in place", () => {
   for (const doubled of [false, true]) {

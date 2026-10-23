@@ -371,6 +371,45 @@ describe('SummaryBlocks', () => {
     expect(phoneNav.className).toMatch(/(^|\s)mb-11(\s|$)/)
   })
 
+  // Below lg the phone nav sticks under the site header, a second bar (E164, chief design's ruling on #1521). It
+  // publishes its height on <html> as --section-nav-h, which the document's top scroll padding adds to the header's,
+  // so a keyboard focus lands below both bars; each section's scroll margin gives that height back, so an anchor jump
+  // lands where it did. The geometry is tests/e2e/header-covers-nothing.spec.ts's /filing walk at 390px.
+  it("publishes the phone nav's height, follows a resize, clears it on unmount, and each section's margin gives it back", () => {
+    let height = 52.4
+    let resize: (() => void) | undefined
+    // Other parts of the summary (a table's overflow region) observe too; this keeps the nav's own observer.
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(private readonly callback: () => void) {}
+      observe(target: Element) { if (target.hasAttribute('data-section-nav')) resize = this.callback }
+      unobserve() {}
+      disconnect() {}
+    })
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return { height: this.hasAttribute('data-section-nav') ? height : 0 } as DOMRect
+    })
+    try {
+      const { unmount } = render(<SummaryBlocks sections={sections} summary={summary} />)
+      const root = document.documentElement
+      expect(screen.getByRole('navigation', { name: 'Jump to section' })).toHaveAttribute('data-section-nav')
+      expect(root.style.getPropertyValue('--section-nav-h'), 'published before the first paint, rounded up').toBe('53px')
+      // From lg the nav is display:none and measures 0.
+      height = 0
+      resize?.()
+      expect(root.style.getPropertyValue('--section-nav-h')).toBe('0px')
+      for (const section of sections) {
+        expect(document.getElementById(section.id)!.className.split(/\s+/), section.id).toEqual(
+          expect.arrayContaining(['scroll-mt-[calc(4rem_-_var(--section-nav-h,0px))]', 'lg:scroll-mt-8']),
+        )
+      }
+      unmount()
+      expect(root.style.getPropertyValue('--section-nav-h'), 'cleared with the nav, so the padding counts no nav').toBe('')
+    } finally {
+      rect.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('heads each risk with its own excerpt, never a model-authored label', () => {
     const riskSections: RenderedSection[] = [
       { id: 'investment-risks-concerns', role: 'risks', title: 'Investment Risks & Concerns', blocks: [] },
