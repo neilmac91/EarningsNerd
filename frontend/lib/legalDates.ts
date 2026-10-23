@@ -8,9 +8,8 @@
  * the founder's time zone, so a merge late in a UTC day can carry the next day's date. Whether a
  * date matches its merge is review-checked (tests/unit/legalTruth.spec.tsx, item 4).
  */
-// October 23 is provisional for PR #1121; reconcile with the actual merge date before publication.
 export const LEGAL_DATES = {
-  terms: 'October 23, 2026',
-  privacy: 'October 23, 2026',
-  security: 'October 23, 2026',
+  terms: 'October 24, 2026',
+  privacy: 'October 24, 2026',
+  security: 'October 24, 2026',
 } as const
