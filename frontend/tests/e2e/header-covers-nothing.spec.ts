@@ -254,10 +254,11 @@ test.describe("the site header's own stops hold the page in place", () => {
 
       // A tap or a click moves focus to what it presses on its mousedown, before its release. The header is in the
       // page's flow, and at the top of a page nothing anchors the scroll, so a menu that closed on that focusout moved
-      // the page under the finger and the release followed nothing. The menu closes after the press's click instead.
-      // Under 200% text the open menu fills the screen, so no page control shows below it to press.
+      // the page under the finger and the release followed nothing. A press leaves the menu open, as before (chief
+      // design's ruling on #1542), and the navigation it starts closes it. Under 200% text the open menu fills the
+      // screen, so no page control shows below it to press.
       if (!doubled) {
-        test('a tap on a page link below the open menu, at the top of the page, follows it', async ({ page, baseURL }) => {
+        test('a tap on a page link below the open menu, at the top of the page, follows it, and the next page opens with the menu closed', async ({ page, baseURL }) => {
           await open(page, baseURL!, '/', 'light')
           await settle(page)
           expect(await page.evaluate(() => window.scrollY), `${name}: the page is at its top`).toBe(0)
@@ -280,6 +281,7 @@ test.describe("the site header's own stops hold the page in place", () => {
           await expect(page, `${name}: a tap on "${target!.label}" at ${target!.y.toFixed(0)}px, below the open menu ending at ${target!.menuEnd.toFixed(0)}px, follows it`).toHaveURL(
             (url) => url.pathname === target!.href,
           )
+          await expect(page.getByRole('navigation', { name: 'Mobile navigation' }), `${name}: ${target!.href} opens with the menu closed`).toHaveCount(0)
         })
       }
 

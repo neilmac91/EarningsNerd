@@ -11,8 +11,11 @@ vi.mock('next/link', () => ({
   ),
 }))
 
+// The route the header renders on; a test changes it and rerenders to navigate.
+let mockPathname = '/'
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  usePathname: () => mockPathname,
 }))
 
 // Stub chrome/children so the test isolates Header's auth-state branching.
@@ -344,35 +347,78 @@ describe('Header mobile menu closes as a disclosure', () => {
     }
   })
 
-  // A press moves focus to what is pressed on its mousedown, before its release. The header is in the page's flow, so
-  // a close on that focusout moved the page under the pointer at the top of a page, and the release landed elsewhere:
-  // a tap on a link below the open menu followed nothing (the e2e's tap case holds that in a browser).
-  it('closes a task after the click of a press that moved focus out of the header, never on the press', async () => {
+  // A press moves focus on its mousedown, before its release: to what it presses, or to the page's main region
+  // (tabindex -1) when it presses text. The header is in the page's flow, so a close on that focusout moved the page
+  // under the pointer at the top of a page and the release landed elsewhere: a tap on a link below the open menu
+  // followed nothing. A reader who presses can see where, so a press leaves the menu open, as before (chief design's
+  // ruling on #1542); the e2e's tap case holds the link followed in a browser.
+  it('leaves the menu open when a press moves focus out of the header, after the press too', async () => {
     renderWithPage()
     await openMenu()
     // A tap on the toggle focused it.
     act(() => screen.getByRole('button', { name: 'Close menu' }).focus())
     const onPage = screen.getByRole('button', { name: 'A control on the page' })
-    fireEvent.pointerDown(onPage)
+    fireEvent.mouseDown(onPage)
     act(() => onPage.focus())
-    expect(menuOpen(), 'the press moved focus out; the menu waits for its click').toBe(true)
+    fireEvent.mouseUp(onPage)
     fireEvent.click(onPage)
-    expect(menuOpen(), 'the click reaches the pressed control with the menu still open').toBe(true)
+    expect(menuOpen(), 'the press moved focus out of the header').toBe(true)
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
-    expect(menuOpen(), 'a task after the click').toBe(false)
+    expect(menuOpen(), 'and the task after it').toBe(true)
   })
 
-  it('ends a press on a key press, so a press with no click never holds up the keyboard close', async () => {
+  it('leaves the menu open when a press on text moves focus to the page region', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <Header />
+        <div id="main" tabIndex={-1} data-testid="page-region">
+          <p>Some text on the page</p>
+        </div>
+      </QueryClientProvider>,
+    )
+    await openMenu()
+    act(() => screen.getByRole('button', { name: 'Close menu' }).focus())
+    const region = screen.getByTestId('page-region')
+    fireEvent.mouseDown(screen.getByText('Some text on the page'))
+    act(() => region.focus())
+    expect(menuOpen()).toBe(true)
+  })
+
+  it("ends a press's mark with its task, so a later keyboard or script focus still closes the menu", async () => {
     renderWithPage()
     await openMenu()
     act(() => screen.getByRole('button', { name: 'Close menu' }).focus())
     const onPage = screen.getByRole('button', { name: 'A control on the page' })
-    fireEvent.pointerDown(onPage)
-    fireEvent.keyDown(document.body, { key: 'Tab' })
+    fireEvent.mouseDown(document.body)
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
     act(() => onPage.focus())
     expect(menuOpen()).toBe(false)
+  })
+
+  it('closes on a navigation, so a press on a page link never opens the next page under the menu', async () => {
+    mockPathname = '/'
+    try {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const tree = () => (
+        <QueryClientProvider client={queryClient}>
+          <Header />
+        </QueryClientProvider>
+      )
+      const { rerender } = render(tree())
+      await openMenu()
+      rerender(tree())
+      expect(menuOpen(), 'a render on the same route keeps it').toBe(true)
+      mockPathname = '/company/AAPL'
+      rerender(tree())
+      expect(menuOpen(), 'the next route opens with it closed').toBe(false)
+    } finally {
+      mockPathname = '/'
+    }
   })
 
   it('closes without a synchronous flush when a modal layer takes the focus from an effect', async () => {

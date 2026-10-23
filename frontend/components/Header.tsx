@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowRightIcon, ListIcon, SignOutIcon, XIcon } from '@/lib/icons'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
@@ -88,57 +88,46 @@ export default function Header({
     if (headerRef.current) publishHeaderHeight(headerRef.current)
   }, [mobileMenuOpen])
 
-  // A pointer press in progress while the menu is open, from its pointerdown to its click (or its cancel), and
-  // whether focus left the header during it. A key press ends it, so a press with no click never holds up the
-  // keyboard's close.
-  const pressRef = useRef({ active: false, closeAfterClick: false })
+  // A press (a tap or a click) moves focus on its mousedown, before its release: to what it presses, or to the page's
+  // main region (`tabindex="-1"`, the skip link's target) when it presses text. A reader who presses can see where, so
+  // a press leaves the open menu as it is (chief design's ruling on #1542, comment 6375679863). A close on the press
+  // shrank the in-flow header under the pointer, and at the top of a page nothing anchors the scroll, so the release
+  // landed elsewhere and activated nothing. The press is marked from its mousedown until the next task: a tap's
+  // mousedown is its compatibility event, after its pointer events.
+  const pressingRef = useRef(false)
   useEffect(() => {
     if (!mobileMenuOpen) return
-    const press = pressRef.current
-    const start = () => {
-      press.active = true
-      press.closeAfterClick = false
+    const mark = () => {
+      pressingRef.current = true
+      window.setTimeout(() => {
+        pressingRef.current = false
+      }, 0)
     }
-    const end = () => {
-      const close = press.closeAfterClick
-      press.active = false
-      press.closeAfterClick = false
-      // A task after the click, so the click and its default action reach the control the press began on first.
-      if (close) window.setTimeout(() => setMobileMenuOpen(false), 0)
-    }
-    const typed = () => {
-      press.active = false
-    }
-    document.addEventListener('pointerdown', start, true)
-    document.addEventListener('click', end, true)
-    document.addEventListener('pointercancel', end, true)
-    document.addEventListener('keydown', typed, true)
+    document.addEventListener('mousedown', mark, true)
     return () => {
-      document.removeEventListener('pointerdown', start, true)
-      document.removeEventListener('click', end, true)
-      document.removeEventListener('pointercancel', end, true)
-      document.removeEventListener('keydown', typed, true)
-      press.active = false
-      press.closeAfterClick = false
+      document.removeEventListener('mousedown', mark, true)
+      pressingRef.current = false
     }
   }, [mobileMenuOpen])
 
-  // The open menu is a disclosure: it closes when focus leaves the header (E167). A Tab past its last item, or a focus
-  // moved by script, closes it inside the focusout, before the browser scrolls the next control into view, so that
-  // scroll reserves the bar alone, not the open menu, which fills the screen under 200% text and left the control past
-  // the screen's foot. A press on a control outside it (where the browser focuses what is pressed) closes it after the
-  // press's click instead: the header is in the page's flow, and at the top of a page nothing anchors the scroll, so a
-  // close on the press would move the page under the pointer and the release would activate nothing. A modal layer that
-  // takes the focus (a focus trap, from an effect) is fixed and needs no padding, and is closed without a synchronous
-  // flush, which React refuses inside its own effects. A blur with no next target (another window, a tap on text)
-  // leaves the menu open.
+  // A navigation closes the open menu: a press on a page link leaves it open (above), and the next page opens with it
+  // closed. Reset during render, as React advises for state that follows a value, so the new page never paints under it.
+  const pathname = usePathname()
+  const [menuPathname, setMenuPathname] = useState(pathname)
+  if (menuPathname !== pathname) {
+    setMenuPathname(pathname)
+    setMobileMenuOpen(false)
+  }
+
+  // The open menu is a disclosure: it closes when focus leaves the header from the keyboard or a script (E167). A Tab
+  // past its last item, or a focus moved by script, closes it inside the focusout, before the browser scrolls the next
+  // control into view, so that scroll reserves the bar alone, not the open menu, which fills the screen under 200% text
+  // and left the control past the screen's foot. A press leaves it open (above). A modal layer that takes the focus (a
+  // focus trap, from an effect) is fixed and needs no padding, and is closed without a synchronous flush, which React
+  // refuses inside its own effects. A blur with no next target (another window) leaves the menu open.
   const closeMenuWhenFocusLeaves = (event: React.FocusEvent<HTMLElement>) => {
     const next = event.relatedTarget
-    if (!mobileMenuOpen || !(next instanceof Node) || event.currentTarget.contains(next)) return
-    if (pressRef.current.active) {
-      pressRef.current.closeAfterClick = true
-      return
-    }
+    if (!mobileMenuOpen || pressingRef.current || !(next instanceof Node) || event.currentTarget.contains(next)) return
     if (next instanceof Element && next.closest('[aria-modal="true"]')) {
       setMobileMenuOpen(false)
       return
