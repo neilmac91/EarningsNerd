@@ -25,7 +25,7 @@ reach the database only through libpq's `PGOPTIONS`. An `options` setting in the
 connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a guard in the relabel
 script would replace them, so none may exist. The one connection-level event allowed is database.py's
 `connect` listener that runs each session at UTC (E151), held by running it on a recording connection:
-it sets the time zone and nothing else, no other statement, connection attribute or method.
+it sets the time zone and touches nothing else, no other statement, attribute or method.
 
 Every -apply operation waits for the founder's approval: an approval job in the `ops-apply`
 environment, whose required reviewer is the founder, runs for exactly those operations. The
@@ -146,8 +146,10 @@ def _connection_listeners(path: Path) -> list[tuple[str, int, str, str]]:
 def _what_it_does(listener) -> list[str]:
     """What a connect listener does to its session, run on a recording DBAPI connection: each statement
     it executes, each connection attribute it sets but autocommit (psycopg2's readonly, isolation_level
-    and deferrable are setters that change the session's transactions), and each call of a method the
-    recorder does not model (a connection's set_session, a cursor's callproc)."""
+    and deferrable are setters that change the session's transactions), and each attribute it reads or
+    method it calls that the recorder does not model (a connection's set_session, a cursor's callproc or
+    its connection). A listener that tells the recorder from a real connection can still pass it; the
+    guards case in tests/integration/test_session_time_zone.py holds the guards on a real session."""
     did: list[str] = []
 
     def call(name):
@@ -166,6 +168,7 @@ def _what_it_does(listener) -> list[str]:
             did.append(sql)
 
         def __getattr__(self, name):
+            did.append(f"reads cursor.{name}")
             return call(f"cursor.{name}")
 
     class Connection:
@@ -180,6 +183,7 @@ def _what_it_does(listener) -> list[str]:
             object.__setattr__(self, name, value)
 
         def __getattr__(self, name):
+            did.append(f"reads {name}")
             return call(name)
 
         def cursor(self):
@@ -224,11 +228,24 @@ def test_the_listener_scan_reads_each_form_it_claims(tmp_path):
     def set_config(connection, _record):
         connection.cursor().callproc("set_config", ["lock_timeout", "0", False])
 
+    def through_the_cursor(connection, _record):
+        with connection.cursor() as cursor:
+            cursor.execute("SET TIME ZONE 'UTC'")
+            cursor.connection.readonly = False
+
+    def only_on_a_real_connection(connection, _record):
+        if getattr(connection, "readonly", False) is None:  # psycopg2's default
+            connection.readonly = False
+
     assert _what_it_does(also_lock_timeout) == ["SET TIME ZONE 'UTC'", "SET lock_timeout = '0'"]
     assert _what_it_does(read_write) == ["SET default_transaction_read_only = off"]
     assert _what_it_does(read_write_attribute) == ["readonly = False"]
-    assert _what_it_does(read_write_session) == ["set_session(readonly=False)"]
-    assert _what_it_does(set_config) == ["cursor.callproc('set_config', ['lock_timeout', '0', False])"]
+    assert _what_it_does(read_write_session) == ["reads set_session", "set_session(readonly=False)"]
+    assert _what_it_does(set_config) == [
+        "reads cursor.callproc", "cursor.callproc('set_config', ['lock_timeout', '0', False])",
+    ]
+    assert _what_it_does(through_the_cursor) == ["SET TIME ZONE 'UTC'", "reads cursor.connection"]
+    assert _what_it_does(only_on_a_real_connection) == ["reads readonly"]
 
 
 def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypatch):

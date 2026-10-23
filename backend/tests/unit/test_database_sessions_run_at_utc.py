@@ -44,7 +44,7 @@ class _ConnectionClosed(Exception):
 class _Connection:
     """A DBAPI connection that records each statement with the autocommit it ran under, and can refuse it, or die
     before it (then, as psycopg2's does, it refuses to have its autocommit set). It has no other attribute to set
-    (psycopg2's readonly, say) or method to call, so a listener that touched one fails here."""
+    (psycopg2's readonly, say) or method to call, so a listener that sets or calls one fails here."""
 
     __slots__ = ("_autocommit", "refuse", "dies", "closed", "ran")
 
