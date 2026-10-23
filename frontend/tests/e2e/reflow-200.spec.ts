@@ -1720,20 +1720,20 @@ test.describe('a 1440px desktop at the default text size', () => {
     word of "Verify your email to continue" (Chrome 156). The scrim is fixed, so a dialog adds
     nothing to the page's scroll width: the title's painted lines are read, a character at a time, against the panel and
     the close button, with the page's width checked as well, and the panel's own sideways scroll where its body is
-    clean. The feedback dialog's is not, yet: its type row widens it under 200% text (E168). Three dialogs from three
+    clean. The feedback dialog's is not, yet: its type row widens it under 200% text (E169). Three dialogs from three
     surfaces, all over /pricing: the consent dialog (Customize on a first
     visit) and checkout's email verification prompt, opened by its event as email-verification-resend.spec.ts opens it,
     each with an icon and a close button; and the feedback dialog, with a close button and no icon, opened from its
     launcher by a signed-in reader, as consent-bar-yields.spec.ts signs one in. At the default size the title sits beside
     the icon, or beside the close button, as it always has. */
-type HeaderFit = { problems: string[]; panelScroll: string | null; beside: boolean; stacked: boolean; full: boolean; where: string }
+type HeaderFit = { problems: string[]; panelScroll: string | null; hasIcon: boolean; beside: boolean; stacked: boolean; full: boolean; where: string }
 
 const headerFit = (dialog: Locator): Promise<HeaderFit> =>
   dialog.evaluate((panel) => {
     const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
     const title = panel.querySelector('h2')
     const closeButton = panel.querySelector('button[aria-label="Close"]')
-    if (!title || !closeButton) return { problems: ['the header has no title or close button'], panelScroll: null, beside: false, stacked: false, full: false, where: '' }
+    if (!title || !closeButton) return { problems: ['the header has no title or close button'], panelScroll: null, hasIcon: false, beside: false, stacked: false, full: false, where: '' }
     // A header with no icon has no tile: its title shares the first row with the close button alone (E165).
     const iconTile = title.parentElement?.querySelector(':scope > [aria-hidden="true"]')
     const close = closeButton.getBoundingClientRect()
@@ -1784,8 +1784,11 @@ const headerFit = (dialog: Locator): Promise<HeaderFit> =>
     }
     if (box.left < inner.left - 0.5 || box.right > inner.right + 0.5) problems.push(`the title's box at ${px(box.left, box.right)} passes the panel's ${px(inner.left, inner.right)}`)
     if (overlaps(box)) problems.push(`the title's box at ${px(box.left, box.right)} by ${px(box.top, box.bottom)} overlaps the close button at ${px(close.left, close.right)} by ${px(close.top, close.bottom)}`)
-    // The close button keeps the header's top right: on its first row, at the right edge of its content, inside the panel.
-    if (close.top > content.top + 0.5 || close.right < content.right - 0.5 || close.right > inner.right + 0.5) problems.push(`the close button at ${px(close.left, close.right)}, top ${Math.round(close.top)}px, is not at the header's top right (the header's content ${px(content.left, content.right)} from ${Math.round(content.top)}px, the panel's right edge ${Math.round(inner.right)}px)`)
+    // The close button keeps the header's top right: its margin box (its padded box less the negative margin that
+    // lets the padding overhang) sits in the corner of the header's content box, and its padded box inside the panel.
+    const closeStyle = getComputedStyle(closeButton)
+    const corner = { right: close.right + parseFloat(closeStyle.marginRight), top: close.top - parseFloat(closeStyle.marginTop) }
+    if (Math.abs(corner.right - content.right) > 0.5 || Math.abs(corner.top - content.top) > 0.5 || close.right > inner.right + 0.5) problems.push(`the close button at ${px(close.left, close.right)}, top ${Math.round(close.top)}px (its margin box's corner at ${Math.round(corner.right)}px, top ${Math.round(corner.top)}px), is not at the header's top right (the header's content ${px(content.left, content.right)} from ${Math.round(content.top)}px, the panel's right edge ${Math.round(inner.right)}px)`)
 
     // A word on two lines was broken inside itself: none may be (E158).
     const words: { text: string; tops: Set<number> }[] = []
@@ -1813,6 +1816,7 @@ const headerFit = (dialog: Locator): Promise<HeaderFit> =>
     return {
       problems,
       panelScroll: panel.scrollWidth > panel.clientWidth ? `the panel scrolls sideways: ${panel.scrollWidth}px of content in ${panel.clientWidth}px` : null,
+      hasIcon: !!icon,
       // Beside: on the first row, after the icon, or before the close button where there is no icon. Stacked: below the
       // first row (the icon and the close button's padded box), from the header content's left edge.
       beside: icon ? box.left >= icon.right - 0.5 && box.top < icon.bottom : box.right <= close.left + 0.5 && box.top < close.bottom,
@@ -1858,7 +1862,7 @@ const DIALOG_HEADERS = [
     icon: false,
     title: 'Send feedback',
     /** Its type row (Bug, Idea, General) does not wrap, so under 200% text it widens the panel by 79, 42 and 14px at
-        320, 360 and 390px (E168): its header is held, its panel not yet. */
+        320, 360 and 390px (E169): its header is held, its panel not yet. */
     holdsPanel: false,
     open: async (p: Page, dialog: Locator) => {
       await p.getByRole('button', { name: 'Send feedback', exact: true }).click()
@@ -1892,6 +1896,7 @@ for (const width of [390, 360, 320]) {
           const at = `${d.name} at ${width}px in the ${theme} theme`
 
           const atDefault = await headerFit(dialog)
+          expect(atDefault.hasIcon, `${at}: the header ${d.icon ? 'has' : 'has no'} icon tile`).toBe(d.icon)
           expect(atDefault.problems, `${at} at the default text size (${atDefault.where})`).toEqual([])
           expect(atDefault.beside, `${at} at the default text size: the title sits beside ${lead} (${atDefault.where})`).toBe(true)
           if (d.holdsPanel) expect(atDefault.panelScroll, `${at} at the default text size`).toBeNull()
