@@ -29,7 +29,7 @@ subclass.
   `create_refresh_token` and `payment_report`, then runs as production runs it.
 
 **Evidence**:
-- `_session` in each gate home under `backend/tests/integration/` (the five `*_transactions.py` and
+- `_session` in each gate home under `backend/tests/integration/` (the six `*_transactions.py` and
   `test_session_time_zone.py`).
 - `backend/tests/unit/test_migration_lock_safety.py`:
   - `test_each_postgres_gate_has_a_required_ci_execution_path` fails a session a gate home opens

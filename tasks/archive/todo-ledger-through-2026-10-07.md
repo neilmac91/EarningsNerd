@@ -6827,6 +6827,17 @@ Full local and hosted verification plus independent exact-head review precede re
   no ledger event; five other writers' paid runs and seven balance readouts on GitHub. Chief defect 25 (a loop over
   two `gh api` calls with a variable in the path, the class of chief defect 23); no classifier denial and three hook
   refusals of the chief's commands in the window, nothing running. Closure 198.
+- 2026-10-23 (record 48, `runtime/control/DECISIONS-48.md`): PR #1497 (record 47) merged `383b6f73` by the chief
+  under record 35's founder action 9, answered, on the founder's word and the founder's call on a Codex review that
+  hung (forty-third deploy-skip proof: its main run succeeded and its deploy job skipped every deploy step), with no
+  classifier refusal, after its fact-check, its reviewer's three passes and Codex's two findings, each answered and
+  taken, with a ready mark and one fresh draft-to-ready transition. Closure 199 registers record 47's survey,
+  fact-check and reviewer and pre-registers this record's survey and fact-check and record 49's reviewer. A
+  read-only survey of the window before the record was written. Thirteen main merges, three of them backend
+  deploys, each healthy, each on a re-run after a cut-off at the browser tests' limit; production not read live.
+  No CODE RED spend; no ledger event; ten other writers' paid runs and thirteen balance readouts on GitHub. Chief
+  defects 26 (four searches printed without the excluded-directory filter) and 27 (a `gh api` path with a command
+  substitution); no classifier denial and no hook refusal of the chief's commands in the window. Closure 199.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
