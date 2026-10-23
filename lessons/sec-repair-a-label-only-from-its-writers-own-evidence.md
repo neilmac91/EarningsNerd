@@ -25,9 +25,10 @@ never stored, may stand in; a stored row that is evidence always outranks the re
 repair already retired. Rewrite only the defect's own signature (here a label equal to the calendar
 year of the period end), never a label some labeller set on that row's evidence alone. A labeller's
 labels move only together, as the per-filing writer's own adoption moves them: every row of the
-filing that has a trusted year gives one offset, and a fresh read of the current writer names the
+filing that has a trusted year gives one offset, a fresh read of the current writer names the
 same year at each row moved, so a stored row an earlier writer version named never outranks the
-labeller; never fill a NULL. Before writing, project the whole company:
+labeller, and no other labelled row of the filing is held, so a filing is never left on two offsets;
+never fill a NULL. Before writing, project the whole company:
 hold any relabel whose new label another period end of the same filing and concept, or another
 current row of the concept, would carry, and re-check, since a held row keeps its label. When the
 rows disagree, when only instants or only legacy rows exist and the read names no year, or when no
@@ -43,5 +44,6 @@ gate `backend/tests/unit/test_relabel_filing_fy_facts_script.py` (legacy rows ar
 nor agreement; a non-calendar label is never overwritten from stored years alone; an instant-only
 label is never copied; disagreeing, retired and missing evidence skip; a relabel that would give two
 period ends one year is held, from the production writers; a second apply reports zero; a
-lagging-focus filing moves by its one offset, and not with two offsets or against the read);
+lagging-focus filing moves by its one offset, and not with two offsets, against the read or beside
+a held labelled row of its own; a NULL beside it stays NULL);
 runbook `docs/fiscal-year-label-repair.md`.

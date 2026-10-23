@@ -49,8 +49,9 @@ CALENDARS = {
     "AAPL": {2022: ("2021-09-26", "2022-09-24"), 2023: ("2022-09-25", "2023-09-30"),
              2024: ("2023-10-01", "2024-09-28")},
     # Salesforce: a January year named by its end; its fiscal 2026 10-K carries DEI focus 2025.
-    "CRM": {2023: ("2022-02-01", "2023-01-31"), 2024: ("2023-02-01", "2024-01-31"),
-            2025: ("2024-02-01", "2025-01-31"), 2026: ("2025-02-01", "2026-01-31")},
+    "CRM": {2022: ("2021-02-01", "2022-01-31"), 2023: ("2022-02-01", "2023-01-31"),
+            2024: ("2023-02-01", "2024-01-31"), 2025: ("2024-02-01", "2025-01-31"),
+            2026: ("2025-02-01", "2026-01-31"), 2027: ("2026-02-01", "2027-01-31")},
 }
 CIKS = {"TGT": "0000027419", "JNJ": "0000200406", "AAPL": "0000320193", "CRM": "0001108524",
         "DEC": "0000000777"}  # DEC: synthetic
@@ -1006,3 +1007,48 @@ def test_a_labellers_labels_move_only_by_one_offset_the_current_writers_read_con
     assert results[0]["held"] == {"not_calendar_default": ["2025-01-31", "2026-01-31"]}
     assert results[0]["skipped"]["already_agrees"] == 2
     assert results[1]["held"] == {"not_calendar_default": ["2023-01-28", "2024-02-03"]}
+
+
+def test_a_labellers_filing_moves_whole_or_not_at_all(db, sec):
+    """Salesforce's lagging fiscal 2026 10-K was opened before the first sync, and its fiscal 2027 10-K synced
+    before the relabel ran. That report's equity statement opens at fiscal 2024's close, the only row stored
+    there (the filing owns every other identity at that end), so that end holds as instant-only while the
+    read confirms the two newer ends' one offset. Moving those two would give the filing's chart fiscal 2023,
+    2025 and 2026: the whole filing holds instead, one year low as before and never split."""
+    company, filing, payload = _crm_opened_before_any_sync(db)
+    reports = {2025: (_accession(company, 25), "2025-03-05"), 2026: (filing.accession_number, "2026-03-05"),
+               2027: (_accession(company, 27), "2027-03-05")}
+    later = _payload(company, reports, [2025, 2026, 2027], opening=True, focus={2026: 2025})
+    facts_service._persist_companyfacts_payload(db, company, later)
+    sec.payloads[company.cik] = later
+    before, chart = _states(db), _chart(db, filing)
+
+    result = relabel.relabel_company(db, company.id, apply=True, run_id="whole",
+                                     read=relabel.companyfacts_read(company.id, company.cik, company.sic))
+    db.commit()
+
+    assert result["relabels"] == [] and result["partial_filings"] == []
+    assert result["held"] == {"not_calendar_default": ["2025-01-31", "2026-01-31"],
+                              "untrusted_instant_only": ["2024-01-31"]}
+    assert _states(db) == before and _chart(db, filing) == chart
+    assert chart["revenue"] == [("2024-01-31", 2023), ("2025-01-31", 2024), ("2026-01-31", 2025)]
+
+
+def test_a_null_label_beside_a_filing_that_moves_is_never_filled(db, sec):
+    """A NULL is no label to move: the filing's labelled rows move by their one read-confirmed offset, and
+    the NULL row at the same period end, which the read names too, keeps its NULL."""
+    company, filing, payload = _crm_opened_before_any_sync(db)
+    sec.payloads[company.cik] = payload
+    start, end = CALENDARS["CRM"][2026]
+    unlabelled = _fact(db, company, concept="operating_income", end=end, start=start, fiscal_year=None,
+                       source="edgar_xbrl", filing=filing, raw_tag="us-gaap:OperatingIncomeLoss")
+    db.commit()
+
+    result = relabel.relabel_company(db, company.id, apply=True, run_id="null",
+                                     read=relabel.companyfacts_read(company.id, company.cik, company.sic))
+    db.commit()
+
+    db.refresh(unlabelled)
+    assert unlabelled.fiscal_year is None
+    assert result["held"] == {"not_calendar_default": ["2026-01-31"]} and result["relabel_rows"] == 6
+    assert _chart(db, filing)["revenue"] == [("2024-01-31", 2024), ("2025-01-31", 2025), ("2026-01-31", 2026)]

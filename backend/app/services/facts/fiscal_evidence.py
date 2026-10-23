@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.models import FinancialFact
 from app.services.fact_provenance import PROVENANCE_VERSION
-from app.services.facts.calendar import ANNUAL_FORMS
+from app.services.facts.fiscal_naming import ANNUAL_FORMS
 
 
 def evidence_kind(row: Any) -> Optional[str]:

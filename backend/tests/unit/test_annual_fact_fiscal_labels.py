@@ -294,6 +294,48 @@ def test_both_writers_name_the_oldest_opening_balance_by_the_year_ending_on_its_
     assert _latest_fy_labels(db, company, "shareholders_equity") == {opening: 2020, **_issuer_years(issuer)}
 
 
+def _switched_year_end(reports: tuple[str, ...]) -> dict:
+    """Companyfacts for an issuer that left Target's January year for a June one: its 10-K for fiscal 2022
+    (ended 28 January 2023), and its 10-K for the year ended 30 June 2025, after a transition period. Each
+    reports two years' revenue and its equity statement's balances, the oldest opening it."""
+    target = {"fy": 2022, "fp": "FY", "form": "10-K", "accn": "0000000105-23-000010", "filed": "2023-03-15"}
+    june = {"fy": 2025, "fp": "FY", "form": "10-K", "accn": "0000000105-25-000020", "filed": "2025-08-20"}
+    revenue, equity = [], []
+    if "target" in reports:
+        revenue += [{**target, "start": "2021-01-31", "end": "2022-01-29", "val": 1_000.0},
+                    {**target, "start": "2022-01-30", "end": "2023-01-28", "val": 1_100.0}]
+        equity += [{**target, "end": end, "val": 900.0} for end in ("2021-01-30", "2022-01-29", "2023-01-28")]
+    if "june" in reports:
+        revenue += [{**june, "start": "2023-07-01", "end": "2024-06-30", "val": 1_300.0},
+                    {**june, "start": "2024-07-01", "end": "2025-06-30", "val": 1_400.0}]
+        equity += [{**june, "end": end, "val": 950.0} for end in ("2023-01-28", "2023-06-30", "2024-06-30", "2025-06-30")]
+    return {"cik": 1, "facts": {"us-gaap": {"Revenues": {"units": {"USD": revenue}},
+                                            "StockholdersEquity": {"units": {"USD": equity}}}}}
+
+
+def _equity_years(payload: dict) -> dict[str, int]:
+    facts, _meta = facts_service.normalize_companyfacts(1, payload)
+    return {f["period_end"].isoformat(): f["fiscal_year"] for f in facts
+            if f["concept"] == "shareholders_equity" and f["fiscal_period"] == "FY"}
+
+
+def test_an_opening_balance_counts_back_from_the_nearest_year_chain_after_it():
+    """Target's oldest balance (30 January 2021) counts back from Target's own chain, the nearest after it,
+    and closes fiscal 2020; the June chain after the switch is no whole number of years away."""
+    assert _equity_years(_switched_year_end(("target", "june")))["2021-01-30"] == 2020
+
+
+def test_a_balance_no_whole_number_of_years_before_a_chain_keeps_the_calendar_year_of_its_end():
+    """Synced without the Target report, the June 10-K's equity statement opens at the old year's end
+    (28 January 2023), which no whole number of years puts before the June chain: it keeps the calendar year
+    of its end, as the per-filing labeller does. The transition's close (30 June 2023) is a whole year before
+    that chain's first, so it closes the year before."""
+    assert _equity_years(_switched_year_end(("june",))) == {
+        "2023-01-28": 2023, "2023-06-30": 2023, "2024-06-30": 2024, "2025-06-30": 2025,
+    }
+    assert fiscal_periods.annual_fiscal_label("2023-01-28", "2025-06-30", 2025, "FY") == {}
+
+
 @pytest.mark.parametrize("issuer,years", [
     # The report's own period (fiscal 2024, ended 1 February 2025) names the chain, never the comparative a
     # year back that the same report also tags fy 2024.
@@ -308,6 +350,26 @@ def test_a_late_reports_own_period_names_its_year_chain(issuer, years):
 
     revenue = {f["period_end"]: f["fiscal_year"] for f in facts if f["concept"] == "revenue" and f["fiscal_period"] == "FY"}
     assert revenue == {date.fromisoformat(CALENDARS[issuer][fy][1]): fy for fy in years}
+
+
+def test_a_chain_a_timely_report_names_keeps_that_naming_beside_late_reports():
+    """Late reports' own years name a chain only where no timely original names it, so a chain with one is
+    named as before these rules. A December filer's fiscal 2023 report filed late beside its timely fiscal
+    2024 10-K, whose focus lags (2023): the timely report's year stands, one low, while the per-filing
+    labeller, which trusts no lagging focus on a December year, keeps calendar years (a known limit in
+    ``lessons/sec-fact-writers-name-a-period-alike.md``). Taking the late report first would change every
+    chain that holds both."""
+    payload = _companyfacts("december_lagging_focus", (2023, 2024))
+    late_accession = ANNUAL_REPORTS["december_lagging_focus"][2023][0]
+    for node in payload["facts"]["us-gaap"].values():
+        for item in node["units"]["USD"]:
+            if item["accn"] == late_accession:
+                item["filed"] = _filed("december_lagging_focus", 2023, late=True)
+    facts, _meta = facts_service.normalize_companyfacts(1, payload)
+
+    revenue = {f["period_end"]: f["fiscal_year"] for f in facts if f["concept"] == "revenue" and f["fiscal_period"] == "FY"}
+    assert revenue == {date.fromisoformat(CALENDARS["december_lagging_focus"][fy][1]): fy - 1 for fy in (2021, 2022, 2023, 2024)}
+    assert fiscal_periods.annual_fiscal_label("2024-12-31", "2024-12-31", 2023, "FY") == {}
 
 
 def test_a_late_year_chains_quarters_take_its_fiscal_years():
@@ -352,6 +414,33 @@ def test_the_audited_quarterly_repair_relabels_rows_the_writer_named_before(db, 
     assert stale == result["revisions"] == (15 if late else 1)
     assert {row.id: row.fiscal_year for row in db.query(FinancialFact).filter_by(
         company_id=company.id, fiscal_period="FY")} == named
+
+
+def test_the_audited_quarterly_repair_moves_a_late_chain_only_in_part_when_a_reader_opened_its_newer_report(
+        db, monkeypatch):
+    """The limit ``docs/fiscal-year-label-repair.md`` tells the founder to preview for. A delinquent Target was
+    synced through its fiscal 2023 report before these rules (calendar years); a reader then opened its
+    fiscal 2024 10-K, which adopted that stored chain; the next sync skipped every identity the filing owns.
+    The repair relabels a current row only where the writer still picks that row's report, so it moves each
+    concept's years the newer report does not re-report and leaves those it does: revenue's fiscal 2022
+    loses its row, and fiscal 2022's end carries 2022 for assets but 2023 for revenue."""
+    company = _company(db, "target", late=True)
+    facts_service._persist_companyfacts_payload(db, company, _companyfacts("target", (2023,), late=True))
+    for row in db.query(FinancialFact).filter_by(company_id=company.id, fiscal_period="FY"):
+        row.fiscal_year = row.period_end.year  # the labels the writer gave a late chain before
+    db.commit()
+    _open_annual_report(db, monkeypatch, "target", 2024)
+    payload = _companyfacts("target", (2023, 2024), late=True)
+    facts_service._persist_companyfacts_payload(db, company, payload)
+    calendar_years = {date.fromisoformat(CALENDARS["target"][fy][1]): fy + 1 for fy in (2021, 2022, 2023, 2024)}
+    assert _latest_fy_labels(db, company, "revenue") == calendar_years
+
+    result = quarterly_fact_repair.repair_company(db, company.id, payload, dry_run=False, run_id="partial")
+    db.commit()
+
+    assert result["revisions"] == 4  # fiscal 2021's revenue, net income and net margin; fiscal 2022's assets
+    assert _latest_fy_labels(db, company, "revenue") == {**calendar_years, date(2022, 1, 29): 2021}
+    assert _latest_fy_labels(db, company, "total_assets")[date(2023, 1, 28)] == 2022
 
 
 @pytest.mark.parametrize("issuer,expected", [
@@ -461,9 +550,9 @@ def test_annual_label_trusts_only_a_full_year_focus(fiscal_period):
 def test_dataset_reads_a_balance_at_its_periods_end_whatever_its_label(db):
     """Companyfacts alone names an opening balance older than its first fiscal-year window by the year
     that ends on its date, one before that window's. It used to take the calendar year of its end, for
-    a January year the next year's label; the dataset reads rows in period-end order, so a label
-    resolves to its latest period end, the axis bucket's own end, and such a clash never hid the
-    year-end balance.
+    a January year the next year's label, and a row it stored then keeps that label until a repair runs.
+    The dataset reads rows in period-end order, so a label two period ends carry resolves to the latest,
+    the axis bucket's own end, and such a clash never hides the year-end balance.
     """
     company = _company(db, "target")
     payload = _companyfacts("target", (2023,))
@@ -477,6 +566,10 @@ def test_dataset_reads_a_balance_at_its_periods_end_whatever_its_label(db):
     assert sorted(_latest_fy_labels(db, company, "shareholders_equity").items()) == [
         (date(2021, 1, 30), 2020), (date(2022, 1, 29), 2021), (date(2023, 1, 28), 2022), (date(2024, 2, 3), 2023),
     ]
+    stored_before = db.query(FinancialFact).filter_by(  # the label the writer gave it before 2026-10-23
+        company_id=company.id, concept="shareholders_equity", period_end=date(2021, 1, 30)).one()
+    stored_before.fiscal_year = 2021
+    db.commit()
 
     dataset = analysis.build_dataset(db, company, "annual", "FY2021", "FY2023")
 

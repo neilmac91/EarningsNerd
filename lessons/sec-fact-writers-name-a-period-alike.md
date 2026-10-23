@@ -75,8 +75,11 @@ quarter; Salesforce, CrowdStrike, Veeva and Best Buy opened after a sync through
 or this one, with Target as the zero offset; missing, legacy, instant-only and disagreeing
 companyfacts years; a 10-Q; a late year chain synced first; the audited repair of rows stored
 before the 2026-10-23 rules; every annual form and amendment; the filing chart; the fallback; the
-dataset's balance read), `backend/tests/unit/test_fiscal_year_rules_single_home.py` (no second copy
-of the whole-year divisor or the 183-day midpoint under the two writers' packages) and
+dataset's balance read across a label two period ends carry; the repair's partial move of a late
+chain a reader opened between syncs), `backend/tests/unit/test_fiscal_year_rules_single_home.py` (no
+second copy of the whole-year divisor or the 183-day midpoint under the two writers' packages, as a
+literal, a name bound to one, an aliased `timedelta` or days spread over units; its header and
+fixture name the forms it cannot see) and
 `backend/tests/unit/test_relabel_filing_fy_facts_script.py` for the relabel's one-offset move.
 
 **Known limits.**
@@ -84,21 +87,39 @@ of the whole-year divisor or the 183-day midpoint under the two writers' package
   companyfacts stores a trusted year for any of its period ends (no sync yet, or only rows from
   before the fiscal-year-window writer): one filing cannot outvote that focus, so the writer stores
   the year before. The stored-row relabel (#1372) moves such a filing by its one offset, where every
-  trusted year of the filing gives that offset and its read of the current writer names the same
-  year (`docs/fiscal-year-label-repair.md`); until a founder-run relabel, the row stays.
+  trusted year of the filing gives that offset, its read of the current writer names the same year
+  and no other labelled row of the filing is held (`docs/fiscal-year-label-repair.md`); until a
+  founder-run relabel, the row stays. Where the company synced its next annual report first, that
+  report's opening balance is the only companyfacts row at the filing's oldest end, which holds as
+  instant-only, so the relabel holds the whole filing one year low rather than split it.
 - Rows the companyfacts writer stored before the 2026-10-23 rules keep their labels, since a sync is
   insert-only: an oldest opening balance one year high (Target, Home Depot, J&J), and a delinquent
   filer's late chain under calendar years. When such a filer's next annual report syncs, the years it
   re-reports are stored under fiscal labels beside the older calendar ones, so one label can sit on
   two period ends until the repair runs. The audited quarterly repair
-  (`scripts/repair_quarterly_facts.py`) relabels the current companyfacts rows; superseded rows keep
-  the old year, so the evidence at such an end can read as `companyfacts_disagree`. Instant-only
+  (`scripts/repair_quarterly_facts.py`) relabels a current companyfacts row only where the writer
+  still picks that row's own report for its period end: an oldest opening balance, but not a late
+  chain's years that a newer report a reader opened between two syncs re-reports, since the filing
+  owns that report's rows; there it moves, concept by concept, the other years only and leaves a
+  missing year, so its preview is applied only where it relabels the whole chain. Superseded rows keep the old year, so
+  the evidence at such an end can read as `companyfacts_disagree`. Instant-only
   evidence stays untrusted (`facts/fiscal_evidence.trusted_year`): a stored opening balance from
   before the rules carries the same provenance version as one from after.
 - A late chain whose reports name no own period by a trusted year (a December year under a lagging
   focus) keeps calendar years; so does the per-filing labeller, which trusts that focus no more. A
   late chain whose only own-period year comes from a lagging focus on a January year named by its
   end (a Salesforce-shaped report filed late) is named one year low by both writers, as one filing
-  cannot tell it from Target; more late reports in the chain outvote it. Abstaining on a late
+  cannot tell it from Target; a majority of the chain's late reports outvotes it, but at equal
+  support the earliest report's year stands, so a two-report chain whose earlier report lags is
+  named one year low while the later filing keeps its own calendar year (main named that chain by
+  calendar year). Abstaining on a late
   filing is not a fix: it would move the clash onto a late report, or a late amendment, that
   follows a timely one, which both writers name alike.
+- The companyfacts writer trusts a timely report's focus for the year before its end's year
+  whatever month the year ends in, the per-filing labeller only for a year ending by early July
+  (`focus_years`). For a September year named by its start, or a December 10-K with a lagging focus,
+  the two writers already named the chain apart; the oldest opening balance, which both once named by
+  calendar year, now follows its chain on the companyfacts side only. A chain with a timely report
+  is named from the timely reports before any late one, as before these rules, so a December filer
+  whose one timely 10-K lags beside late reports that do not is named one year low by companyfacts and
+  by calendar year by the per-filing labeller.

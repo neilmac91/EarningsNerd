@@ -362,10 +362,12 @@ unused since generation became account-required in #619; kept because migrations
   calendar years only where no report names its own period by a trusted year. An FY-end balance
   outside every year window (an equity statement's oldest opening balance) takes the year that ends
   on its date, whole years before the next window's (`year_ending_on`). Rows stored before those two
-  rules keep their labels, since a sync is insert-only; the audited quarterly repair relabels the
-  current companyfacts rows. The Multi-Period Analysis dataset reads current rows in period-end
-  order, so a label that two period ends carry resolves to the later one, the axis bucket's own
-  end.
+  rules keep their labels, since a sync is insert-only; the audited quarterly repair relabels a
+  current companyfacts row only where the writer still picks that row's own report, which leaves a
+  delinquent filer's years that a reader-opened newer report re-reports
+  (`docs/fiscal-year-label-repair.md`). The Multi-Period Analysis dataset reads current rows in
+  period-end order, so a label that two period ends carry resolves to the later one, the axis
+  bucket's own end.
   New labelled quarters demote legacy NULL-period twins; existing persisted snapshots require
   deliberate re-extraction to gain metadata they never contained. Fact writes serialize on the
   company row and preserve a known newer accession. The per-filing writer also preserves untied

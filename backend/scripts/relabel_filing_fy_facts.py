@@ -32,9 +32,11 @@ used; the read can still clear, or cause, a neighbour's ``label_collision``:
   - otherwise that one year: a row already carrying it counts ``already_agrees``. A row whose label
     is not the calendar default (``period_end.year``) was named by a labeller (P5's annual label, a
     NULL), not by the defect. It moves only with its whole filing, as #1364's write-time adoption
-    moves one: every row of the filing that has a trusted year gives one offset, and this run's read
+    moves one: every row of the filing that has a trusted year gives one offset, this run's read
     names the same year at its period end (a 10-K whose focus lags, opened before the company's
-    first sync). Otherwise, and for a NULL, it is held: ``not_calendar_default``. The rest relabel,
+    first sync), and no other labelled row of the filing is held, for any reason, collisions
+    included. Otherwise, and for a NULL, which never moves, it is held: ``not_calendar_default``,
+    so a filing is never left on two offsets. The rest relabel,
     unless the new label is one another period end of the same filing and concept carries, or one
     another current row of the concept carries (readers index current annual rows by year and
     concept): ``label_collision``. The whole period end then holds, every concept and filing at it,
@@ -176,9 +178,17 @@ def plan_company(rows: Iterable[FinancialFact], read: Iterable[Any] = ()) -> dic
             hold(row, "not_calendar_default")
         else:
             planned[row] = year
-    # A held row keeps its label, so holding one relabel can make another collide: repeat. The whole
-    # period end holds, every concept and filing at it, so no end is left on two fiscal years.
-    while clashing := _collisions(rows, planned):
+    # A held row keeps its label, so holding one relabel can make another collide, and a labeller's labels
+    # move only with their whole filing, so a held labelled row of it holds the rest: repeat until neither
+    # holds more. A collision holds its whole period end, every concept and filing at it, so no end is left
+    # on two fiscal years.
+    while True:
+        stuck = {row.filing_id for row in held_rows if row.fiscal_year is not None}
+        for row in [row for row in planned if row.filing_id in stuck and row.fiscal_year != row.period_end.year]:
+            del planned[row]
+            hold(row, "not_calendar_default")
+        if not (clashing := _collisions(rows, planned)):
+            break
         ends = {row.period_end for row in clashing}
         for row in [row for row in planned if row.period_end in ends]:
             del planned[row]
