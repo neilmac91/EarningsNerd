@@ -4,7 +4,7 @@ import json
 from app.utils.datetimes import utcnow
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks, Request
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from app.config import settings
@@ -17,6 +17,7 @@ from app.services.durable_tasks import enqueue_task, TaskUnavailable
 from app.services import filing_list_service, filing_read_service
 from app.services.latest_filing_service import company_list_forms
 from app.services.filing_list_service import other_filing_forms
+from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -25,13 +26,28 @@ logger = logging.getLogger(__name__)
 # app.routers.filings logger name. Bounded by filing_list_service.MAX_FILINGS_SYNC_ENTRIES.
 _visit_task_handoffs: dict[str, float] = {}
 
+# The company-filings route needs no login, and the site's own server renders call it from Vercel's
+# shared IPs with no credential, so it bounds the work a request causes, not the request: one served
+# from stored rows that hands nothing off spends nothing.
+# Durable handoffs spend one budget per process, whoever asks: the queue drains 0.2 tasks/s for every
+# durable job, and no per-IP key bounds callers spread over many IPs. On each of the API's at most two
+# instances, 20 per 5 minutes is 40 per 5 minutes (0.13/s), under the 60 per 5 minutes and 2,160 per
+# 3 hours at which handoffs outrun the drain (#1373's review). Past it a visit still serves its stored
+# rows and queues nothing; a visit after the window queues the task.
+VISIT_TASK_BUDGET = RateLimiter(limit=20, window_seconds=300)
+# The live SEC fetch, taken only with nothing stored to serve, is bounded per client IP, as search's is.
+# Production paces SEC at 1 request/s per process, so one client gets at most a sixth of it.
+LIVE_FETCH_LIMITER = RateLimiter(limit=10, window_seconds=60)
+
 
 async def _enqueue_visit_task(kind: str, payload: dict, *, key: str, seconds: int) -> None:
-    """A queue outage must not hide already-persisted filings from the reader."""
+    """A queue outage or a spent budget must not hide already-persisted filings from the reader."""
     cache_key = f"{kind}:{key}:{json.dumps(payload, sort_keys=True)}"
     now = utcnow().timestamp()
     if now < _visit_task_handoffs.get(cache_key, 0):
         return
+    if not VISIT_TASK_BUDGET.allow("visit-tasks"):
+        return  # left unrecorded, so the next visit after the window hands it off
     try:
         await enqueue_task(kind, payload, dedupe_key=key, dedupe_seconds=seconds)
         expires = (int(now) // seconds + 1) * seconds
@@ -93,6 +109,7 @@ class FilingResponse(BaseModel):
 @router.get("/company/{ticker}", response_model=List[FilingResponse])
 async def get_company_filings(
     ticker: str,
+    request: Request,
     background: BackgroundTasks,
     filing_types: Optional[str] = Query(None, description="Comma-separated filing types (e.g., '10-K,10-Q')"),
     limit: Optional[int] = Query(None, ge=1, le=500, description="Max filings per form group (the 6-Ks, and every other form); default serves the recent cap"),
@@ -210,6 +227,11 @@ async def get_company_filings(
             )
         return cached
 
+    # Nothing stored to serve: the live fetch below waits on the process's shared SEC pacing.
+    enforce_rate_limit(
+        request, LIVE_FETCH_LIMITER, "filings-live",
+        error_detail="Too many filing requests. Please retry in a minute.",
+    )
     try:
         # Try to fetch from SEC with a timeout to ensure we respond within frontend's limit
         sec_filings = await asyncio.wait_for(

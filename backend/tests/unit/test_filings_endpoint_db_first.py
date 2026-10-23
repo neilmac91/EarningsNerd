@@ -27,6 +27,7 @@ from app.services.edgar import client as edgar_client_mod
 from app.services.edgar.exceptions import EdgarError
 from app.services.latest_filing_service import company_list_forms
 from app.services.request_work import request_work_scope
+from tests.support.filings_budgets import unspend_filings_budgets
 
 
 @pytest.fixture
@@ -62,6 +63,7 @@ def client(db_engine, monkeypatch):
         return [], 0, 0
 
     monkeypatch.setattr(filing_history_service, "_fetch_history_rows", _no_history_fetch)
+    unspend_filings_budgets(monkeypatch)
     filing_list_service._filings_synced_at.clear()
     filing_list_service._refreshing_keys.clear()
     filing_list_service._history_backfilling_ids.clear()

@@ -8,8 +8,11 @@ payloads with their release-before-enqueue ordering and their outage warning (st
 the router). This suite pins them so moving the route's database work into ``app/services/`` is
 provably behaviour-neutral. It also pins that ``?filing_types=`` is validated where it enters and
 never reaches the durable refresh, so a caller cannot queue one task per distinct value (the gate
-for ``lessons/arch-caller-input-never-names-a-durable-task.md``). SEC calls are patched on the
-shared ``sec_edgar_service`` singleton; every test runs on a private SQLite engine.
+for ``lessons/arch-caller-input-never-names-a-durable-task.md``), and that the route bounds the work
+a request causes rather than the request: the durable handoffs spend a per-process budget and the live
+SEC fetch a per-client one, while a visit served from stored rows that hands nothing off spends
+neither. SEC calls are patched on the shared ``sec_edgar_service`` singleton; every test runs on a
+private SQLite engine and with the route's budgets unspent.
 """
 import asyncio
 import base64
@@ -34,11 +37,14 @@ from app.database import Base, get_db
 from app.models import Company, Filing
 from app.routers import filings as filings_mod
 from app.services import background_task_runner, durable_tasks as transport, filing_amendment_service, filing_list_service
+from app.services import rate_limiter
 from app.services.durable_tasks import TaskEnvelope, TaskUnavailable
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.config import FilingType
 from app.services.edgar.exceptions import EdgarError
 from app.services.latest_filing_service import company_list_forms
+from app.services.rate_limiter import RateLimiter
+from tests.support.filings_budgets import unspend_filings_budgets
 
 ROUTER_LOGGER = "app.routers.filings"
 PERSIST_LOGGER = "app.services.filing_list_service"  # the live-persistence skip warnings moved
@@ -76,6 +82,11 @@ def _seed_filing(session, company_id, cik, accession, filing_type="10-K", year=2
     session.commit()
     session.refresh(filing)
     return filing
+
+
+@pytest.fixture(autouse=True)
+def _unspent_budgets(monkeypatch):
+    unspend_filings_budgets(monkeypatch)
 
 
 @pytest.fixture
@@ -810,6 +821,123 @@ async def test_handoff_cache_evicts_at_the_freshness_cache_bound(monkeypatch):
         'history:history:2:{"company_id": 2}',
         'history:history:3:{"company_id": 3}',
     ]
+
+
+def _seed_stored(sessions, count):
+    """``count`` backfilled companies C0, C1, ... each holding one stored 10-K, in id order."""
+    ids = []
+    with sessions() as s:
+        for n in range(count):
+            cik = f"{100 + n:010d}"
+            ids.append(_seed_company(s, ticker=f"C{n}", cik=cik).id)
+            _seed_filing(s, ids[-1], cik, f"{cik}-25-000001")
+    return ids
+
+
+def _recording_queue(monkeypatch):
+    """Durable mode with the queue faked: the company ids handed off, in order."""
+    handed = []
+
+    async def enqueue(kind, payload, *, dedupe_key=None, dedupe_seconds=None):
+        handed.append(payload["company_id"])
+        return f"task-{kind}"
+
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+    monkeypatch.setattr(filings_mod, "enqueue_task", enqueue)
+    monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
+    return handed
+
+
+def test_handoffs_past_the_budget_serve_stored_rows_and_queue_nothing_until_the_window_passes(
+    client, sessions, monkeypatch
+):
+    """A durable handoff is work a public visit queues for every durable job to wait behind, so it spends a
+    per-process budget. Past it the visit still answers 200 with its stored rows and queues nothing, and
+    the handoff guard is left unset, so the first visit after the window queues the task. Before the
+    budget every stored company a crawl visited queued a refresh, faster than the queue's 0.2/s drain."""
+    ids = _seed_stored(sessions, 4)
+    handed = _recording_queue(monkeypatch)
+    clock = [1_000.0]
+    monkeypatch.setattr(rate_limiter, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    monkeypatch.setattr(filings_mod, "VISIT_TASK_BUDGET", RateLimiter(limit=2, window_seconds=300))
+    fetch = AsyncMock(return_value=[])
+    monkeypatch.setattr(sec_edgar_service, "get_filings", fetch)
+
+    served = [client.get(f"/api/filings/company/c{n}") for n in range(4)]
+
+    assert [r.status_code for r in served] == [200] * 4
+    assert [[row["company"]["ticker"] for row in r.json()] for r in served] == [[f"C{n}"] for n in range(4)]
+    assert handed == ids[:2]
+    clock[0] += 301  # past the window
+    late = client.get("/api/filings/company/c2")
+    assert late.status_code == 200 and late.json() == served[2].json()
+    assert handed == ids[:3]
+    fetch.assert_not_called()
+
+
+def test_visits_that_hand_nothing_off_spend_no_budget(client, sessions, monkeypatch):
+    """The site's own server renders call this route from Vercel's shared IPs with no credential, once
+    per company page render, and a refused render would cache a filings-less company page for 30
+    minutes. A visit served from stored rows whose refresh this process already handed off this bucket
+    does no work, so it spends neither budget however often it comes from one address."""
+    ids = _seed_stored(sessions, 2)
+    with sessions() as s:
+        _seed_company(s)  # COLD: nothing stored
+    handed = _recording_queue(monkeypatch)
+    monkeypatch.setattr(filings_mod, "VISIT_TASK_BUDGET", RateLimiter(limit=2, window_seconds=300))
+    monkeypatch.setattr(filings_mod, "LIVE_FETCH_LIMITER", RateLimiter(limit=1, window_seconds=60))
+    fetch = AsyncMock(return_value=[])
+    monkeypatch.setattr(sec_edgar_service, "get_filings", fetch)
+
+    first = client.get("/api/filings/company/c0")
+    repeats = [client.get("/api/filings/company/c0") for _ in range(30)]
+    other = client.get("/api/filings/company/c1")
+    cold = client.get("/api/filings/company/cold")
+
+    assert {r.status_code for r in [first, *repeats, other, cold]} == {200}
+    assert all(r.json() == first.json() for r in repeats)
+    assert handed == ids  # the 30 repeats left the second company its handoff
+    assert fetch.await_count == 1  # and the one address its live fetch
+
+
+def test_live_fetches_past_the_per_ip_budget_answer_429_only_when_nothing_is_stored(client, sessions, monkeypatch):
+    """With nothing stored to serve, the request fetches the list from SEC while it waits, on the
+    process's shared SEC pacing (1 request/s in production), so the fetch spends a per-client-IP budget,
+    as search's does. Past it that client gets the 429, detail and Retry-After of the other limited
+    public routes; a company with stored rows is still served to it, and another client's fetch proceeds.
+    Before the budget a ``?filing_types=`` naming a form the company never filed took this path on every
+    request (#1373)."""
+    with sessions() as s:
+        _seed_company(s)  # COLD: nothing stored
+        warm_id = _seed_company(s, ticker="WARM", cik="0000000003").id
+        _seed_filing(s, warm_id, "0000000003", "0000000003-25-000001")
+    _recording_queue(monkeypatch)
+    fetched = []
+
+    async def get_filings(cik, types):
+        fetched.append(cik)
+        return []
+
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
+    monkeypatch.setattr(filings_mod, "LIVE_FETCH_LIMITER", RateLimiter(limit=2, window_seconds=60))
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+
+    def get(ticker, client_ip):
+        return client.get(f"/api/filings/company/{ticker}", headers={"X-Forwarded-For": client_ip})
+
+    allowed = [get("cold", "203.0.113.7") for _ in range(2)]
+    refused = get("cold", "203.0.113.7")
+    warm = get("warm", "203.0.113.7")
+    other = get("cold", "198.51.100.9")
+
+    assert [r.status_code for r in allowed] == [200, 200]
+    assert refused.status_code == 429
+    assert refused.json() == {"detail": "Too many filing requests. Please retry in a minute."}
+    assert 1 <= int(refused.headers["Retry-After"]) <= 60
+    assert warm.status_code == 200
+    assert [row["accession_number"] for row in warm.json()] == ["0000000003-25-000001"]
+    assert other.status_code == 200
+    assert fetched == ["0000000002"] * 3  # the refused request made no SEC call
 
 
 def test_recent_and_single_filing_reads(client, sessions):

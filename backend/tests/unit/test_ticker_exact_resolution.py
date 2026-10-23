@@ -31,6 +31,7 @@ from app.services import filing_list_service
 from app.services.edgar.compat import SECEdgarServiceCompat, sec_edgar_service
 from app.services.precompute_service import precompute_one
 from main import app
+from tests.support.filings_budgets import unspend_filings_budgets
 
 # Shaped like https://www.sec.gov/files/company_tickers.json (index -> entry, in SEC's file order;
 # Berkshire lists its B shares first, so BRK-B is its primary). None of RTN (Raytheon before 2020),
@@ -112,6 +113,7 @@ def _hermetic(monkeypatch):
     monkeypatch.setattr(settings, "ENABLE_HISTORY_BACKFILL_ON_VISIT", False)
     monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", False)
     monkeypatch.setattr(filing_list_service, "_filings_synced_at", {})
+    unspend_filings_budgets(monkeypatch)
     _purge()
     yield
     _purge()

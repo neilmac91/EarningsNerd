@@ -25,6 +25,15 @@ no other parameter (one would carry caller input past the checked call sites). A
 site must be listed in ``EXEMPT`` with its reason, and a listed site that is gone fails. Growing any
 of these sets is a reviewed change to this file.
 
+A route that needs no login bounds the handoffs its callers can cause: in ``app/routers/`` a direct
+``enqueue_task`` call sits in a route that takes ``Depends(get_current_user)``, and a ``PASS_THROUGH``
+spends a process-wide budget before it hands off, an ``if not LIMITER.allow("<key>"): return`` among
+its own statements ahead of the call, ``LIMITER`` a module-level ``RateLimiter`` bound once. Any other
+form fails closed. The limiter is known by its class name. That it is spent only past the handoff
+guard is pinned by ``test_filings_routes.py``; its size and window, and the synchronous SEC calls
+such a route makes (reached through services and edgartools, out of an AST walk's reach), are
+review-checked.
+
 Known limits, review-checked: ``.id`` is accepted from any object, so a request model's ``.id``
 passes as a row's. Callers of the exempt ``enqueue_internal_job`` are not followed; today all 10
 routes that reach it carry ``Depends(_require_internal_token)``. An enqueuer looked up by a string
@@ -43,6 +52,7 @@ ENQUEUERS = {"enqueue_task"} | {name for _, name in PASS_THROUGH}
 ENQUEUER_SOURCES = {"enqueue_task": "app.services.durable_tasks"}  # a pass-through is never imported
 KEYS, WINDOWS = ("key", "dedupe_key"), ("seconds", "dedupe_seconds")
 SERVER_OWNED_NAMES = {"company_id"}
+LOGIN = "get_current_user"  # a route that depends on it answers an anonymous caller 401
 SERVER_OWNED_CALLS = {
     "company_list_forms": "app.services.latest_filing_service",
     "other_filing_forms": "app.services.filing_list_service",
@@ -160,6 +170,39 @@ def _forwards_unchanged(fn: ast.AST, call: ast.Call) -> bool:
             and not {*params[:2], "key", "seconds"} & _stored(fn))
 
 
+def _limiters(tree: ast.Module) -> set[str]:
+    """Module-level names bound to a ``RateLimiter(...)`` and bound nowhere else in the module."""
+    stores = [n.id for n in ast.walk(tree) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)]
+    return {t.id for node in tree.body if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)
+            and _called_name(node.value) == "RateLimiter" for t in node.targets
+            if isinstance(t, ast.Name) and stores.count(t.id) == 1}
+
+
+def _spends_a_budget_first(fn: ast.AST, call: ast.Call, tree: ast.Module) -> bool:
+    """``fn`` returns ahead of the statement holding ``call`` unless a module-level limiter admits it, on
+    one literal key, so the count is the process's whoever asks."""
+    for stmt in fn.body:
+        if any(node is call for node in ast.walk(stmt)):
+            return False
+        test = stmt.test if isinstance(stmt, ast.If) else None
+        admits = test.operand if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not) else None
+        if (isinstance(admits, ast.Call) and isinstance(admits.func, ast.Attribute) and admits.func.attr == "allow"
+                and isinstance(admits.func.value, ast.Name) and admits.func.value.id in _limiters(tree)
+                and len(admits.args) == 1 and not admits.keywords and isinstance(admits.args[0], ast.Constant)
+                and isinstance(admits.args[0].value, str)
+                and len(stmt.body) == 1 and isinstance(stmt.body[0], ast.Return) and not stmt.orelse):
+            return True
+    return False
+
+
+def _requires_login(fn: ast.AST) -> bool:
+    """A parameter of ``fn`` defaults to ``Depends(get_current_user)``."""
+    defaults = fn.args.defaults + [d for d in fn.args.kw_defaults if d is not None]
+    return any(isinstance(d, ast.Call) and isinstance(d.func, ast.Name) and d.func.id == "Depends"
+               and len(d.args) == 1 and not d.keywords and isinstance(d.args[0], ast.Name) and d.args[0].id == LOGIN
+               for d in defaults)
+
+
 def _violations(rel: str, tree: ast.Module, fn: ast.AST, call: ast.Call) -> list[str]:
     kwargs = {k.arg: k.value for k in call.keywords}
     payload = call.args[1] if len(call.args) > 1 else kwargs.get("payload")
@@ -199,10 +242,17 @@ def test_public_durable_tasks_are_named_only_by_server_owned_values():
             if not _forwards_unchanged(fn, call):
                 offenders.append(f"{rel}:{call.lineno} {fn.name}: a pass-through must hand enqueue_task its own "
                                  f"kind, payload, key and window unchanged, and take no other parameter: {ast.unparse(call)}")
+            if not _spends_a_budget_first(fn, call, tree):
+                offenders.append(f"{rel}:{call.lineno} {fn.name}: a pass-through must spend a process-wide budget "
+                                 "before it hands off: `if not LIMITER.allow(\"<key>\"): return` ahead of the call, "
+                                 "LIMITER a module-level RateLimiter")
         elif (rel, fn.name) in EXEMPT:
             seen.add((rel, fn.name))
         elif rel.startswith("routers/"):
             offenders += _violations(rel, tree, fn, call)
+            if _called_name(call) == "enqueue_task" and not _requires_login(fn):
+                offenders.append(f"{rel}:{call.lineno} {fn.name}: a route that needs no login hands a durable task "
+                                 "off only through a budgeted PASS_THROUGH; or take Depends(get_current_user)")
         else:
             offenders.append(f"{rel}:{call.lineno} {fn.name}: unlisted enqueue site; add it to EXEMPT with its reason")
     for rel, tree in _modules():
@@ -299,3 +349,42 @@ def test_a_fixed_vocabulary_is_called_bare_with_no_arguments():
     assert _server_owned(expr("company_list_forms()"), None)
     assert not _server_owned(expr("forms.company_list_forms()"), None)
     assert not _server_owned(expr("company_list_forms(filing_types)"), None)
+
+
+BUDGET = "VISIT_TASK_BUDGET = RateLimiter(limit=20, window_seconds=300)\n"
+HANDOFF = "    await enqueue_task(kind, payload, dedupe_key=key, dedupe_seconds=seconds)\n"
+SPEND = "    if not VISIT_TASK_BUDGET.allow('visit-tasks'):\n        return\n"
+
+
+@pytest.mark.parametrize("source,spends", [
+    pytest.param(BUDGET + "async def w(kind, payload, *, key, seconds):\n" + SPEND + HANDOFF, True, id="spends"),
+    pytest.param(BUDGET + "async def w(kind, payload, *, key, seconds):\n" + HANDOFF, False, id="no-budget"),
+    pytest.param(BUDGET + "async def w(kind, payload, *, key, seconds):\n" + HANDOFF + SPEND, False, id="after-the-call"),
+    pytest.param(BUDGET + "async def w(kind, payload, *, key, seconds):\n"
+                 "    if not VISIT_TASK_BUDGET.allow('visit-tasks'):\n        pass\n" + HANDOFF, False, id="never-refuses"),
+    pytest.param(BUDGET + "async def w(kind, payload, *, key, seconds):\n"
+                 "    VISIT_TASK_BUDGET.allow('visit-tasks')\n" + HANDOFF, False, id="result-ignored"),
+    pytest.param(BUDGET + "async def w(kind, payload, *, key, seconds):\n"
+                 "    if not VISIT_TASK_BUDGET.allow(key):\n        return\n" + HANDOFF, False, id="a-count-per-key"),
+    pytest.param("VISIT_TASK_BUDGET = object()\nasync def w(kind, payload, *, key, seconds):\n" + SPEND + HANDOFF,
+                 False, id="not-a-limiter"),
+    pytest.param(BUDGET + "async def w(kind, payload, *, key, seconds):\n"
+                 "    VISIT_TASK_BUDGET = RateLimiter(limit=10**9, window_seconds=1)\n" + SPEND + HANDOFF,
+                 False, id="rebound"),
+])
+def test_a_pass_through_spends_a_process_wide_budget_before_it_hands_off(source, spends):
+    tree = ast.parse(source)
+    fn = next(node for node in tree.body if isinstance(node, ast.AsyncFunctionDef))
+    call = next(n for n in ast.walk(fn) if isinstance(n, ast.Call) and _called_name(n) == "enqueue_task")
+    assert _spends_a_budget_first(fn, call, tree) is spends
+
+
+@pytest.mark.parametrize("signature,login", [
+    ("ticker, current_user: User = Depends(get_current_user)", True),
+    ("ticker, *, current_user: User = Depends(get_current_user)", True),
+    ("ticker, current_user: User = Depends(get_current_user_optional)", False),
+    ("ticker, current_user: Annotated[User, Depends(get_current_user)]", False),  # fails closed
+    ("ticker, db: Session = Depends(get_db)", False),
+])
+def test_a_direct_handoff_in_a_router_needs_a_login(signature, login):
+    assert _requires_login(ast.parse(f"async def route({signature}):\n    pass\n").body[0]) is login
