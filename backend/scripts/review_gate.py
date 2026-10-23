@@ -9,8 +9,10 @@ with unresolved findings false. Trusted GitHub ready events and bot-authored edi
 ready mark's own running/completed cycle; a draft-era completion cannot pass the ready check. A later
 manual review may supersede a completed ready cycle on a different head, including fixes to its
 findings. On the same head the ready cycle must itself be clean. The newest human review request
-must be covered, even before the bot publishes Running. Missing history, overlapping starts with no
-intervening completion (the bot exposes no run id), malformed state and API errors never pass. This script polls that comment for the head under test and
+must be covered, even before the bot publishes Running. Missing history, malformed state and API errors
+never pass. The bot exposes no run id, so the history is replayed: a completion pairs with the oldest open
+start of its head and trigger, and any start still open blocks the pass until it completes or is an hour
+old, when it counts as abandoned (F58 call 1). This script polls that comment for the head under test and
 publishes its verdict through the ``review-gate`` job of ``.github/workflows/review-gate.yml``.
 Requiring that check in a ruleset on ``main`` (a founder decision) makes the rule binding; a
 required status check needs no approver, so it cannot lock a solo-administrator repository.
@@ -65,7 +67,7 @@ import sys
 import time
 import urllib.request
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
 
 SUMMARY_MARKER = "codex-pull-request-review-summary"
 # The exact GitHub App identity that publishes the summary (login, account type and immutable id,
@@ -98,6 +100,11 @@ CYCLE_ROW = re.compile(
     re.IGNORECASE,
 )
 COMMIT_LIST_CAP = 250  # GitHub's pull-request commits endpoint lists at most 250 commits
+# F58 call 1 (the founder, 2026-10-23: "Call 1 approved"): a review start still open this long counts as
+# abandoned. All 242 single Codex runs on PRs 1380-1486 finished within 21 minutes, and 34 of 35 superseded
+# runs never finished (review 6341504879), so a run open past the hour is taken to be hung: it no longer
+# blocks the gate, and a completion is never paired with it.
+ABANDON_AFTER = timedelta(minutes=60)
 
 Verdict = Tuple[str, str]  # ("pass" | "wait" | "fail", message)
 
@@ -158,6 +165,13 @@ def _unique_object(pairs: List[Tuple[str, Any]]) -> Dict[str, Any]:
     return result
 
 
+class Unreadable(NamedTuple):
+    """A summary version with no readable code state (a version from before the machine marker, or a
+    malformed one), at its edit time. It may hide a review start, so while it is younger than
+    ``ABANDON_AFTER`` no completion pairs past it and the gate waits; older, it is history."""
+    at: datetime
+
+
 class Review(NamedTuple):
     head: str
     short: str
@@ -205,13 +219,16 @@ def _review(body: str) -> Review:
     return Review(head, short, status, unresolved, _timestamp(times[0]), trigger)
 
 
-def _history(comment: Dict[str, Any]) -> List[Optional[Review]]:
+Entry = Union["Review", Unreadable]  # one summary version, newest first in a history
+
+
+def _history(comment: Dict[str, Any]) -> List[Entry]:
     history = comment.get("review_history")
     if not isinstance(history, list) or not history:
         raise EvidenceError("Codex summary edit history is unavailable")
     if html.unescape(str(history[0].get("diff", ""))) != html.unescape(str(comment.get("body", ""))):
         raise EvidenceError("latest summary history disagrees with the current REST comment; retry the read")
-    states: List[Optional[Review]] = []
+    states: List[Entry] = []
     previous = datetime.max.replace(tzinfo=timezone.utc)
     for item in history:
         editor = item.get("editor") or {}
@@ -225,36 +242,88 @@ def _history(comment: Dict[str, Any]) -> List[Optional[Review]]:
         try:
             states.append(_review(item.get("diff") or ""))
         except EvidenceError:
-            # An old pre-marker version is irrelevant after a proven cycle, but cannot be crossed
-            # while looking for that cycle's start.
-            states.append(None)
+            # An old pre-marker version is irrelevant once it is past the abandonment age; younger,
+            # it may hide a start (``_replay``).
+            states.append(Unreadable(edited))
     return states
 
 
-def _cycle_start(states: List[Optional[Review]], index: int) -> Review:
+class Replay(NamedTuple):
+    starts: Dict[int, Review]   # completion index (newest-first) -> the start it is paired with
+    open: List[Entry]           # starts no completion closed, and unreadable versions, oldest first
+
+
+def _replay(states: List[Entry]) -> Replay:
+    """Replay the summary history oldest first (F58 call 1; B1 in review 6341504879). The summary shows only
+    the newest review and carries no run id, so a start is a version reading Running and a completion one
+    reading Completed, Failed or Error; a version repeating any earlier code state (a security-review edit,
+    a finding resolved) is that start or completion again, not a new one. A completion closes the OLDEST
+    start still open, of its head and
+    trigger, that began before it and is not past the abandonment age at its time. Pairing the oldest is
+    the safe choice when two such starts are open: if the newer one finished first, the older is paired
+    and the newer stays open, so the gate waits rather than passing on a run it cannot place. A start
+    past the age is never paired, so a hung run cannot claim a later run's completion. An unreadable
+    version younger than the age at a completion may hide a start, so that pairing is refused."""
+    starts: Dict[int, Review] = {}
+    pending: List[Entry] = []
+    # Every code state seen so far; a completion's maps to the start it closed. A version repeating one of
+    # them, adjacent or not, is a re-render of that start or completion, never a new run.
+    seen: Dict[tuple, Optional[Review]] = {}
+    for index in range(len(states) - 1, -1, -1):
+        state = states[index]
+        if isinstance(state, Unreadable):
+            pending.append(state)
+            continue
+        key = state.cycle_state()
+        if key in seen:
+            if seen[key] is not None:
+                starts[index] = seen[key]
+            continue
+        seen[key] = None
+        if state.status == "running":
+            pending.append(state)
+            continue
+        live = [entry for entry in pending if entry.at <= state.at and state.at - entry.at <= ABANDON_AFTER]
+        if any(isinstance(entry, Unreadable) for entry in live):
+            continue  # a hidden start may own this completion; it pairs with nothing
+        match = next((entry for entry in live if isinstance(entry, Review)
+                      and entry.head == state.head and entry.trigger == state.trigger), None)
+        if match is not None:
+            pending.remove(match)
+            starts[index] = seen[key] = match
+    return Replay(starts, pending)
+
+
+def _cycle_start(states: List[Entry], index: int) -> Review:
     completed = states[index]
-    if completed is None or completed.status != "completed":
+    if not isinstance(completed, Review) or completed.status != "completed":
         raise EvidenceError("review completion is missing")
-    cursor = index + 1
-    while cursor < len(states) and states[cursor] is not None and states[cursor].cycle_state() == completed.cycle_state():
-        cursor += 1
-    if cursor == len(states):
-        raise EvidenceError("review has no recorded running transition")
-    running = states[cursor]
-    if (running is None or running.status != "running" or running.head != completed.head
-            or running.trigger != completed.trigger or running.at > completed.at):
-        raise EvidenceError("nearest code-state transition is not this review's running start")
-    cursor += 1
-    while cursor < len(states) and states[cursor] is not None and states[cursor].cycle_state() == running.cycle_state():
-        cursor += 1
-    if cursor < len(states) and (states[cursor] is None or states[cursor].status == "running"):
-        # The summary has no run id. Two starts before one completion cannot be paired safely.
-        raise EvidenceError("overlapping or unreadable review starts cannot identify the completed cycle")
-    return running
+    start = _replay(states).starts.get(index)
+    if start is None:
+        raise EvidenceError("review completion has no start to pair with: its running state is missing, names "
+                            "another head or trigger, is past the one-hour abandonment age, or sits beside an "
+                            "unreadable summary version")
+    return start
+
+
+def _abandoned_from(entry: Entry) -> str:
+    return (entry.at + ABANDON_AFTER).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _require_no_live_start(states: List[Entry], now: datetime) -> None:
+    """Pass only with no review still running: a start no completion closed blocks until the abandonment
+    age, and so does an unreadable version that may hide one (F58 call 1)."""
+    for entry in reversed(_replay(states).open):
+        if now - entry.at <= ABANDON_AFTER:
+            if isinstance(entry, Unreadable):
+                raise EvidenceError(f"an unreadable summary version from {entry.at:%H:%M:%S}Z may hide a running "
+                                    f"review; it stops counting at {_abandoned_from(entry)}")
+            raise EvidenceError(f"a Codex review of {entry.short} ({entry.trigger}) started at {entry.at:%H:%M:%S}Z "
+                                f"has not completed; it counts as abandoned from {_abandoned_from(entry)}")
 
 
 def _review_evidence(head: str, comments: List[Dict[str, Any]], created_at: Optional[str],
-                     timeline: Optional[List[Dict[str, Any]]]) -> Tuple[Review, List[Optional[Review]], Optional[datetime]]:
+                     timeline: Optional[List[Dict[str, Any]]]) -> Tuple[Review, List[Entry], Optional[datetime]]:
     summaries = [c for c in comments if is_codex_bot(c.get("user")) and SUMMARY_MARKER in str(c.get("body") or "")]
     if not summaries:
         raise EvidenceError(f"no Codex review summary yet for {head[:7]}")
@@ -298,12 +367,15 @@ def _after_github_second(start: datetime, event: datetime) -> bool:
     return start >= event.replace(microsecond=0) + timedelta(seconds=1)
 
 
-def _prove_cycles(current: Review, states: List[Optional[Review]], ready: Optional[datetime],
-                  created: datetime, request: Optional[datetime]) -> None:
+def _prove_cycles(current: Review, states: List[Entry], ready: Optional[datetime],
+                  created: datetime, request: Optional[datetime], now: datetime) -> None:
     start = _cycle_start(states, 0)
+    _require_no_live_start(states, now)
     anchor = ready or created
     if not _after_github_second(start.at, anchor):
-        raise EvidenceError("review start does not provably follow the current ready/creation second")
+        raise EvidenceError(f"review start does not provably follow the current ready/creation second (its completion "
+                            f"pairs with the review started at {start.at:%H:%M:%S}Z); with no other review open, one "
+                            "fresh draft-to-ready transition with no manual request starts a review this gate pairs")
     if request is not None and (current.trigger != "Manual request" or not _after_github_second(start.at, request)):
         raise EvidenceError("latest manual @codex review request has not completed its own cycle")
     if current.trigger == "Manual request" and request is None:
@@ -317,7 +389,8 @@ def _prove_cycles(current: Review, states: List[Optional[Review]], ready: Option
     if current.trigger != "Manual request":
         raise EvidenceError("the ready mark's own review has not completed")
     for index, state in enumerate(states):
-        if state is not None and state.trigger == "Draft marked ready" and state.status == "completed" and state.at >= ready:
+        if (isinstance(state, Review) and state.trigger == "Draft marked ready" and state.status == "completed"
+                and state.at >= ready):
             ready_start = _cycle_start(states, index)
             if not _after_github_second(ready_start.at, ready) or state.at > start.at:
                 raise EvidenceError("ready cycle did not complete before the later manual review started")
@@ -333,7 +406,7 @@ def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[
            pr_draft: Optional[bool], pr_title: Optional[str] = None,
            pr_commit_messages: Iterable[Tuple[str, str]] = (),
            pr_created_at: Optional[str] = None, pr_timeline: Optional[List[Dict[str, Any]]] = None,
-           pr_head: Optional[str] = None) -> Verdict:
+           pr_head: Optional[str] = None, now: Optional[datetime] = None) -> Verdict:
     """Pure decision over the pull request's comments, title, body, commits (SHAs and messages) and
     live draft flag for one head SHA.
 
@@ -388,11 +461,20 @@ def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[
             return "fail", "review-gate: Codex review failed; re-request @codex review or record an override"
         if current.unresolved is True:
             return "fail", "review-gate: current-head Codex review has unresolved findings"
+        moment = now or datetime.now(timezone.utc)
         if current.status != "completed":
-            return "wait", f"review-gate: Codex review {current.status} for {current.short}"
+            if moment - current.at > ABANDON_AFTER:
+                return "wait", (f"review-gate: the Codex review of {current.short} has shown Running since "
+                                f"{current.at:%H:%M:%S}Z, past the one-hour abandonment age, so it counts as abandoned "
+                                "(F58 call 1). Make one fresh draft-to-ready transition, its two steps a few seconds "
+                                "apart, with no manual request, and let that review complete; reserve copilot-eval "
+                                "first when its paths match")
+            return "wait", (f"review-gate: Codex review {current.status} for {current.short} since "
+                            f"{current.at:%H:%M:%S}Z; if it never completes it counts as abandoned from "
+                            f"{_abandoned_from(current)}")
         created = _timestamp(pr_created_at)
         request = _latest_request(comments, ready or created)
-        _prove_cycles(current, states, ready, created, request)
+        _prove_cycles(current, states, ready, created, request, moment)
     except EvidenceError as exc:
         return "wait", f"review-gate: {exc}; waiting for complete trusted review evidence"
     return "pass", f"review-gate: current-head Codex cycle completed with no unresolved findings for {current.short}"
@@ -531,7 +613,8 @@ def repository_resolver(repo: str, token: str) -> Resolver:
 
 def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State]] = None,
          resolve: Optional[Resolver] = None,
-         sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic) -> int:
+         sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic,
+         wall: Callable[[], datetime] = lambda: datetime.now(timezone.utc)) -> int:
     env = os.environ
     head = env.get("REVIEW_GATE_HEAD", "")
     timeout = float(env.get("REVIEW_GATE_TIMEOUT_MINUTES", "20")) * 60
@@ -550,25 +633,27 @@ def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State
         except SnapshotChanged as exc:
             verdict, message = "wait", f"review-gate: {exc}"
         except Exception as exc:  # noqa: BLE001 - API failures never publish success; retries are F57, not F58
-            print(f"review-gate: failed to read trusted GitHub evidence: {type(exc).__name__}")
+            print(f"review-gate: failed to read trusted GitHub evidence: {type(exc).__name__}", flush=True)
             return 1
         else:
             verdict, message = decide(head, state.comments, state.body, state.commits, resolve, pr_draft=state.draft,
                                       pr_title=state.title, pr_commit_messages=state.commit_messages,
-                                      pr_created_at=state.created_at, pr_timeline=state.timeline, pr_head=state.head)
-        print(message)
+                                      pr_created_at=state.created_at, pr_timeline=state.timeline, pr_head=state.head,
+                                      now=wall())
+        print(message, flush=True)
         if verdict == "pass":
             return 0
         if verdict == "fail":
             return 1
         if clock() - started >= timeout:
             print(f"review-gate: timed out after {timeout / 60:g} minutes waiting for trusted, clean review evidence "
-                  f"for {head[:7]}. Read the preceding reason. Let pending reviews settle, then re-run this job. "
+                  f"for {head[:7]}. Read the preceding reason. Let pending reviews settle (a review open an hour counts as "
+                  "abandoned), then re-run this job. "
                   "For an unreviewed new head, request @codex review and wait; do not add a manual request at a "
                   "ready mark, which already triggers its own review. If that ready cycle is missing or its history "
-                  "was lost, let pending reviews settle before a fresh draft-to-ready transition. Normal fix pushes "
+                  "was lost, let pending reviews settle or turn an hour old before a fresh draft-to-ready transition. Normal fix pushes "
                   "stay ready. If the review service is unavailable, record the substitute review in a "
-                  "`Review override: <reason>` line under the repository's override rule.")
+                  "`Review override: <reason>` line under the repository's override rule.", flush=True)
             return 1
         sleep(poll)
 

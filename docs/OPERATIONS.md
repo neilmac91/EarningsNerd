@@ -528,11 +528,12 @@ however many runs other pull requests have had since. GitHub re-runs a run only 
 first attempt, at most 50 times; past that the job fails, giving GitHub's reason and the remedy (push,
 or edit the body). The job reports each outcome only in its own log, in the Actions tab: its run sits
 on `main`'s latest commit, so the pull request's checks do not show it. Neither a ready mark nor an
-`@codex review` goes in while a review shows Running: the summary carries no run id, so two starts with
-no completion between them never pair with a completion, however clean, and no re-run repairs that
-history (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md` gives the recovery order, and the
-case of a ready review that hangs, F58's open S1). The gate's log shows its reasons only once its job
-ends: its lines are buffered (F58 row). Logic in
+`@codex review` goes in while a review shows Running: the summary carries no run id, so the gate replays
+its history, pairs each completion with the oldest open start of its head and trigger, and waits while any
+start is open, until that review completes or is an hour old, when it counts as abandoned (F58 call 1,
+approved 2026-10-23). A ready review that hangs therefore stops blocking an hour after it started, and one
+fresh draft-to-ready transition then passes (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`
+gives the recovery order). The gate prints each reason as it polls. Logic in
 `backend/scripts/review_gate.py` (stdlib only), pinned by `tests/unit/test_review_gate.py`. The
 workflow runs on `pull_request_target` and checks out the **base** branch, so a pull request can edit
 neither its own gate script nor the workflow definition (the job never executes pull-request code and
@@ -546,7 +547,7 @@ cannot establish ordering: the gate requires the next whole-second boundary. The
 and latest manual request must agree with that proof. Missing,
 malformed or contradictory evidence waits instead of falling back to an older clean result.
 GitHub retains at most 100 comment revisions and the bot exposes no unique review-run ID, so missing
-required history or ambiguous overlapping starts also wait. Marking ready already requests a review;
+required history waits, and so does a start still open, or an unreadable revision, younger than the hour. Marking ready already requests a review;
 let that cycle finish before sending another manual request for the same head. Thread disposition
 remains a reviewer responsibility (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`).
 Each run takes the workflow definition from `main` as it

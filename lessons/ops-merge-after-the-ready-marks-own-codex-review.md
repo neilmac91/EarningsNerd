@@ -1,6 +1,6 @@
 # Merge only once the ready mark's own Codex review of the head has completed with no unresolved finding
 
-Date: 2026-10-21, updated 2026-10-22 (#1496)   Area: ops / review
+Date: 2026-10-21, updated 2026-10-22 (#1496) and 2026-10-23 (F58 call 1)   Area: ops / review
 
 **Context**: #1469 (records) had Codex's clean review of its head `60210176` (requested, completed at 22:11Z) and CI
 green, and was marked ready at 22:24:41Z. The ready mark starts a second Codex review of the same head, its summary row's
@@ -32,23 +32,25 @@ the same head (F58 changed both; **Gate** below).
 - A finding that lands after the merge gets its fix in the next pull request, with a reply on its thread naming it.
 - Make no draft-to-ready transition and no `@codex review` while any Codex review of the pull request shows Running,
   the ready mark's own review included, after a push too: the gate's advice to comment `@codex review` holds once the
-  running review settles. The summary carries no run id, so a start recorded before the running review completes
-  leaves two starts with no completion between them: the gate pairs neither with a completion, however clean, and no
-  re-run repairs that history. An overlap hidden behind another completion can even pass while a review still runs
-  (B1 in review 6341504879, open). B1's fix, in the F58 follow-up on the founder's first call, is this rule's machine
-  gate (rule 12); until it lands the rule is review-checked, as `ops-reserve-eval-baseline-before-each-push.md` is
-  while F55 holds its gate's form. The gate prints its reasons only when its job ends (F58 row). Once the summary
-  reads Completed (it shows only the newest review, so a superseded run may stay Running behind it):
-  - if a transition or request came while a review was Running, or a timed-out job's reason names overlapping starts
-    or a missing history, make one fresh draft-to-ready transition, its two steps a few seconds apart (the gate
-    refuses a draft and a ready mark in the same second), with no manual request, and let its review finish. On a
-    head copilot-eval has drawn on, the transition draws nothing more
-    (`lessons/ops-copilot-eval-red-is-triaged-never-rerun.md`);
+  running review settles. The summary carries no run id, so the gate replays its history (F58 call 1): a completion
+  pairs with the oldest open start of its head and trigger, and any start still open makes the gate wait until that
+  review completes or is an hour old. A start recorded while a review runs therefore stays open, or takes the
+  completion meant for the newer run, and the gate waits; an overlap hidden behind another completion no longer
+  passes while a review still runs (B1 in review 6341504879). That replay is this rule's machine gate (rule 12), and
+  the gate prints each reason as it polls. Once the summary reads Completed (it shows only the newest review, so a
+  superseded run may stay Running behind it):
+  - if the gate names a review still open, it decides on its own when that review completes or turns an hour old;
+  - if it names a completion paired with a start before the latest ready mark, or a missing history, make one fresh
+    draft-to-ready transition once no review is open, its two steps a few seconds apart (the gate refuses a draft and
+    a ready mark in the same second), with no manual request, and let its review finish. On a head copilot-eval has
+    drawn on, the transition draws nothing more (`lessons/ops-copilot-eval-red-is-triaged-never-rerun.md`);
   - otherwise a gate job still waiting decides on its own, and a timed-out one is re-run.
-- A ready review still Running an hour after it started is treated as hung, F58's open S1 case (the hour is review
-  6341504879's recommendation and the founder's first call; all 242 single runs in PRs 1380–1486 finished within 21
-  minutes). It may never settle, and any transition or request overlaps it: report it to the founder with its start
-  time and the timed-out job's reason, and make no transition or request around it until they decide S1.
+- A review still Running an hour after it started counts as abandoned (F58 call 1; the founder on 2026-10-23: "Call 1
+  approved"). The hour is review 6341504879's recommendation: all 242 single runs in PRs 1380–1486 finished within 21
+  minutes. The gate stops waiting for it and never pairs a completion with it, so a completion that comes more than
+  an hour after its start pairs with nothing. When it was the ready mark's own review, make one fresh draft-to-ready
+  transition as above once it is an hour old (the gate's Running message names that time), with no manual request: its
+  review pairs and passes. A clean manual review still cannot stand in for it (F58 call 2, open).
 - While Codex cannot review (credits exhausted, service down), AGENTS.md §5's `Review override:` line, naming the tier and
   the substitute review, stands in for that read, as it does for `review-gate`; it is never written while Codex can review.
 
@@ -63,7 +65,11 @@ rule's third line answers), and `review-gate` passed on it at 03:58:51Z (run 397
 summary read Completed, one fresh transition at 21:03:58–59Z with no manual request started a review at 21:04:05Z that
 completed clean at 21:06:17Z; `review-gate` passed at 21:06:49Z (run 39854178499), and the merge is `e8be8ba7`. Every
 line the gate printed in the timed-out job carries its exit time, and run 39853388960, cancelled at 21:04:56Z, printed
-none (the S1 note, comment 6351439364).
+none (the S1 note, comment 6351439364). On 2026-10-23 four merges waited on the founder's word for a hung review: #1495
+(`b7d4b164`, a manual review Running from 23:12 the night before, merged on a review override), #1497 (`383b6f73`,
+Running from 22:38, treated as abandoned on the founder's call), #1507 (`cdf9ee04`, Running from 00:49, marked ready on
+the founder's word) and #1519 (`89b469dc`, its ready review Running from 13:27:56Z, merged on a review override). The
+founder then approved call 1.
 
 **Gate**: The founder approved F58 on 2026-10-22. `backend/scripts/review_gate.py` reads the
 summary's full-head machine state, the live PR head/draft flag, GitHub's ready-transition timeline,
@@ -79,10 +85,12 @@ preserves the correction path above without requiring another draft/ready transi
 review of the same head requires the ready-triggered cycle itself to be clean. A PR opened ready
 uses its creation time instead. Missing or changed service formats fail closed; the existing
 service-unavailability override remains the only documented exception. The bot exposes no unique
-review-run ID, so overlapping distinct starts that cannot be paired unambiguously also wait.
+review-run ID, so the gate replays the edit history: a completion pairs with the oldest open start of its head and
+trigger, a start still open blocks until it completes or is an hour old, when it counts as abandoned, and an
+unreadable version inside that hour blocks too (F58 call 1, 2026-10-23).
 Marking ready already requests a review: let that automatic review finish before making another
-manual request. If two manual requests overlap after a clean ready cycle, wait for them to settle
-before requesting a fresh review. If the ready review was one of the overlapping pair, or the ready
+manual request. If two manual requests overlap after a clean ready cycle, wait for them to settle, or to
+turn an hour old, before requesting a fresh review. If the ready review was one of the overlapping pair, or the ready
 cycle's required history is missing, only a fresh ready transition clears it: make it after pending
 reviews settle and let its automatic review finish. This recovery does not change the normal
 new-head correction path, which keeps a PR ready when its completed ready cycle is provable.

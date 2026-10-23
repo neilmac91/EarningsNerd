@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,9 @@ CODEX_USER = {"login": "chatgpt-codex-connector[bot]", "type": "Bot", "id": 1991
 
 
 CREATED = "2026-09-15T18:40:00Z"
+# The gate's clock in these cases: ten minutes after the fixtures' last activity, so every start in them is
+# younger than the one-hour abandonment age unless a case sets ``now`` itself (F58 call 1).
+NOW = datetime(2026, 9, 15, 19, 10, tzinfo=timezone.utc)
 EDITOR = {"login": "chatgpt-codex-connector", "__typename": "Bot", "databaseId": 199175422}
 
 
@@ -48,6 +52,7 @@ def _summary(status: str, commit: str, user: dict = CODEX_USER) -> dict:
 
 
 def _decide(*args, **kwargs):
+    kwargs.setdefault("now", NOW)
     kwargs.setdefault("pr_created_at", CREATED)
     kwargs.setdefault("pr_timeline", [])
     kwargs.setdefault("pr_head", HEAD)
@@ -729,6 +734,149 @@ def test_opened_ready_uses_creation_and_still_waits_for_a_new_manual_request():
     assert _verdict([_comment(opened), _request()], pr_timeline=[])[0] == "wait"
     manual = _cycle(trigger="Manual request", start="2026-09-15T19:03:01Z", finish="2026-09-15T19:05:00Z")
     assert _verdict([_comment(manual + opened), _request()], pr_timeline=[])[0] == "pass"
+
+
+# F58 call 1 (approved 2026-10-23): the history is replayed, a completion pairs with the oldest open start of
+# its head and trigger, any start still open blocks, and a start open past the hour counts as abandoned.
+def _at(text):
+    return datetime.fromisoformat(text.replace("Z", "+00:00"))
+
+
+def _state_edit(status, at, trigger="Draft marked ready", head=HEAD, unresolved=None, edited=None):
+    if status == "completed" and unresolved is None:
+        unresolved = False
+    return _edit(_body(head, status, at, trigger, unresolved), edited or at)
+
+
+def _b1_history():
+    """Review 6341504879's B1: a manual review runs on the draft, the first ready mark's review R1 starts, the
+    manual review completes, a draft flip starts the second ready mark's review R2, and R1 then completes."""
+    return [_state_edit("completed", "2026-09-15T19:01:00Z"),                     # R1 finishes
+            _state_edit("running", "2026-09-15T18:58:01Z"),                       # R2, the latest ready mark's
+            _state_edit("completed", "2026-09-15T18:56:00Z", "Manual request"),   # M finishes
+            _state_edit("running", "2026-09-15T18:55:01Z"),                       # R1
+            _state_edit("running", "2026-09-15T18:50:00Z", "Manual request")]     # M
+
+
+B1_TIMELINE = [{"event": "ready_for_review", "created_at": "2026-09-15T18:55:00Z"},
+               {"event": "convert_to_draft", "created_at": "2026-09-15T18:57:00Z"},
+               {"event": "ready_for_review", "created_at": "2026-09-15T18:58:00Z"}]
+
+
+@pytest.mark.parametrize("now, words", [
+    ("2026-09-15T19:02:00Z", ["started at 18:58:01Z has not completed", "abandoned from 2026-09-15T19:58:01Z"]),
+    ("2026-09-15T20:00:00Z", ["does not provably follow", "review started at 18:55:01Z", "fresh draft-to-ready"]),
+])
+def test_b1_a_completion_never_pairs_past_an_older_open_start_of_its_head_and_trigger(now, words):
+    # main before F58 call 1 paired R1's completion with R2's start and passed while R2 still ran. Replayed,
+    # the completion pairs with R1, the oldest open start, so R2 stays open and the gate waits for it; once R2
+    # is past the hour the gate still waits, since R1 began before the latest ready mark.
+    verdict, message = _verdict([_comment(_b1_history())], pr_timeline=B1_TIMELINE, now=_at(now))
+    assert verdict == "wait", message
+    assert all(word in message for word in words), message
+
+
+def test_b1_recovers_with_one_fresh_transition_once_the_unpaired_start_is_past_the_hour():
+    fresh = [_state_edit("completed", "2026-09-15T20:03:00Z"), _state_edit("running", "2026-09-15T20:00:01Z")]
+    timeline = B1_TIMELINE + [{"event": "convert_to_draft", "created_at": "2026-09-15T19:59:56Z"},
+                              {"event": "ready_for_review", "created_at": "2026-09-15T20:00:00Z"}]
+    verdict, message = _verdict([_comment(fresh + _b1_history())], pr_timeline=timeline, now=_at("2026-09-15T20:10:00Z"))
+    assert verdict == "pass", message
+
+
+def _hung_ready_then_fresh(flip_at):
+    """The ready mark's own review hangs from 19:00:01 (#1496, #1519); one fresh draft-to-ready transition at
+    ``flip_at`` starts a review five seconds later that completes clean two minutes after it."""
+    flip = _at(flip_at)
+    start, finish = flip.replace(second=5), flip.replace(second=5).replace(minute=flip.minute + 2)
+    iso = lambda moment: moment.strftime("%Y-%m-%dT%H:%M:%SZ")  # noqa: E731
+    history = [_state_edit("completed", iso(finish)), _state_edit("running", iso(start)),
+               _state_edit("running", "2026-09-15T19:00:01Z")]
+    timeline = READY_EVENTS + [{"event": "convert_to_draft", "created_at": iso(flip.replace(second=0))},
+                               {"event": "ready_for_review", "created_at": iso(flip.replace(second=4))}]
+    return history, timeline, finish
+
+
+@pytest.mark.parametrize("flip_at, expected", [("2026-09-15T20:05:00Z", "pass"), ("2026-09-15T19:30:00Z", "wait")])
+def test_a_hung_ready_review_past_the_hour_stops_blocking_a_fresh_transition(flip_at, expected):
+    # Past the hour the hung start is abandoned, so the fresh ready mark's review pairs and passes (main waited:
+    # two starts before one completion). A flip inside the hour leaves the hung start live at the completion,
+    # which then pairs with it, before the latest ready mark, so the gate keeps waiting.
+    history, timeline, finish = _hung_ready_then_fresh(flip_at)
+    verdict, message = _verdict([_comment(history)], pr_timeline=timeline, now=finish.replace(minute=finish.minute + 3))
+    assert verdict == expected, message
+
+
+def test_hung_manual_reviews_past_the_hour_let_a_later_request_pass():
+    # #1475's shape (there from 09:47 and 11:44): two manual runs on one head hung, and a third request completed
+    # in six minutes. Both hung starts are over an hour old when the third completes, so it pairs with its own.
+    history = [_state_edit("completed", "2026-09-15T22:46:00Z", "Manual request"),
+               _state_edit("running", "2026-09-15T22:40:05Z", "Manual request"),
+               _state_edit("running", "2026-09-15T21:44:05Z", "Manual request"),
+               _state_edit("running", "2026-09-15T19:47:05Z", "Manual request"),
+               _state_edit("completed", "2026-09-15T19:43:00Z"),
+               _state_edit("running", "2026-09-15T19:40:01Z")]
+    timeline = [{"event": "ready_for_review", "created_at": "2026-09-15T19:40:00Z"}]
+    request = _request("2026-09-15T22:40:00Z")
+    now = _at("2026-09-15T22:50:00Z")
+    verdict, message = _verdict([_comment(history), request], pr_timeline=timeline, now=now)
+    assert verdict == "pass", message
+    younger = [dict(item) for item in history]
+    younger[2] = _state_edit("running", "2026-09-15T22:06:05Z", "Manual request")  # the second hang, 40 minutes old
+    verdict, message = _verdict([_comment(younger), request], pr_timeline=timeline, now=now)
+    assert verdict == "wait", message
+
+
+def test_a_start_still_open_blocks_the_pass_until_it_completes_or_turns_an_hour_old():
+    # The ready cycle completed clean, but another review (another head's, requested while it ran) is still open.
+    other = _state_edit("running", "2026-09-15T19:01:30Z", "Manual request", head=OTHER)
+    history = [_state_edit("completed", "2026-09-15T19:02:00Z", edited="2026-09-15T19:02:00Z"), other,
+               _state_edit("running", "2026-09-15T19:00:01Z")]
+    verdict, message = _verdict([_comment(history)], now=_at("2026-09-15T19:10:00Z"))
+    assert verdict == "wait", message
+    assert f"review of {OTHER[:7]} (Manual request) started at 19:01:30Z" in message
+    assert "abandoned from 2026-09-15T20:01:30Z" in message
+    assert _verdict([_comment(history)], now=_at("2026-09-15T20:01:31Z"))[0] == "pass"
+
+
+@pytest.mark.parametrize("unreadable_at, expected", [("2026-09-15T19:01:00Z", "wait"), ("2026-09-15T17:30:00Z", "pass")])
+def test_an_unreadable_version_inside_the_hour_may_hide_a_start(unreadable_at, expected):
+    edits = _cycle()
+    edits.append(_edit("pre-marker summary text", unreadable_at)) if unreadable_at < "2026-09-15T19:00:01Z" \
+        else edits.insert(1, _edit("pre-marker summary text", unreadable_at))
+    verdict, message = _verdict([_comment(edits)])
+    assert verdict == expected, message
+
+
+def test_a_completion_after_more_than_an_hour_pairs_with_nothing():
+    # A run open past the hour counts as abandoned, so its late completion cannot be placed; a fresh
+    # transition's review is the remedy. No run in PRs 1380-1486 took more than 21 minutes.
+    late = [_state_edit("completed", "2026-09-15T20:01:02Z"), _state_edit("running", "2026-09-15T19:00:01Z")]
+    verdict, message = _verdict([_comment(late)], now=_at("2026-09-15T20:05:00Z"))
+    assert verdict == "wait" and "no start to pair with" in message, message
+
+
+@pytest.mark.parametrize("now, words", [
+    ("2026-09-15T19:30:00Z", ["since 19:00:01Z", "abandoned from 2026-09-15T20:00:01Z"]),
+    ("2026-09-15T20:05:00Z", ["past the one-hour abandonment age", "fresh draft-to-ready transition",
+                              "no manual request"]),
+])
+def test_a_running_summary_names_when_it_counts_as_abandoned_and_the_remedy_after(now, words):
+    running = [_state_edit("running", "2026-09-15T19:00:01Z")]
+    verdict, message = _verdict([_comment(running)], now=_at(now))
+    assert verdict == "wait"
+    assert all(word in message for word in words), message
+
+
+def test_main_judges_with_the_wall_clock_at_each_poll(monkeypatch, capsys):
+    comment = _comment([_state_edit("running", "2026-09-15T19:00:01Z")])
+    state = review_gate.State([comment], "body", [HEAD], False, None, (), CREATED, READY_EVENTS, HEAD)
+    ticks = iter([0.0, 0.0, 10_000.0])
+    monkeypatch.setenv("REVIEW_GATE_HEAD", HEAD)
+    code = review_gate.main(fetch=lambda: state, resolve=lambda short: HEAD, sleep=lambda _: None,
+                            clock=lambda: next(ticks), wall=lambda: _at("2026-09-15T20:05:00Z"))
+    assert code == 1
+    assert "past the one-hour abandonment age" in capsys.readouterr().out
 
 
 def test_fetch_state_reads_trusted_timeline_and_only_current_summary_history(monkeypatch):
