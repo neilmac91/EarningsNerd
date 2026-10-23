@@ -25,13 +25,16 @@ excerpt a forced precompute clears so the current extraction runs (the excerpt b
 stored one); its stored value goes back in a `finally` whenever the stored summary stays, a raise or
 a cancellation included, and none goes back as none. Without an excerpt, `provenance_service` reads a
 summary's quotes, footnotes and metric commentary against the cache's legacy `markdown_content` (no
-app code writes it) and its Risks against `risk_source_text`, else that legacy column, and leaves
-them unverified when neither is there; the run's new excerpt would change what they are read against.
+app code writes it) and its Risks against `risk_source_text`, else that legacy column; when neither is
+there the citations show unverified and the Risks section is withheld. The run's new excerpt would
+change what they are read against.
 Report a refresh's outcome from what the run did (replaced, kept or failed), never from whether a row
 exists afterwards.
 
-**Limits, stated.** The cleared excerpt is missing while the run is in flight (readers verify against
-those same fallbacks, or not at all), and a killed process skips the put-back. A filing with no cache
+**Limits, stated.** The cleared excerpt is missing while the run is in flight, so readers use those same
+fallbacks. A summary generated beside an excerpt usually has no `risk_source_text` (finalize stores it
+only on a forced run or one without an excerpt), so its Risks section reads as withheld until the run
+ends. A killed process skips the put-back. A filing with no cache
 row before the run keeps the row the run creates: its stored summary had no cache text to be verified
 against, so no quote loses its verification, and its quotes are then read against the run's excerpt.
 The progress row is still deleted before admission: no reader shows it beside a summary. A fresh XBRL

@@ -347,9 +347,9 @@ def _forced_precompute(monkeypatch, ticker, acc, *, payload=None, side_effect=No
         ("document_fails", "failed"),     # an SEC document-fetch failure ends the run before generation
     ],
 )
-# A summary stored beside no excerpt is verified against the cache's risk_source_text or legacy
-# markdown_content when present, else left unverified; a kept one must not be left beside the excerpt
-# this run built (Codex 4364816435 on #1545).
+# A summary stored beside no excerpt has its citations read against the cache's legacy markdown_content
+# and its Risks against risk_source_text, else that column; a kept one must not be left beside the
+# excerpt this run built (Codex 4364816435 on #1545).
 @pytest.mark.parametrize("stored_excerpt", [STORED_EXCERPT, None], ids=["excerpt", "no-excerpt"])
 def test_forced_precompute_regenerates_in_place_under_keep_better(monkeypatch, outcome, status, stored_excerpt):
     ticker, acc, filing_id, summary_id, user_id = _seed_forced(excerpt=stored_excerpt)

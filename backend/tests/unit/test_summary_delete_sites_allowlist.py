@@ -19,7 +19,8 @@ What counts, as (path from the repository root, enclosing function or ``<module>
 * ``delete`` (Python): a ``delete`` call that names the summaries where it decides what is deleted.
   Naming them is the ``Summary`` model (an import alias of it, ``<module>.Summary``), the
   ``Filing.summaries`` relationship (any ``.summaries`` attribute) or the string ``"summaries"``. The
-  forms: ``query(Summary ...)...delete()``, ``delete(Summary)`` (sqlalchemy's, under any import alias),
+  forms: ``query(Summary ...)...delete()``, ``delete(Summary)`` (sqlalchemy's, under any import alias,
+  positional or ``table=``),
   ``Summary.__table__.delete()``, ``metadata.tables["summaries"].delete()``, ``session.delete(obj)``,
   and ``q.delete()`` on a bare name. A name, or its ``.__table__``, is followed to what the name is bound
   to in the same function or at module level (outside function and class bodies), directly or through
@@ -54,7 +55,9 @@ Out of reach, stated so nothing is overclaimed:
 * a model, table or relationship chosen at run time (``getattr(models, name)``,
   ``getattr(filing, attr)``, ``delete(target.model)`` as the retention purge does, which is why its
   targets are pinned);
-* a name bound in another function or module, or through an attribute (``self.q = ...``);
+* a name bound in another function or module, or through an attribute (``self.q = ...``), or a model
+  handed in as a parameter default (``def purge(db, model=Summary)``);
+* a name rebound more than eight times in one scope, which is followed through its first eight bindings;
 * a no-argument ``.delete()`` on an attribute or call the scan cannot resolve (``self.q.delete()``);
 * SQL assembled from non-literals (``f"DELETE FROM {table}"``) or with ``%``, ``.format`` or
   ``str.join``, held in a psql variable, or in a statement object built elsewhere from such pieces;
@@ -65,7 +68,7 @@ Out of reach, stated so nothing is overclaimed:
 import ast
 import os
 import re
-from collections import Counter
+from collections import Counter, deque
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
@@ -175,10 +178,11 @@ def _bindings(nodes: Iterable[ast.AST]) -> dict[str, list[ast.AST]]:
 
 
 def _module_level(tree: ast.Module) -> Iterator[ast.AST]:
-    """Every node of a module outside its function and class bodies."""
-    todo: list[ast.AST] = [tree]
+    """Every node of a module outside its function and class bodies, in ``ast.walk``'s order, as a
+    function's bindings are read."""
+    todo: deque[ast.AST] = deque([tree])
     while todo:
-        node = todo.pop()
+        node = todo.popleft()
         yield node
         todo.extend(child for child in ast.iter_child_nodes(node)
                     if not isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)))
@@ -308,7 +312,8 @@ class _DeleteFinder(ast.NodeVisitor):
             else:  # session.delete(obj), sa.delete(Summary)
                 self._instance_delete(node)
         elif isinstance(func, ast.Name) and func.id in self._core_deletes:
-            if node.args and self._target(node.args[0]) == "summary":
+            table = node.args[0] if node.args else next((k.value for k in node.keywords if k.arg == "table"), None)
+            if table is not None and self._target(table) == "summary":
                 self.sites[(self._scope(), "delete")] += 1
         elif isinstance(func, ast.Name) and self._session_alias(func.id):
             self._instance_delete(node)
@@ -429,6 +434,10 @@ def core_delete(db):
     db.execute(sa_delete(S))
     db.execute(sa.delete(S).where(S.id == 1))
 
+def core_delete_keyword(db):
+    db.execute(delete(table=S))
+    db.execute(sa_delete(table=ModuleAlias))
+
 def core_delete_local_alias(db):
     M = S
     db.execute(delete(M))
@@ -523,6 +532,7 @@ def test_the_scan_scores_every_planted_form():
     assert python_sites(PLANTED) == Counter({
         ("query_delete", "delete"): 1,
         ("core_delete", "delete"): 2,
+        ("core_delete_keyword", "delete"): 2,
         ("core_delete_local_alias", "delete"): 2,
         ("core_delete_module_alias", "delete"): 2,
         ("core_delete_module_bindings", "delete"): 3,
@@ -542,6 +552,9 @@ def test_the_scan_scores_every_planted_form():
     # A module that never names the model or its table does not count what it cannot tie to one,
     # but one that walks the relationship does.
     assert python_sites("def helper(db, row):\n    db.delete(row)\n") == Counter()
+    # A module-level name is followed through its first eight bindings in source order, as a function's are.
+    rebound = "from app.models import Summary\nM = Summary\n" + "M = None\n" * 8 + "def f(db):\n    db.execute(delete(M))\n"
+    assert python_sites(rebound) == Counter({("f", "delete"): 1})
     assert python_sites("def purge(db, filing):\n    for s in filing.summaries:\n        db.delete(s)\n") \
         == Counter({("purge", "delete"): 1})
     sql = """
