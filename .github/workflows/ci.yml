@@ -598,7 +598,9 @@ jobs:
     needs: [ci-scope]
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # F59 (the founder, 2026-10-23): the suite takes about 20 minutes; a slow npm registry or apt mirror adds minutes
+    # to the installs. At 25 such runs were cancelled, and deploy-backend, which needs this job, skipped its deploy.
+    timeout-minutes: 35
     steps:
       - name: Require a valid browser scope
         env:
