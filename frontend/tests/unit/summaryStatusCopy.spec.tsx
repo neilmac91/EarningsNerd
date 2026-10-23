@@ -79,7 +79,7 @@ describe('the watchlist card states each summary status', () => {
     api.getWatchlistInsights.mockResolvedValue([insight(status, needs)])
     renderPage()
 
-    const card = (await screen.findByRole('heading', { level: 2, name: 'Apple Inc.' })).closest('div.p-6') as HTMLElement
+    const card = (await screen.findByRole('heading', { level: 2, name: 'Apple Inc.' })).closest('div.p-cap-6') as HTMLElement
     expect(within(card).getByText(sentence)).toBeInTheDocument()
     expect(within(card).getByText(label)).toBeInTheDocument()
     // Every other status's sentence is absent: the prefix decides, one sentence per card.

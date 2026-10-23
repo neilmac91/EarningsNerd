@@ -29,7 +29,10 @@ The founder's review of PR #1226 measured both on the production build.
   give way below a measure through a container query in em on the copy's own width
   (`[container-type:inline-size]` with `[@container(width<13em)]:`), since `sm:` reads the viewport
   in px and never follows the text size, and read the prose a character at a time for a word broken
-  mid-word, at 320 and 390px under 200% text, not only for sideways scroll.
+  mid-word, at 320 and 390px under 200% text, not only for sideways scroll. A surface's own inset (a
+  card, a frame, a dialog's sections) takes the capped step instead, `p-cap-N` = min(N × 0.25rem, N vw),
+  which stops growing below a 25rem viewport (E120; gate: the ESLint rule
+  `earningsnerd/surface-padding-cap`, and reflow-200's cookie dialog cards read a character at a time).
 - A title between a leading glyph and a trailing control (a dialog header's icon, title and close
   button) wraps under the glyph, never under the control: the glyph and the title are one wrapping
   group whose title takes a rem basis (`min-w-0 flex-[1_1_9rem]`, as a Notice's text column does)

@@ -462,7 +462,7 @@ function PanelCard({
   }
 
   return (
-    <Card as="section" className={cx('min-w-0 p-5', expanded && 'md:col-span-2')}>
+    <Card as="section" className={cx('min-w-0 p-cap-5', expanded && 'md:col-span-2')}>
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
           {/* h2: the chart panels sit beside the narrative's and the metrics table's h2 sections

@@ -130,7 +130,7 @@ export default function FilingRedlines() {
               This example uses invented excerpts from a fictional company. It demonstrates the comparison; it is not investment research.
             </p>
           ) : (
-            <Card as="section" className="p-5 sm:p-6" aria-labelledby="select-filings-title">
+            <Card as="section" className="p-cap-5 sm:p-cap-6" aria-labelledby="select-filings-title">
               <h2 id="select-filings-title" className="text-lg font-semibold">Choose two cached annual filings</h2>
               <p className="mt-2 max-w-3xl text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 Use two original 10-Ks for the same company. In this local prototype, the filing ID is the number in a filing URL, such as /filing/42.
@@ -153,7 +153,7 @@ export default function FilingRedlines() {
         {view.kind === 'loading' && <p role="status" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Checking the filing pair and reading available text…</p>}
 
         {pair && (
-          <Card as="section" className="p-5 sm:p-6" aria-labelledby="comparison-title">
+          <Card as="section" className="p-cap-5 sm:p-cap-6" aria-labelledby="comparison-title">
             <div className="mb-6 space-y-2">
               <h2 id="comparison-title" className="text-xl font-semibold">{pair.fictional ? 'Fictional example comparison' : 'Selected filing comparison'}</h2>
               <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">

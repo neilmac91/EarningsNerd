@@ -118,7 +118,7 @@ export default function InsiderActivityPanel({
   // panel (the live SEC read is disabled for FPIs via `enabled` above).
   if (isFpi) {
     return (
-      <Card as="section" className="mb-8 p-6">
+      <Card as="section" className="mb-8 p-cap-6">
         <h2 className="mb-3 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider activity</h2>
         <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Insider (Form&nbsp;4) reporting is not generally required for foreign private issuers, so
@@ -154,7 +154,7 @@ export default function InsiderActivityPanel({
   const signalMagnitude = signalIsValue ? fmtMoney(signalValue) : `${fmtShares(signalValue)} shares`
 
   return (
-    <Card as="section" className="mb-8 p-6">
+    <Card as="section" className="mb-8 p-cap-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider activity</h2>
         <SegmentedControl
