@@ -17,7 +17,7 @@ import type { SAMPLE_CATCH } from '@/features/marketing/lib/landing-samples'
  */
 export default function CatchCard({ sample }: { sample: typeof SAMPLE_CATCH }) {
   return (
-    <Card className="p-5">
+    <Card className="p-cap-5">
       <CardTitle>The number you remember</CardTitle>
       <dl className="mt-4 flex flex-wrap gap-x-4 gap-y-3">
         <div className="min-w-0 flex-auto">

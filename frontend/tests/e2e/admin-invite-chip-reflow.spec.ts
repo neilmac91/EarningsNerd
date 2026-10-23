@@ -4,8 +4,8 @@ import { test, expect, type Page } from '@playwright/test'
  * An email chip on /admin/invites (features/admin/components/EmailChipsInput.tsx) keeps its "already invited" marker
  * clear of its remove button at any width and text size. The founder's recheck of PR #1344 found the marker painting
  * through the button at 320px under a 32px root: the address-and-marker group had shrunk to 52px, and the unbreakable
- * "· already" run (the dot held to its word by a no-break space) ran across the button. Below 8em of the chips row's
- * own text size the chip now gives its address the first line whole, wrapped rather than truncated, with the marker
+ * "· already" run (the dot held to its word by a no-break space) ran across the button. Below 9.6em of the chips row's
+ * own text size, where an invited chip no longer fits on one line, the chip now gives its address the first line whole, wrapped rather than truncated, with the marker
  * and the button under it: the chief designer's review of that fix found the address cut to 52px beside the button
  * ("al…", "bo…", and a bare "n" for an invalid one), so an admin could not tell the chips apart.
  *
@@ -17,9 +17,10 @@ import { test, expect, type Page } from '@playwright/test'
  * the address's own box, nothing hidden) on lines no other part of its chip shares, and the remove button keeps its
  * 48px and ends its chip on whatever line it lands, its right edge on the chip's content edge; at 390px there the
  * button sits on the marker's line. At the default size a chip stays a one-line pill where it fits: alice's at 390px and
- * 1440px, and the short one's at 320px, whose row is 14.9em, so a threshold set too high fails here (alice's row at
- * 390px alone held it only below 19.3em). A sweep of widths under a 200% root crosses the 8em threshold, so a
- * threshold set too low fails here even where 320px and 390px pass.
+ * 1440px, and the short one's at 320px, whose row is 15.5em, so a threshold set too high fails here (alice's row at
+ * 390px alone held it only below 19.3em). A sweep of widths under a 200% root crosses the 9.6em threshold, so a
+ * threshold set too low fails here even where 320px and 390px pass: with the capped card inset (E120) the row at 390px
+ * under a 200% root is 8.7em, and an 8em threshold truncated alice's address there by 55px.
  *
  * The 200% cases set the root element's font size, as catch-card-reflow does. The container query's em is the row's
  * own text size, so the threshold follows the text however it is enlarged.
@@ -237,7 +238,7 @@ async function measureAddresses(page: Page, rootFont: string) {
 type Addresses = Awaited<ReturnType<typeof measureAddresses>>
 
 /**
- * Below 8em every address shows whole: each character painted inside the address's own box, nothing hidden (so no
+ * Below 9.6em every address shows whole: each character painted inside the address's own box, nothing hidden (so no
  * ellipsis), the box as wide as the chip's content and on lines of its own, above the marker, the invalid glyph and the
  * remove button, which keeps its 48px under a 200% root.
  */
@@ -259,7 +260,7 @@ function expectWholeAddresses(chips: Addresses, label: string) {
 }
 
 /**
- * Below 8em the remove button ends its chip on whatever line it lands, as it does above: its right edge on the chip's
+ * Below 9.6em the remove button ends its chip on whatever line it lands, as it does above: its right edge on the chip's
  * content edge, alone on a line, beside the invalid glyph or after the marker.
  */
 function expectButtonsEndChips(chips: Addresses, label: string) {
