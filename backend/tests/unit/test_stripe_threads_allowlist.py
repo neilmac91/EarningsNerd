@@ -9,28 +9,39 @@ on one instance would hold every token.
 
 One rule, two halves in this one module:
 
-- Structure: the scan reads every module under ``app/`` and the backend's top-level modules
-  (``main.py``, ``task_worker_main.py``) through ``ast`` and lists each Stripe call it can see: an
-  attribute chain from the stripe module, under any name a module imports it or one of its members by,
-  through a capitalized resource class to a lowercase method (``stripe.Customer.create``,
+- Structure: the scan reads every module under ``app/`` and the backend's top-level modules (``main.py``,
+  ``task_worker_main.py``) through ``ast`` and lists each Stripe call it can see: an attribute chain from
+  the stripe module, under any name a module imports it or one of its members by, through a capitalized
+  resource class to a lowercase method (``stripe.Customer.create``,
   ``stripe.billing_portal.Session.create``), called or passed, and each ``auto_paging_iter()``,
   ``next_page()`` or ``previous_page()`` call, which fetches a list's other pages. ``stripe.Webhook``'s
   methods check a signature locally, so they are not calls. A call passes when its chain is the first
-  positional argument of a ``run_on_stripe_threads`` call, or when it sits in a lambda that is that first
-  argument or in a def that the module only ever hands, by name, as that first argument: the lambda or
-  def then runs whole on the Stripe threads. ``SITES`` names each other call by file, the outermost
-  function holding it, the call and its form (``called`` where it stands, ``handed to <callee>``,
-  ``handed by keyword to <callee>``, or ``named``), with why. A new call fails until it is listed, a
-  listed call that is gone or changed its form fails until its line is, and two calls with one key fail,
-  since a line excuses one call.
+  positional argument of a ``run_on_stripe_threads`` call, or when it sits in the body of a lambda that is
+  that first argument, or of a plain def that the module only ever hands there by name: calling either runs
+  its body on the Stripe threads. An async def, a generator and a method do not count, since their bodies
+  run where they are awaited, iterated or called, and neither do a def's decorators and defaults, which run
+  where it is defined, nor a def nested in such a body, which can be returned and called anywhere. In such a
+  body only a call made there counts: a Stripe method handed on or returned is called wherever it ends up,
+  and a generator expression's element runs wherever it is iterated. A walk counts only where it is used up
+  in place (a ``for`` loop's or a list, set or dict comprehension's iterable, or a call's argument): one
+  returned, yielded or held lazily fetches its later pages wherever it is iterated, and so does a
+  ``*auto_paging_iter`` chain handed over itself, or a page method handed over or named, not called (a
+  ``next_page`` or ``previous_page`` handed to ``run_on_stripe_threads`` itself fetches at once and passes).
+  At run time ``run_on_stripe_threads`` also refuses a generator, coroutine or async generator function and
+  a result that is a generator or stripe-python's own walk, so a lazy walk the scan cannot see still fails a
+  test that drives it. ``SITES`` names each other call by file, the outermost function holding it, the call
+  and its form (``called`` where it stands, ``handed to <callee>``, ``handed by keyword to <callee>``, or
+  ``named``), with why. A new call fails until it is listed, a listed call that is gone or changed its form
+  fails until its line is, and two calls with one key fail, since a line excuses one call.
 - Behaviour: 48 billing-portal sessions held inside Stripe take the eight Stripe threads and none of
   anyio's, each in its request's context, so an unrelated usage read still answers while they wait.
 
 Out of reach, so review holds them: a call reached through a value rather than the module (a result's
-own methods other than ``auto_paging_iter``, and a ``StripeClient``'s services, such as
+methods other than its page methods called in place, and a ``StripeClient``'s services, such as
 ``stripe_subscription_reader.py``'s), a resource class held in a variable or reached through
-``getattr``, a def handed through an attribute or a variable, and a def handed by name that something
-calls through another name or from another module.
+``getattr``, a def handed through an attribute or a variable, a def handed by name that something calls
+through another name or from another module, a walk handed to a call that keeps it lazy
+(``itertools.islice``), and a callable that is named ``run_on_stripe_threads`` but is not the helper.
 """
 
 from __future__ import annotations
@@ -96,9 +107,33 @@ def stripe_operation_sites(source: str, file: str = "probe.py") -> list[tuple[st
         return (isinstance(call, ast.Call) and _tail(call.func) == _ON_STRIPE_THREADS
                 and bool(call.args) and call.args[0] is node)
 
-    # A def runs whole on the Stripe threads when every use of its name hands it there.
+    def own_nodes(function: ast.AST):
+        """A def's own body: not the defs, lambdas and classes inside it."""
+        stack = list(function.body)
+        while stack:
+            node = stack.pop()
+            yield node
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+                stack.extend(ast.iter_child_nodes(node))
+
+    # A def's body runs on the Stripe threads when every use of its name hands it there and calling it runs the
+    # body: not an async def or a generator, whose body runs where it is awaited or iterated, nor a method.
+    defs = [node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
     handed_whole = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name) and handed(node)}
     handed_whole -= {node.id for node in ast.walk(tree) if isinstance(node, ast.Name) and not handed(node)}
+    handed_whole -= {fn.name for fn in defs if isinstance(fn, ast.AsyncFunctionDef)
+                     or isinstance(parents.get(fn), ast.ClassDef)
+                     or any(isinstance(node, (ast.Yield, ast.YieldFrom)) for node in own_nodes(fn))}
+
+    def used_up(call: ast.AST) -> bool:
+        """Whether a walk's pages are fetched where it stands: a for loop's or a list, set or dict comprehension's
+        iterable, or a call's argument. A walk returned, yielded or handed over unused is iterated elsewhere."""
+        parent = parents.get(call)
+        if isinstance(parent, ast.For) and parent.iter is call:
+            return True
+        if isinstance(parent, ast.comprehension) and parent.iter is call:
+            return not isinstance(parents.get(parent), ast.GeneratorExp)
+        return isinstance(parent, ast.Call) and call in parent.args
 
     def chain(node: ast.AST) -> str | None:
         parts: list[str] = []
@@ -123,23 +158,51 @@ def stripe_operation_sites(source: str, file: str = "probe.py") -> list[tuple[st
 
     sites: list[tuple[str, str, str, str]] = []
 
-    def visit(node: ast.AST, function: str, whole: bool) -> None:
+    def visit(node: ast.AST, function: str, inside: bool) -> None:
+        """``inside``: the node runs on the Stripe threads, in the body of a lambda or def handed there."""
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            # Its decorators and defaults run where it is defined; its body runs on the Stripe threads only if it
+            # is handed there itself, since a def nested in a handed body can be returned and called anywhere.
+            if isinstance(node, ast.Lambda):
+                head, body, on_threads = [node.args], [node.body], handed(node)
+            else:
+                function = node.name if function == "<module>" else function
+                head = [*node.decorator_list, node.args, *([node.returns] if node.returns else [])]
+                body, on_threads = node.body, node.name in handed_whole
+            for part in head:
+                visit(part, function, inside)
+            for part in body:
+                visit(part, function, on_threads)
+            return
+        if isinstance(node, ast.GeneratorExp) and inside:
+            # Only its first iterable is evaluated where it stands; the rest runs wherever it is iterated.
+            first, *rest = node.generators
+            visit(first.iter, function, inside)
+            for part in [node.elt, first.target, *first.ifs, *rest]:
+                visit(part, function, False)
+            return
+        if isinstance(node, ast.Attribute) and (path := chain(node)) is not None:
+            # A chain's own attributes are part of it, so the walk does not go inside. In a handed body only a
+            # call made there runs there: a chain handed on or returned is called wherever it ends up. A
+            # ``*auto_paging_iter`` chain is a walk: handed over itself, or unused where it stands, it is
+            # iterated elsewhere.
+            called = isinstance(parents.get(node), ast.Call) and parents[node].func is node
+            walk = path.endswith("auto_paging_iter")
+            lazy = walk and (handed(node) or (inside and not used_up(parents.get(node))))
+            if operation(path) and ((not inside and not handed(node)) or (inside and not called) or lazy):
+                sites.append((file, function, path, form(node)))
+            return
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in _PAGE_METHODS
+                and (not inside or (node.func.attr == "auto_paging_iter" and not used_up(node)))):
+            sites.append((file, function, node.func.attr, "called"))
+        if (isinstance(node, ast.Attribute) and node.attr in _PAGE_METHODS
+                and not (isinstance(parents.get(node), ast.Call) and parents[node].func is node)
+                and (node.attr == "auto_paging_iter" or (not inside and not handed(node)))):
+            # A page method handed over or named, not called where it stands: called elsewhere, a walk's later
+            # pages come wherever it is iterated, and another page wherever that call runs.
+            sites.append((file, function, node.attr, form(node)))
         for child in ast.iter_child_nodes(node):
-            outer, inside = function, whole
-            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                outer = child.name if function == "<module>" else function
-                inside = whole or child.name in handed_whole
-            elif isinstance(child, ast.Lambda) and handed(child):
-                inside = True
-            if isinstance(child, ast.Attribute) and (path := chain(child)) is not None:
-                # A chain's own attributes are part of it, so the walk does not go inside.
-                if operation(path) and not inside and not handed(child):
-                    sites.append((file, outer, path, form(child)))
-                continue
-            if (isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute)
-                    and child.func.attr in _PAGE_METHODS and not inside):
-                sites.append((file, outer, child.func.attr, "called"))
-            visit(child, outer, inside)
+            visit(child, function, inside)
 
     visit(tree, "<module>", False)
     return sites
@@ -210,6 +273,41 @@ async def lambdas_and_pages(customer_id, page):
     page.next_page()
     await run_on_stripe_threads(lambda: page.previous_page())
 
+def _pages_lazily(customer_id):
+    return stripe.Subscription.list(customer=customer_id).auto_paging_iter()
+
+def _live_subscriptions(customer_id):
+    for subscription in stripe.Subscription.list(customer=customer_id).auto_paging_iter():
+        yield subscription
+
+async def _cancel_later(subscription_id):
+    stripe.Subscription.delete(subscription_id)
+
+class Billing:
+    def cancel(self, subscription_id):
+        stripe.Subscription.delete(subscription_id)
+
+def _with_a_default(subscription_id, customer=stripe.Customer.retrieve("cus_1")):
+    stripe.Subscription.delete(subscription_id)
+
+async def lazy_walks(customer_id, page):
+    await run_on_stripe_threads(_pages_lazily, customer_id)
+    await run_on_stripe_threads(_live_subscriptions, customer_id)
+    await run_on_stripe_threads(_cancel_later, "sub_1")
+    await run_on_stripe_threads(cancel, "sub_1")
+    await run_on_stripe_threads(_with_a_default, "sub_1")
+    await run_on_stripe_threads(lambda: page.auto_paging_iter())
+    await run_on_stripe_threads(lambda: [item for item in page.auto_paging_iter()])
+    await run_on_stripe_threads(stripe.Customer.search_auto_paging_iter, query="email:'payer@example.com'")
+    await run_on_stripe_threads(lambda: functools.partial(stripe.Customer.retrieve, customer_id))
+
+async def page_methods_handed(page, subscriptions):
+    await run_on_stripe_threads(subscriptions.auto_paging_iter)
+    await run_in_threadpool(subscriptions.next_page)
+    await run_on_stripe_threads(page.next_page)
+    await run_on_stripe_threads(lambda: (stripe.Subscription.delete(s) for s in page.data))
+    await run_on_stripe_threads(lambda: [stripe.Subscription.delete(s) for s in page.data])
+
 def not_operations(payload, signature, secret):
     stripe.api_key = secret
     stripe.Webhook.construct_event(payload, signature, secret)
@@ -236,8 +334,51 @@ stripe.Subscription.delete("sub_2")
         ("probe.py", "_also_on_the_loop", "stripe.Customer.retrieve", "called"),
         ("probe.py", "lambdas_and_pages", "stripe.Customer.retrieve", "handed to partial"),
         ("probe.py", "lambdas_and_pages", "next_page", "called"),
+        ("probe.py", "_pages_lazily", "auto_paging_iter", "called"),
+        ("probe.py", "_live_subscriptions", "auto_paging_iter", "called"),
+        ("probe.py", "_live_subscriptions", "stripe.Subscription.list", "called"),
+        ("probe.py", "_cancel_later", "stripe.Subscription.delete", "called"),
+        ("probe.py", "cancel", "stripe.Subscription.delete", "called"),
+        ("probe.py", "_with_a_default", "stripe.Customer.retrieve", "called"),
+        ("probe.py", "lazy_walks", "auto_paging_iter", "called"),
+        ("probe.py", "lazy_walks", "stripe.Customer.search_auto_paging_iter", "handed to run_on_stripe_threads"),
+        ("probe.py", "lazy_walks", "stripe.Customer.retrieve", "handed to partial"),
+        ("probe.py", "page_methods_handed", "auto_paging_iter", "handed to run_on_stripe_threads"),
+        ("probe.py", "page_methods_handed", "next_page", "handed to run_in_threadpool"),
+        ("probe.py", "page_methods_handed", "stripe.Subscription.delete", "called"),
         ("probe.py", "<module>", "stripe.Subscription.delete", "called"),
     ]
+
+
+@pytest.mark.asyncio
+async def test_run_on_stripe_threads_refuses_work_that_would_fetch_after_it_returns():
+    """A generator, coroutine or async generator function, and a result that is a generator or stripe-python's
+    own walk, would make their Stripe requests where the result is used, on the event loop; finished work,
+    a list object and the route tests' mocks pass through."""
+    from unittest.mock import MagicMock
+
+    import stripe
+
+    from app.services.stripe_threads import run_on_stripe_threads
+
+    def pages():
+        yield "page"
+
+    async def later():
+        return "page"
+
+    async def pages_later():
+        yield "page"
+
+    listed = stripe.ListObject.construct_from(
+        {"object": "list", "data": [], "has_more": False, "url": "/v1/subscriptions"}, "sk_test_fake")
+    for func in (pages, later, pages_later, lambda: (page for page in ["page"]), listed.auto_paging_iter):
+        with pytest.raises(TypeError):
+            await run_on_stripe_threads(func)
+    assert await run_on_stripe_threads(lambda pages: list(pages), iter(["page", "page"])) == ["page", "page"]
+    assert await run_on_stripe_threads(lambda: listed) is listed
+    mock = MagicMock()
+    assert await run_on_stripe_threads(lambda: mock) is mock
 
 
 @pytest.mark.asyncio
@@ -270,11 +411,14 @@ async def test_portal_sessions_held_in_stripe_leave_the_default_worker_threads_f
     release = threading.Event()
     lock = threading.Lock()
     in_stripe: list[tuple[str, str | None]] = []
+    on_loop: list[int] = []
     reached = 0
 
     def held_in_stripe(**_: Any) -> SimpleNamespace:
         # On the loop, the wait below would freeze it, and every other session with it.
-        assert threading.get_ident() != loop_thread, "a Stripe call ran on the event loop"
+        if threading.get_ident() == loop_thread:
+            on_loop.append(1)
+            raise AssertionError("a Stripe call ran on the event loop")
         with lock:
             in_stripe.append((threading.current_thread().name, logging_service.get_correlation_id()))
         # Bounded, so a failing run still ends.
@@ -306,17 +450,18 @@ async def test_portal_sessions_held_in_stripe_leave_the_default_worker_threads_f
     try:
         try:
             async with asyncio.timeout(10):  # a hang guard only; nothing below races it
-                while reached < 48 or len(in_stripe) < 8:
+                while (reached < 48 or len(in_stripe) < 8) and not on_loop:
                     await asyncio.sleep(0.01)
         except TimeoutError:
             answered = sorted({task.result().status_code for task in portals if task.done() and not task.exception()})
             if answered:
-                why = f"some answered while Stripe held the others (statuses {answered})"
+                why = f"some answered before eight calls were held in Stripe (statuses {answered})"
             elif reached < 48:
                 why = "the calls held in Stripe keep the rest from their units"
             else:
                 why = "fewer calls run at once than the eight Stripe threads"
             pytest.fail(f"{reached} of 48 portal sessions reached Stripe and {len(in_stripe)} calls are in it: {why}")
+        assert not on_loop, f"{len(on_loop)} Stripe calls ran on the event loop"
         await asyncio.sleep(0.1)
         assert len(in_stripe) == 8, f"{len(in_stripe)} Stripe calls ran at once, not the eight Stripe threads"
         assert current_default_thread_limiter().statistics().borrowed_tokens == 0
@@ -329,4 +474,6 @@ async def test_portal_sessions_held_in_stripe_leave_the_default_worker_threads_f
         engine.dispose()
     assert [getattr(response, "status_code", response) for response in responses] == [200] * 48
     assert {name.rsplit("_", 1)[0] for name, _ in in_stripe} == {"stripe_call"}
-    assert sorted(correlation_id for _, correlation_id in in_stripe) == sorted(f"portal-{i}" for i in range(48))
+    correlation_ids = [correlation_id for _, correlation_id in in_stripe]
+    assert None not in correlation_ids, "a Stripe call ran outside its request's context"
+    assert sorted(correlation_ids) == sorted(f"portal-{i}" for i in range(48))
