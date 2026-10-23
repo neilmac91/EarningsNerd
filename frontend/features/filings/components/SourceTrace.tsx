@@ -9,15 +9,22 @@ import { useSheetFocusTrap } from '@/features/filings/components/copilot/useShee
 import { useEvidencePopoverKeys } from '@/features/filings/components/copilot/useEvidencePopoverKeys'
 import { shownTwin } from '@/features/filings/lib/layoutTwin'
 import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
+import {
+  PASSAGE_FOUND,
+  PASSAGE_FOUND_NOTE,
+  PASSAGE_LINKED,
+  PASSAGE_LINKED_NOTE,
+  sourceLinkLabel,
+} from '@/features/filings/lib/evidenceLabels'
 
 /**
  * Shared "Trace to Source" provenance affordance — the ambient, on-brand way every metric and risk
  * claim links back to the SEC filing, matching the Copilot's CitationChip treatment so provenance
  * reads as one consistent texture across the app (Plan D2).
  *
- * A compact verified/cited chip. On a fine pointer it reveals a hover/focus popover (section, the
- * verified/cited explanation, an "Open in SEC EDGAR" deep link). With a `FilingViewerProvider`
- * mounted (the filing page), activating the chip opens the research pane on the Filing tab and
+ * A compact chip in the evidence vocabulary (lib/evidenceLabels). On a fine pointer it reveals a
+ * hover/focus popover (section, what was checked, an "Open the filing on SEC.gov" link). With a
+ * `FilingViewerProvider` mounted (the filing page), activating the chip opens the research pane on the Filing tab and
  * highlights the passage when the filing text is available and matched, or shows the pane's truthful
  * empty state with its original-document action; activation never does nothing (EN-01). On a coarse
  * pointer (touch) a tap opens the bottom sheet, which carries the same detail plus "Show in filing",
@@ -36,7 +43,7 @@ interface SourceTraceProps {
   verified?: boolean | null
   /** e.g. "Item 1A · Risk Factors" — shown as the panel header. */
   sectionRef?: string | null
-  /** Chip text. Defaults to the honest verified/cited vocabulary. */
+  /** Chip text. Defaults to the passage vocabulary: "Quote found in filing" or "Section linked". */
   label?: string
   /** One-line explanation in the panel (e.g. a metric's XBRL match note). */
   note?: string | null
@@ -68,9 +75,9 @@ const POPOVER_WIDTH = 288 // w-72
 const CLOSE_DELAY_MS = 120
 
 /**
- * Presentational body of the provenance panel: section header, verified/cited status line, an
- * optional in-app action and the "Open in SEC EDGAR" link. Shared by the desktop popover, the touch
- * bottom-sheet and the landing page's Trace-to-Source demo.
+ * Presentational body of the provenance panel: section header, the line saying what was checked, an
+ * optional in-app action and the link to the filing on SEC.gov. Shared by the desktop popover, the
+ * touch bottom-sheet and the landing page's Trace-to-Source demo.
  */
 export function SourceTracePanelBody({
   header,
@@ -95,12 +102,12 @@ export function SourceTracePanelBody({
   const statusLine = isVerified ? (
     <span className="mt-2 flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark">
       <CheckCircleIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-      {note || 'Verified against the original SEC filing'}
+      {note || PASSAGE_FOUND_NOTE}
     </span>
   ) : (
     <span className="mt-2 flex items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
       <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-      {note || 'Cited. Open the section to confirm.'}
+      {note || PASSAGE_LINKED_NOTE}
     </span>
   )
 
@@ -123,7 +130,8 @@ export function SourceTracePanelBody({
           className="mt-2 flex items-center gap-1 rounded-sm text-xs font-medium text-text-secondary-light transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
         >
           <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-          Open in SEC EDGAR
+          {sourceLinkLabel(url)}
+          <span className="sr-only"> (opens in a new tab)</span>
         </a>
       )}
     </>
@@ -133,7 +141,7 @@ export function SourceTracePanelBody({
 export function SourceTrace({ url, verified, sectionRef, label, note, excerpt, kind = 'passage', layoutTwin }: SourceTraceProps) {
   const isVerified = verified === true
   const header = sectionRef?.trim() || null
-  const chipLabel = label ?? (isVerified ? 'Verified in filing' : 'Cited')
+  const chipLabel = label ?? (isVerified ? PASSAGE_FOUND : PASSAGE_LINKED)
   const linkable = isHttpUrl(url)
   const panelId = useId()
 
@@ -454,7 +462,7 @@ function SourceTraceInner({
       {chipInner}
     </button>
   ) : url ? (
-    <a {...triggerCommon} href={url} target="_blank" rel="noopener noreferrer">
+    <a {...triggerCommon} aria-label={`Source: ${chipLabel} (opens in a new tab)`} href={url} target="_blank" rel="noopener noreferrer">
       {chipInner}
     </a>
   ) : (

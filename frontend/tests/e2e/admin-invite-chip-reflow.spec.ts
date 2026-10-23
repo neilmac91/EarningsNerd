@@ -21,7 +21,7 @@ import { test, expect, type Page } from '@playwright/test'
  * 390px alone held it only below 19.3em). A sweep of widths under a 200% root crosses the 8em threshold, so a
  * threshold set too low fails here even where 320px and 390px pass.
  *
- * The 200% cases set the root element's font size, as catch-card-reflow does. The container query's em is the row's
+ * The 200% cases set the root element's font size, as figure-receipt-reflow does. The container query's em is the row's
  * own text size, so the threshold follows the text however it is enlarged.
  *
  * The feedback list (/admin/feedback) shares the cards and their header rows, so its cases sit here too: at 320px its
@@ -185,7 +185,7 @@ function expectNoSidewaysScroll(m: Measure, label: string) {
   expect(m.page.withChips, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)
 }
 
-/** The document's width and the viewport's once the root font is set (catch-card-reflow's 200% method). */
+/** The document's width and the viewport's once the root font is set (figure-receipt-reflow's 200% method). */
 async function pageWidth(page: Page, rootFont: string) {
   return page.evaluate((size) => {
     document.documentElement.style.fontSize = size

@@ -7,6 +7,7 @@ import { Button, countControlClass, cx } from '@/components/ui'
 import AiDisclaimer, { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import remarkGfm from 'remark-gfm'
 import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
+import { sourceLinkLabel } from '@/features/filings/lib/evidenceLabels'
 import {
   ArrowClockwiseIcon,
   ArrowRightIcon,
@@ -305,7 +306,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     {isHttpUrl(c.fragment_url) ? (
                       <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={LOCATOR_LINK}>
-                        <span className="min-w-0 break-words">{c.section_ref ?? 'XBRL'} · EDGAR</span>
+                        <span className="min-w-0 break-words">{sourceLinkLabel(c.fragment_url)}</span>
                         <OpensOriginal />
                       </a>
                     ) : c.section_ref ? (

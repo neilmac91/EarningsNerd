@@ -14,6 +14,11 @@ export interface CopilotCitation {
   section_ref: string | null
   verified: boolean
   fragment_url: string | null
+  // A filed figure, as the server attests it (parseCompletion): set only when the citation carries the tool fact's own
+  // payload (its `concept`, backend/app/services/copilot_tools.py fact_to_citation). The server rebuilds a quoted
+  // excerpt from its four fields, so a model can write an "XBRL · …" section label but never this. Only it lets a
+  // citation read "Matches filing" (citationVerification.ts).
+  fact?: true
 }
 
 // A citation backed by an XBRL financial fact (server-assigned "F#" marker + an "XBRL · <tag>"
@@ -112,7 +117,7 @@ const parseCompletion = (data: Record<string, unknown>): CopilotCompletion | nul
   const markers = new Set<string>()
   for (const citation of data.citations) {
     if (!isRecord(citation)) return null
-    const { n, excerpt, section_ref, verified, fragment_url } = citation
+    const { n, excerpt, section_ref, verified, fragment_url, concept } = citation
     const validMarker = typeof n === 'number'
       ? Number.isSafeInteger(n) && n > 0
       : typeof n === 'string' && /^f\s*[1-9]\d*$/i.test(n)
@@ -125,7 +130,8 @@ const parseCompletion = (data: Record<string, unknown>): CopilotCompletion | nul
     if (markers.has(marker) || !referenced.has(marker)) return null
     markers.add(marker)
     const normalizedN = typeof n === 'string' ? n.replace(/\s/g, '') : n as number
-    citations.push({ n: normalizedN, excerpt, section_ref, verified, fragment_url })
+    const fact = typeof concept === 'string' && concept.trim() !== ''
+    citations.push({ n: normalizedN, excerpt, section_ref, verified, fragment_url, ...(fact ? { fact: true as const } : {}) })
   }
   if (data.kind === 'not_disclosed' && (
     citations.length !== 0 || data.grounded !== 0 ||

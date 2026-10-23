@@ -98,7 +98,7 @@ function Figure({ metric, isFallback }: { metric: ExampleMetric; isFallback: boo
           the page by 5px (tests/e2e/reflow-200.spec.ts). */}
       <dt className={cx('relative truncate text-xs', MUTED)}>
         {metric.label}
-        {concept && <span className="sr-only">, XBRL concept {concept}</span>}
+        {concept && <span className="sr-only">, filed tag {concept}</span>}
       </dt>
       <dd className={cx('mt-1 break-words font-data text-sm font-semibold tabular-nums sm:text-base', INK)}>{metric.value}</dd>
       {delta && (
@@ -243,10 +243,10 @@ function HeroExample({
               middot to the word before it, so the line breaks only after it: at 1440px under 200% text the
               receipt's second line began with "·" (tests/e2e/reflow-200.spec.ts). */}
           {data.metrics.length === 0
-            ? 'Source filing\u00a0· read on SEC EDGAR'
+            ? 'Source filing\u00a0· read on SEC.gov'
             : isFallback
-              ? "Figures from the company's XBRL\u00a0· check them on SEC EDGAR"
-              : 'Source filing\u00a0· check the figures on SEC EDGAR'}
+              ? "Figures from the company's filed data\u00a0· check them on SEC.gov"
+              : 'Source filing\u00a0· check the figures on SEC.gov'}
         </a>
 
         {/* Into the real example: a text link (the hero's primary action lives beside the headline). */}

@@ -17,7 +17,7 @@ const STEPS = [
   {
     number: '03',
     title: 'Read the summary',
-    description: 'Up to nine parts, written by the AI from the filing’s own text and XBRL, in the same order for every filing.',
+    description: 'Up to nine parts, written by the AI from the filing’s own text and data, in the same order for every filing.',
     // The design repeats file-text here; the lightning glyph is the pre-redesign choice for
     // "get the summary" and keeps the three tiles distinct.
     icon: LightningIcon,

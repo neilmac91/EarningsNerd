@@ -65,8 +65,8 @@ describe('FilingWorkspace', () => {
     fireEvent.click(screen.getByRole('tab', { name: /filing/i }))
     expect(screen.getByRole('tab', { name: /filing/i })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tab', { name: 'Ask' })).toHaveAttribute('aria-selected', 'false')
-    // "Original on SEC EDGAR" sits in the Filing tab's footer.
-    expect(screen.getByRole('link', { name: /original on sec edgar/i })).toHaveAttribute(
+    // "Original on SEC.gov" sits in the Filing tab's footer.
+    expect(screen.getByRole('link', { name: /original on sec\.gov/i })).toHaveAttribute(
       'href',
       'https://sec.gov/x',
     )
@@ -234,7 +234,7 @@ function Page({ initialOpen = false }: { initialOpen?: boolean }) {
 // The shell is an aside on lg+ and a dialog below it; while hidden (aria-hidden) it has no accessible
 // name in the a11y tree, so it is located by its label attribute rather than by role + name.
 const dialog = () => document.querySelector<HTMLElement>('[aria-label="Filing source and Ask"]')!
-const chip = () => screen.getByRole('button', { name: 'Source: Verified in filing' })
+const chip = () => screen.getByRole('button', { name: 'Source: Quote found in filing' })
 const filingTab = () => screen.getByRole('tab', { name: /filing/i })
 const answerChip = () => screen.getByRole('button', { name: /^Citation 1:/ })
 
@@ -309,7 +309,7 @@ describe('FilingWorkspace opened by a provenance chip (EN-01)', () => {
 
   it('closing from the pane\'s own Close button returns focus to the chip (focus is still on the hidden Close when the effect runs)', () => {
     render(<Page />)
-    const chip = screen.getByRole('button', { name: 'Source: Verified in filing' })
+    const chip = screen.getByRole('button', { name: 'Source: Quote found in filing' })
     fireEvent.click(chip)
     expect(dialog().getAttribute('aria-hidden')).toBe('false')
     // A keyboard user tabbed to Close and pressed it; jsdom, like Chromium at the moment the effect

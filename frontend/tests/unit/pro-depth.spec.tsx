@@ -85,7 +85,7 @@ describe('AskFilingDemo', () => {
 
   it('names each chip kind in plain words with its locator and verification', () => {
     render(<AskFilingDemo />)
-    expect(screen.getAllByText('XBRL figure')).toHaveLength(2)
+    expect(screen.getAllByText('Filed figure')).toHaveLength(2)
     expect(screen.getAllByText('us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax')).toHaveLength(2)
     expect(screen.getByText('Passage')).toBeInTheDocument()
     expect(screen.getByText(SAMPLE_ASK.citations[2].section_ref as string)).toBeInTheDocument()

@@ -60,12 +60,12 @@ describe('CopilotMessage citation chips', () => {
     expect(screen.getAllByText('Revenue increased to $94.0B').length).toBeGreaterThan(0)
   })
 
-  it('shows the "Cited" label (not "Verified") for an unverified citation', () => {
+  it('shows the "Section linked" label (not "Verified") for an unverified citation', () => {
     const unverified: CopilotCitation = { ...verifiedCitation, verified: false }
     render(<CopilotMessage message={doneMessage({ citations: [unverified] })} />)
-    expect(screen.getAllByText('Cited').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Section linked').length).toBeGreaterThan(0)
     expect(screen.queryByText('Verified')).not.toBeInTheDocument()
-    expect(screen.queryByText('Verified in filing')).not.toBeInTheDocument()
+    expect(screen.queryByText('Quote found in filing')).not.toBeInTheDocument()
   })
 
   it('renders an inline chip for a tool-figure marker, numbered by the backend like any other citation', () => {
@@ -111,16 +111,19 @@ describe('CopilotMessage citation chips', () => {
       section_ref: 'Item 8 — Consolidated Statements of Operations' }
     const fact: CopilotCitation = { n: 1, excerpt: 'Revenue = $416.16B USD (FY2025/FY)',
       section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
-      verified: true, fragment_url: 'https://www.sec.gov/filing' }
+      verified: true, fragment_url: 'https://www.sec.gov/filing', fact: true }
     const labelledText: CopilotCitation = { ...excerpt, n: 4, section_ref: 'XBRL · model-labelled excerpt' }
     render(<CopilotMessage message={doneMessage({
       content: 'Total net sales were $416,161 million [1]. The statement presents sales and gross margin [3]. Another source [4].',
       citations: [fact, excerpt, labelledText], grounded: 3,
     })} />)
-    expect(screen.getAllByText('Source match found')).toHaveLength(3)
+    // A matched fact reads "Matches filing", a matched passage "Quote found in filing" (citationVerificationLabel). Only
+    // the server's fact payload (`fact`) makes a figure: [4], an excerpt the model labelled "XBRL · …", is still a quote.
+    expect(screen.getAllByText('Matches filing')).toHaveLength(1)
+    expect(screen.getAllByText('Quote found in filing')).toHaveLength(2)
     expect(screen.queryByText('Numeric source verified')).not.toBeInTheDocument()
     expect(screen.queryByText('Excerpt found in filing')).not.toBeInTheDocument()
-    expect(screen.getByText(/does not verify every claim in the answer/)).toBeInTheDocument()
+    expect(screen.getByText(/does not check every claim in the answer/)).toBeInTheDocument()
     expect(screen.getAllByText(excerpt.excerpt)).toHaveLength(2)
     expect(screen.getByText('3 matched sources')).toBeInTheDocument()
     // The count is said once (ASK-14): no second "citations · source checks" tally beside it.
@@ -129,17 +132,18 @@ describe('CopilotMessage citation chips', () => {
     expect(textChip).toHaveAttribute('href', excerpt.fragment_url)
     fireEvent.focus(textChip)
     const textPopover = screen.getByRole('group', { name: /citation 3:/i })
-    expect(within(textPopover).getByText('Source match found')).toBeInTheDocument()
+    expect(within(textPopover).getByText('Quote found in filing')).toBeInTheDocument()
     expect(within(textPopover).queryByText('Numeric source verified')).not.toBeInTheDocument()
     expect(within(textPopover).getByText(excerpt.excerpt)).toBeInTheDocument()
     fireEvent.focus(screen.getByRole('link', { name: /citation 1:/i }))
     const factPopover = screen.getByRole('group', { name: /citation 1:/i })
-    expect(within(factPopover).getByText('Source match found')).toBeInTheDocument()
-    expect(within(factPopover).getByText(/does not verify every claim/)).toBeInTheDocument()
+    expect(within(factPopover).getByText('Matches filing')).toBeInTheDocument()
+    expect(within(factPopover).getByText(/does not check every claim/)).toBeInTheDocument()
     fireEvent.focus(screen.getByRole('link', { name: /citation 4:/i }))
     const labelledPopover = screen.getByRole('group', { name: /citation 4:/i })
-    expect(within(labelledPopover).getByText('Source match found')).toBeInTheDocument()
-    expect(within(labelledPopover).getByText(/does not verify every claim/)).toBeInTheDocument()
+    expect(within(labelledPopover).getByText('Quote found in filing')).toBeInTheDocument()
+    expect(within(labelledPopover).queryByText('Matches filing')).not.toBeInTheDocument()
+    expect(within(labelledPopover).getByText(/does not check every claim/)).toBeInTheDocument()
     expect(within(labelledPopover).queryByText('Numeric source verified')).not.toBeInTheDocument()
   })
 
@@ -233,7 +237,7 @@ describe('CopilotMessage source-check badges', () => {
         message={doneMessage({ content: 'Revenue grew [1] and Services grew [2].', citations: [verifiedCitation, cited] })}
       />,
     )
-    for (const badge of [screen.getByText('Source match found'), screen.getByText('Cited')]) {
+    for (const badge of [screen.getByText('Quote found in filing'), screen.getByText('Section linked')]) {
       const classes = (badge.getAttribute('class') ?? '').split(/\s+/)
       expect(classes, badge.textContent ?? '').toEqual(expect.arrayContaining(['max-w-full', 'text-xs']))
       expect(classes, badge.textContent ?? '').not.toContain('shrink-0')

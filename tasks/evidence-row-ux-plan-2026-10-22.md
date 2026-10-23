@@ -1,6 +1,23 @@
 # Evidence row ("Figures with their receipts."): UX resolution plan
 
-2026-10-22 · Claude Code session, from the founder's annotated screenshot · **Plan only: no product code has changed.**
+2026-10-22 · Claude Code session, from the founder's annotated screenshot.
+
+**Status (later on 2026-10-22).** The founder answered §6 ([D-058](../docs/brand/decisions-log.md)): the plain
+vocabulary across the whole product (Q1); the evidence row on the AI's real output (Q2); a checked figure that
+differs is replaced by the filed figure (Q3); the sample moves to Apple's FY2026 10-K once it is filed (Q4, open as
+E154 in `tasks/todo.md`). Implementation is on this branch. Where it departs from §2–§3: Q3's swap retires R5's
+"Doesn't match filing" state, since a checked figure now always shows the filed number; the takeaways in §3.4 are
+the live output's own, so they are review criteria rather than copy; the Trace demo uses the live Services row's
+takeaway and passage; the receipt card's link names the 10-K it opens rather than "the statement"; and takeaway
+passages no longer inherit the table's section label (a defect the live output showed). Three more departures
+came from measuring the build: R11 holds each card's first two year groups at a 5rem floor capped at the row,
+which lines the groups up across cards without a container query; the landing table gives way to the cards below
+52rem of its own width (`layoutBy="container"`), because beside the label column, from 1024px to about 1180px,
+the table squeezed each takeaway to a ribbon (100px wide at 1024px), so R6's checks run wherever the table shows
+(`tests/e2e/landing-highlights-alignment.spec.ts`); and a Copilot citation reads "Matches filing" only when the
+server sent the fact's own payload, since a passage's section label is the model's words and may start "XBRL ·".
+Still pending: E154, the comprehension rounds (§4.3), and the screen-reader, touch and cross-browser checks
+(§4.4).
 
 **Scope.** The landing page's second row (`#evidence`): [`EvidenceSection`](../frontend/features/marketing/components/EvidenceSection.tsx),
 the shared [`FinancialMetricsTable`](../frontend/features/summaries/components/FinancialMetricsTable.tsx) it renders (also the filing

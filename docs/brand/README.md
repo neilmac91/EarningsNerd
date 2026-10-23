@@ -110,10 +110,10 @@ Each fails on a deliberate break of its rule (the PR lists the mutation proofs):
 - `frontend/tests/unit/markSingleSource.spec.ts`: every rendition of the EN monogram copies the
   canonical outlines byte for byte, places them through the canonical groups and nothing else,
   and never stretches them.
-- `frontend/tests/unit/markedCopy.spec.tsx` and `frontend/tests/e2e/catch-card-reflow.spec.ts`: the
-  margin twin centres on its marker at any root size; the catch card's amounts never overlap or
-  leave the card, at 390px and 320px under a 200% root font and in the desktop column, in both
-  themes.
+- `frontend/tests/unit/markedCopy.spec.tsx` and `frontend/tests/e2e/figure-receipt-reflow.spec.ts`: the
+  margin twin centres on its marker at any root size; the receipt card's amounts (it replaced the catch
+  card, D-058) never overlap their step's words or leave the card, at 390px and 320px under a 200% root
+  font and in the desktop column, in both themes.
 - `frontend/tests/unit/waitlistCounter.spec.tsx`: no counter below its floor or passing through
   "0+", the count in neutral ink. The former `founderNote.spec.tsx` was retired with the empty slot.
 

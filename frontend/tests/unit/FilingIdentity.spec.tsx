@@ -30,8 +30,8 @@ describe('FilingIdentity', () => {
     expect(new Date(filing.report_date!).getDate()).toBe(23) // control: the bug is observable here
     const facts = screen.getByText('fiscal year ended Sep 24, 2022').parentElement!
     expect(facts).toHaveClass('font-data')
-    expect(facts).toHaveTextContent('10-K·,fiscal year ended Sep 24, 2022·,filed Oct 28, 2022·,Nasdaq·,Original on SEC EDGAR')
-    expect(screen.getByRole('link', { name: /Original on SEC EDGAR/ })).toHaveAttribute('href', filing.document_url)
+    expect(facts).toHaveTextContent('10-K·,fiscal year ended Sep 24, 2022·,filed Oct 28, 2022·,Nasdaq·,Original on SEC.gov')
+    expect(screen.getByRole('link', { name: /Original on SEC\.gov/ })).toHaveAttribute('href', filing.document_url)
     // The form is weight in the data face, never a Badge, and there is no decorative AI chip.
     expect(screen.getByText('10-K')).toHaveClass('font-semibold')
     expect(container.textContent).not.toMatch(/AI analysis/i)
@@ -73,7 +73,10 @@ describe('FilingIdentity', () => {
   })
 })
 
-const summaryWith = (rows: { source_verified?: boolean; source_checkable?: boolean }[], projection?: Record<string, number>) =>
+const summaryWith = (
+  rows: { source_verified?: boolean; source_checkable?: boolean; source_replaced?: Record<string, string> }[],
+  projection?: Record<string, number>,
+) =>
   ({
     id: 1,
     filing_id: 3,
@@ -95,7 +98,7 @@ const summaryWith = (rows: { source_verified?: boolean; source_checkable?: boole
   }) as unknown as Summary
 
 describe('verificationTally', () => {
-  it('counts XBRL-matched figures and the located excerpts the server projected', () => {
+  it('counts the figures that match the filing and the located excerpts the server projected', () => {
     const checked = { source_checkable: true }
     expect(
       verificationTally(
@@ -104,7 +107,7 @@ describe('verificationTally', () => {
           { verified_count: 3, withheld_count: 1, candidate_count: 4 },
         ),
       ),
-    ).toEqual({ figures: { matched: 2, total: 3 }, excerpts: { located: 3, total: 4, withheld: 1 } })
+    ).toEqual({ figures: { matched: 2, total: 3, replaced: 0 }, excerpts: { located: 3, total: 4, withheld: 1 } })
   })
 
   it('counts only the figures the server could check: EPS, margins and segment lines are never misses', () => {
@@ -113,9 +116,18 @@ describe('verificationTally', () => {
       { source_checkable: false, source_verified: false }, // diluted EPS
       { source_checkable: false, source_verified: false }, // a segment line
     ]
-    expect(verificationTally(summaryWith(rows))?.figures).toEqual({ matched: 1, total: 1 })
+    expect(verificationTally(summaryWith(rows))?.figures).toEqual({ matched: 1, total: 1, replaced: 0 })
     // A payload from before the flag gives no figures count rather than a wrong denominator.
     expect(verificationTally(summaryWith([{ source_verified: true }, {}]))).toBeNull()
+  })
+
+  it('counts a figure the server replaced with the filed one, and says so beside the matches', () => {
+    const checked = { source_checkable: true, source_verified: true }
+    const rows = [{ ...checked, source_replaced: { current_period: '$1.2B' } }, checked, { ...checked, source_replaced: {} }]
+    const tally = verificationTally(summaryWith(rows))
+    expect(tally?.figures).toEqual({ matched: 3, total: 3, replaced: 1 })
+    const { container } = render(<VerificationTallyLine tally={tally!} />)
+    expect(container).toHaveTextContent('3 of 3 checkable figures match the filing · , 1 corrected from the filing')
   })
 
   it('is null for a summary with nothing to count, so no zero tally renders', () => {
@@ -125,14 +137,14 @@ describe('verificationTally', () => {
 
   it('renders scoped words, with the check glyph only when nothing was left unmatched', () => {
     const { container, rerender } = render(
-      <VerificationTallyLine tally={{ figures: { matched: 6, total: 6 }, excerpts: { located: 3, total: 4, withheld: 1 } }} />,
+      <VerificationTallyLine tally={{ figures: { matched: 6, total: 6, replaced: 0 }, excerpts: { located: 3, total: 4, withheld: 1 } }} />,
     )
     expect(container).toHaveTextContent(
-      '6 of 6 checkable figures matched the company’s XBRL · , 3 of 4 risk excerpts located in the filing text · , 1 withheld',
+      '6 of 6 checkable figures match the filing · , 3 of 4 risk excerpts located in the filing text · , 1 withheld',
     )
     expect(container.querySelector('svg')!.getAttribute('class')).not.toContain('text-brand-strong')
-    rerender(<VerificationTallyLine tally={{ figures: { matched: 6, total: 6 }, excerpts: null }} />)
-    expect(container).toHaveTextContent('6 of 6 checkable figures matched the company’s XBRL')
+    rerender(<VerificationTallyLine tally={{ figures: { matched: 6, total: 6, replaced: 0 }, excerpts: null }} />)
+    expect(container).toHaveTextContent('6 of 6 checkable figures match the filing')
     expect(container.querySelector('svg')!.getAttribute('class')).toContain('text-brand-strong')
     expect(container.textContent).not.toMatch(/verified/i)
   })

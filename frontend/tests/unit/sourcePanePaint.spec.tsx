@@ -17,7 +17,7 @@ import { __resetCitationHighlightStyleForTests } from '@/features/filings/compon
  * chip as the summary or an Ask answer renders it, the viewer context's request, FilingViewer and
  * highlightInDom, with jsdom given the CSS Custom Highlight API it lacks. Located: a summary chip's verified
  * excerpt, the very text the server checked, and an Ask answer's verified passage. Never located: a summary
- * chip's section heading (every metric chip, a verified XBRL figure's included, a Cited chip, and a verified
+ * chip's section heading (every metric chip, a verified XBRL figure's included, a Section linked chip, and a verified
  * chip whose excerpt is too short to anchor), an excerpt the server did not locate, and an XBRL fact from
  * Ask, which has no passage even where the text its jump finds holds its label.
  */
@@ -46,10 +46,10 @@ const CASES: { jump: string; chip: ReactNode; registers: string; lands: string }
   // Ask: a verified passage of the filing's text (copilot-api admits no other).
   { jump: "an Ask answer's verified passage", chip: <CitationChip citation={{ n: 1, excerpt: TAKEAWAY, section_ref: 'Item 7', verified: true, fragment_url: null }} />, registers: LOCATED, lands: TAKEAWAY.slice(0, 40) },
   // MetricSourceLink: an XBRL fact has no passage, so the jump falls back to the section heading.
-  { jump: 'a verified XBRL figure (its section heading)', chip: <MetricSourceLink url={DOCUMENT_URL} verified concept="Total net sales" sectionRef={HEADING} />, registers: FIND, lands: HEADING },
-  { jump: 'an unverified metric, Cited (its section heading)', chip: <MetricSourceLink url={DOCUMENT_URL} verified={false} sectionRef={HEADING} />, registers: FIND, lands: HEADING },
-  // EvidenceChip withholds an unverified excerpt, so a Cited quote jumps to its heading.
-  { jump: 'a Cited quote (its section heading)', chip: <SourceTrace url={DOCUMENT_URL} verified={false} sectionRef={HEADING} excerpt={null} />, registers: FIND, lands: HEADING },
+  { jump: 'a verified XBRL figure (its section heading)', chip: <MetricSourceLink url={DOCUMENT_URL} verified sectionRef={HEADING} />, registers: FIND, lands: HEADING },
+  { jump: 'an unverified metric, Linked, not checked (its section heading)', chip: <MetricSourceLink url={DOCUMENT_URL} verified={false} sectionRef={HEADING} />, registers: FIND, lands: HEADING },
+  // EvidenceChip withholds an unverified excerpt, so a Section linked quote jumps to its heading.
+  { jump: 'a Section linked quote (its section heading)', chip: <SourceTrace url={DOCUMENT_URL} verified={false} sectionRef={HEADING} excerpt={null} />, registers: FIND, lands: HEADING },
   // SummaryRisks: a row the server did not locate still carries its excerpt, unverified.
   { jump: 'a Risks excerpt the server did not locate', chip: <SourceTrace url={DOCUMENT_URL} verified={false} sectionRef="Filing excerpt" excerpt={RISK} />, registers: FIND, lands: RISK.slice(0, 40) },
   // A verified chip whose excerpt is too short to anchor falls back to the heading.

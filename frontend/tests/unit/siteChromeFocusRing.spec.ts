@@ -114,14 +114,13 @@ const RING_RESIDUE: Record<string, number> = {
   'features/filings/components/copilot/ReaderTable.tsx': 2, // brand-copilot (Markdown renderer props spreads)
   'features/filings/components/copilot/SecondaryPaneTabs.tsx': 1, // brand-copilot
   'features/fundamentals/components/FundamentalsTrendChart.tsx': 3, // the chart props spreads the scan cannot read; #1292 ringed its controls
-  'features/marketing/components/CatchCard.tsx': 1, // #1311 (brand-public-pages) left it, and no open PR edits the file; the next public-pages change rings it
   'features/marketing/components/HeroExample.tsx': 1, // #1311 ringed its links; the evidence chip's className is sourceTraceChipClass(), a recipe the scan does not read (brand-filing-page owns SourceTrace)
   'features/marketing/components/TraceToSourceDemo.tsx': 1, // #1311 (brand-public-pages) left it, and no open PR edits the file; the next public-pages change rings it
   'features/peers/components/PeerComparisonPanel.tsx': 2, // #1292 ringed its controls; the rest are chart props spreads the scan cannot read
   'features/summaries/components/FinancialMetricsTable.tsx': 2, // brand-filing-page
   'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
 }
-const RING_RESIDUE_MAX = { files: 22, stops: 75 }
+const RING_RESIDUE_MAX = { files: 21, stops: 74 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the

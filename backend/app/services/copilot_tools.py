@@ -496,7 +496,9 @@ def fact_to_citation(fact_dict: dict[str, Any]) -> dict[str, Any]:
         "fragment_url": None,
         # Machine-readable value + concept the chip vouches for (the excerpt only carries the
         # display rendering) — lets the eval harness re-verify value AND concept adjacency on
-        # the final answer without parsing formatted strings. The frontend ignores the extra keys.
+        # the final answer without parsing formatted strings. The frontend reads only whether
+        # ``concept`` is present: a quoted excerpt never carries it, so it alone lets a chip read
+        # "Matches filing" (frontend/features/filings/api/copilot-api.ts, parseCompletion).
         "value": float(value) if isinstance(value, (int, float)) else None,
         "value_kind": kind,
         "concept": concept,

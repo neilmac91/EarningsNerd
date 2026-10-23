@@ -289,7 +289,7 @@ describe('NarrativePane citation chips', () => {
     expect(note.closest('details')).toHaveAttribute('open')
     expect(note).toHaveFocus()
     expect(note).toHaveTextContent('A source check remains unresolved')
-    expect(screen.getByText('Sources · SEC XBRL values and calculated figures')).toBeInTheDocument()
+    expect(screen.getByText('Sources · filed and calculated figures')).toBeInTheDocument()
     rerender(<NarrativePane state={doneState()} />)
     expect(document.querySelector('[data-note-kind="review"]')).not.toBeInTheDocument()
     expect(document.querySelector('[data-note-kind="unknown"]')).toBeInTheDocument()

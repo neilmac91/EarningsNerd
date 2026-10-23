@@ -344,7 +344,7 @@ export default function FilingWorkspace({
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1 rounded-sm text-sm text-brand-strong underline decoration-brand-border underline-offset-4 transition-colors duration-fast hover:decoration-current focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:decoration-brand-border-dark dark:focus-visible:shadow-ring-brand-dark"
       >
-        Original on SEC EDGAR <ArrowSquareOutIcon className="h-3.5 w-3.5" aria-hidden="true" />
+        Original on SEC.gov <ArrowSquareOutIcon className="h-3.5 w-3.5" aria-hidden="true" />
       </a>
     </div>
   ) : null

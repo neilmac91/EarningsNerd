@@ -103,6 +103,21 @@ a stranger sees first.
   during 2025 compared to 2024 primarily due to higher net sales from advertising, the App Store
   and cloud services." These are the only sample figures the brand work may draw, until a
   refreshed snapshot is captured through the product.
+- Added on 2026-10-22, for the evidence row (the founder's review; `tasks/evidence-row-ux-plan-2026-10-22.md`):
+  the live example's own Financial Highlights rows, snapshotted from the API by
+  `frontend/scripts/snapshot-landing-example.mjs`, and the facts they and the receipt card cite, read
+  from the same 10-K and its inline XBRL. `EffectiveIncomeTaxRateContinuingOperations` 0.156 vs 0.241
+  (15.6% vs 24.1%); `WeightedAverageNumberOfDilutedSharesOutstanding` 15,004,697 vs 15,408,095
+  (thousands); total net sales printed as 416,161 (USD millions) in the Consolidated Statements of
+  Operations on page 29, for the year ended 2025-09-27 (FY2024 ended 2024-09-28); the State Aid
+  amount, $10.7 billion. The passages the rows cite are verbatim in Item 7: under Segment Operating
+  Performance, "Americas net sales increased during 2025 compared to 2024 primarily due to higher net
+  sales of iPhone and Services."; under Provision for Income Taxes, "The Company’s effective tax rate
+  for 2025 was lower compared to 2024 due to a $10.7 billion year-over-year decrease in the provision
+  for income taxes related to the State Aid Decision (refer to Note 7, “Income Taxes” in the Notes to
+  Consolidated Financial Statements in Part II, Item 8 of this Form 10-K) and the impact of changes in
+  unrecognized tax benefits, partially offset by a change in valuation allowance and a higher
+  effective tax rate on foreign earnings."
 - Prices are `PRICE_VARIANTS.control` $39 / $390 (`frontend/app/pricing/prices.ts`), with a $29 arm
   behind the `pricing-experiment` flag. The code is the price fact, and the brand work authors no
   price. Since the audit, main's #1009 set Pro at $25 a month or $240 a year.

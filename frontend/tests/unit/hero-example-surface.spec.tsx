@@ -90,16 +90,16 @@ describe('HeroExample', () => {
     expect(screen.queryByRole('link', { name: /Located in the filing/ })).toBeNull()
   })
 
-  it('claims an XBRL source only for the checked fallback; live figures send the reader to the filing', () => {
+  it('claims a filed-data source only for the checked fallback; live figures send the reader to the filing', () => {
     const { container, unmount } = render(<HeroExample example={LIVE} />)
-    const live = screen.getByRole('link', { name: 'Source filing\u00a0· check the figures on SEC EDGAR' })
+    const live = screen.getByRole('link', { name: 'Source filing\u00a0· check the figures on SEC.gov' })
     expect(live).toHaveAttribute('href', LIVE.secUrl)
     expect(container.querySelectorAll('dl [title]')).toHaveLength(0)
     expect(container.innerHTML).not.toMatch(/XBRL/)
     unmount()
 
     const fallback = render(<HeroExample example={null} />)
-    expect(screen.getByRole('link', { name: "Figures from the company's XBRL\u00a0· check them on SEC EDGAR" })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: "Figures from the company's filed data\u00a0· check them on SEC.gov" })).toHaveAttribute(
       'href',
       'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm',
     )
@@ -107,16 +107,16 @@ describe('HeroExample', () => {
     // alone is a receipt only a mouse can read.
     const terms = [...fallback.container.querySelectorAll('dl dt')].map((el) => el.textContent)
     expect(terms).toEqual([
-      'Revenue, XBRL concept us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
-      'Net income, XBRL concept us-gaap:NetIncomeLoss',
-      'Diluted EPS, XBRL concept us-gaap:EarningsPerShareDiluted',
+      'Revenue, filed tag us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+      'Net income, filed tag us-gaap:NetIncomeLoss',
+      'Diluted EPS, filed tag us-gaap:EarningsPerShareDiluted',
     ])
     for (const receipt of fallback.container.querySelectorAll('dl dt span')) expect(receipt).toHaveClass('sr-only')
   })
 
   it('rings the EDGAR link like every other Tab stop', () => {
     render(<HeroExample example={LIVE} />)
-    const edgar = screen.getByRole('link', { name: /on SEC EDGAR$/ })
+    const edgar = screen.getByRole('link', { name: /on SEC\.gov$/ })
     for (const cls of ['focus-visible:outline-none', 'focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark']) {
       expect(edgar.className.split(/\s+/)).toContain(cls)
     }
@@ -157,7 +157,7 @@ describe('the live hero source link', () => {
     const example = await fetchExampleData()
     expect(example?.ticker).toBe('MSFT')
     render(<HeroExample example={example} />)
-    expect(screen.getByRole('link', { name: /Source filing.*SEC EDGAR/ })).toHaveAttribute('href', document)
+    expect(screen.getByRole('link', { name: /Source filing.*SEC\.gov/ })).toHaveAttribute('href', document)
   })
 
   // One case proves the wiring: originalDocumentUrl.spec.ts holds the helper's matrix of unusable document URLs.

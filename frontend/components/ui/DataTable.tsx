@@ -70,6 +70,8 @@ export interface Column<T> {
   sortable?: boolean
   /** Render the body cell as a semantic row header. Opt-in; unrelated tables retain td cells. */
   rowHeader?: boolean
+  /** Extra classes for this column's header and body cells (an inset that sets prose apart from figures). */
+  className?: string
 }
 
 export interface SortState {
@@ -107,6 +109,9 @@ export interface DataTableProps<T> {
   scrollRegion?: { label: string; hint?: string; startAtEndOnMobile?: boolean }
   /** Equal data columns after the optional sticky label column snap to their full width. */
   snapColumns?: boolean
+  /** 'top': body cells align to the top, so a figure shares its row label's first line, and header cells to the
+   *  bottom, so one- and two-line labels sit on the rule together. Default 'middle' (the browser's). */
+  verticalAlign?: 'middle' | 'top'
   className?: string
 }
 
@@ -154,6 +159,7 @@ export function DataTable<T extends Record<string, unknown>>({
   cellPadding = 'standard',
   scrollRegion,
   snapColumns = false,
+  verticalAlign = 'middle',
   className,
 }: DataTableProps<T>) {
   const colSpan = columns.length
@@ -336,6 +342,8 @@ export function DataTable<T extends Record<string, unknown>>({
                     inset, 'font-semibold',
                     snapColumns && !isFirstCol && 'snap-start',
                     d.headerY,
+                    verticalAlign === 'top' && 'align-bottom',
+                    c.className,
                     c.align === 'right' && 'text-right',
                     stickyHeader && STICKY_TH,
                     isFirstCol && STICKY_COL_BASE,
@@ -442,7 +450,8 @@ export function DataTable<T extends Record<string, unknown>>({
                           inset,
                           c.rowHeader && cx('font-normal', c.align !== 'right' && 'text-left'),
                           snapColumns && !isFirstCol && 'snap-start',
-                          snapColumns && 'align-top',
+                          (snapColumns || verticalAlign === 'top') && 'align-top',
+                          c.className,
                           d.cellY,
                           rowBorder(i),
                           c.align === 'right' && 'text-right',

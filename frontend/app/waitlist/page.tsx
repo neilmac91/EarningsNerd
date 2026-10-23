@@ -30,7 +30,7 @@ export default function WaitlistPage() {
               The <FormCodeText text="10-K, read for you, " /><BrandEmphasis trailingPeriod>with receipts</BrandEmphasis>
             </h1>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark sm:mt-6">
-              <FormCodeText text="AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company’s XBRL where they can be, and quotes against the filing’s own text." />
+              <FormCodeText text="AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company’s filed data where they can be, and quotes against the filing’s own text." />
             </p>
 
             <div className="mt-6 flex justify-center lg:justify-start">
@@ -178,8 +178,8 @@ export default function WaitlistPage() {
               body: 'Up to nine parts from The Print to Notable Footnotes, in the same order, so the second filing reads faster than the first.',
             },
             {
-              title: 'Figures checked against XBRL',
-              body: 'Figures the server can check are matched to the company’s XBRL fact, or counted as unmatched.',
+              title: 'Figures checked against the filing',
+              body: 'Figures the server can check are matched to the company’s filed data, and replaced with the filed figure where they differ.',
             },
             {
               title: 'Risks in the filing’s own words',
@@ -187,7 +187,7 @@ export default function WaitlistPage() {
             },
             {
               title: 'The original, one click away',
-              body: 'Every summary links to the filing on SEC EDGAR, and each risk excerpt to its passage.',
+              body: 'Every summary links to the filing on SEC.gov, and each risk excerpt to its passage.',
             },
           ].map((item) => (
             <div

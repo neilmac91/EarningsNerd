@@ -38,7 +38,7 @@ import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 // the pipeline does, never a joke about money. Rotates while we work.
 const WHIMSY_MESSAGES = [
   'Reading the footnotes so you can go straight to the ones that matter…',
-  'Checking the figures against the company’s XBRL…',
+  'Checking the figures against the filing’s data…',
   'Finding where the filing says that…',
   'Reading the size-8 fine print…',
   'Reviewing the line called Other…',
@@ -54,9 +54,9 @@ const STAGE_ORDER = ['initializing', 'queued', 'fetching', 'parsing', 'analyzing
 // derived from the actual filing (no more hard-coded "10-Q"), and there is no
 // "vectorizing"/"semantic analysis" step because the summary path does no embedding.
 const buildLoadingSteps = (filingType: string) => [
-  { stage: 'fetching', label: `Fetching the ${filingType || 'filing'} from SEC EDGAR` },
+  { stage: 'fetching', label: `Fetching the ${filingType || 'filing'} from SEC.gov` },
   { stage: 'parsing', label: 'Reading the statements, risk factors and MD&A' },
-  { stage: 'analyzing', label: 'Checking figures against the company’s XBRL' },
+  { stage: 'analyzing', label: 'Checking figures against the filing’s data' },
   { stage: 'summarizing', label: 'Writing the summary' },
 ]
 

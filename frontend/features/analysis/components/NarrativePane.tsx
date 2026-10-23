@@ -118,7 +118,7 @@ export interface NarrativeState {
 }
 
 const SOURCE_BADGE_BASE =
-  'Sources identify SEC XBRL values or calculated figures (marked †).'
+  'Sources identify filed figures or calculated figures (marked †).'
 
 function sourceWarningText(
   unverified: number | null | undefined,
@@ -152,7 +152,7 @@ function CitationList({ citations, sample, notes }: { citations: AnalysisCitatio
       <div className="mb-2 text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
         {sample
           ? 'Sources · sample data (approximate figures)'
-          : 'Sources · SEC XBRL values and calculated figures'}
+          : 'Sources · filed and calculated figures'}
       </div>
       <ul className="space-y-1">
         {citations.map((citation) => (
@@ -261,7 +261,7 @@ export default function NarrativePane({
             </span>
           )}
           {state.status === 'done' && completion && !notEnoughData && sample && (
-            <Badge title="Illustrative sample with approximate figures. Run an analysis to see cited figures checked against SEC XBRL and source warnings shown for review.">
+            <Badge title="Illustrative sample with approximate figures. Run an analysis to see cited figures checked against the company’s filed data and source warnings shown for review.">
               Sample data
             </Badge>
           )}
@@ -359,8 +359,8 @@ export default function NarrativePane({
           {state.status === 'done' && completion && (
             <AiDisclaimer className="mt-3">
               {sample
-                ? 'Illustrative sample with approximate figures. Run an analysis to see cited figures checked against SEC XBRL and source warnings shown for review.'
-                : 'Source entries identify SEC XBRL values or computed figures. They do not verify every nearby narrative figure or conclusion. The analysis can be incomplete or wrong.'}
+                ? 'Illustrative sample with approximate figures. Run an analysis to see cited figures checked against the company’s filed data and source warnings shown for review.'
+                : 'Source entries identify filed figures or computed figures. They do not verify every nearby narrative figure or conclusion. The analysis can be incomplete or wrong.'}
             </AiDisclaimer>
           )}
         </>

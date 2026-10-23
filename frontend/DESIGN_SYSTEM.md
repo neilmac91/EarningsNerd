@@ -512,8 +512,8 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  Source evidence retains every original currency and value. The visible rounding note
                  directs readers to full-precision evidence; the dialog keeps the original value
                  and ordinary comparison display. Shared financial formatters remain unchanged.
-                 DataTable's layout, colWidths, compact cellPadding, named scrollRegion, snapColumns
-                 and Column.rowHeader options are opt-in; other consumers retain their geometry.
+                 DataTable's layout, colWidths, compact cellPadding, named scrollRegion, snapColumns,
+                 verticalAlign, Column.rowHeader and Column.className options are opt-in; other consumers retain their geometry.
 
 Analysis evidence <SourceValue> — the shared Modal presents financial display form, the supplied
                  value labelled “As stored” and human-readable units, then Checks, Method and recorded
@@ -1077,15 +1077,27 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  inside ONE wrapper so a parent's `space-y` hands neither a sibling margin; the inactive one is
                  display:none, so it adds no accessible content, Tab stop or id — never a JS media query, which
                  would SSR one layout and flip after hydration; no DataTable responsive API either, as a shared
-                 one is deferred work, so the switch stays local to this component).
+                 one is deferred work, so the switch stays local to this component). From md up the metric names
+                 are row headers (`rowHeader`), cells align to the top and headings to the bottom (DataTable
+                 `verticalAlign="top"`), each change glyph sits left of a figure box as wide as the column's
+                 longest change in `ch`, so the glyphs share an edge, and the takeaway column is inset
+                 (`pl-8`). `periods` names the figure columns ("FY2025" over "to Sep 27, 2025"), `changeNote`
+                 marks Change with a dagger the footer explains, and `caption` names the table and the list.
+                 `layoutBy="container"` moves the switch from the md viewport to the component's own width of
+                 52rem (a container query in rem on a `[container-type:inline-size]` wrapper), for a caller whose
+                 column stays narrow on a desktop screen: the landing's evidence row, whose content column is
+                 42rem at 1024px, where the table squeezed each takeaway to a 100px ribbon
+                 (tests/e2e/landing-highlights-alignment.spec.ts).
                  Both presentations render ONE set of field renderers (nameField / currentField / perAdsField /
                  priorField / changeField / takeawayField), each marking its element `data-metric-field`; with
                  `data-metrics-layout="cards|table"`, `data-metric-card`, `data-direction` and `data-tone` these
                  are the parity anchors the render spec, the Playwright spec and the critique harness count —
-                 keep them. A card: name + XBRL chip; a `<dl>` of Current / Prior / Change (visible short labels
+                 keep them. A card: name + figure chip; a `<dl>` of Current / Prior / Change (visible short labels
                  in the table's header eyebrow with an sr-only "period", so the three groups sit on one line at
-                 390px and AT hears the column names; the Prior and Change groups whenever the table has those
-                 columns, mirroring its cells exactly: a figure served empty or as the token alone is
+                 390px and AT hears the column names; the first two groups hold `min-w-[min(5rem,100%)]`, so the
+                 groups start at the same offsets in every card while they fit; the Prior and Change groups
+                 whenever the table has those columns, mirroring its cells exactly: a figure served empty or as
+                 the token alone is
                  MissingValue in the cell and in the definition alike; the change glyph inline-block and
                  aria-hidden, the string verbatim, MissingValue when the server sent none; tone from
                  `change_tone` through lib/financialTone.directionText + font-semibold for a move,
@@ -1115,13 +1127,15 @@ Filing identity  <FilingIdentity filing>  (features/filings, 2026-10 critique P-
                  data-face line: form (font-semibold ink) · period of report ("fiscal year ended Sep 24,
                  2022", from report_date — fiscal-year labels wait for XBRL dei fields; an 8-K's report
                  date is its event's, "event date Oct 27, 2022", and its crumb names the filed date) · filed date ·
-                 exchange · "Original on SEC EDGAR ↗" (sage ink, brand-hairline underline). Middots are
+                 exchange · "Original on SEC.gov ↗" (sage ink, brand-hairline underline). Middots are
                  aria-hidden with an sr-only comma. No form Badge, no "AI analysis" chip. Its `children` slot
                  takes the verification tally (VerificationTallyLine): scoped counts only — "6 of 6
-                 checkable figures matched the company's XBRL · 3 of 4 risk excerpts located in the filing
-                 text · 1 withheld"; the check glyph only when nothing was left unmatched. Checkable = the
-                 rows the server could check (`source_checkable`: a concept it maps, of at least $1M);
-                 per-share figures, ratios, margins and segment lines are never counted as misses.
+                 checkable figures match the filing · 1 corrected from the filing · 3 of 4 risk excerpts
+                 located in the filing text · 1 withheld"; the check glyph only when nothing was left
+                 unmatched. Checkable = the rows the server could check (`source_checkable`: a whole label
+                 it maps to a concept of at least $1M, its figure a number); corrected = the rows whose
+                 figure differed and the server replaced with the filed one (`source_replaced`); per-share
+                 figures, ratios, margins and segment lines are never counted as misses.
 
 Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page ground with no card: index + h2 (see
                  §3), body `space-y-4`, `space-y-11` between sections; the sticky TOC sits on the reading
@@ -1286,7 +1300,7 @@ Evidence rows    <SummaryRisks>  (P-03; a marked copy since D-044): one hairline
                  excerptHeadings, since the server withholds model titles), the excerpt and the provenance chip; a
                  lead line above and a data-face tally below ("3 of 4 excerpts located in the filing text · 1
                  withheld …"), both outside the margin. The brand device marks a row whose excerpt the server
-                 located (source_verified, the chip's "Verified in filing", D-028): an EnRef on its heading
+                 located (source_verified, the chip's "Quote found in filing", D-028): an EnRef on its heading
                  ([1], [2] … in reading order among the located rows, the chip's 12px, `aria-hidden` like its
                  twin, so the heading's name is its words alone and the chip carries the claim), the twin in
                  the margin MarkedCopy draws beside the list (components/ui, 2.25rem, 2.75rem from sm; the
@@ -1343,11 +1357,15 @@ Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12p
                  its 16px leading + 1px padding + 1px hairline (no fixed or min height, so a long label wraps
                  in a phone card), 16px radius (a pill on one line, a rounded box when wrapped), panel fill,
                  secondary ink, hover brightens. Glyph = what it cites: `quotes` for a filing passage, braces
-                 (`kind="xbrl"`, MetricSourceLink) for an XBRL figure, the arrow for "Cited". The chip the open
+                 (`kind="xbrl"`, MetricSourceLink) for a figure that "Matches filing", the arrow for "Linked, not
+                 checked" and "Section linked". The chip the open
                  pane's Filing view is answering is `selected`: brand tint + aria-current (the highlight
                  request's sourceId + the viewer context's paneOpen), whether the pane shows its passage or
-                 says why it cannot (text not in-app yet, passage not pinpointed). Labels and accessible names are unchanged
-                 ("Source: Verified in filing"). The recipe lives in `features/filings/lib/sourceTraceChip.ts`, outside the
+                 says why it cannot (text not in-app yet, passage not pinpointed). Labels come from one module,
+                 `features/filings/lib/evidenceLabels.ts` (product-wide: "Matches filing", "Linked, not checked",
+                 "Quote found in filing", "Section linked"); the accessible name is "Source: <label>", with
+                 " (opens in a new tab)" where the chip is itself the link, and the panel's link reads "Open
+                 the filing on SEC.gov" ("the passage" for a text-fragment URL). The recipe lives in `features/filings/lib/sourceTraceChip.ts`, outside the
                  'use client' SourceTrace, so a server component can call it (the homepage example does; gate:
                  `tests/unit/serverCallsClientExport.spec.ts`).
 
@@ -1411,7 +1429,7 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  neutral find highlight, `::highlight(copilot-find)` (FIND_HIGHLIGHT_CSS, in the same sheet):
                  the brand sage at 22% in the reader's own ink, no hairline, one rule for both themes, the
                  reader's paint before D-044, so the reader still sees where it landed: a summary chip's
-                 section heading (every metric chip, a verified XBRL figure's included, every Cited chip, and
+                 section heading (every metric chip, a matched figure's included, every "Section linked" chip, and
                  a verified chip whose excerpt is too short to anchor), an excerpt the server did not locate,
                  and the text an Ask XBRL fact's jump finds (a fact has no passage). One of the two is
                  registered at a time. The block's `.citation-flash` stays the attention pulse, which fades;
@@ -1433,8 +1451,8 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
                  verified, fragment_url } — `verified` drives source attribution: checked sources show
-                 “Source match found” with its scope (not whole-answer verification); unmatched sources
-                 stay “Cited”. XBRL source rows carry the braces glyph and their tag. The done answer
+                 “Matches filing” (a fact) or “Quote found in filing” (a passage) with its scope (not
+                 whole-answer verification); unmatched sources read “Linked, not checked” or “Section linked”. XBRL source rows carry the braces glyph and their tag. The done answer
                  counts “{n} matched source(s)” once. A plan gate (a spent free allowance, a Pro-only
                  403, the Pro fair-use 429) is the quiet answer card with role="status" and the server's
                  sentence, plus a lightning “Upgrade to Pro” except for the fair-use cap; the reading card
@@ -1700,7 +1718,7 @@ block; the highlight's places, HIGHLIGHT_PLACES, an equality of one shared `Bran
 names counts as a part, so a Source pane module that adds `en-marked` fails DEVICE_PLACES),
 highlightInDom.spec.ts (the reader's located paint is `.en-mark`'s look, never the marked block's bar,
 and its find paint never the device's, with planted paints) and sourcePanePaint.spec.tsx (a heading
-fallback, a Cited jump and an XBRL fact never register the device's highlight; a located excerpt does).
+fallback, a "Section linked" jump and an XBRL fact never register the device's highlight; a located excerpt does).
 
 ## 8. Theme mechanics
 

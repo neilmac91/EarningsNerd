@@ -72,7 +72,7 @@ export default function AskFilingDemo() {
                   <span className="font-data font-semibold text-brand-strong dark:text-brand-strong-dark">
                     [{String(citation.n).toUpperCase()}]
                   </span>
-                  <span className={EYEBROW}>{isFact ? 'XBRL figure' : 'Passage'}</span>
+                  <span className={EYEBROW}>{isFact ? 'Filed figure' : 'Passage'}</span>
                   {locator && (
                     <span className={isFact ? 'min-w-0 break-all font-data text-data-xs' : undefined}>{locator}</span>
                   )}
