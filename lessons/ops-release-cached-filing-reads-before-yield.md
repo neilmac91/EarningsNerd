@@ -140,7 +140,7 @@ statements, compiled for PostgreSQL: a lock that waits, then the check, with no 
 between them; `backend/tests/unit/test_filing_inserts_lock_across_companies.py` reads the insert lock
 after the check, the second read and the commit, runs the race in one thread, and holds every builder of
 a filing row under `app/` to the three writers. No PostgreSQL gate races two writers; E153's local run
-did, and E160 carries a CI case.
+did, and E161 carries a CI case.
 
 The refresh token's rotation was one more. It read its token, checked it live, minted a successor and
 marked the token rotated, so two refreshes with one cookie both minted, and a refresh racing a logout or

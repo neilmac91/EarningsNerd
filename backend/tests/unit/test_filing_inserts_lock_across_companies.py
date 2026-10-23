@@ -21,7 +21,7 @@ two companies could both find it missing, and the second insert failed the uniqu
 
 SQLite has no advisory locks, so the lock cases run on an engine whose dialect calls itself PostgreSQL, with a stand-in
 for ``pg_advisory_xact_lock``, and read the statements each writer's session runs, compiled for PostgreSQL. No CI step
-races two writers on PostgreSQL; the pull request's local run did, and E160 carries a CI case.
+races two writers on PostgreSQL; the pull request's local run did, and E161 carries a CI case.
 """
 import ast
 import asyncio
