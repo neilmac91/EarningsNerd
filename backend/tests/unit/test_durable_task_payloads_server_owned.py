@@ -25,10 +25,16 @@ no other parameter (one would carry caller input past the checked call sites). A
 site must be listed in ``EXEMPT`` with its reason, and a listed site that is gone fails. Growing any
 of these sets is a reviewed change to this file.
 
+The exempt ``queue_account_mail`` carries a caller's address (F60), so its callers are followed:
+``test_account_mail_is_queued_only_behind_the_two_routes_limits`` holds it to one helper in the auth
+router, the helper to the forgot-password and resend-verification routes, each after its per-IP and
+per-address limits, and the helper to the process-wide account-mail cap before its handoff.
+
 Known limits, review-checked: ``.id`` is accepted from any object, so a request model's ``.id``
 passes as a row's. Callers of the exempt ``enqueue_internal_job`` are not followed; today all 10
 routes that reach it carry ``Depends(_require_internal_token)``. An enqueuer looked up by a string
-(``getattr(module, "enqueue_task")``) is out of reach.
+(``getattr(module, "enqueue_task")``) is out of reach, as is a limit a route takes inside a branch
+of its own (the account-mail check counts only the route's own top-level calls).
 """
 import ast
 import builtins
@@ -53,9 +59,15 @@ EXEMPT = {
     ("services/account_mail_service.py", "queue_account_mail"): (
         "F60's account mail (the founder's option B): both branches of forgot-password and resend-verification "
         "queue it before any lookup, so it carries the address the request schema validated, with a fixed "
-        "two-mail vocabulary; the routes' per-IP and per-address limits bound how many a caller can queue"
+        "two-mail vocabulary; the routes' per-IP and per-address limits bound each caller and the process-wide "
+        "account-mail cap bounds them all (callers pinned by the account-mail test below)"
     ),
 }
+# The account mail's callers (F60): the one helper that may name the exempt enqueue, the routes that may call
+# that helper, and the limits each must take first.
+ACCOUNT_MAIL_HELPER = ("routers/auth.py", "_queue_account_mail")
+ACCOUNT_MAIL_ROUTES = {"forgot_password", "resend_verification"}
+ACCOUNT_MAIL_CAP = "ACCOUNT_MAIL_LIMITER"
 
 
 def _called_name(call: ast.Call) -> str | None:
@@ -304,3 +316,115 @@ def test_a_fixed_vocabulary_is_called_bare_with_no_arguments():
     assert _server_owned(expr("company_list_forms()"), None)
     assert not _server_owned(expr("forms.company_list_forms()"), None)
     assert not _server_owned(expr("company_list_forms(filing_types)"), None)
+
+
+def _named(node: ast.AST) -> str | None:
+    return node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
+
+
+def _top_level_calls(fn: ast.AST, name: str) -> list[int]:
+    """The indexes of ``fn``'s own statements that are a call of ``name``, awaited or not."""
+    calls = []
+    for index, statement in enumerate(fn.body):
+        value = statement.value if isinstance(statement, ast.Expr) else None
+        value = value.value if isinstance(value, ast.Await) else value
+        if isinstance(value, ast.Call) and _called_name(value) == name:
+            calls.append(index)
+    return calls
+
+
+def _account_mail_offenders(modules) -> list[str]:
+    """Why the account mail's callers break its exemption, given ``modules`` as (path, tree) pairs."""
+    enqueue, helper_rel, helper = "queue_account_mail", *ACCOUNT_MAIL_HELPER
+    offenders = []
+    for rel, tree in modules:
+        callees = {id(n.func) for n in ast.walk(tree) if isinstance(n, ast.Call)}
+        offenders += [f"{rel}:{n.lineno}: imports {enqueue}; reach it as account_mail_service.{enqueue} from "
+                      f"{helper} alone" for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)
+                      and any(a.name == enqueue for a in n.names)]
+        for node, scope in _scoped(tree):
+            name = _named(node)
+            if name not in (enqueue, helper) or not isinstance(getattr(node, "ctx", None), ast.Load):
+                continue
+            where = getattr(scope, "name", None)
+            if id(node) not in callees:
+                offenders.append(f"{rel}:{node.lineno}: {name} is used other than as a direct call")
+            elif name == enqueue and (rel, where) != ACCOUNT_MAIL_HELPER:
+                offenders.append(f"{rel}:{node.lineno} {where}: calls {enqueue}; only {helper} may")
+            elif name == helper and (rel != helper_rel or where not in ACCOUNT_MAIL_ROUTES):
+                offenders.append(f"{rel}:{node.lineno} {where}: calls {helper}; only {sorted(ACCOUNT_MAIL_ROUTES)} may")
+    defs = {(rel, fn.name): fn for rel, tree in modules for fn in ast.walk(tree)
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    for route in sorted(ACCOUNT_MAIL_ROUTES):
+        fn = defs.get((helper_rel, route))
+        handoffs = _top_level_calls(fn, helper) if fn else []
+        limits = _top_level_calls(fn, "enforce_rate_limit") if fn else []
+        if len(handoffs) != 1 or len([i for i in limits if i < handoffs[0]]) < 2:
+            offenders.append(f"{helper_rel} {route}: must call {helper} once, as its own statement, after its "
+                             "per-IP and per-address enforce_rate_limit calls")
+    body = defs[ACCOUNT_MAIL_HELPER].body if ACCOUNT_MAIL_HELPER in defs else []
+    caps = [i for i, statement in enumerate(body) if isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Call) and _called_name(statement.value) == "enforce_rate_limit"
+            and any(_named(a) == ACCOUNT_MAIL_CAP for a in statement.value.args)]
+    handoff = [i for i, statement in enumerate(body) if any(
+        isinstance(n, ast.Call) and _called_name(n) in (enqueue, "add_task") for n in ast.walk(statement))]
+    if not caps or not handoff or caps[0] > handoff[0]:
+        offenders.append(f"{helper_rel} {ACCOUNT_MAIL_HELPER[1]}: must take {ACCOUNT_MAIL_CAP} before its handoff")
+    return offenders
+
+
+def test_account_mail_is_queued_only_behind_the_two_routes_limits():
+    """The account mail's EXEMPT entry rests on its callers (F60): only the auth router's helper names the
+    enqueue, only forgot-password and resend-verification call the helper, each after its per-IP and
+    per-address limits, and the helper takes the process-wide cap before it hands the work off."""
+    assert _account_mail_offenders(list(_modules())) == []
+
+
+ROUTES_SRC = """
+async def _queue_account_mail(request, background, mail, email):
+    enforce_rate_limit(request, ACCOUNT_MAIL_LIMITER, "account-mail", error_detail="x", include_client_ip=False)
+    if settings.DURABLE_TASKS_ENABLED:
+        await account_mail_service.queue_account_mail(mail, email)
+    else:
+        background.add_task(account_mail_service.send_account_mail_after_response, mail, email)
+
+async def forgot_password(payload, request, background):
+    enforce_rate_limit(request, RESET_RESEND_IP_LIMITER, "reset-ip", error_detail="x")
+    enforce_rate_limit(request, RESET_REQUEST_LIMITER, "reset:e", error_detail="x", include_client_ip=False)
+    await _queue_account_mail(request, background, "password_reset", payload.email)
+
+async def resend_verification(payload, request, background):
+    enforce_rate_limit(request, RESET_RESEND_IP_LIMITER, "resend-ip", error_detail="x")
+    enforce_rate_limit(request, RESEND_VERIFY_LIMITER, "resend:e", error_detail="x", include_client_ip=False)
+    await _queue_account_mail(request, background, "verification", payload.email)
+"""
+
+
+def _appending(extra: str):
+    return lambda source: source + extra
+
+
+def _handing_off_before_the_per_address_limit(source: str) -> str:
+    lines = source.splitlines(keepends=True)
+    handoff = next(i for i, line in enumerate(lines) if '"password_reset", payload.email' in line)
+    lines.insert(handoff - 1, lines.pop(handoff))
+    return "".join(lines)
+
+
+def _dropping_the_cap(source: str) -> str:
+    return "".join(line for line in source.splitlines(keepends=True) if ACCOUNT_MAIL_CAP not in line)
+
+
+@pytest.mark.parametrize("change,offends", [
+    (lambda source: source, False),
+    (_appending("\nasync def register(request, background):\n"
+                "    await _queue_account_mail(request, background, 'verification', 'x')\n"), True),
+    (_handing_off_before_the_per_address_limit, True),
+    (_dropping_the_cap, True),
+    (_appending("\nasync def other():\n    await account_mail_service.queue_account_mail('verification', 'x')\n"), True),
+    (_appending("\nfrom app.services.account_mail_service import queue_account_mail\n"), True),
+    (_appending("\nqueue = _queue_account_mail\n"), True),
+], ids=["as-built", "third-caller", "handoff-before-limit", "no-cap", "other-enqueue-caller", "imported", "aliased"])
+def test_the_account_mail_check_flags_each_broken_premise(change, offends):
+    offenders = _account_mail_offenders([("routers/auth.py", ast.parse(change(ROUTES_SRC)))])
+    assert bool(offenders) is offends, offenders

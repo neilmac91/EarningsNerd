@@ -13,10 +13,12 @@ goes only to an account with a password, a verification only to an unverified ac
 
 A task body holds the address and the mail kind, nothing else (``durable_tasks.AccountMailTask``).
 Nothing here logs the address or a token: a failed send logs the exception's class alone, since a
-provider's error text can quote the request body and so the token-bearing link, and a failure before
-the send raises ``AccountMailNotSent``, whose message names only the failure's class, since a database
-error's text quotes its statement's parameters, the address among them. Registration's own
+provider's error text can quote the request body and so the token-bearing link, and a failure that
+sent nothing raises ``AccountMailNotSent``, whose message names only the failure's class, since a
+database error's text quotes its statement's parameters, the address among them. Registration's own
 verification mail, sent in its request, shares the send and its log line (``send_verification_link``).
+With durable tasks these lines are logged by the task worker, which reports to no Sentry (F50), so they
+surface in Cloud Logging only (``docs/OPERATIONS.md``, "Account mail (F60)").
 """
 from __future__ import annotations
 
@@ -31,6 +33,7 @@ from app.models import User
 from app.services import auth_account_service, email_service
 from app.services.durable_tasks import AccountMail, AccountMailTask, enqueue_task
 from app.services.request_work import run_owned_sync
+from app.services.resend_service import ResendRetryableError
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +44,8 @@ DEDUPE_SECONDS = 60
 
 
 class AccountMailNotSent(RuntimeError):
-    """The work before the send failed: nothing was sent, so a retried delivery cannot mail twice. The
+    """Nothing was sent: the work before the send failed, or the provider refused the send in a way its
+    client classes as sent nothing (``ResendRetryableError``). So a retried delivery cannot mail twice. The
     message names only the failure's class, and the original is not chained, so neither the worker's
     traceback nor a log line carries a database error's parameters, the address among them."""
 
@@ -96,9 +100,11 @@ def _issue_link(mail: AccountMail, email: str) -> _Link | None:
     return _Link(user_id=user_id, to_email=to_email, name=name, raw_token=raw_token)
 
 
-async def _send_link(mail: AccountMail, link: _Link) -> None:
+async def _send_link(mail: AccountMail, link: _Link, *, retry_unsent: bool = False) -> None:
     """Email the link once. A failure is logged with the exception's class alone and not raised: the
-    send was attempted, and a retry could mail twice."""
+    send was attempted, and a retry could mail twice. With ``retry_unsent`` (the task path), a failure
+    ``resend_service`` classes as retryable (no connection, a 429, a 5xx, a concurrent-request conflict,
+    or no API key) raises ``AccountMailNotSent`` instead, so Cloud Tasks delivers the mail again."""
     if mail == "password_reset":
         label, url = "Reset", f"{settings.FRONTEND_URL}/reset-password?token={link.raw_token}"
     else:
@@ -110,11 +116,21 @@ async def _send_link(mail: AccountMail, link: _Link) -> None:
             await email_service.send_verification_email(
                 to_email=link.to_email, name=link.name, verification_link=url,
             )
-    except Exception as exc:  # noqa: BLE001 - any outcome of an attempted send is final
-        # The class alone: a provider's error text can quote the request body, the token-bearing link
-        # in it. Only local development logs the link (log access is account takeover otherwise).
-        link_note = f"; link: {url}" if settings.ENVIRONMENT == "development" else ""
-        logger.error("%s email NOT sent to user id=%s: %s%s", label, link.user_id, exc.__class__.__name__, link_note)
+    except ResendRetryableError as exc:
+        if retry_unsent:
+            raise AccountMailNotSent(
+                f"{label} email not sent to user id={link.user_id}: {exc.__class__.__name__} (nothing sent)"
+            ) from None
+        _log_failed_send(label, link.user_id, exc, url)
+    except Exception as exc:  # noqa: BLE001 - any other outcome of an attempted send is final
+        _log_failed_send(label, link.user_id, exc, url)
+
+
+def _log_failed_send(label: str, user_id: int, exc: Exception, url: str) -> None:
+    """The class alone: a provider's error text can quote the request body, the token-bearing link in it.
+    Only local development logs the link (log access is account takeover otherwise)."""
+    link_note = f"; link: {url}" if settings.ENVIRONMENT == "development" else ""
+    logger.error("%s email NOT sent to user id=%s: %s%s", label, user_id, exc.__class__.__name__, link_note)
 
 
 async def send_account_mail(mail: AccountMail, email: str) -> None:
@@ -122,11 +138,14 @@ async def send_account_mail(mail: AccountMail, email: str) -> None:
     nothing for an address with no eligible account.
 
     Idempotence: Cloud Tasks delivers a task again only when the worker answers other than 2xx or runs
-    past its deadline, and this handler returns, so the worker answers 2xx, once it has attempted the
-    send, whatever the send's outcome: a failed send is logged and acknowledged, never retried, so no
-    retry follows a send. Only the work before the send raises (``AccountMailNotSent``), and its retry
-    sends once, since nothing was sent; a token issued before that failure replaced the account's
-    earlier one and was never mailed, and the retry's token replaces it in turn. The send is bounded far
+    past its deadline. This handler raises ``AccountMailNotSent``, so the worker answers 503, only when
+    nothing was sent: the work before the send failed, or the provider refused it in a way
+    ``resend_service`` classes as retryable (``ResendRetryableError``). The retry then sends once; a
+    token issued before that failure replaced the account's earlier one and was never mailed, and the
+    retry's token replaces it in turn. Any other failed send (rejected, or of unknown outcome) is logged
+    and acknowledged, never retried, so no retry follows a send that may have gone. One retryable class
+    can still have gone out: a 5xx after the provider queued the mail. Its retry then mails a second
+    link, and the second token replaces the first, so only the newer link works. The send is bounded far
     inside the worker's deadline (the Resend client's 10-second timeouts against
     ``TASKS_WORK_TIMEOUT_SECONDS``, at most 480), so the deadline cannot cut a send off into a retry.
     What remains is the transport's own at-least-once delivery: a worker lost between the send and its
@@ -143,19 +162,19 @@ async def send_account_mail(mail: AccountMail, email: str) -> None:
     except Exception as exc:
         raise AccountMailNotSent(f"Account mail ({mail}) not sent: {exc.__class__.__name__}") from None
     if link is not None:
-        await _send_link(mail, link)
+        await _send_link(mail, link, retry_unsent=True)
 
 
 async def run_account_mail_task(payload: dict) -> None:
-    """The worker's entry: validate the queued body at the worker boundary, then send. A failure before
-    the send propagates, so the worker answers 503 and Cloud Tasks delivers the task again."""
+    """The worker's entry: validate the queued body at the worker boundary, then send. A failure that sent
+    nothing propagates, so the worker answers 503 and Cloud Tasks delivers the task again."""
     task = AccountMailTask.model_validate(payload)
     await send_account_mail(task.mail, task.email)
 
 
 async def send_account_mail_after_response(mail: AccountMail, email: str) -> None:
     """The flag-off path: ``send_account_mail`` as a background task in the API process. Nothing delivers
-    it again, so a failure before the send is logged, its class alone, and dropped, as a failed send is."""
+    it again, so a failure that sent nothing is logged, its class alone, and dropped, as a failed send is."""
     try:
         await send_account_mail(mail, email)
     except AccountMailNotSent as exc:

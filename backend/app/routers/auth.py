@@ -68,6 +68,13 @@ RESEND_VERIFY_LIMITER = RateLimiter(limit=3, window_seconds=3600)   # 3/hr per e
 # single IP can't spray reset/verification mail to thousands of different addresses (Resend cost +
 # domain-reputation abuse). The per-email limiters stop bombing ONE victim; this stops fan-out.
 RESET_RESEND_IP_LIMITER = RateLimiter(limit=20, window_seconds=3600)  # 20/hr per IP, all emails
+# Third tier, one budget per process for the account mail both routes queue (F60): the two limits above
+# bound each caller, not all callers together, and an IPv6 block holds enough addresses to pass the per-IP
+# one at will. Every request that passes them queues a task on the shared one-at-a-time Cloud Tasks queue
+# (0.2 dispatches/s, about 720 an hour), so this caps account mail at 60 an hour per API instance, 120 at
+# the service's two, and a flood costs that hour's reset and verification mail instead of the whole queue.
+# The same 429 answers every address.
+ACCOUNT_MAIL_LIMITER = RateLimiter(limit=60, window_seconds=3600)
 # OAuth starts persist a state row (always for Apple, for an invited Google sign-up): bound the
 # unauthenticated writers per IP. Sized for a person retrying a sign-in, not a script.
 OAUTH_START_LIMITER = RateLimiter(limit=20, window_seconds=60)
@@ -456,16 +463,25 @@ async def get_current_user_optional(
 # account_mail_service mails the reset and verification links, and logs a failed send by the
 # exception's class alone (with the link in local development only).
 
-async def _queue_account_mail(background: BackgroundTasks, mail: AccountMail, email: str) -> None:
+async def _queue_account_mail(
+    request: Request, background: BackgroundTasks, mail: AccountMail, email: str,
+) -> None:
     """Hand an account mail to work after the response, the same way whatever the address holds.
 
     The request neither looks the account up, issues a token nor sends: those happen after the answer,
     in ``account_mail_service.send_account_mail``, which mails only an eligible account (F60). So an
     address with an account and one without take one path here, and the answer's timing no longer tells
-    them apart. With durable tasks the handoff is the ``account_mail`` task, and one Cloud Tasks does not
-    confirm raises ``TaskUnavailable``, which main.py answers 503 for any address; without, a background
-    task in this process, as the other after-response work does when the flag is off.
+    them apart. The caller has already taken its per-IP and per-address limits; this takes the
+    process-wide ``ACCOUNT_MAIL_LIMITER`` first. With durable tasks the handoff is the ``account_mail``
+    task, and one Cloud Tasks does not confirm raises ``TaskUnavailable``, which main.py answers 503 for
+    any address; without, a background task in this process, as the other after-response work does when
+    the flag is off. ``test_durable_task_payloads_server_owned.py`` pins who calls this and in what order.
     """
+    enforce_rate_limit(
+        request, ACCOUNT_MAIL_LIMITER, "account-mail",
+        error_detail="Too many requests right now. Try again later.",
+        include_client_ip=False,
+    )
     if settings.DURABLE_TASKS_ENABLED:
         await account_mail_service.queue_account_mail(mail, email)
     else:
@@ -487,7 +503,9 @@ async def _send_account_exists_email_safe(user: User) -> None:
             reset_link=f"{settings.FRONTEND_URL}/forgot-password",
         )
     except Exception as e:
-        logger.warning(f"Account-exists email not sent: {e.__class__.__name__}: {e}")
+        # The class alone, as the reset and verification mail log theirs: a provider's error text can
+        # quote the request, the recipient's address among it.
+        logger.warning("Account-exists email not sent: %s", e.__class__.__name__)
 
 
 async def _send_oauth_linked_email_safe(user: User, provider: str) -> None:
@@ -501,7 +519,7 @@ async def _send_oauth_linked_email_safe(user: User, provider: str) -> None:
         from app.services.email_service import send_oauth_linked_email
         await send_oauth_linked_email(to_email=user.email, name=user.full_name, provider=provider)
     except Exception as e:
-        logger.warning(f"OAuth-linked notification not sent: {e.__class__.__name__}: {e}")
+        logger.warning("OAuth-linked notification not sent: %s", e.__class__.__name__)
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────────
@@ -812,7 +830,8 @@ async def resend_verification(
     request: Request,
     background: BackgroundTasks,
 ):
-    """Resend the email verification link. Rate-limited to 3/hr per address + 20/hr per IP.
+    """Resend the email verification link. Rate-limited to 3/hr per address + 20/hr per IP, and
+    with forgot-password to 60/hr per process (``ACCOUNT_MAIL_LIMITER``).
 
     Opaque in body and timing: every request within the limits queues the same mail and gets the same
     answer; only an unverified account is mailed, after the response (``_queue_account_mail``)."""
@@ -827,7 +846,7 @@ async def resend_verification(
         error_detail="Too many resend requests. Try again later.",
         include_client_ip=False,
     )
-    await _queue_account_mail(background, "verification", payload.email)
+    await _queue_account_mail(request, background, "verification", payload.email)
     # Always return the same response (anti-enumeration)
     return {"message": "If that email has an unverified account, a new verification link is on its way."}
 
@@ -838,7 +857,8 @@ async def forgot_password(
     request: Request,
     background: BackgroundTasks,
 ):
-    """Request a password reset link. Rate-limited to 3/hr per email address + 20/hr per IP.
+    """Request a password reset link. Rate-limited to 3/hr per email address + 20/hr per IP, and
+    with resend-verification to 60/hr per process (``ACCOUNT_MAIL_LIMITER``).
 
     Opaque in body and timing: every request within the limits queues the same mail and gets the same
     answer; only an account with a password is mailed, after the response (``_queue_account_mail``)."""
@@ -853,7 +873,7 @@ async def forgot_password(
         error_detail="Too many reset requests. Try again later.",
         include_client_ip=False,
     )
-    await _queue_account_mail(background, "password_reset", payload.email)
+    await _queue_account_mail(request, background, "password_reset", payload.email)
     return {"message": "If an account exists for that email, a password reset link is on its way."}
 
 

@@ -12,9 +12,10 @@ transport faked, or the background task the route schedules), and byte-identical
 The handler's cases follow: an eligible account gets one token and one send, any other address nothing,
 and a task the queue delivers again cannot mail twice, driven through the real worker route as Cloud
 Tasks drives it (deliver until 2xx, at most five attempts, the queue's setting in docs/DEPLOYMENT.md): an
-attempted send answers 2xx whatever its outcome, and only a failure before the send answers 503 and is
-delivered again. A failed send logs the exception's class, never its message, which can quote the
-token-bearing request body; no log line carries the address.
+attempted send answers 2xx whatever its outcome, and only a failure that sent nothing (before the send,
+or a send the provider's client classes as retryable) answers 503 and is delivered again. A failed send
+logs the exception's class, never its message, which can quote the token-bearing request body; no log
+line carries the address. The process-wide account-mail cap answers every address alike once spent.
 """
 import base64
 import hashlib
@@ -29,18 +30,22 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 import pytest
-from fastapi import FastAPI
+from fastapi import BackgroundTasks, FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import event
+from pydantic import ValidationError
 from sqlalchemy.exc import OperationalError
 
 from main import app
 from app.config import settings
 from app.database import SessionLocal, engine
 from app.models import User
+from app.routers import auth as auth_module
 from app.routers import tasks as task_worker
 from app.services import account_mail_service, auth_account_service, background_task_runner
 from app.services import durable_tasks as transport
+from app.services.durable_tasks import AccountMailTask
+from app.services.rate_limiter import RateLimiter
 from app.services.resend_service import ResendAmbiguousError, ResendPermanentError, ResendRetryableError
 from tests.support.summary_stream_harness import reset_rate_limiters
 
@@ -215,16 +220,24 @@ def test_every_address_takes_one_path_in_the_request(
         scheduled.append((mail_kind, email))
 
     monkeypatch.setattr(account_mail_service, "send_account_mail_after_response", after_response)
+    handed: list = []  # what the route hands to run after its response, and with what
+    real_add_task = BackgroundTasks.add_task
+
+    def add_task(self, func, *args, **kwargs):
+        handed.append((func, args))
+        return real_add_task(self, func, *args, **kwargs)
+
+    monkeypatch.setattr(BackgroundTasks, "add_task", add_task)
 
     answers, handoffs = {}, {}
     for branch, address in addresses.items():
-        created, before = len(cloud_tasks.creates), len(scheduled)
+        created, before, handed_before = len(cloud_tasks.creates), len(scheduled), len(handed)
         with statements() as ran:
             answer = client.post(path, json={"email": address}, headers={"X-Correlation-ID": "f60-gate"})
         assert ran == [], f"{branch}: the request ran SQL, so it looked the account up or wrote to it: {ran}"
         answers[branch] = (answer.status_code, answer.headers.multi_items(), answer.content)
         if durable:
-            assert scheduled[before:] == []
+            assert scheduled[before:] == [] and handed[handed_before:] == []
             [task] = cloud_tasks.creates[created:]
             body = json.loads(base64.b64decode(task["httpRequest"]["body"]))
             assert body == {"kind": "account_mail", "payload": {"email": address, "mail": mail_kind}}
@@ -233,6 +246,8 @@ def test_every_address_takes_one_path_in_the_request(
         else:
             assert cloud_tasks.creates[created:] == []
             assert scheduled[before:] == [(mail_kind, address)]
+            # Handed to run after the response, not awaited in the request (where it would time the lookup).
+            assert handed[handed_before:] == [(after_response, (mail_kind, address))]
             handoffs[branch] = "send_account_mail_after_response"
 
     assert answers["eligible"][0] == 200 and json.loads(answers["eligible"][2]) == opaque
@@ -257,8 +272,8 @@ def test_what_the_route_queues_the_worker_mails_to_the_eligible_account_alone(
     addresses = [_address("eligible"), _address("ineligible"), _address("none")]
     _seed(addresses[0], **eligible)
     _seed(addresses[1], **ineligible)
-    for address in addresses:
-        assert client.post(path, json={"email": address}).status_code == 200
+    for address in addresses:  # in upper case: the schema's normalization is what the worker looks up
+        assert client.post(path, json={"email": address.upper()}).status_code == 200
     bodies = [json.loads(base64.b64decode(task["httpRequest"]["body"])) for task in cloud_tasks.creates]
     assert [body["kind"] for body in bodies] == ["account_mail"] * 3
 
@@ -272,8 +287,9 @@ def test_what_the_route_queues_the_worker_mails_to_the_eligible_account_alone(
 
 
 @pytest.mark.requires_db
-def test_one_address_queues_one_task_per_mail_and_window(client, cloud_tasks, mail):
-    """A double submit names the task already queued, so it queues no second mail; the other mail is its own."""
+def test_one_address_queues_one_task_per_mail_and_window(client, cloud_tasks, mail, monkeypatch):
+    """A double submit names the task already queued, so it queues no second mail; the other mail is its own,
+    and a request in the next window queues a new one (a name kept for good would drop every later ask)."""
     address = _address("twice")
     for path in ("/api/auth/forgot-password", "/api/auth/forgot-password", "/api/auth/resend-verification"):
         assert client.post(path, json={"email": address}).status_code == 200
@@ -282,6 +298,10 @@ def test_one_address_queues_one_task_per_mail_and_window(client, cloud_tasks, ma
         json.loads(base64.b64decode(task["httpRequest"]["body"]))["payload"]["mail"]
         for task in cloud_tasks.queue.values()
     ) == ["password_reset", "verification"]
+    monkeypatch.setattr(transport, "time", SimpleNamespace(
+        time=lambda: 1_800_000_000.0 + account_mail_service.DEDUPE_SECONDS, monotonic=time.monotonic))
+    assert client.post("/api/auth/forgot-password", json={"email": address}).status_code == 200
+    assert len(cloud_tasks.queue) == 3
 
 
 @pytest.mark.requires_db
@@ -300,6 +320,31 @@ def test_an_unconfirmed_handoff_answers_503_for_every_address(client, cloud_task
         answers[0].status_code, answers[0].headers.multi_items(), answers[0].content,
     )
     assert account_work == [] and mail.reset.await_count == 0
+
+
+@pytest.mark.requires_db
+def test_the_account_mail_cap_answers_every_address_alike_once_spent(client, cloud_tasks, monkeypatch, mail):
+    """Both routes draw on one process-wide budget (``ACCOUNT_MAIL_LIMITER``); once it is spent the answer is
+    the same 429 for an address with an account and one without, and nothing more is queued."""
+    monkeypatch.setattr(auth_module, "ACCOUNT_MAIL_LIMITER", RateLimiter(limit=2, window_seconds=3600))
+    eligible = _address("capeligible")
+    _seed(eligible, password=True, verified=False)
+    assert client.post("/api/auth/forgot-password", json={"email": _address("capa")}).status_code == 200
+    assert client.post("/api/auth/resend-verification", json={"email": _address("capb")}).status_code == 200
+    answers = [client.post("/api/auth/forgot-password", json={"email": email}) for email in (eligible, _address("capnone"))]
+    assert [answer.status_code for answer in answers] == [429, 429]
+    assert answers[0].json() == answers[1].json() == {"detail": "Too many requests right now. Try again later."}
+    assert len(cloud_tasks.creates) == 2
+
+
+@pytest.mark.requires_db
+def test_a_request_its_own_limits_refuse_spends_none_of_the_cap(client, cloud_tasks, monkeypatch, mail):
+    """The cap is taken after the per-address and per-IP limits, so requests those refuse leave it whole."""
+    monkeypatch.setattr(auth_module, "ACCOUNT_MAIL_LIMITER", RateLimiter(limit=4, window_seconds=3600))
+    address = _address("capself")
+    codes = [client.post("/api/auth/forgot-password", json={"email": address}).status_code for _ in range(4)]
+    assert codes == [200, 200, 200, 429]  # the fourth is the per-address limit's, 3 an hour
+    assert client.post("/api/auth/forgot-password", json={"email": _address("capother")}).status_code == 200
 
 
 # ── the handler ───────────────────────────────────────────────────────────────
@@ -347,13 +392,13 @@ async def test_an_address_with_no_eligible_account_gets_nothing(mail, account_wo
 @pytest.mark.requires_db
 @pytest.mark.parametrize("mail_kind", sorted(MAILS))
 @pytest.mark.parametrize("failure", [
-    ResendRetryableError("Resend API error (429)"),
     ResendAmbiguousError("Resend outcome unknown: ReadTimeout"),
     ResendPermanentError("Resend API error (422)"),
     RuntimeError("an unclassified failure"),
 ], ids=lambda failure: type(failure).__name__)
 def test_an_attempted_send_is_acknowledged_and_never_delivered_again(worker, mail, account_work, mail_kind, failure):
-    """Whatever the send's outcome, the worker answers 2xx, so Cloud Tasks never delivers the task again."""
+    """A send that may have gone, or that the provider rejected for good, is acknowledged: the worker answers
+    2xx, so Cloud Tasks never delivers the task again."""
     sender_name, _, _, issuer = MAILS[mail_kind]
     address = _address("attempted")
     _seed(address, password=True, verified=False)
@@ -391,6 +436,58 @@ def test_a_failure_before_the_send_is_delivered_again_and_mails_once(worker, mai
 
 
 @pytest.mark.requires_db
+@pytest.mark.parametrize("mail_kind", sorted(MAILS))
+def test_a_send_that_sent_nothing_is_delivered_again_and_mails_one_working_link(worker, mail, mail_kind, caplog):
+    """The provider refuses the send in a way its client classes as sent nothing (a 429, a 5xx, no connection,
+    no key): the worker answers 503, the queue delivers the task again, and the second delivery mails a new
+    link whose token replaced the first."""
+    sender_name, link_kwarg, column, _ = MAILS[mail_kind]
+    sender = getattr(mail, sender_name)
+    sender.side_effect = [ResendRetryableError("Resend API error (429): rate limited"), None]
+    address = _address("unsent")
+    _seed(address, password=True, verified=False)
+
+    with caplog.at_level(logging.INFO):
+        assert worker({"email": address, "mail": mail_kind}) == [503, 200]
+
+    assert sender.await_count == 2
+    first, second = (_token(call.kwargs[link_kwarg]) for call in sender.await_args_list)
+    assert first != second
+    assert getattr(_user(address), column) == hashlib.sha256(second.encode()).hexdigest()
+    assert "ResendRetryableError (nothing sent)" in caplog.text
+    assert address not in caplog.text and first not in caplog.text and "rate limited" not in caplog.text
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_off_the_queue_a_send_that_sent_nothing_is_logged_once_and_dropped(monkeypatch, caplog, mail):
+    """The flag-off path and registration's in-request send have nothing to deliver them again: the refusal is
+    logged by its class and the request goes on."""
+    mail.reset.side_effect = ResendRetryableError("Resend API error (503)")
+    address = _address("unsentoff")
+    user_id = _seed(address, password=True, verified=False)
+    with caplog.at_level(logging.INFO):
+        await account_mail_service.send_account_mail_after_response("password_reset", address)
+    assert [r.getMessage() for r in caplog.records if "not sent" in r.getMessage()] == [
+        f"Reset email not sent to user id={user_id}: ResendRetryableError (nothing sent)"]
+    assert mail.reset.await_count == 1 and address not in caplog.text
+
+
+@pytest.mark.requires_db
+def test_a_body_outside_the_task_schema_is_refused_at_the_worker_and_mails_nothing(worker, mail):
+    """The worker validates the queued body where it enters (rule 9): another mail kind or another key is refused
+    and nothing is looked up or sent; the refusal never quotes the address."""
+    address = _address("refused")
+    _seed(address, password=True, verified=False)
+    for payload in ({"email": address, "mail": "admin"}, {"email": address, "mail": "password_reset", "to": "x"}):
+        assert worker(payload) == [422] * 5
+    assert mail.reset.await_count == 0 and mail.verification.await_count == 0
+    with pytest.raises(ValidationError) as refused:
+        AccountMailTask.model_validate({"email": address, "mail": "admin"})
+    assert address not in str(refused.value)
+
+
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_the_flag_off_path_logs_a_failure_before_the_send_without_the_address(monkeypatch, caplog, mail):
     """In the API process nothing delivers the work again: the failure is logged, its class alone, and dropped."""
@@ -402,7 +499,8 @@ async def test_the_flag_off_path_logs_a_failure_before_the_send_without_the_addr
     monkeypatch.setattr(auth_account_service, "find_user_by_email", unreachable)
     with caplog.at_level(logging.INFO):
         await account_mail_service.send_account_mail_after_response("verification", address)
-    assert "Account mail (verification) not sent: OperationalError" in caplog.text
+    assert [r.getMessage() for r in caplog.records if "not sent" in r.getMessage()] == [
+        "Account mail (verification) not sent: OperationalError"]
     assert address not in caplog.text
     assert mail.verification.await_count == 0
 
@@ -459,3 +557,25 @@ def test_registrations_verification_send_logs_the_exception_class_not_its_messag
     [record] = _send_failure_records(caplog)
     assert record.getMessage() == f"Verification email NOT sent to user id={_user(address).id}: ResendPermanentError"
     assert "Resend API error" not in caplog.text and _token(link) not in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("helper, sender_name, args", [
+    ("_send_account_exists_email_safe", "send_account_exists_email", ()),
+    ("_send_oauth_linked_email_safe", "send_oauth_linked_email", ("google",)),
+])
+async def test_the_other_account_mails_log_the_exception_class_not_its_message(
+    monkeypatch, caplog, helper, sender_name, args,
+):
+    """The account-exists and OAuth-linked notices log a failed send as the links' mails do: a provider's text
+    can quote the request, the recipient's address among it."""
+    address = _address("notice")
+    monkeypatch.setattr(
+        f"app.services.email_service.{sender_name}",
+        AsyncMock(side_effect=ResendPermanentError(f"Resend API error (422): to {address}")),
+    )
+    with caplog.at_level(logging.INFO):
+        await getattr(auth_module, helper)(SimpleNamespace(email=address, full_name="Mail Test"), *args)
+    [record] = [r for r in caplog.records if "not sent" in r.getMessage()]
+    assert record.getMessage().endswith(": ResendPermanentError")
+    assert address not in caplog.text and "Resend API error" not in caplog.text

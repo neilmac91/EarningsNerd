@@ -42,8 +42,12 @@ identifier-only control messages to Cloud Tasks before claiming delivery. Forgot
 resend-verification queue every request's account mail (the address and which mail, the one task
 body that carries an address) and answer without looking the account up, so their timing no longer
 tells whether an address has an account (F60). The worker looks the account up, issues the token
-and sends, and answers 2xx once it has attempted the send, so no retry mails twice
-(`account_mail_service`); flag off, that work runs as a background task after the response. A private task-only
+and sends. It answers 503, so Cloud Tasks delivers the task again, only when nothing was sent; any
+other failed send is acknowledged, so no retry follows a send that may have gone, though the
+transport's at-least-once delivery can still mail twice, the newer token then replacing the older
+(`account_mail_service`). A process-wide cap (`ACCOUNT_MAIL_LIMITER`, 60 an hour per API instance)
+bounds what the two routes put on the shared queue; flag off, that work runs as a background task
+after the response. A private task-only
 Cloud Run service runs one delivery at a time. Its `task_worker_main:app` entrypoint verifies
 Google-signed OIDC audience and the dedicated service-account email; queue headers grant no access.
 It executes existing services in a fresh Python child, killing and reaping that process at 480

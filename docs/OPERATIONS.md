@@ -401,6 +401,30 @@ before it parks it). Give its filings back to selection as above. Otherwise a `r
 needs no action: the job retries it with backoff, re-keying it if the replay window closed.
 Historical `notification_log` rows are never replayed.
 
+### Account mail (F60)
+
+Forgot-password and resend-verification queue their mail, the `account_mail` task, on the shared
+`earningsnerd-background` queue whenever `DURABLE_TASKS_ENABLED` is on (production since
+2026-10-08), so the private task worker sends it, not the API.
+
+- **Where failures surface.** A failed send logs `Reset email NOT sent to user id=N: <class>` (or
+  `Verification email ...`) at ERROR and is not retried. A send that sent nothing (a 429, a 5xx, no
+  connection, no API key) logs `... email not sent to user id=N: <class> (nothing sent)`, and Cloud
+  Tasks delivers it again, up to the queue's five attempts. The worker reports to no Sentry (F50
+  (1)), so these lines reach Cloud Logging only: filter `earningsnerd-task-worker` for `email NOT
+  sent` and `(nothing sent)`. Registration's own verification mail is still sent from the API, whose
+  ERROR lines reach Sentry.
+- **The cap.** `ACCOUNT_MAIL_LIMITER` (`routers/auth.py`) admits 60 account mails an hour per API
+  instance across both routes, after each caller's per-IP (20 an hour per route) and per-address (3
+  an hour) limits. Past it every address gets the same 429 until the window turns, so a flood costs
+  that hour's reset and verification mail instead of backing the queue up.
+- **Latency.** A mail waits behind the task the worker is running (up to the 480 s work timeout) and
+  anything queued before it.
+- **Rollback.** CI updates the worker before the API, so a forward deploy is safe. A revert brings
+  back a worker whose `TaskEnvelope` has no `account_mail` kind: account mail still queued then fails
+  every attempt (422) and is lost, and its senders must ask again. Never pause or delete the queue
+  (`docs/DEPLOYMENT.md`).
+
 ### Monitoring Alerts (Suggested Thresholds)
 
 | Metric | Warning | Critical |
