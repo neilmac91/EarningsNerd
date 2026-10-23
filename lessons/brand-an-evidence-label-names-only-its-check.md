@@ -19,13 +19,17 @@ and a screen reader never heard the strike.
   (`frontend/features/filings/lib/evidenceLabels.ts`); an acronym appears only as a technical detail
   behind a plain word, and a link names SEC.gov, not EDGAR (`tests/unit/evidenceVocabulary.spec.ts`
   fails a retired label and a link that names EDGAR).
-- A label names what its link opens. A passage the server could not find reads "Section linked" only
-  when it names a section; with none, the link opens the filing, so it reads "Quote not found"
-  (`passageLabel`; `tests/unit/SourceTraceLabels.spec.tsx`).
-- Before a label says "matched", read its check: which concept it maps (whole labels only), which
-  periods it compares, whether it reads the scale. The label covers those and nothing more, and the
-  check's tests carry the wrong-scale, wrong-digit and wrong-concept cases (`TestFigureCheck` in
-  `backend/tests/unit/test_provenance_service.py`).
+- A label names what its link opens and a search that ran. A passage the server could not find reads
+  "Section linked" only when it names a section; with none, the link opens the filing, so it reads "Quote
+  not found" (`passageLabel`; `tests/unit/SourceTraceLabels.spec.tsx`). With no filing text to search, no
+  passage is cited at all (`test_cites_no_passage_without_filing_text_to_search`).
+- Before a label says "matched", read its check: which concept it maps (whole labels only, each label
+  the model is given mapped or listed with its reason: `TestLabelsTheModelIsGiven`), which periods it
+  compares, whether it reads the scale and the currency. The label covers every figure its row shows
+  and nothing more: a row whose shown prior has no comparable filed prior is not checked, and a
+  balance-sheet prior is read against the filing's own earlier dates, since a 10-Q compares its quarter
+  end with the fiscal year end. The check's tests carry the wrong-scale, wrong-digit, wrong-concept and
+  wrong-period cases (`TestFigureCheck` in `backend/tests/unit/test_provenance_service.py`).
 - Take a label's kind (a figure or a quote) only from a field the server sets and a model cannot write. A
   Copilot passage's section label is the model's own words and may start "XBRL ·", so "Matches filing"
   follows the fact payload the server sends (`fact`, admitted in `copilot-api.ts` parseCompletion), never
@@ -37,7 +41,8 @@ and a screen reader never heard the strike.
   come from (`_excerpt_section_ref`; `test_a_takeaway_passage_never_borrows_the_tables_section`).
 - Never strike through, grey out or label as wrong a figure the filing states; a sample figure is filed
   or calculated (`tests/unit/marketingNoStrikethrough.spec.ts`, which reads every module the landing
-  route reaches). A meaning that rides on styling alone must also reach a screen reader.
+  route reaches and every stylesheet they import). A meaning that rides on styling alone must also
+  reach a screen reader.
 
 **Evidence**: the founder's review and answers of 2026-10-22 (`docs/brand/decisions-log.md` D-058);
 the probe and reconciliation in the plan's §4.1; commit 3bee6a5 (the check and the filed-value swap).

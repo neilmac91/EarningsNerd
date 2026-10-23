@@ -8,7 +8,7 @@ the reasoning behind them. Fonts are the committed Inter variable and Geist Mono
 | File | Format · file size | Use | Where the real thing renders | Fonts |
 |---|---|---|---|---|
 | `social-post-1080x1350.html` | 1080 × 1350 px · 6.5 KB | Source of the social post: one verified figure, its source line, the margin with `[F1]` on the marker's line, the tagline with C5 emphasis | Nowhere yet; the 1200 × 630 sibling is `frontend/scripts/brand/og-template.html` (the og-image) | `@font-face`, relative: Inter variable, scoped Inter Claim italic 600, Geist Mono |
-| `social-post-1080x1350.png` | 1080 × 1350 px · 84.0 KB | The render to post (PNG, under the 400 KB cap) | n/a | rendered with the committed files |
+| `social-post-1080x1350.png` | 1080 × 1350 px · 85.1 KB | The render to post (PNG, under the 400 KB cap) | n/a | rendered with the committed files |
 | `business-card-front.svg` | 85 × 55 mm + 3 mm bleed (91 × 61 mm) · 4.7 KB | Card front: horizontal lockup top-left on cream, C5 emphasis around "shows its work", the address, fill-in name and role | Print only | Inter, Geist Mono by family name; scoped Inter Claim for browser proof (see Print) |
 | `business-card-back.svg` | 85 × 55 mm + 3 mm bleed (91 × 61 mm) · 3.0 KB | Card back: navy, stacked lockup in its dark colours centred, tagline beneath | Print only | Inter by family name |
 | `pdf-cover.html` | A4 portrait, 210 × 297 mm · 7.7 KB | Proposed cover: lockup, "Filing summary", filing identity, C5 headline, tally line with named fields | Standalone prototype, not included by the runtime PDF exporter. The existing `backend/app/services/pdf_branding.py` page-1 masthead has no promotional tagline | `@font-face`, relative: Inter variable, scoped Inter Claim italic 600, Geist Mono |
@@ -21,7 +21,7 @@ the reasoning behind them. Fonts are the committed Inter variable and Geist Mono
 Every figure in this folder is from Apple Inc.'s 10-K for FY2025 (accession 0000320193-25-000079,
 filed Oct 31, 2025), verified against SEC XBRL: total net sales $416,161M vs FY2024 $391,035M, +6.4%
 (`us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax`). Source line as printed:
-"{ } Revenue · SEC XBRL" with "Apple Inc. · 10-K · FY2025 · filed Oct 31, 2025". The PDF cover's
+"{ } Revenue · Matches filing" (the product's label since D-058; "SEC XBRL" before it) with "Apple Inc. · 10-K · FY2025 · filed Oct 31, 2025". The PDF cover's
 identity block shows the same filing; its tally counts are named fields (`{matched}`,
 `{checkable}`, `{located}`, `{excerpts}`) because no verified count exists to print, and the
 cover's comment says how the backend fills them.
@@ -104,7 +104,7 @@ true })`) and from WeasyPrint.
 
 Render the OG template alone at 1200 × 630 with device scale factor 2, wait for fonts, then resize
 the screenshot to 1200 × 630 with Sharp, matching the OG step in `generate-brand-assets.mjs`.
-The result is `frontend/public/og-image.png`, shared through `lib/socialCard.ts` at `?v=6`.
+The result is `frontend/public/og-image.png`, shared through `lib/socialCard.ts` at `?v=7`.
 Do not rerun the entire asset generator for a claim-only update: published mail-logo URLs are
 immutable. A local HTTP server may replace `file://` when browser policy blocks local files.
 

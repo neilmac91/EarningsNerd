@@ -121,8 +121,9 @@ const METRIC_MATCHERS: Array<{ label: string; pattern: RegExp }> = [
 // 30,600,000,000": backend/app/schemas/summary.py _format_xbrl_value, provenance_service._swap_in_filed_figures).
 const FILED_FIGURE = /^(\$|[A-Z]{3} )(-?)(\d{1,3}(?:,\d{3})+)$/
 
-/** A hero figure: one the server wrote whole is compacted as the table shows it, its currency kept ("$133.1B",
- *  "EUR 30.6B"); the summary's own figures ("$416.2B", "€32.7B") read as written. */
+/** A hero figure: one the server wrote whole is compacted, its currency kept: a dollar figure as the table shows it
+ *  ("$133.1B"), and one in another currency by its code ("EUR 30.6B"; the table shows that one whole). The summary's own
+ *  figures ("$416.2B", "€32.7B") read as written. */
 export const heroFigure = (value: string): string => {
   const match = FILED_FIGURE.exec(value.trim())
   if (!match) return value

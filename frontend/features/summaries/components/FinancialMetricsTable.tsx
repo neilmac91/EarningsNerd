@@ -26,7 +26,7 @@ export type FinancialMetric = {
   xbrl_concept?: string | null
   // The figure check (backend provenance_service.build_metric_source): each compared period's filed amount in
   // words, the summary's own text for a period the server replaced with the filed figure, and a takeaway withheld
-  // because it quoted a replaced figure.
+  // because it stated a figure written before the correction.
   source_filed?: FigureEvidence['filed']
   source_replaced?: FigureEvidence['replaced']
   commentary_withheld?: 'figure_replaced' | null
@@ -41,7 +41,7 @@ export type FinancialMetric = {
   commentary_evidence?: BlockEvidence | null
 }
 
-/** A figure column's heading: the period itself ("FY2025") over the date it ends ("to Sep 27, 2025"). */
+/** A figure column's heading: the period itself ("FY2025") over the date it ends ("ended Sep 27, 2025"). */
 export interface PeriodHeading {
   label: string
   detail?: string

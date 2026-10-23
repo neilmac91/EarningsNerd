@@ -402,7 +402,7 @@ class TestCsv:
 class TestFiledFigure:
     """The exports print what the summary page shows (provenance_service.export_raw_summary): a checked
     figure that differs from the filed one is replaced by it, its change is recomputed from the filed
-    pair, and a takeaway that stated the replaced figure is withheld."""
+    pair, and a takeaway that stated a figure is withheld, its cell saying so."""
 
     XBRL = {"reporting_currency": "USD", "operating_income": {
         "current": {"value": 133_050e6, "period": "2025-09-27", "period_start": "2024-09-29", "form": "10-K", "currency": "USD"},
@@ -437,6 +437,73 @@ class TestFiledFigure:
         assert "$133,050,000,000" in html and '<td class="num">+8.0%</td>' in html
         assert "$132,100M" not in html and "7.2%" not in html
         assert summary_sections.TAKEAWAY_WITHHELD in html
+
+    def test_the_page_route_serves_the_figures_the_exports_print(self, monkeypatch):
+        # The summary route reads the filing's own XBRL (routers/summaries.get_summary, standardized_xbrl) and
+        # enriches the stored summary with it, so the page's row is the CSV's row above: the filed figure, the
+        # change recomputed from the filed pair, and the withheld takeaway.
+        from fastapi.testclient import TestClient
+
+        from app.database import SessionLocal, engine
+        from app.models import Base, Filing, Summary
+        from app.services.edgar.compat import xbrl_service
+        from main import app
+        from tests.support.summary_stream_harness import seed_company_filing
+
+        Base.metadata.create_all(bind=engine)
+        own_xbrl = {"facts": "the filing's own"}
+        monkeypatch.setattr(xbrl_service, "extract_standardized_metrics",
+                            lambda data: self.XBRL if data == own_xbrl else pytest.fail("read XBRL the filing does not own"))
+        filing_id = seed_company_filing()
+        stored = {"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
+                  "commentary": "Operating income increased 7.2% YoY."}
+        with SessionLocal() as db:
+            db.get(Filing, filing_id).xbrl_data = own_xbrl
+            db.add(Summary(filing_id=filing_id, business_overview="# Summary\n\nStored analysis.",
+                           raw_summary={"sections": {"financial_highlights": {"table": [dict(stored)]}}}))
+            db.commit()
+
+        with TestClient(app) as client:
+            body = client.get(f"/api/summaries/filing/{filing_id}").json()
+
+        shown = ("current_period", "prior_period", "change_display", "commentary", "commentary_withheld")
+        expected = ("$133,050,000,000", "$123,216M", "+8.0%", "", "figure_replaced")
+        table_row = body["raw_summary"]["sections"]["financial_highlights"]["table"][0]
+        [rendered_row] = [block["metric_rows"][0] for section in body["rendered_sections"]
+                          for block in section["blocks"] if block["kind"] == "metrics"]
+        assert tuple(table_row[key] for key in shown) == expected
+        assert tuple(rendered_row[key] for key in shown) == expected
+        with SessionLocal() as db:
+            kept = db.query(Summary).filter(Summary.filing_id == filing_id).one().raw_summary
+        assert kept["sections"]["financial_highlights"]["table"][0] == stored
+
+    def test_the_exports_search_the_filing_for_no_citation(self, monkeypatch):
+        # The exports print no citation, so building their summary reads no filing text for a takeaway, a quote or a
+        # footnote (cite_passages=False); the page's enrichment does.
+        from app.services import provenance_service
+
+        searched = []
+        monkeypatch.setattr(provenance_service, "_select_source_text",
+                            lambda filing: searched.append(filing) or "Services drove the increase. Demand held.")
+        raw = {"schema_version": 2, "sections": {
+            "results_that_matter": {"table": [{"metric": "Gross margin", "current_period": "46.9%", "commentary": "Mix shifted.",
+                                               "supporting_evidence": "Services drove the increase."}]},
+            "forward_signals": {"quotes": [{"quote": "Demand held."}], "source_section_ref": "Item 7"},
+            "notable_footnotes": [{"title": "Leases", "supporting_evidence": "Demand held."}],
+        }}
+        summary, filing = _make_summary_and_filing(raw["sections"])
+        summary.raw_summary = raw
+
+        exported = provenance_service.export_raw_summary(summary, filing)["sections"]
+        assert searched == []
+        assert "commentary_evidence" not in exported["results_that_matter"]["table"][0]
+        assert "evidence" not in exported["forward_signals"]["quotes"][0]
+        assert "evidence" not in exported["notable_footnotes"][0]
+
+        page = provenance_service.enrich_raw_summary(raw, filing, summary_filing_id=summary.filing_id)["sections"]
+        assert searched == [filing]
+        assert page["results_that_matter"]["table"][0]["commentary_evidence"]["verified"] is True
+        assert "evidence" in page["forward_signals"]["quotes"][0] and "evidence" in page["notable_footnotes"][0]
 
     def test_the_withheld_words_are_the_pages(self):
         # One sentence on three surfaces: the page's cell (evidenceLabels.ts) and both exports.

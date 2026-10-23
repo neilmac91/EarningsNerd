@@ -38,8 +38,14 @@ const FundamentalsTrendChart = dynamic(
 // accusatory data-integrity verdict (it false-fired on every bank pre-fix). The full reason
 // list stays available in the badge tooltip.
 const GROUNDING_REASON = 'financial figures not grounded in SEC XBRL data'
-// A reason in the product's words (D-058, no acronym in a label): the comparison above keeps the server's string.
-const REASON_WORDS: Record<string, string> = { [GROUNDING_REASON]: 'some figures not matched to the filing' }
+const NO_GROUNDING_REASON = 'filing grounding unavailable: no usable excerpt or numeric XBRL data'
+// Each server reason in plain words for what its check covers (D-058, no acronym in a label), while the comparison
+// keeps the server's string (backend/app/services/summary_generation_service.py). The grounding check looks for the
+// filed revenue (a bank's components) and net income anywhere in the summary's text, so it says nothing was matched.
+const REASON_WORDS: Record<string, string> = {
+  [GROUNDING_REASON]: 'the filed revenue or net income is not stated in the summary',
+  [NO_GROUNDING_REASON]: 'the filing’s text and figures were unavailable to check against',
+}
 export const reasonWords = (reason: string): string => REASON_WORDS[reason] ?? reason
 export function partialBadgeLabel(reasons: string[] | undefined): string {
   if (reasons && reasons.length === 1 && reasons[0] === GROUNDING_REASON) {

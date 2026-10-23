@@ -75,6 +75,16 @@ describe('CopilotMessage citation chips', () => {
     render(<CopilotMessage message={doneMessage({ content: 'Revenue grew 6.4% [1].', citations: [growth], grounded: 1 })} />)
     expect(screen.getAllByText('Calculated from filing').length).toBeGreaterThan(0)
     expect(screen.queryByText('Matches filing')).not.toBeInTheDocument()
+    // Listed with its own label, never counted as a matched source.
+    expect(screen.queryByText(/^\d+ matched sources?$/)).not.toBeInTheDocument()
+  })
+
+  it('counts a calculated figure beside a filed one as one matched source, not two', () => {
+    const total: CopilotCitation = { n: 1, excerpt: 'Revenue = $416.16B USD (FY2025/FY)', section_ref: 'XBRL · us-gaap:Revenues',
+      verified: true, fragment_url: 'https://www.sec.gov/filing', fact: true }
+    const growth: CopilotCitation = { ...total, n: 2, excerpt: 'Revenue YoY growth = 6.4% (FY2025/FY)', fact: undefined, calculated: true }
+    render(<CopilotMessage message={doneMessage({ content: 'Revenue was $416.2B [1], up 6.4% [2].', citations: [total, growth], grounded: 2 })} />)
+    expect(screen.getByText('1 matched source')).toBeInTheDocument()
   })
 
   it('reads an unverified citation that names no section as "Quote not found", never "Section linked"', () => {

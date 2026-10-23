@@ -6,7 +6,8 @@ import LandingRow from '@/features/marketing/components/LandingRow'
  * with a figure, a risk excerpt, its own scope and its source. No invented statistics: the lead of
  * each pair is the subject, set in the data face, and the label is the behaviour the product
  * performs. Of a summary's quotes, only risk excerpts are withheld when the filing's text does not
- * match them; a Forward Signals quote stays on the page, labelled Section linked, while
+ * match them; a Forward Signals quote stays on the page, labelled Section linked (or Quote not found when it
+ * names no section), while
  * AI_FORWARD_QUOTE_GATE is off (brandCopyRules.spec.ts, rule 1c).
  */
 const CLAIMS = [

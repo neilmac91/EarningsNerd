@@ -88,8 +88,8 @@ export const SAMPLE_RECEIPT = {
 /** Ask this Filing demo: one answer as a live run returns it. Two XBRL figure chips in
  *  fact_to_citation's own format (backend/app/services/copilot_tools.py: total net sales, a fact the
  *  tool can fetch, and its year-over-year growth, which compute_metric derives from the same fact) and
- *  one passage chip. Each figure chip carries `fact`, as parseCompletion admits it for a citation that
- *  brings the fact's own payload. The server renumbers every marker in first-appearance order
+ *  one passage chip. The total carries `fact` and the growth `calculated`, as parseCompletion admits a citation
+ *  that brings the fact's own payload, with no `value_kind` and with compute_metric's, each. The server renumbers every marker in first-appearance order
  *  (copilot/resolution.py), so the answer carries [1] [2] [3], never [F1]. Figures: 416,161M vs
  *  391,035M (docs/brand/00-audit.md §4); tests/unit/landingSamplesVerified.spec.ts holds it. */
 export const SAMPLE_ASK = {

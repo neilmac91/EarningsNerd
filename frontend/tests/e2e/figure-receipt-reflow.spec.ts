@@ -105,26 +105,38 @@ function expectReadable({ steps, cardBox }: Awaited<ReturnType<typeof measure>>,
   expect(cardBox.scrolls, `${label}: the card scrolls sideways`).toBe(false)
 }
 
+/** Under a 200% root font the longest amount breaks, so the line checks above read a real break, not one line. */
+function expectBreaks({ steps }: Awaited<ReturnType<typeof measure>>, label: string) {
+  const longest = steps.find((step) => step.amount === '416,161,000,000 USD')!
+  expect(longest.lines.length, `${label}: ${longest.amount} paints on one line, so no break was read`).toBeGreaterThan(1)
+}
+
 for (const theme of ['light', 'dark'] as const) {
   test.describe(`the receipt card, ${theme} theme`, () => {
     test('at 390px each amount stays readable at the default size and under a 200% root font', async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 844 })
       await openLanding(page, theme)
       expectReadable(await measure(page, ''), '390px, default text')
-      expectReadable(await measure(page, '32px'), '390px, 200% text')
+      const doubled = await measure(page, '32px')
+      expectReadable(doubled, '390px, 200% text')
+      expectBreaks(doubled, '390px, 200% text')
     })
 
     test('in the desktop column under a 200% root font no amount collides with its words', async ({ page }) => {
       await page.setViewportSize({ width: 1280, height: 900 })
       await openLanding(page, theme)
       expectReadable(await measure(page, ''), '1280px, default text')
-      expectReadable(await measure(page, '32px'), '1280px, 200% text')
+      const doubled = await measure(page, '32px')
+      expectReadable(doubled, '1280px, 200% text')
+      expectBreaks(doubled, '1280px, 200% text')
     })
 
     test('at 320px under a 200% root font each amount stays inside the card', async ({ page }) => {
       await page.setViewportSize({ width: 320, height: 568 })
       await openLanding(page, theme)
-      expectReadable(await measure(page, '32px'), '320px, 200% text')
+      const doubled = await measure(page, '32px')
+      expectReadable(doubled, '320px, 200% text')
+      expectBreaks(doubled, '320px, 200% text')
     })
 
     test('nothing in the evidence row is struck through', async ({ page }) => {

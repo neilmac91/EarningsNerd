@@ -1082,7 +1082,7 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  panel, hands focus to the selected Filing tab rather than to <body> (a pointer's click leaves
                  focus to the pointer) (FilingWorkspace; a chip outside the pane keeps or never takes focus,
                  as the browser decides); SourceTrace alone has a sheet, which a coarse pointer opens instead,
-                 carrying "Show in filing" beside the EDGAR link. A chip that is itself the EDGAR anchor
+                 carrying "Show in filing" beside the SEC.gov link. A chip that is itself the SEC.gov link
                  (SourceTrace without a viewer, as on the landing demo) has no second stop, so Tab leaves it
                  as usual.
 
@@ -1341,7 +1341,7 @@ Company identity <CompanyIdentity company latest summaryReady actions>  (feature
                  Filing identity vocabulary reused on the company lead (IDENTITY_* classes, Sep, TickerPill
                  exported from FilingIdentity): breadcrumb Home / company, the h1 with logo and ticker pill,
                  one data-face line of facts the API returns (exchange · CIK as EDGAR prints it, ten digits ·
-                 "Company on SEC EDGAR ↗"; no market quote, the one figure there no filing sources, D-046,
+                 "Company on SEC.gov ↗"; no market quote, the one figure there no filing sources, D-046,
                  though the search option keeps its own), then "Latest filing" form · period · filed date · "summary
                  ready" (only when the summary probe found one the filing page will show: isSummaryReady, not
                  a placeholder or a stored failure). Its actions: the ONE primary action, opening the latest
@@ -1549,7 +1549,7 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
-                 verified, fragment_url, fact? } — `verified` drives source attribution, and `fact`, set
+                 verified, fragment_url, fact?, calculated? } — `verified` drives source attribution, and `fact`, set
                  at the network boundary only when the server sent the fact's own `concept`, makes it a
                  figure: checked sources show “Matches filing” (a fact), “Calculated from filing” (a
                  growth rate or margin the server computed, `calculated`, from `value_kind`) or “Quote found
@@ -1557,7 +1557,8 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  not checked”, “Section linked”, or “Quote not found” for a passage that names no
                  section (lib/evidenceLabels passageLabel). XBRL source rows carry the braces glyph and
                  their tag. The done answer
-                 counts “{n} matched source(s)” once. A plan gate (a spent free allowance, a Pro-only
+                 counts “{n} matched source(s)” once; a figure the server calculated is listed with its own
+                 label and not counted. A plan gate (a spent free allowance, a Pro-only
                  403, the Pro fair-use 429) is the quiet answer card with role="status" and the server's
                  sentence, plus a lightning “Upgrade to Pro” except for the fair-use cap; the reading card
                  is that status region already, so the sentence is announced when it lands. The error tint

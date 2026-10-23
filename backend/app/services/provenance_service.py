@@ -124,7 +124,24 @@ _SOURCE_EXTRA_KEYS = {
     "total stockholders' equity": "shareholders_equity",
     "long-term debt": "long_term_debt",
     "long term debt": "long_term_debt",
+    # The prompts' own label for the line (backend/prompts/*-structured-agent.md, ai/xbrl_narrative.py), and
+    # the whole labels eval-baseline output writes for these concepts (backend/evals/baseline outputs).
+    "cash & equivalents": "cash_and_equivalents",
+    "net operating revenue": "revenue",
+    "net operating revenues": "revenue",
+    "total net revenue": "revenue",
+    "total net revenues": "revenue",
+    "gross profit (loss)": "gross_profit",
+    "total gross profit": "gross_profit",
+    "operating income (loss)": "operating_income",
+    "operating income/(loss)": "operating_income",
 }
+# Balance-sheet lines are instants. A 10-Q's balance sheet sets the quarter-end beside the last fiscal
+# year-end, a period the same-quarter rule (``metric_delta_service.comparable_facts``) refuses, and the
+# standardized prior is only the series' next period (for equity, the previous quarter-end).
+_INSTANT_KEYS = frozenset({"total_assets", "cash_and_equivalents", "shareholders_equity", "long_term_debt"})
+# A bare "¥" names one of two currencies (``app.utils.numbers.display_currency``).
+_YEN_CURRENCIES = frozenset({"JPY", "CNY"})
 _NEVER_CHECKED_KEYS = frozenset({"eps_diluted", "net_margin", "gross_margin", "operating_margin"})
 _SOURCE_KEY_LABELS = {key: label for _pattern, key, label in _METRIC_XBRL_PATTERNS}
 _ROW_PERIOD_FACT = {"current_period": "current", "prior_period": "prior"}
@@ -320,11 +337,20 @@ def project_raw_summary_risks(
 
 
 def project_summary_risks(summary: Any, filing: Any) -> Optional[dict]:
-    """Project a Summary row, including source-backed legacy compatibility risks.
+    """Project a Summary row, including source-backed legacy compatibility risks."""
+    return project_raw_summary_risks(
+        _summary_raw_container(summary),
+        filing,
+        summary_filing_id=getattr(summary, "filing_id", None),
+    )
+
+
+def _summary_raw_container(summary: Any) -> Optional[dict]:
+    """A Summary row's raw summary, unprojected, with its legacy compatibility risks as a section.
 
     Historical rows may have ``risk_factors`` without structured ``raw_summary.sections``. Build
     only the minimal section container needed by the shared renderers, preserving any other raw
-    keys and adding no quality or completeness claim.
+    keys and adding no quality or completeness claim. The stored object is never modified.
     """
     raw_summary = getattr(summary, "raw_summary", None)
     has_sections = (
@@ -340,11 +366,7 @@ def project_summary_risks(summary: Any, filing: Any) -> Optional[dict]:
         raw_summary["schema_version"] = version
         risk_key = "risks" if version >= 2 else "risk_factors"
         raw_summary["sections"] = {risk_key: copy.deepcopy(compatibility_risks)}
-    return project_raw_summary_risks(
-        raw_summary,
-        filing,
-        summary_filing_id=getattr(summary, "filing_id", None),
-    )
+    return raw_summary
 
 
 def replace_business_overview_risks(
@@ -535,16 +557,73 @@ def _figure_text(text: Any) -> Any:
     return _PERIOD_SUFFIX_RE.sub("", text) if isinstance(text, str) else text
 
 
-def _shows_filed_value(text: Any, fact: dict) -> bool:
+def _shows_filed_value(text: Any, fact: dict, reporting_currency: Any = None) -> Optional[bool]:
     """Whether a displayed figure is the filed fact: at the display's own scale and last stated digit,
-    and in the fact's currency when the display names one. A symbol that names no single currency (a
-    bare "¥", JPY or CNY) is no evidence against the fact's, so only its number is compared: a correct
-    "¥93.6T" must not read as a figure to replace."""
+    and in the fact's currency (else the filing's reporting currency) when the display names one.
+
+    A bare "¥" names JPY or CNY, so it is compared by its number against either and is a mismatch
+    against any other. ``None`` when the filing's data names no currency and the display names one
+    other than the dollar, which the backend assumes then (``money_prefix_for``): such a figure can be
+    neither matched nor replaced.
+    """
     has_currency, shown_currency = display_currency(text)
-    currency = fact.get("currency")
-    if has_currency and shown_currency is not None and isinstance(currency, str) and shown_currency != currency.upper():
-        return False
+    raw = fact.get("currency") or reporting_currency
+    filed_currency = raw.strip().upper() if isinstance(raw, str) and raw.strip() else None
+    if has_currency:
+        if filed_currency is None:
+            if shown_currency != "USD":
+                return None
+        elif shown_currency is None:
+            if filed_currency not in _YEN_CURRENCIES:
+                return False
+        elif shown_currency != filed_currency:
+            return False
     return metric_delta_service.display_matches_value(text, fact["value"])
+
+
+def _shows_a_figure(text: Any) -> bool:
+    """Whether a period cell states a figure: a number, or text with a digit beyond a year, a quarter or a
+    filing reference ("$383.3B (FY2024)" does; "—" and "N/A (new in 2025)" do not)."""
+    if isinstance(text, bool) or text is None:
+        return False
+    if isinstance(text, (int, float)):
+        return True
+    return isinstance(text, str) and _states_a_figure(text)
+
+
+def _same_series_concept(current: dict, fact: dict) -> bool:
+    """Whether a series fact is the current fact's concept on an earlier date, where both name it."""
+    for field in ("currency", "raw_tag", "form"):
+        left, right = current.get(field), fact.get(field)
+        if left is not None and right is not None and left != right:
+            return False
+    period, earlier = current.get("period"), fact.get("period")
+    return isinstance(period, str) and isinstance(earlier, str) and earlier < period
+
+
+def _filed_prior(
+    entry: dict, key: str, current: dict, shown: str, reporting_currency: Any
+) -> tuple[Optional[dict], bool]:
+    """The filed fact a row's shown prior is checked against, and whether a mismatch may be replaced.
+
+    The comparable prior (``comparable_facts``) is checked as the current figure is. A balance-sheet
+    line's shown prior is otherwise read against the filing's own earlier instants of its concept: one
+    it states counts toward the match, and none leaves the row unchecked, since the summary may mean
+    another date, so nothing is replaced.
+    """
+    prior = _filed_fact(entry, "prior")
+    if prior is not None and metric_delta_service.comparable_facts(current, prior):
+        return prior, True
+    if key in _INSTANT_KEYS:
+        for fact in entry.get("series") or []:
+            if (
+                isinstance(fact, dict)
+                and _filed_fact({"fact": fact}, "fact") is not None
+                and _same_series_concept(current, fact)
+                and _shows_filed_value(shown, fact, reporting_currency) is True
+            ):
+                return fact, False
+    return None, False
 
 
 def _filed_amount(fact: dict, reporting_currency: Any) -> str:
@@ -567,13 +646,13 @@ def build_metric_source(
     a checkable row, ``source_filed``: each compared period's filed amount in words, for the evidence
     panel. ``source_checkable`` says the check could run at all: the row's whole label names a
     standardized concept (``source_metric_key``) whose filed value is at least
-    ``_MIN_VERIFIABLE_XBRL_VALUE``, its current figure is a number, and a prior figure it shows has a
-    comparable filed prior (``metric_delta_service.comparable_facts``). Per-share figures, ratios,
-    margins and segment lines are never checked, so a tally of matched figures counts its denominator
-    from these rows only. ``source_verified`` is True only when every figure the row shows matches at
-    its own scale and last stated digit (``metric_delta_service.display_matches_value``): "Matches
-    filing" covers the whole row, never the current period alone. A period that does not is named in
-    ``source_mismatched``, and ``enrich_financial_highlights`` swaps the filed figure in for it.
+    ``_MIN_VERIFIABLE_XBRL_VALUE``, its current figure is a displayed number in a currency the filing's
+    data can confirm, and a prior figure it shows can be checked too (``_filed_prior``). Per-share
+    figures, ratios, margins and segment lines are never checked, so a tally of matched figures counts
+    its denominator from these rows only. ``source_verified`` is True only when every figure the row
+    shows matches at its own scale and last stated digit (``metric_delta_service.display_matches_value``):
+    "Matches filing" covers the whole row, never the current period alone. A period that does not is
+    named in ``source_mismatched``, and ``enrich_financial_highlights`` swaps the filed figure in for it.
     """
     base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
     out: dict[str, Any] = {
@@ -591,24 +670,33 @@ def build_metric_source(
     if (
         current is None
         or abs(current["value"]) < _MIN_VERIFIABLE_XBRL_VALUE
+        # A stored number states no scale, so it is never read as a figure to check or to replace.
+        or not isinstance(shown["current_period"], str)
         or parse_display_number(shown["current_period"])[0] is None
     ):
         return out
 
-    prior = _filed_fact(entry, "prior")
-    shows_prior = parse_display_number(shown["prior_period"])[0] is not None
-    if shows_prior and not metric_delta_service.comparable_facts(current, prior):
-        # A prior the filing's data holds no comparable period for cannot be checked, so neither can the
-        # row: it reads "Linked, not checked" and stays out of the tally, never matched on one year.
+    reporting_currency = xbrl_standardized.get("reporting_currency")
+    compared = {"current_period": current}
+    filed = {"current_period": current}
+    if _shows_a_figure(shown["prior_period"]):
+        # A prior the row shows is checked too, or the row is not: it reads "Linked, not checked" and stays
+        # out of the tally, never matched on one year.
+        if not isinstance(shown["prior_period"], str) or parse_display_number(shown["prior_period"])[0] is None:
+            return out
+        prior, replaceable = _filed_prior(entry, key, current, shown["prior_period"], reporting_currency)
+        if prior is None:
+            return out
+        filed["prior_period"] = prior
+        if replaceable:
+            compared["prior_period"] = prior
+    shows = {field: _shows_filed_value(shown[field], fact, reporting_currency) for field, fact in compared.items()}
+    if any(result is None for result in shows.values()):
         return out
 
     out["source_checkable"] = True
-    compared = {"current_period": current}
-    if shows_prior:
-        compared["prior_period"] = prior
-    reporting_currency = xbrl_standardized.get("reporting_currency")
-    out["source_filed"] = {field: _filed_amount(fact, reporting_currency) for field, fact in compared.items()}
-    mismatched = [field for field, fact in compared.items() if not _shows_filed_value(shown[field], fact)]
+    out["source_filed"] = {field: _filed_amount(fact, reporting_currency) for field, fact in filed.items()}
+    mismatched = [field for field, result in shows.items() if not result]
     if mismatched:
         out["source_mismatched"] = mismatched
     else:
@@ -617,21 +705,34 @@ def build_metric_source(
     return out
 
 
-# Keys only enrichment writes on a metric row. A stored row is the model's JSON, so each is cleared
-# before the check writes its own: one carried over would drive a swap (or fail it) for a row the check
-# never compared, or put a filed amount the server never read in front of the reader.
-_CODE_OWNED_ROW_KEYS = ("source_mismatched", "source_filed", "source_replaced", "commentary_withheld")
+# Keys only enrichment writes on a metric row that it may not write again. A stored row is the model's
+# JSON, so each is cleared before the check writes its own: one carried over would drive a swap (or fail
+# it) for a row the check never compared, put a filed amount the server never read in front of the
+# reader, or show a takeaway's passage as found where no one searched for it. (The ``source_*`` result
+# keys and ``xbrl_concept`` are always rewritten; the change fields are the exact binder's.)
+_CODE_OWNED_ROW_KEYS = (
+    "source_mismatched", "source_filed", "source_replaced", "commentary_withheld", "commentary_evidence",
+)
 
-# Numbers a takeaway may name without stating a figure: years ("2025", "FY2025"), quarters ("Q3") and
-# the filing's own Items, Notes and Parts.
+# Numbers a takeaway or a period cell may name without stating a figure: years ("2025", "FY25", "the
+# 1990s"), quarters and halves ("Q4'25", "3Q", "1H25", "H1 2025"), dates ("Sept. 27, 2025"), form names
+# ("10-K", "20-F") and the filing's own Items, Notes and Parts ("Notes 3 and 4"). A number written as an
+# amount ("$2025 million", "2025 million") is not a year.
+_PERIOD_TAIL = r"(?:\s?['’]?\d{2}(?:\d{2})?)?"
 _NON_FIGURE_NUMBER_RE = re.compile(
-    r"\b(?:FY\s?)?(?:19|20)\d{2}\b|\bQ[1-4]\b|\b(?:Item|Note|Part)\s+\d+[A-C]?\b",
+    r"(?<![$€£¥\d.,])\b(?:FY|CY)\s?['’]?\d{2}(?:\d{2})?\b"
+    rf"|\b(?:Q[1-4]|[1-4]Q|H[12]|[12]H){_PERIOD_TAIL}\b"
+    r"|(?<![$€£¥\d.,])\b(?:19|20)\d{2}s?\b(?!\s*(?:thousand|million|billion|trillion|mn|bn|tn|[kmbt])\b)"
+    r"|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?\b"
+    r"|\b(?:10|20|40)-[KQF]\b|\b[68]-K\b|\bS-[14]\b"
+    r"|\b(?:Items?|Notes?|Parts?)\s+\d+[A-C]?(?:\s*(?:,|&|and|to|-|–)\s*\d+[A-C]?)*\b",
     re.IGNORECASE,
 )
 
 
 def _states_a_figure(text: str) -> bool:
-    """Whether a takeaway states a figure: a number other than a year, a quarter or a filing reference."""
+    """Whether text states a figure: a number other than a year, a quarter, a date or a filing reference.
+    Spelled-out numbers ("two thousand") are not read."""
     return re.search(r"\d", _NON_FIGURE_NUMBER_RE.sub(" ", text)) is not None
 
 
@@ -704,12 +805,17 @@ def _refresh_normalized(section: dict) -> None:
     for index, fact in enumerate(facts):
         row = swapped.get(fact.get("metric")) if isinstance(fact, dict) else None
         if row is not None:
+            # The model's other fields may be any JSON; the fact takes text only.
             facts[index] = json.loads(NormalizedFact(
                 metric=row["metric"],
-                current_period=_row_figure(row, "current_period"),
-                prior_period=_row_figure(row, "prior_period"),
-                commentary=row.get("commentary") or None,
+                current_period=_text_or_none(_row_figure(row, "current_period")),
+                prior_period=_text_or_none(_row_figure(row, "prior_period")),
+                commentary=_text_or_none(row.get("commentary")) or None,
             ).model_dump_json(by_alias=True))
+
+
+def _text_or_none(value: Any) -> Optional[str]:
+    return value if isinstance(value, str) else None
 
 
 def _base_url(filing: Any) -> str:
@@ -893,7 +999,9 @@ def enrich_financial_highlights(
             # renders one canonical string (ppts for margins) and does no client-side math (T1.5).
             if not row.get("change_display"):
                 row.update(metric_delta_service.row_delta_fields(row))
-            if normalized_source is not None:
+            # A passage is cited only where there was filing text to search: with none, "not found" would
+            # report a search that never ran (the Risks section says the text was unavailable instead).
+            if normalized_source:
                 excerpt = row.get("supporting_evidence") or row.get("supportingEvidence")
                 if isinstance(excerpt, str) and excerpt.strip():
                     row["commentary_evidence"] = build_evidence(
@@ -992,7 +1100,7 @@ def enrich_raw_summary(
             exact_delta_owned=exact_delta_owned,
         )
         result[metric_delta_service.EXACT_CONTEXT_KEY] = metric_delta_service.EXACT_CONTEXT_VERSION
-    if cite_passages and version >= 2:
+    if cite_passages and version >= 2 and normalized_source:
         # T4.1: generalize trace-to-source beyond risks/metrics to the other citable v2 surfaces.
         # Quotes verify verbatim (the quote is the excerpt); footnotes verify their supporting excerpt.
         base_url = _base_url(filing)
@@ -1004,13 +1112,13 @@ def enrich_raw_summary(
 def export_raw_summary(summary: Any, filing: Any) -> dict:
     """The raw summary the PDF and CSV exports render, so they print what the summary page shows.
 
-    Risks are projected as the page projects them (``project_summary_risks``), and the financial rows
-    are checked against the filing's own XBRL with the filed figure in place of one that differs and a
-    takeaway withheld as the page withholds it (``enrich_raw_summary``). The exports print no
-    citation, so no filing text is read for them (``cite_passages=False``).
+    Risks are projected once, from the filing's text, as the export always projected them; the
+    financial rows are checked against the filing's own XBRL with the filed figure in place of one that
+    differs and a takeaway withheld as the page withholds it (``enrich_raw_summary``). The exports print
+    no citation, so no takeaway, quote or footnote is searched for (``cite_passages=False``).
     """
     return enrich_raw_summary(
-        project_summary_risks(summary, filing),
+        _summary_raw_container(summary),
         filing,
         None,
         standardized_xbrl(filing),

@@ -177,7 +177,8 @@ the business card, the footer and the merch; it is the positioning in six words.
   `frontend/tests/unit/brandCopyRules.spec.ts` fails on "each figure" or "every figure" without
   the scope beside it, and on a promise of nine parts for every filing.
 - Of a summary's quotes, only risk excerpts are withheld when the filing's text does not match
-  them. A Forward Signals quote stays on the page, labelled Cited, while `AI_FORWARD_QUOTE_GATE`
+  them. A Forward Signals quote stays on the page, labelled Section linked (Quote not found when it names no
+  section), while `AI_FORWARD_QUOTE_GATE`
   is off (`backend/app/services/ai/forward_quote_gate.py`). So a public surface promises "located
   or withheld", or "the filing's own words", of risk excerpts only; the same spec fails on that
   promise made of quotes in general. Arming the gate is what would widen the claim.

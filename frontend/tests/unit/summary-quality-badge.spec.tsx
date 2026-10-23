@@ -23,8 +23,12 @@ describe('partialBadgeLabel', () => {
         'financial figures not grounded in SEC XBRL data',
         'only 3/9 sections populated',
       ]),
-    ).toBe('Partial · some figures not matched to the filing')
-    expect(reasonWords('financial figures not grounded in SEC XBRL data')).toBe('some figures not matched to the filing')
+    ).toBe('Partial · the filed revenue or net income is not stated in the summary')
+    // Each in words for what its check covers: the grounding check looks for the filed figures in the summary's text.
+    expect(reasonWords('financial figures not grounded in SEC XBRL data')).toBe('the filed revenue or net income is not stated in the summary')
+    expect(reasonWords('filing grounding unavailable: no usable excerpt or numeric XBRL data')).toBe(
+      'the filing’s text and figures were unavailable to check against',
+    )
     expect(reasonWords('only 3/9 sections populated')).toBe('only 3/9 sections populated')
   })
 

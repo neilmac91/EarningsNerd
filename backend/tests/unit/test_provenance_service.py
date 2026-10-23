@@ -1,6 +1,7 @@
 """Unit tests for Trace-to-Source provenance enrichment."""
 
 import copy
+from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import unquote
 
@@ -421,6 +422,81 @@ class TestFigureCheck:
         assert out["source_verified"] is False
         assert "source_filed" not in out and "source_mismatched" not in out
 
+    @pytest.mark.parametrize("prior", ["$383.3B (FY2024)", "~$383.3B", "$383.3B*", "383.3B USD", "FY24: $383.3B"])
+    def test_a_prior_that_states_a_figure_it_cannot_read_leaves_the_row_unchecked(self, prior):
+        # A prior written around its number is still shown: the row cannot match on its current year alone.
+        out = self._check("Total net sales", "$416.2B", prior)
+        assert out["source_checkable"] is False and out["source_verified"] is False
+
+    @pytest.mark.parametrize("prior", ["—", "n/a", "Not disclosed", "N/A (new in 2025)", "", None])
+    def test_a_prior_cell_without_a_figure_is_not_a_shown_prior(self, prior):
+        assert self._check("Total net sales", "$416.2B", prior)["source_verified"] is True
+
+    def test_a_stored_number_is_never_checked_or_replaced(self):
+        # A JSON number states no scale: a correct 416161000000 must not read as a figure to correct.
+        row = {"metric": "Total net sales", "current_period": 416_161_000_000, "prior_period": "$391.0B"}
+        out = prov.build_metric_source(row, _filing(), APPLE, None)
+        assert out["source_checkable"] is False and "source_mismatched" not in out
+
+    # A 10-Q's balance sheet sets the quarter-end beside the last fiscal year-end (Apple's Q3 FY25 10-Q). The
+    # standardized prior is the series' next period, which the same-quarter rule refuses (Q4 against Q3).
+    QUARTER = {"reporting_currency": "USD", "total_assets": {
+        "current": {"period": "2025-06-28", "value": 331_495e6, "form": "10-Q", "fiscal_period": "Q3", "currency": "USD"},
+        "prior": {"period": "2024-09-28", "value": 364_980e6, "form": "10-Q", "fiscal_period": "Q4", "currency": "USD"},
+        "series": [
+            {"period": "2025-06-28", "value": 331_495e6, "form": "10-Q", "fiscal_period": "Q3", "currency": "USD"},
+            {"period": "2025-03-29", "value": 331_233e6, "form": "10-Q", "fiscal_period": "Q2", "currency": "USD"},
+            {"period": "2024-09-28", "value": 364_980e6, "form": "10-Q", "fiscal_period": "Q4", "currency": "USD"},
+        ],
+    }}
+
+    def test_a_balance_sheet_prior_is_checked_against_the_filings_own_earlier_instants(self):
+        out = self._check("Total assets", "$331.5B", "$365.0B", self.QUARTER)
+        assert out["source_verified"] is True
+        assert out["source_filed"] == {"current_period": "$331,495 million", "prior_period": "$364,980 million"}
+
+    def test_a_wrong_quarter_end_is_still_replaced_beside_a_prior_the_filing_states(self):
+        out = self._check("Total assets", "$313.5B", "$365.0B", self.QUARTER)
+        assert out["source_mismatched"] == ["current_period"]
+
+    def test_a_balance_sheet_prior_the_filing_states_nowhere_leaves_the_row_unchecked(self):
+        # The summary may mean another date, so nothing is matched and nothing is replaced.
+        out = self._check("Total assets", "$313.5B", "$356.0B", self.QUARTER)
+        assert out["source_checkable"] is False and "source_mismatched" not in out
+
+    def test_a_durations_prior_is_never_read_from_the_series(self):
+        # Only instants: a P&L line's series mixes durations under one period end.
+        quarter = {**APPLE, "revenue": {
+            "current": {**APPLE["revenue"]["current"], "fiscal_period": "Q3"},
+            "prior": {**APPLE["revenue"]["prior"], "fiscal_period": "Q2"},
+            "series": [APPLE["revenue"]["current"], APPLE["revenue"]["prior"]]}}
+        assert self._check("Total net sales", "$416.2B", "$391.0B", quarter)["source_checkable"] is False
+
+    YEN = {"reporting_currency": "JPY", "revenue": {
+        "current": {**_annual(45_095_325e6, "2025-03-31", "2024-04-01"), "currency": "JPY"},
+        "prior": {**_annual(37_154_298e6, "2024-03-31", "2023-04-01"), "currency": "JPY"}}}
+
+    @pytest.mark.parametrize("filed, shown, verified, checkable", [
+        ("USD", "¥416.2B", False, True),  # a bare yen is not a dollar: replaced by the filed figure
+        ("EUR", "¥416.2B", False, True),
+        ("USD", "€416.2B", False, True),
+        (None, "€416.2B", False, False),  # the filing's data names no currency: neither matched nor replaced
+        (None, "¥416.2B", False, False),
+        (None, "$416.2B", True, True),  # the dollar the backend assumes then
+        (None, "416.2B", True, True),
+    ])
+    def test_a_display_is_checked_in_the_filings_currency(self, filed, shown, verified, checkable):
+        current = {**APPLE["revenue"]["current"], "currency": filed}
+        xbrl = {"revenue": {"current": current}, **({"reporting_currency": filed} if filed else {})}
+        out = self._check("Total net sales", shown, "—", xbrl)
+        assert (out["source_verified"], out["source_checkable"]) == (verified, checkable)
+
+    def test_the_reporting_currency_stands_in_for_a_fact_that_names_none(self):
+        # companyfacts facts carry no currency of their own.
+        xbrl = {"reporting_currency": "EUR", "revenue": {"current": {**APPLE["revenue"]["current"], "currency": None}}}
+        assert self._check("Total net sales", "€416.2B", "—", xbrl)["source_verified"] is True
+        assert self._check("Total net sales", "$416.2B", "—", xbrl)["source_mismatched"] == ["current_period"]
+
     def test_a_row_that_shows_no_prior_is_checked_on_its_current_year(self):
         out = self._check("Total net sales", "$416.2B", "—", {**APPLE, "revenue": {"current": APPLE["revenue"]["current"]}})
         assert out["source_verified"] is True
@@ -467,6 +543,10 @@ class TestFigureCheck:
         ("Shareholders’ equity", "shareholders_equity"), ("Stockholders' equity", "shareholders_equity"),
         ("Total shareholders' equity", "shareholders_equity"), ("Total stockholders’ equity", "shareholders_equity"),
         ("Long-term debt", "long_term_debt"), ("Long term debt", "long_term_debt"),
+        ("Cash & Equivalents", "cash_and_equivalents"),
+        ("Net Operating Revenues", "revenue"), ("Total net revenue", "revenue"), ("Total net revenues", "revenue"),
+        ("Gross profit (loss)", "gross_profit"), ("Total gross profit", "gross_profit"),
+        ("Operating income (loss)", "operating_income"), ("Operating income/(loss)", "operating_income"),
     ])
     def test_each_plain_alias_is_checked_against_its_own_concept(self, metric, key):
         assert prov.source_metric_key(metric) == key
@@ -505,6 +585,8 @@ class TestFiledFigureSwap:
         "Operating income increased 7.2% YoY.",
         "Operating income reached $132.1B in fiscal 2025.",
         "Up 8% on Q4 Services demand.",
+        "Operating income was $2025 million.",
+        "Operating income was 2025 million.",
     ])
     def test_a_takeaway_that_states_a_number_is_withheld(self, commentary):
         row = self._enrich({"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
@@ -519,6 +601,13 @@ class TestFiledFigureSwap:
         "Services grew faster in 2025 than in 2024.",
         "FY2025 operating income rose on stronger Q4 demand.",
         "Item 7 attributes the increase to Services; see Note 13.",
+        "FY25 operating income rose on Q4'25 demand.",
+        "The 1H25 and H1 2025 trend held in Q3 FY25.",
+        "The 10-K and the 20-F agree; see Notes 3 and 4.",
+        "Higher than at Sept. 27, 2025.",
+        "Higher than in the 1990s.",
+        "fy2025 operating income rose; see note 13 and item 7.",
+        "q4 demand lifted the 10-k's operating income.",
     ])
     def test_a_takeaway_that_names_no_figure_stays(self, commentary):
         # Years, quarters and the filing's own Items and Notes are not figures the swap replaced.
@@ -533,6 +622,8 @@ class TestFiledFigureSwap:
         "source_filed": {"current_period": "$999,999 million"},
         "source_replaced": {"current_period": "$1.0B"},
         "commentary_withheld": "figure_replaced",
+        "commentary_evidence": {"excerpt": "Sales reached $416.2B.", "section_ref": "Item 7", "verified": True,
+                                "fragment_url": "https://example.com/forged"},
     }
 
     @pytest.mark.parametrize("row, xbrl", [
@@ -550,7 +641,7 @@ class TestFiledFigureSwap:
         enriched = out["table"][0]
         assert enriched["current_period"] == row["current_period"]
         assert enriched["commentary"] == "Sales reached $416.2B."
-        for key in ("source_mismatched", "source_replaced", "commentary_withheld"):
+        for key in ("source_mismatched", "source_replaced", "commentary_withheld", "commentary_evidence"):
             assert key not in enriched
         assert enriched.get("source_filed") != self.FORGED["source_filed"]
         assert out["normalized"]["metrics"][0]["currentPeriod"] == row["current_period"]
@@ -578,6 +669,60 @@ class TestFiledFigureSwap:
         fact = out["normalized"]["metrics"][0]
         assert fact["currentPeriod"] == "$133,050,000,000"
         assert round(fact["deltaPercent"], 1) == 8.0
+
+
+class TestLabelsTheModelIsGiven:
+    """Every label the model is handed for a line the figure check covers is one the check reads (the backend review
+    of #1530: the prompts' own "Cash & Equivalents" went unchecked, though main had checked it). A label added to a
+    prompt or to the narrative's grounding block is either read by ``source_metric_key`` or named below with why."""
+
+    # Concepts the check covers that it deliberately leaves unchecked.
+    UNCHECKED = {"free_cash_flow": "computed, not filed", "capital_expenditures": "filers sign it either way"}
+    # Prompt labels no one filed concept answers.
+    UNMAPPED = {
+        "eps": "per-share figures are never checked",
+        "eps (diluted)": "per-share figures are never checked",
+        "eps / per-ads": "per-share figures are never checked",
+        "total debt": "the current portion plus long-term debt: no one filed concept",
+        "cash": "cash alone may exclude its equivalents",
+    }
+
+    def test_the_narratives_dollar_labels_map_to_their_own_concepts(self):
+        from app.services.ai.xbrl_narrative import _XBRL_NARRATIVE_SPEC
+
+        checked = set(prov._SOURCE_KEY_LABELS) - prov._NEVER_CHECKED_KEYS - set(self.UNCHECKED)
+        pairs = [(label, key) for label, key, kind in _XBRL_NARRATIVE_SPEC if kind == "usd" and key in checked]
+        assert len(pairs) >= 10, "the scan reads the grounding block"
+        assert [(label, prov.source_metric_key(label)) for label, _ in pairs] == pairs
+
+    def test_each_prompts_standard_metric_is_read_or_named(self):
+        prompts = sorted((Path(__file__).resolve().parents[2] / "prompts").glob("*.md"))
+        labels = set()
+        for prompt in prompts:
+            # A table's first row is its header; only a table headed "Metric" lists metrics.
+            metric_table, previous = False, ""
+            for line in prompt.read_text().splitlines():
+                if line.startswith("|"):
+                    first = line.strip("|").split("|")[0].replace("*", "").strip()
+                    if not previous.startswith("|"):
+                        metric_table = first == "Metric"
+                    elif metric_table and first and not set(first) <= set("-: "):
+                        labels.add(first)
+                previous = line
+        assert {"Revenue", "Cash & Equivalents", "Total Debt", "Cash"} <= labels, "the scan reads the prompts' metric tables"
+        unread = sorted(label for label in labels
+                        if prov.source_metric_key(label) is None and label.casefold() not in self.UNMAPPED)
+        assert unread == []
+
+
+class TestRefreshNormalized:
+    def test_a_swapped_row_with_non_text_fields_still_refreshes_its_fact(self):
+        # The model's other fields may be any JSON; the normalized fact takes text only.
+        fh = {"table": [{"metric": "Operating income", "current_period": "$132,100M", "prior_period": {"value": 1},
+                         "commentary": ["a", "list"]}],
+              "normalized": {"metrics": [{"metric": "Operating income", "currentPeriod": "$132,100M"}]}}
+        out = prov.enrich_financial_highlights(fh, _filing(), APPLE)
+        assert out["normalized"]["metrics"][0]["currentPeriod"] == "$133,050,000,000"
 
 
 class TestStandardizedXbrl:
@@ -801,11 +946,16 @@ class TestV2CitationEnrichment:
         # v1 path never touches forward_signals / footnote evidence (those are v2-only surfaces).
         assert "forward_signals" not in out["sections"]
 
-    def test_tolerates_missing_source_text(self):
-        # No cached filing text -> nothing verifies, but the passes must not crash and must degrade to
-        # section-level "Cited".
-        out = prov.enrich_raw_summary(self._raw(), _filing())
-        assert out["sections"]["forward_signals"]["quotes"][0]["evidence"]["verified"] is False
+    @pytest.mark.parametrize("cached", [None, "   "])
+    def test_cites_no_passage_without_filing_text_to_search(self, cached):
+        # No cached filing text: the passes must not crash, and no passage is cited at all, since a "Quote not
+        # found" or "Section linked" chip would report a search that never ran (the frontend review of #1530).
+        raw = self._raw()
+        raw["sections"]["results_that_matter"]["table"][0]["commentary_evidence"] = {"verified": True, "excerpt": "x"}
+        out = prov.enrich_raw_summary(raw, _filing(critical_excerpt=cached))
+        assert all("evidence" not in quote for quote in out["sections"]["forward_signals"]["quotes"])
+        assert all("evidence" not in footnote for footnote in out["sections"]["notable_footnotes"])
+        assert "commentary_evidence" not in out["sections"]["results_that_matter"]["table"][0]
 
     def test_quotes_and_footnotes_enriched_without_risks_or_metrics_table(self):
         # Guard regression: a v2 summary with ONLY quotes + footnotes (no risks list, no metrics table)

@@ -19,6 +19,14 @@ const replaced: FinancialMetric = {
   source_replaced: { current_period: '$132,100M' },
 }
 const unwritten: FinancialMetric = { metric: 'Net income', current_period: '$112.0B', prior_period: '$93.7B', commentary: '' }
+// The passage the withheld takeaway cited, as a row stored before the server cleared it would still carry: the cell
+// shows no chip for a takeaway it does not show.
+const citedPassage = {
+  excerpt: 'Operating income was $133.1 billion.',
+  section_ref: 'Item 7',
+  verified: true,
+  fragment_url: 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm#:~:text=Operating%20income',
+}
 
 const takeaways = (container: HTMLElement) =>
   [...container.querySelectorAll('[data-metric-field="takeaway"]')].map((field) => field.textContent?.trim())
@@ -36,14 +44,16 @@ describe('a replaced figure', () => {
 
 describe('a withheld takeaway', () => {
   it('says it was withheld in both layouts, and a row the summary wrote none for still reads "no takeaway"', () => {
-    const { container } = render(<FinancialMetricsTable metrics={[replaced, unwritten]} bare />)
+    const { container } = render(<FinancialMetricsTable metrics={[{ ...replaced, commentary_evidence: citedPassage }, unwritten]} bare />)
     const shown = takeaways(container)
     // Each row renders twice: its phone card and its table row (CSS shows one).
     expect(shown.filter((text) => text === TAKEAWAY_WITHHELD)).toHaveLength(2)
     expect(shown.filter((text) => text?.endsWith('no takeaway'))).toHaveLength(2)
-    for (const field of container.querySelectorAll('[data-metric-field="takeaway"]')) {
-      if (field.textContent?.trim() === TAKEAWAY_WITHHELD) expect(within(field as HTMLElement).queryByRole('link')).toBeNull()
-    }
+    const withheld = [...container.querySelectorAll<HTMLElement>('[data-metric-field="takeaway"]')].filter((field) =>
+      field.textContent?.includes(TAKEAWAY_WITHHELD),
+    )
+    expect(withheld).toHaveLength(2)
+    for (const field of withheld) expect(within(field).queryByRole('link')).toBeNull()
   })
 
   it('shows a takeaway the row still has, whatever the flag says', () => {

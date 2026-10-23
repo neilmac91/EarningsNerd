@@ -2171,7 +2171,7 @@ describe('brand rule 1c: the withholding promise names risk excerpts', () => {
   // Of a summary's quotes, only risk excerpts are withheld when the filing's text does not match:
   // the server projects a risk only from a whitespace-exact span and counts the rest
   // (backend/app/services/provenance_service.py). A Forward Signals quote stays on the page,
-  // labelled Cited, while AI_FORWARD_QUOTE_GATE is off (backend/app/services/ai/
+  // labelled Section linked or Quote not found, while AI_FORWARD_QUOTE_GATE is off (backend/app/services/ai/
   // forward_quote_gate.py). So a public surface may promise that risk excerpts are located or
   // withheld, or are the filing's own words, never that quotes in general are (the founder's
   // review of PR #1226). An object literal is read as one statement, so a claims row's subject
