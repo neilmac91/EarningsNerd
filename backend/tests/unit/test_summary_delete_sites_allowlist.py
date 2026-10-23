@@ -21,11 +21,11 @@ What counts, as (path from the repository root, enclosing function or ``<module>
   ``Filing.summaries`` relationship (any ``.summaries`` attribute) or the string ``"summaries"``. The
   forms: ``query(Summary ...)...delete()``, ``delete(Summary)`` (sqlalchemy's, under any import alias),
   ``Summary.__table__.delete()``, ``metadata.tables["summaries"].delete()``, ``session.delete(obj)``,
-  and ``q.delete()`` on a bare name. A name is followed to what it is bound to in the same function
-  (or at module level), directly or through a loop, ``with`` or comprehension over another name:
-  ``summary = db.query(Summary)...first()``, ``q = db.query(Summary)...``, ``M = models.Summary``,
-  ``T = Summary.__table__``, ``for s in filing.summaries``. An alias of a session's ``delete``
-  (``remove = db.delete``) is followed.
+  and ``q.delete()`` on a bare name. A name, or its ``.__table__``, is followed to what the name is bound
+  to in the same function or at module level (outside function and class bodies), directly or through
+  a loop, ``with`` or comprehension over another name: ``summary = db.query(Summary)...first()``,
+  ``q = db.query(Summary)...``, ``M = models.Summary`` (and ``M.__table__``), ``T = Summary.__table__``,
+  ``for s in filing.summaries``. An alias of a session's ``delete`` (``remove = db.delete``) is followed.
 * ``unresolved`` (Python, in a module that names ``Summary``, its table or ``.summaries``): a
   ``session.delete(obj)`` or a bare ``q.delete()`` whose target the scan cannot tie to a model (a
   parameter, an attribute, a helper's return value), and a ``.delete`` handed on uncalled
@@ -66,6 +66,7 @@ import ast
 import os
 import re
 from collections import Counter
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 import pytest
@@ -152,6 +153,37 @@ def _folded(node: ast.AST) -> str | None:
     return None
 
 
+def _bindings(nodes: Iterable[ast.AST]) -> dict[str, list[ast.AST]]:
+    """Each name bound among ``nodes`` -> what it is bound to (an assignment, a loop, a ``with``)."""
+    bindings: dict[str, list[ast.AST]] = {}
+    for inner in nodes:
+        if isinstance(inner, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+            targets = inner.targets if isinstance(inner, ast.Assign) else [inner.target]
+            for target in targets:
+                for leaf in ast.walk(target):
+                    if isinstance(leaf, ast.Name) and inner.value is not None:
+                        bindings.setdefault(leaf.id, []).append(inner.value)
+        elif isinstance(inner, (ast.For, ast.AsyncFor, ast.comprehension)):
+            for leaf in ast.walk(inner.target):
+                if isinstance(leaf, ast.Name):
+                    bindings.setdefault(leaf.id, []).append(inner.iter)
+        elif isinstance(inner, ast.withitem) and inner.optional_vars is not None:
+            for leaf in ast.walk(inner.optional_vars):
+                if isinstance(leaf, ast.Name):
+                    bindings.setdefault(leaf.id, []).append(inner.context_expr)
+    return bindings
+
+
+def _module_level(tree: ast.Module) -> Iterator[ast.AST]:
+    """Every node of a module outside its function and class bodies."""
+    todo: list[ast.AST] = [tree]
+    while todo:
+        node = todo.pop()
+        yield node
+        todo.extend(child for child in ast.iter_child_nodes(node)
+                    if not isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)))
+
+
 class _DeleteFinder(ast.NodeVisitor):
     def __init__(self, tree: ast.Module) -> None:
         self.sites: Counter[tuple[str, str]] = Counter()
@@ -179,24 +211,8 @@ class _DeleteFinder(ast.NodeVisitor):
         return ".".join(self._stack) or "<module>"
 
     def _visit_scope(self, node: ast.AST, name: str) -> None:
-        bindings: dict[str, list[ast.AST]] = {}
-        for inner in ast.walk(node):
-            if isinstance(inner, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
-                targets = inner.targets if isinstance(inner, ast.Assign) else [inner.target]
-                for target in targets:
-                    for leaf in ast.walk(target):
-                        if isinstance(leaf, ast.Name) and inner.value is not None:
-                            bindings.setdefault(leaf.id, []).append(inner.value)
-            elif isinstance(inner, (ast.For, ast.AsyncFor, ast.comprehension)):
-                for leaf in ast.walk(inner.target):
-                    if isinstance(leaf, ast.Name):
-                        bindings.setdefault(leaf.id, []).append(inner.iter)
-            elif isinstance(inner, ast.withitem) and inner.optional_vars is not None:
-                for leaf in ast.walk(inner.optional_vars):
-                    if isinstance(leaf, ast.Name):
-                        bindings.setdefault(leaf.id, []).append(inner.context_expr)
         self._stack.append(name)
-        self._bindings.append(bindings)
+        self._bindings.append(_bindings(ast.walk(node)))
         self.generic_visit(node)
         self._bindings.pop()
         self._stack.pop()
@@ -210,13 +226,7 @@ class _DeleteFinder(ast.NodeVisitor):
         self._visit_scope(node, node.name)
 
     def visit_Module(self, node: ast.Module) -> None:
-        bindings: dict[str, list[ast.AST]] = {}
-        for stmt in node.body:
-            if isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
-                    if isinstance(target, ast.Name):
-                        bindings.setdefault(target.id, []).append(stmt.value)
-        self._bindings = [bindings]
+        self._bindings = [_bindings(_module_level(node))]
         self.generic_visit(node)
 
     # --- what a node names ---------------------------------------------------------------------
@@ -233,6 +243,8 @@ class _DeleteFinder(ast.NodeVisitor):
         """``summary``, ``other`` (a query, lookup or row of another model) or ``unknown``."""
         if self._names_model(node):
             return "summary"
+        if isinstance(node, ast.Attribute) and node.attr == "__table__":  # M.__table__ is M's table
+            return self._target(node.value, seen)
         if isinstance(node, ast.Name):
             if node.id in seen:
                 return "unknown"
@@ -289,7 +301,7 @@ class _DeleteFinder(ast.NodeVisitor):
             if query is not None:  # query(<entities>)...delete(): the entities decide
                 if any(self._target(arg) == "summary" for arg in query.args):
                     self.sites[(self._scope(), "delete")] += 1
-            elif self._names_model(func.value):  # Summary.__table__.delete()
+            elif self._target(func.value) == "summary":  # Summary.__table__.delete(), M.__table__.delete()
                 self.sites[(self._scope(), "delete")] += 1
             elif not node.args and isinstance(func.value, ast.Name):  # q = db.query(...); q.delete()
                 self._count(self._target(func.value))
@@ -403,6 +415,12 @@ from app.models import Summary as S, SummaryGenerationProgress, SavedSummary
 import sqlalchemy as sa
 
 ModuleAlias = S
+AnnotatedAlias: type = S
+TupleAlias, Unrelated = S, None
+try:
+    GuardedAlias = models.Summary
+except ImportError:
+    GuardedAlias = None
 
 def query_delete(db, fid):
     db.query(S).filter(S.filing_id == fid).delete()
@@ -420,8 +438,25 @@ def core_delete_module_alias(db):
     db.execute(delete(ModuleAlias))
     db.execute(sa_delete(ModuleAlias))
 
+def core_delete_module_bindings(db):
+    db.execute(delete(AnnotatedAlias))
+    db.execute(sa_delete(TupleAlias))
+    db.execute(delete(GuardedAlias))
+
 def table_delete(db):
     db.execute(models.Summary.__table__.delete())
+
+def table_delete_local_alias(db):
+    M = models.Summary
+    db.execute(M.__table__.delete())
+    db.execute(delete(M.__table__))
+    db.execute(sa_delete(M.__table__))
+    db.execute(sa.delete(M.__table__))
+
+def table_delete_module_alias(db):
+    db.execute(ModuleAlias.__table__.delete())
+    db.execute(delete(ModuleAlias.__table__))
+    db.execute(sa_delete(ModuleAlias.__table__))
 
 def instance_delete(db, fid):
     summary = db.query(S).filter(S.filing_id == fid).first()
@@ -470,6 +505,11 @@ def look_alikes(db, fid):
     pending = db.query(SummaryGenerationProgress).filter(SummaryGenerationProgress.filing_id == fid)
     pending.delete()
     db.query(SavedSummary).filter(SavedSummary.user_id == 1).delete()
+    db.execute(sa_delete(SummaryGenerationProgress))
+    P = SummaryGenerationProgress
+    db.execute(delete(P))
+    db.execute(delete(P.__table__))
+    db.execute(P.__table__.delete())
     db.execute(text("DELETE FROM saved_summaries WHERE id = 1"))
     note = "a delete would orphan the bookmark"
 
@@ -485,7 +525,10 @@ def test_the_scan_scores_every_planted_form():
         ("core_delete", "delete"): 2,
         ("core_delete_local_alias", "delete"): 2,
         ("core_delete_module_alias", "delete"): 2,
+        ("core_delete_module_bindings", "delete"): 3,
         ("table_delete", "delete"): 1,
+        ("table_delete_local_alias", "delete"): 4,
+        ("table_delete_module_alias", "delete"): 3,
         ("instance_delete", "delete"): 1,
         ("loop_delete", "delete"): 1,
         ("aliased_delete", "delete"): 1,
