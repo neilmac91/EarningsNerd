@@ -140,8 +140,11 @@ statements, compiled for PostgreSQL: a lock that waits, then the check, with no 
 between them; `backend/tests/unit/test_filing_inserts_lock_across_companies.py` reads the insert lock
 after the check, the second read and the commit, runs the race in one thread, and holds every builder of
 a filing row under `app/` to the three writers. On PostgreSQL,
-`backend/tests/integration/test_filing_insert_transactions.py` races two companies' writers of one
-filing, each held after its check, beside a control without the lock whose second writer fails its batch
+`backend/tests/integration/test_filing_insert_transactions.py` races two companies' writers of shared
+filings, each held after its check: the scan's against the scan's, the live listing's against the scan's,
+and a backfill-sized scan against a one-row one. Each race runs with either writer holding the insert
+lock, kept there until PostgreSQL shows the other waiting for it, beside a control without the lock whose
+second writer fails its batch. `precompute_one`'s writer is raced only by the one-thread case above
 (E161).
 
 The refresh token's rotation was one more. It read its token, checked it live, minted a successor and
