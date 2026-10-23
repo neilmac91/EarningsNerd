@@ -22,6 +22,11 @@
    the full width. The title breaks a long word, as the description does. No
    container query: a container-type collapses a Notice wherever a parent
    sizes it to its content. Gate: tests/e2e/reflow-200.spec.ts.
+
+   A Notice owns its alignment: its root sets text-left, so inside a column
+   that centres its text (the waitlist page below lg) its title and
+   description stay at the start with the glyph and the action row (E120;
+   gate: tests/unit/waitlistSuccessCard.spec.tsx, through the waitlist form).
 ============================================================================= */
 
 import { type ReactNode } from 'react'
@@ -96,7 +101,7 @@ export function Notice({ variant = 'info', icon, title, description, action, cla
   return (
     <div
       role={variant === 'error' ? 'alert' : 'status'}
-      className={cx('flex flex-wrap items-start gap-3 rounded-lg border px-4 py-3.5', WRAP[variant], className)}
+      className={cx('flex flex-wrap items-start gap-3 rounded-lg border px-4 py-3.5 text-left', WRAP[variant], className)}
     >
       {icon === null ? null : (
         <span aria-hidden="true" className={cx('mt-px flex-none', ICON[variant])}>

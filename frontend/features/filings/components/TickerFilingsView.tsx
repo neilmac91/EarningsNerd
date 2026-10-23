@@ -135,7 +135,7 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
           </Link>
         </div>
 
-        <div className="rounded-3xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-6 shadow-e3 dark:shadow-none">
+        <div className="rounded-3xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-cap-6 shadow-e3 dark:shadow-none">
           <h2
             ref={filingsHeadingRef}
             tabIndex={-1}
@@ -171,7 +171,7 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
             )}
 
             {!filingsLoading && !filingsFailure.failed && filings && filings.length === 0 && (
-              <div className="rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/10 p-6 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              <div className="rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/10 p-cap-6 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 No filings available yet for {company.ticker}. Check back soon.
               </div>
             )}
@@ -181,7 +181,7 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
                 {filings.map((filing) => (
                   <div
                     key={filing.id}
-                    className="group flex flex-col gap-3 rounded-xl border border-border-light dark:border-white/10 bg-panel-light hover:bg-white dark:bg-panel-dark dark:hover:bg-white/[0.06] shadow-e2 dark:shadow-none p-5 transition-colors duration-fast hover:border-brand-border dark:hover:border-brand-border-dark"
+                    className="group flex flex-col gap-3 rounded-xl border border-border-light dark:border-white/10 bg-panel-light hover:bg-white dark:bg-panel-dark dark:hover:bg-white/[0.06] shadow-e2 dark:shadow-none p-cap-5 transition-colors duration-fast hover:border-brand-border dark:hover:border-brand-border-dark"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div>

@@ -414,9 +414,9 @@ describe('account query ownership structural gate', () => {
     ]
     const identity = ['currentUser'] // the reset publishes null for it
     const shared = [
-      'registrationConfig', 'insiders', 'peers', 'calendar', 'fullTextSearch', 'filingFundamentals', 'analysisCoverage',
-      'analysisCompany', 'tickerCompany', 'tickerFilings', 'filing', 'filingContent', 'summary', 'summaryProgress',
-      'company', 'companyFilings', 'companies',
+      'registrationConfig', 'turnstileScript', 'insiders', 'peers', 'calendar', 'fullTextSearch', 'filingFundamentals',
+      'analysisCoverage', 'analysisCompany', 'tickerCompany', 'tickerFilings', 'filing', 'filingContent', 'summary',
+      'summaryProgress', 'company', 'companyFilings', 'companies',
     ]
     const classified = [...accountOwned, ...identity, ...shared]
     expect(new Set(classified).size).toBe(classified.length)

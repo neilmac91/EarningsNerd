@@ -236,6 +236,15 @@ describe('TrendCharts PNG export wiring', () => {
     expect(header?.title).toBe('Balance sheet')
     expect(header?.legend).toEqual([])
   })
+
+  it("notes the source data's day in the export, not its instant (#1457)", () => {
+    // Noon UTC falls on October 20 in every zone from UTC-12 to UTC+11, so the case reads the same day in any runner.
+    const { unmount } = render(<TrendCharts dataset={{ ...dataset, data_as_of: '2026-10-20T12:00:00.008084Z' }} exportEnabled />)
+    expect(clickExport('Margins')?.sourceNote).toBe('Source: SEC filings via EarningsNerd · data as of Oct 20, 2026')
+    unmount()
+    render(<TrendCharts dataset={{ ...dataset, data_as_of: null }} exportEnabled />)
+    expect(clickExport('Margins')?.sourceNote).toBe('Source: SEC filings via EarningsNerd · source refresh time unavailable')
+  })
 })
 
 describe('TrendCharts chart fallback', () => {

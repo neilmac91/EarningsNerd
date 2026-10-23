@@ -4,6 +4,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { getUpcomingCalendar } from '@/features/dashboard/api/dashboard-api'
 import { formatLocalDate, fmtCurrency } from '@/lib/format'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { Card, Skeleton } from '@/components/ui'
 
 const TIME_LABEL: Record<string, string> = { bmo: 'Before open', amc: 'After close' }
@@ -20,7 +21,7 @@ export default function EarningsCalendar({ enabled = true }: { enabled?: boolean
   // watchlist changed). When the owned `earnings_events` table has no upcoming rows for the user's
   // tickers, show a quiet one-liner instead of nothing.
   return (
-    <Card as="section" className="p-5">
+    <Card as="section" className="p-cap-5">
       <div className="mb-3 flex items-center gap-2">
         <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
           Upcoming earnings
@@ -50,7 +51,7 @@ export default function EarningsCalendar({ enabled = true }: { enabled?: boolean
                 <div>
                   <span className="font-data font-semibold text-text-primary-light dark:text-text-primary-dark">{ev.ticker}</span>
                   <span className="ml-2 truncate text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                    {ev.company_name}
+                    {formatCompanyName(ev.company_name)}
                   </span>
                 </div>
                 {ev.eps_estimated != null && (
