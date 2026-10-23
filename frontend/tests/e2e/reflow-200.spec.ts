@@ -1751,9 +1751,11 @@ for (const viewport of [{ width: 2304, height: 1296 }, { width: 2560, height: 14
 /** The site header's two bars switch at one width, 72rem (components/Header.tsx; E173 and E175, chief design on #1544,
     comment 6375980005): 1152px at the default size and 2304px with the text doubled. Below it the compact bar shows,
     its menu button and, opened, its menu, while the full bar's nav and controls are display:none; from it, the other way
-    round, a menu left open included. At the threshold the full bar keeps one line with its widest settled controls: a
-    signed-in reader's, and a guest's with either access mode's account link (ACCESS_COPY's cta, set into the link as a
-    copy fixture, since the build answers one mode). So the auth check never changes the bar's lines. Before, the full
+    round, a menu left open included. A signed-in reader's notification bell shows once in either bar, the compact bar's
+    from lg, where the full bar showed it before, and its menu opens inside the screen. At the threshold the full bar
+    keeps one line with its widest settled controls: a signed-in reader's, and a guest's with either access mode's
+    account link (ACCESS_COPY's cta, set into the link as a copy fixture, since the build answers one mode). So the
+    auth check never changes the bar's lines. Before, the full
     bar showed from lg, 1024px at any text size: a guest's row, about 1030px, wrapped at 1024 to 1031px (E173), and with
     the text doubled the bar wrapped at 1024 to 1440px, where the placeholder could share a line the settled controls
     could not (E175). */
@@ -1799,6 +1801,16 @@ for (const { below, at, doubled } of [
 
         await expect(nav, `${below}px at ${size}: the full bar's nav is hidden`).toBeHidden()
         await expect(controls, `${below}px at ${size}: the full bar's controls are hidden`).toBeHidden()
+        const bell = banner.getByRole('button', { name: /^Notifications/ })
+        if (who === 'reader') {
+          await expect(bell, `${below}px at ${size}: the compact bar's bell, the one bell shown`).toHaveCount(1)
+          await bell.click()
+          await expect(page.getByRole('menu', { name: 'Notifications' })).toBeVisible()
+          const fit = await headerMenuFit(page, 'Notifications')
+          expect(fit.problems, `${below}px at ${size}: the compact bar's notification menu`).toEqual([])
+          await page.keyboard.press('Escape')
+          await expect(page.getByRole('menu', { name: 'Notifications' })).toBeHidden()
+        }
         await banner.getByRole('button', { name: 'Open menu' }).click()
         const menu = page.getByRole('navigation', { name: 'Mobile navigation' })
         await expect(menu, `${below}px at ${size}: the compact bar's menu opens`).toBeVisible()
@@ -1808,6 +1820,7 @@ for (const { below, at, doubled } of [
         await expect(controls, `${at}px at ${size}: the full bar's controls show`).toBeVisible()
         await expect(banner.getByRole('button', { name: 'Close menu' }), `${at}px at ${size}: the compact bar's menu button is hidden`).toBeHidden()
         await expect(menu, `${at}px at ${size}: the menu left open is hidden with the compact bar`).toBeHidden()
+        if (who === 'reader') await expect(bell, `${at}px at ${size}: the full bar's bell, the one bell shown`).toHaveCount(1)
 
         const link = banner.getByRole('link', { name: ACCOUNT_FULL })
         for (const label of who === 'guest' ? [ACCESS_COPY.invite.cta, ACCESS_COPY.public.cta] : [null]) {

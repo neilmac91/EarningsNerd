@@ -1118,8 +1118,10 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  widest row (every flag-gated link and a guest's longest account label) room to spare in Inter
                  and in a wider fallback, so the full bar never wraps and the auth check never changes its
                  lines (E173, E175; gate: tests/e2e/reflow-200.spec.ts holds the compact bar at 1151 and
-                 2303px and the full bar on one line at 1152 and 2304px, with either access mode's label). The
-                 logo's mr-auto and the controls' ml-auto share the full bar's free space, never
+                 2303px and the full bar on one line at 1152 and 2304px, with either access mode's label).
+                 From lg to 72rem the compact bar carries a signed-in reader's NotificationBell too, first in
+                 its group, so the bell stays wherever the full bar showed it before (the same case opens it).
+                 The logo's mr-auto and the controls' ml-auto share the full bar's free space, never
                  justify-between alone, which puts a line's only block at its start, so should the bar ever
                  wrap, the notification and account menus, anchored at their right edge (right-0), still open
                  on the screen (E160; gate: the same spec opens each menu at 2304 and 2560px under 200% text,

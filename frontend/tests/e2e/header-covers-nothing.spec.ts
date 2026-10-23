@@ -359,17 +359,14 @@ test.describe('the site header holds one height as its auth check settles (E174,
             await expect(banner.getByRole('button', { name: 'Open menu' }), `the compact bar at ${width}px`).toBeVisible()
             await expect(nav, `the full bar's nav hidden at ${width}px`).toBeHidden()
           }
-          // The settled controls: the full bar's Log in or account menu; the compact bar's account link for a guest, and
-          // for a reader, whose compact bar adds nothing, the account menu rendered in the hidden full bar.
-          if (bar === 'compact' && who === 'reader') {
-            await expect(banner.getByRole('button', { name: 'Account menu', includeHidden: true }), 'the check settled for a reader').toHaveCount(1)
-            await expect(banner.getByRole('link', { name: ACCOUNT_SHORT }), "a reader's compact bar has no account link").toHaveCount(0)
-          } else {
-            const settled = bar === 'compact'
+          // The settled controls: the full bar's Log in or account menu, or the compact bar's account link for a guest and,
+          // from lg, its notification bell for a reader.
+          const settled = bar === 'full'
+            ? banner.getByRole(who === 'guest' ? 'link' : 'button', { name: who === 'guest' ? 'Log in' : 'Account menu' })
+            : who === 'guest'
               ? banner.getByRole('link', { name: ACCOUNT_SHORT })
-              : banner.getByRole(who === 'guest' ? 'link' : 'button', { name: who === 'guest' ? 'Log in' : 'Account menu' })
-            await expect(settled, `the ${bar} bar shows a ${who}'s controls once the check settles`).toBeVisible()
-          }
+              : banner.getByRole('button', { name: /^Notifications/ })
+          await expect(settled, `the ${bar} bar shows a ${who}'s controls once the check settles`).toBeVisible()
           await settle(page)
           const after = await headerAt(page)
           expect(after.height, `the header while the check ran (${pending.height}px) and after (${after.height}px)`).toBe(pending.height)

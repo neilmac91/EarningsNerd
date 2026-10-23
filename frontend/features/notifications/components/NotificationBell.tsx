@@ -17,9 +17,10 @@ import {
  * In-app notification bell: shows recent SEC-filing alerts for the signed-in user with an unread
  * badge. Reads the same alerts the email scanner records (GET /me/notifications); opening the bell
  * marks them seen (POST /me/notifications/seen), which clears the badge. Rendered only when
- * authenticated (the Header gates it).
+ * authenticated (the Header gates it). `className` joins the trigger's own, as ThemeToggle's does: the
+ * compact header bar gives it the 44px target its other controls keep.
  */
-export default function NotificationBell() {
+export default function NotificationBell({ className = '' }: { className?: string }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
@@ -78,7 +79,7 @@ export default function NotificationBell() {
         aria-haspopup="true"
         aria-expanded={open}
         aria-label={unread > 0 ? `Notifications (${unread} unread)` : 'Notifications'}
-        className="relative flex h-9 w-9 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+        className={`relative flex h-9 w-9 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${className}`}
       >
         <BellIcon className="h-5 w-5" />
         {/* The count is a number, so it rests in the ink, never on sage (D-030); the sage dot marks an

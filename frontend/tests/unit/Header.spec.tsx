@@ -21,7 +21,7 @@ vi.mock('@/components/ThemeToggle', () => ({
 }))
 vi.mock('@/components/EarningsNerdLogo', () => ({ default: () => null }))
 vi.mock('@/features/notifications/components/NotificationBell', () => ({
-  default: () => <div data-testid="notification-bell" />,
+  default: ({ className = '' }: { className?: string }) => <div data-testid="notification-bell" className={className} />,
 }))
 vi.mock('@/features/auth/components/UserMenu', () => ({
   default: ({ user }: { user: { email: string } }) => <div data-testid="user-menu">{user.email}</div>,
@@ -67,7 +67,11 @@ describe('Header auth state', () => {
     renderHeader()
 
     expect(await screen.findByTestId('user-menu')).toHaveTextContent('neil@earningsnerd.io')
-    expect(screen.getByTestId('notification-bell')).toBeInTheDocument()
+    // One bell in each bar: the full bar's, and from lg the compact bar's, with the compact bar's 44px target.
+    const bells = screen.getAllByTestId('notification-bell')
+    expect(bells).toHaveLength(2)
+    expect(bells[1]).toHaveClass('min-h-11', 'min-w-11')
+    expect(bells[1].parentElement).toHaveClass('hidden', 'lg:block')
     expect(screen.queryByRole('link', { name: /log in/i })).not.toBeInTheDocument()
   })
 
@@ -79,6 +83,7 @@ describe('Header auth state', () => {
     // No accessMode prop = the conservative invite copy (never advertise a signup the API rejects).
     expect(screen.getByRole('link', { name: ACCESS_COPY.invite.cta })).toHaveAttribute('href', ACCESS_COPY.invite.href)
     expect(screen.queryByTestId('user-menu')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('notification-bell')).not.toBeInTheDocument()
   })
 
   it('advertises open registration only when the access mode is public', async () => {
