@@ -1738,6 +1738,15 @@ fallback, a Cited jump and an XBRL fact never register the device's highlight; a
   white surface, the multicolour "G", the hairline and the label ink its branding guideline sets); it does
   not excuse a stale value. When the consent screens are set up (`tasks/todo.md` F38), check the button
   against Google's current guideline and record the values here.
+- **Company marks sit on a white tile in both themes** (`components/CompanyLogo.tsx`): a third
+  party's mark is drawn for white, and the provider serves two kinds of asset, full-bleed square tiles
+  in the brand's own ground and transparent marks, so the slot is a white tile (`bg-white`) with the
+  hairline pair (`ring-border-light dark:ring-white/10`) and the scale's small radius (4px under 28px,
+  8px from 28px), never a circle (it cut the tiles' corners) and never the brand tint (a black mark
+  on the dark tint measured 1.4:1). The initials monogram keeps the light ink (`text-brand-strong`)
+  on that tile in both themes; `tests/unit/themePairs.spec.ts` lists it in its residue beside the
+  Google button's hairline. The exemption covers the mark's own ground; the ticker and name beside it
+  pair as usual.
 - **Status + financial colors are semantic** — keep them; reserve loud status colors for genuine
   state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `GuidanceCard`).
 - **Progress / step / completion indicators use the BRAND accent (sage), not success-green.**
