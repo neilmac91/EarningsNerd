@@ -194,9 +194,11 @@ async def precompute_one(
     # survive, and a failed or lower-ranked run keeps it (lessons/arch-fk-safe-bulk-deletes.md). Only
     # the cached excerpt is cleared, so the run builds it with the current extraction; the stored value
     # goes back in the finally below whenever the stored summary stays (a raise or a cancellation
-    # included, not a killed process), none included, so that summary keeps the source the read-time
-    # verification of its quotes was built from. While the run is in flight, readers fall back to the
-    # cached document.
+    # included, not a killed process), None included, so read-time verification reads that summary
+    # against the same cache text as before the run. With no excerpt (stored so, or while the run is in
+    # flight), provenance_service reads citations against the legacy markdown_content and Risks against
+    # risk_source_text, else that column, and leaves them unverified when neither is there. A filing
+    # with no cache row before the run keeps the row the run creates.
     stored = None
     stored_excerpt: Optional[str] = None
     had_cache = False

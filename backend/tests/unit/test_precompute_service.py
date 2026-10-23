@@ -255,7 +255,7 @@ FRESH_EXCERPT = "Item 7. MD&A excerpt the current extraction builds."
 PROVIDER_ERROR = {"status": "error", "message": "provider down"}
 
 
-def _seed_forced(*, with_summary: bool = True, updated_at=None, excerpt=STORED_EXCERPT):
+def _seed_forced(*, with_summary: bool = True, updated_at=None, excerpt=STORED_EXCERPT, with_cache: bool = True):
     from app.database import SessionLocal
     from app.models import FilingContentCache, SavedSummary, Summary, User
 
@@ -264,7 +264,8 @@ def _seed_forced(*, with_summary: bool = True, updated_at=None, excerpt=STORED_E
     filing_id = _mk_filing(_mk_company(ticker), acc)
     summary_id = user_id = None
     with SessionLocal() as db:
-        db.add(FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt))
+        if with_cache:
+            db.add(FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt))
         if with_summary:
             summary = Summary(filing_id=filing_id, business_overview=STORED_FULL, updated_at=updated_at,
                               raw_summary={"sections": {}, "quality": {"tier": "full"}})
@@ -306,7 +307,17 @@ def _writes_a_fresh_excerpt(db, filing, _filing_text, sections=None):
     return FRESH_EXCERPT
 
 
-def _forced_precompute(monkeypatch, ticker, acc, *, payload=None, side_effect=None, document_fails=False):
+def _creates_the_cache_row(db, filing, _filing_text, sections=None):
+    # As get_or_cache_excerpt does for a filing with no cache row: build an excerpt and add the row.
+    from app.models import FilingContentCache
+
+    db.add(FilingContentCache(filing_id=filing.id, critical_excerpt=FRESH_EXCERPT))
+    db.commit()
+    return FRESH_EXCERPT
+
+
+def _forced_precompute(monkeypatch, ticker, acc, *, payload=None, side_effect=None, document_fails=False,
+                       excerpt_builder=_writes_a_fresh_excerpt):
     from contextlib import nullcontext
 
     from app.services import summary_pipeline
@@ -318,7 +329,7 @@ def _forced_precompute(monkeypatch, ticker, acc, *, payload=None, side_effect=No
     reset_inflight()
     try:
         with stream_boundaries(payload=payload) as summarize, \
-                patch.object(summary_pipeline, "get_or_cache_excerpt", _writes_a_fresh_excerpt), \
+                patch.object(summary_pipeline, "get_or_cache_excerpt", excerpt_builder), \
                 failing_document if document_fails else nullcontext():
             summarize.side_effect = side_effect
             return asyncio.run(precompute_one(ticker, "10-K", force=True))
@@ -336,8 +347,9 @@ def _forced_precompute(monkeypatch, ticker, acc, *, payload=None, side_effect=No
         ("document_fails", "failed"),     # an SEC document-fetch failure ends the run before generation
     ],
 )
-# A summary stored beside no excerpt had its quotes verified against the cached document; a kept one
-# must not be left beside the excerpt this run built (Codex 4364816435 on #1545).
+# A summary stored beside no excerpt is verified against the cache's risk_source_text or legacy
+# markdown_content when present, else left unverified; a kept one must not be left beside the excerpt
+# this run built (Codex 4364816435 on #1545).
 @pytest.mark.parametrize("stored_excerpt", [STORED_EXCERPT, None], ids=["excerpt", "no-excerpt"])
 def test_forced_precompute_regenerates_in_place_under_keep_better(monkeypatch, outcome, status, stored_excerpt):
     ticker, acc, filing_id, summary_id, user_id = _seed_forced(excerpt=stored_excerpt)
@@ -358,6 +370,19 @@ def test_forced_precompute_regenerates_in_place_under_keep_better(monkeypatch, o
     else:
         assert overview == STORED_FULL
         assert excerpt == stored_excerpt  # the stored summary keeps the excerpt it was generated from, or none
+
+
+def test_forced_precompute_keeps_the_cache_row_a_run_creates_where_there_was_none(monkeypatch):
+    # With no cache row before the run, nothing was cleared and nothing goes back: the row the run
+    # creates, and its excerpt, stay beside the summary keep-better keeps.
+    ticker, acc, filing_id, summary_id, user_id = _seed_forced(with_cache=False)
+
+    result = _forced_precompute(monkeypatch, ticker, acc, side_effect=TimeoutError("budget exhausted"),
+                                excerpt_builder=_creates_the_cache_row)
+
+    assert result["status"] == "kept"
+    assert _stored(filing_id) == (1, summary_id, STORED_FULL, FRESH_EXCERPT)
+    assert _bookmark_target_exists(user_id)
 
 
 @pytest.mark.parametrize(("outcome", "status"), [("replaced", "generated"), ("timeout_fallback", "kept")])
