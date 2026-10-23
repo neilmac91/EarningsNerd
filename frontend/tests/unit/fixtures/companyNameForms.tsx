@@ -1624,6 +1624,33 @@ export class N241 {
   }
 }
 
+/** N247 flag: a class component whose render is a field holding an arrow that returns a served name (Codex's form). */
+export class N247 extends Component<{ ev: CalendarEvent }> {
+  render = () => this.props.ev.company_name
+}
+
+/** N248 flag: a class component whose render is a field holding a function expression that returns a served name. */
+export class N248 extends Component<{ ev: CalendarEvent }> {
+  render = function (this: N248) {
+    return this.props.ev.company_name
+  }
+}
+
+/** N249 clean: a class component whose render field returns the display form. */
+export class N249 extends Component<{ ev: CalendarEvent }> {
+  render = () => formatCompanyName(this.props.ev.company_name)
+}
+
+/** N250 clean: a class component's static field named render, which React never calls, handing back a served name as
+    data beside a render that prints the display form. */
+export class N250 extends Component<{ ev: CalendarEvent }> {
+  static render = (ev: CalendarEvent) => ev.company_name
+
+  render() {
+    return formatCompanyName(this.props.ev.company_name)
+  }
+}
+
 // Setters and dispatchers handed as a built-in's callback: an array's methods, Array.from and React's Children call
 // them with each element.
 

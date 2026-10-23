@@ -66,11 +66,11 @@ import { componentTag, heldValues, leavesOf, propertyOf, renderedLeavesOf, scope
  *     component being a function its module renders as a tag or names for one (PascalCase), one another module
  *     renders (RENDERED_IN: through an import's alias, a re-export, a default export, an object's member or a
  *     wrapper such as memo), one its module exports as its default (a page Next renders, or one a module loads
- *     lazily), whatever its name, and a class component's `render` (a class that extends React's Component or
- *     PureComponent, through any chain of classes); and the words Next prints from a page's metadata (METADATA_TEXT:
- *     the tab's title, the description, a social card's), by the keys Next's metadata types declare. A same-file
- *     component's props and children bind its parameters, so a name handed to one fails where the component prints
- *     it.
+ *     lazily), whatever its name, and a class component's `render`, a method or a field whose value is a function
+ *     (a class that extends React's Component or PureComponent, through any chain of classes); and the words Next
+ *     prints from a page's metadata (METADATA_TEXT: the tab's title, the description, a social card's), by the keys
+ *     Next's metadata types declare. A same-file component's props and children bind its parameters, so a name handed
+ *     to one fails where the component prints it.
  *  B. a field of the app's own filled with a served name: an object literal's property (a getter by what it
  *     returns), placed by the type the literal is given (a declared type, a return type, a parameter's type, read
  *     through Object.freeze, parentheses, `as`, `satisfies` and `!`), a spread of a served object into such a
@@ -329,12 +329,18 @@ const isClassComponent = (cls: ts.ClassLikeDeclaration): boolean => {
   }
   return extendsReact(CHECKER.getTypeAtLocation(cls))
 }
-/** A class component's render, which React calls and prints what it returns. */
-const renderOf = (cls: ts.ClassLikeDeclaration): ts.MethodDeclaration | undefined =>
-  cls.members.find(
-    (m): m is ts.MethodDeclaration =>
-      ts.isMethodDeclaration(m) && keyText(m.name) === 'render' && !!m.body && !m.modifiers?.some((x) => x.kind === ts.SyntaxKind.StaticKeyword),
-  )
+/** A class component's render, which React calls on the instance and prints what it returns: a method, or a field
+    whose value is a function (`render = () => …`). A static member is the class's own, which React never calls. */
+const renderOf = (cls: ts.ClassLikeDeclaration): Fn | undefined => {
+  for (const m of cls.members) {
+    if (!(ts.isMethodDeclaration(m) || ts.isPropertyDeclaration(m)) || keyText(m.name) !== 'render') continue
+    if (m.modifiers?.some((x) => x.kind === ts.SyntaxKind.StaticKeyword)) continue
+    if (ts.isMethodDeclaration(m) && m.body) return m
+    const fn = ts.isPropertyDeclaration(m) && m.initializer ? unwrapHeld(m.initializer) : undefined
+    if (fn && (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn))) return fn
+  }
+  return undefined
+}
 
 const resolved = (symbol: ts.Symbol | undefined) => (symbol && symbol.flags & ts.SymbolFlags.Alias ? CHECKER.getAliasedSymbol(symbol) : symbol)
 const FORMATTER = (() => {
@@ -917,7 +923,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       }
     }
     const count = (mark: string) => [...forms.values()].filter((m) => m === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([164, 50, 32])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([166, 52, 32])
     const misread = [...forms].filter(([name, mark]) => named.has(name) !== (mark === 'flag')).map(([name, mark]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])
