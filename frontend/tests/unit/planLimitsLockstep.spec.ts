@@ -424,8 +424,8 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
  * as a phrase ("fifteen years", "a decade", "a dozen quarters"); another word between the count and its
  * unit ("10 calendar years", "10 or more years"); another unit ("10 annual periods", the shorthand "10Y");
  * and a count held in a name or chosen by a condition (`{annual ? 10 : 12} fiscal years`), which reads as
- * a hole. Model-written text is not copy: the demo payload's sample narrative
- * (features/analysis/demo/demo-analysis.json) states its own window, "six fiscal years", as a model would.
+ * a hole. Pipeline output is not copy: the demo payload (features/analysis/demo/demo-analysis.json) is one
+ * saved run, whose narrative names its own window ("FY2020..FY2025") as every run's does.
  */
 const config = readConfig()
 const settingDefault = (name: string): number => {
