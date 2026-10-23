@@ -186,7 +186,7 @@ controls, status chips and missing-value treatment; homepage receipts opening th
 the curated Notable filings query and row; consent-gated web analytics; and the saved FY2020 to
 FY2025 analysis demo. #1515 bounds that teaser to one screen with its action centred and the preview
 fading at its foot. The existing gates and each implementation PR's committed-state mutation
-proofs remain their evidence; this records change introduces no new rule. #1476 already records
+proofs remain their evidence; this records-only change introduces no new rule. #1476 already records
 D-056's opening reservation and the rule to await the ready mark's own completed clean review.
 
 Remaining work stays in [the open-items page](../../tasks/todo.md), not in this handoff as a second
@@ -195,7 +195,7 @@ remaining list ceilings and E64 shrinks the owned residues. E46's mail truth and
 located excerpts and E37's backend-written answer copy each deploy the backend and need their own
 balance reservation and isolated merge. E74's cover, E79's shared italic decision, E138's prompt
 wording, E68's export and label-in-name follow-ups, E34/E35/E36, E43, E50, E56, E111, E116,
-E122 and the newer E154/E155/E165 also remain with the owners and holds their rows name.
+E122 and the newer E154/E155 also remain with the owners and holds their rows name.
 E162 records the clause-aware legal-claim reader left by #1456; the current regex families fail
 loudly when a page sentence trips them. No legal text changes here. E168 records the company
 page's SEC filings card at 320px under 200% text, whose chevrons, count and a period paint past

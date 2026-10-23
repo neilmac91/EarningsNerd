@@ -6,7 +6,9 @@ that every sweep surface has been tested again. No application code changed for 
 
 The local production build uses Node 22.22.2, Next 16.4.2 and webpack, a fresh `npm ci` from the
 lockfile, and CI's e2e flags: the API base is `http://localhost:8000`, waitlist mode is false,
-and analysis, calendar, calendar fixtures and full-text search are enabled. `next start` serves
+and analysis, calendar, calendar fixtures and full-text search are enabled. CI's own builds run
+Node 22.23.2 and `next build`'s default bundler, Turbopack, so the set shares CI's flags rather
+than its exact toolchain. `next start` serves
 port 3000 with no backend. Chromium 151.0.7922.173 is preinstalled. Each context has reduced
 motion, blocked service workers and a theme saved before navigation. Company marks fall back
 to their text avatars because external browser requests are blocked.

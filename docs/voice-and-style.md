@@ -195,9 +195,11 @@ Before editing a string, check what it's wired to:
 - Copy duplicated across frontend and backend must be changed on both sides in the same PR.
   The beta invite is not such a pair: the message an admin copies (`DEFAULT_INVITE_MESSAGE` in
   `features/admin/lib/shareLinks.ts`) and the invite email (`send_invite_email` in
-  `backend/app/services/email_service.py`) open with the same two sentences and differ after
-  them on purpose, the message carrying its link inline and asking not to be forwarded, the email
-  carrying a button and "No credit card required." Keep their intent aligned, not their wording.
+  `backend/app/services/email_service.py`) both say "You're invited to the EarningsNerd private
+  beta. Full Pro access, on us.", and the rest differs on purpose: the message adds that figures
+  are checked against the SEC filing where they can be, carries its link inline and asks not to be
+  forwarded; the email greets the reader first, carries a button and says "No credit card required."
+  Keep their intent aligned, not their wording.
 - Component and e2e tests assert exact copy (headings such as "Generation interrupted" and
   "Page not found" are pinned by name). Any copy change runs `npx vitest run` before push and
   updates the coupled assertion in the same PR (see `lessons/test-vitest-for-copy-changes.md`).
