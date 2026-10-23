@@ -511,9 +511,10 @@ def test_db_first_skips_refresh_when_freshly_synced(client, monkeypatch, synced_
     with TestingSession() as s:
         company = _seed_company(s)
         _seed_filing(s, company, "0000895421-25-000010", "10-K", 2025)
+        company_id = company.id
 
     # Only a stamp covering every requested form can suppress the background refresh.
-    filing_list_service._mark_filings_synced("TESTCO", synced_forms)
+    filing_list_service._mark_filings_synced("TESTCO", synced_forms, company_id)
     sec_mock = AsyncMock(return_value=[])
     monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", sec_mock)
 
@@ -544,8 +545,9 @@ def test_filings_limit_param_default_unchanged(client, monkeypatch):
         s.add(company)
         s.commit()
         _seed_history(s, company, 25)
+        company_id = company.id
     # Freshly-synced → DB-first serves without any SEC round-trip.
-    filing_list_service._mark_filings_synced("TESTCO", ["10-K", "10-Q", "10-K/A", "10-Q/A"])
+    filing_list_service._mark_filings_synced("TESTCO", ["10-K", "10-Q", "10-K/A", "10-Q/A"], company_id)
     monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
 
     # Default: capped at CACHED_FILINGS_LIMIT (behaviour unchanged).
@@ -660,7 +662,8 @@ def test_cached_list_keeps_the_20f_behind_sixty_newer_6ks(client, monkeypatch):
         _seed_dated(s, company, f"{FPI_CIK}-26-900001", "20-F", date(2026, 3, 5))
         _seed_dated(s, company, f"{FPI_CIK}-26-800001", "6-K/A", date(2026, 9, 1))  # not a default form
         s.commit()
-    filing_list_service._mark_filings_synced("BPX", company_list_forms())  # serve from the DB
+        company_id = company.id
+    filing_list_service._mark_filings_synced("BPX", company_list_forms(), company_id)  # serve from the DB
     monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
 
     default = tc.get("/api/filings/company/BPX").json()

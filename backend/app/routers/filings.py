@@ -37,10 +37,11 @@ _visit_task_handoffs: dict[str, float] = {}
 # deliveries average 6 s, and under it until they average 10 s (pinned in test_filings_routes.py). Past
 # it a visit still serves its stored rows and queues nothing; a visit after the window queues the task.
 VISIT_TASK_BUDGET = RateLimiter(limit=15, window_seconds=300)
-# The live SEC fetch, taken when nothing is stored in the requested forms and no listing within the
-# freshness TTL found them empty (a first view, or a company that has none of them once per TTL), is
-# bounded per client IP, as search's is. Production paces SEC at 1 request/s per process, so one client
-# gets at most a sixth of it.
+# The live SEC fetch, taken when nothing is stored in the requested forms and no listing of this
+# company within the freshness TTL found them empty (a first view, a company that has none of them once
+# per TTL, or, on every visit, a listing made only of rows another company stores), is bounded per
+# client IP, as search's is. Production paces SEC at 1 request/s per process, so one client gets at
+# most a sixth of it.
 LIVE_FETCH_LIMITER = RateLimiter(limit=10, window_seconds=60)
 
 
@@ -197,9 +198,11 @@ async def get_company_filings(
     # listing stays the answer until the TTL passes, so its visits neither fetch again nor spend the
     # live-fetch budget (lessons/arch-cache-only-reads-that-succeeded.md). Only a listing that succeeded
     # stamps a key, and only when the stored rows answer for it (filing_list_service.persist_live_filings).
-    # The stamp is per process and bounded, so another instance or an evicted key fetches once more.
-    # Falls through to the DB-first / live paths on a cold or stale key.
-    if filing_list_service.filings_cache_fresh(ticker_upper, types_list):
+    # A stamp answers only the company whose listing wrote it: a ticker that passes to another company
+    # within the TTL is listed again for the new one. The stamp is per process and bounded, so another
+    # instance or an evicted key fetches once more. Falls through to the DB-first / live paths on a cold
+    # or stale key.
+    if filing_list_service.filings_cache_fresh(ticker_upper, types_list, company_id):
         return await run_in_threadpool(get_cached_filings)
 
     # DB-first: we already hold persisted rows for this company (from a prior sync, the filing-scan

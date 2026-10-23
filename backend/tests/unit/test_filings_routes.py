@@ -1039,8 +1039,8 @@ def test_a_failed_live_listing_stamps_nothing_so_the_next_visit_fetches_again(cl
 
 def test_stored_rows_are_served_as_before_whether_the_stamp_is_fresh_or_stale(client, sessions, monkeypatch):
     """The stamp changes only how a key with nothing stored is answered. A company with rows in the
-    requested forms is served them with no SEC fetch and no live-fetch slot: while its stamp is stale its
-    refresh is handed off once per bucket, and while it is fresh not at all."""
+    requested forms is served them with no SEC fetch and no live-fetch slot: while its stamp is stale (a
+    TTL old) its refresh is handed off once per bucket, and while it is fresh not at all."""
     with sessions() as s:
         stale_id = _seed_company(s, ticker="STALE", cik="0000000003").id
         _seed_filing(s, stale_id, "0000000003", "0000000003-25-000001")
@@ -1050,7 +1050,12 @@ def test_stored_rows_are_served_as_before_whether_the_stamp_is_fresh_or_stale(cl
     fetch = AsyncMock(return_value=[])
     monkeypatch.setattr(sec_edgar_service, "get_filings", fetch)
     monkeypatch.setattr(filings_mod, "LIVE_FETCH_LIMITER", RateLimiter(limit=0, window_seconds=60))
-    filing_list_service._mark_filings_synced("FRESH", DEFAULT_TYPES)
+    now = _listing_clock(monkeypatch)
+    filing_list_service._mark_filings_synced("STALE", DEFAULT_TYPES, stale_id)
+    now[0] += filing_list_service.FILINGS_LIST_TTL
+    filing_list_service._mark_filings_synced("FRESH", DEFAULT_TYPES, fresh_id)
+    assert not filing_list_service.filings_cache_fresh("STALE", DEFAULT_TYPES, stale_id)
+    assert filing_list_service.filings_cache_fresh("FRESH", DEFAULT_TYPES, fresh_id)
 
     stale = [client.get("/api/filings/company/stale") for _ in range(3)]
     fresh = [client.get("/api/filings/company/fresh") for _ in range(3)]
@@ -1092,6 +1097,55 @@ def test_a_listing_of_rows_another_company_stores_is_fetched_again_not_answered_
         (200, [accession])
     ] * 2
     assert fetched == ["0000000002"] * 2
+
+
+def test_a_stamp_answers_only_the_company_whose_listing_wrote_it(client, sessions, monkeypatch):
+    """The stamp is keyed by (ticker, forms), and a ticker can pass to another company within the TTL: SEC
+    reassigns it to a new CIK, and the old company's row self-heals to its new primary ticker on a visit.
+    A stamp the old company's empty listing wrote must not answer the new one, which has nothing stored:
+    the ticker's next visit fetches the new company's listing live. Before, it was answered an empty list
+    until the TTL passed."""
+    with sessions() as s:
+        old_id = _seed_company(s).id  # COLD, CIK 0000000002: nothing stored
+    new_cik = "0000000005"
+    accession = f"{new_cik}-26-000001"
+    sec_file = {}  # SEC's ticker file: ticker -> CIK
+    fetched = []
+
+    async def search(ticker):
+        cik = sec_file.get(ticker.upper())
+        return [{"cik": cik, "ticker": ticker.upper(), "name": f"{ticker.upper()} Co", "exchange": "NYSE"}] if cik else []
+
+    async def primary(cik):
+        return next(ticker for ticker, listed in sec_file.items() if listed == cik)
+
+    async def get_filings(cik, types):
+        fetched.append(cik)
+        if cik != new_cik:
+            return []
+        return [{"accession_number": accession, "filing_type": "10-K", "filing_date": "2026-02-19",
+                 "sec_url": _archive(new_cik, accession), "document_url": _archive(new_cik, accession) + "primary.htm"}]
+
+    monkeypatch.setattr(sec_edgar_service, "search_company", search)
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", primary)
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+
+    def visit(ticker):
+        r = client.get(f"/api/filings/company/{ticker}")
+        return r.status_code, [row["accession_number"] for row in r.json()]
+
+    stamped = visit("cold")  # the old company's listing finds nothing and stamps COLD
+    sec_file.update({"RENAMED": "0000000002", "COLD": new_cik})
+    renamed = visit("renamed")  # the old company's row self-heals to RENAMED
+    moved = visit("cold")  # COLD now resolves to the new company, which stores nothing yet
+    again = visit("cold")  # its own listing stamped COLD for it, so this visit is a hit
+
+    assert [stamped, renamed, moved, again] == [(200, []), (200, []), (200, [accession]), (200, [accession])]
+    assert fetched == ["0000000002", "0000000002", new_cik]
+    with sessions() as s:
+        assert [(c.id == old_id, c.cik, c.ticker) for c in s.query(Company).order_by(Company.id)] == [
+            (True, "0000000002", "RENAMED"), (False, new_cik, "COLD"),
+        ]
 
 
 # The queue every durable job shares, as docs/DEPLOYMENT.md provisions it: one concurrent dispatch, at most

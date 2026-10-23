@@ -104,6 +104,7 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
                           history_backfilled_at=utcnow())
         db.add(company)
         db.flush()
+        company_id = company.id
         filing = Filing(company_id=company.id, accession_number=accession,
                         filing_type="10-K", filing_date=utcnow(),
                         sec_url="https://example.test/filing/", document_url="https://example.test/filing.htm")
@@ -174,7 +175,7 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
         monkeypatch.setattr(notable_filings, "notable_filings_service", reader)
         monkeypatch.setattr(settings, "NOTABLE_FILINGS_ENABLED", True)
         monkeypatch.setattr(notable_filings_service, "MIN_COMPANIES", 1)
-    filing_list_service._mark_filings_synced("CACHED", expand_amendment_forms(["10-K", "10-Q"]))
+    filing_list_service._mark_filings_synced("CACHED", expand_amendment_forms(["10-K", "10-Q"]), company_id)
     try:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"

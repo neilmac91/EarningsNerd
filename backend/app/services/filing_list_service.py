@@ -54,28 +54,35 @@ CACHED_FILINGS_LIMIT = 20  # Rows the default list serves per group: the reports
 # filings even if this list lags by up to the TTL.
 FILINGS_LIST_TTL = timedelta(hours=3)
 MAX_FILINGS_SYNC_ENTRIES = 2000  # bound memory; oldest (ticker,types) key is evicted past this
-_filings_synced_at: Dict[Tuple[str, Tuple[str, ...]], datetime] = {}
+# (ticker, types) -> (id of the company whose listing wrote the stamp, when it was written)
+_filings_synced_at: Dict[Tuple[str, Tuple[str, ...]], Tuple[int, datetime]] = {}
 # The live listing marks its key from a worker thread and the background refresh from the event loop,
 # so the evict-then-insert runs under a lock: an insert between the eviction's iter() and next() would
 # raise. A read is one dict lookup and needs none.
 _filings_synced_lock = threading.Lock()
 
 
-def filings_cache_fresh(ticker: str, types_list: List[str]) -> bool:
-    """True when this (ticker, types) was synced from SEC within the TTL. The stored rows then answer
-    for that listing, and the route serves them even when there are none: the listing found nothing."""
-    synced = _filings_synced_at.get((ticker, tuple(types_list)))
-    return synced is not None and (utcnow() - synced) < FILINGS_LIST_TTL
+def filings_cache_fresh(ticker: str, types_list: List[str], company_id: int) -> bool:
+    """True when this company's listing of (ticker, types) was synced from SEC within the TTL. The
+    stored rows then answer for that listing, and the route serves them even when there are none: the
+    listing found nothing. A ticker can pass to another company within the TTL (SEC reassigns it to a
+    new CIK, and the old row self-heals to its new primary ticker), so a stamp another company's listing
+    wrote is not fresh for this one, whose own listing has not been fetched."""
+    stamp = _filings_synced_at.get((ticker, tuple(types_list)))
+    if stamp is None:
+        return False
+    stamped_by, synced = stamp
+    return stamped_by == company_id and (utcnow() - synced) < FILINGS_LIST_TTL
 
 
-def _mark_filings_synced(ticker: str, types_list: List[str]) -> None:
-    """Record a successful live SEC sync for this (ticker, types), evicting the oldest if full. Called
-    only after SEC answered the listing: a fetch that failed or timed out raised before it, so its
-    visit is answered from whatever is stored and the next visit fetches again."""
+def _mark_filings_synced(ticker: str, types_list: List[str], company_id: int) -> None:
+    """Record a successful live SEC sync of this company's (ticker, types) listing, evicting the oldest
+    if full. Called only after SEC answered the listing: a fetch that failed or timed out raised before
+    it, so its visit is answered from whatever is stored and the next visit fetches again."""
     with _filings_synced_lock:
         if len(_filings_synced_at) >= MAX_FILINGS_SYNC_ENTRIES:
             _filings_synced_at.pop(next(iter(_filings_synced_at)), None)  # insertion-ordered → oldest
-        _filings_synced_at[(ticker, tuple(types_list))] = utcnow()
+        _filings_synced_at[(ticker, tuple(types_list))] = (company_id, utcnow())
 
 
 # In-flight guard for the DB-first background refresh (below): collapses a burst of concurrent loads
@@ -99,9 +106,9 @@ async def refresh_company_filings(
     Runs AFTER the response is sent (FastAPI BackgroundTasks). Opens its OWN short-lived session —
     never the request-scoped one (which is already closed) — does the now-bounded SEC fetch (QW2:
     one recent-window submissions download, not the full history), upserts via the shared
-    ``upsert_filings`` twin, and marks the (ticker, types) synced so the next load takes the fast
-    path. Any failure only logs: the user was already served the persisted rows, and the list is
-    allowed to lag by ``FILINGS_LIST_TTL``.
+    ``upsert_filings`` twin, and marks the (ticker, types) synced for this company so its next load
+    takes the fast path. Any failure only logs: the user was already served the persisted rows, and
+    the list is allowed to lag by ``FILINGS_LIST_TTL``.
     """
     key = (ticker_upper, tuple(types_list))
     if key in _refreshing_keys:
@@ -113,7 +120,7 @@ async def refresh_company_filings(
             timeout=SEC_REQUEST_TIMEOUT_SECONDS,
         )
         if await run_owned_sync(_persist_refreshed_filings, company_id, sec_filings):
-            _mark_filings_synced(ticker_upper, types_list)
+            _mark_filings_synced(ticker_upper, types_list, company_id)
     except Exception:
         logger.warning(
             "Background filings refresh failed for %s; serving persisted rows (stale within TTL)",
@@ -430,9 +437,9 @@ def persist_live_filings(
         for filing in new_filings:
             db.refresh(filing)
 
-    # Mark this (ticker, types) freshly synced so subsequent loads take the B2 fast path.
+    # Stamp this company's (ticker, types) fresh so its next loads take the B2 fast path.
     if stored_rows_answer:
-        _mark_filings_synced(ticker_upper, types_list)
+        _mark_filings_synced(ticker_upper, types_list, company_id)
 
     # Convert to response models after commit; ?limit= keeps the newest `limit` of each group with
     # the live fetch's own per-group rule.
