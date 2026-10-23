@@ -50,7 +50,9 @@ import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
  * at 320 and 390px under 200% text and at 320px at the default size, where the plan table broke "10-Q" at its
  * hyphen before each code became one nowrap run; the hero's do at 320, 390 and 1440px under 200% text, where its
  * figures keep apart and whole too, no line of its example starts with a middot and, at both text sizes, its strip's
- * rules stand only between two figures (E81). Below a 12rem viewport the auth shell's wordmark yields to the mark.
+ * rules stand only between two figures (E81). The landing's Trace to Source demo keeps its quote and its section
+ * reference inside its panel, no word of either broken inside it, at 320, 360 and 390px under 200% text (E143).
+ * Below a 12rem viewport the auth shell's wordmark yields to the mark.
  * At 320x640 with the text doubled every route passes the same checks (E81): /pricing's billing switch's row wraps,
  * the yearly label on a line of its own, where on one line it took "Monthly" 13px past the screen's left edge and the
  * page to 333px; / reached 329px (the hero example's identity line and figures) and /search 344px (its date fields).
@@ -1427,6 +1429,69 @@ for (const viewport of [{ width: 320, height: 640 }, { width: 390, height: 844 }
       expect.soft(fit.starts, `${at}: no painted line in the example starts with a middot`).toEqual([])
       expect.soft(rulesAtDefault.problems, `${viewport.width}px at the default size: the strip's rules stand only between two figures`).toEqual([])
       expect.soft(rules.problems, `${at}: the strip's rules stand only between two figures`).toEqual([])
+    })
+  })
+}
+
+/** The landing's Trace to Source demo at 200% text (features/marketing/components/TraceToSourceDemo.tsx; E143, chief
+    design's rule on #1462): its nested boxes give way from the outside in. Below a 24rem viewport the claim box gives up
+    its frame (border, fill and side padding) and sits on the card; the panel keeps its frame and shadow with the capped
+    inset (p-cap-3), the card's p-5 is capped too (p-cap-5, E120), and the quote keeps its rule and its pl-2. Before, at
+    320px the quote kept a 40px column inside four nested insets, so "advertising," ran 32px past its card, and the
+    section reference broke inside its words ("Disc" over "ussi" over "on"); with E120's cap alone the quote kept 88px and
+    its words still ran past the panel. At 320, 360 and 390px each painted line of the quote and of the section reference
+    lies inside the panel's content box, and no word of either breaks inside it, read a character at a time. */
+const TRACE_PANEL = '[role="group"][aria-label="Source detail"]'
+const TRACE_TEXT = `${TRACE_PANEL} blockquote, ${TRACE_PANEL} > span:first-child`
+const traceFit = (page: Page) =>
+  page.locator(TRACE_PANEL).evaluate((panel) => {
+    const box = panel.getBoundingClientRect()
+    const style = getComputedStyle(panel)
+    const left = box.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft)
+    const right = box.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight)
+    const read: string[] = []
+    const outside: string[] = []
+    for (const [name, el] of [['quote', panel.querySelector('blockquote')], ['section reference', panel.querySelector(':scope > span:first-child')]] as const) {
+      if (!el?.textContent?.trim()) continue
+      read.push(name)
+      const range = document.createRange()
+      range.selectNodeContents(el)
+      for (const line of range.getClientRects()) {
+        if (line.width === 0) continue
+        if (line.left < left - 0.5 || line.right > right + 0.5) {
+          outside.push(`${name}: a line at ${Math.round(line.left)}-${Math.round(line.right)}px, the panel's content ${Math.round(left)}-${Math.round(right)}px`)
+        }
+      }
+    }
+    return { read, outside }
+  })
+
+for (const viewport of [{ width: 320, height: 640 }, { width: 360, height: 780 }, { width: 390, height: 844 }]) {
+  const at = `${viewport.width}px and 200% text`
+  test.describe(`a ${viewport.width}px phone at 200% text, the Trace to Source demo`, () => {
+    test.use({ viewport, isMobile: true, hasTouch: true })
+    test(`home (/) keeps the demo's quote and section reference inside the panel with no word broken at ${at}`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      await answerGuest(page, baseURL!)
+      await page.goto('/')
+      await h1(page)
+      await expect(page.locator(TRACE_PANEL)).toBeVisible()
+      await page.evaluate(() => document.fonts.ready)
+      await doubleText(page)
+
+      const fit = await traceFit(page)
+      // Anti-vacuity: the quote and the section reference are read, each word of both.
+      expect(fit.read, `the demo's quote and section reference at ${at}`).toEqual(['quote', 'section reference'])
+      const { words, found } = await brokenWords(page, TRACE_TEXT)
+      expect(words, `words read in the demo's quote and section reference at ${at}`).toBeGreaterThan(25)
+      // Soft, so one run reports both.
+      expect.soft(fit.outside, `${at}: every line of the quote and the section reference paints inside the panel`).toEqual([])
+      expect.soft(found, `${at}: a word of the quote or the section reference broken inside it`).toEqual([])
     })
   })
 }

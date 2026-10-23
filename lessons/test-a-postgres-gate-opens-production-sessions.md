@@ -29,9 +29,10 @@ subclass.
   `create_refresh_token` and `payment_report`, then runs as production runs it.
 
 **Evidence**:
-- `_session` in each of the five homes under `backend/tests/integration/` (`*_transactions.py`).
+- `_session` in each gate home under `backend/tests/integration/` (the five `*_transactions.py` and
+  `test_session_time_zone.py`).
 - `backend/tests/unit/test_migration_lock_safety.py`:
-  - `test_concurrency_has_a_required_postgres_ci_execution_path` fails a session a gate home opens
+  - `test_each_postgres_gate_has_a_required_ci_execution_path` fails a session a gate home opens
     other than with production's settings on the engine its case was handed (`_unapproved_sessions`);
   - `test_session_settings_detector_semantics` holds the detector to planted forms.
   - Aliases are followed: an import alias, any assignment form, and a class derived from `Session`

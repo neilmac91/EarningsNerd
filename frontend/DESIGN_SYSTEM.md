@@ -273,8 +273,8 @@ filings index's header and rows, the admin lists' rows). Each takes the cap from
 body takes it from step 4, since the dialog's own inset already halves the measure there: the cookie dialog's category
 cards (`p-cap-4`) left their text 92, 132 and 162px at 320, 360 and 390px under 200% text and broke its longest words
 ("Essen" over "tial"), and with the body's and the cards' caps keep 188, 220 and 244px and break none. A step under the
-threshold stays as it is (a Notice's `px-4`, the KPI strip's `p-3 sm:p-4`, the Trace to Source demo's claim box), and
-a page's gutter is no surface. Gate: the ESLint rule `earningsnerd/surface-padding-cap` (`eslint.designRules.mjs`; its
+threshold stays as it is (a Notice's `px-4`, the KPI strip's `p-3 sm:p-4`; the Trace to Source demo's boxes give way by
+their own rule, §7), and a page's gutter is no surface. Gate: the ESLint rule `earningsnerd/surface-padding-cap` (`eslint.designRules.mjs`; its
 planted cases in `tests/unit/designRules.spec.ts`), which reads a step by its resolved size (`p-gutter`, `p-[24px]`),
 fails a value it cannot read as a length, reads a class a same-file binding holds with any class attribute that names
 it, in each branch where it is named (`cx(SHELL, 'p-6')`, `framed ? FRAME : PAD`), reads pieces under separate
@@ -641,6 +641,25 @@ Data notes strip <DataNotes> — hairlines above and below a native details disc
                  notes remain in the narrative and do not increase the report's figure counts.
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
                  FY2026 and all API/snapshot/selection keys retain their original identity.
+
+Locked preview   <PeekLocked feature preview="full|screen"> (features/subscriptions): a Pro feature shown
+                 locked, the real component blurred, dimmed, inert and aria-hidden under a centred Pro pill
+                 and a primary "Upgrade to Pro" that opens UpgradeModal. 'full', the default, shows all of
+                 it, the action centred on its whole height. 'screen', the analysis teaser's (E139), shows
+                 about one screen: the preview's max-height is min(40rem, 75svh), the svh term keeping the
+                 window inside the smallest viewport a phone shows at any text size, the rem term capping it
+                 on a tall screen to about a phone screen of content; overflow-clip cuts the content there
+                 without making the preview a scroll container. Its foot fades through a mask on the preview
+                 alone (black to transparent over the last quarter), which paints no colour, so the ground
+                 behind shows through in either theme, and the action, the preview's sibling, is never under
+                 it; never a gradient painted in a ground colour, which must match whatever sits behind the
+                 preview in each theme. The pill and the action stay centred in the window: at 390px the
+                 action's foot moved from 2,632px to 385px below the teaser's top, inside its first screen.
+                 Gate: tests/e2e/analysis-teaser-window.spec.ts (390x844 and 1440x900, and 390x844 and
+                 320x640 under a 200% text setting, both themes: the action within one screen of the
+                 teaser's top, the window no taller than the screen and holding no scroll of its own, the
+                 pill and the action centred in it, the preview's mask opaque to transparent over its last
+                 quarter, top to bottom, and none around the action, no sideways scroll).
 
 Solid chip       <Badge variant="solid">  — the primary colorway as a chip (brand.strong fill +
                  white label; dark: NAVY ink on brand.dark) for brand-weak TINTED grounds where the
@@ -1716,6 +1735,18 @@ hero's at 320, 390 and 1440px under 200% text, and every waitlist code at 320 an
 a 768px and an 834px tablet over its route loop; a 320px phone under 200% text over it too, the three
 legal pages among its routes; and, read a character at a time, every word of the legal pages whole at
 390px under 200% text and each one's title at 320px).
+
+The landing's Trace to Source demo (`TraceToSourceDemo.tsx`) gives way from the outside in, by what each box is
+for (E143, chief design's rule on #1462). Below a 24rem viewport (384px at the default size, 768px under a 200% text
+setting) the claim box gives up its frame, its border, fill and side padding, and sits on the card, which is already
+the summary's surface; the panel keeps its frame and shadow, since the popover is what the demo shows, with the capped
+inset (`p-cap-3`); the card's inset is capped (`p-cap-5`); and the quote keeps its rule and its `pl-2`, the mark that
+never goes. `SourceTracePanelBody` is unchanged: its `break-words` breaks only a word that has no room. At 320px under
+200% text the quote keeps 183px, where it kept 40px inside the four insets and 88px with the card's cap alone, so
+"advertising," (171px) holds whole; 216px at 360px and 242px at 390px. Before, its words ran up to 32px past the card
+and the section reference broke inside "Management’s" and "Discussion". Gate: `tests/e2e/reflow-200.spec.ts` (the
+quote's and the section reference's painted lines inside the panel's content box, and no word of either broken, read a
+character at a time, at 320, 360 and 390px under 200% text).
 
 **The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:
