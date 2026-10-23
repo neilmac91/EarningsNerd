@@ -1576,6 +1576,12 @@ export function N235({ ev }: { ev: CalendarEvent }) {
   return <span>{view.company_name}</span>
 }
 
+/** N236 clean: a function named like a component that returns an object holding a served name, a mapper's data,
+    which is no text React renders. */
+export function N236({ ev }: { ev: CalendarEvent }) {
+  return { label: ev.company_name, ticker: ev.ticker }
+}
+
 // Forms the rule forbids that the gate leaves to review, each named in the spec's header.
 
 /** N87 gap: a prop typed as a plain string, filled in another module. */
