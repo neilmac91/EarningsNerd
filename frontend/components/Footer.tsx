@@ -107,15 +107,17 @@ export default function Footer() {
           </p>
         </div>
 
+        {/* Logo.dev's Community plan asks a commercial site for this link on a public page, in the form
+            its attribution page gives (the whole phrase as the link text); its dashboard loads the page
+            to find it. tests/unit/Footer.spec.tsx holds the link. */}
         <p className="mt-4 text-center text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-          Company logos by{' '}
           <a
             href="https://logo.dev"
             target="_blank"
             rel="noopener noreferrer"
             className="underline underline-offset-2 hover:text-text-secondary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
-            Logo.dev
+            Logos provided by Logo.dev
           </a>
           . Logos and trademarks are the property of their respective owners.
         </p>

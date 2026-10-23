@@ -69,33 +69,47 @@ export default function CompanyLogo({
   className = '',
 }: CompanyLogoProps) {
   const key = ticker ? logoDevKey(ticker) : ''
-  // Load state is per key: a mounted instance can change ticker in place (the analysis page's
-  // picker), and a stale `loaded` would hide the next monogram or a stale `failed` the next mark.
-  const [loadedFor, setLoadedFor] = useState('')
-  const [failedFor, setFailedFor] = useState('')
-  const loaded = loadedFor === key
-  const failed = failedFor === key
-  // A mark that settled before React hydrated fired `load` or `error` with nobody listening (the
-  // landing's chips are server-rendered above the fold): read its state on mount, as next/image does.
-  const onMount = useCallback(
-    (img: HTMLImageElement | null) => {
-      if (!img?.complete) return
-      if (img.naturalWidth > 0) setLoadedFor(key)
-      else setFailedFor(key)
-    },
-    [key],
-  )
-
-  const showImage = Boolean(LOGO_DEV_TOKEN) && Boolean(key) && !failed
   const label = name ? `${name} logo` : `${ticker || 'Company'} logo`
   const radius = size < 28 ? 'rounded-sm' : 'rounded'
 
   return (
     <span
       {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': label })}
+      // The hook scripts/capture-company-marks.mjs crops every mark by, for the both-themes check.
+      data-company-mark={key}
       className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden bg-white ring-1 ring-border-light dark:ring-white/10 ${radius} ${className}`}
       style={{ width: size, height: size }}
     >
+      {/* Keyed by the mark, so an instance whose ticker changes in place (the analysis page's picker)
+          starts over from the monogram instead of carrying the previous mark's loaded or failed state. */}
+      <MarkContents key={key} markKey={key} initials={initialsFor(ticker)} size={size} priority={priority} />
+    </span>
+  )
+}
+
+interface MarkContentsProps {
+  markKey: string
+  initials: string
+  size: number
+  priority: boolean
+}
+
+function MarkContents({ markKey, initials, size, priority }: MarkContentsProps) {
+  const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
+  // A mark that settled before React hydrated fired `load` or `error` with nobody listening (the
+  // landing's chips are server-rendered above the fold), so the element's state is read on mount, as
+  // next/image reads `complete` there. A PNG that loaded has a width; one that failed has none.
+  const onMount = useCallback((img: HTMLImageElement | null) => {
+    if (!img?.complete) return
+    if (img.naturalWidth > 0) setLoaded(true)
+    else setFailed(true)
+  }, [])
+
+  const showImage = Boolean(LOGO_DEV_TOKEN) && markKey !== '' && !failed
+
+  return (
+    <>
       {/* The tile is white in both themes (the §9 exemption), so the monogram keeps the light ink in
           both; listed in themePairs.spec.ts's residue, as the Google button's hairline is. */}
       <span
@@ -105,7 +119,7 @@ export default function CompanyLogo({
         }`}
         style={{ fontSize: Math.max(9, Math.round(size * 0.38)) }}
       >
-        {initialsFor(ticker)}
+        {initials}
       </span>
       {/* A plain img on purpose: a CDN raster at a fixed px size with its own 1x/2x/3x candidates.
           next/image added nothing here (it ran `unoptimized`) and snaps candidates to its size list,
@@ -113,10 +127,9 @@ export default function CompanyLogo({
       {showImage && (
         // eslint-disable-next-line @next/next/no-img-element -- see the note above
         <img
-          key={key}
           ref={onMount}
-          src={logoDevUrl(key, size * 2)}
-          srcSet={`${logoDevUrl(key, size)} 1x, ${logoDevUrl(key, size * 2)} 2x, ${logoDevUrl(key, size * 3)} 3x`}
+          src={logoDevUrl(markKey, size * 2)}
+          srcSet={`${logoDevUrl(markKey, size)} 1x, ${logoDevUrl(markKey, size * 2)} 2x, ${logoDevUrl(markKey, size * 3)} 3x`}
           alt=""
           aria-hidden="true"
           width={size}
@@ -127,10 +140,10 @@ export default function CompanyLogo({
           className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-base ${
             loaded ? 'opacity-100' : 'opacity-0'
           }`}
-          onLoad={() => setLoadedFor(key)}
-          onError={() => setFailedFor(key)}
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
         />
       )}
-    </span>
+    </>
   )
 }

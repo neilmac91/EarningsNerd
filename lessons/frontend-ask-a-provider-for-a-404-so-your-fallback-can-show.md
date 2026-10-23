@@ -13,9 +13,14 @@ placeholder.
 **Rule.** When a component draws its own fallback for a provider-served image, the request tells
 the provider to answer a miss with an error status (`fallback=404` on Logo.dev; the equivalent flag
 on the next provider), never with an image of its own. The unit spec fires `error` on the element
-and finds the fallback, and asserts the request URL carries the flag. A mark that loads before
-React hydrates fires `load` with nobody listening, so the component also reads `complete` and
-`naturalWidth` on mount, as next/image does.
+and finds the fallback, and asserts the request URL carries the flag. A mark that loads or fails before
+React hydrates fires its event with nobody listening, so the component also reads `complete` and
+`naturalWidth` on mount (next/image reads `complete` there too; it replays an error by resetting
+`src`, where a PNG with no width reads as failed here).
+
+The visual half of the check is `node frontend/scripts/capture-company-marks.mjs <url>`: a sheet per
+theme and pixel ratio of every mark on a page, where a provider placeholder, a clipped tile or a
+dark mark on a dark ground is seen in one glance.
 
 **Evidence.** `frontend/components/CompanyLogo.tsx` (`logoDevUrl`, `onMount`);
 `frontend/tests/unit/CompanyLogo.spec.tsx` ("keeps the monogram when the image fails", "asks the
