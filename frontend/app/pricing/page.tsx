@@ -578,7 +578,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
               <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
                 Do you offer refunds?
               </h3>
-              <p className="text-text-secondary-light dark:text-text-secondary-dark">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark [overflow-wrap:anywhere]">
                 You can cancel anytime and keep Pro until the end of the period you&apos;ve paid for,
                 with no further charges. Except where required by law, fees already paid are
                 non-refundable (see our Terms). For billing questions, email{' '}
