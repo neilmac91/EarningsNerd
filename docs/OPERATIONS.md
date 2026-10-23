@@ -519,7 +519,7 @@ ready transition's own review must have completed. A later manual review of a di
 supersede that completed review's findings; a manual review of the same head requires the ready
 review itself to be clean. A completed review of an earlier head is not enough, because a push does not
 re-trigger Codex here: after fix commits, comment `@codex review` at once, or, while a review
-still shows Running, once it settles. The gate waits up to
+still shows Running, once it completes or is an hour old. The gate waits up to
 twenty minutes, then fails naming the remedy; an `@codex review` comment re-runs the newest gate run
 on the pull request's current head automatically (the workflow's `issue_comment` job, the only one
 holding a write scope, `actions: write`), so a re-requested review is observed without a manual
@@ -529,10 +529,11 @@ first attempt, at most 50 times; past that the job fails, giving GitHub's reason
 or edit the body). The job reports each outcome only in its own log, in the Actions tab: its run sits
 on `main`'s latest commit, so the pull request's checks do not show it. Neither a ready mark nor an
 `@codex review` goes in while a review shows Running: the summary carries no run id, so the gate replays
-its history, pairs each completion with the oldest open start of its head and trigger, and waits while any
-start is open, until that review completes or is an hour old, when it counts as abandoned (F58 call 1,
-approved 2026-10-23). A ready review that hangs therefore stops blocking an hour after it started, and one
-fresh draft-to-ready transition then passes (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`
+its history, pairs each completion with the open start of its head and trigger, never with one begun while
+another of them was open, and waits while any start is open, until that review completes or is an hour old,
+when it counts as abandoned (F58 call 1, approved 2026-10-23). A ready review that hangs therefore stops
+blocking an hour after it started, and one fresh draft-to-ready transition then passes; a ready mark or
+request made inside that hour costs the hour again (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`
 gives the recovery order). The gate prints each reason as it polls. Logic in
 `backend/scripts/review_gate.py` (stdlib only), pinned by `tests/unit/test_review_gate.py`. The
 workflow runs on `pull_request_target` and checks out the **base** branch, so a pull request can edit
@@ -541,13 +542,15 @@ holds read-only tokens); only the exact Codex GitHub App identity (login, `Bot` 
 trusted; and a reviewed short SHA counts only when the repository resolves it uniquely to the head and
 no other commit of the pull request shares it, so a head minted to share a reviewed prefix stays
 unreviewed while the reviewed object exists. F58 additionally reads GitHub's ready-transition
-timeline and the bot's authenticated comment edit history, pairing a completion with its preceding
-running state. GitHub's event/request timestamps have second precision, so a start in the same second
+timeline and the bot's authenticated comment edit history, replaying it to pair each completion with
+its start. GitHub's event/request timestamps have second precision, so a start in the same second
 cannot establish ordering: the gate requires the next whole-second boundary. The PR's live head
 and latest manual request must agree with that proof. Missing,
 malformed or contradictory evidence waits instead of falling back to an older clean result.
 GitHub retains at most 100 comment revisions and the bot exposes no unique review-run ID, so missing
-required history waits, and so does a start still open, or an unreadable revision, younger than the hour. Marking ready already requests a review;
+required history waits, and so does a start still open, or an unreadable revision, younger than the hour; a
+completion within the hour after an unreadable revision never pairs, and one fresh draft-to-ready transition
+is the way out. Marking ready already requests a review;
 let that cycle finish before sending another manual request for the same head. Thread disposition
 remains a reviewer responsibility (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`).
 Each run takes the workflow definition from `main` as it

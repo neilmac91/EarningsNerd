@@ -10,9 +10,10 @@ ready mark's own running/completed cycle; a draft-era completion cannot pass the
 manual review may supersede a completed ready cycle on a different head, including fixes to its
 findings. On the same head the ready cycle must itself be clean. The newest human review request
 must be covered, even before the bot publishes Running. Missing history, malformed state and API errors
-never pass. The bot exposes no run id, so the history is replayed: a completion pairs with the oldest open
-start of its head and trigger, and any start still open blocks the pass until it completes or is an hour
-old, when it counts as abandoned (F58 call 1). This script polls that comment for the head under test and
+never pass. The bot exposes no run id, so the history is replayed: a completion pairs with the open start of
+its head and trigger, never with one begun while another of them was open, and any start still open blocks
+the pass until it completes or is an hour old, when it counts as abandoned (F58 call 1). This script polls
+that comment for the head under test and
 publishes its verdict through the ``review-gate`` job of ``.github/workflows/review-gate.yml``.
 Requiring that check in a ruleset on ``main`` (a founder decision) makes the rule binding; a
 required status check needs no approver, so it cannot lock a solo-administrator repository.
@@ -102,8 +103,8 @@ CYCLE_ROW = re.compile(
 COMMIT_LIST_CAP = 250  # GitHub's pull-request commits endpoint lists at most 250 commits
 # F58 call 1 (the founder, 2026-10-23: "Call 1 approved"): a review start still open this long counts as
 # abandoned. All 242 single Codex runs on PRs 1380-1486 finished within 21 minutes, and 34 of 35 superseded
-# runs never finished (review 6341504879), so a run open past the hour is taken to be hung: it no longer
-# blocks the gate, and a completion is never paired with it.
+# runs never finished (review 6341504879), so a run open for the hour is taken to be hung: from then on it
+# no longer blocks the gate, and a completion is never paired with it.
 ABANDON_AFTER = timedelta(minutes=60)
 
 Verdict = Tuple[str, str]  # ("pass" | "wait" | "fail", message)
@@ -253,19 +254,33 @@ class Replay(NamedTuple):
     open: List[Entry]           # starts no completion closed, and unreadable versions, oldest first
 
 
+def _open_at(entry: Entry, moment: datetime) -> bool:
+    """Whether a start, or an unreadable version that may hide one, still counts at ``moment``: it is under the
+    abandonment age then (F58 call 1). One stamped after ``moment`` counts too, so clock skew never hides it."""
+    return moment - entry.at < ABANDON_AFTER
+
+
 def _replay(states: List[Entry]) -> Replay:
     """Replay the summary history oldest first (F58 call 1; B1 in review 6341504879). The summary shows only
     the newest review and carries no run id, so a start is a version reading Running and a completion one
     reading Completed, Failed or Error; a version repeating any earlier code state (a security-review edit,
-    a finding resolved) is that start or completion again, not a new one. A completion closes the OLDEST
-    start still open, of its head and
-    trigger, that began before it and is not past the abandonment age at its time. Pairing the oldest is
-    the safe choice when two such starts are open: if the newer one finished first, the older is paired
-    and the newer stays open, so the gate waits rather than passing on a run it cannot place. A start
-    past the age is never paired, so a hung run cannot claim a later run's completion. An unreadable
-    version younger than the age at a completion may hide a start, so that pairing is refused."""
+    a finding resolved) is that start or completion again, not a new one. A start stays open until a
+    completion closes it or it is an hour old, when it counts as abandoned.
+
+    A start that begins while another start of its head and trigger is open, or while an unreadable version
+    that may hide one is under the hour, overlaps it: a later completion could be either run's, so none ever
+    pairs with the overlapping start, which stays open and holds the gate until its hour is up. That is the
+    machine gate (rule 12) for "no ready mark or review request while a review runs". So at most one open
+    start of a head and trigger can take a completion, and it does; an earlier completion that took the
+    older start when the newer finished first leaves no start the newer run's could wrongly claim. An
+    unreadable version under the hour at a completion may hide its start, so that completion pairs with
+    nothing. The one case the replay cannot tell apart is a run that completes more than an hour after it
+    began, while a later run of its head and trigger, begun once the hour was up, is still going: its
+    completion pairs with the later start. The gate accepts that risk; no run in PRs 1380-1486 took more
+    than 21 minutes."""
     starts: Dict[int, Review] = {}
     pending: List[Entry] = []
+    overlapping: List[Review] = []
     # Every code state seen so far; a completion's maps to the start it closed. A version repeating one of
     # them, adjacent or not, is a re-render of that start or completion, never a new run.
     seen: Dict[tuple, Optional[Review]] = {}
@@ -280,18 +295,27 @@ def _replay(states: List[Entry]) -> Replay:
                 starts[index] = seen[key]
             continue
         seen[key] = None
+        live = [entry for entry in pending if _open_at(entry, state.at)]
+        hidden = any(isinstance(entry, Unreadable) for entry in live)
+        rivals = [entry for entry in live if isinstance(entry, Review)
+                  and entry.head == state.head and entry.trigger == state.trigger]
         if state.status == "running":
+            if hidden or rivals:
+                overlapping.append(state)
             pending.append(state)
             continue
-        live = [entry for entry in pending if entry.at <= state.at and state.at - entry.at <= ABANDON_AFTER]
-        if any(isinstance(entry, Unreadable) for entry in live):
+        if hidden:
             continue  # a hidden start may own this completion; it pairs with nothing
-        match = next((entry for entry in live if isinstance(entry, Review)
-                      and entry.head == state.head and entry.trigger == state.trigger), None)
+        match = next((entry for entry in rivals if entry.at <= state.at and entry not in overlapping), None)
         if match is not None:
             pending.remove(match)
             starts[index] = seen[key] = match
     return Replay(starts, pending)
+
+
+# The one way out once a completion cannot be placed: a review that starts with nothing else open pairs.
+FRESH_TRANSITION = ("make one fresh draft-to-ready transition, its two steps a few seconds apart, with no manual "
+                    "request, and let that review complete; reserve copilot-eval first when its paths match")
 
 
 def _cycle_start(states: List[Entry], index: int) -> Review:
@@ -301,20 +325,25 @@ def _cycle_start(states: List[Entry], index: int) -> Review:
     start = _replay(states).starts.get(index)
     if start is None:
         raise EvidenceError("review completion has no start to pair with: its running state is missing, names "
-                            "another head or trigger, is past the one-hour abandonment age, or sits beside an "
-                            "unreadable summary version")
+                            "another head or trigger, began while another review of its head and trigger was "
+                            "open, is an hour or more before it, or sits within the hour after an unreadable "
+                            f"summary version. No later poll can pair it; with no review open, {FRESH_TRANSITION}")
     return start
 
 
 def _abandoned_from(entry: Entry) -> str:
-    return (entry.at + ABANDON_AFTER).strftime("%Y-%m-%dT%H:%M:%SZ")
+    """The first whole second at which ``entry`` counts as abandoned."""
+    moment = entry.at + ABANDON_AFTER
+    if moment.microsecond:
+        moment = moment.replace(microsecond=0) + timedelta(seconds=1)
+    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _require_no_live_start(states: List[Entry], now: datetime) -> None:
     """Pass only with no review still running: a start no completion closed blocks until the abandonment
     age, and so does an unreadable version that may hide one (F58 call 1)."""
     for entry in reversed(_replay(states).open):
-        if now - entry.at <= ABANDON_AFTER:
+        if _open_at(entry, now):
             if isinstance(entry, Unreadable):
                 raise EvidenceError(f"an unreadable summary version from {entry.at:%H:%M:%S}Z may hide a running "
                                     f"review; it stops counting at {_abandoned_from(entry)}")
@@ -369,13 +398,13 @@ def _after_github_second(start: datetime, event: datetime) -> bool:
 
 def _prove_cycles(current: Review, states: List[Entry], ready: Optional[datetime],
                   created: datetime, request: Optional[datetime], now: datetime) -> None:
-    start = _cycle_start(states, 0)
     _require_no_live_start(states, now)
+    start = _cycle_start(states, 0)
     anchor = ready or created
     if not _after_github_second(start.at, anchor):
         raise EvidenceError(f"review start does not provably follow the current ready/creation second (its completion "
-                            f"pairs with the review started at {start.at:%H:%M:%S}Z); with no other review open, one "
-                            "fresh draft-to-ready transition with no manual request starts a review this gate pairs")
+                            f"pairs with the review started at {start.at:%H:%M:%S}Z); with no review open, "
+                            f"{FRESH_TRANSITION}")
     if request is not None and (current.trigger != "Manual request" or not _after_github_second(start.at, request)):
         raise EvidenceError("latest manual @codex review request has not completed its own cycle")
     if current.trigger == "Manual request" and request is None:
@@ -463,12 +492,10 @@ def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[
             return "fail", "review-gate: current-head Codex review has unresolved findings"
         moment = now or datetime.now(timezone.utc)
         if current.status != "completed":
-            if moment - current.at > ABANDON_AFTER:
+            if not _open_at(current, moment):
                 return "wait", (f"review-gate: the Codex review of {current.short} has shown Running since "
                                 f"{current.at:%H:%M:%S}Z, past the one-hour abandonment age, so it counts as abandoned "
-                                "(F58 call 1). Make one fresh draft-to-ready transition, its two steps a few seconds "
-                                "apart, with no manual request, and let that review complete; reserve copilot-eval "
-                                "first when its paths match")
+                                f"(F58 call 1); {FRESH_TRANSITION}")
             return "wait", (f"review-gate: Codex review {current.status} for {current.short} since "
                             f"{current.at:%H:%M:%S}Z; if it never completes it counts as abandoned from "
                             f"{_abandoned_from(current)}")
