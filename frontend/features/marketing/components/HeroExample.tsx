@@ -149,7 +149,7 @@ function HeroExample({
       aria-label="Example summary"
       className="min-w-0 max-w-full rounded-xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
     >
-      <div className="flex flex-col gap-4 p-5 sm:p-6">
+      <div className="flex flex-col gap-4 p-cap-5 sm:p-cap-6">
         <div className="flex items-center justify-between gap-3">
           <p className={cx('text-xs font-medium', MUTED)}>Example summary</p>
           {data.qualityTier === 'full' && (

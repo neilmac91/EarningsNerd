@@ -216,15 +216,16 @@ the billing and ticker filings cards' Retry ran 15px past it. Gates: e2e `reflow
 controls stay inside their card" (the homepage search alert and the full-text search alert on /search, each at 320,
 360 and 390px and with a long token, the
 dashboard's account card at 320, 360 and 390px, the route and dashboard error boundaries at 320px, and the
-comparison, billing and ticker filings cards at 320 and 360px, each held to its Notice's border at 360px and the
-comparison card at 320px too; at rest and busy); `full-text-search.spec.tsx` for
+comparison, billing and ticker filings cards at 320 and 360px, each held to its Notice's border at both widths; at
+rest and busy); `full-text-search.spec.tsx` for
 the full-text search alert's layout;
 `twoActionsWrap.spec.tsx` for GuidanceCard and the four page-replacing fallbacks; `button-wrap.spec.tsx` for the
-reserve's rows. Its limit: at 320px under 200% text a `p-6` card (48px a side: billing, ticker filings, the
-admin feedback and invites lists) leaves a Notice a 92px content box, narrower than the Retry's narrowest state
-(138px, its padding and "again…"), so there the Retry sits 13px past the Notice's border, inside the card, the
-page at its width. Main's resting Retry is 30px past it there, so the cards' padding causes it, not the reserve
-or the Notice (E120). Where one Notice holds two failed reads, one
+reserve's rows. At 320px under 200% text a `p-6` card (48px a side: billing, ticker filings, the admin feedback
+and invites lists) left a Notice a 92px content box, narrower than the Retry's narrowest state (138px, its padding
+and "again…"), so the Retry ran past the Notice's border there, inside the card: the cards' padding caused it, not
+the reserve or the Notice. A surface's inset now stops growing at narrow widths (the capped step, §4's rules,
+E120): those cards keep 19.2px a side there, the Notice 150px, and the Retry lies 33px inside its border. Where one
+Notice holds two failed reads, one
 RetryButton takes both failures (the dashboard's plan strip, the pricing page's details Notice): its press retries
 the ones that failed, and two buttons with one label could not say which read each retries. A retry control that is
 not RetryButton yet (an error boundary's reset, the summary and answer stream restarts) reads the same words, and
@@ -256,6 +257,40 @@ same conditional branch (ternary arm, `&&` operand, `clsx` object key). `cx('gri
 'md:grid-cols-2')` is right; `cx('grid', wide ? 'md:grid-cols-2' : 'grid-cols-1')` is not. Gate: the ESLint
 rule `earningsnerd/responsive-grid-base-track` (`eslint.gridBaseTrack.mjs`); rules in
 `lessons/frontend-variable-text-must-not-size-a-wrapping-row.md`.
+
+A surface's inset stops growing at narrow widths under enlarged text (E120, chief design's rule): on a surface,
+padding step N is the capped step `p-cap-N`, `min(N × 0.25rem, N vw)`, on every side (`px-cap-6`, `pt-cap-6`,
+`sm:p-cap-8`; `tailwind.config.js` PADDING_CAP_STEPS: 3, 4, 5, 6, 8 and 10, and `scroll-py-cap-6` for a scroll padding
+that matches a capped inset). From a 25rem viewport up (400px at the default text size, 800px under a 200% text
+setting) it is the step itself, so nothing moves at the default size from 400px up, nor under a 200% text setting from
+800px up; below that it is N% of the viewport: a `p-6` card keeps 23.4px at 390px and 19.2px at 320px, at 320px under
+200% text 19.2px where `p-6` took 48px a side, and on a 768px tablet under 200% text 46.1px. A surface is a Card; a Modal's panel; a frame, an element
+whose class text draws a full border and a radius (the Card recipe copied by hand, a well, the ticker filings card);
+the Card's and the dialog's sections (CardHeader, CardBody, CardFooter, ModalHeader, ModalBody, ModalFooter, at a call
+site and in their own source, imported under any name, and a Modal's className, its panel); a native `<dialog>` and its sections (DayDetailDialog's header and footer); and what is
+written directly inside a Card, a Modal or a frame, on each side its class does not pad in every render (no padding, padding on the other axis only, a zero on that axis after padding as in `p-cap-6 px-0`, an important zero whatever its group as in `!p-0 px-cap-6`, `p-0`, padding set only under a condition or a variant such as `sm:`, or reset to zero under one; the hero example's wrapper, the
+filings index's header and rows, the admin lists' rows). Each takes the cap from step 5; a frame inside a dialog's
+body takes it from step 4, since the dialog's own inset already halves the measure there: the cookie dialog's category
+cards (`p-cap-4`) left their text 92, 132 and 162px at 320, 360 and 390px under 200% text and broke its longest words
+("Essen" over "tial"), and with the body's and the cards' caps keep 188, 220 and 244px and break none. A step under the
+threshold stays as it is (a Notice's `px-4`, the KPI strip's `p-3 sm:p-4`, the Trace to Source demo's claim box), and
+a page's gutter is no surface. Gate: the ESLint rule `earningsnerd/surface-padding-cap` (`eslint.designRules.mjs`; its
+planted cases in `tests/unit/designRules.spec.ts`), which reads a step by its resolved size (`p-gutter`, `p-[24px]`),
+fails a value it cannot read as a length, reads a class a same-file binding holds with any class attribute that names
+it, in each branch where it is named (`cx(SHELL, 'p-6')`, `framed ? FRAME : PAD`), reads pieces under separate
+conditions as one render and a ternary's arms as one or the other (`cx(bordered && FRAME, compact ? 'p-3' : 'p-6')`
+is a frame at `p-6`), failing closed where it cannot correlate two conditions, never reads a form field (input, textarea, select) as a frame, since its padding reserves room
+for a glyph, and fails a capped key the theme does not define anywhere, scroll padding included; out of its reach
+(review-checked, planted as stated gaps): a class a component receives as a prop, an imported constant, an object of
+recipes, a binding a ternary sets, a class through a helper other than cx()/clsx(), an inset in an inline style or a
+stylesheet or written as an arbitrary property (`[padding:24px]`), a frame drawn without a border utility
+(`.glass-card`), and a section held in a variable or rendered by another component (the stacked metric cards' list in
+FinancialMetricsTable, TableScroll's hint and the filings index's skeleton carry the cap by hand). A class on top of a
+section's capped inset (`<ModalBody className="px-8">`) wins or loses by stylesheet order, since cx does no
+tailwind-merge, and Tailwind emits `px-cap-6` after every numbered step: a caller widens or narrows a section with a
+capped step, never a numbered one. `tests/e2e/reflow-200.spec.ts` holds what the cap gives back: the
+billing and ticker filings cards' Notices keep their Retry and every text run inside their border at 320px under 200%
+text, and the cookie dialog's cards break no word at 320, 360 and 390px.
 
 ```
 Primary button   <Button>  ·  LIGHT: white label on bg-brand, hover bg-brand-strong, active bg-brand-emphasis
@@ -412,6 +447,8 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
 
 Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:shadow-none
                  (e1 chips · e2 cards · e3 hero/featured · e4/e5 menus & overlays)
+                 Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
+                 recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
 
 Input            <Input>  — fill is the BRIGHTEST surface so the field reads on BOTH the cream page
                  AND an off-white card: bg-white dark:bg-white/5 + hairline + brand focus ring
@@ -537,7 +574,7 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  A noted comparison names the recorded input and period carrying its concern; if
                  its input identity is absent, say so instead of inventing an operand or fiscal period.
 
-Analysis reflow  The page title and selected-company rows wrap. Narrative cards use p-4 sm:p-6;
+Analysis reflow  The page title and selected-company rows wrap. Narrative cards use p-4 sm:p-cap-6;
                  export/refresh Buttons use size="sm" wrap and max-w-full. The shared wrap state
                  keeps min-h-8 and lets labels grow within the card without conflicting utilities.
 
@@ -793,8 +830,8 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  chip's last child, inside the card (a marker that could not shrink squeezed the address out at 200%
                  text and pushed the button past the card). Its 16px radius (`rounded-xl`) is a pill on one line and
                  a rounded box once it wraps, as SourceTrace's chip. The chip row is an inline-size query container,
-                 and below 8em of its own text size (`[@container(width<8em)]:`) that group is too narrow for
-                 "· already" (the dot is held to its word by a no-break space), so the group dissolves (`contents`),
+                 and below 9.6em of its own text size (`[@container(width<9.6em)]:`), where an invited chip no
+                 longer fits on one line, the group dissolves (`contents`),
                  the chip wraps with no row gap and the address takes the first line whole (`order-first
                  basis-full`), wrapping anywhere (`whitespace-normal [overflow-wrap:anywhere]`) instead of
                  truncating: beside the remove button it kept 52px at 320px under 200% text ("al…", "bo…", a bare
@@ -803,10 +840,12 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  "· already" to give the button its line wherever both fit (390px under 200% text; at 320px the
                  button takes the line under the marker), and it never paints over the button (at 320px under 200%
                  text it once ran across it). The button keeps its 48px and its ring and ends the chip on whatever
-                 line it lands (`ml-auto`), as it does above 8em. An invited chip needs about 9.6em on one line, so
-                 the narrow state never splits a chip that fits; at the default size it starts at a 128px row, so a
-                 chip that fits keeps the one-line pill from 320 up (a short address at 320, whose row is 14.9em, and
-                 alice@example.com at 390 and 1440). Reading and Tab order stay address, marker, button. The em is
+                 line it lands (`ml-auto`), as it does above 9.6em. An invited chip needs about 9.6em on one line,
+                 so the narrow state never splits a chip that fits and no address truncates beside its marker below
+                 it; at the default size it starts at a 154px row, so a chip that fits keeps the one-line pill from
+                 320 up (a short address at 320, whose row is 15.5em, and alice@example.com at 390 and 1440). The
+                 switch was 8em until the capped card inset (E120) widened the row at 390px under 200% text from
+                 7.1em to 8.7em, where an 8em switch truncated alice's address by 55px. Reading and Tab order stay address, marker, button. The em is
                  the text's actual size however it is enlarged (a media query's rem is only the browser's text
                  setting), as in the Analysis KPI strip. Gates: tests/unit/admin-invites-page.spec.tsx (the classes)
                  and tests/e2e/admin-invite-chip-reflow.spec.ts (what they paint at 320, 390 and 1440px, at the
@@ -828,6 +867,10 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  title breaks a long word, as the description does. No container query: a
                  container-type would collapse a Notice wherever a parent sizes it to its content. Gate:
                  e2e reflow-200.spec.ts (the Retry and every text run inside the Notice's border).
+                 A Notice owns its alignment: text-left on its root, so inside a column that centres its text
+                 (the waitlist page below lg) its title and description stay at the start with its glyph and
+                 its action row, and a caller needs none of its own (WaitlistForm's two text-left went with E120; gate:
+                 tests/unit/waitlistSuccessCard.spec.tsx, the two Notices of the form in that column).
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
@@ -931,7 +974,8 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  backdrop-blur, Card recipe at rounded-2xl, focus moves in on open (initialFocusRef ?? first
                  focusable ?? panel), Tab/Shift-Tab cycle inside, Escape closes when dismissible, focus RETURNS
                  to the opener, body scroll locked. The panel never outgrows the viewport: it stops at the
-                 scrim's inset and scrolls inside, with scroll padding equal to its p-6 inset so a control
+                 scrim's inset and scrolls inside, with scroll padding equal to its capped inset (scroll-py-cap-6;
+                 the sections' px-cap-6, the header's pt-cap-6 and the footer's pb-cap-6) so a control
                  scrolled in by focus lands its ring clear of the edge; callers never size its height.
                  Destructive confirms use variant="destructive" and stay
                  dismissible. The trap arms once per open (onClose is read through a ref), so inline
@@ -1251,7 +1295,7 @@ Company identity <CompanyIdentity company latest summaryReady actions>  (feature
                  pressed, `loading` while it saves). Sector and fiscal-year convention wait for the payload.
 
 Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P-07) — the entry to a change
-                 report: an <aside> Card (p-5, h2 18/600) beside the filings index on lg+ (grid-cols-1 base,
+                 report: an <aside> Card (p-cap-5, h2 18/600) beside the filings index on lg+ (grid-cols-1 base,
                  lg 1fr + 20rem), shown only for selectComparisonFiling (the newest annual report with an
                  earlier annual period listed). Up to three hairline rows: metric · the change in WhatChanged's
                  own vocabulary (exported Change: ▲/▼ glyph + the server's display string or —, in its tone's ink)

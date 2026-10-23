@@ -101,7 +101,7 @@ export default function NotificationBell() {
           </div>
 
           {items.length === 0 ? (
-            <div className="px-3 py-6 text-center">
+            <div className="px-3 py-cap-6 text-center">
               <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">No filing alerts yet</p>
               <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 We&apos;ll notify you when a company on your watchlist files.

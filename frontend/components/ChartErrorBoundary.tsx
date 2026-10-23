@@ -38,7 +38,7 @@ export class ChartErrorBoundary extends Component<Props, State> {
       // it; on Multi-Period Analysis it wraps the whole grid of chart panels (TrendCharts passes
       // noun="charts" when more than one is shown) and MetricsTable sits below, outside it.
       return (
-        <Card className="p-6 text-center">
+        <Card className="p-cap-6 text-center">
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
             {this.props.noun === 'charts' ? 'These charts could not be drawn.' : 'This chart could not be drawn.'}
           </p>

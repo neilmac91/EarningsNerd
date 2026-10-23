@@ -21,7 +21,7 @@ export default function TableScroll({ label, children }: { label: string; childr
   return (
     <>
       {overflowing && (
-        <p id={hintId} className="px-6 py-2 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+        <p id={hintId} className="px-cap-6 py-2 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
           Scroll horizontally to read all columns.
         </p>
       )}

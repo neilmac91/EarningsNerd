@@ -14,7 +14,7 @@ export default function FeedOnboarding() {
   return (
     <div
       role="status"
-      className="flex flex-col items-center rounded-xl border border-border-light bg-panel-light px-6 py-10 text-center shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+      className="flex flex-col items-center rounded-xl border border-border-light bg-panel-light px-cap-6 py-cap-10 text-center shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
     >
       <span className="flex h-11 w-11 items-center justify-center rounded-full border border-brand-border bg-brand-weak text-brand-strong dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark">
         <NewspaperIcon className="h-5 w-5" aria-hidden="true" />

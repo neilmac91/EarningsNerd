@@ -87,7 +87,7 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
       onClick={() => analytics.dashboardFeedClicked(item.filing_id, company.ticker, item.filing_type)}
       className="block rounded-xl focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
-      <Card interactive className="h-full p-5">
+      <Card interactive className="h-full p-cap-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
             <CompanyLogo decorative ticker={company.ticker} name={formatCompanyName(company.name)} size={28} />

@@ -116,7 +116,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
   const subject = data?.subject
 
   return (
-    <Card as="section" className="mb-8 p-6">
+    <Card as="section" className="mb-8 p-cap-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">

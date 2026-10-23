@@ -20,7 +20,7 @@ export default function NotFound() {
   return (
     <main className="flex min-h-[60vh] items-center justify-center bg-background-light px-4 py-16 dark:bg-background-dark">
       <title>Page not found | EarningsNerd</title>
-      <Card data-not-found-card className="flex w-full max-w-md flex-col items-center px-6 py-10 text-center">
+      <Card data-not-found-card className="flex w-full max-w-md flex-col items-center px-cap-6 py-cap-10 text-center">
         <span
           aria-hidden="true"
           className="flex h-11 w-11 items-center justify-center rounded-full border border-brand-border bg-brand-weak text-brand-strong dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark"

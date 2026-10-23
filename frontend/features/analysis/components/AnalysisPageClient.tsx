@@ -334,7 +334,7 @@ export default function AnalysisPageClient() {
         </p>
       </header>
 
-      <Card className="p-5 [@container(max-width:13em)]:px-1.5">
+      <Card className="p-cap-5 [@container(max-width:13em)]:px-1.5">
         <div className="mb-1 text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
           Company
         </div>
