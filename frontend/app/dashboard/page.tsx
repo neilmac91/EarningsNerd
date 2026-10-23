@@ -209,10 +209,17 @@ export default function DashboardPage() {
       backHref="/"
       backLabel="Back to home"
       actions={
+        // aria-disabled + aria-busy + an early return while the logout is under way, not native `disabled`: Chromium
+        // blurs a focused button that turns disabled. Busy fades the label's ink, which holds under hover.
         <button
           type="button"
-          onClick={() => logoutMutation.mutate()}
-          className="rounded-lg text-sm font-medium text-text-secondary-light hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark"
+          onClick={() => {
+            if (logoutMutation.isPending) return
+            logoutMutation.mutate()
+          }}
+          aria-disabled={logoutMutation.isPending || undefined}
+          aria-busy={logoutMutation.isPending || undefined}
+          className="rounded-lg text-sm font-medium text-text-secondary-light hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand aria-disabled:text-text-secondary-light/50 dark:text-text-secondary-dark dark:hover:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark dark:aria-disabled:text-text-secondary-dark/50"
         >
           Log out
         </button>
@@ -234,13 +241,13 @@ export default function DashboardPage() {
               hand off without a reflow. SkeletonText/Stat own role="status" — no wrapper role. */}
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="space-y-8 lg:col-span-2">
-              <Card className="p-5"><SkeletonText lines={2} /></Card>
-              <Card className="p-5"><SkeletonText lines={4} /></Card>
-              <Card className="p-5"><SkeletonText lines={4} /></Card>
+              <Card className="p-cap-5"><SkeletonText lines={2} /></Card>
+              <Card className="p-cap-5"><SkeletonText lines={4} /></Card>
+              <Card className="p-cap-5"><SkeletonText lines={4} /></Card>
             </div>
             <div className="space-y-8">
-              <Card className="p-5"><SkeletonStat /></Card>
-              <Card className="p-5"><SkeletonText lines={3} /></Card>
+              <Card className="p-cap-5"><SkeletonStat /></Card>
+              <Card className="p-cap-5"><SkeletonText lines={3} /></Card>
             </div>
           </div>
         </main>
@@ -324,7 +331,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Main column: search, the "what changed" feed, and the watchlist status section. */}
           <div className="space-y-8 lg:col-span-2">
-            <Card className="p-5">
+            <Card className="p-cap-5">
               <p className="mb-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">Find a company by name or ticker</p>
               <CompanySearch />
             </Card>
@@ -406,7 +413,7 @@ export default function DashboardPage() {
             ) : null}
 
             {/* Plan and usage — a single compact strip. The ≥80% warning is surfaced at the top. */}
-            <Card className="p-5">
+            <Card className="p-cap-5">
               <div className="flex items-center justify-between">
                 <h2
                   ref={planHeadingRef}

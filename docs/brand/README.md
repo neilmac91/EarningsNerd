@@ -156,8 +156,10 @@ and CI's backend job, on its pinned toolchain, passed on the same commit.
 
 The founder took the last four on 2026-10-17 (D-045 and D-046):
 
-1. The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`) is to be
-   regenerated through the pipeline to end at FY2025, a paid run under a USD 0.10 ceiling (E93).
+1. The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`) is regenerated
+   through the pipeline to end at FY2025: one run, FY2020 to FY2025, USD 0.000196 against the
+   USD 0.10 ceiling (E93), made on 2026-10-22 once E149 let each source link open its filing's
+   document. A first run on 2026-10-20 cost USD 0.00046.
 2. Notable filings returned to the homepage as a ruled row after Reporting this week, with 10-K
    and 10-Q filings only, from companies that hold a full summary (one the filing page shows,
    D-052), newest first, at most six: the backend's query in #1437 and the row in E90's frontend

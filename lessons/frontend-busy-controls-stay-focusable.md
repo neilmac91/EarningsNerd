@@ -154,7 +154,10 @@ four of these in later review rounds, after the sweep had shipped them fire-and-
 by a "Saved" label) hands focus to a stable target: a heading or status line with `tabIndex={-1}`, focused
 with `{ preventScroll: true }`. A layout whose pages own its heading hands it to the landmark it renders
 first: the admin layout's account card gives way to the section's `<nav tabIndex={-1}>`, since each admin
-page writes its own h1 below it (`app/admin/layout.tsx`). Two forms are accepted: before the unmount, only
+page writes its own h1 below it (`app/admin/layout.tsx`). A Retry whose success renders content in its
+place hands focus to that content's container: TurnstileWidget's Try again gives way to the security
+check, a group named "Security check" with `tabIndex={-1}` (E152). Two forms are accepted: before the
+unmount, only
 when the control holds focus (`document.activeElement === e.currentTarget`), or after it, only when focus
 fell to `<body>`. Never move focus a mouse user did not lose.
 - A Retry's hand-off fires only when the Retry unmounts while it holds focus, whatever the cause: its own
@@ -220,10 +223,11 @@ fell to `<body>`. Never move focus a mouse user did not lose.
   the full-text search alert on /search included), `full-text-search.spec.tsx` (that alert's layout),
   `twoActionsWrap.spec.tsx` and `button-wrap.spec.tsx`.
   A Notice's row wraps, its text column going under the glyph where it cannot keep 9rem beside it, so a Notice
-  inside a card keeps its Retry and its title inside its own border (reflow-200 holds three such cards). Its limit:
-  at 320px under 200% text a `p-6` card (billing, ticker filings, the admin lists) leaves a Notice a 92px content
-  box, narrower than the Retry's narrowest state (138px), so the Retry sits 13px past the Notice's border there,
-  inside the card (E120). During a refetch nobody
+  inside a card keeps its Retry and its title inside its own border (reflow-200 holds three such cards). At 320px
+  under 200% text a `p-6` card (billing, ticker filings, the admin lists) left a Notice a 92px content box, narrower
+  than the Retry's narrowest state (138px), so the Retry ran past the Notice's border there, inside the card; since
+  E120 a surface's inset stops growing at narrow widths (`p-cap-6`, 19.2px a side there), the Notice keeps 150px and
+  reflow-200 holds the billing and ticker filings cards to it at 320px too. During a refetch nobody
   pressed it is busy (aria-busy, aria-disabled, the spinner, a refused press) under its own label: a label
   swap inside the card's `role=alert` would re-announce the failure at every reconnect. Two failed reads in one
   Notice share one RetryButton (the dashboard's plan strip, the pricing page's details Notice): its press
@@ -282,11 +286,10 @@ fell to `<body>`. Never move focus a mouse user did not lose.
 (h) The scan cannot see post-success flips outside its names, unmounts, or a busy flag under another
 name. Those stay per-site specs plus a real-browser keyboard pass. Known open cases, same class, not
 yet fixed: the filing page's summary Retry (the stored-failure card, "This summary did not finish") and Regenerate Analysis; FeedbackRow's status
-select when the list is filtered by status (its own update removes the row); the dashboard header's
-Log out (no in-flight guard); PopularTickerChips' add when the insights refetch after it fails (the
-chip goes live again, and with no row to prune it needs the added ticker remembered); YourCompanies'
-remove when the insights refetch after it fails (the error card replaces the list and focus falls to
-`<body>` with no hand-off). The scan cannot see how a press was made either: the text-field
+select when the list is filtered by status (its own update removes the row); PopularTickerChips' add when the
+insights refetch after it fails (the chip goes live again, and with no row to prune it needs the added ticker
+remembered); YourCompanies' remove when the insights refetch after it fails (the error card replaces the list
+and focus falls to `<body>` with no hand-off). The scan cannot see how a press was made either: the text-field
 hand-off's pointer origin (g) is pinned in `useRetainedFailure.spec.tsx` (a tap on a busy Retry, focused or
 not, a tap on the busy Retry's spinner, a tap then Tab away and back, a tap then a keyboard press, a click
 that starts no focus) and needs a touch-device pass. Fixed, all on
@@ -305,8 +308,10 @@ FullTextSearch's (#1301, `full-text-search.spec.tsx`); the filing page's generat
 (`StreamingSummaryDisplay.spec.tsx`, `useRetainedFailure.spec.tsx`, e2e `summary-generation-focus.spec.ts`); the completed-generation arrival in the persistent filing shell (first summary heading, only after a run, preserving held focus and modal ownership; the same e2e); and
 EmailVerificationModal's Resend (`busyControls.admin-auth.spec.tsx`
 plus the e2e `email-verification-resend.spec.ts`). The dashboard's saved-summary Delete and Manage
-billing are fixed too (`busyControls.dashboard.spec.tsx`), and Watchlist insights' Retry keeps its error
-card, busy and focused, through its refetch (`summaryStatusCopy.spec.tsx`). The admin invites and
+billing are fixed too (`busyControls.dashboard.spec.tsx`), as is its header's Log out, unavailable while its
+logout runs and available again after one that did not take (#1496, `failedLogoutChecksSession.spec.tsx`),
+and Watchlist insights' Retry keeps its error card, busy and focused, through its refetch
+(`summaryStatusCopy.spec.tsx`). The admin invites and
 feedback list Retry buttons hold their Notice through the retry and hand focus to the "Invites" or
 "Feedback" list heading (`busyControls.admin-auth.spec.tsx`).
 

@@ -11,7 +11,7 @@ from app.models import User
 from app.routers.auth import get_current_user
 from app.config import settings
 from starlette.concurrency import run_in_threadpool
-from app.services import billing_account_service
+from app.services import billing_account_service, filing_list_service
 from app.services.billing_serving_prices import serving_pro_prices
 from app.services.subscription_webhook_service import process_stripe_event, SubscriptionEventBusy
 from app.services.stripe_subscription_reader import SubscriptionReconciliationUnavailable
@@ -55,7 +55,8 @@ class UsageResponse(BaseModel):
     qa_limit: int
     # Free "taste" of Copilot (roadmap 2.2): lifetime grounded questions a FREE user has spent and
     # the plan's total allowance, so the UI can show "N of M free questions" and switch to the upsell
-    # at exhaustion. For Pro these are 0 (Pro is unlimited via qa_limit).
+    # at exhaustion. For Pro the total is 0 (Pro has no taste; its monthly cap is qa_limit); the used
+    # count stays what the account spent while Free, since Pro questions never spend the taste.
     copilot_free_taste_used: int
     copilot_free_taste_total: int
     # Multi-Period Analysis generations this month vs the Pro fair-use cap (fresh AI narratives
@@ -80,24 +81,34 @@ async def get_usage(
     db: Session = Depends(get_db)
 ):
     """Get current user's usage for the month"""
-    month = get_current_month()
-    current_count = get_user_usage_count(current_user.id, month, db)
-    
-    # Resolve via the entitlements SSoT (subscription row first, is_pro mirror as fallback) so an
-    # active subscriber with a momentarily-stale is_pro mirror still gets the right limits/status.
-    ent = get_entitlements(current_user)
-    return UsageResponse(
-        summaries_used=current_count,
-        summaries_limit=ent.monthly_summary_limit,
-        is_pro=is_pro_user(current_user),
-        month=month,
-        qa_used=get_user_qa_count(current_user.id, month, db),
-        qa_limit=settings.COPILOT_MONTHLY_QUESTION_CAP,
-        copilot_free_taste_used=getattr(current_user, "copilot_free_taste_used", 0) or 0,
-        copilot_free_taste_total=ent.copilot_free_taste,
-        analysis_used=get_user_analysis_count(current_user.id, month, db),
-        analysis_limit=settings.ANALYSIS_MONTHLY_CAP,
-    )
+
+    def usage_for_reader() -> UsageResponse:
+        # One unit in the thread pool: the three counts, the plan the entitlements read from the
+        # reader's subscription row, the payload and the release, so no checkout or statement waits
+        # on the event loop (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            month = get_current_month()
+            current_count = get_user_usage_count(current_user.id, month, db)
+
+            # Resolve via the entitlements SSoT (subscription row first, is_pro mirror as fallback) so an
+            # active subscriber with a momentarily-stale is_pro mirror still gets the right limits/status.
+            ent = get_entitlements(current_user)
+            return UsageResponse(
+                summaries_used=current_count,
+                summaries_limit=ent.monthly_summary_limit,
+                is_pro=is_pro_user(current_user),
+                month=month,
+                qa_used=get_user_qa_count(current_user.id, month, db),
+                qa_limit=settings.COPILOT_MONTHLY_QUESTION_CAP,
+                copilot_free_taste_used=getattr(current_user, "copilot_free_taste_used", 0) or 0,
+                copilot_free_taste_total=ent.copilot_free_taste,
+                analysis_used=get_user_analysis_count(current_user.id, month, db),
+                analysis_limit=settings.ANALYSIS_MONTHLY_CAP,
+            )
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(usage_for_reader)
 
 @router.get("/subscription", response_model=SubscriptionStatus)
 async def get_subscription_status(
@@ -109,20 +120,31 @@ async def get_subscription_status(
     Reads the local `subscriptions` row (kept authoritative by the webhook) so the common case
     needs no live Stripe round-trip. Falls back to the `is_pro` mirror when no row exists yet.
     """
-    sub = billing_account_service.find_subscription(db, current_user.id)
-    plan = get_plan(current_user).value
 
-    return SubscriptionStatus(
-        is_pro=plan == "pro",
-        stripe_customer_id=(sub.stripe_customer_id if sub else None) or current_user.stripe_customer_id,
-        stripe_subscription_id=(sub.stripe_subscription_id if sub else None) or current_user.stripe_subscription_id,
-        subscription_status=sub.status if sub else None,
-        plan=plan,
-        status=sub.status if sub else None,
-        trial_end=sub.trial_end if sub else None,
-        current_period_end=sub.current_period_end if sub else None,
-        cancel_at_period_end=bool(sub.cancel_at_period_end) if sub else False,
-    )
+    def status_for_reader() -> SubscriptionStatus:
+        # One unit in the thread pool: the reader's row, the plan, the payload and the release
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            sub = billing_account_service.find_subscription(db, current_user.id)
+            plan = get_plan(current_user).value
+
+            return SubscriptionStatus(
+                is_pro=plan == "pro",
+                stripe_customer_id=(sub.stripe_customer_id if sub else None) or current_user.stripe_customer_id,
+                stripe_subscription_id=(
+                    (sub.stripe_subscription_id if sub else None) or current_user.stripe_subscription_id
+                ),
+                subscription_status=sub.status if sub else None,
+                plan=plan,
+                status=sub.status if sub else None,
+                trial_end=sub.trial_end if sub else None,
+                current_period_end=sub.current_period_end if sub else None,
+                cancel_at_period_end=bool(sub.cancel_at_period_end) if sub else False,
+            )
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(status_for_reader)
 
 
 class ProPriceCharge(BaseModel):
@@ -204,7 +226,13 @@ async def create_checkout_session(
                 email=current_user.email,
                 metadata={"user_id": str(current_user.id)}
             )
-            billing_account_service.save_stripe_customer_id(db, current_user, customer.id)
+            stored_customer_id = billing_account_service.claim_stripe_customer_id(db, current_user, customer.id)
+            if stored_customer_id != customer.id:
+                # Another checkout of this account stored its customer first: check out with that one,
+                # so a payment through either session finds the account (E166).
+                logger.info("Checkout for user_id=%s uses the customer stored first; %s has no subscription",
+                            current_user.id, customer.id)
+                customer = stripe.Customer.retrieve(stored_customer_id)
         else:
             customer = stripe.Customer.retrieve(current_user.stripe_customer_id)
         

@@ -12,9 +12,10 @@ One rule, two halves in this one module:
   in the thread pool; each auth session route (logout signed in, with only the refresh cookie and
   with a dead one, logout-all, refresh, and a password login with the right password and a wrong
   one, which also holds no connection while it hashes), each watchlist route and its refusals, each analysis route
-  and a refusal of each, and the waitlist join and verification must answer an eight-request burst
-  with no checkout on the loop and nothing left for the finalizer; and the join must send its
-  mails, and the analysis exports render, with no connection out.
+  and a refusal of each, the waitlist join and verification, the contact form and the feedback
+  submit, and the usage and subscription-status reads must answer an eight-request burst with no
+  checkout on the loop and nothing left for the finalizer; and the join, the contact form and the
+  feedback submit must send their mails, and the analysis exports render, with no connection out.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
   fails a session call on the loop in the route's own body above that route's ceiling, so a route
   the burst does not list cannot add such a call unseen. Neither half sees a session handed to a
@@ -1113,6 +1114,254 @@ async def test_waitlist_join_holds_no_connection_while_its_mails_send(monkeypatc
         engine.dispose()
 
 
+def _submit_fixture(monkeypatch, tmp_path, send_email):
+    """A four-slot pool with eight active users, the contact form and the feedback submit wired to it
+    with ``send_email`` as their mail sender, and fresh limiters. Returns the engine, a session factory,
+    the request sessions as they open, and whether each checkout and each statement ran on the loop."""
+    from app.models import User
+    from app.routers import auth, contact, feedback
+    from app.services import turnstile
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'submits.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        db.add_all(User(email=f"submitter-{i}@example.com", is_active=True) for i in range(8))
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    # A statement on the loop blocks it even on a connection the thread pool checked out (the feedback
+    # submit's auth lookup's, which the route's session keeps).
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(turnstile.settings, "TURNSTILE_SECRET_KEY", "")
+    monkeypatch.setattr(contact.settings, "RESEND_FROM_EMAIL", "Ops <ops@example.com>")
+    monkeypatch.setattr(contact, "send_email", send_email)
+    monkeypatch.setattr(feedback, "send_email", send_email)
+    # Each route's limiter is process-wide; each burst starts with a fresh window.
+    monkeypatch.setattr(contact, "CONTACT_LIMITER", RateLimiter(limit=100, window_seconds=3600))
+    monkeypatch.setattr(feedback, "FEEDBACK_LIMITER", RateLimiter(limit=100, window_seconds=3600))
+    return engine, sessions, request_sessions, on_loop
+
+
+async def _submit(transport: httpx.ASGITransport, route: str, i: int) -> httpx.Response:
+    """One contact form message from submitter ``i``, or one feedback report signed in as them."""
+    from app.routers import auth
+
+    if route == "contact":
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post("/api/contact/", json={
+                "name": f"Submitter {i}", "email": f"submitter-{i}@example.com",
+                "message": "Does the summary include segment data?",
+            })
+    token = auth.create_access_token({"sub": f"submitter-{i}@example.com"})
+    async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                 headers={"Authorization": f"Bearer {token}"}) as client:
+        return await client.post("/api/feedback/", json={"type": "bug", "message": "Charts fail to load"})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["contact", "feedback"])
+async def test_contact_and_feedback_submits_release_their_connection_off_the_loop(monkeypatch, tmp_path, route):
+    """The contact form and the feedback submit each insert their row and build their response in one
+    thread-pool unit, released before their mails go out, so eight submissions on four slots, each mail
+    taking 0.3 s, answer 8x201 with no checkout or statement on the loop and nothing left for the
+    finalizer. Holding the connection across the mails, as both did, answered the contact form's
+    burst 4x201 then 4x500, and left every feedback report's transaction for the finalizer (E144)."""
+    from app.models import ContactSubmission
+    from app.models.feedback import Feedback
+
+    async def slow_send(*args: Any, **kwargs: Any) -> dict:
+        await asyncio.sleep(0.3)
+        return {"id": "msg_test"}
+
+    engine, sessions, request_sessions, on_loop = _submit_fixture(monkeypatch, tmp_path, slow_send)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    try:
+        responses = await asyncio.gather(*[_submit(transport, route, i) for i in range(8)])
+        assert [response.status_code for response in responses] == [201] * 8
+        assert sorted(response.json()["id"] for response in responses) == list(range(1, 9))
+        assert engine.pool.checkedout() == 0
+        # Each unit released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        # Every checkout, the feedback submit's auth lookup's included, waited in the thread pool, and
+        # every statement ran there: none on the loop.
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        with sessions() as db:
+            assert db.query(ContactSubmission if route == "contact" else Feedback).count() == 8
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["contact", "feedback"])
+async def test_contact_and_feedback_submits_hold_no_connection_while_their_mails_send(monkeypatch, tmp_path, route):
+    """Each submit releases its session before its first mail, so no pool slot waits on the mail
+    provider: the contact form's notice to the team and its confirmation to the sender, and the
+    feedback submit's notice to the team."""
+    held: list[tuple[str, int]] = []
+    engine, _, _, _ = _submit_fixture(monkeypatch, tmp_path, None)
+
+    async def send(to: list[str], subject: str, html: str, *args: Any, **kwargs: Any) -> dict:
+        held.append((to[0], engine.pool.checkedout()))
+        return {"id": "msg_test"}
+
+    from app.routers import contact, feedback
+
+    monkeypatch.setattr(contact, "send_email", send)
+    monkeypatch.setattr(feedback, "send_email", send)
+    try:
+        response = await _submit(httpx.ASGITransport(app=app, raise_app_exceptions=False), route, 0)
+        assert response.status_code == 201
+        assert held == (
+            [("ops@example.com", 0), ("submitter-0@example.com", 0)] if route == "contact"
+            else [("ops@example.com", 0)]
+        )
+        assert engine.pool.checkedout() == 0
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path,case", [
+    ("/api/subscriptions/usage", "usage"),
+    ("/api/subscriptions/usage", "usage_pro"),
+    ("/api/subscriptions/subscription", "status"),
+    ("/api/subscriptions/subscription", "status_row"),
+])
+async def test_subscription_reads_release_their_connection_off_the_loop(monkeypatch, tmp_path, path, case):
+    """The usage and subscription-status routes read their counts, the reader's subscription row and the plan
+    the entitlements derive from it, and build their payload, in one thread-pool unit, so eight readers on four
+    slots, with and without a subscription row, each get their own payload, leave nothing for the finalizer and
+    make no checkout, statement or release on the loop (E144)."""
+    from app.config import settings
+    from app.models import Subscription, User, UserUsage
+    from app.routers import auth
+    from app.services.entitlements import get_entitlements
+    from app.services.subscription_service import get_current_month
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'subscription-reads.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with_row = case in ("usage_pro", "status_row")
+    month = get_current_month()
+    with sessions() as db:
+        for i in range(8):
+            # Every mirror stays False, so with a row only the row can make the reader Pro: a plan read
+            # after the release falls back to the mirror without raising, and only the payload shows it.
+            reader = User(email=f"subscriber-{i}@example.com", is_active=True, is_pro=False,
+                          stripe_customer_id=f"cus_{i}", copilot_free_taste_used=i % 3)
+            db.add(reader)
+            db.flush()
+            # Counts of the reader's own, so a payload built from another reader's row fails.
+            db.add(UserUsage(user_id=reader.id, month=month, summary_count=i, qa_count=10 + i, analysis_count=20 + i))
+            if with_row:
+                db.add(Subscription(user_id=reader.id, plan="pro", status="active", stripe_customer_id=f"cus_{i}",
+                                    stripe_subscription_id=f"sub_{i}"))
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    # A statement on the loop blocks it even on a connection the thread pool checked out (the auth
+    # lookup's, which the route's session keeps).
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    # A release on the loop (the session's close after the unit) runs its rollback and checkin there,
+    # and neither is a checkout or a statement.
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"subscriber-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            return await client.get(path)
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        assert [response.status_code for response in responses] == [200] * 8
+        payloads = [response.json() for response in responses]
+        if path.endswith("/usage"):
+            # Each reader's own counts and the limits of the plan the reader's subscription row gives,
+            # a lazy load inside the unit (a transient user's mirror names the plan the row should).
+            plan = get_entitlements(User(is_pro=with_row))
+            assert payloads == [{
+                "summaries_used": i, "summaries_limit": plan.monthly_summary_limit, "is_pro": with_row,
+                "month": month, "qa_used": 10 + i, "qa_limit": settings.COPILOT_MONTHLY_QUESTION_CAP,
+                "copilot_free_taste_used": i % 3, "copilot_free_taste_total": plan.copilot_free_taste,
+                "analysis_used": 20 + i, "analysis_limit": settings.ANALYSIS_MONTHLY_CAP,
+            } for i in range(8)]
+        else:
+            assert [(payload["plan"], payload["stripe_customer_id"], payload["status"]) for payload in payloads] == [
+                ("pro" if with_row else "free", f"cus_{i}", "active" if with_row else None) for i in range(8)]
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        # Every checkout, the auth lookup's included, waited in the thread pool, and every statement
+        # and every release ran there: none on the loop.
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+    finally:
+        engine.dispose()
+
+
 def _analysis_fixture(tmp_path, name: str, *, pro: bool, synced: bool = True):
     """A four-slot pool over one company with two fiscal years of revenue and net income, eight
     readers (Pro or Free), and a saved annual analysis whose snapshot matches the current facts.
@@ -1441,8 +1690,6 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # the loop. The blank line between entries keeps in-place number edits on different entries
 # mergeable in any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
-    ("app/routers/feedback.py", "submit_feedback"): 4,
-
     ("app/routers/summaries.py", "ask_filing_stream"): 1,
 
     ("app/routers/summaries.py", "export_summary_csv"): 2,

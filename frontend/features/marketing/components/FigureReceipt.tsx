@@ -49,7 +49,7 @@ export default function FigureReceipt({
   ]
 
   return (
-    <Card className="p-5">
+    <Card className="p-cap-5">
       <CardTitle>Follow one figure to the filing</CardTitle>
       <p className={`mt-1.5 text-sm ${MUTED}`}>
         {row.metric} in the table above, traced to the line {company} filed.

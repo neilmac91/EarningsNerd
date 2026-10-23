@@ -77,7 +77,7 @@ export function MarkedCopy({ children, className }: { children: ReactNode; class
 /** An in-text marker: the product's citation form (data face, semibold, brackets) at the
  *  provenance chip's 12px, with the `data-en-ref` hook the margin twins. Hidden from assistive
  *  tech, as its 11px twin is: the number points at a twin it never reaches, and the chip beside
- *  the passage says what was located ("Verified in filing", "Located in the filing"), so a
+ *  the passage says what was located ("Quote found in filing", "Located in the filing"), so a
  *  heading's name reads as its words alone, never "…their components…[1]". */
 export function EnRef({ label, className }: { label: string; className?: string }) {
   return (

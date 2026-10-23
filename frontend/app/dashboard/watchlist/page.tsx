@@ -97,7 +97,7 @@ export default function WatchlistDashboardPage() {
               aria-hidden: one status names the wait. */}
           <div role="status" aria-label="Loading your watchlist" className="grid grid-cols-1 gap-6">
             {[0, 1].map((i) => (
-              <Card key={i} className="p-6">
+              <Card key={i} className="p-cap-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-center gap-3">
                     <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
@@ -176,7 +176,7 @@ export default function WatchlistDashboardPage() {
               return (
                 // Non-interactive card (nothing on it is clickable as a whole) —
                 // no hover affordance; the buttons inside carry the actions.
-                <Card key={insight.company.id} className="p-6">
+                <Card key={insight.company.id} className="p-cap-6">
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
                       {/* Below sm, logo and name fill the first line and the ticker and status badges sit

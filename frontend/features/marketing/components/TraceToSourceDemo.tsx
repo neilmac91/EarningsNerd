@@ -32,14 +32,18 @@ export default function TraceToSourceDemo({ trace }: { trace: TraceSample }) {
   const panelId = useId()
 
   return (
-    <Card className="p-5">
+    <Card className="p-cap-5">
       <CardTitle>Trace to Source</CardTitle>
       <p className="mt-1.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
         The label opens the passage a sentence rests on, in the filing’s own words.
       </p>
-      {/* The claim box is the first inset to give way (E143): below a 20rem screen, as at 320–390px under 200% text, it
-          drops its frame, fill and side padding, so the quote inside the panel keeps the width its words need. */}
-      <div className="mt-4 rounded-lg py-3.5 [@media(min-width:20rem)]:border [@media(min-width:20rem)]:border-border-light [@media(min-width:20rem)]:bg-white [@media(min-width:20rem)]:px-4 dark:[@media(min-width:20rem)]:border-white/10 dark:[@media(min-width:20rem)]:bg-white/5">
+      {/* The demo's boxes give way from the outside in (E143, chief design's rule on #1462): below
+          a 24rem viewport (384px at the default size, 768px under a 200% text setting) the claim box gives up its frame,
+          its border, fill and side padding, and sits on the card, which is already the summary's surface; the panel keeps
+          its frame and shadow with the capped inset (p-cap-3), the card's inset is capped too (p-cap-5), and the quote
+          keeps its rule and its pl-2. At 320px under 200% text that leaves the quote 183px, where "advertising," needs
+          171px (gate: tests/e2e/reflow-200.spec.ts, the Trace to Source demo). */}
+      <div className="mt-4 rounded-lg border border-border-light bg-white px-4 py-3.5 dark:border-white/10 dark:bg-white/5 [@media(max-width:24rem)]:border-0 [@media(max-width:24rem)]:bg-transparent [@media(max-width:24rem)]:px-0 dark:[@media(max-width:24rem)]:bg-transparent">
         <p className="text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
           {trace.metric}
         </p>
@@ -64,7 +68,7 @@ export default function TraceToSourceDemo({ trace }: { trace: TraceSample }) {
             id={panelId}
             role="group"
             aria-label="Source detail"
-            className="mt-3 max-w-xs rounded-lg border border-border-light bg-panel-light p-3 shadow-e4 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+            className="mt-3 max-w-xs rounded-lg border border-border-light bg-panel-light p-cap-3 shadow-e4 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
           >
             <SourceTracePanelBody
               header={trace.sectionRef}

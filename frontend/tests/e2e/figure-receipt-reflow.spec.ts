@@ -31,7 +31,7 @@ async function openLanding(page: Page, theme: Theme) {
 
 /** The card is the nearest panel around its title. */
 const receiptCard = (page: Page) =>
-  page.locator('#evidence').getByRole('heading', { name: 'Follow one figure to the filing' }).locator('xpath=ancestor::*[contains(@class,"p-5")][1]')
+  page.locator('#evidence').getByRole('heading', { name: 'Follow one figure to the filing' }).locator('xpath=ancestor::*[contains(concat(" ", @class, " ")," p-cap-5 ")][1]')
 
 /** Where the text itself is painted (a Range), so an amount spilling out of its own box still counts. */
 const paintedBox = (loc: Locator): Promise<Box> =>

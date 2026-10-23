@@ -8,6 +8,7 @@ import NarrativePane, { type NarrativeState } from '@/features/analysis/componen
 import type { AnalysisCitation, AnalysisCompletion, AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import DataNotes from '@/features/analysis/components/DataNotes'
+import demo from '@/features/analysis/demo/demo-analysis.json'
 import type { NarrativePresentation } from '@/features/analysis/lib/narrativePresentation'
 import { groupQualityNotes } from '@/features/analysis/lib/dataNotes'
 
@@ -403,12 +404,31 @@ describe('NarrativePane citation chips', () => {
 
   it('replaces the verified/cached badges with a Sample badge in teaser mode (F3)', () => {
     const state = doneState({ completion: doneCompletion({ cached: true }) })
-    render(<NarrativePane state={state} sample />)
-    // Approximate demo figures must never wear the "verified" claim.
+    const { container } = render(<NarrativePane state={state} sample />)
+    // A saved sample run is not the reader's analysis: it never wears a live run's source count or Cached line.
     expect(screen.getByText('Sample data')).toBeInTheDocument()
     expect(screen.queryByText(/^\d+ sources?$/)).not.toBeInTheDocument()
     expect(screen.queryByText('Cached')).not.toBeInTheDocument()
     expect(screen.queryByText(/Served from an earlier run/)).not.toBeInTheDocument()
-    expect(screen.getByText(/Sources · sample data/)).toBeInTheDocument()
+    // The sample is one saved run of the pipeline (D-046), and its labels say what it is in a reader's words.
+    expect(screen.getByText('Sources · sample data (one saved run)')).toBeInTheDocument()
+    const note = 'Sample data: figures and narrative from one saved analysis run. Run an analysis to see cited figures checked against the company’s filed data and source warnings shown for review.'
+    expect(screen.getByText('Sample data')).toHaveAttribute('title', note)
+    expect(container).toHaveTextContent(note)
+  })
+
+  it('never calls the sample approximate or illustrative, and never says "pipeline", a word readers do not know (D-046)', () => {
+    // The teaser's sample as the teaser renders it: the checked-in run's data notes and narrative, both in sample mode.
+    const dataset = demo.dataset as unknown as AnalysisDataset
+    const completion = demo.completion as unknown as AnalysisCompletion
+    const { container } = render(
+      <DataNotesProvider dataset={dataset}>
+        <DataNotes dataset={dataset} sample />
+        <NarrativePane state={{ status: 'done', text: completion.narrative, completion }} sample />
+      </DataNotesProvider>,
+    )
+    expect(container).toHaveTextContent('Data notes · sample data (one saved run)')
+    // The markup, so the badge's title and the other attributes are read with the text.
+    expect(container.innerHTML.match(/approximat\w*|illustrative\w*|pipeline\w*/gi) ?? [], 'words the sample must not use').toEqual([])
   })
 })

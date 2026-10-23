@@ -20,7 +20,7 @@ export default function EarningsCalendar({ enabled = true }: { enabled?: boolean
   // watchlist changed). When the owned `earnings_events` table has no upcoming rows for the user's
   // tickers, show a quiet one-liner instead of nothing.
   return (
-    <Card as="section" className="p-5">
+    <Card as="section" className="p-cap-5">
       <div className="mb-3 flex items-center gap-2">
         <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
           Upcoming earnings

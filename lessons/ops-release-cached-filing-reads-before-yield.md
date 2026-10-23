@@ -24,7 +24,10 @@ duplicate check before an insert, a read-modify-write) holds a lock from its che
 writes with an atomic database operation. Take the lock before the session's first query, so no
 waiter holds a connection, or after it with no new checkout inside, so no holder waits for a pool
 slot that a waiter holds. A lock taken after the first query relies on READ COMMITTED
-(PostgreSQL's default and production's): the waiter's check must see the holder's commit.
+(PostgreSQL's default and production's): the waiter's check must see the holder's commit, so it
+reads the database under the lock (a column query, or `populate_existing()`: an entity query hands
+back an already-loaded object unchanged), not an attribute loaded before it
+(`lessons/arch-store-a-stripe-customer-only-while-the-account-has-none.md`, E166).
 
 **Evidence**: `backend/app/routers/filings.py` company, specific, recent, content and fundamentals
 read handlers, and the `backend/app/routers/summaries.py` summary read, progress and what-changed
@@ -73,11 +76,24 @@ says why not the default executor); the leader claims the sync before its read, 
 meanwhile follows it; a leader cancelled during its persist keeps its claim until the persist ends;
 and the burst's `coverage_sync` row runs `ingest_companyfacts_by_id` itself, only its SEC fetch faked,
 with its sessions off the loop (2026-10-19, E129).
+The contact form handed its session to `persist_contact_submission` on the loop, and the feedback
+submit committed and refreshed its row in its own body, so each held a connection through its mails:
+eight contact messages on four slots, each mail taking 0.3 s, answered 4x201 then 4x500, and eight
+feedback reports answered 8x201 but left every transaction for the finalizer. Each is now one
+thread-pool unit, the insert and the response it echoes, released before its first mail; their burst
+case holds every statement off the loop, and a single submit sends each mail with no connection out
+(2026-10-23, E144).
+The usage and subscription-status routes read their counts, the reader's subscription row and the
+plan the entitlements derive from it through services on the loop, on the connection the auth lookup
+had checked out: eight readers on four slots answered 8x200 with all eight transactions left for the
+finalizer. Each is now one thread-pool unit, and their burst case holds every statement and every
+release off the loop and each reader to their own payload, with and without a subscription row
+(2026-10-23, E144).
 The pool-lifetime file's AST ratchet reads every async router function and fails a session call on the
 loop in its own body above that function's ceiling (on main before the fix it named both summaries
 routes). Neither half sees a session handed to a service that runs on the loop where the burst does
 not list the route (the rest of the
-auth router and the checkout route, E121), or a background task's own session worked on the loop
+auth router, E121, and checkout, E144), or a background task's own session worked on the loop
 (E123 moved the company list's units into the thread pool, `test_filings_endpoint_db_first.py`'s
 off-the-loop cases; the flag-off job runners are E150), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.
@@ -94,6 +110,26 @@ Each now holds a lock from its check to its commit (2026-10-19). The gate is
 after their checks, so without the lock the race happens however loaded the host, and it fails any
 checkout made inside the watch-row lock. It covers those five units only.
 
+Those locks reach one process, and the API runs up to two instances, across which the five races stayed
+open. Since E128 each unit also takes, before its check, a lock in the database that every instance
+shares, and holds it to the commit that carries its write. The watch-row writes take the account's users
+row lock (`watchlist_service.lock_watch_rows`, FOR NO KEY UPDATE, as the refresh token's writers do)
+before the process lock. That lock serves every account: a unit that waited on one account's row inside
+it, behind a Stripe delivery's read say, stalled every other account's writes on the instance, and with
+the auth lookup's connection each waiter holds, three such waiters and the stalled unit filled the
+instance's four-slot pool. The join takes the waitlist's place lock, a transaction-level advisory lock,
+since no row is common to every join (`waitlist_service._lock_waitlist_places`), inside its process lock,
+which a waiter takes before its first query and so waits on holding no connection. Its place is one past
+the highest held, so no two signups on the list share one even after a deletion, and its credit one
+UPDATE that adds to the stored score. The process locks stay: under SQLite they are the only serialization.
+`backend/tests/unit/test_check_then_write_units_lock_across_instances.py` holds each lock from before its
+unit's first read to the commit of its write, as statements compiled for PostgreSQL, the watch-row lock
+outside the process lock and the reads beside them taking no lock, and the credit to one that a
+concurrent commit cannot lose. No CI step races two instances on PostgreSQL. The pull request's local run
+did, with a process lock per thread for each instance: two enables at the cap, two adds, two removes, a
+disable against a remove, an add against an enable, and two joins with and without a link. It also timed
+other accounts' adds while one account waited on a held row.
+
 A company's filing writers were next (E123's review). Each read which of the company's filing rows
 existed before the company row lock that serialized their inserts, so two writers of one company could
 both find a filing missing, and the second insert failed the unique accession and rolled back its batch.
@@ -106,10 +142,26 @@ writer (the scan's `upsert_filings`, which the refresh, the backfill and the dur
 through; the live listing's `persist_live_filings`; `precompute_one`) now takes that row lock before it
 reads or writes a filing row (`filing_amendment_service.lock_company_filings`), which reaches every
 process and instance (2026-10-21). It serializes one company's writers only: a filing listed under two
-companies, a co-registrant filing, is checked under two locks. SQLite omits the lock, so
-`backend/tests/unit/test_filing_writers_lock_before_they_check.py` reads each writer's statements,
-compiled for PostgreSQL: a lock that waits, then the check, with no end of a transaction between them.
-No PostgreSQL gate races two writers.
+companies, a co-registrant filing, is checked under two locks, so two writers of the two companies
+could both find it missing, and the second insert failed (Codex on #1483). Since E153 a writer that
+finds an accession missing also takes the filing-insert lock after its company's, a transaction-level
+advisory lock that every inserting writer shares, and reads the missing accessions again before it
+inserts (`filing_amendment_service.existing_filings_for_insert`), so a writer that waited there inserts
+only what is still missing. One lock serves every accession: a first listing or a history backfill
+inserts hundreds of rows, and a lock apiece would hold as many entries of PostgreSQL's shared lock
+table. A writer with nothing to insert takes no lock, and one that takes it ends its transaction soon
+after (its commit, or its caller's commit or close), with no network call between. SQLite omits both
+locks, so `backend/tests/unit/test_filing_writers_lock_before_they_check.py` reads each writer's
+statements, compiled for PostgreSQL: a lock that waits, then the check, with no end of a transaction
+between them; `backend/tests/unit/test_filing_inserts_lock_across_companies.py` reads the insert lock
+after the check, the second read and the commit, runs the race in one thread, and holds every builder of
+a filing row under `app/` to the three writers. On PostgreSQL,
+`backend/tests/integration/test_filing_insert_transactions.py` races two companies' writers of shared
+filings, each held after its check: the scan's against the scan's, the live listing's against the scan's,
+and a backfill-sized scan against a one-row one. Each race runs with either writer holding the insert
+lock, kept there until PostgreSQL shows the other waiting for it, beside a control without the lock whose
+second writer fails its batch. `precompute_one`'s writer is raced only by the one-thread case above
+(E161).
 
 The refresh token's rotation was one more. It read its token, checked it live, minted a successor and
 marked the token rotated, so two refreshes with one cookie both minted, and a refresh racing a logout or

@@ -181,7 +181,7 @@ import { routeFiles, walkImports } from './importWalk'
  *    place DEVICE_PLACES does not list. On a row of a list (what a
  *    `.map` or `.flatMap` callback returns, through the file's components, so a summary block is one) a
  *    marker or a marked block renders only under a test of its located flag, a risk's `source_verified`
- *    (the chip's "Verified in filing", D-028) or an evidence's `verified`: `=== true` or the field itself,
+ *    (the chip's "Quote found in filing", D-028, D-058) or an evidence's `verified`: `=== true` or the field itself,
  *    `!== true` on a conditional's false branch, an `if` around the return, a conjunction or a same-file
  *    const holding one; a helper's call is a guard the gate does not read, so it fails closed. One marker
  *    per row and per line, so the twins never overprint, none inside a marked block (a quote block takes
@@ -3209,7 +3209,7 @@ const DEVICE_PLACES: Record<string, { parts: DevicePart[]; why: string }> = {
   },
   'features/summaries/components/SummaryRisks.tsx': {
     parts: ['margin', 'marker', 'block'],
-    why: "the filing page's Risks: each row whose excerpt the server located, its chip's Verified in filing (D-028, D-044)",
+    why: "the filing page's Risks: each row whose excerpt the server located, its chip's Quote found in filing (D-028, D-044, D-058)",
   },
   'features/summaries/components/SummaryBlocks.tsx': {
     parts: ['block'],
@@ -3219,7 +3219,7 @@ const DEVICE_PLACES: Record<string, { parts: DevicePart[]; why: string }> = {
 /** What keeps its citation chips: a margin never holds an answer, the narrative or their chips. */
 const CHIP_SURFACES = new Set(['CitationChip', 'CopilotMessage', 'NarrativePane'])
 const CHIP_CALLS = new Set(['injectCitationMarkers'])
-/** The server's located flags: a risk's `source_verified` (the chip's "Verified in filing") and a block's or a row's
+/** The server's located flags: a risk's `source_verified` (the chip's "Quote found in filing") and a block's or a row's
     evidence `verified` (BlockEvidence: the whole quote found in the filing text). */
 const LOCATED_FIELDS = new Set(['source_verified', 'verified'])
 /** Tags whose content runs on the line of the element around them, so their markers share it. */

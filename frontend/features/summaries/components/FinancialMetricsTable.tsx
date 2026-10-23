@@ -342,7 +342,7 @@ export default function FinancialMetricsTable({
       role="list"
       aria-label={caption}
       data-metrics-layout="cards"
-      className={cx('space-y-3 text-sm', byContainer ? '[@container(min-width:52rem)]:hidden' : 'md:hidden', !bare && 'px-5 py-4')}
+      className={cx('space-y-3 text-sm', byContainer ? '[@container(min-width:52rem)]:hidden' : 'md:hidden', !bare && 'px-cap-5 py-4')}
     >
       {metrics.map((row, index) => (
         <li

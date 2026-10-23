@@ -87,3 +87,32 @@ founder's row F52. Every boundary above and in `AGENTS.md` §3 stays held. This 
 here, as the 2026-09-08 and 2026-10-12 ones are, because `tasks/todo.md`'s handover block holds five
 lines and is the CODE RED chief's. First use: #1436, marked ready after a USD 13.06 balance read and
 merged as `707d80e5`.
+
+**Correction rounds on a records pull request — 2026-10-22.** Record 46's pull request (#1488) took three commits
+after its record (Codex's two P1s restated as hand checks; the fact-check's thirty-two corrections with Codex's P2;
+the reviewer's first pass), each also bringing the record's account of main up to date, and each one a push, a CI
+run, a Codex review and a round of draft-gate failures, while main moved six times under it. The founder said: "Merge
+1488 when ready. as there's been 4 corrections already, unless there's a real issue identified, make progress and move
+towards merging." The chief marked #1488 ready at 2026-10-22T19:13:44Z, before the reviewer had returned any result on
+its head `b0befd2` (its latest, the first pass, was bound to `7680850`): a deviation, because missing review output is
+never clearance (`AGENTS.md` section 5). The founder then said: "merge it once CI and the reviewer are clean." The
+delta check bound no blocker to `b0befd2`; its should-fix and three of its four nits went to record 47 instead of a
+fourth correction, and the fourth, on the pull request's body, into the body's fifth version after the merge. The
+merge, `888cf06a` at 19:31:15Z, came after CI's success on `b0befd2` (19:21:48Z), the ready mark's own Codex review,
+completed with no unresolved finding (F58), and the delta check's verdict
+(`tasks/code-red-20261004/runtime/control/DECISIONS-46.md`'s "After the cutoff" for the commits; DECISIONS-47 for the
+rest). This section records one pull request and sets no rule: no gate can tell a real issue from a nit (rule 12;
+`AGENTS.md` section 4), and no merge step changes.
+
+**The same steer on #1457 (2026-10-22 and 2026-10-23).** After its second ready mark at 2026-10-22T20:57:47Z, #1457
+took three Codex findings as rounds (a lesson's stale wording, the teaser's preview left in the tab order, a test that
+pinned one cited filing's document of six) and merged main in six times as main moved, under its rule to merge main in
+before the merge (#1457, comment 6351322267), each merge a new CI run and Codex review. Asked in the session driving it,
+late on 2026-10-22, whether a move of main that merges cleanly should restart the cycle, the founder said: "Please
+ensure 1457 merges as soon as it's ready. For minor observations, there's no need to continue to make updates." No round
+followed. Twice its e2e job was then cut at the 25-minute limit by a stalled browser install (comment 6353802336; F59,
+raised to 30 minutes by #1509), and main's moves that night were left until #1495's conflicted in `tasks/todo.md`, when
+main was merged in a seventh time to clear it; #1508's, which would have merged cleanly, was left. The merge,
+`ab6962ec` at 2026-10-23T06:18:41Z, came after CI's success on `0a99c04f`, Codex's clean review of that head (comment
+6358766476) and `review-gate`'s pass on the re-run of a job that had timed out while that review ran (comment
+6358733855). Like the section above, this records one pull request and sets no rule.

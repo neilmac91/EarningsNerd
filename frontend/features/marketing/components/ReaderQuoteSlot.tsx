@@ -14,7 +14,7 @@ export default function ReaderQuoteSlot() {
   if (!READER_QUOTE) return null
   return (
     <LandingRow id="reader-quote" title="Reader quote" impression="reader_quote">
-      <figure className="grid grid-cols-[auto_1fr] items-start gap-5 rounded-xl border border-dashed border-brand-border p-6 dark:border-brand-border-dark sm:p-8 lg:p-10">
+      <figure className="grid grid-cols-[auto_1fr] items-start gap-5 rounded-xl border border-dashed border-brand-border p-cap-6 dark:border-brand-border-dark sm:p-cap-8 lg:p-cap-10">
         <QuotesIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
         <div className="min-w-0">
           <blockquote className="font-heading text-xl text-text-secondary-light dark:text-text-secondary-dark lg:text-2xl">

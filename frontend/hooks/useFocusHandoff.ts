@@ -15,8 +15,9 @@ export interface FocusHandoff {
 
 /**
  * When the control unmounts while it holds focus, for any reason (its own success, a recovery nobody
- * pressed, a new search term), focus goes to `target`: a heading or status line with tabIndex={-1}, or
- * a text field. Chromium drops a removed element's focus to <body>. Focus the control never held is
+ * pressed, a new search term), focus goes to `target`: a heading or status line with tabIndex={-1}, the
+ * region the control's success renders in (TurnstileWidget's security check), or a text field. Chromium
+ * drops a removed element's focus to <body>. Focus the control never held is
  * never moved, and nothing is armed by a press, so no later event can fire a stale hand-off.
  *
  * How: React calls a callback ref with null while it detaches the node, before the node leaves the

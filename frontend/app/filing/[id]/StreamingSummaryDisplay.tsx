@@ -284,7 +284,7 @@ export default function StreamingSummaryDisplay({
     // SSR / pre-hydration: a quiet skeleton card (gates Math.random / Date below).
     return (
       <div className="max-w-4xl mx-auto space-y-6">
-        <Card className="p-8">
+        <Card className="p-cap-8">
           {/* SkeletonText carries its own role="status" — the wrapper stays role-less. */}
           <div className="space-y-6">
             <SkeletonText lines={2} />
@@ -329,7 +329,7 @@ export default function StreamingSummaryDisplay({
       {/* Progress card — one calm focus. Hidden on error: the GuidanceCard below is the single
           error surface, so the bar/steps/whimsy never duplicate the failure state. */}
       {!isError && (
-        <Card className="p-6 sm:p-8">
+        <Card className="p-cap-6 sm:p-cap-8">
           {/* Live region: one polite announcement per stage transition (the progressbar's value
               changes every tick and is deliberately NOT live). */}
           <p role="status" aria-live="polite" className="sr-only">
@@ -459,7 +459,7 @@ export default function StreamingSummaryDisplay({
 
       {/* Streamed summary — the payoff, canonical .markdown-body render */}
       {displayText && (
-        <Card as="section" className="p-6 sm:p-8">
+        <Card as="section" className="p-cap-6 sm:p-cap-8">
           <div className="mb-6 flex items-center gap-3 border-b border-border-light dark:border-border-dark pb-4">
             <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">AI-generated summary</h2>
             {isGenerating && <Badge variant="brand">Live</Badge>}

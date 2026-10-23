@@ -47,7 +47,7 @@ export function ComparePeriodsCard({ filing }: { filing: Filing }) {
   const priorEnded = day(report?.prior_filing?.period_end_date)
 
   return (
-    <Card as="aside" aria-labelledby={headingId} className="p-5">
+    <Card as="aside" aria-labelledby={headingId} className="p-cap-5">
       <h2 id={headingId} ref={headingRef} tabIndex={-1} className={cx('text-lg font-semibold outline-none', INK)}>
         Compare periods
       </h2>
