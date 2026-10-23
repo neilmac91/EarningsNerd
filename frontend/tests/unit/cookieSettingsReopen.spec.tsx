@@ -57,7 +57,7 @@ const STORAGE_KEY = 'cookie_consent'
 const CHOSEN: CookiePreferences = { essential: true, analytics: true, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z', version: CONSENT_VERSION }
 /** /privacy's sentence on the banner and Do Not Track, as the founder approved it and scoped it to the browser (D-049). */
 const PRIVACY_SENTENCE =
-  "Analytics and session recording in your browser stay off until you allow them, and you can change your choice at any time in Cookie settings. We don't change this based on your browser's Do Not Track setting."
+  "Analytics in your browser stays off until you allow it, and you can change your choice at any time in Cookie settings. Session recording is disabled. We don't change this based on your browser's Do Not Track setting."
 /** A browser privacy signal named in copy: Do Not Track or Global Privacy Control, in words or by abbreviation. */
 const SIGNAL_MENTION = /do not track|global privacy control|\bdnt\b|\bgpc\b/gi
 /** What a page's text says of the signals: whether it carries the founder's sentence, and each signal it names. */
@@ -310,7 +310,7 @@ describe("the footer's Cookie settings reopens the consent dialog after a choice
     })
 
     it('a stored allow reads back as an allow', () => {
-      const allowed: CookiePreferences = { ...CHOSEN, sessionRecording: true }
+      const allowed: CookiePreferences = { ...CHOSEN, sessionRecording: false }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(allowed))
       expect(navigator.doNotTrack).toBe('1')
 
@@ -318,7 +318,7 @@ describe("the footer's Cookie settings reopens the consent dialog after a choice
       expect(stored()).toEqual(allowed)
     })
 
-    it("the dialog's boxes are enabled on the stored choice, each described by its own text alone", async () => {
+    it("analytics follows the stored choice and recording stays disabled, each described by its own text alone", async () => {
       const { user, control } = renderChrome()
       await user.click(control)
       const dialog = screen.getByRole('dialog', { name: 'Cookie preferences' })
@@ -328,7 +328,7 @@ describe("the footer's Cookie settings reopens the consent dialog after a choice
       expect(analytics).toBeEnabled()
       expect(analytics).toBeChecked()
       expect(analytics).toHaveAccessibleDescription(ownDescription('cookie-analytics-desc'))
-      expect(recording).toBeEnabled()
+      expect(recording).toBeDisabled()
       expect(recording).not.toBeChecked()
       expect(recording).toHaveAccessibleDescription(ownDescription('cookie-recording-desc'))
       expect(within(dialog).queryByText(/Do Not Track/)).not.toBeInTheDocument()
@@ -337,12 +337,12 @@ describe("the footer's Cookie settings reopens the consent dialog after a choice
     it('Save stores what the visitor ticked, the event carries it and focus returns to the control', async () => {
       const { user, control } = renderChrome()
       await user.click(control)
-      await user.click(screen.getByRole('checkbox', { name: 'Session recording' }))
+      await user.click(screen.getByRole('checkbox', { name: 'Analytics cookies' }))
       await user.click(screen.getByRole('button', { name: 'Save preferences' }))
 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(stored()).toMatchObject({ essential: true, analytics: true, sessionRecording: true })
-      expect(consentEvents).toEqual([expect.objectContaining({ essential: true, analytics: true, sessionRecording: true })])
+      expect(stored()).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
+      expect(consentEvents).toEqual([expect.objectContaining({ essential: true, analytics: false, sessionRecording: false })])
       expect(control).toHaveFocus()
     })
   })
@@ -452,7 +452,7 @@ describe('no app module reads a browser privacy signal, and /privacy says so (D-
     ).toEqual({ sentence: true, mentions: ['Do Not Track'] })
   })
 
-  it('CookieConsent.tsx is the one reader of the stored choice, so every consent reader takes it through getCookiePreferences()', () => {
-    expect(scan().filter(([, { storedChoice }]) => storedChoice > 0).map(([rel]) => rel)).toEqual(['components/CookieConsent.tsx'])
+  it('browserConsent.ts is the one reader of the stored choice, so every consent reader takes it through getCookiePreferences()', () => {
+    expect(scan().filter(([, { storedChoice }]) => storedChoice > 0).map(([rel]) => rel)).toEqual(['lib/browserConsent.ts'])
   }, 30_000)
 })

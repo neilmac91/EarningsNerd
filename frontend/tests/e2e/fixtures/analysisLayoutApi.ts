@@ -265,7 +265,7 @@ export async function openAnalysis(page: Page, baseURL: string, state: AnalysisS
   }
   await page.addInitScript(({ theme, textScale }) => {
     localStorage.setItem('theme', theme)
-    localStorage.setItem('cookie_consent', JSON.stringify({ necessary: true, analytics: false, marketing: false, timestamp: '2026-10-10T00:00:00Z' }))
+    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z' }))
     // Root text-size emulation, not a claim about native browser zoom. Apply before render.
     if (textScale !== 1) document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${100 * textScale}%` }, { once: true })
   }, { theme, textScale })
