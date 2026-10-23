@@ -1111,7 +1111,12 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  `--site-header-h` (components/Header.tsx), the one offset under it, and is the one bar that
                  sticks at the top of the viewport. Sticky and fixed chrome below the header reads it,
                  `top-[var(--site-header-h,4rem)]`, never a fixed `top-16` or a `sticky top-0`, so a bar that
-                 wraps under enlarged text covers nothing. A page's own header (SecondaryHeader: pricing, the
+                 wraps under enlarged text covers nothing. Where the bar wraps from lg (1024 to 1440px under
+                 200% text), the desktop controls keep the right of their own line: the logo's mr-auto and the
+                 controls' ml-auto share the bar's free space, never justify-between alone, which puts a line's
+                 only block at its start, so the notification and account menus, anchored at their right edge
+                 (right-0), open on the screen (E160; gate: tests/e2e/reflow-200.spec.ts opens each menu at
+                 1024, 1280 and 1440px under 200% text, and holds the one-line bar's nav midway at 1440px). A page's own header (SecondaryHeader: pricing, the
                  dashboard, the watchlist, admin) scrolls with the page on an opaque panel; only a table's
                  header cells stick at `top-0`, inside the table's own scroll box. The document's
                  `scroll-padding-top` (globals.css) reads the variable once, so a keyboard focus, an anchor
