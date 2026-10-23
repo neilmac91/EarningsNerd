@@ -644,8 +644,8 @@ Data notes strip <DataNotes> — hairlines above and below a native details disc
                  FY2026 and all API/snapshot/selection keys retain their original identity. A
                  window prints one way, through formatAnalysisWindow: one unspaced range, FY2016–FY2025
                  or Q1 2024–Q4 2025, as the exports print it. tests/unit/analysisPeriodWindows.spec.tsx
-                 holds it: the analysis surfaces it renders carry no window key, a window field reaches
-                 page text only through the formatter, and no file but periodLabels.ts joins a range.
+                 holds it: the analysis surfaces it renders carry no window key, no window field is read
+                 straight into page text, and no file but periodLabels.ts joins a range.
 
 Locked preview   <PeekLocked feature preview="full|screen"> (features/subscriptions): a Pro feature shown
                  locked, the real component blurred, dimmed, inert and aria-hidden under a centred Pro pill

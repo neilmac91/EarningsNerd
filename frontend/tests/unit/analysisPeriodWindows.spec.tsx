@@ -48,14 +48,15 @@ import type { AnalysisCitation, AnalysisCompletion, AnalysisCoverage, AnalysisDa
  *    picker in both modes and the streamed narrative. Their text, read whole, and every attribute (a title, an
  *    accessible name) carry no window key and no spaced window, and the range stands where each used to print.
  *  - Where a window field is read: in every tracked script outside tests/, the API's window fields (`period_key`,
- *    `cagr_window`, `window_pp_range`) and windowRange's result reach page text (JSX text, a prop, a template's
- *    span) only through a call, the formatter's.
+ *    `cagr_window`, `window_pp_range`), read off their object or by their own name, and windowRange's result reach
+ *    page text (JSX text, a prop, a template) only through a call, the formatter's. In the analysis code and every
+ *    file that imports it, so does a `period`, which carries a CAGR's window on a citation, a point or a note.
  *  - Where a range is joined: in the analysis code and every file that imports it, no string, template or JSX text
  *    outside periodLabels.ts holds an en-dash, written, escaped, as an entity or made by String.fromCharCode.
  *
- * Out of reach, each planted below as the gap it is: a window key held in a variable or an object before it is
- * printed, or handed to a function other than the formatter, when the spec renders no surface it reaches; and a
- * source excerpt the citation reader cannot parse, shown exactly as the server wrote it (the
+ * Out of reach, each planted below as the gap it is: a window key held in a variable of another name or in an object
+ * before it is printed, or handed to a function other than the formatter, when the spec renders no surface it
+ * reaches; and a source excerpt the citation reader cannot parse, shown exactly as the server wrote it (the
  * fail-open narrative-pane.spec.tsx holds). Every excerpt the server writes today parses, a CAGR's included. The
  * server's narrative compaction formats quarters, not windows, so a code-owned quarterly window would reach the page
  * as "Q1 2024..Q4 2025"; the only code-owned window is the CAGR's, which is annual, and the rendered half reads that
@@ -227,16 +228,35 @@ describe('where a window is read and joined', () => {
   }
 
   const WINDOW_FIELDS = new Set(['period_key', 'cagr_window', 'window_pp_range'])
+  /** In the analysis code a `period` is read too: a citation's, a point's or a note's carries a CAGR's window. Outside
+   *  it the name is any one period's (RevenueBars' bars), so it is not. */
+  const SCOPE_FIELDS = new Set([...WINDOW_FIELDS, 'period'])
+  /** A window field read into text no reader meets (a URL, a storage key), by file and text, with its reason. */
+  const NOT_PAGE_TEXT: Array<{ file: string; text: string; reason: string }> = []
   /** The lines where a window key the API carries is read straight into page text: JSX text, an element's or a
-   *  component's prop (not key or ref) or a template's span, through `??`, `||`, `+`, the right of `&&` and a
-   *  conditional's arms. Any call takes the key out of this reading, the formatter's included, and so does an object
-   *  literal, data handed on (SourceValue's `point`). */
-  function rawWindowReads(file: string, text: string): number[] {
+   *  component's prop or a template, through `??`, `||`, `+`, the right of `&&` and a conditional's arms. A field
+   *  counts read off its object or by its own name (`const { cagr_window } = series`). Any call takes the key out of
+   *  this reading, the formatter's included, and so do an object literal, data handed on (SourceValue's `point`), and
+   *  React's own key and ref. A template counts wherever else it goes, since one held in an object or a variable is
+   *  printed later (KpiStrip's tooltip was one). */
+  function rawWindowReads(file: string, text: string, fields = WINDOW_FIELDS): Array<{ line: number; text: string }> {
     const source = parse(file, text)
-    const lines = new Set<number>()
-    const isRead = (node: ts.Node) => (ts.isPropertyAccessExpression(node) && WINDOW_FIELDS.has(node.name.text))
-      || (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression) && WINDOW_FIELDS.has(node.argumentExpression.text))
-      || (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'windowRange')
+    const lines = text.split('\n')
+    const found = new Map<number, string>()
+    const callee = (call: ts.CallExpression) => (ts.isIdentifier(call.expression) ? call.expression.text
+      : ts.isPropertyAccessExpression(call.expression) ? call.expression.name.text : undefined)
+    const isRead = (node: ts.Node) => (ts.isPropertyAccessExpression(node) && fields.has(node.name.text))
+      || (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression) && fields.has(node.argumentExpression.text))
+      || (ts.isIdentifier(node) && WINDOW_FIELDS.has(node.text))
+      || (ts.isCallExpression(node) && callee(node) === 'windowRange')
+    const reactOwn = (node: ts.Node) => ts.isJsxAttribute(node) && ts.isIdentifier(node.name) && ['key', 'ref'].includes(node.name.text)
+    /** Whether a template, once built, goes to React's own key or ref. */
+    const toReactOwn = (template: ts.Node): boolean => {
+      let node = template.parent
+      while (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isNonNullExpression(node) || ts.isSatisfiesExpression(node)
+        || ts.isConditionalExpression(node) || ts.isBinaryExpression(node)) node = node.parent
+      return ts.isJsxExpression(node) && reactOwn(node.parent)
+    }
     const printed = (read: ts.Node): boolean => {
       let child: ts.Node = read
       for (let node = read.parent; node; child = node, node = node.parent) {
@@ -248,19 +268,19 @@ describe('where a window is read and joined', () => {
           if (op === ts.SyntaxKind.AmpersandAmpersandToken && child === node.right) continue
           return false
         }
-        if (ts.isTemplateSpan(node)) return !ts.isTaggedTemplateExpression(node.parent.parent)
-        // A component's prop counts too (ChartTooltip prints its label), all but React's own key and ref.
-        if (ts.isJsxExpression(node)) return !ts.isJsxAttribute(node.parent) || !['key', 'ref'].includes(node.parent.name.getText(source))
+        if (ts.isTemplateSpan(node)) return !ts.isTaggedTemplateExpression(node.parent.parent) && !toReactOwn(node.parent)
+        // A component's prop counts too (ChartTooltip prints its label).
+        if (ts.isJsxExpression(node)) return !reactOwn(node.parent)
         return false
       }
       return false
     }
     const visit = (node: ts.Node) => {
-      if (isRead(node) && printed(node)) lines.add(lineOf(source, node))
+      if (isRead(node) && printed(node)) { const line = lineOf(source, node); found.set(line, lines[line - 1].trim()) }
       ts.forEachChild(node, visit)
     }
     visit(source)
-    return [...lines]
+    return [...found].map(([line, text]) => ({ line, text }))
   }
 
   it('reads every way a range is spelled, and no comment', () => {
@@ -291,7 +311,10 @@ describe('where a window is read and joined', () => {
       "const g = <p>{'over ' + dataset.period_key}</p>",
       'const h = <p>{annual ? series.cagr_window : point.period}</p>',
       'const i = <ChartTooltip label={dataset.period_key} />',
-    ]) expect(rawWindowReads('planted.tsx', planted), planted).toEqual([1])
+      'const j = `Computed over ${growth.windowRange(series)}`',
+      'const k = ({ cagr_window }: Series) => <p>{cagr_window}</p>',
+    ]) expect(rawWindowReads('planted.tsx', planted).map((found) => found.line), planted).toEqual([1])
+    expect(rawWindowReads('planted.tsx', 'const l = <p>{citation.period}</p>', SCOPE_FIELDS).map((found) => found.line)).toEqual([1])
     for (const clear of [
       'const a = <p>{formatAnalysisPeriod(dataset.period_key)}</p>',
       'const b = comparisonId(series.concept, windowRange(series) ?? dataset.period_key)',
@@ -301,7 +324,10 @@ describe('where a window is read and joined', () => {
       "const f = `${dataset.ticker}_${dataset.period_key.replace(/\\.\\./g, '-')}.png`",
       'const g = series.cagr_window ? `Computed over ${formatAnalysisPeriod(series.cagr_window)}` : undefined',
       'const h = <Row key={dataset.period_key} />',
-      // The gaps: a key held in a variable or an object first, or handed to another function.
+      'const l = <Row key={`${dataset.period_key}-${series.concept}`} />',
+      // Outside the analysis code a `period` is any one period's: RevenueBars prints its bars' annual keys.
+      'const m = <span>{bar.period}</span>',
+      // The gaps: a key held in a variable of another name or in an object first, or handed to another function.
       'const w = windowRange(series)\nconst i = <p>{w}</p>',
       'const j = <Header labels={{ title: dataset.period_key }} />',
       'const k = <p>{String(dataset.period_key)}</p>',
@@ -309,8 +335,12 @@ describe('where a window is read and joined', () => {
   })
 
   it('reads a window field into page text only through the formatter', () => {
-    const raw = SOURCES.flatMap((file) => rawWindowReads(file, read(file)).map((line) => `${file}:${line}`))
-    expect(raw, 'Print a window field through formatAnalysisPeriod or formatAnalysisWindow (features/analysis/lib/periodLabels.ts).').toEqual([])
+    const scope = new Set(SCOPE)
+    const raw = SOURCES.flatMap((file) => rawWindowReads(file, read(file), scope.has(file) ? SCOPE_FIELDS : WINDOW_FIELDS)
+      .filter((found) => !NOT_PAGE_TEXT.some((entry) => entry.file === file && found.text.includes(entry.text)))
+      .map((found) => `${file}:${found.line}`))
+    expect(raw, 'Print a window field through formatAnalysisPeriod or formatAnalysisWindow (features/analysis/lib/periodLabels.ts); '
+      + 'a read no reader meets (a URL, a storage key) takes a NOT_PAGE_TEXT entry with its reason.').toEqual([])
   })
 
   it('holds an en-dash only in the formatter, so no surface joins two periods itself', () => {
