@@ -20,7 +20,10 @@
      <out>/sheet-<theme>-dpr<n>.png                   the sheet, read it for the done-gate
    Exits 1 when it finds no mark at all (a renamed hook or a page without marks is a finding,
    not a pass). Uses the project's Playwright Chromium (`npx playwright install chromium` once),
-   or the binary named by PLAYWRIGHT_CHROMIUM_PATH.
+   or the binary named by PLAYWRIGHT_CHROMIUM_PATH. A Vercel preview sits behind deployment
+   protection (an SSO redirect, which reads as a page with no marks): pass the project's
+   "Protection Bypass for Automation" secret as VERCEL_PROTECTION_BYPASS and the script sends it
+   with every request (`x-vercel-protection-bypass`).
 
    Proportion: this is a release check, run once against a preview after a change to the marks,
    not a monitor. Each run loads the routes six times (two themes, three pixel ratios) in a real
@@ -150,6 +153,9 @@ try {
         deviceScaleFactor: screen.dpr,
         isMobile: Boolean(screen.mobile),
         colorScheme: theme,
+        ...(process.env.VERCEL_PROTECTION_BYPASS
+          ? { extraHTTPHeaders: { 'x-vercel-protection-bypass': process.env.VERCEL_PROTECTION_BYPASS, 'x-vercel-set-bypass-cookie': 'true' } }
+          : {}),
       })
       // The app reads its theme from localStorage (no system-preference detection).
       await context.addInitScript((t) => localStorage.setItem('theme', t), theme)
