@@ -50,7 +50,8 @@ import type { AnalysisCitation, AnalysisCompletion, AnalysisCoverage, AnalysisDa
  *  - Where a window field is read: in every tracked script outside tests/, the API's window fields (`period_key`,
  *    `cagr_window`, `window_pp_range`), read off their object or by their own name, and windowRange's result reach
  *    page text (JSX text, a prop, a template) only through a call, the formatter's. In the analysis code and every
- *    file that imports it, so does a `period`, which carries a CAGR's window on a citation, a point or a note.
+ *    file that imports it, so does a `period`, which carries a CAGR's window on a citation, a point or a note; a
+ *    single period read there takes formatAnalysisPeriod too, which gives a quarter its display form.
  *  - Where a range is joined: in the analysis code and every file that imports it, no string, template or JSX text
  *    outside periodLabels.ts holds an en-dash, written, escaped, as an entity or made by String.fromCharCode.
  *
@@ -250,30 +251,31 @@ describe('where a window is read and joined', () => {
       || (ts.isIdentifier(node) && WINDOW_FIELDS.has(node.text))
       || (ts.isCallExpression(node) && callee(node) === 'windowRange')
     const reactOwn = (node: ts.Node) => ts.isJsxAttribute(node) && ts.isIdentifier(node.name) && ['key', 'ref'].includes(node.name.text)
-    /** Whether a template, once built, goes to React's own key or ref. */
-    const toReactOwn = (template: ts.Node): boolean => {
-      let node = template.parent
-      while (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isNonNullExpression(node) || ts.isSatisfiesExpression(node)
-        || ts.isConditionalExpression(node) || ts.isBinaryExpression(node)) node = node.parent
-      return ts.isJsxExpression(node) && reactOwn(node.parent)
+    /** Whether a value goes on through `node` from its `child` as it is: parentheses, `as`, `!`, `satisfies`, `??`,
+     *  `||`, `+`, the right of `&&` and a conditional's arms. */
+    const carries = (node: ts.Node, child: ts.Node): boolean => {
+      if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isNonNullExpression(node) || ts.isSatisfiesExpression(node)) return true
+      if (ts.isConditionalExpression(node)) return child !== node.condition
+      if (!ts.isBinaryExpression(node)) return false
+      const op = node.operatorToken.kind
+      return op === ts.SyntaxKind.QuestionQuestionToken || op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.PlusToken
+        || (op === ts.SyntaxKind.AmpersandAmpersandToken && child === node.right)
+    }
+    /** Where a value lands: the first node past the ones it goes on through. */
+    const destination = (value: ts.Node): ts.Node => {
+      let child = value
+      while (carries(child.parent, child)) child = child.parent
+      return child.parent
     }
     const printed = (read: ts.Node): boolean => {
-      let child: ts.Node = read
-      for (let node = read.parent; node; child = node, node = node.parent) {
-        if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isNonNullExpression(node) || ts.isSatisfiesExpression(node)) continue
-        if (ts.isConditionalExpression(node)) { if (child === node.condition) return false; continue }
-        if (ts.isBinaryExpression(node)) {
-          const op = node.operatorToken.kind
-          if (op === ts.SyntaxKind.QuestionQuestionToken || op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.PlusToken) continue
-          if (op === ts.SyntaxKind.AmpersandAmpersandToken && child === node.right) continue
-          return false
-        }
-        if (ts.isTemplateSpan(node)) return !ts.isTaggedTemplateExpression(node.parent.parent) && !toReactOwn(node.parent)
-        // A component's prop counts too (ChartTooltip prints its label).
-        if (ts.isJsxExpression(node)) return !reactOwn(node.parent)
-        return false
+      const node = destination(read)
+      if (ts.isTemplateSpan(node)) {
+        if (ts.isTaggedTemplateExpression(node.parent.parent)) return false
+        const template = destination(node.parent)
+        return !(ts.isJsxExpression(template) && reactOwn(template.parent))
       }
-      return false
+      // A component's prop counts too (ChartTooltip prints its label).
+      return ts.isJsxExpression(node) && !reactOwn(node.parent)
     }
     const visit = (node: ts.Node) => {
       if (isRead(node) && printed(node)) { const line = lineOf(source, node); found.set(line, lines[line - 1].trim()) }
@@ -313,6 +315,8 @@ describe('where a window is read and joined', () => {
       'const i = <ChartTooltip label={dataset.period_key} />',
       'const j = `Computed over ${growth.windowRange(series)}`',
       'const k = ({ cagr_window }: Series) => <p>{cagr_window}</p>',
+      // A template assigned on its way to a key is kept, and may be printed later.
+      'const n = <Row key={(label = `${dataset.period_key}`)} />',
     ]) expect(rawWindowReads('planted.tsx', planted).map((found) => found.line), planted).toEqual([1])
     expect(rawWindowReads('planted.tsx', 'const l = <p>{citation.period}</p>', SCOPE_FIELDS).map((found) => found.line)).toEqual([1])
     for (const clear of [
