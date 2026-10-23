@@ -1667,14 +1667,86 @@ for (const viewport of [{ width: 768, height: 1024 }, { width: 834, height: 1194
   })
 }
 
+/** The site header's two menus on a desktop at 200% text, signed in (E160). With the text doubled the bar wraps at 1024,
+    1280 and 1440px, and the desktop controls (theme toggle, notification bell, account menu) take a line of their own
+    below the logo. Under the bar's justify-between a line's only block sits at its start, so the bell sat 160px from the
+    left edge and its menu, 20rem wide and anchored at the bell's right edge (right-0), spanned -408 to 232px, and the
+    account menu -108 to 372px, every item losing its first letters. The logo's mr-auto and the controls' ml-auto keep
+    the controls at the right of their line, so each menu opens inside the screen: at 1024px the bell's 180 to 820px and
+    the account menu's 480 to 960px. Each open menu's box, and every painted line of its text, lies inside the viewport;
+    the controls' own line below the logo is checked first, so a bar that stopped wrapping cannot pass unread. */
+const HEADER_MENUS = [
+  { menu: 'Notifications', button: /^Notifications/ },
+  { menu: 'Account', button: 'Account menu' },
+] as const
+const headerMenuFit = (page: Page, menu: string) =>
+  page.getByRole('menu', { name: menu }).evaluate((el) => {
+    const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
+    const viewport = document.documentElement.clientWidth
+    const problems: string[] = []
+    const box = el.getBoundingClientRect()
+    if (box.left < -0.5 || box.right > viewport + 0.5) problems.push(`the menu spans ${px(box.left, box.right)}, the viewport 0-${viewport}px`)
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    let lines = 0
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent?.trim()) continue
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      for (const line of range.getClientRects()) {
+        if (line.width === 0) continue
+        lines += 1
+        if (line.left < -0.5 || line.right > viewport + 0.5) problems.push(`"${node.textContent.trim().slice(0, 24)}" paints at ${px(line.left, line.right)}`)
+      }
+    }
+    return { lines, problems }
+  })
+
+for (const viewport of [{ width: 1024, height: 768 }, { width: 1280, height: 800 }, { width: 1440, height: 900 }]) {
+  test.describe(`a ${viewport.width}px desktop at 200% text, signed in, the header's menus`, () => {
+    test.use({ viewport, isMobile: false, hasTouch: false })
+    for (const { menu, button } of HEADER_MENUS) {
+      test(`the ${menu} menu opens inside the screen at ${viewport.width}px and 200% text`, async ({ page, baseURL }) => {
+        await page.addInitScript(() => {
+          try {
+            localStorage.setItem('theme', 'light')
+            localStorage.setItem('en_session_active', '1')
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+          } catch {}
+        })
+        await answerApi(page, baseURL!, 'pro')
+        await page.goto('/pricing')
+        await h1(page)
+        const trigger = page.getByRole('button', { name: button })
+        await expect(trigger).toBeVisible()
+        await page.evaluate(() => document.fonts.ready)
+        await doubleTextOnATablet(page)
+
+        const wrapped = await trigger.evaluate((el) => {
+          const logo = document.querySelector('header[data-site-header] a[aria-label="EarningsNerd home"]')!.getBoundingClientRect()
+          return el.getBoundingClientRect().top >= logo.bottom
+        })
+        expect(wrapped, `${viewport.width}px and 200% text: the bar wraps, the controls on a line below the logo`).toBe(true)
+        await trigger.click()
+        await expect(page.getByRole('menu', { name: menu })).toBeVisible()
+        const fit = await headerMenuFit(page, menu)
+        expect(fit.lines, `the ${menu} menu's text lines read at ${viewport.width}px`).toBeGreaterThanOrEqual(2)
+        expect(fit.problems, `the ${menu} menu at ${viewport.width}px and 200% text`).toEqual([])
+      })
+    }
+  })
+}
+
 /** The site header's bar is a column's child with auto side margins (components/Header.tsx), which a column does not
     stretch: without its w-full the bar shrank to its content at 1440px, from 80-1360px to 291-1149px, and the logo left
     its top-left place (x=112 to x=323). At 1440x900 at the default size the bar spans its container (its max-width,
     centred in the header) and the logo starts at the container's left padding, both read against the header's own box,
-    not the bar's, which a shrunken bar would carry with it. */
+    not the bar's, which a shrunken bar would carry with it. Since E160 the one-line bar's free space is shared by the
+    logo's mr-auto and the controls' ml-auto rather than by justify-between, so the nav keeps justify-between's place,
+    as far from the logo as from the controls, and the controls end at the bar's content edge: without either margin the
+    nav would sit against the logo or against the controls. */
 test.describe('a 1440px desktop at the default text size', () => {
   test.use({ viewport: { width: 1440, height: 900 }, isMobile: false, hasTouch: false })
-  test('home (/) keeps the site header bar across its container and the logo in its top-left place', async ({ page, baseURL }) => {
+  test('home (/) keeps the site header bar across its container, the logo in its top-left place and the nav midway between the logo and the controls', async ({ page, baseURL }) => {
     await page.addInitScript(() => {
       try {
         localStorage.setItem('theme', 'light')
@@ -1703,6 +1775,18 @@ test.describe('a 1440px desktop at the default text size', () => {
     })
     expect(place.bar, `the header's bar spans its container, centred in the header (the bar at ${place.bar}, its container at ${place.container})`).toBe(place.container)
     expect(place.logo, `the logo starts at the container's left padding (the logo at x=${place.logo}, its place at x=${place.place})`).toBe(place.place)
+    const row = await logo.evaluate((link) => {
+      const bar = link.closest('header')!.firstElementChild!
+      const [mark, nav, controls] = [...bar.children].map((el) => el.getBoundingClientRect())
+      return {
+        before: Math.round(nav.left - mark.right),
+        after: Math.round(controls.left - nav.right),
+        end: Math.round(controls.right),
+        edge: Math.round(bar.getBoundingClientRect().right - parseFloat(getComputedStyle(bar).paddingRight)),
+      }
+    })
+    expect(Math.abs(row.before - row.after), `the nav sits as far from the logo (${row.before}px) as from the controls (${row.after}px)`).toBeLessThanOrEqual(1)
+    expect(row.end, `the controls end at the bar's content edge (x=${row.edge})`).toBe(row.edge)
   })
 })
 
