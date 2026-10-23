@@ -133,7 +133,7 @@ backend/
 │   ├── integrations/     # external market-data APIs
 │   ├── utils/            # datetimes.py (aware utcnow, iso_z, ensure_utc, utc_from_iso), numbers.py (coerce_float)
 │   ├── config.py         # Pydantic Settings — ALL env access goes through it
-│   └── database.py       # session management + ensure_additive_columns
+│   └── database.py       # session management (each engine session at UTC) + ensure_additive_columns
 ├── evals/                # AI eval harness + regression gate (see evals/RUNBOOK.md)
 ├── prompts/              # 9 prompt files: 10k/10q/20f/6k analyst+structured, trends-analyst
 ├── migrations/           # idempotent SQL, applied once via the migration_ledger table (ADR-0007; no Alembic)
@@ -420,8 +420,19 @@ unused since generation became account-required in #619; kept because migrations
 
 - **Datetime:** tz-aware UTC via `app/utils/datetimes.utcnow()` (+ `iso_z()` for the
   legacy `…Z` wire format); `utc_from_iso()` parses an ISO date or date-time from outside,
-  such as an SEC listing's, as aware UTC. A deliberate 6-site **naive** allowlist exists for the
-  OAuthState/RefreshToken token-expiry columns — enforced by
+  such as an SEC listing's, as aware UTC. Every session `database.py`'s engine opens (the API, the
+  jobs, the durable worker and the scripts that import it) runs at UTC (its `connect` listener, E151),
+  so a `timestamptz` reads back at +00:00 and a naive value binds as UTC whatever zone the session
+  would start in; gated on PostgreSQL by `tests/integration/test_session_time_zone.py`. Other sessions
+  (psql's, for the deploy's migrations and the Ops SQL steps, and the engine
+  `scripts/validate_db_performance.py` builds) start at the server's default zone, UTC on production's
+  instance, which sets no `timezone` flag; of the SQL run there, `ops/capacity/snapshot.sql` sets its
+  zone and `ops/detection/notable_homepage_candidates.sql` names one. The pin moves no stored instant.
+  A database whose sessions ran at another zone before E100 holds SEC's bare dates at that zone's local
+  midnight: east of UTC they read, pinned, as the day before, and either side they miss an amendment's
+  period end, so such rows need normalizing before that database runs the pin. Production's sessions
+  ran at UTC, so none is due there. A deliberate 6-site **naive**
+  allowlist exists for the OAuthState/RefreshToken token-expiry columns — enforced by
   `tests/unit/test_naive_utcnow_allowlist.py`.
 - **Resilience numbers:** circuit breaker CLOSED → OPEN at 5 consecutive network failures,
   HALF_OPEN retry after 30s; only network errors trip it (404s/parse errors never do).
