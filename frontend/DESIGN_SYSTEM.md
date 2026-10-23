@@ -1005,21 +1005,27 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  dialog over the copilot sheet never lets a key reach the sheet — and content inside a panel
                  cannot handle Tab/Escape itself. The header icon tile takes the dialog's tone: brand for a
                  neutral prompt, a status hue for a state glyph (brand never signals a state).
-                 The header's icon and title are one group that wraps beside the ✕, as a Notice's glyph and
-                 text column do (Inline notice): the title's basis is 9rem (144px at the default size, 288px
-                 under 200% text), so where it cannot keep that beside the icon (a phone at 200% text) it goes
-                 under the icon at the group's whole width, the column gap below it (gap-y-1 and the title's
-                 pt-2). The ✕ keeps its own column, the row's last control at the top right: the title never
-                 sits under it or runs past the panel, and it breaks a word only when the word is wider than
-                 the group (at 320px under 200% text the email verification prompt's title has 94px, so
-                 "Verify" breaks). At the default size nothing moves: at 1440 and 390px the icon, the title
-                 and the ✕ keep their boxes, in both themes. Before, at 390px under 200% text, the icon and the
-                 ✕ left the title 60px: "Cookie preferences" painted under the ✕ and 26px past the panel's
-                 edge, and "Verify your email to continue" under the ✕. No container query, as for the
-                 Notice. Gate: e2e reflow-200.spec.ts (the consent dialog and the email verification prompt
-                 at 390, 360 and 320px: the title beside the icon at the default size and under it at 200%
-                 text, every painted line inside the panel and left of the ✕, a word broken only when it is
-                 wider than the title, the page not scrolling sideways, nor the prompt's panel).
+                 The header's icon, title and ✕ share one row while the title can keep 9rem (144px at the
+                 default size, 288px under 200% text) beside the icon, as a Notice's glyph and text column do
+                 (Inline notice). Where it cannot (a phone at 200% text), the title goes to its own line under
+                 the icon and the ✕, at the header's full width, under the ✕ too, the column gap below the
+                 icon (gap-y-1 and the title's pt-2), and the ✕ keeps the top right; the type never steps down
+                 (E158, chief design on #1495). A header with a ✕ is a container for this
+                 ([container-type:inline-size]): below 14.25rem, the row's own width (the 2.5rem icon, two
+                 0.75rem gaps, the 9rem title and the ✕'s 1.25rem margin box), the title takes order-last and
+                 basis-full, since flex-wrap alone, as the Notice uses, would carry the ✕ down after a wrapped
+                 title. With no ✕, flex-wrap alone stacks the title, and with no icon it stays beside the ✕.
+                 The title never overlaps the ✕ or runs past the panel, and a stacked title breaks no word:
+                 under 200% text the consent dialog's is 216, 251 and 277px wide at 320, 360 and 390px (a
+                 header with no icon keeps its title beside the ✕, 64px narrower, E165).
+                 Before E158 it kept the group's width beside the ✕'s column, 152, 187 and 213px, so
+                 "preferences" (197px) broke at 320 and 360px. At the default size nothing moves: at 320, 360,
+                 390 and 1440px the icon, the title and the ✕ keep their boxes, in both themes, and at 1440px
+                 under 200% text the title still sits beside the icon. Gate: e2e reflow-200.spec.ts (the
+                 consent dialog and the email verification prompt at 390, 360 and 320px: the title beside the
+                 icon at the default size and under it at 200% text at the header's full width, under the ✕
+                 too, every painted line inside the panel and clear of the ✕, no word broken, read a character
+                 at a time, the page not scrolling sideways, nor the prompt's panel).
                  Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
                  viewer / workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
                  below lg, where it is a sheet, and a complementary landmark on lg+), and the calendar's
@@ -1093,11 +1099,25 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
                  sticky-cell layering is the one documented exemption.
                  The header offset: the site header publishes its rendered height on <html> as
-                 `--site-header-h` (components/Header.tsx), the one offset under it. Sticky and fixed chrome
-                 below the header and every section's scroll margin read it, `top-[var(--site-header-h,4rem)]`
-                 or `scroll-mt-[calc(var(--site-header-h,4rem)_+_4rem)]`, never a fixed `top-16`, so a bar that
-                 wraps under enlarged text covers nothing. Gates: tests/unit/headerOffsetReadsTheVariable.spec.ts
-                 and tests/e2e/reflow-200.spec.ts (the filing page's section nav at 200% text).
+                 `--site-header-h` (components/Header.tsx), the one offset under it, and is the one bar that
+                 sticks at the top of the viewport. Sticky and fixed chrome below the header reads it,
+                 `top-[var(--site-header-h,4rem)]`, never a fixed `top-16` or a `sticky top-0`, so a bar that
+                 wraps under enlarged text covers nothing. A page's own header (SecondaryHeader: pricing, the
+                 dashboard, the watchlist, admin) scrolls with the page on an opaque panel; only a table's
+                 header cells stick at `top-0`, inside the table's own scroll box. The document's
+                 `scroll-padding-top` (globals.css) reads the variable once, so a keyboard focus, an anchor
+                 jump or a scrollIntoView lands below the bar, never behind it (WCAG 2.2 SC 2.4.11); a
+                 section's scroll margin adds only its own room beyond the header (`scroll-mt-16`), never the
+                 variable again, which would land every jump one bar lower. The padding steps aside while
+                 focus is inside the site header (`html:has([data-site-header]:focus-within)`): the header is
+                 stuck in view, and the padding, which counts its open mobile menu, would scroll the page
+                 behind the menu at every Tab through it, and move the page when a control in the bar took
+                 focus while it was scrolled; a Tab out of the open menu lands below it. Gates:
+                 tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/e2e/reflow-200.spec.ts (the filing
+                 page's section nav at 200% text) and tests/e2e/header-covers-nothing.spec.ts (a Shift+Tab walk
+                 of /, /pricing and /analysis with no stop wholly under the bar; /pricing's page header off the
+                 screen once scrolled past; the open menu's Tab walk and the bar's own stops leaving the page where
+                 it is).
                  The open mobile menu scrolls inside the viewport: the header is a column no taller than it
                  (`flex max-h-dvh flex-col`), the bar keeps its own height (`w-full shrink-0`; a column's child
                  with auto side margins is not stretched) and the menu panel takes the rest
@@ -1142,7 +1162,7 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  at the launcher corner (a file with fixed chrome is held to its highest z token anywhere and
                  to inline zIndex, so a z written apart from its `fixed` still counts; z-toast is exempt only
                  as the top-anchored skip link), no in-page sticky chrome outranks the bar (the top-anchored
-                 site and page headers are pinned), the tokens sit on their rungs (sticky < consent < scrim <
+                 site header is pinned), the tokens sit on their rungs (sticky < consent < scrim <
                  the pinned workspace level 40 < header), the pinned bottom chrome takes the inset (the sheets'
                  anchor, no `bottom-0` behind any variant, the offset objects' `bottom` from
                  BOTTOM_CHROME_OFFSET, the bar's layout-effect publish, the scroll padding) and the pinned

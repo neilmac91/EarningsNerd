@@ -170,7 +170,7 @@ frontend/
 | `subscription_webhook_service.py` | Worker-owned webhook transactions, per-account PostgreSQL locks, current-bound-ID created/updated reconciliation and post-commit analytics; cross-ID chronology remains separate |
 | `stripe_subscription_reader.py` | Dedicated exact-ID provider read, validated identity/status/consumed optional fields, zero retries and connect/read inactivity limits; a failed reconciliation read rolls back the event, a failed serving-Price read reports `unavailable` |
 | `billing_serving_prices.py` | The public serving-charge report (`GET /api/subscriptions/prices`): what the bound Pro Prices charge, without IDs, cached per process; one read at a time, and no request waits on another's; the price-agreement checks compare it with the page (`docs/PRICING_OFFER.md`) |
-| `billing_account_service.py` | The reader's `subscriptions` row (served by `GET /api/subscriptions/subscription`, counted by checkout's first-time-trial check) and the commit of a new Stripe customer id before checkout; the subscriptions router owns Stripe calls and HTTP responses |
+| `billing_account_service.py` | The reader's `subscriptions` row (served by `GET /api/subscriptions/subscription`, counted by checkout's first-time-trial check) and the claim of a new Stripe customer id before checkout, stored only while the account has none, returning the stored id that checkout then uses (E166); the subscriptions router owns Stripe calls and HTTP responses |
 | `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage; every rotation and revocation of a user's tokens, a password login's mint, a password change and the account's deletion take the users row lock first |
 | `oauth_verify.py` / `password_utils.py` | Google/Apple JWKS + id-token verification; bcrypt + policy (extracted from the auth router) |
 | `auth_account_service.py` | Password-account persistence, verification/reset tokens and login/password writes; the auth router keeps HTTP gates, password hashing, mail and audit events |
@@ -214,6 +214,11 @@ detectors, dataset construction, observation selection, citation resolution, num
 persistence and narrative streaming. `narrative.py` keeps database sessions and the provider singleton
 lazily imported at call time. `trend_analysis_service.py` re-exports the original public and private
 names, so the analysis router continues to resolve them through the same module.
+
+`fact_provenance` links each fact to its filing row's `document_url` when that is an SEC archive
+URL inside the fact's accession folder, and to the folder otherwise; `trend_analysis/source_documents.py`
+folds each looked-up link back to its folder for the snapshot hash, keeping links with a stored
+`source_sha256` receipt as stored (E149, #1481).
 
 Analysis datasets carry versioned `data_notes` from the pure `trend_analysis/data_notes.py`
 builder. The web, chart downloads, PDF and Excel use the same reason groups, letters and counts;

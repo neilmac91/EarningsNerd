@@ -27,10 +27,13 @@ const NAV_LINKS = [
   { href: '/contact', label: 'Contact' },
 ]
 
-/** The site header's rendered height, published on <html> as a CSS length. Every sticky offset and
- *  scroll margin under the header reads `var(--site-header-h,4rem)` (4rem, the one-row bar, before
- *  the first measurement and on routes without the header), so a bar that wraps under enlarged text
- *  never covers what sits below it (tests/e2e/reflow-200.spec.ts; DESIGN_SYSTEM.md §4 Stacking). */
+/** The site header's rendered height, published on <html> as a CSS length. Every sticky offset under
+ *  the header reads `var(--site-header-h,4rem)` (4rem, the one-row bar, before the first measurement
+ *  and on routes without the header), and the document's top scroll padding reads it once
+ *  (app/globals.css), so a bar that wraps under enlarged text never covers what sits below it, nor a
+ *  control a keyboard focuses. The padding steps aside while focus is inside this header
+ *  (`data-site-header`), which is stuck in view (tests/e2e/reflow-200.spec.ts,
+ *  tests/e2e/header-covers-nothing.spec.ts; DESIGN_SYSTEM.md §4 Stacking). */
 export const SITE_HEADER_HEIGHT_PROPERTY = '--site-header-h'
 
 // Isomorphic layout effect (the repo's SSR-safe alias, as in CookieConsent): the header renders on
@@ -119,7 +122,7 @@ export default function Header({
   // out, the account CTA) only there: 36,942px down the landing at 200% text on a 390x664 phone. The cap is the
   // bar's own height, never --site-header-h, which counts the open menu (tests/e2e/reflow-200.spec.ts).
   return (
-    <header ref={headerRef} className="sticky top-0 z-50 flex max-h-dvh flex-col border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
+    <header ref={headerRef} data-site-header className="sticky top-0 z-50 flex max-h-dvh flex-col border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
       {/* gap-x-1.5 (6px, 12px at 200% text) keeps the logo's clear space, one E-bar or 11.6% of the mark (4.2px, 8.4px;
           frontend/public/assets/LOGO_README.md), when a full bar sets the account link beside the mark: at 390px and
           200% text the link touched it (tests/e2e/reflow-200.spec.ts). w-full: a column's child with auto side
