@@ -99,8 +99,8 @@ export default function PrivacyPage() {
         <section className="mt-8">
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">Cookies and choices</h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            Essential browser storage supports sign-in and site functionality. Optional PostHog browser
-            analytics and session recording require an enabling choice. Recording has a separate preference
+            Essential browser storage supports sign-in and site functionality. Optional PostHog and Vercel
+            browser analytics require an enabling choice. PostHog recording has a separate preference
             and also requires analytics. These activities can be linked to your account; recording can include
             displayed page content despite input masking. Review or withdraw choices using Cookie settings in the footer.
           </p>
@@ -112,8 +112,8 @@ export default function PrivacyPage() {
           </ul>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">{ACCOUNT_EVENTS_DISCLOSURE}</p>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
-            These controls do not disable operational usage records, security logs, error reporting or
-            cookieless Vercel traffic measurements. Do Not Track is distinct from legal opt-out rights
+            These controls do not disable operational usage records, security logs or error reporting.
+            Do Not Track is distinct from legal opt-out rights
             described below.
           </p>
         </section>

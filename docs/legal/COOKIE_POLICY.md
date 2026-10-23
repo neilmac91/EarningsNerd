@@ -4,11 +4,11 @@ Reviewed **23 October 2026**. This is a source inventory, not a separate custome
 
 ## Browser choices
 
-[CookieConsent.tsx](../../frontend/components/CookieConsent.tsx) stores choices in local storage under `cookie_consent`. Optional PostHog and Vercel browser analytics require an enabling choice. Recording has a separate switch and also requires browser analytics. Accept All enables analytics, not recording; Reject All disables both. Version 2 re-asks for analytics allows made under an older version. Every new visitor sees the choices; Do Not Track does not select or change them.
+[CookieConsent.tsx](../../frontend/components/CookieConsent.tsx) stores choices in local storage under `cookie_consent`. Optional PostHog and Vercel browser analytics require an enabling choice. Recording has a separate switch and also requires browser analytics. Allow analytics enables analytics, not recording; Essential only disables both. Version 2 re-asks for analytics allows made under an older version. Every new visitor sees the choices; Do Not Track does not select or change them.
 
-The Cookie settings button in the footer and privacy page reopens the existing shared preferences dialog. Cancel/Escape do not save edited choices; Save Preferences writes them and dispatches the existing consent-change event. Essential storage cannot be disabled through this optional-analytics control.
+The Cookie settings button in the footer reopens the shared preferences dialog; the privacy page directs users there. Cancel/Escape do not save edited choices; Save preferences writes them and dispatches the existing consent-change event. Essential storage cannot be disabled through this optional-analytics control.
 
-[posthog-provider.tsx](../../frontend/app/posthog-provider.tsx) applies those changes to PostHog browser capture and recording. [private-analytics.tsx](../../frontend/app/private-analytics.tsx) mounts Vercel Analytics only with analytics consent and rejects events after withdrawal. [postHogPrivacy.ts](../../frontend/lib/postHogPrivacy.ts) configures input masking and telemetry sanitization; displayed page content can still appear in recordings. Masking is not a guarantee that every sensitive detail is absent.
+[posthog-provider.tsx](../../frontend/app/posthog-provider.tsx) applies those changes to PostHog browser capture and recording. [private-analytics.tsx](../../frontend/app/private-analytics.tsx) mounts Vercel Analytics only with analytics consent and rejects events after withdrawal. [posthogPrivacy.ts](../../frontend/lib/posthogPrivacy.ts) configures input masking and telemetry sanitization; displayed page content can still appear in recordings. Masking is not a guarantee that every sensitive detail is absent.
 
 ## Separate processing
 
