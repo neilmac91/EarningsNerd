@@ -139,8 +139,10 @@ locks, so `backend/tests/unit/test_filing_writers_lock_before_they_check.py` rea
 statements, compiled for PostgreSQL: a lock that waits, then the check, with no end of a transaction
 between them; `backend/tests/unit/test_filing_inserts_lock_across_companies.py` reads the insert lock
 after the check, the second read and the commit, runs the race in one thread, and holds every builder of
-a filing row under `app/` to the three writers. No PostgreSQL gate races two writers; E153's local run
-did, and E161 carries a CI case.
+a filing row under `app/` to the three writers. On PostgreSQL,
+`backend/tests/integration/test_filing_insert_transactions.py` races two companies' writers of one
+filing, each held after its check, beside a control without the lock whose second writer fails its batch
+(E161).
 
 The refresh token's rotation was one more. It read its token, checked it live, minted a successor and
 marked the token rotated, so two refreshes with one cookie both minted, and a refresh racing a logout or
