@@ -10,18 +10,20 @@ what that mock cannot:
   is created, so a Stripe failure after that point still keeps the customer; no other account's
   customer changes.
 - Two checkouts of one account that each found no customer check out with the one stored first,
-  never one written over it (E166).
+  never one written over it (E166), and an account deleted while checkout creates its customer gets
+  no checkout session.
+- Checkout's plan comes from the reader's own row when there is one, not the ``is_pro`` mirror (E144).
 
 The reader is loaded through the request's own ``get_db`` session, as ``get_current_user`` does, so
-the claim's commit expires it and the route's later reads reload it through that session, as in
-production.
+checkout's first unit reads it, and the row its plan loads, on that session and releases the session
+before any Stripe call, as in production.
 """
 from __future__ import annotations
 
 import asyncio
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Callable
 from unittest.mock import MagicMock, patch
@@ -128,6 +130,14 @@ def test_status_never_serves_another_users_row(client):
     assert (body["stripe_customer_id"], body["stripe_subscription_id"], body["status"]) == ("cus_reader", None, None)
 
 
+def _retrieved(customer_id):
+    """``Customer.retrieve`` as stripe-python answers it: an id that is not a string is refused before any
+    request, so a checkout that retrieves a customer it has not got answers 400, as in production."""
+    if not isinstance(customer_id, str):
+        raise stripe.error.InvalidRequestError(f"Customer instance has invalid ID: {customer_id!r}", "id")
+    return SimpleNamespace(id=customer_id)
+
+
 def _checkout(client, monkeypatch, *, session_error: Exception | None = None,
               customer_created: Callable[..., SimpleNamespace] | None = None):
     """Post a monthly checkout with Stripe mocked; return (response, Customer.create, Session.create).
@@ -137,7 +147,7 @@ def _checkout(client, monkeypatch, *, session_error: Exception | None = None,
     session = MagicMock(url="https://checkout.stripe.test/session")
     with patch.object(stripe.Customer, "create", return_value=SimpleNamespace(id="cus_new"),
                       side_effect=customer_created) as create_customer, \
-            patch.object(stripe.Customer, "retrieve", side_effect=lambda cid: SimpleNamespace(id=cid)), \
+            patch.object(stripe.Customer, "retrieve", side_effect=_retrieved), \
             patch.object(stripe.checkout.Session, "create", return_value=session,
                          side_effect=session_error) as create_session:
         resp = client.post("/api/subscriptions/create-checkout-session", params={"price_id": "monthly"})
@@ -218,6 +228,50 @@ def test_a_customer_another_checkout_stored_first_stays_and_is_checked_out_with(
     create_customer.assert_called_once()
     assert create_session.call_args.kwargs["customer"] == "cus_first"
     assert _stored_customer_id(email) == "cus_first"
+
+
+def test_a_checkout_whose_account_is_deleted_while_its_customer_is_created_opens_no_session(client, monkeypatch):
+    """The account is deleted (from another tab) while checkout creates its customer, so the claim
+    finds no account: checkout answers 500, as when it read the deleted row, and creates no checkout
+    session."""
+    email = _new_user(stripe_customer_id=None)
+    _sign_in(email)
+
+    def account_deleted_meanwhile(**_):
+        with SessionLocal() as db:
+            db.query(User).filter(User.email == email).delete()
+            db.commit()
+        return SimpleNamespace(id="cus_new")
+
+    resp, create_customer, create_session = _checkout(client, monkeypatch, customer_created=account_deleted_meanwhile)
+
+    assert resp.status_code == 500
+    assert resp.json()["detail"] == "Checkout is not available right now."
+    create_customer.assert_called_once()
+    create_session.assert_not_called()
+
+
+@pytest.mark.parametrize("row,mirror,answer", [
+    ({"status": "active"}, False, 409),
+    ({"status": "trialing", "trial_end": datetime.now(timezone.utc) - timedelta(days=3)}, True, 200),
+], ids=["active-row-mirror-free", "lapsed-trial-mirror-pro"])
+def test_checkout_reads_the_plan_from_the_readers_row_not_its_mirror(client, monkeypatch, row, mirror, answer):
+    """Checkout reads the plan in its first unit, while the reader is in the request's session, so the
+    reader's own row decides it. Read after the release, the detached reader's row would not load and
+    the plan would fall back to the ``is_pro`` mirror (E144). An active row whose mirror reads Free is
+    refused a second checkout (#619's double billing), and a lapsed trial whose mirror still reads Pro
+    checks out, with no second trial."""
+    email = _new_user(is_pro=mirror)
+    _add_subscription(email, plan="pro", **row)
+    _sign_in(email)
+
+    resp, _, create_session = _checkout(client, monkeypatch)
+
+    assert resp.status_code == answer, resp.text
+    if answer == 409:
+        create_session.assert_not_called()
+    else:
+        assert "subscription_data" not in create_session.call_args.kwargs
 
 
 @pytest.mark.asyncio

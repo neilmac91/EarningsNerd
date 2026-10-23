@@ -77,6 +77,11 @@ async function open(page: Page, baseURL: string, route: string, theme: 'light' |
   await answerGuest(page, baseURL)
   await page.goto(route)
   await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /\bdark\b/ : /^(?!.*\bdark\b)/)
+  // The header's auth check settles before a test scrolls: the header grows from the placeholder's height to the
+  // signed-out buttons' (61 to 65px at 1440px) when it does, and scroll anchoring then moves a page already
+  // scrolled by the difference, which a test of the page holding still would read as a focus moving it. Hidden
+  // included: below lg the placeholder sits in the desktop block, display:none, until the check settles.
+  await expect(page.getByRole('status', { name: 'Checking whether you are logged in', includeHidden: true })).toHaveCount(0)
 }
 
 /** Chromium's own text setting doubled (standard 32, fixed 26), confirmed taken: the root computes to 32px. */

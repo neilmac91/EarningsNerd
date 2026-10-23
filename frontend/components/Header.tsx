@@ -156,8 +156,11 @@ export default function Header({
           200% text the link touched it (tests/e2e/reflow-200.spec.ts). w-full: a column's child with auto side
           margins is not stretched, so without it the bar would shrink to its content. */}
       <div className="mx-auto flex w-full max-w-7xl shrink-0 flex-wrap items-center justify-between gap-x-1.5 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
-        {/* Left: Logo */}
-        <div className="flex items-center">
+        {/* Left: Logo. Its mr-auto and the desktop controls' ml-auto share the bar's free space, so a one-line bar lays
+            out as justify-between does; where the bar wraps (lg at 200% text), the controls stay at the right of their
+            own line, where justify-between would put a line's only block at its start, and the menus anchored at
+            their right edge (right-0) open inside the screen (E160). */}
+        <div className="mr-auto flex items-center">
           {/* Design sizes: 36px mark, 20px wordmark. Below `sm` the bar also carries the theme
               toggle (above 24rem), the short account CTA and the menu button at 44px each, so the wordmark
               yields to the mark alone (the footer's rendition) rather than overflow the viewport. */}
@@ -184,7 +187,7 @@ export default function Header({
         </nav>
 
         {/* Right: CTAs / user menu (desktop) */}
-        <div className="hidden items-center gap-3 lg:flex">
+        <div className="ml-auto hidden items-center gap-3 lg:flex">
           <ThemeToggle />
           {user ? (
             <>
