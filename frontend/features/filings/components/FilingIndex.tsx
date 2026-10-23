@@ -334,7 +334,7 @@ function FilingIndexRow({ filing, filings, isLatest }: { filing: Filing; filings
           href={filing.sec_url}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={`View the ${filing.filing_type} filed ${filed} on SEC EDGAR (opens in a new tab)`}
+          aria-label={`View the ${filing.filing_type} filed ${filed} on SEC.gov (opens in a new tab)`}
           className={cx(
             'absolute right-0 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center gap-1.5 rounded-lg',
             'md:right-7 md:h-8 md:w-auto md:px-2.5',
@@ -343,7 +343,7 @@ function FilingIndexRow({ filing, filings, isLatest }: { filing: Filing; filings
             'dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark',
           )}
         >
-          <span aria-hidden="true" className="hidden text-xs font-semibold md:inline">EDGAR</span>
+          <span aria-hidden="true" className="hidden text-xs font-semibold md:inline">SEC.gov</span>
           <ArrowSquareOutIcon aria-hidden="true" className="h-[18px] w-[18px] md:h-3.5 md:w-3.5" />
         </a>
       )}

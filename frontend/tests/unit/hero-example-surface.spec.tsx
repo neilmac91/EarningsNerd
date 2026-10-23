@@ -79,7 +79,7 @@ describe('HeroExample', () => {
     // The filing's words in quotation marks, the closing one after the clip's ellipsis.
     expect(quote.textContent!.length).toBeLessThanOrEqual(184)
     expect(quote.textContent).toMatch(/^“Substantially all of the Company’s manufacturing .* …”$/)
-    const chip = screen.getByRole('link', { name: /Located in the filing/ })
+    const chip = screen.getByRole('link', { name: /Quote found in filing/ })
     expect(chip).toHaveAttribute('href', LIVE.evidence!.url)
     expect(chip).toHaveAttribute('target', '_blank')
   })
@@ -87,7 +87,7 @@ describe('HeroExample', () => {
   it('has no evidence row for the static fallback, whose excerpt is not verified here', () => {
     const { container } = render(<HeroExample example={null} />)
     expect(container.querySelector('blockquote')).toBeNull()
-    expect(screen.queryByRole('link', { name: /Located in the filing/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Quote found in filing/ })).toBeNull()
   })
 
   it('claims a filed-data source only for the checked fallback; live figures send the reader to the filing', () => {

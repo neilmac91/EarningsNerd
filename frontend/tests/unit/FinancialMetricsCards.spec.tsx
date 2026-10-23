@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import FinancialMetricsTable, { type FinancialMetric } from '@/features/summaries/components/FinancialMetricsTable'
 import { FilingViewerProvider } from '@/features/filings/components/copilot/FilingViewerContext'
+import { passageLabel } from '@/features/filings/lib/evidenceLabels'
 
 /**
  * EN-03: below md each metric is one stacked card; at/above md the DataTable is unchanged. The two
@@ -185,7 +186,7 @@ const servedFacts = (rows: FinancialMetric[], hasComparatives: boolean) => ({
   takeaways: rows.map((r) => (takeawayOf(r) ?? '—no takeaway')),
   // With no viewer and no coarse pointer a chip is the link itself, and its name says it opens a new tab.
   xbrlChips: rows.filter((r) => r.source_url).map((r) => `Source: ${r.source_verified ? 'Matches filing' : 'Linked, not checked'} (opens in a new tab)`),
-  takeawayChips: rows.filter((r) => r.commentary_evidence && takeawayOf(r) !== null).map((r) => `Source: ${r.commentary_evidence!.verified ? 'Quote found in filing' : 'Section linked'} (opens in a new tab)`),
+  takeawayChips: rows.filter((r) => r.commentary_evidence && takeawayOf(r) !== null).map((r) => `Source: ${passageLabel(r.commentary_evidence!.verified, r.commentary_evidence!.section_ref)} (opens in a new tab)`),
 })
 
 const TONE_TOKENS = /^(font-semibold|(dark:)?text-(gain|loss)-(text|dark)|(dark:)?text-flat-(light|dark))$/

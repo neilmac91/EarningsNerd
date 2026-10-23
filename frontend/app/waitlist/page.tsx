@@ -149,7 +149,7 @@ export default function WaitlistPage() {
               {
                 step: '04',
                 title: 'Check what you like',
-                body: 'Risk excerpts open at their passage, and every summary links to the original on SEC EDGAR.',
+                body: 'Risk excerpts open at their passage, and every summary links to the original on SEC.gov.',
               },
             ].map((item) => (
               <div

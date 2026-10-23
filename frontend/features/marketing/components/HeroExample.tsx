@@ -8,6 +8,7 @@ import { exampleFilingHref } from '@/lib/featureFlags'
 import { directionOf, directionText } from '@/lib/financialTone'
 import { Sep } from '@/features/filings/components/FilingIdentity'
 import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
+import { PASSAGE_FOUND } from '@/features/filings/lib/evidenceLabels'
 import { excerptHeadings } from '@/features/summaries/lib/riskTitle'
 import { AAPL_FY25_EDGAR_URL } from '@/features/marketing/lib/landing-samples'
 import type { ExampleData, ExampleMetric } from '@/lib/serverApi'
@@ -80,8 +81,8 @@ function clip(text: string): string {
 /**
  * One figure in the hairline strip: label, value, and its change, direction in a glyph, never colour alone. A figure
  * takes its own content as its width (flex-auto) in a row that wraps, so where the three do not fit side by side
- * (a phone under 200% text) a figure moves under the one before it rather than running into it, as the catch card's
- * pair does (lessons/frontend-check-brand-layouts-at-200-percent-text.md); in equal thirds, at 390px under 200% text
+ * (a phone under 200% text) a figure moves under the one before it rather than running into it, as the receipt
+ * card's steps read down (lessons/frontend-check-brand-layouts-at-200-percent-text.md); in equal thirds, at 390px under 200% text
  * each value ran across its 81px cell into the next. A value wider than the whole strip breaks inside rather than
  * being cut. Its left and top edges are the strip's hairlines, which the strip clips where a figure starts a row or
  * sits on the first one, so a hairline only ever stands between two figures.
@@ -217,7 +218,7 @@ function HeroExample({
                 <div>
                   <a href={evidence.url} target="_blank" rel="noopener noreferrer" className={sourceTraceChipClass()}>
                     <QuotesIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-                    Located in the filing
+                    {PASSAGE_FOUND}
                     <span className="sr-only"> (opens in a new tab)</span>
                   </a>
                 </div>

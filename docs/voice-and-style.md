@@ -140,7 +140,7 @@ the business card, the footer and the merch; it is the positioning in six words.
   the thing does instead. Add: "signal" as a noun for the product's output, "edge", "clarity"
   as a promise, and any sentence whose subject is the market.
 - Vocabulary the product owns, use it as the product does: "Matches filing", "Linked, not
-  checked", "Quote found in filing", "Section linked" (one module holds them,
+  checked", "Calculated from filing", "Quote found in filing", "Section linked", "Quote not found" (one module holds them,
   `frontend/features/filings/lib/evidenceLabels.ts`), "located in the filing", "withheld",
   "checkable", "corrected from the filing", "the filing's own words", "Full summary". Never
   "verified" without a match behind it. A link to the source names SEC.gov, not EDGAR.

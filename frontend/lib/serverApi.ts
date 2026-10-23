@@ -5,6 +5,8 @@ import type { Filing } from '@/features/filings/api/filings-api'
 import { originalDocumentUrl } from '@/features/filings/lib/originalDocumentUrl'
 import type { ChangeReport, Summary } from '@/features/summaries/api/summaries-api'
 import { isSummaryReady } from '@/features/summaries/lib/summaryPlaceholder'
+import { formatMetricValue } from '@/features/summaries/lib/metricValue'
+import { fmtScale } from '@/lib/format'
 
 /**
  * Server-side data for the public pages (ISR). The homepage helpers return null on any
@@ -115,6 +117,19 @@ const METRIC_MATCHERS: Array<{ label: string; pattern: RegExp }> = [
   { label: 'Diluted EPS', pattern: /eps|earnings per share/i },
 ]
 
+// A figure the server wrote whole from the filing's data, as a replaced figure is ("$133,050,000,000", "EUR
+// 30,600,000,000": backend/app/schemas/summary.py _format_xbrl_value, provenance_service._swap_in_filed_figures).
+const FILED_FIGURE = /^(\$|[A-Z]{3} )(-?)(\d{1,3}(?:,\d{3})+)$/
+
+/** A hero figure: one the server wrote whole is compacted as the table shows it, its currency kept ("$133.1B",
+ *  "EUR 30.6B"); the summary's own figures ("$416.2B", "€32.7B") read as written. */
+export const heroFigure = (value: string): string => {
+  const match = FILED_FIGURE.exec(value.trim())
+  if (!match) return value
+  const [, prefix, sign, digits] = match
+  return prefix === '$' ? formatMetricValue(value) : `${sign ? '-' : ''}${prefix}${fmtScale(digits)}`
+}
+
 const pickMetrics = (summary: SummaryPayload): ExampleMetric[] => {
   const facts = summary.financial_highlights?.normalized?.metrics ?? []
   const picked: ExampleMetric[] = []
@@ -122,7 +137,7 @@ const pickMetrics = (summary: SummaryPayload): ExampleMetric[] => {
     // Defensive: the payload is external — tolerate null entries in the array.
     const fact = facts.find((f) => f?.metric && pattern.test(f.metric) && f.currentPeriod)
     if (fact?.currentPeriod) {
-      picked.push({ label, value: fact.currentPeriod, deltaPercent: fact.deltaPercent })
+      picked.push({ label, value: heroFigure(fact.currentPeriod), deltaPercent: fact.deltaPercent })
     }
   }
   return picked.length >= 2 ? picked : []

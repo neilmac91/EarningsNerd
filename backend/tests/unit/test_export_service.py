@@ -16,6 +16,7 @@ import io
 import re
 import xml.etree.ElementTree as ET
 from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -396,6 +397,58 @@ class TestCsv:
         assert "Odd Metric" in csv_out
         assert "—" in csv_out            # no computed delta -> dash, matching the web
         assert "+23.8%" not in csv_out   # the model's own change text is never rendered
+
+
+class TestFiledFigure:
+    """The exports print what the summary page shows (provenance_service.export_raw_summary): a checked
+    figure that differs from the filed one is replaced by it, its change is recomputed from the filed
+    pair, and a takeaway that stated the replaced figure is withheld."""
+
+    XBRL = {"reporting_currency": "USD", "operating_income": {
+        "current": {"value": 133_050e6, "period": "2025-09-27", "period_start": "2024-09-29", "form": "10-K", "currency": "USD"},
+        "prior": {"value": 123_216e6, "period": "2024-09-28", "period_start": "2023-10-01", "form": "10-K", "currency": "USD"},
+    }}
+
+    @pytest.fixture
+    def swapped(self, monkeypatch):
+        from app.services.edgar.compat import xbrl_service
+
+        own_xbrl = object()
+        monkeypatch.setattr(xbrl_service, "extract_standardized_metrics",
+                            lambda data: self.XBRL if data is own_xbrl else pytest.fail("read XBRL the filing does not own"))
+        summary, filing = _make_summary_and_filing({"financial_highlights": {"table": [{
+            "metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
+            "commentary": "Operating income increased 7.2% YoY.",
+        }]}})
+        filing.xbrl_data = own_xbrl
+        return summary, filing
+
+    def test_the_csv_prints_the_filed_figure(self, service, swapped):
+        summary, filing = swapped
+        stored = summary.raw_summary["sections"]["financial_highlights"]["table"][0].copy()
+        csv_out = service.generate_csv(summary, filing)
+        row = next(r for r in _csv_rows(csv_out) if r and r[0] == "Operating income")
+        assert row[1:] == ["$133,050,000,000", "$123,216M", "+8.0%", summary_sections.TAKEAWAY_WITHHELD]
+        assert "$132,100M" not in csv_out and "7.2%" not in csv_out
+        assert summary.raw_summary["sections"]["financial_highlights"]["table"][0] == stored
+
+    def test_the_pdf_prints_the_filed_figure(self, service, swapped):
+        html = service.generate_pdf_html(*swapped)
+        assert "$133,050,000,000" in html and '<td class="num">+8.0%</td>' in html
+        assert "$132,100M" not in html and "7.2%" not in html
+        assert summary_sections.TAKEAWAY_WITHHELD in html
+
+    def test_the_withheld_words_are_the_pages(self):
+        # One sentence on three surfaces: the page's cell (evidenceLabels.ts) and both exports.
+        labels = (Path(__file__).resolve().parents[3] / "frontend/features/filings/lib/evidenceLabels.ts").read_text()
+        page = re.search(r"export const TAKEAWAY_WITHHELD = '([^']*)'", labels)
+        assert page is not None and page.group(1) == summary_sections.TAKEAWAY_WITHHELD
+
+    def test_a_flag_on_a_row_that_kept_its_takeaway_is_ignored(self):
+        # Only an enriched row whose takeaway was withheld reads so; a takeaway the row still has prints as written.
+        block = summary_sections._metrics_block([{"metric": "Revenue", "current_period": "$9.89B",
+                                                  "commentary": "Volumes rose.", "commentary_withheld": "figure_replaced"}])
+        assert block.rows[0][-1] == "Volumes rose."
 
 
 class TestRenderSections:

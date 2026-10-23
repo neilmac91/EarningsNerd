@@ -3,6 +3,8 @@ import {
   FIGURE_LINKED_NOTE,
   TAKEAWAY_WITHHELD_NOTE,
   figureNote,
+  passageLabel,
+  passageNote,
   sourceLinkLabel,
 } from '@/features/filings/lib/evidenceLabels'
 
@@ -52,5 +54,25 @@ describe('sourceLinkLabel', () => {
       'Open the passage on SEC.gov',
     )
     expect(sourceLinkLabel('https://www.sec.gov/Archives/edgar/data/320193/x.htm')).toBe('Open the filing on SEC.gov')
+  })
+})
+
+// A passage the server could not find says what its link points at: the section it names, else the filing. Takeaway
+// passages name a section only when their excerpt does (provenance_service._excerpt_section_ref), so most unverified
+// ones name none, and "Section linked" there would promise a section the link does not open.
+describe('passageLabel and passageNote', () => {
+  it('reads a found passage as found, section or not', () => {
+    expect(passageLabel(true, 'Item 7')).toBe('Quote found in filing')
+    expect(passageLabel(true, null)).toBe('Quote found in filing')
+    expect(passageNote(true, null)).toBe('Found in the filing, word for word.')
+  })
+
+  it('links a passage it could not find to its section, or to the filing when it names none', () => {
+    expect(passageLabel(false, 'Item 7 · MD&A')).toBe('Section linked')
+    expect(passageNote(false, 'Item 7 · MD&A')).toBe('We link to the section. We couldn’t find these words in it.')
+    for (const none of [null, undefined, '', '  ']) {
+      expect(passageLabel(false, none)).toBe('Quote not found')
+      expect(passageNote(false, none)).toBe('We link to the filing. We couldn’t find these words in it.')
+    }
   })
 })

@@ -53,7 +53,7 @@ const services = SAMPLE_FINANCIAL_METRICS.find((row) => row.metric === 'Services
 /** Where a cited passage sits in the 10-K, read from the document (docs/brand/00-audit.md §4). The server names a
  *  takeaway passage's section only when its excerpt carries one (provenance_service._excerpt_section_ref), and this
  *  one does not, so the demo's panel names the filing's own heading, as the plan's §3.6 asks. Keyed by the exact
- *  passage: a snapshot that cites another names none until its heading is read from the filing (E170), and
+ *  passage: a snapshot that cites another names none until its heading is read from the filing (E172), and
  *  landingSamplesVerified.spec.ts holds each to the audit. */
 const PASSAGE_SECTIONS: Record<string, string> = {
   'Services net sales increased during 2025 compared to 2024 primarily due to higher net sales from advertising, the App Store and cloud services.':
@@ -112,7 +112,8 @@ export const SAMPLE_ASK = {
       section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
       verified: true,
       fragment_url: AAPL_FY25_EDGAR_URL,
-      fact: true,
+      // compute_metric's growth (value_kind "yoy_growth"): the 10-K rounds it to 6%, so it is calculated, not filed.
+      calculated: true,
     },
     {
       n: 3,

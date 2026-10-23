@@ -91,7 +91,7 @@ function AuthBrandPane() {
         <div className="mt-10 flex items-center gap-6 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
           <span className="inline-flex items-center gap-1.5">
             <ShieldCheckIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
-            SEC EDGAR
+            Filings from SEC.gov
           </span>
           <span className="inline-flex items-center gap-1.5">
             <FileTextIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />

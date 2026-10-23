@@ -47,8 +47,10 @@ import * as samples from '@/features/marketing/lib/landing-samples'
  *    and narrative evidence pass the admission the live API path applies; no key or string in it names a model;
  *    and the landing's three-series view counts data notes from those three series alone;
  *  - the evidence row's Highlights rows are the live example's own (landing-example.json, written by
- *    scripts/snapshot-landing-example.mjs): their figures are the verified values, each passage a takeaway cites is
- *    the filing's sentence verbatim, and the receipt card follows one of those rows to the snapshot's own filing.
+ *    scripts/snapshot-landing-example.mjs): their dollar figures and percentages are the verified values (other numbers
+ *    a takeaway states, such as the EPS row's share counts, are the audit's to reconcile: docs/brand/00-audit.md), each
+ *    passage a takeaway cites is the filing's sentence verbatim, and the receipt card follows one of those rows to the
+ *    snapshot's own filing.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -354,6 +356,8 @@ describe("the evidence row shows the live example's own rows, and follows one of
     for (const row of cited) expect(NORMALIZED_AUDIT, row.metric).toContain(row.commentary_evidence!.excerpt)
   })
 
+  // The script writes no passage section equal to its row's (it nulls one), so this holds for its output by construction;
+  // it fails a hand edit of the snapshot. The server-side guard is test_a_takeaway_passage_never_borrows_the_tables_section.
   it('never shows the table\u2019s own section as a passage\u2019s: the figures come from Item 8, the drivers from Item 7', () => {
     for (const row of samples.SAMPLE_FINANCIAL_METRICS) {
       const section = row.commentary_evidence?.section_ref

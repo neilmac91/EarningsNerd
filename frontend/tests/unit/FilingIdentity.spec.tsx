@@ -74,7 +74,7 @@ describe('FilingIdentity', () => {
 })
 
 const summaryWith = (
-  rows: { source_verified?: boolean; source_checkable?: boolean; source_replaced?: Record<string, string> }[],
+  rows: { source_verified?: boolean; source_checkable?: boolean; source_replaced?: Record<string, string | null> }[],
   projection?: Record<string, number>,
 ) =>
   ({
@@ -123,11 +123,13 @@ describe('verificationTally', () => {
 
   it('counts a figure the server replaced with the filed one, and says so beside the matches', () => {
     const checked = { source_checkable: true, source_verified: true }
-    const rows = [{ ...checked, source_replaced: { current_period: '$1.2B' } }, checked, { ...checked, source_replaced: {} }]
+    // A period without the summary's figure (null) is not a replacement, as the figure panel reads it (figureNote).
+    const rows = [{ ...checked, source_replaced: { current_period: '$1.2B' } }, checked, { ...checked, source_replaced: {} },
+      { ...checked, source_replaced: { current_period: null } }]
     const tally = verificationTally(summaryWith(rows))
-    expect(tally?.figures).toEqual({ matched: 3, total: 3, replaced: 1 })
+    expect(tally?.figures).toEqual({ matched: 4, total: 4, replaced: 1 })
     const { container } = render(<VerificationTallyLine tally={tally!} />)
-    expect(container).toHaveTextContent('3 of 3 checkable figures match the filing · , 1 corrected from the filing')
+    expect(container).toHaveTextContent('4 of 4 checkable figures match the filing · , 1 corrected from the filing')
   })
 
   it('is null for a summary with nothing to count, so no zero tally renders', () => {

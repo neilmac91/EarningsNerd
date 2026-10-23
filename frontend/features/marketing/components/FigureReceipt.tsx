@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { Card, CardTitle } from '@/components/ui/Card'
 import FormCodeText from '@/features/marketing/components/FormCodeText'
 import { ArrowSquareOutIcon, BracketsCurlyIcon } from '@/lib/icons'
@@ -18,10 +19,23 @@ const SCALE_WORDS: Record<string, string> = { T: 'trillions', B: 'billions', M: 
  * the table shows it; the rest are read from the filing (SAMPLE_RECEIPT). It says what the table cannot: the figure in
  * the filing's own units, the company's own name for the line, its statement and page, and the period's end.
  *
- * Each step reads down: its label, the amount, a note. An amount is one whole value that breaks inside only when it is
- * wider than the card on its own (320px under a 200% root font): tests/e2e/figure-receipt-reflow.spec.ts. A form code
- * stays whole (FormCodeText; tests/e2e/reflow-200.spec.ts).
+ * Each step reads down: its label, the amount, a note. An amount breaks only after a thousands separator or at a space,
+ * never inside a digit group, so no line reads "416,161,000,00" over "0" (320px under a 200% root font; chief design on
+ * #1530): tests/e2e/figure-receipt-reflow.spec.ts. A form code stays whole (FormCodeText; tests/e2e/reflow-200.spec.ts).
  */
+
+/** An amount with a break opportunity after each thousands separator and nowhere else inside its digits. */
+const groupedFigure = (figure: string) =>
+  figure.split(',').map((group, i, groups) => (
+    <Fragment key={i}>
+      {group}
+      {i < groups.length - 1 && (
+        <>
+          ,<wbr />
+        </>
+      )}
+    </Fragment>
+  ))
 export default function FigureReceipt({
   row,
   receipt,
@@ -38,6 +52,8 @@ export default function FigureReceipt({
   const shown = formatMetricValue(row.current_period)
   const scale = SCALE_WORDS[shown.slice(-1)]
   const matched = row.source_verified === true
+  // The product chip's glyph for the state (SourceTrace): braces for a matched figure, the link arrow for a linked one.
+  const Glyph = matched ? BracketsCurlyIcon : ArrowSquareOutIcon
   const steps = [
     { label: 'In the highlights', figure: shown, note: scale ? `${fiscalYear}, rounded to ${scale}` : fiscalYear },
     { label: `In ${company}’s ${form}`, figure: receipt.filed, note: `${receipt.statement} · page ${receipt.page}` },
@@ -60,8 +76,8 @@ export default function FigureReceipt({
             <p className="text-xs font-medium text-text-primary-light dark:text-text-primary-dark">
               <FormCodeText text={step.label} />
             </p>
-            <p className="font-data text-base font-semibold tabular-nums text-text-primary-light [overflow-wrap:anywhere] dark:text-text-primary-dark">
-              {step.figure}
+            <p className="font-data text-base font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
+              {groupedFigure(step.figure)}
             </p>
             <p className={`text-xs ${MUTED}`}>{step.note}</p>
           </li>
@@ -75,7 +91,7 @@ export default function FigureReceipt({
       </details>
       <p className={`mt-3 flex flex-wrap items-center gap-2 text-sm ${MUTED}`}>
         <span className={sourceTraceLabelClass()}>
-          <BracketsCurlyIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+          <Glyph className="h-3 w-3 shrink-0" aria-hidden="true" />
           {matched ? FIGURE_MATCHED : FIGURE_LINKED}
         </span>
         {matched ? (scale ? `Same number, rounded to ${scale}.` : 'Same number.') : 'This figure is linked, not checked.'}

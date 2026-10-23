@@ -1177,7 +1177,7 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  are row headers (`rowHeader`), cells align to the top and headings to the bottom (DataTable
                  `verticalAlign="top"`), each change glyph sits left of a figure box as wide as the column's
                  longest change in `ch`, so the glyphs share an edge, and the takeaway column is inset
-                 (`pl-8`). `periods` names the figure columns ("FY2025" over "to Sep 27, 2025"), `changeNote`
+                 (`pl-8`). `periods` names the figure columns ("FY2025" over "ended Sep 27, 2025"), `changeNote`
                  marks Change with a dagger the footer explains, and `caption` names the table and the list.
                  `layoutBy="container"` moves the switch from the md viewport to the component's own width of
                  52rem (a container query in rem on a `[container-type:inline-size]` wrapper), for a caller whose
@@ -1199,7 +1199,8 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  `change_tone` through lib/financialTone.directionText + font-semibold for a move,
                  pinned token-for-token to DataTable's td); the per-ADS note as its own line under the figures;
                  the takeaway and its evidence chip, MissingValue read as "no takeaway" where the summary wrote
-                 none (E145). Figures `font-data text-sm tabular-nums`, prose text-sm,
+                 none (E145), and "Withheld: written before the figure was corrected." (TAKEAWAY_WITHHELD) where
+                 the server withheld the one it wrote when it swapped in the filed figure; the exports print it too. Figures `font-data text-sm tabular-nums`, prose text-sm,
                  chips as they are — never smaller than the md table. Wrap contract: `[overflow-wrap:anywhere]`
                  on the card (inherited; it also lowers a flex item's min-content, which `break-words` cannot)
                  and `min-w-0` groups; never nowrap / truncate / line-clamp / a clipping height on card text —
@@ -1454,12 +1455,14 @@ Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12p
                  in a phone card), 16px radius (a pill on one line, a rounded box when wrapped), panel fill,
                  secondary ink, hover brightens. Glyph = what it cites: `quotes` for a filing passage, braces
                  (`kind="xbrl"`, MetricSourceLink) for a figure that "Matches filing", the arrow for "Linked, not
-                 checked" and "Section linked". The chip the open
+                 checked", "Section linked" and "Quote not found". The chip the open
                  pane's Filing view is answering is `selected`: brand tint + aria-current (the highlight
                  request's sourceId + the viewer context's paneOpen), whether the pane shows its passage or
                  says why it cannot (text not in-app yet, passage not pinpointed). Labels come from one module,
                  `features/filings/lib/evidenceLabels.ts` (product-wide: "Matches filing", "Linked, not checked",
-                 "Quote found in filing", "Section linked"); the accessible name is "Source: <label>", with
+                 "Quote found in filing", "Section linked", and "Quote not found" for a passage it could not
+                 find that names no section, whose panel says the link opens the filing); the accessible name
+                 is "Source: <label>", with
                  " (opens in a new tab)" where the chip is itself the link, and the panel's link reads "Open
                  the filing on SEC.gov" ("the passage" for a text-fragment URL). The recipe lives in `features/filings/lib/sourceTraceChip.ts`, outside the
                  'use client' SourceTrace, so a server component can call it (the homepage example does; gate:
@@ -1468,7 +1471,7 @@ Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12p
 Source pane      <FilingWorkspace>  (P-06) — the research pane is named for the source: header "Source" + the
                  filing in the data face, close button; tabs Filing · Ask (file-text / chat-circle-text glyphs,
                  underline tabs ≥36px, 44px in the sheet; arrows wrap from the focused tab); the Filing tab
-                 ends in "Original on SEC EDGAR". aria-label "Filing source and Ask"; role dialog + aria-modal
+                 ends in "Original on SEC.gov". aria-label "Filing source and Ask"; role dialog + aria-modal
                  below lg only. The floating launcher is "Source ⌘K", a secondary control (panel fill,
                  hairline, e3; aria-keyshortcuts) whose kbd hint is secondary ink on a cream key. A chip opens
                  the pane on Filing; the initial tab stays Ask until in-app filing text is reliably available.
@@ -1507,8 +1510,8 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  named "<filing> · filing text", `tabIndex={0}`, the ring inset as in MonthView), so the
                  arrow keys scroll it from the top: Chromium made the scroller one on its own only while
                  nothing in it was focusable. In the Source pane's Filing tab, Tab goes Filing tab →
-                 reader → each scrolling table's region (and any link in the text) → "Original on SEC
-                 EDGAR"; when the cited passage cannot be found, the notice's "Open original" link comes
+                 reader → each scrolling table's region (and any link in the text) → "Original on
+                 SEC.gov"; when the cited passage cannot be found, the notice's "Open original" link comes
                  before the reader. A citation jump (highlightInDom) scrolls the reader and the table's
                  box only, never the page (no scrollIntoView), and centres the passage in the reader's
                  on-screen part (above the fold and the consent bar, before the desktop pane sticks):
@@ -1546,9 +1549,14 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
-                 verified, fragment_url } — `verified` drives source attribution: checked sources show
-                 “Matches filing” (a fact) or “Quote found in filing” (a passage) with its scope (not
-                 whole-answer verification); unmatched sources read “Linked, not checked” or “Section linked”. XBRL source rows carry the braces glyph and their tag. The done answer
+                 verified, fragment_url, fact? } — `verified` drives source attribution, and `fact`, set
+                 at the network boundary only when the server sent the fact's own `concept`, makes it a
+                 figure: checked sources show “Matches filing” (a fact), “Calculated from filing” (a
+                 growth rate or margin the server computed, `calculated`, from `value_kind`) or “Quote found
+                 in filing” (a passage) with its scope (not whole-answer verification); unmatched sources read “Linked,
+                 not checked”, “Section linked”, or “Quote not found” for a passage that names no
+                 section (lib/evidenceLabels passageLabel). XBRL source rows carry the braces glyph and
+                 their tag. The done answer
                  counts “{n} matched source(s)” once. A plan gate (a spent free allowance, a Pro-only
                  403, the Pro fair-use 429) is the quiet answer card with role="status" and the server's
                  sentence, plus a lightning “Upgrade to Pro” except for the fair-use cap; the reading card

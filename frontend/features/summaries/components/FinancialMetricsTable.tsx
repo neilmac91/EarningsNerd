@@ -8,7 +8,7 @@ import { MetricSourceLink } from '@/features/filings/components/MetricSourceLink
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
 import { PerAdsNote } from '@/features/summaries/components/PerAdsNote'
 import { formatMetricValue, isMissing } from '@/features/summaries/lib/metricValue'
-import { TAKEAWAY_PASSAGE_NOTE, type FigureEvidence } from '@/features/filings/lib/evidenceLabels'
+import { TAKEAWAY_PASSAGE_NOTE, TAKEAWAY_WITHHELD, type FigureEvidence } from '@/features/filings/lib/evidenceLabels'
 import { Card, CardHeader, CardTitle, CardFooter, DataTable, MissingValue, cx, type Column, type CellTone } from '@/components/ui'
 import type { PerAdsValue } from '@/types/summary'
 import type { BlockEvidence } from '@/features/summaries/api/summaries-api'
@@ -166,9 +166,14 @@ const changeField = (row: FinancialMetric, flow = false, figureCh = 0): ReactNod
 const takeawayField = (row: FinancialMetric, twin?: string): ReactNode => (
   <div data-metric-field="takeaway" className="flex flex-col gap-1">
     {/* A row the summary wrote no takeaway for: the missing-value element, read as "no takeaway" (E145), and no chip,
-        whose panel would cite a passage for a takeaway the row does not have. */}
+        whose panel would cite a passage for a takeaway the row does not have. One whose takeaway the server withheld,
+        when it swapped in the filed figure, says so instead: the summary did write one. */}
     <span className="text-text-secondary-light dark:text-text-secondary-dark">
-      {isMissing(row.commentary) ? <MissingValue label="no takeaway" /> : row.commentary}
+      {!isMissing(row.commentary)
+        ? row.commentary
+        : row.commentary_withheld === 'figure_replaced'
+          ? TAKEAWAY_WITHHELD
+          : <MissingValue label="no takeaway" />}
     </span>
     {row.commentary_evidence && !isMissing(row.commentary) && (
       <SourceTrace
@@ -177,7 +182,7 @@ const takeawayField = (row: FinancialMetric, twin?: string): ReactNode => (
         sectionRef={row.commentary_evidence.section_ref}
         excerpt={row.commentary_evidence.verified ? row.commentary_evidence.excerpt : null}
         // A takeaway is a sentence the summary wrote, so the panel says what was checked: the passage it
-        // cites, not the takeaway itself. Unverified evidence keeps the panel's own "Section linked" line.
+        // cites, not the takeaway itself. Unverified evidence keeps the panel's own line (lib/evidenceLabels passageNote).
         note={row.commentary_evidence.verified ? TAKEAWAY_PASSAGE_NOTE : null}
         layoutTwin={twin}
       />

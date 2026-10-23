@@ -87,8 +87,8 @@ export default function EvidenceSection() {
         notes={TABLE_NOTES}
         changeNote={CHANGE_NOTE}
         periods={{
-          current: { label: SAMPLE_FILING.fiscalYear, detail: `to ${day(SAMPLE_FILING.periodEnd)}` },
-          prior: { label: SAMPLE_FILING.priorFiscalYear, detail: `to ${day(SAMPLE_FILING.priorPeriodEnd)}` },
+          current: { label: SAMPLE_FILING.fiscalYear, detail: `ended ${day(SAMPLE_FILING.periodEnd)}` },
+          prior: { label: SAMPLE_FILING.priorFiscalYear, detail: `ended ${day(SAMPLE_FILING.priorPeriodEnd)}` },
         }}
         caption={`${SAMPLE_FILING.companyName} financial highlights for ${SAMPLE_FILING.fiscalYear} and ${SAMPLE_FILING.priorFiscalYear}: figures, change and investor takeaway`}
         layoutBy="container"

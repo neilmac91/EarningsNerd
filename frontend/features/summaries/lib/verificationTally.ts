@@ -39,7 +39,8 @@ export function verificationTally(summary: Summary | null | undefined): Verifica
     ? {
         matched: checkable.filter((row) => row.source_verified === true).length,
         total: checkable.length,
-        replaced: checkable.filter((row) => !!row.source_replaced && Object.keys(row.source_replaced).length > 0).length,
+        // A period counts as replaced only when it names the summary's figure, as the panel reads it (figureNote).
+        replaced: checkable.filter((row) => Object.values(row.source_replaced ?? {}).some((text) => typeof text === 'string')).length,
       }
     : null
 

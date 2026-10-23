@@ -9,13 +9,7 @@ import { useSheetFocusTrap } from '@/features/filings/components/copilot/useShee
 import { useEvidencePopoverKeys } from '@/features/filings/components/copilot/useEvidencePopoverKeys'
 import { shownTwin } from '@/features/filings/lib/layoutTwin'
 import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
-import {
-  PASSAGE_FOUND,
-  PASSAGE_FOUND_NOTE,
-  PASSAGE_LINKED,
-  PASSAGE_LINKED_NOTE,
-  sourceLinkLabel,
-} from '@/features/filings/lib/evidenceLabels'
+import { passageLabel, passageNote, sourceLinkLabel } from '@/features/filings/lib/evidenceLabels'
 
 /**
  * Shared "Trace to Source" provenance affordance — the ambient, on-brand way every metric and risk
@@ -43,7 +37,7 @@ interface SourceTraceProps {
   verified?: boolean | null
   /** e.g. "Item 1A · Risk Factors" — shown as the panel header. */
   sectionRef?: string | null
-  /** Chip text. Defaults to the passage vocabulary: "Quote found in filing" or "Section linked". */
+  /** Chip text. Defaults to the passage vocabulary: "Quote found in filing", "Section linked" or "Quote not found". */
   label?: string
   /** One-line explanation in the panel (e.g. a metric's XBRL match note). */
   note?: string | null
@@ -102,12 +96,12 @@ export function SourceTracePanelBody({
   const statusLine = isVerified ? (
     <span className="mt-2 flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark">
       <CheckCircleIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-      {note || PASSAGE_FOUND_NOTE}
+      {note || passageNote(true, header)}
     </span>
   ) : (
     <span className="mt-2 flex items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
       <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-      {note || PASSAGE_LINKED_NOTE}
+      {note || passageNote(false, header)}
     </span>
   )
 
@@ -141,7 +135,7 @@ export function SourceTracePanelBody({
 export function SourceTrace({ url, verified, sectionRef, label, note, excerpt, kind = 'passage', layoutTwin }: SourceTraceProps) {
   const isVerified = verified === true
   const header = sectionRef?.trim() || null
-  const chipLabel = label ?? (isVerified ? PASSAGE_FOUND : PASSAGE_LINKED)
+  const chipLabel = label ?? passageLabel(isVerified, header)
   const linkable = isHttpUrl(url)
   const panelId = useId()
 
@@ -426,7 +420,7 @@ function SourceTraceInner({
         excerpt: highlightTarget,
         section_ref: header,
         // Located only with the excerpt the server checked: a heading fallback (every metric chip, a
-        // verified XBRL figure's included, and every Cited chip) is a best-effort section jump, never a
+        // verified XBRL figure's included, and every Section linked chip) is a best-effort section jump, never a
         // passage the server located, so the reader paints it without the device (D-044).
         verified: isVerified && highlightTarget === excerpt,
         fragment_url: url,
@@ -451,7 +445,7 @@ function SourceTraceInner({
     </button>
   ) : canHighlight ? (
     // In-app: activating jumps to + highlights the source in the embedded filing viewer, opening the
-    // pane; the hover/focus panel still offers "Open in SEC EDGAR" as the fallback.
+    // pane; the hover/focus panel still offers "Open the filing on SEC.gov" as the fallback.
     <button
       type="button"
       {...triggerCommon}

@@ -38,11 +38,14 @@ const FundamentalsTrendChart = dynamic(
 // accusatory data-integrity verdict (it false-fired on every bank pre-fix). The full reason
 // list stays available in the badge tooltip.
 const GROUNDING_REASON = 'financial figures not grounded in SEC XBRL data'
+// A reason in the product's words (D-058, no acronym in a label): the comparison above keeps the server's string.
+const REASON_WORDS: Record<string, string> = { [GROUNDING_REASON]: 'some figures not matched to the filing' }
+export const reasonWords = (reason: string): string => REASON_WORDS[reason] ?? reason
 export function partialBadgeLabel(reasons: string[] | undefined): string {
   if (reasons && reasons.length === 1 && reasons[0] === GROUNDING_REASON) {
     return 'Partial coverage'
   }
-  return `Partial${reasons && reasons.length ? ` · ${reasons[0]}` : ''}`
+  return `Partial${reasons && reasons.length ? ` · ${reasonWords(reasons[0])}` : ''}`
 }
 
 export interface SummaryDisplayProps {
@@ -186,7 +189,7 @@ export function SummaryDisplay({
               {showQualityBadge && quality?.tier ? (
                 <Badge
                   variant={quality.tier === 'full' ? 'brand' : 'warning'}
-                  title={quality.reasons && quality.reasons.length ? quality.reasons.join('; ') : undefined}
+                  title={quality.reasons && quality.reasons.length ? quality.reasons.map(reasonWords).join('; ') : undefined}
                 >
                   {quality.tier === 'full' ? 'Full summary' : partialBadgeLabel(quality.reasons)}
                 </Badge>

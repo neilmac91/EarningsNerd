@@ -54,7 +54,7 @@ from app.services.summary_request_evidence import SummaryRequestEvidence
 from app.services.summary_pipeline import (
     stream_filing_summary, to_sse, snapshot_generation_user, load_generation_user,
 )
-from app.services.provenance_service import enrich_summary_provenance, source_safe_business_overview
+from app.services.provenance_service import enrich_summary_provenance, source_safe_business_overview, standardized_xbrl
 from app.services.change_report_service import change_report_for_filing
 from app.services.filing_section_service import section_changes_access
 
@@ -686,20 +686,9 @@ async def get_summary(filing_id: int, db: Session = Depends(get_db)):
                 .first()
             )
 
-            # SEC-verified XBRL values, used to mark financial metrics as "verified". Best-effort: any
-            # extraction issue must never break the summary response.
-            xbrl_standardized = None
-            if filing is not None and getattr(filing, "xbrl_data", None):
-                try:
-                    from app.services.edgar.compat import xbrl_service
-                    xbrl_standardized = xbrl_service.extract_standardized_metrics(filing.xbrl_data)
-                except Exception:
-                    logger.warning(
-                        f"[summary:{filing_id}] XBRL standardization for provenance failed; continuing",
-                        exc_info=True,
-                    )
-
-            return enrich_summary_provenance(summary, filing, xbrl_standardized)
+            # The filing's own XBRL, which the financial rows are checked against (best-effort, as
+            # the PDF/CSV exports read it too: provenance_service.standardized_xbrl).
+            return enrich_summary_provenance(summary, filing, standardized_xbrl(filing))
         finally:
             filing_list_service.release_request_session(db)
 

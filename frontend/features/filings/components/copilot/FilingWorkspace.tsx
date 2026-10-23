@@ -82,7 +82,7 @@ interface FilingWorkspaceProps {
   copilotBody: ReactNode
   /** The embedded filing reader (<FilingViewer embedded .../>). */
   filingBody: ReactNode
-  /** The original document for the filing tab's "Original on SEC EDGAR" link: `document_url`, then
+  /** The original document for the filing tab's "Original on SEC.gov" link: `document_url`, then
    * `sec_url` (the page derives it with `originalDocumentUrl`). */
   secUrl: string | null
   /** The filing the pane shows, in the data face, under the pane's "Source" title. */
@@ -335,7 +335,7 @@ export default function FilingWorkspace({
     document.getElementById(PANE_TAB_IDS[activeView])?.focus({ preventScroll: true })
   }, [activeView, paneOpen])
 
-  // The Filing tab's footer: the original on SEC EDGAR, quiet and always reachable.
+  // The Filing tab's footer: the original on SEC.gov, quiet and always reachable.
   const openOriginal = isHttpUrl(secUrl) ? (
     <div className="flex items-center border-t border-border-light px-4 py-3 dark:border-white/10">
       <a

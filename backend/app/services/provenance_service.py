@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import math
 import re
 from decimal import Decimal
@@ -30,6 +31,8 @@ from app.services.ai.recovery_context import clean_filing_source
 from app.services.summary_schema import RISK_SOURCE_CONTEXT_KEY, RISK_SOURCE_CONTEXT_VERSION
 from app.services.summary_sections import render_sections, render_sections_json, sections_to_markdown
 from app.utils.numbers import display_currency, money_prefix_for, parse_display_number
+
+logger = logging.getLogger(__name__)
 
 # An excerpt shorter than this (after normalization) is too generic to verify reliably, so we never
 # claim it as "verified in filing".
@@ -534,10 +537,12 @@ def _figure_text(text: Any) -> Any:
 
 def _shows_filed_value(text: Any, fact: dict) -> bool:
     """Whether a displayed figure is the filed fact: at the display's own scale and last stated digit,
-    and in the fact's currency when the display names one."""
+    and in the fact's currency when the display names one. A symbol that names no single currency (a
+    bare "¥", JPY or CNY) is no evidence against the fact's, so only its number is compared: a correct
+    "¥93.6T" must not read as a figure to replace."""
     has_currency, shown_currency = display_currency(text)
     currency = fact.get("currency")
-    if has_currency and isinstance(currency, str) and shown_currency != currency.upper():
+    if has_currency and shown_currency is not None and isinstance(currency, str) and shown_currency != currency.upper():
         return False
     return metric_delta_service.display_matches_value(text, fact["value"])
 
@@ -562,11 +567,12 @@ def build_metric_source(
     a checkable row, ``source_filed``: each compared period's filed amount in words, for the evidence
     panel. ``source_checkable`` says the check could run at all: the row's whole label names a
     standardized concept (``source_metric_key``) whose filed value is at least
-    ``_MIN_VERIFIABLE_XBRL_VALUE``, and its current figure is a number. Per-share figures, ratios,
+    ``_MIN_VERIFIABLE_XBRL_VALUE``, its current figure is a number, and a prior figure it shows has a
+    comparable filed prior (``metric_delta_service.comparable_facts``). Per-share figures, ratios,
     margins and segment lines are never checked, so a tally of matched figures counts its denominator
-    from these rows only. ``source_verified`` is True only when every period the row shows, and the
-    filing's data holds for a comparable period, matches at the row's own scale and last stated digit
-    (``metric_delta_service.display_matches_value``). A period that does not is named in
+    from these rows only. ``source_verified`` is True only when every figure the row shows matches at
+    its own scale and last stated digit (``metric_delta_service.display_matches_value``): "Matches
+    filing" covers the whole row, never the current period alone. A period that does not is named in
     ``source_mismatched``, and ``enrich_financial_highlights`` swaps the filed figure in for it.
     """
     base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
@@ -589,14 +595,16 @@ def build_metric_source(
     ):
         return out
 
+    prior = _filed_fact(entry, "prior")
+    shows_prior = parse_display_number(shown["prior_period"])[0] is not None
+    if shows_prior and not metric_delta_service.comparable_facts(current, prior):
+        # A prior the filing's data holds no comparable period for cannot be checked, so neither can the
+        # row: it reads "Linked, not checked" and stays out of the tally, never matched on one year.
+        return out
+
     out["source_checkable"] = True
     compared = {"current_period": current}
-    prior = _filed_fact(entry, "prior")
-    if (
-        prior is not None
-        and metric_delta_service.comparable_facts(current, prior)
-        and parse_display_number(shown["prior_period"])[0] is not None
-    ):
+    if shows_prior:
         compared["prior_period"] = prior
     reporting_currency = xbrl_standardized.get("reporting_currency")
     out["source_filed"] = {field: _filed_amount(fact, reporting_currency) for field, fact in compared.items()}
@@ -609,18 +617,35 @@ def build_metric_source(
     return out
 
 
-def _swap_in_filed_figures(row: dict, xbrl_standardized: Any) -> None:
+# Keys only enrichment writes on a metric row. A stored row is the model's JSON, so each is cleared
+# before the check writes its own: one carried over would drive a swap (or fail it) for a row the check
+# never compared, or put a filed amount the server never read in front of the reader.
+_CODE_OWNED_ROW_KEYS = ("source_mismatched", "source_filed", "source_replaced", "commentary_withheld")
+
+# Numbers a takeaway may name without stating a figure: years ("2025", "FY2025"), quarters ("Q3") and
+# the filing's own Items, Notes and Parts.
+_NON_FIGURE_NUMBER_RE = re.compile(
+    r"\b(?:FY\s?)?(?:19|20)\d{2}\b|\bQ[1-4]\b|\b(?:Item|Note|Part)\s+\d+[A-C]?\b",
+    re.IGNORECASE,
+)
+
+
+def _states_a_figure(text: str) -> bool:
+    """Whether a takeaway states a figure: a number other than a year, a quarter or a filing reference."""
+    return re.search(r"\d", _NON_FIGURE_NUMBER_RE.sub(" ", text)) is not None
+
+
+def _swap_in_filed_figures(row: dict, mismatched: list[str], xbrl_standardized: dict) -> None:
     """Show the filed figure where the summary's own differs from it (the founder's call, 2026-10-22).
 
-    ``source_replaced`` keeps the summary's text for each swapped period, so the evidence panel can say
-    what changed; the figure becomes the filed amount, written as the table's other code-written cells
-    are (``schemas.summary._format_xbrl_value``). The change computed from the summary's figures is
-    dropped, so the exact binder recomputes it from the filed pair. A takeaway that states a number was
-    written from the replaced figure, so it is withheld rather than left to contradict its row.
+    ``mismatched`` is ``build_metric_source``'s own list for this row, so the row's concept and both
+    filed facts are known to be there. ``source_replaced`` keeps the summary's text for each swapped
+    period, so the evidence panel can say what changed; the figure becomes the filed amount, written as
+    the table's other code-written cells are (``schemas.summary._format_xbrl_value``). The change
+    computed from the summary's figures is dropped, so the exact binder recomputes it from the filed
+    pair. A takeaway that states a figure was written from the replaced one, so it is withheld rather
+    than left to contradict its row; one that names only a year, a quarter or an Item stays.
     """
-    mismatched = row.pop("source_mismatched", None)
-    if not mismatched:
-        return
     key = source_metric_key(row.get("metric"))
     entry = xbrl_standardized[key]
     reporting_currency = xbrl_standardized.get("reporting_currency")
@@ -639,7 +664,7 @@ def _swap_in_filed_figures(row: dict, xbrl_standardized: Any) -> None:
     for field in ("change_display", "change_direction", "change_tone"):
         row.pop(field, None)
     commentary = row.get("commentary")
-    if isinstance(commentary, str) and re.search(r"\d", commentary):
+    if isinstance(commentary, str) and _states_a_figure(commentary):
         row["commentary"] = ""
         row.pop("supporting_evidence", None)
         row.pop("supportingEvidence", None)
@@ -701,7 +726,8 @@ def build_evidence(
 
     ``verified`` is True only when the model's (verbatim) ``excerpt`` is located in the cached filing
     text — then ``fragment_url`` is a ``#:~:text=`` deep link to it; otherwise the link is section-level
-    and the chip reads "Cited". Honest labeling (never claim verified for text we cannot find) and
+    and the chip says the quote was not found ("Section linked", or "Quote not found" with no section;
+    ``frontend/features/filings/lib/evidenceLabels.ts``). Honest labeling (never claim verified for text we cannot find) and
     filing-only (``base_url`` is THIS filing's own URL),
     generalized to any model claim so Print quotes / metric takeaways / footnotes cite the same way.
 
@@ -764,7 +790,7 @@ def _enrich_footnotes(sections: dict, base_url: str, normalized_source: Optional
         excerpt = fn.get("supporting_evidence") or fn.get("supportingEvidence")
         ref = fn.get("source_section_ref") or fn.get("sourceSectionRef")
         # Only attach a citation when there is actually something to cite — otherwise every footnote
-        # would get a bare "Cited" chip pointing at the filing root, which is noise, not provenance.
+        # would get a bare chip pointing at the filing root, which is noise, not provenance.
         if (isinstance(excerpt, str) and excerpt.strip()) or (isinstance(ref, str) and ref.strip()):
             fn["evidence"] = build_evidence(excerpt, ref, base_url, normalized_source)
 
@@ -841,8 +867,13 @@ def enrich_financial_highlights(
         ]
     for row in rows:
         if isinstance(row, dict):
-            row.update(build_metric_source(row, filing, xbrl_standardized, section_ref))
-            _swap_in_filed_figures(row, xbrl_standardized)
+            for owned in _CODE_OWNED_ROW_KEYS:
+                row.pop(owned, None)
+            source = build_metric_source(row, filing, xbrl_standardized, section_ref)
+            mismatched = source.pop("source_mismatched", None)
+            row.update(source)
+            if mismatched:
+                _swap_in_filed_figures(row, mismatched, xbrl_standardized)
     result["table"] = rows
     if any(isinstance(row, dict) and row.get("source_replaced") for row in rows):
         _refresh_normalized(result)
@@ -876,6 +907,28 @@ def enrich_financial_highlights(
     return result
 
 
+def standardized_xbrl(filing: Any) -> Optional[dict]:
+    """The filing's own standardized XBRL metrics, the figures its rows are checked against, or ``None``.
+
+    Read from the filing's stored ``xbrl_data`` (local parsing, no SEC call). Best-effort: a failed
+    extraction leaves the rows unchecked and never fails the read. The summary page and the PDF/CSV
+    exports read it here, so they check the same figures.
+    """
+    if filing is None or not getattr(filing, "xbrl_data", None):
+        return None
+    try:
+        from app.services.edgar.compat import xbrl_service
+
+        return xbrl_service.extract_standardized_metrics(filing.xbrl_data)
+    except Exception:
+        logger.warning(
+            "[summary:%s] XBRL standardization for provenance failed; continuing",
+            getattr(filing, "id", None),
+            exc_info=True,
+        )
+        return None
+
+
 def enrich_raw_summary(
     raw_summary: Optional[dict],
     filing: Any,
@@ -883,6 +936,7 @@ def enrich_raw_summary(
     xbrl_standardized: Optional[dict] = None,
     *,
     summary_filing_id: Any = None,
+    cite_passages: bool = True,
 ) -> Optional[dict]:
     """Build the source-first Risks projection and enrich other source-backed sections.
 
@@ -892,6 +946,8 @@ def enrich_raw_summary(
     enrichment contracts. Tolerant of missing sections; returns the input unchanged if there is
     nothing to enrich.
     ``normalized_source`` (pre-normalized filing text) may be passed in to avoid recomputing it.
+    ``cite_passages=False`` (the exports, which print no citation) checks and swaps the financial rows
+    as the page does but reads no filing text for takeaways, quotes or footnotes.
     """
     if not isinstance(raw_summary, dict):
         return raw_summary
@@ -921,7 +977,7 @@ def enrich_raw_summary(
     if not has_risks and not has_fh and not has_v2_cite:
         return result
 
-    if normalized_source is None:
+    if cite_passages and normalized_source is None:
         raw_source = _select_source_text(filing) if filing is not None else None
         normalized_source = normalize_for_match(raw_source)
     delta_marker = raw_summary.get(metric_delta_service.EXACT_CONTEXT_KEY)
@@ -932,17 +988,35 @@ def enrich_raw_summary(
         # v2 metric rows carry a model Investor-Takeaway excerpt to cite; v1 rows don't, so only the
         # v2 path threads normalized_source (which turns on commentary_evidence).
         result["sections"][metrics_key] = enrich_financial_highlights(
-            fh, filing, xbrl_standardized, normalized_source if version >= 2 else None,
+            fh, filing, xbrl_standardized, normalized_source if cite_passages and version >= 2 else None,
             exact_delta_owned=exact_delta_owned,
         )
         result[metric_delta_service.EXACT_CONTEXT_KEY] = metric_delta_service.EXACT_CONTEXT_VERSION
-    if version >= 2:
+    if cite_passages and version >= 2:
         # T4.1: generalize trace-to-source beyond risks/metrics to the other citable v2 surfaces.
         # Quotes verify verbatim (the quote is the excerpt); footnotes verify their supporting excerpt.
         base_url = _base_url(filing)
         _enrich_forward_quotes(result["sections"], base_url, normalized_source)
         _enrich_footnotes(result["sections"], base_url, normalized_source)
     return result
+
+
+def export_raw_summary(summary: Any, filing: Any) -> dict:
+    """The raw summary the PDF and CSV exports render, so they print what the summary page shows.
+
+    Risks are projected as the page projects them (``project_summary_risks``), and the financial rows
+    are checked against the filing's own XBRL with the filed figure in place of one that differs and a
+    takeaway withheld as the page withholds it (``enrich_raw_summary``). The exports print no
+    citation, so no filing text is read for them (``cite_passages=False``).
+    """
+    return enrich_raw_summary(
+        project_summary_risks(summary, filing),
+        filing,
+        None,
+        standardized_xbrl(filing),
+        summary_filing_id=getattr(summary, "filing_id", None),
+        cite_passages=False,
+    ) or {}
 
 
 def enrich_summary_provenance(

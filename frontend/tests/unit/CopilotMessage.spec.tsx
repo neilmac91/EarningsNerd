@@ -68,6 +68,22 @@ describe('CopilotMessage citation chips', () => {
     expect(screen.queryByText('Quote found in filing')).not.toBeInTheDocument()
   })
 
+  it('reads a figure the server calculated as "Calculated from filing", never "Matches filing"', () => {
+    // compute_metric's growth or margin (value_kind, admitted as `calculated`): the filing does not state it.
+    const growth: CopilotCitation = { n: 1, excerpt: 'Revenue YoY growth = 6.4% (FY2025/FY)',
+      section_ref: 'XBRL · us-gaap:Revenues', verified: true, fragment_url: 'https://www.sec.gov/filing', calculated: true }
+    render(<CopilotMessage message={doneMessage({ content: 'Revenue grew 6.4% [1].', citations: [growth], grounded: 1 })} />)
+    expect(screen.getAllByText('Calculated from filing').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Matches filing')).not.toBeInTheDocument()
+  })
+
+  it('reads an unverified citation that names no section as "Quote not found", never "Section linked"', () => {
+    const sectionless: CopilotCitation = { ...verifiedCitation, verified: false, section_ref: null }
+    render(<CopilotMessage message={doneMessage({ citations: [sectionless] })} />)
+    expect(screen.getAllByText('Quote not found').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Section linked')).not.toBeInTheDocument()
+  })
+
   it('renders an inline chip for a tool-figure marker, numbered by the backend like any other citation', () => {
     // The backend's unified citation-resolution pass assigns every citation (text or XBRL fact
     // alike) a plain sequential int — the "F#" shape only ever existed as an internal marker

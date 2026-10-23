@@ -290,6 +290,8 @@ class TestEnrichSummaryProvenance:
 
 
 class TestMapMetricToXbrlKey:
+    # The substring mapper the bank guards and the no-total-bank revenue drop read (ai/bank_guards.py). The figure check
+    # reads whole labels instead (source_metric_key; TestFigureCheck holds its aliases).
     def test_maps_common_names(self):
         assert prov.map_metric_to_xbrl_key("Total Revenue")[0] == "revenue"
         assert prov.map_metric_to_xbrl_key("Net sales")[0] == "revenue"
@@ -315,7 +317,9 @@ class TestMapMetricToXbrlKey:
 
 class TestBuildMetricSource:
     XBRL = {
-        "revenue": {"current": {"period": "2024-09-28", "value": 391035000000.0, "form": "10-K"}},
+        # A shown prior is checked too, so the revenue row's prior has its filed fact (Apple FY2023, 383,285).
+        "revenue": {"current": {"period": "2024-09-28", "value": 391035000000.0, "form": "10-K"},
+                    "prior": {"period": "2023-09-30", "value": 383285000000.0, "form": "10-K"}},
         "net_income": {"current": {"value": 93736000000.0}},
         "total_assets": {"current": {"value": 364980000000.0}},
     }
@@ -404,9 +408,21 @@ class TestFigureCheck:
         assert out["source_mismatched"] == ["prior_period"]
         assert self._check("Total net sales", "$416.2B", "$391.0B")["source_verified"] is True
 
-    def test_a_prior_of_another_duration_is_not_compared(self):
-        quarterly_prior = {**APPLE, "revenue": {**APPLE["revenue"], "prior": _annual(94_930e6, "2024-09-28", "2024-06-30")}}
-        out = self._check("Total net sales", "$416.2B", "$391.0B", quarterly_prior)
+    @pytest.mark.parametrize("prior", [
+        _annual(94_930e6, "2024-09-28", "2024-06-30"),  # a quarter beside an annual current
+        None,  # no prior filed at all
+    ])
+    def test_a_row_whose_shown_prior_cannot_be_compared_is_not_checked(self, prior):
+        # "Matches filing" covers every figure a row shows (Codex on #1530): a prior the filing's data holds no
+        # comparable period for leaves the row unchecked, never matched on its current year alone.
+        revenue = {"current": APPLE["revenue"]["current"], **({"prior": prior} if prior else {})}
+        out = self._check("Total net sales", "$416.2B", "$391.0B", {**APPLE, "revenue": revenue})
+        assert out["source_checkable"] is False
+        assert out["source_verified"] is False
+        assert "source_filed" not in out and "source_mismatched" not in out
+
+    def test_a_row_that_shows_no_prior_is_checked_on_its_current_year(self):
+        out = self._check("Total net sales", "$416.2B", "—", {**APPLE, "revenue": {"current": APPLE["revenue"]["current"]}})
         assert out["source_verified"] is True
         assert set(out["source_filed"]) == {"current_period"}
 
@@ -427,6 +443,37 @@ class TestFigureCheck:
     def test_a_display_in_another_currency_does_not_match(self):
         out = self._check("Total net sales", "CNY 416.2B")
         assert out["source_verified"] is False
+
+    def test_a_bare_yen_sign_is_checked_by_its_number(self):
+        # "¥" names no single currency (JPY or CNY), so it is no evidence against a JPY fact: a correct
+        # figure must not read as one to replace, and a wrong one is still caught.
+        yen = {"reporting_currency": "JPY", "revenue": {
+            "current": {**_annual(45_095_325e6, "2025-03-31", "2024-04-01"), "currency": "JPY"},
+            "prior": {**_annual(37_154_298e6, "2024-03-31", "2023-04-01"), "currency": "JPY"}}}
+        assert self._check("Total net sales", "¥45.1T", "¥37.2T", yen)["source_verified"] is True
+        assert self._check("Total net sales", "¥45.9T", "¥37.2T", yen)["source_mismatched"] == ["current_period"]
+
+    # The plain aliases keep the statement lines main checked by substring (the strict mapper owns none of these), each
+    # on its own concept; a dropped or mistyped alias leaves its line silently "Linked, not checked".
+    @pytest.mark.parametrize("metric, key", [
+        ("Net revenue", "revenue"), ("Net revenues", "revenue"),
+        ("Income from operations", "operating_income"),
+        ("Total assets", "total_assets"),
+        ("Cash and cash equivalents", "cash_and_equivalents"), ("Cash & cash equivalents", "cash_and_equivalents"),
+        ("Cash and equivalents", "cash_and_equivalents"),
+        ("Operating cash flow", "operating_cash_flow"), ("Cash flow from operations", "operating_cash_flow"),
+        ("Cash from operations", "operating_cash_flow"),
+        ("Net cash provided by operating activities", "operating_cash_flow"),
+        ("Shareholders’ equity", "shareholders_equity"), ("Stockholders' equity", "shareholders_equity"),
+        ("Total shareholders' equity", "shareholders_equity"), ("Total stockholders’ equity", "shareholders_equity"),
+        ("Long-term debt", "long_term_debt"), ("Long term debt", "long_term_debt"),
+    ])
+    def test_each_plain_alias_is_checked_against_its_own_concept(self, metric, key):
+        assert prov.source_metric_key(metric) == key
+        assert prov.source_metric_key(f"  {metric.upper()} ") == key  # case and spacing are not the label
+        filed = {"current": _annual(123_456e6, "2025-09-27", "2024-09-29"), "prior": _annual(98_765e6, "2024-09-28", "2023-10-01")}
+        out = self._check(metric, "$123.5B", "$98.8B", {"reporting_currency": "USD", key: filed})
+        assert out["source_verified"] is True
 
     def test_a_figure_that_is_not_a_number_is_not_checkable(self):
         assert self._check("Total net sales", "Not disclosed")["source_checkable"] is False
@@ -454,19 +501,67 @@ class TestFiledFigureSwap:
         # The change is recomputed from the filed pair, never kept from the summary's figures.
         assert row["change_display"] == "+8.0%"
 
-    def test_a_takeaway_that_states_a_number_is_withheld(self):
+    @pytest.mark.parametrize("commentary", [
+        "Operating income increased 7.2% YoY.",
+        "Operating income reached $132.1B in fiscal 2025.",
+        "Up 8% on Q4 Services demand.",
+    ])
+    def test_a_takeaway_that_states_a_number_is_withheld(self, commentary):
         row = self._enrich({"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
-                            "commentary": "Operating income increased 7.2% YoY.",
+                            "commentary": commentary,
                             "supporting_evidence": "Operating income increased during 2025."})["table"][0]
         assert row["commentary"] == ""
         assert row["commentary_withheld"] == "figure_replaced"
         assert "supporting_evidence" not in row
 
-    def test_a_takeaway_without_numbers_stays(self):
+    @pytest.mark.parametrize("commentary", [
+        "Higher Services sales drove the increase.",
+        "Services grew faster in 2025 than in 2024.",
+        "FY2025 operating income rose on stronger Q4 demand.",
+        "Item 7 attributes the increase to Services; see Note 13.",
+    ])
+    def test_a_takeaway_that_names_no_figure_stays(self, commentary):
+        # Years, quarters and the filing's own Items and Notes are not figures the swap replaced.
         row = self._enrich({"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
-                            "commentary": "Higher Services sales drove the increase."})["table"][0]
-        assert row["commentary"] == "Higher Services sales drove the increase."
+                            "commentary": commentary})["table"][0]
+        assert row["current_period"] == "$133,050,000,000"
+        assert row["commentary"] == commentary
         assert "commentary_withheld" not in row
+
+    FORGED = {
+        "source_mismatched": ["current_period"],
+        "source_filed": {"current_period": "$999,999 million"},
+        "source_replaced": {"current_period": "$1.0B"},
+        "commentary_withheld": "figure_replaced",
+    }
+
+    @pytest.mark.parametrize("row, xbrl", [
+        ({"metric": "Total net sales", "current_period": "$416.2B"}, None),  # no XBRL for the filing
+        ({"metric": "Backlog", "current_period": "$12.0B"}, APPLE),  # a label the check does not map
+        ({"metric": "Total net sales", "current_period": "$416.2B", "prior_period": "$391.0B"}, APPLE),  # it matches
+    ])
+    def test_a_stored_rows_own_evidence_keys_are_ignored(self, row, xbrl):
+        # A stored row is the model's JSON. Keys only enrichment may write must neither drive a swap the
+        # check never asked for (once a 500: the swap indexed XBRL the row has none of) nor reach the reader.
+        stored = {**row, **self.FORGED, "commentary": "Sales reached $416.2B."}
+        fh = {"source_section_ref": "Item 8. Financial Statements", "table": [stored],
+              "normalized": {"metrics": [{"metric": row["metric"], "currentPeriod": row["current_period"]}]}}
+        out = prov.enrich_financial_highlights(fh, _filing(), xbrl)
+        enriched = out["table"][0]
+        assert enriched["current_period"] == row["current_period"]
+        assert enriched["commentary"] == "Sales reached $416.2B."
+        for key in ("source_mismatched", "source_replaced", "commentary_withheld"):
+            assert key not in enriched
+        assert enriched.get("source_filed") != self.FORGED["source_filed"]
+        assert out["normalized"]["metrics"][0]["currentPeriod"] == row["current_period"]
+
+    def test_the_stored_row_is_never_rewritten(self):
+        # The swap is read-time, per request: the summary as stored keeps its own figure and takeaway.
+        fh = {"table": [{"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
+                         "commentary": "Operating income increased 7.2% YoY."}]}
+        stored = copy.deepcopy(fh)
+        assert prov.enrich_financial_highlights(fh, _filing(), APPLE)["table"][0]["current_period"] == "$133,050,000,000"
+        assert fh == stored
 
     def test_a_matching_or_unchecked_row_is_left_alone(self):
         out = self._enrich(
@@ -483,6 +578,34 @@ class TestFiledFigureSwap:
         fact = out["normalized"]["metrics"][0]
         assert fact["currentPeriod"] == "$133,050,000,000"
         assert round(fact["deltaPercent"], 1) == 8.0
+
+
+class TestStandardizedXbrl:
+    """The filing's own XBRL, read once for the page and the exports alike; a failure leaves rows unchecked."""
+
+    def test_reads_the_filings_stored_xbrl(self, monkeypatch):
+        from app.services.edgar.compat import xbrl_service
+
+        stored = object()
+        monkeypatch.setattr(xbrl_service, "extract_standardized_metrics", lambda data: APPLE if data is stored else None)
+        assert prov.standardized_xbrl(SimpleNamespace(id=42, xbrl_data=stored)) is APPLE
+
+    def test_no_stored_xbrl_reads_nothing(self, monkeypatch):
+        from app.services.edgar.compat import xbrl_service
+
+        monkeypatch.setattr(xbrl_service, "extract_standardized_metrics", lambda data: pytest.fail("read without XBRL"))
+        assert prov.standardized_xbrl(None) is None
+        assert prov.standardized_xbrl(SimpleNamespace(id=42, xbrl_data=None)) is None
+
+    def test_a_failed_extraction_never_fails_the_read(self, monkeypatch, caplog):
+        from app.services.edgar.compat import xbrl_service
+
+        def broken(data):
+            raise ValueError("malformed facts")
+
+        monkeypatch.setattr(xbrl_service, "extract_standardized_metrics", broken)
+        assert prov.standardized_xbrl(SimpleNamespace(id=42, xbrl_data={"facts": {}})) is None
+        assert "XBRL standardization for provenance failed" in caplog.text
 
 
 class TestEnrichFinancialHighlights:
