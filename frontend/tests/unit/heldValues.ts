@@ -190,6 +190,17 @@ export function leavesOf<L>(value: Held<L>): Map<L, number> {
   return out
 }
 
+/** The leaves React renders from a value as a child or a component's return: its own, and those of its elements (an
+    array's by index, an element placed past a spread or built by a call, a Set's, one written under a key the scan
+    cannot read), nested; an object's fields are no child of it. */
+export function renderedLeavesOf<L>(value: Held<L>): Map<L, number> {
+  let out = new Map(value.leaves)
+  for (const [key, prop] of value.props ?? []) {
+    if (/^\d+$/.test(key) || key.startsWith(REST) || key === ANY) out = joined(out, renderedLeavesOf(prop), add)
+  }
+  return out
+}
+
 /** A value as text, what a call the reading cannot follow, a template literal or `+` gives back under `passThrough`:
     every leaf it holds, its properties' included, with no properties or functions of its own, so a string a recursion
     builds from what it returns settles instead of nesting deeper on every pass. */

@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHeld, writtenChild, type Fn, type Held } from './heldValues'
+import { componentTag, heldValues, leavesOf, propertyOf, renderedLeavesOf, scopeResolver, unwrapHeld, writtenChild, type Fn, type Held } from './heldValues'
 
 /**
  * A served company name prints through formatCompanyName (E146, CLAUDE.md rule 12). EDGAR serves an issuer's name as
@@ -14,44 +14,45 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  *
  * What reads as a served company name is taken from the types, in one program over the scanned files and the planted
  * forms, so the checker says which declaration a read reaches, through imports, destructuring and the type a
- * callback is given. A company-name field is a property of an interface, a type literal or a class that holds a
- * string and is named `company_name`, `companyName` or `company` (NAME_KEYS), or `name` in a type that also declares
- * `ticker` (a company: the filing's, the summary's, the watchlist's and the dashboard's, Reporting this week's,
- * CompanyLogo's props). A field declared in an API module (API_MODULES: a feature's api/ directory,
- * lib/serverApi.ts, lib/api/ and the payload types in types/) is served: it holds the name as the backend sends it.
- * A field declared anywhere else is the app's own (a view model such as the redlines' RedlineSource, a component's
- * props such as CompanyLogo's `name`): the app fills it, the gate checks every fill it can place, and a read of it
- * is the display form. The census below fails a field of the app's own that nothing the gate can see fills, since
- * its value would then come from somewhere the gate cannot check (a value handed whole fills one when its member
- * there is another company-name field, not the same field handed on). A field the app keeps the served name in on
- * purpose, as data (SERVED_KEYS: the evidence pack's and the redlines' `conformedName`, which their JSON downloads
- * write), is served wherever it is declared: a fill of it is data and never checked, and a read of it is the served
- * name, so printing it fails.
+ * callback is given. A company-name field is a property of an interface, a type literal or a class (a constructor's
+ * parameter property among a class's) that holds a string and is named `company_name`, `companyName` or `company`
+ * (NAME_KEYS), or `name` in a type that also declares `ticker` (a company: the filing's, the summary's, the
+ * watchlist's and the dashboard's, Reporting this week's, CompanyLogo's props). A field declared in an API module
+ * (API_MODULES: a feature's api/ directory, lib/serverApi.ts, lib/api/ and the payload types in types/) is served:
+ * it holds the name as the backend sends it. A field declared anywhere else is the app's own (a view model such as
+ * the redlines' RedlineSource, a component's props such as CompanyLogo's `name`): the app fills it, the gate checks
+ * every fill it can place, and a read of it is the display form. The census below fails a field of the app's own
+ * that nothing the gate can see fills, since its value would then come from somewhere the gate cannot check (a value
+ * handed whole fills one when its member there is another company-name field, not the same field handed on). A field
+ * the app keeps the served name in on purpose, as data (SERVED_KEYS: the evidence pack's and the redlines'
+ * `conformedName`, which their JSON downloads write), is served wherever it is declared: a fill of it is data and
+ * never checked, and a read of it is the served name, so printing it fails.
  *
- * Values are followed through each file by the shared reader (tests/unit/heldValues.ts) with `passThrough` and `state`
- * on, so a name held in a const, a destructuring, a parameter a same-file call fills, a same-file function's return, a
- * callback, React's state (useState with what its setter is handed, useReducer with what its dispatcher is handed,
- * useActionState and react-dom's useFormState as a reducer, useOptimistic with what its setter is handed or what its
- * update function returns, a reducer the reader does not hold (another module's) giving back what React hands it, as a
- * call the reader cannot follow does; the setter and the dispatcher followed as values: destructured, read by index
- * from the hook's pair, held by another name, put in an object, handed to a same-file component or function, handed
- * back by a custom hook, called through Function.prototype's `call`, `apply` or `bind` or through `Reflect.apply`;
- * useRef, useDeferredValue, useSyncExternalStore), a template literal, `+`, an array or a call the reader cannot follow
- * (`String()`, `trim()`, `join()`) is still the name. So is a name an object literal's getter hands back (what the
- * literal's methods and accessors put on `this` and read from it included), one a property holds that
- * Object.defineProperty, Object.defineProperties, Object.create or Reflect.defineProperty defines, or Reflect.set puts,
- * and one a built-in collection is made with or given (`new Map` and `new WeakMap` under each entry's key, read by
- * `get`; Object.fromEntries; `new Set` and a Set's `add`, read by iterating it; a Map's or a Set's `values()` and
- * `entries()`; `new Array`, `Array()`, `Array.of`). Across modules, another module's function that hands back a served
- * name as text gives the name wherever the reader reads a call of it: called here (through `call` or `apply` too), or
- * handed on as a value and called by React (a reducer, an initializer), an array's method or a same-file function,
- * through any chain of modules (SERVED_RETURNS, a fixed point over the program), and reached through an import's alias,
- * a re-export or a const that holds it (both arms of a conditional, either side of `||` or `??`), by every declaration
- * it has, an overloaded function's body among them. A getter that hands back a served name, an object literal's or a
- * class's, gives the name wherever the checker places a read of it, in any module, since a read calls it. A call of
- * formatCompanyName (imported under any name, read from the module's namespace, or held in a same-file const) gives the
- * display form; so does a read of a field of the app's own, and a string literal is written by hand in its display
- * form. An element is a value of its own, read where it is written.
+ * Values are followed through each file by the shared reader (tests/unit/heldValues.ts) with `passThrough` and
+ * `state` on, so a name held in a const, a destructuring, a parameter a same-file call fills, a same-file function's
+ * return, a callback, React's state (useState with what its setter is handed, useReducer with what its dispatcher is
+ * handed, useActionState and react-dom's useFormState as a reducer, useOptimistic with what its setter is handed or
+ * what its update function returns, a reducer the reader does not hold (another module's) giving back what React
+ * hands it, as a call the reader cannot follow does; the setter and the dispatcher followed as values: destructured,
+ * read by index from the hook's pair, held by another name, put in an object, handed to a same-file component or
+ * function, handed back by a custom hook, called through Function.prototype's `call`, `apply` or `bind` or through
+ * `Reflect.apply`; useRef, useDeferredValue, useSyncExternalStore), a template literal, `+`, an array or a call the
+ * reader cannot follow (`String()`, `trim()`, `join()`) is still the name. So is a name an object literal's getter
+ * hands back (what the literal's methods and accessors put on `this` and read from it included), one a property
+ * holds that Object.defineProperty, Object.defineProperties, Object.create or Reflect.defineProperty defines, or
+ * Reflect.set puts, and one a built-in collection is made with or given (`new Map` and `new WeakMap` under each
+ * entry's key, read by `get`; Object.fromEntries; `new Set` and a Set's `add`, read by iterating it; a Map's or a
+ * Set's `values()` and `entries()`; `new Array`, `Array()`, `Array.of`). Across modules, another module's function
+ * that hands back a served name as text (or in an array or a Set it returns) gives the name wherever the reader
+ * reads a call of it: called here (through `call` or `apply` too), or handed on as a value and called by React (a
+ * reducer, an initializer), an array's method or a same-file function, through any chain of modules (SERVED_RETURNS,
+ * a fixed point over the program), and reached through an import's alias, a re-export or a const that holds it (both
+ * arms of a conditional, either side of `||` or `??`), by every declaration it has, an overloaded function's body
+ * among them. A getter that hands back a served name, an object literal's or a class's, gives the name wherever the
+ * checker places a read of it, in any module, since a read calls it. A call of formatCompanyName (imported under any
+ * name, read from the module's namespace, or held in a same-file const) gives the display form; so does a read of a
+ * field of the app's own, and a string literal is written by hand in its display form. An element is a value of its
+ * own, read where it is written.
  *
  * It fails (findingsIn):
  *  A. a served name printed raw: an expression child of an intrinsic element, a fragment or a component the scan
@@ -60,28 +61,29 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  *     document); every prop of a component the scan cannot read but the attribute ones (ATTRIBUTE_PROPS), since it
  *     may print any other (a Notice's title, the Ask callout's `subjectLabel`), and what a function such a prop
  *     holds returns (a column's `render`), another module's function that hands back a served name included; what a
- *     component returns as text, a component being a function its module renders as a tag or names for one
- *     (PascalCase), one another module renders (RENDERED_IN: through an import's alias, a re-export, a default
- *     export, an object's member or a wrapper such as memo) and one its module exports as its default (a page Next
- *     renders, or one a module loads lazily), whatever its name; and the words Next prints from a page's metadata
- *     (METADATA_TEXT: the tab's title, the description, a social card's), by the keys Next's metadata types declare.
- *     A same-file component's props and children bind its parameters, so a name handed to one fails where the
- *     component prints it.
+ *     component returns as text, or in an array or a Set it returns (React renders an iterable's items), nested, a
+ *     component being a function its module renders as a tag or names for one (PascalCase), one another module
+ *     renders (RENDERED_IN: through an import's alias, a re-export, a default export, an object's member or a
+ *     wrapper such as memo) and one its module exports as its default (a page Next renders, or one a module loads
+ *     lazily), whatever its name; and the words Next prints from a page's metadata (METADATA_TEXT: the tab's title,
+ *     the description, a social card's), by the keys Next's metadata types declare. A same-file component's props
+ *     and children bind its parameters, so a name handed to one fails where the component prints it.
  *  B. a field of the app's own filled with a served name: an object literal's property (a getter by what it
  *     returns), placed by the type the literal is given (a declared type, a return type, a parameter's type, read
  *     through Object.freeze, parentheses, `as`, `satisfies` and `!`), a spread of a served object into such a
  *     literal, a JSX attribute or a spread of a served object into a component's props (so CompanyLogo's `name`
- *     takes the display form), and an assignment to the field (`=`, `||=`, `&&=`, `??=`). A served object handed
- *     whole to a type that holds such a field (a view of the app's own) fills it too, wherever the checker gives the
- *     place a type (handedAt): a declaration's or a default's initializer, a class's field among them, an
- *     assignment, a return, an arrow's body, a yield, a call's argument (a spread one by its elements, a generic's
- *     parameter by its constraint, whatever the call infers), Object.assign's sources, an object literal's member,
- *     an array's element or spread, a JSX attribute's value, a spread's member and an assertion's operand; the
- *     type's other fields, an array's elements, a record's values, a generic's type arguments and a function's
- *     return hold the field the same way (slotsOf). A mapper that stops formatting fails here, at the line that
- *     fills its field. An object literal the checker cannot place that holds a company-name key (a NAME_KEYS key, or
- *     `name` beside `ticker`) filled with a served name fails too, unless the type it is given has an index
- *     signature (a data payload, as analytics' properties).
+ *     takes the display form), an assignment to the field (`=`, `||=`, `&&=`, `??=`), and an argument a `new` or a
+ *     `super` call hands a constructor's parameter property. A served object handed whole to a type that holds such
+ *     a field (a view of the app's own) fills it too, wherever the checker gives the place a type (handedAt): a
+ *     declaration's or a default's initializer, a class's field among them, an assignment, a return, an arrow's
+ *     body, a yield, a call's argument (a spread one by its elements, a generic's parameter by its constraint,
+ *     whatever the call infers), Object.assign's sources, an object literal's member, an array's element or spread,
+ *     a JSX attribute's value, a spread's member and an assertion's operand; the type's other fields, an array's
+ *     elements, a record's values, a generic's type arguments and a function's return hold the field the same way
+ *     (slotsOf). A mapper that stops formatting fails here, at the line that fills its field. An object literal the
+ *     checker cannot place that holds a company-name key (a NAME_KEYS key, or `name` beside `ticker`) filled with a
+ *     served name fails too, unless the type it is given has an index signature (a data payload, as analytics'
+ *     properties).
  *
  * Over-reads that fail closed: a prop of a component the scan cannot read that never prints (a table's row key, a
  * link's tooltip `title`), a value an imported function is handed but never gives back (a length), and an object
@@ -117,8 +119,9 @@ import { componentTag, heldValues, leavesOf, propertyOf, scopeResolver, unwrapHe
  * a getter of another name; a property descriptor's `get` that reads `this`, which the reader binds to the
  * descriptor; a Proxy's traps; a Map's entries iterated as `[key, value]` pairs, since the reader holds a Map's
  * values as its elements (`get`, `forEach`, `values()` and `entries()` read them), and a served name a Map holds as
- * a key; a promise's `then` and a generator's yields (a component another module loads lazily through a `then` among
- * them); and React's element calls, which app code may not write (earningsnerd/elements-built-with-jsx).
+ * a key (a Map a component returns, which React renders as such pairs, among them); a promise's `then` and a
+ * generator's yields (a component another module loads lazily through a `then` among them); and React's element
+ * calls, which app code may not write (earningsnerd/elements-built-with-jsx).
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -188,18 +191,24 @@ const propertiesNamed = (type: ts.Type | undefined, key: string): ts.Symbol[] =>
   return (t.isUnion() ? t.types : [t]).flatMap((part) => part.getProperty(key) ?? [])
 }
 
-type Field = ts.PropertySignature | ts.PropertyDeclaration
+/** A field: a property of an interface or a type literal, a class's property, or a constructor's parameter property
+    (`constructor(public company_name: string)`), which declares a property of its class. */
+type Field = ts.PropertySignature | ts.PropertyDeclaration | ts.ParameterPropertyDeclaration
+const isFieldDeclaration = (d: ts.Node): d is Field =>
+  ts.isPropertySignature(d) || ts.isPropertyDeclaration(d) || (ts.isParameter(d) && ts.isParameterPropertyDeclaration(d, d.parent))
+/** The interface, type literal or class a field belongs to. */
+const holderOf = (d: Field): ts.Node => (ts.isParameter(d) ? d.parent.parent : d.parent)
 const fieldCache = new Map<ts.Node, boolean>()
 /** Whether a declaration is a company-name field (the header's reading). */
 function isNameField(d: ts.Node): d is Field {
-  if (!ts.isPropertySignature(d) && !ts.isPropertyDeclaration(d)) return false
+  if (!isFieldDeclaration(d)) return false
   const cached = fieldCache.get(d)
   if (cached !== undefined) return cached
   const key = keyText(d.name)
   const result =
     !!key &&
     stringLike(CHECKER.getTypeAtLocation(d)) &&
-    (NAME_KEYS.has(key) || SERVED_KEYS.has(key) || (key === 'name' && propertiesNamed(CHECKER.getTypeAtLocation(d.parent), 'ticker').length > 0))
+    (NAME_KEYS.has(key) || SERVED_KEYS.has(key) || (key === 'name' && propertiesNamed(CHECKER.getTypeAtLocation(holderOf(d)), 'ticker').length > 0))
   fieldCache.set(d, result)
   return result
 }
@@ -207,7 +216,7 @@ const isServed = (d: Field) => isApiModule(d.getSourceFile().fileName) || SERVED
 /** The company-name fields a symbol declares (a union's or a mapped type's member declares each of its sources). */
 const fieldsOf = (symbol: ts.Symbol | undefined): Field[] => (symbol?.declarations ?? []).filter(isNameField)
 const fieldName = (d: Field) => {
-  const holder = d.parent
+  const holder = holderOf(d)
   const owner = ts.isInterfaceDeclaration(holder) || ts.isClassDeclaration(holder) ? holder.name?.text : undefined
   const { line } = d.getSourceFile().getLineAndCharacterOfPosition(d.getStart())
   return `${owner ?? `{…}@${relative(d.getSourceFile().fileName)}:${line + 1}`}.${keyText(d.name)}`
@@ -465,7 +474,7 @@ const { SERVED_RETURNS, READERS } = (() => {
       const reader = readerOf(sf, served)
       readers.set(sf, reader)
       const walk = (node: ts.Node): void => {
-        if (isReturner(node) && returnsOf(node).some((r) => reader.values.valueOf(r).leaves.has('served'))) next.add(node)
+        if (isReturner(node) && returnsOf(node).some((r) => renderedLeavesOf(reader.values.valueOf(r)).has('served'))) next.add(node)
         ts.forEachChild(node, walk)
       }
       walk(sf)
@@ -539,10 +548,10 @@ function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
     for (const prop of value.props?.values() ?? []) fnsIn(prop, out, visited)
     return out
   }
-  /** A function whose return prints (a component's, a column's render): its returns that are the name as text, at the
-      top of the value (an object it returns is no text). */
+  /** A function whose return prints (a component's, a column's render): its returns that are the name as text, or an
+      array or a Set holding it, whose items React renders (renderedLeavesOf; an object it returns is no text). */
   const returnsServed = (fn: Fn) => {
-    for (const r of returnsOf(fn)) if (values.valueOf(r).leaves.has('served')) flag(r, 'A')
+    for (const r of returnsOf(fn)) if (renderedLeavesOf(values.valueOf(r)).has('served')) flag(r, 'A')
   }
 
   type Kind = 'host' | 'own' | 'unread'
@@ -767,6 +776,16 @@ function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
     return literal || ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || ts.isJsxFragment(e) ? [] : [e]
   }
   const NO_VALUE: Held<Leaf> = { leaves: new Map(), props: null, fns: null }
+  /** A constructor's parameter property that is a field of the app's own: what a `new` or a `super` call hands it
+      fills the field. */
+  const constructed = (node: ts.NewExpression | ts.CallExpression) => {
+    const declaration = CHECKER.getResolvedSignature(node)?.getDeclaration()
+    if (!declaration || !ts.isConstructorDeclaration(declaration)) return
+    ;(node.arguments ?? []).forEach((arg, i) => {
+      const param = declaration.parameters[i]
+      if (param && !ts.isSpreadElement(arg) && isNameField(param)) fill([param], holds(arg), arg)
+    })
+  }
   const handed = ({ value, into, spread }: Handed) => {
     const targets = into.filter((t): t is ts.Type => !!t)
     if (targets.length === 0) return
@@ -806,6 +825,7 @@ function findingsIn(sf: ts.SourceFile): { findings: Finding[]; fills: Fill[] } {
     if (ts.isObjectLiteralExpression(node)) objectLiteral(node)
     if (ts.isBinaryExpression(node) && ASSIGNMENTS.has(node.operatorToken.kind)) assignment(node)
     handedAt(node).forEach(handed)
+    if (ts.isNewExpression(node) || (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.SuperKeyword)) constructed(node)
     ts.forEachChild(node, visit)
   }
   visit(sf)
@@ -869,7 +889,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
       }
     }
     const count = (mark: string) => [...forms.values()].filter((m) => m === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([149, 44, 31])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([157, 46, 32])
     const misread = [...forms].filter(([name, mark]) => named.has(name) !== (mark === 'flag')).map(([name, mark]) => `${name} (${mark})`)
     expect(misread, 'the gate reads these forms against their marks: fix the gate, or flip the mark with its record').toEqual([])
     expect(strays, 'the gate named a node outside a planted form').toEqual([])
@@ -896,7 +916,7 @@ describe('a served company name prints through formatCompanyName (E146)', () => 
     expect(apiSources.length, 'the census reads the API modules').toBeGreaterThan(20)
     for (const sf of apiSources) {
       const walk = (node: ts.Node): void => {
-        if ((ts.isPropertySignature(node) || ts.isPropertyDeclaration(node)) && NAMED_LIKE_A_COMPANY.test(keyText(node.name) ?? '')) {
+        if (isFieldDeclaration(node) && NAMED_LIKE_A_COMPANY.test(keyText(node.name) ?? '')) {
           if (stringLike(CHECKER.getTypeAtLocation(node)) && !isNameField(node) && !NOT_NAMES.includes(fieldName(node))) unread.push(fieldName(node))
         }
         ts.forEachChild(node, walk)

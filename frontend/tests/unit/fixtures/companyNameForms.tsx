@@ -64,6 +64,7 @@ import {
   lengthOf,
   nameFromEvent,
   nameOf,
+  namesOf,
   pickFirst,
 } from './companyNameKit'
 import { shortNameOf } from './companyNameKit2'
@@ -1502,6 +1503,79 @@ export function N224Use({ ev }: { ev: CalendarEvent }) {
   return <N224Line ev={ev} />
 }
 
+// Components that return an iterable, and classes whose constructor declares a company-name field.
+
+/** N225 flag: a component that returns an array holding a served name, whose items React renders as text. */
+export function N225({ ev }: { ev: CalendarEvent }) {
+  return [ev.company_name]
+}
+
+/** N226 flag: a component that returns a Set holding a served name, an iterable React renders. */
+export function N226({ ev }: { ev: CalendarEvent }) {
+  return new Set([ev.company_name])
+}
+
+/** N227 flag: a component that returns arrays nested in an array, a served name among their items. */
+export function N227({ ev }: { ev: CalendarEvent }) {
+  return [[ev.ticker, ev.company_name]]
+}
+
+/** N228 flag: a component that returns the array an array's map builds from served names. */
+export function N228({ events }: { events: CalendarEvent[] }) {
+  return events.map((e) => e.company_name)
+}
+
+/** N229 flag: another module's function that hands back an array holding a served name, rendered as a child. */
+export function N229({ ev }: { ev: CalendarEvent }) {
+  return <span>{namesOf(ev)}</span>
+}
+
+/** N230 clean: a component that returns an array of the display form and a ticker. */
+export function N230({ ev }: { ev: CalendarEvent }) {
+  return [formatCompanyName(ev.company_name), ev.ticker]
+}
+
+/** N232's class of the app's own, whose constructor's parameter property is a company-name field. */
+class N232View {
+  constructor(public company_name: string) {}
+}
+
+/** N232 flag: a served name handed to a constructor's parameter property, a field of the app's own, then printed. */
+export function N232({ ev }: { ev: CalendarEvent }) {
+  const view = new N232View(ev.company_name)
+  return <span>{view.company_name}</span>
+}
+
+/** N233's base class, whose constructor's parameter property is a company-name field. */
+class N233Base {
+  constructor(readonly companyName: string) {}
+}
+
+/** N233's view, which fills its base's parameter property through super. */
+class N233View extends N233Base {
+  constructor(ev: CalendarEvent) {
+    super(ev.company_name)
+  }
+}
+
+/** N233 flag: a served name a subclass hands its base's parameter property through super. */
+export function N233({ ev }: { ev: CalendarEvent }) {
+  return <span>{new N233View(ev).companyName}</span>
+}
+
+/** N234 flag: a served object assigned whole to a class of the app's own whose parameter property is a company-name
+    field. */
+export function N234({ ev }: { ev: CalendarEvent }) {
+  const view: N232View = ev
+  return <span>{view.company_name}</span>
+}
+
+/** N235 clean: the display form handed to a constructor's parameter property. */
+export function N235({ ev }: { ev: CalendarEvent }) {
+  const view = new N232View(formatCompanyName(ev.company_name))
+  return <span>{view.company_name}</span>
+}
+
 // Forms the rule forbids that the gate leaves to review, each named in the spec's header.
 
 /** N87 gap: a prop typed as a plain string, filled in another module. */
@@ -1762,4 +1836,9 @@ export function N208({ ev }: { ev: CalendarEvent }) {
 export function N209({ ev }: { ev: CalendarEvent }) {
   const view: LineView = JSON.parse(JSON.stringify(ev))
   return <span>{view.company_name}</span>
+}
+
+/** N231 gap: a component that returns a Map, which React renders as [key, value] pairs, a served name a value. */
+export function N231({ ev }: { ev: CalendarEvent }) {
+  return new Map([['name', ev.company_name]])
 }

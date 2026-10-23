@@ -8,8 +8,9 @@
  * reducers, one that gives back the action it is dispatched (N124, N128) and one that hands back the served name of
  * the event it is dispatched (N125); an overloaded helper exported through a const alias (N129), whose body the gate
  * reaches past its signatures; a helper chosen by a conditional (N130), whose arms the gate reads both of; an object
- * whose getter hands back a served name (N151), which a read of its property in another module calls; and the same
- * getter held under a declared type (N175), whose property the checker places a read on, a gap.
+ * whose getter hands back a served name (N151), which a read of its property in another module calls; the same
+ * getter held under a declared type (N175), whose property the checker places a read on, a gap; and a helper that hands
+ * back an array holding a served name (N229), which React renders as text where a call of it is a child.
  */
 import type { CalendarEvent } from '@/features/calendar/api/calendar-api'
 import { formatCompanyName } from '@/lib/formatCompanyName'
@@ -19,6 +20,8 @@ export const nameOf = (ev: CalendarEvent): string => ev.company_name
 export const displayNameOf = (ev: CalendarEvent): string => formatCompanyName(ev.company_name)
 
 export const labelsOf = (ev: CalendarEvent): { title: string } => ({ title: ev.company_name })
+
+export const namesOf = (ev: CalendarEvent): string[] => [ev.company_name]
 
 export const lengthOf = (name: string): number => name.length
 
