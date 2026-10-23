@@ -190,8 +190,8 @@ def _stored(engine) -> dict[str, str]:
 def test_without_the_lock_the_second_writer_fails_its_batch(postgres_engine, monkeypatch):
     """The control: the writers' read before E153, which neither locks nor reads again. Both writers find the shared
     accession missing when they are held, and the second insert fails the unique accession, rolling back its batch, so
-    the race cases below are not passing on writers that never met. It shares one accession: two shared in opposite
-    orders can deadlock without the lock, rather than fail the unique accession."""
+    the race cases below are not passing on writers that never met. It shares one accession, the least that shows the
+    failure."""
     def read_without_the_lock(db, accessions):
         found = db.query(Filing).filter(Filing.accession_number.in_(accessions)).all() if accessions else []
         return {filing.accession_number: filing for filing in found}
@@ -213,8 +213,8 @@ def test_without_the_lock_the_second_writer_fails_its_batch(postgres_engine, mon
 @pytest.mark.parametrize("first", [_scan, _live_listing], ids=["the scan", "the live listing"])
 def test_two_companies_writers_of_co_registrant_filings_keep_both_batches(
         postgres_engine, monkeypatch, first, holder):
-    """The writers list the two shared accessions in opposite orders, so a writer whose second read kept fewer than
-    every stored one would insert one again."""
+    """The writers share two accessions, so a writer whose second read kept fewer than every stored one would insert
+    one again, and list them in opposite orders."""
     monkeypatch.setattr(filing_list_service, "_filings_synced_at", {})  # the live listing stamps its listing fresh
     found, errors, waited = _race(
         postgres_engine,
