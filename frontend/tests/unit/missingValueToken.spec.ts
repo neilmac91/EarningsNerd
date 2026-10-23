@@ -39,7 +39,9 @@ import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, property
  *  - what a same-file component returns, one rendered in the file or named for one (PascalCase), so a pass-through
  *    (`({ children }) => children`) handed the token, or a component that returns it as text, fails at its return.
  * A same-file component's element is followed into the component (its props and children bind its parameters), so
- * the token fails where the component renders it, and an element is a value of its own, read where it is written.
+ * the token fails where the component renders it, and an element is a value of its own, read where it is written. A
+ * same-file function called through Function.prototype's `call` or `apply`, or a `bind` of it, is read as the function
+ * (the shared reader), so its fallback fails where the call renders it (M89).
  *
  * The element's own token is the one sanctioned site, pinned: ELEMENT_FILE holds exactly one finding, its JSX text
  * inside an aria-hidden element, and a second, or none, fails.
@@ -54,8 +56,7 @@ import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, property
  * renders verbatim and where a dash often means nil); and stylesheets, since the gate reads .ts and .tsx. Out of
  * reach, each planted as a gap in FORMS below and review-checked: a token that crosses
  * modules (an imported formatter's own fallback, an imported constant, a render prop handed to a component in another
- * module); React state; a class's field read through `this`; a promise's `then`; a generator's `yield`; a same-file
- * function invoked through Function.prototype (`call`, `apply`, `bind`), whose callee is the method; a missing value
+ * module); React state; a class's field read through `this`; a promise's `then`; a generator's `yield`; a missing value
  * in another glyph (a hyphen, an en dash, which are also signs and ranges; the voice guide's token is the em dash);
  * a value rendered outside the tree (a toast's message, an imperative `textContent`); a tag that may be a same-file
  * component or an import (`cond ? Local : Imported`), read as the same-file one; and the element itself set beside a
@@ -406,7 +407,7 @@ const FORMS: Array<[Mark, string, string]> = [
   ['gap', "export class M86 extends Component { mark = '—'; render() { return <td>{this.mark}</td> } }", "a class's field read through this"],
   ['gap', "export async function M87(p: Promise<string | undefined>) { const v = await p.then((n) => n ?? '—'); return <td>{v}</td> }", "a promise's then"],
   ['gap', "export function M88() { return <td>{[...marks()].join('')}</td> }", "a generator's yield"],
-  ['gap', 'export function M89({ v }: { v?: string }) { return <td>{shown.call(null, v)}</td> }', "Function.prototype's call"],
+  ['flag', 'export function M89({ v }: { v?: string }) { return <td>{shown.call(null, v)}</td> }', "Function.prototype's call"],
   ['gap', "export function M90({ v }: { v?: string }) { return <td>{v || '-'}</td> }", 'a missing value in another glyph, a hyphen'],
   ['gap', "export function M91({ v }: { v?: string }) { return <td>{v ?? '–'}</td> }", 'a missing value in another glyph, an en dash'],
   ['gap', "export function M92() { return <button type=\"button\" onClick={() => toast('—')}>Save</button> }", "a toast's message, rendered outside the tree"],
@@ -423,7 +424,7 @@ describe('the missing-value token renders through MissingValue alone (E88)', () 
     const file = path.join(FRONTEND_ROOT, 'features/zzprobe/Probe.tsx')
     const named = new Set(findingsIn(FORMS.map(([, code]) => code).join('\n'), file).map((f) => f.line))
     const count = (mark: Mark) => FORMS.filter(([m]) => m === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([65, 16, 14])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([66, 16, 13])
     const misread = FORMS.flatMap(([mark, code, why], i) =>
       named.has(i + 1) === (mark === 'flag') ? [] : [`line ${i + 1} (${mark}): ${why || code.slice(0, 60)}`],
     )
