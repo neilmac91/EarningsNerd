@@ -57,6 +57,8 @@ the same head (F58 changed both; **Gate** below).
   A transition or request made before that hour is up overlaps the hung run instead: on #1475 the third request came
   59 minutes into the second hung run, so under this gate it would have held the pull request for that request's own
   hour and then needed one more request, where the request a minute later would have passed at once.
+  When more than one start is open, each holds the gate for its own hour, so the recovery waits for the latest of
+  them: the gate's message names the time that one stops counting.
   The one risk call 1 accepts: if the hung run does complete after its hour while that fresh review is still running,
   the replay cannot tell the two apart and pairs the completion with the fresh start, so the gate can pass before the
   fresh review ends; and if that late completion fails or leaves a finding, the review the recovery then starts can
@@ -75,8 +77,10 @@ rule's third line answers), and `review-gate` passed on it at 03:58:51Z (run 397
 summary read Completed, one fresh transition at 21:03:58–59Z with no manual request started a review at 21:04:05Z that
 completed clean at 21:06:17Z; `review-gate` passed at 21:06:49Z (run 39854178499), and the merge is `e8be8ba7`.
 Under F58 call 1 that sequence waits instead: the start at 20:58:28Z overlapped the ready review, so it holds the gate
-until 21:58:28Z, and the transition at 21:03:58Z, made while it was open, overlaps it too; one transition after
-21:58:28Z passes. Every
+until 21:58:28Z, and the transition at 21:03:58Z, made while it was open, recorded a start at 21:04:05Z that overlaps it
+too and holds the gate until 22:04:05Z. The recovery waits for the latest of them: one transition after 22:04:05Z
+passes, where one at 21:58:29Z would overlap the 21:04:05Z start and hold the gate until 22:58:30Z (review 5634373586,
+replayed with the test file's helpers). Every
 line the gate printed in the timed-out job carries its exit time, and run 39853388960, cancelled at 21:04:56Z, printed
 none (the S1 note, comment 6351439364). On 2026-10-23 four merges waited on the founder's word for a hung review: #1495
 (`b7d4b164`, a manual review Running from 23:12 the night before, merged on a review override), #1497 (`383b6f73`,
