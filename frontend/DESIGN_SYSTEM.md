@@ -1015,8 +1015,9 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  0.75rem gaps, the 9rem title and the ✕'s 1.25rem margin box), the title takes order-last and
                  basis-full, since flex-wrap alone, as the Notice uses, would carry the ✕ down after a wrapped
                  title. With no ✕, flex-wrap alone stacks the title, and with no icon it stays beside the ✕.
-                 The title never overlaps the ✕ or runs past the panel, and no word of it breaks: under 200%
-                 text the consent dialog's stacked title is 216, 251 and 277px wide at 320, 360 and 390px.
+                 The title never overlaps the ✕ or runs past the panel, and a stacked title breaks no word:
+                 under 200% text the consent dialog's is 216, 251 and 277px wide at 320, 360 and 390px (a
+                 header with no icon keeps its title beside the ✕, 64px narrower, E165).
                  Before E158 it kept the group's width beside the ✕'s column, 152, 187 and 213px, so
                  "preferences" (197px) broke at 320 and 360px. At the default size nothing moves: at 320, 360,
                  390 and 1440px the icon, the title and the ✕ keep their boxes, in both themes, and at 1440px

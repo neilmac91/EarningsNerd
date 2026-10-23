@@ -1709,12 +1709,13 @@ test.describe('a 1440px desktop at the default text size', () => {
 /** A dialog's header (components/ui/Modal.tsx, ModalHeader) on a phone at 200% text, at 390, 360 and 320px. The icon, the
     title and the close button share a row while the title can keep 9rem beside the icon, as a Notice's glyph and text do;
     where it cannot, the title goes to its own line under the icon and the close button, at the header's full width, under
-    the close button too, and the close button keeps the top right (E158, chief design on #1495). The title never overlaps
-    the close button or runs past the panel, and no word of it breaks inside itself. Before E158 the stacked title kept the
-    group's width beside the close button's column, so a word wider than that broke: at 320px "preferences" (197px) in a
-    152px title, and "Verify" and "continue" in 94px. Before E120, at 390px under 200% text, the icon and the close button
-    left the title 60px, and its words painted past it, under the close button: "Cookie preferences" to 383px, 26px past
-    the panel's edge, and each word of "Verify your email to continue" (Chrome 156). The scrim is fixed, so a dialog adds
+    the close button too, and the close button keeps the top right (E158, chief design on #1495). Every painted line of
+    the title stays inside the title's box, clear of the close button and inside the panel, and no word of it breaks
+    inside itself. Before E158 the stacked title kept the group's width beside the close button's column, 64px narrower
+    than the header, so "preferences" (197px) broke in a 152px title at 320px and a 187px one at 360px. Before the title
+    wrapped at all, at 390px under 200% text the icon and the close button left it 60px, and its words painted past it,
+    under the close button: "Cookie preferences" to 383px, 26px past the panel's edge, and each word of "Verify your email
+    to continue" (Chrome 156). The scrim is fixed, so a dialog adds
     nothing to the page's scroll width: the title's painted lines are read, a character at a time, against the panel and
     the close button, with the page's width checked as well, and the panel's own sideways scroll where its body is
     clean. The consent dialog's is not, yet: on main its category rows push the Essential checkbox 25px past the panel at
@@ -1769,6 +1770,7 @@ const headerFit = (dialog: Locator): Promise<HeaderFit> =>
     const problems: string[] = []
     for (const line of painted) {
       if (line.left < inner.left - 0.5 || line.right > inner.right + 0.5) problems.push(`"${line.text}" paints at ${px(line.left, line.right)}, past the panel's ${px(inner.left, inner.right)}`)
+      if (line.left < box.left - 0.5 || line.right > box.right + 0.5) problems.push(`"${line.text}" paints at ${px(line.left, line.right)}, past the title's box at ${px(box.left, box.right)}`)
       if (overlaps(line)) problems.push(`"${line.text}" at ${px(line.left, line.right)} by ${px(line.top, line.bottom)} overlaps the close button at ${px(close.left, close.right)} by ${px(close.top, close.bottom)}`)
     }
     if (box.left < inner.left - 0.5 || box.right > inner.right + 0.5) problems.push(`the title's box at ${px(box.left, box.right)} passes the panel's ${px(inner.left, inner.right)}`)
