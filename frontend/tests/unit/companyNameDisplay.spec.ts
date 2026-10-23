@@ -37,23 +37,23 @@ import { componentTag, heldValues, leavesOf, propertyOf, renderedLeavesOf, scope
  * read by index from the hook's pair, held by another name, put in an object, handed to a same-file component or
  * function, handed back by a custom hook, handed as the callback of an array's methods, of `Array.from` or of React's
  * `Children.map` and `Children.forEach` (each element), called through Function.prototype's `call`, `apply` or `bind`
- * or through `Reflect.apply`; useRef, useDeferredValue, useSyncExternalStore), a template literal, `+`, an array or a call the
- * reader cannot follow (`String()`, `trim()`, `join()`) is still the name. So is a name an object literal's getter
- * hands back (what the literal's methods and accessors put on `this` and read from it included), one a property
- * holds that Object.defineProperty, Object.defineProperties, Object.create or Reflect.defineProperty defines, or
- * Reflect.set puts, and one a built-in collection is made with or given (`new Map` and `new WeakMap` under each
- * entry's key, read by `get`; Object.fromEntries; `new Set` and a Set's `add`, read by iterating it; a Map's or a
- * Set's `values()` and `entries()`; `new Array`, `Array()`, `Array.of`). Across modules, another module's function
- * that hands back a served name as text (or in an array or a Set it returns) gives the name wherever the reader
- * reads a call of it: called here (through `call` or `apply` too), or handed on as a value and called by React (a
- * reducer, an initializer), an array's method or a same-file function, through any chain of modules (SERVED_RETURNS,
- * a fixed point over the program), and reached through an import's alias, a re-export or a const that holds it (both
- * arms of a conditional, either side of `||` or `??`), by every declaration it has, an overloaded function's body
- * among them. A getter that hands back a served name, an object literal's or a class's, gives the name wherever the
- * checker places a read of it, in any module, since a read calls it. A call of formatCompanyName (imported under any
- * name, read from the module's namespace, or held in a same-file const) gives the display form; so does a read of a
- * field of the app's own, and a string literal is written by hand in its display form. An element is a value of its
- * own, read where it is written.
+ * or through `Reflect.apply`; useRef, useDeferredValue, useSyncExternalStore), a template literal, `+`, an array or a
+ * call the reader cannot follow (`String()`, `trim()`, `join()`) is still the name. So is a name an object literal's
+ * getter hands back (what the literal's methods and accessors put on `this` and read from it included), one a
+ * property holds that Object.defineProperty, Object.defineProperties, Object.create or Reflect.defineProperty
+ * defines, or Reflect.set puts, and one a built-in collection is made with or given (`new Map` and `new WeakMap`
+ * under each entry's key, read by `get`; Object.fromEntries; `new Set` and a Set's `add`, read by iterating it; a
+ * Map's or a Set's `values()` and `entries()`; `new Array`, `Array()`, `Array.of`). Across modules, another module's
+ * function that hands back a served name as text (or in an array or a Set it returns) gives the name wherever the
+ * reader reads a call of it: called here (through `call` or `apply` too), or handed on as a value and called by React
+ * (a reducer, an initializer), an array's method or a same-file function, through any chain of modules
+ * (SERVED_RETURNS, a fixed point over the program), and reached through an import's alias, a re-export or a const
+ * that holds it (both arms of a conditional, either side of `||` or `??`), by every declaration it has, an overloaded
+ * function's body among them. A getter that hands back a served name, an object literal's or a class's, gives the
+ * name wherever the checker places a read of it, in any module, since a read calls it. A call of formatCompanyName
+ * (imported under any name, read from the module's namespace, or held in a same-file const) gives the display form;
+ * so does a read of a field of the app's own, and a string literal is written by hand in its display form. An element
+ * is a value of its own, read where it is written.
  *
  * It fails (findingsIn):
  *  A. a served name printed raw: an expression child of an intrinsic element, a fragment or a component the scan

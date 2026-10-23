@@ -472,18 +472,19 @@ export interface HeldOptions<L> {
       dispatcher is a value, the hook it came from (Held.setters), followed as any other value is: destructured, read by
       index from the hook's pair, held by another name, put in an object, handed to a same-file function or component,
       handed back by a custom hook, or handed as the callback of an array's methods, of `Array.from` or of React's
-      `Children.map` and `Children.forEach`, which call it with each element. useState's first element holds its initial value, what its initializer returns and
-      what each call through its setter hands it (a value, or what an updater returns, the updater called with the
-      state); useReducer's, its initial argument and what its init and its reducer return, the reducer called with the
-      state and each action a call through its dispatcher hands it, and useActionState's (react-dom's useFormState
-      before it) the same, its action the reducer; useOptimistic's, its passthrough value and what each call through
-      its setter hands it, or what its update function returns, called with the state and each value; useRef's
-      `current`, its initial value (what the code puts there later is an assignment, read as any other);
-      useDeferredValue, what it defers; useSyncExternalStore, what the snapshot returns. A setter handed to code the
-      reading does not hold (another module's function or component) is called where the reading cannot see, and what
-      a child hands its parent's ref through useImperativeHandle reaches no binding the parent reads. A reducer the reading does not hold (another module's) is, to
-      a gate that reads with `passThrough`, a call it cannot follow, so the state may be what React hands it: the state
-      and each action. By default each hook is a call the reading cannot follow. */
+      `Children.map` and `Children.forEach`, which call it with each element. useState's first element holds its initial
+      value, what its initializer returns and what each call through its setter hands it (a value, or what an updater
+      returns, the updater called with the state); useReducer's, its initial argument and what its init and its reducer
+      return, the reducer called with the state and each action a call through its dispatcher hands it, and
+      useActionState's (react-dom's useFormState before it) the same, its action the reducer; useOptimistic's, its
+      passthrough value and what each call through its setter hands it, or what its update function returns, called with
+      the state and each value; useRef's `current`, its initial value (what the code puts there later is an assignment,
+      read as any other); useDeferredValue, what it defers; useSyncExternalStore, what the snapshot returns. A setter
+      handed to code the reading does not hold (another module's function or component) is called where the reading
+      cannot see, and what a child hands its parent's ref through useImperativeHandle reaches no binding the parent
+      reads. A reducer the reading does not hold (another module's) is, to a gate that reads with `passThrough`, a call
+      it cannot follow, so the state may be what React hands it: the state and each action. By default each hook is a
+      call the reading cannot follow. */
   state?: boolean
   /** What a call of a leaf gives back, for a gate whose leaves include functions the reading does not hold (another
       module's function that hands back a served name, companyNameDisplay.spec.ts): wherever the reading calls a value
