@@ -3,13 +3,13 @@
 Date: 2026-10-16   Area: arch
 
 **Context**: `GET /api/filings/company/{ticker}` needs no login, and the site's own server renders
-call it from Vercel's shared IPs with no credential. In durable mode its DB-first branch handed Cloud Tasks a refresh whose payload carried the caller's
-`?filing_types=` list. `enqueue_task` names a task with `sha256(key:body)`, body included, and
-the router's per-process guard keys on the payload too. So every distinct value queued a new task,
-with no 409 from Cloud Tasks and no local suppression. That held for junk forms and for known
-forms in another order or spelling: 40 GETs queued 40 tasks. Each task costs a worker child
-process and an SEC fetch on the 0.2 dispatch/s queue that companyfacts syncs, history backfills
-and operator jobs share.
+call it from Vercel's shared IPs with no credential. In durable mode its DB-first branch handed
+Cloud Tasks a refresh whose payload carried the caller's `?filing_types=` list. `enqueue_task`
+names a task with `sha256(key:body)`, body included, and the router's per-process guard keys on
+the payload too. So every distinct value queued a new task, with no 409 from Cloud Tasks and no
+local suppression. That held for junk forms and for known forms in another order or spelling: 40
+GETs queued 40 tasks. Each task costs a worker child process and an SEC fetch on the 0.2 dispatch/s
+queue that companyfacts syncs, history backfills and operator jobs share.
 
 **Rule**: A durable (queued) task started by a public request carries only server-owned
 identity: ids the server resolved and fixed vocabularies, never the caller's string. When the
@@ -18,8 +18,10 @@ bounded canonical set, and count how many distinct payloads one company can prod
 bucket. The response can still filter per request. A fix is proven by sending N distinct caller
 values through the real task-naming code, with only the transport faked, and counting the tasks.
 Server-owned names still let a caller pick the company, so a route that needs no login also spends a
-process-wide budget on each handoff, sized under the queue's drain across every serving process; a
-request that hands nothing off spends nothing, and one past the budget is served without queuing.
+process-wide budget on each handoff. Size it, summed over every serving process, under the queue's
+real drain: a queue that dispatches one task at a time drains one per mean delivery time, which can
+be slower than its dispatch-rate ceiling. A request that hands nothing off spends nothing, and one
+past the budget is served without queuing.
 
 **Evidence**: `enqueue_task` in `backend/app/services/durable_tasks.py` hashes whatever body it is
 given, by design, so the fix belongs to the caller: `backend/app/routers/filings.py` enqueues
@@ -48,17 +50,24 @@ Validating a caller's choice into a bounded set, and counting the payloads one c
 per bucket, are review-checked. So are the gate's two limits: it takes `.id` from any object, a
 request model's too, and does not follow callers of `enqueue_internal_job` (today only the
 token-gated internal job routes). What bounds the route since 2026-10-23: `_enqueue_visit_task`
-spends `VISIT_TASK_BUDGET` (20 handoffs per 5 minutes per process; 40 across two instances, under
-#1373's review thresholds of 60 per 5 minutes and 2,160 per 3 hours) after its guard and before
-`enqueue_task`, so a crawl of stored companies is served its rows and queues nothing past it; the
-synchronous SEC fetch, taken only with nothing stored to serve, spends `LIVE_FETCH_LIMITER` (10 per
-minute per client IP) and answers 429. The payload gate requires a pass-through to spend such a
-module-level budget first, and a direct router `enqueue_task` to sit in a route with
-`Depends(get_current_user)`; the budget's size and the route's SEC reach are review-checked. Tests:
+spends `VISIT_TASK_BUDGET` after its guard and before `enqueue_task`, so a crawl of stored companies
+is served its rows and queues nothing past it. It allows 15 handoffs per 5 minutes per process, 30
+across two instances (0.1/s). The queue dispatches one task at a time, at most 0.2/s, so it drains
+1/max(5 s, mean delivery time); a delivery execs a fresh Python child (about 1.7 s of imports) and a
+history backfill paces 4 EFTS windows at 1 request/s, so a delivery is taken to average 6 s, and
+the cap is then 60% of the drain. The first size, 20, was set against the 0.2/s ceiling and took
+80% of that drain. The synchronous SEC fetch, taken whenever nothing is stored in the requested
+forms (a first view, or every view of a company that has none of them), spends
+`LIVE_FETCH_LIMITER` (10 per minute per client IP) and answers 429 past it. The payload gate
+requires a pass-through to spend such a module-level budget first, and a direct router
+`enqueue_task` to sit in a route with `Depends(get_current_user)`. Tests:
 `test_filings_routes.py::test_handoffs_past_the_budget_serve_stored_rows_and_queue_nothing_until_the_window_passes`,
-`::test_visits_that_hand_nothing_off_spend_no_budget` and
-`::test_live_fetches_past_the_per_ip_budget_answer_429_only_when_nothing_is_stored`. The same route's
-in-process refresh
-(`DURABLE_TASKS_ENABLED=false`, not the production path) still takes the caller's canonical forms in
-the caller's order: it queues nothing on the shared queue, is deduped per process while in flight,
-and stamps the per-filter freshness key that the fast path reads.
+`::test_visits_that_hand_nothing_off_spend_no_budget`,
+`::test_live_fetches_past_the_per_ip_budget_answer_429_only_when_nothing_is_stored` and
+`::test_the_handoff_budget_takes_at_most_two_thirds_of_the_queue_drain_across_the_api_instances`,
+which reads the API's instance cap from `ci.yml` and the queue's provisioning from
+`docs/DEPLOYMENT.md`. Its 6 s delivery time is an estimate, and the route's SEC reach is
+review-checked. The same route's in-process refresh (`DURABLE_TASKS_ENABLED=false`, not the
+production path) still takes the caller's canonical forms in the caller's order: it queues nothing
+on the shared queue, is deduped per process while in flight, and stamps the per-filter freshness key
+that the fast path reads.

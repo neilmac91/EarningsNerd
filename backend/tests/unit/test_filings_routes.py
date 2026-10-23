@@ -9,9 +9,9 @@ the router). This suite pins them so moving the route's database work into ``app
 provably behaviour-neutral. It also pins that ``?filing_types=`` is validated where it enters and
 never reaches the durable refresh, so a caller cannot queue one task per distinct value (the gate
 for ``lessons/arch-caller-input-never-names-a-durable-task.md``), and that the route bounds the work
-a request causes rather than the request: the durable handoffs spend a per-process budget and the live
-SEC fetch a per-client one, while a visit served from stored rows that hands nothing off spends
-neither. SEC calls are patched on the shared ``sec_edgar_service`` singleton; every test runs on a
+a request causes rather than the request: the durable handoffs spend a per-process budget, sized under
+the queue's drain across the API's instances, and the live SEC fetch a per-client one, while a visit
+served from stored rows that hands nothing off spends neither. SEC calls are patched on the shared ``sec_edgar_service`` singleton; every test runs on a
 private SQLite engine and with the route's budgets unspent.
 """
 import asyncio
@@ -20,6 +20,7 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
+from fractions import Fraction
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -45,6 +46,7 @@ from app.services.edgar.exceptions import EdgarError
 from app.services.latest_filing_service import company_list_forms
 from app.services.rate_limiter import RateLimiter
 from tests.support.filings_budgets import unspend_filings_budgets
+from tests.unit.test_sec_process_budgets import ROOT, SERVICE_STEP, _run, _service_instances
 
 ROUTER_LOGGER = "app.routers.filings"
 PERSIST_LOGGER = "app.services.filing_list_service"  # the live-persistence skip warnings moved
@@ -905,8 +907,9 @@ def test_live_fetches_past_the_per_ip_budget_answer_429_only_when_nothing_is_sto
     process's shared SEC pacing (1 request/s in production), so the fetch spends a per-client-IP budget,
     as search's does. Past it that client gets the 429, detail and Retry-After of the other limited
     public routes; a company with stored rows is still served to it, and another client's fetch proceeds.
-    Before the budget a ``?filing_types=`` naming a form the company never filed took this path on every
-    request (#1373)."""
+    A listing with nothing in the requested forms persists nothing, so each visit to that company fetches
+    and spends again. Before the budget a ``?filing_types=`` naming a form the company never filed took
+    this path on every request (#1373)."""
     with sessions() as s:
         _seed_company(s)  # COLD: nothing stored
         warm_id = _seed_company(s, ticker="WARM", cik="0000000003").id
@@ -938,6 +941,28 @@ def test_live_fetches_past_the_per_ip_budget_answer_429_only_when_nothing_is_sto
     assert [row["accession_number"] for row in warm.json()] == ["0000000003-25-000001"]
     assert other.status_code == 200
     assert fetched == ["0000000002"] * 3  # the refused request made no SEC call
+
+
+# The queue every durable job shares, as docs/DEPLOYMENT.md provisions it: one concurrent dispatch, at most
+# 0.2/s, so a task holds the queue for max(5 s, its delivery time). A delivery execs a fresh Python child
+# (about 1.7 s of imports) and a history backfill paces its 4 EFTS windows at 1 request/s, so a delivery is
+# taken to average 6 s; the worker's measured request latency would replace this estimate.
+QUEUE_PROVISIONING = "one concurrent dispatch, 0.2 dispatches/second"
+DISPATCH_INTERVAL_SECONDS = 5
+ASSUMED_DELIVERY_SECONDS = 6
+
+
+def test_the_handoff_budget_takes_at_most_two_thirds_of_the_queue_drain_across_the_api_instances():
+    """Limiter state is per process, so the handoffs of every API instance add up, and the queue drains one
+    task per max(5 s, delivery time), not its 0.2/s dispatch ceiling, because it dispatches one at a time.
+    Two thirds of that drain at most leaves the rest to companyfacts syncs, operator jobs and tasks already
+    queued. Sized against the ceiling, 20 per 5 minutes on each of two instances took 80% of a 6 s drain."""
+    assert QUEUE_PROVISIONING in " ".join((ROOT / "docs/DEPLOYMENT.md").read_text(encoding="utf-8").split())
+    instances = _service_instances(_run(SERVICE_STEP))
+    budget = filings_mod.VISIT_TASK_BUDGET
+    handoffs_per_second = Fraction(instances * budget.limit, budget.window_seconds)
+    drain = Fraction(1, max(DISPATCH_INTERVAL_SECONDS, ASSUMED_DELIVERY_SECONDS))
+    assert handoffs_per_second <= Fraction(2, 3) * drain
 
 
 def test_recent_and_single_filing_reads(client, sessions):

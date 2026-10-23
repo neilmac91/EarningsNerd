@@ -38,7 +38,9 @@ reference is [`docs/CONFIGURATION.md`](./CONFIGURATION.md).
 ### Durable after-response work
 
 With `DURABLE_TASKS_ENABLED`, on-visit filing refresh/history and timed-out coverage syncs hand
-identifier-only control messages to Cloud Tasks before claiming delivery. A private task-only
+identifier-only control messages to Cloud Tasks before claiming delivery. On-visit handoffs spend a
+per-process budget (`VISIT_TASK_BUDGET` in `routers/filings.py`); past it a visit serves its stored
+rows and queues nothing. A private task-only
 Cloud Run service runs one delivery at a time. Its `task_worker_main:app` entrypoint verifies
 Google-signed OIDC audience and the dedicated service-account email; queue headers grant no access.
 It executes existing services in a fresh Python child, killing and reaping that process at 480

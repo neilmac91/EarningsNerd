@@ -29,14 +29,17 @@ _visit_task_handoffs: dict[str, float] = {}
 # The company-filings route needs no login, and the site's own server renders call it from Vercel's
 # shared IPs with no credential, so it bounds the work a request causes, not the request: one served
 # from stored rows that hands nothing off spends nothing.
-# Durable handoffs spend one budget per process, whoever asks: the queue drains 0.2 tasks/s for every
-# durable job, and no per-IP key bounds callers spread over many IPs. On each of the API's at most two
-# instances, 20 per 5 minutes is 40 per 5 minutes (0.13/s), under the 60 per 5 minutes and 2,160 per
-# 3 hours at which handoffs outrun the drain (#1373's review). Past it a visit still serves its stored
-# rows and queues nothing; a visit after the window queues the task.
-VISIT_TASK_BUDGET = RateLimiter(limit=20, window_seconds=300)
-# The live SEC fetch, taken only with nothing stored to serve, is bounded per client IP, as search's is.
-# Production paces SEC at 1 request/s per process, so one client gets at most a sixth of it.
+# Durable handoffs spend one budget per process, whoever asks, since no per-IP key bounds callers spread
+# over many IPs. The queue every durable job shares dispatches one task at a time, at most 0.2/s, so it
+# drains 1/max(5 s, mean delivery time): a delivery execs a fresh Python child (about 1.7 s of imports)
+# and a history backfill paces 4 EFTS windows at 1 request/s, about 6 s in all. On each of the API's at
+# most two instances, 15 per 5 minutes is 30 per 5 minutes (0.1/s): at most 60% of the drain while
+# deliveries average 6 s, and under it until they average 10 s (pinned in test_filings_routes.py). Past
+# it a visit still serves its stored rows and queues nothing; a visit after the window queues the task.
+VISIT_TASK_BUDGET = RateLimiter(limit=15, window_seconds=300)
+# The live SEC fetch, taken whenever nothing is stored in the requested forms (a first view, or every
+# view of a company that has none of them), is bounded per client IP, as search's is. Production paces
+# SEC at 1 request/s per process, so one client gets at most a sixth of it.
 LIVE_FETCH_LIMITER = RateLimiter(limit=10, window_seconds=60)
 
 

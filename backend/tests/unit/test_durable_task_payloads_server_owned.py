@@ -30,14 +30,16 @@ A route that needs no login bounds the handoffs its callers can cause: in ``app/
 spends a process-wide budget before it hands off, an ``if not LIMITER.allow("<key>"): return`` among
 its own statements ahead of the call, ``LIMITER`` a module-level ``RateLimiter`` bound once. Any other
 form fails closed. The limiter is known by its class name. That it is spent only past the handoff
-guard is pinned by ``test_filings_routes.py``; its size and window, and the synchronous SEC calls
-such a route makes (reached through services and edgartools, out of an AST walk's reach), are
-review-checked.
+guard, and that the filings budget's size stays under the queue's drain across the API's instances,
+are pinned by ``test_filings_routes.py``; the synchronous SEC calls such a route makes (reached
+through services and edgartools, out of an AST walk's reach) are review-checked.
 
 Known limits, review-checked: ``.id`` is accepted from any object, so a request model's ``.id``
 passes as a row's. Callers of the exempt ``enqueue_internal_job`` are not followed; today all 10
 routes that reach it carry ``Depends(_require_internal_token)``. An enqueuer looked up by a string
-(``getattr(module, "enqueue_task")``) is out of reach.
+(``getattr(module, "enqueue_task")``) is out of reach. The login dependency, like the limiter, is
+known by its name: a bare ``Depends(get_current_user)`` passes whatever ``get_current_user`` the
+router defines or imports, while attribute access and ``Annotated`` fail closed.
 """
 import ast
 import builtins
