@@ -10,9 +10,9 @@ import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { ENABLE_FEEDBACK_WIDGET } from '@/lib/featureFlags'
 import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
 
-// The report's kind: one choice among options that all show, so the SegmentedControl (E35), at the touch size and
-// stretched across the form, wrapping whole segments onto another row where the dialog is narrower than the row
-// (a phone at 200% text, E169).
+// The report's kind: one choice among options that all show, so the SegmentedControl (E35), at its `md` size and
+// stretched across the form below sm, wrapping whole segments onto another row where the dialog is narrower than the
+// row (a phone at 200% text, E169); from sm up it is one content-width row, as `fullWidth` documents.
 const TYPES: readonly SegmentedOption<FeedbackType>[] = [
   { value: 'bug', label: 'Bug' },
   { value: 'feature', label: 'Idea' },

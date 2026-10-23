@@ -296,7 +296,9 @@ const classContext = (sf: ts.SourceFile): ClassContext => ({
 
 /** The classes an `inputClasses(…)` call returns: the field recipe's own, called with the options the call writes
     (none, or an object literal whose every option is a boolean, a string or, for `className`, classes the scan
-    reads). An option the scan cannot read (`{ invalid }`, a caller's className) leaves the call unreadable: null. */
+    reads). An option the scan cannot read (`{ invalid }`, `{ className: extra }`) leaves the call unreadable: null.
+    A className the scan reads in part (`cx('min-h-24', extra)`) gives its static classes, as anywhere in the scan;
+    tests/unit/inputClassesNoOverrides.spec.tsx reads every className the recipe is given, app-wide. */
 function fieldFactoryTokens(arg: ts.Expression | undefined, ctx: ClassContext): string[] | null {
   if (!arg) return splitClasses(inputClasses())
   if (!ts.isObjectLiteralExpression(arg)) return null
