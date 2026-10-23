@@ -173,7 +173,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
   if (success) {
     return (
-      <Card className="p-6">
+      <Card className="p-cap-6">
         <div className="flex items-center gap-2 text-brand-strong dark:text-brand-strong-dark">
           <CheckIcon className="h-5 w-5" />
           <span className="text-sm font-semibold uppercase tracking-eyebrow">You&apos;re in</span>
@@ -230,7 +230,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
   }
 
   return (
-    <Card as="form" onSubmit={handleSubmit} className="p-6">
+    <Card as="form" onSubmit={handleSubmit} className="p-cap-6">
       <div className="flex flex-col gap-4">
         <div>
           <label
@@ -278,12 +278,9 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           onChange={(event) => setHoneypot(event.target.value)}
         />
 
-        {/* Each Notice sets its own text to the start: the page centres this column below lg, and a Notice's action row
-            does not follow the text it inherits. */}
         {referralRefused && (
           <Notice
             variant="error"
-            className="text-left"
             title={unknownReferralTitle}
             description={unknownReferralDescription}
             action={
@@ -295,7 +292,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           />
         )}
 
-        {error && <Notice variant="error" className="text-left" title={error} />}
+        {error && <Notice variant="error" title={error} />}
 
         <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />
 

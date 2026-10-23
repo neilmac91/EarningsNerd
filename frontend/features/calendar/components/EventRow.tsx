@@ -22,6 +22,7 @@ import CompanyLogo from '@/components/CompanyLogo'
 import { Badge, type BadgeStatusVariant } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import { fmtCurrency } from '@/lib/format'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import type { CalendarEvent } from '../api/calendar-api'
 import { habitualSlotNote, laneOf } from '../lib/lanes'
 import type { EarningsAlertsApi } from '../hooks/useCalendar'
@@ -105,6 +106,9 @@ export function EventRow({
   roomy?: boolean
 }) {
   const note = habitualSlotNote(ev)
+  // The name in its display casing, as Reporting this week prints it (EDGAR serves the conformed name, often in
+  // capitals), for the line and for the mark.
+  const name = formatCompanyName(ev.company_name)
   return (
     <li
       className={cx(
@@ -123,7 +127,7 @@ export function EventRow({
       >
         {roomy ? (
           <>
-            <CompanyLogo decorative ticker={ev.ticker} name={ev.company_name} size={30} className="[@container(width<16em)]:hidden" />
+            <CompanyLogo decorative ticker={ev.ticker} name={name} size={30} className="[@container(width<16em)]:hidden" />
             {/* 8rem at least beside the EPS, which wraps under it (to the right) on a narrow phone. */}
             <span className="min-w-0 flex-[1_1_8rem] [@container(width<16em)]:basis-full">
               {/* Stacked, the ticker alone keeps the bell's column and height (a line of its own, centred on the
@@ -136,7 +140,7 @@ export function EventRow({
                 <StatusChip status={ev.status} />
               </span>
               <span className="mt-0.5 block break-words text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-                {ev.company_name}
+                {name}
               </span>
               {note && <SlotNote ev={ev} note={note} className="mt-0.5" />}
             </span>
@@ -145,7 +149,7 @@ export function EventRow({
         ) : (
           <>
             <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-              <CompanyLogo decorative ticker={ev.ticker} name={ev.company_name} size={20} />
+              <CompanyLogo decorative ticker={ev.ticker} name={name} size={20} />
               <span className="font-data text-xs font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
                 {ev.ticker}
               </span>
@@ -156,7 +160,7 @@ export function EventRow({
               {/* No narrower than its longest word unless the line is (max-w-full caps that floor): the EPS
                   wraps first, and a word breaks only when it is wider than the whole line. */}
               <span className="max-w-full flex-[1_1_5rem] break-words text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-                {ev.company_name}
+                {name}
               </span>
               <EpsFigure ev={ev} />
             </span>

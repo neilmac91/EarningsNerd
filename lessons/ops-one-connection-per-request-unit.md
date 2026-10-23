@@ -3,7 +3,7 @@
 Date: 2026-10-18   Area: ops
 
 **Context**: The dashboard feed and the watchlist insights read each filing's generation progress
-through `summary_generation_service.get_generation_progress_snapshot`, which opens a `SessionLocal`
+through `summary_generation_service.get_generation_progress_snapshot`, which opened a `SessionLocal`
 of its own. Each request held its session's connection while the helper waited for a second one,
 so four concurrent requests filled the four-slot pool and each waited for a fifth slot. A probe on
 main answered all eight requests of an eight-request burst with 500 at the pool timeout, on both
@@ -21,6 +21,9 @@ insights now read `SummaryGenerationProgress`.
 `backend/app/services/watchlist_service.py` (`load_insight_rows`), 2026-10-18. The gate is
 `backend/tests/unit/test_progress_reads_share_the_request_session.py`:
 - each route answers one request on a one-slot pool and eight on four slots;
-- an AST check fails any reference to `get_generation_progress_snapshot` under `app/`.
+- an AST check fails a `def`, `async def` or `class` of `get_generation_progress_snapshot`, and each use of
+  the name (a name, an attribute, an import), under `app/` and in the backend's top-level modules, scored on
+  planted source; a definition or reference through a string or a namespace (`setattr`, `getattr`,
+  `importlib`) is out of its reach. E124 deleted the helper (2026-10-22).
 
 Any other own-session helper called inside a request unit is a review check.

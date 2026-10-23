@@ -1,6 +1,7 @@
 import { format, parseISO } from 'date-fns'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import CompanyLogo from '@/components/CompanyLogo'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { Badge } from '@/components/ui/Badge'
 import { EnRef, MarkedCopy, cx, markedBlockInsetClass, markedRowInsetClass } from '@/components/ui'
 import { ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, QuotesIcon } from '@/lib/icons'
@@ -130,6 +131,9 @@ function HeroExample({
 }: HeroExampleProps) {
   const data = example ?? FALLBACK
   const isFallback = example === null
+  // The served name is EDGAR's conformed one, often in capitals; the identity line and its mark print it in its display
+  // casing, as the filing page's identity line does.
+  const name = formatCompanyName(data.companyName)
   // Parse the calendar date only — `new Date('2022-10-28')` is UTC midnight
   // and renders the previous day in negative-offset timezones. Guard against
   // a malformed upstream date: format() throws on invalid dates, which would
@@ -145,7 +149,7 @@ function HeroExample({
       aria-label="Example summary"
       className="min-w-0 max-w-full rounded-xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
     >
-      <div className="flex flex-col gap-4 p-5 sm:p-6">
+      <div className="flex flex-col gap-4 p-cap-5 sm:p-cap-6">
         <div className="flex items-center justify-between gap-3">
           <p className={cx('text-xs font-medium', MUTED)}>Example summary</p>
           {data.qualityTier === 'full' && (
@@ -162,8 +166,8 @@ function HeroExample({
             day ("Oct 31," over "2025"). As one nowrap run, "filed Oct 31, 2025" took the page to 329px at 320px
             under 200% text (tests/e2e/reflow-200.spec.ts). */}
         <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
-          <CompanyLogo decorative ticker={data.ticker} name={data.companyName} size={24} priority />
-          <span className={cx('min-w-0 break-words text-sm font-semibold', INK)}>{data.companyName}</span>
+          <CompanyLogo decorative ticker={data.ticker} name={name} size={24} priority />
+          <span className={cx('min-w-0 break-words text-sm font-semibold', INK)}>{name}</span>
           <span className={cx('flex flex-wrap items-center gap-x-2 font-data text-xs tabular-nums', MUTED)}>
             <span className={FACT}>
               {data.ticker}

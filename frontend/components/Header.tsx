@@ -27,10 +27,13 @@ const NAV_LINKS = [
   { href: '/contact', label: 'Contact' },
 ]
 
-/** The site header's rendered height, published on <html> as a CSS length. Every sticky offset and
- *  scroll margin under the header reads `var(--site-header-h,4rem)` (4rem, the one-row bar, before
- *  the first measurement and on routes without the header), so a bar that wraps under enlarged text
- *  never covers what sits below it (tests/e2e/reflow-200.spec.ts; DESIGN_SYSTEM.md §4 Stacking). */
+/** The site header's rendered height, published on <html> as a CSS length. Every sticky offset under
+ *  the header reads `var(--site-header-h,4rem)` (4rem, the one-row bar, before the first measurement
+ *  and on routes without the header), and the document's top scroll padding reads it once
+ *  (app/globals.css), so a bar that wraps under enlarged text never covers what sits below it, nor a
+ *  control a keyboard focuses. The padding steps aside while focus is inside this header
+ *  (`data-site-header`), which is stuck in view (tests/e2e/reflow-200.spec.ts,
+ *  tests/e2e/header-covers-nothing.spec.ts; DESIGN_SYSTEM.md §4 Stacking). */
 export const SITE_HEADER_HEIGHT_PROPERTY = '--site-header-h'
 
 // Isomorphic layout effect (the repo's SSR-safe alias, as in CookieConsent): the header renders on
@@ -119,14 +122,17 @@ export default function Header({
   // out, the account CTA) only there: 36,942px down the landing at 200% text on a 390x664 phone. The cap is the
   // bar's own height, never --site-header-h, which counts the open menu (tests/e2e/reflow-200.spec.ts).
   return (
-    <header ref={headerRef} className="sticky top-0 z-50 flex max-h-dvh flex-col border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
+    <header ref={headerRef} data-site-header className="sticky top-0 z-50 flex max-h-dvh flex-col border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
       {/* gap-x-1.5 (6px, 12px at 200% text) keeps the logo's clear space, one E-bar or 11.6% of the mark (4.2px, 8.4px;
           frontend/public/assets/LOGO_README.md), when a full bar sets the account link beside the mark: at 390px and
           200% text the link touched it (tests/e2e/reflow-200.spec.ts). w-full: a column's child with auto side
           margins is not stretched, so without it the bar would shrink to its content. */}
       <div className="mx-auto flex w-full max-w-7xl shrink-0 flex-wrap items-center justify-between gap-x-1.5 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
-        {/* Left: Logo */}
-        <div className="flex items-center">
+        {/* Left: Logo. Its mr-auto and the desktop controls' ml-auto share the bar's free space, so a one-line bar lays
+            out as justify-between does; where the bar wraps (lg at 200% text), the controls stay at the right of their
+            own line, where justify-between would put a line's only block at its start, and the menus anchored at
+            their right edge (right-0) open inside the screen (E160). */}
+        <div className="mr-auto flex items-center">
           {/* Design sizes: 36px mark, 20px wordmark. Below `sm` the bar also carries the theme
               toggle (above 24rem), the short account CTA and the menu button at 44px each, so the wordmark
               yields to the mark alone (the footer's rendition) rather than overflow the viewport. */}
@@ -153,7 +159,7 @@ export default function Header({
         </nav>
 
         {/* Right: CTAs / user menu (desktop) */}
-        <div className="hidden items-center gap-3 lg:flex">
+        <div className="ml-auto hidden items-center gap-3 lg:flex">
           <ThemeToggle />
           {user ? (
             <>

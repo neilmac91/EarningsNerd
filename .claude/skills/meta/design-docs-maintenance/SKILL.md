@@ -96,6 +96,7 @@ A change of more than one kind below takes the widest reading. Any of them adds
       scroll is a motion change: §11 too);
     - a filter, window or sort that changes how many items a list shows: Analysis table;
     - Copilot answer rendering (CopilotMessage, the Ask rail): Ask answer;
+    - a fade on content (a mask or a gradient that fades it out at an edge): Locked preview;
     - figure tiles outside /analysis: Analysis KPI.
 
   The ESLint design rules and the vitest gates catch the mechanical slips

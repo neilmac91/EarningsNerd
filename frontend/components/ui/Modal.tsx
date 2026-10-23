@@ -18,8 +18,15 @@
        stops at the scrim's inset and scrolls inside, so on a short or zoomed
        screen the ✕ and the actions stay reachable (the body is locked, so
        nothing else scrolls), and a control scrolled in by focus lands its
-       ring clear of the edge (scroll padding = the panel's p-6 inset).
-       Callers never size its height.
+       ring clear of the edge (scroll padding = the panel's capped inset,
+       scroll-py-cap-6). Callers never size its height.
+     - inset: the sections' side padding, the header's top and the footer's
+       bottom are px-cap-6 / pt-cap-6 / pb-cap-6, min(1.5rem, 6vw): 24px from
+       a 400px viewport up, and at 320px under 200% text 19.2px a side where
+       px-6 took 48px (E120; gate: earningsnerd/surface-padding-cap). A
+       caller's numbered step on a section (className="px-8") loses to it:
+       the stylesheet emits px-cap-6 after every numbered step, and cx does no
+       tailwind-merge.
      - focus: moves into the panel on open (initialFocusRef ?? first focusable
        ?? the panel), Tab/Shift-Tab cycle inside, Escape closes (when
        dismissible), focus RETURNS to the opener on close; the trap arms once
@@ -167,7 +174,7 @@ export function Modal({
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className={cx(
-          'relative max-h-full w-full animate-fadeIn overflow-y-auto scroll-py-6 rounded-2xl border border-border-light bg-panel-light shadow-e5 outline-none',
+          'relative max-h-full w-full animate-fadeIn overflow-y-auto scroll-py-cap-6 rounded-2xl border border-border-light bg-panel-light shadow-e5 outline-none',
           'dark:border-white/10 dark:bg-panel-dark dark:shadow-none',
           SIZE[size],
           className,
@@ -214,27 +221,49 @@ export interface ModalHeaderProps extends HTMLAttributes<HTMLDivElement> {
   onClose?: () => void
 }
 
-// The icon and the title are one group that wraps, beside the close button, as a Notice's glyph and text do: the
-// title's basis is 9rem, so where it cannot keep that beside the icon (a phone at 200% text) it goes under the icon,
-// at the group's whole width. The ✕ stays the row's last control, at the top right, and the title never runs under
-// it or past the panel; it breaks a word only when the word is wider than the group. The row gap (4px) and the
-// title's pt-2 put a title under the icon the column gap (12px) below it. At the default size nothing moves.
+// The icon, the title and the close button share one row while the title can keep 9rem beside what shares it, as a
+// Notice's glyph and text do. Where it cannot (a phone at 200% text), the title goes to a line of its own at the header's
+// full width, under the icon and the ✕ or under the ✕ alone, and the ✕ keeps the top right (E158 and E165, chief design
+// on #1495 and #1519). flex-wrap alone, as the Notice uses, would carry the ✕ down after a wrapped title, so a header
+// with a ✕ is a container that moves the title at the row's own width, where the title would have wrapped: the 9rem
+// title, a 0.75rem gap and the ✕'s 1.25rem margin box (11rem), and with an icon its 2.5rem and a second gap (14.25rem).
+// With no ✕, flex-wrap alone does it. The type never steps down. justify-between holds the icon left and the ✕ right;
+// with no icon, justify-end keeps a ✕ alone on its line at the right. Under the icon, the row gap (4px) and the title's
+// pt-2 put the title the column gap (12px) below the icon; under the ✕ alone, its mt-2 puts it the column gap below the
+// glyph, its box clear of the ✕'s padded hit area. At the default size nothing moves.
+const UNDER_ICON = '[@container(width<14.25rem)]:order-last [@container(width<14.25rem)]:basis-full'
+const UNDER_CLOSE =
+  '[@container(width<11rem)]:order-last [@container(width<11rem)]:basis-full [@container(width<11rem)]:mt-2'
+
 export function ModalHeader({ id, icon, tone = 'brand', onClose, className, children, ...rest }: ModalHeaderProps) {
   return (
-    <div className={cx('flex items-start gap-3 px-6 pt-6', className)} {...rest}>
-      <div className="flex min-w-0 flex-1 flex-wrap items-start gap-x-3 gap-y-1">
-        {icon ? (
-          <span
-            aria-hidden="true"
-            className={cx('flex h-10 w-10 flex-none items-center justify-center rounded-full border', ICON_TONE[tone])}
-          >
-            {icon}
-          </span>
-        ) : null}
-        <h2 id={id} className={cx('min-w-0 flex-[1_1_9rem] break-words text-lg', icon ? 'pt-2' : undefined)}>
-          {children}
-        </h2>
-      </div>
+    <div
+      className={cx(
+        'flex flex-wrap items-start gap-x-3 gap-y-1 px-cap-6 pt-cap-6',
+        icon ? 'justify-between' : 'justify-end',
+        onClose ? '[container-type:inline-size]' : undefined,
+        className,
+      )}
+      {...rest}
+    >
+      {icon ? (
+        <span
+          aria-hidden="true"
+          className={cx('flex h-10 w-10 flex-none items-center justify-center rounded-full border', ICON_TONE[tone])}
+        >
+          {icon}
+        </span>
+      ) : null}
+      <h2
+        id={id}
+        className={cx(
+          'min-w-0 flex-[1_1_9rem] break-words text-lg',
+          icon ? 'pt-2' : undefined,
+          onClose ? (icon ? UNDER_ICON : UNDER_CLOSE) : undefined,
+        )}
+      >
+        {children}
+      </h2>
       {onClose ? (
         <button
           type="button"
@@ -256,13 +285,13 @@ export function ModalHeader({ id, icon, tone = 'brand', onClose, className, chil
 }
 
 export function ModalBody({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cx('px-6 py-4', className)} {...rest} />
+  return <div className={cx('px-cap-6 py-4', className)} {...rest} />
 }
 
 export function ModalFooter({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cx('flex flex-col gap-2 px-6 pb-6 pt-2 sm:flex-row sm:justify-end', className)}
+      className={cx('flex flex-col gap-2 px-cap-6 pb-cap-6 pt-2 sm:flex-row sm:justify-end', className)}
       {...rest}
     />
   )

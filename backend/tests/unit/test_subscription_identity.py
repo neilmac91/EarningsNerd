@@ -329,11 +329,12 @@ BINDING_MENTIONS = {
     ("backend/app/services/subscription_webhook_service.py", "_reconcile_current_subscription", "read"): 2,
     # An analytics payload key, after the handler ran.
     ("backend/app/services/subscription_webhook_service.py", "_apply_event", "key"): 1,
-    # The status response model and the endpoint that fills it from the binding.
+    # The status response model and the endpoint's thread-pool unit that fills it from the binding.
     ("backend/app/routers/subscriptions.py", "SubscriptionStatus", "definition"): 1,
-    ("backend/app/routers/subscriptions.py", "get_subscription_status", "read"): 2,
-    ("backend/app/routers/subscriptions.py", "get_subscription_status", "keyword"): 1,
-    # stripe.checkout.Session.create(**session_kwargs): the Stripe API call, no database write.
+    ("backend/app/routers/subscriptions.py", "status_for_reader", "read"): 2,
+    ("backend/app/routers/subscriptions.py", "status_for_reader", "keyword"): 1,
+    # run_in_threadpool(stripe.checkout.Session.create, **session_kwargs): the Stripe API call, no
+    # database write.
     ("backend/app/routers/subscriptions.py", "create_checkout_session", "dynamic"): 1,
     # Payment attribution looks the paying account up by the binding (User and Subscription filters)
     # and collects the matching user ids into Python sets (set.update over a generator).

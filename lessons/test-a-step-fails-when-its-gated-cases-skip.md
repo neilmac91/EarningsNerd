@@ -19,7 +19,7 @@ variable is unset.
   at setup, in a test's body or by a mark, and a module that skips as it imports.
 - **A new PostgreSQL gate.** Add it to the plugin's `POSTGRES_GATES` and the step test's
   `_POSTGRES_STEPS` in the PR that adds its step. The step test fails until both match the
-  workflow: each step named "Verify … concurrency on PostgreSQL", and each env that sets a
+  workflow: each step named "Verify … on PostgreSQL", and each env that sets a
   `*_TEST_DATABASE_URL`, needs a row.
 - **Other steps that run gated cases** are review-checked. The daily prod smoke's
   `SMOKE_BASE_URL` for `frontend/tests/e2e/prod-smoke.spec.ts` is one.

@@ -29,13 +29,25 @@ The founder's review of PR #1226 measured both on the production build.
   give way below a measure through a container query in em on the copy's own width
   (`[container-type:inline-size]` with `[@container(width<13em)]:`), since `sm:` reads the viewport
   in px and never follows the text size, and read the prose a character at a time for a word broken
-  mid-word, at 320 and 390px under 200% text, not only for sideways scroll.
+  mid-word, at 320 and 390px under 200% text, not only for sideways scroll. A surface's own inset (a
+  card, a frame, a dialog's sections) takes the capped step instead, `p-cap-N` = min(N × 0.25rem, N vw),
+  which stops growing below a 25rem viewport (E120; gate: the ESLint rule
+  `earningsnerd/surface-padding-cap`, and reflow-200's cookie dialog cards read a character at a time).
 - A title between a leading glyph and a trailing control (a dialog header's icon, title and close
-  button) wraps under the glyph, never under the control: the glyph and the title are one wrapping
-  group whose title takes a rem basis (`min-w-0 flex-[1_1_9rem]`, as a Notice's text column does)
-  and breaks a word only when the word is wider than the group (`break-words`), and the control
-  keeps its own column at the row's end. A row of the three that only shrinks leaves the title a
-  sliver at 200% text, and its words paint past it.
+  button) keeps a rem basis beside them (`min-w-0 flex-[1_1_9rem]`, as a Notice's text column does).
+  Where it cannot, it goes to a line of its own at the row's full width, under the glyph and the
+  control or under the control alone, and the control keeps the top right, so no word of it breaks
+  that the row's width holds. flex-wrap alone carries the control down after a wrapped title, so the
+  row is a query container that moves the title at the row's own width (`[container-type:inline-size]`,
+  then `[@container(width<14.25rem)]:order-last` and `basis-full`, E158; 11rem with no glyph, whose
+  `justify-end` keeps the control alone on its line at the right, E165). A row that only shrinks
+  leaves the title a sliver at 200% text, and its words paint past it.
+- A bar whose blocks wrap (`flex-wrap justify-between`) puts a line's only block at its start, so a block
+  that must keep its edge when it lands alone (the site header's desktop controls, whose menus open
+  from their right edge) takes an auto margin toward the other side (`ml-auto`), and the block across
+  from it the mirror margin (`mr-auto`), which share a one-line bar's free space as justify-between did
+  (E160). A popover anchored at its trigger's edge (`right-0`) goes wherever the wrap takes the trigger,
+  so open it under 200% text where the bar wraps (a desktop at 1024 to 1440px), not only at 390px.
 - Prove it in Playwright on the real page at 390px with `document.documentElement.style.fontSize
   = '32px'` (or Chromium's own text size, `Page.setFontSizes`), in both themes, measuring painted
   text with a Range, at 320px with the default size, and in the narrowest desktop column the layout
@@ -143,3 +155,22 @@ promotional mark. `BrandEmphasis` now owns the web phrase recipe and local itali
 `brandCopyRules.spec.ts` checks its callers while keeping source annotations separate. The existing
 reflow gates cover the longer phrases and waitlist form codes. Current editable templates and
 generated assets change together; historical audit screenshots remain evidence of their date.
+
+**Recurrence (2026-10-23, the dialog header again, E158; chief design on #1495)**: the title wrapped under
+its icon but kept the group's width beside the close button's column, 64px narrower than the header, so
+at 320 and 360px under 200% text the consent dialog's "preferences" (197px) broke inside a 152px and a
+187px title. A stacked title now takes the header's full width (216, 251 and 277px at 320, 360 and
+390px), and `frontend/tests/e2e/reflow-200.spec.ts` holds both dialogs: the stacked title at the header's
+full width, under the close button too, every painted line inside the title's box and clear of the close
+button, and no word broken. A header with no icon kept its title beside the close button until E165
+gave it the same line (the feedback dialog's "feedback", 153px, broke in a 152px title at 320px), and
+the case holds the feedback dialog too.
+
+**Recurrence (2026-10-23, the site header's menus, E160; chief design on #1491)**: signed in at 1024, 1280
+and 1440px under 200% text the bar wrapped and its controls landed alone on a line, at its start, so the
+notification menu (20rem, anchored at the bell's right edge) spanned -408 to 232px and the account menu
+-108 to 372px, every item losing its first letters. The logo's `mr-auto` and the controls' `ml-auto` keep
+the controls at the right of their line (at 1024px the menus span 180 to 820px and 480 to 960px), and
+`frontend/tests/e2e/reflow-200.spec.ts` opens each menu at the three widths under 200% text, with the
+one-line bar at 1440px held to justify-between's place (the nav as far from the logo as from the
+controls).

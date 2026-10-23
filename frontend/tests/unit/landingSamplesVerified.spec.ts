@@ -2,6 +2,11 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import demo from '@/features/analysis/demo/demo-analysis.json'
+import type { AnalysisCompletion, AnalysisDataset } from '@/features/analysis/api/analysis-api'
+import { resolveDataNotes } from '@/features/analysis/lib/dataNotes'
+import { decodeDataNotes } from '@/features/analysis/lib/dataNotesContract'
+import { decodeNarrativePresentation } from '@/features/analysis/lib/narrativePresentation'
 import * as samples from '@/features/marketing/lib/landing-samples'
 
 /**
@@ -12,9 +17,10 @@ import * as samples from '@/features/marketing/lib/landing-samples'
  * renumbers every marker [1], [2], [3] in first-appearance order, copilot/resolution.py), and a chip
  * labelled with the raw concept `NetIncomeLoss`.
  *
- * It reads every string and number in landing-samples.ts (the Multi-Period demo excepted: it is the
- * FY2019 to FY2024 pipeline snapshot, regenerated only through the pipeline, decision D7) and the hero's
- * static fallback in HeroExample.tsx, and checks:
+ * It reads every string and number in landing-samples.ts (the Multi-Period demo excepted from that scan:
+ * it is one pipeline run, FY2020 to FY2025, regenerated only through the pipeline, decision D-046 D7, and
+ * holds figures for years and concepts the verified set does not) and the hero's static fallback in
+ * HeroExample.tsx, and checks:
  *  - every dollar figure and percentage is one the verified set yields (a value at one or two decimals
  *    of a billion, a per-share value, or a year-over-year change at one decimal);
  *  - each hero fallback figure and each Financial Highlights row holds its own label's verified values
@@ -29,13 +35,23 @@ import * as samples from '@/features/marketing/lib/landing-samples'
  *    is) states only the verified Services pair, a dimensioned fact the tool cannot fetch, so it cites
  *    passages: its markers run [1], [2] with one matched source each, it names the drivers the
  *    filing's Item 7 sentence names, and it shows no XBRL marker, locator, tag or braces glyph;
- *  - no figure row is labelled with a CamelCase or namespaced XBRL concept.
- *  - every static sample source URL opens that 10-K document, not the accession directory.
+ *  - no figure row is labelled with a CamelCase or namespaced XBRL concept;
+ *  - every static sample source URL opens that 10-K document, not the accession directory;
+ *  - the Multi-Period demo (features/analysis/demo/demo-analysis.json, the teaser's and the landing's) is the
+ *    run its comment names, ending at FY2025: its FY2025 and FY2024 revenue, net income, diluted EPS and
+ *    operating cash flow are the verified values, tagged and filed as the verified 10-K; its citations are
+ *    its own dataset's figures; every source link in it, the landing's three-series view included, opens the
+ *    primary document EDGAR names for the filing it cites, never the accession folder or another file in it
+ *    (E149), a citation's that of the figure
+ *    it cites, a reported figure's on itself and its provenance, and a calculated figure has none; its data notes
+ *    and narrative evidence pass the admission the live API path applies; no key or string in it names a model;
+ *    and the landing's three-series view counts data notes from those three series alone.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const AUDIT = readFileSync(path.join(FRONTEND, '../docs/brand/00-audit.md'), 'utf8')
 const HERO = readFileSync(path.join(FRONTEND, 'features/marketing/components/HeroExample.tsx'), 'utf8')
+const CONFIG = readFileSync(path.join(FRONTEND, '../backend/app/config.py'), 'utf8')
 
 /** FY2025 and FY2024, as docs/brand/00-audit.md §4 records them (USD unless per share). */
 const VERIFIED: Record<string, readonly [number, number]> = {
@@ -87,9 +103,8 @@ describe('landing sample figures come from the verified Apple FY2025 set', () =>
         else sourceUrls(item, location)
       }
     }
-    // SAMPLES leaves out the Multi-Period dataset: its links are the pipeline's, which gives a fact with no source URL
-    // its accession folder (`_attach_sources`, backend/app/services/fact_provenance.py), so E149 widens this gate to it
-    // once the pipeline resolves each accession's primary document.
+    // SAMPLES leaves out the Multi-Period dataset: its links are the pipeline's, one per filing it cites, so the
+    // demo's own case below holds each to that filing's primary document.
     for (const [name, value] of SAMPLES) sourceUrls(value, name)
     expect(links.length).toBeGreaterThan(0)
     for (const { at, value } of links) {
@@ -295,5 +310,170 @@ describe('figure rows carry a label, not an XBRL concept', () => {
     for (const label of labels) {
       expect(label).not.toMatch(/:|^[A-Z][a-z]+(?:[A-Z][a-z]*)+$/)
     }
+  })
+})
+
+describe('the Multi-Period demo is one pipeline run, ending at the verified fiscal year (D-046 D7)', () => {
+  // The teaser and the landing read the payload as checked in, without the decoders the live API path applies.
+  const dataset = demo.dataset as unknown as AnalysisDataset
+  const completion = demo.completion as unknown as AnalysisCompletion
+  const points = (concept: string) => dataset.series.find((series) => series.concept === concept)?.points ?? []
+
+  it('covers FY2020 to FY2025, the window and run its comment names', () => {
+    expect(dataset.periods.map((period) => period.key)).toEqual(['FY2020', 'FY2021', 'FY2022', 'FY2023', 'FY2024', 'FY2025'])
+    expect(dataset.period_key).toBe('FY2020..FY2025')
+    expect(demo._comment).toContain('Apple Inc., annual, FY2020 to FY2025, on a local backend on 2026-10-22')
+    expect(demo._comment).toContain('USD 0.000196')
+  })
+
+  it('opens the primary document of the filing each source link cites, never its accession folder (E149)', () => {
+    // The pipeline links a fact to its filing row's document_url, and to the accession folder when no row holds one
+    // (backend/app/services/fact_provenance.py), so a run made before the company's filings were listed carries
+    // folders. Each link sits on a figure, an input, a provenance record or a citation; the nearest accession above
+    // it is the filing it cites, where one is named, and a citation, which names none, cites the figure its marker
+    // names. A reported figure opens its filing, on itself and on its provenance. A calculated figure has no one
+    // filing: its link is null or absent, and its inputs carry theirs.
+    const links: { at: string; key: string; value: unknown; accession?: string; calculated: boolean }[] = []
+    const accessions = new Set<string>()
+    function sourceLinks(value: unknown, at: string, accession?: string) {
+      if (Array.isArray(value)) value.forEach((item, i) => sourceLinks(item, `${at}[${i}]`, accession))
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return
+      const record = value as { accession?: unknown; source_url?: unknown; provenance?: { method?: unknown; source_url?: unknown } }
+      const cited = typeof record.accession === 'string' ? record.accession.replace(/-/g, '') : accession
+      if (cited) accessions.add(cited)
+      const calculated = record.provenance?.method === 'calculated'
+      if (record.provenance?.method === 'reported') {
+        expect([typeof record.source_url, typeof record.provenance.source_url], `${at}: a reported figure opens its filing`).toEqual(['string', 'string'])
+      }
+      if (calculated) {
+        expect([record.source_url ?? null, record.provenance?.source_url ?? null], `${at}: a calculated figure has no link of its own`).toEqual([null, null])
+      }
+      for (const [key, item] of Object.entries(value)) {
+        if (/url$/i.test(key)) links.push({ at: `${at}.${key}`, key, value: item, accession: cited, calculated })
+        else sourceLinks(item, `${at}.${key}`, cited)
+      }
+    }
+    sourceLinks(demo, 'demo')
+    const demoLinks = links.length
+    sourceLinks(samples.SAMPLE_ANALYSIS_DATASET, 'SAMPLE_ANALYSIS_DATASET')
+    expect(demoLinks, 'source links in the demo').toBeGreaterThan(0)
+    expect(links.length - demoLinks, "source links in the landing's three series").toBeGreaterThan(0)
+
+    const documents = new Map<string, string>()
+    let calculatedFigures = 0
+    for (const { at, key, value, accession, calculated } of links) {
+      // A citation's fragment link is absent until a passage is located, and a calculated figure's own link is null.
+      if (key === 'fragment_url' && value === null) continue
+      if (key === 'source_url' && value === null && calculated) {
+        calculatedFigures += 1
+        continue
+      }
+      expect(typeof value, at).toBe('string')
+      const url = new URL(value as string)
+      url.hash = '' // A passage deep link refines the same filing destination.
+      const match = url.href.match(/^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\/320193\/(\d{18})\/(.*)$/)
+      expect(match, `${at}: ${url.href}`).not.toBeNull()
+      const [, folder, name] = match ?? ['', '', '']
+      expect(name, `${at} opens a document inside its folder: ${url.href}`).toMatch(/^[\w.-]+\.htm$/)
+      if (accession) expect(folder, `${at} sits in the folder of the filing it cites`).toBe(accession)
+      else expect(at, `${at} names no filing, so it is a citation's, held to its figure's link below`).toMatch(/^demo\.completion\.citations\[\d+\]\.(?:provenance\.)?source_url$/)
+      expect(documents.get(folder) ?? url.href, `${at}: one primary document per filing`).toBe(url.href)
+      documents.set(folder, url.href)
+    }
+    // Every filing the run cites has its document, and the verified 10-K's is the one the landing's receipts open.
+    expect(calculatedFigures, 'calculated figures, each linked through its inputs').toBeGreaterThan(0)
+    expect([...accessions].filter((accession) => !documents.has(accession)), 'filings cited with no document link').toEqual([])
+    expect(documents.get('000032019325000079')).toBe(samples.AAPL_FY25_EDGAR_URL)
+    // Each cited filing's primary document as EDGAR names it (the submissions data for CIK 320193, read on
+    // 2026-10-22), so a link to an exhibit or any other file in the right folder fails. A regeneration that cites
+    // another filing adds it from EDGAR.
+    const PRIMARY: Record<string, string> = {
+      '000032019321000105': 'aapl-20210925.htm', // 10-K, FY2021
+      '000032019322000108': 'aapl-20220924.htm', // 10-K, FY2022
+      '000032019323000106': 'aapl-20230930.htm', // 10-K, FY2023
+      '000032019324000123': 'aapl-20240928.htm', // 10-K, FY2024
+      '000032019325000079': 'aapl-20250927.htm', // 10-K, FY2025
+      '000032019326000020': 'aapl-20260627.htm', // 10-Q, the quarter ended 2026-06-27
+    }
+    expect(Object.fromEntries(documents), 'each filing opens the primary document EDGAR names').toEqual(
+      Object.fromEntries(Object.entries(PRIMARY).map(([folder, name]) => [folder, `https://www.sec.gov/Archives/edgar/data/320193/${folder}/${name}`])),
+    )
+    // A citation opens what the figure it cites opens: its marker names a point or a series' CAGR in the dataset.
+    const marked = new Map<string, unknown>()
+    for (const series of dataset.series) {
+      for (const point of series.points) if (point.marker) marked.set(point.marker, point.source_url ?? null)
+      const cagr = series as typeof series & { cagr_marker?: string }
+      if (cagr.cagr_marker) marked.set(cagr.cagr_marker, series.cagr_provenance?.source_url ?? null)
+    }
+    for (const citation of completion.citations) {
+      expect(marked.has(citation.marker as string), `[${citation.n}] cites a marked figure`).toBe(true)
+      const figure = marked.get(citation.marker as string)
+      expect([citation.source_url ?? null, citation.provenance?.source_url ?? null], `[${citation.n}] opens the filing of the figure it cites`).toEqual([figure, figure])
+    }
+  })
+
+  it('holds the verified FY2025 and FY2024 values for each concept the two share, from the verified 10-K', () => {
+    // The demo's concept and the us-gaap tag the verified set (docs/brand/00-audit.md §4) names it by.
+    const SHARED: Record<string, string> = {
+      revenue: 'RevenueFromContractWithCustomerExcludingAssessedTax',
+      net_income: 'NetIncomeLoss',
+      eps_diluted: 'EarningsPerShareDiluted',
+      operating_cash_flow: 'NetCashProvidedByUsedInOperatingActivities',
+    }
+    // The accession's folder segment, which the 10-K document's URL (#1471) carries as the folder's did.
+    const accession = samples.AAPL_FY25_EDGAR_URL.match(/\/edgar\/data\/\d+\/(\d{18})\//)?.[1]
+    expect(accession, 'the landing names its 10-K by accession').toBeDefined()
+    for (const [concept, tag] of Object.entries(SHARED)) {
+      const shown = ['FY2025', 'FY2024'].map((period) => points(concept).find((point) => point.period === period))
+      expect(shown.map((point) => point?.value), `${concept} FY2025, FY2024`).toEqual([...VERIFIED[tag]])
+      for (const point of shown) {
+        expect(point?.raw_tag, `${concept} ${point?.period} tag`).toBe(`us-gaap:${tag}`)
+        expect(point?.accession?.replace(/-/g, ''), `${concept} ${point?.period} filing`).toBe(accession)
+      }
+    }
+  })
+
+  it("cites its own dataset's figures, and carries the data notes and evidence the live path admits", () => {
+    const byMarker = new Map<string, [string, string | undefined, unknown]>()
+    for (const series of dataset.series) {
+      for (const point of series.points) if (point.marker) byMarker.set(point.marker, [series.concept, point.period, point.value])
+      const cagr = series as typeof series & { cagr_marker?: string }
+      if (cagr.cagr_marker) byMarker.set(cagr.cagr_marker, [series.concept, series.cagr_window ?? undefined, series.cagr])
+    }
+    expect(completion.kind).toBe('analysis')
+    expect(completion.citations.length).toBe(completion.grounded)
+    for (const citation of completion.citations) {
+      expect([citation.concept, citation.period, citation.value], `[${citation.n}] ${citation.excerpt}`).toEqual(byMarker.get(citation.marker as string))
+    }
+    expect(completion.unverified).toBe(0)
+    expect(completion.mismatched).toBe(0)
+    // streamAnalysis and getAnalysisDataset (features/analysis/api/analysis-api.ts) admit a live payload through these.
+    expect(decodeDataNotes(dataset.data_notes, dataset)).toEqual(dataset.data_notes)
+    expect(() => decodeNarrativePresentation(completion.narrative_presentation, completion, dataset)).not.toThrow()
+  })
+
+  it('names no model anywhere, its comment and its usage record included (the run stays unnamed in the repository)', () => {
+    // Production's default model, read from backend/app/config.py so the check follows a model change, beside the
+    // families a payload could otherwise name.
+    const configured = CONFIG.match(/^\s+AI_DEFAULT_MODEL\s*:\s*str\s*=\s*"([^"]+)"/m)?.[1] ?? ''
+    expect(configured, 'backend/app/config.py declares AI_DEFAULT_MODEL').not.toBe('')
+    const MODEL = new RegExp(`deepseek|gpt-|claude|gemini|llama|mistral|${configured.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i')
+    expect(Object.keys(demo.completion.usage).filter((key) => /model/i.test(key)), 'model keys in completion.usage').toEqual([])
+    const named = leaves(demo, 'demo').flatMap(({ at, value }) => {
+      const found = typeof value === 'string' ? value.match(MODEL)?.[0] : undefined
+      return found ? [`${at}: ${found}`] : []
+    })
+    expect(named, 'payload strings that name a model').toEqual([])
+  })
+
+  it("lets the landing's three series count their own data notes, never the whole run's", () => {
+    const landing = samples.SAMPLE_ANALYSIS_DATASET
+    expect(landing.series.map((series) => series.concept)).toEqual(['revenue', 'net_income', 'net_margin'])
+    expect(Object.hasOwn(landing, 'data_notes'), 'the landing view carries notes counted over every series of the run').toBe(false)
+    expect(resolveDataNotes(landing).totals.total, 'figures the landing counts').toBe(landing.series.length * landing.periods.length)
+    // The reading the landing relies on, over the whole run, gives the pipeline's own notes.
+    const { data_notes: pipelineNotes, ...withoutNotes } = dataset
+    const { notes, totals } = resolveDataNotes(withoutNotes)
+    expect({ notes, totals }).toEqual({ notes: pipelineNotes?.notes, totals: pipelineNotes?.totals })
   })
 })

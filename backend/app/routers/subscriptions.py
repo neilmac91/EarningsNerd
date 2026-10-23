@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from fastapi import APIRouter, HTTPException, Depends, status, Request, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -11,7 +13,7 @@ from app.models import User
 from app.routers.auth import get_current_user
 from app.config import settings
 from starlette.concurrency import run_in_threadpool
-from app.services import billing_account_service
+from app.services import billing_account_service, filing_list_service
 from app.services.billing_serving_prices import serving_pro_prices
 from app.services.subscription_webhook_service import process_stripe_event, SubscriptionEventBusy
 from app.services.stripe_subscription_reader import SubscriptionReconciliationUnavailable
@@ -55,7 +57,8 @@ class UsageResponse(BaseModel):
     qa_limit: int
     # Free "taste" of Copilot (roadmap 2.2): lifetime grounded questions a FREE user has spent and
     # the plan's total allowance, so the UI can show "N of M free questions" and switch to the upsell
-    # at exhaustion. For Pro these are 0 (Pro is unlimited via qa_limit).
+    # at exhaustion. For Pro the total is 0 (Pro has no taste; its monthly cap is qa_limit); the used
+    # count stays what the account spent while Free, since Pro questions never spend the taste.
     copilot_free_taste_used: int
     copilot_free_taste_total: int
     # Multi-Period Analysis generations this month vs the Pro fair-use cap (fresh AI narratives
@@ -80,24 +83,34 @@ async def get_usage(
     db: Session = Depends(get_db)
 ):
     """Get current user's usage for the month"""
-    month = get_current_month()
-    current_count = get_user_usage_count(current_user.id, month, db)
-    
-    # Resolve via the entitlements SSoT (subscription row first, is_pro mirror as fallback) so an
-    # active subscriber with a momentarily-stale is_pro mirror still gets the right limits/status.
-    ent = get_entitlements(current_user)
-    return UsageResponse(
-        summaries_used=current_count,
-        summaries_limit=ent.monthly_summary_limit,
-        is_pro=is_pro_user(current_user),
-        month=month,
-        qa_used=get_user_qa_count(current_user.id, month, db),
-        qa_limit=settings.COPILOT_MONTHLY_QUESTION_CAP,
-        copilot_free_taste_used=getattr(current_user, "copilot_free_taste_used", 0) or 0,
-        copilot_free_taste_total=ent.copilot_free_taste,
-        analysis_used=get_user_analysis_count(current_user.id, month, db),
-        analysis_limit=settings.ANALYSIS_MONTHLY_CAP,
-    )
+
+    def usage_for_reader() -> UsageResponse:
+        # One unit in the thread pool: the three counts, the plan the entitlements read from the
+        # reader's subscription row, the payload and the release, so no checkout or statement waits
+        # on the event loop (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            month = get_current_month()
+            current_count = get_user_usage_count(current_user.id, month, db)
+
+            # Resolve via the entitlements SSoT (subscription row first, is_pro mirror as fallback) so an
+            # active subscriber with a momentarily-stale is_pro mirror still gets the right limits/status.
+            ent = get_entitlements(current_user)
+            return UsageResponse(
+                summaries_used=current_count,
+                summaries_limit=ent.monthly_summary_limit,
+                is_pro=is_pro_user(current_user),
+                month=month,
+                qa_used=get_user_qa_count(current_user.id, month, db),
+                qa_limit=settings.COPILOT_MONTHLY_QUESTION_CAP,
+                copilot_free_taste_used=getattr(current_user, "copilot_free_taste_used", 0) or 0,
+                copilot_free_taste_total=ent.copilot_free_taste,
+                analysis_used=get_user_analysis_count(current_user.id, month, db),
+                analysis_limit=settings.ANALYSIS_MONTHLY_CAP,
+            )
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(usage_for_reader)
 
 @router.get("/subscription", response_model=SubscriptionStatus)
 async def get_subscription_status(
@@ -109,20 +122,31 @@ async def get_subscription_status(
     Reads the local `subscriptions` row (kept authoritative by the webhook) so the common case
     needs no live Stripe round-trip. Falls back to the `is_pro` mirror when no row exists yet.
     """
-    sub = billing_account_service.find_subscription(db, current_user.id)
-    plan = get_plan(current_user).value
 
-    return SubscriptionStatus(
-        is_pro=plan == "pro",
-        stripe_customer_id=(sub.stripe_customer_id if sub else None) or current_user.stripe_customer_id,
-        stripe_subscription_id=(sub.stripe_subscription_id if sub else None) or current_user.stripe_subscription_id,
-        subscription_status=sub.status if sub else None,
-        plan=plan,
-        status=sub.status if sub else None,
-        trial_end=sub.trial_end if sub else None,
-        current_period_end=sub.current_period_end if sub else None,
-        cancel_at_period_end=bool(sub.cancel_at_period_end) if sub else False,
-    )
+    def status_for_reader() -> SubscriptionStatus:
+        # One unit in the thread pool: the reader's row, the plan, the payload and the release
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            sub = billing_account_service.find_subscription(db, current_user.id)
+            plan = get_plan(current_user).value
+
+            return SubscriptionStatus(
+                is_pro=plan == "pro",
+                stripe_customer_id=(sub.stripe_customer_id if sub else None) or current_user.stripe_customer_id,
+                stripe_subscription_id=(
+                    (sub.stripe_subscription_id if sub else None) or current_user.stripe_subscription_id
+                ),
+                subscription_status=sub.status if sub else None,
+                plan=plan,
+                status=sub.status if sub else None,
+                trial_end=sub.trial_end if sub else None,
+                current_period_end=sub.current_period_end if sub else None,
+                cancel_at_period_end=bool(sub.cancel_at_period_end) if sub else False,
+            )
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(status_for_reader)
 
 
 class ProPriceCharge(BaseModel):
@@ -147,6 +171,37 @@ async def get_serving_prices():
     pricing page (docs/PRICING_OFFER.md, "Machine checks").
     """
     return await run_in_threadpool(serving_pro_prices)
+
+
+@dataclass(frozen=True)
+class _CheckoutAccount:
+    """What checkout reads from the database before its first Stripe call (E144)."""
+    user_id: int
+    email: str
+    email_verified: bool
+    entitled: bool
+    is_beta: bool
+    stripe_customer_id: Optional[str]
+
+
+def _read_checkout_account(db: Session, current_user: User) -> _CheckoutAccount:
+    """Checkout's first unit, run in the thread pool and released before any Stripe call, so no Stripe call
+    holds the request's connection: what its refusals read (the plan loads the reader's subscription row,
+    once the reader is verified) and what its Stripe calls need, read before the release detaches the
+    reader (E144, lessons/ops-release-cached-filing-reads-before-yield.md)."""
+    try:
+        verified = bool(current_user.email_verified)
+        return _CheckoutAccount(
+            user_id=current_user.id,
+            email=current_user.email,
+            email_verified=verified,
+            entitled=verified and is_pro_user(current_user),
+            is_beta=bool(getattr(current_user, "is_beta", False)),
+            stripe_customer_id=current_user.stripe_customer_id,
+        )
+    finally:
+        filing_list_service.release_request_session(db)
+
 
 @router.post("/create-checkout-session")
 async def create_checkout_session(
@@ -174,12 +229,13 @@ async def create_checkout_session(
     it through would double-bill — and the per-user Subscription row upsert would orphan the first
     sub in-app while Stripe keeps charging it (staff review, PR #619).
     """
-    if not current_user.email_verified:
+    account = await run_in_threadpool(_read_checkout_account, db, current_user)
+    if not account.email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Verify your email address before you subscribe.",
         )
-    if is_pro_user(current_user):
+    if account.entitled:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="You already have an active subscription. Manage it from the billing portal.",
@@ -197,17 +253,43 @@ async def create_checkout_session(
         )
     price_id = resolved_price_id
 
+    def claim_customer(customer_id: str) -> Optional[str]:
+        # The claim's own unit: its conditional write, commit and read-back, then the release (E166).
+        try:
+            return billing_account_service.claim_stripe_customer_id(db, account.user_id, customer_id)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    def has_no_subscription() -> bool:
+        # The trial's row check, after the customer step as before, in a unit of its own.
+        try:
+            return billing_account_service.find_subscription(db, account.user_id) is None
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        # Create or retrieve Stripe customer
-        if not current_user.stripe_customer_id:
-            customer = stripe.Customer.create(
-                email=current_user.email,
-                metadata={"user_id": str(current_user.id)}
+        # Create or retrieve Stripe customer; every Stripe call runs in the thread pool.
+        if not account.stripe_customer_id:
+            customer = await run_in_threadpool(
+                stripe.Customer.create, email=account.email, metadata={"user_id": str(account.user_id)}
             )
-            billing_account_service.save_stripe_customer_id(db, current_user, customer.id)
+            stored_customer_id = await run_in_threadpool(claim_customer, customer.id)
+            if stored_customer_id is None:
+                # The account was deleted (from another tab) while its customer was created: refuse
+                # before any other Stripe call, with the 500 that rereading the deleted row raised
+                # before E144.
+                logger.warning("Checkout for user_id=%s found the account deleted; %s has no subscription",
+                               account.user_id, customer.id)
+                raise HTTPException(status_code=500, detail="Checkout is not available right now.")
+            if stored_customer_id != customer.id:
+                # Another checkout of this account stored its customer first: check out with that one,
+                # so a payment through either session finds the account (E166).
+                logger.info("Checkout for user_id=%s uses the customer stored first; %s has no subscription",
+                            account.user_id, customer.id)
+                customer = await run_in_threadpool(stripe.Customer.retrieve, stored_customer_id)
         else:
-            customer = stripe.Customer.retrieve(current_user.stripe_customer_id)
-        
+            customer = await run_in_threadpool(stripe.Customer.retrieve, account.stripe_customer_id)
+
         # Create checkout session
         frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
         billing_cycle = "monthly" if price_id == settings.STRIPE_PRICE_MONTHLY_ID else "yearly"
@@ -232,7 +314,7 @@ async def create_checkout_session(
             "success_url": f"{frontend_url}/dashboard?success=true",
             "cancel_url": f"{frontend_url}/pricing?canceled=true",
             "metadata": {
-                "user_id": str(current_user.id),
+                "user_id": str(account.user_id),
                 "plan": "pro",
                 "price_id": price_id,
                 "billing_cycle": billing_cycle,
@@ -243,18 +325,17 @@ async def create_checkout_session(
         # the 100%-off promo: the amount due is $0 and, with payment_method_collection="if_required"
         # above, no card is collected. Mutually exclusive with allow_promotion_codes (which we don't
         # set), so Stripe never 400s on conflicting discount params.
-        is_beta = bool(getattr(current_user, "is_beta", False))
-        if is_beta and settings.STRIPE_BETA_PROMO_CODE_ID:
+        if account.is_beta and settings.STRIPE_BETA_PROMO_CODE_ID:
             session_kwargs["discounts"] = [{"promotion_code": settings.STRIPE_BETA_PROMO_CODE_ID}]
         elif (
             # Beta users NEVER enter the trial cohort, even when the promo id is unconfigured —
             # the pinned fallback for that misconfig is a plain paid checkout
             # (test_beta_user_no_discount_when_promo_unconfigured), not a card-required trial
             # that silently auto-charges the cohort promised "$0 forever, no card".
-            not is_beta
+            not account.is_beta
             and billing_cycle == "monthly"
             and settings.PRO_TRIAL_DAYS > 0
-            and billing_account_service.find_subscription(db, current_user.id) is None
+            and await run_in_threadpool(has_no_subscription)
         ):
             # First-time monthly subscriber → 7-day card-required trial. A prior Subscription row of
             # ANY status (canceled, expired reverse-trial, …) means this account already had its
@@ -267,7 +348,7 @@ async def create_checkout_session(
             }
             session_kwargs["payment_method_collection"] = "always"
 
-        checkout_session = stripe.checkout.Session.create(**session_kwargs)
+        checkout_session = await run_in_threadpool(stripe.checkout.Session.create, **session_kwargs)
 
         return {"url": checkout_session.url}
     except stripe.error.StripeError as e:
@@ -278,22 +359,34 @@ async def create_checkout_session(
 
 @router.post("/create-portal-session")
 async def create_portal_session(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Create Stripe Customer Portal session for subscription management"""
-    if not current_user.stripe_customer_id:
+
+    def read_customer() -> Optional[str]:
+        # The customer the auth lookup loaded, then the release, in the thread pool, so the Stripe call
+        # below holds no connection (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            return current_user.stripe_customer_id
+        finally:
+            filing_list_service.release_request_session(db)
+
+    customer_id = await run_in_threadpool(read_customer)
+    if not customer_id:
         raise HTTPException(
             status_code=400,
             detail="No subscription found"
         )
-    
+
     try:
         frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
-        portal_session = stripe.billing_portal.Session.create(
-            customer=current_user.stripe_customer_id,
+        portal_session = await run_in_threadpool(
+            stripe.billing_portal.Session.create,
+            customer=customer_id,
             return_url=f"{frontend_url}/dashboard",
         )
-        
+
         return {"url": portal_session.url}
     except stripe.error.StripeError as e:
         raise HTTPException(

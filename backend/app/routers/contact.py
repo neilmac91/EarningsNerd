@@ -3,10 +3,12 @@ import logging
 import hashlib
 from app.utils.datetimes import utcnow
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.contact import ContactSubmissionCreate, ContactSubmissionResponse
+from app.services import filing_list_service
 from app.services.contact_submission_service import (
     ContactPersistenceError,
     persist_contact_submission,
@@ -76,16 +78,25 @@ async def submit_contact_form(
     # Hash the client IP for the persisted row (privacy) — never store the raw address.
     hashed_ip = hash_ip_address(get_client_ip(request))
 
+    def persist() -> ContactSubmissionResponse:
+        # One unit in the thread pool: the insert and the response it echoes, released before the two
+        # mails go out, so neither send holds a pooled connection
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            return ContactSubmissionResponse.model_validate(persist_contact_submission(
+                db,
+                name=submission.name,
+                email=submission.email,
+                subject=submission.subject,
+                message=submission.message,
+                ip_address=hashed_ip,
+                logger=logger,
+            ))
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        db_submission = persist_contact_submission(
-            db,
-            name=submission.name,
-            email=submission.email,
-            subject=submission.subject,
-            message=submission.message,
-            ip_address=hashed_ip,
-            logger=logger,
-        )
+        saved = await run_in_threadpool(persist)
     except ContactPersistenceError as failure:
         e = failure.__cause__
         logger.error(f"Database error creating contact submission: {str(e)}")
@@ -96,12 +107,12 @@ async def submit_contact_form(
 
     # Send email notifications (async, don't block on failure)
     try:
-        await send_contact_notifications(submission, db_submission.id)
+        await send_contact_notifications(submission, saved.id)
     except Exception as e:
         # Log but don't fail the request - submission is already saved
         logger.exception(f"Failed to send contact notification emails: {str(e)}")
 
-    return db_submission
+    return saved
 
 
 async def send_contact_notifications(

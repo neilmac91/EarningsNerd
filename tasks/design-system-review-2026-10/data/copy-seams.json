@@ -1,0 +1,148 @@
+[
+  {
+    "id": "sentence-case-dashboard",
+    "file": "frontend/app/dashboard/error.tsx",
+    "line": 44,
+    "current_copy": "Authentication Required; Go to Login; Try Again; Go Home",
+    "rule": "House conventions: sentence case",
+    "status": "IN-FLIGHT",
+    "open_prs": [
+      1290
+    ],
+    "action": "Changes title and actions to sentence case; generic failure prose becomes plain."
+  },
+  {
+    "id": "sentence-case-company",
+    "file": "frontend/features/fundamentals/components/FundamentalsTrendChart.tsx",
+    "line": 148,
+    "current_copy": "Financial Trends",
+    "rule": "House conventions: sentence case",
+    "status": "IN-FLIGHT",
+    "open_prs": [
+      1292
+    ],
+    "action": "Financial trends; same PR changes Insider Activity and Sector Peers."
+  },
+  {
+    "id": "sentence-case-admin",
+    "file": "frontend/app/admin/feedback/page.tsx",
+    "line": 108,
+    "current_copy": "No Feedback Found; No Invites Found (invites:371)",
+    "rule": "House conventions and inline-state recipe",
+    "status": "IN-FLIGHT",
+    "open_prs": [
+      1309
+    ],
+    "action": "Replaces nested GuidanceCard with simple sentence-case empty line."
+  },
+  {
+    "id": "action-delete",
+    "file": "frontend/app/dashboard/settings/page.tsx",
+    "line": 275,
+    "current_copy": "Confirm Deletion",
+    "rule": "Name the action; sentence case",
+    "status": "IN-FLIGHT",
+    "open_prs": [
+      1291
+    ],
+    "action": "Delete my account."
+  },
+  {
+    "id": "action-upgrade",
+    "file": "frontend/features/subscriptions/components/PeekLocked.tsx",
+    "line": 45,
+    "current_copy": "Upgrade to unlock",
+    "rule": "Buzzword list forbids unlock",
+    "status": "IN-FLIGHT",
+    "open_prs": [
+      1291
+    ],
+    "action": "Upgrade to Pro."
+  },
+  {
+    "id": "feature-name",
+    "file": "frontend/features/marketing/components/ProDepth.tsx",
+    "line": 99,
+    "current_copy": "Ask this Filing versus Ask this filing (AskFilingCallout:58)",
+    "rule": "One product feature name; sentence case",
+    "status": "IN-FLIGHT",
+    "open_prs": [
+      1295,
+      1311
+    ],
+    "action": "Prepared brand series uses one feature-name constant and updates plan/demo strings."
+  },
+  {
+    "id": "truth-watchlist",
+    "file": "frontend/app/dashboard/watchlist/page.tsx",
+    "line": 264,
+    "current_copy": "Summary is current. Nothing to do here.",
+    "rule": "State what the server actually establishes",
+    "status": "IN-FLIGHT",
+    "open_prs": [
+      1290
+    ],
+    "action": "Status-specific next step from summaryNextStep instead of treating every non-stale row as ready."
+  },
+  {
+    "id": "truth-usage-warning",
+    "file": "frontend/app/dashboard/page.tsx",
+    "line": 282,
+    "current_copy": "Upgrade to Pro to continue generating summaries",
+    "rule": "Specific outcome at the current state",
+    "status": "IN-FLIGHT",
+    "open_prs": [
+      1290
+    ],
+    "action": "Names remaining/used account summaries instead of implying work already blocked at eighty percent."
+  },
+  {
+    "id": "auth-resend",
+    "file": "frontend/app/check-email/page.tsx",
+    "line": 72,
+    "current_copy": "Email resent; Check your inbox again.",
+    "rule": "A promise names what code enforces",
+    "status": "IN-FLIGHT",
+    "open_prs": [
+      1310
+    ],
+    "action": "Server-enforced and anti-enumeration-aware response wording in auth head; do not fork copy."
+  },
+  {
+    "id": "calendar-estimates",
+    "file": "frontend/features/calendar/components/EarningsCalendarPage.tsx",
+    "line": 173,
+    "current_copy": "Estimated dates appear as companies' reporting patterns firm up.",
+    "rule": "Scope facts to their source",
+    "status": "IN-FLIGHT",
+    "open_prs": [
+      1301
+    ],
+    "action": "Names provider-published estimates instead of implying product models company patterns."
+  },
+  {
+    "id": "risk-label",
+    "file": "backend/app/services/provenance_service.py",
+    "line": 100,
+    "current_copy": "Filing excerpt",
+    "rule": "Specific source vocabulary without inventing a title",
+    "status": "KNOWN OPEN",
+    "open_prs": [],
+    "action": "SourceTrace consumes source_section_ref; summary_sections.py:364 exports same generic risk-row label. Coordinate frontend and export naming; backend beyond optional frontend-only Track B."
+  },
+  {
+    "id": "fair-use",
+    "file": "tasks/todo.md",
+    "line": 44,
+    "current_copy": "Unlimited with fair-use line repeated across surfaces",
+    "rule": "D-040: retain Unlimited; one app-wide fair-use statement",
+    "status": "KNOWN OPEN",
+    "open_prs": [
+      1299,
+      1311,
+      1291,
+      1295
+    ],
+    "action": "E58 explicitly sequences consolidation after brand series; do not replace plan facts or invent a cap."
+  }
+]

@@ -133,7 +133,7 @@ backend/
 │   ├── integrations/     # external market-data APIs
 │   ├── utils/            # datetimes.py (aware utcnow, iso_z, ensure_utc, utc_from_iso), numbers.py (coerce_float)
 │   ├── config.py         # Pydantic Settings — ALL env access goes through it
-│   └── database.py       # session management + ensure_additive_columns
+│   └── database.py       # session management (each engine session at UTC) + ensure_additive_columns
 ├── evals/                # AI eval harness + regression gate (see evals/RUNBOOK.md)
 ├── prompts/              # 9 prompt files: 10k/10q/20f/6k analyst+structured, trends-analyst
 ├── migrations/           # idempotent SQL, applied once via the migration_ledger table (ADR-0007; no Alembic)
@@ -170,7 +170,7 @@ frontend/
 | `subscription_webhook_service.py` | Worker-owned webhook transactions, per-account PostgreSQL locks, current-bound-ID created/updated reconciliation and post-commit analytics; cross-ID chronology remains separate |
 | `stripe_subscription_reader.py` | Dedicated exact-ID provider read, validated identity/status/consumed optional fields, zero retries and connect/read inactivity limits; a failed reconciliation read rolls back the event, a failed serving-Price read reports `unavailable` |
 | `billing_serving_prices.py` | The public serving-charge report (`GET /api/subscriptions/prices`): what the bound Pro Prices charge, without IDs, cached per process; one read at a time, and no request waits on another's; the price-agreement checks compare it with the page (`docs/PRICING_OFFER.md`) |
-| `billing_account_service.py` | The reader's `subscriptions` row (served by `GET /api/subscriptions/subscription`, counted by checkout's first-time-trial check) and the commit of a new Stripe customer id before checkout; the subscriptions router owns Stripe calls and HTTP responses |
+| `billing_account_service.py` | The reader's `subscriptions` row (served by `GET /api/subscriptions/subscription`, counted by checkout's first-time-trial check) and the claim of a new Stripe customer id before checkout, stored only while the account has none, returning the stored id that checkout then uses (E166); the subscriptions router owns Stripe calls and HTTP responses |
 | `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage; every rotation and revocation of a user's tokens, a password login's mint, a password change and the account's deletion take the users row lock first |
 | `oauth_verify.py` / `password_utils.py` | Google/Apple JWKS + id-token verification; bcrypt + policy (extracted from the auth router) |
 | `auth_account_service.py` | Password-account persistence, verification/reset tokens and login/password writes; the auth router keeps HTTP gates, password hashing, mail and audit events |
@@ -214,6 +214,11 @@ detectors, dataset construction, observation selection, citation resolution, num
 persistence and narrative streaming. `narrative.py` keeps database sessions and the provider singleton
 lazily imported at call time. `trend_analysis_service.py` re-exports the original public and private
 names, so the analysis router continues to resolve them through the same module.
+
+`fact_provenance` links each fact to its filing row's `document_url` when that is an SEC archive
+URL inside the fact's accession folder, and to the folder otherwise; `trend_analysis/source_documents.py`
+folds each looked-up link back to its folder for the snapshot hash, keeping links with a stored
+`source_sha256` receipt as stored (E149, #1481).
 
 Analysis datasets carry versioned `data_notes` from the pure `trend_analysis/data_notes.py`
 builder. The web, chart downloads, PDF and Excel use the same reason groups, letters and counts;
@@ -420,8 +425,19 @@ unused since generation became account-required in #619; kept because migrations
 
 - **Datetime:** tz-aware UTC via `app/utils/datetimes.utcnow()` (+ `iso_z()` for the
   legacy `…Z` wire format); `utc_from_iso()` parses an ISO date or date-time from outside,
-  such as an SEC listing's, as aware UTC. A deliberate 6-site **naive** allowlist exists for the
-  OAuthState/RefreshToken token-expiry columns — enforced by
+  such as an SEC listing's, as aware UTC. Every session `database.py`'s engine opens (the API, the
+  jobs, the durable worker and the scripts that import it) runs at UTC (its `connect` listener, E151),
+  so a `timestamptz` reads back at +00:00 and a naive value binds as UTC whatever zone the session
+  would start in; gated on PostgreSQL by `tests/integration/test_session_time_zone.py`. Other sessions
+  (psql's, for the deploy's migrations and the Ops SQL steps, and the engine
+  `scripts/validate_db_performance.py` builds) start at the server's default zone, UTC on production's
+  instance, which sets no `timezone` flag; of the SQL run there, `ops/capacity/snapshot.sql` sets its
+  zone and `ops/detection/notable_homepage_candidates.sql` names one. The pin moves no stored instant.
+  A database whose sessions ran at another zone before E100 holds SEC's bare dates at that zone's local
+  midnight: east of UTC they read, pinned, as the day before, and either side they miss an amendment's
+  period end, so such rows need normalizing before that database runs the pin. Production's sessions
+  ran at UTC, so none is due there. A deliberate 6-site **naive**
+  allowlist exists for the OAuthState/RefreshToken token-expiry columns — enforced by
   `tests/unit/test_naive_utcnow_allowlist.py`.
 - **Resilience numbers:** circuit breaker CLOSED → OPEN at 5 consecutive network failures,
   HALF_OPEN retry after 30s; only network errors trip it (404s/parse errors never do).

@@ -100,7 +100,7 @@ export default function NotificationPreferencesForm() {
   const setBool = (field: BoolPref) => (next: boolean) => save({ [field]: next })
 
   return (
-    <Card className="p-6 mb-6">
+    <Card className="p-cap-6 mb-6">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Filing alerts</h2>
         {mutation.isPending && <CircleNotchIcon className="h-4 w-4 animate-spin motion-reduce:animate-none text-text-tertiary-light dark:text-text-secondary-dark" />}
