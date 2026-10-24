@@ -479,17 +479,8 @@ const MENTIONS_A_PERIOD = new RegExp(`(?:${UNITS})\\b`, 'i')
  * lessons/test-allowlist-caps-are-equalities.md). A new hit is written from the mirror; one that states
  * another fact is argued in here with the cap raised in the same reviewed diff.
  */
-const PERIOD_COUNT_OTHER_FACTS_MAX = 6
-const PERIOD_COUNT_OTHER_FACTS: Array<{ file: string; phrase: string; why: string }> = [
-  // The privacy policy's retention periods: how long data is kept, not how far back analysis reaches.
-  // A legal page (it imports LEGAL_DATES), off limits without the founder.
-  { file: 'app/privacy/page.tsx', phrase: 'after 2 years of inactivity', why: 'account-data retention period' },
-  { file: 'app/privacy/page.tsx', phrase: 'Retained for 1 year from the search date', why: 'search-history retention period' },
-  { file: 'app/privacy/page.tsx', phrase: 'Retained for 1 year from submission date', why: 'contact-form retention period' },
-  { file: 'app/privacy/page.tsx', phrase: 'Retained for 1 year from signup date', why: 'waitlist retention period' },
-  { file: 'app/privacy/page.tsx', phrase: 'Retained for 7 years from transaction date', why: 'billing-record retention (tax law)' },
-  { file: 'app/privacy/page.tsx', phrase: 'retained for 7 years for tax compliance', why: 'billing-record retention (tax law)' },
-]
+const PERIOD_COUNT_OTHER_FACTS_MAX = 0
+const PERIOD_COUNT_OTHER_FACTS: Array<{ file: string; phrase: string; why: string }> = []
 
 /** Rendered copy: its text, and for each UTF-16 unit of it the source position it was read from. */
 type Rendered = { text: string; at: number[] }

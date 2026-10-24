@@ -8,7 +8,8 @@ from app.services.resend_service import send_email
 
 # Every character str.splitlines breaks a line at: a name's run of them becomes one space (_greeting_text).
 _LINE_SEPARATORS = re.compile("[\n\v\f\r\x1c-\x1e\x85\u2028\u2029]+")
-_DEFAULT_FOOTER = "You are receiving this email because you joined the EarningsNerd waitlist."
+_DEFAULT_FOOTER = "This email is about your EarningsNerd account or a request you made."
+_WAITLIST_FOOTER = "You are receiving this email because you joined the EarningsNerd waitlist."
 # The footer line, below the panel on every page (D-043) and last in every text part.
 _FOOTER_LINE = "Filing data sourced from SEC EDGAR. Not investment advice."
 # Alert/digest emails are transactional opt-ins, not the waitlist — point recipients at prefs.
@@ -295,7 +296,7 @@ def render_welcome_email(
         "We'll keep you posted as we open up access."
     )
     preheader = f"You're number {position} on the list. Share your referral link to move up."
-    return _wrap_html(html_body, preheader=preheader), _wrap_text(text_body)
+    return _wrap_html(html_body, footer=_WAITLIST_FOOTER, preheader=preheader), _wrap_text(text_body, _WAITLIST_FOOTER)
 
 
 def render_referral_success_email(
@@ -324,7 +325,7 @@ def render_referral_success_email(
         "Thanks for spreading the word."
     )
     preheader = f"Someone joined with your referral link. You're now number {new_position}."
-    return _wrap_html(html_body, preheader=preheader), _wrap_text(text_body)
+    return _wrap_html(html_body, footer=_WAITLIST_FOOTER, preheader=preheader), _wrap_text(text_body, _WAITLIST_FOOTER)
 
 
 async def send_waitlist_welcome_email(
