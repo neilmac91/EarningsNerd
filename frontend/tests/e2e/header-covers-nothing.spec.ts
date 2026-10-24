@@ -494,13 +494,20 @@ const HELD_STATES = [
   { width: 2304, doubled: true, bar: 'full' },
   { width: 640, doubled: true, bar: 'compact' },
   { width: 800, doubled: true, bar: 'compact' },
+  // A signed-in reader's phone bar, where the bell joins it as the check settles (E176): one row at 320px at the default
+  // size and at 360 and 390px under 200% text. A guest's link takes a row of its own there, the band accepted on #1565,
+  // and below about 10.4rem (332px under 200% text) a reader's bell does too.
+  { width: 320, doubled: false, bar: 'compact', only: 'reader' },
+  { width: 360, doubled: true, bar: 'compact', only: 'reader' },
+  { width: 390, doubled: true, bar: 'compact', only: 'reader' },
 ] as const
 /** The compact bar's account link (ACCESS_COPY's ctaShort, for either access mode). */
 const ACCOUNT_SHORT = /^(Sign up|Request invite)$/
 
 test.describe('the site header holds one height as its auth check settles (E174, E173, E175)', () => {
-  for (const { width, doubled, bar } of HELD_STATES) {
-    for (const who of ['guest', 'reader'] as const) {
+  for (const state of HELD_STATES) {
+    const { width, doubled, bar } = state
+    for (const who of 'only' in state ? [state.only] : (['guest', 'reader'] as const)) {
       test.describe(`${width}px${doubled ? ' and 200% text' : ''}, ${who === 'guest' ? 'a guest' : 'a signed-in reader'}`, () => {
         test.use({ viewport: { width, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
         test('the header keeps its height, and a scrolled page its place, when the check settles', async ({ page, baseURL }) => {
@@ -548,7 +555,7 @@ test.describe('the site header holds one height as its auth check settles (E174,
           // Each access mode's compact label in turn, as a copy fixture: the header keeps its held height with either.
           if (bar === 'compact' && who === 'guest') {
             for (const label of [ACCESS_COPY.invite.ctaShort, ACCESS_COPY.public.ctaShort]) {
-              await settled!.evaluate((link, text) => {
+              await settled.evaluate((link, text) => {
                 link.textContent = text
               }, label)
               await settle(page)

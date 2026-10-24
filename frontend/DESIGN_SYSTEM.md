@@ -1205,7 +1205,13 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  compact bar still grows: under 200% text in CI's fonts, a wrapped label (14px) at 360px with
                  "Sign up" and 390 to 450px with "Request invite", and a whole row at 320px with either label
                  and at 360 and 375px with "Request invite". Chief design accepts that band, since any
-                 reservation would give every reader the same extra row (#1558, comment 6377073723).
+                 reservation would give every reader the same extra row (#1558, comment 6377073723). A
+                 signed-in reader's bell joins the compact bar as the check settles (E176) and needs less:
+                 below about 10.4rem (332px under 200% text) the bell and the menu button take a row of their
+                 own as it appears, the bar 137 to 225px at 320 and 330px under 200% text, within the same
+                 band (#1565, comment 6380050139); a reader's bar holds one row at 320px at the default size
+                 and from 334px under 200% text (gate: the held-check case's reader-only states at 320px and
+                 at 360 and 390px under 200% text).
                  A page's own header (SecondaryHeader: pricing, the dashboard, the watchlist, admin) scrolls
                  with the page on an opaque panel; only a table's
                  header cells stick at `top-0`, inside the table's own scroll box. The document's
