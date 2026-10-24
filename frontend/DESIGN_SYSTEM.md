@@ -1203,7 +1203,14 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  `scroll-padding-top` (globals.css) reads the variable once, so a keyboard focus, an anchor
                  jump or a scrollIntoView lands below the bar, never behind it (WCAG 2.2 SC 2.4.11); a
                  section's scroll margin adds only its own room beyond the header (`scroll-mt-16`), never the
-                 variable again, which would land every jump one bar lower. The padding steps aside while
+                 variable again, which would land every jump one bar lower. Below lg the filing page's section
+                 nav (SummaryBlocks' MobileSectionNav), sticky under the header, is a second bar: it publishes
+                 its height as `--section-nav-h` (0px from lg, unset when it is not mounted), the padding adds it
+                 to the header's, a focus inside the nav drops the nav's share and keeps the header's
+                 (`html:has([data-section-nav]:focus-within)`), and a section's margin gives it back
+                 (`scroll-mt-[calc(4rem_-_var(--section-nav-h,0px))]`), never adds it, so a jump lands where it
+                 did (gates: tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/unit/SummaryBlocks.spec.tsx,
+                 the /filing walk at 390px in tests/e2e/header-covers-nothing.spec.ts). The padding steps aside while
                  focus is inside the site header (`html:has([data-site-header]:focus-within)`): the header is
                  stuck in view, and the padding, which counts its open mobile menu below lg, would scroll the
                  page behind the menu at every Tab through it, and move the page when a control in the bar
