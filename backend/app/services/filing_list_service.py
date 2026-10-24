@@ -48,8 +48,9 @@ CACHED_FILINGS_LIMIT = 20  # Rows the default list serves per group: the reports
 
 # B2: stale-within-TTL cache for the company filings list. The hot path already persists every SEC
 # fetch into the Filing table, so a recently-synced ticker can serve its list straight from the DB
-# (~ms) instead of paying the 3-5s SEC round-trip on every load. In-memory by design — single Cloud
-# Run instance, Redis off in prod (mirrors companies.py's _quote_cache). Staleness is bounded by the
+# (~ms) instead of paying the 3-5s SEC round-trip on every load. In-memory by design, so per process:
+# each of the API's instances (at most two) keeps its own, and a key another instance stamped is fetched
+# once more; Redis is off in prod (mirrors companies.py's _quote_cache). Staleness is bounded by the
 # TTL; the new-filing ALERT path (filing-scan job) is independent, so users are still notified of new
 # filings even if this list lags by up to the TTL.
 FILINGS_LIST_TTL = timedelta(hours=3)

@@ -413,6 +413,7 @@ def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkey
     monkeypatch.setattr(
         filings_mod.sec_edgar_service, "primary_ticker_for_cik", fake_primary_ticker
     )
+    unspend_filings_budgets(monkeypatch)
     filing_list_service._filings_synced_at.clear()
     filing_list_service._refreshing_keys.clear()
     filing_list_service._history_backfilling_ids.clear()
@@ -488,6 +489,7 @@ def test_cold_fetch_fallbacks_keep_the_request_session_off_the_event_loop(tmp_pa
                  "document_url": sec_url + "primary.htm", "sec_url": sec_url}]
 
     monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", get_filings)
+    unspend_filings_budgets(monkeypatch)
     filing_list_service._filings_synced_at.clear()
 
     with TestingSession() as db:

@@ -668,11 +668,17 @@ def test_filing_types_values_cannot_mint_durable_refresh_tasks(client, sessions,
     statuses = {client.get("/api/filings/company/dur", params={"filing_types": v}).status_code
                 for v in values}
     one_process_creates = len(creates)
-    # Every request on a fresh instance: each create names the one task, which the queue holds.
+    # Every request on a fresh instance, with its own guard and handoff budget: each create names the one
+    # task, which the queue holds. Each value must reach the create, or the proof covers fewer values.
+    reached = []
     for value in values:
         monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
+        unspend_filings_budgets(monkeypatch)
+        before = len(creates)
         client.get("/api/filings/company/dur", params={"filing_types": value})
+        reached.append(len(creates) > before)
 
+    assert reached == [True] * len(values)
     assert len(queue) == len(refreshes), f"{len(queue)} durable tasks queued for one company in one bucket"
     assert sorted(queue.values(), key=lambda task: len(task["payload"]["filing_types"])) == [
         {"kind": "filings", "payload": {"company_id": company_id, "filing_types": forms}} for forms in refreshes
@@ -842,7 +848,8 @@ def _seed_stored(sessions, count):
 
 
 def _recording_queue(monkeypatch):
-    """Durable mode with the queue faked: the company ids handed off, in order."""
+    """Durable mode with the queue faked: the company ids handed off, in order. The handoff guard's clock
+    is held still, so a run cannot straddle one of its buckets and hand a refresh off twice."""
     handed = []
 
     async def enqueue(kind, payload, *, dedupe_key=None, dedupe_seconds=None):
@@ -852,6 +859,7 @@ def _recording_queue(monkeypatch):
     monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
     monkeypatch.setattr(filings_mod, "enqueue_task", enqueue)
     monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
+    monkeypatch.setattr(filings_mod, "utcnow", lambda: datetime.fromtimestamp(1_800_000_000, timezone.utc))
     return handed
 
 
