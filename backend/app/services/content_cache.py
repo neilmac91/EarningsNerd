@@ -1,15 +1,16 @@
-"""Shared FilingContentCache write helper.
+"""The FilingContentCache write of the one summary orchestrator's finalize stage.
 
-Both summary-generation paths — the SSE pipeline (``summary_pipeline``) and the background/cron
-path (``summary_generation_service``) — persist the same cache row for a filing: its edgartools
-``sections_payload`` plus the ``critical_excerpt``. The SSE path may also retain an application-built
-bounded ``risk_source_text`` when excerpt extraction was unavailable. They carried a byte-identical upsert block;
-this is the ONE copy so they can't drift while both paths live (the old path is flag-gated until
-the S1 soak completes).
+Finalize (``summary_stages.finalize``, which the SSE endpoint and the background/cron path both reach
+through ``summary_pipeline.stream_filing_summary``) is this helper's only caller. It persists a filing's
+cache row in the commit that writes the summary: the edgartools ``sections_payload``, the
+``critical_excerpt``, and an application-built bounded ``risk_source_text`` when excerpt extraction was
+unavailable.
 
 Excerpt is set on a fresh row, or on an existing row that has none yet, except that a forced run
-that writes its summary (``replace_excerpt``) replaces the stored excerpt with the one it built and
-was generated from, in the same commit: a forced run never stores its excerpt before then
+that writes its summary (``replace_excerpt``) stores the excerpt it was generated from in place of the
+stored one, in the same commit, and clears the stored one when it has none (its excerpt build failed
+or the enrichment join dropped it): a stored excerpt is what citation verification and the Risks
+projection read the summary against. A forced run never stores its excerpt before then
 (``get_or_cache_excerpt(persist=False)``). An unforced run's excerpt is cached by
 ``summary_generation_service.get_or_cache_excerpt`` when it is built. A successful forced summary
 refresh explicitly replaces its bounded Risks source; an ordinary write fills that source only when
@@ -50,7 +51,7 @@ def upsert_content_cache(
                 )
             )
         else:
-            if excerpt and (replace_excerpt or not cache.critical_excerpt):
+            if replace_excerpt or (excerpt and not cache.critical_excerpt):
                 cache.critical_excerpt = excerpt
             if risk_source_text and (replace_risk_source or not cache.risk_source_text):
                 cache.risk_source_text = risk_source_text

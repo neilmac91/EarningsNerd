@@ -6,10 +6,14 @@ and put it back afterwards, and the second run captured the first's new excerpt 
 the real orchestrator and the real ``get_or_cache_excerpt`` (only SEC, the provider and the extraction
 are faked): in one process (the second run joins the first through the in-flight registry) and in two
 (each process has its own registry, so both lead), plus the Pro "Regenerate" / refresh-stale variant
-(a summary stored beside no excerpt) and the commit the excerpt shares with its summary.
+(a summary stored beside no excerpt) and the commit the excerpt shares with its summary. Finalize reads
+the cache row after the summary's row lock, so a save that committed while this one waited is what it
+replaces; and a replacing run with no excerpt clears the stored one, while a kept or failed run writes none.
 """
 import asyncio
-from unittest.mock import MagicMock, patch
+from contextlib import contextmanager
+from types import SimpleNamespace
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -25,6 +29,8 @@ from tests.unit.test_precompute_service import (
 )
 
 FRESH_B = "Item 7. MD&A excerpt the second run builds."
+OTHER_SUMMARY = "# Other\n\nThe other process's replacing summary."
+OTHER_EXCERPT = "Item 7. MD&A excerpt the other process's run built and stored with its summary."
 
 
 def _real_builder(values):
@@ -211,3 +217,134 @@ def test_a_replacing_forced_run_stores_its_excerpt_in_the_summarys_commit():
         reset_inflight()
     assert events[-1]["type"] == "error"
     assert _stored(filing_id) == (1, summary_id, STORED_FULL, STORED_EXCERPT)
+
+
+@contextmanager
+def _another_save_commits_while_this_one_waits_for_the_row_lock(filing_id):
+    """Another process's replacing save commits its summary and excerpt just before this run's row-locked
+    Summary read. On PostgreSQL (READ COMMITTED) that read waits for the other save's commit and then
+    returns its row; SQLite has no row locks, so the commit is placed at that read by hand."""
+    from sqlalchemy import event
+    from sqlalchemy.orm import Session
+
+    from app.database import SessionLocal
+    from app.models import FilingContentCache, Summary
+
+    fired = []
+
+    def commit_the_other_save():
+        with SessionLocal() as db:
+            db.query(Summary).filter(Summary.filing_id == filing_id).update(
+                {Summary.business_overview: OTHER_SUMMARY}, synchronize_session=False)
+            cache = db.get(FilingContentCache, filing_id)
+            if cache is None:
+                db.add(FilingContentCache(filing_id=filing_id, critical_excerpt=OTHER_EXCERPT))
+            else:
+                cache.critical_excerpt = OTHER_EXCERPT
+            db.commit()
+
+    def before_the_row_lock(state):
+        statement = state.statement
+        if fired or not state.is_select or getattr(statement, "_for_update_arg", None) is None:
+            return
+        if any(d.get("entity") is Summary for d in getattr(statement, "column_descriptions", None) or []):
+            fired.append(True)
+            commit_the_other_save()
+
+    event.listen(Session, "do_orm_execute", before_the_row_lock)
+    try:
+        yield fired
+    finally:
+        event.remove(Session, "do_orm_execute", before_the_row_lock)
+
+
+@pytest.mark.parametrize("with_cache", [True, False], ids=["cache-row", "no-cache-row"])
+def test_a_replacing_forced_run_stores_its_excerpt_over_a_save_committed_while_it_waited(with_cache):
+    # Two replacing forced runs in two processes: the other's save commits while this one waits for the
+    # summary's row lock. With a cache row, this run reused the stored excerpt, equal to the value a read
+    # before the wait loaded, so assigning it there wrote nothing and left the other run's excerpt beside
+    # this run's summary. With none, the other save created the row, which a read before the wait missed:
+    # this run inserted it again and failed on its key. Finalize reads the cache row after the lock.
+    from tests.support.summary_stream_harness import CANONICAL_PAYLOAD, reset_inflight, stream_boundaries
+
+    _t, _a, filing_id, summary_id, _u = _seed_forced(with_cache=with_cache)
+    builder, regex = _real_builder([FRESH_B] * 2)
+    reset_inflight()
+    try:
+        with stream_boundaries(), builder, regex, \
+                _another_save_commits_while_this_one_waits_for_the_row_lock(filing_id) as fired:
+            events = asyncio.run(_drain_forced(filing_id))
+    finally:
+        reset_inflight()
+    assert fired == [True]
+    assert events[-1] == {"type": "complete", "summary_id": summary_id, "percent": 100}
+    assert _stored(filing_id) == (
+        1, summary_id, CANONICAL_PAYLOAD["business_overview"], STORED_EXCERPT if with_cache else FRESH_B)
+
+
+@pytest.mark.parametrize("with_summary", [True, False], ids=["update", "insert"])
+def test_a_replacing_forced_run_with_no_excerpt_clears_the_stored_one(with_summary):
+    # The run's excerpt build failed (or the enrichment join dropped it): its summary was generated from the
+    # filing text through the AI layer's own extraction, so a stored excerpt left beside it would be what
+    # citation verification and the Risks projection read it against (provenance prefers the excerpt).
+    # Without an excerpt or XBRL the run is partial, so the stored summary it replaces is partial too (the
+    # one-click Regenerate's case); with none stored, the stored excerpt is a failed unforced run's.
+    from app.database import SessionLocal
+    from app.models import Summary
+    from app.services import summary_pipeline
+    from tests.support.summary_stream_harness import CANONICAL_PAYLOAD, reset_inflight, stream_boundaries
+
+    _t, _a, filing_id, summary_id, _u = _seed_forced(with_summary=with_summary)
+    with SessionLocal() as db:
+        db.query(Summary).filter(Summary.filing_id == filing_id).update(
+            {Summary.raw_summary: {"sections": {}, "quality": {"tier": "partial"}}}, synchronize_session=False)
+        db.commit()
+    reset_inflight()
+    try:
+        with stream_boundaries() as summarize, \
+                patch.object(summary_pipeline, "get_or_cache_excerpt", MagicMock(return_value=None)):
+            events = asyncio.run(_drain_forced(filing_id, rebuild_excerpt=True))
+    finally:
+        reset_inflight()
+    assert summarize.await_args.kwargs["filing_excerpt"] is None
+    assert events[-1]["type"] == "complete"
+    assert _stored(filing_id) == (
+        1, summary_id if with_summary else ANY, CANONICAL_PAYLOAD["business_overview"], None)
+
+
+@pytest.mark.parametrize("outcome", ["kept", "failed"])
+def test_a_kept_or_failed_forced_run_with_no_excerpt_clears_nothing(outcome):
+    from app.services import summary_pipeline
+    from tests.support.summary_stream_harness import reset_inflight, stream_boundaries
+
+    _t, _a, filing_id, summary_id, _u = _seed_forced()
+    payload = {"status": "error", "message": "provider down"} if outcome == "failed" else None
+    reset_inflight()
+    try:
+        with stream_boundaries(payload=payload) as summarize, \
+                patch.object(summary_pipeline, "get_or_cache_excerpt", MagicMock(return_value=None)):
+            if outcome == "kept":
+                summarize.side_effect = TimeoutError("budget exhausted")
+            asyncio.run(_drain_forced(filing_id, rebuild_excerpt=True))
+    finally:
+        reset_inflight()
+    assert _stored(filing_id) == (1, summary_id, STORED_FULL, STORED_EXCERPT)
+
+
+@pytest.mark.parametrize(
+    ("replace_excerpt", "stored", "excerpt", "after"),
+    [
+        (False, STORED_EXCERPT, FRESH_EXCERPT, STORED_EXCERPT),  # an unforced write never overwrites
+        (False, None, FRESH_EXCERPT, FRESH_EXCERPT),             # ... and fills an empty one
+        (False, STORED_EXCERPT, None, STORED_EXCERPT),           # ... and clears nothing
+        (True, STORED_EXCERPT, FRESH_EXCERPT, FRESH_EXCERPT),    # a replacing forced run stores its own
+        (True, STORED_EXCERPT, None, None),                      # ... none included
+    ],
+)
+def test_the_cache_helper_stores_a_replacing_runs_excerpt_and_only_fills_otherwise(replace_excerpt, stored, excerpt, after):
+    from app.services.content_cache import upsert_content_cache
+
+    cache = SimpleNamespace(critical_excerpt=stored, risk_source_text=None, sections_payload=None)
+    upsert_content_cache(MagicMock(), 1, cache, excerpt=excerpt, sections_payload={"risks": []},
+                         replace_excerpt=replace_excerpt)
+    assert cache.critical_excerpt == after

@@ -451,12 +451,15 @@ def test_forced_precompute_never_deletes_a_bookmarked_summary_under_enforced_for
 
 @pytest.mark.parametrize(("payload", "status"), [(None, "generated"), (PROVIDER_ERROR, "generation_failed")])
 def test_forced_precompute_of_a_filing_without_a_summary(monkeypatch, payload, status):
+    # The cached excerpt is a failed unforced run's (cached mid-run, no summary saved): the INSERT that
+    # saves this run's summary stores the excerpt it rebuilt, and a run that saves none leaves it.
     ticker, acc, filing_id, _summary_id, _user_id = _seed_forced(with_summary=False)
 
     result = _forced_precompute(monkeypatch, ticker, acc, payload=payload)
 
     assert result["status"] == status
-    assert _stored(filing_id)[0] == (1 if status == "generated" else 0)
+    count, _row_id, _overview, excerpt = _stored(filing_id)
+    assert (count, excerpt) == ((1, FRESH_EXCERPT) if status == "generated" else (0, STORED_EXCERPT))
 
 
 @pytest.mark.parametrize(
