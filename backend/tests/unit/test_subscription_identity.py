@@ -333,7 +333,7 @@ BINDING_MENTIONS = {
     ("backend/app/routers/subscriptions.py", "SubscriptionStatus", "definition"): 1,
     ("backend/app/routers/subscriptions.py", "status_for_reader", "read"): 2,
     ("backend/app/routers/subscriptions.py", "status_for_reader", "keyword"): 1,
-    # run_in_threadpool(stripe.checkout.Session.create, **session_kwargs): the Stripe API call, no
+    # run_on_stripe_threads(stripe.checkout.Session.create, **session_kwargs): the Stripe API call, no
     # database write.
     ("backend/app/routers/subscriptions.py", "create_checkout_session", "dynamic"): 1,
     # Payment attribution looks the paying account up by the binding (User and Subscription filters)
