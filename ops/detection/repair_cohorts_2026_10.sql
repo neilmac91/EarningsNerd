@@ -59,19 +59,25 @@ WHERE COALESCE(t.facts, 0) >= 8000 OR c.ticker = 'JNJ'
 ORDER BY facts DESC, c.ticker, c.id
 LIMIT 200;
 
-\echo '2. Quarterly-repair candidates (#1549): a cf FY balance older than every cf FY duration end, or a'
-\echo '   year-end month of January to March, or a newest year filed over 180 days after its end.'
-\echo '   opening_off: such balances whose year is not the one the writer now names, counting whole years'
-\echo '   back from the oldest duration end (year_ending_on); oldest_off_end, stored_year -> expected_year'
-\echo '   is the oldest of them, off_ends how many ends they sit at. n0: current cf FY durations ending'
-\echo '   January to March under the calendar year they end in, the most a repair of a late chain'
-\echo '   relabels; a preview that relabels some but not all of them repairs it in part. owned_n0: current'
-\echo '   filing-owned FY durations of that kind, which the repair never moves; a preview that relabels any'
-\echo '   n0 row while owned_n0 > 0 leaves the chain mixed (#1549''s Target-shaped partial case). Both keep'
-\echo '   the company out of the apply. newest_filed_days: days from the newest cf duration end to its'
-\echo '   filing, blank when a filing-owned row holds a later year end (the cf row is then a comparative).'
-\echo '   facts > 10000: the repair refuses the company. Rows with opening_off or n0 above 0, or a newest'
-\echo '   year filed late, come first; then companies listed only for a year end in January to March.'
+\echo '2. Quarterly-repair candidates (#1549): a company with current cf FY durations and any of: a cf FY'
+\echo '   balance older than its oldest cf FY duration end and not under expected_year (opening_off > 0); a'
+\echo '   cf FY duration ending in January or February, or in March on a 20-F row (march_20f); or a newest'
+\echo '   cf FY year end filed over 180 days after it (newest_filed_days > 180). opening_off: such balances.'
+\echo '   expected_year approximates the year the writer now names: whole years back from the oldest cf FY'
+\echo '   duration end (year_ending_on), else the calendar year the balance ends in. Where whole years do'
+\echo '   not reach, the writer first takes the year the balance''s own timely annual report gave it'
+\echo '   (reported_fiscal_year), which the row does not store, so opening_off may count a balance whose'
+\echo '   stored year the writer would give it too; the repair preview decides. oldest_off_end, stored_year'
+\echo '   -> expected_year is the oldest of them, off_ends how many ends they sit at. n0: current cf FY'
+\echo '   durations ending January to March under the calendar year they end in, the most a repair of a late'
+\echo '   chain relabels; a preview that relabels some but not all of them repairs it in part. owned_n0:'
+\echo '   current filing-owned FY durations of that kind, which the repair never moves; a preview that'
+\echo '   relabels any n0 row while owned_n0 > 0 leaves the chain mixed (#1549''s Target-shaped partial'
+\echo '   case). Both keep the company out of the apply. newest_filed_days: days from the newest cf duration'
+\echo '   end to its filing, blank when a filing-owned row holds a later year end (the cf row is then a'
+\echo '   comparative) or the filing date is unknown. facts > 10000: the repair refuses the company. Rows'
+\echo '   with opening_off or n0 above 0, or newest_filed_days above 180, come first; then the rest, listed'
+\echo '   only for a January or February year end or a March one on a 20-F row; each group by ticker.'
 WITH params AS (
     SELECT '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard
 ), fy AS MATERIALIZED (
@@ -163,12 +169,14 @@ ORDER BY (k.opening_off > 0 OR k.n0 > 0 OR COALESCE(k.newest_filed_days, 0) > 18
          k.ticker, k.company_id;
 
 \echo '3. Non-USD reporters (F61 call 2): a row in a currency other than USD. cf_native = 0: no sync has'
-\echo '   read the native lists (force-sync it). usd_twins_current: current USD rows beside a current'
-\echo '   native row of the same concept, period end and fiscal period, which a sync demotes'
-\echo '   (currency.py demote_convenience_rows); after a force-sync it reads 0. usd_operand_ratios: current'
-\echo '   FY ratios with no filing owner whose recorded inputs include USD, or none recorded (the repair'
-\echo '   recomputes them after the sync). ifrs_rows > 0 with cf_native = 0: an IFRS filer, which the sync'
-\echo '   stores nothing for and the repair refuses.'
+\echo '   read the native lists (force-sync it). usd_twins_current: current USD rows at the concept, period'
+\echo '   end and fiscal period of a current native row that a companyfacts sync stored (source'
+\echo '   companyfacts, no filing owner, a raw tag). A force-sync that reads the native lists again demotes'
+\echo '   them (currency.py demote_convenience_rows), so after a correct one it reads 0; while cf_native = 0'
+\echo '   it reads 0 too. A USD row beside only a per-filing native row is not counted: a sync need not'
+\echo '   demote it. usd_operand_ratios: current FY ratios with no filing owner whose recorded inputs'
+\echo '   include USD, or none recorded (the repair recomputes them after the sync). ifrs_rows > 0 with'
+\echo '   cf_native = 0: an IFRS filer, which the sync stores nothing for and the repair refuses.'
 WITH native AS MATERIALIZED (
     SELECT DISTINCT ff.company_id
     FROM financial_fact ff
@@ -197,8 +205,9 @@ WITH native AS MATERIALIZED (
       AND u.is_latest AND u.unit IN ('USD', 'USD/shares')
       AND EXISTS (SELECT 1 FROM financial_fact n
                   WHERE n.company_id = u.company_id AND n.concept = u.concept
-                    AND n.period_end = u.period_end AND n.fiscal_period IS NOT DISTINCT FROM u.fiscal_period
-                    AND n.is_latest AND n.unit <> u.unit
+                    AND n.period_end = u.period_end AND n.fiscal_period = u.fiscal_period
+                    AND n.is_latest AND n.source = 'companyfacts' AND n.filing_id IS NULL
+                    AND n.raw_tag IS NOT NULL AND n.unit <> u.unit
                     AND n.unit ~ CASE WHEN u.unit = 'USD' THEN '^[A-Z]{3}$' ELSE '^[A-Z]{3}/shares$' END)
     GROUP BY u.company_id
 )
@@ -273,14 +282,18 @@ JOIN companies c ON c.id = n.company_id
 ORDER BY c.ticker, n.filing_date, n.summary_id;
 
 \echo '6. #1548 re-walk cases: a company whose history stamp an old revision may have written (a walk of'
-\echo '   10-K/10-Q only) and which is or was a foreign issuer. why: it holds a 20-F, 40-F or 6-K row (the'
-\echo '   migration cleared such stamps, so one is stamped again or gained the row later), it holds no'
-\echo '   filing row (cleared too, as unknown), or its companyfacts name a 20-F or 40-F with no such row (a'
-\echo '   former foreign issuer, which the migration skipped). stamped: before the migration (UPDATE 159 at'
-\echo '   02:32:20.74 UTC on 2026-10-24); while an old revision served (until the worker took traffic at'
+\echo '   10-K/10-Q only) and which is, was or may be a foreign issuer. why: it holds a 20-F, 40-F or 6-K'
+\echo '   row (the migration cleared such stamps, so one is stamped again or gained the row later), it holds'
+\echo '   no filing row (cleared too, as unknown), or its companyfacts name a 20-F or 40-F with no such row'
+\echo '   (a former foreign issuer, which the migration skipped). stamped: before the migration (UPDATE 159'
+\echo '   at 02:32:20.74 UTC on 2026-10-24); while an old revision served (until the worker took traffic at'
 \echo '   02:32:37 and the service at 02:33:06); or by an old request still in flight, within the 600 s'
-\echo '   request timeout of both (to 02:43:07; the forms key of the walk''s log line tells old from new).'
-\echo '   A later stamp came from a walk that listed 20-F and 40-F, so it is not listed.'
+\echo '   request timeout of both (to 02:43:07). A stamp before the migration is listed only with a why'
+\echo '   above. One from 02:32:20 to 02:43:07 is listed whatever the company holds, why reading "stamped in'
+\echo '   the rollout window" where none applies: a company the migration cleared for holding no filing row'
+\echo '   may since hold the 10-K/10-Q rows an old walk stored, and then nothing stored tells it from a'
+\echo '   domestic company. The forms key of the walk''s log line tells an old walk from a new one. A later'
+\echo '   stamp came from a walk that listed 20-F and 40-F, so it is not listed.'
 WITH params AS (
     SELECT timestamptz '2026-10-24 02:32:20+00' AS migration_at,
            timestamptz '2026-10-24 02:33:07+00' AS old_serving_until,
@@ -304,14 +317,16 @@ WITH params AS (
                 ELSE 'old request in flight' END AS stamped,
            CASE WHEN h.foreign_filings IS NOT NULL THEN 'holds a foreign filing'
                 WHEN h.company_id IS NULL THEN 'holds no filing'
-                ELSE 'former foreign issuer' END AS why,
+                WHEN x.cf_foreign_forms IS NOT NULL THEN 'former foreign issuer'
+                ELSE 'stamped in the rollout window' END AS why,
            h.foreign_filings, x.cf_foreign_forms
     FROM companies c
     CROSS JOIN params p
     LEFT JOIN held h ON h.company_id = c.id
     LEFT JOIN named x ON x.company_id = c.id
     WHERE c.history_backfilled_at IS NOT NULL AND c.history_backfilled_at < p.old_in_flight_until
-      AND (h.foreign_filings IS NOT NULL OR h.company_id IS NULL OR x.cf_foreign_forms IS NOT NULL)
+      AND (c.history_backfilled_at >= p.migration_at
+           OR h.foreign_filings IS NOT NULL OR h.company_id IS NULL OR x.cf_foreign_forms IS NOT NULL)
 )
 SELECT k.ticker, k.company_id, k.history_backfilled_at, k.stamped, k.why, k.foreign_filings,
        k.cf_foreign_forms, count(*) OVER () AS of_n
