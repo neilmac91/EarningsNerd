@@ -163,6 +163,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 - test-parser-callback-positions.md — Match whole-input callbacks to exact raw-source positions before accepting event capacity
 - test-persistent-sqlite-db-goes-stale.md — The dev SQLite DB (backend/earningsnerd.db) is persistent — rm it after a schema change; the test suite never uses it
 - test-pin-a-row-lock-with-a-statement-spy.md — Pin a row lock with a statement spy; a race test under SQLite cannot see FOR UPDATE
+- test-pin-each-guard-where-it-alone-decides.md — Pin each guard with an input only it decides; when a guard changes, re-run every mutation the guards share, since a test can keep passing and stop pinning (review-checked)
 - test-probes-assert-what-only-success-renders.md — A probe asserts what only a successful render shows, counted from its input; a heading that also frames the error state proves nothing
 - test-proofs-run-on-committed-state.md — Mechanical proofs must run against committed state — a proof that cannot fail proves nothing
 - test-pure-move-ast-proof.md — Verify "pure move" refactors with an AST-normalized per-symbol diff, not by eyeballing the diff
