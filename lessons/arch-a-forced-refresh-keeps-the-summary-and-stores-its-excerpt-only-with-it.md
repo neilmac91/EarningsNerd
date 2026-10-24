@@ -44,25 +44,32 @@ without XBRL, as the force path always has (the snapshot stays). An unforced fir
 caches its excerpt when it builds it (no stored summary exists then), so an unforced run and a forced
 run of one filing in two processes can still race on a filing with no summary. SQLite has no row locks,
 so the tests place the other process's commit at the locked read by hand; PostgreSQL's ordering itself
-is not exercised in CI. A rebuild whose excerpt build the enrichment join dropped (E77's CPU contention)
-clears the stale excerpt and stores none, where on main the uncancelled thread, with `persist=True`,
-stored its late build. Until the next forced precompute, that filing's Copilot answers then have no
-cached filing text, and its quotes, footnotes and metric takeaways show no evidence (provenance drops
-passage evidence when it has no source); its Risks still verify against `risk_source_text`, the AI
-layer's own filing sample, which finalize stores with the summary.
+is not exercised in CI. A rebuild whose summary replaces and whose excerpt the enrichment join dropped
+(E77's CPU contention) clears the stale excerpt and stores none, where on main the uncancelled thread,
+with `persist=True`, stored its late build. Likewise a forced run without a rebuild, on a filing with no
+stored excerpt, whose build the join drops no longer stores the late build (`persist=False`; main's
+`persist=True` stored it), so its replacing summary sits beside no excerpt. In both, until the next
+forced run that replaces that summary (Pro Regenerate, `refresh_unready`, a `summary_refresh` drain, the
+admin regenerate or another forced precompute: any of them builds a fresh excerpt then and stores it with
+its summary), that filing's Copilot answers have no cached filing text, and its quotes, footnotes and
+metric takeaways show no evidence (provenance drops passage evidence when it has no source); its Risks
+still verify against `risk_source_text`, the AI layer's own filing sample, which finalize stores with
+the summary.
 
 **Gate.** `backend/tests/unit/test_excerpt_writers_allowlist.py` holds the writes of
 `critical_excerpt` it can see, in every file the delete-sites gate reads (the backend with its
 entrypoints, evals and migrations, `ops/`, `scripts/`, `tasks/`, `.github`, `.claude`), to its two owners:
 attribute stores and deletes, a `critical_excerpt=` keyword to any call but a `SimpleNamespace`
 snapshot or a `filter_by`, dict and subscript keys naming the column, literal `setattr` and SQLAlchemy's
-`set_attribute`, writes inside f-string fields, and SQL in strings and SQL, shell and workflow files; its
-header names what stays out of reach. `test_summary_delete_sites_allowlist.py` fails a new place it
-can see that deletes summaries rows; `test_force_regenerate_keeps_xbrl.py`, the forced-precompute cases
-in `test_precompute_service.py` and `test_forced_run_excerpt_is_private.py` pin the sites, two
-overlapping forced precomputes (one process and two), a save committed while finalize waits for the row
-lock (with and without a cache row), a rebuild with no excerpt (cleared) and a reusing run that lost its
-excerpt (kept) included. A new up-front clear of another column is review-checked.
+`set_attribute` (by position or keyword), `__setitem__`, `__delitem__`, `operator.setitem`/`delitem`
+and `setdefault` given the string, writes inside f-string fields, and SQL in strings and SQL, shell and
+workflow files; its header names what stays out of reach. `test_summary_delete_sites_allowlist.py`
+fails a new place it can see that deletes summaries rows; `test_force_regenerate_keeps_xbrl.py`, the
+forced-precompute cases in `test_precompute_service.py` and `test_forced_run_excerpt_is_private.py` pin
+the sites, two overlapping forced precomputes (one process and two), a save committed while finalize
+waits for the row lock (with and without a cache row), a rebuild with no excerpt (cleared), and a reusing
+run and an unforced first generation that lost their excerpt (kept) included. A new up-front clear of
+another column is review-checked.
 
 **Evidence.** `backend/app/routers/summaries.py` (the `elif force:` branch of `generate_summary_stream`),
 `backend/app/services/summary_stages/enrichment.py::parse_and_enrich` (`extract_excerpt_sync`),

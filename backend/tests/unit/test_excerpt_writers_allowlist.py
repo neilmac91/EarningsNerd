@@ -28,9 +28,11 @@ What counts, as (path from the repository root, enclosing top-level function or 
   filters on it); a dict-literal key that names the column (``X.critical_excerpt``,
   ``t.c["critical_excerpt"]`` or the string); a subscript assignment or ``del`` whose key names it the
   same way (``row["critical_excerpt"] = None``, ``vals[FCC.critical_excerpt] = None``); ``setattr``,
-  ``delattr``, ``__setattr__``, ``__delattr__`` and SQLAlchemy's ``set_attribute`` or ``del_attribute``
-  given the string; and a call, keyword or key of these forms inside an f-string's replacement field,
-  which is code;
+  ``delattr``, ``__setattr__``, ``__delattr__`` and SQLAlchemy's ``set_attribute`` or ``del_attribute``,
+  and the call forms of a keyed store or ``del`` (``__setitem__``, ``__delitem__``, ``operator.setitem``,
+  ``operator.delitem`` and ``setdefault``), given the string by position or by keyword
+  (``set_attribute(cache, key="critical_excerpt", value=None)``); and a call, keyword or key of these
+  forms inside an f-string's replacement field, which is code;
 * SQL, in a Python string (a literal, a ``+`` of literals or an f-string's literal parts; docstrings are
   not code) or in a SQL, shell or workflow file read as text without its comments (``--`` and ``/* */``
   in SQL, whole-line ``#`` elsewhere), in any case, quoted or not, with or without a qualifier:
@@ -48,8 +50,12 @@ Out of reach, stated so nothing is overclaimed:
 
 * a column named by a value the scan cannot read as the literal: a variable or a constant
   (``setattr(cache, FIELD, None)``, ``{FIELD: None}``, ``row[FIELD] = None``, a ``.values(**kw)`` whose
-  ``kw`` is built so), or an element of a list or tuple (``dict.fromkeys(["critical_excerpt"])``,
-  ``dict(zip(...))``);
+  ``kw`` is built so), an element of a list or tuple (``dict.fromkeys(["critical_excerpt"])``,
+  ``dict(zip(...))``), or, to an attribute or item writer, the column object or its key rather than the
+  string (``vals.__setitem__(FCC.critical_excerpt, None)``, ``setattr(cache, FCC.critical_excerpt.key,
+  None)``);
+* an attribute or item writer bound or imported under another name (``from sqlalchemy.orm.attributes
+  import set_attribute as sa``, ``w = setattr``), since the writers are matched by the callee's name;
 * a Core insert given its values by position (``FCC.__table__.insert().values((1, None, None))``), which
   writes every column;
 * a writer under a ``READ_ONLY_CALLS`` name (``from app.models import FilingContentCache as
@@ -90,7 +96,9 @@ TABLE = "filing_content_cache"
 # Calls whose ``critical_excerpt=`` keyword copies or filters on a value read, never a write: Copilot's
 # snapshot, and a ``query.filter_by``.
 READ_ONLY_CALLS = {"SimpleNamespace", "filter_by"}
+# Calls that write the attribute or key their string argument names, matched by the callee's name.
 _ATTR_WRITERS = {"setattr", "delattr", "__setattr__", "__delattr__", "set_attribute", "del_attribute"}
+_ITEM_WRITERS = {"__setitem__", "__delitem__", "setitem", "delitem", "setdefault"}
 
 ALLOWED = Counter({
     ("backend/app/services/content_cache.py", "upsert_content_cache"): 4,
@@ -172,8 +180,9 @@ def _writes(tree: ast.Module) -> list[tuple[str, int]]:
             callee = _callee(node.func)
             if callee not in READ_ONLY_CALLS:
                 found.extend((scope, kw.value.lineno) for kw in node.keywords if kw.arg == FIELD)
-            if callee in _ATTR_WRITERS:
-                found.extend((scope, a.lineno) for a in node.args if isinstance(a, ast.Constant) and a.value == FIELD)
+            if callee in _ATTR_WRITERS or callee in _ITEM_WRITERS:
+                given = [*node.args, *(kw.value for kw in node.keywords)]
+                found.extend((scope, a.lineno) for a in given if isinstance(a, ast.Constant) and a.value == FIELD)
         elif isinstance(node, ast.Dict):
             found.extend((scope, key.lineno) for key in node.keys if key is not None and _names_field(key))
         elif isinstance(node, (ast.JoinedStr, ast.BinOp)) and (sql := _folded(node)) is not None:
@@ -218,6 +227,7 @@ def test_only_the_two_owners_write_the_stored_excerpt():
 
 
 PLANTED = '''"""UPDATE filing_content_cache SET critical_excerpt = NULL -- a docstring is not code"""
+import operator
 import types
 from types import SimpleNamespace
 from sqlalchemy import insert, text, update
@@ -288,6 +298,21 @@ def literal_set_attribute(cache):
     attributes.set_attribute(cache, "critical_excerpt", None)
     del_attribute(cache, "critical_excerpt")
 
+def attribute_writer_given_the_string_by_keyword(cache):
+    attributes.set_attribute(cache, key="critical_excerpt", value=None)
+    del_attribute(cache, key="critical_excerpt")
+
+def dunder_item_writers(vals):
+    vals.__setitem__("critical_excerpt", None)
+    vals.__delitem__("critical_excerpt")
+
+def operator_item_writers(vals):
+    operator.setitem(vals, "critical_excerpt", None)
+    operator.delitem(vals, "critical_excerpt")
+
+def setdefault_key(vals):
+    vals.setdefault("critical_excerpt", None)
+
 def write_inside_an_f_string(db, fid):
     log = f"cleared {db.execute(update(FCC).where(FCC.filing_id == fid).values(critical_excerpt=None))}"
 
@@ -300,6 +325,8 @@ def look_alikes(db, cache, row):
     excerpt = cache.critical_excerpt
     excerpt = getattr(cache, "critical_excerpt", None)
     excerpt = row["critical_excerpt"]
+    excerpt = row.get("critical_excerpt")
+    excerpt = operator.getitem(row, "critical_excerpt")
     snapshot = SimpleNamespace(critical_excerpt=excerpt)
     snapshot = types.SimpleNamespace(critical_excerpt=excerpt)
     fields = {"cache_excerpt": cache.critical_excerpt}
@@ -330,6 +357,10 @@ def test_the_scan_scores_every_planted_form():
         "subscript_keyed_by_the_column": 3,
         "literal_setattr": 3,
         "literal_set_attribute": 2,
+        "attribute_writer_given_the_string_by_keyword": 2,
+        "dunder_item_writers": 2,
+        "operator_item_writers": 2,
+        "setdefault_key": 1,
         "write_inside_an_f_string": 1,
         "sql_in_python": 3,
     })

@@ -601,7 +601,8 @@ async def generate_summary_background(
     threads the flag into the ONE orchestrator, which UPDATEs the stored row in place (preserving
     ``summaries.id`` so saved-summary bookmarks survive) under a keep-better quality gate.
     ``rebuild_excerpt=True`` (a forced precompute) has that run build its excerpt with the current
-    extraction; the run stores it only with a summary it writes.
+    extraction; the run stores it only with a summary it writes. When that summary replaces and the run
+    has no excerpt, finalize clears the stored, stale one in the same commit (``clear_stale_excerpt``).
     """
 
     if not await run_in_threadpool(

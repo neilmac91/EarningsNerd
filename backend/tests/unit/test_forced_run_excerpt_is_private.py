@@ -10,7 +10,7 @@ are faked): in one process (the second run joins the first through the in-flight
 the cache row after the summary's row lock, so a save that committed while this one waited is what it
 replaces. A replacing run that ends with no excerpt clears the stored one only when it was asked to rebuild it
 (a forced precompute, whose stored excerpt is stale); every other forced run reused the stored excerpt as its
-grounding and keeps it. A kept or failed run writes none.
+grounding and keeps it, as an unforced first generation does. A kept or failed run writes none.
 """
 import asyncio
 import threading
@@ -164,14 +164,14 @@ def test_a_forced_run_kept_beside_no_excerpt_stores_none(monkeypatch):
     assert _stored(filing_id) == (1, summary_id, STORED_FULL, None)
 
 
-async def _drain_forced(filing_id, **flags):
+async def _drain_forced(filing_id, *, force_regenerate=True, **flags):
     from app.services import summary_pipeline
 
     events = []
     async for event in summary_pipeline.stream_filing_summary(
         filing_id=filing_id, current_user=None, user_id=None, telemetry_distinct_id="t",
         telemetry_entry_point=None, telemetry_ctx={}, emit_funnel_telemetry=False,
-        force_regenerate=True, **flags,
+        force_regenerate=force_regenerate, **flags,
     ):
         events.append(event)
     return events
@@ -393,6 +393,27 @@ def test_a_replacing_forced_run_without_a_rebuild_keeps_the_stored_excerpt_it_lo
     assert events[-1]["type"] == "complete"
     assert _stored(filing_id) == (
         1, summary_id if with_summary else ANY, CANONICAL_PAYLOAD["business_overview"], STORED_EXCERPT)
+
+
+@pytest.mark.parametrize("how", ["raises", "join-dropped"])
+def test_an_unforced_first_generation_that_lost_its_excerpt_keeps_the_stored_one(how):
+    # An unforced first generation (no stored summary) beside a stored excerpt, a failed earlier run's, past
+    # its 24 h window so the run reads it through get_or_cache_excerpt: when that thread raises or the join
+    # drops it, the run INSERTs its summary and the stored excerpt stays. Only a rebuild clears it.
+    from tests.support.summary_stream_harness import CANONICAL_PAYLOAD, reset_inflight, stream_boundaries
+
+    _t, _a, filing_id, _sid, _u = _seed_forced(with_summary=False)
+    _past_the_24_hour_window(filing_id)
+    reset_inflight()
+    try:
+        with stream_boundaries() as summarize, _the_run_ends_with_no_excerpt(how, STORED_EXCERPT) as builder:
+            events = asyncio.run(_drain_forced(filing_id, force_regenerate=False))
+    finally:
+        reset_inflight()
+    assert builder.call_args.kwargs == {"sections": None}
+    assert summarize.await_args.kwargs["filing_excerpt"] is None
+    assert events[-1]["type"] == "complete"
+    assert _stored(filing_id) == (1, ANY, CANONICAL_PAYLOAD["business_overview"], STORED_EXCERPT)
 
 
 @pytest.mark.parametrize("outcome", ["kept", "failed"])

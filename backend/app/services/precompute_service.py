@@ -189,13 +189,15 @@ async def precompute_one(
         result["status"] = "already_cached"
         return result
 
-    # A forced refresh never deletes the stored summary and clears nothing: the one orchestrator
-    # regenerates it IN PLACE under keep-better (force_regenerate), so its summaries.id and any
-    # saved_summaries bookmark survive, and a failed or lower-ranked run keeps it
+    # A forced refresh never deletes the stored summary and clears nothing before its run: the one
+    # orchestrator regenerates it IN PLACE under keep-better (force_regenerate), so its summaries.id and
+    # any saved_summaries bookmark survive, and a failed or lower-ranked run keeps it
     # (lessons/arch-fk-safe-bulk-deletes.md). rebuild_excerpt has the run build its excerpt with the
     # current extraction instead of reusing the stored one; the run keeps that excerpt to itself and
     # finalize stores it in the same commit as a replacing summary, so a kept summary is never left
-    # beside an excerpt it was not generated from, whatever else runs on this filing meanwhile.
+    # beside an excerpt it was not generated from, whatever else runs on this filing meanwhile. A rebuild
+    # whose summary replaces with no excerpt (its build returned nothing, raised, or the enrichment join
+    # dropped it) clears the stored, stale excerpt in that commit instead (clear_stale_excerpt).
     stored = None
     if force:
         with SessionLocal() as db:
