@@ -17,9 +17,11 @@ export function formatAnalysisPeriod(period: string, style: 'long' | 'short' = '
 }
 
 /** The one way the analysis page prints a period window: its two ends joined by an unspaced en-dash, the voice
- *  guide's range form ("FY2016–FY2025", "Q1 2024–Q4 2025"), as the exports print it (`period_label` in
- *  backend/app/services/analysis_export_metadata.py). tests/unit/analysisPeriodWindows.spec.tsx holds it. */
+ *  guide's range form ("FY2016–FY2025", "Q1 2024–Q4 2025"), and a window of one period as that period ("FY2021",
+ *  E177), as the exports print it (`period_label` in backend/app/services/analysis_export_metadata.py).
+ *  tests/unit/analysisPeriodWindows.spec.tsx holds it. */
 export function formatAnalysisWindow(start: string, end: string, style: 'long' | 'short' = 'long'): string {
+  if (start === end) return formatAnalysisPeriod(start, style)
   return `${formatAnalysisPeriod(start, style)}–${formatAnalysisPeriod(end, style)}`
 }
 
