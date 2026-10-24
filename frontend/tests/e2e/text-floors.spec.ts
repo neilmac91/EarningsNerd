@@ -404,6 +404,13 @@ test.describe('main routes at 1440x900, light theme', () => {
       const outline = await headingSkips(page)
       expect.soft(outline.dom, `skipped heading levels on ${route.name} (DOM order)`).toEqual([])
       expect.soft(outline.exposed, `skipped heading levels on ${route.name} (accessibility tree)`).toEqual([])
+      if (isAuthRoute(route.path) || route.name === 'route error boundary') {
+        // DS-04: AuthShell's form pane and the page-replacing boundary own the landmark, under
+        // the root's div#main skip target. A universal main in the root would fail this count.
+        await expect(page.getByRole('main')).toHaveCount(1)
+        await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveCount(1)
+        await expect(page.getByRole('main')).toBeVisible()
+      }
       if (!isAuthRoute(route.path)) expect.soft(outline.footer.join(' '), 'the footer opens its own h2 before its h3 column titles').toMatch(/^H2( H3)+$/)
     })
   }
