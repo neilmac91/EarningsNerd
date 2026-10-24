@@ -18,15 +18,16 @@ One rule, two halves in this one module:
   the join, the contact form and the feedback submit must send their mails, the analysis exports
   render, and Stripe checkout and the portal make their Stripe calls, with no connection out.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
-  fails a session call on the loop in the route's own body, or the session handed to a call there,
-  above that route's ceiling, so a route the burst does not list cannot add either unseen. The
-  ratchet's gaps are under its section below.
+  fails, above that route's ceiling, a session call on the loop in the route's own body, the session
+  handed to a call there, or a call there of a nested unit that uses it, so a route the burst does
+  not list cannot add one unseen in a form the ratchet counts. Its gaps are under its section below.
 """
 
 import ast
 import asyncio
 import threading
 import time
+from collections.abc import Iterator
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -1834,26 +1835,44 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 #
 # An AST walk reads every ``async def`` under ``app/routers/`` that receives a session: a parameter
 # named ``db``, annotated with ``Session`` (bare or inside ``Annotated``, or through a module-level
-# alias of either) or defaulting to ``Depends(get_db...)``, plus any name the body binds to one
-# (``s = db``, ``s: Session = db``, ``(s := db)``). It counts each use of that session in the
-# function's own body, nested ``async def`` bodies included since they run on the loop too:
+# alias of either) or defaulting to ``Depends(get_db...)``. It follows the session into each name the
+# body binds to it: by an assignment, an annotated assignment or a walrus (``s = db``,
+# ``s: Session = db``, ``(s := db)``), pairwise through unpacking (``s, n = db, 1``), by
+# ``with db as s``, and as a nested def's or lambda's default (``def unit(s=db)``). A value or an
+# argument is the session when it is such a name, or when a branch of a conditional, a boolean
+# operator or a walrus around one is (``db if flag else None``, ``db or other``).
+#
+# It counts each use of the session in the code that runs on the loop:
 #
 # - each attribute read off it (``db.query(...)``, ``db.commit()``, ``fn = db.get``);
-# - each call it is handed to, as an argument or a keyword's value (``service.read(db, 1)``,
-#   ``service.read(session=db)``, ``await service.aread(db)``), but a thread dispatcher's.
+# - each call it is handed to, as an argument or a keyword's value, once per call
+#   (``service.read(db, 1)``, ``service.read(session=db)``, ``await service.aread(db)``), but a thread
+#   dispatcher's;
+# - each call by name of a nested sync def, or of a lambda bound to a name, whose body uses the
+#   session (``unit()``): that body then runs on the loop.
 #
-# Nested sync functions and lambdas are skipped (the thread pool runs them), and so is an uncalled
-# method, or the session itself, handed straight to the thread pool (``run_in_threadpool(db.commit)``,
+# The code that runs on the loop is the function's own body, with the bodies of its nested
+# ``async def``s and classes, and the decorators and defaults of its nested sync defs and lambdas,
+# which run when they are defined. The bodies of those defs and lambdas run where they are handed,
+# normally the thread pool, so they are skipped, and so is an uncalled method, or the session itself,
+# handed straight to the thread pool (``run_in_threadpool(db.commit)``,
 # ``run_in_threadpool(service.read, db, 1)``). A thread dispatcher is a call whose last name is in
 # ``_THREAD_DISPATCHERS``.
 #
 # Strict: the walk does not look inside a callee, so it counts each call the session is handed to,
-# though a callee may never use it on the loop: ``reporting_this_week_service.get_reporting_this_week``
-# hands its read to the thread pool itself (leaving that transaction for the finalizer, E171), and
-# ``admin_account_service.create_free_account``, a refusal, never uses the session. A session handed
-# to the thread pool inside ``functools.partial`` is counted too, as partial's argument. The route
-# hands its units to ``run_in_threadpool`` itself instead, with the session among that call's own
-# arguments, and stops handing the session to a callee that never uses it.
+# though a callee may never use it on the loop. On main eight such hand-offs never do:
+# - ``reporting_this_week_service.get_reporting_this_week`` hands its read to the thread pool itself
+#   (leaving that transaction for the finalizer, E171);
+# - ``admin_account_service.create_free_account``, a refusal, never uses the session;
+# - the four OAuth starts' ``_start_google`` and ``_start_apple`` put their state write in the thread
+#   pool themselves (since #1547);
+# - the two OAuth callbacks' ``issue_session(db, ..., refresh_token=...)`` never touches the session
+#   when it is handed a token.
+# A logged or type-checked session (``logger.info("%s", db)``, ``isinstance(db, Session)``) counts too,
+# and so do a dispatcher reached through an import alias, a session inside ``functools.partial`` or a
+# generator expression handed to the thread pool, and an uncalled method handed to a dispatcher by
+# keyword. The route hands its units to ``run_in_threadpool`` itself instead, with the session among
+# that call's own arguments, and stops handing the session to a callee that never uses it.
 #
 # A function's count may not exceed its ceiling in ``ON_LOOP_CEILINGS``; an unlisted function's
 # ceiling is 0, so every new async route starts clean. The ceilings are the counts when the walk last
@@ -1863,15 +1882,21 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 # turn main red when one of them merges with fewer calls, as ``test_router_orm_ceilings_allowlist.py``
 # explains. Lowering is therefore each fixing PR's job, checked in review.
 #
-# Out of reach, and left to the burst test above for the routes it lists and to review elsewhere: a
-# session handed inside a container or a starred argument (``service.read((db, 1))``,
-# ``service.read(*[db])``), a nested sync function or lambda that closes over the session and is
-# called directly on the loop instead of through the thread pool, a session reached through an
-# attribute, a session the route opens itself from ``SessionLocal`` (it does not wait on the
-# dependency's finalizer), and an ORM instance's lazy load, or its refresh once a commit has expired
-# it (the generate stream's force branch, E104, has its own case above). ``test_walk_sees_each_form``
-# scores the walk on planted forms, the gaps and strict forms among them, so a regression in the walk
-# fails there instead of passing every router vacuously.
+# Out of reach, and left to the burst test above for the routes it lists and to review elsewhere:
+# - a session reached through a container: an argument (``service.read((db, 1))``), a starred or
+#   double-starred argument (``service.read(*[db])``, ``service.read(**{"session": db})``), a name
+#   holding one (``service.read(*args)``), a loop over one (``for s in (db,)``) or an index
+#   (``sessions[0]``);
+# - a session reached through an attribute (``holder.db``);
+# - a closure called other than by its name: a lambda called where it is written, or one handed to a
+#   callee that calls it on the loop (``service.call(lambda: db.query(...))``);
+# - a session the route opens itself from ``SessionLocal`` (it does not wait on the dependency's
+#   finalizer);
+# - an ORM instance's lazy load, or its refresh once a commit has expired it (the generate stream's
+#   force branch, E104, has its own case above).
+#
+# ``test_walk_sees_each_form`` scores the walk on planted forms, the gaps and strict forms among them,
+# so a regression in the walk fails there instead of passing every router vacuously.
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
@@ -2013,26 +2038,87 @@ def _session_params(fn: ast.AsyncFunctionDef, aliases: set[str]) -> set[str]:
     }
 
 
+def _values(node: ast.AST | None) -> Iterator[ast.AST]:
+    """What ``node`` may evaluate to: itself, or each branch of a conditional, a boolean operator or
+    a walrus around it."""
+    if isinstance(node, ast.IfExp):
+        yield from _values(node.body)
+        yield from _values(node.orelse)
+    elif isinstance(node, ast.BoolOp):
+        for value in node.values:
+            yield from _values(value)
+    elif isinstance(node, ast.NamedExpr):
+        yield from _values(node.value)
+    elif node is not None:
+        yield node
+
+
+def _is_session(node: ast.AST | None, names: set[str]) -> bool:
+    return any(isinstance(value, ast.Name) and value.id in names for value in _values(node))
+
+
+def _defaults(args: ast.arguments) -> list[tuple[str, ast.expr]]:
+    """Each parameter in ``args`` that has a default, with its default."""
+    positional = args.posonlyargs + args.args
+    pairs = list(zip((arg.arg for arg in positional[len(positional) - len(args.defaults):]), args.defaults))
+    pairs += [(arg.arg, default) for arg, default in zip(args.kwonlyargs, args.kw_defaults) if default is not None]
+    return pairs
+
+
 def _on_loop_uses(fn: ast.AsyncFunctionDef, sessions: set[str]) -> list[tuple[int, str]]:
     """``(line, use)`` for each use of the session on the loop in ``fn``: an attribute read off it,
-    or ``handed to <callee>`` for a call it is handed to."""
+    ``handed to <callee>`` for a call it is handed to, or ``calls <name> on the loop`` for a nested
+    sync def or a lambda whose body uses it, called there by its name."""
     names = set(sessions)
+    closures: set[str] = set()
     handed_to_thread: set[int] = set()
     uses: list[tuple[int, str]] = []
 
+    def bind(target: ast.AST, value: ast.AST | None) -> None:
+        if isinstance(target, (ast.Tuple, ast.List)) and isinstance(value, (ast.Tuple, ast.List)):
+            for part, part_value in zip(target.elts, value.elts):
+                bind(part, part_value)
+        elif isinstance(target, ast.Name) and _is_session(value, names):
+            names.add(target.id)
+
+    def bind_defaults(args: ast.arguments) -> None:
+        names.update(parameter for parameter, default in _defaults(args) if _is_session(default, names))
+
+    def uses_session(body: list[ast.AST]) -> bool:
+        return any(isinstance(node, ast.Name) and node.id in names for part in body for node in ast.walk(part))
+
     def visit(node: ast.AST) -> None:
-        if isinstance(node, (ast.FunctionDef, ast.Lambda, ast.ClassDef)):
-            return  # runs where it is handed, normally the thread pool
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            bind_defaults(node.args)
+        if isinstance(node, (ast.FunctionDef, ast.Lambda)):
+            # Its body runs where it is handed, normally the thread pool; its decorators and
+            # defaults run here, on the loop, when it is defined.
+            for part in [*getattr(node, "decorator_list", []), *node.args.defaults, *node.args.kw_defaults]:
+                if part is not None:
+                    visit(part)
+            if isinstance(node, ast.FunctionDef) and uses_session(node.body):
+                closures.add(node.name)
+            return
         if isinstance(node, ast.Call) and _tail(node.func) in _THREAD_DISPATCHERS:
             handed_to_thread.update(id(arg) for arg in node.args)
         elif isinstance(node, ast.Call):
             arguments = [*node.args, *(keyword.value for keyword in node.keywords)]
-            if any(isinstance(argument, ast.Name) and argument.id in names for argument in arguments):
+            if any(_is_session(argument, names) for argument in arguments):
                 uses.append((node.lineno, f"handed to {ast.unparse(node.func)}"))
-        bound = node.value if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)) else None
-        if isinstance(bound, ast.Name) and bound.id in names:
+            elif isinstance(node.func, ast.Name) and node.func.id in closures:
+                uses.append((node.lineno, f"calls {node.func.id} on the loop"))
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            names.update(target.id for target in targets if isinstance(target, ast.Name))
+            for target in targets:
+                bind(target, node.value)
+            if isinstance(node.value, ast.Lambda):
+                bind_defaults(node.value.args)
+                if uses_session([node.value.body]):
+                    closures.update(target.id for target in targets if isinstance(target, ast.Name))
+        elif isinstance(node, ast.NamedExpr):
+            bind(node.target, node.value)
+        elif isinstance(node, ast.withitem) and node.optional_vars is not None:
+            bind(node.optional_vars, node.context_expr)
         if (
             isinstance(node, ast.Attribute)
             and isinstance(node.value, ast.Name)
@@ -2049,7 +2135,7 @@ def _on_loop_uses(fn: ast.AsyncFunctionDef, sessions: set[str]) -> list[tuple[in
 
 
 def on_loop_session_uses(source: str) -> dict[str, list[tuple[int, str]]]:
-    """Every ``async def`` in ``source`` that receives a session -> its on-loop session reads.
+    """Every ``async def`` in ``source`` that receives a session -> its uses of it on the loop.
 
     A function nested in one already read is part of it; any other function is searched for
     async session functions of its own."""
@@ -2082,21 +2168,25 @@ def _router_uses() -> dict[tuple[str, str], list[tuple[int, str]]]:
     return uses
 
 
+def _over_ceilings(
+    uses: dict[Any, list[tuple[int, str]]], ceilings: dict[Any, int],
+) -> dict[Any, list[tuple[int, str]]]:
+    """Each function whose uses on the loop outnumber its ceiling (0 when unlisted), with its uses."""
+    return {key: sites for key, sites in uses.items() if len(sites) > ceilings.get(key, 0)}
+
+
 def test_async_routes_keep_the_request_session_off_the_loop():
     uses = _router_uses()
     assert len(uses) >= MIN_ASYNC_SESSION_FUNCTIONS, f"the walk found only {len(uses)} async session functions"
-    over = {
-        f"{path}::{name}": sites
-        for (path, name), sites in uses.items()
-        if len(sites) > ON_LOOP_CEILINGS.get((path, name), 0)
-    }
+    over = {f"{path}::{name}": sites for (path, name), sites in _over_ceilings(uses, ON_LOOP_CEILINGS).items()}
     assert not over, (
-        "These async routes work their request session on the event loop, or hand it to a call "
-        f"there, beyond their ceiling (line, use): {over}. Move the session work, the payload and "
-        "the release into one sync function handed to run_in_threadpool, or into a service that "
-        "reads and releases in one unit, called through run_in_threadpool with the session as its "
-        "argument: a service called with the session on the loop checks out on the loop too "
-        "(lessons/ops-release-cached-filing-reads-before-yield.md). Do not raise a ceiling to pass."
+        "These async routes work their request session on the event loop, hand it to a call there, "
+        f"or call a unit that uses it there, beyond their ceiling (line, use): {over}. Move the "
+        "session work, the payload and the release into one sync function handed to "
+        "run_in_threadpool, or into a service that reads and releases in one unit, called through "
+        "run_in_threadpool with the session as its argument: a service called with the session on "
+        "the loop checks out on the loop too (lessons/ops-release-cached-filing-reads-before-yield.md). "
+        "Do not raise a ceiling to pass."
     )
 
 
@@ -2226,6 +2316,93 @@ async def clean_service_to_the_pool(db: Session = Depends(get_db)):
     await asyncio.get_running_loop().run_in_executor(None, service.read, db)
     return await asyncio.to_thread(service.read, db, 1)
 
+async def flags_a_conditional_argument(flag: bool, db: Session = Depends(get_db)):
+    return service.read(db if flag else None)
+
+async def flags_a_boolean_argument(db: Session = Depends(get_db)):
+    return service.read(db or other)
+
+async def flags_a_walrus_argument(db: Session = Depends(get_db)):
+    service.read((held := db))
+    return held.query(Row).all()
+
+async def flags_an_alias_by_a_conditional(flag: bool, db: Session = Depends(get_db)):
+    held = db if flag else None
+    return held.query(Row).all()
+
+async def flags_an_alias_by_unpacking(db: Session = Depends(get_db)):
+    held, count = db, 1
+    return held.query(Row).limit(count).all()
+
+async def flags_an_alias_by_with(db: Session = Depends(get_db)):
+    with db as held:
+        return held.query(Row).all()
+
+async def flags_an_alias_by_a_nested_async_default(db: Session = Depends(get_db)):
+    async def inner(held=db):
+        return held.query(Row).all()
+    return await inner()
+
+async def flags_an_alias_by_a_keyword_only_default(db: Session = Depends(get_db)):
+    async def inner(*, held=db):
+        return held.query(Row).all()
+    return await inner()
+
+async def flags_a_decorator_on_a_nested_def(db: Session = Depends(get_db)):
+    @register(db)
+    def unit():
+        return 1
+    return await run_in_threadpool(unit)
+
+async def flags_a_default_on_a_nested_def(db: Session = Depends(get_db)):
+    def unit(rows=service.read(db)):
+        return rows
+    return await run_in_threadpool(unit)
+
+async def flags_a_keyword_only_default_on_a_nested_def(db: Session = Depends(get_db)):
+    def unit(*, rows=service.read(db)):
+        return rows
+    return await run_in_threadpool(unit)
+
+async def flags_a_lambda_default(db: Session = Depends(get_db)):
+    unit = lambda rows=db.query(Row).all(): rows
+    return await run_in_threadpool(unit)
+
+async def flags_a_class_body(db: Session = Depends(get_db)):
+    class Payload:
+        rows = db.query(Row).all()
+    return Payload
+
+async def flags_a_closure_called_on_the_loop(db: Session = Depends(get_db)):
+    def unit():
+        return db.query(Row).all()
+    return unit()
+
+async def flags_a_lambda_called_on_the_loop(db: Session = Depends(get_db)):
+    unit = lambda: db.query(Row).all()
+    return unit()
+
+async def flags_a_closure_over_a_default_called_on_the_loop(db: Session = Depends(get_db)):
+    def unit(held=db):
+        return held.query(Row).all()
+    return unit()
+
+async def flags_a_bare_db_parameter(db):
+    return db.query(Row).all()
+
+async def flags_a_depends_default_alone(conn=Depends(get_db)):
+    return conn.query(Row).all()
+
+async def clean_closure_called_in_the_pool(db: Session = Depends(get_db)):
+    def unit():
+        return db.query(Row).all()
+    return await run_in_threadpool(lambda: unit())
+
+async def clean_helper_called_on_the_loop(db: Session = Depends(get_db)):
+    def label(row_id):
+        return f"row {row_id}"
+    return await run_in_threadpool(service.read, db, label(1))
+
 async def strict_partial_to_the_pool(db: Session = Depends(get_db)):
     return await run_in_threadpool(functools.partial(service.read, db, 1))
 
@@ -2233,12 +2410,24 @@ async def gap_session_in_a_container(db: Session = Depends(get_db)):
     return service.read((db, 1))
 
 async def gap_session_starred(db: Session = Depends(get_db)):
-    return service.read(*[db], **{"row_id": 1})
+    return service.read(*[db], **{"session": db})
 
-async def gap_closure_called_on_the_loop(db: Session = Depends(get_db)):
-    def unit():
-        return db.query(Row).all()
-    return unit()
+async def gap_loop_over_a_container(db: Session = Depends(get_db)):
+    for held in (db,):
+        held.query(Row).all()
+
+async def gap_lambda_called_at_once(db: Session = Depends(get_db)):
+    return (lambda: db.query(Row).all())()
+
+async def gap_lambda_handed_to_a_callee(db: Session = Depends(get_db)):
+    return service.call(lambda: db.query(Row).all())
+
+async def gap_lazy_load_on_the_loop(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return user.watchlist
+
+async def gap_session_the_route_opens():
+    db = SessionLocal()
+    return service.read(db, 1)
 
 class Holder:
     db: Session
@@ -2250,8 +2439,9 @@ async def gap_session_in_an_attribute(holder: Holder):
 # Function -> how many on-loop session uses the walk must find. ``gap_`` forms break the rule but
 # are out of the walk's reach, and ``strict_`` forms keep it but are counted (the header names
 # both); they are planted so a widened or narrowed walk updates this table on purpose. The walk
-# reads no other planted function: ``clean_no_session`` and ``gap_session_in_an_attribute`` receive
-# no session, and ``clean_sync_route`` is a sync route (FastAPI runs it in the thread pool).
+# reads no other planted function: ``clean_no_session``, ``gap_session_the_route_opens`` and
+# ``gap_session_in_an_attribute`` receive no session, and ``clean_sync_route`` is a sync route
+# (FastAPI runs it in the thread pool).
 _PLANTED_COUNTS = {
     "flags_a_query_chain": 1,
     "flags_each_call_in_branches": 4,
@@ -2278,13 +2468,40 @@ _PLANTED_COUNTS = {
     "flags_a_handoff_in_a_nested_async_def": 1,
     "flags_a_handoff_and_a_read": 2,
     "clean_service_to_the_pool": 0,
+    "flags_a_conditional_argument": 1,
+    "flags_a_boolean_argument": 1,
+    "flags_a_walrus_argument": 2,
+    "flags_an_alias_by_a_conditional": 1,
+    "flags_an_alias_by_unpacking": 1,
+    "flags_an_alias_by_with": 1,
+    "flags_an_alias_by_a_nested_async_default": 1,
+    "flags_an_alias_by_a_keyword_only_default": 1,
+    "flags_a_decorator_on_a_nested_def": 1,
+    "flags_a_default_on_a_nested_def": 1,
+    "flags_a_keyword_only_default_on_a_nested_def": 1,
+    "flags_a_lambda_default": 1,
+    "flags_a_class_body": 1,
+    "flags_a_closure_called_on_the_loop": 1,
+    "flags_a_lambda_called_on_the_loop": 1,
+    "flags_a_closure_over_a_default_called_on_the_loop": 1,
+    "flags_a_bare_db_parameter": 1,
+    "flags_a_depends_default_alone": 1,
+    "clean_closure_called_in_the_pool": 0,
+    "clean_helper_called_on_the_loop": 0,
     "strict_partial_to_the_pool": 1,
     "gap_session_in_a_container": 0,
     "gap_session_starred": 0,
-    "gap_closure_called_on_the_loop": 0,
+    "gap_loop_over_a_container": 0,
+    "gap_lambda_called_at_once": 0,
+    "gap_lambda_handed_to_a_callee": 0,
+    "gap_lazy_load_on_the_loop": 0,
 }
 
 
 def test_walk_sees_each_form():
-    found = {name: len(sites) for name, sites in on_loop_session_uses(_PLANTED).items()}
-    assert found == _PLANTED_COUNTS
+    planted = on_loop_session_uses(_PLANTED)
+    assert {name: len(sites) for name, sites in planted.items()} == _PLANTED_COUNTS
+    # The ceiling check on the same uses: an unlisted function's ceiling is 0, and a count at its
+    # ceiling passes.
+    assert set(_over_ceilings(planted, {})) == {name for name, count in _PLANTED_COUNTS.items() if count}
+    assert _over_ceilings(planted, _PLANTED_COUNTS) == {}

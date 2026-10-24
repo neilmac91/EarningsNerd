@@ -101,12 +101,14 @@ customer to its own account, and a single request makes each Stripe call with no
 (2026-10-23, E144).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
-routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with
-E118's fix undone, the watchlist remove fails it). Its ceilings hold the routes that still hand their
-session to a service on the loop at their counts (the rest of the auth router, E121, and 31 routes in
-seven other routers, E171), so none can add a hand-off and a new route starts at 0. Neither half sees
-a form the ratchet's header puts out of its reach (a session inside a container, a closure called on
-the loop) where the burst does not list the route, or a background task's own session worked on the loop
+routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's, or a
+call there of a nested unit that uses it (with the dashboard feed's unit composed on the loop, a route
+no burst lists, it fails while main's file passed). Its ceilings hold the routes that still hand their
+session to a call on the loop at their counts (the rest of the auth router, E121, and 31 routes in
+seven other routers, E171; eight of those hand-offs, the header's strict ones, use no connection on
+the loop), so none can add one in a form the ratchet counts and a new route starts at 0. Neither half
+sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called
+where it is written) where the burst does not list the route, or a background task's own session worked on the loop
 (E123 moved the company list's units into the thread pool, `test_filings_endpoint_db_first.py`'s
 off-the-loop cases; the flag-off job runners are E150), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.
