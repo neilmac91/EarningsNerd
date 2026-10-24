@@ -269,7 +269,10 @@ on the same commit as this report's base (`a41c6e4`):
 - PostgreSQL 16.
 - `uvicorn main:app` with `ENVIRONMENT=development` and the production model provider (DeepSeek,
   `deepseek-flash`). The DeepSeek balance read USD 44.97 before the first run, under a USD 0.25
-  ceiling.
+  ceiling. The backend log records exactly one model call for the whole study: `analysis_chat`,
+  `deepseek-flash`, estimated USD 0.000206. Every later run served that narrative from cache. The
+  balance read USD 43.85 afterwards. The key is shared, and other usage accounts for the rest of
+  the drop.
 - `next dev` with `NEXT_PUBLIC_ENABLE_ANALYSIS=true`, `NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS=true`
   and `WAITLIST_MODE=false`.
 - A local Pro user.
