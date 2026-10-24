@@ -92,7 +92,7 @@ Pairwise preference (judged pairs: 60; a verdict counts only when both orders ag
 | current vs claude-sonnet-5-5 | 0 | 9 | 1 | consensus of claude-opus-5-5 + deepseek-v4-pro (10) |
 | current vs deepseek-flash | 1 | 8 | 1 | claude-opus-5-5 (10) |
 | deepseek-flash vs claude-haiku-5-5-low | 0 | 0 | 10 | consensus of claude-opus-5-5 + deepseek-v4-pro (10) |
-| deepseek-flash vs claude-sonnet-5-5 | 1 | 0 | 9 | consensus of claude-opus-5-5 + deepseek-v4-pro (8); gemma-4-31b (2) |
+| deepseek-flash vs claude-sonnet-5-5 | 1 | 1 | 8 | consensus of claude-opus-5-5 + deepseek-v4-pro (7); gemma-4-31b (3) |
 
 Consensus panels (one judge from each output's family; a verdict only when both agree):
 
@@ -117,13 +117,13 @@ Each judge's own verdicts (both orders agreeing), before the panel combines them
 | deepseek-flash vs claude-haiku-5-5-low | deepseek-v4-pro | 3 | 0 | 7 |
 | deepseek-flash vs claude-sonnet-5-5 | claude-opus-5-5 | 0 | 10 | 0 |
 | deepseek-flash vs claude-sonnet-5-5 | deepseek-v4-pro | 3 | 0 | 7 |
-| deepseek-flash vs claude-sonnet-5-5 | gemma-4-31b | 1 | 0 | 1 |
+| deepseek-flash vs claude-sonnet-5-5 | gemma-4-31b | 1 | 1 | 1 |
 
 Position-swap agreement on the overall verdict:
 
 - claude-opus-5-5: 94% of 50 pairs
 - deepseek-v4-pro: 52% of 50 pairs
-- gemma-4-31b: 50% of 2 pairs
+- gemma-4-31b: 67% of 3 pairs
 - between the judges of a two-judge panel: 48% of 40 pairs
 
 ## holdout: 10 companies
@@ -337,7 +337,7 @@ Pairwise preference (judged pairs: 120; a verdict counts only when both orders a
 | current vs claude-sonnet-5-5 | 0 | 19 | 1 | consensus of claude-opus-5-5 + deepseek-v4-pro (20) |
 | current vs deepseek-flash | 2 | 15 | 3 | claude-opus-5-5 (20) |
 | deepseek-flash vs claude-haiku-5-5-low | 0 | 0 | 20 | consensus of claude-opus-5-5 + deepseek-v4-pro (20) |
-| deepseek-flash vs claude-sonnet-5-5 | 2 | 1 | 17 | consensus of claude-opus-5-5 + deepseek-v4-pro (15); gemma-4-31b (5) |
+| deepseek-flash vs claude-sonnet-5-5 | 2 | 2 | 16 | consensus of claude-opus-5-5 + deepseek-v4-pro (14); gemma-4-31b (6) |
 
 Consensus panels (one judge from each output's family; a verdict only when both agree):
 
@@ -362,13 +362,13 @@ Each judge's own verdicts (both orders agreeing), before the panel combines them
 | deepseek-flash vs claude-haiku-5-5-low | deepseek-v4-pro | 4 | 0 | 16 |
 | deepseek-flash vs claude-sonnet-5-5 | claude-opus-5-5 | 1 | 18 | 1 |
 | deepseek-flash vs claude-sonnet-5-5 | deepseek-v4-pro | 4 | 0 | 16 |
-| deepseek-flash vs claude-sonnet-5-5 | gemma-4-31b | 2 | 1 | 2 |
+| deepseek-flash vs claude-sonnet-5-5 | gemma-4-31b | 2 | 2 | 2 |
 
 Position-swap agreement on the overall verdict:
 
 - claude-opus-5-5: 92% of 100 pairs
 - deepseek-v4-pro: 50% of 100 pairs
-- gemma-4-31b: 60% of 5 pairs
+- gemma-4-31b: 67% of 6 pairs
 - between the judges of a two-judge panel: 52% of 80 pairs
 
 ## Cost at volume (fresh generations per month, API list prices)

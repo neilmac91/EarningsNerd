@@ -42,7 +42,7 @@ grounding rule waits for approval (`GROUNDING-RULE.md`).
     as analysis.
   - The judge evidence on the head-to-head is mixed. Opus prefers Sonnet 18–1, mostly on grounding and
     calibration. DeepSeek V4 Pro is position-biased and inconclusive. Gemma 4 31B, the neutral judge, has
-    judged 5 of 20 pairs so far (DeepSeek 2, Sonnet 1, 2 splits) and has not yet confirmed Opus's margin.
+    judged 6 of 20 pairs so far (Sonnet 2, DeepSeek 2, 2 splits) and has not yet confirmed Opus's margin.
     The recommendation therefore rests mainly on the judge-free measures, and it should be confirmed by the
     blind human pack before launch.
   - DeepSeek remains the budget option once two evidence gaps are fixed.
@@ -409,7 +409,7 @@ all 4. The gate alone caught 2 of the 11.
 | Judgements marked as analysis | 0.7% of sentences | 8.8% | 11.6% |
 | Opus judge, head to head with DeepSeek | — | Haiku 16–1 | Sonnet 18–1 |
 | V4 Pro judge, head to head with DeepSeek | — | DeepSeek 4–0, 16 position splits | DeepSeek 4–0, 16 position splits |
-| Gemma 4 31B (neutral), head to head with DeepSeek | — | pending (follow-up) | Sonnet 1, DeepSeek 2, 2 position splits (5 of 20 so far) |
+| Gemma 4 31B (neutral), head to head with DeepSeek | — | pending (follow-up) | Sonnet 2, DeepSeek 2, 2 position splits (6 of 20 so far) |
 | List cost per fresh analysis, repairs included | $0.0056 | $0.018 | $0.18 |
 | Latency p50 / p90 | 10 s / 16 s | 89 s / 112 s | 57 s / 65 s |
 
@@ -420,9 +420,9 @@ all 4. The gate alone caught 2 of the 11.
   - Opus is a Claude-family judge with a possible self-preference, but its rationales cite checkable errors,
     and its preference rests on grounding and calibration, not on depth, where it rated DeepSeek against
     Sonnet a tie on 13 of 20.
-  - Gemma 4 31B is the neutral check. At the time of writing it had judged 5 of the 20 DeepSeek-against-
-    Sonnet pairs: DeepSeek 2 (SNAP and RIVN), Sonnet 1 (VRTX) and 2 position splits. That is too few to
-    settle anything, and so far it does not show Opus's margin. The free tier answers slowly, with
+  - Gemma 4 31B is the neutral check. At the time of writing it had judged 6 of the 20 DeepSeek-against-
+    Sonnet pairs: Sonnet 2 (VRTX and COST), DeepSeek 2 (SNAP and RIVN) and 2 position splits (REGN and USB).
+    That is too few to settle anything, and so far it does not show Opus's margin. The free tier answers slowly, with
     intermittent server errors, so the remaining pairs and the DeepSeek-against-Haiku pairs complete in the
     scheduled follow-up (§11), which updates this section.
 
@@ -474,12 +474,12 @@ companies, and a judge's verdict counts only when both orders agree.
 | Current vs DeepSeek flash | 2 · 15 · 3 (claude-opus-5-5 (20)) | 2 · 15 · 3 | not run (own family) | not run |
 | Current vs Sonnet 5.5 | 0 · 19 · 1 (consensus of claude-opus-5-5 + deepseek-v4-pro (20)) | 0 · 19 · 1 | 0 · 20 · 0 | not run |
 | Current vs Haiku 5.5 low | 0 · 20 · 0 (consensus of claude-opus-5-5 + deepseek-v4-pro (20)) | 0 · 20 · 0 | 0 · 20 · 0 | not run |
-| DeepSeek flash vs Sonnet 5.5 | 2 · 1 · 17 (gemma-4-31b (5); consensus of claude-opus-5-5 + deepseek-v4-pro (15)) | 1 · 18 · 1 | 4 · 0 · 16 | 2 · 1 · 2 |
+| DeepSeek flash vs Sonnet 5.5 | 2 · 2 · 16 (gemma-4-31b (6); consensus of claude-opus-5-5 + deepseek-v4-pro (14)) | 1 · 18 · 1 | 4 · 0 · 16 | 2 · 2 · 2 |
 | DeepSeek flash vs Haiku 5.5 low | 0 · 0 · 20 (consensus of claude-opus-5-5 + deepseek-v4-pro (20)) | 1 · 16 · 3 | 4 · 0 · 16 | not run |
 | Sonnet 5.5 vs Haiku 5.5 low | 2 · 0 · 18 (deepseek-v4-pro (20)) | not run (own family) | 2 · 0 · 18 | not run |
 
 Position-swap agreement on the overall verdict: Claude Opus 5.5 92% of 100 pairs, DeepSeek V4 Pro 50% of 100,
-Gemma 4 31B 60% of 5 pairs. Raw verdicts, both orders, with rationales: `runs/eval-v1/judge/<judge>/`.
+Gemma 4 31B 67% of 6 pairs. Raw verdicts, both orders, with rationales: `runs/eval-v1/judge/<judge>/`.
 
 **(c) Blind preference pack for finance-literate raters.** `human-pack/` holds the pack: the current analysis
 against the proposed one for REGN, SNAP, JPM, COST and VRTX.
@@ -584,7 +584,7 @@ changed.
   run, before the quota ran out, so it is not in the comparison. A follow-up session is scheduled for 07:20 UTC
   on 25 October to generate its 20 companies over one or two days of quota, judge it against the other
   systems, and update this report. Gemma 4 31B, from the same free tier, stood in as the neutral judge; it
-  had judged 5 of its 40 pairs when this report was written, and the follow-up completes it.
+  had judged 6 of its 40 pairs when this report was written, and the follow-up completes it.
 - **Self-preference.** No judge from outside both families was available at full strength for the
   DeepSeek-against-Claude pairs. Opus's preference for Claude outputs may include self-preference. §7.6
   weighs it against the objective measures, which do not depend on a judge, and against Gemma.

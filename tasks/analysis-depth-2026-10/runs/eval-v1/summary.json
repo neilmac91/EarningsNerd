@@ -161,8 +161,8 @@
     "judged_pairs": 60,
     "incomplete_panels": 0,
     "panels": {
-     "consensus": 38,
-     "neutral": 22
+     "consensus": 37,
+     "neutral": 23
     },
     "wins": {
      "deepseek-flash|claude-haiku-5-5-low": {
@@ -170,7 +170,8 @@
      },
      "deepseek-flash|claude-sonnet-5-5": {
       "deepseek-flash": 1,
-      "tie": 9
+      "tie": 8,
+      "claude-sonnet-5-5": 1
      },
      "current|deepseek-flash": {
       "deepseek-flash": 8,
@@ -208,8 +209,8 @@
       "consensus of claude-opus-5-5 + deepseek-v4-pro": 10
      },
      "deepseek-flash|claude-sonnet-5-5": {
-      "gemma-4-31b": 2,
-      "consensus of claude-opus-5-5 + deepseek-v4-pro": 8
+      "gemma-4-31b": 3,
+      "consensus of claude-opus-5-5 + deepseek-v4-pro": 7
      },
      "current|deepseek-flash": {
       "claude-opus-5-5": 10
@@ -252,11 +253,12 @@
        "tie": 9
       },
       "grounding": {
-       "tie": 10
+       "tie": 9,
+       "claude-sonnet-5-5": 1
       },
       "coverage": {
-       "deepseek-flash": 2,
-       "tie": 8
+       "deepseek-flash": 1,
+       "tie": 9
       },
       "clarity": {
        "tie": 10
@@ -356,6 +358,7 @@
       },
       "gemma-4-31b": {
        "deepseek-flash": 1,
+       "claude-sonnet-5-5": 1,
        "tie": 1
       },
       "deepseek-v4-pro": {
@@ -403,8 +406,8 @@
       50
      ],
      "gemma-4-31b": [
-      0.5,
-      2
+      0.6666666666666666,
+      3
      ]
     },
     "between_judges": [
@@ -2477,8 +2480,8 @@
     "judged_pairs": 120,
     "incomplete_panels": 0,
     "panels": {
-     "consensus": 75,
-     "neutral": 45
+     "consensus": 74,
+     "neutral": 46
     },
     "wins": {
      "current|claude-sonnet-5-5": {
@@ -2495,8 +2498,8 @@
      },
      "deepseek-flash|claude-sonnet-5-5": {
       "deepseek-flash": 2,
-      "claude-sonnet-5-5": 1,
-      "tie": 17
+      "claude-sonnet-5-5": 2,
+      "tie": 16
      },
      "current|claude-haiku-5-5-low": {
       "claude-haiku-5-5-low": 20
@@ -2532,8 +2535,8 @@
       "claude-opus-5-5": 20
      },
      "deepseek-flash|claude-sonnet-5-5": {
-      "gemma-4-31b": 5,
-      "consensus of claude-opus-5-5 + deepseek-v4-pro": 15
+      "gemma-4-31b": 6,
+      "consensus of claude-opus-5-5 + deepseek-v4-pro": 14
      },
      "current|claude-haiku-5-5-low": {
       "consensus of claude-opus-5-5 + deepseek-v4-pro": 20
@@ -2610,12 +2613,12 @@
        "tie": 17
       },
       "grounding": {
-       "tie": 18,
-       "claude-sonnet-5-5": 2
+       "tie": 17,
+       "claude-sonnet-5-5": 3
       },
       "coverage": {
-       "deepseek-flash": 2,
-       "tie": 18
+       "deepseek-flash": 1,
+       "tie": 19
       },
       "clarity": {
        "tie": 20
@@ -2702,7 +2705,7 @@
       },
       "gemma-4-31b": {
        "deepseek-flash": 2,
-       "claude-sonnet-5-5": 1,
+       "claude-sonnet-5-5": 2,
        "tie": 2
       },
       "deepseek-v4-pro": {
@@ -2735,8 +2738,8 @@
       100
      ],
      "gemma-4-31b": [
-      0.6,
-      5
+      0.6666666666666666,
+      6
      ]
     },
     "between_judges": [
