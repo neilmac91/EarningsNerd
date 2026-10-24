@@ -36,17 +36,19 @@ currency only. The repair does not demote the rows an older sync stored in anoth
 under a filing that reports in another currency (USD convenience rows, a switcher's years before
 the switch); only the companyfacts sync does that. Sync such a company first
 (`POST /internal/jobs/sync-companyfacts` with `"force": true`), then preview its repair. Otherwise,
-after the apply, both currencies are current for the same periods. The sync never demotes a row in
-the currency it reads from a filing that SEC's companyfacts response does not name and that was
-filed strictly after the response's newest filing, where that filing's date is known (its Filing
-row's, else the row's recorded `filed_at`); a row with no known date, or filed the same day, is not
-protected. Where such a filing is an annual report that holds a current row, whose rows read
-another currency (more of them than any other, over two period-ends), and that reports a period at
-least as late as the response's own latest annual report, the response predates a switch of the
-reporting currency: the sync stores nothing from it and keeps only that currency current, demoting
-too its convenience rows under the filings the response reads in the old one. Otherwise a newer filing's row in another currency (a
-stray, or a quarterly report ahead of the annual report) is demoted, and an older response still
-demotes the rows of a newer filing in another currency that it names or cannot protect. So run the
+after the apply, both currencies are current for the same periods. Unless a newer filing proves a
+switch (below), the sync never demotes a row in the currency it reads from a filing that SEC's
+companyfacts response does not name and that was filed strictly after the response's newest filing,
+where that filing's date is known (its Filing row's, else the row's recorded `filed_at`); a row
+with no known date, or filed the same day, is not protected. A switch is proven where such a filing
+is an annual report that holds a current row, whose rows read another currency (more of them than any
+other, over two period-ends), and that reports a period at least as late as the report that decides
+the response's currency: the response predates a switch of the reporting currency, so the sync
+stores nothing from it and keeps only that currency current, demoting the newer filings' rows in
+the currency it reads too, and that currency's convenience rows under the filings the response
+reads in another currency. Otherwise a newer filing's row in another currency (a stray, or a
+quarterly report ahead of the annual report) is demoted, and an older response still demotes the
+rows of a newer filing in another currency that it names or cannot protect. So run the
 sync once companyfacts shows the company's latest filing. The sync makes its own row current at a period that
 holds none, but never a row this repair quarantined, for any reason (a rolled-back insert among
 them): those periods stay gaps. The sync leaves one thing for this repair: an annual ratio (a

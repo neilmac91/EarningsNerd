@@ -1052,6 +1052,17 @@ def _with_older_year_cny_amendment(payload, filed="2025-09-01"):
     return payload
 
 
+def _with_the_first_20f_in_eur(payload):
+    """``_switched_to_usd_payload``'s 20F-2022 reporting in EUR: its CNY and CNY/shares items (FY2022 and its
+    FY2021 comparative) move to EUR lists, its USD convenience year stays, so its own currency is a third one."""
+    for node in payload["facts"]["us-gaap"].values():
+        for unit in [unit for unit in node["units"] if unit.startswith("CNY")]:
+            first = [item for item in node["units"][unit] if item["accn"] == "20F-2022"]
+            node["units"][unit] = [item for item in node["units"][unit] if item["accn"] != "20F-2022"]
+            node["units"]["EUR" + unit[3:]] = first
+    return payload
+
+
 class TestFilingCurrencies:
     """The per-filing pick on its own: the series currency, and the filings the collector never reads."""
 
@@ -1576,7 +1587,8 @@ class TestNativeReportingCurrencySync:
         # margin current beside the newer filing's; here one is set current anyway, at FY2023 under
         # 20F-2024 beside 20F-2025's. The stale CNY payload predates the switch 20F-2025 proves, so its
         # sync stores nothing, demotes only amount and per-share rows in another currency than USD
-        # (none here), and replaces no ratio: that margin stays current, as the fresh sync leaves it.
+        # (none here), and replaces no ratio: that margin stays current until the fresh sync, which
+        # demotes it (computed from CNY operands) and keeps 20F-2025's.
         from app.database import SessionLocal
         from app.models import FinancialFact
 
@@ -1797,7 +1809,8 @@ class TestNativeReportingCurrencySync:
         db.close()
 
     @pytest.mark.parametrize("seeded", ["usd-lists-then-the-per-filing-writer", "main-after-the-switch",
-                                        "usd-lists-then-the-per-filing-writers-own-rule"])
+                                        "usd-lists-then-the-per-filing-writers-own-rule",
+                                        "usd-lists-then-the-per-filing-writer-a-first-20-f-in-eur"])
     def test_a_stale_payload_across_a_switch_demotes_the_convenience_rows_earlier_syncs_stored(self, seeded):
         # Earlier syncs stored each CNY 20-F's USD convenience year under that 20-F: before #1365 every sync
         # read the USD lists only, and main kept the USD list after a switch, 20F-2025's rows among them.
@@ -1806,10 +1819,12 @@ class TestNativeReportingCurrencySync:
         # Filing row counts as newer, so 20F-2025's FY2023-24 rows are stored behind the convenience rows and
         # only FY2025 is current, with no free cash flow derived here; its rows vote, current or not). Then a
         # payload that predates the switch is synced. 20F-2025 proves the switch, so the sync stores nothing;
-        # the convenience rows are in USD, but this payload reads their filings as CNY, so it demotes them
-        # too, as the sync that names 20F-2025 does: FY2022 is a gap, not 20F-2022's translation at 6.34
-        # (FY2023 growth -7.8% where the filer reported +1.8%). Demoting only the rows outside USD left them
-        # current.
+        # the convenience rows are in USD, but this payload reads their filings in another currency, so it
+        # demotes them too, as the sync that names 20F-2025 does: FY2022 is a gap, not 20F-2022's translation
+        # at 6.34 (FY2023 growth -7.8% where the filer reported +1.8%). Demoting only the rows outside USD
+        # left them current. In the last case 20F-2022 reports in EUR, a third currency (neither the payload's
+        # CNY nor the switch's USD), so its USD row is demoted though that filing is foreign to the payload:
+        # demoting only under filings the payload reads in its own currency left FY2022 current.
         from app.database import SessionLocal
         from app.models import FinancialFact
         from app.services import trend_analysis_service
@@ -1817,11 +1832,16 @@ class TestNativeReportingCurrencySync:
         db = SessionLocal()
         company = _new_company(db)
         tag = f"-{uuid.uuid4().hex[:8]}"
-        seed = _switched_to_usd_payload(switched=seeded == "main-after-the-switch")
-        svc.upsert_facts_bulk(db, svc.normalize_companyfacts(company.id, _usd_lists(_suffixed(seed, tag)))[0])
+
+        def payload(switched):
+            data = _switched_to_usd_payload(switched=switched)
+            return _suffixed(_with_the_first_20f_in_eur(data) if seeded.endswith("in-eur") else data, tag)
+
+        seed = payload(switched=seeded == "main-after-the-switch")
+        svc.upsert_facts_bulk(db, svc.normalize_companyfacts(company.id, _usd_lists(seed))[0])
         if seeded != "main-after-the-switch":
             own_rule = seeded.endswith("own-rule")
-            _store_per_filing(db, company, _suffixed(_switched_to_usd_payload(), tag), f"20F-2025{tag}", "20-F",
+            _store_per_filing(db, company, payload(switched=True), f"20F-2025{tag}", "20-F",
                               "2025-07-23", lambda fact: None if own_rule and fact["concept"] == "free_cash_flow" else fact,
                               writer=svc.upsert_facts if own_rule else None)
         stored = db.query(FinancialFact).filter_by(company_id=company.id).count()
@@ -1829,7 +1849,7 @@ class TestNativeReportingCurrencySync:
         def amounts():
             return {row for row in _current_rows(db, company.id) if row[3] != "pure"}
 
-        stale = _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
+        stale = _checked_sync(db, company, payload(switched=False))
         _one_currency_per_concept(db, company.id)
         assert (stale["inserted"], stale["skipped"], db.query(FinancialFact).filter_by(company_id=company.id).count()) == (
             0, 0, stored)
@@ -1841,7 +1861,7 @@ class TestNativeReportingCurrencySync:
             "USD", [None, None if seeded.endswith("own-rule") else pytest.approx(_CNY_REVENUE[1] / 7)])
         amounts_after_stale = amounts()
 
-        _checked_sync(db, company, _suffixed(_switched_to_usd_payload(), tag), final=True)
+        _checked_sync(db, company, payload(switched=True), final=True)
         if seeded.endswith("own-rule"):  # 20F-2025's FY2023-24 rows stay behind until the fresh sync promotes them
             assert sorted(end.year for concept, end, *_rest in amounts_after_stale if concept == "revenue") == [2025]
             assert amounts_after_stale < amounts()

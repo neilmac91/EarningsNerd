@@ -433,11 +433,16 @@ unused since generation became account-required in #619; kept because migrations
   per-share row of its concepts in another currency than the switch's, and every one in that
   currency under a filing the payload reads in another (a convenience translation earlier syncs
   stored); nothing is promoted and no ratio is replaced. Its current amount and per-share rows are
-  those the sync that names the newer report converges to, with gaps before the switch, or fewer
-  where the per-filing writer stored that report's rows behind older ones: the payload's own rows
-  stored current would mix the old currency into the new one's series across years (a wrong number
-  is worse than a gap), and stored not current they would hold identities a later sync skips and
-  never promotes. Without a proof, a newer filing's row outside the payload's series currency (a
+  those a sync whose payload names every stored filing converges to, with gaps before the switch,
+  or fewer wherever that sync would make current a row not current now (that report's rows the
+  per-filing writer stored behind older ones, a new-currency quarterly report's rows an earlier sync
+  demoted, or, on a switch back, the older filings' rows in the new currency, which no sync reading
+  the other currency stored). They are more in one shape: a row in the new currency under a newer
+  filing the payload does not name, which that sync reads in another currency, stays current until
+  that sync runs. The sync stores nothing because the payload's own rows stored current would mix
+  the old currency into the new one's series across years (a wrong number is worse than a gap), and
+  stored not current they would hold identities a later sync skips and never promotes. Without a
+  proof, a newer filing's row outside the payload's series currency (a
   stray, or a quarterly report's rows ahead of the annual report that switches) is not protected:
   the sync that names its filing would demote it, so this one does, and no period holds two
   currencies. A newer filing in the payload's own currency proves no switch, so a lagging payload

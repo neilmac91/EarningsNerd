@@ -18,9 +18,9 @@ live here too, so the per-filing pick counts exactly the periods ``companyfacts`
 demotion reads the very pick the collector read. Where a newer annual report the payload does not
 show yet, reporting a period at least as late as the payload's own deciding report, proves the
 series switched currency (``_proven_switch``), the sync writes nothing from the payload and leaves
-only that currency current, outside the old currency's filings: a wrong number is worse than a gap,
-and the payload's own rows, current at the periods only it presents, would mix the old currency into
-the new one's series across years.
+only that currency current, outside the filings the payload reads in another currency: a wrong
+number is worse than a gap, and the payload's own rows, current at the periods only it presents,
+would mix the old currency into the new one's series across years.
 """
 from __future__ import annotations
 
@@ -378,8 +378,13 @@ def demote_convenience_rows(db: Session, facts: list[dict[str, Any]], view: Payl
     each in the switch's currency under a filing whose own currency, as this payload reads it
     (``view.own``), is another: the convenience translations the sync that names that report demotes
     too. Nothing is promoted and no ratio is replaced, so the current amount and per-share rows are
-    those that sync converges to, with gaps before the switch, or fewer where the per-filing writer
-    stored the report's rows behind older ones.
+    those a sync whose payload names every stored filing converges to (gaps before the switch), or
+    fewer wherever that sync would make current a row not current now: the report's rows the
+    per-filing writer stored behind older ones, a quarterly report's rows in the switch's currency
+    that an earlier sync demoted, and, on a switch back, the older filings' rows in that currency,
+    which no sync reading the other currency stored. They are more in one shape: a row in the
+    switch's currency under a newer filing this payload does not name, which that sync reads in
+    another currency, stays current until that sync runs.
     """
     from app.models import FinancialFact  # lazy: the pure normalizers import this module
 
