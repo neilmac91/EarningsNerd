@@ -794,14 +794,16 @@ passes every existing admission check. A citation rejection combined with a miss
 source, an undeclared referenced literal or a quoted section label is ineligible for regeneration.
 Until 2026-10-16 an excerpt under the 24-character floor and a twice-declared ID were ineligible too.
 On the sections source production uses, every retained BABA withhold of that day was one of those two,
-so it had no recovery ([evidence](../../tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md)). The regeneration's system message
+so it had no recovery ([evidence](../../tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md)). After a
+decision-F or citation rejection the regeneration's system message
 appends `_EVIDENCE_RETRY_GUIDANCE`; after a citation failure (`_RegenerableEvidenceMismatch`, chosen by
 the owned class, never from candidate text) it also appends `_CITATION_EXCERPT_RETRY_GUIDANCE`, which
 names the table-text shapes that fail and the two that verify: no text citation for a figure that has
 its `[F#]`, or one whole sentence or the whole row exactly as the filing shows it. After a trailer
-rejection (`_RegenerableCitationTrailer`, also chosen by the owned class) it appends
-`_CITATION_TRAILER_RETRY_GUIDANCE` alone, because that candidate never reached source matching: write the
-citations line at most once with exactly one JSON array, then only the followups block. The decision-F
+rejection (`_RegenerableCitationTrailer`, also chosen by the owned class) it appends nothing: that candidate
+never reached source matching, so the regeneration is a fresh sample whose system message is `SYSTEM_PROMPT`
+unchanged, the composition every first generation runs and is measured on. (A one-array guidance text for it,
+composition `863fb9b91a4e`, was drafted in #1551 and withdrawn unmeasured.) The decision-F
 guidance is unchanged (that retry's bytes move only with `SYSTEM_PROMPT`), and the first generation
 never sees any guidance text.
 Admission checks run in order (envelope, citations, final numbering, decision F) and the first rejection
@@ -831,7 +833,7 @@ to them is review-checked. #1111's revision was measured only on the regex fallb
 | `d46ef28f000a` | `f3b340db1e35` | `f3b340db1e35` | — | #1111, 2026-10-07 | the regex fallback only (sections absent 2026-10-06 to #1350) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
 | `d46ef28f000a` | `f3b340db1e35` | `ae01453ef90d` | — | 2026-10-16, citation retry | sections: run 38860895429, 17/18 (one BABA row withheld after its retry) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
 | `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | — | 2026-10-16, whole-row rule | sections: run 38878772611, 18/18 with no retry (pre-registered); merging also required the merge head's own 18/18 draw (README) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
-| `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | `863fb9b91a4e` | 2026-10-23, trailer retry | not yet measured: no draw has recorded a trailer retry (README) | `tasks/review-evidence/copilot-citation-trailer-retry-2026-10-23/README.md` |
+| `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | `c221b7e3c5c2` | #1551, 2026-10-24, trailer retry | sections: byte-identical to the first generation (row above; 1,530 first generations since #1360, step 0 in README) | `tasks/review-evidence/copilot-citation-trailer-retry-2026-10-23/README.md` |
 
 Copilot publishes answer prose only in its final admitted completion. Fixed progress and tool
 activity remain live. The browser rejects malformed or known-unverified completion payloads,

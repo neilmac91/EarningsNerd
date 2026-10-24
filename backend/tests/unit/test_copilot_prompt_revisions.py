@@ -23,7 +23,7 @@ REVISIONS = [
     ("d46ef28f000a", "f3b340db1e35", "f3b340db1e35", "—"),
     ("d46ef28f000a", "f3b340db1e35", "ae01453ef90d", "—"),
     ("c221b7e3c5c2", "34d01dadbac0", "bf240eb01f4c", "—"),
-    ("c221b7e3c5c2", "34d01dadbac0", "bf240eb01f4c", "863fb9b91a4e"),
+    ("c221b7e3c5c2", "34d01dadbac0", "bf240eb01f4c", "c221b7e3c5c2"),
 ]
 COLUMNS = ["First generation", "Decision-F retry", "Citation retry", "Trailer retry"]
 REPO = Path(__file__).resolve().parents[3]
@@ -36,7 +36,9 @@ def _prefix(text: str) -> str:
 
 
 def _retry(exc: Exception) -> str:
-    return prompt.SYSTEM_PROMPT + "\n\n" + prompt._retry_guidance(exc, copilot_service._RETRYABLE_QUOTATION_FAILURES)
+    """The regeneration's system message as the service builds it: an empty guidance appends nothing."""
+    guidance = prompt._retry_guidance(exc, copilot_service._RETRYABLE_QUOTATION_FAILURES)
+    return prompt.SYSTEM_PROMPT + ("\n\n" + guidance if guidance else "")
 
 
 def _trailer_rejection() -> Exception:
@@ -89,7 +91,7 @@ def test_a_quotation_retry_never_sees_the_citation_guidance():
     _first, f_retry, citation_retry, trailer_retry = current_compositions()
     assert len({f_retry, citation_retry, trailer_retry}) == 3
     assert prompt._retry_guidance(_UnpublishableAnswer("Unverified or ambiguous referenced citation"),
-                                  copilot_service._RETRYABLE_QUOTATION_FAILURES) == ""
+                                  copilot_service._RETRYABLE_QUOTATION_FAILURES) is None
 
 
 def test_every_owned_retry_class_sends_a_recorded_composition():
@@ -105,5 +107,5 @@ def test_every_owned_retry_class_sends_a_recorded_composition():
     rejections = [cls("owned reason") for cls in owned(_UnpublishableAnswer)]
     rejections += [_UnpublishableAnswer(reason) for reason in copilot_service._RETRYABLE_QUOTATION_FAILURES]
     sent = {_prefix(_retry(exc)) for exc in rejections
-            if prompt._retry_guidance(exc, copilot_service._RETRYABLE_QUOTATION_FAILURES)}
+            if prompt._retry_guidance(exc, copilot_service._RETRYABLE_QUOTATION_FAILURES) is not None}
     assert sent == set(current_compositions()[1:])

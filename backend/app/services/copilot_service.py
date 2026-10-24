@@ -253,8 +253,8 @@ async def answer_filing_question(
 ) -> AsyncGenerator[dict, None]:
     """Publish one admitted answer, privately regenerating one mismatched evidence or citation-trailer candidate.
 
-    Both generations share the original source, usage accounting and provider deadline; rejected prose is
-    never exposed or reused. An incomplete array or other failure is terminal; a cut-off followups line is a trailer.
+    Both generations share the original source, usage accounting and provider deadline; rejected prose is never
+    exposed or reused. A trailer (cut-off followups line too) re-samples SYSTEM_PROMPT; an incomplete array is terminal.
     """
     try:
         source_text = _select_source_text(filing) or ""
@@ -262,7 +262,7 @@ async def answer_filing_question(
         usage_sink: dict[str, Any] = {}
         deadline = chat_deadline()
         provider_started = False
-        retry_guidance = ""
+        retry_guidance: Optional[str] = ""
         for attempt in range(2):
             candidate = _answer_filing_question_attempt(
                 filing=filing, question=question, history=history,
@@ -280,8 +280,8 @@ async def answer_filing_question(
             except _UnpublishableAnswer as exc:
                 # Fixed owned reasons only. The discarded answer is never put into a new prompt.
                 logger.warning("Copilot candidate withheld at citation publication boundary: %s", exc)
-                retry_guidance = _retry_guidance(exc, _RETRYABLE_QUOTATION_FAILURES) if attempt == 0 else ""
-                if retry_guidance and asyncio.get_running_loop().time() < deadline:
+                retry_guidance = _retry_guidance(exc, _RETRYABLE_QUOTATION_FAILURES) if attempt == 0 else None
+                if retry_guidance is not None and asyncio.get_running_loop().time() < deadline:
                     continue
                 yield {"type": "error", "message": _PUBLICATION_ERROR}
                 return
@@ -545,7 +545,7 @@ async def _admit_answer(
 
 async def _answer_filing_question_attempt(
     *, filing: Any, question: str, history: Optional[list[dict]], source_text: str,
-    normalized_source: str, usage_sink: dict[str, Any], deadline: float, retry_guidance: str,
+    normalized_source: str, usage_sink: dict[str, Any], deadline: float, retry_guidance: Optional[str],
 ) -> AsyncGenerator[dict, None]:
     """Stream a grounded answer to ``question`` about ``filing`` as event dicts.
 

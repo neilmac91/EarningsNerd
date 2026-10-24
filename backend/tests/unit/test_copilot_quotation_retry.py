@@ -163,20 +163,20 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
     assert POISON not in json.dumps(calls[1]["messages"]) and INVENTED not in json.dumps(calls[1]["messages"])
     first_system, retry_system = calls[0]["messages"][0], calls[1]["messages"][0]
     assert first_system["role"] == retry_system["role"] == "system"
-    assert retry_system["content"] != first_system["content"]
     # The first generation keeps SYSTEM_PROMPT's bytes. A decision-F retry adds the evidence guidance
     # alone; only an excerpt failure adds the table guidance, chosen by its owned exception class. Text
-    # after the citation array never reached source matching, so its owned class adds the one-array
-    # guidance alone.
+    # after the citation array never reached source matching, so its owned class adds nothing: the
+    # regeneration re-samples with SYSTEM_PROMPT byte-identical, the composition already measured.
     if surface == "repeated_citations":
-        added = "\n\n" + copilot_prompt._CITATION_TRAILER_RETRY_GUIDANCE
+        added = ""
     else:
+        assert retry_system["content"] != first_system["content"]
         assert "quot" in retry_system["content"].lower() and "contiguous" in retry_system["content"].lower()
         added = "\n\n" + copilot_prompt._EVIDENCE_RETRY_GUIDANCE
     if surface == "citation_excerpt":
         added += "\n\n" + copilot_prompt._CITATION_EXCERPT_RETRY_GUIDANCE
-    assert first_system["content"].startswith(copilot_prompt.SYSTEM_PROMPT)
-    assert retry_system["content"] == first_system["content"] + added
+    assert first_system["content"] == copilot_prompt.SYSTEM_PROMPT
+    assert retry_system["content"] == copilot_prompt.SYSTEM_PROMPT + added
     assert complete["usage"]["total_tokens"] == 26
     assert complete["usage"]["call_count"] == 2
     assert complete["usage"]["estimated_cost_usd"] == pytest.approx(0.003)
@@ -334,24 +334,20 @@ async def test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_tabl
     " Contradictory extra prose.",  # prose after the array
     "\n===FOLLOWU",  # a followups line cut short, as a truncated generation leaves it (RUNBOOK)
 ])
-def test_text_after_the_citation_array_buys_only_the_one_array_guidance(tail):
+def test_text_after_the_citation_array_buys_a_re_sample_with_no_guidance(tail):
     """The trailer reason buys the regeneration through its owned class, never through its text.
 
     The logged reason is unchanged, so copilot-eval's `publication withheld:` label and the triage
-    replay read it as before. Its guidance is the one-array text alone: nothing was source-matched.
+    replay read it as before. Its guidance is empty, not None: nothing was source-matched, so the
+    regeneration re-samples with SYSTEM_PROMPT byte-identical. The same reason on the base class is terminal.
     """
     quotations = copilot_service._RETRYABLE_QUOTATION_FAILURES
     raw = json.dumps([{"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"}]) + tail
     with pytest.raises(copilot_service._UnpublishableAnswer) as caught:
         copilot_service._parse_citations(raw)
     assert str(caught.value) == "Unexpected citation trailer"
-    guidance = copilot_prompt._retry_guidance(caught.value, quotations)
-    assert guidance == copilot_prompt._CITATION_TRAILER_RETRY_GUIDANCE
-    assert copilot_prompt._EVIDENCE_RETRY_GUIDANCE not in guidance
-    assert copilot_prompt._retry_guidance(copilot_service._UnpublishableAnswer(str(caught.value)), quotations) == ""
-    # It names both envelope lines and asks for one array, written once.
-    assert copilot_prompt._CITATIONS_SENTINEL in guidance and copilot_prompt._FOLLOWUPS_SENTINEL in guidance
-    assert "exactly one JSON array" in guidance
+    assert copilot_prompt._retry_guidance(caught.value, quotations) == ""
+    assert copilot_prompt._retry_guidance(copilot_service._UnpublishableAnswer(str(caught.value)), quotations) is None
 
 
 @pytest.mark.parametrize(("declaration", "reason"), [
@@ -365,7 +361,7 @@ def test_only_a_well_formed_array_makes_what_follows_it_a_trailer(declaration, r
     with pytest.raises(copilot_service._UnpublishableAnswer) as caught:
         copilot_service._parse_citations(raw)
     assert (type(caught.value), str(caught.value)) == (copilot_service._UnpublishableAnswer, reason)
-    assert copilot_prompt._retry_guidance(caught.value, copilot_service._RETRYABLE_QUOTATION_FAILURES) == ""
+    assert copilot_prompt._retry_guidance(caught.value, copilot_service._RETRYABLE_QUOTATION_FAILURES) is None
 
 
 @pytest.mark.asyncio
