@@ -8,6 +8,7 @@ import type * as Privacy from '../../lib/telemetryPrivacy'
 import type * as Consent from '../../lib/browserConsent'
 import type * as ConsentGuard from '../../lib/posthogConsent'
 import type * as PostHogPrivacy from '../../lib/posthogPrivacy'
+import type { analytics } from '../../lib/analytics'
 
 // A browser transport test, independent of Next/backend and production environment variables.
 // Every request is fulfilled locally, including the SDK's config, flags, events and replay.
@@ -22,6 +23,7 @@ interface HarnessWindow extends Window {
   posthogPrivacy: typeof PostHogPrivacy
   consent: typeof Consent
   consentGuard: typeof ConsentGuard
+  analytics: typeof analytics
   heldConsentEvents?: StorageEventInit[]
   releaseConsentEvents?: () => void
 }
@@ -52,6 +54,10 @@ function helperScript(): string {
     window.consentGuard = load('./posthogConsent', function(exports, require) { ${compile('posthogConsent')} });
     window.privacy = load('./telemetryPrivacy', function(exports, require) { ${compile('telemetryPrivacy')} });
     window.posthogPrivacy = load('./posthogPrivacy', function(exports, require) { ${compile('posthogPrivacy')} });
+    modules['posthog-js'] = { __esModule: true, get default() { return window.posthog; } };
+    modules['@sentry/nextjs'] = { setUser: () => {} };
+    modules['@/components/CookieConsent'] = window.consent;
+    window.analytics = load('./analytics', function(exports, require) { ${compile('analytics')} }).analytics;
   })();`
 }
 
@@ -114,6 +120,7 @@ async function fixture(page: Page, initialPath: string, batching = false) {
       api_host: host,
       persistence: 'localStorage', persistence_name: 'privacy-network',
       capture_pageview: false, capture_pageleave: false, autocapture: false,
+      opt_out_capturing_by_default: true,
       // Otherwise the real SDK intentionally drops Chromium automation as bot traffic.
       opt_out_useragent_filter: true,
       request_batching: batching,
@@ -183,6 +190,65 @@ async function capture(page: Page, event: string, instant = false) {
     (window as unknown as HarnessWindow).posthog.capture(event, {}, instant ? { send_instantly: true } : undefined)
   }, { event, instant })
 }
+
+test('identity reset preserves validated analytics consent across logout and login', async ({ page }) => {
+  const { wire } = await fixture(page, '/pricing')
+  await page.evaluate(() => {
+    const w = window as unknown as HarnessWindow
+    w.analytics.loginCompleted('synthetic-first-account')
+    w.analytics.logout()
+    w.analytics.pricingViewed('monthly')
+  })
+  await expect.poll(() => events(wire).map(event => event.event)).toContain('pricing_viewed')
+  const logout = events(wire).find(event => event.event === 'logout')!
+  const anonymous = events(wire).find(event => event.event === 'pricing_viewed')!
+  expect(logout.properties).toMatchObject({ distinct_id: 'synthetic-first-account' })
+  expect(anonymous.properties).not.toMatchObject({ distinct_id: 'synthetic-first-account' })
+  await page.evaluate(() => {
+    const w = window as unknown as HarnessWindow
+    w.analytics.loginCompleted('synthetic-second-account')
+    w.analytics.pricingViewed('yearly')
+    w.analytics.reset()
+    w.analytics.companySearched('synthetic-query', 0)
+  })
+  await expect.poll(() => events(wire).map(event => event.event)).toContain('company_searched')
+  expect(events(wire).find(event => event.event === 'pricing_viewed' && (event.properties as Record<string, unknown>)?.billing_cycle === 'yearly')?.properties)
+    .toMatchObject({ distinct_id: 'synthetic-second-account' })
+  expect(events(wire).find(event => event.event === 'company_searched')?.properties)
+    .not.toMatchObject({ distinct_id: 'synthetic-second-account' })
+  expect(await page.evaluate(() => (window as unknown as HarnessWindow).posthog.sessionRecordingStarted())).toBe(false)
+})
+
+test('identity reset never grants consent after refusal, missing or invalid storage, or failed-write withdrawal', async ({ page }) => {
+  const { wire } = await fixture(page, '/pricing')
+  await expect.poll(() => events(wire).map(event => event.event)).toContain('$pageview')
+  for (const action of ['refuse', 'clear', 'invalid', 'failed-write']) {
+    await choose(page, true)
+    const result = await page.evaluate(action => {
+      const w = window as unknown as HarnessWindow
+      if (action === 'clear') localStorage.removeItem('cookie_consent')
+      else if (action === 'invalid') localStorage.setItem('cookie_consent', '{"analytics":true}')
+      else {
+        if (action === 'failed-write') {
+          Storage.prototype.setItem = () => { throw new DOMException('Unavailable') }
+          Storage.prototype.removeItem = () => { throw new DOMException('Unavailable') }
+        }
+        w.consent.saveCookiePreferences({ essential: true, analytics: false, sessionRecording: false, timestamp: '' })
+      }
+      w.analytics.reset()
+      w.analytics.pricingViewed('monthly')
+      return {
+        allowed: w.consentGuard.browserAnalyticsAllowed(),
+        captureBlocked: w.posthog.capture(`blocked-reset-${action}`) === undefined,
+        recording: w.posthog.sessionRecordingStarted(),
+      }
+    }, action)
+    expect(result, action).toEqual({ allowed: false, captureBlocked: true, recording: false })
+  }
+  await page.waitForLoadState('networkidle')
+  expect(events(wire).filter(event => event.event === 'pricing_viewed')).toEqual([])
+  expect(events(wire).filter(event => String(event.event).startsWith('blocked-reset-'))).toEqual([])
+})
 
 test('withdrawal discards accepted batches and unload beacons; a fresh allow cannot revive them', async ({ page }) => {
   await page.clock.install()
