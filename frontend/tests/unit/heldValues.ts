@@ -4,9 +4,9 @@ import ts from 'typescript'
  * What a same-file value holds, followed from where it is written to where it is used, for the gates that read a
  * value rather than its syntax: brandVoiceRules.spec.ts's heading icons, reservedGlyphs.spec.ts's glyph counts,
  * no-em-dash-copy.spec.ts's missing-value token joined into copy, missingValueToken.spec.ts's token rendered outside
- * its element and checkboxRecipe.spec.tsx's input type. One reading for all five, so a shape one gate follows the
- * others follow too (lessons/test-gates-must-be-as-wide-as-their-rule.md: the family is taken from the language, not
- * from the forms a review names).
+ * its element, checkboxRecipe.spec.tsx's input type and companyNameDisplay.spec.ts's served company name. One reading
+ * for all six, so a shape one gate follows the others follow too (lessons/test-gates-must-be-as-wide-as-their-rule.md:
+ * the family is taken from the language, not from the forms a review names).
  *
  * A value is the leaves it may be (the gate says what a leaf is: an icon's import, a glyph's root), each with how
  * many times it renders; for an object or an array, what each property or element holds; and the same-file functions
@@ -78,10 +78,9 @@ import ts from 'typescript'
  *    define), `Object.create` (its prototype's properties, with what it defines), `Object.freeze`,
  *    `Object.seal` and `Object.preventExtensions` (what they are given), `Array.from`; React's `Children.map`
  *    (what a held or gate-recognized callback returns), `Children.toArray` and `Children.only`, `useMemo` (what
- *    its callback returns), `useCallback` (its callback), and `memo` and `forwardRef` (the component they wrap); and,
- *    for a gate that reads React's state (`state`), `useState`,
- *    `useReducer`, `useActionState` (and react-dom's `useFormState`), `useOptimistic`, `useRef`, `useDeferredValue`
- *    and `useSyncExternalStore` (what each keeps, HeldOptions.state).
+ *    its callback returns), `useCallback` (its callback), and `memo` and `forwardRef` (the component they wrap); and
+ *    React's state: `useState`, `useReducer`, `useActionState` (and react-dom's `useFormState`), `useOptimistic`,
+ *    `useRef`, `useDeferredValue` and `useSyncExternalStore` (what each keeps, React's state below).
  *    Wherever the reading calls a value (a callee, a callback, a hook's initializer, reducer, updater or snapshot), a
  *    leaf the gate says is a function gives back what the gate names (HeldOptions.calls: another module's function).
  *    A function value called through Function.prototype's `call` or `apply`, or `Reflect.apply`, is called with the
@@ -92,16 +91,31 @@ import ts from 'typescript'
  * A call is known by the name its callee is known by (knownAs), so React's utilities and the globals are read under
  * any local name: an import renamed (`Children as Kids`), a member destructured under another name, a same-file
  * alias (`const h = createElement`).
+ * React's state, which the reading follows for every gate (E159): a setter or a dispatcher is a value, the hook it came
+ * from (Held.setters), followed as any other value is: destructured, read by index from the hook's pair, held by
+ * another name, put in an object, handed to a same-file function or component, handed back by a custom hook, or handed
+ * as the callback of an array's methods, of `Array.from` or of React's `Children.map` and `Children.forEach`, which
+ * call it with each element. useState's first element holds its initial value, what its initializer returns and what
+ * each call through its setter hands it (a value, or what an updater returns, the updater called with the state);
+ * useReducer's, its initial argument and what its init and its reducer return, the reducer called with the state and
+ * each action a call through its dispatcher hands it, and useActionState's (react-dom's useFormState before it) the
+ * same, its action the reducer; useOptimistic's, its passthrough value and what each call through its setter hands it,
+ * or what its update function returns, called with the state and each value; useRef's `current`, its initial value
+ * (what the code puts there later is an assignment, read as any other); useDeferredValue, what it defers;
+ * useSyncExternalStore, what the snapshot returns. A setter handed to code the reading does not hold (another module's
+ * function or component) is called where the reading cannot see, and what a child hands its parent's ref through
+ * useImperativeHandle reaches no binding the parent reads. A reducer the reading does not hold (another module's) is,
+ * to a gate that reads with `passThrough`, a call it cannot follow, so the state may be what React hands it: the state
+ * and each action.
  * A gate that fails closed on code the reading cannot see (`passThrough`, the missing-value gate's) also has a
  * call of a function it does not hold, called directly (an import's, a global's or a method of an unheld value),
  * hold what it is handed, each argument and a method's receiver, since a formatter may give back its fallback
  * (`formatLocalDate(value, pattern, '—')`) and `String()` or `trim()` the value it is given (React's call of a
- * reducer it does not hold among them, for a gate that reads state: the state may be what the reducer is handed);
+ * reducer it does not hold among them: the state may be what the reducer is handed);
  * a template literal, tagged or not, hold its substitutions, `+` both sides and a comma expression its last; and
  * `+=` give its target what it adds. Without it each holds nothing.
  * Out of its reach, for each gate to name and plant as a gap: a value that crosses modules (an app module's export or a
- * context's, or a setter handed to another module's code), what React state holds after its setter or a reducer runs
- * unless the gate reads state (HeldOptions.state), what a child hands its parent's ref through useImperativeHandle, a
+ * context's, or a setter handed to another module's code), what a child hands its parent's ref through useImperativeHandle, a
  * class's members and its `this` (a field, a getter, a method), `this` handed on whole (returned, passed or held by
  * another name), what an assignment through a `set` accessor hands the accessor, a property descriptor's `get` that
  * reads `this` (the reading binds it to the descriptor, where it runs on the object), a Proxy's traps, a Map's entries
@@ -128,8 +142,8 @@ export interface Held<L> {
   props: Map<string, Held<L>> | null
   /** The same-file functions the value may be: a call through it binds their parameters and reads their returns. */
   fns: Set<Fn> | null
-  /** The React hooks (useState, useReducer) whose setter or dispatcher the value may be (HeldOptions.state): a call
-      through it hands the hook what it is passed. */
+  /** The React hooks (useState, useReducer) whose setter or dispatcher the value may be (React's state, the header):
+      a call through it hands the hook what it is passed. */
   setters?: Set<ts.CallExpression> | null
 }
 
@@ -472,24 +486,6 @@ export interface HeldOptions<L> {
       (missingValueToken.spec.ts): each part counts once, so a string a loop or a recursion builds settles. By default
       each holds nothing. */
   passThrough?: boolean
-  /** Whether React's state keeps what it is handed and gives it back (companyNameDisplay.spec.ts). A setter or a
-      dispatcher is a value, the hook it came from (Held.setters), followed as any other value is: destructured, read by
-      index from the hook's pair, held by another name, put in an object, handed to a same-file function or component,
-      handed back by a custom hook, or handed as the callback of an array's methods, of `Array.from` or of React's
-      `Children.map` and `Children.forEach`, which call it with each element. useState's first element holds its initial
-      value, what its initializer returns and what each call through its setter hands it (a value, or what an updater
-      returns, the updater called with the state); useReducer's, its initial argument and what its init and its reducer
-      return, the reducer called with the state and each action a call through its dispatcher hands it, and
-      useActionState's (react-dom's useFormState before it) the same, its action the reducer; useOptimistic's, its
-      passthrough value and what each call through its setter hands it, or what its update function returns, called with
-      the state and each value; useRef's `current`, its initial value (what the code puts there later is an assignment,
-      read as any other); useDeferredValue, what it defers; useSyncExternalStore, what the snapshot returns. A setter
-      handed to code the reading does not hold (another module's function or component) is called where the reading
-      cannot see, and what a child hands its parent's ref through useImperativeHandle reaches no binding the parent
-      reads. A reducer the reading does not hold (another module's) is, to a gate that reads with `passThrough`, a call
-      it cannot follow, so the state may be what React hands it: the state and each action. By default each hook is a
-      call the reading cannot follow. */
-  state?: boolean
   /** What a call of a leaf gives back, for a gate whose leaves include functions the reading does not hold (another
       module's function that hands back a served name, companyNameDisplay.spec.ts): wherever the reading calls a value
       (a callee, a callback an array's methods or React's Children call, a hook's initializer, reducer, updater or
@@ -524,7 +520,7 @@ export const componentTag = (opening: ts.JsxOpeningLikeElement): ts.Identifier |
 export function heldValues<L>(
   sf: ts.SourceFile,
   leafOf: (e: ts.Expression) => L[] | undefined,
-  { memberLeaf, textLeaf, suspends, rendered, passThrough, state, calls }: HeldOptions<L> = {},
+  { memberLeaf, textLeaf, suspends, rendered, passThrough, calls }: HeldOptions<L> = {},
 ): HeldValues<L> {
   // Keyed by the declaration (scopeResolver), never by the bare name.
   const holders = new Map<ts.Node, Held<L>>()
@@ -634,10 +630,10 @@ export function heldValues<L>(
     for (const leaf of value.leaves.keys()) for (const own of calls(leaf) ?? []) leaves.set(own, (leaves.get(own) ?? 0) + 1)
     return leaves.size ? union(back, { leaves, props: null, fns: null }) : back
   }
-  /** A hook's setter or dispatcher as a value: the hook it came from (HeldOptions.state). */
+  /** A hook's setter or dispatcher as a value: the hook it came from (React's state, the header). */
   const setterOf = (hook: ts.CallExpression): Held<L> => ({ leaves: new Map(), props: null, fns: null, setters: new Set([hook]) })
   /** What the calls through a hook's setter or dispatcher hand it, however each reached the setter: useState's values
-      and updaters, useReducer's actions (HeldOptions.state). */
+      and updaters, useReducer's actions (React's state, the header). */
   const handedTo = (hook: ts.CallExpression): Held<L> => holders.get(hook) ?? empty()
   /** What a property descriptor gives its property: its `value`, and what its `get` returns. */
   const described = (descriptor: Held<L>, record?: Set<ts.Node>): Held<L> =>
@@ -955,45 +951,45 @@ export function heldValues<L>(
     if (bare?.global && bare.name === 'Array' && ts.isIdentifier(unwrapHeld(x.expression))) return elementsOf(args, record)
     if (name === 'useMemo') return calledAt(0)
     if (name === 'useCallback') return arg(0)
-    // React's state, for a gate that reads it (HeldOptions.state): what each hook keeps, where it gives it back.
-    if (state) {
-      if (name === 'useState') {
-        // React calls a function its setter is handed (an updater) and keeps what it returns.
-        const handed = handedTo(x)
-        const kept = union({ leaves: handed.leaves, props: handed.props, fns: null }, called(handed, record))
-        return withProps([
-          ['0', union(union(arg(0), calledAt(0)), kept)],
-          ['1', setterOf(x)],
-        ])
-      }
-      // useActionState (react-dom's useFormState before it) is a reducer: its action is called with the state and each
-      // payload its dispatcher is handed, and its state is what the action returns.
-      if (name === 'useReducer' || name === 'useActionState' || name === 'useFormState') {
-        // A reducer the reading does not hold gives back, to a gate that reads with passThrough, what React hands it:
-        // the state and each action its dispatcher is handed.
-        const unheld = passThrough && !fnsOf(0)?.size ? handedTo(x) : empty<L>()
-        return withProps([
-          ['0', union(union(arg(1), unheld), union(calledAt(2), calledAt(0)))],
-          ['1', setterOf(x)],
-        ])
-      }
-      if (name === 'useOptimistic') {
-        // React's optimistic state: its passthrough value, and what each call through its setter hands it, or, given an
-        // update function, what that returns, called with the state and each value handed (one the reading does not
-        // hold gives back, to a gate that reads with passThrough, what it is handed).
-        const handed = handedTo(x)
-        const kept = !args[1]
-          ? { leaves: handed.leaves, props: handed.props, fns: null }
-          : union(calledAt(1), passThrough && !fnsOf(1)?.size ? handed : empty<L>())
-        return withProps([
-          ['0', union(arg(0), kept)],
-          ['1', setterOf(x)],
-        ])
-      }
-      if (name === 'useRef') return withProps([['current', arg(0)]])
-      if (name === 'useDeferredValue') return union(arg(0), arg(1))
-      if (name === 'useSyncExternalStore') return union(calledAt(1), calledAt(2))
+    // React's state (the header): what each hook keeps, where it gives it back.
+    if (name === 'useState') {
+      // React calls a function its setter is handed (an updater) and keeps what it returns, and so a function it is
+      // handed as the initial state (an initializer): the state is never that function (E159).
+      const handed = handedTo(x)
+      const kept = union({ leaves: handed.leaves, props: handed.props, fns: null }, called(handed, record))
+      const initial = arg(0)
+      return withProps([
+        ['0', union(union({ ...initial, fns: null }, calledAt(0)), kept)],
+        ['1', setterOf(x)],
+      ])
     }
+    // useActionState (react-dom's useFormState before it) is a reducer: its action is called with the state and each
+    // payload its dispatcher is handed, and its state is what the action returns.
+    if (name === 'useReducer' || name === 'useActionState' || name === 'useFormState') {
+      // A reducer the reading does not hold gives back, to a gate that reads with passThrough, what React hands it:
+      // the state and each action its dispatcher is handed.
+      const unheld = passThrough && !fnsOf(0)?.size ? handedTo(x) : empty<L>()
+      return withProps([
+        ['0', union(union(arg(1), unheld), union(calledAt(2), calledAt(0)))],
+        ['1', setterOf(x)],
+      ])
+    }
+    if (name === 'useOptimistic') {
+      // React's optimistic state: its passthrough value, and what each call through its setter hands it, or, given an
+      // update function, what that returns, called with the state and each value handed (one the reading does not
+      // hold gives back, to a gate that reads with passThrough, what it is handed).
+      const handed = handedTo(x)
+      const kept = !args[1]
+        ? { leaves: handed.leaves, props: handed.props, fns: null }
+        : union(calledAt(1), passThrough && !fnsOf(1)?.size ? handed : empty<L>())
+      return withProps([
+        ['0', union(arg(0), kept)],
+        ['1', setterOf(x)],
+      ])
+    }
+    if (name === 'useRef') return withProps([['current', arg(0)]])
+    if (name === 'useDeferredValue') return union(arg(0), arg(1))
+    if (name === 'useSyncExternalStore') return union(calledAt(1), calledAt(2))
     // Function.prototype's `call` and `apply` give back what the function they are read from gives back, and `bind`
     // gives back the function itself.
     const through = throughMethod(x, record)
@@ -1181,8 +1177,8 @@ export function heldValues<L>(
     return { method, target, passed: Array.from(placed, (value) => value ?? empty<L>()), tail }
   }
   /** A call through a value, however the value reached the callee: a same-file function's parameters take what it is
-      passed, and a hook's setter or dispatcher hands the hook its first argument (HeldOptions.state); React calls an
-      updater a setter is handed with the state. */
+      passed, and a hook's setter or dispatcher hands the hook its first argument (React's state, the header); React
+      calls an updater a setter is handed with the state. */
   const callThrough = (callee: Held<L>, passed: Array<Held<L>>, tail?: Held<L>) => {
     if (callee.fns?.size) pass(callee.fns, passed, tail)
     const handed = passed[0] ?? tail ?? empty<L>()
@@ -1207,15 +1203,15 @@ export function heldValues<L>(
       return value?.fns?.size || value?.setters?.size ? value : undefined
     }
     // React calls a reducer with the state and each action its dispatcher is handed in the file, and its initializer
-    // with the initial argument (HeldOptions.state).
-    if (state && (name === 'useReducer' || name === 'useActionState' || name === 'useFormState')) {
+    // with the initial argument (React's state, the header).
+    if (name === 'useReducer' || name === 'useActionState' || name === 'useFormState') {
       const reducer = fnsAt(0)
       if (reducer?.size) pass(reducer, [propertyOf(valueOf(x, record), '0'), handedTo(x)])
       const init = name === 'useReducer' ? fnsAt(2) : null
       if (init?.size && args[1]) pass(init, [valueOf(args[1], record)])
     }
     // React calls useOptimistic's update function with the optimistic state and each value its setter is handed.
-    if (state && name === 'useOptimistic') {
+    if (name === 'useOptimistic') {
       const update = fnsAt(1)
       if (update?.size) pass(update, [propertyOf(valueOf(x, record), '0'), handedTo(x)])
     }

@@ -90,7 +90,7 @@ export default function NotificationBell({
   }
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative max-lg:static">
       <button
         type="button"
         onClick={toggle}
@@ -117,12 +117,16 @@ export default function NotificationBell({
           where the screen has room the list's own 24rem cap holds, as before. Before, only the list was capped, at 24rem
           (768px under 200% text), so with 20 alerts the panel ran past the screen's foot, where the sticky header kept its
           tail out of reach: at 1024x768 and 1440x900 under 200% text it spanned 128 to 1060px, its settings link ending
-          at 1051px (E178; tests/e2e/reflow-200.spec.ts). */}
+          at 1051px (E178; tests/e2e/reflow-200.spec.ts). Below lg the panel spans the screen under the bar, inset as the
+          bar is (16px, 24px from sm): its box leaves the bell (static) for the header, the bar's positioned column, and
+          keeps its place below the bell. A 20rem box anchored at the bell ran off the screen's left edge there, by 64px
+          at 320px at the default size and at every phone width under 200% text (E176, chief design on #1565, comment
+          6380050139; tests/e2e/reflow-200.spec.ts). */}
       {open && (
         <div
           role="menu"
           aria-label="Notifications"
-          className="absolute right-0 z-header mt-2 flex max-h-[calc(100dvh_-_var(--site-header-h,4rem)_-_0.5rem)] w-80 origin-top-right flex-col overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none"
+          className="absolute right-0 z-header mt-2 flex max-h-[calc(100dvh_-_var(--site-header-h,4rem)_-_0.5rem)] w-80 origin-top-right flex-col overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none max-lg:inset-x-4 max-lg:w-auto max-lg:origin-top sm:max-lg:inset-x-6"
         >
           <div className="shrink-0 border-b border-border-light dark:border-white/10 px-3 py-2.5">
             <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Notifications</p>
@@ -151,14 +155,23 @@ export default function NotificationBell({
                         item.read ? 'bg-transparent' : 'bg-brand-strong dark:bg-brand-strong-dark'
                       }`}
                     />
+                    {/* An alert's lines wrap, breaking a long token inside the row, never truncate: in the phone panel at
+                        390px under 200% text a truncated line cut the date from every alert, the company name ending at
+                        "·…" (E176; tests/e2e/reflow-200.spec.ts). The date holds one line, so a wrap comes before it,
+                        never inside it ("· Oct", then "20, 2026"; chief design on #1576, comment 6382172889). */}
                     <span className="min-w-0">
-                      <span className="block truncate text-sm text-text-primary-light dark:text-text-primary-dark">
+                      <span className="block text-sm text-text-primary-light [overflow-wrap:anywhere] dark:text-text-primary-dark">
                         New <span className="font-data">{item.filing_type}</span> from{' '}
                         <span className="font-data font-semibold">{item.ticker}</span>
                       </span>
-                      <span className="block truncate text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                      <span className="block text-xs text-text-secondary-light [overflow-wrap:anywhere] dark:text-text-secondary-dark">
                         {formatCompanyName(item.company_name)}
-                        {item.filing_date ? ` · ${formatLocalDate(item.filing_date, 'MMM d, yyyy')}` : ''}
+                        {item.filing_date ? (
+                          <>
+                            {' · '}
+                            <span className="whitespace-nowrap">{formatLocalDate(item.filing_date, 'MMM d, yyyy')}</span>
+                          </>
+                        ) : null}
                       </span>
                     </span>
                   </Link>
