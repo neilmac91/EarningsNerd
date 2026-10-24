@@ -84,9 +84,10 @@ class ExportService:
             f"Filing Date: {filing.filing_date.strftime('%B %d, %Y') if filing.filing_date else 'N/A'} · "
             f"Period End: {filing.period_end_date.strftime('%B %d, %Y') if filing.period_end_date else 'N/A'} · "
             f"Generated {utcnow().strftime('%B %d, %Y')}"
-            # backend/evals/acceptance_readiness.py anchors its blinding of the generation date on
-            # "<br>Source: SEC EDGAR"; test_acceptance_readiness.py runs that blinding on this output.
-            f"<br>Source: SEC EDGAR · <span class=\"data\">{escape(filing.sec_url or '')}</span>"
+            # The filing page's own words for this link (E190). backend/evals/acceptance_readiness.py anchors
+            # its blinding of the generation date on "<br>Original on SEC.gov"; test_acceptance_readiness.py
+            # runs that blinding on this output.
+            f"<br>Original on SEC.gov · <span class=\"data\">{escape(filing.sec_url or '')}</span>"
         )
 
         # Render every structured section through the shared renderer so the PDF stays in
@@ -184,7 +185,7 @@ class ExportService:
         writer.writerow([f"{filing.company.name} · {filing.filing_type} summary"])
         writer.writerow([f"Filing Date: {filing.filing_date.strftime('%Y-%m-%d') if filing.filing_date else 'N/A'}"])
         writer.writerow([f"Generated: {utcnow().strftime('%Y-%m-%d %H:%M:%S')}"])
-        writer.writerow([f"Source: SEC EDGAR · {filing.sec_url or ''}"])
+        writer.writerow([f"Original on SEC.gov · {filing.sec_url or ''}"])
         writer.writerow([])
 
         # Render every structured section through the shared renderer (single source of truth)

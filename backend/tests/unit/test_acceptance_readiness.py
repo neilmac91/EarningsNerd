@@ -647,7 +647,7 @@ def test_blinding_rejects_raw_rendered_identity_marker(tmp_path: Path) -> None:
 def test_blinding_strips_the_generation_date_from_a_real_filing_export(tmp_path: Path) -> None:
     """The case above blinds a hand-written header; this one blinds what ExportService.generate_pdf_html
     writes (acceptance_worker stores that HTML as the export artifact), so a change to the PDF's meta
-    line that loses the "<br>Source: SEC EDGAR" anchor the lookahead reads fails in CI, not in a run."""
+    line that loses the "<br>Original on SEC.gov" anchor the lookahead reads fails in CI, not in a run."""
     import re
 
     import tests.unit.test_export_service as export_fixtures
@@ -663,8 +663,31 @@ def test_blinding_strips_the_generation_date_from_a_real_filing_export(tmp_path:
     assert generated.search(export.read_text(encoding="utf-8"))  # the export dates itself
     projected = _reviewer_artifact(export, "export", row, config, "H01").decode()
     assert not generated.search(projected)
-    assert "Period End: December 31, 2025<br>Source: SEC EDGAR · " in projected
+    assert "Period End: December 31, 2025<br>Original on SEC.gov · " in projected
     assert "we operate in a very competitive and rapidly changing environment" in projected
+
+
+@pytest.mark.parametrize("source_line", [
+    'Original on SEC.gov · <span class="data">https://www.sec.gov/Archives/edgar/data/1/x.htm</span>',
+    'Source: SEC EDGAR · <span class="data">https://www.sec.gov/Archives/edgar/data/1/x.htm</span>',
+], ids=["since-E190", "retained-from-before"])
+def test_blinding_reads_the_source_line_of_an_export_written_before_or_after_e190(
+        tmp_path: Path, source_line: str) -> None:
+    """The PDF's source line reads "Original on SEC.gov" since E190 and "Source: SEC EDGAR" before it, which an
+    export retained from an earlier run still carries: the blinding strips the generation date before either,
+    and refuses a line it does not know rather than pass the date on."""
+    row = {"config_sha256": "c" * 64, "arm": "candidate", "draw": 1}
+    config = {"content_stamp": "stamp-synthetic", "source_commit": "d" * 40, "model": "model-synthetic",
+              "base_url": "https://provider.invalid/v1"}
+    header = "Filing Date: May 01, 2026 · Period End: March 31, 2026 · Generated September 21, 2026<br>"
+    export = tmp_path / "export.html"
+    export.write_text(f"{header}{source_line}<p>Revenue rose.</p>", encoding="utf-8")
+    projected = _reviewer_artifact(export, "export", row, config, "H01").decode()
+    assert "Generated September" not in projected
+    assert f"Period End: March 31, 2026<br>{source_line}<p>Revenue rose.</p>" in projected
+    export.write_text(f"{header}Source: EDGAR · <p>Revenue rose.</p>", encoding="utf-8")
+    with pytest.raises(ValueError, match="unrecognized export generation-date metadata"):
+        _reviewer_artifact(export, "export", row, config, "H01")
 
 
 def test_blinding_refuses_unknown_nested_execution_marker_or_canonical_shape(tmp_path: Path) -> None:

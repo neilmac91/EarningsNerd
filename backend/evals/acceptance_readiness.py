@@ -607,8 +607,11 @@ def _reviewer_artifact(source: Path, key: str, row: dict[str, Any],
     text = data.decode("utf-8")
     if key == "export":
         # This exact header comes from ExportService.generate_pdf_html. Retain the filing
-        # dates and all substantive content; the original export remains custodian-side.
-        text = re.sub(r"(Period End: [^<]+?) · Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}(?=<br>Source: SEC EDGAR)",
+        # dates and all substantive content; the original export remains custodian-side. Its
+        # source line reads "Original on SEC.gov" since E190 and "Source: SEC EDGAR" before,
+        # which an export retained from an earlier run still carries.
+        text = re.sub(r"(Period End: [^<]+?) · Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}"
+                      r"(?=<br>(?:Original on SEC\.gov|Source: SEC EDGAR))",
                       r"\1", text, count=1)
         if re.search(r"Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}", text):
             raise ValueError("unrecognized export generation-date metadata")
