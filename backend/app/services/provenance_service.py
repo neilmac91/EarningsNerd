@@ -692,8 +692,8 @@ def _filed_prior(
     return None, False
 
 
-# A dash of any kind, the spaces around it with it: a model may write the grounding's "—" as "-" or "–".
-_DASH_RE = re.compile(r"\s*[-\u2010-\u2015\u2212]\s*")
+# A run of dashes of any kind, the spaces around it with it: a model may write the grounding's "—" as "-", "–" or "--".
+_DASH_RE = re.compile(r"\s*[-\u2010-\u2015\u2212]+\s*")
 
 
 def _label_words(label: str) -> str:

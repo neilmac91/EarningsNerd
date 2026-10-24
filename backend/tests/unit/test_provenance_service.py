@@ -840,6 +840,9 @@ class TestFiledFigureSwap:
         "Charges were 2025 bn.",
         "Assets reached 2025 tn.",
         "Charges were 2025 m.",
+        "Shipments were 2025 k units.",
+        "Charges were 2025 b.",
+        "Assets reached 2025 t.",
         # A listed number's letter is a capital ("Item 7A"); a lower-case one is a scale.
         "See Note 2b impairment charges.",
         # A count after a listed number: past two digits, or where the list neither goes on nor ends.
@@ -892,6 +895,9 @@ class TestFiledFigureSwap:
         "June 30 PP&E balances rose.",
         "Note 9 PP&E rose.",
         "Items 7 and 7A explain the 10-K's Q4 PP&E-led capex.",
+        "FY2025 BP-led demand rose.",
+        "Q4 MN-based plants ran full.",
+        "Q4 TN-based plant ran full.",
         # A list after a comma goes on, or its clause ends.
         "See Notes 3, 4.",
         "Leases grew (see Notes 3, 4) on new stores.",
@@ -1166,7 +1172,8 @@ class TestLabelsTheModelIsGiven:
 
         assert check(label, "$10.0B")["source_verified"] is True, label
         # Case, spacing and the kind of dash are not the label: a model may write the grounding's "—" as "-" or "–".
-        for written in (f"  {label.upper()} ", label.replace(" ", "  "), label.replace(" — ", " - "), label.replace(" — ", "–"), label.replace(" — ", "—")):
+        for written in (f"  {label.upper()} ", label.replace(" ", "  "), label.replace(" — ", " - "), label.replace(" — ", "–"), label.replace(" — ", "—"),
+                        label.replace(" — ", " -- "), label.replace(" — ", " \u2212 ")):
             assert check(written, "$10.0B")["source_verified"] is True, written
         differs = check(label, "$12.0B")
         assert differs["source_checkable"] is False and "source_mismatched" not in differs
