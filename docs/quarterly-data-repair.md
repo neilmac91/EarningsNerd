@@ -43,7 +43,11 @@ Each company is its own transaction, bounded to 10,000 stored facts. Network rea
 the write transaction starts. Companies are serialized with the existing company-row lock used
 by the fact writers; modified fact rows are locked as well. Failures are reported per company,
 roll back that company's transaction, and cause a nonzero exit code. Earlier successful companies
-in the same batch remain committed and can be rolled back independently.
+in the same batch remain committed and can be rolled back independently. Before the first company,
+the CLI prints one flushed JSON line that names the run:
+`{"dry_run": …, "rollback_run": …, "run_id": "…", "started": true, "tickers": […]}`, where
+`rollback_run` is the target run of a rollback and `null` otherwise. The full report follows only
+once the batch ends, so a run cut short keeps its `run_id` in that line alone.
 
 From `backend/`, preview without database writes:
 
@@ -115,6 +119,92 @@ analysis data fingerprint incorporates fact/provenance changes, so a corrected d
 reuse a narrative generated from the old inputs. Check the company's quarterly API, tables,
 charts, narrative and exports before expanding to another small cohort.
 
+## Run it through the Ops workflow
+
+The production database is reachable only from Cloud Run and through the Ops workflow's Cloud SQL
+proxy. The Ops workflow (`.github/workflows/ops.yml`, dispatched from main) runs this script on its
+runner through that proxy, so the report lands in the run's log. Operation
+`repair-quarterly-dry-run` runs the preview and `repair-quarterly-apply` runs the apply.
+
+- **Tickers.** Both need the `tickers` input: an explicit comma-separated list of at most 50. The
+  ops job's first step checks it, before the cloud sign-in and any database step, and a bad list
+  stops the run there. For an apply that step runs after the founder's approval, so an apply with a
+  bad list still asks for approval, then fails closed and writes nothing. An empty list is refused,
+  never read as every company. The step passes `--tickers` and `--limit 50`, so the script's
+  default of 10 does not refuse a longer list.
+- **No other flags.** Ops passes no other flag, so it cannot pass `--companyfacts-dir`,
+  `--eps-manifest` or `--rollback-run`. Each run reads companyfacts from SEC itself, one read per
+  company under the shared limiter, at the one request a second every SEC-calling process is
+  pinned to (`docs/OPERATIONS.md`, "SEC budgets per process").
+- **Sync first, and wait for it.** A company that the section above says to sync first needs Ops'
+  `sync-companyfacts` (which sends `"force": true`) to have finished before its preview, and a green
+  `sync-companyfacts` run does not show that. When the Ops identity can read `INTERNAL_JOB_TOKEN`,
+  the step posts to `/internal/jobs/sync-companyfacts`, which answers 202 once it has accepted the
+  work, and prints `resync ACCEPTED via internal endpoint for: … (runs in the service background)`.
+  The sync then runs on its own. With `DURABLE_TASKS_ENABLED` (on in production,
+  `docs/OPERATIONS.md`) it runs as one queued task per ticker on `earningsnerd-task-worker`, and
+  each task that finishes logs `Internal durable sync-companyfacts complete: …`; a ticker whose sync
+  reports a failure logs no such line. With the flag off it runs as a background task in the API
+  service, which logs `Companyfacts sync (internal trigger) complete: …` with the batch's counts
+  once it ends, or `Companyfacts sync (internal trigger) failed` if it raised. Those lines are in
+  Cloud Logging, which no Ops operation prints, so the founder confirms them before the preview is
+  dispatched. Only when the token cannot be read does the step use the jobs channel instead:
+  `--wait` holds it until the job execution ends, and it then prints
+  `resync COMPLETED via jobs channel for: …`.
+- **The apply re-plans.** The apply plans again from a fresh SEC read, so its own report is the
+  record of what changed, not the preview's. Compare the two before closing the change.
+- **Session guards.** Before the script, the step prints the session's settings as Postgres reports
+  them: `session read_only=on lock_timeout=10s statement_timeout=2min` for the preview, and
+  `read_only=off` for the apply. It stops unless they are the step's own. The preview's
+  transactions are read-only, so Postgres refuses any write.
+- **Approval.** The apply waits for the founder's approval on the `ops-apply` environment before any
+  step runs (`docs/DEPLOYMENT.md`, "One-shot maintenance runs"). Approve it promptly, because the run
+  executes the commit main had at dispatch. The workflow also refuses to start while a CI run for a
+  push to main is in flight; for an apply, that check runs after the approval.
+- **Failures and retries.** A failed company fails the run, and nothing retries it. The batch's other
+  companies still run, each in its own transaction, and those that succeed stay committed. A re-run
+  of an approved apply writes nothing and fails visibly, so a retry is a fresh dispatch with a fresh
+  approval.
+- **The run_id and the report.** The script's start line, in the log before the first company,
+  names the run: an apply's reads `"dry_run": false` and carries its `run_id` and tickers. The JSON
+  report follows once the batch ends. It is printed in the log and kept for 30 days as the run's
+  artifact `quarterly-repair-<run id>`
+  (`gh run download <run id> -R neilmac91/EarningsNerd -n quarterly-repair-<run id>`). Save the
+  apply's `run_id`; the audited rollback needs it. A batch the script refuses as a whole (an
+  unknown ticker, say) prints only its error, before any company, and writes no report file. A run
+  stopped before its report writes none either. The artifact is then missing, and the log holds the
+  error, or the start line.
+- **An interrupted apply.** A cancel, or the step's 60-minute timeout, stops the script before its
+  report, while each company it finished is already committed and journaled. Read the `run_id`
+  from the start line. To undo what it committed, preview and then apply the audited rollback with
+  that `run_id` over the same tickers, through the job image (below). Each company the apply
+  committed rolls back. Each it did not has no journal under that run and fails its own line with
+  `No bounded apply journal for this company/run`, so the rollback exits 1 while the others still
+  roll back. That covers a company the apply never reached, the one whose transaction the stop
+  rolled back, and one whose apply changed nothing. To finish the change instead, dispatch a fresh
+  apply. It gets a new `run_id`, so undoing all of it later takes a rollback of each run, the later
+  one first, since a rollback refuses a company whose rows changed after its run.
+- **Both are public.** The repository is public, so anyone can read the log, and anyone signed in
+  to GitHub can download the artifact. The report holds tickers, company ids, period ends, values and provenance, all public
+  filing data. GitHub masks secrets in the log but not inside an artifact. The report carries no
+  credential, but an `error` entry can quote the failing SQL and its parameters, and a failed
+  connection's error names the database user and the database.
+
+The deployment has no staging tier (`docs/DEPLOYMENT.md` lists production only), so the staging run
+asked for above has no target. Instead, the founder reads the production preview before approving
+the apply. The database backup is still the founder's to confirm or take before the first apply,
+since only the founder has GCP credentials. The audited rollback below has no Ops operation; it runs
+through the job image (`docs/fiscal-year-label-repair.md`, "Apply (founder sign-off required)").
+Over more than one ticker, switch gcloud's `--args` delimiter so the list stays one value, and pass
+`--limit` as the Ops step does once the list is longer than 10:
+
+```bash
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="^;^scripts/repair_quarterly_facts.py;--tickers;TGT,JNJ;--limit;50;--rollback-run;RUN_ID" --wait
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1 \
+  --args="^;^scripts/repair_quarterly_facts.py;--tickers;TGT,JNJ;--limit;50;--rollback-run;RUN_ID;--apply" --wait
+```
+
 ## Audited rollback
 
 Preview first; then pass `--apply` to execute:
@@ -128,7 +218,10 @@ Rollback compares every affected row with the exact after-state recorded by the 
 Any intervening change refuses the entire company; inspect the conflict and prepare a new repair
 rather than forcing it. Existing rows regain their original state. Inserted rows remain as
 unavailable, non-current history rather than being deleted. Repeated rollback is rejected. Each
-rollback adds its own journal entries and references the revisions it reverses.
+rollback adds its own journal entries and references the revisions it reverses. A selected company
+with no journal under the target run fails its own line (`No bounded apply journal for this
+company/run`) and makes the exit code nonzero; the other companies still roll back, each in its own
+transaction.
 
 Reapplication that encounters an identity inserted and subsequently rolled back is deliberately
 rejected. This CLI does not reactivate those archived rows: inspect the reason for rollback and

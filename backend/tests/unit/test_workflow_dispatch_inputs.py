@@ -7,11 +7,13 @@ outputs (``${{ steps.*.outputs.* }}``, ``${{ needs.*.outputs.* }}``): an output 
 text, and a value written to ``$GITHUB_OUTPUT`` as ``name=value`` lines can redefine another output
 when it carries a line break, so an unused field must be bounded before anything is written. The ops
 workflow runs against production with the deployer identity, so it also runs only from ``main`` and
-never persists the checkout token. Its fiscal-year relabel step passes ``--apply`` only for the apply
-operation, runs every other operation read-only, reads the session's settings back and stops unless they
-are its own before the script runs, and fails with the script. Its approval check lets an apply through
-only when the run's own review history records an approval of ``ops-apply``, and reads any other answer,
-an unreadable one included, as none.
+never persists the checkout token. Its fiscal-year relabel and quarterly fact repair steps each pass
+``--apply`` only for their own apply operation, run every other operation read-only, read the session's
+settings back and stop unless they are their own before the script runs, and fail with the script. The
+quarterly repair also needs an explicit list of at most 50 tickers and writes its report where the
+next step keeps it. The workflow's approval check lets an apply through only when the run's own review
+history records an approval of ``ops-apply``, and reads any other answer, an unreadable one included,
+as none.
 """
 import json
 import os
@@ -138,21 +140,25 @@ def test_resolve_step_rejects_a_malformed_or_oversized_relabel_ticker_list(tmp_p
     assert output == ""
 
 
-def _readback(op, lock="10s", statement="2min"):
-    """The line Postgres prints for the step's guards, as the relabel step's readback query reads them."""
-    return f"session read_only={'off' if op == 'relabel-fy-apply' else 'on'} lock_timeout={lock} statement_timeout={statement}"
+def _readback(op, lock="10s", statement="2min", apply_op="relabel-fy-apply"):
+    """The line Postgres prints for the step's guards, as a script step's readback query reads them."""
+    return f"session read_only={'off' if op == apply_op else 'on'} lock_timeout={lock} statement_timeout={statement}"
 
 
-def _run_relabel_step(tmp_path, op, tickers, *, python_exit=0, psql_exit=0, readback=None):
-    """The relabel step's own script, run as GitHub runs it (`bash -e`) with stand-ins for `psql` and
+def _run_relabel_step(tmp_path, op, tickers, **kwargs):
+    return _run_script_step(tmp_path, "Run fiscal-year relabel script", "relabel_filing_fy_facts.py", op, tickers,
+                            apply_op="relabel-fy-apply", **kwargs)
+
+
+def _run_script_step(tmp_path, name, script, op, tickers, *, apply_op, python_exit=0, psql_exit=0, readback=None):
+    """A script step's own script, run as GitHub runs it (`bash -e`) with stand-ins for `psql` and
     `python` that record their arguments and the PGOPTIONS each sees. The `psql` stand-in prints
     ``readback`` as the session's settings: by default, the line Postgres prints for the step's own."""
-    step = next(s for s in _workflow("ops.yml")["jobs"]["ops"]["steps"]
-                if s.get("name") == "Run fiscal-year relabel script")
+    step = next(s for s in _workflow("ops.yml")["jobs"]["ops"]["steps"] if s.get("name") == name)
     bin_dir, scripts = tmp_path / "bin", tmp_path / "scripts"
     bin_dir.mkdir()
     scripts.mkdir()
-    (scripts / "relabel_filing_fy_facts.py").write_text("")
+    (scripts / script).write_text("")
     # psql answers only the readback query, which must read the three settings in this order.
     answer = ('case "$*" in *"current_setting(\'default_transaction_read_only\')"*"current_setting(\'lock_timeout\')"*'
               '"current_setting(\'statement_timeout\')"*) printf "%s\\n" "$READBACK" ;; *) echo "unexpected query" ;; esac\n')
@@ -162,8 +168,8 @@ def _run_relabel_step(tmp_path, op, tickers, *, python_exit=0, psql_exit=0, read
                             f'printf "PGOPTIONS=%s\\n" "$PGOPTIONS" >> "$CALLS"\n{answer if tool == "psql" else ""}exit {code}\n')
         stand_in.chmod(0o755)
     env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}", "OP": op, "TICKERS": tickers,
-           "CALLS": str(tmp_path / "calls"), "PGOPTIONS": step["env"]["PGOPTIONS"],
-           "READBACK": _readback(op) if readback is None else readback}
+           "CALLS": str(tmp_path / "calls"), "PGOPTIONS": step["env"]["PGOPTIONS"], "RUNNER_TEMP": str(tmp_path / "temp"),
+           "READBACK": _readback(op, apply_op=apply_op) if readback is None else readback}
     result = subprocess.run(  # fixed argv; the script under test is repository content
         ["bash", "-e", "-c", step["run"]], cwd=tmp_path, env=env, capture_output=True, text=True, check=False
     )
@@ -216,6 +222,71 @@ def test_no_relabel_runs_when_the_session_reports_other_settings_than_the_steps(
     assert result.returncode == 1
     assert "the session's settings are not this step's" in result.stdout
     assert not [call for call in calls if call.startswith("python ")]
+
+
+QUARTERLY, QUARTERLY_APPLY = "Run quarterly fact repair script", "repair-quarterly-apply"
+
+
+def _run_quarterly_step(tmp_path, op, tickers, **kwargs):
+    return _run_script_step(tmp_path, QUARTERLY, "repair_quarterly_facts.py", op, tickers, apply_op=QUARTERLY_APPLY, **kwargs)
+
+
+@pytest.mark.parametrize("op, tickers", [
+    ("repair-quarterly-dry-run", "TGT,JNJ"), ("repair-quarterly-apply", "BRK.B"),
+    ("repair-quarterly-dry-run", ",".join(f"T{i}" for i in range(50))),
+])
+def test_resolve_step_accepts_a_quarterly_repair_over_an_explicit_ticker_list(tmp_path, op, tickers):
+    code, output = _run_resolve(tmp_path, OP=op, TICKERS=tickers)
+    assert code == 0
+    assert output.splitlines() == [f"operation={op}", f"tickers={tickers}", "revision="]
+
+
+@pytest.mark.parametrize("op", ["repair-quarterly-dry-run", "repair-quarterly-apply"])
+@pytest.mark.parametrize("tickers", ["", "TGT;JNJ", "TGT,,JNJ", ",".join(f"T{i}" for i in range(51))])
+def test_resolve_step_refuses_a_quarterly_repair_without_an_explicit_bounded_ticker_list(tmp_path, op, tickers):
+    """The repair takes explicit tickers only (docs/quarterly-data-repair.md): never every company."""
+    code, output = _run_resolve(tmp_path, OP=op, TICKERS=tickers)
+    assert code != 0
+    assert output == ""
+
+
+@pytest.mark.parametrize("op, tickers, apply", [
+    ("repair-quarterly-dry-run", "TGT,JNJ", False),
+    ("repair-quarterly-apply", "TGT", True),
+    # Any operation but the apply runs a read-only preview, so a widened if: can never write.
+    ("relabel-fy-apply", "TGT", False),
+])
+def test_only_the_quarterly_apply_passes_apply_and_a_preview_is_read_only(tmp_path, op, tickers, apply):
+    """The repair writes production data only with --apply, so only its apply operation passes it, and
+    any other run's transactions are read-only. The report goes to the file the next step keeps."""
+    step, result, calls = _run_quarterly_step(tmp_path, op, tickers)
+    assert result.returncode == 0, result.stderr
+    report = tmp_path / "temp" / "quarterly-repair" / "report.json"
+    expected = f"python scripts/repair_quarterly_facts.py --tickers {tickers} --limit 50 --output {report}"
+    assert [call for call in calls if call.startswith("python ")] == [expected + (" --apply" if apply else "")]
+    options = step["env"]["PGOPTIONS"] + ("" if apply else " -c default_transaction_read_only=on")
+    assert [call for call in calls if call.startswith("PGOPTIONS=")] == [f"PGOPTIONS={options}"] * 2
+    assert calls[0].startswith("psql "), "the readback runs before the script"
+    assert report.parent.is_dir(), "the report's directory exists before the script writes it"
+
+
+@pytest.mark.parametrize("kwargs, code", [
+    ({"python_exit": 3}, 3),  # a failed company fails the step
+    ({"psql_exit": 2}, 2),  # the session settings could not be read: no script
+    ({"readback": _readback("repair-quarterly-apply", apply_op=QUARTERLY_APPLY)}, 1),  # a preview that could write
+    ({"readback": _readback("repair-quarterly-dry-run", lock="0", apply_op=QUARTERLY_APPLY)}, 1),
+])
+def test_a_quarterly_repair_stops_on_a_failed_company_or_a_session_that_is_not_the_steps(tmp_path, kwargs, code):
+    _, result, calls = _run_quarterly_step(tmp_path, "repair-quarterly-dry-run", "TGT", **kwargs)
+    assert result.returncode == code
+    ran = [call for call in calls if call.startswith("python ")]
+    assert bool(ran) == ("python_exit" in kwargs)
+
+
+def test_a_quarterly_repair_with_no_tickers_runs_nothing(tmp_path):
+    _, result, calls = _run_quarterly_step(tmp_path, "repair-quarterly-apply", "")
+    assert result.returncode == 1 and "tickers input required" in result.stdout
+    assert calls == []
 
 
 REPO, RUN_ID = "neilmac91/EarningsNerd", "39360634523"
