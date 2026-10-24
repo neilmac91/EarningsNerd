@@ -122,8 +122,8 @@ upcoming calendar handed their session to services on the loop, on the connectio
 checked out. Eight readers of each on four slots answered as they should, but every statement after the
 auth lookup ran on the loop (56 of 64 for eight saves, 48 of 56 for eight notes updates, 16 of 24 for
 eight calendars), a save's or a notes update's read after its commit checked a connection out there (8 of
-16), and every route but the delete left its transaction for the finalizer, as did the saved-summary
-status read, a sync route. Each async route is now one thread-pool unit, the status route releases its
+16), and every route but a delete that found its row left its transaction for the finalizer, the
+saved-summary status read, a sync route, among them. Each async route is now one thread-pool unit, the status route releases its
 own connection, and the library's writes hold a lock from their check to their commit (below). Their
 burst case holds every checkout, statement and release off the loop and each reader to its own library
 (2026-10-24, E171).
@@ -155,7 +155,8 @@ summary both passed the duplicate check and stored it twice, two deletes of one 
 notes update racing a delete failed on the deleted row (`StaleDataError`, a 500) (2026-10-24). The gate is
 `backend/tests/unit/test_check_then_write_units_serialize.py`. It meets two threads inside each unit
 after their checks, so without the lock the race happens however loaded the host, and it fails any
-checkout made inside the watch-row or saved-row lock. It covers those eight units only.
+checkout made inside the watch-row or saved-row lock in the races it runs. It covers those eight units
+only.
 
 Those locks reach one process, and the API runs up to two instances, across which the five races stayed
 open. Since E128 each unit also takes, before its check, a lock in the database that every instance
@@ -165,7 +166,12 @@ before the process lock. That lock serves every account: a unit that waited on o
 it, behind a Stripe delivery's read say, stalled every other account's writes on the instance, and with
 the auth lookup's connection each waiter holds, three such waiters and the stalled unit filled the
 instance's four-slot pool. The library's writes take the same users row lock before their own process
-lock (`saved_summary_service.lock_saved_rows`, E171). The join takes the waitlist's place lock, a
+lock (`saved_summary_service.lock_saved_rows`, E171). The save first reads its summary FOR KEY SHARE, the
+lock its bookmark's foreign-key check takes, so an admin tool's delete of that summary, which takes no
+users row lock, holds the save before both locks. When the save waited at its INSERT instead, inside the
+process lock, a local PostgreSQL probe held another account's save of another summary for the admin's
+whole transaction (1.49 to 1.51 s against a 1.5 s hold, 0.006 to 0.021 s after), and the save failed its
+foreign-key check (500) where it now finds the summary gone (404). The join takes the waitlist's place lock, a
 transaction-level advisory lock, since no row is common to every join
 (`waitlist_service._lock_waitlist_places`), inside its process lock,
 which a waiter takes before its first query and so waits on holding no connection. Its place is one past
@@ -173,8 +179,10 @@ the highest held, so no two signups on the list share one even after a deletion,
 UPDATE that adds to the stored score. The process locks stay: under SQLite they are the only serialization.
 `backend/tests/unit/test_check_then_write_units_lock_across_instances.py` holds each lock from before its
 unit's first read to the commit of its write, as statements compiled for PostgreSQL, the watch-row and
-saved-row locks outside their process locks and the reads beside them taking no lock, and the credit to
-one that a concurrent commit cannot lose. No CI step races two instances on PostgreSQL. The pull request's local run
+saved-row locks outside their process locks and the reads beside them taking no lock, each saved-row
+write's commit inside `saved_row_lock` with nothing run there after it (a read after the commit would
+check a connection out inside the lock), the save's summary lock before both, and the credit to one that
+a concurrent commit cannot lose. No CI step races two instances on PostgreSQL. The pull request's local run
 did, with a process lock per thread for each instance: two enables at the cap, two adds, two removes, a
 disable against a remove, an add against an enable, and two joins with and without a link. It also timed
 other accounts' adds while one account waited on a held row.
