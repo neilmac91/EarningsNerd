@@ -36,7 +36,9 @@ from main import app
 
 RACED_CIK = "0009900001"
 NEW_CIK = "0009900002"
-_CIKS = [RACED_CIK, NEW_CIK, RACED_CIK.lstrip("0"), NEW_CIK.lstrip("0")]
+# The write-order cases' companies, listed in SEC order HIGH, MID, LOW.
+LOW_CIK, MID_CIK, HIGH_CIK = "0009900011", "0009900012", "0009900013"
+_CIKS = [form for cik in (RACED_CIK, NEW_CIK, LOW_CIK, MID_CIK, HIGH_CIK) for form in (cik, cik.lstrip("0"))]
 
 
 @pytest.fixture(scope="module")
@@ -236,8 +238,8 @@ def test_search_race_keeps_every_cik_in_sec_order_and_logs_on_the_router_logger(
         logging.WARNING,
         f"company_upsert_conflict cik={RACED_CIK},{NEW_CIK} ticker=zeta path=companies.search",
     )]
-    # The flush failed inside its SAVEPOINT, so the batch commit never ran: the only commit is the
-    # recovery's, after the conflict line.
+    # The batch's flush failed, so its commit never ran: the only commit is the recovery's, after the
+    # conflict line.
     assert commits == [1]
     assert resolver_paths == ["companies.search", "companies.search"]
     verify = SessionLocal()
@@ -326,51 +328,93 @@ def test_search_non_integrity_commit_failure_skips_the_conflict_recovery(
     assert resolver_paths == []
 
 
-def test_search_inserts_new_companies_in_cik_order_whatever_sec_order(client, monkeypatch, override_db):
-    """The batch adds its new rows in CIK order and answers in SEC's, so two searches inserting the same
-    new companies take their unique-index locks in one order: in opposite orders their batches
-    deadlocked on PostgreSQL once they ran off the event loop, and the aborted one answered 500."""
-    inserted = []
-
-    def record(_mapper, _connection, target):
-        inserted.append(target.cik)
-
-    event.listen(Company, "before_insert", record)
+def _seed_stale(*ciks):
+    """Store each CIK, in the order given, under a ticker that is not its primary's."""
+    seed = SessionLocal()
     try:
-        override_db(SessionLocal())
-        monkeypatch.setattr(
-            sec_edgar_service, "search_company", _sec(_hit(NEW_CIK, "ZZ2", "Zeta Two"), _hit(RACED_CIK, "ZZ1"))
-        )
-        monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
-        resp = client.get("/api/companies/search", params={"q": "zeta"})
+        for cik in ciks:
+            seed.add(Company(cik=cik, ticker=f"OLD{cik[-1]}", name="Zeta Corp", exchange="NASDAQ"))
+            seed.commit()
     finally:
-        event.remove(Company, "before_insert", record)
+        seed.close()
+
+
+@pytest.fixture()
+def company_writes():
+    """("insert" or "update", CIK) of each companies row the ORM writes, in the order it writes them."""
+    written = []
+
+    def listener(operation):
+        def record(_mapper, _connection, target):
+            written.append((operation, target.cik))
+
+        return record
+
+    on_insert, on_update = listener("insert"), listener("update")
+    event.listen(Company, "before_insert", on_insert)
+    event.listen(Company, "before_update", on_update)
+    yield written
+    event.remove(Company, "before_insert", on_insert)
+    event.remove(Company, "before_update", on_update)
+
+
+def _search_high_mid_low(client, monkeypatch):
+    monkeypatch.setattr(
+        sec_edgar_service, "search_company", _sec(_hit(HIGH_CIK), _hit(MID_CIK), _hit(LOW_CIK))
+    )
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
+    return client.get("/api/companies/search", params={"q": "zeta"})
+
+
+def test_search_writes_each_company_in_cik_order_whatever_sec_order(
+    client, monkeypatch, override_db, company_writes
+):
+    """The batch writes each company alone, in CIK order, a stored row's update among the new rows'
+    inserts, and answers in SEC's order. So it takes its row locks in the order its conflict recovery
+    and every other search take them: two searches writing the same companies in different orders
+    deadlocked on PostgreSQL once they ran off the event loop, and the one aborted answered 500. One
+    flush of the batch sends the update first."""
+    _seed_stale(MID_CIK)
+    company_writes.clear()  # the seed's own insert
+    override_db(SessionLocal())
+    resp = _search_high_mid_low(client, monkeypatch)
     assert resp.status_code == 200
-    assert [row["cik"] for row in resp.json()] == [NEW_CIK, RACED_CIK]
-    assert inserted == [RACED_CIK, NEW_CIK]
+    assert [(row["cik"], row["ticker"]) for row in resp.json()] == [
+        (HIGH_CIK, "ZZ3"), (MID_CIK, "ZZ2"), (LOW_CIK, "ZZ1"),
+    ]
+    assert company_writes == [("insert", LOW_CIK), ("update", MID_CIK), ("insert", HIGH_CIK)]
 
 
-def test_search_conflict_recovery_resolves_in_cik_order(client, monkeypatch, override_db, caplog):
-    """The recovery resolves its CIKs in the batch's order, CIK order, and still answers in SEC's."""
+def test_search_conflict_recovery_writes_each_company_in_cik_order(
+    client, monkeypatch, override_db, caplog, company_writes
+):
+    """The recovery resolves its CIKs in CIK order, as the batch writes, and writes each one before it
+    resolves the next, so two stored rows' ticker self-heals do not wait for the commit, where they go
+    in id order (here HIGH's row is the older). It still answers in SEC's order."""
+    _seed_stale(HIGH_CIK, MID_CIK)
+    company_writes.clear()  # the seed's own inserts
     db = SessionLocal()
     _spy_commits(monkeypatch, db, caplog, fail_first=_unique_cik_violation())
-    resolved = []
     real = company_lookup_service.resolve_or_create_company_by_cik
 
     def recording(db, **kwargs):
-        resolved.append(kwargs["cik"])
+        company_writes.append(("resolve", kwargs["cik"]))
         return real(db, **kwargs)
 
     monkeypatch.setattr(company_lookup_service, "resolve_or_create_company_by_cik", recording)
     override_db(db)
-    monkeypatch.setattr(
-        sec_edgar_service, "search_company", _sec(_hit(NEW_CIK, "ZZ2", "Zeta Two"), _hit(RACED_CIK, "ZZ1"))
-    )
-    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
-    resp = client.get("/api/companies/search", params={"q": "zeta"})
+    resp = _search_high_mid_low(client, monkeypatch)
     assert resp.status_code == 200
-    assert [row["cik"] for row in resp.json()] == [NEW_CIK, RACED_CIK]
-    assert resolved == [RACED_CIK, NEW_CIK]
+    assert [(row["cik"], row["ticker"]) for row in resp.json()] == [
+        (HIGH_CIK, "ZZ3"), (MID_CIK, "ZZ2"), (LOW_CIK, "ZZ1"),
+    ]
+    batch = [("insert", LOW_CIK), ("update", MID_CIK), ("update", HIGH_CIK)]  # then its commit fails
+    recovery = [
+        ("resolve", LOW_CIK), ("insert", LOW_CIK),
+        ("resolve", MID_CIK), ("update", MID_CIK),
+        ("resolve", HIGH_CIK), ("update", HIGH_CIK),
+    ]
+    assert company_writes == batch + recovery
 
 
 # --- /trending -------------------------------------------------------------------------------

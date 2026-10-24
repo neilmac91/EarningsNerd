@@ -62,10 +62,10 @@ def upsert_search_results(
     sec_results: List[Dict[str, Any]],
     primary_by_cik: Dict[str, Optional[str]],
 ) -> Tuple[List[dict], Dict[int, LatestFilingRef]]:
-    """Store or update the searched companies, ONE row per CIK, in SEC result order, and return
-    their response rows and lead filings; releases the session.
+    """Store or update the searched companies, ONE row per CIK, and return their response rows, in
+    SEC result order, and their lead filings; releases the session.
 
-    Raises :class:`SearchUpsertConflict` when the flush or commit hits the unique-CIK race, after
+    Raises :class:`SearchUpsertConflict` when a flush or the commit hits the unique-CIK race, after
     the release has rolled the batch back.
     """
     try:
@@ -79,7 +79,7 @@ def _upsert_companies(
     sec_results: List[Dict[str, Any]],
     primary_by_cik: Dict[str, Optional[str]],
 ) -> List[Company]:
-    """The searched companies' rows, stored or updated and committed, in SEC result order."""
+    """The searched companies' rows in SEC result order, stored or updated and committed."""
     # Store or update companies in database — ONE row per CIK (data-quality plan P0-1).
     # SEC's ticker file carries one entry per LISTED SECURITY: iterating it raw returned N
     # duplicate rows per company and let the LAST entry's ticker win the persisted row
@@ -93,7 +93,8 @@ def _upsert_companies(
         existing_companies = {company.cik: company for company in existing}
 
     new_companies: List[Company] = []
-    updated_companies: List[Company] = []
+    # Each company's write, by CIK: a new row (None) or a stored row's changed fields.
+    writes: Dict[str, Tuple[Company, Optional[Dict[str, Any]]]] = {}
     seen_ciks: set = set()
     response_ciks: List[str] = []
 
@@ -117,38 +118,41 @@ def _upsert_companies(
                 exchange=sec_data.get("exchange"),
             )
             new_companies.append(company)
+            writes[cik] = (company, None)
         else:
-            updated = False
+            changes: Dict[str, Any] = {}
             name = sec_data.get("name")
             exchange = sec_data.get("exchange")
 
             # Ticker updates only TO the canonical primary: permits real renames, forbids
             # preferred-class downgrades (the pre-P0-1 last-write-wins corruption).
             if primary and company.ticker != primary:
-                company.ticker = primary
-                updated = True
+                changes["ticker"] = primary
             if name and company.name != name:
-                company.name = name
-                updated = True
+                changes["name"] = name
             if company.exchange != exchange:
-                company.exchange = exchange
-                updated = True
+                changes["exchange"] = exchange
 
-            if updated:
-                updated_companies.append(company)
+            if changes:
+                writes[cik] = (company, changes)
 
         companies.append(company)
         response_ciks.append(cik)
 
-    # Added in CIK order, whatever SEC's order, so two searches inserting the same new companies take
-    # their unique-index locks in one order: in opposite orders the two batches deadlocked on
-    # PostgreSQL, once they ran off the event loop, and the one PostgreSQL aborted answered 500.
-    for company in sorted(new_companies, key=lambda company: company.cik):
-        db.add(company)
-
-    if new_companies or updated_companies:
+    # Each company's write, its INSERT or its UPDATE, is flushed alone in CIK order, whatever SEC's
+    # order, as the conflict recovery writes (resolve_search_conflict), so every search takes its row
+    # locks in one order. One flush of the batch would send its UPDATEs first: two searches writing the
+    # same companies in different orders deadlocked on PostgreSQL once they ran off the event loop, and
+    # the one PostgreSQL aborted answered 500.
+    if writes:
         try:
-            with db.begin_nested():  # SAVEPOINT: a concurrent-search race must not 500
+            for cik in sorted(writes):
+                company, changes = writes[cik]
+                if changes is None:
+                    db.add(company)
+                else:
+                    for field, value in changes.items():
+                        setattr(company, field, value)
                 db.flush()
             db.commit()
             for company in new_companies:
@@ -173,7 +177,7 @@ def resolve_search_conflict(
     try:
         db.rollback()
         by_cik: Dict[str, Company] = {}
-        for cik in sorted(response_ciks):  # CIK order, as the batch inserts (see _upsert_companies)
+        for cik in sorted(response_ciks):  # CIK order, as the batch writes (see _upsert_companies)
             sec_data = next(r for r in sec_results if r.get("cik") == cik)
             primary = primary_by_cik[cik]
             by_cik[cik] = resolve_or_create_company_by_cik(
@@ -185,6 +189,9 @@ def resolve_search_conflict(
                 path="companies.search",
                 canonical_ticker=primary,
             )
+            # A stored row's ticker self-heal is written at its own CIK, not with the next CIK's
+            # insert or at the commit, where two of them would go in id order.
+            db.flush()
         db.commit()
         return _search_rows(db, [by_cik[c] for c in response_ciks])
     finally:

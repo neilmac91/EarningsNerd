@@ -195,10 +195,10 @@ async def search_companies(
             if cik and cik not in primary_by_cik:
                 primary_by_cik[cik] = await sec_edgar_service.primary_ticker_for_cik(cik)
         
-        # Store or update one row per CIK, in SEC result order (data-quality plan P0-1). Each
-        # session unit runs in the thread pool and releases the session before it returns, so no
-        # checkout waits on the event loop and the quote fan-out holds no connection
-        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        # Store or update one row per CIK, from its first SEC entry, and answer in SEC result order
+        # (data-quality plan P0-1). Each session unit runs in the thread pool and releases the
+        # session before it returns, so no checkout waits on the event loop and the quote fan-out
+        # holds no connection (lessons/ops-release-cached-filing-reads-before-yield.md).
         try:
             company_rows, latest_by_company = await run_in_threadpool(
                 company_lookup_service.upsert_search_results, db, sec_results, primary_by_cik
