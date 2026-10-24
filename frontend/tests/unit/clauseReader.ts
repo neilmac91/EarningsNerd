@@ -35,7 +35,9 @@
  * mark follows: relativeVerb), a participle ("returning account data", "listed below") and an aside in commas before
  * the verb group (", which returns JSON,"). Each restricts the phrase unless it stands in commas, and an aside
  * restricts it too when it names an exception (", except the health check,"). A phrase read as an adverb ("by default",
- * "without exception": adverbAt) is no prepositional phrase. A pronoun is a phrase of its own.
+ * "without exception": adverbAt) is no prepositional phrase. A pronoun is a phrase of its own, and so is its
+ * contraction with an auxiliary, read as the pronoun with its verb group after it ("we've got", "they're running":
+ * CONTRACTIONS).
  *
  * Clauses (readSentence). A semicolon or a colon ends one. A subordinating word opens a condition: "when", "whenever",
  * "if", "while", "once" (before a clause), "unless", "because", "although", "though", "whereas", "since", "until", "so
@@ -135,7 +137,10 @@ const words = (list: string) => new Set(list.split(/\s+/).filter(Boolean))
 const QUANTIFIERS = words('all every each any no none some most many much few several both either neither')
 const TAKES_BACK = words('not almost nearly virtually practically hardly barely scarcely')
 const DETERMINERS = words('the a an this that these those such our your its their my his her')
-const PRONOUNS = words('i you he she it we they me him us them everyone everybody everything someone somebody something anyone anybody anything nobody nothing')
+/** A pronoun's contraction with its auxiliary, read as the pronoun ("we've", "they're", "it's": #1594's sixth round);
+    its verb group follows it, so nothing after it is its own. */
+const CONTRACTIONS = words("i've i'm you've you're we've we're they've they're it's he's she's")
+const PRONOUNS = words(`i you he she it we they me him us them everyone everybody everything someone somebody something anyone anybody anything nobody nothing ${[...CONTRACTIONS].join(' ')}`)
 const PREPOSITIONS = words(
   'about above across after against along among around as at before behind below beneath beside besides between beyond by despite during except excluding for from in including inside into like near of off on onto outside over past per regarding through throughout to toward towards under unlike upon via with within without',
 )
@@ -403,8 +408,10 @@ export function nounPhraseAt(tokens: Token[], at: number): NounPhrase | null {
   while (DETERMINERS.has(word(i))) determiners.push(word(i++))
   let head: Token
   const premodifiers: Token[] = []
-  if (PRONOUNS.has(word(i)) && !determiners.length) head = tokens[i++]
-  else {
+  if (PRONOUNS.has(word(i)) && !determiners.length) {
+    head = tokens[i++]
+    if (CONTRACTIONS.has(head.lower)) return { start: at, end: i, takenBack, quantifier, partitive, determiners, premodifiers, head, postmodifiers: [] }
+  } else {
     const open = () => premodifiers.length === 0 || ADJECTIVES.has(lower(premodifiers[premodifiers.length - 1])) || nounBeforeItsVerb(tokens, i)
     while (nominal(tokens[i], open())) premodifiers.push(tokens[i++])
     const last = premodifiers.pop()

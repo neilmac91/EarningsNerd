@@ -551,6 +551,7 @@ const restatesEveryRequest = (m: Postmodifier) =>
     more ("every endpoint we added last year", "every endpoint that we run for partners" pick some out). */
 const RESTATES_THE_SET = new RegExp(
   String.raw`^(?:(?:that|which)\s+)?(?:(?:we|it|EarningsNerd|(?:the|our)\s+(?:API|service|site|app|platform|backend))\s+(?:run|runs|expose|exposes|offer|offers|serve|serves|host|hosts|provide|provides|operate|operates|publish|publishes|maintain|maintains|have|has)` +
+    String.raw`|(?:we['’]ve|we\s+have|it['’]s|it\s+has)\s+got` +
     String.raw`|(?:you|callers?|clients?|users?|readers?|(?:the|a)\s+(?:caller|client|user|reader|app))\s+(?:call|calls|use|uses|reach|reaches|query|queries|hit|hits|access|accesses|open|opens))$`,
   'i',
 )
@@ -2396,6 +2397,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Any endpoint (beta) requires a token.</p>', false],
       ['<p>Each endpoint (private ones) requires a login.</p>', false],
       ['<p>Every endpoint (admin only) requires a login.</p>', true],
+      // A pronoun's contraction is read as the pronoun, its verb group after it, so "we've got" names the whole set again
+      // as "we have" does, under every and each as main read them; "we've added" picks some out.
+      ["<p>Every endpoint we've got requires a login.</p>", true],
+      ["<p>Each endpoint we've got requires a login.</p>", true],
+      ["<p>Every endpoint we've added requires a login.</p>", false],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
@@ -2529,6 +2535,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     // past form after it keeps the relative clause going (#1594's fifth round).
     expect(outline('Every endpoint we have requires a login.')).toEqual(['every <endpoint> {we have} | requires a login.'])
     expect(outline('Every endpoint we have added this year requires a login.')).toEqual(['every <endpoint> {we have added this year} | requires a login.'])
+    expect(outline("Every endpoint we've got requires a login.")).toEqual(["every <endpoint> {we've got} | requires a login."])
     // A conjunction before a verb group carries the subject on; before a noun phrase and a verb group it opens a clause
     // with a subject of its own; a quantified clause a verb takes as its object is a clause too.
     expect(outline('Each endpoint returns JSON and also requires a login.')).toEqual(['each <endpoint> | returns JSON', 'and, carried: each <endpoint> | also requires a login.'])
