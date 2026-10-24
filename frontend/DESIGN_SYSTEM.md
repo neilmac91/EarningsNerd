@@ -1370,7 +1370,9 @@ Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P
 
 Hero example     <HeroExample example>  (features/marketing, critique 1d) — the example IS the product, on ONE
                  surface (rounded-xl panel + hairline + e2, dark: fill + hairline): "Example summary" with the
-                 quality Badge, the identity line (company, then ticker · form · filed in the data face, Sep
+                 quality Badge in a row that wraps (the badge goes under the label where the two do not fit side
+                 by side, and below a 24rem viewport its label wraps inside it, as a Button's does; E156), the
+                 identity line (company, then ticker · form · filed in the data face, Sep
                  between; each middot in one item with the fact before it, so a wrapped line never starts or
                  stands with one; the form one nowrap run; the date an inline-block after "filed", so it moves
                  down whole and breaks only after its day), the summary's opening, the figures as ONE hairline
@@ -1391,7 +1393,11 @@ Hero example     <HeroExample example>  (features/marketing, critique 1d) — th
                  and the example, no two figures meeting, every form code on one line, no painted line starting
                  with a middot; at both text sizes the strip's rules as painted, a row's leading rule and the
                  first row's top rule clipped, every other rule inside the strip, the first figure's label flush
-                 with the card; the page at 320px).
+                 with the card; the page at 320px) and tests/e2e/hero-example-badge.spec.ts (CI's build serves
+                 the fallback, which has no badge, so the live badge is laid into its row from
+                 fixtures/hero-example-live-badge.html, which tests/unit/hero-example-surface.spec.tsx holds to
+                 the render: under the label at 320 and 390px under 200% text, beside it at the row's right at
+                 390px and at 1440px under 200% text, inside the card, the page not scrolling sideways).
 
 Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain statements, each scoped to what
                  the implementation establishes ("where a match is found"); "generated" stays distinct from
