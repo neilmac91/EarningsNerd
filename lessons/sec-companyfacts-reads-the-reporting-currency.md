@@ -67,20 +67,28 @@ rule). Before widening a promotion, read every writer that sets `is_latest=False
 none leaves such a key empty on purpose.
 
 Never let a payload demote a row of a filing it does not name and that was filed after it, in the
-currency the sync reads, unless those newer filings' rows prove a switch (below). A sync can persist
+currency the sync reads, unless those newer filings' rows prove a switch (below) or that filing's own
+stored rows vote another currency. A sync can persist
 a payload older than stored rows: a delayed SEC response, another process's earlier fetch, or the
 sync a new Filing triggers (the TTL bypass) before SEC's companyfacts shows that filing. Such a row
 (`protected_rows`: its accession is not
 among the payload's, and its filing date, its Filing row's else its provenance's `filed_at`, is
 strictly later than the payload's newest `filed`) holds its key on both of the sync's paths, ratios
-included, while it is in the payload's series currency (`_in_view`: an amount or per-share row in
-that currency, a ratio not computed from another currency's operands, a share count) and those rows
-prove no switch (below). The ids go into the upsert, which stores the batch's row behind one as
+included, while it is in the payload's view (`_in_view`: an amount or per-share row in the series
+currency under a filing whose stored rows vote no other currency, a ratio not computed from another
+currency's operands, a share count) and those rows prove no switch (below). The ids go into the upsert, which stores the batch's row behind one as
 behind a known newer filing, and into the currency step, which never demotes one and demotes any
 other amount, per-share or ratio row current beside it. A guard on the currency step alone is not
 enough: the upsert's own demotion is per (concept, period, unit), and a ratio's unit is the same in
 every currency. A newer filing's row outside that currency is not protected: the sync that names
-its filing would demote it, so this one does, and no key holds two currencies.
+its filing would demote it, so this one does, and no key holds two currencies. Nor is one in that
+currency under a filing whose stored rows vote another (more of its amount rows in one other currency
+than in any other, counted as the switch counts them below; `_foreign`): the sync that names the
+filing reads that row as a convenience translation, so this one demotes it too, on both paths, and
+outside a switch the batch's own row holds the period. Protecting every newer row in the series
+currency kept a CNY 20-F/A's USD capex current against a payload that lagged only that amendment
+(FY2025 capex growth +9.1% against the translation, +5.0% against the filer's restatement), while a
+stale pre-switch payload synced first demoted it: the order of two syncs decided the number.
 
 Prove a switch from a newer filing's own currency, never from one row, and only where that filing
 would decide over the payload's own. The protected rows prove a switch (`_proven_switch`, defined
@@ -128,10 +136,17 @@ comparatives, and until then the sync demotes that report's rows. The per-filing
 old currency, and a new filing's own rows in a new currency stand beside the old currency's until
 the next companyfacts sync of the company, which reads one currency whether or not its payload
 names that filing. A misjudged switch only picks between two views that each read one currency: a
-gap, never a wrong number. The switch vote reads the stored units, which the per-filing writer
-picks per concept with a tie toward a non-USD code, so a newer 10-K most of whose concepts that
-pick read in another currency proves a switch the payload would not, a gap until the sync that
-names it. A stale sync across a switch stores and promotes nothing, so until the fresh sync (one
+gap, never a wrong number. The vote reads the stored units, which the per-filing writer picks per
+concept with a tie toward a non-USD code, so where those picks read most of a newer filing's amount
+rows in another currency than its payload items do, three things follow until the sync that names
+it: a newer 10-K proves a switch the payload would not (a gap); on a proven switch the filing's rows
+in the new currency are demoted (a gap); and outside a switch its rows in the series currency lose
+their protection and are demoted, a gap at its own periods, while at a period the payload presents
+from an older filing that older figure goes current and stays current after that sync too, which
+skips the filing's stored row there and finds the key held (a probe's USD 10-Q whose picks read net
+income and cash flow in EUR, restating Q1 2024 revenue at 260, left the original 250 current; with
+every newer row in the series currency protected, the fresh sync kept 260). A stale sync across a
+switch stores and promotes nothing, so until the fresh sync (one
 whose payload names every stored filing) it lacks each row that sync makes current and that is not
 current now. The tests show four such shapes: rows in the new currency that no writer has stored
 yet (the switching report's derived or unextracted amounts; on a switch back, the older filings'
@@ -139,16 +154,18 @@ rows, so the stale sync keeps 2 of the fresh sync's 29 current amount rows in th
 back); the switching report's rows the per-filing writer's own rule stored behind older ones; a
 new-currency quarterly report's rows that an earlier lagging sync, which could prove no switch,
 demoted (it keeps 20 of the fresh sync's 22); and the switching report's rows a later filing's row
-in the new currency demoted, which the stale sync demotes as a convenience translation. It holds
-more in one window: it reads a filing's own currency from its payload, else, for a newer filing
-the payload does not name, from that filing's stored rows, so a row in the new currency under a
-filing the payload does not name, which the fresh sync reads in another currency (a convenience
-translation an earlier sync stored, or one concept the per-filing pick read in the new currency),
-stays current until the sync that names that filing where the stored rows do not show that
-currency: they tie, or hold only its rows in the new currency (an earlier sync stored only its
-convenience rows), or the filing is not known to be newer than the payload, so its rows do not
-vote. That is a wrong number for that window, recorded because the stored rows cannot tell the
-currency there.
+in the new currency demoted, which the stale sync demotes as a convenience translation. On both
+paths a sync holds more in one window: it reads a filing's own currency from its payload, else, for
+a newer filing the payload does not name, from the vote of that filing's stored amount rows, so a
+row in the currency the sync reads under a filing the payload does not name, which the fresh sync
+reads in another currency (a convenience translation an earlier sync stored, or one concept the
+per-filing pick read in that currency), stays current until the sync that names that filing
+wherever the vote names no other currency: the filing's stored amount rows, each counted once per
+concept and period, current or not (per-share rows do not vote), tie for the most, or more of them
+are in the sync's currency than in any other (all of them, where an earlier sync stored only its
+convenience rows), or it holds no amount row, or the filing is not known to be newer than the
+payload, so its rows do not vote. That is a wrong number for that window, recorded because nothing
+stored outvotes the sync's currency there.
 The guard needs a filing date: a newer filing's row with no Filing row and no `filed_at`, or one
 filed the same day as the payload's newest, is not protected and proves no switch, so a stale
 payload still demotes the newer currency's rows and makes its own current at the periods only it

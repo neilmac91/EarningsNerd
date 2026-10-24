@@ -415,7 +415,8 @@ unused since generation became account-required in #619; kept because migrations
   strictly after the payload's newest filing (its Filing row's date, else its provenance's
   `filed_at`; a row with neither, or one filed that same day, is not protected;
   `facts/currency.py::protected_rows`) holds its key on the sync's two paths, ratios included, while
-  it is in the payload's series currency and those rows prove no switch: the upsert stores the
+  it is in the payload's series currency, its filing's stored rows vote no other currency (below), and
+  those rows prove no switch: the upsert stores the
   payload's row behind it, as behind a known newer filing, the currency step never demotes it, and
   the sync demotes any other amount, per-share or ratio row it finds current beside it. So a delayed
   payload, or the sync a new Filing triggers before companyfacts shows that filing, never demotes
@@ -440,17 +441,25 @@ unused since generation became account-required in #619; kept because migrations
   amounts; on a switch back, the older filings' rows), that report's rows the per-filing writer
   stored behind older ones, a new-currency quarterly report's rows an earlier sync demoted, and that
   report's rows a later filing's row in the new currency demoted, which the stale sync demotes as a
-  convenience translation. They are more in one window, until that sync: a row in the new currency
-  under a filing the payload does not name, which that sync reads in another currency, where the
-  filing's stored rows do not show that currency (they tie, or hold only its rows in the new
-  currency, or the filing is not known to be newer than the payload, so its rows do not vote). The
-  sync stores nothing because the payload's own rows stored current would mix
-  the old currency into the new one's series across years (a wrong number is worse than a gap), and
-  stored not current they would hold identities a later sync skips and never promotes. Without a
-  proof, a newer filing's row outside the payload's series currency (a
+  convenience translation, or more in the window below. The sync stores nothing because the payload's
+  own rows stored current would mix the old currency into the new one's series across years (a wrong
+  number is worse than a gap), and stored not current they would hold identities a later sync skips
+  and never promotes. Without a proof, a newer filing's row outside the payload's series currency (a
   stray, or a quarterly report's rows ahead of the annual report that switches) is not protected:
   the sync that names its filing would demote it, so this one does, and no period holds two
-  currencies. A newer filing in the payload's own currency proves no switch, so a lagging payload
+  currencies. Nor is a newer filing's amount or per-share row in the currency the sync reads where
+  that filing's stored rows vote another currency (more of its amount rows in one other currency than
+  in any other, as `_proven_switch` counts): on either path it is a convenience translation, as the
+  sync that names the filing reads it, so the sync demotes it, and outside a switch the batch's own
+  row holds the period (`facts/currency.py::_foreign`). Until that sync such a row stays current, a
+  wrong number, where the stored amount rows tie for the most, or more of them are in the sync's
+  currency than in any other (per-share rows do not vote), or the filing is not known to be newer
+  than the payload. The stored units are the per-filing writer's per-concept picks (a tie goes to a
+  non-USD code), so a newer filing those picks read mostly in another currency than its payload items
+  do has its rows in the sync's currency demoted until that sync: a gap at its own periods, and,
+  outside a switch, at a period the payload presents from an older filing, the older figure, which
+  stays current after that sync too.
+  A newer filing in the payload's own currency proves no switch, so a lagging payload
   still fills the periods before it. In every other sync, at every period the batch presents in an
   amount or per-share unit that holds no current amount or per-share row, and no current unlabelled
   twin of a quarter in that unit (the bulk writer's NULL-period rule), the batch's own row there

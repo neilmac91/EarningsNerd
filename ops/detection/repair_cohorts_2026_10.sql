@@ -176,12 +176,17 @@ ORDER BY (k.opening_off > 0 OR k.n0 > 0 OR COALESCE(k.newest_filed_days, 0) > 18
 \echo '   lists again demotes them (currency.py demote_convenience_rows), so after a correct one it reads 0;'
 \echo '   while cf_native = 0 it reads 0 too. A USD row beside only a per-filing native row is not counted:'
 \echo '   the sync demotes one at a concept its payload carries, but not at a concept only the per-filing'
-\echo '   writer stores, so the count could stay above 0 after a correct sync. usd_operand_ratios: current'
-\echo '   FY ratios with no filing owner whose recorded inputs include USD, or none recorded (the repair'
-\echo '   recomputes them after the sync), counted only while a current native row that a companyfacts sync'
-\echo '   stored remains; blank where none does (a series read in USD, whose USD-derived ratios are right, or'
-\echo '   one no sync has read natively yet). ifrs_rows > 0 with cf_native = 0: an IFRS filer, which the sync'
-\echo '   stores nothing for and the repair refuses.'
+\echo '   writer stores, so counting it would keep the count above 0 after a correct sync.'
+\echo '   usd_operand_ratios: current FY ratios with no filing owner whose recorded inputs include USD, or'
+\echo '   none recorded (the repair recomputes them after the sync), counted only while a current native row'
+\echo '   that a companyfacts sync stored remains, else blank (a series read in USD, or one no sync has read'
+\echo '   natively yet). After a correct sync and the repair it reads 0 or blank, except in two shapes. A'
+\echo '   ratio at a period the native batch computes none for stays current and counted, as neither the sync'
+\echo '   nor the repair replaces it: a filer that switched from USD keeps its USD-derived ratios before the'
+\echo '   switch (right for those years), and so does any year whose native items the collector drops. And a'
+\echo '   filer that switched to USD reads a count, not blank, while a native row stays current at a concept'
+\echo '   its USD filings never tag (the sync demotes only its own concepts). ifrs_rows > 0 with'
+\echo '   cf_native = 0: an IFRS filer, which the sync stores nothing for and the repair refuses.'
 WITH native AS MATERIALIZED (
     SELECT DISTINCT ff.company_id
     FROM financial_fact ff

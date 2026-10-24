@@ -1063,6 +1063,47 @@ def _with_the_first_20f_in_eur(payload):
     return payload
 
 
+_LATE_REPORTS = {  # an old-currency report filed after 20F-2025: its accession, its rows' label, each year's period-end
+    "20-F/A": ("20FA-2024", "FY", {2023: date(2023, 3, 31), 2024: date(2024, 3, 31)}),
+    "10-Q/A": ("10QA-2025Q2", "Q2", {2023: date(2023, 9, 30), 2024: date(2024, 9, 30)}),
+}
+
+
+def _store_late_cny_report(db, company, tag, form, concepts=("revenue", "net_income"), years=(2023, 2024)):
+    """Store, as the per-filing writer does, an old-currency report of ``_switched_to_usd_payload``'s switcher filed
+    2025-09-01, after its USD 20-F for FY2025: a CNY 20-F/A restating FY2023-24, or a CNY 10-Q/A for Q2 and its
+    comparative quarter (Q-labelled, as a domestic filer that switched from CAD to USD files one after its first USD
+    10-K; the vote reads neither the form nor the code). Its ``concepts`` are in CNY and its capex in USD, which its
+    per-concept pick read so, at ``years``; filed last, its rows are current. Returns its accession, untagged."""
+    from app.models import Filing
+
+    accession, period, ends = _LATE_REPORTS[form]
+    filing = Filing(company_id=company.id, accession_number=f"{accession}{tag}", filing_type=form,
+                    filing_date=datetime(2025, 9, 1, tzinfo=timezone.utc),
+                    document_url="https://example.com/d", sec_url="https://example.com/s")
+    db.add(filing)
+    db.commit()
+    cny = {"revenue": _CNY_REVENUE[1:], "net_income": (70_000e6, 80_000e6)}
+    rows = [(concept, "CNY", year, value * 1.01) for concept in concepts for year, value in zip((2023, 2024), cny[concept])]
+    rows += [("capital_expenditures", "USD", year, value) for year, value in ((2023, 4.9e9), (2024, 4.4e9))]
+    svc.upsert_facts_bulk(db, [{**_fact_dict(company.id, concept, fp=period, end=ends[year], unit=unit, value=value,
+                                              accession=filing.accession_number, source="edgar_xbrl"),
+                                "filing_id": filing.id, "form": form} for concept, unit, year, value in rows if year in years])
+    return accession
+
+
+def _with_late_cny_report(payload, form):
+    """The payload naming ``_store_late_cny_report``'s report: its CNY revenue items, so it reads that report's own
+    currency as CNY."""
+    if form == "20-F/A":
+        return _with_older_year_cny_amendment(payload)
+    accession, period, ends = _LATE_REPORTS[form]
+    payload["facts"]["us-gaap"][REV_TAG]["units"]["CNY"].extend(
+        _item(value * 1.01, end.isoformat(), start=end.replace(month=7, day=1).isoformat(), accn=accession, fy=2025,
+              fp=period, form=form, filed="2025-09-01") for end, value in zip(ends.values(), _CNY_REVENUE[1:]))
+    return payload
+
+
 class TestFilingCurrencies:
     """The per-filing pick on its own: the series currency, and the filings the collector never reads."""
 
@@ -1871,66 +1912,103 @@ class TestNativeReportingCurrencySync:
             assert after_stale == _current_rows(db, company.id)
         db.close()
 
-    @pytest.mark.parametrize("own_rows, years", [
-        (("revenue", "net_income"), (2023, 2024)), (("revenue", "net_income"), (2023,)),
-        (("revenue",), (2023, 2024)), ((), (2023, 2024)),
-    ], ids=["more-rows-in-its-own-currency", "one-year-more-rows-in-its-own-currency", "tied", "only-its-usd-rows-stored"])
-    def test_a_stale_payload_across_a_switch_reads_an_unnamed_filings_currency_from_its_stored_rows(self, own_rows, years):
+    @pytest.mark.parametrize("own_rows, years, form", [
+        (("revenue", "net_income"), (2023, 2024), "20-F/A"), (("revenue", "net_income"), (2023,), "20-F/A"),
+        (("revenue", "net_income"), (2023, 2024), "10-Q/A"), (("revenue",), (2023, 2024), "20-F/A"),
+        ((), (2023, 2024), "20-F/A"),
+    ], ids=["more-rows-in-its-own-currency", "one-year-more-rows-in-its-own-currency",
+            "a-10-Q/A-more-rows-in-its-own-currency", "tied", "only-its-usd-rows-stored"])
+    def test_a_stale_payload_across_a_switch_reads_an_unnamed_filings_currency_from_its_stored_rows(self, own_rows, years,
+                                                                                                    form):
         # A CNY-synced switcher. The per-filing writer stores the USD 20-F for FY2025 (filed 2025-07-23), then a
-        # CNY 20-F/A restating FY2023-24 (or FY2023 alone; filed 2025-09-01) whose capex its per-concept pick
-        # read in USD: filed last, those USD rows are current ahead of 20F-2025's. A lagging CNY payload names
-        # neither; 20F-2025 proves the switch, and the sync that names the 20-F/A reads it in CNY and demotes
-        # its USD rows as convenience translations. This payload cannot read that filing, so the sync reads its
-        # own currency from its stored rows: where more are in CNY than in USD, its USD capex is demoted too, a
-        # gap and a subset of the fresh sync's rows, whether or not the 20-F/A could decide the series itself
-        # (one restating a single year presents one period-end). Where they tie, or hold only its USD rows,
-        # nothing stored shows CNY, so its USD capex stays current until the sync that names it: a window with
-        # a wrong number (FY2025 capex growth against the 20-F/A's FY2024), which that sync closes.
+        # CNY 20-F/A restating FY2023-24 (or FY2023 alone), or a CNY 10-Q/A's two Q2 quarters, filed 2025-09-01,
+        # whose capex its per-concept pick read in USD: filed last, those USD rows are current (the 20-F/A's
+        # ahead of 20F-2025's). A lagging CNY payload names neither; 20F-2025 proves the switch, and the sync
+        # that names the late report reads it in CNY and demotes its USD rows as convenience translations. This
+        # payload cannot read that filing, so the sync reads its own currency from its stored rows, annual report
+        # or not: where more are in CNY than in USD, its USD capex is demoted too, a gap and a subset of the fresh
+        # sync's rows, whether or not that report could decide the series itself (a 10-Q/A, or a 20-F/A
+        # restating a single year, never could). Where they tie, or hold only its USD rows, nothing stored
+        # outvotes USD, so its USD capex stays current until the sync that names it: a window with a wrong number
+        # (FY2025 capex growth against the 20-F/A's FY2024), which that sync closes.
         from app.database import SessionLocal
-        from app.models import Filing, FinancialFact
+        from app.models import FinancialFact
 
         db = SessionLocal()
         company = _new_company(db)
         tag = f"-{uuid.uuid4().hex[:8]}"
         _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
         _store_per_filing(db, company, _suffixed(_switched_to_usd_payload(), tag), f"20F-2025{tag}", "20-F", "2025-07-23")
-        amendment = Filing(company_id=company.id, accession_number=f"20FA-2024{tag}", filing_type="20-F/A",
-                           filing_date=datetime(2025, 9, 1, tzinfo=timezone.utc),
-                           document_url="https://example.com/d", sec_url="https://example.com/s")
-        db.add(amendment)
-        db.commit()
-        cny = {"revenue": _CNY_REVENUE[1:], "net_income": (70_000e6, 80_000e6)}
-        stored = [(concept, "CNY", fy, value * 1.01) for concept in own_rows
-                  for fy, value in zip((2023, 2024), cny[concept]) if fy in years]
-        stored += [("capital_expenditures", "USD", fy, value) for fy, value in ((2023, 4.9e9), (2024, 4.4e9)) if fy in years]
-        svc.upsert_facts_bulk(db, [{**_fact_dict(company.id, concept, end=date(fy, 3, 31), unit=unit, value=value,
-                                                  accession=amendment.accession_number, source="edgar_xbrl"),
-                                    "filing_id": amendment.id, "form": "20-F/A"} for concept, unit, fy, value in stored])
+        accession = _store_late_cny_report(db, company, tag, form, own_rows, years)
+        _accession, period, ends = _LATE_REPORTS[form]
 
         def capex():
-            return sorted((r.period_end.year, r.unit, r.accession.removesuffix(tag)) for r in db.query(FinancialFact)
-                          .filter_by(company_id=company.id, concept="capital_expenditures", fiscal_period="FY",
-                                     is_latest=True))
+            return sorted((r.period_end, r.fiscal_period, r.unit, r.accession.removesuffix(tag)) for r in db.query(
+                FinancialFact).filter_by(company_id=company.id, concept="capital_expenditures", is_latest=True))
 
         def amounts():
             return {row for row in _current_rows(db, company.id) if row[3] != "pure"}
 
-        stray = [(year, "USD", "20FA-2024") for year in years]
+        stray = [(ends[year], period, "USD", accession) for year in years]
+        kept = [(date(year, 3, 31), "FY", "USD", "20F-2025") for year in (2023, 2024, 2025)
+                if (date(year, 3, 31), "FY") not in {key[:2] for key in stray}]  # 20F-2025's rows the late report never displaced
         assert set(stray) <= set(capex())
         stale = _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
         _one_currency_per_concept(db, company.id)
         capex_after_stale, amounts_after_stale = capex(), amounts()
-        _checked_sync(db, company, _suffixed(_with_older_year_cny_amendment(_switched_to_usd_payload()), tag), final=True)
+        _checked_sync(db, company, _suffixed(_with_late_cny_report(_switched_to_usd_payload(), form), tag), final=True)
         assert (stale["inserted"], stale["skipped"]) == (0, 0)
-        assert capex() == [(year, "USD", "20F-2025") for year in (2023, 2024, 2025)]
+        assert capex() == [(date(year, 3, 31), "FY", "USD", "20F-2025") for year in (2023, 2024, 2025)]
         if own_rows == ("revenue", "net_income"):
-            assert capex_after_stale == [(year, "USD", "20F-2025") for year in (2023, 2024, 2025) if year not in years]
+            assert capex_after_stale == kept
             assert amounts_after_stale <= amounts()
         else:  # the window: FY2023-24 capex reads the 20-F/A's USD rows until the fresh sync
-            assert capex_after_stale == [*stray, (2025, "USD", "20F-2025")]
+            assert capex_after_stale == sorted([*stray, *kept])
             assert {(concept, end.year, accession.removesuffix(tag))
                     for concept, end, _period, _unit, accession in amounts_after_stale - amounts()} == {
                 ("capital_expenditures", year, "20FA-2024") for year in (2023, 2024)}
+        db.close()
+
+    @pytest.mark.parametrize("form", ["20-F/A", "10-Q/A"])
+    @pytest.mark.parametrize("stale_first", [False, True], ids=["lagging-only", "stale-then-lagging"])
+    def test_a_payload_lagging_a_newer_old_currency_report_demotes_its_convenience_rows_as_the_fresh_sync_does(
+            self, stale_first, form):
+        # A switcher synced in USD from its 20-F for FY2025 (filed 2025-07-23). The per-filing writer then stores
+        # an old-currency report filed 2025-09-01, a CNY 20-F/A restating FY2023-24 or a CNY 10-Q/A for two Q2
+        # quarters, whose capex its per-concept pick read in USD: filed last, those USD rows are current. The sync
+        # the new Filing row triggers runs before companyfacts shows that report: its payload names 20F-2025, so
+        # the series is USD and nothing proves a switch, but not the report. More of the report's stored rows are
+        # in CNY than in USD, so, as the sync that names it reads them, its USD capex is a convenience
+        # translation: it is not protected, the sync demotes it, and 20F-2025's own capex holds those periods.
+        # Protecting every newer row in USD left the 20-F/A's translation current until that sync (FY2025 capex
+        # growth +9.1% against its 4.4bn, where 20F-2025's restated 4.571bn gives +5.0%), while a stale
+        # pre-switch payload synced first demoted it, so the order of two syncs decided the number. Both orders
+        # now end as the fresh sync does.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
+        _store_per_filing(db, company, _suffixed(_switched_to_usd_payload(), tag), f"20F-2025{tag}", "20-F", "2025-07-23")
+        _checked_sync(db, company, _suffixed(_switched_to_usd_payload(), tag), final=True)
+        accession = _store_late_cny_report(db, company, tag, form)
+        _accession, period, ends = _LATE_REPORTS[form]
+
+        def capex():
+            return sorted((r.period_end, r.fiscal_period, r.unit, r.accession.removesuffix(tag)) for r in db.query(
+                FinancialFact).filter_by(company_id=company.id, concept="capital_expenditures", is_latest=True))
+
+        assert {(end, period, "USD", accession) for end in ends.values()} <= set(capex())
+        if stale_first:
+            _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
+        _checked_sync(db, company, _suffixed(_switched_to_usd_payload(), tag))
+        _one_currency_per_concept(db, company.id)
+        capex_after_lagging, after_lagging = capex(), _current_rows(db, company.id)
+        _checked_sync(db, company, _suffixed(_with_late_cny_report(_switched_to_usd_payload(), form), tag), final=True)
+        assert capex_after_lagging == [(date(year, 3, 31), "FY", "USD", "20F-2025") for year in (2023, 2024, 2025)]
+        assert after_lagging == _current_rows(db, company.id)
         db.close()
 
     def test_a_proven_switch_leaves_rows_with_no_fiscal_period_alone(self):

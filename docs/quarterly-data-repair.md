@@ -40,7 +40,9 @@ after the apply, both currencies are current for the same periods. Unless a newe
 switch (below), the sync never demotes a row in the currency it reads from a filing that SEC's
 companyfacts response does not name and that was filed strictly after the response's newest filing,
 where that filing's date is known (its Filing row's, else the row's recorded `filed_at`); a row
-with no known date, or filed the same day, is not protected. A switch is proven where such a filing
+with no known date, or filed the same day, is not protected, and nor is one under a filing whose
+stored rows read another currency (more of them in one other currency than in any other), a
+convenience translation the sync demotes. A switch is proven where such a filing
 is an annual report that holds a current row, whose rows read another currency (more of them than any
 other, over two period-ends), and that reports a period at least as late as the report that decides
 the response's currency: the response predates a switch of the reporting currency, so the sync
