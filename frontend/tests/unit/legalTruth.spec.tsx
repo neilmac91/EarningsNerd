@@ -46,30 +46,43 @@ import { matchAt, negates, nounPhraseAt, readSentence, spanText, verbGroupAt, ty
  *    a login for all endpoints", "we put every endpoint behind a login"; whoever needs it, a login for every endpoint
  *    is the claim), the subject not denied ("No valid token is required for each endpoint." and "Nobody requires a
  *    login for every endpoint." pass); and "no endpoint" answering without authentication in its predicate, the claim
- *    the other way round. Under these readings stands a floor, main's recall since #1594's third round (theFloor), as a
- *    false positive fails loudly with its sentence and a false negative ships a removed claim silently: any clause that
- *    names the endpoints taken whole, as its subject, an object or a preposition's object ("access to every endpoint
- *    requires a login", "each endpoint request", "we authenticate every endpoint", "to call any endpoint, you need a
- *    token"; a relative clause that names the whole set again narrows nothing, "every endpoint we expose", and a phrase
- *    in brackets after them may pick some out), and a login word, read by stem (authentication, auth, authenticated or
- *    authorized; a login, log in or sign in, logged or signed in; a token, password, credential, session, account,
- *    OAuth, JWT, API key, bearer or authorization header; and the -protected compounds), fails unless the reader finds
- *    why it is not the claim: a condition that narrows; a denial on its verb or its subject, which turns each login
- *    word's sense ("Access to every endpoint does not require a login." passes, "You cannot call any endpoint without a
- *    token." fails); the login word in another role, a noun's modifier ("Each API endpoint documents the token
- *    format.", "the login page", "an account ID", "auth documentation"; not before a credential or what checks one: "a
- *    session cookie", "auth middleware") or a possessive ("the session's expiry"), or in a clause the verb takes as its
- *    object ("Each endpoint documents which calls require a token."); or the opposite sense: "no", "optional",
- *    "without" or "lacks" before it, "unauthenticated" or "anonymous" ("Every endpoint accepts unauthenticated
- *    requests." passes, while a rejection turns it: "Every endpoint rejects unauthenticated requests." fails), a
- *    possible modal or a verb that lets a login in, with no "only" ("Any endpoint may accept an optional token.",
- *    "Every endpoint accepts a session token."), or the endpoints said to be public. Its precision cost: a login word
- *    the endpoints only handle reads as the claim ("Each endpoint counts failed logins.", "Each endpoint logs your
- *    session.", "Each endpoint rotates the session token.", "Each endpoint returns data that requires a login."). An
- *    account or a token counts as a login only as the credential itself ("requires an account", "a signed-in account",
- *    "requires a token"), so "Each endpoint requires an account ID." and "Each endpoint expects a token parameter, but
- *    it is optional." pass, and so do "No API endpoints require authentication.", which says the opposite, and "All
- *    endpoints are documented publicly.", which says no login; search, company pages and summaries are public); a
+ *    the other way round. For "all" and "every" stands main's blanket since #1594's fourth round (theBlanket), as a
+ *    false positive fails loudly with its sentence and a false negative ships a removed claim silently: main refused
+ *    any sentence with "all" or "every" before "endpoints" ("of", "our" or "the" and "API" between at most), whatever
+ *    it said of them, and a clause where such a phrase stands fails, login word or not, unless E162's structure excuses
+ *    it, and nothing else does: a phrase after the endpoints that picks some out (one after "in", "of", "for", "under",
+ *    "with" and the like, a relative clause or a participle, but not one that names the whole API, every request, the
+ *    whole set again or a login, nor a verb's own phrase read as theirs: "We serve all endpoints over HTTPS." and "We
+ *    put all endpoints behind a paywall." fail, as on main), a phrase in brackets after them, the quantifier taken
+ *    back, a condition that narrows (but not one that keeps them to a login: "only to signed-in users"), or a denial on
+ *    the clause's verb or its subject, unless it denies a login's absence ("We do not require authentication on every
+ *    endpoint." passes, "Nobody can call every endpoint without a token." fails). Its cost is main's: "All endpoints
+ *    are documented publicly." and "Every endpoint accepts a session token." fail. Under "each" and "any", and the all
+ *    and every phrases main's reading did not cover ("every single endpoint", "all 40 endpoints"), stands a floor
+ *    instead, main's recall since #1594's third round (theFloor): any clause that names the endpoints taken whole, as
+ *    its subject, an object or a preposition's object ("access to each endpoint requires a login", "each endpoint
+ *    request", "we authenticate each endpoint", "to call any endpoint, you need a token"; a relative clause that names
+ *    the whole set again narrows nothing, "each endpoint we expose", and a phrase in brackets after them may pick some
+ *    out), and a login word, read by stem (authentication, auth, authenticated or authorized; a login, log in or sign
+ *    in, logged or signed in; a token, password, credential, session, account, OAuth, JWT, API key, bearer or
+ *    authorization header; and the -protected compounds), fails unless the reader finds why it is not the claim: a
+ *    condition that narrows; a denial on its verb or its subject, which turns each login word's sense ("Access to each
+ *    endpoint does not require a login." passes, "You cannot call any endpoint without a token." fails); the login word
+ *    in another role, a noun's modifier ("Each API endpoint documents the token format.", "the login page", "an account
+ *    ID", "auth documentation"; not before a credential or what checks one: "a session cookie", "auth middleware") or a
+ *    possessive ("the session's expiry"), or in a clause the verb takes as its object ("Each endpoint documents which
+ *    calls require a token."); or the opposite sense: "no", "optional", "without" or "lacks" before it,
+ *    "unauthenticated" or "anonymous" ("Each endpoint accepts unauthenticated requests." passes, while a rejection
+ *    turns it: "Each endpoint rejects unauthenticated requests." fails), a possible modal or a verb that lets a login
+ *    in, with no "only" ("Any endpoint may accept an optional token.", "Each endpoint accepts a session token."), or
+ *    the endpoints said to be public. Its precision cost: a login word the endpoints only handle reads as the claim
+ *    ("Each endpoint counts failed logins.", "Each endpoint logs your session.", "Each endpoint rotates the session
+ *    token.", "Each endpoint returns data that requires a login."), and its holes stand where main read nothing either
+ *    ("Each endpoint responds with 401 to unauthenticated requests." passes, as on main). An account or a token counts
+ *    as a login only as the credential itself ("requires an account", "a signed-in account", "requires a token"), so
+ *    "Each endpoint requires an account ID." and "Each endpoint expects a token parameter, but it is optional." pass,
+ *    and so does "No API endpoints require authentication.", which says the opposite; search, company pages and
+ *    summaries are public); a
  *    Content Security Policy against XSS or cross-site scripting (the site sends
  *    frame-ancestors only); role-based access, permissions or authorisation, or RBAC (one
  *    administrator flag); an adjective in place of a fact (enterprise, military or bank grade or level, industry
@@ -109,11 +122,16 @@ import { matchAt, negates, nounPhraseAt, readSentence, spanText, verbGroupAt, ty
  *    return 503."). Out of reach, planted as gaps: a claim split across two sentences, one said in other words
  *    ("PostHog runs after you allow it", "the whole API sits behind authentication", "each endpoint checks that the
  *    caller holds a token"), and an unscoped consent promise in a sentence that also names the browser or its part.
- *    Ambiguous, so left unplanted: "Every endpoint validates your token.", "Every endpoint checks your token." and
- *    "Every endpoint needs a valid session." (a token checked or a session needed may or may not be required; the floor
- *    refuses each), "Only signed-in users can reach every endpoint." (every endpoint for those users, or none without a
- *    login; refused), and "Our gateway fronts every endpoint and requires a login." (the login need is a second
- *    clause's, which names no endpoint; it passes).
+ *    Ambiguous, so left unplanted: "Every endpoint validates your token.", "Every endpoint checks your token.",
+ *    "Every endpoint needs a valid session.", "Only signed-in users can reach every endpoint." and "Our gateway fronts
+ *    every endpoint and requires a login." (all refused since #1594's fourth round, as main's blanket refused them).
+ *    Against main, shape by shape, the reader's out-of-reach shapes (tests/unit/clauseReader.ts) read: a subject named
+ *    twice passes under "each" and fails under "every", as on main; "each one" passes after "Not every endpoint is
+ *    public, and", which main refused; a negation that governs a clause from outside and a fronted phrase fail, as on
+ *    main; a phrase in brackets after the endpoints passes, as on main under "each" or "any", while main refused it
+ *    under "all" or "every"; a fronted condition with no comma that narrows passes, where main refused it; a phrase
+ *    after "each endpoint" that restates every request fails, where main passed it; and a quantifier after its noun
+ *    passes, as on main.
  * 2. The account events (D-051). /security's PostHog line scopes the consent to the browser, and a sentence of
  *    its own, ACCOUNT_EVENTS_DISCLOSURE (lib/consentCopy.ts), names no provider and says the service records how
  *    accounts use it against the internal account id, whatever the reader chose. /security and /privacy each place
@@ -601,12 +619,12 @@ const WITHOUT_A_LOGIN = new RegExp(
     not signed in", "only for anonymous requests", "only when your session has expired"), a caller the service does
     not know (#1456's Not in this PR, E162: "only if we do not know you", "if we cannot identify you") or a purpose
     ("only for your safety", "only to keep your data safe"), each of which is every request. */
-const RESTATED = String.raw`(?:\s+[\w'’-]+){0,3}?\s+(?:(?:call|use|access|reach|query|open)(?:s|es|ing)?\s+(?:it|them|the\s+API|(?:the|an|this|that|each|any)\s+endpoints?)|(?:called|used|accessed|reached|queried|opened)|not\s+(?:yet\s+)?(?:signed|logged)[- ]in|(?:signed|logged)[- ]out|anonymous(?:ly)?|unauthenticated|unauthori[sz]ed|guests?|visitors?|(?:session|token|login)\s+(?:has\s+|is\s+)?expired|(?:without|lack(?:s|ing)?|ha(?:ve|s)\s+no|with\s+no|no)\s+(?:an?\s+)?(?:valid\s+)?(?:login|token|session|credentials?|authentication|account)|(?:(?:do|does|did|could)(?:\s+not|n['’]t)|can(?:not|\s+not|['’]t))\s+(?:know|identify|recogni[sz]e)\s+(?:you|who\s+you\s+are)|unknown|unidentified)\b|\s+(?:(?:your|our|its|their)\s+)?(?:keep|protect|secure|safeguard|safety|security|protection|privacy)\b`
+const RESTATED = String.raw`(?:\s+[\w'’-]+){0,3}?\s+(?:(?:call|use|access|reach|query|open)(?:s|es|ing)?\s+(?:it|them|the\s+API|(?:the|an|this|that|each|any|every|all)\s+endpoints?)|(?:called|used|accessed|reached|queried|opened)|not\s+(?:yet\s+)?(?:signed|logged)[- ]in|(?:signed|logged)[- ]out|anonymous(?:ly)?|unauthenticated|unauthori[sz]ed|guests?|visitors?|(?:session|token|login)\s+(?:has\s+|is\s+)?expired|(?:without|lack(?:s|ing)?|ha(?:ve|s)\s+no|with\s+no|no)\s+(?:an?\s+)?(?:valid\s+)?(?:login|token|session|credentials?|authentication|account)|(?:(?:do|does|did|could)(?:\s+not|n['’]t)|can(?:not|\s+not|['’]t))\s+(?:know|identify|recogni[sz]e)\s+(?:you|who\s+you\s+are)|unknown|unidentified)\b|\s+(?:(?:your|our|its|their)\s+)?(?:keep|protect|secure|safeguard|safety|security|protection|privacy)\b`
 const RESTATES = new RegExp(String.raw`^(?:${RESTATED})`, 'i')
 /** What an "unless" restates (E162): the caller already signed in or holding a login ("unless you are already signed
     in", "unless you hold a valid token"), which leaves every request made without one. */
 const HOLDS_A_LOGIN = new RegExp(
-  String.raw`^(?:\s+[\w'’-]+){0,3}?\s+(?:(?:already\s+)?(?:signed|logged)[- ]in|(?:already\s+)?authenticated|(?:hold|have|has|present|send|carry)(?:s|ing)?\s+(?:an?\s+|your\s+|the\s+)?(?:valid\s+)?(?:token${ITSELF}|session|login|credentials?|account${AS_LOGIN}))\b`,
+  String.raw`^(?:\s+[\w'’-]+){0,3}?\s+(?:(?:already\s+)?(?:signed|logged)[- ]in|(?:already\s+)?authenticated|(?:holds?|holding|have|has|having|presents?|presenting|sends?|sending|carr(?:y|ies|ying))\s+(?:an?\s+|your\s+|the\s+)?(?:valid\s+)?(?:token${ITSELF}|session|login|credentials?|account${AS_LOGIN}))\b`,
   'i',
 )
 /** The subordinating words whose condition narrows when the endpoints need a login (E162): "when", "whenever", "if",
@@ -770,24 +788,59 @@ const loginAfter = (reading: Reading, m: Postmodifier) =>
 const REJECTS = /^(?:(?:reject|refus|block|forbid|fail)\w*|deny|denies|denied|denying|turns?\s+away|returns?\s+(?:an?\s+)?(?:401|403)\b)/i
 /** A verb that lets a login in rather than asks for one ("accepts a token", "allows anonymous requests"). */
 const ACCEPTS = /^(?:accepts?|accepted|accepting|allows?|allowed|allowing|permits?|permitted|permitting|supports?|supported|supporting)$/
-/** Main's recall as the floor (#1594's third round; header item 1): a clause that names the endpoints taken whole, as
-    its subject, an object or a preposition's object ("access to every endpoint", "each endpoint request", "we
-    authenticate every endpoint"; a login after them, "behind a login", says it of them, and a phrase in brackets after
-    them may pick some out), and a login word (loginWordsIn) is the claim, unless the reader finds why it is not: a
-    condition that narrows (narrows); a login word in the opposite sense once the clause's own turns are read (a denial
-    on its verb or its subject, and a rejection of what lacks a login: "cannot call any endpoint without a token" and
-    "rejects unauthenticated requests" say the login); a possible modal or a verb that lets a login in, with no "only"
-    ("may accept an optional token", "can be called with a token", "accepts a token"); or the clause saying the
-    endpoints are public. Its words are read up to a clause its verb takes as its object ("documents which calls require
-    a token"), and outside a condition but one that keeps the endpoints to a login ("only with a token", "only to
-    signed-in users"). */
+/** The noun phrase at a token of a clause, read no further than the clause's own subject when the token stands before
+    it, in what introduces the clause ("To use every endpoint you must log in."). */
+const phraseIn = (reading: Reading, clause: Clause, k: number) => {
+  const subject = !clause.carried && clause.subject && k < clause.subject.start ? clause.subject.start : -1
+  return nounPhraseAt(subject >= 0 ? reading.tokens.slice(0, subject) : reading.tokens, k)
+}
+/** A condition that keeps the endpoints to a login, "only" with a login in it ("only with a token", "only to signed-in
+    users"): the login need itself, which narrows nothing. */
+const keepsToALogin = (reading: Reading, c: Condition) => c.adverb === 'only' && loginWordsIn(reading, c.words, c.end, -1).some((w) => w.sense > 0)
+/** A clause's own subject when it denies what the clause says ("nobody", "no user", "not every request"), and is not the
+    endpoints themselves. */
+const deniedSubjectOf = (clause: Clause) => {
+  const subject = clause.carried ? null : clause.subject
+  return !!subject && !/^endpoints?$/i.test(subject.head.text) && (subject.takenBack || ['no', 'none', 'neither'].includes(subject.quantifier ?? '') || /^(?:nobody|nothing|none|neither)$/i.test(subject.head.text))
+    ? subject
+    : null
+}
+/** The sense of each login word read in a clause once the clause's own turns are read: a denial on its verb or its
+    subject turns every word it reaches, and a rejection turns what it rejects (what follows it, or in the passive its
+    subject), so "cannot call any endpoint without a token" and "rejects unauthenticated requests" say the login. */
+function turnedSenses(reading: Reading, clause: Clause, read: (k: number) => boolean, to: number): number[] {
+  const { tokens } = reading
+  const group = verbGroupAt(tokens, clause.predicate)
+  const denied = deniedSubjectOf(clause)
+  const rejects = matchAt(reading, group.verb, REJECTS) >= 0
+  const passive = tokens.slice(clause.predicate, group.verb).some((t) => /^(?:is|are|was|were|be|been|being)$/.test(t.lower))
+  return loginWordsIn(reading, clause.start, to, clause.predicate)
+    .filter((w) => read(w.at))
+    .map((w) => {
+      let sense = w.sense
+      if (group.negated) sense = -sense
+      if (denied && (w.at < denied.start || w.at >= denied.end)) sense = -sense
+      if (rejects && (passive ? w.at < clause.predicate : w.at > group.verb)) sense = -sense
+      return sense
+    })
+}
+/** Main's recall as the floor for "each" and "any" and for the all and every phrases main's blanket did not cover
+    (#1594's third round; header item 1): a clause that names the endpoints taken whole, as its subject, an object or a
+    preposition's object ("access to every endpoint", "each endpoint request", "we authenticate every endpoint"; a login
+    after them, "behind a login", says it of them, and a phrase in brackets after them may pick some out), and a login
+    word (loginWordsIn) is the claim, unless the reader finds why it is not: a condition that narrows (narrows); a login
+    word in the opposite sense once the clause's own turns are read (a denial on its verb or its subject, and a
+    rejection of what lacks a login: "cannot call any endpoint without a token" and "rejects unauthenticated requests"
+    say the login); a possible modal or a verb that lets a login in, with no "only" ("may accept an optional token",
+    "can be called with a token", "accepts a token"); or the clause saying the endpoints are public. Its words are read
+    up to a clause its verb takes as its object ("documents which calls require a token"), and outside a condition but
+    one that keeps the endpoints to a login ("only with a token", "only to signed-in users"). */
 const theFloor = (reading: Reading, clause: Clause) => {
   if (DISJUNCTS.has(clause.joinedBy ?? '')) return false
   const { tokens } = reading
   const group = verbGroupAt(tokens, clause.predicate)
   const to = /^(?:that|which|what|whether|how|who|whom|why)$/.test(tokens[group.verb + 1]?.lower ?? '') ? group.verb + 1 : clause.end
-  const keeps = (c: Condition) => c.adverb === 'only' && loginWordsIn(reading, c.words, c.end, -1).some((w) => w.sense > 0)
-  const conditions = clause.conditions.filter((c) => !keeps(c))
+  const conditions = clause.conditions.filter((c) => !keepsToALogin(reading, c))
   if (conditions.some((c) => narrows(reading, c))) return false
   const read = (k: number) => k >= clause.start && k < to && !conditions.some((c) => k >= c.start && k < c.end)
   const whole: NounPhrase[] = []
@@ -799,43 +852,82 @@ const theFloor = (reading: Reading, clause: Clause) => {
   }
   if (clause.carried) collect(clause.subject)
   for (let k = clause.start; k < to; k++) {
-    const phrase = read(k) ? nounPhraseAt(tokens, k) : null
+    const phrase = read(k) ? phraseIn(reading, clause, k) : null
     if (!phrase?.quantifier) continue
     collect(phrase)
     if (phrase.takenBack) k = phrase.end - 1
   }
   if (!whole.length) return false
-  const subject = clause.carried ? null : clause.subject
-  const deniedSubject =
-    !!subject && !/^endpoints?$/i.test(subject.head.text) && (subject.takenBack || ['no', 'none', 'neither'].includes(subject.quantifier ?? '') || /^(?:nobody|nothing|none|neither)$/i.test(subject.head.text))
-  const rejects = matchAt(reading, group.verb, REJECTS) >= 0
-  const passive = tokens.slice(clause.predicate, group.verb).some((t) => /^(?:is|are|was|were|be|been|being)$/.test(t.lower))
-  const senses = loginWordsIn(reading, clause.start, to, clause.predicate)
-    .filter((w) => read(w.at))
-    .map((w) => {
-      let sense = w.sense
-      if (group.negated) sense = -sense
-      if (deniedSubject && subject && (w.at < subject.start || w.at >= subject.end)) sense = -sense
-      if (rejects && (passive ? w.at < clause.predicate : w.at > group.verb)) sense = -sense
-      return sense
-    })
+  const senses = turnedSenses(reading, clause, read, to)
   if (!senses.length || senses.some((sense) => sense < 0)) return false
-  const only = [...tokens.slice(clause.predicate, group.verb + 2), tokens[(subject?.start ?? 0) - 1]].some((t) => t?.lower === 'only') || clause.conditions.some(keeps)
+  const subject = clause.carried ? null : clause.subject
+  const only = [...tokens.slice(clause.predicate, group.verb + 2), tokens[(subject?.start ?? 0) - 1]].some((t) => t?.lower === 'only') || clause.conditions.some((c) => keepsToALogin(reading, c))
   const lets = tokens.slice(clause.predicate, group.verb).some((t) => /^(?:can|could|may|might)$/.test(t.lower)) || ACCEPTS.test(tokens[group.verb]?.lower ?? '')
   if (lets && !only && !group.negated) return false
   return !tokens.some((t, k) => read(k) && /^public(?:ly)?$/.test(t.lower) && !whole.some((p) => k >= p.start && k < p.end))
+}
+/** Main's blanket over "all" and "every" (#1594's fourth round; header item 1). Main refused any sentence with "all" or
+    "every" before "endpoints", with "of", "our" or "the" and "API" between at most (MAIN_BLANKET), whatever it said of
+    them, and so does this, read by clause: a clause where such a phrase stands fails, login word or not, unless E162's
+    structure finds why not, and nothing else does. The phrase is narrowed by what follows it (a prepositional phrase, a
+    relative clause or a participle that picks some out, but not one that names the whole API, every request or the
+    whole set again, nor a login: wholeEndpoints, loginAfter), by a phrase in brackets after it, or by the quantifier
+    taken back ("not every", "almost all"); a set named before ("these", "those", "such") stands outside main's phrase.
+    A prepositional phrase picks some out only after a preposition that can (PICKS_OUT: "in", "of", "for", "under",
+    "with", ...), not a verb's own phrase read as theirs ("We serve all endpoints over HTTPS.", "for a week"), and a
+    verb that places the endpoints ("puts", "keeps", "locks", "hides") takes "behind ..." as where, not which ("We put
+    all endpoints behind a paywall." fails, as on main). The clause is narrowed by a condition (narrows), but not one
+    that keeps the endpoints to a login, or denied on its verb or its subject, unless every login word it reaches then
+    says the login (turnedSenses: "Nobody can call every endpoint without a token." denies a login's absence). Another
+    role, the opposite sense, a possible modal or a verb that lets a login in, "public", a clause the verb takes as its
+    object and no login said excuse nothing here: they are the floor's, for "each" and "any" and for the phrases main's
+    reading did not cover ("every single endpoint"). */
+const MAIN_BLANKET = /^(?:all|every)\b(?:\s+of)?(?:\s+(?:our|the))?(?:\s+API)?\s+endpoints?\b/i
+const PLACES = /^(?:puts?|keeps?|kept|places?|placed|locks?|locked|hides?|hid|hidden)\s+/i
+/** The prepositions whose phrase after the endpoints picks some out ("in the admin namespace", "of the admin API", "for
+    search", "under /api/admin", "with a write scope"); a verb's own phrase after them ("over HTTPS", "via the gateway",
+    "for a week") says how or when, not which. */
+const PICKS_OUT = /^(?:in|of|within|under|on|at|for|with|behind|from|inside|outside)$/
+const A_SPAN_OF_TIME = /^(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)$/i
+const theBlanket = (reading: Reading, clause: Clause) => {
+  const { tokens } = reading
+  const places = atTheVerb(reading, clause.predicate, PLACES) >= 0
+  const blanketed = tokens.some((t, k) => {
+    if (k < clause.start || k >= clause.end || !/^(?:all|every)$/.test(t.lower) || matchAt(reading, k, MAIN_BLANKET) < 0) return false
+    if (k > 0 && nounPhraseAt(tokens, k - 1)?.takenBack) return false
+    const phrase = phraseIn(reading, clause, k)
+    const narrowing = (m: Postmodifier) =>
+      m.restrictive &&
+      !namesTheWholeApi(m) &&
+      !restatesEveryRequest(m) &&
+      !restatesTheSet(reading, m) &&
+      !loginAfter(reading, m) &&
+      (m.kind !== 'preposition' || (PICKS_OUT.test(m.preposition ?? '') && !(m.preposition === 'for' && A_SPAN_OF_TIME.test(m.object?.head.text ?? '')) && !(places && m.preposition === 'behind')))
+    return !!phrase && tokens[phrase.end]?.text !== '(' && !phrase.postmodifiers.some(narrowing)
+  })
+  if (!blanketed || clause.conditions.some((c) => !keepsToALogin(reading, c) && narrows(reading, c))) return false
+  if (!verbGroupAt(tokens, clause.predicate).negated && !deniedSubjectOf(clause)) return true
+  const conditions = clause.conditions.filter((c) => !keepsToALogin(reading, c))
+  const senses = turnedSenses(reading, clause, (k) => !conditions.some((c) => k >= c.start && k < c.end), clause.end)
+  return senses.length > 0 && senses.every((sense) => sense > 0)
 }
 /** Every endpoint behind authentication, read by clause (header item 1; E162): the endpoints taken whole needing a
     login (endpointsNeedALogin), "no endpoint" answering without one (noEndpointAnswers), a login required for them or
     guarding them (loginForTheEndpoints), the endpoints kept behind one (behindALogin), or, as the floor under these,
     the endpoints taken whole with a login word in their clause and no reason the reader finds against it (theFloor),
-    in any clause of the sentence. A sentence that does not name an endpoint claims nothing. */
+    and, for "all" and "every", main's blanket (theBlanket), in any clause of the sentence. A sentence that does not
+    name an endpoint claims nothing. */
 const endpointClaim = (sentence: string) => {
   if (!/\bendpoints?\b/i.test(sentence)) return false
   const reading = readSentence(sentence)
   return reading.clauses.some(
     (clause) =>
-      endpointsNeedALogin(reading, clause) || noEndpointAnswers(reading, clause) || loginForTheEndpoints(reading, clause) || behindALogin(reading, clause) || theFloor(reading, clause),
+      endpointsNeedALogin(reading, clause) ||
+      noEndpointAnswers(reading, clause) ||
+      loginForTheEndpoints(reading, clause) ||
+      behindALogin(reading, clause) ||
+      theFloor(reading, clause) ||
+      theBlanket(reading, clause),
   )
 }
 
@@ -1910,9 +2002,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>All 40 endpoints require authentication.</p>', true],
       ['<p>Every HTTP endpoint requires authentication.</p>', true],
       ['<p>Every last endpoint requires authentication.</p>', true],
-      // All and every endpoints with no login said, which main's reading refused (#1456's Not in this PR, E162).
-      ['<p>All endpoints are documented publicly.</p>', false],
-      ['<p>Every endpoint logs its latency, and the login page is public.</p>', false],
+      // All and every endpoints with no login said, which main's blanket refused: they passed from E162 until #1594's
+      // fourth round, when all and every kept main's blanket, which only a narrowing or a denial excuses.
+      ['<p>All endpoints are documented publicly.</p>', true],
+      ['<p>Every endpoint logs its latency, and the login page is public.</p>', true],
       // A negation before "only" or "merely" adds to the verb and denies nothing, so these say the claim, beside the
       // plain denial, which passes (#1594's review, Codex's thread 4367778501).
       ['<p>All endpoints not only require authentication but also return JSON.</p>', true],
@@ -1973,17 +2066,15 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Each private endpoint request must be authenticated.</p>', false],
       // A phrase in brackets after the endpoints may pick some out, so they are not taken whole.
       ['<p>Each endpoint (in the admin namespace) requires a login.</p>', false],
-      // Credential words the readings above lack, beside a noun's modifier and a possessive, which pass.
+      // Credential words the readings above lack.
       ['<p>All endpoints require a password.</p>', true],
       ['<p>Every private endpoint requires a password.</p>', false],
       ['<p>All endpoints require an OAuth token.</p>', true],
       ['<p>All endpoints do not require an OAuth token.</p>', false],
       ['<p>Every endpoint requires an authorization header.</p>', true],
       ['<p>Every endpoint requires an authorization header only when accessing private records.</p>', false],
-      ['<p>Every endpoint documents the authorization header format.</p>', false],
       ['<p>All endpoints require a session cookie.</p>', true],
       ['<p>All private endpoints require a session cookie.</p>', false],
-      ["<p>Every endpoint shows the session's expiry.</p>", false],
       ['<p>All endpoints require an authenticated user.</p>', true],
       ['<p>Not every endpoint requires an authenticated user.</p>', false],
       // Verbs that authenticate, enforce, protect, lock or check.
@@ -2029,16 +2120,16 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // Rejecting the caller with no login says the login, and letting that caller in says the opposite.
       ['<p>Every endpoint rejects unauthenticated requests.</p>', true],
       ['<p>Every endpoint rejects unauthenticated requests when accessing private records.</p>', false],
-      ['<p>Every endpoint accepts unauthenticated requests.</p>', false],
+      ['<p>Each endpoint accepts unauthenticated requests.</p>', false],
       ['<p>All endpoints reject anonymous requests.</p>', true],
       ['<p>All endpoints in the admin namespace reject anonymous requests.</p>', false],
-      ['<p>All endpoints allow anonymous requests.</p>', false],
+      ['<p>Any endpoint allows anonymous requests.</p>', false],
       ['<p>Every endpoint refuses requests without a token.</p>', true],
       ['<p>Every endpoint refuses requests without a token only when accessing private records.</p>', false],
-      ['<p>Every endpoint answers requests without a token.</p>', false],
+      ['<p>Each endpoint answers requests without a token.</p>', false],
       ['<p>Anonymous requests to every endpoint are refused.</p>', true],
       ['<p>Anonymous requests to every endpoint in the admin namespace are refused.</p>', false],
-      ['<p>Anonymous requests to every endpoint are answered.</p>', false],
+      ['<p>Anonymous requests to each endpoint are answered.</p>', false],
       ['<p>Each endpoint returns 401 without a token.</p>', true],
       ['<p>Each endpoint returns 401 without a token when accessing private records.</p>', false],
       // A purpose before the clause, and a person's login need; a denial of the login's absence says the login.
@@ -2055,12 +2146,83 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>You can call any endpoint without a token.</p>', false],
       ['<p>Only authenticated users can call any endpoint.</p>', true],
       ['<p>Only authenticated users can call any endpoint in the admin namespace.</p>', false],
-      // The opposite said of the clause, which passes: a possible modal, a verb that lets a login in, and the endpoints
-      // said to be public.
+      // Another role and the opposite sense, which pass under "each" and "any" (the floor's reasons): a noun's modifier, a
+      // possessive, a possible modal, a verb that lets a login in, and the endpoints said to be public.
+      ['<p>Each endpoint documents the authorization header format.</p>', false],
+      ["<p>Each endpoint shows the session's expiry.</p>", false],
       ['<p>Signed-in users can call any endpoint.</p>', false],
-      ['<p>Every endpoint can be called with a token.</p>', false],
-      ['<p>Every endpoint accepts a session token.</p>', false],
-      ['<p>Every endpoint is public, even for signed-in readers.</p>', false],
+      ['<p>Each endpoint can be called with a token.</p>', false],
+      ['<p>Each endpoint accepts a session token.</p>', false],
+      ['<p>Each endpoint is public, even for signed-in readers.</p>', false],
+      // Under "all" or "every" they excuse nothing: main's blanket refused these, and since #1594's fourth round only a
+      // narrowing or a denial excuses all and every endpoints. They passed in the third round.
+      ['<p>Every endpoint documents the authorization header format.</p>', true],
+      ["<p>Every endpoint shows the session's expiry.</p>", true],
+      ['<p>Every endpoint accepts unauthenticated requests.</p>', true],
+      ['<p>All endpoints allow anonymous requests.</p>', true],
+      ['<p>Every endpoint answers requests without a token.</p>', true],
+      ['<p>Anonymous requests to every endpoint are answered.</p>', true],
+      ['<p>Every endpoint can be called with a token.</p>', true],
+      ['<p>Every endpoint accepts a session token.</p>', true],
+      ['<p>Every endpoint is public, even for signed-in readers.</p>', true],
+      // #1594's fourth round, the second combined lens: all and every sentences main's blanket refused and the floor let
+      // through on one of its reasons. Main's blanket refuses each again, beside a twin a narrowing or a denial excuses,
+      // and an each or any twin, which the floor reads as before and passes, as main does. A condition that restates
+      // every request:
+      ['<p>Every endpoint returns 401 if you are not signed in.</p>', true],
+      ['<p>Every endpoint rejects the request unless you are signed in.</p>', true],
+      ['<p>All endpoints return 401 unless the request carries a valid token.</p>', true],
+      ['<p>Requests are rejected at every endpoint unless they carry a token.</p>', true],
+      ['<p>Every endpoint returns 401 if the record is private.</p>', false],
+      ['<p>Each endpoint returns 401 if you are not signed in.</p>', false],
+      // A rejection of what its own denied clause says lacks a login:
+      ['<p>Every endpoint rejects callers who are not signed in.</p>', true],
+      ['<p>Every endpoint rejects requests that are not authenticated.</p>', true],
+      ['<p>Every endpoint rejects any request that does not carry a token.</p>', true],
+      ['<p>Every endpoint in the admin namespace rejects callers who are not signed in.</p>', false],
+      ['<p>Each endpoint rejects callers who are not signed in.</p>', false],
+      // A clause the verb takes as its object:
+      ['<p>Every endpoint requires that the caller holds a valid token.</p>', true],
+      ['<p>Every endpoint requires that the request carry a token.</p>', true],
+      ['<p>All endpoints require that a valid token be presented.</p>', true],
+      ['<p>Every endpoint ensures that the caller is logged in.</p>', true],
+      ['<p>Every endpoint verifies that the caller is authenticated.</p>', true],
+      ['<p>Every endpoint does not require that the caller holds a valid token.</p>', false],
+      ['<p>Each endpoint requires that the caller holds a valid token.</p>', false],
+      // A denied subject with a possible modal: a denial of a login's absence says the login.
+      ['<p>Nobody can call every endpoint without a token.</p>', true],
+      ['<p>No user can call all endpoints without signing in.</p>', true],
+      ['<p>Nobody can call every endpoint in the admin namespace without a token.</p>', false],
+      ['<p>Nobody can call any endpoint without a token.</p>', false],
+      // "public" in the clause:
+      ['<p>Every endpoint enforces authentication for public and private data alike.</p>', true],
+      ['<p>Every endpoint authenticates the caller before returning public filings.</p>', true],
+      ['<p>We authenticate every endpoint, public or private.</p>', true],
+      ['<p>Every endpoint authenticates requests, even for public data.</p>', true],
+      ['<p>We do not authenticate every endpoint, public or private.</p>', false],
+      ['<p>Each endpoint enforces authentication for public and private data alike.</p>', false],
+      // "only" at the end, "exclusively" and "and nothing else":
+      ['<p>Every endpoint accepts authenticated requests only.</p>', true],
+      ['<p>Every endpoint can be reached with a valid token only.</p>', true],
+      ['<p>All endpoints support OAuth authentication exclusively.</p>', true],
+      ['<p>Every endpoint accepts authenticated requests and nothing else.</p>', true],
+      ['<p>Every endpoint in the admin namespace accepts authenticated requests only.</p>', false],
+      ['<p>Each endpoint accepts authenticated requests only.</p>', false],
+      // The other 401 phrasings:
+      ['<p>Every endpoint responds with 401 to unauthenticated requests.</p>', true],
+      ['<p>Unauthenticated requests to every endpoint receive a 401 error.</p>', true],
+      ['<p>Unauthenticated requests to every endpoint get a 401.</p>', true],
+      ['<p>Every endpoint answers unauthenticated requests with a 401.</p>', true],
+      ['<p>Every endpoint in the admin namespace responds with 401 to unauthenticated requests.</p>', false],
+      ['<p>Each endpoint responds with 401 to unauthenticated requests.</p>', false],
+      // The blanket's own readings: a phrase in brackets after all or every endpoints excuses them as a narrowing (main
+      // refused it), a condition that keeps them to a login narrows nothing, and neither does a verb's own phrase after
+      // them, which the reading takes as theirs.
+      ['<p>Every endpoint (in the admin namespace) requires a login.</p>', false],
+      ['<p>Every endpoint returns public filings only to signed-in users.</p>', true],
+      ['<p>We serve all endpoints over HTTPS.</p>', true],
+      ['<p>We put all endpoints behind a paywall.</p>', true],
+      ['<p>We put all endpoints in the admin namespace behind a paywall.</p>', false],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
@@ -2202,6 +2364,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     // A purpose before the subject introduces its clause, a gerund takes its object into the subject, and a verb form
     // after a word read as an adjective, or before its own verb group, stands in the phrase (#1594's third round).
     expect(outline('To call any endpoint, you need a token.')).toEqual(['<you> | need a token.'])
+    expect(outline('To use any endpoint you must log in.')).toEqual(['<you> | must log in.'])
     expect(outline('Using any endpoint does not require a login.')).toEqual(['<Using> | does not require a login.'])
     expect(outline('Anonymous requests to every endpoint are refused.')).toEqual(['Anonymous <requests> {to every endpoint} | are refused.'])
     expect(outline('An auth proxy does not protect every endpoint.')).toEqual(['an auth <proxy> | does not protect every endpoint.'])

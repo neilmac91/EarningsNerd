@@ -4,11 +4,15 @@
  * through it, and its consent and one-use families are to move onto it, so a shape one family reads the others read too
  * (lessons/test-gates-must-be-as-wide-as-their-rule.md). A family keeps its own lexicon (what counts as a login, an
  * endpoint or the whole API) and matches it at the places this reading names (matchAt), not anywhere in the sentence.
- * Under its readings the endpoint family keeps main's recall as a floor (#1594's third round): it reads every noun
- * phrase a clause names, at each quantifier (nounPhraseAt), and every login word in the clause, so a clause that names
- * the endpoints taken whole with a login word fails unless this reading finds why it does not say the claim (a
- * condition that narrows, a denial on its verb or its subject, the login word in another role or in the opposite
- * sense), at the cost of failing a login word the endpoints only handle ("Each endpoint counts failed logins.").
+ * Under its readings the endpoint family keeps main's blanket for "all" and "every" (#1594's fourth round): a clause
+ * where "all" or "every" stands before "endpoints" as main read it fails, login word or not, unless this reading finds
+ * the phrase narrowed (a phrase after it that picks some out, a phrase in brackets, the quantifier taken back) or the
+ * clause narrowed by a condition or denied, at main's cost ("All endpoints are documented publicly." fails). Under
+ * "each" and "any" it keeps main's recall as a floor (#1594's third round): it reads every noun phrase a clause names,
+ * at each quantifier (nounPhraseAt), and every login word in the clause, so a clause that names the endpoints taken
+ * whole with a login word fails unless this reading finds why it does not say the claim (a condition that narrows, a
+ * denial on its verb or its subject, the login word in another role or in the opposite sense), at the cost of failing a
+ * login word the endpoints only handle ("Each endpoint counts failed logins.").
  *
  * Tokens (tokensOf). A word is letters and digits, joined by a hyphen or an apostrophe ("API's", "token-based",
  * "can't") or by a point between digits ("99.9"); any other mark is a token of its own. Each keeps where it stands, so
@@ -42,12 +46,13 @@
  * nouns ("authentication and authorization"). A quantified noun phrase with a verb group after it, inside a predicate
  * and outside its conditions, opens a clause too, the clause a verb takes as its object ("We guarantee that each
  * endpoint requires a login."). A clause's subject is read after what introduces it (adverbs, connectives and a
- * prepositional phrase, each with its comma or not, and a purpose with its comma: "To call any endpoint, you need a
- * token."), a gerund that opens it takes its object into it ("Using any endpoint requires a login."), and its predicate
- * starts at its verb group (verbGroupAt: auxiliaries, modals, adverbs, a negation and a catenative's "to" before its
- * verb). A negation directly before "only", "merely", "just", "simply" or "solely" adds to the verb and denies nothing
- * ("not only requires authentication but also returns JSON", "does not merely require a login"), so negates and
- * verbGroupAt read it as no negation.
+ * prepositional phrase, each with its comma or not, and a purpose, with its comma or, where what would read as a
+ * relative clause on its object ends the sentence, without one: "To call any endpoint, you need a token.", "To use any
+ * endpoint you must log in."), a gerund that opens it takes its object into it ("Using any endpoint requires a
+ * login."), and its predicate starts at its verb group (verbGroupAt: auxiliaries, modals, adverbs, a negation and a
+ * catenative's "to" before its verb). A negation directly before "only", "merely", "just", "simply" or "solely" adds to
+ * the verb and denies nothing ("not only requires authentication but also returns JSON", "does not merely require a
+ * login"), so negates and verbGroupAt read it as no negation.
  *
  * Out of reach: a verb the lexicon lacks reads as a noun after a noun, so a phrase runs on over it, and a noun the
  * lexicon also lists as a verb ends a phrase after another noun unless its own verb group follows ("the access logs
@@ -57,8 +62,9 @@
  * admin namespace, each endpoint ..."), and a phrase in brackets is not read; a prepositional phrase after a noun is
  * read as that noun's, wherever else it may attach ("every endpoint for each request" names its requests, and a family
  * decides whether such a phrase narrows); a quantifier after its noun ("the endpoints all require a login") is not
- * read, nor a purpose with no comma after it ("To use any endpoint you must log in."); and a fronted condition with no
- * comma runs to the first quantified noun phrase with a verb group after its own verb.
+ * read; and a fronted condition with no comma runs to the first quantified noun phrase with a verb group after its own
+ * verb.
+ *
  */
 
 export type Token = { text: string; lower: string; start: number; end: number }
@@ -402,7 +408,9 @@ function frontedEnd(tokens: Token[], from: number): number {
 }
 
 /** Where a purpose before a clause ends ("To call any endpoint, you need a token."): past its comma, when a noun phrase
-    and a verb group follow it; -1 where none does. */
+    and a verb group follow it, or, with no comma, where a relative clause without its relative word would end the
+    sentence after the purpose's object, which is the clause itself ("To use any endpoint you must log in."); -1 where
+    none does. */
 function purposeEnd(tokens: Token[], at: number): number {
   if (lower(tokens[at]) !== 'to' || !VERB_FORMS.has(lower(tokens[at + 1]))) return -1
   for (let i = at + 2; i < tokens.length && !HARD.test(tokens[i].text); i++) {
@@ -410,7 +418,9 @@ function purposeEnd(tokens: Token[], at: number): number {
     const subject = nounPhraseAt(tokens, i + 1)
     return subject && startsPredicate(tokens, subject.end) ? i + 1 : -1
   }
-  return -1
+  const object = nounPhraseAt(tokens, at + 2)
+  const last = object?.postmodifiers[object.postmodifiers.length - 1]
+  return last && last.kind === 'relative' && !RELATIVES.has(lower(tokens[last.start])) && (last.end >= tokens.length || isMark(tokens[last.end])) ? last.start : -1
 }
 
 /** Past what introduces a clause's subject: commas, adverbs and connectives, a prepositional phrase, and a purpose with
