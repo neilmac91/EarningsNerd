@@ -69,7 +69,9 @@ import { ACCESS_COPY } from '../../features/marketing/lib/access'
  * the final CTA card's opened at md at the reader's text size (48rem), where at md's 768px they took pages to
  * 812-886px; the card is the landing's one-line close since D-045, and the landing's rows open their label
  * column at 64rem the same way. At 1440x900 at the default size the site header's bar spans its container and
- * the logo keeps its top-left place, which the bar's w-full holds. At 390, 360 and 320px under 200% text a dialog's
+ * the logo keeps its top-left place, which the bar's w-full holds. Signed in with 20 alerts, the notification
+ * bell's open panel lies inside the screen at 1024x768, 1440x900 and 2560x960 under 200% text, its title and settings
+ * link in view and its list scrolling inside it (E178). At 390, 360 and 320px under 200% text a dialog's
  * header keeps its title inside the panel and clear of its close button, and a title on a line of its own, under its
  * icon or under the close button alone, takes the header's full width, under the close button too, with no word
  * broken inside it (E158 and E165; the last cases in this file).
@@ -858,6 +860,117 @@ test.describe("a failure's controls stay inside their card at 200% text", () => 
     }
   }
 })
+
+/** The company page's loaded filings index at 200% text (E168; features/filings/components/FilingIndex.tsx), beside the
+    failure cases above. Every box in its card and every painted line of its text lies inside the card, no row's text
+    runs under the row's EDGAR square, and the Compare periods card beside it covers none of it. The index and the
+    page's columns switch at rem widths, so under 200% text the four-column grid shows from 1536px and the Compare
+    periods card beside the filings from 2048px, and a list narrower than 15rem stacks each row, the code beside the
+    EDGAR square. Before, their px breakpoints chose a layout the doubled text had no room for: at 320px a year's
+    caret painted to 311px past a card ending at 288px, the header's count to 297px and a period to 290px; from 320
+    to 360px the EDGAR square sat over a period's last word; at 768px the grid's headings and dates printed over the
+    periods; and at 1024px the filings card was 208px wide beside the Compare periods card, which covered its rows. */
+const indexFit = (card: Locator) =>
+  card.evaluate((root) => {
+    const c = root.getBoundingClientRect()
+    const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
+    const said = (text: string | null) => (text ?? '').replace(/\s+/g, ' ').trim().slice(0, 30)
+    // Text that paints: a visible parent wider than the 1px box sr-only leaves (its text is clipped away).
+    const painted = (node: Node) => {
+      const host = node.parentElement
+      if (!node.textContent?.trim() || !host?.checkVisibility()) return false
+      const box = host.getBoundingClientRect()
+      return box.width > 1 || box.height > 1
+    }
+    const lines = (scope: Element) => {
+      const found: { text: string; line: DOMRect }[] = []
+      const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!painted(node)) continue
+        const range = document.createRange()
+        range.selectNodeContents(node)
+        for (const line of range.getClientRects()) if (line.width > 0) found.push({ text: said(node.textContent), line })
+      }
+      return found
+    }
+    const past: string[] = []
+    for (const el of root.querySelectorAll('*')) {
+      const r = el.getBoundingClientRect()
+      if (r.width === 0 || !el.checkVisibility() || (r.width <= 1 && r.height <= 1)) continue
+      if (r.left < c.left - 0.5 || r.right > c.right + 0.5) past.push(`${el.tagName.toLowerCase()} "${said(el.textContent)}" ${px(r.left, r.right)}`)
+    }
+    for (const { text, line } of lines(root)) {
+      if (line.left < c.left - 0.5 || line.right > c.right + 0.5) past.push(`text "${text}" ${px(line.left, line.right)}`)
+    }
+    const under: string[] = []
+    for (const row of root.querySelectorAll('li')) {
+      const square = row.querySelector(':scope > a[target="_blank"]')
+      const link = row.querySelector(':scope > a:not([target])')
+      if (!square || !link || !square.checkVisibility()) continue
+      const s = square.getBoundingClientRect()
+      for (const { text, line } of lines(link)) {
+        if (line.left < s.right - 0.5 && s.left < line.right - 0.5 && line.top < s.bottom - 0.5 && s.top < line.bottom - 0.5) {
+          under.push(`"${text}" ${px(line.left, line.right)} by ${px(line.top, line.bottom)}, the square ${px(s.left, s.right)} by ${px(s.top, s.bottom)}`)
+        }
+      }
+    }
+    return { card: px(c.left, c.right), rows: root.querySelectorAll('li').length, past, under }
+  })
+const boxesOverlap = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
+  a.x < b.x + b.width - 0.5 && b.x < a.x + a.width - 0.5 && a.y < b.y + b.height - 0.5 && b.y < a.y + a.height - 0.5
+
+for (const state of [
+  { width: 320, height: 780, phone: true, wide: false, columns: false },
+  { width: 360, height: 780, phone: true, wide: false, columns: false },
+  { width: 390, height: 844, phone: true, wide: false, columns: false },
+  { width: 768, height: 1024, phone: false, wide: false, columns: false },
+  { width: 1024, height: 768, phone: false, wide: false, columns: false },
+  { width: 1440, height: 900, phone: false, wide: false, columns: false },
+  { width: 2304, height: 1296, phone: false, wide: true, columns: true },
+] as const) {
+  test.describe(`a ${state.width}px ${state.phone ? 'phone' : 'screen'} at 200% text, the company page's filings index`, () => {
+    test.use({ viewport: { width: state.width, height: state.height }, isMobile: state.phone, hasTouch: state.phone })
+    test(`company (/company/AAPL) keeps every box and line of the loaded index inside its card, no row's text under its EDGAR square and the Compare periods card off it, at ${state.width}px and 200% text`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      // A path no request takes: the company page and its filings answer as the failure cases' fixtures do.
+      await answerSite(page, baseURL!, false, { path: '/none', status: 404, body: {} })
+      await page.goto('/company/AAPL')
+      const card = page.getByRole('region', { name: 'SEC filings' })
+      await expect(card.getByRole('link', { name: /^10-Q/ }), 'the index has loaded its rows').toBeVisible()
+      await page.evaluate(() => document.fonts.ready)
+      const cdp = await page.context().newCDPSession(page)
+      await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+      await expect
+        .poll(
+          () =>
+            page.evaluate(() => ({
+              root: getComputedStyle(document.documentElement).fontSize,
+              wide: matchMedia('(min-width: 48rem)').matches,
+              columns: matchMedia('(min-width: 64rem)').matches,
+            })),
+          { message: `the 200% text setting took at ${state.width}px: the root computes to 32px, and the index's 48rem and the page's 64rem queries match as the width expects` },
+        )
+        .toEqual({ root: '32px', wide: state.wide, columns: state.columns })
+      await settle(page)
+      await page.evaluate(() => document.fonts.ready)
+
+      const at = `${state.width}px and 200% text`
+      const fit = await indexFit(card)
+      expect(fit.rows, `${at}: the index's three rows are read`).toBe(3)
+      expect(fit.past, `${at}: every box and line of text in the index lies inside its card (${fit.card})`).toEqual([])
+      expect(fit.under, `${at}: no row's text runs under its EDGAR square`).toEqual([])
+      const compare = page.getByRole('complementary', { name: 'Compare periods' })
+      await expect(compare, `${at}: the Compare periods card shows`).toBeVisible()
+      const [filingsBox, compareBox] = [await card.boundingBox(), await compare.boundingBox()]
+      expect(boxesOverlap(filingsBox!, compareBox!), `${at}: the Compare periods card (${JSON.stringify(compareBox)}) covers none of the filings card (${JSON.stringify(filingsBox)})`).toBe(false)
+    })
+  })
+}
 
 /** The cookie settings dialog's category rows at 200% text (components/CookieConsent.tsx), opened from the footer's
     "Cookie settings" on a page whose visitor has already chosen. Each row takes the Notice's recipe: it wraps, its text
@@ -1931,6 +2044,102 @@ for (const { below, at, doubled } of [
         }
       })
     }
+  })
+}
+
+/** The notification bell's open panel under 200% text, signed in with a full list (E178). Only its list was capped, at
+    24rem (768px with the text doubled), so with 20 alerts, the route's default limit, the panel ran past the screen's
+    foot, where the sticky header kept its tail out of reach: the compact bar's at 1024x768 and 1440x900 spanned 128 to
+    1060px, its "Manage alert settings" link ending at 1051px, and the full bar's at 2560x960, a wide screen's window under
+    the browser's own bars, 116 to 1048px. The panel is now capped to the screen under the bar: it lies inside the screen on
+    both axes and takes its height down to within 2rem of the foot, its title and its settings link are whole inside it,
+    and its list scrolls inside it, scrolled to its end showing the last alert whole. The list is answered on top of
+    answerApi's routes (a route registered later answers first). */
+const ALERTS = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA', 'JPM', 'V', 'MA', 'UNH', 'XOM', 'JNJ', 'PG', 'HD', 'COST', 'ABBV', 'KO', 'PEP', 'NFLX'].map(
+  (ticker, i) => ({
+    id: i + 1,
+    filing_id: 100 + i,
+    ticker,
+    company_name: `${ticker} Holdings Inc.`,
+    filing_type: i % 3 ? '10-Q' : '10-K',
+    filing_date: `2026-10-${String(20 - i).padStart(2, '0')}T00:00:00Z`,
+    created_at: `2026-10-${String(20 - i).padStart(2, '0')}T12:00:00Z`,
+    read: true,
+  }),
+)
+type Box = { top: number; bottom: number; left: number; right: number }
+const span = (box: Box) => `${Math.round(box.top)}-${Math.round(box.bottom)}px down, ${Math.round(box.left)}-${Math.round(box.right)}px across`
+
+for (const viewport of [{ width: 1024, height: 768 }, { width: 1440, height: 900 }, { width: 2560, height: 960 }]) {
+  const bar = viewport.width >= 2304 ? 'full' : 'compact'
+  test.describe(`a ${viewport.width}x${viewport.height} desktop at 200% text, signed in, the notification panel`, () => {
+    test.use({ viewport, isMobile: false, hasTouch: false })
+    test(`the ${bar} bar's panel with 20 alerts lies inside the screen, its title and settings link in view and its list scrolling to the last alert`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('en_session_active', '1')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      await answerApi(page, baseURL!, 'pro')
+      const cors = { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' }
+      await page.route(
+        (url) => url.origin === API_ORIGIN && url.pathname === '/api/users/me/notifications',
+        (route) => route.fulfill({ status: 200, headers: cors, json: { items: ALERTS, unread_count: 0 } }),
+      )
+      await page.goto('/pricing')
+      await h1(page)
+      await page.evaluate(() => document.fonts.ready)
+      await doubleTextOnADesktop(page, bar === 'full')
+      // Counted under 200% text: at 1440px the default size shows the full bar, and the doubled text the compact one.
+      const bell = page.getByRole('banner').getByRole('button', { name: /^Notifications/ })
+      await expect(bell, `${viewport.width}px and 200% text: the ${bar} bar's bell, the one bell shown`).toHaveCount(1)
+      await bell.click()
+      const panel = page.getByRole('menu', { name: 'Notifications' })
+      await expect(panel).toBeVisible()
+      await expect(panel.getByRole('list').getByRole('menuitem'), 'the panel lists the 20 alerts').toHaveCount(20)
+
+      const at = `${viewport.width}x${viewport.height} and 200% text`
+      const read = () =>
+        panel.evaluate((el) => {
+          const box = (node: Element) => {
+            const { top, bottom, left, right } = node.getBoundingClientRect()
+            return { top, bottom, left, right }
+          }
+          const list = el.querySelector('ul')!
+          return {
+            screen: { top: 0, left: 0, bottom: document.documentElement.clientHeight, right: document.documentElement.clientWidth },
+            rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
+            panel: box(el),
+            title: box([...el.querySelectorAll('p')].find((p) => p.textContent === 'Notifications')!),
+            settings: box([...el.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'Manage alert settings')!),
+            list: box(list),
+            last: box(list.querySelector('li:last-child a')!),
+            overflow: list.scrollHeight - list.clientHeight,
+          }
+        })
+      const within = (what: string, inner: Box, outer: Box, where: string) => {
+        const message = `${at}: ${what} (${span(inner)}) lies inside ${where} (${span(outer)})`
+        expect(inner.top, message).toBeGreaterThanOrEqual(outer.top - 0.5)
+        expect(inner.bottom, message).toBeLessThanOrEqual(outer.bottom + 0.5)
+        expect(inner.left, message).toBeGreaterThanOrEqual(outer.left - 0.5)
+        expect(inner.right, message).toBeLessThanOrEqual(outer.right + 0.5)
+      }
+      const open = await read()
+      within('the panel', open.panel, open.screen, 'the screen')
+      expect(open.screen.bottom - open.panel.bottom, `${at}: the panel takes the screen's height under the bar, ending within 2rem of its foot`).toBeLessThanOrEqual(2 * open.rem)
+      within('its title', open.title, open.panel, 'the panel')
+      within('its "Manage alert settings" link', open.settings, open.panel, 'the panel')
+      expect(open.overflow, `${at}: the list scrolls inside the panel`).toBeGreaterThan(0)
+      const lines = await headerMenuFit(page, 'Notifications')
+      expect(lines.problems, `${at}: no line of the panel's text paints past the screen's sides`).toEqual([])
+      await panel.getByRole('list').evaluate((list) => {
+        list.scrollTop = list.scrollHeight
+      })
+      const end = await read()
+      within('the last alert, the list scrolled to its end,', end.last, end.list, 'the list')
+    })
   })
 }
 
