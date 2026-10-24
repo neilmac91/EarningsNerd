@@ -127,13 +127,21 @@ saved-summary status read, a sync route, among them. Each async route is now one
 own connection, and the library's writes hold a lock from their check to their commit (below). Their
 burst case holds every checkout, statement and release off the loop and each reader to its own library
 (2026-10-24, E171).
+The homepage's reporting-this-week strip, public, ran its read in the thread pool from its service, behind
+a single-flight lock on the loop, but left that read's transaction for the finalizer: eight readers on four
+slots left the one reader's on a cold cache, and all eight with a cache that never holds. The service is
+now synchronous, as the notable-filings strip's is, its single flight a thread lock and its cache replaced
+in one assignment, and the route runs it and the release as one thread-pool unit: neither burst leaves one.
+A cache hit now takes a thread hop as well, and a miss waits for the fill on a thread, holding no
+connection. Its burst case holds every checkout off the loop and nothing left for the finalizer
+(2026-10-24, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
 dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
 rules, uses it. Its ceilings hold the routes that still hand their session to a call on the loop at
-their counts (the rest of the auth router, E121, and 23 routes in four other routers, E171; six of
+their counts (the rest of the auth router, E121, and 22 routes in three other routers, E171; five of
 those hand-offs, the header's strict ones, use no connection on the loop), so none can add one in a
 form the ratchet counts and a new route starts at 0. Neither half
 sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called
