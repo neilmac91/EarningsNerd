@@ -363,7 +363,7 @@ test.describe("the site header's own stops hold the page in place / 1440x900 und
 
 /**
  * From lg the open compact menu lies over the page under the bar, as the bar's other menus do, and the height the
- * header publishes leaves it out (E177, chief design on #1558, comment 6377356358). In the header's flow the open menu
+ * header publishes leaves it out (chief design on #1558, comment 6377356358). In the header's flow the open menu
  * pushed the page down and grew --site-header-h, so the filing workspace's pane, which runs from its own top to the
  * screen's foot, shrank under it: at 1100x800 from 550 to 12px, and under 200% text from 254 to 0px. At 1100x800 on
  * /filing/3, a Pro reader with the pane open, at both text sizes, at the top of the page and with the page scrolled

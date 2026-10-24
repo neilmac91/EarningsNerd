@@ -10,7 +10,7 @@ import type { Page } from '@playwright/test'
  * user. Shared by filing-source-chip.spec.ts (EN-01), consent-bar-yields.spec.ts (EN-02),
  * citation-chip-keyboard.spec.ts (EN-01 follow-up, which routes the Ask stream on top),
  * filing-reader-wide-tables.spec.ts (EN-04, the `tables` content), prose-links.spec.ts (D-030,
- * which routes an answer with a link) and header-covers-nothing.spec.ts (E177, the pane under the
+ * which routes an answer with a link) and header-covers-nothing.spec.ts (the pane under the
  * open menu); a spec seeds its own browser
  * state (theme, consent, coachmark) in its own addInitScript.
  */

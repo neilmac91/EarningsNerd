@@ -315,7 +315,7 @@ export default function Header({
           panel leaves the header's flow: it lies over the page under the bar, as the bar's other menus do, with their
           lift and its own lower edge, and goes no lower than the screen's foot. So the header's box, and the height it
           publishes, stay the bar's, and the sticky chrome under it keeps its size and place: the filing workspace's
-          pane at 1100x800 went from 550 to 12px under the open menu (E177, chief design on #1558, comment 6377356358;
+          pane at 1100x800 went from 550 to 12px under the open menu (chief design on #1558, comment 6377356358;
           tests/e2e/header-covers-nothing.spec.ts). Below lg the open menu counts, as a phone's scroll padding and
           sticky chrome read it. */}
       {mobileMenuOpen && (

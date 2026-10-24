@@ -1212,10 +1212,10 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  header's own height being the bar's). So the header's box and `--site-header-h` stay the
                  bar's, and the sticky chrome under it keeps its size and place: in the flow, the open menu
                  shrank the filing workspace's pane at 1100x800 from 550 to 12px, and from 254 to 0px under
-                 200% text (E177; gate: tests/e2e/header-covers-nothing.spec.ts, at 1100x800 on /filing/3 for
-                 a Pro reader, at both text sizes, at the top of the page and scrolled: with the menu open the
-                 pane keeps its top and height, the page its scroll and the header its published height, and
-                 the menu lies over the pane and ends inside the screen).
+                 200% text (chief design on #1558; gate: tests/e2e/header-covers-nothing.spec.ts, at 1100x800
+                 on /filing/3 for a Pro reader, at both text sizes, at the top of the page and scrolled: with
+                 the menu open the pane keeps its top and height, the page its scroll and the header its
+                 published height, and the menu lies over the pane and ends inside the screen).
                  The consent layer: a lower z alone would let the launcher cover a consent choice, so while
                  the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
                  `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the
