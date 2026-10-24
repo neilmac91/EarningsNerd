@@ -1848,9 +1848,10 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 #
 # Each body is read in a scope of its own, the function's and each nested def's or lambda's: its
 # parameters shadow the names outside, but for one defaulting to the session or to a unit, and what
-# it binds binds nothing outside it; a class body, too, binds nothing the function's code sees. Each is
-# read flow-insensitively, again until the names bound to the session and the units in it stop
-# growing, so a use counts whatever the order of the binding, the def and the use in the source.
+# it binds binds nothing outside it; a class body, too, binds nothing the function's code sees. Each
+# of those bodies but a class's, which is read once, in order, as it runs, is read flow-insensitively:
+# again until the names bound to the session and the units in it stop growing, so a use counts
+# whatever the order of the binding, the def and the use in the source.
 #
 # It counts each use of the session in the code that runs on the loop:
 #
@@ -1890,11 +1891,12 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 # session inside ``functools.partial`` or a generator expression handed to the thread pool, an uncalled
 # method handed to a dispatcher by keyword, a comprehension's variable named like the session
 # (comprehensions get no scope of their own here), and, the walk being flow-insensitive, a name a body
-# rebinds away from the session or from a unit. So does a session handed to
-# ``stripe_threads.run_on_stripe_threads``, deliberately: it would hold a pooled connection on a Stripe
-# thread across Stripe calls. The route hands its units to ``run_in_threadpool`` itself instead, with
-# the session among that call's own arguments, and stops handing the session to a callee that never
-# uses it.
+# rebinds away from the session or from a unit. The route hands its units to ``run_in_threadpool``
+# itself instead, with the session among that call's own arguments, and stops handing the session to a
+# callee that never uses it. A session handed to ``stripe_threads.run_on_stripe_threads`` counts too,
+# deliberately: it would hold a pooled connection on a Stripe thread across Stripe calls. There the
+# session work goes in a released ``run_in_threadpool`` unit first, and the Stripe call on the Stripe
+# threads with no session (E170).
 #
 # A function's count may not exceed its ceiling in ``ON_LOOP_CEILINGS``; an unlisted function's
 # ceiling is 0, so every new async route starts clean. The ceilings are the counts when the walk last
@@ -1913,8 +1915,12 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 # - a session reached through an attribute (``holder.db``), or returned by a unit
 #   (``def handle(): return db``, then ``handle().query(...)``);
 # - a unit called other than by a name bound to it: a lambda called where it is written, a method of a
-#   nested class (``Unit().run()``), or a unit handed to a callee that calls it on the loop
+#   nested class (``Unit().run()``), a unit a call returns or wraps (``run = make_unit(1); run()``,
+#   ``run = partial(unit, 1); run()``), or a unit handed to a callee that calls it on the loop
 #   (``service.call(lambda: db.query(...))``);
+# - a unit over the session handed to ``run_on_stripe_threads`` (``run_on_stripe_threads(unit)``): it
+#   holds the connection on a Stripe thread across its Stripe calls, as a session handed there would,
+#   but the walk does not read what a callee does with a unit;
 # - a session the route opens itself from ``SessionLocal`` (it does not wait on the dependency's
 #   finalizer);
 # - an ORM instance's lazy load, or its refresh once a commit has expired it (the generate stream's
@@ -2864,6 +2870,26 @@ async def gap_a_session_a_unit_returns(db: Session = Depends(get_db)):
         return db
     return handle().query(Row).all()
 
+async def gap_a_unit_a_factory_returns(db: Session = Depends(get_db)):
+    def make_unit(row_id):
+        def unit():
+            return db.get(Row, row_id)
+        return unit
+    run = make_unit(1)
+    return run()
+
+async def gap_a_partial_of_a_unit(db: Session = Depends(get_db)):
+    def unit(row_id):
+        return db.get(Row, row_id)
+    run = functools.partial(unit, 1)
+    return run()
+
+async def gap_a_unit_handed_to_the_stripe_threads(db: Session = Depends(get_db)):
+    def delete_all():
+        db.query(Row).delete()
+        return stripe_service.cancel(1)
+    return await run_on_stripe_threads(delete_all)
+
 async def gap_a_method_of_a_nested_class(db: Session = Depends(get_db)):
     class Unit:
         def run(self):
@@ -3018,6 +3044,9 @@ _PLANTED_COUNTS = {
     "gap_a_starred_value_before_a_starred_target": 0,
     "gap_a_starred_target_before_a_starred_value": 0,
     "gap_a_session_a_unit_returns": 0,
+    "gap_a_unit_a_factory_returns": 0,
+    "gap_a_partial_of_a_unit": 0,
+    "gap_a_unit_handed_to_the_stripe_threads": 0,
     "gap_a_method_of_a_nested_class": 0,
     "gap_lambda_called_at_once": 0,
     "gap_lambda_handed_to_a_callee": 0,
