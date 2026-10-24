@@ -25,9 +25,14 @@ import { test, expect, type Page } from '@playwright/test'
  * open mobile menu, scrolled the page behind the menu at every Tab through it (from 2,350px to the top in five
  * Tabs at 390px), and a control in the bar that took focus while the page was scrolled moved the page by half a
  * screen. With the page scrolled, the menu opened at 390x844 at both text sizes keeps the page where it is through
- * every Tab in it, and a Tab out of it lands on a control the open menu does not wholly cover, at the default size
- * inside the screen and below the menu (under 200% text the open menu fills the screen: E167); at 1440x900 a focus
- * on the bar's logo or theme toggle leaves the page where it is.
+ * every Tab in it, and a Tab out of it closes the menu and lands on a control inside the screen and below the bar;
+ * at 1440x900 a focus on the bar's logo or theme toggle leaves the page where it is.
+ *
+ * The open menu is a disclosure: it closes when focus leaves the header (E167, chief design's ruling on #1521). Under
+ * 200% text the open menu fills the screen, and it stayed open when a Tab left it, so the next control was scrolled
+ * into view past the screen's foot (784 to 904px). It closes inside the focusout, before the browser scrolls the
+ * next control into view, or that scroll would still reserve the open menu's height; a focus moved by script out
+ * of the open menu, which leaves no microtask between the two, closes it and lands below the bar too.
  *
  * 200% text is Chromium's own text setting (`Page.setFontSizes`, as tests/e2e/reflow-200.spec.ts doubles it), not
  * an inline style on <html>, which no media query reads. CI runs e2e with no backend
@@ -216,7 +221,7 @@ test.describe("the site header's own stops hold the page in place", () => {
     const name = `390px${doubled ? ' under 200% text' : ''}`
     test.describe(name, () => {
       test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
-      test('a Tab through the open menu keeps the page where it is, and a Tab out of it lands on a control the menu does not cover', async ({ page, baseURL }) => {
+      test('a Tab through the open menu keeps the page where it is, and a Tab out of it closes the menu and lands below the bar', async ({ page, baseURL }) => {
         await open(page, baseURL!, '/', 'light')
         if (doubled) await doubleText(page)
         await settle(page)
@@ -234,16 +239,11 @@ test.describe("the site header's own stops hold the page in place", () => {
           await page.keyboard.press('Tab')
           const now = await focusState(page)
           if (!now.inHeader) {
-            expect(now.bottom, `${name}: a Tab out of the open menu lands on ${now.label} at ${now.top.toFixed(0)} to ${now.bottom.toFixed(0)}px, wholly under a header ending at ${now.barBottom.toFixed(0)}px`).toBeGreaterThan(now.barBottom + 0.5)
-            // At the default size the open menu leaves room below it, and the control lands there, inside the screen. Under
-            // 200% text the menu fills the screen and stays open, so the control lands past its foot: E167 closes the menu
-            // when focus leaves it, and then holds this at both sizes.
-            if (!doubled) {
-              expect(
-                [now.top >= now.barBottom - 0.5, now.bottom <= 844.5],
-                `${name}: a Tab out of the open menu lands on ${now.label} at ${now.top.toFixed(0)} to ${now.bottom.toFixed(0)}px, inside the screen and below the open menu ending at ${now.barBottom.toFixed(0)}px`,
-              ).toEqual([true, true])
-            }
+            await expect(page.getByRole('navigation', { name: 'Mobile navigation' }), `${name}: a Tab out of the open menu, onto ${now.label}, closes it`).toHaveCount(0)
+            expect(
+              [now.top >= now.barBottom - 0.5, now.bottom <= 844.5],
+              `${name}: a Tab out of the open menu lands on ${now.label} at ${now.top.toFixed(0)} to ${now.bottom.toFixed(0)}px, inside the screen and below the bar ending at ${now.barBottom.toFixed(0)}px`,
+            ).toEqual([true, true])
             break
           }
           tabs++
@@ -251,6 +251,62 @@ test.describe("the site header's own stops hold the page in place", () => {
           expect(tabs, `${name}: the walk through the open menu ends`).toBeLessThan(40)
         }
         expect(tabs, `${name}: the walk went through the menu's stops`).toBeGreaterThan(3)
+      })
+
+      // A tap or a click moves focus to what it presses on its mousedown, before its release. The header is in the
+      // page's flow, and at the top of a page nothing anchors the scroll, so a menu that closed on that focusout moved
+      // the page under the finger and the release followed nothing. A press leaves the menu open, as before (chief
+      // design's ruling on #1542), and the navigation it starts closes it. Under 200% text the open menu fills the
+      // screen, so no page control shows below it to press.
+      if (!doubled) {
+        test('a tap on a page link below the open menu, at the top of the page, follows it, and the next page opens with the menu closed', async ({ page, baseURL }) => {
+          await open(page, baseURL!, '/', 'light')
+          await settle(page)
+          expect(await page.evaluate(() => window.scrollY), `${name}: the page is at its top`).toBe(0)
+          const toggle = (await page.getByRole('button', { name: 'Open menu' }).boundingBox())!
+          await page.touchscreen.tap(toggle.x + toggle.width / 2, toggle.y + toggle.height / 2)
+          await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible()
+          await settle(page)
+          const target = await page.evaluate(() => {
+            const menuEnd = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+            const link = [...document.querySelectorAll<HTMLAnchorElement>('main a[href^="/"]')].find((a) => {
+              const r = a.getBoundingClientRect()
+              return r.width > 0 && r.top > menuEnd + 8 && r.bottom < window.innerHeight - 8
+            })
+            if (!link) return null
+            const r = link.getBoundingClientRect()
+            return { href: link.getAttribute('href')!, label: link.textContent!.replace(/\s+/g, ' ').trim(), x: r.x + r.width / 2, y: r.y + r.height / 2, menuEnd }
+          })
+          expect(target, `${name}: a page link shows below the open menu`).not.toBeNull()
+          await page.touchscreen.tap(target!.x, target!.y)
+          await expect(page, `${name}: a tap on "${target!.label}" at ${target!.y.toFixed(0)}px, below the open menu ending at ${target!.menuEnd.toFixed(0)}px, follows it`).toHaveURL(
+            (url) => url.pathname === target!.href,
+          )
+          await expect(page.getByRole('navigation', { name: 'Mobile navigation' }), `${name}: ${target!.href} opens with the menu closed`).toHaveCount(0)
+        })
+      }
+
+      // A focus moved by script runs with script on the stack, so no microtask runs between the focusout and the
+      // browser's scroll: only a close inside the focusout clears the open menu's height from the padding in time.
+      // Without it, under 200% text, the control landed at 91 to 211px, partly under a 151px bar.
+      test('a focus moved by script out of the open menu closes it and lands below the bar', async ({ page, baseURL }) => {
+        await open(page, baseURL!, '/', 'light')
+        if (doubled) await doubleText(page)
+        await settle(page)
+        await page.evaluate(() => window.scrollTo(0, 2000))
+        await settle(page)
+        await page.getByRole('button', { name: 'Open menu' }).evaluate((el: HTMLElement) => el.focus({ preventScroll: true }))
+        await page.keyboard.press('Enter')
+        await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible()
+        await settle(page)
+        await page.locator('main').locator('a[href], button').first().evaluate((el: HTMLElement) => el.focus())
+        await settle(page)
+        const now = await focusState(page)
+        await expect(page.getByRole('navigation', { name: 'Mobile navigation' }), `${name}: a focus moved by script onto ${now.label} closes the open menu`).toHaveCount(0)
+        expect(
+          [now.inHeader, now.top >= now.barBottom - 0.5, now.bottom <= 844.5],
+          `${name}: a focus moved by script out of the open menu lands on ${now.label} at ${now.top.toFixed(0)} to ${now.bottom.toFixed(0)}px, inside the screen and below the bar ending at ${now.barBottom.toFixed(0)}px`,
+        ).toEqual([false, true, true])
       })
     })
   }
