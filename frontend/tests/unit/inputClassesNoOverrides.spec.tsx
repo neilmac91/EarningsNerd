@@ -692,8 +692,8 @@ describe('a raw field takes inputClasses() options, never a competing class on t
         'or add one to components/ui/Input.tsx with explicit sides.',
     ).toEqual([])
     expect(stale, 'pins that no longer match a finding: remove them').toEqual([])
-    expect(Object.keys(PINS).length).toBeLessThanOrEqual(MAX_PINNED.files)
-    expect(Object.values(PINS).flatMap((p) => p.findings).length).toBeLessThanOrEqual(MAX_PINNED.findings)
+    expect(Object.keys(PINS).length).toBe(MAX_PINNED.files)
+    expect(Object.values(PINS).flatMap((p) => p.findings).length).toBe(MAX_PINNED.findings)
   })
 
   it('reads the app (a rename cannot leave it scanning nothing)', () => {

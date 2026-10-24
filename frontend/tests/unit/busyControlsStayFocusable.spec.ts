@@ -86,7 +86,7 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
   },
 }
 
-/** Frozen ceilings on files and on pinned sites: lower them as sites are converted, never raise them. */
+/** Equal to the files and to the pinned sites: lower each in the commit that converts a site, never raise it. */
 const MAX_ALLOWLIST_SIZE = 5
 const MAX_PINNED_SITES = 9
 
@@ -1164,14 +1164,14 @@ describe('busy controls stay focusable (rule-12 gate)', () => {
   it('is shrink-only, and every entry has a reason', () => {
     expect(
       Object.keys(ALLOW).length,
-      `ALLOW has ${Object.keys(ALLOW).length} entries but the ceiling is ${MAX_ALLOWLIST_SIZE}. Fix the control instead of adding an entry.`,
-    ).toBeLessThanOrEqual(MAX_ALLOWLIST_SIZE)
+      `ALLOW has ${Object.keys(ALLOW).length} entries and MAX_ALLOWLIST_SIZE is ${MAX_ALLOWLIST_SIZE}. Fix the control instead of adding an entry; lower the cap with an entry that goes.`,
+    ).toBe(MAX_ALLOWLIST_SIZE)
     // Files alone are not enough: a new exception appended to a listed file keeps the file count.
     const pinned = Object.values(ALLOW).reduce((sum, { sites }) => sum + sites.length, 0)
     expect(
       pinned,
-      `ALLOW pins ${pinned} sites but the ceiling is ${MAX_PINNED_SITES}. Fix the control instead of pinning it.`,
-    ).toBeLessThanOrEqual(MAX_PINNED_SITES)
+      `ALLOW pins ${pinned} sites and MAX_PINNED_SITES is ${MAX_PINNED_SITES}. Fix the control instead of pinning it; lower the cap with a site that goes.`,
+    ).toBe(MAX_PINNED_SITES)
     for (const [file, { reason }] of Object.entries(ALLOW)) {
       expect(reason.trim().length, `${file} needs a reason`).toBeGreaterThan(0)
     }
@@ -1568,12 +1568,12 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
   it('the three allowlists are shrink-only, and every entry has a reason', () => {
     const pinned = (allow: Record<string, { sites: string[] }>) =>
       Object.values(allow).reduce((sum, { sites }) => sum + sites.length, 0)
-    expect(Object.keys(ALLOW_RETRY).length).toBeLessThanOrEqual(MAX_RETRY_ALLOWLIST_SIZE)
-    expect(pinned(ALLOW_RETRY)).toBeLessThanOrEqual(MAX_RETRY_PINNED_SITES)
+    expect(Object.keys(ALLOW_RETRY).length).toBe(MAX_RETRY_ALLOWLIST_SIZE)
+    expect(pinned(ALLOW_RETRY)).toBe(MAX_RETRY_PINNED_SITES)
     expect(Object.keys(ALLOW_RETRY_LABEL).length).toBe(MAX_RETRY_LABEL_ALLOWLIST_SIZE)
     expect(pinned(ALLOW_RETRY_LABEL)).toBe(MAX_RETRY_LABEL_PINNED_SITES)
-    expect(Object.keys(ALLOW_HAND_BUILT_FAILURE).length).toBeLessThanOrEqual(MAX_HAND_BUILT_FAILURE_FILES)
-    expect(pinned(ALLOW_HAND_BUILT_FAILURE)).toBeLessThanOrEqual(MAX_HAND_BUILT_FAILURE_SITES)
+    expect(Object.keys(ALLOW_HAND_BUILT_FAILURE).length).toBe(MAX_HAND_BUILT_FAILURE_FILES)
+    expect(pinned(ALLOW_HAND_BUILT_FAILURE)).toBe(MAX_HAND_BUILT_FAILURE_SITES)
     for (const [file, { reason }] of [
       ...Object.entries(ALLOW_RETRY),
       ...Object.entries(ALLOW_RETRY_LABEL),
