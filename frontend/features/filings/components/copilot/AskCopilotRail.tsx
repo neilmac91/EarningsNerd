@@ -57,10 +57,10 @@ interface AskCopilotRailProps {
 // sheet and the docked overlay rest on the cookie-consent bar while it is mounted (bottom =
 // --consent-inset, lib/consentLayer) and the sheet gives up that height from its 80vh cap (EN-02).
 const PANEL_BASE =
-  'fixed inset-x-0 bottom-[var(--consent-inset,0px)] z-40 flex max-h-[calc(80vh_-_var(--consent-inset,0px))] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none'
+  'fixed inset-x-0 bottom-[var(--consent-inset,0px)] z-modal flex max-h-[calc(80vh_-_var(--consent-inset,0px))] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none'
 const PANEL_VARIANT: Record<'overlay' | 'pane', string> = {
   overlay:
-    'lg:inset-x-auto lg:right-0 lg:top-[var(--site-header-h,4rem)] lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l',
+    'lg:z-40 lg:inset-x-auto lg:right-0 lg:top-[var(--site-header-h,4rem)] lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l',
   pane: 'lg:static lg:inset-auto lg:z-auto lg:h-full lg:w-full lg:max-h-none lg:rounded-none lg:border-y-0 lg:border-l lg:shadow-none',
 }
 
@@ -554,15 +554,15 @@ export default function AskCopilotRail({
   // --- Panel (open, standalone overlay) ---
   return (
     <>
-      {/* Mobile-only scrim behind the bottom-sheet (z-scrim: above the consent bar, which it dims and
-          makes inert like any modal backdrop; below the panel's z-40). Tapping it closes the sheet.
+      {/* Mobile-only modal scrim: covers the site header and consent bar. The panel follows
+          at the same modal rung, so DOM order keeps it above the scrim. Tapping it closes the sheet.
           `lg:hidden` keeps it out of the desktop docked/static layout entirely. */}
       <button
         type="button"
         aria-hidden="true"
         tabIndex={-1}
         onClick={handleClose}
-        className="lg:hidden fixed inset-0 z-scrim bg-overlay"
+        className="lg:hidden fixed inset-0 z-modal bg-overlay"
       />
       <div
         ref={panelRef}

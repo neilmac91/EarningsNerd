@@ -5,6 +5,7 @@ import CompanyPageClient from './page-client'
 import { fetchCompanyServer, fetchCompanyFilingsServer } from '@/lib/serverApi'
 import type { Company } from '@/features/companies/api/companies-api'
 import { edgarCompanyUrl } from '@/features/companies/lib/edgar'
+import { LOGO_DEV_ENABLED } from '@/lib/featureFlags'
 import { SOCIAL_CARD } from '@/lib/socialCard'
 
 const SITE_URL = 'https://www.earningsnerd.io'
@@ -120,6 +121,8 @@ export default async function CompanyPage({ params }: CompanyPageProps) {
 
   return (
     <>
+      {/* The header's company mark is the one eager mark on the page; the handshake runs with the HTML. */}
+      {LOGO_DEV_ENABLED && <link rel="preconnect" href="https://img.logo.dev" />}
       {company && (
         <script
           type="application/ld+json"

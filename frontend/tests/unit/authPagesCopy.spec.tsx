@@ -271,7 +271,7 @@ beforeEach(() => {
 })
 
 describe('check email', () => {
-  it('says what the link does, not that it activates the account, and never that one was just sent', () => {
+  it('says what the link does and keeps a successful resend conditional on an unverified account', async () => {
     // The account menu's "Verify your email" lands here with the address and sends nothing.
     useSearchParams.mockReturnValue(new URLSearchParams('email=new@example.com'))
     render(<CheckEmailPage />)
@@ -285,6 +285,19 @@ describe('check email', () => {
     expect(screen.queryByText(/activate/i)).toBeNull()
     expect(screen.queryByText(/we sent a verification link/i)).toBeNull()
     expect(screen.getByRole('button', { name: 'Resend email' })).toBeInTheDocument()
+    // Unknown and already-verified addresses receive the same opaque success without a send.
+    // This response confirms neither the account's state nor email delivery.
+    vi.mocked(resendVerification).mockResolvedValue({
+      message: 'If that email has an unverified account, a new verification link is on its way.',
+    })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Resend email' }))
+    expect(resendVerification).toHaveBeenCalledWith('new@example.com')
+    const confirmation = await screen.findByRole('status')
+    expect(confirmation).toHaveTextContent('Check your inbox')
+    expect(confirmation).toHaveTextContent(
+      'If this address belongs to an account that still needs verifying, check your inbox for a new link.',
+    )
+    expect(confirmation).not.toHaveTextContent(/email resent|link (?:was |has been )?sent|on its way/i)
   })
 })
 
