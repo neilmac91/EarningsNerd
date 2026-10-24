@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from typing import Dict, List, Optional, Tuple
 from app.database import get_db
@@ -194,9 +195,14 @@ async def search_companies(
             if cik and cik not in primary_by_cik:
                 primary_by_cik[cik] = await sec_edgar_service.primary_ticker_for_cik(cik)
         
-        # Store or update one row per CIK, in SEC result order (data-quality plan P0-1).
+        # Store or update one row per CIK, from its first SEC entry, and answer in SEC result order
+        # (data-quality plan P0-1). Each session unit runs in the thread pool and releases the
+        # session before it returns, so no checkout waits on the event loop and the quote fan-out
+        # holds no connection (lessons/ops-release-cached-filing-reads-before-yield.md).
         try:
-            companies = company_lookup_service.upsert_search_results(db, sec_results, primary_by_cik)
+            company_rows, latest_by_company = await run_in_threadpool(
+                company_lookup_service.upsert_search_results, db, sec_results, primary_by_cik
+            )
         except company_lookup_service.SearchUpsertConflict as conflict:
             # A concurrent request inserted one of these CIKs between our read and flush.
             logger.warning(
@@ -204,11 +210,10 @@ async def search_companies(
                 ",".join(conflict.response_ciks),
                 q,
             )
-            companies = company_lookup_service.resolve_search_conflict(
-                db, sec_results, primary_by_cik, conflict.response_ciks
+            company_rows, latest_by_company = await run_in_threadpool(
+                company_lookup_service.resolve_search_conflict,
+                db, sec_results, primary_by_cik, conflict.response_ciks,
             )
-
-        company_rows, latest_by_company = company_lookup_service.release_search_rows(db, companies)
 
         # Fetch stock quotes for all companies in parallel (but don't fail if some fail)
         quote_tasks = [_get_stock_quote_with_timeout(row["ticker"]) for row in company_rows]
@@ -238,7 +243,8 @@ async def get_trending_companies(
     db: Session = Depends(get_db)
 ) -> List[CompanyResponse]:
     """Get trending companies based on search/filing activity"""
-    company_rows = company_lookup_service.trending_company_rows(db, limit)
+    # The read and the release are one unit in the thread pool, before the quote fan-out.
+    company_rows = await run_in_threadpool(company_lookup_service.trending_company_rows, db, limit)
 
     # Convert to CompanyResponse
     result = []
@@ -347,7 +353,10 @@ async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResp
     if unsupported is not None:
         return unsupported
 
-    company_row = company_lookup_service.find_company_row_by_ticker(db, ticker)
+    # Each session unit runs in the thread pool and releases the session before it returns, so no
+    # checkout waits on the event loop and no SEC or Yahoo await holds a connection
+    # (lessons/ops-release-cached-filing-reads-before-yield.md).
+    company_row = await run_in_threadpool(company_lookup_service.find_company_row_by_ticker, db, ticker)
 
     if company_row is None:
         # Try to fetch from SEC
@@ -359,7 +368,9 @@ async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResp
             sec_data = await sec_edgar_service.resolve_ticker(ticker)
             if sec_data:
                 primary = await sec_edgar_service.primary_ticker_for_cik(sec_data["cik"])
-                company = company_lookup_service.persist_sec_company(db, sec_data, primary)
+                company_row = await run_in_threadpool(
+                    company_lookup_service.persist_sec_company, db, sec_data, primary
+                )
             else:
                 raise HTTPException(status_code=404, detail="Company not found")
         except SECEdgarServiceError as e:
@@ -370,8 +381,6 @@ async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResp
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}") from e
-
-        company_row = company_lookup_service.release_company_row(db, company)
 
     # Fetch stock quote
     stock_quote = await get_stock_quote(company_row["ticker"])

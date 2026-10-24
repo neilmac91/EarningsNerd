@@ -89,11 +89,13 @@
        Unset without the bar (0px). Gate: tests/unit/bottomChromeLadder.spec.ts. */
     scroll-padding-bottom: var(--consent-inset, 0px);
     /* The sticky site header reserves the top of the scrollport (--site-header-h, components/Header.tsx;
-       4rem before the first measurement and on routes without it): a keyboard focus, an anchor jump or a
-       scrollIntoView lands below the bar, never behind it (WCAG 2.2 SC 2.4.11). A section's own scroll
-       margin adds only its room beyond the header. Gate: tests/unit/headerOffsetReadsTheVariable.spec.ts,
+       4rem before the first measurement and on routes without it), and below lg the filing page's section
+       nav stuck under it reserves its own height too (--section-nav-h, SummaryBlocks' MobileSectionNav; 0px
+       from lg and where the nav is not mounted): a keyboard focus, an anchor jump or a scrollIntoView lands
+       below both bars, never behind them (WCAG 2.2 SC 2.4.11). A section's own scroll margin adds only its
+       room beyond the header, less the nav's share. Gate: tests/unit/headerOffsetReadsTheVariable.spec.ts,
        tests/e2e/header-covers-nothing.spec.ts. */
-    scroll-padding-top: var(--site-header-h, 4rem);
+    scroll-padding-top: calc(var(--site-header-h, 4rem) + var(--section-nav-h, 0px));
   }
   /* A focus inside the site header needs no room: the header is stuck in view, and the padding, which counts its open
      mobile menu, would scroll the page behind the menu at every Tab through it, and move the page when a control in
@@ -101,6 +103,13 @@
      it. Gate: tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/e2e/header-covers-nothing.spec.ts. */
   html:has([data-site-header]:focus-within) {
     scroll-padding-top: 0px;
+  }
+  /* A focus inside the filing page's section nav (below lg, stuck under the header) needs no room for the nav: the
+     padding keeps the header's share and drops the nav's, or every Tab through its chips would scroll the page.
+     A chip scrolled away with its column still lands below the header. Gate:
+     tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/e2e/header-covers-nothing.spec.ts. */
+  html:has([data-section-nav]:focus-within) {
+    scroll-padding-top: var(--site-header-h, 4rem);
   }
   @media (prefers-reduced-motion: reduce) {
     html {
