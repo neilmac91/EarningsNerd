@@ -96,7 +96,7 @@ subscription check then used. Eight checkouts on four slots, each Stripe call ta
 4x200 and 4x500 (pool timeouts), with a stored customer or without one, and so did eight portal
 sessions. Each route now reads what it needs in one thread-pool unit, released before its first Stripe
 call; checkout's claim of a new customer, and its trial's row check after the customer step as before,
-are units of their own; and every Stripe call runs in the thread pool. Their burst case holds every statement, release and Stripe call off the loop and each new
+are units of their own; and every Stripe call runs off the loop, on the Stripe threads since E170. Their burst case holds every statement, release and Stripe call off the loop and each new
 customer to its own account, and a single request makes each Stripe call with no connection out
 (2026-10-23, E144).
 The pool-lifetime file's AST ratchet reads every async router function and fails a session call on the
