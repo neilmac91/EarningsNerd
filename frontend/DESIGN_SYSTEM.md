@@ -1112,17 +1112,24 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  as usual.
 
 Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie-consent bar: above in-page
-                 sticky chrome, BENEATH the sheet scrims and the z-40 research chrome) · z-scrim 35 (the
-                 workspace / rail bottom-sheet scrims: above the bar, under the z-40 sheets they belong to) ·
+                 sticky chrome, BENEATH the modal sheets and the z-40 launchers / coachmark) · z-scrim 35
+                 (retained ladder rung; modal sheets use z-modal for their backdrops) ·
                  z-header 50 (site header; its menus ride it: the notification menu and the account menu
                  sit on this one rung inside the header's stacking context, NotificationBell on the token
                  and UserMenu still on the numeric z-50; tests/unit/NotificationBell.spec.tsx holds both) ·
                  z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the
                  source and viewer sheets — scrim AND panel) ·
                  z-toast 80 (the skip link; sonner manages its own toast layer).
-                 The copilot rail / workspace bottom sheets stay z-40 over z-scrim scrims, so the in-sheet
-                 citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
-                 sticky-cell layering is the one documented exemption.
+                 The copilot rail / workspace bottom sheets and their scrims both use z-modal, above the
+                 site header. The panel follows its scrim in DOM order at that rung. CitationChip portals
+                 into its trigger's active modal container (outside the answer scroller), keeping z-overlay
+                 inside the sheet's stacking context; outside a modal it still portals to body. A breakpoint
+                 change rehosts the card after the pane's modality commits and preserves its focused action;
+                 closing the pane dismisses the card instead of moving it over the page. The sheets
+                 have no transform or clipping ancestor for those fixed cards. A nested Modal or source-detail
+                 sheet portals later to body on z-modal, above the research sheet. Desktop remains nonmodal:
+                 the workspace is static at lg:z-auto and the standalone rail overlay retains lg:z-40.
+                 Never z-[N]; DataTable's internal z-[5] sticky-cell layering is the one documented exemption.
                  The header offset: the site header publishes its rendered height on <html> as
                  `--site-header-h` (components/Header.tsx), the one offset under it, and is the one bar that
                  sticks at the top of the viewport. Sticky and fixed chrome below the header reads it,
@@ -1179,7 +1186,7 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  coachmark is deferred, not dismissed, while the bar shows (`hooks/useConsentLayer`); the
                  saved confirmation is a sonner toast, never a fixed corner element. Real modals cover the
                  bar: beneath the settings dialog (z-modal) and beneath an open workspace / rail bottom sheet
-                 (whose z-scrim scrim dims it) its choices are inert — a tap there reaches the scrim and
+                 (whose z-modal scrim dims it and the site header) its choices are inert — a tap there reaches the scrim and
                  closes the sheet, storing nothing — and operable again once the modal closes, which is what
                  the sheet's aria-modal and focus trap already tell keyboard and AT users. In-page sticky
                  chrome stays below the bar: a section nav passing through the bar's region on a short phone
@@ -1199,10 +1206,14 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  to inline zIndex, so a z written apart from its `fixed` still counts; z-toast is exempt only
                  as the top-anchored skip link), no in-page sticky chrome outranks the bar (the top-anchored
                  site header is pinned), the tokens sit on their rungs (sticky < consent < scrim <
-                 the pinned workspace level 40 < header), the pinned bottom chrome takes the inset (the sheets'
+                 the pinned workspace level 40 < header < modal), the sheets and scrims use the modal rung,
+                 and the pinned bottom chrome takes the inset (the sheets'
                  anchor, no `bottom-0` behind any variant, the offset objects' `bottom` from
                  BOTTOM_CHROME_OFFSET, the bar's layout-effect publish, the scroll padding) and the pinned
-                 scrims are full-viewport; every pin list is shrink-only in files, sites and z.
+                 scrims are full-viewport; every pin list is shrink-only in files, sites and z. The existing
+                 consent-bar-yields e2e also hit-tests header controls under an open sheet and verifies a
+                 header tap dismisses only the sheet, while citation-chip-keyboard keeps the nested card
+                 pointer-reachable and preserves its Escape hand-off.
 
 Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per metric instead of the five-column
                  DataTable, switched by CSS alone (`md:hidden` cards, `hidden md:block` table — both in the DOM
