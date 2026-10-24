@@ -110,15 +110,21 @@ export default function Header({
   // a press leaves the open menu as it is (chief design's ruling on #1542, comment 6375679863). A close on the press
   // shrank the in-flow header under the pointer, and at the top of a page nothing anchors the scroll, so the release
   // landed elsewhere and activated nothing. The press is marked from its mousedown until the next task: a tap's
-  // mousedown is its compatibility event, after its pointer events.
+  // mousedown is its compatibility event, after its pointer events. Where the open menu lies over the page instead (from
+  // lg, `lg:absolute`), a press outside the header closes it, as it closes the bar's other menus: the header keeps the
+  // bar's height, so nothing moves under the pointer and the press lands where it was aimed (E182, chief design on
+  // #1565, comment 6380050139). The menu's own position says which, not a breakpoint repeated here.
   const pressingRef = useRef(false)
   useEffect(() => {
     if (!mobileMenuOpen) return
-    const mark = () => {
+    const mark = (event: MouseEvent) => {
       pressingRef.current = true
       window.setTimeout(() => {
         pressingRef.current = false
       }, 0)
+      const menu = menuRef.current
+      const pressedOutside = event.target instanceof Node && !headerRef.current?.contains(event.target)
+      if (menu && pressedOutside && getComputedStyle(menu).position === 'absolute') setMobileMenuOpen(false)
     }
     document.addEventListener('mousedown', mark, true)
     return () => {
@@ -127,7 +133,7 @@ export default function Header({
     }
   }, [mobileMenuOpen])
 
-  // A navigation closes the open menu: a press on a page link leaves it open (above), and the next page opens with it
+  // A navigation closes the open menu: below lg a press on a page link leaves it open (above), and the next page opens with it
   // closed. Reset during render, as React advises for state that follows a value, so the new page never paints under it.
   const pathname = usePathname()
   const [menuPathname, setMenuPathname] = useState(pathname)
@@ -139,7 +145,7 @@ export default function Header({
   // The open menu is a disclosure: it closes when focus leaves the header from the keyboard or a script (E167). A Tab
   // past its last item, or a focus moved by script, closes it inside the focusout, before the browser scrolls the next
   // control into view, so that scroll reserves the bar alone, not the open menu, which fills the screen under 200% text
-  // and left the control past the screen's foot. A press leaves it open (above). A modal layer that takes the focus (a
+  // and left the control past the screen's foot. A press leaves it open below lg and closes it from lg (above). A modal layer that takes the focus (a
   // focus trap, from an effect) is fixed and needs no padding, and is closed without a synchronous flush, which React
   // refuses inside its own effects. A blur with no next target (another window) leaves the menu open.
   const closeMenuWhenFocusLeaves = (event: React.FocusEvent<HTMLElement>) => {

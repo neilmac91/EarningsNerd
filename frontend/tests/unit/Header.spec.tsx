@@ -453,6 +453,24 @@ describe('Header mobile menu closes as a disclosure', () => {
     expect(menuOpen(), 'and the task after it').toBe(true)
   })
 
+  // From lg the open menu lies over the page (lg:absolute), so a press outside the header closes it, as it closes the
+  // bar's other menus: the header keeps the bar's height, so the press lands where it was aimed (E182, chief design on
+  // #1565, comment 6380050139). jsdom applies no stylesheet, so the menu's position is set inline here, and the cases
+  // around this one, with no position set, hold the in-flow menu open; the e2e press case holds both in a browser.
+  it('closes the menu on a press outside the header where the open menu lies over the page, and keeps it on a press inside', async () => {
+    renderWithPage()
+    await openMenu()
+    const nav = screen.getByRole('navigation', { name: 'Mobile navigation' })
+    ;(nav.parentElement as HTMLElement).style.position = 'absolute'
+    fireEvent.mouseDown(within(nav).getByRole('link', { name: 'Pricing' }))
+    expect(menuOpen(), 'a press inside the header keeps it').toBe(true)
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'A control on the page' }))
+    expect(menuOpen(), 'a press on the page closes it').toBe(false)
+  })
+
   it('leaves the menu open when a press on text moves focus to the page region', async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
