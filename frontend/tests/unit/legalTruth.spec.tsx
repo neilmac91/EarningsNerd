@@ -135,9 +135,10 @@ import { closingBracket, matchAt, negates, nounPhraseAt, readSentence, spanText,
  *    no comma that narrows passes, where main refused it; a phrase after "each endpoint" that restates every request
  *    fails, where main passed it; and a quantifier after its noun passes, as on main. Under "all" and "every", "nothing
  *    else does" holds by the reader's own lexicons (what restates every request, RESTATED; the whole-API names; the
- *    words that say a login absent, "public", "open" and "bypasses" among them since #1594's fifth round), so a
- *    paraphrase outside them that main refused may pass, while one inside them fails as on main ("Every endpoint is
- *    never public.", "Nothing bypasses authentication on every endpoint.").
+ *    words that say a login absent, "public", "open" and "bypasses" among them since #1594's fifth round; and since its
+ *    sixth the times a phrase after them may name, A_TIME, "at the moment", "in 2026"), so a paraphrase outside them
+ *    that main refused may pass, while one inside them fails as on main ("Every endpoint is never public.", "Nothing
+ *    bypasses authentication on every endpoint.").
  * 2. The account events (D-051). /security's PostHog line scopes the consent to the browser, and a sentence of
  *    its own, ACCOUNT_EVENTS_DISCLOSURE (lib/consentCopy.ts), names no provider and says the service records how
  *    accounts use it against the internal account id, whatever the reader chose. /security and /privacy each place
@@ -521,11 +522,12 @@ const WHOLE_WORDS = /^(?:single|individual|last|API|API['’]s|REST|HTTP|Earning
     PR, E162), and any other names some ("your", "a"). */
 const WHOLE_DETERMINERS = new Set(['the', 'our', 'its'])
 /** A prepositional phrase after the endpoints that names the API as a whole, which narrows nothing ("each endpoint in
-    our API", "of the API", "on EarningsNerd"; E162; "at EarningsNerd" since #1594's fifth round), while any other picks
-    some of them out ("each endpoint in the admin namespace": Codex's thread 4351169046). */
+    our API", "of the API", "on EarningsNerd"; E162; "at EarningsNerd" since #1594's fifth round, "under /api" since its
+    sixth), while any other picks some of them out ("each endpoint in the admin namespace": Codex's thread 4351169046;
+    "under /api/admin"). */
 const namesTheWholeApi = (m: Postmodifier) =>
   m.kind === 'preposition' &&
-  /^(?:in|of|on|at|across|throughout|within)$/.test(m.preposition ?? '') &&
+  /^(?:in|of|on|at|under|across|throughout|within)$/.test(m.preposition ?? '') &&
   !!m.object &&
   /^(?:API|EarningsNerd|service|site|platform|backend)$/i.test(m.object.head.text) &&
   m.object.quantifier === null &&
@@ -577,9 +579,16 @@ const takesAllOrNone = (m: Postmodifier) =>
   m.object.determiners.every((d) => WHOLE_DETERMINERS.has(d)) &&
   !m.object.premodifiers.length &&
   !m.object.postmodifiers.length
+/** A prepositional phrase after the endpoints that says when, not which (#1594's sixth round): its object a time ("for
+    a week", "at the moment", "in 2026", "at launch", "as of this week"), or none the reader reads ("as of today", "from
+    now on"). */
+const A_TIME = /^(?:seconds?|minutes?|hours?|days?|nights?|weeks?|weekends?|months?|quarters?|years?|moments?|times?|present|future|launch|tomorrow|yesterday|tonight|(?:19|20)\d\d|january|february|march|april|june|july|august|september|october|november|december|mondays?|tuesdays?|wednesdays?|thursdays?|fridays?|saturdays?|sundays?)$/i
+const saysWhen = (m: Postmodifier) => m.kind === 'preposition' && (!m.object || A_TIME.test(m.object.head.text))
 /** A postmodifier after the endpoints that picks none of them out: an aside, or a phrase that names the whole API or
-    every request or whose object is taken whole or denied, or a relative clause that names the whole set again. */
-const leavesWhole = (reading: Reading, m: Postmodifier) => !m.restrictive || namesTheWholeApi(m) || restatesEveryRequest(m) || takesAllOrNone(m) || restatesTheSet(reading, m)
+    every request, says when, or whose object is taken whole or denied, or a relative clause that names the whole set
+    again. */
+const leavesWhole = (reading: Reading, m: Postmodifier) =>
+  !m.restrictive || namesTheWholeApi(m) || restatesEveryRequest(m) || saysWhen(m) || takesAllOrNone(m) || restatesTheSet(reading, m)
 /** The endpoints taken whole (E162): "endpoints" under one of the quantifiers given, not taken back ("not every", "not
     all", "almost every": a denial on the quantifier, #1456's Not in this PR), with only WHOLE_DETERMINERS and
     WHOLE_WORDS before it and nothing after it that picks some out (leavesWhole): a prepositional phrase (but one that
@@ -937,7 +946,6 @@ const PLACES = /^(?:puts?|keeps?|kept|places?|placed|locks?|locked|hides?|hid|hi
     search", "under /api/admin", "with a write scope", and an exception, "except the health check", as in commas); a
     verb's own phrase after them ("over HTTPS", "via the gateway", "for a week") says how or when, not which. */
 const PICKS_OUT = /^(?:in|of|within|under|on|at|for|with|behind|from|inside|outside|except|excluding)$/
-const A_SPAN_OF_TIME = /^(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)$/i
 /** The endpoints said to be public or open at the clause's verb ("is public", "are open", "stays open"), a login's absence
     that a denial turns into the claim, as it turns a login word ("Every endpoint is never public."; #1594's fifth round). */
 const OPEN = /^(?:public|open)$/
@@ -955,7 +963,7 @@ const theBlanket = (reading: Reading, clause: Clause) => {
     const narrowing = (read: Reading) => (m: Postmodifier) =>
       !leavesWhole(read, m) &&
       !loginAfter(read, m) &&
-      (m.kind !== 'preposition' || (PICKS_OUT.test(m.preposition ?? '') && !(m.preposition === 'for' && A_SPAN_OF_TIME.test(m.object?.head.text ?? '')) && !(places && m.preposition === 'behind')))
+      (m.kind !== 'preposition' || (PICKS_OUT.test(m.preposition ?? '') && !(places && m.preposition === 'behind')))
     const bracket = phrase ? bracketed(reading, phrase) : null
     return !!phrase && !phrase.postmodifiers.some(narrowing(reading)) && !bracket?.postmodifiers.some(narrowing(bracket.reading))
   })
@@ -2358,6 +2366,25 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Every endpoint in every admin namespace requires a login.</p>', false],
       ['<p>Every endpoint does not return public data.</p>', false],
       ['<p>Some requests bypass authentication on each endpoint.</p>', false],
+      // #1594's sixth round, the fourth lens. A prepositional phrase after the endpoints that says when picks none out:
+      // its object a time ("at the moment", "in 2026") or none the reader reads ("as of today", "from now on"), which
+      // runs on to the clause's verb, so a denial there is read. A path is the phrase's object, headed by its last
+      // segment: "under /api" names the whole API, under each as under every (main passed the each form), while "under
+      // /api/admin" picks some out.
+      ['<p>Every endpoint as of today requires a login.</p>', true],
+      ['<p>Each endpoint as of today requires a login.</p>', true],
+      ['<p>All endpoints as of this week require authentication.</p>', true],
+      ['<p>We require authentication on every endpoint as of today.</p>', true],
+      ['<p>Every endpoint from now on requires a login.</p>', true],
+      ['<p>Every endpoint at the moment requires a login.</p>', true],
+      ['<p>Every endpoint in 2026 requires a login.</p>', true],
+      ['<p>Every endpoint under /api requires a login.</p>', true],
+      ['<p>Each endpoint under /api requires a login.</p>', true],
+      ['<p>Every endpoint from now on does not require a login.</p>', false],
+      ['<p>Each endpoint from now on does not require a login.</p>', false],
+      ['<p>Every endpoint under /api/admin requires a login.</p>', false],
+      ['<p>Each endpoint under /api/admin requires a login.</p>', false],
+      ['<p>Every endpoint in the March release requires a login.</p>', false],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],

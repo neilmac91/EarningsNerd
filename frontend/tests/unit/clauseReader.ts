@@ -29,12 +29,13 @@
  * "unauthenticated calls": ADJECTIVES) and one an auxiliary, a modal or a negation follows, which is a noun there ("an
  * auth proxy does not", "the access logs are"). The head is the last of them, so "each endpoint's documentation" is
  * headed by "documentation". What follows the head is read with it: a prepositional phrase with its own noun phrase
- * ("in the admin namespace"), a relative clause with its relative word or without it ("that returns account data", "we
- * run", and "we have", whose "have" is its verb where a verb group or a mark follows: relativeVerb), a participle
- * ("returning account data", "listed below") and an aside in commas before the verb group (", which returns JSON,").
- * Each restricts the phrase unless it stands in commas, and an aside restricts it too when it names an exception (",
- * except the health check,"). A phrase read as an adverb ("by default", "without exception": adverbAt) is no
- * prepositional phrase. A pronoun is a phrase of its own.
+ * ("in the admin namespace"), a path headed by its last segment ("under /api/admin") or, with no object read, running
+ * on to the clause's verb ("as of today", "from now on": unreadObjectEnd), a relative clause with its relative word or
+ * without it ("that returns account data", "we run", and "we have", whose "have" is its verb where a verb group or a
+ * mark follows: relativeVerb), a participle ("returning account data", "listed below") and an aside in commas before
+ * the verb group (", which returns JSON,"). Each restricts the phrase unless it stands in commas, and an aside
+ * restricts it too when it names an exception (", except the health check,"). A phrase read as an adverb ("by default",
+ * "without exception": adverbAt) is no prepositional phrase. A pronoun is a phrase of its own.
  *
  * Clauses (readSentence). A semicolon or a colon ends one. A subordinating word opens a condition: "when", "whenever",
  * "if", "while", "once" (before a clause), "unless", "because", "although", "though", "whereas", "since", "until", "so
@@ -322,6 +323,32 @@ function asideEnd(tokens: Token[], comma: number): number {
   return -1
 }
 
+/** Where a preposition whose object is not read runs to (#1594's sixth round): over a preposition with no object of
+    its own ("as of today") or with the clause's verb straight after it ("from now on requires"), and one adverb as its
+    object ("today", "now"), so the clause's verb group after it stays the clause's. */
+function unreadObjectEnd(tokens: Token[], from: number): number {
+  let j = from
+  let adverb = false
+  for (;;) {
+    const token = tokens[j]
+    if (token && PREPOSITIONS.has(token.lower) && (!nounPhraseAt(tokens, j + 1) || (startsPredicate(tokens, j + 1) && !startsPredicate(tokens, j + 2)))) j++
+    else if (token && !adverb && isAdverb(token)) {
+      adverb = true
+      j++
+    } else return j
+  }
+}
+
+/** A path read as a noun phrase headed by its last segment ("/api", "/api/admin": #1594's sixth round), where the
+    lexicon has no noun for it. */
+function pathAt(tokens: Token[], at: number): NounPhrase | null {
+  const segments: Token[] = []
+  let i = at
+  for (; tokens[i]?.text === '/' && isWord(tokens[i + 1]); i += 2) segments.push(tokens[i + 1])
+  const head = segments.pop()
+  return head ? { start: at, end: i, takenBack: false, quantifier: null, partitive: false, determiners: [], premodifiers: segments, head, postmodifiers: [] } : null
+}
+
 /** What follows a noun phrase's head and belongs to it, each restrictive or not (see the header). */
 function readPostmodifiers(tokens: Token[], phrase: NounPhrase): NounPhrase {
   let i = phrase.end
@@ -335,8 +362,9 @@ function readPostmodifiers(tokens: Token[], phrase: NounPhrase): NounPhrase {
       phrase.postmodifiers.push({ kind: 'aside', start: i, end: close + 1, restrictive: exception, preposition: null, object: null })
       i = close + 1
     } else if (PREPOSITIONS.has(token.lower) && !adverbAt(tokens, i)) {
-      const object = nounPhraseAt(tokens, i + 1)
-      const end = object?.end ?? i + 1
+      // A path is its object ("under /api/admin"); with none read, the phrase holds no object (unreadObjectEnd).
+      const object = nounPhraseAt(tokens, i + 1) ?? pathAt(tokens, i + 1)
+      const end = object?.end ?? unreadObjectEnd(tokens, i + 1)
       phrase.postmodifiers.push({ kind: 'preposition', start: i, end, restrictive: token.lower !== 'including', preposition: token.lower, object })
       i = end
     } else if (RELATIVES.has(token.lower) || participle(tokens, i)) {
