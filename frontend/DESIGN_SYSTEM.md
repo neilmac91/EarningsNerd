@@ -626,7 +626,8 @@ Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly
                  query container. Below 13em of its actual text size, main uses px-2 and the control
                  Card uses px-1.5, preserving full selected tokens at enlarged phone text. The shared
                  field padding and font stay unchanged; ordinary 320px+ layouts retain their spacing.
-                 The range comes before its count in the summary.
+                 The range comes before its count in the summary, and a selection of one period
+                 names that period: FY2021 · 1 year, never FY2021–FY2021 (E177).
                  Moving an endpoint keeps the range ordered and within the server-provided cap and
                  announces an automatically moved other endpoint through role=status. Unavailable
                  annual years remain visible but disabled options. Table windows never alter selection.
@@ -664,7 +665,8 @@ Data notes strip <DataNotes> — hairlines above and below a native details disc
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
                  FY2026 and all API/snapshot/selection keys retain their original identity. A
                  window prints one way, through formatAnalysisWindow: one unspaced range, FY2016–FY2025
-                 or Q1 2024–Q4 2025, as the exports print it. tests/unit/analysisPeriodWindows.spec.tsx
+                 or Q1 2024–Q4 2025, and a window of one period as that period, FY2021, as the exports
+                 print it. tests/unit/analysisPeriodWindows.spec.tsx
                  holds it: the analysis surfaces it renders carry no window key, no window field is read
                  straight into page text, and no file but periodLabels.ts joins a range.
 

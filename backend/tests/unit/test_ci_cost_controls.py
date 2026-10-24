@@ -276,8 +276,10 @@ def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():
         "cancel-in-progress": "${{ github.event_name == 'pull_request' }}",
     }
     assert ci["on"]["push"]["branches"] == ["main"]
+    # Every main push enters this group before its backend-change detector runs.
+    # Retain pending jobs so a later nondeploying run cannot replace a waiting release.
     assert ci["jobs"]["deploy-backend"]["concurrency"] == {
-        "group": "deploy-backend", "cancel-in-progress": "false",
+        "group": "deploy-backend", "cancel-in-progress": "false", "queue": "max",
     }
     assert set(ci["jobs"]["deploy-backend"]["needs"]) == {
         "backend-tests", "frontend-tests", "migrations-postgres", "e2e-tests", "secret-scan",
