@@ -17,7 +17,7 @@ const EXCEL_EXTRA = 'Excel export'
 const EXTRAS = [
   {
     title: EXCEL_EXTRA,
-    description: 'Multi-Period Analysis as a workbook, with XBRL-backed metrics.',
+    description: 'Multi-Period Analysis as a workbook, with metrics from the filed data.',
     tags: ['XLSX'],
   },
   {
@@ -121,7 +121,7 @@ export default function ProDepth() {
 
         <FeatureRow
           title="Change Report"
-          description="What changed against the prior filing, metric by metric, computed from XBRL. Both plans include it."
+          description="What changed against the prior filing, metric by metric, computed from the filed data. Both plans include it."
         >
           <ChangeReportDemo />
         </FeatureRow>

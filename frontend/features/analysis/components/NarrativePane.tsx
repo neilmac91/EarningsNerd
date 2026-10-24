@@ -118,13 +118,13 @@ export interface NarrativeState {
 }
 
 const SOURCE_BADGE_BASE =
-  'Sources identify SEC XBRL values or calculated figures (marked †).'
+  'Sources identify filed figures or calculated figures (marked †).'
 
 /** The teaser's sample is one saved run of the pipeline (features/analysis/demo, D-046): its figures are the
  *  pipeline's, not approximations, but the run is not the reader's own. Readers do not know the word "pipeline", so
  *  the copy says "one saved analysis run" (tests/unit/narrative-pane.spec.tsx holds both words out). */
 const SAMPLE_NOTE =
-  'Sample data: figures and narrative from one saved analysis run. Run an analysis to see cited figures checked against SEC XBRL and source warnings shown for review.'
+  'Sample data: figures and narrative from one saved analysis run. Run an analysis to see cited figures checked against the company’s filed data and source warnings shown for review.'
 
 function sourceWarningText(
   unverified: number | null | undefined,
@@ -158,7 +158,7 @@ function CitationList({ citations, sample, notes }: { citations: AnalysisCitatio
       <div className="mb-2 text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
         {sample
           ? 'Sources · sample data (one saved run)'
-          : 'Sources · SEC XBRL values and calculated figures'}
+          : 'Sources · filed and calculated figures'}
       </div>
       <ul className="space-y-1">
         {citations.map((citation) => (
@@ -367,7 +367,7 @@ export default function NarrativePane({
             <AiDisclaimer className="mt-3">
               {sample
                 ? SAMPLE_NOTE
-                : 'Source entries identify SEC XBRL values or computed figures. They do not verify every nearby narrative figure or conclusion. The analysis can be incomplete or wrong.'}
+                : 'Source entries identify filed figures or computed figures. They do not verify every nearby narrative figure or conclusion. The analysis can be incomplete or wrong.'}
             </AiDisclaimer>
           )}
         </>

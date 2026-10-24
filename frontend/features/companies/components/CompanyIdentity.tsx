@@ -97,7 +97,7 @@ export function CompanyIdentity({ company, latest, summaryReady = false, actions
                 rel="noopener noreferrer"
                 className={cx(IDENTITY_LINK, 'inline-flex items-center gap-1')}
               >
-                Company on SEC EDGAR
+                Company on SEC.gov
                 <ArrowSquareOutIcon aria-hidden="true" className="h-3.5 w-3.5" />
               </a>
             ),

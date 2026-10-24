@@ -165,7 +165,7 @@ describe('SummaryBlocks', () => {
     for (const text of ['Stock awards', 'Expense over vesting', 'Extra supplied field', 'Short row']) {
       expect(within(first).getByText(text, { exact: true })).toBeInTheDocument()
     }
-    expect(within(first).getAllByRole('link', { name: /Source: Verified in filing/ })).toHaveLength(2)
+    expect(within(first).getAllByRole('link', { name: 'Source: Quote found in filing (opens in a new tab)' })).toHaveLength(2)
     const second = screen.getByRole('table', { name: 'Notable Footnotes, table 2 of 2' })
     expect(within(second).queryAllByRole('columnheader')).toHaveLength(0)
     expect(within(second).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['Unlabelled value', 'Second cell'])
@@ -179,8 +179,8 @@ describe('SummaryBlocks', () => {
     const heading = screen.getByRole('heading', { level: 3, name: 'We are substantially dependent on TSMC for wafer supply' })
     expect(heading.textContent).toBe('We are substantially dependent on TSMC for wafer supply[1]')
     expect(screen.getByText(/substantially dependent on TSMC/, { selector: 'blockquote' })).toBeInTheDocument()
-    // source_verified: true → the shared SourceTrace renders the "Verified in filing" affordance.
-    expect(screen.getByText(/Verified in filing/i)).toBeInTheDocument()
+    // source_verified: true → the shared SourceTrace renders the "Quote found in filing" affordance.
+    expect(screen.getByText(/Quote found in filing/i)).toBeInTheDocument()
   })
 
   it('leaks no field-name scaffolding', () => {
@@ -206,7 +206,7 @@ describe('SummaryBlocks', () => {
     // Located: the marked block, in the filing's face on the primary ink; the speaker stays in the body face.
     expect(located.className.split(' ')).toEqual(expect.arrayContaining(['en-marked', 'font-editorial', 'text-text-primary-light']))
     expect(located.querySelector('cite')!.className.split(' ')).toContain('font-sans')
-    // Cited or uncited: today's neutral hairline, the body face.
+    // Section linked or unlinked: today's neutral hairline, the body face.
     for (const quote of [cited, plain]) {
       expect(quote.className.split(' ')).toEqual(expect.arrayContaining(['border-l-2', 'italic']))
       expect(quote.className).not.toMatch(/en-marked|font-editorial/)
@@ -260,7 +260,7 @@ describe('SummaryBlocks', () => {
     // One chip each for the quote, the metric takeaway, and the first (only cited) footnote. The
     // metric takeaway's chip also renders in the phone-card layout, which jsdom cannot hide
     // (vitest css: false); count it once by leaving the card copies out.
-    const chips = screen.getAllByText(/Verified in filing/i).filter((el) => !el.closest('[data-metrics-layout="cards"]'))
+    const chips = screen.getAllByText(/Quote found in filing/i).filter((el) => !el.closest('[data-metrics-layout="cards"]'))
     expect(chips).toHaveLength(3)
   })
 

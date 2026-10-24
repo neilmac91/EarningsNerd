@@ -462,8 +462,8 @@ def fact_to_citation(fact_dict: dict[str, Any]) -> dict[str, Any]:
     """Render a successful tool fact result as a citation dict (existing citation shape, minus ``n``).
 
     Reuses the same ``{excerpt, section_ref, verified, fragment_url}`` shape as text citations so the
-    frontend renders an XBRL fact in the Sources list / chips with a Verified badge — no frontend
-    change. ``n`` is assigned by the caller's unified citation-resolution pass (one continuous
+    frontend renders an XBRL fact in the Sources list and chips: "Matches filing" for a filed fact, and
+    "Calculated from filing" for a figure the server computed (``value_kind``). ``n`` is assigned by the caller's unified citation-resolution pass (one continuous
     sequence across text and fact citations, in first-appearance order — see
     ``copilot_service._resolve_citations``). ``fragment_url`` is the filing document URL when known
     (XBRL facts have no in-text fragment), populated by the caller.
@@ -496,7 +496,10 @@ def fact_to_citation(fact_dict: dict[str, Any]) -> dict[str, Any]:
         "fragment_url": None,
         # Machine-readable value + concept the chip vouches for (the excerpt only carries the
         # display rendering) — lets the eval harness re-verify value AND concept adjacency on
-        # the final answer without parsing formatted strings. The frontend ignores the extra keys.
+        # the final answer without parsing formatted strings. The frontend reads ``concept`` and
+        # ``value_kind``: a quoted excerpt carries neither, a filed fact carries ``concept`` alone and
+        # reads "Matches filing", and a figure the server computed names its ``value_kind`` and reads
+        # "Calculated from filing" (frontend/features/filings/api/copilot-api.ts, parseCompletion).
         "value": float(value) if isinstance(value, (int, float)) else None,
         "value_kind": kind,
         "concept": concept,

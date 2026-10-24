@@ -35,7 +35,7 @@ describe('CopilotTeaser', () => {
 
     // Claims scoped to what the answer card shows (ASK-01, ASK-02; brandCopyRules rule 1).
     expect(screen.getByText('Cited passages you can check against the filing')).toBeInTheDocument()
-    expect(screen.getByText('XBRL citations name the tag they came from')).toBeInTheDocument()
+    expect(screen.getByText('Figure citations name the filed tag they came from')).toBeInTheDocument()
     // An answer can carry an uncited figure, so no line says that figures show their tag.
     expect(screen.queryByText(/never guessed|every answer|exact filing text|figures from xbrl/i)).not.toBeInTheDocument()
     // The CTA is a button that opens the contextual upgrade modal (not a raw /pricing link).
