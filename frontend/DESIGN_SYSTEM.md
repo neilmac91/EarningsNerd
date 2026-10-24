@@ -1150,7 +1150,16 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  From lg to 72rem the compact bar carries a signed-in reader's NotificationBell too, after the
                  theme toggle as in the full bar, so the bell stays wherever the full bar showed it before,
                  and the header holds its panel so that one of it and the menu is open at a time (the same
-                 case opens both, the menu from the keyboard too). The logo's mr-auto and the controls'
+                 case opens both, the menu from the keyboard too). In either bar the bell's panel is a column
+                 no taller than the screen under the bar: the screen less the header's published height, the
+                 bar's own while the panel is open, and the panel's 0.5rem offset
+                 (`max-h-[calc(100dvh_-_var(--site-header-h,4rem)_-_0.5rem)]`). Its title and settings link
+                 keep their height and its list takes the rest, scrolling inside it; where the screen has
+                 room the list's 24rem cap holds. Before, only the list was capped, so under 200% text 20
+                 alerts ran the panel to 1060px on a 768px screen, its settings link out of reach (E178;
+                 gate: tests/e2e/reflow-200.spec.ts serves 20 alerts at 1024x768, 1440x900 and 2560x960 under
+                 200% text and holds the open panel inside the screen, its title and settings link inside it
+                 and its list scrolling to the last alert). The logo's mr-auto and the controls'
                  ml-auto share the full bar's free space, never justify-between alone, which puts a line's
                  only block at its start, so should the bar ever wrap, the notification and account menus,
                  anchored at their right edge (right-0), still open on the screen (E160; gate: the same spec
