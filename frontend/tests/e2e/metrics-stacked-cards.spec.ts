@@ -142,23 +142,39 @@ const viewport = (page: Page) => page.evaluate(() => ({ w: window.innerWidth, h:
 /** Inside the viewport AND below the sticky chrome (content under the header / section nav is not visible). */
 const inside = (r: Rect, vp: { w: number; h: number; top?: number }) =>
   r.x >= 0 && r.y >= (vp.top ?? 0) - 0.5 && r.x + r.w <= vp.w + 0.5 && r.y + r.h <= vp.h + 0.5
-/** The bottom edge of whatever sticky/fixed chrome spans the top of the viewport (site header, mobile section nav). */
+/** The bottom edge of whatever sticky/fixed chrome spans the top of the viewport (site header, mobile section nav): the
+ *  bars stacked down from the screen's top, so the section nav, stuck under the header rather than at 0, counts too.
+ *  Reading only bars at the top missed it, and a control parked under the header alone sat behind the nav, where a
+ *  keyboard focus now scrolls the page to bring it out (E164). */
 const chromeBottom = (page: Page) =>
   page.evaluate(() => {
+    const bars = Array.from(document.querySelectorAll<HTMLElement>('header, nav, div'))
+      .filter((el) => ['sticky', 'fixed'].includes(getComputedStyle(el).position))
+      .map((el) => el.getBoundingClientRect())
+      .filter((r) => r.height > 0 && r.width >= innerWidth / 2)
     let bottom = 0
-    for (const el of Array.from(document.querySelectorAll<HTMLElement>('header, nav, div'))) {
-      const pos = getComputedStyle(el).position
-      if (pos !== 'sticky' && pos !== 'fixed') continue
-      const r = el.getBoundingClientRect()
-      if (r.top <= 1 && r.height > 0 && r.width >= innerWidth / 2) bottom = Math.max(bottom, r.bottom)
+    for (let grew = true; grew; ) {
+      grew = false
+      for (const r of bars) {
+        if (r.top <= bottom + 1 && r.bottom > bottom) {
+          bottom = r.bottom
+          grew = true
+        }
+      }
     }
     return bottom
   })
-/** Scroll so the element's top sits 8px under the sticky chrome. */
+/** Scroll so the element's top sits 8px under the sticky chrome. The scroll can stick the section nav under the header,
+ *  so the chrome is measured again after each scroll, and the element moved again, until the chrome holds. */
 async function settleUnderChrome(page: Page, loc: Locator) {
-  const top = await chromeBottom(page)
-  await loc.evaluate((el, top) => window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - top - 8, behavior: 'instant' }), top)
-  await page.waitForTimeout(100)
+  let top = -1
+  for (let pass = 0; pass < 3; pass++) {
+    const now = await chromeBottom(page)
+    if (now === top) break
+    top = now
+    await loc.evaluate((el, top) => window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - top - 8, behavior: 'instant' }), top)
+    await page.waitForTimeout(100)
+  }
   return Math.max(top, await chromeBottom(page))
 }
 
