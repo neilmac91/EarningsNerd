@@ -866,17 +866,19 @@ _NO_UNIT = (
     r"|(?:bps?|pp|ppts?|pts|mn|bn|tn|[kmbt])\b(?![&-])))"
 )
 # One number of an Item, Note or Part list: one or two digits, as a filing numbers them, whole (its letter a
-# capital, "7A", never a scale, "2b"), and never one a unit or a thousands group follows ("Note 3, 25%", "Note 12,
-# 1,250 positions"). A larger number is a count ("Note 12, 250 positions"); a count of one or two digits after a
-# listed number ("Item 7, 40 stores") still reads as one of the list.
-_LISTED = rf"\d{{1,2}}(?-i:[A-C])?(?!\d)(?!,\d{{3}}\b){_NO_UNIT}"
+# capital, "7A", never a scale, "2b"), and never one a unit follows ("Note 3, 25%"). A longer number is a count, and
+# so a thousands group leaves its digits ("Note 12, 250 positions", "Note 12, 1,250 positions").
+_LISTED = rf"\d{{1,2}}(?-i:[A-C])?(?!\d){_NO_UNIT}"
+# A number after a comma is one of the list only where the list goes on or the clause ends ("Notes 3, 4 and 5."), so a
+# count after a listed number is a figure ("Item 7, 40 stores"); one after "and", "&", "to" or a dash ends the list.
+_LIST_GOES_ON = r"(?=\s*(?:,|&|\band\b|\bto\b|-|–|[.;:)]|$))"
 _NON_FIGURE_NUMBER_RE = re.compile(
     rf"(?<![$€£¥\d.,])\b(?:FY|CY)\s?['’]?\d{{2}}(?:\d{{2}})?\b{_NO_UNIT}"
     rf"|\b(?:Q[1-4]|[1-4]Q|H[12]|[12]H){_PERIOD_TAIL}\b{_NO_UNIT}"
     rf"|(?<![$€£¥\d.,])\b(?:19|20)\d{{2}}s?\b{_NO_UNIT}"
     rf"|\b{_MONTH}\.?\s+\d{{1,2}}(?:st|nd|rd|th)?\b{_NO_UNIT}"
     r"|\b(?:10|20|40)-[KQF]\b|\b[68]-K\b|\bS-[14]\b"
-    rf"|\b(?:Items?|Notes?|Parts?)\s+{_LISTED}(?:\s*(?:,|&|and|to|-|–)\s*{_LISTED})*",
+    rf"|\b(?:Items?|Notes?|Parts?)\s+{_LISTED}(?:\s*,\s*{_LISTED}{_LIST_GOES_ON}|\s*(?:&|and|to|-|–)\s*{_LISTED})*",
     re.IGNORECASE,
 )
 

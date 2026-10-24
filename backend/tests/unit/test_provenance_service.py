@@ -839,8 +839,12 @@ class TestFiledFigureSwap:
         "See Note 7, 120m in charges.",
         "See Note 7, 2t in assets.",
         "Margins widened Dec 15 BPS.",
-        # A count past two digits after a listed number is no Item or Note.
+        # A count after a listed number: past two digits, or where the list neither goes on nor ends.
         "As described in Note 12, 250 positions were eliminated.",
+        "As described in Note 12, 25 positions were eliminated.",
+        "Item 7, 40 stores opened.",
+        "Note 4, 3 K-cups sold.",
+        "Note 4, 3 M&A deals closed.",
     ])
     def test_a_takeaway_that_states_a_number_is_withheld(self, commentary):
         row = self._enrich({"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
@@ -884,6 +888,12 @@ class TestFiledFigureSwap:
         "June 30 PP&E balances rose.",
         "Note 9 PP&E rose.",
         "Items 7 and 7A explain the 10-K's Q4 PP&E-led capex.",
+        # A list after a comma goes on, or its clause ends.
+        "See Notes 3, 4.",
+        "Leases grew (see Notes 3, 4) on new stores.",
+        "See Items 7, 7A; the 10-K explains it.",
+        "Notes 3, 4: leases and debt.",
+        "Notes 3, 4, 5 and 6 explain it.",
     ])
     def test_a_takeaway_that_names_no_figure_stays(self, commentary):
         # Years, quarters and the filing's own Items and Notes are not figures the swap replaced.
