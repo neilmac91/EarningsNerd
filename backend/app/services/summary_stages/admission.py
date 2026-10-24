@@ -173,7 +173,7 @@ async def admit(run: GenerationRun) -> AsyncIterator[dict]:
     run.cache_is_valid = False
     run.excerpt_from_cache = None
 
-    if cached_excerpt:
+    if cached_excerpt and not run.rebuild_excerpt:
         # Check age (valid if < 24 hours)
         last_updated = run.filing_fields["cache_updated_at"] or run.filing_fields["cache_created_at"]
         if not last_updated:

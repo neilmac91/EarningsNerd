@@ -43,23 +43,37 @@ affects documented tokens, typography, reusable component states or visual conve
 
 ## Commands
 
+Run heavyweight local verification in the foreground through the [launcher](ops/dev/README.md).
+Each typecheck, full suite and build below acquires its own lock; wrapping only the first command
+in an `&&` chain does not protect later commands. Focused test selections remain direct and may run
+concurrently. See the launcher documentation for supported hosts and limits. CI commands stay unchanged.
+
 Backend (from `/backend`):
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000   # Dev server
 pip install -r requirements-dev.txt                    # Pinned lint toolchain + pytest-xdist (same versions as CI)
-ruff check . && bandit -r app -ll && python -m pytest  # FULL local gate — run before every push
-python -m pytest              # Fast lane, parallel (`-n auto`); deselects performance (real sleeps)
+ruff check . && bandit -r app -ll && python3 ../ops/dev/verify.py -- python -m pytest  # FULL local gate — run before every push
+python3 ../ops/dev/verify.py -- python -m pytest  # Fast lane, parallel (`-n auto`); deselects performance (real sleeps)
 python -m pytest -n 0 -p no:randomly <leaker> <victim>  # Serial, in the order given: a debugger or a leaker-then-victim repro
-python -m pytest -m ""        # Everything, including the performance suite
-python -m pytest -o addopts= -m performance tests/performance  # Performance suite alone, serial (CI's second backend step)
+python3 ../ops/dev/verify.py -- python -m pytest -m ""  # Everything, including the performance suite
+python3 ../ops/dev/verify.py -- python -m pytest -o addopts= -m performance tests/performance  # Performance suite alone, serial (CI's second backend step)
 python3 scripts/deploy_check.py                        # Pre-deploy validation
 ```
+
+Before a push changing any file under `backend/`, its tests included, also run the **whole frontend
+unit suite** from `/frontend`: `python3 ../ops/dev/verify.py -- npm run test -- --run`. The full
+frontend gate below includes this step. A focused selection does not replace it: frontend specs
+read backend files ([lesson](lessons/ops-run-the-frontend-unit-suite-before-a-backend-push.md)).
 
 Frontend (from `/frontend`):
 ```bash
 npm run dev                   # Dev server (http://localhost:3000)
-npm run lint && npx tsc -p tsconfig.ci.json && npm run test -- --run && npm run build  # FULL gate
-npm run test:e2e              # Playwright (CI runs these against `next start` with NO backend)
+# FULL gate
+npm run lint && \
+  python3 ../ops/dev/verify.py -- npx tsc -p tsconfig.ci.json && \
+  python3 ../ops/dev/verify.py -- npm run test -- --run && \
+  python3 ../ops/dev/verify.py -- npm run build
+python3 ../ops/dev/verify.py -- npm run test:e2e  # Playwright (CI runs these against `next start` with NO backend)
 ```
 
 Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
@@ -169,8 +183,9 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
   NO other test roots — a test outside these does not run in CI (gate:
   `frontend/tests/unit/testHomesAllowlist.spec.ts`; its one exemption is the hash-sealed judging
   fixture pinned by a `code-sha256.json` in its package; offline proof run by the operator, not CI).
-- **Scripts:** one-offs in `backend/scripts/` with a docstring header; nothing executable at repo
-  root. **Open items** → `tasks/todo.md`; finished work and the ledger → `tasks/archive/`;
+- **Scripts:** one-offs in `backend/scripts/` with a docstring header; local verification tooling in
+  `ops/dev/` ([usage](ops/dev/README.md)); nothing executable at repo root.
+  **Open items** → `tasks/todo.md`; finished work and the ledger → `tasks/archive/`;
   **lessons** → `lessons/` (one file per rule, never a monolith); **prompts** → `backend/prompts/*.md`.
   Founder deliberations (pricing, fundraising, strategy, council transcripts) never enter this
   repository, even while private (`AGENTS.md` §7).

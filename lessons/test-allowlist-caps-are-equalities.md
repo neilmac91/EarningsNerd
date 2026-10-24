@@ -20,7 +20,8 @@ ceiling (a z-index bound, a byte budget) is not a list cap and keeps `<=`, with 
 
 **Evidence**: `frontend/tests/unit/allowlistCapsAreEqualities.spec.ts` (the gate: every
 `toBeLessThanOrEqual(NAMED_CONSTANT)` in a tracked unit spec is listed in `CEILINGS` with a reason, the
-totals equal `CEILINGS_MAX`, and E59 converts the listed list caps after the series lands), and its
+totals equal `CEILINGS_MAX`; E59 converted the seven files' 17 list caps on 2026-10-24, leaving the
+two z-index bounds in `bottomChromeLadder.spec.ts`), and its
 backend half, `backend/tests/unit/test_allowlist_caps_are_equalities.py` (#1298: every
 `assert len(LIST) <= CAP` in a tracked backend test is listed in its own `CEILINGS` with a reason; the two
 listed are value bounds). #1288's

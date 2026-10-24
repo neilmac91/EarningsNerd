@@ -76,6 +76,12 @@ def test_backend_test_only_changes_do_not_deploy(tmp_path):
         (["docs/DEPLOYMENT.md", ".github/workflows/ci.yml"], False),
         (tracked_tests, False),
         (["backend/tests/new.fixture", "backend/tests/future/deep/unknown.ext"], False),
+        # Local verification tooling and its gates/guidance stay outside the backend image.
+        (["ops/dev/verify.py", "ops/dev/README.md", "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md",
+          ".claude/agents/engineering/backend-developer.md", ".claude/agents/engineering/frontend-developer.md",
+          "lessons/ops-run-the-frontend-unit-suite-before-a-backend-push.md",
+          "backend/tests/unit/test_local_verification.py", "backend/tests/unit/test_backend_deploy_scope.py",
+          "backend/tests/unit/test_ops_stderr_withheld.py"], False),
         # An Ops read-back change: workflow, repository-root ops/ script, docs and a backend unit test.
         (["ops/capacity/readout.py", ".github/workflows/ops.yml", "docs/OPERATIONS.md",
           "backend/tests/unit/test_ops_describe_jobs.py"], False),

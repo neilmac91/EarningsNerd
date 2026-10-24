@@ -222,7 +222,11 @@ export function DataTable<T extends Record<string, unknown>>({
       const range = Math.max(0, scroll.scrollWidth - scroll.clientWidth)
       // The unstuck label has its own stop; period stops then start after its width.
       const firstStop = labelWidth - insetWidth
-      const pad = snapColumns && range > 0 ? ((step - (range - firstStop) % step) % step + step) % step : 0
+      // The range ends on a whole stop: past the first period's stop, a whole number of periods; short of it (a
+      // table that overflows by less than its unstuck label, one period under enlarged text), that stop itself,
+      // never a point inside the label.
+      const pad = !snapColumns || range === 0 ? 0
+        : range < firstStop ? firstStop - range : (step - (range - firstStop) % step) % step
       if (snapColumns) {
         scroll.style.paddingInlineEnd = `${pad}px`
         scroll.style.scrollPaddingInlineStart = `${insetWidth}px`

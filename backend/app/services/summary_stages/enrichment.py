@@ -106,12 +106,13 @@ def start_section_parse(run: GenerationRun) -> None:
     on ``run.filing_text`` (no SEC request), so it starts once the document is in hand. Skipped when
     there is no document and when the filing has a stored excerpt, fresh or past its 24-hour window:
     ``get_or_cache_excerpt`` returns a stored excerpt as it is, so sections parsed for it would be
-    thrown away (regenerations keep it; a forced precompute and the admin filing reset clear it).
+    thrown away (regenerations keep it; the admin filing reset deletes it). A run asked to rebuild its
+    excerpt (``rebuild_excerpt``, a forced precompute) parses past a stored one.
     """
     filing_id = run.filing_id
     run.sections_task = None
     if (
-        not run.filing_fields["cache_excerpt"]
+        (run.rebuild_excerpt or not run.filing_fields["cache_excerpt"])
         and pipeline.settings.USE_EDGARTOOLS_SECTIONS
         and run.filing_text
         and run.filing_type
@@ -155,11 +156,18 @@ async def parse_and_enrich(run: GenerationRun) -> AsyncIterator[dict]:
     if run.sections_task is not None:
         sections = await run.sections_task
 
-    # Extract excerpt
+    # Extract excerpt. A forced run keeps the excerpt it builds to itself: finalize stores it in the
+    # commit that replaces the summary, so a summary keep-better keeps (or a failed run) is never left
+    # beside an excerpt it was not generated from, and an overlapping refresh never reads one.
     def extract_excerpt_sync():
         with database.SessionLocal() as thread_session:
             thread_filing = thread_session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
-            return pipeline.get_or_cache_excerpt(thread_session, thread_filing, run.filing_text, sections=sections)
+            options = {}
+            if run.force_regenerate:
+                options["persist"] = False
+            if run.rebuild_excerpt:
+                options["reuse_stored"] = False
+            return pipeline.get_or_cache_excerpt(thread_session, thread_filing, run.filing_text, sections=sections, **options)
 
     if run.cache_is_valid:
         # Use the cached excerpt directly

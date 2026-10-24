@@ -529,7 +529,7 @@ class FrozenArchiveBinding:
             return result
 
         def measured_excerpt(db: Any, filing: Any, filing_text: str | None,
-                             sections: Any = None) -> Any:
+                             sections: Any = None, **options: Any) -> Any:
             self._event("filing_excerpt", "attempted", accession=getattr(filing, "accession_number", None))
             if getattr(filing, "accession_number", None) != accession:
                 self._violate("filing_excerpt", "different selected filing")
@@ -545,7 +545,7 @@ class FrozenArchiveBinding:
                 ).hexdigest()
                 if section_sha not in self._allowed_sections_sha256:
                     self._violate("filing_excerpt", "sections were not returned by the archived-primary section parse")
-            result = original_excerpt(db, filing, filing_text, sections=sections)
+            result = original_excerpt(db, filing, filing_text, sections=sections, **options)
             self._event("filing_excerpt", "returned", input_sha256=sha,
                         populated=bool(result), section_keys=sorted(sections) if isinstance(sections, dict) else [])
             return result

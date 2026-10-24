@@ -15,31 +15,25 @@ import { describe, expect, it } from 'vitest'
  * `toBeLessThanOrEqual(...)` whose one argument is a named constant: an identifier in CONSTANT_CASE, or one
  * property of one (`MAX_PINNED.files`). A literal (a pixel budget, a count of calls) and an expression are not
  * read as a cap, and neither is `toBeLessThan`, a strict bound that is not the cap idiom; this header says so
- * rather than claiming more. CEILINGS lists the sites still written as ceilings, by file with the count and why:
- * E59 converts each list cap to an equality after the brand series lands (every file below is edited by one of
- * its PRs), and a value ceiling that is not a list cap (a z-index) keeps its line with that reason. Shrink-only:
- * the totals equal CEILINGS_MAX, lowered in the same commit as a line, and a line whose sites left fails.
+ * rather than claiming more. CEILINGS lists the sites still written as ceilings, by file with each cap's name and why:
+ * only a value ceiling that is not a list cap (a z-index) keeps its line, with that reason, since E59 made the
+ * seven files' 17 list caps equalities. Shrink-only: the totals equal CEILINGS_MAX, lowered in the same commit as
+ * a line, and a line whose sites left fails.
  */
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const CONSTANT = /^[A-Z][A-Z0-9_]*$/
 
-const CEILINGS: Record<string, { count: number; why: string }> = {
+const CEILINGS: Record<string, { caps: string[]; why: string }> = {
   'tests/unit/bottomChromeLadder.spec.ts': {
-    count: 6,
-    why: 'PINNED_LIMITS.files and .sites, STICKY_LIMITS.files and INLINE_FIXED_TOTAL are list caps (E59); PINNED_LIMITS.maxZ and STICKY_LIMITS.maxZ bound a z-index, a value ceiling that keeps its form',
+    caps: ['PINNED_LIMITS.maxZ', 'STICKY_LIMITS.maxZ'],
+    why: 'PINNED_LIMITS.maxZ and STICKY_LIMITS.maxZ bound a z-index, a value ceiling that keeps its form; the file’s list caps are equalities (E59)',
   },
-  'tests/unit/busyControlsStayFocusable.spec.ts': {
-    count: 6,
-    why: 'the file and site caps of ALLOW, ALLOW_RETRY and ALLOW_HAND_BUILT_FAILURE (E59); the ALLOW_RETRY_LABEL pair is an equality since #1301, and #1295 lowers it',
-  },
-  'tests/unit/dialogAllowlist.spec.ts': { count: 1, why: 'MAX_ALLOWLIST_SIZE, a list cap (E59)' },
-  'tests/unit/fullPageSpinnerGate.spec.ts': { count: 1, why: 'MAX_ALLOWLIST_SIZE, a list cap (E59)' },
-  'tests/unit/inputClassesNoOverrides.spec.tsx': { count: 2, why: 'MAX_PINNED.files and .findings, list caps (E59)' },
-  'tests/unit/rawFetchAllowlist.spec.ts': { count: 1, why: 'MAX_ALLOWLIST_SIZE, a list cap (E59)' },
-  'tests/unit/spinnerGateHoldsFailure.spec.ts': { count: 2, why: 'MAX_ALLOWLIST_SIZE and MAX_PINNED_SITES, list caps (E59)' },
 }
 /** Equal to the list, never above it: lower both with the list in the same commit. */
-const CEILINGS_MAX = { files: 7, sites: 19 }
+const CEILINGS_MAX = { files: 1, sites: 2 }
+
+/** The cap a site names: `file:line toBeLessThanOrEqual(NAME)` reads NAME. */
+const capOf = (site: string) => site.slice(site.lastIndexOf('(') + 1, -1)
 
 /** The named constant a cap argument reads, or null when the argument is a literal or an expression. */
 function namedConstant(arg: ts.Expression): string | null {
@@ -87,13 +81,16 @@ describe('allowlist caps are equalities (lessons/test-allowlist-caps-are-equalit
     for (const rel of Object.keys(CEILINGS)) expect(SPECS, rel).toContain(rel)
   })
 
-  it('no unit spec caps a list with toBeLessThanOrEqual outside CEILINGS, and every listed count is current', () => {
+  it('no unit spec caps a list with toBeLessThanOrEqual outside CEILINGS, and each listed file holds the caps it names', () => {
+    // By name, not by count: a list cap turned back into a ceiling beside a listed bound rewritten with a literal keeps
+    // the file's count and still fails.
     const offenders: string[] = []
     for (const [rel, sites] of found) {
       const listed = CEILINGS[rel]
+      const caps = sites.map(capOf).sort().join(', ')
       if (!listed) offenders.push(...sites)
-      else if (sites.length !== listed.count) {
-        offenders.push(`${rel}: ${sites.length} ceilings, CEILINGS lists ${listed.count}: ${sites.join(' | ')}`)
+      else if (caps !== [...listed.caps].sort().join(', ')) {
+        offenders.push(`${rel}: ceilings on ${caps}, CEILINGS lists ${listed.caps.join(', ')}: ${sites.join(' | ')}`)
       }
     }
     expect(offenders, 'a cap on a list is an equality: expect(count).toBe(MAX), and the shrink lowers MAX in the same commit').toEqual([])
@@ -105,7 +102,7 @@ describe('allowlist caps are equalities (lessons/test-allowlist-caps-are-equalit
     expect(Object.keys(CEILINGS).length, 'CEILINGS_MAX.files equals the files in CEILINGS: lower it with the list, never raise it').toBe(
       CEILINGS_MAX.files,
     )
-    const sites = Object.values(CEILINGS).reduce((n, { count }) => n + count, 0)
+    const sites = Object.values(CEILINGS).reduce((n, { caps }) => n + caps.length, 0)
     expect(sites, 'CEILINGS_MAX.sites equals the sites in CEILINGS: lower it with the list, never raise it').toBe(CEILINGS_MAX.sites)
     for (const [rel, { why }] of Object.entries(CEILINGS)) expect(why.length, rel).toBeGreaterThan(20)
   })

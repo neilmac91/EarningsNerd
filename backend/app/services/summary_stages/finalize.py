@@ -12,7 +12,7 @@ import logging
 from typing import TYPE_CHECKING, AsyncIterator
 
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import Session, joinedload
 
 from app import database
 from app.models import Filing, Summary, User
@@ -22,6 +22,11 @@ if TYPE_CHECKING:  # pragma: no cover - annotations only; see the package docstr
     from app.services.summary_stages.generation_run import GenerationRun
 
 logger = logging.getLogger(pipeline.__name__)
+
+
+def _filing_with_cache(session: Session, filing_id: int) -> Filing | None:
+    """The filing with its cache row loaded, as this session reads them now."""
+    return session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
 
 
 async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
@@ -206,8 +211,6 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
     # DB OP: Persist summary
     def save_summary_sync():
         with database.SessionLocal() as session:
-            filing_for_cache = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
-
             if force_regenerate:
                 # Admin refresh-stale: UPDATE the existing row IN PLACE (preserve summaries.id so
                 # the saved_summaries FK/bookmark survives and UNIQUE(filing_id) holds) instead of
@@ -221,6 +224,12 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
                     .with_for_update(key_share=True)
                     .first()
                 )
+                # The filing and its cache row are read after that lock, so the checks and writes below
+                # see what a save that committed while this one waited stored (READ COMMITTED): read
+                # before the wait, a cache row holding the excerpt this run reused took this run's equal
+                # value as no change and kept the other run's excerpt beside this run's summary, and a
+                # row that save created was missed and inserted again, failing on its key.
+                filing_for_cache = _filing_with_cache(session, filing_id)
                 if existing is not None:
                     stored_raw = existing.raw_summary if isinstance(existing.raw_summary, dict) else {}
                     stored_tier = (stored_raw.get("quality") or {}).get("tier")
@@ -267,10 +276,14 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
                                 else None
                             ),
                             replace_risk_source=True,
+                            replace_excerpt=True,
+                            clear_stale_excerpt=run.rebuild_excerpt,
                         )
                     session.commit()
                     return existing.id
                 # force on a filing with no stored summary yet: fall through to a normal INSERT.
+            else:
+                filing_for_cache = _filing_with_cache(session, filing_id)
 
             summary = Summary(
                 filing_id=filing_id,
@@ -301,6 +314,8 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
                         else None
                     ),
                     replace_risk_source=force_regenerate,
+                    replace_excerpt=force_regenerate,
+                    clear_stale_excerpt=run.rebuild_excerpt,
                 )
 
             try:

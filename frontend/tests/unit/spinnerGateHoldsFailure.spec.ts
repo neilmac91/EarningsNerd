@@ -696,9 +696,9 @@ describe('a page loading gate over a shared query holds its shown failure (rule-
   })
 
   it('is shrink-only, and every entry has a reason', () => {
-    expect(Object.keys(ALLOW).length).toBeLessThanOrEqual(MAX_ALLOWLIST_SIZE)
+    expect(Object.keys(ALLOW).length).toBe(MAX_ALLOWLIST_SIZE)
     const pinned = Object.values(ALLOW).reduce((sum, { sites }) => sum + sites.length, 0)
-    expect(pinned).toBeLessThanOrEqual(MAX_PINNED_SITES)
+    expect(pinned).toBe(MAX_PINNED_SITES)
     for (const [file, { reason }] of Object.entries(ALLOW)) {
       expect(reason.trim().length, `${file} needs a reason`).toBeGreaterThan(0)
     }

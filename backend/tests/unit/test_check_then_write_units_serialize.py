@@ -9,18 +9,21 @@ commit:
   inserts and take one place;
 - the watch-row writes (``watchlist_service.watch_row_lock``): two enables of an earnings alert both
   pass the plan cap, two adds of one company (or an add and an enable) both pass the duplicate check
-  and write two rows, two removes both find the row, and a disable updates a row a remove deleted.
+  and write two rows, two removes both find the row, and a disable updates a row a remove deleted;
+- the saved-row writes (``saved_summary_service.saved_row_lock``): two saves of one summary both pass
+  the duplicate check and store it twice, two deletes both find the row, and a notes update writes a
+  row a delete removed.
 
 Each case runs two units in threads on sessions configured as ``SessionLocal`` is, and meets them
 inside the critical section, after each has made its check: each waits there until the other has
 made its check too, or until the other is parked on the lock, which only a lock can do. Without the
 lock both have checked before either writes, so the race happens however slow the host.
-The watch-row lock is also taken after the session's first query and must run no new checkout
-inside it, so no holder waits for a pool slot that a waiter holds: each watch-row case fails a
-checkout made by the thread that holds the lock.
+The watch-row and saved-row locks are also taken after the session's first query and must run no
+new checkout inside them, so no holder waits for a pool slot that a waiter holds: each watch-row and
+saved-row case fails a checkout made by the thread that holds the lock.
 
 These locks reach one process. Each unit also takes a database lock that the API's instances share,
-the watch-row writes before the process lock and the join inside it;
+the watch-row and saved-row writes before the process lock and the join inside it;
 ``test_check_then_write_units_lock_across_instances.py`` holds those (E128).
 """
 
@@ -34,8 +37,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
 from app.database import Base
-from app.models import Company, User, WaitlistSignup, Watchlist
-from app.services import earnings_alert_service, waitlist_service, watchlist_service
+from app.models import Company, Filing, SavedSummary, Summary, User, WaitlistSignup, Watchlist
+from app.services import earnings_alert_service, saved_summary_service, waitlist_service, watchlist_service
+from app.utils.datetimes import utcnow
 
 # Exercise existing collection behavior with an explicitly published synthetic operator notice.
 pytestmark = pytest.mark.usefixtures("collection_ready")
@@ -132,6 +136,17 @@ def watch_rows(monkeypatch, engine):
     event.listen(engine, "checkout", lambda *_: inside.append(meeting.holder == threading.get_ident()))
     yield meeting
     assert inside and not any(inside), "a checkout ran inside the watch-row lock"
+
+
+@pytest.fixture
+def saved_rows(monkeypatch, engine):
+    """The saved-row lock wrapped in a meeting, failing any checkout its holder makes while it holds it."""
+    meeting = _Meeting(saved_summary_service.saved_row_lock)
+    monkeypatch.setattr(saved_summary_service, "saved_row_lock", meeting)
+    inside: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: inside.append(meeting.holder == threading.get_ident()))
+    yield meeting
+    assert inside and not any(inside), "a checkout ran inside the saved-row lock"
 
 
 def _run_both(first, second) -> list:
@@ -283,3 +298,99 @@ def test_an_alert_disable_and_a_remove_of_one_company_both_finish(sessions, monk
     # Either order is fine; neither may fail on a row the other changed under it.
     assert _kinds(_run_both(remove, disable)) == ["NoneType", "bool"]
     assert _rows(sessions, 4) == []
+
+
+def _reader(sessions, *, saved: bool = False) -> None:
+    """An account and a filing's summary (summary 1); ``saved`` puts it in the account's library (row 1)
+    with the notes "Kept"."""
+    with sessions() as db:
+        user = User(email="reader@example.com", is_active=True)
+        company = Company(cik="0000000001", ticker="LIB", name="Library Co")
+        db.add_all([user, company])
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="library-0", filing_type="10-Q",
+                        filing_date=utcnow(), sec_url="https://sec.example/", document_url="https://sec.example/doc")
+        db.add(filing)
+        db.flush()
+        summary = Summary(filing_id=filing.id, business_overview="Overview")
+        db.add(summary)
+        db.flush()
+        if saved:
+            db.add(SavedSummary(user_id=user.id, summary_id=summary.id, notes="Kept"))
+        db.commit()
+
+
+def _as_reader(sessions, unit):
+    """Run ``unit(db, user)`` on a session whose first query, the user's lookup, has already checked
+    a connection out, as the route's auth dependency has."""
+
+    def run():
+        with sessions() as db:
+            user = db.query(User).filter_by(email="reader@example.com").one()
+            return unit(db, user)
+    return run
+
+
+def _library(sessions) -> list:
+    """The notes of each row in the account's library."""
+    with sessions() as db:
+        return [notes for (notes,) in db.query(SavedSummary.notes).filter_by(user_id=1)]
+
+
+def test_two_saves_of_one_summary_keep_one_library_row(sessions, monkeypatch, saved_rows):
+    _reader(sessions)
+    _meet_after(monkeypatch, saved_rows, saved_summary_service, "_saved")
+    save = _as_reader(sessions, lambda db, user: saved_summary_service.save_summary(
+        db, user_id=user.id, summary_id=1, notes=None))
+
+    outcomes = _run_both(save, save)
+    # The second save found the first's row and answers it.
+    assert _kinds(outcomes) == ["dict", "dict"] and outcomes[0]["id"] == outcomes[1]["id"], outcomes
+    assert _library(sessions) == [None]
+
+
+def test_two_deletes_of_one_library_row_delete_it_once(sessions, monkeypatch, saved_rows):
+    _reader(sessions, saved=True)
+    _meet_after(monkeypatch, saved_rows, saved_summary_service, "_owned")
+    delete = _as_reader(sessions, lambda db, user: saved_summary_service.delete_saved_summary(
+        db, user_id=user.id, saved_summary_id=1))
+
+    assert sorted(_run_both(delete, delete), key=repr) == [False, True]
+    assert _library(sessions) == []
+
+
+def test_a_notes_update_and_a_delete_of_one_library_row_both_finish(sessions, monkeypatch, saved_rows):
+    """The update reads the row, and only once the delete has removed it (or is parked on the lock)
+    does it write: without the lock its UPDATE matches no row."""
+    _reader(sessions, saved=True)
+    deleted = threading.Event()
+    real_delete = saved_summary_service.delete_saved_summary
+
+    def delete_saved_summary(*args, **kwargs):
+        try:
+            return real_delete(*args, **kwargs)
+        finally:
+            deleted.set()
+            saved_rows.wake()
+
+    monkeypatch.setattr(saved_summary_service, "delete_saved_summary", delete_saved_summary)
+    _meet_after(monkeypatch, saved_rows, saved_summary_service, "_owned")
+    real_read = saved_summary_service._owned_library_row
+
+    def read_then_wait(*args, **kwargs):
+        row = real_read(*args, **kwargs)
+        saved_rows.meet()
+        saved_rows.wait_for(deleted)
+        return row
+
+    monkeypatch.setattr(saved_summary_service, "_owned_library_row", read_then_wait)
+    delete = _as_reader(sessions, lambda db, user: saved_summary_service.delete_saved_summary(
+        db, user_id=user.id, saved_summary_id=1))
+    update = _as_reader(sessions, lambda db, user: saved_summary_service.update_saved_summary_notes(
+        db, user_id=user.id, saved_summary_id=1, notes="Edited"))
+
+    # Either order is fine: the update edits the row before the delete removes it, or finds it gone.
+    deleted_once, updated = _run_both(delete, update)
+    edited = isinstance(updated, dict) and updated["notes"] == "Edited"
+    assert deleted_once is True and (updated is None or edited), (deleted_once, updated)
+    assert _library(sessions) == []
