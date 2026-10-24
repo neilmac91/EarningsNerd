@@ -1,11 +1,10 @@
 import React from 'react'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
+import { FIGURE_LINKED, FIGURE_MATCHED, figureNote, type FigureEvidence } from '@/features/filings/lib/evidenceLabels'
 
-interface MetricSourceLinkProps {
+interface MetricSourceLinkProps extends Omit<FigureEvidence, 'verified'> {
   url?: string | null
   verified?: boolean | null
-  /** XBRL concept label shown when the value is verified (e.g. "Revenue"). */
-  concept?: string | null
   /** Section heading (e.g. "Consolidated Statements of Operations") — the in-app jump target for
    * figures (item 1.4), since metrics carry no verbatim excerpt. */
   sectionRef?: string | null
@@ -15,12 +14,13 @@ interface MetricSourceLinkProps {
 
 /**
  * Trace-to-Source affordance for a financial metric, rendered through the shared SourceTrace so
- * metric and risk provenance read identically. "✓ … SEC XBRL" means the displayed value was matched
- * against the SEC-verified XBRL figure; otherwise the chip keeps SourceTrace's honest "Cited"
- * vocabulary (its accessible name is then "Source: Cited", never the former "Source: Source").
- * Renders nothing when no source URL is available (backward compatible with un-enriched data).
+ * metric and risk provenance read identically. "Matches filing" means the server compared the row's
+ * figures with the company's filed data and they agree, or it replaced a figure that did not with the
+ * filed one, and the panel says which (lib/evidenceLabels.figureNote); any other figure reads "Linked,
+ * not checked". Renders nothing when no source URL is available (backward compatible with un-enriched
+ * data).
  */
-export function MetricSourceLink({ url, verified, concept, sectionRef, layoutTwin }: MetricSourceLinkProps) {
+export function MetricSourceLink({ url, verified, sectionRef, layoutTwin, filed, replaced, takeawayWithheld }: MetricSourceLinkProps) {
   if (!url) return null
   const isVerified = verified === true
   return (
@@ -29,8 +29,8 @@ export function MetricSourceLink({ url, verified, concept, sectionRef, layoutTwi
       verified={isVerified}
       sectionRef={sectionRef}
       kind="xbrl"
-      label={isVerified ? `${concept ? `${concept} · ` : ''}SEC XBRL` : undefined}
-      note={isVerified ? 'Matched against the SEC-filed XBRL value' : null}
+      label={isVerified ? FIGURE_MATCHED : FIGURE_LINKED}
+      note={figureNote({ verified: isVerified, filed, replaced, takeawayWithheld })}
       layoutTwin={layoutTwin}
     />
   )

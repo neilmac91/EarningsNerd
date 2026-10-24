@@ -83,13 +83,19 @@ describe('AskFilingDemo', () => {
     expect(answer!.textContent).not.toMatch(/\[F\d+\]/)
   })
 
-  it('names each chip kind in plain words with its locator and verification', () => {
+  it('names each chip kind in plain words with its locator and what was checked', () => {
     render(<AskFilingDemo />)
-    expect(screen.getAllByText('XBRL figure')).toHaveLength(2)
+    // The kind is the server's (fact or calculated), never the section label: the computed growth is not a filed figure.
+    expect(screen.getByText('Filed figure')).toBeInTheDocument()
+    expect(screen.getByText('Calculated figure')).toBeInTheDocument()
     expect(screen.getAllByText('us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax')).toHaveLength(2)
     expect(screen.getByText('Passage')).toBeInTheDocument()
     expect(screen.getByText(SAMPLE_ASK.citations[2].section_ref as string)).toBeInTheDocument()
-    expect(screen.getAllByText('Verified')).toHaveLength(3)
+    // The product's vocabulary (citationVerificationLabel), never a bare "Verified".
+    expect(screen.getByText('Matches filing')).toBeInTheDocument()
+    expect(screen.getByText('Calculated from filing')).toBeInTheDocument()
+    expect(screen.getByText('Quote found in filing')).toBeInTheDocument()
+    expect(screen.queryByText('Verified')).toBeNull()
   })
 
   it('keeps the static composer decorative: no button, hidden from assistive tech', () => {

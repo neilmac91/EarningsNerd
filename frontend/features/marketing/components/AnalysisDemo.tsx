@@ -32,7 +32,7 @@ export default function AnalysisDemo() {
       <div className="flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1.5 border-b border-border-light px-4 py-3 dark:border-white/10">
         <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{TITLE}</span>
         <span className="whitespace-nowrap font-data text-data-xs text-text-secondary-light dark:text-text-secondary-dark">
-          SEC XBRL
+          Filed data
         </span>
       </div>
 

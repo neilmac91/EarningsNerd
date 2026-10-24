@@ -574,14 +574,15 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  Source evidence retains every original currency and value. The visible rounding note
                  directs readers to full-precision evidence; the dialog keeps the original value
                  and ordinary comparison display. Shared financial formatters remain unchanged.
-                 DataTable's layout, colWidths, compact cellPadding, named scrollRegion, snapColumns
-                 and Column.rowHeader options are opt-in; other consumers retain their geometry.
+                 DataTable's layout, colWidths, compact cellPadding, named scrollRegion, snapColumns,
+                 verticalAlign, Column.rowHeader and Column.className options are opt-in; other consumers retain their geometry.
 
 Analysis evidence <SourceValue> — the shared Modal presents financial display form, the supplied
                  value labelled “As stored” and human-readable units, then Checks, Method and recorded
-                 source lineage. Checks distinguish SEC XBRL admission from compatible-input calculations;
-                 neither claims an audit. Missing figures read “Unavailable”, with the effect of a gap
-                 stated. Quarterly dialogs name the quarter end; source links name their figure and period.
+                 source lineage. Checks tell a reported figure taken from the company’s filed data (XBRL)
+                 apart from a compatible-input calculation; neither claims an audit. Missing figures read
+                 “Unavailable”, with the effect of a gap stated. Quarterly dialogs name the quarter end;
+                 source links name their figure and period.
                  Formula substitution uses operand identity, not list position; it only asserts an
                  equality for a passed calculation. Missing lineage is stated explicitly, never
                  represented as recorded inputs or a scheduled repair. Original SEC links and
@@ -1000,19 +1001,19 @@ Index list       <FilingIndex> (features/filings/components) — the recipe for 
                  colour, no per-row document icon (the caret in the actions track, from 48rem, is an
                  aria-hidden navigation cue, not a type signal). One grid template for the column header and
                  every row (form · period · filed · actions) so values align across groups. The row is ONE
-                 <Link>, named by its own content (no aria-label); a secondary target (EDGAR) is a SIBLING
+                 <Link>, named by its own content (no aria-label); a secondary target (the filing on SEC.gov) is a SIBLING
                  anchor absolutely placed in the actions track — never an <a> inside the row link. 48px rows
-                 from 48rem, 64px two-line rows below it with a 44px EDGAR square. The index's breakpoints
+                 from 48rem, 64px two-line rows below it with a 44px SEC.gov square. The index's breakpoints
                  are rem media queries, 40rem for sm's rows and 48rem for md's grid (640 and 768px at the
                  default size, 1280 and 1536px under 200% text), and the list is a query container: below
                  15rem of list (a phone under enlarged text: below 610px under 200% text, 458px under 150%) a
-                 row is one column, its code beside the EDGAR square at the square's height and its period
+                 row is one column, its code beside the SEC.gov square at the square's height and its period
                  and filed date below at the row's width. The heading's count and a year's count wrap onto
                  lines of their own wherever they do not fit. At the px breakpoints the grid's 20rem of fixed
                  tracks left the period column 0px under 200% text at 768, 1024 and 1440px, and at 320 to
-                 390px the EDGAR square sat over the period (E168; gate: tests/e2e/reflow-200.spec.ts loads
+                 390px the SEC.gov square sat over the period (E168; gate: tests/e2e/reflow-200.spec.ts loads
                  the index at 320, 360, 390, 768, 1024, 1440 and 2304px under 200% text: every box and line
-                 of it inside its card, no row's text under its EDGAR square, the Compare periods card off
+                 of it inside its card, no row's text under its SEC.gov square, the Compare periods card off
                  it). Group headers are <h3><button aria-expanded aria-controls>; collapsed lists stay in the
                  DOM with `hidden`. One primary action per screen, and on the company page it is the lead's
                  (Company identity, below): the list only marks the latest row "Latest", and rows never carry
@@ -1122,7 +1123,7 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  panel, hands focus to the selected Filing tab rather than to <body> (a pointer's click leaves
                  focus to the pointer) (FilingWorkspace; a chip outside the pane keeps or never takes focus,
                  as the browser decides); SourceTrace alone has a sheet, which a coarse pointer opens instead,
-                 carrying "Show in filing" beside the EDGAR link. A chip that is itself the EDGAR anchor
+                 carrying "Show in filing" beside the SEC.gov link. A chip that is itself the SEC.gov link
                  (SourceTrace without a viewer, as on the landing demo) has no second stop, so Tab leaves it
                  as usual.
 
@@ -1203,7 +1204,14 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  `scroll-padding-top` (globals.css) reads the variable once, so a keyboard focus, an anchor
                  jump or a scrollIntoView lands below the bar, never behind it (WCAG 2.2 SC 2.4.11); a
                  section's scroll margin adds only its own room beyond the header (`scroll-mt-16`), never the
-                 variable again, which would land every jump one bar lower. The padding steps aside while
+                 variable again, which would land every jump one bar lower. Below lg the filing page's section
+                 nav (SummaryBlocks' MobileSectionNav), sticky under the header, is a second bar: it publishes
+                 its height as `--section-nav-h` (0px from lg, unset when it is not mounted), the padding adds it
+                 to the header's, a focus inside the nav drops the nav's share and keeps the header's
+                 (`html:has([data-section-nav]:focus-within)`), and a section's margin gives it back
+                 (`scroll-mt-[calc(4rem_-_var(--section-nav-h,0px))]`), never adds it, so a jump lands where it
+                 did (gates: tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/unit/SummaryBlocks.spec.tsx,
+                 the /filing walk at 390px in tests/e2e/header-covers-nothing.spec.ts). The padding steps aside while
                  focus is inside the site header (`html:has([data-site-header]:focus-within)`): the header is
                  stuck in view, and the padding, which counts its open mobile menu below lg, would scroll the
                  page behind the menu at every Tab through it, and move the page when a control in the bar
@@ -1304,21 +1312,34 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  inside ONE wrapper so a parent's `space-y` hands neither a sibling margin; the inactive one is
                  display:none, so it adds no accessible content, Tab stop or id — never a JS media query, which
                  would SSR one layout and flip after hydration; no DataTable responsive API either, as a shared
-                 one is deferred work, so the switch stays local to this component).
+                 one is deferred work, so the switch stays local to this component). From md up the metric names
+                 are row headers (`rowHeader`), cells align to the top and headings to the bottom (DataTable
+                 `verticalAlign="top"`), each change glyph sits left of a figure box as wide as the column's
+                 longest change in `ch`, so the glyphs share an edge, and the takeaway column is inset
+                 (`pl-8`). `periods` names the figure columns ("FY2025" over "ended Sep 27, 2025"), `changeNote`
+                 marks Change with a dagger the footer explains, and `caption` names the table and the list.
+                 `layoutBy="container"` moves the switch from the md viewport to the component's own width of
+                 52rem (a container query in rem on a `[container-type:inline-size]` wrapper), for a caller whose
+                 column stays narrow on a desktop screen: the landing's evidence row, whose content column is
+                 42rem at 1024px, where the table squeezed each takeaway to a 100px ribbon
+                 (tests/e2e/landing-highlights-alignment.spec.ts).
                  Both presentations render ONE set of field renderers (nameField / currentField / perAdsField /
                  priorField / changeField / takeawayField), each marking its element `data-metric-field`; with
                  `data-metrics-layout="cards|table"`, `data-metric-card`, `data-direction` and `data-tone` these
                  are the parity anchors the render spec, the Playwright spec and the critique harness count —
-                 keep them. A card: name + XBRL chip; a `<dl>` of Current / Prior / Change (visible short labels
+                 keep them. A card: name + figure chip; a `<dl>` of Current / Prior / Change (visible short labels
                  in the table's header eyebrow with an sr-only "period", so the three groups sit on one line at
-                 390px and AT hears the column names; the Prior and Change groups whenever the table has those
-                 columns, mirroring its cells exactly: a figure served empty or as the token alone is
+                 390px and AT hears the column names; the first two groups hold `min-w-[min(5rem,100%)]`, so the
+                 groups start at the same offsets in every card while they fit; the Prior and Change groups
+                 whenever the table has those columns, mirroring its cells exactly: a figure served empty or as
+                 the token alone is
                  MissingValue in the cell and in the definition alike; the change glyph inline-block and
                  aria-hidden, the string verbatim, MissingValue when the server sent none; tone from
                  `change_tone` through lib/financialTone.directionText + font-semibold for a move,
                  pinned token-for-token to DataTable's td); the per-ADS note as its own line under the figures;
                  the takeaway and its evidence chip, MissingValue read as "no takeaway" where the summary wrote
-                 none (E145). Figures `font-data text-sm tabular-nums`, prose text-sm,
+                 none (E145), and "Withheld: written before the figure was corrected." (TAKEAWAY_WITHHELD) where
+                 the server withheld the one it wrote when it swapped in the filed figure; the exports print it too. Figures `font-data text-sm tabular-nums`, prose text-sm,
                  chips as they are — never smaller than the md table. Wrap contract: `[overflow-wrap:anywhere]`
                  on the card (inherited; it also lowers a flex item's min-content, which `break-words` cannot)
                  and `min-w-0` groups; never nowrap / truncate / line-clamp / a clipping height on card text —
@@ -1342,13 +1363,19 @@ Filing identity  <FilingIdentity filing>  (features/filings, 2026-10 critique P-
                  data-face line: form (font-semibold ink) · period of report ("fiscal year ended Sep 24,
                  2022", from report_date — fiscal-year labels wait for XBRL dei fields; an 8-K's report
                  date is its event's, "event date Oct 27, 2022", and its crumb names the filed date) · filed date ·
-                 exchange · "Original on SEC EDGAR ↗" (sage ink, brand-hairline underline). Middots are
+                 exchange · "Original on SEC.gov ↗" (sage ink, brand-hairline underline). Middots are
                  aria-hidden with an sr-only comma. No form Badge, no "AI analysis" chip. Its `children` slot
                  takes the verification tally (VerificationTallyLine): scoped counts only — "6 of 6
-                 checkable figures matched the company's XBRL · 3 of 4 risk excerpts located in the filing
-                 text · 1 withheld"; the check glyph only when nothing was left unmatched. Checkable = the
-                 rows the server could check (`source_checkable`: a concept it maps, of at least $1M);
-                 per-share figures, ratios, margins and segment lines are never counted as misses.
+                 checkable figures match the filing · 1 corrected from the filing · 3 of 4 risk excerpts
+                 located in the filing text · 1 withheld"; the check glyph only when nothing was left
+                 unmatched. Checkable = the rows the server could check (`source_checkable`: a whole label
+                 it maps to a concept of at least a million in the filing's currency, its figure a displayed
+                 number with its scale, in a
+                 currency the filing's data can confirm or refute and dated to the filed period if dated,
+                 every prior it shows checkable too, and, where a figure differs, a label that names the filed
+                 line, `_EXACT_SCOPE_TAGS`); corrected = the rows whose figure differed from the filed line its
+                 label names and the server replaced with the filed one (`source_replaced`); per-share
+                 figures, ratios, margins and segment lines are never counted as misses.
 
 Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page ground with no card: index + h2 (see
                  §3), body `space-y-4`, `space-y-11` between sections; the sticky TOC sits on the reading
@@ -1457,7 +1484,7 @@ Company identity <CompanyIdentity company latest summaryReady actions>  (feature
                  Filing identity vocabulary reused on the company lead (IDENTITY_* classes, Sep, TickerPill
                  exported from FilingIdentity): breadcrumb Home / company, the h1 with logo and ticker pill,
                  one data-face line of facts the API returns (exchange · CIK as EDGAR prints it, ten digits ·
-                 "Company on SEC EDGAR ↗"; no market quote, the one figure there no filing sources, D-046,
+                 "Company on SEC.gov ↗"; no market quote, the one figure there no filing sources, D-046,
                  though the search option keeps its own), then "Latest filing" form · period · filed date · "summary
                  ready" (only when the summary probe found one the filing page will show: isSummaryReady, not
                  a placeholder or a stored failure). Its actions: the ONE primary action, opening the latest
@@ -1496,8 +1523,8 @@ Hero example     <HeroExample example>  (features/marketing, critique 1d) — th
                  and padding, and the first row's top rule, outside the clip; a value breaks inside only when
                  wider than the strip; ▲/▼ aria-hidden before the signed delta), one evidence row when the live summary
                  has a located risk excerpt (pickEvidence: source_verified under the source owner; heading =
-                 excerptHeadings, blockquote clipped at 180 on a word with " …", a chip link "Located in the
-                 filing"), the EDGAR receipt (a no-break space holds its middot to the word before it), and a
+                 excerptHeadings, blockquote clipped at 180 on a word with " …", a chip link "Quote found in
+                 filing", `PASSAGE_FOUND`), the SEC.gov receipt (a no-break space holds its middot to the word before it), and a
                  text-link CTA. No browser-frame mockup, no card in the
                  card, no sparkle chip, no tinted CTA. The static fallback has no evidence row. Under 200% text
                  the three figures sat in equal thirds and ran into each other at 390px, the identity line's
@@ -1523,7 +1550,7 @@ Evidence rows    <SummaryRisks>  (P-03; a marked copy since D-044): one hairline
                  excerptHeadings, since the server withholds model titles), the excerpt and the provenance chip; a
                  lead line above and a data-face tally below ("3 of 4 excerpts located in the filing text · 1
                  withheld …"), both outside the margin. The brand device marks a row whose excerpt the server
-                 located (source_verified, the chip's "Verified in filing", D-028): an EnRef on its heading
+                 located (source_verified, the chip's "Quote found in filing", D-028): an EnRef on its heading
                  ([1], [2] … in reading order among the located rows, the chip's 12px, `aria-hidden` like its
                  twin, so the heading's name is its words alone and the chip carries the claim), the twin in
                  the margin MarkedCopy draws beside the list (components/ui, 2.25rem, 2.75rem from sm; the
@@ -1580,18 +1607,26 @@ Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12p
                  its 16px leading + 1px padding + 1px hairline (no fixed or min height, so a long label wraps
                  in a phone card), 16px radius (a pill on one line, a rounded box when wrapped), panel fill,
                  secondary ink, hover brightens. Glyph = what it cites: `quotes` for a filing passage, braces
-                 (`kind="xbrl"`, MetricSourceLink) for an XBRL figure, the arrow for "Cited". The chip the open
+                 (`kind="xbrl"`, MetricSourceLink) for a figure that "Matches filing", the arrow for "Linked, not
+                 checked", "Section linked" and "Quote not found". The chip the open
                  pane's Filing view is answering is `selected`: brand tint + aria-current (the highlight
                  request's sourceId + the viewer context's paneOpen), whether the pane shows its passage or
-                 says why it cannot (text not in-app yet, passage not pinpointed). Labels and accessible names are unchanged
-                 ("Source: Verified in filing"). The recipe lives in `features/filings/lib/sourceTraceChip.ts`, outside the
+                 says why it cannot (text not in-app yet, passage not pinpointed). Labels come from one module,
+                 `features/filings/lib/evidenceLabels.ts` (product-wide: "Matches filing", "Linked, not checked",
+                 "Quote found in filing", "Section linked", and "Quote not found" for a passage it could not
+                 find that names no section, whose panel says the link opens the filing); the accessible name
+                 is "Source: <label>", with
+                 " (opens in a new tab)" where the chip is itself the link, and the panel's link reads "Open
+                 the filing on SEC.gov" ("the passage" for a text-fragment URL). The panel's status line rests
+                 in the ink with only its check in sage, since a figure's note states the filed amounts (D-030;
+                 `tests/unit/swappedFigureRow.spec.tsx`). The recipe lives in `features/filings/lib/sourceTraceChip.ts`, outside the
                  'use client' SourceTrace, so a server component can call it (the homepage example does; gate:
                  `tests/unit/serverCallsClientExport.spec.ts`).
 
 Source pane      <FilingWorkspace>  (P-06) — the research pane is named for the source: header "Source" + the
                  filing in the data face, close button; tabs Filing · Ask (file-text / chat-circle-text glyphs,
                  underline tabs ≥36px, 44px in the sheet; arrows wrap from the focused tab); the Filing tab
-                 ends in "Original on SEC EDGAR". aria-label "Filing source and Ask"; role dialog + aria-modal
+                 ends in "Original on SEC.gov". aria-label "Filing source and Ask"; role dialog + aria-modal
                  below lg only. The floating launcher is "Source ⌘K", a secondary control (panel fill,
                  hairline, e3; aria-keyshortcuts) whose kbd hint is secondary ink on a cream key. A chip opens
                  the pane on Filing; the initial tab stays Ask until in-app filing text is reliably available.
@@ -1630,8 +1665,8 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  named "<filing> · filing text", `tabIndex={0}`, the ring inset as in MonthView), so the
                  arrow keys scroll it from the top: Chromium made the scroller one on its own only while
                  nothing in it was focusable. In the Source pane's Filing tab, Tab goes Filing tab →
-                 reader → each scrolling table's region (and any link in the text) → "Original on SEC
-                 EDGAR"; when the cited passage cannot be found, the notice's "Open original" link comes
+                 reader → each scrolling table's region (and any link in the text) → "Original on
+                 SEC.gov"; when the cited passage cannot be found, the notice's "Open original" link comes
                  before the reader. A citation jump (highlightInDom) scrolls the reader and the table's
                  box only, never the page (no scrollIntoView), and centres the passage in the reader's
                  on-screen part (above the fold and the consent bar, before the desktop pane sticks):
@@ -1648,7 +1683,7 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  neutral find highlight, `::highlight(copilot-find)` (FIND_HIGHLIGHT_CSS, in the same sheet):
                  the brand sage at 22% in the reader's own ink, no hairline, one rule for both themes, the
                  reader's paint before D-044, so the reader still sees where it landed: a summary chip's
-                 section heading (every metric chip, a verified XBRL figure's included, every Cited chip, and
+                 section heading (every metric chip, a matched figure's included, every "Section linked" chip, and
                  a verified chip whose excerpt is too short to anchor), an excerpt the server did not locate,
                  and the text an Ask XBRL fact's jump finds (a fact has no passage). One of the two is
                  registered at a time. The block's `.citation-flash` stays the attention pulse, which fades;
@@ -1669,10 +1704,16 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
-                 verified, fragment_url } — `verified` drives source attribution: checked sources show
-                 “Source match found” with its scope (not whole-answer verification); unmatched sources
-                 stay “Cited”. XBRL source rows carry the braces glyph and their tag. The done answer
-                 counts “{n} matched source(s)” once. A plan gate (a spent free allowance, a Pro-only
+                 verified, fragment_url, fact?, calculated? } — `verified` drives source attribution, and `fact`, set
+                 at the network boundary only when the server sent the fact's own `concept`, makes it a
+                 figure: checked sources show “Matches filing” (a fact), “Calculated from filing” (a
+                 growth rate or margin the server computed, `calculated`, from `value_kind`) or “Quote found
+                 in filing” (a passage) with its scope (not whole-answer verification); unmatched sources read “Linked,
+                 not checked”, “Section linked”, or “Quote not found” for a passage that names no
+                 section (lib/evidenceLabels passageLabel). XBRL source rows carry the braces glyph and
+                 their tag. The done answer
+                 counts “{n} matched source(s)” once; a figure the server calculated is listed with its own
+                 label and not counted. A plan gate (a spent free allowance, a Pro-only
                  403, the Pro fair-use 429) is the quiet answer card with role="status" and the server's
                  sentence, plus a lightning “Upgrade to Pro” except for the fair-use cap; the reading card
                  is that status region already, so the sentence is announced when it lands. The error tint
@@ -1961,7 +2002,7 @@ block; the highlight's places, HIGHLIGHT_PLACES, an equality of one shared `Bran
 names counts as a part, so a Source pane module that adds `en-marked` fails DEVICE_PLACES),
 highlightInDom.spec.ts (the reader's located paint is `.en-mark`'s look, never the marked block's bar,
 and its find paint never the device's, with planted paints) and sourcePanePaint.spec.tsx (a heading
-fallback, a Cited jump and an XBRL fact never register the device's highlight; a located excerpt does).
+fallback, a "Section linked" jump and an XBRL fact never register the device's highlight; a located excerpt does).
 
 ## 8. Theme mechanics
 

@@ -20,7 +20,8 @@ import { describe, expect, it } from 'vitest'
  *    review. A line swapped for a line in one commit keeps both totals; the diff shows the added line.
  * 2. Two recipes are held directly, wherever they appear: the in-text marker (a class string with the
  *    18px inline-target box, `min-h-[18px]`) is 12px, and a source-check label never renders at data-xs.
- *    Both states of a label ("Source match found" and "Cited") render through `citationVerificationLabel(…)`,
+ *    Both states of a label (matched: "Matches filing" or "Quote found in filing"; unmatched: "Linked, not checked" or
+ *    "Section linked") render through `citationVerificationLabel(…)`,
  *    and the size read is the one the label renders at: its element's own size class, else the nearest
  *    enclosing element's in the file, and at a component's root the size where the file renders that
  *    component. So moving `text-data-xs` from one site to a wrapper in the same file fails, though the
@@ -48,13 +49,12 @@ const DATA_XS_ALLOWED: Record<string, { count: number; why: string }> = {
   },
   'features/marketing/components/AnalysisDemo.tsx': { count: 1, why: "the demo card's filing caption" },
   'features/marketing/components/AskFilingDemo.tsx': { count: 3, why: "the demo's in-card eyebrow, filing caption and XBRL locator" },
-  'features/marketing/components/EvidenceSection.tsx': { count: 1, why: 'the period note above the metrics card' },
   'features/marketing/components/HowItWorks.tsx': { count: 1, why: "each step's index caption" },
   'features/marketing/components/RevenueBars.tsx': { count: 3, why: 'chart annotations: axis labels, the period caption, bar values' },
   'features/marketing/components/SummaryContents.tsx': { count: 1, why: "the contents card's filing caption" },
   'features/notifications/components/NotificationBell.tsx': { count: 1, why: 'the unread count on the bell' },
 }
-const DATA_XS_MAX = { files: 14, sites: 24 }
+const DATA_XS_MAX = { files: 13, sites: 23 }
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

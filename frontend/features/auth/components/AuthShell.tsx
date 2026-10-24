@@ -71,7 +71,7 @@ function AuthBrandPane() {
           <BrandEmphasis trailingPeriod>shows its work</BrandEmphasis>
         </h2>
         <p className="mt-4 text-base leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-          Up to nine parts per filing, with figures checked against the company’s XBRL where they can be
+          Up to nine parts per filing, with figures checked against the company’s filed data where they can be
           and quotes against the filing’s own text.
         </p>
 
@@ -102,7 +102,7 @@ function AuthBrandPane() {
         <div className="mt-10 flex items-center gap-6 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
           <span className="inline-flex items-center gap-1.5">
             <ShieldCheckIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
-            SEC EDGAR
+            Filings from SEC.gov
           </span>
           <span className="inline-flex items-center gap-1.5">
             <FileTextIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />

@@ -49,11 +49,17 @@ export interface MetricItem {
   // Trace-to-Source provenance (added by the backend at serialization time).
   source_url?: string | null
   source_verified?: boolean | null
-  // Whether the XBRL check could run on this row at all (a mapped concept of at least $1M);
-  // per-share figures, ratios, margins and segment lines are never checked.
+  // Whether the figure check could run on this row at all (its whole label names a concept of at least $1M and
+  // its figure is a number); per-share figures, ratios, margins and segment lines are never checked.
   source_checkable?: boolean | null
   source_section_ref?: string | null
   xbrl_concept?: string | null
+  // Each compared period's filed amount in words ("$416,161 million"), keyed by the period field.
+  source_filed?: Partial<Record<'current_period' | 'prior_period', string>> | null
+  // The summary's own text for each period the server replaced with the filed figure.
+  source_replaced?: Partial<Record<'current_period' | 'prior_period', string | null>> | null
+  // Set when the row's takeaway quoted a replaced figure, so the server withheld it.
+  commentary_withheld?: 'figure_replaced' | null
   // Per-ADS EPS, added by the backend for ratio != 1 ADRs (see PerAdsValue).
   per_ads?: PerAdsValue | null
 }

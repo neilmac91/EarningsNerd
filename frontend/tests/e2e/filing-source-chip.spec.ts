@@ -1,17 +1,20 @@
 import { test, expect, type Page } from '@playwright/test'
 import { API_ORIGIN, DOCUMENT, EXCERPT, PANE, answerApi, type Content, type Theme, type Who } from './fixtures/filing3Api'
 
-const CHIP = 'Source: Verified in filing'
+const CHIP = 'Source: Quote found in filing'
+// The popover's link for the first chip (a takeaway whose URL carries a text fragment): its label, then a visually
+// hidden " (opens in a new tab)". `activeName` reads textContent, which holds both.
+const PASSAGE_LINK = 'Open the passage on SEC.gov (opens in a new tab)'
 
 /**
  * EN-01: a provenance chip on the filing page always reaches the source, in a real Chromium.
  *
- * With the research pane closed, activating "Verified in filing" used to do nothing visible: the
+ * With the research pane closed, activating "Quote found in filing" used to do nothing visible: the
  * pane stayed hidden and only its hidden tab flipped. Now the activation opens the pane on the
  * Filing tab, highlights the passage when the filing text is available and matched, or shows the
  * truthful empty / unmatched / error state with the original-document action, whose target is the
  * filing's primary document (document_url) rather than the EDGAR folder. Touch gets the documented
- * sheet with "Show in filing"; the keyboard reaches "Open in SEC EDGAR" from the chip; the result is
+ * sheet with "Show in filing"; the keyboard reaches "Open the passage on SEC.gov" from the chip; the result is
  * the same for an anonymous visitor and a Pro user.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API is answered inside
@@ -71,7 +74,7 @@ test.describe('desktop: a chip activation opens the pane on the Filing tab', () 
         const pane = page.locator(PANE)
         await expect(pane.getByText('The full filing text is not available to view in-app yet.')).toBeVisible()
         await expect(pane.getByRole('link', { name: /open the original on sec\.gov/i })).toHaveAttribute('href', DOCUMENT)
-        await expect(pane.getByRole('link', { name: 'Original on SEC EDGAR' })).toHaveAttribute('href', DOCUMENT)
+        await expect(pane.getByRole('link', { name: 'Original on SEC.gov', exact: true })).toHaveAttribute('href', DOCUMENT)
         // Opening on the Filing tab neither focuses the composer nor shows the Ask teaser.
         expect(await activeName(page)).not.toBe('TEXTAREA')
         await expect(pane.getByRole('textbox')).toHaveCount(0)
@@ -132,7 +135,7 @@ test.describe('desktop: a chip activation opens the pane on the Filing tab', () 
     await expect(pane.getByRole('link', { name: 'Open original' }).first()).toHaveAttribute('href', DOCUMENT)
     // Neither the device's highlight nor the find highlight: nothing was found to mark.
     expect(await page.evaluate(() => (CSS as unknown as { highlights: Map<string, { size: number }> }).highlights.size)).toBe(0)
-    await expect(pane.getByText(/source match found/i)).toHaveCount(0)
+    await expect(pane.getByText(/quote found in filing|matches filing/i)).toHaveCount(0)
   })
 
   test('a content-fetch failure shows the error state with Try again and the document link', async ({ page, baseURL }) => {
@@ -168,12 +171,12 @@ test.describe('desktop: a chip activation opens the pane on the Filing tab', () 
     expect(await activeName(page)).toBe(CHIP)
   })
 
-  test('keyboard: Tab from the chip reaches "Open in SEC EDGAR", Tab again resumes the page, Escape returns to the chip', async ({ page, baseURL }) => {
+  test('keyboard: Tab from the chip reaches "Open the passage on SEC.gov", Tab again resumes the page, Escape returns to the chip', async ({ page, baseURL }) => {
     const chip = await openFiling(page, baseURL!)
     await chip.focus()
     await expect(page.getByRole('group', { name: 'Source detail' })).toBeVisible()
     await page.keyboard.press('Tab')
-    expect(await activeName(page)).toBe('Open in SEC EDGAR')
+    expect(await activeName(page)).toBe(PASSAGE_LINK)
     const href = await page.evaluate(() => (document.activeElement as HTMLAnchorElement).href)
     expect(href.startsWith(DOCUMENT)).toBe(true)
     await expect(page.getByRole('group', { name: 'Source detail' })).toBeVisible()
@@ -181,7 +184,7 @@ test.describe('desktop: a chip activation opens the pane on the Filing tab', () 
     await page.keyboard.press('Shift+Tab')
     expect(await activeName(page)).toBe(CHIP)
     await page.keyboard.press('Tab')
-    expect(await activeName(page)).toBe('Open in SEC EDGAR')
+    expect(await activeName(page)).toBe(PASSAGE_LINK)
     await page.keyboard.press('Escape')
     await expect(page.getByRole('group', { name: 'Source detail' })).toHaveCount(0)
     expect(await activeName(page)).toBe(CHIP)
@@ -202,13 +205,13 @@ test.describe('desktop: a chip activation opens the pane on the Filing tab', () 
     await chip.focus()
     await expect(page.getByRole('group', { name: 'Source detail' })).toBeVisible()
     await page.keyboard.press('Tab')
-    expect(await activeName(page)).toBe('Open in SEC EDGAR')
+    expect(await activeName(page)).toBe(PASSAGE_LINK)
     await page.keyboard.press('Tab')
     await expect(chip).toHaveAttribute('aria-expanded', 'false')
     const landed = await activeName(page)
     expect(landed).toBe(nextStop)
     expect(landed).not.toBe('BODY')
-    expect(landed).not.toBe('Open in SEC EDGAR')
+    expect(landed).not.toBe(PASSAGE_LINK)
   })
 })
 
@@ -277,7 +280,7 @@ for (const theme of ['light', 'dark'] as const) {
           }
           expect(await page.evaluate(() => window.scrollY), 'recovery must not scroll the page').toBe(scrollY)
           expect(requests).toBe(3)
-          await expect(pane.getByRole('link', { name: /Original on SEC EDGAR/ })).toHaveAttribute('href', DOCUMENT)
+          await expect(pane.getByRole('link', { name: /Original on SEC\.gov/ })).toHaveAttribute('href', DOCUMENT)
         })
       }
     })
@@ -292,7 +295,7 @@ test.describe('touch: a tap opens the sheet, "Show in filing" opens the pane', (
     await chip.tap()
     const sheet = page.getByRole('dialog', { name: 'Source detail' })
     await expect(sheet).toBeVisible()
-    await expect(sheet.getByRole('link', { name: /open in sec edgar/i })).toHaveAttribute('href', /aapl-20250927\.htm/)
+    await expect(sheet.getByRole('link', { name: /open the passage on sec\.gov/i })).toHaveAttribute('href', /aapl-20250927\.htm/)
     await expect(page.locator(PANE)).toBeHidden()
 
     await sheet.getByRole('button', { name: 'Show in filing' }).tap()

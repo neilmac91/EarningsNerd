@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/Button'
 import { ChatCircleTextIcon, CheckCircleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
-import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
+import { xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
+import { citationVerificationLabel } from '@/features/filings/components/copilot/citationVerification'
 import CitationChip from '@/features/filings/components/copilot/CitationChip'
 import { SAMPLE_ASK, SAMPLE_FILING } from '@/features/marketing/lib/landing-samples'
 
@@ -24,9 +25,10 @@ const CITATIONS: CopilotCitation[] = [...SAMPLE_ASK.citations]
  * The "Ask this Filing" product screen for the landing page: one question, one completed answer
  * whose `[1]` `[2]` `[3]` markers (numbered as the server numbers a live answer) are the REAL
  * CitationChip, injected through the same lib/citationMarkers walker CopilotMessage uses, and a
- * footnote row per citation that names the chip kind in plain words ("XBRL figure" / "Passage").
- * No FilingViewerProvider is mounted, so each chip degrades to its EDGAR anchor, which keeps every
- * chip reachable. The composer beneath is a static shell, hidden from assistive tech because it
+ * footnote row per citation that names the chip kind in plain words ("Filed figure", "Calculated figure" or
+ * "Passage", from the server's own fields) and what was checked, in the product's vocabulary
+ * (citationVerificationLabel). No FilingViewerProvider is mounted, so each chip degrades to its link to SEC.gov,
+ * which keeps every chip reachable. The composer beneath is a static shell, hidden from assistive tech because it
  * accepts nothing. Server-rendered: only CitationChip is a client boundary, and it receives plain
  * citation data.
  */
@@ -62,8 +64,9 @@ export default function AskFilingDemo() {
 
           <ul className="mt-3 flex flex-col gap-1.5 border-t border-border-light pt-2.5 dark:border-white/10">
             {CITATIONS.map((citation) => {
-              const isFact = isXbrlCitation(citation)
-              const locator = isFact ? xbrlTag(citation) : citation.section_ref
+              // The kind comes from the server's payload (fact or calculated), never from the section label.
+              const isFigure = citation.fact === true || citation.calculated === true
+              const locator = isFigure ? xbrlTag(citation) : citation.section_ref
               return (
                 <li
                   key={String(citation.n)}
@@ -72,14 +75,14 @@ export default function AskFilingDemo() {
                   <span className="font-data font-semibold text-brand-strong dark:text-brand-strong-dark">
                     [{String(citation.n).toUpperCase()}]
                   </span>
-                  <span className={EYEBROW}>{isFact ? 'XBRL figure' : 'Passage'}</span>
+                  <span className={EYEBROW}>{citation.calculated ? 'Calculated figure' : isFigure ? 'Filed figure' : 'Passage'}</span>
                   {locator && (
-                    <span className={isFact ? 'min-w-0 break-all font-data text-data-xs' : undefined}>{locator}</span>
+                    <span className={isFigure ? 'min-w-0 break-all font-data text-data-xs' : undefined}>{locator}</span>
                   )}
                   {citation.verified && (
                     <span className="inline-flex items-center gap-1 font-medium text-brand-strong dark:text-brand-strong-dark">
                       <CheckCircleIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-                      Verified
+                      {citationVerificationLabel(citation)}
                     </span>
                   )}
                 </li>

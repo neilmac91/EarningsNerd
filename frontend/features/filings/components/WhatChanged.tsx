@@ -228,7 +228,7 @@ export function WhatChanged({
       )}
 
       {metrics?.data_quality === 'partial' && (
-        <p className={cx('mt-2 text-xs', MUTED)}>Some figures were withheld where the SEC XBRL data looked inconsistent.</p>
+        <p className={cx('mt-2 text-xs', MUTED)}>Some figures were withheld where the filing’s data looked inconsistent.</p>
       )}
 
       {risks && (risks.new.length > 0 || risks.resolved.length > 0) && (
@@ -270,7 +270,7 @@ export function WhatChanged({
   }
 
   return (
-    <Card as="section" id={id} aria-label="What changed" className="scroll-mt-16 p-cap-6 lg:scroll-mt-8">
+    <Card as="section" id={id} aria-label="What changed" className="scroll-mt-[calc(4rem_-_var(--section-nav-h,0px))] p-cap-6 lg:scroll-mt-8">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <Heading className={cx('text-lg font-semibold', INK)}>What changed</Heading>

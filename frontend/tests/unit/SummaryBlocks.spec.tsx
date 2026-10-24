@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { SummaryBlocks } from '@/features/summaries/components/SummaryBlocks'
@@ -164,7 +165,7 @@ describe('SummaryBlocks', () => {
     for (const text of ['Stock awards', 'Expense over vesting', 'Extra supplied field', 'Short row']) {
       expect(within(first).getByText(text, { exact: true })).toBeInTheDocument()
     }
-    expect(within(first).getAllByRole('link', { name: /Source: Verified in filing/ })).toHaveLength(2)
+    expect(within(first).getAllByRole('link', { name: 'Source: Quote found in filing (opens in a new tab)' })).toHaveLength(2)
     const second = screen.getByRole('table', { name: 'Notable Footnotes, table 2 of 2' })
     expect(within(second).queryAllByRole('columnheader')).toHaveLength(0)
     expect(within(second).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['Unlabelled value', 'Second cell'])
@@ -178,8 +179,8 @@ describe('SummaryBlocks', () => {
     const heading = screen.getByRole('heading', { level: 3, name: 'We are substantially dependent on TSMC for wafer supply' })
     expect(heading.textContent).toBe('We are substantially dependent on TSMC for wafer supply[1]')
     expect(screen.getByText(/substantially dependent on TSMC/, { selector: 'blockquote' })).toBeInTheDocument()
-    // source_verified: true → the shared SourceTrace renders the "Verified in filing" affordance.
-    expect(screen.getByText(/Verified in filing/i)).toBeInTheDocument()
+    // source_verified: true → the shared SourceTrace renders the "Quote found in filing" affordance.
+    expect(screen.getByText(/Quote found in filing/i)).toBeInTheDocument()
   })
 
   it('leaks no field-name scaffolding', () => {
@@ -205,7 +206,7 @@ describe('SummaryBlocks', () => {
     // Located: the marked block, in the filing's face on the primary ink; the speaker stays in the body face.
     expect(located.className.split(' ')).toEqual(expect.arrayContaining(['en-marked', 'font-editorial', 'text-text-primary-light']))
     expect(located.querySelector('cite')!.className.split(' ')).toContain('font-sans')
-    // Cited or uncited: today's neutral hairline, the body face.
+    // Section linked or unlinked: today's neutral hairline, the body face.
     for (const quote of [cited, plain]) {
       expect(quote.className.split(' ')).toEqual(expect.arrayContaining(['border-l-2', 'italic']))
       expect(quote.className).not.toMatch(/en-marked|font-editorial/)
@@ -259,7 +260,7 @@ describe('SummaryBlocks', () => {
     // One chip each for the quote, the metric takeaway, and the first (only cited) footnote. The
     // metric takeaway's chip also renders in the phone-card layout, which jsdom cannot hide
     // (vitest css: false); count it once by leaving the card copies out.
-    const chips = screen.getAllByText(/Verified in filing/i).filter((el) => !el.closest('[data-metrics-layout="cards"]'))
+    const chips = screen.getAllByText(/Quote found in filing/i).filter((el) => !el.closest('[data-metrics-layout="cards"]'))
     expect(chips).toHaveLength(3)
   })
 
@@ -369,6 +370,59 @@ describe('SummaryBlocks', () => {
     expect(stack.contains(phoneNav)).toBe(false)
     // Out of the stack, the nav carries the stack's gap itself, so phones keep the space above 01.
     expect(phoneNav.className).toMatch(/(^|\s)mb-11(\s|$)/)
+  })
+
+  // Below lg the phone nav sticks under the site header, a second bar (E164, chief design's ruling on #1521). It
+  // publishes its height on <html> as --section-nav-h, which the document's top scroll padding adds to the header's,
+  // so a keyboard focus lands below both bars; each section's scroll margin gives that height back, so an anchor jump
+  // lands where it did. The geometry is tests/e2e/header-covers-nothing.spec.ts's /filing walk at 390px.
+  it("publishes the phone nav's height, follows a resize, clears it on unmount, and each section's margin gives it back", () => {
+    let height = 52.4
+    let resize: (() => void) | undefined
+    // Other parts of the summary (a table's overflow region) observe too; this keeps the nav's own observer.
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(private readonly callback: () => void) {}
+      observe(target: Element) { if (target.hasAttribute('data-section-nav')) resize = this.callback }
+      unobserve() {}
+      disconnect() {}
+    })
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return { height: this.hasAttribute('data-section-nav') ? height : 0 } as DOMRect
+    })
+    // A layout effect after the nav's, in the same commit, reads what the nav published. React runs every layout effect
+    // before the browser paints and every passive effect after, so a publish from a passive effect reads '' here.
+    let inTheCommit: string | undefined
+    function ReadsInTheCommit() {
+      useLayoutEffect(() => {
+        inTheCommit = document.documentElement.style.getPropertyValue('--section-nav-h')
+      }, [])
+      return null
+    }
+    try {
+      const { unmount } = render(
+        <>
+          <SummaryBlocks sections={sections} summary={summary} />
+          <ReadsInTheCommit />
+        </>,
+      )
+      const root = document.documentElement
+      expect(screen.getByRole('navigation', { name: 'Jump to section' })).toHaveAttribute('data-section-nav')
+      expect(inTheCommit, 'published in the commit that mounts the nav, before the first paint, rounded up').toBe('53px')
+      // From lg the nav is display:none and measures 0.
+      height = 0
+      resize?.()
+      expect(root.style.getPropertyValue('--section-nav-h')).toBe('0px')
+      for (const section of sections) {
+        expect(document.getElementById(section.id)!.className.split(/\s+/), section.id).toEqual(
+          expect.arrayContaining(['scroll-mt-[calc(4rem_-_var(--section-nav-h,0px))]', 'lg:scroll-mt-8']),
+        )
+      }
+      unmount()
+      expect(root.style.getPropertyValue('--section-nav-h'), 'cleared with the nav, so the padding counts no nav').toBe('')
+    } finally {
+      rect.mockRestore()
+      vi.unstubAllGlobals()
+    }
   })
 
   it('heads each risk with its own excerpt, never a model-authored label', () => {

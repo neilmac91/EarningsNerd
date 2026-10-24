@@ -11,11 +11,14 @@ import {
  * EN-01: a provenance chip's activation always reaches the source. With a viewer mounted (the filing
  * page), a fine-pointer activation requests the highlight AND asks the page to open the pane; on a
  * coarse pointer the tap opens the documented sheet, which holds the in-app jump ("Show in filing")
- * beside "Open in SEC EDGAR". The chip is recorded as the opener so the pane can return focus to it.
+ * beside "Open the passage on SEC.gov". The chip is recorded as the opener so the pane can return focus to it.
  */
 
 const EVIDENCE = 'Our revenue is concentrated among a small number of large customers.'
 const URL = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm#:~:text=revenue'
+// The panel's link for a text-fragment URL: its label, then a visually hidden " (opens in a new tab)". jsdom's name
+// computation joins the two without the space a browser keeps, so the space is optional here.
+const PASSAGE_LINK = /^Open the passage on SEC\.gov ?\(opens in a new tab\)$/
 
 function RequestProbe() {
   const viewer = useFilingViewer()
@@ -69,7 +72,7 @@ describe('SourceTrace activation with a viewer (fine pointer)', () => {
         <RequestProbe />
       </FilingViewerProvider>,
     )
-    const chip = screen.getByRole('button', { name: 'Source: Verified in filing' })
+    const chip = screen.getByRole('button', { name: 'Source: Quote found in filing' })
     fireEvent.mouseEnter(chip)
     expect(screen.getByRole('group', { name: 'Source detail' })).toBeInTheDocument()
 
@@ -93,7 +96,7 @@ describe('SourceTrace activation with a viewer (fine pointer)', () => {
       </FilingViewerProvider>,
     )
     expect(peek?.()).toBeNull()
-    const chip = screen.getByRole('button', { name: 'Source: Verified in filing' })
+    const chip = screen.getByRole('button', { name: 'Source: Quote found in filing' })
     fireEvent.click(chip)
     expect(peek?.()).toBe(chip)
   })
@@ -102,11 +105,11 @@ describe('SourceTrace activation with a viewer (fine pointer)', () => {
     const onRequestOpen = vi.fn()
     render(
       <FilingViewerProvider onRequestOpen={onRequestOpen}>
-        <SourceTrace url={URL} verified sectionRef="Consolidated Statements of Operations" label="Revenue · SEC XBRL" />
+        <SourceTrace url={URL} verified sectionRef="Consolidated Statements of Operations" label="Matches filing" />
         <RequestProbe />
       </FilingViewerProvider>,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Source: Revenue · SEC XBRL' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Source: Matches filing' }))
     expect(screen.getByTestId('probe')).toHaveTextContent('1:Consolidated Statements of Operations')
     expect(onRequestOpen).toHaveBeenCalledTimes(1)
   })
@@ -134,7 +137,7 @@ describe('SourceTrace activation with a viewer (coarse pointer: the touch sheet)
         <OpenerProbe onPeek={(p) => (out.peek = p)} />
       </FilingViewerProvider>,
     )
-    return { onRequestOpen, out, chip: screen.getByRole('button', { name: 'Source: Verified in filing' }) }
+    return { onRequestOpen, out, chip: screen.getByRole('button', { name: 'Source: Quote found in filing' }) }
   }
 
   it('a tap opens the Source detail sheet, never a silent jump: the sheet holds the EDGAR link and the in-app jump', () => {
@@ -145,7 +148,7 @@ describe('SourceTrace activation with a viewer (coarse pointer: the touch sheet)
     const sheet = screen.getByRole('dialog', { name: 'Source detail' })
     expect(screen.getByTestId('probe')).toHaveTextContent('none')
     expect(onRequestOpen).not.toHaveBeenCalled()
-    expect(within(sheet).getByRole('link', { name: /open in sec edgar/i })).toHaveAttribute('href', URL)
+    expect(within(sheet).getByRole('link', { name: PASSAGE_LINK })).toHaveAttribute('href', URL)
     expect(within(sheet).getByRole('button', { name: 'Show in filing' })).toBeInTheDocument()
     // The trap moved focus into the sheet, onto its first real stop (the scrim is no tab stop).
     expect(document.activeElement).toBe(within(sheet).getByRole('button', { name: 'Close source detail' }))
@@ -172,9 +175,9 @@ describe('SourceTrace activation with a viewer (coarse pointer: the touch sheet)
         <SourceTrace url={URL} verified sectionRef="1A" />
       </FilingViewerProvider>,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Source: Verified in filing' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Source: Quote found in filing' }))
     const sheet = screen.getByRole('dialog', { name: 'Source detail' })
-    expect(within(sheet).getByRole('link', { name: /open in sec edgar/i })).toHaveAttribute('href', URL)
+    expect(within(sheet).getByRole('link', { name: PASSAGE_LINK })).toHaveAttribute('href', URL)
     expect(within(sheet).queryByRole('button', { name: 'Show in filing' })).toBeNull()
   })
 
@@ -191,7 +194,7 @@ describe('SourceTrace activation with a viewer (coarse pointer: the touch sheet)
     const { chip } = renderTouch()
     fireEvent.click(chip)
     const sheet = screen.getByRole('dialog', { name: 'Source detail' })
-    const last = within(sheet).getByRole('link', { name: /open in sec edgar/i })
+    const last = within(sheet).getByRole('link', { name: PASSAGE_LINK })
     last.focus()
     fireEvent.keyDown(last, { key: 'Tab' })
     expect(document.activeElement).toBe(within(sheet).getByRole('button', { name: 'Close source detail' }))
