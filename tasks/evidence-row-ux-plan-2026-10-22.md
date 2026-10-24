@@ -5,7 +5,7 @@
 **Status (updated 2026-10-24).** The founder answered §6 ([D-058](../docs/brand/decisions-log.md)): the plain
 vocabulary across the whole product (Q1); the evidence row on the AI's real output (Q2); a checked figure that
 differs is replaced by the filed figure (Q3); the sample moves to Apple's FY2026 10-K once it is filed (Q4, open as
-E172 in `tasks/todo.md`). Implementation is on this branch. Where it departs from §2–§3: Q3's swap retires R5's
+E172 in `tasks/todo.md`). Implementation is #1530. Where it departs from §2–§3: Q3's swap retires R5's
 "Doesn't match filing" state, since a checked figure now always shows the filed number; the takeaways in §3.4 are
 the live output's own, so they are review criteria rather than copy; the Trace demo uses the live Services row's
 takeaway and passage; the receipt card's link names the 10-K it opens rather than "the statement"; and takeaway
