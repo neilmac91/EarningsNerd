@@ -32,9 +32,11 @@ to the Stripe threads as one plain def, `users.py`'s `_cancel_billable_subscript
 walk before it returns. A call queued for the threads still runs after its client has had the request-timeout
 middleware's 504, which lets the route finish, as one waiting for a default token did; a brownout now
 queues from the ninth call in flight, not the 41st. A cancelled request task would stop the account
-deletion at that await, after its cancellation has started at Stripe and before its audit row and the
-row's deletion; nothing cancels one today (uvicorn cancels tasks only after a graceful-shutdown timeout,
-which the deploy does not set).
+deletion at its await on the Stripe threads, before its audit row and the row's deletion: a cancellation
+a Stripe thread has taken runs there to its end, and one still queued for a thread never runs. Nothing
+cancels one in the deploy today: uvicorn cancels a request task after a graceful-shutdown timeout, which
+the deploy does not set, or on a forced quit (a second Ctrl+C), and Cloud Run stops an instance with
+SIGTERM, then SIGKILL.
 
 **Gate**: `backend/tests/unit/test_stripe_threads_allowlist.py`. Its scan reads `app/` and the backend's
 top-level modules and lists each Stripe call a module names through the stripe module
@@ -50,7 +52,7 @@ names each call by file, function, call and form, which ends with where the code
 (`called on the loop` in an async def's own body; `in cancel_billable`, `in a lambda` or `in a generator
 expression` in a nested body), but no key records where its call runs. A def's or lambda's body runs
 wherever it is called, a generator expression's later parts and a walk's later pages wherever they are
-iterated, and a named or handed method wherever its taker calls it, so a listed line could go on excusing
+iterated, and a named or handed method wherever its taker calls it, so an allowlist line could go on excusing
 a call moved onto the loop; an exception is a change to the gate, in review.
 `run_on_stripe_threads` itself refuses a generator, coroutine or async generator function, and a result
 that is a coroutine, an async generator or an iterator from stripe-python, the builtins or `itertools`,

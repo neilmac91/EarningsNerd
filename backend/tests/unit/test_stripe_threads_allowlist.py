@@ -522,7 +522,8 @@ async def search_pages(search):
     search.next_search_result_page()
     await run_on_stripe_threads(search.next_search_result_page)
 
-# Strict: each of these finishes on the Stripe threads, but the scan lists it, so its writer rewrites it in place.
+# Strict: the scan lists each of these, though none makes a Stripe request off the Stripe threads; its writer rewrites
+# it in place, or puts a method that makes no request (construct_from) beside stripe.Webhook's in operation().
 def _walk_then_loop(customer_id):
     subscriptions = stripe.Subscription.list(customer=customer_id).auto_paging_iter()
     for subscription in subscriptions:
@@ -562,7 +563,7 @@ async def strict_forms(search, page):
 def _cancel_aliased(subscription_id):
     stripe.Subscription.delete(subscription_id)
 
-async def known_gaps(customer_id, page):
+async def known_gaps(customer_id, page, payments=stripe):
     customer = await run_on_stripe_threads(stripe.Customer.retrieve, customer_id)
     customer.delete()
     resource = stripe.Customer
@@ -580,9 +581,7 @@ async def known_gaps(customer_id, page):
     stripe.Subscription("sub_1").delete()
     api = stripe
     api.Subscription.delete("sub_1")
-
-def _with_the_module_by_default(subscription_id, payments=stripe):
-    payments.Subscription.delete(subscription_id)
+    payments.Subscription.delete("sub_2")
 
 def not_operations(payload, signature, secret, subscription):
     stripe.api_key = secret
