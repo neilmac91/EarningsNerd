@@ -852,7 +852,8 @@ class TestFiledFigureSwap:
         "Item 7 and 250 stores opened.",
         "Note 4, 3 K-cups sold.",
         "Note 4, 3 M&A deals closed.",
-        # A count a dash joins to a word after a listed number: the list goes on only to a number.
+        # A count a dash joins to a word after a listed number ("40-store"): a dash before a number goes on with the list
+        # ("Notes 3, 4-5"), and a spaced dash ends its clause, as a colon does.
         "Per Item 7, 40-store expansion drove growth.",
         "Per Note 9, 10-year notes refinanced the revolver.",
         "Per Item 7, 12-percent growth in Services.",
@@ -910,6 +911,7 @@ class TestFiledFigureSwap:
         "Notes 3, 4, 5 and 6 explain it.",
         "See Notes 3, 4-5.",
         "See Notes 3, 4–5 for leases.",
+        "See Items 7, 7A – Market Risk.",
     ])
     def test_a_takeaway_that_names_no_figure_stays(self, commentary):
         # Years, quarters and the filing's own Items and Notes are not figures the swap replaced.

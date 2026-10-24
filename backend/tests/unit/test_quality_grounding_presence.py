@@ -152,6 +152,7 @@ def test_the_reason_reader_reads_every_way_a_reason_is_written():
         "combined = reasons + ['m'] + ['n']",
         "result = {'reasons': ['k'], 'tier': 'partial'}",
         "result['reasons'].append('l')",
+        "result['notes'].append('not a reason')",
         "other.append('not a reason')",
         "result = {'notes': ['not a reason either']}",
     ])

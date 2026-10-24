@@ -27,8 +27,8 @@ import { describe, expect, it } from 'vitest'
  * chooses between, or one field of a same-file object. A name resolves as TypeScript resolves it, so a parameter or
  * another function's constant that shares the name is not that constant. Copy is read as a reader reads it: its
  * character references decoded as HTML decodes them (`&nbsp;`, `&#160;`, which JSX decodes in its text and an
- * attribute's string, and markup a module sets in its own), a string that holds markup both by its text (as an
- * `__html` shows it) and as written (as React shows any other string), a compatibility form as its letter (NFKC), the
+ * attribute's string, and markup a module sets in its own), a string that holds markup both as a page lays it out (as
+ * an `__html` shows it) and as written (as React shows any other string), a compatibility form as its letter (NFKC), the
  * invisible characters taken out, and each run of white space, a line break included, as one space. Not copy: comments,
  * identifiers, the values of attributes that are never shown (an address such as an href or edgarCompanyUrl's result, a
  * class, a data-* hook but `data-en-ref`, whose value MarkedCopy shows as the margin's mark, a download's file name, an
@@ -204,16 +204,13 @@ function referencesRead(text: string): string {
   return holder.value
 }
 
-/** Text as a page shows it. A string that holds markup is read both ways, joined at "|" so each reads apart: by its
-    text, its tags left out and a `<br>` a space, as an `__html` shows it, and as written, as React shows any other
-    string (`{'<Verified>'}`). */
+/** Text as a page shows it. A string that holds markup is read both ways, joined at "|" so each reads apart: as a page
+    lays it out (`htmlSegments`: each element's text and each line apart), as an `__html` shows it, and as written, as
+    React shows any other string (`{'<Verified>'}`). */
 function decoded(text: string): string {
   const written = referencesRead(text)
   if (!/<[a-z!/]/i.test(text)) return written
-  const holder = document.createElement('template')
-  holder.innerHTML = text
-  holder.content.querySelectorAll('br').forEach((br) => br.replaceWith(' '))
-  return `${holder.content.textContent ?? ''} | ${written}`
+  return [...htmlSegments(text), written].join(' | ')
 }
 
 function textOf(node: ts.Node): string | null {
@@ -521,8 +518,9 @@ export function allowanceProblems(source: string): string[] {
   return problems
 }
 
-/** The OG card's text as a browser lays it out: each element's text and each text node's, its character references
-    decoded as HTML decodes them, and what its styles add with `content:`; comments, styles and scripts are not text. */
+/** Markup's text as a browser lays it out (the OG card's, and markup a module sets): each element's text and each text
+    node's, a `<br>` a space, its character references decoded as HTML decodes them, and what its styles add with
+    `content:`; comments, styles and scripts are not text. */
 export function htmlSegments(html: string): string[] {
   const page = new DOMParser().parseFromString(html, 'text/html')
   const added = [...page.querySelectorAll('style')].flatMap((style) => cssContent(style.textContent ?? ''))
@@ -713,6 +711,8 @@ describe('the vocabulary scan holds its reach', () => {
     ['a bare source name behind &&', `export const T = ({ x }: { x: boolean }) => { const SOURCE = x && 'SEC EDGAR'; return <span>{SOURCE}</span> }`],
     ['markup a module sets', `export const M = () => <span dangerouslySetInnerHTML={{ __html: 'Revenue · <b>Verified</b>' }} />`],
     ['markup a module sets, its words parted by a line break', `export const M = () => <span dangerouslySetInnerHTML={{ __html: 'Figures from SEC<br>XBRL data' }} />`],
+    ['markup a module sets, a label on a line of its own', `export const M = () => <span dangerouslySetInnerHTML={{ __html: 'Revenue<br>Verified' }} />`],
+    ['markup a module sets, a label in a block of its own', `export const M = () => <div dangerouslySetInnerHTML={{ __html: '<p>Revenue</p><p>Verified</p>' }} />`],
     ['a badge in angle brackets, which React shows as written', `export const V = () => <span>{'<Verified>'}</span>`],
     ['a bare source name in angle brackets in a title', `export const T = () => <span title="<SEC EDGAR>">10-K</span>`],
   ])('fails %s', (_, source) => {
