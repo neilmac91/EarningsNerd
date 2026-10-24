@@ -28,10 +28,11 @@
  * auth proxy does not", "the access logs are"). The head is the last of them, so "each endpoint's documentation" is
  * headed by "documentation". What follows the head is read with it: a prepositional phrase with its own noun phrase
  * ("in the admin namespace"), a relative clause with its relative word or without it ("that returns account data", "we
- * run"), a participle ("returning account data", "listed below") and an aside in commas before the verb group (", which
- * returns JSON,"). Each restricts the phrase unless it stands in commas, and an aside restricts it too when it names an
- * exception (", except the health check,"). A phrase read as an adverb ("by default", "without exception": adverbAt) is
- * no prepositional phrase. A pronoun is a phrase of its own.
+ * run", and "we have", whose "have" is its verb where a verb group or a mark follows: relativeVerb), a participle
+ * ("returning account data", "listed below") and an aside in commas before the verb group (", which returns JSON,").
+ * Each restricts the phrase unless it stands in commas, and an aside restricts it too when it names an exception (",
+ * except the health check,"). A phrase read as an adverb ("by default", "without exception": adverbAt) is no
+ * prepositional phrase. A pronoun is a phrase of its own.
  *
  * Clauses (readSentence). A semicolon or a colon ends one. A subordinating word opens a condition: "when", "whenever",
  * "if", "while", "once" (before a clause), "unless", "because", "although", "though", "whereas", "since", "until", "so
@@ -267,15 +268,34 @@ const participle = (tokens: Token[], at: number) => {
 
 const isMark = (token: Token | undefined) => !!token && !isWord(token)
 
+/** The forms of "have" that may be a relative clause's own verb ("every endpoint we have"). */
+const HAVE = words('have has had')
+/** A relative clause's verb (#1594's fifth round): its verb group's own, but for an auxiliary that a mark follows, or a
+    form of "have" that another verb group follows whose first word is no past form or "been", which is the verb itself
+    ("every endpoint we have.", "every endpoint we have requires a login", "all endpoints we have are protected"), so
+    the clause it stands in keeps its own verb; "every endpoint we have added this year" keeps "added". */
+function relativeVerb(tokens: Token[], at: number): number {
+  const group = verbGroupAt(tokens, at)
+  for (let k = at; k < group.verb; k++) {
+    if (!AUXILIARIES.has(lower(tokens[k]))) continue
+    let next = k + 1
+    while (next < group.verb && (negates(tokens[next], tokens[next + 1]) || adverbAt(tokens, next))) next += adverbAt(tokens, next) || 1
+    const word = lower(tokens[next])
+    if (!tokens[next] || isMark(tokens[next])) return k
+    if (HAVE.has(lower(tokens[k])) && startsPredicate(tokens, next) && !PAST_FORMS.has(word) && word !== 'been') return k
+  }
+  return group.verb
+}
+
 /** Where a relative clause or a participle ends, read from the word after its relative word, its participle or, for a
     relative clause without its relative word, its own subject: a relative clause's subject and verb group ("that we
-    expose", "that returns", "we expose"), then what follows them, up to the next verb group (its clause's), a mark or a
-    conjunction. */
+    expose", "that returns", "we expose"; relativeVerb), then what follows them, up to the next verb group (its
+    clause's), a mark or a conjunction. */
 function relativeEnd(tokens: Token[], from: number, clause: boolean): number {
   let i = from
   if (clause) {
     if (!startsPredicate(tokens, i)) i = nounPhraseAt(tokens, i)?.end ?? i
-    i = verbGroupAt(tokens, i).verb + 1
+    i = relativeVerb(tokens, i) + 1
   }
   while (i < tokens.length && !startsPredicate(tokens, i) && !isMark(tokens[i]) && !CONJUNCTIONS.has(tokens[i].lower)) i = nounPhraseAt(tokens, i)?.end ?? i + 1
   return Math.min(i, tokens.length)
