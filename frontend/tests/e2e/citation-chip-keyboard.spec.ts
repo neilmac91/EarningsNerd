@@ -116,7 +116,28 @@ for (const vp of [
       const chip = await ask(page)
       await chip.focus()
       await page.keyboard.press('Tab')
-      await expect(page.locator(CARD).getByRole('link', { name: 'Open original' })).toBeFocused()
+      const original = page.locator(CARD).getByRole('link', { name: 'Open original' })
+      await expect(original).toBeFocused()
+      const actionHitsItself = () => original.evaluate((el) => {
+        const r = el.getBoundingClientRect()
+        const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+        return hit === el || el.contains(hit)
+      })
+      expect(await actionHitsItself(), 'the citation portal must stay above its pane or modal sheet').toBe(true)
+      if (vp.sheet) {
+        // Both breakpoint directions rehost the portal. The reader keeps their focused action
+        // even though React replaces its DOM node and the pane's trap activates or deactivates.
+        await page.setViewportSize({ width: 1440, height: 900 })
+        await expect(page.locator(PANE)).not.toHaveAttribute('aria-modal', 'true')
+        await expect.poll(() => original.evaluate((el) => el.closest('[role="group"]')?.parentElement === document.body)).toBe(true)
+        await expect(original).toBeFocused()
+        expect(await actionHitsItself()).toBe(true)
+        await page.setViewportSize({ width: vp.width, height: vp.height })
+        await expect(page.locator(PANE)).toHaveAttribute('aria-modal', 'true')
+        await expect.poll(() => original.evaluate((el) => el.closest('[role="group"]')?.parentElement?.getAttribute('aria-label') === 'Filing source and Ask')).toBe(true)
+        await expect(original).toBeFocused()
+        expect(await actionHitsItself()).toBe(true)
+      }
 
       await page.keyboard.press('Escape')
       await expect(page.locator(CARD)).toHaveCount(0)
