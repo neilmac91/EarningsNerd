@@ -9,7 +9,10 @@ in the wrong currency.
 
 Each cell is read twice: by the check (``build_metric_source``) and as the row is served
 (``enrich_financial_highlights``), once without the filed fact's tag and once with it, in the current period and in
-the prior. On the diagonal the row matches and keeps the summary's figure. Off it the row never matches the
+the prior. The fact names its currency three ways (``SOURCES``): on itself in a filing that reports in it, on itself
+in a filing that reports in another (a currency switcher's or a stray item's shape), and only through the filing's
+reporting currency, which a fact with none inherits. The rule holds the same in all three, so a check that read the
+filing's currency in place of the fact's would fail the divergent cells. On the diagonal the row matches and keeps the summary's figure. Off it the row never matches the
 summary's figure. Without a tag the label may name another line, so the row is left unchecked ("Linked, not
 checked"). With the top line's tag the filed figure replaces the summary's, written in the fact's currency, and
 ``source_replaced`` keeps the summary's text. The display grammar reads none of "CA$", "AU$", "NZ$" and "MX$"
@@ -42,6 +45,9 @@ SHOWN = {"current_period": "941.2B", "prior_period": "800.0B"}
 FILED = {"current_period": "941,168,000,000", "prior_period": "800,000,000,000"}
 # A tag a "Revenue" row names exactly (``provenance_service._EXACT_SCOPE_TAGS``), so a figure that differs is replaced.
 TAG = "ifrs-full:Revenue"
+# How the filing's data names the fact's currency: "own" on the fact, in a filing reporting in it; "divergent" on the
+# fact, in a filing reporting in another; "inherited" only through the filing's reporting currency, the fact naming none.
+SOURCES = ("own", "divergent", "inherited")
 
 
 def _filing():
@@ -50,12 +56,16 @@ def _filing():
                            sec_url="https://www.sec.gov/Archives/edgar/data/1577552/000.../")
 
 
-def _xbrl(currency, raw_tag):
-    """One revenue line filed in ``currency``, this year and a comparable last year (``comparable_facts``)."""
+def _xbrl(currency, raw_tag, source="own"):
+    """One revenue line filed in ``currency``, this year and a comparable last year (``comparable_facts``), its
+    currency named as ``source`` says (``SOURCES``)."""
+    reporting = ("CNY" if currency == "USD" else "USD") if source == "divergent" else currency
+    own_currency = {} if source == "inherited" else {"currency": currency}
+
     def fact(value, end, start):
         return {"value": value, "period": end, "period_start": start, "form": "20-F", "fiscal_period": "FY",
-                "currency": currency, **({"raw_tag": raw_tag} if raw_tag else {})}
-    return {"reporting_currency": currency, "revenue": {
+                **own_currency, **({"raw_tag": raw_tag} if raw_tag else {})}
+    return {"reporting_currency": reporting, "revenue": {
         "current": fact(941_168e6, "2025-03-31", "2024-04-01"), "prior": fact(800_000e6, "2024-03-31", "2023-04-01")}}
 
 
@@ -74,11 +84,11 @@ def _currencies_named(text):
     return YEN if code is None else frozenset({code})
 
 
-def _check_cell(field, currency, label, tagged):
+def _check_cell(field, currency, label, tagged, source):
     other = "prior_period" if field == "current_period" else "current_period"
     own = money_prefix_for(currency)
     row = {"metric": "Revenue", field: label + SHOWN[field], other: own + SHOWN[other]}
-    xbrl = _xbrl(currency, TAG if tagged else None)
+    xbrl = _xbrl(currency, TAG if tagged else None, source)
     expected = _expected(label, currency, tagged)
 
     checked = prov.build_metric_source(dict(row), _filing(), xbrl, None)
@@ -96,10 +106,12 @@ def _check_cell(field, currency, label, tagged):
     if expected == "matched":
         assert (checked["source_checkable"], checked["xbrl_concept"]) == (True, "Revenue")
         assert "source_mismatched" not in checked
+        assert checked["source_filed"][field].startswith(own)
         assert served[field] == row[field]
     elif expected == "replaced":
         assert checked["source_checkable"] is True
         assert checked["source_mismatched"] == [field]
+        assert checked["source_filed"][field].startswith(own)
         assert served["source_verified"] is True
         assert served[field] == own + FILED[field]
         assert display_currency(served[field]) == (True, currency)
@@ -115,12 +127,12 @@ def _check_cell(field, currency, label, tagged):
 @pytest.mark.parametrize("currency", FACT_CURRENCIES)
 def test_a_figure_matches_only_in_the_filed_facts_currency(currency):
     # One test per fact currency, its cells in a loop: a test's setup costs more than all its cells.
-    cells = list(product(("current_period", "prior_period"), LABELS, (False, True)))
+    cells = list(product(("current_period", "prior_period"), LABELS, (False, True), SOURCES))
     failures = []
-    for field, label, tagged in cells:
-        cell = f"{field} {label!r} {'tagged' if tagged else 'untagged'}"
+    for field, label, tagged, source in cells:
+        cell = f"{field} {label!r} {'tagged' if tagged else 'untagged'} {source}"
         try:
-            _check_cell(field, currency, label, tagged)
+            _check_cell(field, currency, label, tagged, source)
         except AssertionError as exc:
             line = traceback.extract_tb(exc.__traceback__)[-1].lineno
             failures.append(f"{cell}: line {line}: {str(exc).splitlines()[0] if str(exc) else 'assert'}")
