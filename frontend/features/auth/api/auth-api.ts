@@ -1,6 +1,7 @@
 import api, { ApiError, refreshSettled } from '@/lib/api/client'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
 import { markSessionActive, markSessionConfirmed, clearSessionActive, getSessionGeneration, assertSessionGeneration, hasActiveSession, getExplicitSessionGeneration, assertExplicitSessionGeneration, isExplicitSessionGenerationCurrent, beginLogout, endLogout } from '@/lib/api/session'
+import type { AccountAgreement } from '@/features/legal/api/legal-api'
 
 // Cloudflare Turnstile token is sent as a header the backend reads; omitted when unset so
 // nothing changes until Turnstile is configured on both ends.
@@ -14,10 +15,11 @@ export const register = async (
   fullName?: string,
   turnstileToken?: string,
   inviteCode?: string,
+  agreement?: AccountAgreement,
 ) => {
   const response = await api.post(
     '/api/auth/register',
-    { email, password, full_name: fullName, invite_code: inviteCode || undefined },
+    { email, password, full_name: fullName, invite_code: inviteCode || undefined, ...agreement },
     turnstileConfig(turnstileToken),
   )
   // Mark the session active so the API client may silently refresh an expired access token
@@ -31,8 +33,8 @@ export const register = async (
  * sent in the request body (never a URL: request logs record query strings); the backend stores its
  * hash against the OAuth state, sets the state cookie and returns the provider URL to navigate to.
  */
-export const startOAuthWithInvite = async (provider: 'google' | 'apple', invite: string): Promise<string> => {
-  const response = await api.post<{ url: string }>(`/api/auth/${provider}/start`, { invite })
+export const startOAuthWithInvite = async (provider: 'google' | 'apple', invite?: string, agreement?: AccountAgreement): Promise<string> => {
+  const response = await api.post<{ url: string }>(`/api/auth/${provider}/start`, { ...(invite ? { invite } : {}), ...agreement })
   return response.data.url
 }
 

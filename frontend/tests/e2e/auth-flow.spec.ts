@@ -1,4 +1,9 @@
 import { test, expect } from '@playwright/test'
+import { answerLegalReadiness } from './fixtures/legalReady'
+
+test.beforeEach(async ({ page, baseURL }) => {
+  await answerLegalReadiness(page, baseURL!)
+})
 
 test.describe('Authentication Flow', () => {
   test('should display login page with form elements', async ({ page }) => {
@@ -38,6 +43,8 @@ test.describe('Authentication Flow', () => {
     await expect(page.locator('button[type="submit"]')).toBeVisible()
 
     // Check for link to login
+    await expect(page.getByRole('checkbox', { name: /at least 18/i })).not.toBeChecked()
+    await expect(page.getByRole('checkbox', { name: /agree to the/i })).not.toBeChecked()
     await expect(page.getByRole('link', { name: 'Log in' })).toBeVisible()
   })
 

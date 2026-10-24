@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { answerLegalReadiness } from './fixtures/legalReady'
 
 /**
  * P-09 (Design Critique 2026-10): loading and motion honesty.
@@ -73,7 +74,8 @@ test.describe('under reduced motion', () => {
   test.use({ reducedMotion: 'reduce' })
 
   for (const path of ['/', '/login', '/register']) {
-    test(`${path} runs no animation`, async ({ page }) => {
+    test(`${path} runs no animation`, async ({ page, baseURL }) => {
+      if (path === '/register') await answerLegalReadiness(page, baseURL!)
       await page.goto(path)
       await expect(page.locator('h1').first()).toBeVisible()
       await page.evaluate(() => document.fonts.ready)

@@ -5,6 +5,7 @@ Per-test in-memory SQLite (the response is built from the refreshed ORM row), ``
 with ``TRUSTED_PROXY_HOPS=1`` (the right-most hop is the trusted one).
 """
 import pytest
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -18,6 +19,9 @@ from app.services import rate_limiter
 from app.services import turnstile
 from app.services.contact_submission_service import ContactPersistenceError
 from app.services.resend_service import ResendError
+
+# Exercise existing collection behavior with an explicitly published synthetic operator notice.
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 IP_A = "203.0.113.7"
 IP_B = "198.51.100.9"

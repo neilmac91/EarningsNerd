@@ -1,3 +1,4 @@
+import { LegalOperatorNotice } from '@/features/legal/components/LegalOperatorNotice'
 import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { Metadata } from 'next'
 import Link from 'next/link'
@@ -27,6 +28,8 @@ export default function TermsPage() {
             Last updated: {lastUpdated}
           </p>
 
+          <LegalOperatorNotice />
+
           <section className="mt-8">
             <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
               1. Agreement to these Terms
@@ -38,7 +41,7 @@ export default function TermsPage() {
               <Link href="/privacy" className="text-brand-strong hover:underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                 Privacy Policy
               </Link>
-              . References to &quot;we,&quot; &quot;us&quot; and &quot;our&quot; mean the operator of EarningsNerd. If you do not agree, do not use the Service.
+              . References to &quot;we,&quot; &quot;us&quot; and &quot;our&quot; mean the operator of EarningsNerd. If you do not agree, do not use the Service. To create an account, you must be at least 18 and legally an adult where you live. You must confirm this eligibility and accept these Terms when signing up.
             </p>
           </section>
 

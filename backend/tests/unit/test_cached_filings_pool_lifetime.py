@@ -33,6 +33,7 @@ from typing import Any
 
 import httpx
 import pytest
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.exc import IllegalStateChangeError, OperationalError
 from sqlalchemy.orm import Session, sessionmaker
@@ -49,6 +50,9 @@ from app.services.filing_amendment_service import expand_amendment_forms
 from app.services.rate_limiter import RateLimiter
 from app.utils.datetimes import utcnow
 from main import app
+
+# Exercise existing collection behavior with an explicitly published synthetic operator notice.
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 
 @pytest.mark.asyncio
@@ -1379,6 +1383,10 @@ def _billing_fixture(monkeypatch, tmp_path, *, with_customer: bool, rival: bool 
     from app.config import settings
     from app.models import User
     from app.routers import auth
+    from app.services import legal_readiness_service
+
+    # Keep the dormant Stripe path's pool and ownership regressions under the launch hold.
+    monkeypatch.setattr(legal_readiness_service, "is_checkout_available", lambda: True)
 
     engine = create_engine(
         f"sqlite:///{tmp_path / 'billing.db'}",

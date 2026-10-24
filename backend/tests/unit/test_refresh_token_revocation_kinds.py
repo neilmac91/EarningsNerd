@@ -26,6 +26,8 @@ from unittest.mock import AsyncMock
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+from tests.support.account_agreement import ACCOUNT_AGREEMENT
+
 from fastapi.testclient import TestClient
 from sqlalchemy import event
 from sqlalchemy.orm.attributes import set_committed_value
@@ -35,6 +37,8 @@ from app.config import settings
 from app.database import SessionLocal
 from app.models import RefreshToken, User
 from tests.support.summary_stream_harness import reset_rate_limiters
+
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit; test fixture, not a credential  # gitleaks:allow
 NEW_PASSWORD = PASSWORD + "9z"  # gitleaks:allow
@@ -94,7 +98,7 @@ def postgres_shaped_reset_expiry():
 def _register(client: TestClient) -> tuple[str, int]:
     """Register a fresh password account; return (email, user id). Register issues no session."""
     email = f"revocationkinds_{uuid.uuid4().hex[:12]}@example.com"
-    resp = client.post("/api/auth/register", json={"email": email, "password": PASSWORD})
+    resp = client.post("/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": email, "password": PASSWORD})
     assert resp.status_code == 200, resp.text
     with SessionLocal() as db:
         return email, db.query(User.id).filter(User.email == email).scalar()

@@ -14,9 +14,8 @@ mocked, mirroring test_apple_signin.py):
 
 Structural gate (CLAUDE.md rule 12): every ``User(`` construction anywhere in app/ sits in a
 function that calls the gate helper, or is services/auth_account_service.py::create_password_account,
-which has no gate of its own: registration checks REGISTRATION_MODE, while the explicit admin
-provisioning path requires an authenticated admin before entering admin_account_service. Their
-caller chains are closed below, so another creation path cannot appear silently in any module.
+which also requires collection readiness and current assent. Registration retains REGISTRATION_MODE;
+admin provisioning is retired. The closed caller chains prevent a new creation bypass.
 """
 import ast
 import inspect
@@ -27,6 +26,8 @@ from unittest.mock import AsyncMock
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+from tests.support.account_agreement import ACCOUNT_AGREEMENT
+
 from fastapi.testclient import TestClient
 
 from main import app
@@ -35,9 +36,11 @@ from app.models import InviteCode, OAuthAccount, OAuthState, User
 from app.routers import auth as auth_module
 from app.services import invite_service
 
+pytestmark = pytest.mark.usefixtures("collection_ready")
+
 APP_DIR = Path(__file__).resolve().parents[2] / "app"
 GATE_HELPER = "oauth_new_account_gate"
-# Shared password insert. Its public and admin entry points must pass their explicit gates.
+# Shared password insert. Only validated public registration may reach it.
 PASSWORD_ACCOUNT_CREATOR = "create_password_account"
 PASSWORD_ACCOUNT_SITE = ("services/auth_account_service.py", PASSWORD_ACCOUNT_CREATOR)
 # The social sign-in insert, behind the gate.
@@ -109,18 +112,13 @@ def _state_from(resp) -> str:
 
 
 def _start(client: TestClient, provider: str, invite: str | None = None) -> str:
-    """Start the provider flow and return the state it issued: GET /api/auth/<provider> for a plain
-    sign-in, POST /api/auth/<provider>/start with the invite in the JSON body for an invited one
-    (the token never rides in a URL). The state cookie lands on ``client`` as it would on a browser."""
-    if invite is None:
-        resp = client.get(f"/api/auth/{provider}", follow_redirects=False)
-        state = _state_from(resp)
-    else:
-        resp = client.post(f"/api/auth/{provider}/start", json={"invite": invite})
-        assert resp.status_code == 200, resp.text
-        url = resp.json()["url"]
+    """Start signup with explicit synthetic assent and any invite in the POST body."""
+    resp = client.post(f"/api/auth/{provider}/start", json={**ACCOUNT_AGREEMENT, "invite": invite})
+    assert resp.status_code == 200, resp.text
+    url = resp.json()["url"]
+    if invite is not None:
         assert invite not in url and "invite" not in parse_qs(urlparse(url).query)
-        state = parse_qs(urlparse(url).query)["state"][0]
+    state = parse_qs(urlparse(url).query)["state"][0]
     if provider == "apple":
         assert auth_module._APPLE_STATE_COOKIE in resp.cookies, "Apple must issue the binding cookie"
     else:
@@ -135,12 +133,10 @@ def _claims(provider: str, email: str, *, verified: bool = True) -> dict:
 
 
 def _callback(client: TestClient, monkeypatch, provider: str, claims: dict, *, state: str | None = None):
-    """Drive the provider callback with a verified-claims mock. Without ``state`` a plain (no-invite)
-    Google sign-in is simulated by setting the state cookie directly; Apple always needs _start()."""
+    """Drive the callback with mocked provider claims and a real one-time start state."""
     if provider == "google":
         if state is None:
-            state = f"state_{uuid.uuid4().hex}"
-            client.cookies.set(auth_module._OAUTH_STATE_COOKIE, state)
+            state = _start(client, "google")
         monkeypatch.setattr(auth_module, "httpx", SimpleNamespace(AsyncClient=_FakeAsyncClient))
         monkeypatch.setattr(auth_module, "_verify_google_id_token", AsyncMock(return_value=claims))
         return client.get(
@@ -290,7 +286,7 @@ def test_register_rolls_the_account_back_when_the_invite_redemption_is_lost(clie
     _ok_id, ok_raw = _mint_invite()
     ok_email = _email()
     ok = client.post(
-        "/api/auth/register", json={"email": ok_email, "password": VALID_PASSWORD, "invite_code": ok_raw}
+        "/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": ok_email, "password": VALID_PASSWORD, "invite_code": ok_raw}
     )
     assert ok.status_code == 200 and _user(ok_email) is not None
 
@@ -298,7 +294,7 @@ def test_register_rolls_the_account_back_when_the_invite_redemption_is_lost(clie
     email = _email()
     monkeypatch.setattr(invite_service, "redeem_invite", lambda *args, **kwargs: False)
     lost = client.post(
-        "/api/auth/register", json={"email": email, "password": VALID_PASSWORD, "invite_code": raw}
+        "/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": email, "password": VALID_PASSWORD, "invite_code": raw}
     )
     assert lost.status_code == 200
     assert lost.content == ok.content  # opaque: indistinguishable from success
@@ -487,18 +483,15 @@ def _function_references_to(symbol: str) -> list[tuple[str, str]]:
 
 
 def test_password_account_creation_is_reached_only_through_explicit_gates():
-    """Password creation has two entry points: invite-gated registration and admin provisioning.
-    Pin the complete admin service chain as well as the authorization at its HTTP boundary."""
+    """Registration is the sole password creator; admin provisioning cannot invent assent.
+    Keep the admin boundary authenticated even though its service now always refuses."""
     references = _function_references_to(PASSWORD_ACCOUNT_CREATOR)
     assert references == [
-        ("routers/auth.py", "register"), ("services/admin_account_service.py", "_provision_account"),
+        ("routers/auth.py", "register"),
     ], (
-        f"{PASSWORD_ACCOUNT_CREATOR} is referenced from {references}; only invite-gated register "
-        "and the admin service's provisioning helper may call it."
+        f"{PASSWORD_ACCOUNT_CREATOR} is referenced from {references}; only validated registration may call it."
     )
-    assert _function_references_to("_provision_account") == [
-        ("services/admin_account_service.py", "create_free_account"),
-    ], "only the admin service entry point may reach password provisioning"
+    assert _function_references_to("_provision_account") == [], "direct admin provisioning must stay retired"
     assert _function_references_to("create_free_account") == [
         ("routers/admin.py", "create_free_account"),
     ], "only the authenticated admin handler may reach free-account provisioning"
@@ -527,20 +520,16 @@ def test_password_account_creation_is_reached_only_through_explicit_gates():
 
 @pytest.mark.requires_db
 @pytest.mark.parametrize("provider", PROVIDERS)
-def test_oauth_start_persists_nothing_for_an_unknown_invite(client, monkeypatch, invite_only, provider):
-    """An unauthenticated caller cannot grow the state table by inventing invite values: an unknown
-    token stores no invite hash (Google: no row at all; Apple: its nonce row carries no invite)."""
+def test_oauth_start_stores_no_invite_hash_for_an_unknown_invite(client, monkeypatch, invite_only, provider):
+    """Both rate-limited starts store one-time state, but invented invites never gain an invite hash."""
     with SessionLocal() as db:
         before = db.query(OAuthState).count()
     state = _start(client, provider, invite="not-a-real-invite-token")
     rows = _state_rows(state)
-    if provider == "google":
-        assert rows == []
-    else:
-        assert [row.invite_code_hash for row in rows] == [None]
+    assert [row.invite_code_hash for row in rows] == [None]
     with SessionLocal() as db:
         assert db.query(OAuthState).filter(OAuthState.invite_code_hash.isnot(None)).count() == 0
-        assert db.query(OAuthState).count() - before == (0 if provider == "google" else 1)
+        assert db.query(OAuthState).count() - before == 1
 
 
 @pytest.mark.requires_db
@@ -578,5 +567,5 @@ def test_oauth_start_get_ignores_an_invite_query_parameter(client, monkeypatch, 
     _, invite = _mint_invite()
     resp = client.get(f"/api/auth/{provider}", params={"invite": invite}, follow_redirects=False)
     state = _state_from(resp)
-    assert [row.invite_code_hash for row in _state_rows(state)] in ([], [None])
+    assert [row.invite_code_hash for row in _state_rows(state)] == [None]
 

@@ -9,7 +9,7 @@ test holds wherever the export code lives.
 import re
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import Depends
@@ -18,12 +18,12 @@ from sqlalchemy import event
 
 from main import app
 from app.database import SessionLocal, get_db
-from app.models import AuditLog, BillingPayment, User
+from app.models import AccountAgreement, AuditLog, BillingPayment, User
 from app.routers.auth import get_current_user
 
 EXPORT_KEYS = [
     "profile", "searches", "saved_summaries", "watchlist", "usage", "billing_payments",
-    "section_reviews", "export_timestamp",
+    "section_reviews", "account_agreements", "export_timestamp",
 ]
 PROFILE_KEYS = [
     "user_id", "email", "full_name", "is_active", "is_pro", "stripe_customer_id",
@@ -62,6 +62,7 @@ def _seeded_user():
         app.dependency_overrides.pop(get_db, None)
         db = SessionLocal()
         db.query(AuditLog).filter(AuditLog.user_email == email).delete()
+        db.query(AccountAgreement).filter(AccountAgreement.user_id == uid).delete()
         db.query(User).filter(User.id == uid).delete()
         db.commit()
         db.close()
@@ -92,10 +93,34 @@ def test_export_key_order_filename_and_audit_row(client):
         assert payload["profile"]["user_id"] == uid
         assert payload["profile"]["email"] == email
         assert payload["profile"]["full_name"] == "Export Owner"
-        for key in ("searches", "saved_summaries", "watchlist", "usage", "billing_payments", "section_reviews"):
+        for key in ("searches", "saved_summaries", "watchlist", "usage", "billing_payments", "section_reviews", "account_agreements"):
             assert payload[key] == []
         assert datetime.fromisoformat(payload["export_timestamp"]).utcoffset() == timedelta(0)
         assert _audit_rows(email) == [("data_exported", str(uid), "success")]
+
+
+@pytest.mark.requires_db
+def test_export_includes_only_the_owners_recorded_agreement(client):
+    accepted_at = datetime(2026, 10, 23, 12, 34, 56, tzinfo=timezone.utc)
+    with _seeded_user() as (other_id, _):
+        with _seeded_user() as (uid, _):
+            with SessionLocal() as db:
+                for user_id, source in ((uid, "password"), (other_id, "apple")):
+                    db.add(AccountAgreement(
+                        user_id=user_id, adult_eligible=True, terms_accepted=True,
+                        terms_version="2026-10-23", eligibility_version="2026-10-23",
+                        accepted_at=accepted_at, source=source,
+                    ))
+                db.commit()
+
+            response = client.get("/api/users/export")
+
+            assert response.status_code == 200
+            assert response.json()["account_agreements"] == [{
+                "adult_eligible": True, "terms_accepted": True,
+                "terms_version": "2026-10-23", "eligibility_version": "2026-10-23",
+                "accepted_at": "2026-10-23T12:34:56Z", "source": "password",
+            }]
 
 
 @pytest.mark.requires_db

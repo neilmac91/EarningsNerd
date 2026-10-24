@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 from sqlalchemy.orm import Session
 
-from app.models import BillingPayment, SavedSummary, SectionReview, User, UserSearch, UserUsage, Watchlist
+from app.models import AccountAgreement, BillingPayment, SavedSummary, SectionReview, User, UserSearch, UserUsage, Watchlist
 from app.utils.datetimes import iso_z, utcnow
 
 
@@ -120,6 +120,21 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
         for review in reviews
     ]
 
+    # Only recorded signup evidence: an older account with no confirmation exports an empty list.
+    agreements = db.query(AccountAgreement).filter(AccountAgreement.user_id == current_user.id).all()
+    agreements_data = [
+        {
+            "adult_eligible": agreement.adult_eligible,
+            "terms_accepted": agreement.terms_accepted,
+            "terms_version": agreement.terms_version,
+            "eligibility_version": agreement.eligibility_version,
+            "accepted_at": iso_z(agreement.accepted_at.replace(tzinfo=timezone.utc)
+                                 if agreement.accepted_at.tzinfo is None else agreement.accepted_at),
+            "source": agreement.source,
+        }
+        for agreement in agreements
+    ]
+
     # Compile export
     export_data = {
         "profile": profile_data,
@@ -129,6 +144,7 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
         "usage": usage_data,
         "billing_payments": payments_data,
         "section_reviews": reviews_data,
+        "account_agreements": agreements_data,
         "export_timestamp": utcnow().isoformat(),
     }
     return export_data

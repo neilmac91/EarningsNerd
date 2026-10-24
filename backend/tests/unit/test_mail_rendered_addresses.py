@@ -241,7 +241,10 @@ RENDERS = {
     "render_data_quality_report": [dict(report=CLEAN_REPORT), dict(report=FULL_REPORT)],
 }
 # The public functions that build no mail, and why.
-NOT_MAIL = {"wording_changes_line": "a line of text the alert renderers set in their pages"}
+NOT_MAIL = {
+    "wording_changes_line": "a line of text the alert renderers set in their pages",
+    "PromotionalMailUnavailable": "domain refusal when invitation delivery is unavailable; builds no mail",
+}
 # The lines of email_service.py no render here can run, by their text, each with why: a handler for a
 # failure the stand-in send never raises, a branch on a setting the render cannot take, an import only a
 # type checker runs.
@@ -457,7 +460,7 @@ def _render(cases: dict, module=email_service) -> dict:
     import asyncio
     import importlib
 
-    from app.services import resend_service
+    from app.services import legal_readiness_service, resend_service
 
     ran: set[int] = set()
 
@@ -483,10 +486,22 @@ def _render(cases: dict, module=email_service) -> dict:
     text_sent: dict[str, list[object]] = {}
     mails: dict[str, list[tuple[str, object]]] = {}  # each mail a function sends or returns, as (page, text part)
     transport = resend_service.send_email
+    marketing_readiness = legal_readiness_service.is_marketing_available
     sys.settrace(trace)
     try:
         resend_service.send_email = _record  # a send through the transport is recorded, however the module reaches it
         importlib.reload(module)  # the module loads again, traced, and binds the transport as recorded
+        if module is email_service:
+            # Cover the no-mail refusal as well as the dormant template, without exempting lines.
+            legal_readiness_service.is_marketing_available = lambda: False
+            asyncio.run(module.send_referral_success_email(**cases["send_referral_success_email"][0]))
+            try:
+                asyncio.run(module.send_invite_email(**cases["send_invite_email"][0]))
+            except module.PromotionalMailUnavailable:
+                pass
+            else:
+                raise AssertionError("closed invitation delivery must refuse")
+        legal_readiness_service.is_marketing_available = lambda: True
         for name, inputs in cases.items():
             for kwargs in inputs:
                 result = getattr(module, name)(**kwargs)
@@ -504,6 +519,7 @@ def _render(cases: dict, module=email_service) -> dict:
     finally:
         sys.settrace(None)
         resend_service.send_email = transport
+        legal_readiness_service.is_marketing_available = marketing_readiness
     source = Path(module.__file__).read_text(encoding="utf-8")
     values = _public_values(module, source)
     lines = _lines(compile(source, module.__file__, "exec"))
@@ -1198,7 +1214,7 @@ def test_every_page_sent_keeps_the_headers_set_size_and_leaves_the_rest_to_the_v
 # as an address, a company's name, a link with its token, a report's hashes and addresses. Held as it is, so an
 # input that shortens every one a page prints fails here too, and a new render is listed with its own.
 PRINTS_LONG_RUNS = {
-    "render_welcome_email": [2], "send_waitlist_welcome_email": [2], "render_referral_success_email": [2],
+    "render_welcome_email": [1], "send_waitlist_welcome_email": [1], "render_referral_success_email": [2],
     "send_referral_success_email": [2], "send_verification_email": [2], "send_invite_email": [1, 2],
     "send_password_reset_email": [2], "send_oauth_linked_email": [1], "send_account_exists_email": [1],
     "render_new_filing_alert": [2, 2, 2, 2, 2], "build_new_filing_alert": [2, 2, 2, 2, 2],
@@ -1574,10 +1590,10 @@ def _preheader_line(page: str) -> str:
 # Each mail's line, as the render's inputs give it: the words an inbox lists the mail by. A change to a line is
 # a change to this list, read in review.
 PREHEADER_LINES = {
-    "render_welcome_email": ["You're number 3 on the list. Share your referral link to move up."],
+    "render_welcome_email": ["You're number 3 on the waitlist. Verify your email to secure your place."],
     "render_referral_success_email": ["Someone joined with your referral link. You're now number 2."],
     "send_verification_email": ["Confirm your email address. The link works for 24 hours."],
-    "send_invite_email": ["The private beta, with full Pro access and no card needed. The link works once."] * 2,
+    "send_invite_email": ["Your account invitation. Review the requirements when you sign up. The link works once."] * 2,
     "send_password_reset_email": ["Set a new password. The link works once, for one hour."],
     "send_oauth_linked_email": ["If this was you, there's nothing to do. If it wasn't, reset your password now."],
     "send_account_exists_email": ["You already have an account. Log in, or ignore this if it wasn't you."],
