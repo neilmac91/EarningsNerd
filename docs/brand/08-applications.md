@@ -269,14 +269,16 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 ## 3. Inside the product
 
 - **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): five new loading quips in
-  the voice and one kept ("Reading the size-8 fine print…"), signed "Reading the filing"; the stalled line and the timeout error say what happened
+  the voice and one kept ("Reading the size-8 fine print…"), each shown in the card's live-status line in
+  place of "Processing…", one per pipeline stage, chosen per filing, unsigned (the "Reading the filing"
+  signature and its blue info callout went on 2026-10-24: a quip is activity, not a state); the stalled line and the timeout error say what happened
   and what to do. The heading "Generation interrupted" stays. The card reads "Generating the summary"
   and its four steps read "Fetching the 10-K from SEC.gov" (the filing's own form), "Reading the
   statements, risk factors and MD&A", "Checking figures against the filing's data" and "Writing the
   summary", which the live region announces as they start. Neither "Generating the summary" nor "AI-generated
   summary" carries a glyph beside it: the sparkle is the AI summary chip's alone. A pending step keeps full opacity in the tertiary ink (it
-  sat at 2.1:1 under opacity-40). A slow run reads "Taking longer than usual. Still working on it.",
-  signed "Still running", without guessing why. A stored summary that failed reads "This summary did
+  sat at 2.1:1 under opacity-40). A slow run reads "Taking longer than usual. Still working on it." in
+  that line, unsigned, and the live region says it once, without guessing why. A stored summary that failed reads "This summary did
   not finish" over its own sentence, "The last attempt for this filing did not finish. Try again to
   generate it." The pipeline's stream errors are mapped on the client
   (`frontend/features/summaries/lib/streamErrorCopy.ts`): the summary_stages strings are to change

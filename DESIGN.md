@@ -340,7 +340,7 @@ The palette combines sage, warm cream, espresso and deep navy with distinct sema
 
 Financial gain/loss have separate graphic and text tokens. Use `gain-text` / `loss-text` for light-mode delta text and `gain-dark` / `loss-dark` for dark-mode delta text. The brighter light graphic tokens belong to graphics, not small text. Apply financial tone through the existing metric-aware helpers: a rise in debt can be negative and some series are neutral.
 
-Success, warning, error and info are state colors. The info tint's light label uses `info-text`; destructive buttons use the darker light error fill with white text in both themes. Quiet guidance is generally brand-tinted rather than a loud status panel.
+Success, warning, error and info are state colors. The info tint's light label uses `info-text`; destructive buttons use the darker light error fill with white text in both themes. Quiet guidance is generally brand-tinted rather than a loud status panel. A run in progress is activity, not a state: its words rest in the ink beside the sage indicator, never in an info notice.
 
 Chart series follow the configured order: **Teal → Honey → Cornflower → Coral → Slate Blue → Periwinkle** (`chart-1` through `chart-6`). Preserve this sequence. At five or more series, add labels, markers or dash patterns because color alone is insufficient. Neither sage nor gain/loss colors are series colors. Use [`Chart.tsx`](frontend/components/ui/Chart.tsx) for theme-aware chart chrome.
 
