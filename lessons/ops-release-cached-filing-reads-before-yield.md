@@ -166,12 +166,15 @@ before the process lock. That lock serves every account: a unit that waited on o
 it, behind a Stripe delivery's read say, stalled every other account's writes on the instance, and with
 the auth lookup's connection each waiter holds, three such waiters and the stalled unit filled the
 instance's four-slot pool. The library's writes take the same users row lock before their own process
-lock (`saved_summary_service.lock_saved_rows`, E171). The save first reads its summary FOR KEY SHARE, the
-lock its bookmark's foreign-key check takes, so an admin tool's delete of that summary, which takes no
-users row lock, holds the save before both locks. When the save waited at its INSERT instead, inside the
-process lock, a local PostgreSQL probe held another account's save of another summary for the admin's
-whole transaction (1.49 to 1.51 s against a 1.5 s hold, 0.006 to 0.021 s after), and the save failed its
-foreign-key check (500) where it now finds the summary gone (404). The join takes the waitlist's place lock, a
+lock (`saved_summary_service.lock_saved_rows`, E171). Inside that process lock a library write can still
+wait in PostgreSQL behind an admin tool's delete, which takes no users row lock: a save at its INSERT's
+foreign-key check on a summary being deleted, an update or a delete on a bookmark the reset-all is
+deleting. Every account's library write on the instance then waits too: a local PostgreSQL probe held
+another account's save of another summary 1.49 to 1.51 s behind a 1.5 s admin delete, and the waiting save
+failed its foreign-key check (500). Taking the summary's key-share lock at the save's read, before both
+locks, ended that wait (0.006 to 0.021 s) but deadlocked a save over a saved row with the reset-all, which
+deletes the bookmarks before their summaries (40P01, five runs of five in each order), so the save takes
+no lock on its summary until the reset-all's order changes with it. The join takes the waitlist's place lock, a
 transaction-level advisory lock, since no row is common to every join
 (`waitlist_service._lock_waitlist_places`), inside its process lock,
 which a waiter takes before its first query and so waits on holding no connection. Its place is one past
@@ -180,9 +183,9 @@ UPDATE that adds to the stored score. The process locks stay: under SQLite they 
 `backend/tests/unit/test_check_then_write_units_lock_across_instances.py` holds each lock from before its
 unit's first read to the commit of its write, as statements compiled for PostgreSQL, the watch-row and
 saved-row locks outside their process locks and the reads beside them taking no lock, each saved-row
-write's commit inside `saved_row_lock` with nothing run there after it (a read after the commit would
-check a connection out inside the lock), the save's summary lock before both, and the credit to one that
-a concurrent commit cannot lose. No CI step races two instances on PostgreSQL. The pull request's local run
+write's commit inside `saved_row_lock` with no checkout inside it and nothing run there after the commit
+(a read after the commit would check a connection out inside the lock), the save taking no lock on its
+summary, and the credit to one that a concurrent commit cannot lose. No CI step races two instances on PostgreSQL. The pull request's local run
 did, with a process lock per thread for each instance: two enables at the cap, two adds, two removes, a
 disable against a remove, an add against an enable, and two joins with and without a link. It also timed
 other accounts' adds while one account waited on a held row.

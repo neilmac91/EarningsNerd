@@ -37,10 +37,16 @@ class SavedSummaryRelatedRowMissing(Exception):
 # waiter's check then sees the holder's commit because each statement reads the latest commit (READ
 # COMMITTED, PostgreSQL's default and production's). This lock reaches one process, and the API runs
 # up to two instances, so before it each unit takes the account's users row lock (``lock_saved_rows``),
-# which every instance shares, as the watch-row writes do (``watchlist_service.watch_row_lock``). Inside the
-# lock a write can still wait in PostgreSQL on its bookmark's row while the admin reset-all deletes the
-# bookmarks of the summaries it resets (``include_saved``), an operator action with no network call in its
-# transaction; the save waits for an admin delete of its summary before both locks (``save_summary``).
+# which every instance shares, as the watch-row writes do (``watchlist_service.watch_row_lock``).
+#
+# Inside the lock a write can still wait in PostgreSQL behind an admin tool's delete, which takes no users
+# row lock: a save's INSERT on its summary's row (the foreign-key check) while a delete of that summary is
+# uncommitted, and an update or a delete on its bookmark's row while the admin reset-all deletes the
+# bookmarks of the summaries it resets (``include_saved``). Each is an operator action with no network call
+# in its transaction, and every account's library write on the instance waits behind it. The save does not
+# take its summary's lock (FOR KEY SHARE) before this lock to avoid that wait: the reset-all deletes the
+# bookmarks before their summaries, the reverse order, and a save over a saved row deadlocked with it (40P01,
+# five runs of five in each order on PostgreSQL 16, E171's saved-summaries verification lens).
 saved_row_lock = threading.Lock()
 
 
@@ -95,18 +101,13 @@ def save_summary(db: Session, *, user_id: int, summary_id: int, notes: Optional[
 
     Returns the library row, or ``None`` when the summary does not exist (nothing is written).
     """
-    # Check if summary exists and eagerly load related data to avoid N+1 queries. The summary row is read
-    # FOR KEY SHARE, the lock the new bookmark's foreign-key check takes on it at the INSERT, taken here before
-    # the account's lock and saved_row_lock: a save of a summary an admin tool is deleting waits here, holding
-    # neither lock another account's write would wait on, and then finds it gone (404) rather than failing the
-    # foreign-key check (500). Only a delete of the summary waits it out: a regeneration updates the row in
-    # place under FOR NO KEY UPDATE, which this lock does not wait for. SQLite omits the clause.
+    # Check if summary exists and eagerly load related data to avoid N+1 queries. No lock on the summary:
+    # see saved_row_lock's comment.
     row = (
         db.query(Summary, Filing, Company)
         .join(Filing, Summary.filing_id == Filing.id)
         .join(Company, Filing.company_id == Company.id)
         .filter(Summary.id == summary_id)
-        .with_for_update(read=True, key_share=True, of=Summary)
         .first()
     )
     if not row:

@@ -226,12 +226,24 @@ def _reader(sessions, *, saved: bool) -> None:
 
 
 def _saved_row_statements(sessions, unit) -> list[Recorded]:
-    """As ``_watch_row_statements``, each statement recording whether ``saved_row_lock`` was held as it ran."""
+    """As ``_watch_row_statements``, each entry recording whether ``saved_row_lock`` was held as it ran, and each pool
+    checkout the unit makes as a ``-- checkout`` entry: the session's recorder sees its ORM statements, flushes and
+    ends of transactions, not a checkout made through the session's connection."""
     statements: list[Recorded] = []
+    held = saved_summary_service.saved_row_lock
+    engine = sessions.kw["bind"]
+
+    def checkout(*_args) -> None:
+        statements.append(Recorded("-- checkout", {}, held.locked()))
+
     with sessions() as db:
         user = db.get(User, USER_ID)
-        _recorded(db, statements, process_lock=saved_summary_service.saved_row_lock)
-        unit(db, user)
+        _recorded(db, statements, process_lock=held)
+        event.listen(engine, "checkout", checkout)
+        try:
+            unit(db, user)
+        finally:
+            event.remove(engine, "checkout", checkout)
     return statements
 
 
@@ -250,8 +262,8 @@ def _saved_row_statements(sessions, unit) -> list[Recorded]:
 def test_each_saved_row_write_locks_the_account_before_it_checks(sessions, saved, unit, writes):
     """Each write as it succeeds. The account's lock comes before the process lock, so a unit that waits on it holds
     that lock for no other account. The write's commit runs inside saved_row_lock, which within one process is the
-    only serialization under SQLite, and nothing runs there after it: a statement after the commit checks a
-    connection out again, which inside the lock could wait for a pool slot that a waiter holds."""
+    only serialization under SQLite, nothing runs there after it, and no connection is checked out inside it: a
+    checkout there could wait for a pool slot that a waiter holds."""
     _reader(sessions, saved=saved)
     statements = _saved_row_statements(sessions, unit)
     shown = "\n".join(f"{s.sql[:90]} held={s.process_lock_held}" for s in statements)
@@ -262,22 +274,23 @@ def test_each_saved_row_write_locks_the_account_before_it_checks(sessions, saved
     assert statements[commit].process_lock_held, f"the write's commit ran outside saved_row_lock\n{shown}"
     assert not any(s.process_lock_held for s in statements[commit + 1:]), (
         f"something ran inside saved_row_lock after the write's commit\n{shown}")
+    assert not any(s.sql == "-- checkout" and s.process_lock_held for s in statements), (
+        f"a connection was checked out inside saved_row_lock\n{shown}")
 
 
-def test_the_save_waits_for_its_summary_before_both_locks(sessions):
-    """The save reads its summary FOR KEY SHARE, the lock its bookmark's foreign-key check takes at the INSERT, before
-    the account's lock: a save of a summary an admin tool is deleting waits there, holding neither the account's lock
-    nor saved_row_lock, and then finds it gone. Only that read locks a summaries row, and only for key share."""
+def test_the_save_takes_no_lock_on_its_summary(sessions):
+    """The save reads its summary without a row lock. Its bookmark's foreign-key check takes the summary's key-share
+    lock at the INSERT, inside saved_row_lock, so a save of a summary an admin tool is deleting waits there (see
+    saved_row_lock's comment). Taking that lock earlier, at the read before both locks, deadlocked a save over a saved
+    row with the admin reset-all, which deletes the bookmarks before their summaries (40P01 in each order on
+    PostgreSQL 16, E171's saved-summaries verification lens): a change to the save's lock order goes with the
+    reset-all's."""
     _reader(sessions, saved=False)
     statements = _saved_row_statements(sessions, lambda db, user: saved_summary_service.save_summary(
         db, user_id=user.id, summary_id=1, notes=None))
-    shown = "\n".join(s.sql for s in statements)
-    summary_locks = [i for i, s in enumerate(statements) if "FROM summaries" in s.sql and ROW_LOCK.search(s.sql)]
-    account_locks = [i for i, s in enumerate(statements) if _users_row_lock(s.sql)]
-    assert len(summary_locks) == 1 and account_locks and summary_locks[0] < account_locks[0], shown
-    summary_lock = statements[summary_locks[0]]
-    assert summary_lock.sql.rstrip().endswith("FOR KEY SHARE OF summaries"), shown
-    assert not summary_lock.process_lock_held, shown
+    summary_reads = [s for s in statements if "FROM summaries" in s.sql]
+    assert summary_reads and not any(ROW_LOCK.search(s.sql) for s in summary_reads), (
+        "\n".join(s.sql for s in statements))
 
 
 def test_the_saved_row_reads_take_no_lock(sessions):
