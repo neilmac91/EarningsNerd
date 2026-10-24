@@ -613,12 +613,12 @@ describe('no fixed bottom chrome outranks the workspace layers at the launcher c
   })
 
   it('the pin lists are shrink-only: files, sites and z', () => {
-    expect(Object.keys(PINNED).length, 'ride an existing layer instead of pinning a new file').toBeLessThanOrEqual(PINNED_LIMITS.files)
+    expect(Object.keys(PINNED).length, 'ride an existing layer instead of pinning a new file').toBe(PINNED_LIMITS.files)
     const sites = Object.values(PINNED).reduce((n, { z }) => n + Object.values(z).reduce((a, b) => a + b, 0), 0)
-    expect(sites, 'a new fixed site in a pinned file needs a documented ladder change, not a raised count').toBeLessThanOrEqual(PINNED_LIMITS.sites)
+    expect(sites, 'a new fixed site in a pinned file needs a documented ladder change, not a raised count').toBe(PINNED_LIMITS.sites)
     for (const [file, { z }] of Object.entries(PINNED)) expect(maxPinnedZ(z), `${file} pinned above the workspace layers`).toBeLessThanOrEqual(PINNED_LIMITS.maxZ)
-    expect(Object.keys(STICKY_ABOVE_CONSENT).length).toBeLessThanOrEqual(STICKY_LIMITS.files)
+    expect(Object.keys(STICKY_ABOVE_CONSENT).length).toBe(STICKY_LIMITS.files)
     for (const [file, { z }] of Object.entries(STICKY_ABOVE_CONSENT)) expect(maxPinnedZ(z), `${file} pinned above the header`).toBeLessThanOrEqual(STICKY_LIMITS.maxZ)
-    expect(Object.values(INLINE_FIXED).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(INLINE_FIXED_TOTAL)
+    expect(Object.values(INLINE_FIXED).reduce((a, b) => a + b, 0)).toBe(INLINE_FIXED_TOTAL)
   })
 })

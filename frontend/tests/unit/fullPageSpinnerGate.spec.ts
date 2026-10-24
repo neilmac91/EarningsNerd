@@ -229,7 +229,7 @@ describe('full-page spinners (P-09)', () => {
   })
 
   it('is shrink-only, and every entry has a reason', () => {
-    expect(Object.keys(ALLOW).length).toBeLessThanOrEqual(MAX_ALLOWLIST_SIZE)
+    expect(Object.keys(ALLOW).length).toBe(MAX_ALLOWLIST_SIZE)
     for (const [file, { reason }] of Object.entries(ALLOW)) expect(reason.trim().length, file).toBeGreaterThan(0)
   })
 })

@@ -16,30 +16,21 @@ import { describe, expect, it } from 'vitest'
  * property of one (`MAX_PINNED.files`). A literal (a pixel budget, a count of calls) and an expression are not
  * read as a cap, and neither is `toBeLessThan`, a strict bound that is not the cap idiom; this header says so
  * rather than claiming more. CEILINGS lists the sites still written as ceilings, by file with the count and why:
- * E59 converts each list cap to an equality after the brand series lands (every file below is edited by one of
- * its PRs), and a value ceiling that is not a list cap (a z-index) keeps its line with that reason. Shrink-only:
- * the totals equal CEILINGS_MAX, lowered in the same commit as a line, and a line whose sites left fails.
+ * only a value ceiling that is not a list cap (a z-index) keeps its line, with that reason, since E59 made the
+ * seven files' 17 list caps equalities. Shrink-only: the totals equal CEILINGS_MAX, lowered in the same commit as
+ * a line, and a line whose sites left fails.
  */
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const CONSTANT = /^[A-Z][A-Z0-9_]*$/
 
 const CEILINGS: Record<string, { count: number; why: string }> = {
   'tests/unit/bottomChromeLadder.spec.ts': {
-    count: 6,
-    why: 'PINNED_LIMITS.files and .sites, STICKY_LIMITS.files and INLINE_FIXED_TOTAL are list caps (E59); PINNED_LIMITS.maxZ and STICKY_LIMITS.maxZ bound a z-index, a value ceiling that keeps its form',
+    count: 2,
+    why: 'PINNED_LIMITS.maxZ and STICKY_LIMITS.maxZ bound a z-index, a value ceiling that keeps its form; the file’s list caps are equalities (E59)',
   },
-  'tests/unit/busyControlsStayFocusable.spec.ts': {
-    count: 6,
-    why: 'the file and site caps of ALLOW, ALLOW_RETRY and ALLOW_HAND_BUILT_FAILURE (E59); the ALLOW_RETRY_LABEL pair is an equality since #1301, and #1295 lowers it',
-  },
-  'tests/unit/dialogAllowlist.spec.ts': { count: 1, why: 'MAX_ALLOWLIST_SIZE, a list cap (E59)' },
-  'tests/unit/fullPageSpinnerGate.spec.ts': { count: 1, why: 'MAX_ALLOWLIST_SIZE, a list cap (E59)' },
-  'tests/unit/inputClassesNoOverrides.spec.tsx': { count: 2, why: 'MAX_PINNED.files and .findings, list caps (E59)' },
-  'tests/unit/rawFetchAllowlist.spec.ts': { count: 1, why: 'MAX_ALLOWLIST_SIZE, a list cap (E59)' },
-  'tests/unit/spinnerGateHoldsFailure.spec.ts': { count: 2, why: 'MAX_ALLOWLIST_SIZE and MAX_PINNED_SITES, list caps (E59)' },
 }
 /** Equal to the list, never above it: lower both with the list in the same commit. */
-const CEILINGS_MAX = { files: 7, sites: 19 }
+const CEILINGS_MAX = { files: 1, sites: 2 }
 
 /** The named constant a cap argument reads, or null when the argument is a literal or an expression. */
 function namedConstant(arg: ts.Expression): string | null {
