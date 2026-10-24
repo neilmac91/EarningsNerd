@@ -20,6 +20,7 @@ from app.services import filing_history_service, precompute_service
 from app.services.company_resolution import resolve_or_create_company_by_cik
 from app.services.edgar.compat import sec_edgar_service
 from main import app
+from tests.support.filings_budgets import unspend_filings_budgets
 
 JPM_CIK = "0000019617"
 
@@ -112,6 +113,7 @@ def test_get_company_filings_reuses_existing_cik_row(client, db, seeded_jpm, mon
     monkeypatch.setattr(sec_edgar_service, "get_filings", fake_get_filings)
     monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", fake_primary)
     monkeypatch.setattr(filing_history_service, "_fetch_history_rows", fake_history_fetch)
+    unspend_filings_budgets(monkeypatch)
 
     resp = client.get("/api/filings/company/JPM")
     assert resp.status_code == 200
