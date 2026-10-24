@@ -68,11 +68,6 @@ const MUTED = 'text-text-secondary-light dark:text-text-secondary-dark'
 const HAIRLINE = 'border-border-light dark:border-white/10'
 /** A fact of the identity line and the middot after it, one item of the wrapping line, spaced as the line is. */
 const FACT = 'flex items-center gap-x-2'
-/** The quality badge's label may wrap below a 24rem viewport, as a Button's does (384px at the default text size,
-    768px under a 200% text setting): on a line of its own at 320px under 200% text the one-line badge was 236px, wider
-    than the card's 222px content box. The media variant comes after Badge's whitespace-nowrap in the stylesheet, so
-    it wins; the label still breaks only where the badge does not fit. */
-const BADGE_WRAPS_WHEN_NARROW = '[@media(max-width:24rem)]:whitespace-normal'
 const GLYPH = { up: '▲', down: '▼', flat: '' } as const
 /** The evidence row's excerpt, cut on a word with an ellipsis: the chip links to the whole passage. */
 const MAX_EXCERPT = 180
@@ -156,14 +151,18 @@ function HeroExample({
     >
       <div className="flex flex-col gap-4 p-cap-5 sm:p-cap-6">
         {/* The label and the quality badge share a line where they fit. The row wraps, so where they do not the badge
-            goes under the label (E156): on one line at 390px under 200% text it took the page to 422px. */}
+            goes under the label (E156): on one line at 390px under 200% text it took the page to 422px. Below a 24rem
+            viewport the badge's label may wrap too, as a Button's does (384px at the default text size, 768px under a
+            200% text setting): on a line of its own at 320px under 200% text the one-line badge was 236px, wider than
+            the card's 222px content box. The media variant comes after Badge's whitespace-nowrap in the stylesheet, so
+            it wins, and the label still breaks only where the badge does not fit. */}
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <p className={cx('text-xs font-medium', MUTED)}>Example summary</p>
           {data.qualityTier === 'full' && (
             <Badge
               variant="brand"
               icon={<CheckCircleIcon className="h-3 w-3" aria-hidden="true" />}
-              className={BADGE_WRAPS_WHEN_NARROW}
+              className="[@media(max-width:24rem)]:whitespace-normal"
             >
               Full summary
             </Badge>
