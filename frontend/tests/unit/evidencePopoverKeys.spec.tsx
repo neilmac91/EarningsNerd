@@ -16,6 +16,9 @@ import type { CopilotCitation } from '@/features/filings/api/copilot-api'
 
 const EVIDENCE = 'Our revenue is concentrated among a small number of large customers.'
 const URL = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm'
+// The popover's link for a URL with no text fragment: its label, then a visually hidden " (opens in a new tab)". jsdom's
+// name computation joins the two without the space a browser keeps, so the space is optional here.
+const FILING_LINK = /^Open the filing on SEC\.gov ?\(opens in a new tab\)$/
 
 const citation: CopilotCitation = {
   n: 1,
@@ -96,9 +99,9 @@ describe.each([
   {
     name: 'SourceTrace',
     chip: sourceChip,
-    trigger: () => screen.getByRole('button', { name: 'Source: Verified in filing' }),
+    trigger: () => screen.getByRole('button', { name: 'Source: Quote found in filing' }),
     popover: () => screen.queryByRole('group', { name: 'Source detail' }),
-    action: () => screen.getByRole('link', { name: /open in sec edgar/i }),
+    action: () => screen.getByRole('link', { name: FILING_LINK }),
   },
   {
     name: 'CitationChip',
@@ -284,7 +287,7 @@ describe('SourceTrace without a viewer', () => {
         <button type="button">after</button>
       </>,
     )
-    const link = screen.getByRole('link', { name: 'Source: Verified in filing' })
+    const link = screen.getByRole('link', { name: 'Source: Quote found in filing (opens in a new tab)' })
     act(() => link.focus())
     expect(screen.getByRole('group', { name: 'Source detail' })).toBeInTheDocument()
     expect(fireEvent.keyDown(link, { key: 'Tab' })).toBe(true)

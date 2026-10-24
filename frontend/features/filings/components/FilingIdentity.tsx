@@ -69,7 +69,7 @@ export function filingCrumb(filing: Pick<Filing, 'filing_type' | 'report_date' |
  * The filing identity strip (2026-10 critique P-04): the filing stated once, as the page's signpost.
  * A breadcrumb back to the company; line 1 the company (the page's h1) with its ticker in the data
  * face and a marker only when it is true (Superseded); line 2 one data-face line of facts — form,
- * period of report, filed date, exchange — and a quiet link to the original on SEC EDGAR. The form is
+ * period of report, filed date, exchange — and a quiet link to the original on SEC.gov. The form is
  * weight, never a Badge (the earningsnerd/no-form-code-badge gate) and never the status blue; no
  * decorative "AI analysis" chip. Fiscal-year labels ("FY2022") wait for the filings payload to carry
  * XBRL dei fields, so the period is stated by its end date. `children` is a further line (the page
@@ -140,7 +140,7 @@ export function FilingIdentity({ filing, children }: { filing: Filing; children?
           <>
             <Sep />
             <a href={original} target="_blank" rel="noopener noreferrer" className={cx(IDENTITY_LINK, 'inline-flex items-center gap-1')}>
-              Original on SEC EDGAR
+              Original on SEC.gov
               <ArrowSquareOutIcon aria-hidden="true" className="h-3.5 w-3.5" />
             </a>
           </>

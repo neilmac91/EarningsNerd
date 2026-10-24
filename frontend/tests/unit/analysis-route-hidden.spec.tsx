@@ -127,7 +127,7 @@ const ALLOWED: Array<{ file: string; text: string; why: string }> = [
   },
   {
     file: 'features/marketing/components/ProDepth.tsx',
-    text: 'Multi-Period Analysis as a workbook, with XBRL-backed metrics.',
+    text: 'Multi-Period Analysis as a workbook, with metrics from the filed data.',
     why: "the landing's Excel export tile, which ProDepth lists only under ENABLE_ANALYSIS (#1311)",
   },
   {

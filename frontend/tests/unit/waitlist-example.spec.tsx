@@ -53,7 +53,7 @@ describe('waitlist grounded example', () => {
     expect(screen.queryByText('Subscription retention 94%')).not.toBeInTheDocument()
     expect(!!screen.queryByText('Full summary')).toBe(tier === 'full')
     expect(!!screen.queryByText('Partial')).toBe(tier === 'partial')
-    expect(screen.getByRole('link', { name: /SEC EDGAR/ })).toHaveAttribute('href', filing.sec_url)
+    expect(screen.getByRole('link', { name: /SEC\.gov/ })).toHaveAttribute('href', filing.sec_url)
     // Ticker, form and filed date are one data-face line; assistive tech hears commas, not "ASML20-F". Each middot
     // shares an item with the fact before it (E81), so the line is the form's item's parent.
     const form = screen.getByText('20-F')

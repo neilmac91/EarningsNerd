@@ -290,7 +290,7 @@ describe('NarrativePane citation chips', () => {
     expect(note.closest('details')).toHaveAttribute('open')
     expect(note).toHaveFocus()
     expect(note).toHaveTextContent('A source check remains unresolved')
-    expect(screen.getByText('Sources · SEC XBRL values and calculated figures')).toBeInTheDocument()
+    expect(screen.getByText('Sources · filed and calculated figures')).toBeInTheDocument()
     rerender(<NarrativePane state={doneState()} />)
     expect(document.querySelector('[data-note-kind="review"]')).not.toBeInTheDocument()
     expect(document.querySelector('[data-note-kind="unknown"]')).toBeInTheDocument()
@@ -412,7 +412,7 @@ describe('NarrativePane citation chips', () => {
     expect(screen.queryByText(/Served from an earlier run/)).not.toBeInTheDocument()
     // The sample is one saved run of the pipeline (D-046), and its labels say what it is in a reader's words.
     expect(screen.getByText('Sources · sample data (one saved run)')).toBeInTheDocument()
-    const note = 'Sample data: figures and narrative from one saved analysis run. Run an analysis to see cited figures checked against SEC XBRL and source warnings shown for review.'
+    const note = 'Sample data: figures and narrative from one saved analysis run. Run an analysis to see cited figures checked against the company’s filed data and source warnings shown for review.'
     expect(screen.getByText('Sample data')).toHaveAttribute('title', note)
     expect(container).toHaveTextContent(note)
   })

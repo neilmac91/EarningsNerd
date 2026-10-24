@@ -34,7 +34,9 @@ of one plain sentence, claims backed by a figure with its source, no throat-clea
 2. **Specific over abstract.** Name what the product does and who it's for. Prefer a real
    detail or number ("10-K and 10-Q summaries", "5 summaries a month") to a vague benefit
    ("actionable insights"). Say what was checked and against what: a figure the server
-   matched reads "SEC XBRL", a risk excerpt it could not locate is "withheld".
+   matched reads "Matches filing", one it does not check "Linked, not checked", and a risk
+   excerpt it could not locate is "withheld". No acronym in a label: "XBRL" and "EDGAR" may
+   appear only as a technical detail behind a plain word (the founder's review, 2026-10-22).
 3. **Confident and plain.** Lead with the user's outcome. State the AI plainly without
    over-explaining it. Drop the hype. No exclamation marks.
 4. **Restraint over decoration.** Cut adjectives that don't earn their place and any
@@ -65,9 +67,9 @@ of one plain sentence, claims backed by a figure with its source, no throat-clea
 
 | Don't (as it was on 2026-10-11) | Do |
 |---|---|
-| "Nine-part summaries use selected filing text and available XBRL data, with source labels where a match is found." (hero subhead) | "Figures are checked against the company's XBRL where they can be, and quotes against the filing's own text." |
+| "Nine-part summaries use selected filing text and available XBRL data, with source labels where a match is found." (hero subhead) | "Figures are checked against the company's filed data where they can be, and quotes against the filing's own text." |
 | "Where the numbers come from" (section heading) | "Figures with their receipts." |
-| "Source labels show when financial metrics match filed XBRL data. Where supporting evidence is available, citations connect excerpts to the filing. The summary is built from selected filing text and available structured data." | "Each row in the highlights carries a label: SEC XBRL when its value matched the company's XBRL fact, Cited when it points to the filing without that match. A quote reads Verified in filing only when its words were found there." |
+| "Source labels show when financial metrics match filed XBRL data. Where supporting evidence is available, citations connect excerpts to the filing. The summary is built from selected filing text and available structured data." | A legend that sets each label beside its meaning: "Matches filing: both years' figures match the numbers Apple reported in the filing's data, after rounding." "Linked, not checked: we link to where the figure is reported but don't check it." "Quote found in filing: the quoted words appear in the filing, word for word." |
 | "Speed matters. Markets move fast. You need clarity before the next earnings call." (waitlist) | "Filings are long. The signal is spread across a hundred pages, and checking a number takes an afternoon. We read it with you and point at the passage." |
 | "Join 0+ others on the waitlist" | (nothing, until the count is worth saying) |
 | "Choose the plan that fits your workflow" (pricing subtitle) | "Summaries are generated once per filing and shared. That is what makes unlimited reading possible at this price." |
@@ -157,9 +159,11 @@ the business card, the footer and the merch; it is the positioning in six words.
   actionable insights, decision-ready, game-changing, "in today's fast-paced world". Say what
   the thing does instead. Add: "signal" as a noun for the product's output, "edge", "clarity"
   as a promise, and any sentence whose subject is the market.
-- Vocabulary the product owns, use it as the product does: "located in the filing",
-  "matched the company's XBRL", "withheld", "checkable", "cited", "the filing's own words",
-  "Full summary". Never "verified" without a match behind it.
+- Vocabulary the product owns, use it as the product does: "Matches filing", "Linked, not
+  checked", "Calculated from filing", "Quote found in filing", "Section linked", "Quote not found" (one module holds them,
+  `frontend/features/filings/lib/evidenceLabels.ts`), "located in the filing", "withheld",
+  "checkable", "corrected from the filing", "the filing's own words", "Full summary". Never
+  "verified" without a match behind it. A link to the source names SEC.gov, not EDGAR.
 - The account verb is "Log in": "Log out", "logged in", "logging in" (D-046). "Login" is the noun
   ("the login page", "Login failed"), and "sign up" is registering, so it stays. Never "sign in" or
   "sign out" in any form, "Signing you in…" and "Sign back in" included.
@@ -193,7 +197,8 @@ the business card, the footer and the merch; it is the positioning in six words.
   `frontend/tests/unit/brandCopyRules.spec.ts` fails on "each figure" or "every figure" without
   the scope beside it, and on a promise of nine parts for every filing.
 - Of a summary's quotes, only risk excerpts are withheld when the filing's text does not match
-  them. A Forward Signals quote stays on the page, labelled Cited, while `AI_FORWARD_QUOTE_GATE`
+  them. A Forward Signals quote stays on the page, labelled Section linked (Quote not found when it names no
+  section), while `AI_FORWARD_QUOTE_GATE`
   is off (`backend/app/services/ai/forward_quote_gate.py`). So a public surface promises "located
   or withheld", or "the filing's own words", of risk excerpts only; the same spec fails on that
   promise made of quotes in general. Arming the gate is what would widen the claim.

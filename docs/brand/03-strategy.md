@@ -21,17 +21,18 @@ check is worth more than a number you have to trust.**
    writes). A summary with gaps it admits is the product; a summary without gaps it hides is not.
 
 2. **We count only what we checked.** The filing page states its own score in scoped words: "3 of 5
-   checkable figures matched the company's XBRL · 4 of 4 risk excerpts located in the filing text"
+   checkable figures match the filing · 4 of 4 risk excerpts located in the filing text"
    (`frontend/features/filings/components/FilingIdentity.tsx` and the filing page's tally line). A
-   chip says "Verified in filing" or "Cited. Open the section to confirm.", never more
-   (`frontend/features/filings/components/SourceTrace.tsx`).
+   chip says what was checked, "Matches filing" or "Quote found in filing", or that it was not,
+   "Linked, not checked" or "Section linked", never more (D-058;
+   `frontend/features/filings/lib/evidenceLabels.ts`).
 
 3. **We keep the filing's words in the filing's voice.** Risk excerpts are the filing's own words,
    located before they show, and are set in the filing's own face; summaries and answers never
    borrow it (the Source Voice Rule, DESIGN.md "Typography"; `.filing-reader` in
    `frontend/app/globals.css`; the excerpt rows in `SummaryRisks.tsx`). A quote the server could
-   not find in the filing reads Cited, never Verified in filing. The reader can always tell who is
-   speaking.
+   not find in the filing reads Section linked, never Quote found in filing. The reader can always
+   tell who is speaking.
 
 One summary per filing, generated once and shared (CLAUDE.md rule 1), is the economics behind all
 three: the product can afford to check because it checks once.
