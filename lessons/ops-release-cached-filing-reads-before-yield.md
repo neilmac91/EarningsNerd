@@ -101,12 +101,17 @@ customer to its own account, and a single request makes each Stripe call with no
 (2026-10-23, E144).
 The company lookup, the search and the trending list, all public, ran their units on the loop between
 their SEC and Yahoo awaits, each released before the next await: eight readers of each answered as they
-should, but with every checkout and statement on the loop (13 of 13 for eight lookups of a new company,
-24 of 24 for eight searches of a stored one). Each unit now runs in the thread pool and releases in a
-`finally`. Off the loop, eight lookups or eight searches of one new company race for its row, as two
-instances always could: the unique CIK decides, and each loser serves the stored row through the
-resolver's recovery or the search's. Their burst case holds every statement and release off the loop
-and those racers to one row (2026-10-24, E171).
+should, but with every checkout and statement on the loop (13 of 13 statements for eight lookups of a
+new company, 24 of 24 for eight searches of a stored one). Each unit now runs in the thread pool and
+releases in a `finally`. Off the loop, eight lookups or eight searches of one new company race for its
+row, as two instances always could: the unique CIK decides, and each loser serves the stored row through
+the resolver's recovery or the search's. Two searches of the same new companies in opposite orders did
+worse. On PostgreSQL their batches deadlocked, and the one PostgreSQL aborted answered 500 after the
+deadlock timeout: 11 of 20 runs of a local probe that held both searches behind an uncommitted insert of
+the two rows. The batch now inserts its new rows, and its recovery resolves its CIKs, in CIK order: 0 of
+30. Their burst case holds every statement and release off the loop and those racers to one row, and
+`test_company_routes.py` holds each order; no CI step races the searches on PostgreSQL (2026-10-24,
+E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
