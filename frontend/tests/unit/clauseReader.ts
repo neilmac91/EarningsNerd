@@ -4,6 +4,11 @@
  * through it, and its consent and one-use families are to move onto it, so a shape one family reads the others read too
  * (lessons/test-gates-must-be-as-wide-as-their-rule.md). A family keeps its own lexicon (what counts as a login, an
  * endpoint or the whole API) and matches it at the places this reading names (matchAt), not anywhere in the sentence.
+ * Under its readings the endpoint family keeps main's recall as a floor (#1594's third round): it reads every noun
+ * phrase a clause names, at each quantifier (nounPhraseAt), and every login word in the clause, so a clause that names
+ * the endpoints taken whole with a login word fails unless this reading finds why it does not say the claim (a
+ * condition that narrows, a denial on its verb or its subject, the login word in another role or in the opposite
+ * sense), at the cost of failing a login word the endpoints only handle ("Each endpoint counts failed logins.").
  *
  * Tokens (tokensOf). A word is letters and digits, joined by a hyphen or an apostrophe ("API's", "token-based",
  * "can't") or by a point between digits ("99.9"); any other mark is a token of its own. Each keeps where it stands, so
@@ -14,11 +19,13 @@
  * "these", "such", ...), then the words before the head and the head. Those words run on until a word that cannot stand
  * in a noun phrase: a closed-class word (a preposition, a conjunction, a subordinating or relative word, an auxiliary
  * or a modal, a negation, a listed adverb), a mark, or, after the phrase's first word, a verb the lexicon knows
- * (VERB_FORMS) or an adverb in -ly. The head is the last of them, so "each endpoint's documentation" is headed by
- * "documentation". What follows the head is read with it: a prepositional phrase with its own noun phrase ("in the
- * admin namespace"), a relative clause with its relative word or without it ("that returns account data", "we run"), a
- * participle ("returning account data", "listed below") and an aside in commas before the verb group (", which returns
- * JSON,"). Each restricts the phrase unless it stands in commas, and an aside restricts it too when it names an
+ * (VERB_FORMS) or an adverb in -ly, but for one after a word read as an adjective ("anonymous requests",
+ * "unauthenticated calls": ADJECTIVES) and one an auxiliary, a modal or a negation follows, which is a noun there ("an
+ * auth proxy does not", "the access logs are"). The head is the last of them, so "each endpoint's documentation" is
+ * headed by "documentation". What follows the head is read with it: a prepositional phrase with its own noun phrase
+ * ("in the admin namespace"), a relative clause with its relative word or without it ("that returns account data", "we
+ * run"), a participle ("returning account data", "listed below") and an aside in commas before the verb group (", which
+ * returns JSON,"). Each restricts the phrase unless it stands in commas, and an aside restricts it too when it names an
  * exception (", except the health check,"). A phrase read as an adverb ("by default", "without exception": adverbAt) is
  * no prepositional phrase. A pronoun is a phrase of its own.
  *
@@ -35,19 +42,23 @@
  * nouns ("authentication and authorization"). A quantified noun phrase with a verb group after it, inside a predicate
  * and outside its conditions, opens a clause too, the clause a verb takes as its object ("We guarantee that each
  * endpoint requires a login."). A clause's subject is read after what introduces it (adverbs, connectives and a
- * prepositional phrase, each with its comma or not), and its predicate starts at its verb group (verbGroupAt:
- * auxiliaries, modals, adverbs, a negation and a catenative's "to" before its verb). A negation directly before "only",
- * "merely", "just", "simply" or "solely" adds to the verb and denies nothing ("not only requires authentication but
- * also returns JSON", "does not merely require a login"), so negates and verbGroupAt read it as no negation.
+ * prepositional phrase, each with its comma or not, and a purpose with its comma: "To call any endpoint, you need a
+ * token."), a gerund that opens it takes its object into it ("Using any endpoint requires a login."), and its predicate
+ * starts at its verb group (verbGroupAt: auxiliaries, modals, adverbs, a negation and a catenative's "to" before its
+ * verb). A negation directly before "only", "merely", "just", "simply" or "solely" adds to the verb and denies nothing
+ * ("not only requires authentication but also returns JSON", "does not merely require a login"), so negates and
+ * verbGroupAt read it as no negation.
  *
  * Out of reach: a verb the lexicon lacks reads as a noun after a noun, so a phrase runs on over it, and a noun the
- * lexicon also lists as a verb ends a phrase after another noun ("the access logs" reads as "the access" and a verb); a
- * subject named twice ("each endpoint and each page") reads as its first phrase alone, and a pronoun as no more than
- * itself ("each one"); a negation that governs a clause from outside it ("It is not true that ...") is not read; a
- * fronted phrase is an introduction, never a restriction ("In the admin namespace, each endpoint ..."), and a phrase in
- * brackets is not read; a prepositional phrase after a noun is read as that noun's, wherever else it may attach ("every
- * endpoint for each request" names its requests, and a family decides whether such a phrase narrows); and a fronted
- * condition with no comma runs to the first quantified noun phrase with a verb group after its own verb.
+ * lexicon also lists as a verb ends a phrase after another noun unless its own verb group follows ("the access logs
+ * record every call" reads as "the access" and a verb); a subject named twice ("each endpoint and each page") reads as
+ * its first phrase alone, and a pronoun as no more than itself ("each one"); a negation that governs a clause from
+ * outside it ("It is not true that ...") is not read; a fronted phrase is an introduction, never a restriction ("In the
+ * admin namespace, each endpoint ..."), and a phrase in brackets is not read; a prepositional phrase after a noun is
+ * read as that noun's, wherever else it may attach ("every endpoint for each request" names its requests, and a family
+ * decides whether such a phrase narrows); a quantifier after its noun ("the endpoints all require a login") is not
+ * read, nor a purpose with no comma after it ("To use any endpoint you must log in."); and a fronted condition with no
+ * comma runs to the first quantified noun phrase with a verb group after its own verb.
  */
 
 export type Token = { text: string; lower: string; start: number; end: number }
@@ -135,6 +146,9 @@ const ADVERBIAL_PHRASES = [['by', 'default'], ['without', 'exception'], ['in', '
 const CATENATIVES = words('designed built configured meant made going guaranteed bound certain sure able seem seems seemed appear appears appeared continue continues continued tend tends tended has have had need needs ought used')
 /** An aside that names an exception restricts what it follows. */
 const EXCEPTIONS = words('except excluding but save besides')
+/** Words the reading knows as adjectives: the word after one stands in its noun phrase even where the lexicon knows it
+    as a verb ("anonymous requests", "unauthenticated calls"). */
+const ADJECTIVES = words('anonymous unauthenticated authenticated unauthorized unauthorised authorized authorised signed-in logged-in signed-out logged-out valid invalid expired optional public private incoming')
 /** "once" before these is an adverb ("once a day", "works once and"), not a subordinating word. */
 const ONCE_AS_ADVERB = words('a an per every each more again and or nor but only daily')
 const CONDITION_ADVERBS = words('only even except')
@@ -310,6 +324,10 @@ function readPostmodifiers(tokens: Token[], phrase: NounPhrase): NounPhrase {
   return phrase
 }
 
+/** A word the lexicon knows as a verb that is a noun here, its own verb group after it: an auxiliary, a modal or a
+    negation ("an auth proxy does not", "the access logs are"). */
+const nounBeforeItsVerb = (tokens: Token[], at: number) => VERB_FORMS.has(lower(tokens[at])) && (AUXILIARIES.has(lower(tokens[at + 1])) || negates(tokens[at + 1], tokens[at + 2]))
+
 /** The noun phrase that starts at a token, with what follows its head (see the header), or null where none does. */
 export function nounPhraseAt(tokens: Token[], at: number): NounPhrase | null {
   let i = at
@@ -330,7 +348,8 @@ export function nounPhraseAt(tokens: Token[], at: number): NounPhrase | null {
   const premodifiers: Token[] = []
   if (PRONOUNS.has(word(i)) && !determiners.length) head = tokens[i++]
   else {
-    while (nominal(tokens[i], premodifiers.length === 0)) premodifiers.push(tokens[i++])
+    const open = () => premodifiers.length === 0 || ADJECTIVES.has(lower(premodifiers[premodifiers.length - 1])) || nounBeforeItsVerb(tokens, i)
+    while (nominal(tokens[i], open())) premodifiers.push(tokens[i++])
     const last = premodifiers.pop()
     if (!last) return null
     head = last
@@ -382,7 +401,20 @@ function frontedEnd(tokens: Token[], from: number): number {
   return i
 }
 
-/** Past what introduces a clause's subject: commas, adverbs and connectives, and a prepositional phrase. */
+/** Where a purpose before a clause ends ("To call any endpoint, you need a token."): past its comma, when a noun phrase
+    and a verb group follow it; -1 where none does. */
+function purposeEnd(tokens: Token[], at: number): number {
+  if (lower(tokens[at]) !== 'to' || !VERB_FORMS.has(lower(tokens[at + 1]))) return -1
+  for (let i = at + 2; i < tokens.length && !HARD.test(tokens[i].text); i++) {
+    if (tokens[i].text !== ',') continue
+    const subject = nounPhraseAt(tokens, i + 1)
+    return subject && startsPredicate(tokens, subject.end) ? i + 1 : -1
+  }
+  return -1
+}
+
+/** Past what introduces a clause's subject: commas, adverbs and connectives, a prepositional phrase, and a purpose with
+    its comma. */
 function skipIntroduction(tokens: Token[], at: number): number {
   let i = at
   for (;;) {
@@ -390,6 +422,7 @@ function skipIntroduction(tokens: Token[], at: number): number {
     if (!token || opensQuantified(tokens, i)) return i
     if (token.text === ',' || CONJUNCTIONS.has(token.lower)) i++
     else if (adverbAt(tokens, i)) i += adverbAt(tokens, i)
+    else if (purposeEnd(tokens, i) > 0) i = purposeEnd(tokens, i)
     else if (PREPOSITIONS.has(token.lower) && token.lower !== 'to' && nounPhraseAt(tokens, i + 1)) i = nounPhraseAt(tokens, i + 1)?.end ?? i + 1
     else return i
   }
@@ -424,6 +457,12 @@ function readClause(tokens: Token[], at: number, how: Next, carriedSubject: Noun
     i = skipIntroduction(tokens, i)
     subject = nounPhraseAt(tokens, i)
     i = subject?.end ?? i
+    // A gerund opening the clause takes its object into the subject ("Using any endpoint requires a login.").
+    const gerund = subject && !subject.quantifier && !subject.determiners.length && !subject.premodifiers.length && !subject.postmodifiers.length && /ing$/.test(subject.head.lower) && VERB_FORMS.has(subject.head.lower) && !startsPredicate(tokens, i) ? nounPhraseAt(tokens, i) : null
+    if (subject && gerund && startsPredicate(tokens, gerund.end)) {
+      subject.end = gerund.end
+      i = gerund.end
+    }
     const between = subject && tokens[i]?.text === ',' ? conditionAt(tokens, i) : null
     if (between) {
       let close = between.words
