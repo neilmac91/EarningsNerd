@@ -157,7 +157,8 @@ export default function NotificationBell({
                     />
                     {/* An alert's lines wrap, breaking a long token inside the row, never truncate: in the phone panel at
                         390px under 200% text a truncated line cut the date from every alert, the company name ending at
-                        "·…" (E176; tests/e2e/reflow-200.spec.ts). */}
+                        "·…" (E176; tests/e2e/reflow-200.spec.ts). The date holds one line, so a wrap comes before it,
+                        never inside it ("· Oct", then "20, 2026"; chief design on #1576, comment 6382172889). */}
                     <span className="min-w-0">
                       <span className="block text-sm text-text-primary-light [overflow-wrap:anywhere] dark:text-text-primary-dark">
                         New <span className="font-data">{item.filing_type}</span> from{' '}
@@ -165,7 +166,12 @@ export default function NotificationBell({
                       </span>
                       <span className="block text-xs text-text-secondary-light [overflow-wrap:anywhere] dark:text-text-secondary-dark">
                         {formatCompanyName(item.company_name)}
-                        {item.filing_date ? ` · ${formatLocalDate(item.filing_date, 'MMM d, yyyy')}` : ''}
+                        {item.filing_date ? (
+                          <>
+                            {' · '}
+                            <span className="whitespace-nowrap">{formatLocalDate(item.filing_date, 'MMM d, yyyy')}</span>
+                          </>
+                        ) : null}
                       </span>
                     </span>
                   </Link>

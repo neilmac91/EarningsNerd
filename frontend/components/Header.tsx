@@ -45,10 +45,12 @@ function publishHeaderHeight(header: HTMLElement) {
 // the server too, where useLayoutEffect warns.
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
+// The compact menu's account links. The menu holds the nav's links above them, so Calendar, which the nav lists while its
+// flag is on, is not repeated here: the menu lists each destination once (chief design on #1576, comment 6382172889;
+// tests/e2e/reflow-200.spec.ts). The account menu (UserMenu), a menu of its own, keeps it.
 const MOBILE_USER_LINKS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/dashboard/watchlist', label: 'Watchlist' },
-  ...(ENABLE_CALENDAR ? [{ href: '/calendar', label: 'Calendar' }] : []),
   { href: '/dashboard/settings', label: 'Settings' },
 ]
 

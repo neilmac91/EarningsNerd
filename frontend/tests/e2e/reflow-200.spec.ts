@@ -2149,10 +2149,40 @@ for (const viewport of [{ width: 1024, height: 768 }, { width: 1440, height: 900
     phone width under 200% text. The bell now sits on the bar's line, after the theme toggle where it shows and before
     the menu button, and below lg its panel spans the screen under the bar, inset as the bar is: its sides lie on the
     bar's content edges, its title and settings link are whole inside it, no alert's line is cut short (a truncated
-    line cut the date from every alert at 390px under 200% text), no line of its text paints past the screen's sides,
-    and its list scrolls to the last alert. The reader is an admin, whose compact menu then holds the admin links
-    after Settings and before Log out, inside the screen. The reader and the list are answered on top of answerApi's
-    routes (a route registered later answers first). */
+    line cut the date from every alert at 390px under 200% text), no alert's date breaks across lines (with a wrap
+    inside it, "· Oct", then "20, 2026", 3 dates broke at 320px and 13 at 390px under 200% text; chief design on #1576,
+    comment 6382172889), no line of its text paints past the screen's sides, and its list scrolls to the last alert. The
+    reader is an admin, whose compact menu then holds the admin links after Settings and before Log out, inside the
+    screen, and lists each destination once: Calendar, while its flag is on, was in the nav's links and again in the
+    account links. The reader and the list are answered on top of answerApi's routes (a route registered later answers
+    first). The alerts carry their companies' own names, of every length, so a
+    line's wrap falls at many places along it: the shared fixture's short names let every line fit or wrap before its
+    date. */
+const NAMED_ALERTS = ALERTS.map((alert, i) => ({
+  ...alert,
+  company_name: [
+    'Apple Inc.',
+    'Microsoft Corporation',
+    'NVIDIA Corporation',
+    'Amazon.com, Inc.',
+    'Alphabet Inc.',
+    'Meta Platforms, Inc.',
+    'Tesla, Inc.',
+    'JPMorgan Chase & Co.',
+    'Visa Inc.',
+    'Mastercard Incorporated',
+    'UnitedHealth Group Incorporated',
+    'Exxon Mobil Corporation',
+    'Johnson & Johnson',
+    'The Procter & Gamble Company',
+    'The Home Depot, Inc.',
+    'Costco Wholesale Corporation',
+    'AbbVie Inc.',
+    'The Coca-Cola Company',
+    'PepsiCo, Inc.',
+    'Netflix, Inc.',
+  ][i],
+}))
 for (const state of [
   { width: 320, height: 640, doubled: false },
   { width: 390, height: 844, doubled: true },
@@ -2177,7 +2207,7 @@ for (const state of [
       )
       await page.route(
         (url) => url.origin === API_ORIGIN && url.pathname === '/api/users/me/notifications',
-        (route) => route.fulfill({ status: 200, headers: cors, json: { items: ALERTS, unread_count: 0 } }),
+        (route) => route.fulfill({ status: 200, headers: cors, json: { items: NAMED_ALERTS, unread_count: 0 } }),
       )
       await page.goto('/pricing')
       await h1(page)
@@ -2228,6 +2258,30 @@ for (const state of [
             last: box(list.querySelector('li:last-child a')!),
             overflow: list.scrollHeight - list.clientHeight,
             cut: [...list.querySelectorAll('a > span:last-child > span')].filter((line) => line.scrollWidth > line.clientWidth + 1).map((line) => line.textContent),
+            // An alert's date, the text after its " · ", read as a range over the line's text, so it is found however
+            // the line is marked up: its fragments' tops more than 2px apart put it on two lines.
+            split: [...list.querySelectorAll('a > span:last-child > span:last-child')].flatMap((line) => {
+              const nodes: Text[] = []
+              const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT)
+              while (walker.nextNode()) nodes.push(walker.currentNode as Text)
+              const text = nodes.map((node) => node.data).join('')
+              const from = text.lastIndexOf(' · ')
+              if (from < 0 || !nodes.length) return []
+              const range = document.createRange()
+              let skip = from + 3
+              for (const node of nodes) {
+                if (skip < node.data.length) {
+                  range.setStart(node, skip)
+                  break
+                }
+                skip -= node.data.length
+              }
+              const last = nodes[nodes.length - 1]
+              range.setEnd(last, last.data.length)
+              const tops = [...range.getClientRects()].filter((rect) => rect.width > 0).map((rect) => rect.top)
+              return tops.length && Math.max(...tops) - Math.min(...tops) > 2 ? [text.slice(from + 3)] : []
+            }),
+            dates: [...list.querySelectorAll('a > span:last-child > span:last-child')].filter((line) => line.textContent?.includes(' · ')).length,
           }
         })
       const within = (what: string, inner: Box, outer: Box, where: string) => {
@@ -2246,6 +2300,8 @@ for (const state of [
       within('its title', open.title, open.panel, 'the panel')
       within('its "Manage alert settings" link', open.settings, open.panel, 'the panel')
       expect(open.cut, `${at}: no alert's line is cut short; each wraps inside its row`).toEqual([])
+      expect(open.dates, `${at}: each alert's second line ends with its date`).toBe(20)
+      expect(open.split, `${at}: no alert's date breaks across lines; a wrap comes before it`).toEqual([])
       expect(open.overflow, `${at}: the list scrolls inside the panel`).toBeGreaterThan(0)
       const lines = await headerMenuFit(page, 'Notifications')
       expect(lines.problems, `${at}: no line of the panel's text paints past the screen's sides`).toEqual([])
@@ -2269,10 +2325,14 @@ for (const state of [
           .filter((el) => el.textContent?.trim().startsWith('Admin'))
           .map((el) => el.getBoundingClientRect())
           .filter((box) => box.left < -0.5 || box.right > viewport + 0.5).length
-        return { run: labels.slice(settings, settings + 4), outside }
+        const hrefs = stops.map((el) => el.getAttribute('href')).filter((href): href is string => href !== null)
+        return { run: labels.slice(settings, settings + 4), outside, twice: hrefs.filter((href, i) => hrefs.indexOf(href) !== i) }
       })
       expect(order.run, `${at}: Settings, the admin links, then Log out`).toEqual(['Settings', 'Admin · Invites', 'Admin · Feedback', 'Log out'])
       expect(order.outside, `${at}: the admin links lie inside the screen's sides`).toBe(0)
+      // The menu holds the nav's links above the account links, so a destination in both lists, as Calendar was while
+      // its flag is on (CI's e2e env sets it), showed twice (chief design on #1576, comment 6382172889).
+      expect(order.twice, `${at}: the menu lists each destination once`).toEqual([])
     })
   })
 }
