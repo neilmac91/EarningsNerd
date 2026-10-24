@@ -3,7 +3,11 @@
    -----------------------------------------------------------------------------
    The compact INLINE form notice: icon + title + message + optional action in
    one hairline-tinted row — form/auth flows, inline card states. Replaces the
-   app-owned StateCard (variants error/info/success).
+   app-owned StateCard (variants error/info/success). The variant is written at
+   every call site: StateCard's default `info` painted guidance boxes loud blue
+   (lessons/frontend-status-colors-for-status-only.md), and the generating card's
+   whimsy line sat in that tint for three months. Activity (a run in progress) is
+   no Notice of any variant (DESIGN_SYSTEM.md §4 › Inline notice, §9).
 
    NESTING RULE (codified v2.2): GuidanceCard is a STANDALONE centered panel —
    never nest it inside a Card. Inside a Card or a form flow, this inline
@@ -86,7 +90,9 @@ function DefaultIcon({ variant }: { variant: NoticeVariant }) {
 }
 
 export interface NoticeProps {
-  variant?: NoticeVariant
+  /** Written at every call site, never a default: `info` is an advisory state in the info ink; activity is no
+   * Notice (gate: tests/unit/statusTintResidue.spec.ts). */
+  variant: NoticeVariant
   /** Defaults per variant (alert / info / check circles). Pass null to remove. */
   icon?: ReactNode
   title: ReactNode
@@ -97,7 +103,7 @@ export interface NoticeProps {
   className?: string
 }
 
-export function Notice({ variant = 'info', icon, title, description, action, className }: NoticeProps) {
+export function Notice({ variant, icon, title, description, action, className }: NoticeProps) {
   return (
     <div
       role={variant === 'error' ? 'alert' : 'status'}
