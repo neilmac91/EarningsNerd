@@ -94,14 +94,22 @@ def _template(node: ast.expr) -> str:
 
 
 def _written_reasons(tree: ast.AST) -> set[str]:
-    """Every reason a function writes into its ``reasons`` list, however it writes one: a call on the list (an
+    """Every reason a function writes into its ``reasons`` list, in each way it may write one: a call on the list (an
     ``append`` or an ``insert`` takes its last argument, an ``extend`` each item it is handed), an augmented
-    assignment (``+=``), an assignment to the list or a slice of it, or a sum that adds to the list where it is read
-    (``"reasons": reasons + [...]``). A value that is not a string or a template is kept as its source, which no
-    measured reason equals."""
+    assignment (``+=``), an assignment to the list or a slice of it, a sum that holds the list on either side, however
+    deep (``[...] + reasons``, ``reasons + extra + [...]``), or what a dict holds under ``"reasons"``. The list is the
+    name ``reasons`` or a value's ``"reasons"`` entry (``result["reasons"].append(...)``). A value that is not a
+    string or a template is kept as its source, which no measured reason equals."""
 
     def is_reasons(node: ast.expr) -> bool:
-        return (isinstance(node, ast.Name) and node.id == "reasons") or (isinstance(node, ast.Subscript) and is_reasons(node.value))
+        if isinstance(node, ast.Subscript):
+            return is_reasons(node.value) or (isinstance(node.slice, ast.Constant) and node.slice.value == "reasons")
+        return isinstance(node, ast.Name) and node.id == "reasons"
+
+    def holds_reasons(node: ast.expr) -> bool:
+        return is_reasons(node) or (
+            isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add) and (holds_reasons(node.left) or holds_reasons(node.right))
+        )
 
     def items(node: ast.expr) -> list[str]:
         if isinstance(node, (ast.List, ast.Tuple)):
@@ -116,12 +124,16 @@ def _written_reasons(tree: ast.AST) -> set[str]:
             written.update([_template(node.args[-1])] if node.func.attr in {"append", "insert"} else items(node.args[-1]))
         elif isinstance(node, ast.AugAssign) and is_reasons(node.target):
             written.update(items(node.value))
-        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add) and is_reasons(node.left):
-            written.update(items(node.right))
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add) and holds_reasons(node):
+            written.update(items(node))
         elif isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             if any(is_reasons(target) for target in targets):
                 written.update(items(node.value))
+        elif isinstance(node, ast.Dict):
+            for key, value in zip(node.keys, node.values):
+                if isinstance(key, ast.Constant) and key.value == "reasons":
+                    written.update(items(value))
     return written
 
 
@@ -135,10 +147,17 @@ def test_the_reason_reader_reads_every_way_a_reason_is_written():
         "reasons[:0] = ['f']",
         "reasons = reasons + ['g']",
         "reasons.append(words[n])",
-        "result = {'reasons': reasons + ['i']}",
+        "combined = reasons + ['i']",
+        "combined = ['j'] + reasons",
+        "combined = reasons + ['m'] + ['n']",
+        "result = {'reasons': ['k'], 'tier': 'partial'}",
+        "result['reasons'].append('l')",
         "other.append('not a reason')",
+        "result = {'notes': ['not a reason either']}",
     ])
-    assert _written_reasons(ast.parse(planted)) == {"a", "b", "c {}", "d", "e", "f", "g", "h", "i", "words[n]"}
+    assert _written_reasons(ast.parse(planted)) == {
+        "a", "b", "c {}", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "words[n]",
+    }
 
 
 def test_each_reason_the_badge_may_show_is_one_its_spec_measures():

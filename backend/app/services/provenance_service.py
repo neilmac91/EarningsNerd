@@ -870,8 +870,9 @@ _NO_UNIT = (
 # so a thousands group leaves its digits ("Note 12, 250 positions", "Note 12, 1,250 positions").
 _LISTED = rf"\d{{1,2}}(?-i:[A-C])?(?!\d){_NO_UNIT}"
 # A number after a comma is one of the list only where the list goes on or the clause ends ("Notes 3, 4 and 5."), so a
-# count after a listed number is a figure ("Item 7, 40 stores"); one after "and", "&", "to" or a dash ends the list.
-_LIST_GOES_ON = r"(?=\s*(?:,|&|\band\b|\bto\b|-|–|[.;:)]|$))"
+# count after a listed number is a figure ("Item 7, 40 stores"), as is one a dash joins to a word ("Item 7, 40-store
+# expansion", "Note 9, 10-year notes"); one after "and", "&", "to" or a dash ends the list.
+_LIST_GOES_ON = r"(?=\s*(?:,|&|\band\b|\bto\b|[-–](?![^\W\d_])|[.;:)]|$))"
 _NON_FIGURE_NUMBER_RE = re.compile(
     rf"(?<![$€£¥\d.,])\b(?:FY|CY)\s?['’]?\d{{2}}(?:\d{{2}})?\b{_NO_UNIT}"
     rf"|\b(?:Q[1-4]|[1-4]Q|H[12]|[12]H){_PERIOD_TAIL}\b{_NO_UNIT}"

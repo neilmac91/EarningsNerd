@@ -23,11 +23,12 @@ import { describe, expect, it } from 'vitest'
  *
  * Copy is what the TypeScript syntax tree holds as text: string literals, template text and JSX text, and a same-file
  * constant JSX renders by name, as it stands or through a method that keeps its words (`.trim()`, a change of case): a
- * string or a template (`as const`, `satisfies`, `!` and parentheses aside), each value a `?:`, `??` or `||` chooses
- * between, or one field of a same-file object. A name resolves as TypeScript resolves it, so a parameter or another
- * function's constant that shares the name is not that constant. Copy is read as a reader reads it: its character
- * references decoded as HTML decodes them (`&nbsp;`, `&#160;`, which JSX decodes in its text and an attribute's string,
- * and markup a module sets in its own), markup in a string by its text, a compatibility form as its letter (NFKC), the
+ * string or a template (`as const`, `satisfies`, `!` and parentheses aside), each value a `?:`, `??`, `||` or `&&`
+ * chooses between, or one field of a same-file object. A name resolves as TypeScript resolves it, so a parameter or
+ * another function's constant that shares the name is not that constant. Copy is read as a reader reads it: its
+ * character references decoded as HTML decodes them (`&nbsp;`, `&#160;`, which JSX decodes in its text and an
+ * attribute's string, and markup a module sets in its own), a string that holds markup both by its text (as an
+ * `__html` shows it) and as written (as React shows any other string), a compatibility form as its letter (NFKC), the
  * invisible characters taken out, and each run of white space, a line break included, as one space. Not copy: comments,
  * identifiers, the values of attributes that are never shown (an address such as an href or edgarCompanyUrl's result, a
  * class, a data-* hook but `data-en-ref`, whose value MarkedCopy shows as the margin's mark, a download's file name, an
@@ -42,9 +43,9 @@ import { describe, expect, it } from 'vitest'
  * scan reads the .ts, .tsx, .js and .jsx modules in app, components, features, hooks and lib, what the stylesheets
  * there add with `content:` (a declaration's strings joined, their escapes read: `"Verified \2713"`, its alternative
  * text after a "/" apart), and a class's generated content in a module or a stylesheet's `@apply`
- * (`before:content-['…']`, `after:[content:'…']`, an underscore a space). Each data attribute whose value the app reads
- * is listed with what it is for (DATA_READS), and one a stylesheet or a class shows with `attr()` must be one the scan
- * reads as copy.
+ * (`before:content-['…']`, `after:[content:'…']`, an underscore a space), a stylesheet's comments aside. Each data
+ * attribute whose value the app reads is listed with what it is for (DATA_READS), and one a stylesheet or a class shows
+ * with `attr()` must be one the scan reads as copy.
  *
  * It cannot follow copy another module hands a link. The vocabulary module, whose labels other modules render in links
  * (sourceLinkLabel(url), which evidenceLabels.spec.ts pins), names EDGAR nowhere in its copy, which a case below
@@ -193,19 +194,26 @@ function filesUnder(dir: string, keep: (name: string) => boolean, out: string[] 
   return out
 }
 
-/** Text as HTML reads it (`&nbsp;`, `&#160;`, `&CenterDot;`): jsdom's decoder, which knows every name JSX and Next's
-    compiler decode, and HTML's newer ones. Markup in a string (an `__html`) is read by its text, its tags left out;
-    other text through a textarea, whose content is text and character references, never tags. */
-function decoded(text: string): string {
-  if (/<[a-z!/]/i.test(text)) {
-    const holder = document.createElement('template')
-    holder.innerHTML = text
-    return holder.content.textContent ?? text
-  }
+/** Text with its character references read as HTML reads them (`&nbsp;`, `&#160;`, `&CenterDot;`): jsdom's decoder,
+    which knows every name JSX and Next's compiler decode, and HTML's newer ones, through a textarea, whose content is
+    text and character references, never tags. */
+function referencesRead(text: string): string {
   if (!/&#?\w/.test(text)) return text
   const holder = document.createElement('textarea')
   holder.innerHTML = text
   return holder.value
+}
+
+/** Text as a page shows it. A string that holds markup is read both ways, joined at "|" so each reads apart: by its
+    text, its tags left out and a `<br>` a space, as an `__html` shows it, and as written, as React shows any other
+    string (`{'<Verified>'}`). */
+function decoded(text: string): string {
+  const written = referencesRead(text)
+  if (!/<[a-z!/]/i.test(text)) return written
+  const holder = document.createElement('template')
+  holder.innerHTML = text
+  holder.content.querySelectorAll('br').forEach((br) => br.replaceWith(' '))
+  return `${holder.content.textContent ?? ''} | ${written}`
 }
 
 function textOf(node: ts.Node): string | null {
@@ -229,13 +237,16 @@ function unwrap(node: ts.Expression): ts.Expression {
   return at
 }
 
+// The operators whose value is one of their operands: `a || b`, `a ?? b`, `a && b`.
+const CHOOSES = new Set([ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.AmpersandAmpersandToken])
+
 /** The copy an initializer holds: a string, a template's text without its substitutions, or each of the values a
-    `?:`, `??` or `||` chooses between, joined at "|" so each reads as a label of its own. */
+    `?:`, `??`, `||` or `&&` chooses between, joined at "|" so each reads as a label of its own. */
 function initializerText(node: ts.Expression): string | null {
   const value = unwrap(node)
   const choices = ts.isConditionalExpression(value)
     ? [value.whenTrue, value.whenFalse]
-    : ts.isBinaryExpression(value) && (value.operatorToken.kind === ts.SyntaxKind.BarBarToken || value.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken)
+    : ts.isBinaryExpression(value) && CHOOSES.has(value.operatorToken.kind)
       ? [value.left, value.right]
       : null
   if (choices) {
@@ -383,7 +394,8 @@ export const scan = (rel: string, source: string) => scanAll(new Map([[rel, sour
 const CONTENT_DECLARATION = /content\s*:((?:"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*'|[^;}"'])*)/gi
 // A CSS string, or the "/" that sets a content's alternative text apart (`content: "✓" / "Checked"`).
 const CSS_TOKEN = /"((?:[^"\\]|\\[\s\S])*)"|'((?:[^'\\]|\\[\s\S])*)'|(\/)/g
-const contentValues = (css: string) => [...css.replace(/\/\*[\s\S]*?\*\//g, ' ').matchAll(CONTENT_DECLARATION)].map(([, value]) => value)
+const withoutComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, ' ')
+const contentValues = (css: string) => [...withoutComments(css).matchAll(CONTENT_DECLARATION)].map(([, value]) => value)
 
 /** A CSS string's text, its escapes read as CSS reads them: `\2713 ` is ✓, `\"` a quote, an escaped line break nothing. */
 const cssUnescaped = (text: string) =>
@@ -424,6 +436,14 @@ export function classContent(text: string): { texts: string[]; attributes: strin
     else texts.push((single ?? double).replace(/\\_|_/g, (match) => (match === '_' ? ' ' : '_')))
   }
   return { texts, attributes }
+}
+
+/** What a stylesheet shows, its comments taken out: the text its `content:` declarations add and its `@apply` classes
+    generate, and the attributes either shows with `attr()`. */
+export function stylesheetContent(css: string): { texts: string[]; attributes: string[] } {
+  const sheet = withoutComments(css)
+  const classes = classContent(sheet)
+  return { texts: [...cssContent(sheet), ...classes.texts], attributes: [...cssShownAttributes(sheet), ...classes.attributes] }
 }
 
 /** The data attributes a module reads the value of: `el.dataset.name`, `el.dataset['name']`, a name destructured from
@@ -541,10 +561,7 @@ describe('the evidence vocabulary (D-058)', () => {
 
   it('adds no retired label with a stylesheet’s content', () => {
     expect(sheets).toContain('app/globals.css')
-    const added = sheets.flatMap((rel) => {
-      const css = readFileSync(path.join(FRONTEND, rel), 'utf8')
-      return [...cssContent(css), ...classContent(css).texts]
-    })
+    const added = sheets.flatMap((rel) => stylesheetContent(readFileSync(path.join(FRONTEND, rel), 'utf8')).texts)
     expect(added.filter((text) => retiredText(text, true))).toEqual([])
   })
 
@@ -557,10 +574,7 @@ describe('the evidence vocabulary (D-058)', () => {
     for (const [name, use] of Object.entries(DATA_READS)) expect(UNSHOWN_ATTRIBUTE.test(name), `${name}: ${use}`).toBe(use !== 'shown')
     // An attribute a stylesheet or a class shows with attr() is copy.
     const styled = [
-      ...sheets.flatMap((rel) => {
-        const css = readFileSync(path.join(FRONTEND, rel), 'utf8')
-        return [...cssShownAttributes(css), ...classContent(css).attributes]
-      }),
+      ...sheets.flatMap((rel) => stylesheetContent(readFileSync(path.join(FRONTEND, rel), 'utf8')).attributes),
       ...files.flatMap((rel) => {
         const shown: string[] = []
         visit(program.getSourceFile(path.join(FRONTEND, rel))!, (node) => {
@@ -628,10 +642,15 @@ describe('the vocabulary scan holds its reach', () => {
     ['a link that names it with a soft hyphen', `export const A = ({ u }: { u: string }) => <a href={u}>Full history on ED&shy;GAR</a>`],
     [
       'a constant a condition chooses',
-      `export const A = ({ u, annual }: { u: string; annual: boolean }) => { const label = annual ? 'Open the 10-K on EDGAR' : 'Open the 10-Q on SEC.gov'; return <a href={u}>{label}</a> }`,
+      `export const A = ({ u, annual }: { u: string; annual: boolean }) => { const label = annual ? 'Open the 10-K on SEC.gov' : 'Open the 10-Q on EDGAR'; return <a href={u}>{label}</a> }`,
     ],
     ['a constant with a default', `export const A = ({ u, l }: { u: string; l?: string }) => { const label = l ?? 'Open on EDGAR'; return <a href={u}>{label}</a> }`],
     ['a constant with a fallback', `const LABEL = process.env.X || 'Open on EDGAR'\nexport const A = () => <a href="/f">{LABEL}</a>`],
+    [
+      'a constant a condition chooses before its default',
+      `export const A = ({ u, annual }: { u: string; annual: boolean }) => { const label = (annual ? 'Open on EDGAR' : undefined) ?? 'Open on SEC.gov'; return <a href={u}>{label}</a> }`,
+    ],
+    ['a constant behind &&', `export const A = ({ u, annual }: { u: string; annual: boolean }) => { const label = annual && 'Open the 10-K on EDGAR'; return <a href={u}>{label}</a> }`],
   ])('fails %s', (_, source) => {
     expect(breaches(source)).toContain('link names EDGAR')
   })
@@ -688,7 +707,14 @@ describe('the vocabulary scan holds its reach', () => {
     ['an arbitrary property’s content', `export const V = () => <span className="after:[content:'Verified']">Revenue</span>`],
     ['a badge a condition chooses', `export const B = ({ ok }: { ok: boolean }) => { const BADGE = ok ? 'VERIFIED' : 'PENDING'; return <span>{BADGE}</span> }`],
     ['a bare source name a condition chooses', `export const T = ({ x }: { x: boolean }) => { const SOURCE = x ? 'SEC EDGAR' : 'SEC.gov'; return <span>{SOURCE}</span> }`],
+    ['a badge a condition chooses second', `export const B = ({ ok }: { ok: boolean }) => { const BADGE = ok ? 'PENDING' : 'VERIFIED'; return <span>{BADGE}</span> }`],
+    ['a bare source name a condition chooses second', `export const T = ({ x }: { x: boolean }) => { const SOURCE = x ? 'SEC.gov' : 'SEC EDGAR'; return <span>{SOURCE}</span> }`],
+    ['a badge behind &&', `export const B = ({ ok }: { ok: boolean }) => { const BADGE = ok && 'VERIFIED'; return <span>{BADGE}</span> }`],
+    ['a bare source name behind &&', `export const T = ({ x }: { x: boolean }) => { const SOURCE = x && 'SEC EDGAR'; return <span>{SOURCE}</span> }`],
     ['markup a module sets', `export const M = () => <span dangerouslySetInnerHTML={{ __html: 'Revenue · <b>Verified</b>' }} />`],
+    ['markup a module sets, its words parted by a line break', `export const M = () => <span dangerouslySetInnerHTML={{ __html: 'Figures from SEC<br>XBRL data' }} />`],
+    ['a badge in angle brackets, which React shows as written', `export const V = () => <span>{'<Verified>'}</span>`],
+    ['a bare source name in angle brackets in a title', `export const T = () => <span title="<SEC EDGAR>">10-K</span>`],
   ])('fails %s', (_, source) => {
     expect(breaches(source)).toContain('retired label')
   })
@@ -790,6 +816,17 @@ describe('the vocabulary scan holds its reach', () => {
     expect(cssContent(sheet).filter((text) => retiredText(text, true))).toEqual(['Verified ✓', 'Verified', '"Cited"'])
     // A content's alternative text is read apart, and a custom property named for content is read too.
     expect(cssContent(`.f::after { content: "✓" / "Verified"; } .g { --chip-content: 'Cited'; }`)).toEqual(['✓', 'Verified', 'Cited'])
+  })
+
+  it('reads what a stylesheet shows, its comments aside', () => {
+    const sheet = [
+      `.a::after { content: 'Verified'; }`,
+      `.b { @apply after:content-['Cited']; }`,
+      `.c::before { content: attr(data-label); }`,
+      `.d { @apply before:content-[attr(data-note)]; }`,
+      `/* was: .e { @apply after:content-['Source_match_found'] before:content-[attr(data-old)]; } */`,
+    ].join('\n')
+    expect(stylesheetContent(sheet)).toEqual({ texts: ['Verified', 'Cited'], attributes: ['data-label', 'data-note'] })
   })
 
   it('reads the attributes a style shows and the data attributes a module reads', () => {
