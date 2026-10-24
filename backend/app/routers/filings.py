@@ -40,8 +40,10 @@ VISIT_TASK_BUDGET = RateLimiter(limit=15, window_seconds=300)
 # The live SEC fetch, taken when nothing is stored in the requested forms and no listing of this
 # company within the freshness TTL found them empty (a first view, a company that has none of them once
 # per TTL, or, on every visit, a listing made only of rows another company stores or rows it could not
-# store), is bounded per client IP, as search's is. Production paces SEC at 1 request/s per process, so
-# one client gets at most a sixth of it.
+# store), is bounded per client IP in each process, as search's is. A fetch is one SEC request, the
+# company's submissions JSON, on edgartools' bucket, which production paces at 1 request/s per process
+# (EDGAR_RATE_LIMIT_PER_SEC), so while SEC answers one client's fetches take at most a sixth of that pace
+# (pinned in test_filings_routes.py). A failed connection is retried by edgartools, 5 attempts in all.
 LIVE_FETCH_LIMITER = RateLimiter(limit=10, window_seconds=60)
 
 

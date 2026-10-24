@@ -10,8 +10,9 @@ provably behaviour-neutral. It also pins that ``?filing_types=`` is validated wh
 never reaches the durable refresh, so a caller cannot queue one task per distinct value (the gate
 for ``lessons/arch-caller-input-never-names-a-durable-task.md``), and that the route bounds the work
 a request causes rather than the request: the durable handoffs spend a per-process budget, sized under
-the queue's drain across the API's instances, and the live SEC fetch a per-client one, while a visit
-served from stored rows that hands nothing off spends neither. SEC calls are patched on the shared ``sec_edgar_service`` singleton; every test runs on a
+the queue's drain across the API's instances, and the live SEC fetch a per-client one, sized at a sixth
+of the SEC pace it waits on at most, while a visit served from stored rows that hands nothing off
+spends neither. SEC calls are patched on the shared ``sec_edgar_service`` singleton; every test runs on a
 private SQLite engine and with the route's budgets unspent.
 """
 import asyncio
@@ -46,8 +47,9 @@ from app.services.edgar.config import FilingType
 from app.services.edgar.exceptions import EdgarError
 from app.services.latest_filing_service import company_list_forms
 from app.services.rate_limiter import RateLimiter
+from edgar import httprequests as edgar_httprequests
 from tests.support.filings_budgets import unspend_filings_budgets
-from tests.unit.test_sec_process_budgets import ROOT, SERVICE_STEP, _run, _service_instances
+from tests.unit.test_sec_process_budgets import ROOT, SERVICE_STEP, _env_map, _run, _service_instances
 
 ROUTER_LOGGER = "app.routers.filings"
 PERSIST_LOGGER = "app.services.filing_list_service"  # the live-persistence skip warnings moved
@@ -946,6 +948,103 @@ def test_live_fetches_past_the_per_ip_budget_answer_429_only_when_nothing_is_sto
     assert [row["accession_number"] for row in warm.json()] == ["0000000003-25-000001"]
     assert other.status_code == 200
     assert fetched == ["0000000002"] * 3  # the refused request made no SEC call
+
+
+def test_a_client_spends_one_live_fetch_budget_whichever_company_or_forms_it_asks_for(client, sessions, monkeypatch):
+    """The budget is the client's, not a company's or a form list's. A crawl of company pages from one
+    address asks each company for its default forms, with no ``?filing_types=``, which is also how the
+    site's own server renders the page: that request spends the budget as one naming forms does, and past
+    the budget the next company's page is refused too, while another address still fetches it."""
+    with sessions() as s:
+        _seed_company(s)  # COLD: nothing stored
+        _seed_company(s, ticker="BLANK", cik="0000000003")  # a second company with nothing stored
+    fetched = []
+
+    async def get_filings(cik, types):
+        fetched.append((cik, types))
+        return []
+
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
+    monkeypatch.setattr(filings_mod, "LIVE_FETCH_LIMITER", RateLimiter(limit=2, window_seconds=60))
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+
+    def get(ticker, forms=None, client_ip="203.0.113.7"):
+        return client.get(
+            f"/api/filings/company/{ticker}", params={"filing_types": forms} if forms else None,
+            headers={"X-Forwarded-For": client_ip},
+        )
+
+    spent = [get("cold"), get("cold", "8-K")]
+    refused = get("blank")
+    other = get("blank", client_ip="198.51.100.9")
+
+    assert [(r.status_code, r.json()) for r in spent] == [(200, [])] * 2
+    assert (refused.status_code, refused.json()) == (429, {"detail": "Too many filing requests. Please retry in a minute."})
+    assert (other.status_code, other.json()) == (200, [])
+    assert fetched == [  # the refused page made no SEC call
+        ("0000000002", DEFAULT_TYPES), ("0000000002", filing_list_service.requested_filing_types("8-K")),
+        ("0000000003", DEFAULT_TYPES),
+    ]
+
+
+def _submissions(cik, recent):
+    """The submissions JSON SEC serves for ``cik``, as edgartools reads it: ``recent`` (form, accession,
+    filing date, report date, primary document) as its recent window, and one page of older filings
+    listed, which only a full-history load downloads."""
+    columns = ("form", "accessionNumber", "filingDate", "reportDate", "primaryDocument")
+    window = {name: [row[i] for row in recent] for i, name in enumerate(columns)}
+    window.update({name: [""] * len(recent) for name in ("act", "fileNumber", "filmNumber", "items", "primaryDocDescription")})
+    window.update(acceptanceDateTime=[f"{row[2]}T16:05:00.000Z" for row in recent],
+                  size=[1] * len(recent), isXBRL=[1] * len(recent), isInlineXBRL=[1] * len(recent))
+    address = dict.fromkeys(("street1", "street2", "city", "stateOrCountryDescription", "stateOrCountry", "zipCode"))
+    return {
+        "cik": cik.lstrip("0"), "name": "COLD Co", "tickers": ["COLD"], "exchanges": ["NYSE"],
+        "addresses": {"mailing": address, "business": address},
+        "insiderTransactionForOwnerExists": 0, "insiderTransactionForIssuerExists": 0,
+        "filings": {"recent": window, "files": [{"name": f"CIK{cik}-submissions-001.json"}]},
+        **dict.fromkeys(("sic", "sicDescription", "category", "fiscalYearEnd", "entityType", "phone", "flags", "ein",
+                         "description", "website", "investorWebsite", "stateOfIncorporation",
+                         "stateOfIncorporationDescription")),
+    }
+
+
+# What a live fetch costs SEC (test_a_live_fetch_is_one_sec_request): one request, on edgartools' bucket.
+REQUESTS_PER_LIVE_FETCH = 1
+
+
+def test_a_live_fetch_is_one_sec_request(client, sessions, monkeypatch):
+    """The unit the live-fetch budget counts: one fetch is one SEC request, the company's submissions JSON,
+    made by edgartools and so paced by its bucket, not the app's. The listing reads that JSON's recent
+    window and never the older pages it lists, which a full-history load would download one by one, and
+    building the response reads nothing more. Driven through the route, the real edgar client and the real
+    edgartools, with only edgartools' GET faked."""
+    with sessions() as s:
+        _seed_company(s)  # COLD, CIK 0000000002: nothing stored
+    accession = "0000000002-26-000001"
+    gets = []
+
+    def get_with_retry(url, **kwargs):
+        gets.append(url)
+        submissions = _submissions("0000000002", [("10-K", accession, "2026-02-19", "2025-12-31", "cold-10k.htm")])
+        return httpx.Response(200, json=submissions, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(edgar_httprequests, "get_with_retry", get_with_retry)
+
+    listed = client.get("/api/filings/company/cold")
+
+    assert gets == ["https://data.sec.gov/submissions/CIK0000000002.json"]
+    assert len(gets) == REQUESTS_PER_LIVE_FETCH
+    assert (listed.status_code, [row["accession_number"] for row in listed.json()]) == (200, [accession])
+
+
+def test_one_clients_live_fetches_take_at_most_a_sixth_of_the_sec_pace_they_wait_on():
+    """A live fetch waits on edgartools' bucket, which the deploy pins per process (``EDGAR_RATE_LIMIT_PER_SEC``
+    in the service's env map), and makes one request on it, so the per-client budget, counted in requests,
+    stays at a sixth of that pace at most: one address cannot hold the SEC pacing every other request's
+    fetch waits on. Both counts are per process, so the share holds on each instance."""
+    pace = int(_env_map(_run(SERVICE_STEP))["EDGAR_RATE_LIMIT_PER_SEC"])
+    limiter = filings_mod.LIVE_FETCH_LIMITER
+    assert Fraction(limiter.limit * REQUESTS_PER_LIVE_FETCH, limiter.window_seconds) <= Fraction(pace, 6)
 
 
 def _listing_clock(monkeypatch):
