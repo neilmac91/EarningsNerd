@@ -859,6 +859,117 @@ test.describe("a failure's controls stay inside their card at 200% text", () => 
   }
 })
 
+/** The company page's loaded filings index at 200% text (E168; features/filings/components/FilingIndex.tsx), beside the
+    failure cases above. Every box in its card and every painted line of its text lies inside the card, no row's text
+    runs under the row's EDGAR square, and the Compare periods card beside it covers none of it. The index and the
+    page's columns switch at rem widths, so under 200% text the four-column grid shows from 1536px and the Compare
+    periods card beside the filings from 2048px, and a list narrower than 15rem stacks each row, the code beside the
+    EDGAR square. Before, their px breakpoints chose a layout the doubled text had no room for: at 320px a year's
+    caret painted to 311px past a card ending at 288px, the header's count to 297px and a period to 290px; from 320
+    to 360px the EDGAR square sat over a period's last word; at 768px the grid's headings and dates printed over the
+    periods; and at 1024px the filings card was 208px wide beside the Compare periods card, which covered its rows. */
+const indexFit = (card: Locator) =>
+  card.evaluate((root) => {
+    const c = root.getBoundingClientRect()
+    const px = (a: number, b: number) => `${Math.round(a)}-${Math.round(b)}px`
+    const said = (text: string | null) => (text ?? '').replace(/\s+/g, ' ').trim().slice(0, 30)
+    // Text that paints: a visible parent wider than the 1px box sr-only leaves (its text is clipped away).
+    const painted = (node: Node) => {
+      const host = node.parentElement
+      if (!node.textContent?.trim() || !host?.checkVisibility()) return false
+      const box = host.getBoundingClientRect()
+      return box.width > 1 || box.height > 1
+    }
+    const lines = (scope: Element) => {
+      const found: { text: string; line: DOMRect }[] = []
+      const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!painted(node)) continue
+        const range = document.createRange()
+        range.selectNodeContents(node)
+        for (const line of range.getClientRects()) if (line.width > 0) found.push({ text: said(node.textContent), line })
+      }
+      return found
+    }
+    const past: string[] = []
+    for (const el of root.querySelectorAll('*')) {
+      const r = el.getBoundingClientRect()
+      if (r.width === 0 || !el.checkVisibility() || (r.width <= 1 && r.height <= 1)) continue
+      if (r.left < c.left - 0.5 || r.right > c.right + 0.5) past.push(`${el.tagName.toLowerCase()} "${said(el.textContent)}" ${px(r.left, r.right)}`)
+    }
+    for (const { text, line } of lines(root)) {
+      if (line.left < c.left - 0.5 || line.right > c.right + 0.5) past.push(`text "${text}" ${px(line.left, line.right)}`)
+    }
+    const under: string[] = []
+    for (const row of root.querySelectorAll('li')) {
+      const square = row.querySelector(':scope > a[target="_blank"]')
+      const link = row.querySelector(':scope > a:not([target])')
+      if (!square || !link || !square.checkVisibility()) continue
+      const s = square.getBoundingClientRect()
+      for (const { text, line } of lines(link)) {
+        if (line.left < s.right - 0.5 && s.left < line.right - 0.5 && line.top < s.bottom - 0.5 && s.top < line.bottom - 0.5) {
+          under.push(`"${text}" ${px(line.left, line.right)} by ${px(line.top, line.bottom)}, the square ${px(s.left, s.right)} by ${px(s.top, s.bottom)}`)
+        }
+      }
+    }
+    return { card: px(c.left, c.right), rows: root.querySelectorAll('li').length, past, under }
+  })
+const boxesOverlap = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
+  a.x < b.x + b.width - 0.5 && b.x < a.x + a.width - 0.5 && a.y < b.y + b.height - 0.5 && b.y < a.y + a.height - 0.5
+
+for (const state of [
+  { width: 320, height: 780, phone: true, wide: false, columns: false },
+  { width: 360, height: 780, phone: true, wide: false, columns: false },
+  { width: 390, height: 844, phone: true, wide: false, columns: false },
+  { width: 768, height: 1024, phone: false, wide: false, columns: false },
+  { width: 1024, height: 768, phone: false, wide: false, columns: false },
+  { width: 1440, height: 900, phone: false, wide: false, columns: false },
+  { width: 2304, height: 1296, phone: false, wide: true, columns: true },
+] as const) {
+  test.describe(`a ${state.width}px ${state.phone ? 'phone' : 'screen'} at 200% text, the company page's filings index`, () => {
+    test.use({ viewport: { width: state.width, height: state.height }, isMobile: state.phone, hasTouch: state.phone })
+    test(`company (/company/AAPL) keeps every box and line of the loaded index inside its card, no row's text under its EDGAR square and the Compare periods card off it, at ${state.width}px and 200% text`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      // A path no request takes: the company page and its filings answer as the failure cases' fixtures do.
+      await answerSite(page, baseURL!, false, { path: '/none', status: 404, body: {} })
+      await page.goto('/company/AAPL')
+      const card = page.getByRole('region', { name: 'SEC filings' })
+      await expect(card.getByRole('link', { name: /^10-Q/ }), 'the index has loaded its rows').toBeVisible()
+      await page.evaluate(() => document.fonts.ready)
+      const cdp = await page.context().newCDPSession(page)
+      await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+      await expect
+        .poll(
+          () =>
+            page.evaluate(() => ({
+              root: getComputedStyle(document.documentElement).fontSize,
+              wide: matchMedia('(min-width: 48rem)').matches,
+              columns: matchMedia('(min-width: 64rem)').matches,
+            })),
+          { message: `the 200% text setting took at ${state.width}px: the root computes to 32px, and the index's 48rem and the page's 64rem queries match as the width expects` },
+        )
+        .toEqual({ root: '32px', wide: state.wide, columns: state.columns })
+      await settle(page)
+      await page.evaluate(() => document.fonts.ready)
+
+      const at = `${state.width}px and 200% text`
+      const fit = await indexFit(card)
+      expect(fit.rows, `${at}: the index's three rows are read`).toBe(3)
+      expect(fit.past, `${at}: every box and line of text in the index lies inside its card (${fit.card})`).toEqual([])
+      expect(fit.under, `${at}: no row's text runs under its EDGAR square`).toEqual([])
+      const compare = page.getByRole('complementary', { name: 'Compare periods' })
+      await expect(compare, `${at}: the Compare periods card shows`).toBeVisible()
+      const [filingsBox, compareBox] = [await card.boundingBox(), await compare.boundingBox()]
+      expect(boxesOverlap(filingsBox!, compareBox!), `${at}: the Compare periods card (${JSON.stringify(compareBox)}) covers none of the filings card (${JSON.stringify(filingsBox)})`).toBe(false)
+    })
+  })
+}
+
 /** The cookie settings dialog's category rows at 200% text (components/CookieConsent.tsx), opened from the footer's
     "Cookie settings" on a page whose visitor has already chosen. Each row takes the Notice's recipe: it wraps, its text
     column keeps 9rem beside the box or takes the card's width with the box under it, and a word too long for the column
