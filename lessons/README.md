@@ -54,6 +54,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 - ops-finish-only-job-owned-read-transactions.md — Finish the CLI's read transaction before transport while preserving attached inputs
 - ops-job-success-needs-outcome-evidence.md — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 - ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
+- ops-read-main-and-every-slot-claim-before-a-backend-merge.md — Before merging a backend PR, read main's newest push runs and every open PR's slot claim, and confirm main is the trial merge's base; the deploy job's concurrency group orders deploys but stops no merge (review-checked)
 - ops-verify-env-updates-reach-session.md — Fingerprint env values in the running shell before debugging a rotated secret
 
 ## Evals, judging, paid runs and the founder's machine (read for that work)
