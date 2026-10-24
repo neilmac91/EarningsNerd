@@ -459,7 +459,7 @@ async def delete_user_account(
                 )
 
                 # Delete user from database (cascade delete will handle related records)
-                user_account_service.delete_user(db, current_user)
+                user_account_service.delete_user(db, user_id)
             except Exception:
                 user_account_service.rollback_account_deletion(db)
                 raise

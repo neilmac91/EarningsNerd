@@ -55,8 +55,8 @@ def client():
 
 @contextmanager
 def _seeded_user(stripe_customer_id=None):
-    """A real user row, authenticated through the request's own ``get_db`` session so the
-    handler's ``db.delete(current_user)`` acts on an in-session instance."""
+    """A real user row, authenticated through the request's own ``get_db`` session, as the auth lookup
+    loads it, so the route's release before its third-party calls returns that lookup's connection."""
     email = f"del-{uuid.uuid4().hex}@example.com"
     db = SessionLocal()
     user = User(email=email, hashed_password=None, email_verified=True, is_active=True,
@@ -298,8 +298,9 @@ def test_a_listed_subscription_of_another_customer_is_never_cancelled(client, mo
 @pytest.mark.requires_db
 def test_a_delete_that_finds_the_account_gone_answers_the_routes_500(client, monkeypatch, caplog):
     # A second deletion of the account at once: the first deletes the row while this one makes its Stripe call,
-    # so after the account's lock this one's delete finds no row. Pre-existing outcome, pinned as-is (the
-    # deletion-failure policy is F18's): the route's own 500, the audit row written before the delete.
+    # so under the account's lock this one finds no row. It answers 500, as at the base (the deletion-failure
+    # policy is F18's), but now the route's own 500 and log line, where the base's error log read the deleted
+    # row and raised, so main.py's global handler answered. The audit row is written before the delete.
     def first_deletion_commits(stripe_customer_id, _user_id):
         with SessionLocal() as other:
             other.query(User).filter(User.stripe_customer_id == stripe_customer_id).delete()

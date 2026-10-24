@@ -2445,11 +2445,13 @@ def _account_records_fixture(monkeypatch, tmp_path):
         blocking("Stripe cancellation", stripe_customer_id)
 
     class Posthog:
-        def capture(self, *, distinct_id: str, event: str, properties: dict) -> None:
-            assert event == "$delete"
-            blocking("PostHog capture", distinct_id)
+        """The surface of PostHog 7.71's client the deletion uses."""
 
-        def flush(self) -> None:
+        def capture(self, event: str, **kwargs: Any) -> None:
+            assert event == "$delete"
+            blocking("PostHog capture", kwargs["distinct_id"])
+
+        def flush(self, timeout_seconds: float = 10) -> None:
             blocking("PostHog flush", "")
 
     monkeypatch.setattr(users, "_cancel_billable_subscriptions", cancel)
@@ -2484,11 +2486,11 @@ _ACCOUNT_RECORD_FAILS = {
     ("GET", "export"), ("DELETE", "delete"), ("GET", "export_fails"), ("DELETE", "delete_fails"),
 ])
 async def test_account_export_and_deletion_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, case):
-    """The data export runs its reads, its audit row, the release and the response's render in one thread-pool
-    unit. The account deletion releases the auth lookup's connection before its Stripe cancellation and PostHog
-    flush, which run off the loop, then writes its audit row and deletes the account in one unit, rolling a
-    failure back before the release. Eight owners on four slots leave nothing for the finalizer and make no
-    checkout, statement or release on the loop."""
+    """Eight owners on four slots, exporting or deleting, a failing unit per route included: every checkout,
+    statement and release runs off the loop and nothing is left for the finalizer, and each deletion makes its
+    Stripe cancellation and PostHog calls off the loop, for its own account. The single deletion below shows
+    those calls hold no connection, and test_account_deletion_api.py that a failed delete rolls back before
+    the release."""
     import importlib
 
     from app.models import AuditLog, User

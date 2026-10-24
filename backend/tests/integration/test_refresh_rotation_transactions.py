@@ -38,7 +38,8 @@ once a token writer holds the lock, and hold the writer there until the deletion
 deleted something: taking the lock last, the deletion would delete the tokens first, and the writer's
 token write and the deletion's own row delete would wait on each other until PostgreSQL aborted one. A
 writer that waits out a deletion finds its token, or a login or change the account, gone and writes
-nothing.
+nothing. Of two deletions of one account, the second waits out the first under the lock and finds the
+account gone there, even with the account loaded in its session before the first committed.
 """
 import asyncio
 import os
@@ -248,10 +249,19 @@ _OPERATIONS = {
         db, db.get(User, user_id), "another first password's hash", verified_hash=None,
     ),
     "password_login": lambda db, user_id, raw: _password_login(db, db.get(User, user_id)),
-    "delete_account": lambda db, user_id, raw: user_account_service.delete_user(db, db.get(User, user_id)),
+    "delete_account": lambda db, user_id, raw: user_account_service.delete_user(db, user_id),
+    "delete_loaded_account": lambda db, user_id, raw: _delete_loaded_account(db, user_id),
     "sign_in": lambda db, user_id, raw: tokens.mint_refresh_token(db, db.get(User, user_id)),
 }
 _WRITES = ("INSERT INTO refresh_tokens", "UPDATE refresh_tokens", "DELETE FROM refresh_tokens")
+
+
+def _delete_loaded_account(db: Session, user_id: int) -> None:
+    """A deletion whose session loaded the account before it began, as the route's did before it released its
+    session ahead of its third-party calls: a check made before the lock, or through that loaded row, would find
+    the account there after another deletion committed."""
+    db.get(User, user_id)
+    return user_account_service.delete_user(db, user_id)
 
 
 def _password_login(db: Session, user: User) -> Optional[str]:
@@ -461,6 +471,17 @@ def test_a_token_writer_that_waits_out_an_account_deletion_writes_nothing(postgr
     # Its read again under the lock finds the token, or the account, gone: a refusal, as for any
     # unknown token or a password that no longer matches.
     assert (_kind(deletion), _result(second), live, released) == ("NoneType", result, 0, "blocked")
+
+
+def test_a_second_deletion_of_one_account_waits_out_the_first_and_finds_it_gone(postgres_engine):
+    """The second deletion starts once the first holds the account's lock, loads the account while the first
+    has not committed, then waits at the lock; once the first commits, the lock's own query finds no row and
+    the deletion raises, so the route answers its own 500 (the deletion-failure policy is F18's). Checked
+    before the lock, or through the loaded row, it would find the account and delete nothing, answering 200."""
+    first, second, live, released = _race(
+        postgres_engine, "delete_account", "delete_loaded_account", second_starts="after_first_lock",
+    )
+    assert (_kind(first), _result(second), live, released) == ("NoneType", "LookupError", 0, "blocked")
 
 
 def test_a_sign_in_does_not_wait_for_a_rotation_holding_the_lock(postgres_engine):

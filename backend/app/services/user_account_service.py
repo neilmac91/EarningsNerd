@@ -32,7 +32,7 @@ def apply_profile_update(db: Session, current_user: User, data: Dict[str, Any]) 
     return profile
 
 
-def delete_user(db: Session, current_user: User) -> None:
+def delete_user(db: Session, user_id: int) -> None:
     """Delete the account row and commit; the ORM cascade removes the rows it owns.
 
     The account's row lock comes first, as every rotation and revocation of its refresh tokens takes
@@ -40,15 +40,14 @@ def delete_user(db: Session, current_user: User) -> None:
     before the account's, so in the other order a logout or refresh racing the deletion deadlocks with
     it, and PostgreSQL aborts one of the two.
 
-    The delete goes through the row this session holds, read after the lock (``db.get``): the route
-    releases its session before its third-party calls, so ``current_user`` is no longer this session's.
-    With no row (the account deleted since the lookup, as by a second deletion at once) it raises, and
-    the route answers 500, as it did before (the deletion-failure policy is F18's)."""
-    db.query(User.id).filter(User.id == current_user.id).with_for_update().first()
-    user = db.get(User, current_user.id)
-    if user is None:
-        raise LookupError(f"Account {current_user.id} was deleted after its lookup")
-    db.delete(user)
+    The route hands over the account's id, as it releases its session before its third-party calls.
+    The lock's own query decides whether the row is still there, since ``db.get`` would hand back a row
+    this session loaded before another transaction deleted it: with none (the account deleted since the
+    lookup, as by a second deletion at once) it raises ``LookupError`` naming the account, and the
+    route answers its own 500 (the deletion-failure policy is F18's)."""
+    if db.query(User.id).filter(User.id == user_id).with_for_update().first() is None:
+        raise LookupError(f"Account {user_id} was deleted after its lookup")
+    db.delete(db.get(User, user_id))
     db.commit()
 
 

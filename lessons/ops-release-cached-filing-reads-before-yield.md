@@ -157,25 +157,28 @@ and flushed on the loop. The export is now one thread-pool unit that builds the 
 row, releases its session and renders the response. The deletion releases the auth lookup's connection
 before its third-party calls, sends PostHog its deletion event in a worker thread (the flush waits up to
 10 s, holding that thread's token), then writes its audit row and deletes the account in one unit that
-rolls a failure back before its release. That unit deletes the row it reads after the account's lock
-(`user_account_service.delete_user`): the second of two deletions of one account at once finds none there
-and answers the route's own 500, naming the account in its log line, where the base's re-read the expired
-account in its error log and raised, so the global handler answered (a local PostgreSQL 16 probe, 10 of
-10 each). A cancelled request task stops the deletion at the await it is in, so before the audit row
-unless that unit has started: a unit or a Stripe call a thread has started runs to its end, and one still
-queued never runs. Nothing in the deploy cancels a request today (uvicorn cancels only after a
-graceful-shutdown timeout the deploy does not set, or on a forced quit), but Cloud Run's SIGKILL, which
-follows its SIGTERM, stops a deletion wherever it is (F18). Their burst cases hold every checkout,
-statement and release off the loop, and one deletion makes its Stripe and PostHog calls with no
-connection out (2026-10-24, E171).
+rolls a failure back before its release. That unit deletes the account by its id once the lock's own
+query finds the row (`user_account_service.delete_user`; `db.get` would hand back a row the session
+loaded before another transaction deleted it): the second of two deletions of one account at once finds
+none there and answers the route's own 500, naming the account in its log line, where the base's re-read
+the expired account in its error log and raised, so the global handler answered (a local PostgreSQL 16
+probe, 10 of 10 each; `test_refresh_rotation_transactions.py` races two deletions on PostgreSQL in CI). A
+cancelled request task stops the deletion at the await it is in, so before the audit row unless that unit
+has started: a unit or a Stripe call a thread has started runs to its end, and one still queued never
+runs. Nothing in the deploy cancels a request today (uvicorn cancels only after a graceful-shutdown
+timeout the deploy does not set, or on a forced quit), but Cloud Run's SIGKILL, which follows its
+SIGTERM, stops a deletion wherever it is (F18). Their burst cases hold every checkout, statement and
+release off the loop, and one deletion makes its Stripe and PostHog calls with no connection out
+(2026-10-24, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
 dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
 rules, uses it. Its ceilings hold the routes that still hand their session to a call on the loop at
-their counts (the rest of the auth router, E121, and 15 routes in two other routers, E171; five of
-those hand-offs, the header's strict ones, use no connection on the loop), so none can add one in a
+their counts (the rest of the auth router, E121; 15 routes in two other routers, E171; and the summaries
+router's generate stream and two exports; five of those hand-offs, the header's strict ones, use no
+connection on the loop), so none can add one in a
 form the ratchet counts and a new route starts at 0. Neither half
 sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called
 where it is written) where the burst does not list the route, or a background task's own session worked on the loop
