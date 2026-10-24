@@ -93,13 +93,52 @@ def _template(node: ast.expr) -> str:
     return ast.unparse(node)
 
 
+def _written_reasons(tree: ast.AST) -> set[str]:
+    """Every reason a function writes into its ``reasons`` list, however it writes one: a call on the list (an
+    ``append`` or an ``insert`` takes its last argument, an ``extend`` each item it is handed), an augmented
+    assignment (``+=``), or an assignment to the list or a slice of it. A value that is not a string or a template
+    is kept as its source, which no measured reason equals."""
+
+    def is_reasons(node: ast.expr) -> bool:
+        return (isinstance(node, ast.Name) and node.id == "reasons") or (isinstance(node, ast.Subscript) and is_reasons(node.value))
+
+    def items(node: ast.expr) -> list[str]:
+        if isinstance(node, (ast.List, ast.Tuple)):
+            return [_template(element) for element in node.elts]
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            return items(node.left) + items(node.right)
+        return [] if is_reasons(node) else [ast.unparse(node)]
+
+    written: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and is_reasons(node.func.value) and node.args:
+            written.update([_template(node.args[-1])] if node.func.attr in {"append", "insert"} else items(node.args[-1]))
+        elif isinstance(node, ast.AugAssign) and is_reasons(node.target):
+            written.update(items(node.value))
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            if any(is_reasons(target) for target in targets):
+                written.update(items(node.value))
+    return written
+
+
+def test_the_reason_reader_reads_every_way_a_reason_is_written():
+    planted = "\n".join([
+        "reasons: list[str] = []",
+        "reasons.append('a')",
+        "reasons += ['b', f'c {n}']",
+        "reasons.extend(('d',))",
+        "reasons.insert(0, 'e')",
+        "reasons[:0] = ['f']",
+        "reasons = reasons + ['g']",
+        "reasons.append(words[n])",
+        "other.append('not a reason')",
+    ])
+    assert _written_reasons(ast.parse(planted)) == {"a", "b", "c {}", "d", "e", "f", "g", "words[n]"}
+
+
 def test_each_reason_the_badge_may_show_is_one_its_spec_measures():
-    tree = ast.parse(textwrap.dedent(inspect.getsource(assess_quality)))
-    written = {
-        _template(node.args[-1]) for node in ast.walk(tree)
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.args
-        and isinstance(node.func.value, ast.Name) and node.func.value.id == "reasons"
-    }
+    written = _written_reasons(ast.parse(textwrap.dedent(inspect.getsource(assess_quality))))
     assert written == BADGE_MEASURED_REASONS
     spec = (Path(__file__).resolve().parents[3] / "frontend/tests/unit/summary-quality-badge.spec.tsx").read_text()
     counted = re.search(r"const firsts = \[\n(.*?)\n\s*\]\n", spec, re.S)

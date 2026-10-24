@@ -23,28 +23,34 @@ import { describe, expect, it } from 'vitest'
  *
  * Copy is what the TypeScript syntax tree holds as text: string literals, template text and JSX text, and a same-file
  * constant JSX renders by name, as it stands or through a method that keeps its words (`.trim()`, a change of case): a
- * string or a template (`as const` and `satisfies` aside), or one field of a same-file object. A name resolves as
- * TypeScript resolves it, so a parameter or another function's constant that shares the name is not that constant.
- * Not copy: comments, identifiers, the values of attributes that are never shown (an address such as an href or
- * edgarCompanyUrl's result, a class, a data-* hook but `data-en-ref`, whose value MarkedCopy shows as the margin's
- * mark, a download's file name, an id and the references to one), and,
- * outside JSX, a value a match reads: a comparison (`s === 'Verified'`), a `case`, a membership or affix test
- * (`includes`, `startsWith`, `endsWith`, `indexOf`, `has`, `get`), an object key, or a literal type. Inside JSX a
- * matched value is copy, since what it matches may be what is shown (`{s === 'Cited' ? s : ''}`). An event handler's
- * strings are not a link's copy, and rule 1 reads them as it reads a string outside JSX, since a handler may set text
- * that is shown (a toast, a label held in state): the retired phrases in any case and the whole labels in their own
- * case, so a handler's "VERIFIED" or bare "SEC EDGAR" stays review-checked. An attribution outside a link ("Data sourced from SEC EDGAR" in the footer and AiDisclaimer)
- * is not a label, and the plan's R9 leaves it, as it leaves the legal pages (LEGAL, whose links keep their published
- * words). The scan reads the .ts, .tsx, .js and .jsx modules in app, components, features, hooks and lib, and what the
- * stylesheets there add with `content:`.
+ * string or a template (`as const`, `satisfies`, `!` and parentheses aside), or one field of a same-file object. A name
+ * resolves as TypeScript resolves it, so a parameter or another function's constant that shares the name is not that
+ * constant. Copy is read as a reader reads it: its character references decoded as HTML decodes them (`&nbsp;`,
+ * `&#160;`, which JSX decodes in its text and an attribute's string, and markup a module sets in its own), a
+ * compatibility form as its letter (NFKC), the invisible characters taken out, and each run of white space, a line
+ * break included, as one space. Not copy: comments, identifiers, the values of attributes that are never shown (an
+ * address such as an href or edgarCompanyUrl's result, a class, a data-* hook but `data-en-ref`, whose value MarkedCopy
+ * shows as the margin's mark, a download's file name, an id and the references to one), and, outside JSX, a value a
+ * match reads: a comparison (`s === 'Verified'`), a `case`, a membership or affix test (`includes`, `startsWith`,
+ * `endsWith`, `indexOf`, `has`, `get`), an object key, or a literal type. Inside JSX a matched value is copy, since
+ * what it matches may be what is shown (`{s === 'Cited' ? s : ''}`). An event handler's strings are not a link's copy,
+ * and rule 1 reads them as it reads a string outside JSX, since a handler may set text that is shown (a toast, a label
+ * held in state): the retired phrases in any case and the whole labels in their own case, so a handler's "VERIFIED" or
+ * bare "SEC EDGAR" stays review-checked. An attribution outside a link ("Data sourced from SEC EDGAR" in the footer and
+ * AiDisclaimer) is not a label, and the plan's R9 leaves it, as it leaves the legal pages (LEGAL, whose links keep
+ * their published words). The scan reads the .ts, .tsx, .js and .jsx modules in app, components, features, hooks and
+ * lib, what the stylesheets there add with `content:` (a declaration's strings joined, their escapes read:
+ * `"Verified \2713"`), and a class's generated content (`before:content-['…']`, an underscore a space). Each data
+ * attribute whose value the app reads is listed with what it is for (DATA_READS), and one a stylesheet or a class shows
+ * with `attr()` must be one the scan reads as copy.
  *
  * It cannot follow copy another module hands a link. The vocabulary module, whose labels other modules render in
  * links (sourceLinkLabel(url), which evidenceLabels.spec.ts pins), names EDGAR nowhere in its copy, which a case below
  * checks; copy any other module hands a link stays review-checked, as do a label built by concatenation or a template
- * that embeds a constant, one split across elements or read from an array, an object's keys a module renders
- * (`Object.keys`), and a class's generated content (`before:content-['…']`). The OG card's template is read for rule 1,
- * each of its text segments (its entities decoded) and each `content:` its styles add as a label. The planted forms
- * below hold the scan's reach: each way to break a rule fails, each look-alike passes.
+ * that embeds a constant, one split across elements or read from an array, and an object's keys a module renders
+ * (`Object.keys`). The OG card's template is read for rule 1 as a browser lays it out: each element's text and each
+ * text node's, and each `content:` its styles add, as a label. The planted forms below hold the scan's reach: each way
+ * to break a rule fails, each look-alike passes.
  */
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCANNED = ['app', 'components', 'features', 'hooks', 'lib']
@@ -53,8 +59,19 @@ const OG_TEMPLATE = 'scripts/brand/og-template.html'
 const LABELS_MODULE = 'features/filings/lib/evidenceLabels.ts'
 const BADGE_MODULE = 'features/summaries/components/SummaryDisplay.tsx'
 
+// The data attributes whose values the app reads, and what for. A value read to be shown is copy, which the scan reads
+// (MarkedCopy shows each `data-en-ref` as the margin's mark); one read to pick an element is not. A new read is listed
+// here first.
+const DATA_READS: Record<string, 'shown' | 'picks an element'> = {
+  'data-en-ref': 'shown',
+  'data-change-id': 'picks an element', // WordingChanges: the change a key press marks
+  'data-layout-twin': 'picks an element', // layoutTwin: the copy of an element that is laid out
+}
+
 // The server's own reason string, declared once and only compared or used as the key of the badge's words, never
-// shown (SummaryDisplay REASON_WORDS and BADGE_WORDS). The allowance covers that declaration's literal, not a read of it.
+// shown (SummaryDisplay REASON_WORDS and BADGE_WORDS). The allowance covers that declaration's literal, not a read of it,
+// and holds only while the badge never exports the constant, which would carry it where this scan cannot follow
+// (allowanceProblems).
 const RETIRED_ALLOWED = new Set([`${BADGE_MODULE}: financial figures not grounded in SEC XBRL data`])
 
 const RETIRED_ANYWHERE = /SEC XBRL|Verified in filing|Source match found/i
@@ -65,10 +82,17 @@ const PAIR = /[·•|]/
 // A label's own words: the punctuation, symbols and spaces around it are not part of it ("Verified ✓", "Cited.").
 const labelWords = (text: string) => text.replace(/^[\s\p{P}\p{S}]+|[\s\p{P}\p{S}]+$/gu, '')
 
+/** Text as a reader reads it: a compatibility form as its letter (NFKC, which reads a no-break space as a space), the
+    invisible characters taken out (Default_Ignorable_Code_Point: a soft hyphen, a zero-width space or joiner), and each
+    run of white space, a line break included, as one space, as a page lays it out. */
+const asRead = (text: string) =>
+  text.normalize('NFKC').replace(/\p{Default_Ignorable_Code_Point}/gu, '').replace(/\s+/gu, ' ')
+
 /** Whether text is a retired label, `rendered` when the text is shown as it stands (JSX text, an attribute, a `{…}`). */
 export function retiredText(text: string, rendered: boolean): boolean {
-  if (RETIRED_ANYWHERE.test(text)) return true
-  const parts = text.split(PAIR).map(labelWords)
+  const read = asRead(text)
+  if (RETIRED_ANYWHERE.test(read)) return true
+  const parts = read.split(PAIR).map(labelWords)
   if (parts.some((part) => WHOLE_LABELS.includes(part))) return true
   return rendered && parts.some((part) => WHOLE_LABELS_ANY_CASE.has(part.toLowerCase()))
 }
@@ -163,10 +187,19 @@ function filesUnder(dir: string, keep: (name: string) => boolean, out: string[] 
   return out
 }
 
+/** Text with its character references read as HTML reads them (`&nbsp;`, `&#160;`, `&CenterDot;`): jsdom's decoder,
+    which knows every name JSX and Next's compiler decode, and HTML's newer ones. A textarea's content is text and
+    character references, never tags. */
+function decoded(text: string): string {
+  if (!/&#?\w/.test(text)) return text
+  const holder = document.createElement('textarea')
+  holder.innerHTML = text
+  return holder.value
+}
+
 function textOf(node: ts.Node): string | null {
-  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text
-  if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) return node.text
-  if (ts.isJsxText(node)) return node.text
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isJsxText(node)) return decoded(node.text)
+  if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) return decoded(node.text)
   return null
 }
 
@@ -175,10 +208,11 @@ function visit(node: ts.Node, fn: (n: ts.Node) => void) {
   node.forEachChild((child) => visit(child, fn))
 }
 
-/** An initializer without what leaves its value as it is: `as const`, `satisfies`, a type assertion, `!`, parentheses. */
+/** An initializer without what leaves its value as it is: `as const`, `satisfies`, `!`, parentheses. (A `<T>` assertion
+    is written only in a .ts module, which holds no JSX to render a constant.) */
 function unwrap(node: ts.Expression): ts.Expression {
   let at = node
-  while (ts.isAsExpression(at) || ts.isSatisfiesExpression(at) || ts.isTypeAssertionExpression(at) || ts.isNonNullExpression(at) || ts.isParenthesizedExpression(at)) {
+  while (ts.isAsExpression(at) || ts.isSatisfiesExpression(at) || ts.isNonNullExpression(at) || ts.isParenthesizedExpression(at)) {
     at = at.expression
   }
   return at
@@ -187,8 +221,8 @@ function unwrap(node: ts.Expression): ts.Expression {
 /** The copy an initializer holds: a string, or a template's text without its substitutions. */
 function initializerText(node: ts.Expression): string | null {
   const value = unwrap(node)
-  if (ts.isTemplateExpression(value)) return [value.head.text, ...value.templateSpans.map((span) => span.literal.text)].join(' ')
-  return ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value) ? value.text : null
+  if (ts.isTemplateExpression(value)) return decoded([value.head.text, ...value.templateSpans.map((span) => span.literal.text)].join(' '))
+  return ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value) ? decoded(value.text) : null
 }
 
 /** The declaration a literal is the value of (through `as const`, `satisfies` and parentheses), if any. */
@@ -299,8 +333,14 @@ function scanFile(rel: string, sf: ts.SourceFile, checker: ts.TypeChecker): Brea
       const hasAddress = opening.attributes.properties.some((p) => ts.isJsxAttribute(p) && ADDRESS_ATTRIBUTE.test(attributeName(p)))
       if (isLinkTag(opening.tagName.getText()) || hasAddress) {
         for (const copy of linkCopy(node, constantText)) {
-          if (/edgar/i.test(copy)) breaches.push({ rule: 'link names EDGAR', at: at(node), text: copy.trim() })
+          if (/edgar/i.test(asRead(copy))) breaches.push({ rule: 'link names EDGAR', at: at(node), text: copy.trim() })
         }
+      }
+    }
+    // A class's generated content is shown, though the class is not copy.
+    if (own !== null) {
+      for (const generated of classContent(own).texts) {
+        if (retiredText(generated, true)) breaches.push({ rule: 'retired label', at: at(node), text: generated })
       }
     }
   })
@@ -316,23 +356,126 @@ export function scanAll(files: Map<string, string>): Breach[] {
 
 export const scan = (rel: string, source: string) => scanAll(new Map([[rel, source]]))
 
-/** The text a stylesheet adds with `content:`, its comments taken out. */
+// A `content:` declaration's value, to the end of the declaration: its strings (which may hold `;` or `}`) and the rest.
+// The lookbehind leaves `justify-content:` and `align-content:` out.
+const CONTENT_DECLARATION = /(?<![\w-])content\s*:((?:"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*'|[^;}"'])*)/gi
+const CSS_STRING = /"((?:[^"\\]|\\[\s\S])*)"|'((?:[^'\\]|\\[\s\S])*)'/g
+const contentValues = (css: string) => [...css.replace(/\/\*[\s\S]*?\*\//g, ' ').matchAll(CONTENT_DECLARATION)].map(([, value]) => value)
+
+/** A CSS string's text, its escapes read as CSS reads them: `\2713 ` is ✓, `\"` a quote, an escaped line break nothing. */
+const cssUnescaped = (text: string) =>
+  text.replace(/\\(?:([\da-f]{1,6})(?:\r\n|[ \t\r\n\f])?|(?:\r\n|[\r\n\f])|([\s\S]))/gi, (_, hex: string | undefined, char: string | undefined) => {
+    if (hex === undefined) return char ?? ''
+    const code = parseInt(hex, 16)
+    return code === 0 || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff) ? '�' : String.fromCodePoint(code)
+  })
+
+/** The text a stylesheet adds with `content:`, its comments taken out: each declaration's strings, joined as CSS joins
+    them, their escapes read. */
 export const cssContent = (css: string) =>
-  [...css.replace(/\/\*[\s\S]*?\*\//g, ' ').matchAll(/content\s*:\s*(['"])(.*?)\1/g)].map(([, , text]) => text).filter(Boolean)
+  contentValues(css)
+    .map((value) => [...value.matchAll(CSS_STRING)].map(([, double, single]) => cssUnescaped(double ?? single)).join(''))
+    .filter(Boolean)
 
-const ENTITIES: Record<string, string> = { nbsp: ' ', middot: '·', bull: '•', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", check: '✓' }
-const decodeEntities = (text: string) =>
-  text.replace(/&(?:#(\d+)|#x([\da-f]+)|([a-z]+));/gi, (entity, decimal, hex, name) =>
-    decimal ? String.fromCodePoint(Number(decimal)) : hex ? String.fromCodePoint(parseInt(hex, 16)) : (ENTITIES[name.toLowerCase()] ?? entity),
-  )
+/** The attributes a stylesheet's `content:` shows the value of (`attr(data-label)`). */
+export const cssShownAttributes = (css: string) =>
+  contentValues(css).flatMap((value) => [...value.matchAll(/\battr\(\s*([\w-]+)/gi)].map(([, name]) => name))
 
-/** The OG card's text segments: what each element shows, its entities decoded, and what its styles add with
-    `content:`; comments and script blocks taken out. */
+// A class's generated content: `before:content-['Matches_filing']` (an underscore is a space, `\_` an underscore) or
+// `after:content-[attr(data-label)]`.
+const CLASS_CONTENT = /content-\[(?:'([^'\s]*)'|"([^"\s]*)"|attr\(([\w-]+)\))\]/g
+
+/** What the generated content of the classes in a text shows: its texts, and the attributes it shows with `attr()`. */
+export function classContent(text: string): { texts: string[]; attributes: string[] } {
+  const texts: string[] = []
+  const attributes: string[] = []
+  for (const [, single, double, attribute] of text.matchAll(CLASS_CONTENT)) {
+    if (attribute) attributes.push(attribute)
+    else texts.push((single ?? double).replace(/\\_|_/g, (match) => (match === '_' ? ' ' : '_')))
+  }
+  return { texts, attributes }
+}
+
+/** The data attributes a module reads the value of: `el.dataset.name`, `el.dataset['name']`, a name destructured from
+    `el.dataset`, and `el.getAttribute('data-…')`; one read by a computed name or a rest element is `data-*`. A dataset
+    handed on whole is not followed (review-checked). */
+export function dataReadsIn(sf: ts.SourceFile): string[] {
+  const out: string[] = []
+  const attribute = (name: string) => `data-${name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`
+  const isDataset = (node: ts.Node) => ts.isPropertyAccessExpression(node) && node.name.text === 'dataset'
+  visit(sf, (node) => {
+    if (ts.isPropertyAccessExpression(node) && isDataset(node.expression)) out.push(attribute(node.name.text))
+    else if (ts.isElementAccessExpression(node) && isDataset(node.expression)) {
+      out.push(ts.isStringLiteralLike(node.argumentExpression) ? attribute(node.argumentExpression.text) : 'data-*')
+    } else if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer && isDataset(unwrap(node.initializer))) {
+      for (const element of node.name.elements) {
+        const name = element.propertyName ?? element.name
+        out.push(!element.dotDotDotToken && (ts.isIdentifier(name) || ts.isStringLiteral(name)) ? attribute(name.text) : 'data-*')
+      }
+    } else if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'getAttribute') {
+      const [name] = node.arguments
+      if (name && ts.isStringLiteralLike(name) && name.text.startsWith('data-')) out.push(name.text)
+    }
+  })
+  return out
+}
+
+/** Why the badge's allowed literal could be shown, one line a problem, none while it holds: the badge writes it once,
+    as a constant it does not export, compares it, and reads it nowhere else but as the key of its words. A read is the
+    constant's name, a shorthand property that takes its value, or an export specifier that names it. */
+export function allowanceProblems(source: string): string[] {
+  const program = programOver(new Map([[BADGE_MODULE, source]]))
+  const checker = program.getTypeChecker()
+  const sf = program.getSourceFile(path.join(FRONTEND, BADGE_MODULE))!
+  const line = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
+  const problems: string[] = []
+  for (const entry of RETIRED_ALLOWED) {
+    const text = entry.slice(`${BADGE_MODULE}: `.length)
+    const literals: ts.Node[] = []
+    visit(sf, (node) => {
+      if (textOf(node) === text) literals.push(node)
+    })
+    if (literals.length !== 1) {
+      problems.push(`the literal is written ${literals.length} times`)
+      continue
+    }
+    const declaration = declarationOf(literals[0])
+    if (declaration === undefined) {
+      problems.push(`line ${line(literals[0])}: the literal is not a constant's value`)
+      continue
+    }
+    if (ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Export) problems.push(`line ${line(declaration)}: the constant is exported`)
+    const reads: ts.Identifier[] = []
+    visit(sf, (node) => {
+      if (!ts.isIdentifier(node) || node === declaration.name) return
+      const parent = node.parent
+      const symbol = ts.isShorthandPropertyAssignment(parent)
+        ? checker.getShorthandAssignmentValueSymbol(parent)
+        : ts.isExportSpecifier(parent)
+          ? checker.getExportSpecifierLocalTargetSymbol(parent)
+          : checker.getSymbolAtLocation(node)
+      if (symbol?.valueDeclaration === declaration) reads.push(node)
+    })
+    const compares = reads.filter((read) => matched(read) && !insideJsx(read))
+    if (!compares.length) problems.push('the badge never compares it')
+    for (const read of reads) {
+      if (!compares.includes(read) && !ts.isComputedPropertyName(read.parent)) problems.push(`line ${line(read)}: read where it may be shown`)
+    }
+  }
+  return problems
+}
+
+/** The OG card's text as a browser lays it out: each element's text and each text node's, its character references
+    decoded as HTML decodes them, and what its styles add with `content:`; comments, styles and scripts are not text. */
 export function htmlSegments(html: string): string[] {
-  const page = html.replace(/<!--[\s\S]*?-->/g, ' ')
-  const added = [...page.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].flatMap(([, css]) => cssContent(css))
-  const shown = page.replace(/<(style|script)\b[\s\S]*?<\/\1>/gi, ' ').split(/<[^>]+>/)
-  return [...shown, ...added].map((segment) => decodeEntities(segment).trim()).filter(Boolean)
+  const page = new DOMParser().parseFromString(html, 'text/html')
+  const added = [...page.querySelectorAll('style')].flatMap((style) => cssContent(style.textContent ?? ''))
+  page.querySelectorAll('style, script, template').forEach((node) => node.remove())
+  const shown = [page.body, ...page.body.querySelectorAll('*')].flatMap((element) => [
+    element.textContent ?? '',
+    ...[...element.childNodes].filter((child) => child.nodeType === Node.TEXT_NODE).map((child) => child.textContent ?? ''),
+  ])
+  return [...shown, ...added].map((segment) => segment.trim()).filter(Boolean)
 }
 
 describe('the evidence vocabulary (D-058)', () => {
@@ -357,17 +500,33 @@ describe('the evidence vocabulary (D-058)', () => {
     expect(breaches).toEqual([])
   })
 
+  const sheets = SCANNED.flatMap((dir) => filesUnder(dir, (name) => name.endsWith('.css')))
+
   it('adds no retired label with a stylesheet’s content', () => {
-    const sheets = SCANNED.flatMap((dir) => filesUnder(dir, (name) => name.endsWith('.css')))
     expect(sheets).toContain('app/globals.css')
     expect(sheets.flatMap((rel) => cssContent(readFileSync(path.join(FRONTEND, rel), 'utf8')).filter((text) => retiredText(text, true)))).toEqual([])
   })
 
-  it('reads the one data attribute the app shows', () => {
-    // MarkedCopy measures each `data-en-ref` mark and shows its value in the margin; another such reader is a data
-    // attribute this gate must read too.
+  it('reads as copy each data attribute whose value the app shows', () => {
+    // MarkedCopy measures each `data-en-ref` mark and shows its value in the margin.
     expect(readFileSync(path.join(FRONTEND, 'components/ui/MarkedCopy.tsx'), 'utf8')).toContain(`querySelectorAll<HTMLElement>('[${SHOWN_DATA_ATTRIBUTE}]')`)
-    expect(UNSHOWN_ATTRIBUTE.test(SHOWN_DATA_ATTRIBUTE)).toBe(false)
+    const program = programOver(new Map(files.map((rel) => [rel, readFileSync(path.join(FRONTEND, rel), 'utf8')])))
+    const read = new Set(files.flatMap((rel) => dataReadsIn(program.getSourceFile(path.join(FRONTEND, rel))!)))
+    expect([...read].sort(), 'each data attribute the app reads is listed with what it is for').toEqual(Object.keys(DATA_READS).sort())
+    for (const [name, use] of Object.entries(DATA_READS)) expect(UNSHOWN_ATTRIBUTE.test(name), `${name}: ${use}`).toBe(use !== 'shown')
+    // An attribute a stylesheet or a class shows with attr() is copy.
+    const styled = [
+      ...sheets.flatMap((rel) => cssShownAttributes(readFileSync(path.join(FRONTEND, rel), 'utf8'))),
+      ...files.flatMap((rel) => {
+        const shown: string[] = []
+        visit(program.getSourceFile(path.join(FRONTEND, rel))!, (node) => {
+          const text = textOf(node)
+          if (text !== null) shown.push(...classContent(text).attributes)
+        })
+        return shown
+      }),
+    ]
+    expect(styled.filter((name) => ADDRESS_ATTRIBUTE.test(name) || UNSHOWN_ATTRIBUTE.test(name) || HANDLER_ATTRIBUTE.test(name))).toEqual([])
   })
 
   it('keeps EDGAR out of the vocabulary module, whose labels other modules render in links', () => {
@@ -381,27 +540,8 @@ describe('the evidence vocabulary (D-058)', () => {
     expect(copy.filter((text) => /edgar/i.test(text))).toEqual([])
   })
 
-  it('keeps its one allowed literal only while the badge declares it once and only compares it or keys words by it', () => {
-    const program = programOver(new Map([[BADGE_MODULE, readFileSync(path.join(FRONTEND, BADGE_MODULE), 'utf8')]]))
-    const checker = program.getTypeChecker()
-    const sf = program.getSourceFile(path.join(FRONTEND, BADGE_MODULE))!
-    for (const entry of RETIRED_ALLOWED) {
-      const text = entry.slice(`${BADGE_MODULE}: `.length)
-      const literals: ts.Node[] = []
-      visit(sf, (node) => {
-        if (textOf(node) === text) literals.push(node)
-      })
-      expect(literals, 'the literal is written once').toHaveLength(1)
-      const declaration = declarationOf(literals[0])
-      expect(declaration, 'as a constant').toBeDefined()
-      const reads: ts.Identifier[] = []
-      visit(sf, (node) => {
-        if (ts.isIdentifier(node) && node !== declaration!.name && checker.getSymbolAtLocation(node)?.valueDeclaration === declaration) reads.push(node)
-      })
-      expect(reads.filter((read) => matched(read) && !insideJsx(read)).length, 'the badge compares it').toBeGreaterThan(0)
-      const shown = reads.filter((read) => !(matched(read) && !insideJsx(read)) && !ts.isComputedPropertyName(read.parent))
-      expect(shown.map((read) => sf.getLineAndCharacterOfPosition(read.getStart(sf)).line + 1)).toEqual([])
-    }
+  it('keeps its one allowed literal only while the badge declares it once, never exports it, and only compares it or keys words by it', () => {
+    expect(allowanceProblems(readFileSync(path.join(FRONTEND, BADGE_MODULE), 'utf8'))).toEqual([])
   })
 
   it('the OG card shows no retired label', () => {
@@ -436,6 +576,12 @@ describe('the vocabulary scan holds its reach', () => {
       'a function’s constant, while another function binds the name to other words',
       `function X() { const label = 'Open on SEC EDGAR'; return <a href="/f">{label}</a> }\nfunction Y() { const label = 'Open on SEC.gov'; return <span>{label}</span> }`,
     ],
+    ['an element given an address by a prop named for a URL', `export const A = () => <Row secUrl="https://www.sec.gov" label="Open on EDGAR" />`],
+    ['an element given a link', `export const A = () => <Row link="https://www.sec.gov" label="Open on EDGAR" />`],
+    ['a constant in parentheses', `const LABEL = ('Open on SEC EDGAR')\nexport const A = () => <a href="/f">{LABEL}</a>`],
+    ['a constant asserted not null', `const LABEL = 'Open on SEC EDGAR'!\nexport const A = () => <a href="/f">{LABEL}</a>`],
+    ['a field keyed by a string', `const LABELS = { 'source': 'Open on SEC EDGAR' }\nexport const A = () => <a href="/f">{LABELS.source}</a>`],
+    ['a link that names it with a soft hyphen', `export const A = ({ u }: { u: string }) => <a href={u}>Full history on ED&shy;GAR</a>`],
   ])('fails %s', (_, source) => {
     expect(breaches(source)).toContain('link names EDGAR')
   })
@@ -473,6 +619,20 @@ describe('the vocabulary scan holds its reach', () => {
     ['a matched label inside JSX', `export const A = ({ s }: { s: string }) => <span>{s.startsWith('Cited') ? s : ''}</span>`],
     ['a margin mark MarkedCopy shows', `export const M = () => <p>Revenue<span data-en-ref="Verified" aria-hidden="true">[1]</span></p>`],
     ['a retired phrase as a margin mark', `export const M = () => <p>Revenue<span data-en-ref="SEC XBRL">[1]</span></p>`],
+    ['the old figure label wrapped across lines', `export const P = () => (\n  <p>\n    Figures are checked against SEC\n    XBRL data.\n  </p>\n)`],
+    ['a pair spaced with character references', `export const V = () => <span>Revenue&nbsp;·&nbsp;Verified</span>`],
+    ['a pair written in numeric references', `export const V = () => <span>Revenue&#160;&#183;&#160;Verified</span>`],
+    ['a pair split by a reference HTML names', `export const V = () => <span>Revenue &CenterDot; Cited</span>`],
+    ['the old figure label with a no-break space', "export const L = 'SEC\\u00a0XBRL figures'"],
+    ['the old figure label with a no-break space by reference', `export const B = () => <Badge>SEC&#160;XBRL</Badge>`],
+    ['a bare source name spaced twice', `export const T = () => <span>{'SEC  EDGAR'}</span>`],
+    ['a bare source name in an attribute, spaced by reference', `export const T = () => <span title="SEC&nbsp;EDGAR">10-K</span>`],
+    ['a badge with a soft hyphen', `export const V = () => <span>Veri&shy;fied</span>`],
+    ['a badge with a zero-width space', "export const V = () => <span>{'Veri\\u200bfied'}</span>"],
+    ['a badge in full-width letters', `export const V = () => <span>ＶＥＲＩＦＩＥＤ</span>`],
+    ['a badge in parentheses', `export const T = () => <span>{('SEC EDGAR')}</span>`],
+    ['a class’s generated content', `export const V = () => <span className="after:content-['Verified']">Revenue</span>`],
+    ['a class’s generated content, its spaces written as underscores', `export const V = () => <span className="before:content-['Verified_in_filing']" />`],
   ])('fails %s', (_, source) => {
     expect(breaches(source)).toContain('retired label')
   })
@@ -516,18 +676,38 @@ describe('the vocabulary scan holds its reach', () => {
     ['a state a data attribute carries', `export const S = ({ ok }: { ok: boolean }) => <span data-state={ok ? 'Verified' : 'pending'}>Matches filing</span>`],
     ['an id that reads like a label', `export const S = () => <section id="Cited" aria-labelledby="SEC EDGAR">Quote found in filing</section>`],
     ['a compared label in a class', `export const S = ({ s }: { s: string }) => <span className={s === 'Cited' ? 'font-semibold' : ''}>{s.length}</span>`],
+    ['a class’s generated quote marks', `export const Q = () => <blockquote className="before:content-['“'] after:content-['”']">Revenue grew.</blockquote>`],
+    ['a counter a class generates', `export const R = () => <span className="before:content-[counter(row,decimal-leading-zero)]" />`],
+    ['prose wrapped across lines', `export const P = () => (\n  <p>\n    Each figure is checked against the filing’s\n    XBRL data.\n  </p>\n)`],
   ])('passes %s', (_, source) => {
     expect(breaches(source)).toEqual([])
   })
 
+  const declared = `const GROUNDING_REASON = 'financial figures not grounded in SEC XBRL data'`
+  const keyed = `const WORDS: Record<string, string> = { [GROUNDING_REASON]: 'filed revenue or net income not stated' }`
+  const compared = `export const label = (reasons: string[]) => (reasons[0] === GROUNDING_REASON ? 'Partial coverage' : WORDS[reasons[0]])`
+
   it('passes the allowed reason as the one constant the badge compares', () => {
-    const source = [
-      `const GROUNDING_REASON = 'financial figures not grounded in SEC XBRL data'`,
-      `const WORDS: Record<string, string> = { [GROUNDING_REASON]: 'filed revenue or net income not stated' }`,
-      `export const label = (reasons: string[]) => (reasons[0] === GROUNDING_REASON ? 'Partial coverage' : WORDS[reasons[0]])`,
-    ].join('\n')
+    const source = [declared, keyed, compared].join('\n')
     expect(breaches(source, BADGE_MODULE)).toEqual([])
     expect(breaches(source), 'only in the badge’s module').toContain('retired label')
+    expect(allowanceProblems(source)).toEqual([])
+  })
+
+  it.each([
+    ['exported', [`export ${declared}`, keyed, compared]],
+    ['exported by name', [declared, keyed, compared, 'export { GROUNDING_REASON }']],
+    ['exported under another name', [declared, keyed, compared, 'export { GROUNDING_REASON as REASON }']],
+    ['exported as the default', [declared, keyed, compared, 'export default GROUNDING_REASON']],
+    ['handed on in a shorthand property', [declared, keyed, compared, 'export const REASONS = { GROUNDING_REASON }']],
+    ['rendered', [declared, keyed, compared, 'export const T = () => <span>{GROUNDING_REASON}</span>']],
+    ['put in a template', [declared, keyed, compared, 'export const line = `${GROUNDING_REASON}`']],
+    ['held by another constant', [declared, keyed, compared, 'const REASON = GROUNDING_REASON', 'export const isIt = (r: string) => r === REASON']],
+    ['written twice', [declared, keyed, compared, `export const AGAIN = 'financial figures not grounded in SEC XBRL data'`]],
+    ['never compared', [declared, keyed, 'export const words = (r: string) => WORDS[r]']],
+    ['not a constant', [`export const label = (r: string) => (r === 'financial figures not grounded in SEC XBRL data' ? 'Partial coverage' : r)`]],
+  ])('withdraws the allowance from a reason %s', (_, lines) => {
+    expect(allowanceProblems(lines.join('\n'))).not.toEqual([])
   })
 
   it('reads .js and .jsx modules as the app may hold them (allowJs)', () => {
@@ -543,6 +723,31 @@ describe('the vocabulary scan holds its reach', () => {
 
   it('reads the text a stylesheet adds', () => {
     expect(cssContent(`.chip::after { content: 'Verified'; }\n/* .old::after { content: 'Cited'; } */\n.rule::before { content: ''; }`)).toEqual(['Verified'])
+    // A declaration's strings joined, their escapes read, a string's `;` and `}` its own; `justify-content` adds nothing.
+    const sheet = `.a::after { content: "Verified \\2713"; } .b::before { content: "Ver" 'ified'; } .c { justify-content: center; } .d::after { content: "a;b}c"; } .e::after { content: "\\"Cited\\""; }`
+    expect(cssContent(sheet)).toEqual(['Verified ✓', 'Verified', 'a;b}c', '"Cited"'])
+    expect(cssContent(sheet).filter((text) => retiredText(text, true))).toEqual(['Verified ✓', 'Verified', '"Cited"'])
+  })
+
+  it('reads the attributes a style shows and the data attributes a module reads', () => {
+    expect(cssShownAttributes(`.x::after { content: attr(data-label); }\n.y::after { content: " (" attr(href) ")"; }\n.z { content: none; }`)).toEqual(['data-label', 'href'])
+    expect(classContent(`after:content-[attr(data-label)] before:content-['Matches_filing'] after:content-['a\\_b']`)).toEqual({
+      texts: ['Matches filing', 'a_b'],
+      attributes: ['data-label'],
+    })
+    const planted = (source: string) => ts.createSourceFile('features/x/Planted.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const reads = [
+      `const a = el.dataset.enRef`,
+      `const b = el.dataset?.['changeId']`,
+      `const c = el.getAttribute('data-label')`,
+      `const { label, layoutTwin: twin } = el.dataset`,
+      `const d = el.dataset[key]`,
+      `const { ...rest } = el.dataset`,
+    ].join('\n')
+    expect(dataReadsIn(planted(reads))).toEqual(['data-en-ref', 'data-change-id', 'data-label', 'data-label', 'data-layout-twin', 'data-*', 'data-*'])
+    // A variable named dataset, a field of that name, and an attribute that is not data, are no data attribute read.
+    const others = [`const s = dataset.series`, `const t = el.getAttribute('title')`, `const u = demo.dataset as unknown as AnalysisDataset`].join('\n')
+    expect(dataReadsIn(planted(others))).toEqual([])
   })
 })
 
@@ -555,8 +760,15 @@ describe('the OG card scan', () => {
     ['{ } Revenue &middot; Verified', true],
     ['{ } Revenue &#183; Cited', true],
     ['{ } Revenue • Verified', true],
+    ['{ } Revenue · SEC&#160;XBRL', true],
+    ['{ } Revenue &#xB7; Verified', true],
+    ['{ } Revenue &bull; Verified', true],
+    ['{ } Revenue &CenterDot; Verified', true],
+    ['{ } Revenue · Verified in\n      filing', true],
+    ['{ } Revenue · SEC <b>XBRL</b>', true],
     ['{ } Revenue · Matches filing', false],
     ['{ } Revenue &middot; Matches filing', false],
+    ['{ } Revenue · <b>Matches</b> filing', false],
   ])('reads "%s" as retired: %s', (chip, retired) => {
     const html = `<style>.chip{}</style><div class="meta"><span class="chip">${chip}</span><span><b>Apple Inc.</b></span></div>`
     expect(htmlSegments(html).some((segment) => retiredText(segment, true))).toBe(retired)
@@ -565,5 +777,12 @@ describe('the OG card scan', () => {
   it('reads the text its styles add', () => {
     const html = `<style>.chip::after { content: "Verified"; }</style><span class="chip">Revenue</span>`
     expect(htmlSegments(html).some((segment) => retiredText(segment, true))).toBe(true)
+    const escaped = `<style>.chip::after { content: "Verified \\2713"; }</style><span class="chip">Revenue</span>`
+    expect(htmlSegments(escaped).filter((segment) => retiredText(segment, true))).toEqual(['Verified ✓'])
+  })
+
+  it('reads no comment, style or script as text', () => {
+    const html = `<!-- Verified --><style>.x { color: red; }</style><script>const label = 'Cited'</script><span>Apple Inc.</span>`
+    expect([...new Set(htmlSegments(html))]).toEqual(['Apple Inc.'])
   })
 })

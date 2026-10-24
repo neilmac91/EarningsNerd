@@ -680,6 +680,18 @@ class TestFigureCheck:
         out = self._check("Total net sales", shown, "—", xbrl)
         assert (out["source_verified"], out["source_checkable"]) == (verified, checkable)
 
+    @pytest.mark.parametrize("current, prior", [("$416.2B", "€391.0B"), ("€416.2B", "$391.0B")])
+    def test_a_prior_in_a_currency_the_data_cannot_confirm_leaves_the_row_unchecked(self, current, prior):
+        # The guard reads each compared period: beside data that names no currency, a figure in euros in either
+        # period is neither matched nor replaced, though the other period's dollar figure matches.
+        filed = {period: {**fact, "currency": None} for period, fact in APPLE["revenue"].items()}
+        xbrl = {"revenue": filed}
+        assert self._check("Total net sales", current, prior, xbrl)["source_checkable"] is False
+        fh = {"table": [{"metric": "Total net sales", "current_period": current, "prior_period": prior}]}
+        row = prov.enrich_financial_highlights(fh, _filing(), xbrl)["table"][0]
+        assert (row["current_period"], row["prior_period"], row["source_verified"]) == (current, prior, False)
+        assert "source_replaced" not in row
+
     def test_the_reporting_currency_stands_in_for_a_fact_that_names_none(self):
         # companyfacts facts carry no currency of their own.
         xbrl = {"reporting_currency": "EUR", "revenue": {"current": {**APPLE["revenue"]["current"], "currency": None}}}
@@ -807,6 +819,22 @@ class TestFiledFigureSwap:
         "As described in Note 12, 1,250 positions were eliminated.",
         "See Note 7, 2b impairment charges.",
         "See Note 3, 4 percentage points came from pricing.",
+        # Each unit the pattern knows, after a listed number or a month's day.
+        "See Note 7, 12 per cent of revenue.",
+        "Margins widened Dec 15 basis points.",
+        "Margins widened Dec 15 bp.",
+        "Margins widened Dec 15 pp.",
+        "Margins widened Dec 15 ppts.",
+        "Margins widened Dec 15 pts.",
+        "See Note 7, 120 thousand units shipped.",
+        "See Note 7, 120 billion in revenue.",
+        "See Item 7, 2 trillion in assets.",
+        "See Note 4, 120 mn in charges.",
+        "See Note 4, 12 bn in charges.",
+        "See Note 4, 2 tn in assets.",
+        "See Note 7, 120k units shipped.",
+        "See Note 7, 120m in charges.",
+        "See Note 7, 2t in assets.",
     ])
     def test_a_takeaway_that_states_a_number_is_withheld(self, commentary):
         row = self._enrich({"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
@@ -834,6 +862,16 @@ class TestFiledFigureSwap:
         "Q4 M&A activity added scale.",
         "FY2025 M&A spending rose.",
         "Services grew on Q3 T-Mobile demand.",
+        # A calendar year, a quarter's year after a curly apostrophe, the other form names, and each list separator.
+        "CY2025 operating income rose.",
+        "Q4’25 demand held.",
+        "The 6-K and the 8-K agree.",
+        "The S-1 and the S-4 describe it.",
+        "See Items 7 & 8.",
+        "See Notes 3 to 5.",
+        "See Notes 3–5.",
+        "See Items 7-8.",
+        "See Notes 3, 4 and 5.",
     ])
     def test_a_takeaway_that_names_no_figure_stays(self, commentary):
         # Years, quarters and the filing's own Items and Notes are not figures the swap replaced.
@@ -916,6 +954,23 @@ class TestFiledFigureSwap:
         assert [(fact["currentPeriod"], round(fact["deltaPercent"], 1)) for fact in out["normalized"]["metrics"]] == [
             ("$416,161,000,000", 6.4), ("$416.2B", 6.4)]
 
+    def test_each_fact_refreshes_from_the_row_of_its_own_name(self):
+        # Generation skips a row with no name (attach_normalized_facts), and a fact may outlive its row, so a fact is
+        # paired with its row by name, never by position: past a nameless row, and beside a fact whose row is gone,
+        # each fact would take its neighbour's row.
+        gone = {"metric": "Revenue", "currentPeriod": "$12.0B", "priorPeriod": "$11.0B", "deltaPercent": 9.1}
+        fh = {"table": [{"metric": "", "current_period": "$1.0B"},
+                        {"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M"},
+                        {"metric": "Total net sales", "current_period": "$416.2B", "prior_period": "$391.0B"}],
+              "normalized": {"metrics": [{"metric": "Operating income", "currentPeriod": "$132,100M", "priorPeriod": "$123,216M", "deltaPercent": 7.2},
+                                         dict(gone),
+                                         {"metric": "Total net sales", "currentPeriod": "$416.2B", "priorPeriod": "$391.0B", "deltaPercent": 6.4}]}}
+        operating, kept, sales = prov.enrich_financial_highlights(fh, _filing(), APPLE)["normalized"]["metrics"]
+        assert kept == gone
+        assert [(fact["metric"], fact["currentPeriod"], round(fact["deltaPercent"], 1)) for fact in (operating, sales)] == [
+            ("Operating income", "$133,050,000,000", 8.0), ("Total net sales", "$416.2B", 6.4)]
+        assert (sales["currentValue"], sales["priorValue"]) == (416_161e6, 391_035e6)
+
     def test_a_row_whose_name_is_not_text_leaves_the_facts_as_stored(self):
         fh = {"table": [{"metric": ["Revenue"], "current_period": "$416.2B"}],
               "normalized": {"metrics": [{"metric": "Revenue", "currentPeriod": "$416.2B"}]}}
@@ -963,9 +1018,12 @@ class TestLabelsTheModelIsGiven:
     }
     # Where-to-find-it cells also name the statements a line sits in, which are no line of their own.
     STATEMENT_TITLE = re.compile(r"^(?:(?:condensed|consolidated|combined|interim)\s+)*(?:statements?\s+of\b|balance\s+sheets?\b)", re.IGNORECASE)
-    # The 6-K earnings prompt names its headline lines in prose: "- Revenue (or total net sales), net income (or …)".
-    HEADLINE_BULLET = re.compile(r"^\s*-\s+(Revenue\s+\(or\b.*)$", re.MULTILINE)
+    # A prompt names headline lines in prose, each with the names it allows for it, as the 6-K earnings prompt does:
+    # "- Revenue (or total net sales), net income (or …)". A bullet is read whole, its continuation lines with it.
+    BULLET = re.compile(r"^[ \t]*[-*][ \t]+(.+(?:\n[ \t]+(?![-*][ \t]|\d+\.[ \t])\S.*)*)", re.MULTILINE)
     SYNONYMS = re.compile(r"([A-Za-z][A-Za-z ]*?)\s*\(or\s+([^)]+)\)")
+    # A name a cell quotes, in double quotes or in single ones that no letter abuts (never an apostrophe).
+    QUOTED = re.compile(r'["“]([^"”]+)["”]|(?<![A-Za-z])[\'‘]([^\'’]+)[\'’](?![A-Za-z])')
 
     def test_the_narratives_dollar_labels_map_to_their_own_concepts(self):
         from app.services.ai.xbrl_narrative import _XBRL_NARRATIVE_SPEC
@@ -991,7 +1049,7 @@ class TestLabelsTheModelIsGiven:
                     metric_table = first.casefold() in {"metric", "metrics"}
                 elif metric_table and first and not set(first) <= set("-: "):
                     labels.add(first)
-                    quoted = re.findall(r'["“]([^"”]+)["”]', cells[1]) if len(cells) > 1 else []
+                    quoted = [double or single for double, single in cls.QUOTED.findall(cells[1])] if len(cells) > 1 else []
                     labels.update(name for name in quoted if not cls.STATEMENT_TITLE.search(name))
             previous = line
         return labels
@@ -1000,8 +1058,8 @@ class TestLabelsTheModelIsGiven:
     def headline_labels(cls, text: str) -> set[str]:
         """The headline lines a prompt names in prose, each with the names it allows for it."""
         labels: set[str] = set()
-        for bullet in cls.HEADLINE_BULLET.findall(text):
-            for line, others in cls.SYNONYMS.findall(bullet):
+        for bullet in cls.BULLET.findall(text):
+            for line, others in cls.SYNONYMS.findall(" ".join(re.sub(r"[*`]", "", bullet).split())):
                 labels.update(name.strip() for name in [line, *others.split("/")])
         return labels
 
@@ -1023,12 +1081,18 @@ class TestLabelsTheModelIsGiven:
             "  | **Metrics** | Where |", "  |---|---|", '  | Revenue | "Total net sales" |', "",
             "| metric | where |", "|---|---|", "| Net income | bottom line |", "",
             "| Metric | Where |", "|---|---|", '| Cash | “Cash and equivalents”, the "Consolidated Balance Sheets", "Cash per statement" |', "",
+            "| Metric | Where |", "|---|---|", "| Net sales | 'Net sales', ‘Total net revenues’, the company's own line |", "",
             "| Segment | where |", "|---|---|", "| Services | Note 13 |",
             "- Revenue (or total net sales), net income (or net profit / earnings attributable to shareholders),",
+            "  margins (or operating margin), and growth versus the prior period.",
+            "- **Operating profit** (or **EBIT**) where the filing states it.",
+            "- Item 18 (or the older Item 17) holds the statements.",
         ])
-        assert self.table_labels(text) == {"Revenue", "Total net sales", "Net income", "Cash", "Cash and equivalents", "Cash per statement"}
+        assert self.table_labels(text) == {
+            "Revenue", "Total net sales", "Net income", "Cash", "Cash and equivalents", "Cash per statement", "Net sales", "Total net revenues"}
         assert self.headline_labels(text) == {
-            "Revenue", "total net sales", "net income", "net profit", "earnings attributable to shareholders"}
+            "Revenue", "total net sales", "net income", "net profit", "earnings attributable to shareholders", "margins",
+            "operating margin", "Operating profit", "EBIT"}
 
     def test_each_label_named_above_is_still_left_unread(self):
         # The other way round (lessons/arch-structural-gates-over-prose-rules.md): an excused label that starts mapping
@@ -1419,24 +1483,28 @@ class TestV2CitationEnrichment:
         assert "evidence" not in out["sections"]["notable_footnotes"][0]
         assert "evidence" not in out["sections"]["forward_signals"]["quotes"][-1]
 
-    def test_quotes_and_footnotes_enriched_without_risks_or_metrics_table(self):
-        # Guard regression: a v2 summary with ONLY quotes + footnotes (no risks list, no metrics table)
-        # must still get citation enrichment — the pre-T4 early-return only checked risks/metrics.
-        raw = {
-            "schema_version": 2,
-            "sections": {
-                "forward_signals": {
-                    "source_section_ref": "Item 7",
-                    "quotes": [{"speaker": "CEO", "quote": "We expect double-digit revenue growth in fiscal 2025."}],
-                },
-                "notable_footnotes": [
-                    {"item": "SBC", "impact": "up", "supporting_evidence": "Stock-based compensation expense was recognized over the vesting period"},
-                ],
+    @pytest.mark.parametrize("surfaces", [("forward_signals",), ("notable_footnotes",), ("forward_signals", "notable_footnotes")])
+    def test_quotes_and_footnotes_enriched_without_risks_or_metrics_table(self, surfaces):
+        # Guard regression: a v2 summary with ONLY quotes, ONLY footnotes, or both (no risks list, no metrics table)
+        # must still get citation enrichment — the pre-T4 early-return only checked risks/metrics. And with no filing
+        # text to search, each one's stored evidence is dropped, never returned as found.
+        given = {
+            "forward_signals": {
+                "source_section_ref": "Item 7",
+                "quotes": [{"speaker": "CEO", "quote": "We expect double-digit revenue growth in fiscal 2025."}],
             },
+            "notable_footnotes": [
+                {"item": "SBC", "impact": "up", "supporting_evidence": "Stock-based compensation expense was recognized over the vesting period"},
+            ],
         }
-        out = prov.enrich_raw_summary(raw, _filing(critical_excerpt=self.SRC))
-        assert out["sections"]["forward_signals"]["quotes"][0]["evidence"]["verified"] is True
-        assert out["sections"]["notable_footnotes"][0]["evidence"]["verified"] is True
+        item = {"forward_signals": lambda section: section["quotes"][0], "notable_footnotes": lambda section: section[0]}
+        raw = {"schema_version": 2, "sections": {name: copy.deepcopy(given[name]) for name in surfaces}}
+        out = prov.enrich_raw_summary(copy.deepcopy(raw), _filing(critical_excerpt=self.SRC))
+        assert [item[name](out["sections"][name])["evidence"]["verified"] for name in surfaces] == [True] * len(surfaces)
+        for name in surfaces:
+            item[name](raw["sections"][name])["evidence"] = dict(self.FORGED_EVIDENCE)
+        out = prov.enrich_raw_summary(raw, _filing(critical_excerpt=None))
+        assert [name for name in surfaces if "evidence" in item[name](out["sections"][name])] == []
 
     def test_footnote_without_excerpt_or_ref_gets_no_chip(self):
         # A footnote with neither a supporting excerpt nor a section ref must NOT get a bare "Cited" chip

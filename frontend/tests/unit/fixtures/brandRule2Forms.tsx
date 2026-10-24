@@ -1650,3 +1650,6 @@ function Tally820(props: { n: number; className?: string }) { const parts = ['fo
 export function P820({ n }: { n: number }) { return <a href="/x"><Tally820 n={n} className="hover:text-brand-strong" /></a> } // clean
 function Tally821(props: { n: number; className?: string }) { const parts = ['font-medium', props.className]; const width: typeof parts.length = 2; void width; return <span className={first691(...parts)}>See all {props.n}</span> }
 export function P821({ n }: { n: number }) { return <a href="/x"><Tally821 n={n} className="hover:text-brand-strong" /></a> } // clean
+export function P822({ n }: { n: number }) { return <p className="text-text-secondary-light first-line:text-brand-strong">{n} filings</p> } // flag
+export function P823({ n }: { n: number }) { return <p className="text-text-secondary-light first-letter:text-brand">{n} filings</p> } // flag
+export function P824({ n }: { n: number }) { return <p className="text-text-secondary-light before:text-brand-strong">{n} filings</p> } // clean

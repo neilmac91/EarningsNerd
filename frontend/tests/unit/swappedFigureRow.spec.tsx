@@ -35,8 +35,9 @@ const takeaways = (container: HTMLElement) =>
 // amounts in a string the server's fields fill, which no source scan reads, so the rendered panel is read instead: no
 // text with a digit sits inside an element whose own colour is sage (brandCopyRules.spec.ts rule 2's colour family).
 const SAGE = /^(?:text|fill)-(?:brand(?:-[a-z]+)*|accent-strong)(?:\/\S+)?$/
-// The variants under which a colour is not a resting one: the pointer's (hover:, active:) and a pseudo-element's.
-const NOT_AT_REST = /^(?:(?:group|peer)-)?(?:hover|active)(?:\/[\w-]+)?$|^\[.*:(?:hover|active)\b.*\]$|^(?:placeholder|file|marker|selection|before|after|first-letter|first-line|backdrop)$/
+// The variants under which a colour is not a resting one: the pointer's (hover:, active:) and a pseudo-element's, but
+// the first line's and the first letter's, which colour the element's own text.
+const NOT_AT_REST = /^(?:(?:group|peer)-)?(?:hover|active)(?:\/[\w-]+)?$|^\[.*:(?:hover|active)\b.*\]$|^(?:placeholder|file|marker|selection|before|after|backdrop)$/
 
 /** Whether a class token colours its element sage at rest, as rule 2 reads a resting ink (`tokenInk`): under any
     variant (dark:, a breakpoint, aria-*, data-*, focus:) and with `!`, but for the pointer's and a pseudo-element's. */
@@ -107,6 +108,8 @@ describe('the figure panel', () => {
     'sm:dark:text-brand-strong-dark',
     'aria-[current=page]:text-brand',
     'fill-accent-strong/80',
+    'first-line:text-brand-strong',
+    'first-letter:text-brand',
   ])('reads a digit in %s as sage, so the check above can fail', (className) => {
     const { container } = render(<p><span className={`text-xs ${className}`}>$133,050 million</span></p>)
     expect(digitsInSage(container)).toEqual(['$133,050 million'])

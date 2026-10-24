@@ -198,6 +198,23 @@ export function landingReading(root = FRONTEND): { walked: string[]; modules: st
   return { walked, modules, sheets }
 }
 
+/** What a module hands WhatChanged as its report: each `report` attribute's value, and each spread, which may hold one. */
+export function reportsHandedToWhatChanged(file: string, source: string): string[] {
+  const sf = parse(file, source)
+  const reports: string[] = []
+  const visit = (node: ts.Node) => {
+    if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(sf) === 'WhatChanged') {
+      for (const attribute of node.attributes.properties) {
+        if (ts.isJsxSpreadAttribute(attribute)) reports.push(attribute.getText(sf))
+        else if (attribute.name.getText(sf) === 'report') reports.push(attribute.initializer?.getText(sf) ?? '')
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return reports
+}
+
 /** Writes `files` (path → source) under a new temporary root, runs `fn` on it, and removes it. */
 function withTree(files: Record<string, string>, fn: (root: string) => void) {
   const root = mkdtempSync(path.join(tmpdir(), 'strike-walk-'))
@@ -352,19 +369,15 @@ describe('the landing page strikes through no figure', () => {
     expect(strikesIn(REMOVED_WORDS, read(REMOVED_WORDS))).toBe(true)
     expect(importersOf(REMOVED_WORDS)).toEqual([WHAT_CHANGED])
     expect(importersOf(WHAT_CHANGED)).toEqual([CHANGE_REPORT_DEMO])
-    const demo = parse(CHANGE_REPORT_DEMO, read(CHANGE_REPORT_DEMO))
-    const reports: string[] = []
-    const visit = (node: ts.Node) => {
-      if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(demo) === 'WhatChanged') {
-        for (const attribute of node.attributes.properties) {
-          if (ts.isJsxSpreadAttribute(attribute)) reports.push(attribute.getText(demo))
-          else if (attribute.name.getText(demo) === 'report') reports.push(attribute.initializer?.getText(demo) ?? '')
-        }
-      }
-      ts.forEachChild(node, visit)
-    }
-    visit(demo)
-    expect(reports).toEqual(['{SAMPLE_CHANGE_REPORT}'])
+    expect(reportsHandedToWhatChanged(CHANGE_REPORT_DEMO, read(CHANGE_REPORT_DEMO))).toEqual(['{SAMPLE_CHANGE_REPORT}'])
     expect(wordingHasContent(SAMPLE_CHANGE_REPORT.section_changes)).toBe(false)
+  })
+
+  it.each([
+    ['another report', `export const D = () => <WhatChanged report={WORDY_REPORT} />`, ['{WORDY_REPORT}']],
+    ['a spread, which may hold a report', `export const D = (props: { report: object }) => <WhatChanged {...props} />`, ['{...props}']],
+    ['a spread beside the sample', `export const D = () => <WhatChanged report={SAMPLE_CHANGE_REPORT} {...{ report: WORDY_REPORT }} />`, ['{SAMPLE_CHANGE_REPORT}', '{...{ report: WORDY_REPORT }}']],
+  ])('reads %s handed to WhatChanged, which the exemption then refuses', (_, source, reports) => {
+    expect(reportsHandedToWhatChanged('features/x/Planted.tsx', source)).toEqual(reports)
   })
 })
