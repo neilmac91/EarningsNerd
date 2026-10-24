@@ -23,8 +23,15 @@ const FORMS = [
 ] as const
 
 const AT_40REM = '[@media(min-width:40rem)]:'
-/** A layout class (display, width, wrap, flex sizing) behind a px breakpoint. */
-const pxLayout = (cls: string) => /^(sm|md|lg|xl|2xl):(inline-flex|flex|w-auto|w-full|flex-wrap|flex-nowrap|flex-none|flex-1)$/.test(cls)
+/** A layout class (display, width, wrap, flex sizing) behind a px breakpoint: a named screen (`sm:`, `max-sm:`) or a
+ *  variant that carries a px width (`min-[640px]:`, `[@media(min-width:640px)]:`). */
+const LAYOUT = /^(inline-flex|flex|inline-block|block|grid|hidden|w-.+|flex-(wrap|nowrap|wrap-reverse|none|1|auto|initial)|grow(-0)?|shrink(-0)?|basis-.+)$/
+const pxLayout = (cls: string) => {
+  const at = cls.lastIndexOf(':')
+  if (at < 0) return false
+  const variant = cls.slice(0, at + 1)
+  return LAYOUT.test(cls.slice(at + 1)) && (/(^|:)(max-)?(sm|md|lg|xl|2xl):/.test(variant) || /\d+(\.\d+)?px/.test(variant))
+}
 
 function renderFullWidth() {
   render(<SegmentedControl label="Filter by form" options={FORMS} value="all" onChange={vi.fn()} size="adaptive" fullWidth />)
@@ -44,8 +51,10 @@ describe("SegmentedControl's full-width form switches at 40rem (E183)", () => {
     const { group, segments } = renderFullWidth()
     const classes = [group, ...segments].flatMap((el) => el.className.split(/\s+/).filter(Boolean))
     expect(classes.filter(pxLayout)).toEqual([])
-    // Anti-vacuity: the old recipe's layout classes are what this refuses, and the adaptive size's height is not one.
-    expect(['sm:inline-flex', 'sm:w-auto', 'sm:flex-nowrap', 'sm:flex-none'].filter(pxLayout)).toHaveLength(4)
-    expect(['sm:h-[1.625rem]', 'sm:text-xs', `${AT_40REM}w-auto`].filter(pxLayout)).toEqual([])
+    // Anti-vacuity: the old recipe's layout classes, and a px switch in any other form, are what this refuses; the
+    // adaptive size's height, padding and type, and the 40rem switch, are not.
+    const refused = ['sm:inline-flex', 'sm:w-auto', 'sm:flex-nowrap', 'sm:flex-none', 'min-[640px]:flex-nowrap', '[@media(min-width:640px)]:w-auto', 'max-sm:flex-wrap', 'sm:basis-auto', 'sm:grow-0']
+    expect(refused.filter(pxLayout)).toEqual(refused)
+    expect(['sm:h-[1.625rem]', 'sm:px-3.5', 'sm:text-xs', `${AT_40REM}w-auto`, `${AT_40REM}flex-none`, 'flex-1', 'w-full'].filter(pxLayout)).toEqual([])
   })
 })
