@@ -2234,6 +2234,7 @@ _PREFS_DEFAULTS = {
     ("PATCH", "/api/users/me", "profile"),
     ("GET", "/api/users/me/notification-preferences", "prefs"),
     ("GET", "/api/users/me/notification-preferences", "prefs_first"),
+    ("GET", "/api/users/me/notification-preferences", "prefs_pro"),
     ("PUT", "/api/users/me/notification-preferences", "prefs_update"),
     ("PUT", "/api/users/me/notification-preferences", "prefs_refused"),
     ("GET", "/api/users/me/notifications", "bell"),
@@ -2248,19 +2249,24 @@ async def test_account_routes_release_their_connection_off_the_loop(monkeypatch,
     """The profile edit, the alert preferences and the bell run their session work, their payload and the
     release in one thread-pool unit, a refusal and their failures included, so eight readers on four
     slots leave nothing for the finalizer and make no checkout, statement or release on the loop. The
-    plan behind the preferences' Pro toggles reads the account's subscription row, inside the unit too."""
+    plan behind the preferences' Pro toggles reads the account's subscription row, inside the unit too: in
+    the ``prefs_pro`` case only that row grants Pro (``is_pro`` is False), so a plan resolved after the
+    release, which falls back to the mirror, answers Free."""
     import importlib
 
-    from app.models import NotificationLog, NotificationPreferences, User
+    from app.models import NotificationLog, NotificationPreferences, Subscription, User
     from app.routers import auth
 
+    # A first read checks a connection out twice (its row's reload after its commit), so readers queued for
+    # a slot wait longer than the other bursts' do on a loaded host. An on-loop checkout or statement still
+    # fails the loop assertions below at any timeout.
     engine = create_engine(
         f"sqlite:///{tmp_path / 'account-routes.db'}",
         connect_args={"check_same_thread": False},
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=5.0,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -2279,6 +2285,8 @@ async def test_account_routes_release_their_connection_off_the_loop(monkeypatch,
             db.flush()
             if case != "prefs_first":
                 db.add(NotificationPreferences(user_id=reader.id))
+            if case == "prefs_pro":
+                db.add(Subscription(user_id=reader.id, plan="pro", status="active"))
             db.add(NotificationLog(user_id=reader.id, filing_id=filing.id, channel="email", status="sent"))
         db.commit()
 
@@ -2353,6 +2361,8 @@ async def test_account_routes_release_their_connection_off_the_loop(monkeypatch,
                                  "is_pro": False} for i in range(8)]
         elif case in ("prefs", "prefs_first"):
             assert payloads == [_PREFS_DEFAULTS] * 8
+        elif case == "prefs_pro":
+            assert payloads == [{**_PREFS_DEFAULTS, "realtime_available": True, "eightk_available": True}] * 8
         elif case == "prefs_update":
             assert payloads == [{**_PREFS_DEFAULTS, "notify_10q": False}] * 8
         elif case == "prefs_refused":

@@ -107,9 +107,10 @@ async def update_profile(
     data = payload.model_dump(exclude_unset=True)
 
     def update() -> Dict[str, Any]:
-        # Each account route's session work is one unit in the thread pool: its reads and writes, its
-        # payload and the release, so no checkout or statement waits on the event loop
-        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        # Each profile, preference and bell route's session work is one unit in the thread pool: its
+        # reads and writes, its payload and the release, so no checkout or statement waits on the event
+        # loop (lessons/ops-release-cached-filing-reads-before-yield.md). The export and the deletion
+        # still work their session on the loop (E171).
         try:
             return user_account_service.apply_profile_update(db, current_user, data)
         finally:

@@ -139,12 +139,14 @@ The account routes (the profile edit, the alert preferences' read and update, an
 mark) handed their session to services on the loop, on the connection the auth lookup had checked out.
 Eight readers of each on four slots answered as they should, but every statement after the auth lookup
 ran on the loop (16 of 24 for eight profile edits or bell reads, 40 of 48 for eight first preference
-reads or updates, 32 of 40 for eight marks), each write's read after its commit checked a connection out
+reads or eight updates, 32 of 40 for eight marks), each write's read after its commit checked a connection out
 there (8 of 16), and every one of them, a refused update included, left its transaction for the
 finalizer. Each is now one thread-pool unit that shapes its answer and releases its session, the
 update's refusal and the plan behind its Pro toggles (the account's subscription row) inside it too, and
 two of their writes are atomic in the database (below). Their burst case holds every checkout,
-statement and release off the loop, each answer and each reader's rows (2026-10-24, E171).
+statement and release off the loop, each answer and each reader's rows (2026-10-24, E171). A request
+that fails validation (422) is answered after the auth dependency has run and before the route does, so
+it still leaves the lookup's transaction for the finalizer, here as on every authenticated route.
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
@@ -181,7 +183,13 @@ mark's UPDATE writes its stamp only over an older one (`user_notification_feed_s
 threads inside each unit after their checks (for the marks, the one stamped first writes once the other
 has committed), so without the lock or the atomic write the race happens however loaded the host, and
 it fails any checkout made inside the watch-row or saved-row lock in the races it runs. It covers those
-ten units only.
+ten units only. SQLite serializes every writer, so for the two account writes it meets only their
+sequential order. No CI step races them on PostgreSQL, where the second insert waits on the first's
+uncommitted row and the stamp's UPDATE re-checks its WHERE after a row-lock wait. The pull request's
+local PostgreSQL 16 run did, ten runs each: two first reads that met after their check answered one stored
+row (on the base one of them failed with IntegrityError); a first read that met an update's uncommitted
+insert waited 0.505 to 0.510 s for it and answered its row; and a mark stamped first that waited on the
+later mark's row lock left the later stamp (on the base, the earlier one).
 
 Those locks reach one process, and the API runs up to two instances, across which the five races stayed
 open. Since E128 each unit also takes, before its check, a lock in the database that every instance
