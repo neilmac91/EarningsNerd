@@ -2257,9 +2257,9 @@ async def test_account_routes_release_their_connection_off_the_loop(monkeypatch,
     from app.models import NotificationLog, NotificationPreferences, Subscription, User
     from app.routers import auth
 
-    # A first read checks a connection out twice (its row's reload after its commit), so readers queued for
-    # a slot wait longer than the other bursts' do on a loaded host. An on-loop checkout or statement still
-    # fails the loop assertions below at any timeout.
+    # A first read, an update and a mark each check a connection out twice (the row's reload after the
+    # commit), so readers queued for a slot wait longer than the other bursts' do on a loaded host. An
+    # on-loop checkout or statement still fails the loop assertions below at any timeout.
     engine = create_engine(
         f"sqlite:///{tmp_path / 'account-routes.db'}",
         connect_args={"check_same_thread": False},

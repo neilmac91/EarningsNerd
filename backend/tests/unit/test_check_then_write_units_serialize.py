@@ -1,9 +1,10 @@
 """Gate for lessons/ops-release-cached-filing-reads-before-yield.md's serialization clause: a
-check-then-write unit moved into the thread pool still runs one at a time within the process.
+check-then-write unit moved into the thread pool holds a lock from its check to its commit, or writes
+atomically in the database.
 
 On the event loop each of these units ran whole before the next could start. In worker threads two
-requests can both pass a check before either writes, so each unit takes a lock from its check to its
-commit:
+requests can both pass a check before either writes, so each unit below takes a lock from its check to
+its commit (two account writes, at the end, write atomically instead):
 - the waitlist join (``waitlist_service._join_lock``): two joins on one referral link both read the
   referrer's priority and one credit is lost, and two joins both count the list before either
   inserts and take one place;
