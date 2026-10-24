@@ -443,9 +443,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   summaries of SEC filings". Titles take the middot and sentence case ("BIOGEN INC. · 10-K summary",
   "{company} · Multi-Period Analysis", the feature keeping its name), as do the PDF's source line
   ("Original on SEC.gov · {url}" since E190, the filing page's words for its link to the primary
-  document, which the line opens) and the CSV,
-  which now carries that source row under its generated date; the PDF's closing note splits its one
-  dashed sentence in two, and a quote's attribution
+  document, with the address that link opens) and the CSV, which now carries that source row under its
+  generated date; the PDF's closing note splits its one dashed sentence in two, and a quote's attribution
   sits on its own line in the PDF and follows a middot in the CSV, never a dash. The CSV now ends
   with the PDF's closing sentences, verbatim (D-046): after a blank row, the closing note's two
   paragraphs (the masthead line, then the disclaimer), a row each, read from the constant both
@@ -474,10 +473,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   embeds for italic text is an italic program) by `test_export_palette_parity.py`, which reads a
   stylesheet as WeasyPrint does, nested and conditional rules included; the rendered copy (no em-dash but
   the null token, no exclamation mark or emoji, the headings the exports own in sentence case, and no
-  EDGAR, in any case, outside an address) by `test_export_voice.py`; the eval's blinding of the generation date by
-  a case in
-  `test_acceptance_readiness.py` that runs it on a real export; and the backend's hand-composed
-  wordmarks to the PDF's and the mail's by `wordmarkSingleSource.spec.ts`.
+  EDGAR outside an address, in any case or inside a word) by `test_export_voice.py`; the eval's blinding
+  of the generation date by a case in `test_acceptance_readiness.py` that runs it on a real export; and
+  the backend's hand-composed wordmarks to the PDF's and the mail's by `wordmarkSingleSource.spec.ts`.
 - **Mail** (`email_service.py`, `app/routers/contact.py`): footers read "EarningsNerd · AI summaries
   of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the verification
   mail ends "Verify your email address and you can start reading."

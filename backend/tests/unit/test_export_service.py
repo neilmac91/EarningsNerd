@@ -310,17 +310,22 @@ class TestCsv:
         assert lines[6] == "Original on SEC.gov · https://www.sec.gov/Archives/edgar/data/875045/x.htm"
         assert lines[7] == ""
 
-    @pytest.mark.parametrize(("document_url", "printed"), [
-        ("https://www.sec.gov/Archives/edgar/data/875045/000087504526000012/biib-20251231.htm",
-         "https://www.sec.gov/Archives/edgar/data/875045/000087504526000012/biib-20251231.htm"),
-        ("biib-20251231.htm", "https://www.sec.gov/Archives/edgar/data/875045/000087504526000012/"),
-    ], ids=["the-primary-document", "the-folder-when-the-document-is-not-a-url"])
-    def test_both_exports_link_the_original_the_filing_page_opens(self, service, document_url, printed):
-        """"Original on SEC.gov" in the PDF and the CSV opens what the filing page's link of the same name
-        opens (originalDocumentUrl.ts, EN-01): the primary document when it is an http(s) URL, else the
-        archive folder, sec_url (E190)."""
+    FOLDER = "https://www.sec.gov/Archives/edgar/data/875045/000087504526000012/"
+
+    @pytest.mark.parametrize(("document_url", "sec_url", "printed"), [
+        (FOLDER + "biib-20251231.htm", FOLDER, FOLDER + "biib-20251231.htm"),
+        ("http://localhost:8010/doc.htm", FOLDER, "http://localhost:8010/doc.htm"),
+        ("biib-20251231.htm", FOLDER, FOLDER),
+        ("biib-20251231.htm", "edgar/data/875045/000087504526000012/", ""),
+    ], ids=["the-primary-document", "an-http-document", "the-folder-when-the-document-is-not-a-url",
+            "no-address-when-neither-is-a-url"])
+    def test_both_exports_print_the_address_the_filing_page_opens(self, service, document_url, sec_url, printed):
+        """"Original on SEC.gov" in the PDF and the CSV prints the address the filing page's link of the same
+        name opens (originalDocumentUrl.ts, EN-01): the primary document when it is an http(s) URL, else the
+        archive folder, sec_url (E190). With neither, the line still prints, with no address, so the eval's
+        blinding keeps its anchor."""
         summary, filing = _make_summary_and_filing(_full_sections())
-        filing.sec_url = "https://www.sec.gov/Archives/edgar/data/875045/000087504526000012/"
+        filing.sec_url = sec_url
         filing.document_url = document_url
         html = service.generate_pdf_html(summary, filing)
         assert f'<br>Original on SEC.gov · <span class="data">{printed}</span>' in html

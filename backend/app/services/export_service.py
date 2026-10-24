@@ -94,7 +94,7 @@ class ExportService:
             f"Filing Date: {filing.filing_date.strftime('%B %d, %Y') if filing.filing_date else 'N/A'} · "
             f"Period End: {filing.period_end_date.strftime('%B %d, %Y') if filing.period_end_date else 'N/A'} · "
             f"Generated {utcnow().strftime('%B %d, %Y')}"
-            # The filing page's words for the same link, its primary document (E190).
+            # The filing page's words for its link to the primary document, with the address it opens (E190).
             # backend/evals/acceptance_readiness.py anchors its blinding of the generation date on
             # "<br>Original on SEC.gov"; test_acceptance_readiness.py runs that blinding on this output.
             f"<br>Original on SEC.gov · <span class=\"data\">{escape(original_document_url(filing))}</span>"

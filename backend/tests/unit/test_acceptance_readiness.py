@@ -671,12 +671,13 @@ def test_blinding_strips_the_generation_date_from_a_real_filing_export(tmp_path:
 @pytest.mark.parametrize("source_line", [
     'Original on SEC.gov · <span class="data">https://www.sec.gov/Archives/edgar/data/1/x.htm</span>',
     'Source: SEC EDGAR · <span class="data">https://www.sec.gov/Archives/edgar/data/1/x.htm</span>',
-], ids=["since-E190", "retained-from-before"])
+    'Source: SEC EDGAR — <span class="data">https://www.sec.gov/Archives/edgar/data/1/x.htm</span>',
+], ids=["since-E190", "retained-from-before", "retained-from-before-2026-10-16"])
 def test_blinding_reads_the_source_line_of_an_export_written_before_or_after_e190(
         tmp_path: Path, source_line: str) -> None:
-    """The PDF's source line reads "Original on SEC.gov" since E190 and "Source: SEC EDGAR" before it, which an
-    export retained from an earlier run still carries: the blinding strips the generation date before either,
-    and refuses a line it does not know rather than pass the date on."""
+    """The PDF's source line reads "Original on SEC.gov" since E190 and "Source: SEC EDGAR" before it, with an
+    em dash until 2026-10-16, which an export retained from an earlier run still carries: the blinding strips
+    the generation date before each, and refuses a line it does not know rather than pass the date on."""
     row = {"config_sha256": "c" * 64, "arm": "candidate", "draw": 1}
     config = {"content_stamp": "stamp-synthetic", "source_commit": "d" * 40, "model": "model-synthetic",
               "base_url": "https://provider.invalid/v1"}
@@ -704,20 +705,25 @@ def _rewrite_export(fixture: dict[str, Any], row: dict[str, Any], text: str) -> 
         db.execute("UPDATE slots SET result_sha=? WHERE id=?", (result["sha256"], row["slot_id"]))
 
 
-@pytest.mark.parametrize("lines", [("Original on SEC.gov", "Original on SEC.gov"),
-                                   ("Source: SEC EDGAR", "Source: SEC EDGAR"),
-                                   ("Source: SEC EDGAR", "Original on SEC.gov")],
-                         ids=["since-E190", "retained-from-before", "mixed"])
+@pytest.mark.parametrize("lines", [("Original on SEC.gov · ", "Original on SEC.gov · "),
+                                   ("Source: SEC EDGAR · ", "Source: SEC EDGAR · "),
+                                   ("Source: SEC EDGAR · ", "Original on SEC.gov · "),
+                                   ("Source: SEC EDGAR — ", "Source: SEC EDGAR · ")],
+                         ids=["since-E190", "retained-from-before", "mixed", "mixed-before-E190"])
 def test_blinding_refuses_a_packet_set_whose_exports_mix_the_source_line(
         tmp_path: Path, lines: tuple[str, str]) -> None:
-    """An arm generated before E190 prints "Source: SEC EDGAR" with the archive folder, one generated after
-    it "Original on SEC.gov" with the document, so a packet set that mixed them would tell a reviewer the
-    arm: the builder refuses it before it writes anything, and builds a set that carries one line."""
+    """Each arm generates its exports in its own frozen checkout, so they print that version's source line:
+    "Source: SEC EDGAR" and an em dash until 2026-10-16, a middot until E190, "Original on SEC.gov" since.
+    A packet set whose two arms printed different lines would tell a reviewer the arm: the builder refuses it
+    before it writes anything, and builds a set whose exports carry one line."""
     fixture = _fixture(tmp_path)
     records = json.loads(fixture["outputs"].read_text())["records"]
+    assert {row["arm"] for row in records} == {"candidate", "comparator"}
     header = "Filing Date: May 01, 2026 · Period End: March 31, 2026 · Generated September 21, 2026<br>"
-    for row, line in zip(records[:2], lines):
-        _rewrite_export(fixture, row, f"{header}{line} · https://www.sec.gov/Archives/x.htm<p>Revenue rose.</p>")
+    for row in records:  # the candidate arm prints the first line, the comparator the second
+        line = lines[0] if row["arm"] == "candidate" else lines[1]
+        _rewrite_export(fixture, row, f'{header}{line}<span class="data">https://www.sec.gov/Archives/x.htm</span>'
+                                      "<p>Revenue rose.</p>")
     fixture["outputs"].write_text(json.dumps(inspect_outputs(
         fixture["outputs"].parent, fixture["outputs"].parent, expected_manifest_sha=fixture["manifest_sha"])))
     build = lambda: build_blinded_packets(  # noqa: E731
@@ -730,7 +736,8 @@ def test_blinding_refuses_a_packet_set_whose_exports_mix_the_source_line(
         return
     assert build()["mapping_path"]
     projected = [path.read_text(encoding="utf-8") for path in (tmp_path / "reviewers").rglob("export.html")]
-    assert sum(f"Period End: March 31, 2026<br>{lines[0]}" in text for text in projected) == 4
+    assert len(projected) == 2 * len(records)
+    assert all(f"Period End: March 31, 2026<br>{lines[0]}<span" in text for text in projected)
     assert not any("Generated September" in text for text in projected)
 
 
