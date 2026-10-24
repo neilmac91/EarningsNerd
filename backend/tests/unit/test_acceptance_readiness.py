@@ -715,15 +715,17 @@ def test_blinding_refuses_a_packet_set_whose_exports_mix_the_source_line(
     """Each arm generates its exports in its own frozen checkout, so they print that version's source line:
     "Source: SEC EDGAR" and an em dash until 2026-10-16, a middot until E190, "Original on SEC.gov" since.
     A packet set whose two arms printed different lines would tell a reviewer the arm: the builder refuses it
-    before it writes anything, and builds a set whose exports carry one line."""
+    before it writes anything, and builds a set whose exports carry one line, each beside its own filing's
+    address, as a real set's are, so a check that read the address into the line would refuse it."""
     fixture = _fixture(tmp_path)
     records = json.loads(fixture["outputs"].read_text())["records"]
     assert {row["arm"] for row in records} == {"candidate", "comparator"}
+    assert len({row["accession_number"] for row in records}) > 1
     header = "Filing Date: May 01, 2026 · Period End: March 31, 2026 · Generated September 21, 2026<br>"
     for row in records:  # the candidate arm prints the first line, the comparator the second
         line = lines[0] if row["arm"] == "candidate" else lines[1]
-        _rewrite_export(fixture, row, f'{header}{line}<span class="data">https://www.sec.gov/Archives/x.htm</span>'
-                                      "<p>Revenue rose.</p>")
+        address = f"https://www.sec.gov/Archives/edgar/data/1/{row['accession_number'].replace('-', '')}/x.htm"
+        _rewrite_export(fixture, row, f'{header}{line}<span class="data">{address}</span><p>Revenue rose.</p>')
     fixture["outputs"].write_text(json.dumps(inspect_outputs(
         fixture["outputs"].parent, fixture["outputs"].parent, expected_manifest_sha=fixture["manifest_sha"])))
     build = lambda: build_blinded_packets(  # noqa: E731

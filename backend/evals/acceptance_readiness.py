@@ -50,9 +50,10 @@ _EXECUTION_KEY_TEXT = re.compile(
 # "Source: SEC EDGAR" and an em dash until 2026-10-16, "Source: SEC EDGAR · " until E190 and "Original on
 # SEC.gov · " since, each followed by the address in a span. An export retained from an earlier run still
 # carries its version's line, so the blinding strips the generation date before any of them. Arms generated
-# from different versions would print different lines, which would tell a reviewer the arm, so every export
-# in a packet set that carries a line carries the same one, read up to the address's tag
-# (build_blinded_packets).
+# from versions with different lines would tell a reviewer the arm by it, so every export in a packet set that
+# carries a line carries the same one, read up to the address's tag (build_blinded_packets). The builder
+# compares this line only: exports that differ elsewhere (the closing note's markup changed on 2026-10-20)
+# are the custodian's to catch, by generating both arms from one export_service.py and pdf_branding.py.
 _EXPORT_SOURCE = "(?:" + "|".join(map(re.escape, ("<br>Original on SEC.gov", "<br>Source: SEC EDGAR"))) + ")"
 _EXPORT_GENERATED = re.compile(
     r"(Period End: [^<]+?) · Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}(?=" + _EXPORT_SOURCE + ")"
