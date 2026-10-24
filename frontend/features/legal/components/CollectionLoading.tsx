@@ -3,7 +3,7 @@ import { ENABLE_APPLE_SIGNIN, TURNSTILE_ENABLED } from '@/lib/featureFlags'
 
 function FieldBone({ multiline = false }: { multiline?: boolean }) {
   return <div className="space-y-2">
-    <Skeleton className="h-5 w-28" />
+    <Skeleton className="h-5 w-28 max-w-full" />
     <Skeleton className={multiline ? 'h-40 w-full' : 'h-11 w-full'} />
   </div>
 }
@@ -21,7 +21,7 @@ export function CollectionLoading({ surface }: { surface: 'contact' | 'waitlist'
     {contact && <>
       <FieldBone />
       <FieldBone multiline />
-      <Skeleton className="h-5 w-48" />
+      <Skeleton className="h-5 w-48 max-w-full" />
     </>}
     {TURNSTILE_ENABLED && <Skeleton className="h-16 w-full" />}
     <Skeleton className="h-11 w-full" />
@@ -33,7 +33,7 @@ export function RegistrationLoading({ invited, emailVisible, socialOffered }: { 
     <span className="sr-only">Checking registration availability</span>
     {invited && <Skeleton className="h-24 w-full rounded-xl" />}
     <div className="space-y-3">
-      <Skeleton className="h-5 w-40" />
+      <Skeleton className="h-5 w-40 max-w-full" />
       <Skeleton className="h-10 w-full" />
       <Skeleton className="h-10 w-full" />
       <Skeleton className="h-10 w-full" />
@@ -41,7 +41,7 @@ export function RegistrationLoading({ invited, emailVisible, socialOffered }: { 
     {socialOffered && <div className="space-y-3">
       {ENABLE_APPLE_SIGNIN && <Skeleton className="h-11 w-full" />}
       <Skeleton className="h-11 w-full" />
-      <Skeleton className="mx-auto h-5 w-20" />
+      <Skeleton className="mx-auto h-5 w-20 max-w-full" />
     </div>}
     {emailVisible && <div className="space-y-4">
       <FieldBone />
