@@ -1925,10 +1925,17 @@ async def test_company_routes_release_their_connection_off_the_loop(monkeypatch,
 
 
 _SAVED_STATUS = {"save_missing": 404, "update_missing": 404, "delete_missing": 404}
+# Each failing case's service call, made to raise after its first query: the unit's release in its finally
+# still returns the connection, so the route answers 500 with nothing left for the finalizer.
+_SAVED_UNIT_FAILS = {
+    "save_fails": "save_summary", "list_fails": "list_saved_summaries", "status_fails": "saved_summary_status",
+    "update_fails": "update_saved_summary_notes", "delete_fails": "delete_saved_summary",
+}
 # Each reader's library after the burst, by case: the notes of its one row, or no row.
 _SAVED_NOTES_AFTER = {
     "save": [None], "save_existing": ["Renoted"], "save_missing": [], "list": ["Kept"], "status": ["Kept"],
     "update": ["Edited"], "update_missing": ["Kept"], "delete": [], "delete_missing": ["Kept"],
+    **{case: ["Kept"] for case in _SAVED_UNIT_FAILS},
 }
 
 
@@ -1943,14 +1950,20 @@ _SAVED_NOTES_AFTER = {
     ("PUT", "/api/saved-summaries/999999", "update_missing"),
     ("DELETE", "/api/saved-summaries/{saved_id}", "delete"),
     ("DELETE", "/api/saved-summaries/999999", "delete_missing"),
+    ("POST", "/api/saved-summaries/", "save_fails"),
+    ("GET", "/api/saved-summaries/", "list_fails"),
+    ("GET", "/api/saved-summaries/status/{summary_id}", "status_fails"),
+    ("PUT", "/api/saved-summaries/{saved_id}", "update_fails"),
+    ("DELETE", "/api/saved-summaries/{saved_id}", "delete_fails"),
 ])
 async def test_saved_summary_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, case):
     """Each saved-summary route runs its session work, its payload and the release in one thread-pool
-    unit, its refusals included, so eight readers on four slots leave nothing for the finalizer and
-    make no checkout, statement or release on the loop. The status route is a sync route, which
-    FastAPI runs in the thread pool, and it releases its own connection as well."""
+    unit, its refusals and its failures included, so eight readers on four slots leave nothing for the
+    finalizer and make no checkout, statement or release on the loop. The status route is a sync route,
+    which FastAPI runs in the thread pool, and it releases its own connection as well."""
     from app.models import SavedSummary, User
     from app.routers import auth
+    from app.services import saved_summary_service
 
     engine = create_engine(
         f"sqlite:///{tmp_path / 'saved-summary-routes.db'}",
@@ -2016,6 +2029,12 @@ async def test_saved_summary_routes_release_their_connection_off_the_loop(monkey
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
     monkeypatch.setattr(app, "dependency_overrides", {})
     monkeypatch.setattr(auth, "sentry_sdk", None)
+    if case in _SAVED_UNIT_FAILS:
+        def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+            db.query(SavedSummary.id).first()
+            raise RuntimeError("the unit failed after its first query")
+
+        monkeypatch.setattr(saved_summary_service, _SAVED_UNIT_FAILS[case], fails_after_its_first_query)
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
     body = {"summary_id": 999999 if case == "save_missing" else summary_id}
     if case == "save_existing":
@@ -2042,9 +2061,12 @@ async def test_saved_summary_routes_release_their_connection_off_the_loop(monkey
         assert engine.pool.checkedout() == 0
         # Each route released its own connection; the dependency's finalizer found nothing open.
         assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
-        assert [response.status_code for response in responses] == [_SAVED_STATUS.get(case, 200)] * 8
+        assert [response.status_code for response in responses] == [
+            500 if case in _SAVED_UNIT_FAILS else _SAVED_STATUS.get(case, 200)] * 8
         payloads = [response.json() for response in responses]
-        if case in ("save", "save_existing", "update"):
+        if case in _SAVED_UNIT_FAILS:
+            assert [payload["type"] for payload in payloads] == ["internal_server_error"] * 8
+        elif case in ("save", "save_existing", "update"):
             notes = {"save": None, "save_existing": "Renoted", "update": "Edited"}[case]
             # Each payload reads the summary, filing and company rows, and a new row's created_at, inside
             # the unit.
@@ -2073,14 +2095,15 @@ async def test_saved_summary_routes_release_their_connection_off_the_loop(monkey
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("watching", [True, False])
-async def test_upcoming_calendar_releases_its_connection_off_the_loop(monkeypatch, tmp_path, watching):
+@pytest.mark.parametrize("case", ["watching", "unwatched", "fails"])
+async def test_upcoming_calendar_releases_its_connection_off_the_loop(monkeypatch, tmp_path, case):
     """The dashboard's upcoming calendar reads its rows and releases its session in one thread-pool
-    unit, for a reader who watches nothing as for one who watches a reporting company, so eight readers
-    on four slots leave nothing for the finalizer and make no checkout, statement or release on the
-    loop."""
+    unit, for a reader who watches a reporting company, one who watches nothing and a read that fails
+    after its first query, so eight readers on four slots leave nothing for the finalizer and make no
+    checkout, statement or release on the loop."""
     from app.models import EarningsEvent, User, Watchlist
     from app.routers import auth
+    from app.services import calendar_service
     from app.services.earnings_calendar_service import today_eastern
 
     engine = create_engine(
@@ -2104,7 +2127,7 @@ async def test_upcoming_calendar_releases_its_connection_off_the_loop(monkeypatc
             reader = User(email=f"calendar-reader-{i}@example.com", is_active=True)
             db.add(reader)
             db.flush()
-            if watching:
+            if case == "watching":
                 db.add(Watchlist(user_id=reader.id, company_id=company.id))
         db.commit()
 
@@ -2134,6 +2157,12 @@ async def test_upcoming_calendar_releases_its_connection_off_the_loop(monkeypatc
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
     monkeypatch.setattr(app, "dependency_overrides", {})
     monkeypatch.setattr(auth, "sentry_sdk", None)
+    if case == "fails":
+        def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+            db.query(Watchlist.id).first()
+            raise RuntimeError("the unit failed after its first query")
+
+        monkeypatch.setattr(calendar_service, "upcoming_for_user", fails_after_its_first_query)
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
 
     async def send(i: int) -> httpx.Response:
@@ -2150,10 +2179,14 @@ async def test_upcoming_calendar_releases_its_connection_off_the_loop(monkeypatc
         assert engine.pool.checkedout() == 0
         # The unit released its own connection; the dependency's finalizer found nothing open.
         assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
-        assert [response.status_code for response in responses] == [200] * 8
-        events = [{"ticker": "CACHED", "company_name": "Cached fixture", "earnings_date": reporting_day.isoformat(),
-                   "time": "amc", "eps_estimated": None, "revenue_estimated": None}] if watching else []
-        assert [response.json() for response in responses] == [{"events": events}] * 8
+        if case == "fails":
+            assert [(response.status_code, response.json()["type"]) for response in responses] == [
+                (500, "internal_server_error")] * 8
+        else:
+            events = [{"ticker": "CACHED", "company_name": "Cached fixture", "earnings_date": reporting_day.isoformat(),
+                       "time": "amc", "eps_estimated": None, "revenue_estimated": None}] if case == "watching" else []
+            assert [(response.status_code, response.json()) for response in responses] == [
+                (200, {"events": events})] * 8
     finally:
         engine.dispose()
 

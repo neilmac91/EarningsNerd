@@ -79,9 +79,9 @@ def postgres_named(engine):
 
 
 def _recorded(session, statements: list[Recorded], process_lock=None):
-    """``session``, recording each ORM statement it runs, with its parameters and whether ``process_lock``
-    (``watch_row_lock`` unless named) was held as it ran, each flush with the models it writes, and each end of a
-    transaction."""
+    """``session``, recording each ORM statement it runs, with its parameters, each flush with the models it writes,
+    and each end of a transaction, each with whether ``process_lock`` (``watch_row_lock`` unless named) was held as it
+    ran."""
     held = process_lock or watchlist_service.watch_row_lock
 
     def record(state) -> None:
@@ -92,12 +92,13 @@ def _recorded(session, statements: list[Recorded], process_lock=None):
         statements.append(Recorded("-- flush", {
             kind: {type(instance).__name__ for instance in getattr(flushed, kind)}
             for kind in ("new", "dirty", "deleted")
-        }))
+        }, held.locked()))
 
     event.listen(session, "do_orm_execute", record)
     event.listen(session, "before_flush", flushing)
-    event.listen(session, "after_commit", lambda _session: statements.append(Recorded("-- commit", {})))
-    event.listen(session, "after_rollback", lambda _session: statements.append(Recorded("-- rollback", {})))
+    event.listen(session, "after_commit", lambda _session: statements.append(Recorded("-- commit", {}, held.locked())))
+    event.listen(session, "after_rollback",
+                 lambda _session: statements.append(Recorded("-- rollback", {}, held.locked())))
     return session
 
 
@@ -248,12 +249,35 @@ def _saved_row_statements(sessions, unit) -> list[Recorded]:
 ])
 def test_each_saved_row_write_locks_the_account_before_it_checks(sessions, saved, unit, writes):
     """Each write as it succeeds. The account's lock comes before the process lock, so a unit that waits on it holds
-    that lock for no other account."""
+    that lock for no other account. The write's commit runs inside saved_row_lock, which within one process is the
+    only serialization under SQLite, and nothing runs there after it: a statement after the commit checks a
+    connection out again, which inside the lock could wait for a pool slot that a waiter holds."""
     _reader(sessions, saved=saved)
     statements = _saved_row_statements(sessions, unit)
+    shown = "\n".join(f"{s.sql[:90]} held={s.process_lock_held}" for s in statements)
     lock = _assert_holds_the_lock_from_its_check_to_its_write(
         statements, lock=_users_row_lock, lock_value=USER_ID, checks="FROM saved_summaries", writes=writes)
     assert not statements[lock].process_lock_held, "the account's lock was taken inside saved_row_lock"
+    commit = next(i for i, s in enumerate(statements) if i > lock and s.sql in ("-- commit", "-- rollback"))
+    assert statements[commit].process_lock_held, f"the write's commit ran outside saved_row_lock\n{shown}"
+    assert not any(s.process_lock_held for s in statements[commit + 1:]), (
+        f"something ran inside saved_row_lock after the write's commit\n{shown}")
+
+
+def test_the_save_waits_for_its_summary_before_both_locks(sessions):
+    """The save reads its summary FOR KEY SHARE, the lock its bookmark's foreign-key check takes at the INSERT, before
+    the account's lock: a save of a summary an admin tool is deleting waits there, holding neither the account's lock
+    nor saved_row_lock, and then finds it gone. Only that read locks a summaries row, and only for key share."""
+    _reader(sessions, saved=False)
+    statements = _saved_row_statements(sessions, lambda db, user: saved_summary_service.save_summary(
+        db, user_id=user.id, summary_id=1, notes=None))
+    shown = "\n".join(s.sql for s in statements)
+    summary_locks = [i for i, s in enumerate(statements) if "FROM summaries" in s.sql and ROW_LOCK.search(s.sql)]
+    account_locks = [i for i, s in enumerate(statements) if _users_row_lock(s.sql)]
+    assert len(summary_locks) == 1 and account_locks and summary_locks[0] < account_locks[0], shown
+    summary_lock = statements[summary_locks[0]]
+    assert summary_lock.sql.rstrip().endswith("FOR KEY SHARE OF summaries"), shown
+    assert not summary_lock.process_lock_held, shown
 
 
 def test_the_saved_row_reads_take_no_lock(sessions):
