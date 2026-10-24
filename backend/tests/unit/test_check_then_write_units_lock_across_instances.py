@@ -22,6 +22,7 @@ for ``pg_advisory_xact_lock``. ``test_check_then_write_units_serialize.py`` hold
 two instances on PostgreSQL.
 """
 import re
+import threading
 from typing import NamedTuple
 
 import pytest
@@ -29,6 +30,7 @@ import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import Pool
 
 from app import database
 from app.models import Base, Company, Filing, SavedSummary, Summary, User, WaitlistSignup, Watchlist
@@ -47,8 +49,8 @@ ROW_LOCK = re.compile(r"\bFOR (?:UPDATE|NO KEY UPDATE|SHARE|KEY SHARE)\b")
 
 
 class Recorded(NamedTuple):
-    """One statement the session ran, compiled for PostgreSQL, or a ``-- flush``, ``-- commit`` or ``-- rollback``
-    marker; a flush's params name the models it writes, by kind."""
+    """One statement the session ran, compiled for PostgreSQL, or a ``-- flush``, ``-- commit``, ``-- rollback`` or
+    ``-- checkout`` marker; a flush's params name the models it writes, by kind."""
     sql: str
     params: dict
     process_lock_held: bool = False
@@ -226,24 +228,26 @@ def _reader(sessions, *, saved: bool) -> None:
 
 
 def _saved_row_statements(sessions, unit) -> list[Recorded]:
-    """As ``_watch_row_statements``, each entry recording whether ``saved_row_lock`` was held as it ran, and each pool
-    checkout the unit makes as a ``-- checkout`` entry: the session's recorder sees its ORM statements, flushes and
-    ends of transactions, not a checkout made through the session's connection."""
+    """As ``_watch_row_statements``, each entry recording whether ``saved_row_lock`` was held as it ran, and each
+    checkout the unit's thread makes on any pool, a session of its own on another engine included, as a ``-- checkout``
+    entry: the session's recorder sees its ORM statements, flushes and ends of transactions, not a checkout made
+    through the session's connection."""
     statements: list[Recorded] = []
     held = saved_summary_service.saved_row_lock
-    engine = sessions.kw["bind"]
+    unit_thread = threading.get_ident()
 
     def checkout(*_args) -> None:
-        statements.append(Recorded("-- checkout", {}, held.locked()))
+        if threading.get_ident() == unit_thread:
+            statements.append(Recorded("-- checkout", {}, held.locked()))
 
     with sessions() as db:
         user = db.get(User, USER_ID)
         _recorded(db, statements, process_lock=held)
-        event.listen(engine, "checkout", checkout)
+        event.listen(Pool, "checkout", checkout)
         try:
             unit(db, user)
         finally:
-            event.remove(engine, "checkout", checkout)
+            event.remove(Pool, "checkout", checkout)
     return statements
 
 
@@ -279,18 +283,19 @@ def test_each_saved_row_write_locks_the_account_before_it_checks(sessions, saved
 
 
 def test_the_save_takes_no_lock_on_its_summary(sessions):
-    """The save reads its summary without a row lock. Its bookmark's foreign-key check takes the summary's key-share
+    """The save takes no row lock but its account's. Its bookmark's foreign-key check takes the summary's key-share
     lock at the INSERT, inside saved_row_lock, so a save of a summary an admin tool is deleting waits there (see
-    saved_row_lock's comment). Taking that lock earlier, at the read before both locks, deadlocked a save over a saved
-    row with the admin reset-all, which deletes the bookmarks before their summaries (40P01 in each order on
-    PostgreSQL 16, E171's saved-summaries verification lens): a change to the save's lock order goes with the
-    reset-all's."""
+    saved_row_lock's comment). Taking that lock earlier, before both locks, deadlocked a save over a saved row with the
+    admin reset-all, which deletes the bookmarks before their summaries, as ``scripts/reset_filing_summary.py
+    --include-saved`` does (40P01 in each order on PostgreSQL 16, E171's saved-summaries verification lens): a change
+    to the save's lock order goes with both of theirs. Every row lock the save's statements take, on whichever table
+    a statement starts from, must be the account's; a Core statement on the session's connection is out of the
+    recorder's reach."""
     _reader(sessions, saved=False)
     statements = _saved_row_statements(sessions, lambda db, user: saved_summary_service.save_summary(
         db, user_id=user.id, summary_id=1, notes=None))
-    summary_reads = [s for s in statements if "FROM summaries" in s.sql]
-    assert summary_reads and not any(ROW_LOCK.search(s.sql) for s in summary_reads), (
-        "\n".join(s.sql for s in statements))
+    locks = [s.sql for s in statements if ROW_LOCK.search(s.sql)]
+    assert locks and all(_users_row_lock(sql) for sql in locks), "\n".join(s.sql for s in statements)
 
 
 def test_the_saved_row_reads_take_no_lock(sessions):

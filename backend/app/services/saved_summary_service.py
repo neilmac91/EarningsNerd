@@ -42,11 +42,13 @@ class SavedSummaryRelatedRowMissing(Exception):
 # Inside the lock a write can still wait in PostgreSQL behind an admin tool's delete, which takes no users
 # row lock: a save's INSERT on its summary's row (the foreign-key check) while a delete of that summary is
 # uncommitted, and an update or a delete on its bookmark's row while the admin reset-all deletes the
-# bookmarks of the summaries it resets (``include_saved``). Each is an operator action with no network call
-# in its transaction, and every account's library write on the instance waits behind it. The save does not
-# take its summary's lock (FOR KEY SHARE) before this lock to avoid that wait: the reset-all deletes the
-# bookmarks before their summaries, the reverse order, and a save over a saved row deadlocked with it (40P01,
-# five runs of five in each order on PostgreSQL 16, E171's saved-summaries verification lens).
+# bookmarks of the summaries it resets (``include_saved``, as ``scripts/reset_filing_summary.py
+# --include-saved`` does). Each is an operator action with no network call in its transaction, and every
+# account's library write on the instance waits behind it. Taking the summary's key-share lock before both
+# locks would end the first wait but not the second: the reset-all deletes the bookmarks before their
+# summaries, the reverse order, and a save over a saved row deadlocked with it (40P01, five runs of five in
+# each order on PostgreSQL 16, E171's saved-summaries verification lens). So the save takes no lock on its
+# summary until those deletes take their summaries first.
 saved_row_lock = threading.Lock()
 
 

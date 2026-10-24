@@ -173,8 +173,9 @@ deleting. Every account's library write on the instance then waits too: a local 
 another account's save of another summary 1.49 to 1.51 s behind a 1.5 s admin delete, and the waiting save
 failed its foreign-key check (500). Taking the summary's key-share lock at the save's read, before both
 locks, ended that wait (0.006 to 0.021 s) but deadlocked a save over a saved row with the reset-all, which
-deletes the bookmarks before their summaries (40P01, five runs of five in each order), so the save takes
-no lock on its summary until the reset-all's order changes with it. The join takes the waitlist's place lock, a
+deletes the bookmarks before their summaries, as `scripts/reset_filing_summary.py --include-saved` does
+(40P01, five runs of five in each order), so the save takes no lock on its summary until both of their
+orders change with it. The join takes the waitlist's place lock, a
 transaction-level advisory lock, since no row is common to every join
 (`waitlist_service._lock_waitlist_places`), inside its process lock,
 which a waiter takes before its first query and so waits on holding no connection. Its place is one past
