@@ -1150,18 +1150,43 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  From lg to 72rem the compact bar carries a signed-in reader's NotificationBell too, after the
                  theme toggle as in the full bar, so the bell stays wherever the full bar showed it before,
                  and the header holds its panel so that one of it and the menu is open at a time (the same
-                 case opens both, the menu from the keyboard too). The logo's mr-auto and the controls'
+                 case opens both, the menu from the keyboard too). In either bar the bell's panel is a column
+                 no taller than the screen under the bar: the screen less the header's published height, the
+                 bar's own while the panel is open, and the panel's 0.5rem offset
+                 (`max-h-[calc(100dvh_-_var(--site-header-h,4rem)_-_0.5rem)]`). Its title and settings link
+                 keep their height and its list takes the rest, scrolling inside it; where the screen has
+                 room the list's 24rem cap holds. Before, only the list was capped, so under 200% text 20
+                 alerts ran the panel to 1060px on a 768px screen, its settings link out of reach (E178;
+                 gate: tests/e2e/reflow-200.spec.ts serves 20 alerts at 1024x768, 1440x900 and 2560x960 under
+                 200% text and holds the open panel inside the screen, its title and settings link inside it
+                 and its list scrolling to the last alert). The logo's mr-auto and the controls'
                  ml-auto share the full bar's free space, never justify-between alone, which puts a line's
                  only block at its start, so should the bar ever wrap, the notification and account menus,
                  anchored at their right edge (right-0), still open on the screen (E160; gate: the same spec
                  opens each menu at 2304 and 2560px under 200% text with a copy fixture that lengthens the nav
                  until the bar wraps, and holds the one-line bar's nav midway at 1440px). The desktop controls
-                 block holds min-h-10, the md button's height, so the bar is one height while the auth check
-                 runs and after it, for a guest and a signed-in reader (E174; gate:
+                 block is one grid cell with two layers: a copy of a guest's controls (the toggle's box, "Log
+                 in" and the account link, as spans in the links' classes, `invisible` and `aria-hidden`,
+                 nothing in it focused or read; role queries skip it, though a text query for a guest's labels
+                 also finds it) and the live controls at the cell's right edge, so the cell keeps a guest's
+                 width whatever the auth check shows, in any font and either access mode, and the nav keeps
+                 its place as the check settles; a reader's toggle, bell and avatar stay together at the
+                 right. The cell holds min-h-10, the md button's height, so the bar is one height while the
+                 check runs and after it, for a guest and a signed-in reader (E174, E175; gate:
                  tests/e2e/header-covers-nothing.spec.ts holds the check open, scrolls, and answers it in the
                  compact bar at 1024px and the full bar at 1152 and 1440px, and under 200% text in the compact
-                 bar at 1024 and 1440px and the full bar at 2304px). Below 1024px under 200% text a guest's
-                 account link can still change the compact bar's lines as it appears (E175).
+                 bar at 640, 800, 1024 and 1440px and the full bar at 2304px: the header keeps its height, the
+                 full bar's nav its left edge, and a guest's compact bar its height with either access mode's
+                 label; tests/unit/Header.spec.tsx holds the copy unfocusable, unread and in step with a
+                 guest's live controls in either access mode). The wordmark shows from 40rem
+                 (`[@media(min-width:40rem)]:inline`: 640px at the default size, 1280px under 200% text), so
+                 under enlarged text the mark stands alone where a guest's row needs the room. Below about
+                 15rem (480px under 200% text, 360px under 150%) a guest's account link no longer fits beside
+                 the logo as it is, so as it appears its label wraps or it takes a row of its own, and the
+                 compact bar still grows: under 200% text in CI's fonts, a wrapped label (14px) at 360px with
+                 "Sign up" and 390 to 450px with "Request invite", and a whole row at 320px with either label
+                 and at 360 and 375px with "Request invite". Chief design accepts that band, since any
+                 reservation would give every reader the same extra row (#1558, comment 6377073723).
                  A page's own header (SecondaryHeader: pricing, the dashboard, the watchlist, admin) scrolls
                  with the page on an opaque panel; only a table's
                  header cells stick at `top-0`, inside the table's own scroll box. The document's

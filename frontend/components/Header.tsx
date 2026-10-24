@@ -206,12 +206,15 @@ export default function Header({
             controls stay at the right of their own line, where justify-between would put a line's only block at its
             start, and the menus anchored at their right edge (right-0) open inside the screen (E160). */}
         <div className="mr-auto flex items-center">
-          {/* Design sizes: 36px mark, 20px wordmark. Below `sm` the bar also carries the theme
-              toggle (above 24rem), the short account CTA and the menu button at 44px each, so the wordmark
-              yields to the mark alone (the footer's rendition) rather than overflow the viewport. */}
+          {/* Design sizes: 36px mark, 20px wordmark. Below 40rem the bar also carries the theme toggle (above 24rem), the
+              short account CTA and the menu button at 44px each, so the wordmark yields to the mark alone (the footer's
+              rendition) rather than overflow the viewport. A rem query, as the bar's other switches are: 640px at the
+              default text size and 1280px under a 200% text setting, where `sm` showed it from 640px at any size, and
+              a guest's row then stopped fitting at 640 to 900px, so the bar grew as the auth check settled (E175, chief
+              design on #1558, comment 6377073723). */}
           <Link href="/" className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark" aria-label="EarningsNerd home">
             <EarningsNerdLogo variant="icon-only" iconClassName="h-9 w-9" mode="auto" />
-            <EarningsNerdLogo variant="wordmark" wordmarkClassName="hidden text-xl sm:inline" mode="auto" />
+            <EarningsNerdLogo variant="wordmark" wordmarkClassName="hidden text-xl [@media(min-width:40rem)]:inline" mode="auto" />
           </Link>
         </div>
 
@@ -235,36 +238,54 @@ export default function Header({
           ))}
         </nav>
 
-        {/* Right: CTAs / user menu (desktop). min-h-10, the md button's height, holds the bar at one height whatever
-            the auth check shows: the 36px placeholder and a signed-in reader's 36px avatar sit centred in the guest's
-            40px row, so the header no longer grows 4px when the check settles for a guest and moves a page already
-            scrolled (E174). */}
-        <div className="ml-auto hidden min-h-10 items-center gap-3 [@media(min-width:72rem)]:flex">
-          <ThemeToggle />
-          {user ? (
-            <>
-              <NotificationBell />
-              <UserMenu user={user} />
-            </>
-          ) : user === null || isError ? (
-            <>
-              <Link href="/login" className={buttonVariants({ variant: 'ghost', size: 'md' })}>
-                Log in
-              </Link>
-              <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md' })}>
-                {account.cta}
-                <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden="true" />
-              </Link>
-            </>
-          ) : (
-            // Auth still resolving (pending, including retry backoff): hold the skeleton so a
-            // slow/cold backend never flashes the "Log in" CTAs to a user who is actually signed
-            // in. Once the query *settles* — `null` (logged out) or `isError` (gave up) — one of
-            // the branches above renders, so the user is never trapped on this placeholder.
-            <span role="status" aria-label="Checking whether you are logged in">
-              <Skeleton className="h-9 w-9 rounded-full" />
+        {/* Right: CTAs / user menu (desktop). One grid cell holds two layers: a copy of a guest's controls (the theme
+            toggle's box, "Log in" and the account link, as spans in the links' classes, invisible and aria-hidden, so
+            nothing in it is painted, focused or read) and the live controls, set at the cell's right edge. The cell is
+            as wide as a guest's set whatever the auth check shows, in any font and either access mode, so the nav
+            keeps its place as the check settles: it moved 109px for a guest and 35px for a reader at 1152px (E175,
+            chief design on #1558, comment 6377073723). A reader's toggle, bell and avatar stay together at the right,
+            the spare width between them and the nav, and the live set's right edge is the bar's, so the menus anchored
+            there (right-0) open on the screen (E160). min-h-10, the md button's height, holds the bar at one height
+            whatever the check shows: the 36px placeholder and a signed-in reader's 36px avatar sit centred in the
+            guest's 40px row (E174). */}
+        <div className="ml-auto hidden min-h-10 items-center [@media(min-width:72rem)]:grid">
+          <span aria-hidden="true" className="invisible col-start-1 row-start-1 flex items-center gap-3">
+            <span className="inline-flex p-2">
+              <span className="h-5 w-5" />
             </span>
-          )}
+            <span className={buttonVariants({ variant: 'ghost', size: 'md' })}>Log in</span>
+            <span className={buttonVariants({ variant: 'primary', size: 'md' })}>
+              {account.cta}
+              <ArrowRightIcon className="h-3.5 w-3.5" />
+            </span>
+          </span>
+          <div className="col-start-1 row-start-1 flex items-center justify-end gap-3">
+            <ThemeToggle />
+            {user ? (
+              <>
+                <NotificationBell />
+                <UserMenu user={user} />
+              </>
+            ) : user === null || isError ? (
+              <>
+                <Link href="/login" className={buttonVariants({ variant: 'ghost', size: 'md' })}>
+                  Log in
+                </Link>
+                <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md' })}>
+                  {account.cta}
+                  <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                </Link>
+              </>
+            ) : (
+              // Auth still resolving (pending, including retry backoff): hold the skeleton so a
+              // slow/cold backend never flashes the "Log in" CTAs to a user who is actually signed
+              // in. Once the query *settles* — `null` (logged out) or `isError` (gave up) — one of
+              // the branches above renders, so the user is never trapped on this placeholder.
+              <span role="status" aria-label="Checking whether you are logged in">
+                <Skeleton className="h-9 w-9 rounded-full" />
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Mobile actions (the compact bar, below 72rem): 44px touch targets on the icon controls; the short account
