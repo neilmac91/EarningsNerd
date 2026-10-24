@@ -133,7 +133,8 @@ slots left the one reader's on a cold cache, and all eight with a cache that nev
 now synchronous, as the notable-filings strip's is, its single flight a thread lock and its cache replaced
 in one assignment, and the route runs it and the release as one thread-pool unit: neither burst leaves one.
 A cache hit now takes a thread hop as well, and a miss waits for the fill on a thread, holding no
-connection. Its burst case holds every checkout, statement and release off the loop (2026-10-24, E171).
+connection. Its burst case holds every checkout off the loop and nothing left for the finalizer
+(2026-10-24, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the

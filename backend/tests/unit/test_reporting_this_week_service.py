@@ -313,10 +313,17 @@ def _cold_burst(n, reads_return):
     svc._cached = counted
     with ThreadPoolExecutor(max_workers=n) as pool:
         requests = [pool.submit(svc.get_reporting_this_week, None, today=monday) for _ in range(n)]
-        # Each request's first check and the first reader's recheck under the lock: all have missed
-        # before any read returns, since the others wait on the lock that reader holds.
-        assert all(checks.acquire(timeout=2) for _ in range(n + 1))
-        release_reads.set()
+        try:
+            # Each request's first check and the first reader's recheck under the lock: all have missed
+            # before any read returns, since the others wait on the lock that reader holds.
+            missed = 0
+            while missed < n + 1 and checks.acquire(timeout=2):
+                missed += 1
+            assert missed == n + 1, f"{missed} of {n + 1} cache checks before the first read returned"
+        finally:
+            # A failed precondition still lets the held read return, so the pool's shutdown does not wait
+            # out each reader's timeout in turn.
+            release_reads.set()
         return [request.result(timeout=3) for request in requests], len(reads)
 
 
