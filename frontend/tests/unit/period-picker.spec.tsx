@@ -28,7 +28,7 @@ describe('PeriodPicker controls', () => {
       expect(button).not.toHaveAttribute('aria-pressed')
       expect(button).not.toHaveClass('rounded-full', 'bg-brand-weak')
     }
-    expect(screen.getByText('Q1 2023 – Q4 2025 · 12 quarters')).toBeInTheDocument()
+    expect(screen.getByText('Q1 2023–Q4 2025 · 12 quarters')).toBeInTheDocument()
     expect(screen.getByText(/† Fourth-quarter flows are calculated from annual totals\. Fiscal quarters\./)).toBeInTheDocument()
     expect(screen.getByLabelText('From')).toHaveClass('font-data', 'tabular-nums')
     expect(within(screen.getByLabelText('From')).getByRole('option', { name: 'Q4 2023 †' })).toBeInTheDocument()
@@ -64,7 +64,7 @@ describe('PeriodPicker controls', () => {
     const presets = screen.getByRole('group', { name: 'Recent period presets' })
     expect(within(presets).getAllByRole('button')).toHaveLength(1)
     expect(within(presets).getByRole('button', { name: 'Last 1' })).not.toHaveAttribute('aria-pressed')
-    expect(screen.getByText('FY2021 – FY2021 · 1 year')).toBeInTheDocument()
+    expect(screen.getByText('FY2021–FY2021 · 1 year')).toBeInTheDocument()
     fireEvent.click(within(presets).getByRole('button', { name: 'Last 1' }))
     expect(onRangeChange).toHaveBeenCalledWith({ start: 'FY2021', end: 'FY2021' })
     const quarterly = screen.getByRole('button', { name: 'Quarterly' })

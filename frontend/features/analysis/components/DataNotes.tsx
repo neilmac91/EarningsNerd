@@ -14,7 +14,6 @@ import { useAnalysisTableWindow, useDataNotes } from './DataNotesContext'
 const noSubscription = () => () => {}
 
 const comparisonLabel = (basis: string) => basis === 'qoq' ? 'QoQ' : basis === 'yoy' ? 'YoY' : basis === 'window_pp' ? 'window percentage-point' : 'CAGR'
-const periodLabel = (period: string) => period.split('..').map((key) => formatAnalysisPeriod(key)).join(' – ')
 
 type ComparisonLocations = ReturnType<typeof comparisonLocations>
 
@@ -47,12 +46,12 @@ export function DataNotesList({ notes, locations }: { notes: DataNote[]; locatio
           <span className={`relative font-data font-medium ${note.kind === 'review' ? 'text-warning-light dark:text-warning-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}><span className="sr-only">Note </span>{note.letter}.</span>
           <div className="min-w-0 space-y-1">
             <p>{note.message}</p>
-            {values.size > 0 && <p>{[...values].map(([label, periods]) => `${label} (${[...new Set(periods)].map(periodLabel).join(', ')})`).join('; ')}.</p>}
+            {values.size > 0 && <p>{[...values].map(([label, periods]) => `${label} (${[...new Set(periods)].map((period) => formatAnalysisPeriod(period)).join(', ')})`).join('; ')}.</p>}
             {(note.values.length > 0 || comparisons.length > 0) && <p className="font-data text-xs">{[
               ...(note.values.length ? [`${note.values.length} ${note.values.length === 1 ? 'figure' : 'figures'}`] : []),
               ...comparisons.map(([basis, count]) => `${count} ${comparisonLabel(basis)} ${count === 1 ? 'comparison' : 'comparisons'}`),
             ].join(' · ')}.</p>}
-            {comparisonPlaces.size > 0 && <p>Comparisons: {[...comparisonPlaces].map(([label, periods]) => `${label} (${[...new Set(periods)].map(periodLabel).join(', ')})`).join('; ')}.</p>}
+            {comparisonPlaces.size > 0 && <p>Comparisons: {[...comparisonPlaces].map(([label, periods]) => `${label} (${[...new Set(periods)].map((period) => formatAnalysisPeriod(period)).join(', ')})`).join('; ')}.</p>}
             {locations?.(note).map(location => <p key={location.basis}>{comparisonLocator(location)}</p>)}
           </div>
         </li>

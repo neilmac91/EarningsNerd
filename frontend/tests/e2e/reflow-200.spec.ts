@@ -869,7 +869,7 @@ test.describe("a failure's controls stay inside their card at 200% text", () => 
     growing at narrow widths (px-cap-6 and p-cap-4, E120): the column is 188, 220 and 244px, and no word in a card
     breaks inside it, read a character at a time. The panel's own sideways scroll is held by the dialog header case
     below, since its title wraps under its icon (#1432) and these rows stay inside their cards. */
-/** The three category cards: inside the open dialog, each box that draws a border and a radius. */
+/** The category cards: inside the open dialog, each box that draws a border and a radius. */
 const COOKIE_CATEGORY_CARDS = '[role="dialog"][aria-modal="true"] div.rounded-lg.border'
 const categoryRows = (dialog: Locator) =>
   dialog.evaluate((root) => {
@@ -921,7 +921,7 @@ test.describe("the cookie settings dialog's boxes and text stay inside their car
         await settle(page)
 
         const rows = await categoryRows(dialog)
-        expect(rows.map((row) => row.title)).toEqual(['Essential cookies', 'Analytics cookies', 'Session recording'])
+        expect(rows.map((row) => row.title)).toEqual(['Essential cookies', 'Analytics cookies'])
         for (const row of rows) {
           const at = `"${row.title}" at ${width}px and 200% text (${row.where})`
           expect(row.boxInCard, `${at}: the box lies inside its card`).toBe(true)
@@ -929,7 +929,7 @@ test.describe("the cookie settings dialog's boxes and text stay inside their car
         }
         // The body's and the cards' insets stop growing under enlarged text (E120), so no word in a card breaks inside it.
         const { words, found } = await brokenWords(page, COOKIE_CATEGORY_CARDS)
-        // Anti-vacuity: the read reaches the three cards' titles and descriptions.
+        // Anti-vacuity: the read reaches both cards' titles and descriptions.
         expect(words, `the cookie dialog's cards at ${width}px: words read`).toBeGreaterThan(30)
         expect(found, `the cookie dialog's cards at ${width}px and 200% text, a word broken inside it: ${found.join('; ')}`).toEqual([])
       })

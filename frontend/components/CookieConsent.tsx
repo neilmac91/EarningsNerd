@@ -9,79 +9,21 @@ import Link from 'next/link'
 import { Button, Checkbox, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
 import { isConsentLayerVisible, publishConsentLayer } from '@/lib/consentLayer'
 import { ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
+import { getCookiePreferences, saveCookiePreferences, subscribeCookiePreferences, type CookiePreferences } from '@/lib/browserConsent'
 
 // Isomorphic layout effect (the repo's SSR-safe alias, as in ui/Input and useCountUp): useLayoutEffect
 // in the browser, where the consent inset must land before the bar's first paint; useEffect on a server
 // renderer, which never renders the bar anyway. The ladder gate reads the alias by its declaration.
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
-export interface CookiePreferences {
-  essential: boolean
-  analytics: boolean
-  sessionRecording: boolean
-  timestamp: string
-  /** The analytics clause the choice was made under (CONSENT_VERSION); a choice stored before it has none. */
-  version?: number
-}
+// Kept as re-exports for existing callers; the plain store is also usable at SDK send boundaries.
+export { CONSENT_VERSION, getCookiePreferences, saveCookiePreferences, clearCookiePreferences, type CookiePreferences } from '@/lib/browserConsent'
 
 const DEFAULT_PREFERENCES: CookiePreferences = {
-  essential: true, // Always true - required for the site to function
+  essential: true,
   analytics: false,
   sessionRecording: false,
   timestamp: new Date().toISOString(),
-}
-
-const STORAGE_KEY = 'cookie_consent'
-
-/**
- * The analytics clause a stored choice was made under. Version 2 is ANALYTICS_CONSENT_CLAUSE (D-046, F33), which says
- * a logged-in reader's statistics are tied to an internal account id; a choice stored before it carries no version,
- * made while the dialog called them anonymous usage statistics. An allow made under an earlier clause reads as no
- * choice, so the bar asks again, once; a refusal stands, since nothing is collected on it. A clause that changes what
- * an allow covers moves this in the same commit. tests/unit/legalTruth.spec.tsx pins the two side by side, but whether
- * a change to the clause calls for the bump is review-checked.
- */
-export const CONSENT_VERSION = 2
-
-export function getCookiePreferences(): CookiePreferences | null {
-  if (typeof window === 'undefined') return null
-
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (!stored) return null
-
-    const preferences = JSON.parse(stored) as CookiePreferences
-    // An allow made under an earlier clause is no choice: the bar asks again (CONSENT_VERSION).
-    if (preferences.analytics && preferences.version !== CONSENT_VERSION) return null
-    // Ensure essential is always true
-    preferences.essential = true
-    return preferences
-  } catch (error) {
-    console.error('Failed to load cookie preferences:', error)
-    return null
-  }
-}
-
-export function saveCookiePreferences(preferences: CookiePreferences): void {
-  if (typeof window === 'undefined') return
-
-  try {
-    // Ensure essential is always true
-    preferences.essential = true
-    preferences.timestamp = new Date().toISOString()
-    preferences.version = CONSENT_VERSION
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences))
-
-    // Dispatch event so PostHog can react to changes
-    window.dispatchEvent(new CustomEvent('cookieConsentChanged', { detail: preferences }))
-  } catch (error) {
-    console.error('Failed to save cookie preferences:', error)
-  }
-}
-
-export function clearCookiePreferences(): void {
-  if (typeof window === 'undefined') return
-  localStorage.removeItem(STORAGE_KEY)
 }
 
 interface CookieConsentProps {
@@ -95,24 +37,20 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   const barRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Check if user has already set preferences
-    const existingPreferences = getCookiePreferences()
-
-    if (!existingPreferences) {
-      // Show banner for first-time visitors, every one: the banner is the only control, and no browser
-      // privacy signal stands in for the visitor's choice (D-049). Announce the consent layer in the same
-      // effect pass (height still 0): FilingWorkspace mounts earlier in the tree, so its coachmark decision
-      // and this flag land in one batched render and the nudge never points at a covered
-      // launcher, not even for a frame. The bar's layout effect below publishes the real height
-      // (and owns it: a re-run of this effect must not reset a measured inset to 0).
-      if (!isConsentLayerVisible()) publishConsentLayer(0)
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time init: banner visibility depends on localStorage, only readable client-side after hydration
-      setShowBanner(true)
-    } else {
-      // Use existing preferences
-      setPreferences(existingPreferences)
-      onPreferencesChanged?.(existingPreferences)
+    const followChoice = () => {
+      const choice = getCookiePreferences()
+      if (!choice) {
+        if (!isConsentLayerVisible()) publishConsentLayer(0)
+        setShowBanner(true)
+        setPreferences(DEFAULT_PREFERENCES)
+      } else {
+        setShowBanner(false)
+        setPreferences(choice)
+        onPreferencesChanged?.(choice)
+      }
     }
+    followChoice()
+    return subscribeCookiePreferences(followChoice)
   }, [onPreferencesChanged])
 
   // The consent layer (lib/consentLayer): while the bar is on screen its height is published as
@@ -138,41 +76,21 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   // The confirmation is an ordinary top-centre toast (app/providers.tsx mounts the Toaster), not a
   // fixed corner element: it must not share the bottom-right corner with the "Ask this Filing"
   // launcher it used to cover.
-  const confirmSaved = () => toast.success('Cookie preferences saved')
-
-  const handleAllowAnalytics = () => {
-    const newPreferences: CookiePreferences = {
-      essential: true,
-      analytics: true,
-      sessionRecording: false, // Keep this opt-in only (more privacy-conscious default)
-      timestamp: new Date().toISOString(),
-    }
-    saveCookiePreferences(newPreferences)
-    setPreferences(newPreferences)
-    onPreferencesChanged?.(newPreferences)
-    setShowBanner(false)
-    confirmSaved()
-  }
-
-  const handleEssentialOnly = () => {
-    const newPreferences: CookiePreferences = {
-      ...DEFAULT_PREFERENCES,
-      timestamp: new Date().toISOString(),
-    }
-    saveCookiePreferences(newPreferences)
-    setPreferences(newPreferences)
-    onPreferencesChanged?.(newPreferences)
-    setShowBanner(false)
-    confirmSaved()
-  }
-
-  const handleSavePreferences = () => {
-    saveCookiePreferences(preferences)
-    onPreferencesChanged?.(preferences)
+  const applyChoice = (choice: CookiePreferences) => {
+    const result = saveCookiePreferences(choice)
+    setPreferences(result.preferences)
     setShowSettings(false)
     setShowBanner(false)
-    confirmSaved()
+    if (result.persisted) toast.success('Cookie preferences saved')
+    else toast.error('Cookie preferences could not be saved', {
+      description: 'Your choice applies in this tab. Browser storage is unavailable, so check Cookie settings after reloading or opening another tab.',
+      duration: 10000,
+    })
   }
+
+  const handleAllowAnalytics = () => applyChoice({ ...DEFAULT_PREFERENCES, analytics: true })
+  const handleEssentialOnly = () => applyChoice(DEFAULT_PREFERENCES)
+  const handleSavePreferences = () => applyChoice(preferences)
 
   // The banner stays mounted beneath the settings dialog, so Cancel / Escape / the X return focus to
   // the Customize button that opened it (Save still dismisses both). Its state stays mounted too, so
@@ -185,8 +103,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
   // After a first choice the bar is gone; the footer's "Cookie settings" (lib/cookieSettings.ts) opens this
   // same dialog on the stored choices, and Save writes them and fires cookieConsentChanged as the bar does,
-  // so /privacy's withdrawal sentence holds ("You can withdraw consent for analytics and session recording at
-  // any time through our cookie consent banner or settings."). ui/Modal returns focus to the control that opened it.
+  // so /privacy's analytics withdrawal sentence holds. ui/Modal returns focus to the control that opened it.
   useEffect(() => {
     window.addEventListener(OPEN_COOKIE_SETTINGS_EVENT, handleOpenSettings)
     return () => window.removeEventListener(OPEN_COOKIE_SETTINGS_EVENT, handleOpenSettings)
@@ -196,7 +113,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
   // ui/Modal owns the dialog contract (focus in, Tab cycle, Escape, scroll lock, focus return);
   // Escape and the scrim close it exactly as Cancel does. The primitive also owns viewport
-  // sizing and inner scrolling so all three categories stay reachable on a short screen.
+  // sizing and inner scrolling so every category stays reachable on a short screen.
   const settings = (
     <Modal
       open={showSettings}
@@ -214,8 +131,8 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
       <ModalBody>
         <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
-          Essential cookies keep you logged in and the site working. Analytics cookies and session
-          recording are off until you allow them here. Choose the ones you are comfortable with.
+          Essential cookies keep you logged in and the site working. Analytics cookies are off until
+          you allow them here. Session recording is disabled.
         </p>
 
         {/* Each category row takes the Notice's recipe (components/ui/Notice.tsx): it wraps, and its text keeps
@@ -274,36 +191,6 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
               </div>
             </div>
           </div>
-
-          {/* Session recording */}
-          <div className="border border-border-light dark:border-border-dark rounded-lg p-cap-4">
-            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-              <div className="min-w-0 flex-[1_1_9rem] break-words">
-                <h3
-                  id="cookie-recording-title"
-                  className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
-                >
-                  Session recording
-                </h3>
-                <p id="cookie-recording-desc" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  Records your interactions with the site to help us identify and fix bugs.
-                  Recording also requires Analytics cookies to be enabled. Input fields are configured
-                  to be masked, but information displayed elsewhere on a page may still appear.
-                  This is opt-in only.
-                </p>
-              </div>
-              <div>
-                <Checkbox
-                  checked={preferences.sessionRecording}
-                  onChange={(e) =>
-                    setPreferences({ ...preferences, sessionRecording: e.target.checked })
-                  }
-                  aria-labelledby="cookie-recording-title"
-                  aria-describedby="cookie-recording-desc"
-                />
-              </div>
-            </div>
-          </div>
         </div>
 
         <p className="mt-4 text-xs text-text-secondary-light dark:text-text-secondary-dark">
@@ -350,8 +237,8 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   Cookies on this site
                 </h3>
                 <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  Essential cookies keep you logged in. Analytics cookies and session recording stay
-                  off until you allow them.{' '}
+                  Essential cookies keep you logged in. Analytics cookies stay off until you allow
+                  them. Session recording is disabled.{' '}
                   <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                     Learn more
                   </Link>

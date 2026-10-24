@@ -8,10 +8,18 @@ const mockPostHog = vi.hoisted(() => ({
   __loaded: false,
   init: vi.fn(), capture: vi.fn(), opt_in_capturing: vi.fn(), opt_out_capturing: vi.fn(),
   startSessionRecording: vi.fn(), stopSessionRecording: vi.fn(), debug: vi.fn(),
+  _send_request: vi.fn(), _send_retriable_request: vi.fn(),
 }))
 vi.mock('posthog-js', async (original) => ({ ...await original<object>(), default: mockPostHog }))
 vi.mock('posthog-js/react', () => ({ PostHogProvider: ({ children }: { children: React.ReactNode }) => children }))
-vi.mock('@/components/CookieConsent', () => ({ getCookiePreferences: () => consent.current }))
+vi.mock('@/lib/browserConsent', () => ({
+  getCookiePreferences: () => consent.current,
+  getCookieWithdrawalRevision: () => 0,
+  subscribeCookiePreferences: (update: () => void) => {
+    window.addEventListener('cookieConsentChanged', update)
+    return () => window.removeEventListener('cookieConsentChanged', update)
+  },
+}))
 vi.mock('next/navigation', () => ({ usePathname: () => window.location.pathname, useSearchParams: () => new URLSearchParams(window.location.search) }))
 vi.mock('@vercel/analytics/next', () => ({ Analytics: () => <span data-testid="vercel-analytics" /> }))
 
@@ -137,7 +145,7 @@ describe('authentication credentials never enter telemetry', () => {
     expect(ordinary?.properties.symbol).toBe('AAPL')
   })
 
-  it('preserves valid compressed replay bytes on safe routes while sanitizing the envelope', async () => {
+  it('drops valid compressed replay bytes even on safe routes in this release', async () => {
     const { PostHog: RealPostHog } = await import('posthog-js')
     const { beforeSendPostHog } = await import('@/lib/posthogPrivacy')
     // Alphanumeric DOM text contains no URLs. Its deterministic gzip bytes nevertheless
@@ -162,12 +170,7 @@ describe('authentication credentials never enter telemetry', () => {
     }
     const isolated = new RealPostHog()
     const clean = beforeSendPostHog(isolated, event)
-    expect(clean).not.toBeNull()
-    const outgoing = (clean!.properties.$snapshot_data as typeof snapshotData)[0].data
-    expect(Buffer.from(outgoing, 'latin1').equals(compressed)).toBe(true)
-    expect(gunzipSync(Buffer.from(outgoing, 'latin1')).toString()).toBe(serialized)
-    expect(clean!.properties.$current_url).toBe('https://example.test/reset-password')
-    expect(clean!.properties.token).toBe('phc_synthetic_project')
+    expect(clean).toBeNull()
     const { protectTelemetryRoute } = await import('@/lib/telemetryPrivacy')
     protectTelemetryRoute('/reset-password')
     expect(beforeSendPostHog(isolated, event)).toBeNull()
@@ -203,7 +206,7 @@ describe('authentication credentials never enter telemetry', () => {
     expect(recording.maskCapturedNetworkRequestFn({ name: tokenUrl })).toBeNull()
   })
 
-  it('honors analytics consent and recording consent at startup, updates and attempted resume after auth', async () => {
+  it('honors analytics consent while keeping recording disabled at startup, updates and attempted resume after auth', async () => {
     const guard = await import('@/lib/telemetryPrivacy')
     const { PostHogProvider } = await import('@/app/posthog-provider')
     // Vercel Web Analytics obeys the same choice at each step (D-046).
@@ -223,7 +226,8 @@ describe('authentication credentials never enter telemetry', () => {
     expect(config?.before_send).toBeTypeOf('function')
     expect(view.getByTestId('vercel-analytics')).toBeInTheDocument()
     expect(config?.enable_recording_console_log).toBe(false)
-    expect(mockPostHog.startSessionRecording).toHaveBeenCalled()
+    expect(mockPostHog.startSessionRecording).not.toHaveBeenCalled()
+    expect(config?.disable_session_recording).toBe(true)
     guard.protectTelemetryRoute('/reset-password')
     mockPostHog.startSessionRecording.mockClear()
     act(() => window.dispatchEvent(new CustomEvent('cookieConsentChanged', { detail: consent.current })))
@@ -247,6 +251,21 @@ describe('authentication credentials never enter telemetry', () => {
     render(<PostHogProvider><span>Account flow remains available</span></PostHogProvider>)
     expect(mockPostHog.startSessionRecording).not.toHaveBeenCalled()
     expect(mockPostHog.stopSessionRecording).toHaveBeenCalled()
+  })
+
+  it('rechecks the current choice when deferred SDK initialization completes after withdrawal', async () => {
+    const { PostHogProvider } = await import('@/app/posthog-provider')
+    let config: Partial<PostHogConfig> | undefined
+    mockPostHog.init.mockImplementation((_key, supplied) => { config = supplied })
+    render(<PostHogProvider><span>Draft survives initialization</span></PostHogProvider>)
+    expect(mockPostHog.init).toHaveBeenCalledOnce()
+    consent.current = null // Clear, malformed preferences and a refusal all mean no permission.
+    act(() => window.dispatchEvent(new CustomEvent('cookieConsentChanged', { detail: { analytics: true } })))
+    mockPostHog.__loaded = true
+    act(() => config?.loaded?.(mockPostHog as unknown as PostHog))
+    expect(mockPostHog.opt_in_capturing).not.toHaveBeenCalled()
+    expect(mockPostHog.opt_out_capturing).toHaveBeenCalled()
+    expect(mockPostHog.startSessionRecording).not.toHaveBeenCalled()
   })
 
   it('sanitizes Vercel event URLs and drops the event if its later-added referrer contains query or fragment data', async () => {

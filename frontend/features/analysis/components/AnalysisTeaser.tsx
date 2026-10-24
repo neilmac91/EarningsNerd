@@ -9,6 +9,7 @@ import DataNotes from './DataNotes'
 import { DataNotesProvider } from './DataNotesContext'
 import demo from '../demo/demo-analysis.json'
 import type { AnalysisCompletion, AnalysisDataset } from '@/features/analysis/api/analysis-api'
+import { formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 
 const demoDataset = demo.dataset as unknown as AnalysisDataset
@@ -16,7 +17,7 @@ const demoCompletion = demo.completion as unknown as AnalysisCompletion
 // The company the sample covers, in its display form, and the window, both read from the run itself (as the landing's
 // AnalysisDemo reads them).
 const SAMPLE_COMPANY = formatCompanyName(demoDataset.company_name)
-const SAMPLE_RANGE = `${demoDataset.periods[0]?.key ?? ''}–${demoDataset.periods[demoDataset.periods.length - 1]?.key ?? ''}`
+const SAMPLE_RANGE = formatAnalysisWindow(demoDataset.periods[0]?.key ?? '', demoDataset.periods[demoDataset.periods.length - 1]?.key ?? '')
 
 /**
  * The free-user teaser (D6): the REAL results experience — KPI strip, charts, metrics grid,

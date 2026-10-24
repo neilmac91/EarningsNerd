@@ -11,7 +11,7 @@ import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { flashElement } from '@/lib/citationFlash'
 import type { AnalysisCitation, AnalysisCompletion } from '@/features/analysis/api/analysis-api'
 import { sourceUrl } from '@/features/analysis/lib/provenance'
-import { citationDisplay, compactNarrativeText, currencyAmountsNeedingPrecision, remarkCompactAnalysis, splitNarrativeEvidence, type NarrativeOperand } from '@/features/analysis/lib/narrativeDisplay'
+import { citationDisplay, compactNarrativeText, currencyAmountsNeedingPrecision, remarkAnalysisPeriods, remarkCompactAnalysis, splitNarrativeEvidence, type NarrativeOperand } from '@/features/analysis/lib/narrativeDisplay'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { prefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { groupQualityNotes, qualityNotesModelFromWire, type QualityNotesModel } from '@/features/analysis/lib/dataNotes'
@@ -348,14 +348,15 @@ export default function NarrativePane({
               narrativeParts.map((part, index) => part.kind === 'evidence' ? (
                 <NarrativeEvidence key={index} operands={part.operands} citations={completion.citations} notes={notes} preciseAmounts={preciseAmounts} />
               ) : (
-                <ReactMarkdown key={index} remarkPlugins={completion.narrative_presentation ? [remarkGfm] : [remarkGfm, [remarkCompactAnalysis, { preciseAmounts }]]} components={narrativeComponents}>
+                <ReactMarkdown key={index} remarkPlugins={completion.narrative_presentation ? [remarkGfm, remarkAnalysisPeriods] : [remarkGfm, [remarkCompactAnalysis, { preciseAmounts }]]} components={narrativeComponents}>
                   {part.text}
                 </ReactMarkdown>
               ))
             ) : (
               // Streaming: raw [F#] markers render as plain text (no citations resolved yet) —
               // the citation-chip pass only applies to the server-resolved, completed narrative.
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.text}</ReactMarkdown>
+              // A period window still reads as its range while it streams.
+              <ReactMarkdown remarkPlugins={[remarkGfm, remarkAnalysisPeriods]}>{state.text}</ReactMarkdown>
             )}
           </div>
           {state.status === 'done' && completion && (
