@@ -43,6 +43,8 @@ class Arm:
     effort: str = ""
     thinking: str = ""  # Claude API only: "disabled" (Haiku 5.5) or "between_tools" (Sonnet 5.5); empty = model default
     price_note: str = ""
+    # (prompt tokens above which, input, output, cache-read price): Haiku 5.5 bills a longer prompt at a higher tier
+    long_prompt: Optional[tuple[int, float, float, float]] = None
 
 
 ARMS: dict[str, Arm] = {
@@ -87,10 +89,12 @@ ARMS: dict[str, Arm] = {
     ),
     "claude-haiku-5-5": Arm(
         "claude-haiku-5-5", "claude", "claude-haiku-5-5", "claude", 0.10, 0.50, 0.01, effort="medium",
+        long_prompt=(100_000, 0.50, 2.50, 0.05),
         price_note="prompts up to 100K tokens; $0.50/$2.50 above",
     ),
     "claude-haiku-5-5-low": Arm(
         "claude-haiku-5-5-low", "claude", "claude-haiku-5-5", "claude", 0.10, 0.50, 0.01, effort="low",
+        long_prompt=(100_000, 0.50, 2.50, 0.05),
         price_note="prompts up to 100K tokens; $0.50/$2.50 above",
     ),
     # Thinking off, which the Claude API allows and the CLI cannot express: Haiku 5.5 takes "disabled" at effort
@@ -98,6 +102,7 @@ ARMS: dict[str, Arm] = {
     "claude-haiku-5-5-nothink": Arm(
         "claude-haiku-5-5-nothink", "claude", "claude-haiku-5-5", "claude", 0.10, 0.50, 0.01, effort="low",
         thinking="disabled", price_note="prompts up to 100K tokens; $0.50/$2.50 above",
+        long_prompt=(100_000, 0.50, 2.50, 0.05),
     ),
     "claude-sonnet-5-5-nothink": Arm(
         "claude-sonnet-5-5-nothink", "claude", "claude-sonnet-5-5", "claude", 2.00, 10.00, 0.20, effort="medium",
@@ -123,21 +128,77 @@ class CallResult:
     meta: dict[str, Any] = field(default_factory=dict)
 
 
-def list_cost(arm: Arm, input_tokens: int, cached: int, output_tokens: int) -> float:
-    uncached = max(input_tokens - cached, 0)
-    return round(uncached / 1e6 * arm.input_price + cached / 1e6 * arm.cached_input_price
-                 + output_tokens / 1e6 * arm.output_price, 6)
+CACHE_WRITE_PREMIUM = 1.25  # a 5-minute cache write bills at 1.25x the input price
+
+
+def list_cost(arm: Arm, input_tokens: int, cached: int, output_tokens: int, cache_write: int = 0) -> float:
+    """List price of one call. ``input_tokens`` is the whole prompt: uncached, cache-read and cache-written."""
+    input_price, output_price, cached_price = arm.input_price, arm.output_price, arm.cached_input_price
+    if arm.long_prompt and input_tokens > arm.long_prompt[0]:
+        input_price, output_price, cached_price = arm.long_prompt[1:]
+    uncached = max(input_tokens - cached - cache_write, 0)
+    return round(uncached / 1e6 * input_price + cached / 1e6 * cached_price
+                 + cache_write / 1e6 * input_price * CACHE_WRITE_PREMIUM + output_tokens / 1e6 * output_price, 6)
+
+
+class IncompleteReply(RuntimeError):
+    """The reply stopped at its token cap. A larger cap is the fix, so it is a run error (retried), not an outcome."""
+
+
+class BudgetExceeded(RuntimeError):
+    """The Anthropic spend recorded in the ledger has reached the ceiling."""
+
+
+# Every completed call is appended here: the spend the records alone would miss (a call whose run later failed).
+SPEND_LOG = Path(os.environ.get("TREND_DEPTH_SPEND_LOG")
+                 or Path(__file__).resolve().parents[3] / "tasks" / "analysis-depth-2026-10" / "runs" / "spend.jsonl")
+
+
+def anthropic_ceiling_usd() -> float:
+    return float(os.environ.get("TREND_DEPTH_ANTHROPIC_CEILING_USD") or 75.0)
+
+
+def anthropic_spend() -> float:
+    """USD of Claude API calls recorded in the ledger (CLI calls bill the subscription, not the key)."""
+    if not SPEND_LOG.exists():
+        return 0.0
+    total = 0.0
+    for line in SPEND_LOG.read_text().splitlines():
+        row = json.loads(line)
+        if row.get("backend") == "anthropic":
+            total += float(row.get("cost_usd") or 0)
+    return total
+
+
+def _log_spend(arm: Arm, result: "CallResult", tag: str) -> None:
+    row = {"tag": tag, "arm": arm.name, "backend": result.backend, "model_served": result.model_served,
+           "input_tokens": result.input_tokens, "cached_input_tokens": result.cached_input_tokens,
+           "output_tokens": result.output_tokens, "cost_usd": result.cost_usd, "latency_s": result.latency_s}
+    SPEND_LOG.parent.mkdir(parents=True, exist_ok=True)
+    with SPEND_LOG.open("a") as handle:  # one short line per write; appends from concurrent calls do not interleave
+        handle.write(json.dumps(row) + "\n")
 
 
 async def call(arm: Arm, system: str, user: str, *, max_tokens: int = 16000, json_mode: bool = True,
-               timeout_s: float = 600.0) -> CallResult:
+               timeout_s: float = 600.0, tag: str = "") -> CallResult:
+    """One call. ``max_tokens`` is the cap on everything the model writes, thinking included; ``tag`` names the
+    caller in the spend ledger. A Claude API call is refused once the ledger reaches the ceiling."""
     if arm.backend == "openai_compat":
-        return await _call_openai_compat(arm, system, user, max_tokens, json_mode, timeout_s)
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return await _call_anthropic(arm, system, user, max_tokens, timeout_s)
-    if arm.thinking:
+        result = await _call_openai_compat(arm, system, user, max_tokens, json_mode, timeout_s)
+    elif os.environ.get("ANTHROPIC_API_KEY"):
+        spent, ceiling = anthropic_spend(), anthropic_ceiling_usd()
+        if spent >= ceiling:
+            raise BudgetExceeded(f"Anthropic spend ${spent:.2f} has reached the ${ceiling:.2f} ceiling "
+                                 "(TREND_DEPTH_ANTHROPIC_CEILING_USD); nothing was sent")
+        result = await _call_anthropic(arm, system, user, max_tokens, timeout_s)
+    elif arm.thinking:
         raise RuntimeError(f"{arm.name}: thinking={arm.thinking!r} needs the Claude API (ANTHROPIC_API_KEY); the CLI cannot set it")
-    return await _call_claude_cli(arm, system, user, timeout_s)
+    else:
+        result = await _call_claude_cli(arm, system, user, timeout_s)
+    _log_spend(arm, result, tag)
+    if result.meta.get("stop_reason") == "max_tokens" or result.meta.get("finish_reason") == "length":
+        raise IncompleteReply(f"{arm.name}: the reply stopped at max_tokens={max_tokens} (${result.cost_usd:.4f} spent)")
+    return result
 
 
 async def _call_openai_compat(arm: Arm, system: str, user: str, max_tokens: int, json_mode: bool, timeout_s: float) -> CallResult:
@@ -202,11 +263,12 @@ def anthropic_request(arm: Arm, system: str, user: str, max_tokens: int) -> dict
 
     Claude 5.5 models think adaptively by default, and the depth is set by ``output_config.effort``; the CLI
     arms run the same way with ``--effort``. No sampling parameters are sent: Haiku 5.5 rejects any
-    non-default temperature. ``max_tokens`` leaves room for thinking above the visible answer.
+    non-default temperature. ``max_tokens`` is the caller's cap on thinking and answer together, so callers leave
+    room for thinking (generation asks for 64,000; Haiku 5.5 at medium effort has written 43,000).
     """
     request: dict[str, Any] = {
         "model": arm.model,
-        "max_tokens": max(max_tokens, 32000),
+        "max_tokens": max_tokens,
         "system": system,
         "messages": [{"role": "user", "content": user}],
         "output_config": {"effort": arm.effort or "medium"},
@@ -216,13 +278,42 @@ def anthropic_request(arm: Arm, system: str, user: str, max_tokens: int) -> dict
     return request
 
 
+_RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504, 529}
+_RETRYABLE_TYPES = {"overloaded_error", "api_error", "rate_limit_error"}
+
+
+def _retryable(exc: Exception) -> bool:
+    import anthropic
+
+    if isinstance(exc, anthropic.APIConnectionError):  # network failures and timeouts
+        return True
+    if isinstance(exc, anthropic.APIStatusError):
+        body = exc.body if isinstance(exc.body, dict) else {}
+        kind = (body.get("error") or {}).get("type") if isinstance(body.get("error"), dict) else None
+        return exc.status_code in _RETRYABLE_STATUS or kind in _RETRYABLE_TYPES  # a mid-stream error event too
+    return False
+
+
 async def _call_anthropic(arm: Arm, system: str, user: str, max_tokens: int, timeout_s: float) -> CallResult:
     import anthropic
 
-    client = anthropic.AsyncAnthropic(timeout=timeout_s, max_retries=4)  # the SDK backs off on 429, 529 and 5xx
-    started = time.monotonic()
-    async with client.messages.stream(**anthropic_request(arm, system, user, max_tokens)) as stream:
-        message = await stream.get_final_message()
+    # The harness retries itself, so the measured latency is the successful attempt's alone (as on openai_compat).
+    client = anthropic.AsyncAnthropic(timeout=timeout_s, max_retries=0)
+    request = anthropic_request(arm, system, user, max_tokens)
+    retries = 0
+    for attempt in range(6):
+        started = time.monotonic()
+        try:
+            async with client.messages.stream(**request) as stream:
+                message = await stream.get_final_message()
+            break
+        except Exception as exc:  # noqa: BLE001 - retried only when the API says it is transient, else re-raised
+            if attempt == 5 or not _retryable(exc):
+                raise
+            retries += 1
+            response = getattr(exc, "response", None)
+            after = response.headers.get("retry-after") if response is not None else None
+            await asyncio.sleep(min(float(after), 120.0) if after and after.replace(".", "", 1).isdigit() else min(120.0, 10.0 * 2 ** attempt))
     latency = time.monotonic() - started
     text = "".join(block.text for block in message.content if block.type == "text")
     usage = message.usage
@@ -230,10 +321,15 @@ async def _call_anthropic(arm: Arm, system: str, user: str, max_tokens: int, tim
     cache_write = usage.cache_creation_input_tokens or 0
     input_tokens = (usage.input_tokens or 0) + cache_read + cache_write
     output_tokens = usage.output_tokens or 0  # includes thinking, which bills as output
-    return CallResult(text, input_tokens, cache_read, output_tokens, 0, round(latency, 3),
-                      list_cost(arm, input_tokens, cache_read, output_tokens), "anthropic", message.model,
-                      {"stop_reason": message.stop_reason, "cache_creation_input_tokens": cache_write,
-                       "thinking_blocks": sum(1 for block in message.content if block.type == "thinking")})
+    details = getattr(usage, "output_tokens_details", None)
+    thinking = getattr(details, "thinking_tokens", 0) or 0
+    return CallResult(text, input_tokens, cache_read, output_tokens, thinking, round(latency, 3),
+                      list_cost(arm, input_tokens, cache_read, output_tokens, cache_write), "anthropic", message.model,
+                      {"stop_reason": message.stop_reason, "cache_creation_input_tokens": cache_write, "retries": retries,
+                       "thinking_blocks": sum(1 for block in message.content if block.type == "thinking"),
+                       # premiums list_cost cannot see (inference region, speed) are recorded for the reader
+                       **{key: getattr(usage, key) for key in ("service_tier", "inference_geo", "speed")
+                          if getattr(usage, key, None) is not None}})
 
 
 async def _call_claude_cli(arm: Arm, system: str, user: str, timeout_s: float) -> CallResult:
@@ -297,3 +393,32 @@ def parse_json_object(text: str) -> Optional[dict[str, Any]]:
             except json.JSONDecodeError:
                 return None
     return None
+
+
+def labels_by_number(entries: Any) -> dict[int, dict[str, Any]]:
+    """An auditor's numbered labels; an entry whose ``n`` is not a whole number is skipped, never fatal."""
+    out: dict[int, dict[str, Any]] = {}
+    for entry in entries if isinstance(entries, list) else []:
+        if isinstance(entry, dict):
+            try:
+                out[int(str(entry.get("n", "")).strip().rstrip("."))] = entry
+            except ValueError:
+                continue
+    return out
+
+
+SYSTEM_RANK = ["current", *ARMS]
+
+
+def canonical_pair(x: str, y: str) -> tuple[str, str]:
+    """A judged pair's fixed orientation (current first, then the ARMS order), so a cached verdict is found
+    whatever order --systems lists the systems in. Every eval-v1 verdict file already follows it."""
+    rank = {name: i for i, name in enumerate(SYSTEM_RANK)}
+    return (x, y) if rank.get(x, len(rank)) <= rank.get(y, len(rank)) else (y, x)
+
+
+def max_tokens_for(arm: Arm) -> int:
+    """The generation cap, thinking included: Claude 5.5 thinks adaptively, and Haiku at medium effort has written
+    43,000 tokens for one analysis; the other providers answer in under 3,000."""
+    return 64000 if arm.family == "claude" else 16000
+

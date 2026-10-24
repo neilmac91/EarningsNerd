@@ -27,7 +27,7 @@ from typing import Any, Optional
 from evals.trend_depth import bootstrap
 from evals.trend_depth import factcheck, render
 from evals.trend_depth.companies import eval_companies
-from evals.trend_depth.providers import ARMS, call, parse_json_object
+from evals.trend_depth.providers import ARMS, call, max_tokens_for, parse_json_object
 
 # TREND_DEPTH_PROMPT points a run at a draft prompt without touching the checked-in one mid-run.
 PROMPT_PATH = Path(os.environ.get("TREND_DEPTH_PROMPT") or bootstrap.BACKEND / "prompts" / "trends-depth-analyst-agent.md")
@@ -88,24 +88,48 @@ def word_count(parsed: dict[str, Any]) -> int:
     return len(clean.split())
 
 
-async def generate_proposed(arm_name: str, ticker: str, repair: bool = True) -> dict[str, Any]:
+def _attempt(index: Any, result: Any, problems: list[str]) -> dict[str, Any]:
+    return {
+        "attempt": index, "input_tokens": result.input_tokens, "cached_input_tokens": result.cached_input_tokens,
+        "output_tokens": result.output_tokens, "reasoning_tokens": result.reasoning_tokens,
+        "latency_s": result.latency_s, "cost_usd": result.cost_usd, "backend": result.backend,
+        "model_served": result.model_served, "meta": result.meta, "problems": problems, "raw": result.text,
+    }
+
+
+def _usage(attempts: list[dict[str, Any]]) -> dict[str, int]:
+    return {key: sum(a[key] for a in attempts) for key in ("input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens")}
+
+
+class GenerationError(RuntimeError):
+    """A provider failure part-way through a generation; ``attempts`` holds the calls already paid for."""
+
+    def __init__(self, message: str, attempts: list[dict[str, Any]]) -> None:
+        super().__init__(message)
+        self.attempts = attempts
+
+
+async def generate_proposed(arm_name: str, ticker: str, repair: bool = True, tag: str = "") -> dict[str, Any]:
     arm = ARMS[arm_name]
     pack = load_pack(ticker)
     system, user = system_prompt(), user_message(pack)
-    attempts = []
+    attempts: list[dict[str, Any]] = []
     parsed: Optional[dict[str, Any]] = None
     problems: list[str] = []
     message = user
     for attempt in range(2):
-        result = await call(arm, system, message)
+        try:
+            result = await call(arm, system, message, max_tokens=max_tokens_for(arm), tag=tag)
+        except Exception as exc:  # noqa: BLE001 - re-raised with the paid attempts attached
+            raise GenerationError(f"{type(exc).__name__}: {exc}", attempts) from exc
+        if result.meta.get("stop_reason") == "refusal":
+            # The model declined: its own outcome, recorded and never retried with the same pack.
+            problems = ["the model refused (stop_reason refusal)"]
+            attempts.append(_attempt(attempt, result, problems))
+            break
         parsed = parse_json_object(result.text)
         problems = validate(parsed)
-        attempts.append({
-            "attempt": attempt, "input_tokens": result.input_tokens, "cached_input_tokens": result.cached_input_tokens,
-            "output_tokens": result.output_tokens, "reasoning_tokens": result.reasoning_tokens,
-            "latency_s": result.latency_s, "cost_usd": result.cost_usd, "backend": result.backend,
-            "model_served": result.model_served, "meta": result.meta, "problems": problems, "raw": result.text,
-        })
+        attempts.append(_attempt(attempt, result, problems))
         if not problems:
             break
         message = user + (
@@ -117,12 +141,7 @@ async def generate_proposed(arm_name: str, ticker: str, repair: bool = True) -> 
         "profile": pack["profile"], "window": pack["window"], "snapshot_id": pack["snapshot_id"],
         "prompt_sha256": hashlib.sha256(system.encode()).hexdigest(),
         "attempts": attempts,
-        "usage": {
-            "input_tokens": sum(a["input_tokens"] for a in attempts),
-            "cached_input_tokens": sum(a["cached_input_tokens"] for a in attempts),
-            "output_tokens": sum(a["output_tokens"] for a in attempts),
-            "reasoning_tokens": sum(a["reasoning_tokens"] for a in attempts),
-        },
+        "usage": _usage(attempts),
         "latency_s": round(sum(a["latency_s"] for a in attempts), 3),
         "cost_usd": round(sum(a["cost_usd"] for a in attempts), 6),
         "generation_ok": not problems,
@@ -135,7 +154,10 @@ async def generate_proposed(arm_name: str, ticker: str, repair: bool = True) -> 
     record["words"] = word_count(parsed)
     record["gate"] = factcheck.check(sentences, pack)
     if repair and not record["gate"]["passed"]:
-        await _repair(arm, system, user, parsed, record, pack)
+        try:
+            await _repair(arm, system, user, parsed, record, pack, tag)
+        except Exception as exc:  # noqa: BLE001 - the first pass stands; the repair's failure is recorded and retried
+            raise GenerationError(f"repair: {type(exc).__name__}: {exc}", attempts) from exc
     return record
 
 
@@ -150,18 +172,15 @@ def repair_message(user: str, parsed: dict[str, Any], failures: list[dict[str, A
     )
 
 
-async def _repair(arm: Any, system: str, user: str, parsed: dict[str, Any], record: dict[str, Any], pack: dict[str, Any]) -> None:
+async def _repair(arm: Any, system: str, user: str, parsed: dict[str, Any], record: dict[str, Any], pack: dict[str, Any],
+                  tag: str = "") -> None:
     """The production fallback the grounding rule proposes: one regeneration that names the failures."""
     first_gate = record["gate"]
-    result = await call(arm, system, repair_message(user, parsed, first_gate["failures"]))
-    repaired = parse_json_object(result.text)
-    problems = validate(repaired)
-    record["attempts"].append({
-        "attempt": "repair", "input_tokens": result.input_tokens, "cached_input_tokens": result.cached_input_tokens,
-        "output_tokens": result.output_tokens, "reasoning_tokens": result.reasoning_tokens,
-        "latency_s": result.latency_s, "cost_usd": result.cost_usd, "backend": result.backend,
-        "model_served": result.model_served, "meta": result.meta, "problems": problems, "raw": result.text,
-    })
+    result = await call(arm, system, repair_message(user, parsed, first_gate["failures"]), max_tokens=max_tokens_for(arm), tag=tag)
+    refused = result.meta.get("stop_reason") == "refusal"
+    repaired = None if refused else parse_json_object(result.text)
+    problems = ["the model refused (stop_reason refusal)"] if refused else validate(repaired)
+    record["attempts"].append(_attempt("repair", result, problems))
     for key in ("input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens"):
         record["usage"][key] += getattr(result, key)
     record["latency_s"] = round(record["latency_s"] + result.latency_s, 3)
@@ -225,9 +244,12 @@ async def run(label: str, arm_names: list[str], tickers: list[str], concurrency:
             return  # a provider error (quota, outage) is retried by the next run; a model's own outcome is kept
         async with semaphores[arm_name]:
             try:
-                record = await (generate_current(ticker) if arm_name == "current" else generate_proposed(arm_name, ticker))
-            except Exception as exc:  # noqa: BLE001 - a provider failure is a recorded outcome
-                record = {"ticker": ticker, "arm": arm_name, "generation_ok": False, "error": f"{type(exc).__name__}: {exc}"[:500]}
+                record = await (generate_current(ticker) if arm_name == "current"
+                                else generate_proposed(arm_name, ticker, tag=f"{label}/generate/{arm_name}/{ticker}"))
+            except Exception as exc:  # noqa: BLE001 - a provider failure is recorded, with what it already cost, and retried
+                attempts = getattr(exc, "attempts", [])
+                record = {"ticker": ticker, "arm": arm_name, "generation_ok": False, "error": f"{type(exc).__name__}: {exc}"[:500],
+                          "attempts": attempts, "cost_usd": round(sum(a["cost_usd"] for a in attempts), 6)}
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(record, indent=1, default=str))
         gate = record.get("gate") or {}
@@ -238,6 +260,44 @@ async def run(label: str, arm_names: list[str], tickers: list[str], concurrency:
     await asyncio.gather(*(one(arm, ticker) for arm in arm_names for ticker in tickers))
 
 
+AUDIT_FOLDERS = ("causes", "semantics")
+
+
+def copy_systems(source: str, label: str, systems: list[str], tickers: list[str]) -> int:
+    """Put ``source``'s outputs for ``systems`` under ``label`` without regenerating them: the records, their
+    audits (default and same-auditor folders) and the verdicts between two copied systems. A copy is made only
+    when the record was generated from the prompt now checked in, and a file already under ``label`` is kept."""
+    prompt_sha = hashlib.sha256(system_prompt().encode()).hexdigest()
+    src, dst, copied = RUNS / source, RUNS / label, 0
+    for system in systems:
+        for ticker in tickers:
+            record = src / system / f"{ticker}.json"
+            if not record.exists():
+                continue
+            data = json.loads(record.read_text())
+            if system != "current" and data.get("prompt_sha256") != prompt_sha:
+                raise SystemExit(f"{record} was generated from another prompt; regenerate it instead of copying")
+            paths = [record.relative_to(src)]
+            for folder in (f for f in src.glob("*") if f.is_dir() and f.name.split("-by-")[0] in AUDIT_FOLDERS):
+                audit = folder / system / f"{ticker}.json"
+                if audit.exists():
+                    paths.append(audit.relative_to(src))
+            for path in paths:
+                target = dst / path
+                if not target.exists():
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text((src / path).read_text())
+                    copied += 1
+    for verdict in src.glob("judge/*/*.json"):
+        ticker, x, y = verdict.stem.split("__")
+        target = dst / verdict.relative_to(src)
+        if x in systems and y in systems and ticker in tickers and not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(verdict.read_text())
+            copied += 1
+    return copied
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--label", required=True)
@@ -245,10 +305,15 @@ def main() -> None:
     parser.add_argument("--split", default="dev", choices=("dev", "holdout", "all"))
     parser.add_argument("--tickers", default="", help="comma-separated override of the split")
     parser.add_argument("--concurrency", type=int, default=3)
+    parser.add_argument("--copy-from", default="", help="copy these arms' outputs, audits and mutual verdicts from "
+                                                       "another label instead of generating them")
     args = parser.parse_args()
     tickers = args.tickers.split(",") if args.tickers else [
         c.ticker for c in eval_companies(None if args.split == "all" else args.split)
     ]
+    if args.copy_from:
+        print(f"copied {copy_systems(args.copy_from, args.label, args.arms.split(','), tickers)} files from {args.copy_from}")
+        return
     asyncio.run(run(args.label, args.arms.split(","), tickers, args.concurrency))
 
 

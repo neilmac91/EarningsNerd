@@ -35,14 +35,15 @@ grounding rule waits for approval (`GROUNDING-RULE.md`).
     were gate errors, since fixed; §7.2);
   - a quarter of sentences now state a cause, and an auditor from another model family found 76–78% of
     those fully supported by the cited passage and 0–1% unsupported. The hand-written gold scored 70% and 0%.
-- **Model: Claude Sonnet 5.5,** at $0.18 per fresh analysis (about $180 per 1,000) and about a minute's
+- **Model: Claude Sonnet 5.5,** at $0.21 per fresh analysis through the API (about $210 per 1,000) and about a
+  minute's
   latency.
   - DeepSeek flash costs $0.0056 and takes 10 seconds. It gives verified numbers the wrong metric, period or
     sign about three times as often (9–10 per 1,000 against 3), and it marks almost none of its interpretation
     as analysis.
   - The judge evidence on the head-to-head is mixed. Opus prefers Sonnet 18–1, mostly on grounding and
     calibration. DeepSeek V4 Pro is position-biased and inconclusive. Gemma 4 31B, the neutral judge, has
-    judged 6 of 20 pairs so far (Sonnet 2, DeepSeek 2, 2 splits) and has not yet confirmed Opus's margin.
+    given 5 valid verdicts of 20 so far (Sonnet 2, DeepSeek 2, 1 split) and has not yet confirmed Opus's margin.
     The recommendation therefore rests mainly on the judge-free measures, and it should be confirmed by the
     blind human pack before launch.
   - DeepSeek remains the budget option once two evidence gaps are fixed.
@@ -409,8 +410,8 @@ all 4. The gate alone caught 2 of the 11.
 | Judgements marked as analysis | 0.7% of sentences | 8.8% | 11.6% |
 | Opus judge, head to head with DeepSeek | — | Haiku 16–1 | Sonnet 18–1 |
 | V4 Pro judge, head to head with DeepSeek | — | DeepSeek 4–0, 16 position splits | DeepSeek 4–0, 16 position splits |
-| Gemma 4 31B (neutral), head to head with DeepSeek | — | pending (follow-up) | Sonnet 2, DeepSeek 2, 2 position splits (6 of 20 so far) |
-| List cost per fresh analysis, repairs included | $0.0056 | $0.018 | $0.18 |
+| Gemma 4 31B (neutral), head to head with DeepSeek | — | pending (follow-up) | Sonnet 2, DeepSeek 2, 1 position split (5 of 20 so far) |
+| API list cost per fresh analysis, repairs included | $0.0056 | $0.019 | $0.21 |
 | Latency p50 / p90 | 10 s / 16 s | 89 s / 112 s | 57 s / 65 s |
 
 - **The consensus panels tie** on every DeepSeek-against-Claude pair. That is not evidence of equal quality:
@@ -420,9 +421,13 @@ all 4. The gate alone caught 2 of the 11.
   - Opus is a Claude-family judge with a possible self-preference, but its rationales cite checkable errors,
     and its preference rests on grounding and calibration, not on depth, where it rated DeepSeek against
     Sonnet a tie on 13 of 20.
-  - Gemma 4 31B is the neutral check. At the time of writing it had judged 6 of the 20 DeepSeek-against-
-    Sonnet pairs: Sonnet 2 (VRTX and COST), DeepSeek 2 (SNAP and RIVN) and 2 position splits (REGN and USB).
-    That is too few to settle anything, and so far it does not show Opus's margin. The free tier answers slowly, with
+  - Gemma 4 31B is the neutral check. At the time of writing it had given 5 valid verdicts on the 20
+    DeepSeek-against-Sonnet pairs: Sonnet 2 (VRTX and COST), DeepSeek 2 (SNAP and RIVN) and 1 position split
+    (REGN). Its USB reply stopped while it was still thinking, at the 4,000-token cap then in force, so it
+    held no
+    verdict. It is re-judged in the follow-up, and the cap is now 16,000.
+    That is too few to settle anything, and so far it does not show Opus's margin. The free tier answers
+    slowly, with
     intermittent server errors, so the remaining pairs and the DeepSeek-against-Haiku pairs complete in the
     scheduled follow-up (§11), which updates this section.
 
@@ -434,21 +439,24 @@ all 4. The gate alone caught 2 of the 11.
 ## 8. Cost and latency at volume
 
 Measured per fresh analysis over 20 companies, at API list prices for the measured tokens, including repair
-calls:
+calls, as the harness's own API request would bill them, with no prompt caching:
 
 | System | Per analysis | 1,000 a month | 10,000 a month | Latency p50 / p90 | Input / output tokens |
 |---|---|---|---|---|---|
 | Current (production) | $0.0002 | $0.19 | $1.94 | 1.9 s / 2.2 s | 2,000 / 270 |
 | DeepSeek flash, proposal | $0.0056 | $5.63 | $56.29 | 10 s / 16 s | 50,000 / 2,400 |
-| Claude Haiku 5.5 low, proposal | $0.018 | $18.14 | $181.38 | 89 s / 112 s | 80,000 / 21,000 |
-| Claude Haiku 5.5 medium, proposal | $0.017 | $16.99 | $169.94 | 116 s / 156 s | 68,000 / 29,000 |
-| Claude Sonnet 5.5, proposal | $0.18 | $180.42 | $1,804.25 | 57 s / 65 s | 64,000 / 7,900 |
+| Claude Haiku 5.5 low, proposal | $0.019 | $18.55 | $185.51 | 89 s / 112 s | 80,000 / 21,000 |
+| Claude Haiku 5.5 medium, proposal | $0.021 | $21.19 | $211.90 | 116 s / 156 s | 68,000 / 29,000 |
+| Claude Sonnet 5.5, proposal | $0.21 | $207.32 | $2,073.17 | 57 s / 65 s | 64,000 / 7,900 |
 
 - **DeepSeek** is priced at the off-peak rate. The peak rate (weekdays 01:00–04:00 and 06:00–10:00 UTC) is
   double: $0.011 per analysis.
-- **Claude** ran through `claude -p`, not the API (§11). The CLI billed Sonnet at $0.28 per analysis, against
-  $0.18 at list for the same tokens; the difference is cache writes the CLI makes and a one-shot call never
-  reads. Through the API without caching, list is the right figure.
+- **Claude** ran through `claude -p`, not the API (§11). The table prices those tokens as the harness's own API
+  request would. That request sets no cache breakpoint, so input the CLI happened to read from cache is priced
+  as
+  ordinary input. An earlier draft of this report priced it at the cache-read rate, which put Sonnet at $0.18.
+  The CLI itself billed $0.28 a Sonnet analysis, because it writes a one-hour cache that a one-shot call never
+  reads back.
 - **Volume.** Analyses are cached per company, window and dataset fingerprint, so a fresh generation happens
   only on a company's first view in a window, after a new filing changes its facts, after a prompt version
   change, or on a forced regeneration (capped at 100 a user a month). The production analytics needed to
@@ -474,12 +482,12 @@ companies, and a judge's verdict counts only when both orders agree.
 | Current vs DeepSeek flash | 2 · 15 · 3 (claude-opus-5-5 (20)) | 2 · 15 · 3 | not run (own family) | not run |
 | Current vs Sonnet 5.5 | 0 · 19 · 1 (consensus of claude-opus-5-5 + deepseek-v4-pro (20)) | 0 · 19 · 1 | 0 · 20 · 0 | not run |
 | Current vs Haiku 5.5 low | 0 · 20 · 0 (consensus of claude-opus-5-5 + deepseek-v4-pro (20)) | 0 · 20 · 0 | 0 · 20 · 0 | not run |
-| DeepSeek flash vs Sonnet 5.5 | 2 · 2 · 16 (gemma-4-31b (6); consensus of claude-opus-5-5 + deepseek-v4-pro (14)) | 1 · 18 · 1 | 4 · 0 · 16 | 2 · 2 · 2 |
+| DeepSeek flash vs Sonnet 5.5 | 2 · 2 · 16 (gemma-4-31b (5); consensus of claude-opus-5-5 + deepseek-v4-pro (15)) | 1 · 18 · 1 | 4 · 0 · 16 | 2 · 2 · 1 |
 | DeepSeek flash vs Haiku 5.5 low | 0 · 0 · 20 (consensus of claude-opus-5-5 + deepseek-v4-pro (20)) | 1 · 16 · 3 | 4 · 0 · 16 | not run |
 | Sonnet 5.5 vs Haiku 5.5 low | 2 · 0 · 18 (deepseek-v4-pro (20)) | not run (own family) | 2 · 0 · 18 | not run |
 
 Position-swap agreement on the overall verdict: Claude Opus 5.5 92% of 100 pairs, DeepSeek V4 Pro 50% of 100,
-Gemma 4 31B 67% of 6 pairs. Raw verdicts, both orders, with rationales: `runs/eval-v1/judge/<judge>/`.
+Gemma 4 31B 80% of 5 pairs. Raw verdicts, both orders, with rationales: `runs/eval-v1/judge/<judge>/`.
 
 **(c) Blind preference pack for finance-literate raters.** `human-pack/` holds the pack: the current analysis
 against the proposed one for REGN, SNAP, JPM, COST and VRTX.
@@ -546,7 +554,8 @@ Gate figures here use the current gate.
      - Opus, the judge most consistent across the position swap (92%), preferred it to DeepSeek on grounding
        and calibration.
 
-     Its cost is $0.18 per fresh analysis: about $180 per 1,000 fresh analyses a month. Its latency is about
+     Its cost is $0.21 per fresh analysis through the API: about $210 per 1,000 fresh analyses a month. Its
+     latency is about
      a minute.
    - **How firm this is:** it rests on the measures that need no judge and on Opus. The neutral judge has not
      confirmed it yet (§7.6).
@@ -567,6 +576,10 @@ Gate figures here use the current gate.
 6. **Before switching on:**
    - run the human pack (§9c); to settle Sonnet against DeepSeek, also run the DeepSeek version of the
      pack on the same raters;
+   - run the Claude arms through the Anthropic API as `eval-v2-api`. The plan is in
+     `backend/evals/trend_depth/README.md`: about USD 41 of the key (about USD 50 with the scheduled Gemini
+     follow-up), with a hard USD 75 ceiling. It replaces the CLI runs and adds Haiku and Sonnet with thinking
+     off, the latency options;
    - re-run this harness on the final prompt and pack (`backend/evals/trend_depth/README.md`, about USD 25);
    - add the Gemini arm when its quota allows (a follow-up is scheduled; §11).
 
@@ -575,16 +588,22 @@ changed.
 
 ## 11. Caveats
 
-- **Claude through the CLI.** No `ANTHROPIC_API_KEY` was available, so every Claude call went through
-  `claude -p` on the logged-in subscription (the repository's judge pattern). Costs are list prices for the
-  measured tokens. Latency includes the CLI's start-up, and `--effort` stands in for the API's thinking
-  settings. An API re-run with the key would firm up the Claude latency figures.
+- **Claude through the CLI.** No `ANTHROPIC_API_KEY` was available to this session, so every Claude call went
+  through `claude -p` on the logged-in subscription (the repository's judge pattern). Costs are list prices for
+  the measured tokens. Latency includes the CLI's start-up, and `--effort` stands in for the API's thinking
+  settings.
+  - **The API path is built and checked.** It was verified offline against the real SDK through a mock
+    transport, then reviewed independently for request validity, cost accounting and spend safety. It is pinned
+    by `backend/tests/unit/test_trend_depth_providers.py`.
+  - **Spend is capped.** Every call goes to a spend ledger (`runs/spend.jsonl`). A Claude API call is refused
+    once the ledger reaches `TREND_DEPTH_ANTHROPIC_CEILING_USD` (default 75).
+  - **The run starts when the key is set.** It needs `ANTHROPIC_API_KEY` in the environment.
 - **Gemini partly missing.** The Gemini key is on the free tier: Pro and Gemini 4 Argon have no quota, and
   Gemini 3.8 Flash allows 20 requests a day. The Gemini 3.8 Flash arm generated only REGN, in a development
   run, before the quota ran out, so it is not in the comparison. A follow-up session is scheduled for 07:20 UTC
   on 25 October to generate its 20 companies over one or two days of quota, judge it against the other
   systems, and update this report. Gemma 4 31B, from the same free tier, stood in as the neutral judge; it
-  had judged 6 of its 40 pairs when this report was written, and the follow-up completes it.
+  had given 5 valid verdicts of its 40 pairs when this report was written, and the follow-up completes it.
 - **Self-preference.** No judge from outside both families was available at full strength for the
   DeepSeek-against-Claude pairs. Opus's preference for Claude outputs may include self-preference. §7.6
   weighs it against the objective measures, which do not depend on a judge, and against Gemma.
@@ -609,7 +628,8 @@ changed.
 4. `report`.
 
 Packs and outputs are committed, so a prompt change re-runs against the same evidence, and the report puts
-the development and held-out halves side by side. A full run like `eval-v1` cost about USD 42. Total
+the development and held-out halves side by side. The README's "Claude through the API" section is the
+`eval-v2-api` plan, step by step with its cost. A full run like `eval-v1` cost about USD 42. Total
 spend for this study was about USD 53: USD 42.3 for `eval-v1` (judging 24.2, audits 11.5, generation 6.6),
 USD 9.6 for the development runs and USD 0.6 for the census labelling. The Gemma judge and the Gemini
 arm run on the free tier.

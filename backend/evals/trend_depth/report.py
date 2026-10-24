@@ -5,10 +5,12 @@
 Writes ``runs/<label>/REPORT.md`` and ``runs/<label>/summary.json``. Development and held-out companies are
 reported side by side; the held-out half is the result, the development half is where the prompt was tuned.
 
-Cost is the list-price cost of the measured tokens (``providers.list_cost``: uncached input, cached input
-and output at each provider's published rate), so a Claude arm run through the CLI is costed as the API
-would bill the same tokens; the CLI's own billed figure is reported beside it. Extrapolation multiplies
-the mean cost of a fresh generation, including any repair call, by the monthly run count.
+Cost is the list-price cost of the measured tokens (``providers.list_cost``: uncached input, cached input,
+cache writes and output at each provider's published rate), including every attempt of every generation,
+failed ones too. A Claude arm run through the CLI is costed as the harness's own API request would bill
+the same tokens: that request sets no cache breakpoint, so the cache reads the CLI made are priced as
+ordinary input. The CLI's own billed figure is in ``summary.json`` as ``cost_recorded_mean``. Extrapolation
+multiplies the mean cost of a fresh generation, including any repair call, by the monthly run count.
 """
 from __future__ import annotations
 
@@ -53,7 +55,13 @@ def _api_cost(record: dict[str, Any]) -> Optional[float]:
         return record.get("cost_usd")
     total = 0.0
     for attempt in record.get("attempts", []):
-        total += list_cost(arm, attempt["input_tokens"], attempt["cached_input_tokens"], attempt["output_tokens"])
+        if attempt.get("backend") == "claude_cli":
+            # The harness's API request sets no cache_control, so it would read nothing from cache.
+            total += list_cost(arm, attempt["input_tokens"], 0, attempt["output_tokens"])
+        else:
+            total += list_cost(arm, attempt["input_tokens"], attempt["cached_input_tokens"], attempt["output_tokens"],
+                               int((attempt.get("meta") or {}).get("cache_creation_input_tokens") or 0)
+                               if attempt.get("backend") == "anthropic" else 0)
     return total
 
 
@@ -98,7 +106,9 @@ def arm_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
             cited.update(c for c in detail["citations"] if c[0] in "PQ")
         passages_cited.append(len(cited))
     total_sentences = sum(types.values())
-    costs = [c for c in (_api_cost(r) for r in ok) if c is not None]
+    # Every paid generation counts toward cost, a failed one included; latency is the successful ones'.
+    paid = [r for r in records if r.get("attempts")]
+    costs = [c for c in (_api_cost(r) for r in paid) if c is not None]
     stats.update({
         "first_pass_gate": sum(1 for g in first if g["passed"]),
         "final_gate": sum(1 for g in gates if g["passed"]),
@@ -117,7 +127,10 @@ def arm_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
         "words_mean": statistics.mean(r["words"] for r in ok),
         "words_max": max(r["words"] for r in ok),
         "cost_mean": statistics.mean(costs) if costs else None,
-        "cost_billed_mean": statistics.mean(r.get("cost_usd") or 0 for r in ok),
+        "cost_recorded_mean": statistics.mean(r.get("cost_usd") or 0 for r in paid) if paid else None,
+        "failed_generations": n - len(ok),
+        "failed_generation_cost": round(sum(_api_cost(r) or 0 for r in paid if not r.get("generation_ok")), 6),
+        "backends": sorted({a.get("backend", "?") for r in paid for a in r.get("attempts", [])}),
         "input_tokens_mean": statistics.mean(r["usage"]["input_tokens"] for r in ok),
         "output_tokens_mean": statistics.mean(r["usage"]["output_tokens"] for r in ok),
         "latency_p50": _quantile([r["latency_s"] for r in ok], 0.5),
@@ -244,18 +257,18 @@ def render(label: str, systems: list[str], summary: dict[str, Any]) -> str:
     for split in ("dev", "holdout", "all"):
         block = summary["splits"][split]
         lines += [f"## {split}: {block['companies']} companies", "",
-                  "| System | Generated | Gate pass, first try (as run · current gate) | Gate pass after one repair (as run · current gate) | Failed claims, first try | Claims per analysis | Causal sentences | Passages cited | Words | API list cost per run | Latency p50 / p90 (s) |",
-                  "|---|---|---|---|---|---|---|---|---|---|---|"]
+                  "| System | Backend | Generated | Gate pass, first try (as run · current gate) | Gate pass after one repair (as run · current gate) | Failed claims, first try | Claims per analysis | Causal sentences | Passages cited | Words | API list cost per run | Latency p50 / p90 (s) |",
+                  "|---|---|---|---|---|---|---|---|---|---|---|---|"]
         for system in systems:
             s = block["arms"].get(system, {})
             if not s:
                 continue
             if system == "current":
-                lines.append(f"| current (production) | {s.get('generated')}/{s['n']} | by construction | — | — | — | 0 | 0 | "
+                lines.append(f"| current (production) | production code | {s.get('generated')}/{s['n']} | by construction | — | — | — | 0 | 0 | "
                              f"{s.get('words_mean', 0):.0f} | ${s.get('cost_mean') or 0:.5f} | {s.get('latency_p50', 0):.1f} / {s.get('latency_p90', 0):.1f} |")
                 continue
             lines.append(
-                f"| {system} | {s.get('generated')}/{s['n']} | {s.get('first_pass_gate', 0)} · {s.get('first_pass_gate_now', 0)} of {s.get('generated', 0)} | "
+                f"| {system} | {', '.join(s.get('backends', []))} | {s.get('generated')}/{s['n']} | {s.get('first_pass_gate', 0)} · {s.get('first_pass_gate_now', 0)} of {s.get('generated', 0)} | "
                 f"{s.get('final_gate', 0)} · {s.get('final_gate_now', 0)} of {s.get('generated', 0)} | {s.get('first_pass_failed_claims', 0)} of {s.get('first_pass_claims', 0)} | "
                 f"{s.get('claims_mean', 0):.0f} | {s.get('causes_mean', 0):.1f} | {s.get('passages_cited_mean', 0):.1f} | "
                 f"{s.get('words_mean', 0):.0f} (max {s.get('words_max', 0)}) | ${s.get('cost_mean') or 0:.4f} | "

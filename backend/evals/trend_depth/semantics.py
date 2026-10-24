@@ -18,10 +18,10 @@ import json
 from typing import Any, Optional
 
 from evals.trend_depth import factcheck
-from evals.trend_depth.causes import _auditor
+from evals.trend_depth.causes import _auditor, reuse_audit
 from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.generate import RUNS, load_pack, sentences_of
-from evals.trend_depth.providers import ARMS, call, parse_json_object
+from evals.trend_depth.providers import ARMS, call, labels_by_number, parse_json_object
 
 SYSTEM = """You check that each number in a financial analysis is said about the right thing. For each numbered
 item you get a sentence, one number from it, and what that number was matched to in the evidence (the
@@ -85,16 +85,19 @@ async def audit(system: str, ticker: str, record: dict[str, Any], label: str, au
                 items.append({"sentence": factcheck.CITATION_RE.sub("", detail["text"]).strip(), "claim": claim["claim"],
                               "match": _describe(claim.get("matched", ""), claim["ids"], pack)})
     auditor = auditor or _auditor(system)
-    user = "\n\n".join(f"[{n}] Sentence: {i['sentence']}\n    Number: {i['claim']}\n    Matched to: {i['match']}"
-                       for n, i in enumerate(items, start=1)) + "\n\nMark every item now."
-    response = await call(ARMS[auditor], SYSTEM, user, max_tokens=8000)
-    verdict = parse_json_object(response.text) or {}
-    labels = {int(i.get("n", 0)): i for i in verdict.get("items", []) if isinstance(i, dict)}
-    record_out = {
-        "system": system, "ticker": ticker, "split": pack["split"], "auditor": auditor, "cost_usd": response.cost_usd,
-        "items": [{**item, "label": (labels.get(n) or {}).get("label", "missing"), "reason": (labels.get(n) or {}).get("reason", "")}
-                  for n, item in enumerate(items, start=1)],
-    }
+    record_out: dict[str, Any] = {"system": system, "ticker": ticker, "split": pack["split"], "auditor": auditor, "items": []}
+    if items:  # an analysis with no verified number needs no auditor call
+        user = "\n\n".join(f"[{n}] Sentence: {i['sentence']}\n    Number: {i['claim']}\n    Matched to: {i['match']}"
+                           for n, i in enumerate(items, start=1)) + "\n\nMark every item now."
+        response = await call(ARMS[auditor], SYSTEM, user, max_tokens=16000, tag=f"semantics/{auditor}/{system}/{ticker}")
+        verdict = parse_json_object(response.text) or {}
+        labels = labels_by_number(verdict.get("items"))
+        record_out.update({
+            "cost_usd": response.cost_usd, "backend": response.backend, "input_tokens": response.input_tokens,
+            "cached_input_tokens": response.cached_input_tokens, "output_tokens": response.output_tokens,
+            "items": [{**item, "label": (labels.get(n) or {}).get("label", "missing"), "reason": (labels.get(n) or {}).get("reason", "")}
+                      for n, item in enumerate(items, start=1)],
+        })
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(record_out, indent=1))
     counts = {k: sum(1 for i in record_out["items"] if i["label"] == k) for k in ("consistent", "mismatch", "missing")}
@@ -105,11 +108,7 @@ async def run(label: str, systems: list[str], tickers: list[str], concurrency: i
     semaphore = asyncio.Semaphore(concurrency)
 
     async def one(system: str, ticker: str) -> None:
-        default = RUNS / label / "semantics" / system / f"{ticker}.json"
-        out = RUNS / label / f"semantics-by-{auditor}" / system / f"{ticker}.json"
-        if auditor and auditor == _auditor(system) and default.exists() and not out.exists():
-            out.parent.mkdir(parents=True, exist_ok=True)  # the default audit already used this auditor
-            out.write_text(default.read_text())
+        reuse_audit(label, "semantics", system, ticker, auditor)
         path = RUNS / label / system / f"{ticker}.json"
         if not path.exists():
             return

@@ -46,6 +46,58 @@ auditors) cost USD 42.3 in October 2026: Opus judging USD 23.4, Opus audits USD 
 USD 5.6, and everything else under USD 1 each. A run with only the default audits and without the Haiku arms
 costs about USD 25. `tasks/analysis-depth-2026-10/REPORT.md` §8 has the per-analysis costs.
 
+## Claude through the API (`eval-v2-api`)
+
+`eval-v1` ran every Claude call through `claude -p`. With `ANTHROPIC_API_KEY` set, every Claude call goes to the
+Messages API instead, the Opus judge and auditors included. Install the SDK with `pip install anthropic` (the app
+does not depend on it). The API makes two more arms possible, which the CLI cannot express:
+
+- `claude-haiku-5-5-nothink`: thinking `disabled`;
+- `claude-sonnet-5-5-nothink`: `between_tools`, Sonnet 5.5's lowest thinking setting.
+
+Every call, on any backend, is appended to `tasks/analysis-depth-2026-10/runs/spend.jsonl`. A Claude API call is
+refused before it is sent once that ledger's Anthropic total reaches `TREND_DEPTH_ANTHROPIC_CEILING_USD` (default
+75). Concurrent calls can overshoot the ceiling by at most the calls already in flight.
+
+The plan reuses `eval-v1`'s `current` and `deepseek-flash` outputs, their audits and the verdict between them.
+Costs are on the Anthropic key at list price, estimated from `eval-v1`'s measured tokens.
+
+```bash
+cd backend
+ARMS=claude-sonnet-5-5,claude-sonnet-5-5-nothink,claude-haiku-5-5-low,claude-haiku-5-5-nothink
+# 1. Copy current and deepseek-flash from eval-v1 (USD 0).
+python -m evals.trend_depth.generate --label eval-v2-api --arms current,deepseek-flash --split all --copy-from eval-v1
+# 2. Generate the four Claude arms on all 20 companies (about USD 9).
+python -m evals.trend_depth.generate --label eval-v2-api --arms $ARMS --split all --concurrency 3
+# 3. Default audits. Claude systems are audited by DeepSeek V4 Pro (USD 0 on the key, about USD 0.75 on DeepSeek).
+python -m evals.trend_depth.causes --label eval-v2-api --systems $ARMS
+python -m evals.trend_depth.semantics --label eval-v2-api --systems $ARMS
+# 4. Same-auditor Opus audits, for a like-for-like comparison with deepseek-flash (about USD 8.4).
+python -m evals.trend_depth.causes --label eval-v2-api --systems $ARMS --auditor claude-opus-5-5
+python -m evals.trend_depth.semantics --label eval-v2-api --systems $ARMS --auditor claude-opus-5-5
+# 5. Judge each arm against current and against deepseek-flash, one opponent at a time, so no unrequested
+#    Claude-against-Claude pairs run (consensus panels: about USD 23 of Opus, about USD 2 of DeepSeek V4 Pro).
+for arm in ${ARMS//,/ }; do
+  python -m evals.trend_depth.judge --label eval-v2-api --systems current,$arm --exclude-judges gemini-3.8-flash,gemma-4-31b
+  python -m evals.trend_depth.judge --label eval-v2-api --systems deepseek-flash,$arm --exclude-judges gemini-3.8-flash,gemma-4-31b
+done
+# 6. Report, and the key's spend so far.
+python -m evals.trend_depth.report --label eval-v2-api --systems current,deepseek-flash,$ARMS
+python -c "from evals.trend_depth.providers import anthropic_spend; print(f'USD {anthropic_spend():.2f}')"
+```
+
+The whole plan comes to about USD 41 on the key. The scheduled Gemini follow-up adds about USD 7–9 of Opus
+judging and audits once the key is set.
+
+Several safeguards keep the spend to these figures:
+- A missing output is skipped by the judge, never recorded as a forfeit, so judge only after step 2.
+- A reply with no verdict, or one that stops at its token cap, is recorded as an error, with the cost already
+  spent, and the next run retries it.
+- A refusal is the model's own outcome and is not retried.
+- A pair is cached in one fixed orientation, whatever order `--systems` lists it in.
+- An audit already made by the same auditor is copied between the default and same-auditor folders in either
+  direction, never paid for twice.
+
 ## Rebuild the evidence
 
 ```bash

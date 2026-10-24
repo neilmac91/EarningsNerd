@@ -25,7 +25,7 @@ from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.generate import RUNS, load_pack, sentences_of
 from evals.trend_depth.gold import pack_with_extras
 from evals.trend_depth.judge import JUDGE_ORDER, _family
-from evals.trend_depth.providers import ARMS, call, parse_json_object
+from evals.trend_depth.providers import ARMS, call, labels_by_number, parse_json_object
 
 SYSTEM = """You audit financial analysis for faithfulness to its sources. For each numbered claim you get the
 sentence and the full text of the 10-K passages it cites. Decide whether the passages state the cause the
@@ -41,6 +41,20 @@ Judge only causation; figures are checked elsewhere. Return one JSON object only
 def _auditor(system: str) -> Optional[str]:
     family = "gold" if system == "gold" else _family(system)
     return next((name for name in JUDGE_ORDER if ARMS[name].family != family), None)
+
+
+def reuse_audit(label: str, kind: str, system: str, ticker: str, auditor: Optional[str]) -> None:
+    """Copy an audit already made by the same auditor between the default folder (``kind``) and the same-auditor
+    folder (``kind-by-<auditor>``), in whichever direction is missing, so the same audit is never paid for twice."""
+    default_auditor = _auditor(system)
+    default = RUNS / label / kind / system / f"{ticker}.json"
+    same = RUNS / label / f"{kind}-by-{default_auditor}" / system / f"{ticker}.json"
+    if auditor and auditor != default_auditor:
+        return
+    source, target = (same, default) if auditor is None else (default, same)
+    if source.exists() and not target.exists():
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source.read_text())
 
 
 def cause_items(sentences: list[dict[str, Any]], pack: dict[str, Any]) -> list[dict[str, Any]]:
@@ -70,12 +84,13 @@ async def audit(system: str, ticker: str, sentences: list[dict[str, Any]], pack:
             f"[{n}] Sentence: {item['sentence']}\n" + "\n".join(f"  Passage {p['id']} ({p['filing']}): {p['text']}" for p in item["passages"])
             for n, item in enumerate(items, start=1)
         ) + "\n\nLabel every claim now."
-        result = await call(ARMS[auditor], SYSTEM, user, max_tokens=4000)
+        result = await call(ARMS[auditor], SYSTEM, user, max_tokens=16000, tag=f"causes/{auditor}/{system}/{ticker}")
         verdict = parse_json_object(result.text) or {}
-        labels = {int(c.get("n", 0)): c for c in verdict.get("claims", []) if isinstance(c, dict)}
+        labels = labels_by_number(verdict.get("claims"))
         record["items"] = [{**item, "label": (labels.get(n) or {}).get("label", "missing"), "reason": (labels.get(n) or {}).get("reason", "")}
                            for n, item in enumerate(items, start=1)]
-        record["cost_usd"] = result.cost_usd
+        record.update({"cost_usd": result.cost_usd, "backend": result.backend, "input_tokens": result.input_tokens,
+                       "cached_input_tokens": result.cached_input_tokens, "output_tokens": result.output_tokens})
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(record, indent=1))
     counts = {k: sum(1 for i in record.get("items", []) if i["label"] == k) for k in ("supported", "partial", "unsupported")}
@@ -90,10 +105,7 @@ async def run(label: str, systems: list[str], tickers: list[str], concurrency: i
     async def one(system: str, ticker: str) -> None:
         async with semaphore:
             out = RUNS / label / folder / system / f"{ticker}.json"
-            default = RUNS / label / "causes" / system / f"{ticker}.json"
-            if auditor and auditor == _auditor(system) and default.exists() and not out.exists():
-                out.parent.mkdir(parents=True, exist_ok=True)  # the default audit already used this auditor
-                out.write_text(default.read_text())
+            reuse_audit(label, "causes", system, ticker, auditor)
             if system == "gold":
                 from evals.trend_depth.gold import GOLD
                 path = GOLD / f"{ticker}.md"

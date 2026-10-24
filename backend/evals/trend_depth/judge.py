@@ -29,7 +29,7 @@ from typing import Any, Optional
 from evals.trend_depth import readable
 from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.generate import RUNS, load_pack
-from evals.trend_depth.providers import ARMS, call, parse_json_object
+from evals.trend_depth.providers import ARMS, call, canonical_pair, parse_json_object
 from evals.trend_depth.render import fmt
 
 JUDGE_ORDER = ("claude-opus-5-5", "deepseek-v4-pro", "gemini-3.8-flash", "gemma-4-31b")  # V4 Pro: ADR-0008 addendum
@@ -115,11 +115,23 @@ def _user(pack: dict[str, Any], text_a: str, text_b: str) -> str:
     )
 
 
-async def _one_order(judge: str, pack: dict[str, Any], text_a: str, text_b: str) -> dict[str, Any]:
-    result = await call(ARMS[judge], RUBRIC, _user(pack, text_a, text_b), max_tokens=4000)
+class NoVerdict(ValueError):
+    """The judge's reply held no overall verdict; the pair is retried, never counted as a tie."""
+
+
+async def _one_order(judge: str, pack: dict[str, Any], text_a: str, text_b: str, tag: str = "") -> dict[str, Any]:
+    # 16,000 leaves room for a thinking judge (Gemma 4 has spent 2,700 tokens thinking and then stopped before its JSON).
+    result = await call(ARMS[judge], RUBRIC, _user(pack, text_a, text_b), max_tokens=16000, tag=tag)
     verdict = parse_json_object(result.text) or {}
-    return {"verdict": verdict, "cost_usd": result.cost_usd, "latency_s": result.latency_s,
-            "input_tokens": result.input_tokens, "output_tokens": result.output_tokens, "raw": result.text[:4000]}
+    if str(verdict.get("overall", "")).strip().upper() not in ("A", "B", "TIE"):
+        raise NoVerdict(f"{judge} returned no overall verdict (${result.cost_usd:.4f} spent): {result.text[:160]!r}")
+    return {"verdict": verdict, "cost_usd": result.cost_usd, "latency_s": result.latency_s, "backend": result.backend,
+            "input_tokens": result.input_tokens, "cached_input_tokens": result.cached_input_tokens,
+            "output_tokens": result.output_tokens, "reasoning_tokens": result.reasoning_tokens, "meta": result.meta,
+            "raw": result.text[:4000]}
+
+
+
 
 
 def _resolve(first: dict[str, Any], second: dict[str, Any], x: str, y: str) -> dict[str, Any]:
@@ -143,18 +155,25 @@ async def judge_pair(label: str, ticker: str, x: str, y: str, judge: str, semaph
             return cached
     pack = load_pack(ticker)
     rx, ry = _load(label, x, ticker), _load(label, y, ticker)
+    if rx is None or ry is None or "error" in rx or "error" in ry:
+        # Not generated yet (or a provider error, retried by generate): judge it once both outputs exist.
+        print(f"judge {judge:18} {ticker:5} {x} vs {y}: skipped, an output is missing", flush=True)
+        return None
     tx, ty = reader_text(rx, pack), reader_text(ry, pack)
     record: dict[str, Any] = {"ticker": ticker, "split": pack["split"], "x": x, "y": y, "judge": judge}
-    if tx is None or ty is None:
+    if tx is None or ty is None:  # the model itself failed to produce an analysis: the other side wins
         record["forfeit"] = x if tx is None and ty is not None else y if ty is None and tx is not None else "both"
     else:
+        tag = f"{label}/judge/{judge}/{ticker}/{x}__{y}"
+        first = second = None
         async with semaphore:
             try:
-                first = await _one_order(judge, pack, tx, ty)
-                second = await _one_order(judge, pack, ty, tx)
-            except Exception as exc:  # noqa: BLE001 - a judge failure is recorded, never a verdict
+                first = await _one_order(judge, pack, tx, ty, tag)
+                second = await _one_order(judge, pack, ty, tx, tag)
+            except Exception as exc:  # noqa: BLE001 - a judge failure is recorded with what it cost, never a verdict
                 record["error"] = f"{type(exc).__name__}: {exc}"[:400]
-                first = second = None
+                record["orders"] = [o for o in (first, second) if o]
+                record["cost_usd"] = round(sum(o["cost_usd"] for o in record["orders"]), 6)
         if first and second:
             record["orders"] = [first, second]
             record["result"] = _resolve(first, second, x, y)
@@ -172,7 +191,7 @@ async def run(label: str, systems: list[str], tickers: list[str], concurrency: i
     semaphores = {name: asyncio.Semaphore(concurrency) for name in JUDGE_ORDER}
     order = tuple(j for j in JUDGE_ORDER if j not in exclude)
     jobs = []
-    for x, y in itertools.combinations(systems, 2):
+    for x, y in (canonical_pair(a, b) for a, b in itertools.combinations(systems, 2)):
         for judge in panel_for(x, y, order, second_judge):
             for ticker in tickers:
                 jobs.append(judge_pair(label, ticker, x, y, judge, semaphores[judge]))
