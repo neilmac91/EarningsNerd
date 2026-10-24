@@ -120,6 +120,12 @@ def run(args: argparse.Namespace) -> dict:
             FinancialFact.reconciled.is_(True), FinancialFact.is_latest.is_(True),
         ).distinct()} for c in companies}
     report = {"run_id": str(uuid4()), "dry_run": not args.apply, "companies": [], "failed": 0}
+    # The report prints only after the batch, while each company commits as it goes. This line,
+    # flushed before the first company, keeps the run_id in the log of a run cut short.
+    print(json.dumps({
+        "started": True, "run_id": report["run_id"], "dry_run": report["dry_run"],
+        "rollback_run": args.rollback_run, "tickers": [c["ticker"] for c in companies],
+    }, sort_keys=True), flush=True)
     for company in companies:
         try:
             if args.rollback_run:

@@ -514,9 +514,12 @@ jobs:
         # it reads companyfacts from SEC (the shared limiter) before the company's session opens, then
         # plans the bounded repair. The preview runs in read-only transactions, so Postgres refuses any
         # write; the apply writes the plan, one company per transaction under the fact writers' lock,
-        # journaled in financial_fact_revision for the audited rollback. Its JSON report reaches this log
-        # and the run's artifact. Explicit tickers only: the resolve step requires at most 50, and
-        # --limit 50 lifts the script's own default of 10 to that bound.
+        # journaled in financial_fact_revision for the audited rollback. Before the first company it
+        # prints one flushed line with the run_id and the tickers; its JSON report reaches this log and
+        # the run's artifact only once the batch ends. So a run cut short (a cancel, this step's timeout)
+        # leaves that line alone in this log, while the companies it finished stay committed, and their
+        # rollback takes that run_id (docs/quarterly-data-repair.md). Explicit tickers only: the resolve
+        # step requires at most 50, and --limit 50 lifts the script's own default of 10 to that bound.
         if: contains('repair-quarterly-dry-run repair-quarterly-apply', steps.request.outputs.operation)
         working-directory: backend
         timeout-minutes: 60
