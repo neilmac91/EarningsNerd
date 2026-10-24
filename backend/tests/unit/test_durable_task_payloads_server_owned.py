@@ -30,9 +30,11 @@ A route that needs no login bounds the handoffs its callers can cause: in ``app/
 spends a process-wide budget before it hands off, an ``if not LIMITER.allow("<key>"): return`` among
 its own statements ahead of the call, ``LIMITER`` a module-level ``RateLimiter`` bound once. Any other
 form fails closed. The limiter is known by its class name. That it is spent only past the handoff
-guard, and that the filings budget's size stays under the queue's drain across the API's instances,
-are pinned by ``test_filings_routes.py``; the synchronous SEC calls such a route makes (reached
-through services and edgartools, out of an AST walk's reach) are review-checked.
+guard is pinned by ``test_filings_routes.py``, which also sums, across the API's instances, the cap on
+every site a request with no login reaches (``public_queue_caps``: each ``PASS_THROUGH``'s budget, as
+its budget check names it, and each ``EXEMPT`` site's in ``EXEMPT_PUBLIC_CAPS``, which must list every
+``EXEMPT`` site) against the drain of the one queue they all share; the synchronous SEC calls such a
+route makes (reached through services and edgartools, out of an AST walk's reach) are review-checked.
 
 The exempt ``queue_account_mail`` carries a caller's address (F60), so its callers are followed:
 ``test_account_mail_is_queued_only_behind_the_two_routes_limits`` holds it to one helper in the auth
@@ -81,6 +83,21 @@ EXEMPT = {
 ACCOUNT_MAIL_HELPER = ("routers/auth.py", "_queue_account_mail")
 ACCOUNT_MAIL_ROUTES = {"forgot_password", "resend_verification"}
 ACCOUNT_MAIL_CAP = "ACCOUNT_MAIL_LIMITER"
+
+
+def _module_of(rel: str) -> str:
+    return "app." + rel.removesuffix(".py").replace("/", ".")
+
+
+# Every EXEMPT site, with the process-wide cap that bounds it when a request that needs no login reaches it,
+# as (module, RateLimiter name), else None. These and each PASS_THROUGH's budget are the caps
+# test_filings_routes.py sums, times the API's instances, against the drain of the one queue every durable
+# task shares, so a new EXEMPT site must say here whether such a request reaches it, and what caps it.
+EXEMPT_PUBLIC_CAPS = {
+    ("services/internal_task_runner.py", "enqueue_internal_job"): None,  # its routes take the internal token
+    ("services/internal_task_runner.py", "run_internal_task"): None,  # the worker's fan-out of an operator job
+    ("services/account_mail_service.py", "queue_account_mail"): (_module_of(ACCOUNT_MAIL_HELPER[0]), ACCOUNT_MAIL_CAP),
+}
 
 
 def _called_name(call: ast.Call) -> str | None:
@@ -198,12 +215,12 @@ def _limiters(tree: ast.Module) -> set[str]:
             if isinstance(t, ast.Name) and stores.count(t.id) == 1}
 
 
-def _spends_a_budget_first(fn: ast.AST, call: ast.Call, tree: ast.Module) -> bool:
-    """``fn`` returns ahead of the statement holding ``call`` unless a module-level limiter admits it, on
-    one literal key, so the count is the process's whoever asks."""
+def _budget_spent_first(fn: ast.AST, call: ast.Call, tree: ast.Module) -> str | None:
+    """The module-level limiter that must admit ``fn``, on one literal key, before the statement holding
+    ``call``, ``fn`` returning otherwise, so the count is the process's whoever asks; None when there is none."""
     for stmt in fn.body:
         if any(node is call for node in ast.walk(stmt)):
-            return False
+            return None
         test = stmt.test if isinstance(stmt, ast.If) else None
         admits = test.operand if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not) else None
         if (isinstance(admits, ast.Call) and isinstance(admits.func, ast.Attribute) and admits.func.attr == "allow"
@@ -211,8 +228,23 @@ def _spends_a_budget_first(fn: ast.AST, call: ast.Call, tree: ast.Module) -> boo
                 and len(admits.args) == 1 and not admits.keywords and isinstance(admits.args[0], ast.Constant)
                 and isinstance(admits.args[0].value, str)
                 and len(stmt.body) == 1 and isinstance(stmt.body[0], ast.Return) and not stmt.orelse):
-            return True
-    return False
+            return admits.func.value.id
+    return None
+
+
+def _spends_a_budget_first(fn: ast.AST, call: ast.Call, tree: ast.Module) -> bool:
+    return _budget_spent_first(fn, call, tree) is not None
+
+
+def public_queue_caps() -> dict[tuple[str, str], tuple[str, str]]:
+    """Every enqueue site a request that needs no login reaches, with the process-wide cap that bounds it as
+    (module, RateLimiter name): each PASS_THROUGH's budget, as its own budget check names it, and each
+    EXEMPT site's listed cap. A direct router call needs a login, so none is among them."""
+    caps = {site: cap for site, cap in EXEMPT_PUBLIC_CAPS.items() if cap is not None}
+    for rel, tree, fn, call in _sites():
+        if fn is not None and (rel, fn.name) in PASS_THROUGH:
+            caps[(rel, fn.name)] = (_module_of(rel), _budget_spent_first(fn, call, tree))
+    return caps
 
 
 def _requires_login(fn: ast.AST) -> bool:
@@ -288,6 +320,13 @@ def test_public_durable_tasks_are_named_only_by_server_owned_values():
     assert not offenders, "\n".join(offenders)
     listed = set(EXEMPT) | PASS_THROUGH
     assert seen == listed, f"stale EXEMPT or PASS_THROUGH entries: {listed - seen}"
+
+
+def test_every_exempt_site_says_whether_a_request_without_a_login_reaches_it():
+    """``test_filings_routes.py`` sums the caps of the sites such a request reaches against the shared queue's
+    drain (``public_queue_caps``), so an EXEMPT site left out of ``EXEMPT_PUBLIC_CAPS`` could feed that queue
+    uncounted."""
+    assert set(EXEMPT_PUBLIC_CAPS) == set(EXEMPT), "list each EXEMPT site in EXEMPT_PUBLIC_CAPS with its cap, or None"
 
 
 @pytest.mark.parametrize("source,escapes", [

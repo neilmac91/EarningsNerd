@@ -17,6 +17,7 @@ private SQLite engine and with the route's budgets unspent.
 """
 import asyncio
 import base64
+import importlib
 import json
 import logging
 import time
@@ -49,6 +50,7 @@ from app.services.latest_filing_service import company_list_forms
 from app.services.rate_limiter import RateLimiter
 from edgar import httprequests as edgar_httprequests
 from tests.support.filings_budgets import unspend_filings_budgets
+from tests.unit.test_durable_task_payloads_server_owned import public_queue_caps
 from tests.unit.test_sec_process_budgets import ROOT, SERVICE_STEP, _env_map, _run, _service_instances
 
 ROUTER_LOGGER = "app.routers.filings"
@@ -1293,15 +1295,20 @@ DISPATCH_INTERVAL_SECONDS = 5
 ASSUMED_DELIVERY_SECONDS = 6
 
 
-def test_the_handoff_budget_takes_at_most_two_thirds_of_the_queue_drain_across_the_api_instances():
-    """Limiter state is per process, so the handoffs of every API instance add up, and the queue drains one
-    task per max(5 s, delivery time), not its 0.2/s dispatch ceiling, because it dispatches one at a time.
-    Two thirds of that drain at most leaves the rest to companyfacts syncs, operator jobs and tasks already
-    queued. Sized against the ceiling, 20 per 5 minutes on each of two instances took 80% of a 6 s drain."""
+def test_the_public_handoff_caps_take_at_most_two_thirds_of_the_queue_drain_across_the_api_instances():
+    """Every durable task shares one queue, and limiter state is per process, so the caps on what requests
+    that need no login can put on it add up over every producer and every API instance. The payload gate
+    lists those producers (``public_queue_caps``): this route's handoff budget and the account mail's cap
+    (F60). The queue drains one task per max(5 s, delivery time), not its 0.2/s dispatch ceiling, because it
+    dispatches one at a time. Two thirds of that drain at most leaves the rest to companyfacts syncs,
+    operator jobs and tasks already queued. Sized against the ceiling, a handoff budget of 20 per 5 minutes
+    on each of two instances took 80% of a 6 s drain, and 15 took 80% too once the account mail was counted."""
     assert QUEUE_PROVISIONING in " ".join((ROOT / "docs/DEPLOYMENT.md").read_text(encoding="utf-8").split())
+    caps = set(public_queue_caps().values())
+    assert {("app.routers.filings", "VISIT_TASK_BUDGET"), ("app.routers.auth", "ACCOUNT_MAIL_LIMITER")} <= caps
     instances = _service_instances(_run(SERVICE_STEP))
-    budget = filings_mod.VISIT_TASK_BUDGET
-    handoffs_per_second = Fraction(instances * budget.limit, budget.window_seconds)
+    limiters = [getattr(importlib.import_module(module), name) for module, name in sorted(caps)]
+    handoffs_per_second = sum(Fraction(instances * cap.limit, cap.window_seconds) for cap in limiters)
     drain = Fraction(1, max(DISPATCH_INTERVAL_SECONDS, ASSUMED_DELIVERY_SECONDS))
     assert handoffs_per_second <= Fraction(2, 3) * drain
 

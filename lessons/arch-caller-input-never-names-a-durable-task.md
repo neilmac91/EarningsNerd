@@ -23,14 +23,16 @@ dedupe key, since both branches of each route must queue it before any lookup. I
 the request schema validates the address, and the per-address limit (3 an hour) and per-IP limit (20
 an hour per route) bound each caller, but an IPv6 block rotates past the per-IP one at will, so the
 process-wide `ACCOUNT_MAIL_LIMITER` caps both routes together at 60 an hour per API instance (120 at
-the service's two) against the shared queue's 720 dispatches an hour. A new exception needs the same:
+the service's two) against the shared queue's 720 dispatches an hour, its dispatch ceiling; at 6 s a
+delivery the queue drains 600 an hour, of which the cap is a fifth. A new exception needs the same:
 a founder decision, validation where the value enters, per-caller limits and a process-wide cap taken
 before every enqueue, the count written down, and an `EXEMPT` entry whose callers the gate pins.
 Server-owned names still let a caller pick the company, so a route that needs no login also spends a
-process-wide budget on each handoff. Size it, summed over every serving process, under the queue's
-real drain: a queue that dispatches one task at a time drains one per mean delivery time, which can
-be slower than its dispatch-rate ceiling. A request that hands nothing off spends nothing, and one
-past the budget is served without queuing.
+process-wide budget on each handoff. Size it, summed over every serving process and with every other
+cap that bounds what public requests put on the same queue, under the queue's real drain: a queue that
+dispatches one task at a time drains one per mean delivery time, which can be slower than its
+dispatch-rate ceiling. A request that hands nothing off spends nothing, and one past the budget is
+served without queuing.
 
 **Evidence**: `enqueue_task` in `backend/app/services/durable_tasks.py` hashes whatever body it is
 given, by design, so the fix belongs to the caller: `backend/app/routers/filings.py` enqueues
@@ -63,23 +65,36 @@ token-gated internal job routes). It does follow the account mail's:
 auth router's `_queue_account_mail`, that helper to the two routes, each after its two limits, and
 the helper to the cap before its handoff. What bounds the filings route since 2026-10-23:
 `_enqueue_visit_task` spends `VISIT_TASK_BUDGET` after its guard and before `enqueue_task`, so a
-crawl of stored companies is served its rows and queues nothing past it. It allows 15 handoffs per 5
-minutes per process, 30 across two instances (0.1/s). The queue dispatches one task at a time, at
+crawl of stored companies is served its rows and queues nothing past it. It allows 11 handoffs per 5
+minutes per process, 22 across two instances (0.073/s). The queue dispatches one task at a time, at
 most 0.2/s, so it drains 1/max(5 s, mean delivery time); a delivery execs a fresh Python child
 (about 1.7 s of imports) and a history backfill paces 4 EFTS windows at 1 request/s, so a delivery
-is taken to average 6 s, and the cap is then 60% of the drain. The first size, 20, was set against
-the 0.2/s ceiling and took 80% of that drain. The synchronous SEC fetch, taken when nothing is
-stored in the requested forms and no listing of the company within the 3-hour freshness TTL found
-them empty (a first view, once per TTL for a company that has none of them, or, on every visit, a
-listing made only of rows another company stores or rows it could not store), spends
-`LIVE_FETCH_LIMITER` (10 per minute per client IP) and answers 429 past it. The payload gate
-requires a pass-through to spend such a module-level budget first, and a direct router
-`enqueue_task` to sit in a route with `Depends(get_current_user)`. Tests:
+is taken to average 6 s. The account mail's cap feeds the same queue (0.033/s across two instances),
+so the two public producers take at most 0.107/s, 64% of that drain, and leave 0.06/s (216 an hour)
+to companyfacts syncs, operator jobs and tasks already queued; they stay within two thirds of the
+drain while deliveries average up to 6.25 s and fill it at 9.375 s. If the account mail moves to a
+queue of its own (F60's open item), its cap leaves this sum. The first size, 20, was set against the
+0.2/s ceiling and took 80% of the drain; 15, sized without the account mail, took 80% once it was
+counted. The synchronous SEC fetch, taken when nothing is stored in the requested forms and no
+listing of the company within the 3-hour freshness TTL found them empty (a first view, once per TTL
+for a company that has none of them, or, on every visit, a listing made only of rows another company
+stores or rows it could not store), spends `LIVE_FETCH_LIMITER` (10 per minute per client IP in each
+process, so up to 20 a minute across two instances) and answers 429 past it. A fetch is one SEC
+request, the company's submissions JSON, on edgartools' bucket (1 request/s per process), so one
+client takes at most a sixth of each process's pace while SEC answers. The payload gate requires a
+pass-through to spend such a module-level budget first, a direct router `enqueue_task` to sit in a
+route with `Depends(get_current_user)`, and every `EXEMPT` site to say whether a request with no
+login reaches it, and its cap (`EXEMPT_PUBLIC_CAPS`). Tests:
 `test_filings_routes.py::test_handoffs_past_the_budget_serve_stored_rows_and_queue_nothing_until_the_window_passes`,
 `::test_visits_that_hand_nothing_off_spend_no_budget`,
-`::test_live_fetches_past_the_per_ip_budget_answer_429_only_when_nothing_is_stored` and
-`::test_the_handoff_budget_takes_at_most_two_thirds_of_the_queue_drain_across_the_api_instances`,
-which reads the API's instance cap from `ci.yml` and the queue's provisioning from
+`::test_live_fetches_past_the_per_ip_budget_answer_429_only_when_nothing_is_stored`,
+`::test_a_client_spends_one_live_fetch_budget_whichever_company_or_forms_it_asks_for`,
+`::test_a_live_fetch_is_one_sec_request`,
+`::test_one_clients_live_fetches_take_at_most_a_sixth_of_the_sec_pace_they_wait_on`, which reads the
+pace from `ci.yml`, and
+`::test_the_public_handoff_caps_take_at_most_two_thirds_of_the_queue_drain_across_the_api_instances`,
+which sums the cap of every producer the payload gate finds a request with no login reaching
+(`public_queue_caps`) and reads the API's instance cap from `ci.yml` and the queue's provisioning from
 `docs/DEPLOYMENT.md`. Its 6 s delivery time is an estimate, and the route's SEC reach is
 review-checked. The same route's in-process refresh (`DURABLE_TASKS_ENABLED=false`, not the
 production path) still takes the caller's canonical forms in the caller's order: it queues nothing
