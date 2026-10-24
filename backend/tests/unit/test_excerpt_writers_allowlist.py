@@ -8,7 +8,8 @@ rejected run's excerpt and wrote it back beside the kept summary (Codex 43650896
 * ``summary_generation_service.get_or_cache_excerpt``: caches the excerpt an unforced run builds
   (``persist=True``; a forced run passes ``persist=False`` and keeps it to itself);
 * ``content_cache.upsert_content_cache``: finalize's write, in the same commit as the summary row it
-  grounds (``replace_excerpt`` for a forced run, which stores its excerpt or, when it has none, clears it).
+  grounds (``replace_excerpt`` for a forced run, which stores its excerpt; ``clear_stale_excerpt`` for a
+  forced precompute's rebuild, which clears the stale stored one when the run has none).
 
 Scope: the files ``test_summary_delete_sites_allowlist.py`` reads (its ``_in_scope_files``, so the two
 gates keep one scope), every Python, SQL, shell and workflow file that can reach the production
@@ -23,10 +24,13 @@ What counts, as (path from the repository root, enclosing top-level function or 
   tuple, ``for`` or ``with`` target included); a ``critical_excerpt=`` keyword to any call (the model
   under any name or import alias, a Core ``insert(...)``/``update(...)``/``__table__.update()``
   ``.values(...)``, a ``dict(...)`` handed to ``.update``, ``bulk_update_mappings`` or ``set_=``) except a
-  call in ``READ_ONLY_CALLS`` (a ``SimpleNamespace`` snapshot copies the value it read); a dict-literal key
-  that names the column (``X.critical_excerpt``, ``t.c["critical_excerpt"]`` or the string); a subscript
-  assignment or ``del`` keyed by the string (``row["critical_excerpt"] = None``); and ``setattr``,
-  ``delattr``, ``__setattr__`` or ``__delattr__`` given the string;
+  call in ``READ_ONLY_CALLS`` (a ``SimpleNamespace`` snapshot copies the value it read; ``filter_by``
+  filters on it); a dict-literal key that names the column (``X.critical_excerpt``,
+  ``t.c["critical_excerpt"]`` or the string); a subscript assignment or ``del`` whose key names it the
+  same way (``row["critical_excerpt"] = None``, ``vals[FCC.critical_excerpt] = None``); ``setattr``,
+  ``delattr``, ``__setattr__``, ``__delattr__`` and SQLAlchemy's ``set_attribute`` or ``del_attribute``
+  given the string; and a call, keyword or key of these forms inside an f-string's replacement field,
+  which is code;
 * SQL, in a Python string (a literal, a ``+`` of literals or an f-string's literal parts; docstrings are
   not code) or in a SQL, shell or workflow file read as text without its comments (``--`` and ``/* */``
   in SQL, whole-line ``#`` elsewhere), in any case, quoted or not, with or without a qualifier:
@@ -35,14 +39,27 @@ What counts, as (path from the repository root, enclosing top-level function or 
   ``INSERT`` (a ``MERGE``'s included) or of a ``COPY ... FROM``, and an ``INSERT INTO`` or ``COPY ... FROM``
   of ``filing_content_cache`` with no column list, which writes every column.
 
+Read-only code that names the column as a keyword, a dict key or a subscript key (a projection dict
+``{"critical_excerpt": cache.critical_excerpt}``, a response schema's ``critical_excerpt=`` keyword,
+``seen[cache.critical_excerpt] = True``) counts too, and fails loudly; its way out is a callee in
+``READ_ONLY_CALLS`` (for a keyword only) or an ``ALLOWED`` entry, each with review.
+
 Out of reach, stated so nothing is overclaimed:
 
 * a column named by a value the scan cannot read as the literal: a variable or a constant
   (``setattr(cache, FIELD, None)``, ``{FIELD: None}``, ``row[FIELD] = None``, a ``.values(**kw)`` whose
   ``kw`` is built so), or an element of a list or tuple (``dict.fromkeys(["critical_excerpt"])``,
   ``dict(zip(...))``);
+* a Core insert given its values by position (``FCC.__table__.insert().values((1, None, None))``), which
+  writes every column;
+* a writer under a ``READ_ONLY_CALLS`` name (``from app.models import FilingContentCache as
+  SimpleNamespace``), since that exemption is matched by the callee's name, and a ``SimpleNamespace``
+  snapshot turned into a mapping and handed to a writer (``bulk_update_mappings(FCC, [vars(ns)])``,
+  ``FCC(**vars(ns))``);
 * SQL assembled from non-literals (``f"UPDATE ... SET {column} = NULL"``) or with ``%``, ``.format`` or
-  ``str.join``, held in a psql variable, or quoted in Markdown, which is read, not run;
+  ``str.join``, held in a psql variable, or quoted in Markdown, which is read, not run; and a statement
+  split by a ``;`` inside one of its string literals (``SET markdown_content = 'a;b', critical_excerpt =
+  NULL``), since the scan splits statements on every ``;``;
 * DDL that rewrites the column (``DROP COLUMN``, a type change's ``USING``);
 * deleting or replacing the whole cache row (``DELETE``, ``TRUNCATE``, ``session.delete(cache)``,
   ``filing.content_cache = None`` under its ``delete-orphan`` cascade); the admin filing reset deletes
@@ -70,12 +87,13 @@ from tests.unit.test_summary_delete_sites_allowlist import (
 
 FIELD = "critical_excerpt"
 TABLE = "filing_content_cache"
-# Calls whose ``critical_excerpt=`` keyword copies a value read, never a write (Copilot's snapshot).
-READ_ONLY_CALLS = {"SimpleNamespace"}
-_ATTR_WRITERS = {"setattr", "delattr", "__setattr__", "__delattr__"}
+# Calls whose ``critical_excerpt=`` keyword copies or filters on a value read, never a write: Copilot's
+# snapshot, and a ``query.filter_by``.
+READ_ONLY_CALLS = {"SimpleNamespace", "filter_by"}
+_ATTR_WRITERS = {"setattr", "delattr", "__setattr__", "__delattr__", "set_attribute", "del_attribute"}
 
 ALLOWED = Counter({
-    ("backend/app/services/content_cache.py", "upsert_content_cache"): 3,
+    ("backend/app/services/content_cache.py", "upsert_content_cache"): 4,
     ("backend/app/services/summary_generation_service.py", "get_or_cache_excerpt"): 2,
 })
 
@@ -125,6 +143,15 @@ def _names_field(node: ast.AST) -> bool:
     )
 
 
+def _replacement_fields(node: ast.AST) -> list[ast.FormattedValue]:
+    """The ``{...}`` fields of the f-strings a folded string is built from: code, read as code."""
+    if isinstance(node, ast.JoinedStr):
+        return [v for v in node.values if isinstance(v, ast.FormattedValue)]
+    if isinstance(node, ast.BinOp):
+        return _replacement_fields(node.left) + _replacement_fields(node.right)
+    return []
+
+
 def _callee(func: ast.AST) -> str:
     return func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
 
@@ -139,8 +166,7 @@ def _writes(tree: ast.Module) -> list[tuple[str, int]]:
         writes = isinstance(getattr(node, "ctx", None), (ast.Store, ast.Del))
         if isinstance(node, ast.Attribute) and node.attr == FIELD and writes:
             found.append((scope, node.lineno))
-        elif isinstance(node, ast.Subscript) and writes and isinstance(node.slice, ast.Constant) \
-                and node.slice.value == FIELD:
+        elif isinstance(node, ast.Subscript) and writes and _names_field(node.slice):
             found.append((scope, node.lineno))
         elif isinstance(node, ast.Call):
             callee = _callee(node.func)
@@ -152,7 +178,9 @@ def _writes(tree: ast.Module) -> list[tuple[str, int]]:
             found.extend((scope, key.lineno) for key in node.keys if key is not None and _names_field(key))
         elif isinstance(node, (ast.JoinedStr, ast.BinOp)) and (sql := _folded(node)) is not None:
             found.extend([(scope, node.lineno)] * sql_writes(sql))
-            return  # its literal parts are read once, together
+            for field in _replacement_fields(node):  # its literal parts are read once, together
+                visit(field, scope)
+            return
         elif isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings:
             found.extend([(scope, node.lineno)] * sql_writes(node.value))
         for child in ast.iter_child_nodes(node):
@@ -194,6 +222,8 @@ import types
 from types import SimpleNamespace
 from sqlalchemy import insert, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.orm import attributes
+from sqlalchemy.orm.attributes import del_attribute
 from app import models
 from app.models import FilingContentCache as FCC
 
@@ -244,10 +274,22 @@ def subscript_store(row):
     row["critical_excerpt"] = None
     del row["critical_excerpt"]
 
+def subscript_keyed_by_the_column(vals, t):
+    vals[FCC.critical_excerpt] = None
+    vals[t.c.critical_excerpt] = None
+    del vals[t.c["critical_excerpt"]]
+
 def literal_setattr(cache):
     setattr(cache, "critical_excerpt", None)
     delattr(cache, "critical_excerpt")
     object.__setattr__(cache, "critical_excerpt", None)
+
+def literal_set_attribute(cache):
+    attributes.set_attribute(cache, "critical_excerpt", None)
+    del_attribute(cache, "critical_excerpt")
+
+def write_inside_an_f_string(db, fid):
+    log = f"cleared {db.execute(update(FCC).where(FCC.filing_id == fid).values(critical_excerpt=None))}"
 
 def sql_in_python(db):
     db.execute(text("UPDATE filing_content_cache SET critical_excerpt = NULL WHERE filing_id = 1"))
@@ -263,6 +305,7 @@ def look_alikes(db, cache, row):
     fields = {"cache_excerpt": cache.critical_excerpt}
     fields = {"field": "content_cache.critical_excerpt (inputs.source_text)"}
     db.query(FCC).filter(FCC.critical_excerpt.is_(None)).all()
+    db.query(FCC).filter_by(critical_excerpt=None).all()
     db.execute(text("SELECT critical_excerpt FROM filing_content_cache WHERE critical_excerpt = 'x'"))
     db.execute(text("UPDATE filing_content_cache SET markdown_content = NULL WHERE critical_excerpt = 'x'"))
     db.execute(text("INSERT INTO notes (body) SELECT critical_excerpt FROM filing_content_cache"))
@@ -284,7 +327,10 @@ def test_the_scan_scores_every_planted_form():
         "bulk_mappings": 1,
         "dict_keys": 3,
         "subscript_store": 2,
+        "subscript_keyed_by_the_column": 3,
         "literal_setattr": 3,
+        "literal_set_attribute": 2,
+        "write_inside_an_f_string": 1,
         "sql_in_python": 3,
     })
     sql = """

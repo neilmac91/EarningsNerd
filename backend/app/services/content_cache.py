@@ -8,9 +8,12 @@ unavailable.
 
 Excerpt is set on a fresh row, or on an existing row that has none yet, except that a forced run
 that writes its summary (``replace_excerpt``) stores the excerpt it was generated from in place of the
-stored one, in the same commit, and clears the stored one when it has none (its excerpt build failed
-or the enrichment join dropped it): a stored excerpt is what citation verification and the Risks
-projection read the summary against. A forced run never stores its excerpt before then
+stored one, in the same commit: a stored excerpt is what citation verification, the Risks projection
+and Copilot read the summary against. A forced run that ends with no excerpt (its excerpt thread
+raised, its build returned nothing, or the enrichment join dropped it) keeps the stored one, the same
+filing's text and the grounding it would have reused, unless it was asked to rebuild that excerpt
+(``clear_stale_excerpt``: a forced precompute's ``rebuild_excerpt``, whose stored excerpt an older
+extraction built); that run clears it. A forced run never stores its excerpt before then
 (``get_or_cache_excerpt(persist=False)``). An unforced run's excerpt is cached by
 ``summary_generation_service.get_or_cache_excerpt`` when it is built. A successful forced summary
 refresh explicitly replaces its bounded Risks source; an ordinary write fills that source only when
@@ -33,6 +36,7 @@ def upsert_content_cache(
     risk_source_text: Optional[str] = None,
     replace_risk_source: bool = False,
     replace_excerpt: bool = False,
+    clear_stale_excerpt: bool = False,
 ) -> None:
     """Attach or refresh application-owned fields on a filing's FilingContentCache row.
 
@@ -51,8 +55,10 @@ def upsert_content_cache(
                 )
             )
         else:
-            if replace_excerpt or (excerpt and not cache.critical_excerpt):
+            if excerpt and (replace_excerpt or not cache.critical_excerpt):
                 cache.critical_excerpt = excerpt
+            elif clear_stale_excerpt and not excerpt:
+                cache.critical_excerpt = None
             if risk_source_text and (replace_risk_source or not cache.risk_source_text):
                 cache.risk_source_text = risk_source_text
             cache.sections_payload = sections_payload

@@ -8,10 +8,15 @@ are faked): in one process (the second run joins the first through the in-flight
 (each process has its own registry, so both lead), plus the Pro "Regenerate" / refresh-stale variant
 (a summary stored beside no excerpt) and the commit the excerpt shares with its summary. Finalize reads
 the cache row after the summary's row lock, so a save that committed while this one waited is what it
-replaces; and a replacing run with no excerpt clears the stored one, while a kept or failed run writes none.
+replaces. A replacing run that ends with no excerpt clears the stored one only when it was asked to rebuild it
+(a forced precompute, whose stored excerpt is stale); every other forced run reused the stored excerpt as its
+grounding and keeps it. A kept or failed run writes none.
 """
 import asyncio
-from contextlib import contextmanager
+import threading
+import time
+from contextlib import ExitStack, contextmanager
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, patch
 
@@ -282,34 +287,112 @@ def test_a_replacing_forced_run_stores_its_excerpt_over_a_save_committed_while_i
         1, summary_id, CANONICAL_PAYLOAD["business_overview"], STORED_EXCERPT if with_cache else FRESH_B)
 
 
-@pytest.mark.parametrize("with_summary", [True, False], ids=["update", "insert"])
-def test_a_replacing_forced_run_with_no_excerpt_clears_the_stored_one(with_summary):
-    # The run's excerpt build failed (or the enrichment join dropped it): its summary was generated from the
-    # filing text through the AI layer's own extraction, so a stored excerpt left beside it would be what
-    # citation verification and the Risks projection read it against (provenance prefers the excerpt).
-    # Without an excerpt or XBRL the run is partial, so the stored summary it replaces is partial too (the
-    # one-click Regenerate's case); with none stored, the stored excerpt is a failed unforced run's.
+@contextmanager
+def _the_run_ends_with_no_excerpt(how, late_excerpt):
+    """``get_or_cache_excerpt`` as a run that ends with no excerpt meets it: its build returned nothing,
+    raised (a database blip in its thread), or outlasted the enrichment join, which drops it (E77's CPU
+    contention; ``late_excerpt`` is what it would have returned)."""
+    from app.services import summary_pipeline
+
+    finished = threading.Event()
+
+    def late(*_a, **_k):
+        try:
+            time.sleep(0.5)
+            return late_excerpt
+        finally:
+            finished.set()
+
+    builder = {
+        "none": MagicMock(return_value=None),
+        "raises": MagicMock(side_effect=RuntimeError("database blip")),
+        "join-dropped": MagicMock(side_effect=late),
+    }[how]
+    with ExitStack() as stack:
+        stack.enter_context(patch.object(summary_pipeline, "get_or_cache_excerpt", builder))
+        if how == "join-dropped":
+            stack.enter_context(patch.object(summary_pipeline, "CONTEXT_ENRICHMENT_TIMEOUT_SECONDS", 0.05))
+        yield builder
+        if how == "join-dropped":
+            assert finished.wait(5)  # the join drops the build, not its thread, which runs to its end
+
+
+def _a_partial_stored_summary(filing_id):
+    # Without an excerpt or XBRL the run is partial, so keep-better lets it replace only a summary ranked no
+    # higher: the one-click Regenerate's case.
     from app.database import SessionLocal
     from app.models import Summary
-    from app.services import summary_pipeline
-    from tests.support.summary_stream_harness import CANONICAL_PAYLOAD, reset_inflight, stream_boundaries
 
-    _t, _a, filing_id, summary_id, _u = _seed_forced(with_summary=with_summary)
     with SessionLocal() as db:
         db.query(Summary).filter(Summary.filing_id == filing_id).update(
             {Summary.raw_summary: {"sections": {}, "quality": {"tier": "partial"}}}, synchronize_session=False)
         db.commit()
+
+
+@pytest.mark.parametrize("how", ["none", "raises", "join-dropped"])
+@pytest.mark.parametrize("with_summary", [True, False], ids=["update", "insert"])
+def test_a_replacing_rebuild_with_no_excerpt_clears_the_stale_stored_one(with_summary, how):
+    # A forced precompute asks its run to rebuild the excerpt (rebuild_excerpt) because the stored one was built
+    # by an older extraction; main's precompute cleared it before generating. When the rebuild ends with none,
+    # the summary it writes was generated from the AI layer's own extraction of the filing text, so the stale
+    # excerpt is cleared rather than left as what citation verification and Copilot read that summary against.
+    # That is the stored state main's precompute left when its build produced nothing or raised; when the join
+    # dropped the build, main's uncancelled thread stored it late, and here the clear stands (the lesson's
+    # Limits). With none stored, the stored excerpt is a failed unforced run's, and the INSERT clears it too.
+    from tests.support.summary_stream_harness import CANONICAL_PAYLOAD, reset_inflight, stream_boundaries
+
+    _t, _a, filing_id, summary_id, _u = _seed_forced(with_summary=with_summary)
+    _a_partial_stored_summary(filing_id)
     reset_inflight()
     try:
-        with stream_boundaries() as summarize, \
-                patch.object(summary_pipeline, "get_or_cache_excerpt", MagicMock(return_value=None)):
+        with stream_boundaries() as summarize, _the_run_ends_with_no_excerpt(how, FRESH_EXCERPT) as builder:
             events = asyncio.run(_drain_forced(filing_id, rebuild_excerpt=True))
     finally:
         reset_inflight()
+    assert builder.call_args.kwargs["reuse_stored"] is False
     assert summarize.await_args.kwargs["filing_excerpt"] is None
     assert events[-1]["type"] == "complete"
     assert _stored(filing_id) == (
         1, summary_id if with_summary else ANY, CANONICAL_PAYLOAD["business_overview"], None)
+
+
+def _past_the_24_hour_window(filing_id):
+    # A forced run takes a stored excerpt younger than 24 h straight from the cache check (admission); an older
+    # one it reads through get_or_cache_excerpt, which returns it as it is.
+    from app.database import SessionLocal
+    from app.models import FilingContentCache
+
+    aged = datetime.now(timezone.utc) - timedelta(days=3)
+    with SessionLocal() as db:
+        db.query(FilingContentCache).filter(FilingContentCache.filing_id == filing_id).update(
+            {FilingContentCache.created_at: aged, FilingContentCache.updated_at: aged}, synchronize_session=False)
+        db.commit()
+
+
+@pytest.mark.parametrize("how", ["raises", "join-dropped"])
+@pytest.mark.parametrize("with_summary", [True, False], ids=["update", "insert"])
+def test_a_replacing_forced_run_without_a_rebuild_keeps_the_stored_excerpt_it_lost(with_summary, how):
+    # Pro Regenerate, refresh_unready, the summary_refresh drains and the admin regenerate force without a
+    # rebuild: the run reuses the stored excerpt as its grounding. When its excerpt thread raises or the
+    # enrichment join drops it, the summary it writes still replaces the stored one, and the stored excerpt
+    # (the same filing's text) stays: cleared, Copilot would have no cached filing text and every non-Risks
+    # citation an empty source, until the next forced run that replaces the summary.
+    from tests.support.summary_stream_harness import CANONICAL_PAYLOAD, reset_inflight, stream_boundaries
+
+    _t, _a, filing_id, summary_id, _u = _seed_forced(with_summary=with_summary)
+    _a_partial_stored_summary(filing_id)
+    _past_the_24_hour_window(filing_id)
+    reset_inflight()
+    try:
+        with stream_boundaries() as summarize, _the_run_ends_with_no_excerpt(how, STORED_EXCERPT) as builder:
+            events = asyncio.run(_drain_forced(filing_id))
+    finally:
+        reset_inflight()
+    assert builder.call_args.kwargs == {"sections": None, "persist": False}
+    assert summarize.await_args.kwargs["filing_excerpt"] is None
+    assert events[-1]["type"] == "complete"
+    assert _stored(filing_id) == (
+        1, summary_id if with_summary else ANY, CANONICAL_PAYLOAD["business_overview"], STORED_EXCERPT)
 
 
 @pytest.mark.parametrize("outcome", ["kept", "failed"])
@@ -332,19 +415,21 @@ def test_a_kept_or_failed_forced_run_with_no_excerpt_clears_nothing(outcome):
 
 
 @pytest.mark.parametrize(
-    ("replace_excerpt", "stored", "excerpt", "after"),
+    ("replace_excerpt", "clear_stale_excerpt", "stored", "excerpt", "after"),
     [
-        (False, STORED_EXCERPT, FRESH_EXCERPT, STORED_EXCERPT),  # an unforced write never overwrites
-        (False, None, FRESH_EXCERPT, FRESH_EXCERPT),             # ... and fills an empty one
-        (False, STORED_EXCERPT, None, STORED_EXCERPT),           # ... and clears nothing
-        (True, STORED_EXCERPT, FRESH_EXCERPT, FRESH_EXCERPT),    # a replacing forced run stores its own
-        (True, STORED_EXCERPT, None, None),                      # ... none included
+        pytest.param(False, False, STORED_EXCERPT, FRESH_EXCERPT, STORED_EXCERPT, id="unforced-never-overwrites"),
+        pytest.param(False, False, None, FRESH_EXCERPT, FRESH_EXCERPT, id="unforced-fills-an-empty-one"),
+        pytest.param(False, False, STORED_EXCERPT, None, STORED_EXCERPT, id="unforced-clears-nothing"),
+        pytest.param(True, False, STORED_EXCERPT, FRESH_EXCERPT, FRESH_EXCERPT, id="replacing-run-stores-its-own"),
+        pytest.param(True, False, STORED_EXCERPT, None, STORED_EXCERPT, id="replacing-reuse-with-none-keeps"),
+        pytest.param(True, True, STORED_EXCERPT, None, None, id="replacing-rebuild-with-none-clears"),
     ],
 )
-def test_the_cache_helper_stores_a_replacing_runs_excerpt_and_only_fills_otherwise(replace_excerpt, stored, excerpt, after):
+def test_the_cache_helper_stores_a_replacing_runs_excerpt_and_clears_a_stale_one_only_for_a_rebuild(
+        replace_excerpt, clear_stale_excerpt, stored, excerpt, after):
     from app.services.content_cache import upsert_content_cache
 
     cache = SimpleNamespace(critical_excerpt=stored, risk_source_text=None, sections_payload=None)
     upsert_content_cache(MagicMock(), 1, cache, excerpt=excerpt, sections_payload={"risks": []},
-                         replace_excerpt=replace_excerpt)
+                         replace_excerpt=replace_excerpt, clear_stale_excerpt=clear_stale_excerpt)
     assert cache.critical_excerpt == after

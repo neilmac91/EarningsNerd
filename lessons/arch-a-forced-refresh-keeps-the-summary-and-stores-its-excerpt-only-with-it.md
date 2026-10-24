@@ -23,9 +23,12 @@ none, before keep-better decided.
 regenerates in place through the one orchestrator (`force_regenerate=True`, where keep-better decides),
 so the summary row changes only through finalize's keep-better UPDATE. A forced run keeps the excerpt
 it builds to itself (`get_or_cache_excerpt(..., persist=False)`); finalize stores it in the same commit
-as the summary it writes (`upsert_content_cache(..., replace_excerpt=True)`), and clears the stored one
-when the run has none (its build failed or the enrichment join dropped it), since the summary was not
-generated from it. A run keep-better keeps, or one that fails, raises or is cancelled, stores none.
+as the summary it writes (`upsert_content_cache(..., replace_excerpt=True)`). A replacing run that ends
+with no excerpt (its excerpt thread raised, its build returned nothing, or the enrichment join dropped
+it) keeps the stored one: every forced run but a rebuild reused it as its grounding, and it is the same
+filing's text. Only a rebuild (`rebuild_excerpt`, a forced precompute), whose stored excerpt an older
+extraction built and main's precompute cleared before generating, clears it then
+(`clear_stale_excerpt`). A run keep-better keeps, or one that fails, raises or is cancelled, stores none.
 Finalize reads the cache row after the summary's row lock, never before it: under READ COMMITTED a row
 read before the wait misses what a save that committed meanwhile stored. To rebuild with the current
 extraction, ask the run (`rebuild_excerpt=True`, which only a forced precompute sets); never clear the
@@ -41,23 +44,29 @@ without XBRL, as the force path always has (the snapshot stays). An unforced fir
 caches its excerpt when it builds it (no stored summary exists then), so an unforced run and a forced
 run of one filing in two processes can still race on a filing with no summary. SQLite has no row locks,
 so the tests place the other process's commit at the locked read by hand; PostgreSQL's ordering itself
-is not exercised in CI.
+is not exercised in CI. A rebuild whose excerpt build the enrichment join dropped (E77's CPU contention)
+clears the stale excerpt and stores none, where on main the uncancelled thread, with `persist=True`,
+stored its late build. Until the next forced precompute, that filing's Copilot answers then have no
+cached filing text, and its quotes, footnotes and metric takeaways show no evidence (provenance drops
+passage evidence when it has no source); its Risks still verify against `risk_source_text`, the AI
+layer's own filing sample, which finalize stores with the summary.
 
 **Gate.** `backend/tests/unit/test_excerpt_writers_allowlist.py` holds the writes of
 `critical_excerpt` it can see, in every file the delete-sites gate reads (the backend with its
 entrypoints, evals and migrations, `ops/`, `scripts/`, `tasks/`, `.github`, `.claude`), to its two owners:
 attribute stores and deletes, a `critical_excerpt=` keyword to any call but a `SimpleNamespace`
-snapshot, dict keys, literal `setattr`, and SQL in strings and SQL, shell and workflow files; its header
-names what stays out of reach. `test_summary_delete_sites_allowlist.py` fails a new place it can see
-that deletes summaries rows; `test_force_regenerate_keeps_xbrl.py`, the forced-precompute cases in
-`test_precompute_service.py` and `test_forced_run_excerpt_is_private.py` pin the sites, two overlapping
-forced precomputes (one process and two), a save committed while finalize waits for the row lock (with
-and without a cache row) and a replacing run with no excerpt included. A new up-front clear of another
-column is review-checked.
+snapshot or a `filter_by`, dict and subscript keys naming the column, literal `setattr` and SQLAlchemy's
+`set_attribute`, writes inside f-string fields, and SQL in strings and SQL, shell and workflow files; its
+header names what stays out of reach. `test_summary_delete_sites_allowlist.py` fails a new place it
+can see that deletes summaries rows; `test_force_regenerate_keeps_xbrl.py`, the forced-precompute cases
+in `test_precompute_service.py` and `test_forced_run_excerpt_is_private.py` pin the sites, two
+overlapping forced precomputes (one process and two), a save committed while finalize waits for the row
+lock (with and without a cache row), a rebuild with no excerpt (cleared) and a reusing run that lost its
+excerpt (kept) included. A new up-front clear of another column is review-checked.
 
 **Evidence.** `backend/app/routers/summaries.py` (the `elif force:` branch of `generate_summary_stream`),
 `backend/app/services/summary_stages/enrichment.py::parse_and_enrich` (`extract_excerpt_sync`),
 `backend/app/services/summary_stages/finalize.py::finalize` (`save_summary_sync`),
-`backend/app/services/content_cache.py::upsert_content_cache` (`replace_excerpt`),
+`backend/app/services/content_cache.py::upsert_content_cache` (`replace_excerpt`, `clear_stale_excerpt`),
 `backend/app/services/edgar/xbrl_service.py::EdgarXBRLService.get_xbrl_data` (`refresh`),
 `backend/app/services/precompute_service.py::precompute_one`.
