@@ -113,7 +113,9 @@ interface Stop {
 /**
  * Walks Shift+Tab from the page's last stop to its first and returns each page stop wholly under the bar. A
  * sentinel button, fixed so it moves nothing, is appended last and focused, so the first Shift+Tab lands on the
- * page's last stop; the walk ends when focus leaves the page or comes back round to the sentinel.
+ * page's last stop; the walk ends when focus leaves the page or comes back round to the sentinel. Where the filing
+ * page's section nav is stuck under the bar (below lg, E164) it is a second bar: a stop that ends above its lower
+ * edge is as hidden, and the nav's own chips are its own.
  */
 async function walkBack(page: Page): Promise<{ stops: number; reachedBar: boolean; hidden: Stop[] }> {
   await page.evaluate(() => {
@@ -138,10 +140,13 @@ async function walkBack(page: Page): Promise<{ stops: number; reachedBar: boolea
       for (let node: Element | null = el; node; node = node.parentElement) if (getComputedStyle(node).position === 'fixed') fixed = true
       const r = el.getBoundingClientRect()
       const b = bar.getBoundingClientRect()
+      const nav = document.querySelector('[data-section-nav]')
+      const n = nav?.getBoundingClientRect()
+      const navStuck = !!n && n.height > 0 && Math.abs(n.top - b.bottom) <= 1
       const label = (el.getAttribute('aria-label') || el.textContent || el.getAttribute('placeholder') || el.tagName).replace(/\s+/g, ' ').trim().slice(0, 60)
       const inBar = bar.contains(el)
-      const own = inBar || fixed || r.width === 0 || r.height === 0
-      return { done: false as const, own, inBar, label: `${el.tagName.toLowerCase()} "${label}"`, top: r.top, bottom: r.bottom, barTop: b.top, barBottom: b.bottom, scrollY: window.scrollY }
+      const own = inBar || !!nav?.contains(el) || fixed || r.width === 0 || r.height === 0
+      return { done: false as const, own, inBar, label: `${el.tagName.toLowerCase()} "${label}"`, top: r.top, bottom: r.bottom, barTop: b.top, barBottom: navStuck ? n.bottom : b.bottom, scrollY: window.scrollY }
     })
     if (stop.done) break
     stops++
@@ -217,6 +222,41 @@ for (const viewport of VIEWPORTS) {
       })
     }
   }
+}
+
+/**
+ * The filing page's section nav (E164, chief design on #1521, comment 6366019891). Below lg it sticks under the site
+ * header, a second bar, while the document's top scroll padding reserved the header alone, so a keyboard focus could
+ * land wholly under the nav; main hid such a control under both bars. The nav now publishes its height
+ * (--section-nav-h, features/summaries/components/SummaryBlocks.tsx) and the padding adds it, stepping aside while focus
+ * is inside the nav. A Shift+Tab walk of /filing/3 at 390x844, at the default text size and under 200% text, finds no
+ * stop wholly under either bar. The page is answered from fixtures/filing3Api.ts, for a guest.
+ */
+for (const doubled of [false, true]) {
+  const name = `390px${doubled ? ' under 200% text' : ''}`
+  test.describe(`a keyboard focus clears the site header and the section nav / /filing/3 / ${name}`, () => {
+    test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
+    test('a Shift+Tab walk of /filing/3 finds no stop wholly under the bar or the section nav', async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem('theme', 'light')
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+        localStorage.setItem('en:copilot-coachmark-v1', '1')
+      })
+      await answerApi(page, baseURL!, 'anon')
+      await page.goto('/filing/3')
+      await expect(page.getByRole('navigation', { name: 'Jump to section' }), `${name}: the section nav shows below lg`).toBeVisible()
+      await expect(page.getByRole('status', { name: 'Checking whether you are logged in', includeHidden: true })).toHaveCount(0)
+      if (doubled) await doubleText(page)
+      await settle(page)
+      const walk = await walkBack(page)
+      expect(walk.stops, `/filing/3, ${name}: the walk reached the page's stops`).toBeGreaterThan(3)
+      expect(walk.reachedBar, `/filing/3, ${name}: the walk came back round to the site header`).toBe(true)
+      expect(
+        walk.hidden.map((s) => `${s.label} at ${s.top.toFixed(0)} to ${s.bottom.toFixed(0)}px, under bars ending at ${s.barBottom.toFixed(0)}px (scrollY ${s.scrollY.toFixed(0)})`),
+        `/filing/3, ${name}: a focused control wholly behind the site header or the section nav`,
+      ).toEqual([])
+    })
+  })
 }
 
 /**

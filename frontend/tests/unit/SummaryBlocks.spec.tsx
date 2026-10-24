@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
-import { SummaryBlocks } from '@/features/summaries/components/SummaryBlocks'
+import { SECTION_NAV_HEIGHT_PROPERTY, SummaryBlocks } from '@/features/summaries/components/SummaryBlocks'
 import type { ChangeReport, RenderedSection, Summary } from '@/features/summaries/api/summaries-api'
 
 // The single structured web surface (T2): one renderer per Block.kind, a sticky TOC whose anchors
@@ -369,6 +369,48 @@ describe('SummaryBlocks', () => {
     expect(stack.contains(phoneNav)).toBe(false)
     // Out of the stack, the nav carries the stack's gap itself, so phones keep the space above 01.
     expect(phoneNav.className).toMatch(/(^|\s)mb-11(\s|$)/)
+  })
+
+  // E164 (chief design on #1521, comment 6366019891): below lg the nav sticks under the site header, and the document's
+  // top scroll padding adds its height to the header's (app/globals.css), so a focus or an anchor jump lands below both
+  // bars; tests/e2e/header-covers-nothing.spec.ts walks /filing in a browser.
+  it("publishes the phone nav's height as --section-nav-h, follows it, and clears it when the nav leaves", () => {
+    let height = 52.4
+    let resize: (() => void) | undefined
+    // The nav's own observer: other parts of the summary observe their boxes too.
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(private readonly callback: () => void) {}
+      observe(target: Element) {
+        if (target.matches('[data-section-nav]')) resize = this.callback
+      }
+      unobserve() {}
+      disconnect() {}
+    })
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return { height: this.matches('[data-section-nav]') ? height : 0 } as DOMRect
+    })
+    try {
+      const { unmount } = render(<SummaryBlocks sections={sections} summary={summary} />)
+      const published = () => document.documentElement.style.getPropertyValue(SECTION_NAV_HEIGHT_PROPERTY)
+      expect(screen.getByRole('navigation', { name: 'Jump to section' })).toHaveAttribute('data-section-nav')
+      expect(published(), 'published before the first paint, rounded up to a whole pixel').toBe('53px')
+      height = 0
+      resize?.()
+      expect(published(), 'from lg the nav is display:none, and adds nothing').toBe('0px')
+      unmount()
+      expect(published(), 'cleared when the nav leaves').toBe('')
+    } finally {
+      rect.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it("gives back the nav's share of a section's 4rem scroll margin below lg, so an anchor jump lands where it did", () => {
+    render(<SummaryBlocks sections={sections} summary={summary} />)
+    for (const section of sections) {
+      const classes = (document.getElementById(section.id) as HTMLElement).className.split(/\s+/)
+      expect(classes, section.id).toEqual(expect.arrayContaining(['scroll-mt-[calc(4rem_-_var(--section-nav-h,0px))]', 'lg:scroll-mt-8']))
+    }
   })
 
   it('heads each risk with its own excerpt, never a model-authored label', () => {

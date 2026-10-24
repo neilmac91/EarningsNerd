@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useMemo, useRef, type ReactNode, type Ref } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react'
 import { Badge, countControlClass, cx } from '@/components/ui'
 import { useOverflowRegion } from '@/hooks/useOverflowRegion'
 import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
@@ -174,11 +174,14 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
           {pageSections.map((section, i) => {
             const toneLabel = section.tone ? TONE_LABEL[section.tone.toLowerCase()] : undefined
             return (
+              // Below lg the document's top scroll padding counts the stuck section nav (--section-nav-h), so the
+              // margin gives back the nav's share of its 4rem and a jump lands where it did (E164); from lg the nav is
+              // display:none and the margin is the aside layout's own.
               <section
                 key={section.id}
                 id={section.id}
                 aria-labelledby={`${section.id}-heading`}
-                className="scroll-mt-16 lg:scroll-mt-8"
+                className="scroll-mt-[calc(4rem_-_var(--section-nav-h,0px))] lg:scroll-mt-8"
               >
                 {/* Only the tone badge wraps: the index and the heading are one group that never wraps,
                     so a long heading wraps its own words beside its index, never drops beneath it. When
@@ -216,6 +219,19 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
   )
 }
 
+/** The section nav's rendered height, published on <html> as a CSS length, as the site header publishes its own
+ *  (`--site-header-h`): below lg the nav sticks under the header, and the document's top scroll padding adds the two
+ *  (app/globals.css), so a keyboard focus, an anchor jump or a scrollIntoView lands below both bars. Before, the padding
+ *  reserved the header alone, and a Shift+Tab could land a control wholly under the nav. 0px from lg, where the nav is
+ *  display:none, and cleared when the nav leaves, so the padding is the header's alone there; the padding steps aside
+ *  while focus is inside the nav (`data-section-nav`), which is stuck in view (E164, chief design on #1521, comment
+ *  6366019891; tests/e2e/header-covers-nothing.spec.ts walks /filing at 390px). */
+export const SECTION_NAV_HEIGHT_PROPERTY = '--section-nav-h'
+
+// Isomorphic layout effect (the repo's SSR-safe alias, as in Header and CookieConsent): the nav renders on the server
+// too, where useLayoutEffect warns.
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
 /**
  * Compact jump-nav for narrow layouts, where the sticky TOC aside is hidden: a horizontally
  * scrolling strip of anchor chips pinned under the site header. Plain anchors (not a <select>
@@ -224,8 +240,25 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
  * accessibility tree (each is display:none at the other breakpoint), so their labels can differ.
  */
 function MobileSectionNav({ sections }: { sections: PageSection[] }) {
+  const navRef = useRef<HTMLElement>(null)
+  // Publish the nav's height (SECTION_NAV_HEIGHT_PROPERTY) before the first paint and on every reflow (a text-size
+  // change, the lg switch to display:none); cleared when the nav leaves.
+  useIsoLayoutEffect(() => {
+    const nav = navRef.current
+    if (!nav) return
+    const measure = () => document.documentElement.style.setProperty(SECTION_NAV_HEIGHT_PROPERTY, `${Math.ceil(nav.getBoundingClientRect().height)}px`)
+    measure()
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null
+    observer?.observe(nav)
+    return () => {
+      observer?.disconnect()
+      document.documentElement.style.removeProperty(SECTION_NAV_HEIGHT_PROPERTY)
+    }
+  }, [])
   return (
     <nav
+      ref={navRef}
+      data-section-nav
       aria-label="Jump to section"
       className="sticky top-[var(--site-header-h,4rem)] z-sticky -mx-4 mb-11 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
     >

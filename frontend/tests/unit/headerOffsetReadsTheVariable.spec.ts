@@ -20,10 +20,11 @@ import { describe, expect, it } from 'vitest'
  *      `scroll-padding-top` (app/globals.css, held here too) applies the header's height once to every
  *      focus, anchor jump and scrollIntoView, and a scroll margin adds to it, so a margin that reads the
  *      variable again lands every jump one bar lower. A margin holds only a section's own room
- *      beyond the header (`scroll-mt-16`). The padding steps aside while focus is inside the site header
- *      (`html:has([data-site-header]:focus-within)`, held here with the header's attribute): the header
- *      is stuck in view, and the padding, which counts its open mobile menu, would scroll the page behind
- *      the menu at every Tab through it;
+ *      beyond the header (`scroll-mt-16`). Below lg the padding adds the filing page's section nav, stuck
+ *      under the header (`--section-nav-h`, E164). The padding steps aside while focus is inside the site
+ *      header or the section nav (`html:has([data-site-header]:focus-within)`, `[data-section-nav]`, held
+ *      here with their attributes): each is stuck in view, and the padding, which counts the header's open
+ *      mobile menu, would scroll the page behind the menu at every Tab through it;
  *   3. a `sticky` class list whose `top-` (or `inset-`, `inset-y-`) does not read the variable: `sticky
  *      top-0`, a small step, `top-px` or an arbitrary length, which sticks the element under the site header
  *      (the page header did, its title showing through the bar and its back link unclickable beneath it).
@@ -228,16 +229,21 @@ describe('every offset under the site header reads --site-header-h, and the docu
     ).toEqual([])
     const globalsCss = readFileSync(path.join(ROOT, 'app/globals.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
     const html = globalsCss.match(/@layer base\s*\{\s*html\s*\{([^}]*)\}/)?.[1] ?? ''
-    expect(html, 'app/globals.css: html sets scroll-padding-top: var(--site-header-h, 4rem)').toMatch(
-      /(?:^|;)\s*scroll-padding-top:\s*var\(--site-header-h,\s*4rem\);/,
-    )
+    expect(
+      html,
+      "app/globals.css: html sets scroll-padding-top to the site header's height and the section nav's (E164): calc(var(--site-header-h, 4rem) + var(--section-nav-h, 0px))",
+    ).toMatch(/(?:^|;)\s*scroll-padding-top:\s*calc\(var\(--site-header-h,\s*4rem\)\s*\+\s*var\(--section-nav-h,\s*0px\)\);/)
     expect(
       globalsCss,
-      'app/globals.css: the padding steps aside while focus is inside the site header, or a Tab through its open menu scrolls the page behind it',
-    ).toMatch(/html:has\(\[data-site-header\]:focus-within\)\s*\{\s*scroll-padding-top:\s*0(?:px)?;?\s*\}/)
+      'app/globals.css: the padding steps aside while focus is inside the site header or the section nav, or a Tab through the open menu scrolls the page behind it',
+    ).toMatch(/html:has\(\[data-site-header\]:focus-within\),\s*html:has\(\[data-section-nav\]:focus-within\)\s*\{\s*scroll-padding-top:\s*0(?:px)?;?\s*\}/)
     expect(readFileSync(path.join(ROOT, 'components/Header.tsx'), 'utf8'), 'components/Header.tsx: the site header carries data-site-header').toMatch(
       /<header\b[^>]*\sdata-site-header[\s>]/,
     )
+    expect(
+      readFileSync(path.join(ROOT, 'features/summaries/components/SummaryBlocks.tsx'), 'utf8'),
+      'features/summaries/components/SummaryBlocks.tsx: the section nav carries data-section-nav',
+    ).toMatch(/<nav\b[^>]*\sdata-section-nav[\s>]/)
   })
 
   it('nothing sticks under the site header: only the pinned files stick at the top', () => {
