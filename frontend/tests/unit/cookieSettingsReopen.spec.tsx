@@ -57,7 +57,7 @@ const STORAGE_KEY = 'cookie_consent'
 const CHOSEN: CookiePreferences = { essential: true, analytics: true, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z', version: CONSENT_VERSION }
 /** /privacy's sentence on the banner and Do Not Track, as the founder approved it and scoped it to the browser (D-049). */
 const PRIVACY_SENTENCE =
-  "Analytics in your browser stays off until you allow it, and you can change your choice at any time in Cookie settings. Session recording is disabled. We don't change this based on your browser's Do Not Track setting."
+  "Analytics in your browser stays off until you allow it, and you can change your choice at any time in Cookie settings. We don't change this based on your browser's Do Not Track setting."
 /** A browser privacy signal named in copy: Do Not Track or Global Privacy Control, in words or by abbreviation. */
 const SIGNAL_MENTION = /do not track|global privacy control|\bdnt\b|\bgpc\b/gi
 /** What a page's text says of the signals: whether it carries the founder's sentence, and each signal it names. */
