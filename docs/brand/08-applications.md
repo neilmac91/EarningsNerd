@@ -442,7 +442,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `excel_export_service.py`, `analysis_export_metadata.py`): mastheads read "EarningsNerd · AI
   summaries of SEC filings". Titles take the middot and sentence case ("BIOGEN INC. · 10-K summary",
   "{company} · Multi-Period Analysis", the feature keeping its name), as do the PDF's source line
-  ("Original on SEC.gov · {url}", the filing page's words for the link since E190) and the CSV,
+  ("Original on SEC.gov · {url}" since E190, the filing page's words for its link to the primary
+  document, which the line opens) and the CSV,
   which now carries that source row under its generated date; the PDF's closing note splits its one
   dashed sentence in two, and a quote's attribution
   sits on its own line in the PDF and follows a middot in the CSV, never a dash. The CSV now ends
@@ -473,7 +474,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   embeds for italic text is an italic program) by `test_export_palette_parity.py`, which reads a
   stylesheet as WeasyPrint does, nested and conditional rules included; the rendered copy (no em-dash but
   the null token, no exclamation mark or emoji, the headings the exports own in sentence case, and no
-  EDGAR in what they print) by `test_export_voice.py`; the eval's blinding of the generation date by
+  EDGAR, in any case, outside an address) by `test_export_voice.py`; the eval's blinding of the generation date by
   a case in
   `test_acceptance_readiness.py` that runs it on a real export; and the backend's hand-composed
   wordmarks to the PDF's and the mail's by `wordmarkSingleSource.spec.ts`.

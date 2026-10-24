@@ -14,10 +14,11 @@ that reach every fixed line the four export modules write, and fails on:
    section headings (its narrative carries none here, so every <h2> is the builder's), the CSV's title
    row, and the workbook's title, sheet names, header rows and fact labels. A proper noun passes (the
    company's name, "Multi-Period Analysis", "EarningsNerd", "YoY") and so does any word with no
-   lowercase letter (SEC, EDGAR, UTC, 10-K, FY2024);
-5. EDGAR in capitals anywhere they print: the exports name their source SEC.gov, as the sign-in page, the
-   waitlist and the filing page do ("Original on SEC.gov · {url}", E190), since no acronym stands in a label
-   (voice rule 2). A filing's address keeps its lowercase /edgar/ path, which is not copy, and the fixtures
+   lowercase letter (SEC, UTC, 10-K, FY2024);
+5. EDGAR, in any case, anywhere they print outside an address: the exports name their source SEC.gov, as
+   the sign-in page and the filing page do ("Original on SEC.gov · {url}", the filing page's words for its
+   link to the primary document; E190), since no acronym stands in a label (voice rule 2). An address
+   (http or https, up to the next space) is not copy, so a filing's /edgar/ path passes, and the fixtures
    quote nothing that names EDGAR, so every text this reads is the exports' own.
 
 Out of reach (review): the summary's section titles and table headings, which summary_sections.py
@@ -41,7 +42,8 @@ from app.services.export_service import ExportService
 from app.services.trend_analysis.data_notes import data_notes
 
 EM_DASH = "—"
-EDGAR = re.compile(r"\bEDGAR\b")
+EDGAR = re.compile(r"\bedgar\b", re.IGNORECASE)
+ADDRESS = re.compile(r"https?://\S+")
 WINDOW_KEY = re.compile(r"(?:FY)?\d{4}(?:Q[1-4])?\.\.(?:FY)?\d{4}|Q[1-4] \d{4}\.\.Q[1-4] \d{4}")
 EMOJI = re.compile("[\u2600-\u27bf\u2b00-\u2bff\ufe0f\U0001f000-\U0001faff]")
 PROPER = ("BIOGEN INC.", "Test & Co", "Multi-Period Analysis", "EarningsNerd")
@@ -99,8 +101,8 @@ def breaks(texts: list[str]) -> list[str]:
 
 
 def names_edgar(texts: list[str]) -> list[str]:
-    """Texts that name EDGAR in capitals (check 5)."""
-    return [text for text in texts if EDGAR.search(text)]
+    """Texts that name EDGAR in any case outside an address (check 5)."""
+    return [text for text in texts if EDGAR.search(ADDRESS.sub(" ", text))]
 
 
 def not_sentence_case(text: str) -> str | None:
@@ -191,8 +193,9 @@ def test_the_exports_name_their_source_sec_gov_not_edgar():
     }
     assert found == {name: [] for name in found}
     url = "https://www.sec.gov/Archives/edgar/data/875045/x.htm"
-    assert names_edgar([f"Source: SEC EDGAR · {url}", "SEC-EDGAR", f"Original on SEC.gov · {url}", url]) == [
-        f"Source: SEC EDGAR · {url}", "SEC-EDGAR",
+    assert names_edgar([f"Source: SEC EDGAR · {url}", "SEC-EDGAR", f"Source: SEC Edgar · {url}", "Open on edgar",
+                        f"Original on SEC.gov · {url}", url]) == [
+        f"Source: SEC EDGAR · {url}", "SEC-EDGAR", f"Source: SEC Edgar · {url}", "Open on edgar",
     ]
 
 

@@ -310,6 +310,22 @@ class TestCsv:
         assert lines[6] == "Original on SEC.gov · https://www.sec.gov/Archives/edgar/data/875045/x.htm"
         assert lines[7] == ""
 
+    @pytest.mark.parametrize(("document_url", "printed"), [
+        ("https://www.sec.gov/Archives/edgar/data/875045/000087504526000012/biib-20251231.htm",
+         "https://www.sec.gov/Archives/edgar/data/875045/000087504526000012/biib-20251231.htm"),
+        ("biib-20251231.htm", "https://www.sec.gov/Archives/edgar/data/875045/000087504526000012/"),
+    ], ids=["the-primary-document", "the-folder-when-the-document-is-not-a-url"])
+    def test_both_exports_link_the_original_the_filing_page_opens(self, service, document_url, printed):
+        """"Original on SEC.gov" in the PDF and the CSV opens what the filing page's link of the same name
+        opens (originalDocumentUrl.ts, EN-01): the primary document when it is an http(s) URL, else the
+        archive folder, sec_url (E190)."""
+        summary, filing = _make_summary_and_filing(_full_sections())
+        filing.sec_url = "https://www.sec.gov/Archives/edgar/data/875045/000087504526000012/"
+        filing.document_url = document_url
+        html = service.generate_pdf_html(summary, filing)
+        assert f'<br>Original on SEC.gov · <span class="data">{printed}</span>' in html
+        assert _csv_rows(service.generate_csv(summary, filing))[6] == [f"Original on SEC.gov · {printed}"]
+
     @pytest.mark.parametrize(("raw_summary", "last_row"), [
         ({"sections": _full_sections()}, ["", "Margins down 380bps"]),  # the last section's last row
         # No stored payload renders no section at all (stored sections of {} still render the risks note).
