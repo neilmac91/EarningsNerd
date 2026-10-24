@@ -192,7 +192,8 @@ export default function Header({
   // open mobile menu below it takes the rest and scrolls inside it. A sticky header taller than the viewport stays
   // stuck to its top until the page's very end, so before this a menu longer than the screen showed its tail (Log
   // out, the account CTA) only there: 36,942px down the landing at 200% text on a 390x664 phone. The cap is the
-  // bar's own height, never --site-header-h, which counts the open menu (tests/e2e/reflow-200.spec.ts).
+  // bar's own height, never --site-header-h, which counts the open menu below lg (tests/e2e/reflow-200.spec.ts). From lg
+  // the open menu leaves the column and lies over the page (below).
   return (
     <header ref={headerRef} data-site-header onBlur={closeMenuWhenFocusLeaves} onKeyDown={closeMenuOnEscape} className="sticky top-0 z-50 flex max-h-dvh flex-col border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
       {/* gap-x-1.5 (6px, 12px at 200% text) keeps the logo's clear space, one E-bar or 11.6% of the mark (4.2px, 8.4px;
@@ -310,9 +311,15 @@ export default function Header({
           the viewport (the header's cap, above) and never chains to the page behind it (overscroll-contain). Its
           scroll padding equals the nav's inset, as the Modal panel's does, for a browser that scrolls a focused row
           to the nearest edge; Chromium centres it, and the nav's own padding ends the range. From lg, where the compact
-          bar now stands below 72rem, the nav takes the bar's 32px inset, so its rows line up with the logo. */}
+          bar now stands below 72rem, the nav takes the bar's 32px inset, so its rows line up with the logo, and the
+          panel leaves the header's flow: it lies over the page under the bar, as the bar's other menus do, with their
+          lift and its own lower edge, and goes no lower than the screen's foot. So the header's box, and the height it
+          publishes, stay the bar's, and the sticky chrome under it keeps its size and place: the filing workspace's
+          pane at 1100x800 went from 550 to 12px under the open menu (E177, chief design on #1558, comment 6377356358;
+          tests/e2e/header-covers-nothing.spec.ts). Below lg the open menu counts, as a phone's scroll padding and
+          sticky chrome read it. */}
       {mobileMenuOpen && (
-        <div ref={menuRef} className="overflow-y-auto overscroll-contain scroll-pb-4 scroll-pt-2 border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark [@media(min-width:72rem)]:hidden">
+        <div ref={menuRef} className="overflow-y-auto overscroll-contain scroll-pb-4 scroll-pt-2 border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark lg:absolute lg:inset-x-0 lg:top-full lg:max-h-[calc(100dvh_-_100%)] lg:border-b lg:shadow-e2 dark:shadow-none [@media(min-width:72rem)]:hidden">
           <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 pb-4 pt-2 lg:px-8" aria-label="Mobile navigation">
             {/* Below a 24rem viewport the theme toggle lives here, not in the bar (see the mobile actions), as the
                 menu's first row: directly under the bar, so it opens in view, before any scrolling of the menu

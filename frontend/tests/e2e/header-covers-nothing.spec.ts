@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { PANE, answerApi } from './fixtures/filing3Api'
 
 /**
  * The site header (components/Header.tsx) is the one bar that sticks at the top of the viewport, and it covers
@@ -38,8 +39,9 @@ import { test, expect, type Page } from '@playwright/test'
  * an inline style on <html>, which no media query reads. CI runs e2e with no backend
  * (lessons/test-e2e-runs-without-backend.md), and the build may name a production API host, so every API request is
  * answered here in the browser whatever its host: the session check 401 (a guest), any other API path 404; every
- * other request but the frontend's own GET and HEAD is aborted. The consent bar is answered before load, so its
- * bottom inset is not in play.
+ * other request but the frontend's own GET and HEAD is aborted. The filing pane's case answers the API from
+ * fixtures/filing3Api.ts, for a Pro reader. The consent bar is answered before load, so its bottom inset is not in
+ * play.
  */
 
 const VIEWPORTS = [
@@ -357,6 +359,72 @@ test.describe("the site header's own stops hold the page in place / 1440x900 und
     await expect(page.getByRole('button', { name: /^Notifications/ }), "and a signed-in reader's bell in it").toBeVisible()
     await walkTheOpenMenu(page, '1440x900 under 200% text, a signed-in reader', 900)
   })
+})
+
+/**
+ * From lg the open compact menu lies over the page under the bar, as the bar's other menus do, and the height the
+ * header publishes leaves it out (E177, chief design on #1558, comment 6377356358). In the header's flow the open menu
+ * pushed the page down and grew --site-header-h, so the filing workspace's pane, which runs from its own top to the
+ * screen's foot, shrank under it: at 1100x800 from 550 to 12px, and under 200% text from 254 to 0px. At 1100x800 on
+ * /filing/3, a Pro reader with the pane open, at both text sizes, at the top of the page and with the page scrolled
+ * so the pane sticks under the bar: with the menu open the pane keeps its top and its height, the page its scroll, and
+ * the header publishes the bar's height; the menu lies over the pane, the header's layer above it, and ends inside the
+ * screen.
+ */
+test.describe('from lg the open menu lies over the page / 1100x800, a Pro reader on /filing/3', () => {
+  test.use({ viewport: { width: 1100, height: 800 }, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
+  for (const doubled of [false, true]) {
+    const size = doubled ? '200% text' : 'the default text size'
+    test(`at ${size}, the open menu leaves the filing pane its top and its height`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem('theme', 'light')
+        localStorage.setItem('en_session_active', '1')
+        localStorage.setItem('en:copilot-coachmark-v1', '1')
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+      })
+      await answerApi(page, baseURL!, 'pro')
+      await page.goto('/filing/3')
+      await page.getByRole('button', { name: 'Source', exact: true }).click()
+      const pane = page.locator(PANE)
+      await expect(pane).toBeVisible()
+      if (doubled) await doubleText(page)
+      await settle(page)
+      await expect(page.getByRole('button', { name: 'Open menu' }), `${size}: the compact bar shows at 1100px`).toBeVisible()
+      const menu = page.getByRole('navigation', { name: 'Mobile navigation' })
+      const read = () =>
+        pane.evaluate((el) => {
+          const r = el.getBoundingClientRect()
+          return { top: Math.round(r.top), height: Math.round(r.height), published: document.documentElement.style.getPropertyValue('--site-header-h'), scrollY: window.scrollY }
+        })
+
+      for (const scrolled of [false, true]) {
+        const where = `${size}, ${scrolled ? 'the page scrolled' : 'the top of the page'}`
+        if (scrolled) {
+          await page.evaluate(() => window.scrollTo(0, 1200))
+          await settle(page)
+        }
+        const closed = await read()
+        expect(closed.height, `${where}: the pane is open with the menu closed`).toBeGreaterThan(200)
+        if (scrolled) expect(closed.top, `${where}: the pane sticks under the bar`).toBe(parseInt(closed.published))
+        await page.getByRole('button', { name: 'Open menu' }).click()
+        await expect(menu).toBeVisible()
+        await settle(page)
+        const opened = await read()
+        expect(opened, `${where}: with the menu open the pane keeps its top and height (${closed.top}px, ${closed.height}px), the page its scroll, and the header the bar's published height`).toEqual(closed)
+        // A point 8px inside the pane's top left corner: the open menu reaches below it, and lies over it.
+        const point = await pane.evaluate((el) => ({ x: el.getBoundingClientRect().left + 8, y: el.getBoundingClientRect().top + 8 }))
+        const over = await menu.locator('xpath=..').evaluate((panel, { x, y }) => {
+          const hit = document.elementFromPoint(x, y)
+          return { bottom: panel.getBoundingClientRect().bottom, hitsMenu: hit !== null && panel.contains(hit) }
+        }, point)
+        expect(over.bottom, `${where}: the open menu reaches the pane's top`).toBeGreaterThan(point.y)
+        expect(over.hitsMenu, `${where}: the open menu lies over the pane, the header's layer above it`).toBe(true)
+        expect(over.bottom, `${where}: the open menu ends inside the 800px screen`).toBeLessThanOrEqual(800.5)
+        await page.getByRole('button', { name: 'Close menu' }).click()
+        await expect(menu).toHaveCount(0)
+      }
+    })
+  }
 })
 
 /**

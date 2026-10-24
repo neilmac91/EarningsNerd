@@ -1165,19 +1165,19 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  section's scroll margin adds only its own room beyond the header (`scroll-mt-16`), never the
                  variable again, which would land every jump one bar lower. The padding steps aside while
                  focus is inside the site header (`html:has([data-site-header]:focus-within)`): the header is
-                 stuck in view, and the padding, which counts its open mobile menu, would scroll the page
-                 behind the menu at every Tab through it, and move the page when a control in the bar took
-                 focus while it was scrolled. The open menu is a disclosure: it closes when focus leaves the
-                 header (a focusout whose next target is outside it) from the keyboard or a script, inside that
-                 focusout (`flushSync`; React's own flush is too late with script on the stack), and the close
-                 publishes the bar's height in the same commit, before the browser scrolls the next control into
-                 view; otherwise that scroll reserves the open menu, which fills the screen under 200% text. A
-                 press outside it (a tap or a click, on a control or on text, marked from its mousedown to the
-                 next task) leaves it open, and a navigation closes it: a close on the press moved the page
-                 under the pointer at the top of a page, and the release activated nothing. A focus a modal
-                 layer takes closes it with a plain update. Escape closes it too, unless a layer above took the
-                 key, returning a focus inside the menu to its toggle; a blur with no next target (another
-                 window) leaves it open. Gates:
+                 stuck in view, and the padding, which counts its open mobile menu below lg, would scroll the
+                 page behind the menu at every Tab through it, and move the page when a control in the bar
+                 took focus while it was scrolled. The open menu is a disclosure: it closes when focus leaves
+                 the header (a focusout whose next target is outside it) from the keyboard or a script, inside
+                 that focusout (`flushSync`; React's own flush is too late with script on the stack), and the
+                 close publishes the bar's height in the same commit, before the browser scrolls the next
+                 control into view; otherwise that scroll reserves the open menu, which fills the screen under
+                 200% text. A press outside it (a tap or a click, on a control or on text, marked from its
+                 mousedown to the next task) leaves it open, and a navigation closes it: a close on the press
+                 moved the page under the pointer at the top of a page, and the release activated nothing. A
+                 focus a modal layer takes closes it with a plain update. Escape closes it too, unless a layer
+                 above took the key, returning a focus inside the menu to its toggle; a blur with no next
+                 target (another window) leaves it open. Gates:
                  tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/unit/Header.spec.tsx (the menu's
                  close and its height in the focusout, a press, a navigation, Escape),
                  tests/e2e/reflow-200.spec.ts (the filing page's section nav at 200% text) and
@@ -1193,14 +1193,24 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  with auto side margins is not stretched) and the menu panel takes the rest
                  (`overflow-y-auto overscroll-contain`, its scroll padding the nav's inset, as the Modal
                  panel's). The cap is the bar's own height, never `--site-header-h`, which counts the open
-                 menu. A sticky header taller than the viewport stays stuck to its top until the page's end,
-                 so the menu's last rows (Log out, the account link) showed only there, 36,942px down the
-                 landing at 200% text. Gate: tests/e2e/reflow-200.spec.ts (390x664 and 360x640 at 200%,
-                 a guest and a signed-in reader: a wheel and focus bring the last row into view inside the
-                 menu, a second wheel at its end leaves the page behind it unmoved, and neither the page nor
-                 the menu scrolls sideways; the menu's own scroll width is read, since a row it clips adds
+                 menu below lg. A sticky header taller than the viewport stays stuck to its top until the
+                 page's end, so the menu's last rows (Log out, the account link) showed only there, 36,942px
+                 down the landing at 200% text. Gate: tests/e2e/reflow-200.spec.ts (390x664 and 360x640 at
+                 200%, a guest and a signed-in reader: a wheel and focus bring the last row into view inside
+                 the menu, a second wheel at its end leaves the page behind it unmoved, and neither the page
+                 nor the menu scrolls sideways; the menu's own scroll width is read, since a row it clips adds
                  nothing to the page's), and at 1440x900 the bar spans its container with the logo in its
-                 top-left place, which `w-full` holds.
+                 top-left place, which `w-full` holds. From lg, where the compact bar shows on a desktop below
+                 72rem, the open menu leaves the header's flow (`lg:absolute lg:inset-x-0 lg:top-full`) and
+                 lies over the page under the bar, as the header's other menus do, with their `e2` lift and
+                 its own lower border, its height capped at the screen's foot (`calc(100dvh - 100%)`, the
+                 header's own height being the bar's). So the header's box and `--site-header-h` stay the
+                 bar's, and the sticky chrome under it keeps its size and place: in the flow, the open menu
+                 shrank the filing workspace's pane at 1100x800 from 550 to 12px, and from 254 to 0px under
+                 200% text (E177; gate: tests/e2e/header-covers-nothing.spec.ts, at 1100x800 on /filing/3 for
+                 a Pro reader, at both text sizes, at the top of the page and scrolled: with the menu open the
+                 pane keeps its top and height, the page its scroll and the header its published height, and
+                 the menu lies over the pane and ends inside the screen).
                  The consent layer: a lower z alone would let the launcher cover a consent choice, so while
                  the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
                  `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the
