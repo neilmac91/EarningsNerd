@@ -93,7 +93,9 @@ After that listing, nine more copilot-eval runs drew 18/18 on heads where a trai
 their 162 first generations was a trailer: 40043032806, 40043359889, 40043362321, 40045472164, 40060856633,
 40061189712, 40075823956, 40075949031 and 40075956940 (all concluded `success` with a full `copilot-fidelity-<run>`
 artifact, created 2026-10-24T00:03Z to 07:54Z). Two of their reports, 40075823956 and 40075956940, were re-read offline: all 36 first generations hashed
-to `c221b7e3c5c2`. That makes 1,530 first generations under this composition since #1360 with no trailer.
+to `c221b7e3c5c2`. That makes 1,530 first generations under this composition since #1360 with no trailer. Of
+those, 1,404 were hashed (step 0's 1,368 and these 36). The other 126 drew 18/18 where a trailer is terminal, so none
+was a trailer, but their system messages were not hashed.
 
 ## Not run: the forced arm
 
@@ -111,13 +113,35 @@ for `c221b7e3c5c2`, run 38878772611). The eligibility half is a guard change and
 (`backend/evals/RUNBOOK.md`, "Gating rule"): `backend/tests/unit/test_copilot_quotation_retry.py` and
 `backend/tests/unit/test_copilot_prompt_revisions.py`. The ready mark's copilot-eval draw must still be 18/18,
 with every first generation `c221b7e3c5c2` and every retry one of `34d01dadbac0`, `bf240eb01f4c` or
-`c221b7e3c5c2`; record its run here.
+`c221b7e3c5c2`. Each retry's hash must match the previous generation's recorded `withheld_reasons`:
+`34d01dadbac0` only after a decision-F reason, `bf240eb01f4c` only after `Unverified or ambiguous referenced
+citation`, and `c221b7e3c5c2` only after `Unexpected citation trailer`. Its `preparation.json` and the rows' source
+hashes must show that every source that should have sections was prepared with them
+(`lessons/evals-measure-a-copilot-change-on-the-source-production-uses.md`).
+
+**The ready-mark draw:** [copilot-eval run 40092955405](https://github.com/neilmac91/EarningsNerd/actions/runs/40092955405)
+on head `f02ec4b6`, 2026-10-24T12:12Z to 12:14Z, concluded `success`. Its artifact `copilot-fidelity-40092955405`
+(artifact 12559482529, SHA-256 `e03fc9ca514bf550e623582e68f4279a8f8458a2e902f485c1e21466c781e08e`) was re-read
+offline. It meets all three checks:
+
+- **18/18:** `expected 18, completed 18, scored 18, errors 0, passed 18`, accepted.
+- **Hashes:** each of the 18 rows made one generation, and all 18 first generations' system messages hash to
+  `c221b7e3c5c2` (`sha256(content)[:12]`, as `test_copilot_prompt_revisions.py` computes it). No generation recorded
+  a `withheld_reasons` entry, so no retry was sent and the pairing check has no case.
+- **Sections:** `preparation.json` reads status `complete` with no errors, over six sources of three rows each. Five
+  were prepared with sections: the AAPL, TSLA and MSFT 10-Ks and BABA's two 20-Fs, whose `sections.json` files run
+  from 85,506 to 564,670 bytes and match their recorded SHA-256. Their rows' source texts open with the sections
+  excerpt's `ITEM 8 -` or `ITEM 18 -` heading. ASML's 20-F has a 4-byte `sections.json` (`null`). That is its
+  documented regex fallback: its 20-F has no parsable item headings (`backend/evals/RUNBOOK.md`, "Huge document
+  section parse slow or skipped"). Every row's source text hashes to its source's prepared `excerpt.txt`.
+
+The draw adds 18 hashed first generations under `c221b7e3c5c2`, none a trailer.
 
 ## Step-0 files
 
 Copied unedited from the session that posted step 0, so the posted hashes still verify. The tools ran against
-`d4d9c510`'s app code (H). `step0-summary.json`'s `output_files` field keeps that session's absolute paths;
-editing it would change the posted hash.
+`d4d9c510`'s app code (H). `step0-summary.json`'s `output_files` field and every `step0-generations.jsonl`
+record's `report` field keep that session's absolute paths; editing either would change the posted hash.
 
 | File | SHA-256 | What it is |
 | --- | --- | --- |
