@@ -25,13 +25,18 @@ used; the read can still clear, or cause, a neighbour's ``label_collision``:
   - no evidence, only pre-#1191 rows    -> skipped ``legacy_companyfacts_only``
   - no companyfacts row, stored or read -> skipped ``no_companyfacts_fy``
   - they name more than one year      -> skipped ``companyfacts_disagree`` (never pick one)
-  - they are all instants (balances)  -> skipped ``untrusted_instant_only``: the companyfacts
-    writer names an instant older than every fiscal year it knows (its oldest opening balance) by
-    one report's fy or by calendar year (``facts/companyfacts.py``: ``reported_fiscal_year(record,
-    end) or end.year``), with no window chain behind it; a duration's year comes from its window
+  - they are all instants (balances)  -> skipped ``untrusted_instant_only``: until 2026-10-23 the
+    companyfacts writer named an instant older than every fiscal year it knows (its oldest opening
+    balance) by one report's fy or by calendar year, with no window chain behind it, and rows it
+    stored then carry the same provenance as later ones; a duration's year comes from its window
   - otherwise that one year: a row already carrying it counts ``already_agrees``. A row whose label
     is not the calendar default (``period_end.year``) was named by a labeller (P5's annual label, a
-    NULL), not by the defect, and is never overwritten: ``not_calendar_default``. The rest relabel,
+    NULL), not by the defect. It moves only with its whole filing, as #1364's write-time adoption
+    moves one: every row of the filing that has a trusted year gives one offset, this run's read
+    names the same year at its period end (a 10-K whose focus lags, opened before the company's
+    first sync), and no other labelled row of the filing is held, for any reason, collisions
+    included. Otherwise, and for a NULL, which never moves, it is held: ``not_calendar_default``,
+    so a filing is never left on two offsets. The rest relabel,
     unless the new label is one another period end of the same filing and concept carries, or one
     another current row of the concept carries (readers index current annual rows by year and
     concept): ``label_collision``. The whole period end then holds, every concept and filing at it,
@@ -145,6 +150,8 @@ def plan_company(rows: Iterable[FinancialFact], read: Iterable[Any] = ()) -> dic
     planned: dict[FinancialFact, int] = {}
     agreeing: list[FinancialFact] = []
     sec_evidence = 0
+    judged = []
+    offsets: dict[int, set[int]] = defaultdict(set)  # each filing's trusted year minus its label, row by row
     for row in targets:
         stored = evidence.get(row.period_end)
         # The read stands in only where no stored row vouches, and not where a current pre-#1191 row would
@@ -153,18 +160,35 @@ def plan_company(rows: Iterable[FinancialFact], read: Iterable[Any] = ()) -> dic
         if read_here:
             sec_evidence += 1
         year, reason = trusted_year(stored or read_here, row.period_end in legacy)
+        judged.append((row, year, reason))
+        if year is not None and row.fiscal_year is not None:
+            offsets[row.filing_id].add(year - row.fiscal_year)
+    for row, year, reason in judged:
         if reason is not None:
             hold(row, reason)
         elif year == row.fiscal_year:
             skipped["already_agrees"] += 1
             agreeing.append(row)
-        elif row.fiscal_year != row.period_end.year:
+        # A labeller's label (P5's, from the filing's focus) moves only with its whole filing: one offset
+        # across the filing's trusted years, #1364's write-time adoption, with this run's read of the
+        # current writer naming the same year, so a stored row an earlier writer named never outranks it.
+        elif row.fiscal_year != row.period_end.year and (
+                row.fiscal_year is None or len(offsets[row.filing_id]) > 1
+                or trusted_year(from_read.get(row.period_end, []), False)[0] != year):
             hold(row, "not_calendar_default")
         else:
             planned[row] = year
-    # A held row keeps its label, so holding one relabel can make another collide: repeat. The whole
-    # period end holds, every concept and filing at it, so no end is left on two fiscal years.
-    while clashing := _collisions(rows, planned):
+    # A held row keeps its label, so holding one relabel can make another collide, and a labeller's labels
+    # move only with their whole filing, so a held labelled row of it holds the rest: repeat until neither
+    # holds more. A collision holds its whole period end, every concept and filing at it, so no end is left
+    # on two fiscal years.
+    while True:
+        stuck = {row.filing_id for row in held_rows if row.fiscal_year is not None}
+        for row in [row for row in planned if row.filing_id in stuck and row.fiscal_year != row.period_end.year]:
+            del planned[row]
+            hold(row, "not_calendar_default")
+        if not (clashing := _collisions(rows, planned)):
+            break
         ends = {row.period_end for row in clashing}
         for row in [row for row in planned if row.period_end in ends]:
             del planned[row]
