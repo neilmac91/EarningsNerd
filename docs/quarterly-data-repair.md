@@ -39,15 +39,17 @@ the switch); only the companyfacts sync does that. Sync such a company first
 after the apply, both currencies are current for the same periods. The sync never demotes a row
 from a filing that SEC's companyfacts response does not name and that was filed strictly after the
 response's newest filing, where that filing's date is known (its Filing row's, else the row's
-recorded `filed_at`); a row with no known date, or filed the same day, is not protected, and an
-older response still demotes a newer filing it names. So run the sync once companyfacts shows the
-company's latest filing. The sync makes its own row current at a period that holds none, but never
-a row this repair quarantined, for any reason (a rolled-back insert among them): those periods
-stay gaps. The sync leaves one thing for this repair: an annual ratio (a margin or the current
-ratio) that an older sync computed from other-currency operands under the same filing as the
-series-currency calculation. That identity is occupied, so the sync keeps its old operands; the
-repair's computed-metric correction recomputes it from the series-currency operands and journals
-the change. Apply the repair after the sync.
+recorded `filed_at`); a row with no known date, or filed the same day, is not protected. A
+response that such a row, current in another currency, proves older than a switch of the reporting
+currency changes nothing current; without that proof, an older response still demotes the rows of
+a newer filing in another currency that it names or cannot protect. So run the sync once
+companyfacts shows the company's latest filing. The sync makes its own row current at a period that
+holds none, but never a row this repair quarantined, for any reason (a rolled-back insert among
+them): those periods stay gaps. The sync leaves one thing for this repair: an annual ratio (a
+margin or the current ratio) that an older sync computed from other-currency operands under the
+same filing as the series-currency calculation. That identity is occupied, so the sync keeps its
+old operands; the repair's computed-metric correction recomputes it from the series-currency
+operands and journals the change. Apply the repair after the sync.
 
 The CLI requires explicit tickers, defaults to a maximum of 10, and permits at most 50 per run.
 Each company is its own transaction, bounded to 10,000 stored facts. Network reads complete before

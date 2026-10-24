@@ -54,9 +54,9 @@ def _companyfacts_fresh_result(
 def _persist_companyfacts_payload(
     db: Session, company: Company, payload: dict[str, Any]
 ) -> dict[str, Any]:
-    """Normalize and persist one already-fetched payload in the caller's short transaction, deleting
-    nothing: the upsert, then the currency step (``demote_convenience_rows``), where a row of a filing
-    newer than the payload (``protected_rows``) holds its key on both."""
+    """Normalize and persist one fetched payload in the caller's short transaction, deleting nothing: the
+    upsert, then the currency step (``demote_convenience_rows``). A row of a filing newer than the payload
+    (``protected_rows``) holds its key on both; a payload older than a switch changes nothing current."""
     company_id = company.id  # the commit expires the row; reading it back would check out again
     facts, meta = normalize_companyfacts(company_id, payload, financial_sic=_is_financial_sic(company.sic))
     view = payload_view(payload)  # pure: the payload's own pick and the filings it names

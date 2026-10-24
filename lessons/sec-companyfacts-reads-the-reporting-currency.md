@@ -1,6 +1,6 @@
 # Read each companyfacts filing in its own currency and the series in its latest annual report's; a USD figure beside a filing's own currency is a convenience translation
 
-Date: 2026-10-16, per-filing pick, stale-payload guard and convergence 2026-10-24   Area: sec (financial facts)
+Date: 2026-10-16, per-filing pick, stale-payload guard, convergence and the pre-switch payload rule 2026-10-24   Area: sec (financial facts)
 
 **Context**: The companyfacts ingest read only `units["USD"]` (and `USD/shares`) for every concept.
 A US-GAAP filer that reports in CNY (the Alibaba shape) also tags each 20-F's own year again as a
@@ -73,10 +73,24 @@ filing. Such a row (`protected_rows`: its accession is not among the payload's, 
 date, its Filing row's else its provenance's `filed_at`, is strictly later than the payload's
 newest `filed`) holds its key on both of the sync's paths, ratios included: the ids go into the
 upsert, which stores the batch's row behind one as behind a known newer filing, and into the
-currency step, which never demotes one and demotes any other amount, per-share or ratio row current
-beside it, so the batch never leaves its own row current there in another currency. A guard on the
-currency step alone is not enough: the upsert's own demotion is per (concept, period, unit), and a
-ratio's unit is the same in every currency.
+currency step, which never demotes one and, unless the payload predates a switch (below), demotes
+any other amount, per-share or ratio row current beside it, so the batch never leaves its own row
+current there in another currency. A guard on the currency step alone is not enough: the upsert's
+own demotion is per (concept, period, unit), and a ratio's unit is the same in every currency.
+
+A payload older than a switch the stored data has seen changes nothing current. When a row the guard
+protects is a current amount or per-share row in another currency than the batch's series currency
+(`_predates_a_switch`, defined once in `currency.py`), the payload predates the switch: the upsert
+still stores its rows, and the currency step then gives every stored row of the batch's concepts
+back the `is_latest` the sync found (one the upsert demoted included), leaves every row the upsert
+inserted not current, promotes nothing and replaces no ratio (`_leave_current_as_found`). Holding
+each key is not enough. Under convergence alone, such a sync made its own old-currency rows current
+at the periods only it presents (FY2021-22 in CNY beside USD FY2023-25), so no period held two
+currencies, yet a growth figure across the switch compared CNY with USD until the next fresh sync. A
+wrong number is worse than a gap. Check such a rule by the set of current rows before and after the
+sync (equal), and by every concept's current amount rows reading one currency across all periods,
+not by each key alone. A newer filing in the payload's own currency proves no switch: a payload that
+lags a stored 10-K still fills the years before it.
 
 Known gaps: a switcher's current series holds only the periods its filings in the new currency
 present (its earlier rows are demoted, not deleted, and stay readable by accession); a ratio at a
@@ -87,13 +101,16 @@ the series currency are read; a switch first reported in a 10-Q or 6-K, or a fir
 in the new currency that tags one year, takes effect only with the next annual report presenting
 comparatives. The per-filing writer keeps `is_latest` per unit, so opening an old-currency filing
 after a switch can add a current row in the old currency, and a new filing's own rows in a new
-currency stand beside the old currency's, until the next companyfacts sync. The guard needs a
-filing date: a newer filing's row with no Filing row and no `filed_at`, or one filed the same day
-as the payload's newest, is not protected, and a stale payload still demotes the rows of a newer
-filing it names, until the next fresh sync promotes them again. Until then, a stale payload's own rows are current at the periods
-only it presents (no key holds two currencies). At a key a stale payload in the series currency
-took from an unprotected newer row, the fresh sync skips its own stored identity and leaves the
-older filing's row current: one row in the series currency, not the newest.
+currency stand beside the old currency's, until the next companyfacts sync that names that filing:
+a payload older than the switch changes nothing current, so it leaves both. A newer filing's row in
+another currency counts as a switch even where it is a stray (one concept the per-filing pick read
+in another currency): such a sync then changes nothing until companyfacts shows that filing. The
+guard needs a filing date: a newer filing's row with no Filing row and no `filed_at`, or one filed
+the same day as the payload's newest, is not protected and proves no switch, so a stale payload
+still demotes the newer currency's rows and makes its own current at the periods only it presents,
+until the next fresh sync. At a key a stale payload in the series currency took from an
+unprotected newer row, the fresh sync skips its own stored identity and leaves the older filing's
+row current: one row in the series currency, not the newest.
 
 **Evidence**: `backend/app/services/facts/currency.py`;
 `backend/app/services/facts/companyfacts.py::_collect_companyfacts_concepts`;
