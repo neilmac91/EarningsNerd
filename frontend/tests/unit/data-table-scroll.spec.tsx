@@ -153,7 +153,7 @@ describe('DataTable opt-in column scrolling', () => {
     periodWidth = 136
     periods = 1
     render(<DataTable columns={columns.slice(0, 2)} rows={rows} rowKey={(row) => row.id} layout="fixed" colWidths={['6.5rem', '4.25rem']}
-      stickyFirstColumn snapColumns scrollRegion={{ label: 'One year', hint: '← Earlier year', startAtEndOnMobile: true }} />)
+      stickyFirstColumn snapColumns scrollRegion={{ label: 'One year', hint: '← Metric names', startAtEndOnMobile: true }} />)
     const region = screen.getByRole('region', { name: 'One year' })
     expect(screen.getByRole('rowheader')).not.toHaveClass('sticky')
     expect(region.style.paddingInlineEnd).toBe('156px')
