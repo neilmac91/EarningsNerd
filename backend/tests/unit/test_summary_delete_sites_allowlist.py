@@ -97,6 +97,9 @@ ALLOWED_SITES = {
     ("backend/migrations/20260705_summary_filing_id_unique.sql", "<file>", "sql"): 1,
     # Not a summary: the Watchlist row _watched() returns (the module names Summary for its reads).
     ("backend/app/services/watchlist_service.py", "remove_company", "unresolved"): 1,
+    # Not a summary: the SavedSummary row _owned() returns (the module names Summary for its reads). Nothing
+    # references saved_summaries, so deleting a bookmark is FK-safe.
+    ("backend/app/services/saved_summary_service.py", "delete_saved_summary", "unresolved"): 1,
 }
 
 _SKIP_DIRS = {".git", "frontend", "node_modules", "__pycache__", ".cache", ".pytest_cache",
