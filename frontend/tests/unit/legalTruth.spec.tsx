@@ -1763,6 +1763,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>We require authentication on every endpoint in the admin namespace.</p>', false],
       ['<p>We do not require authentication on every endpoint.</p>', false],
       ['<p>We require authentication on every endpoint when you call it.</p>', true],
+      // A phrase after the endpoints that restates every request narrows nothing (#1594's review).
+      ['<p>We require authentication on every endpoint for each request.</p>', true],
       ['<p>EarningsNerd requires a login for all endpoints.</p>', true],
       ['<p>EarningsNerd requires a login for all endpoints when accessing private records.</p>', false],
       ['<p>The API requires authentication on every endpoint.</p>', true],
@@ -1773,6 +1775,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Administrators need a token for all endpoints.</p>', true],
       ['<p>Authentication protects every endpoint.</p>', true],
       ['<p>Authentication does not protect every endpoint.</p>', false],
+      // A credential before its own verb is the subject's login, read on the subject's own text (#1594's review).
+      ['<p>A valid token protects every endpoint.</p>', true],
       ['<p>We put every endpoint behind a login.</p>', true],
       ['<p>We put every endpoint in the admin namespace behind a login.</p>', false],
       ['<p>Every endpoint requires an authenticated session.</p>', true],
