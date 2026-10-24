@@ -7,8 +7,10 @@ label XBRL money in the filer's reporting currency ("CNY 941.2B"), because a bar
 filer's figure reads ~7x too large. The AI-timeout fallback (`fallback_summary.py`), which the one
 orchestrator persists when the model times out, kept its own formatter with a hardcoded "$". Its
 tests used USD inputs only, and it runs only on timeouts, so no one saw it. A 20-F filer whose
-generation timed out got "Revenue: $941.2B" for CNY 941.2B, and the read path, which matches the
-number but not the currency, served it with an SEC-verified chip. A bug hunt found it. Review then
+generation timed out got "Revenue: $941.2B" for CNY 941.2B, and the read path, which then matched
+the number but not the currency, served it with an SEC-verified chip (its figure check reads the
+currency since #1530, `provenance_service._shows_filed_value`, pinned by
+`backend/tests/unit/test_figure_check_currency_matrix.py`). A bug hunt found it. Review then
 found a third writer of the same cells: the prior-period backfill both paths run before storing
 (`schemas/summary.py` `attach_normalized_facts`) also hardcoded "$".
 
