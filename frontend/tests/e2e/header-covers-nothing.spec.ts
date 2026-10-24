@@ -461,6 +461,63 @@ test.describe("the site header's own stops hold the page in place / 1440x900 und
   })
 })
 
+/** From lg the open menu lies over the page, so a press outside the header closes it, as it closes the bar's other
+    menus, and the press still lands where it was aimed (E182, chief design on #1565, comment 6380050139): the header
+    keeps the bar's height, so nothing moves under the pointer. On / at 1024x768 and 1100x800, a guest's page is
+    scrolled so the pricing row's billing switch, its Monthly choice unchosen (it opens on Annual), shows below where
+    the open menu reaches; a click on it closes the menu and chooses it, and the page stays where it was. Below lg the
+    menu sits in the header's flow, and a press leaves it open (E167, the tap case above). Under 200% text the open
+    menu fills the screen, so no page control shows below it to press. */
+test.describe('from lg a press on the page closes the open menu and reaches its target', () => {
+  for (const viewport of [{ width: 1024, height: 768 }, { width: 1100, height: 800 }]) {
+    test.describe(`${viewport.width}x${viewport.height}`, () => {
+      test.use({ viewport, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
+      test('a click on a control below the open menu closes the menu and reaches the control', async ({ page, baseURL }) => {
+        await open(page, baseURL!, '/', 'light')
+        await settle(page)
+        const label = 'Monthly'
+        const target = page.getByRole('radio', { name: label, exact: true })
+        await expect(target, 'the billing switch opens on Annual, Monthly unchosen').toHaveAttribute('aria-checked', 'false')
+        // Its middle a quarter of the screen above the foot, below where the open menu reaches, scrolled there again
+        // until it rests there: the landing's sections above it can still grow after the first scroll.
+        await expect
+          .poll(
+            async () => {
+              const off = await target.evaluate((el) => {
+                const r = el.getBoundingClientRect()
+                const by = r.top + r.height / 2 - window.innerHeight * 0.75
+                window.scrollBy(0, by)
+                return Math.abs(by)
+              })
+              await settle(page)
+              return off
+            },
+            { message: `${viewport.width}px: "${label}" rests a quarter of the screen above its foot` },
+          )
+          .toBeLessThanOrEqual(1)
+        // A click at the toggle's box, as a pointer presses it: Playwright's own click first scrolls a sticky element's
+        // box into view, which moved this page 400px.
+        const toggle = (await page.getByRole('button', { name: 'Open menu' }).boundingBox())!
+        await page.mouse.click(toggle.x + toggle.width / 2, toggle.y + toggle.height / 2)
+        const menu = page.getByRole('navigation', { name: 'Mobile navigation' })
+        await expect(menu).toBeVisible()
+        await settle(page)
+        const at = await target.evaluate((el) => {
+          const r = el.getBoundingClientRect()
+          const menuEnd = document.querySelector('nav[aria-label="Mobile navigation"]')!.parentElement!.getBoundingClientRect().bottom
+          return { x: r.x + r.width / 2, y: r.y + r.height / 2, menuEnd, scrollY: window.scrollY, foot: window.innerHeight }
+        })
+        expect(at.y, `${viewport.width}px: "${label}" sits below the open menu, which ends at ${Math.round(at.menuEnd)}px`).toBeGreaterThan(at.menuEnd + 8)
+        expect(at.y, `${viewport.width}px: "${label}" sits inside the screen, whose foot is at ${at.foot}px`).toBeLessThan(at.foot - 8)
+        await page.mouse.click(at.x, at.y)
+        await expect(menu, `${viewport.width}px: the press on the page closes the open menu`).toHaveCount(0)
+        await expect(target, `${viewport.width}px: the press reaches "${label}", which is now chosen`).toHaveAttribute('aria-checked', 'true')
+        expect(await page.evaluate(() => window.scrollY), `${viewport.width}px: the page stays where it was`).toBe(at.scrollY)
+      })
+    })
+  }
+})
+
 /**
  * From lg the open compact menu lies over the page under the bar, as the bar's other menus do, and the height the
  * header publishes leaves it out (chief design on #1558, comment 6377356358). In the header's flow the open menu
