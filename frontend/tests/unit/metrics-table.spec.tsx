@@ -222,7 +222,7 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     large.series[1].cagr = 1234.567
     large.series[1].cagr_reconciled = false
     render(<MetricsTable dataset={large} />)
-    const window = screen.getByRole('button', { name: /Long-term debt CAGR, FY2023\.\.FY2024:/ })
+    const window = screen.getByRole('button', { name: /Long-term debt CAGR, FY2023–FY2024:/ })
     expect(window).toHaveTextContent('+123.5K%')
     await userEvent.click(window)
     const detail = screen.getByRole('dialog')
@@ -247,7 +247,7 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     // net_margin: cagr is always null (unit "pure"), so the column resolves window_pp instead —
     // the same rule the KPI strip uses (windowGrowth). The tooltip names the basis window.
     const cell = screen.getAllByText('-9.0pp').find((node) => node.closest('[title]'))!
-    expect(cell.closest('[title]')).toHaveAttribute('title', expect.stringContaining('FY2023..FY2024'))
+    expect(cell.closest('[title]')).toHaveAttribute('title', expect.stringContaining('FY2023–FY2024'))
   })
 })
 
