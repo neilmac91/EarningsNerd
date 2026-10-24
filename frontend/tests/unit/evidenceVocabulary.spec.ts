@@ -14,8 +14,10 @@ import { describe, expect, it } from 'vitest'
  *    "✓ Verified", "Cited."), and in any case where they are rendered ("VERIFIED"); a heading is a label too. And a
  *    bare "SEC EDGAR" wherever it is rendered (JSX text, an attribute, a `{…}` expression, or a same-file constant one
  *    renders by name): the sign-in page's trust signal read as if the SEC vouched for the figures (chief design on
- *    #1530). The labels the product shows live in one module, features/filings/lib/evidenceLabels.ts; "located in the
- *    filing" stays in prose.
+ *    #1530). As a source label, "Source: SEC EDGAR", it fails anywhere, in any case, as the retired phrases do: the
+ *    waitlist's tile read it from an array this scan does not follow, and follows the sign-in page to "Filings from
+ *    SEC.gov" (E184). The labels the product shows live in one module, features/filings/lib/evidenceLabels.ts;
+ *    "located in the filing" stays in prose.
  * 2. A link to the source names SEC.gov, not EDGAR, in any case: no link's text (its own and its children's),
  *    aria-label, title or other copy names it. A link is an <a> or <Link>, or any element given an address: an href,
  *    a url, a link or a `to`, or a prop named for one (backHref, ctaHref, secUrl, documentURL, fragment_url,
@@ -78,7 +80,7 @@ const DATA_READS: Record<string, 'shown' | 'picks an element'> = {
 // (allowanceProblems).
 const RETIRED_ALLOWED = new Set([`${BADGE_MODULE}: financial figures not grounded in SEC XBRL data`])
 
-const RETIRED_ANYWHERE = /SEC XBRL|Verified in filing|Source match found/i
+const RETIRED_ANYWHERE = /SEC XBRL|Verified in filing|Source match found|Source: ?SEC EDGAR/i
 const WHOLE_LABELS = ['Cited', 'Located in the filing', 'Verified']
 const WHOLE_LABELS_ANY_CASE = new Set([...WHOLE_LABELS, 'SEC EDGAR'].map((label) => label.toLowerCase()))
 // The parts of a pair: "Revenue · Matches filing", "Revenue • Matches filing", "Revenue | Matches filing".
@@ -715,6 +717,8 @@ describe('the vocabulary scan holds its reach', () => {
     ['markup a module sets, a label in a block of its own', `export const M = () => <div dangerouslySetInnerHTML={{ __html: '<p>Revenue</p><p>Verified</p>' }} />`],
     ['a badge in angle brackets, which React shows as written', `export const V = () => <span>{'<Verified>'}</span>`],
     ['a bare source name in angle brackets in a title', `export const T = () => <span title="<SEC EDGAR>">10-K</span>`],
+    ['a source label naming EDGAR, read from an array', `export const T = () => <div>{[{ title: 'Source: SEC EDGAR' }].map((t) => <h3 key={t.title}>{t.title}</h3>)}</div>`],
+    ['a source label naming EDGAR in JSX text, in capitals', `export const T = () => <span>SOURCE: SEC EDGAR</span>`],
   ])('fails %s', (_, source) => {
     expect(breaches(source)).toContain('retired label')
   })
@@ -728,6 +732,7 @@ describe('the vocabulary scan holds its reach', () => {
 
   it.each([
     ['an attribution outside a link', `export const F = () => <p>Data sourced from SEC EDGAR</p>`],
+    ['the source line the sign-in page and the waitlist share', `export const T = () => <div>{[{ title: 'Filings from SEC.gov' }].map((t) => <h3 key={t.title}>{t.title}</h3>)}</div>`],
     ['a comment inside a link', `export const A = ({ u }: { u: string }) => <a href={u}>{/* the EDGAR document */}Open the filing on SEC.gov</a>`],
     ['an address built from an EDGAR helper', `export const A = ({ cik }: { cik: string }) => <a href={edgarCompanyUrl(cik)}>Full history on SEC.gov</a>`],
     ['an address handed as a url', `export const A = () => <SourceTrace url="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany" label="Open the 10-K on SEC.gov" />`],
