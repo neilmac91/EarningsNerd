@@ -1031,8 +1031,8 @@ kept unchanged for the records that pin it) predates #1111's second generation a
 report that holds a recovered row. A report recorded before the 2026-10-16 eligibility change whose
 withheld row's first generation was under the floor or twice-declared replays as UNEXPLAINED under
 later code, because the replay asks for a second generation the run never recorded. So does a report
-recorded before the 2026-10-23 trailer retry whose withheld row's first generation ended in `Unexpected
-citation trailer`. That fails closed: the PR merges main and draws on its new head.
+recorded on a head without #1551's trailer retry whose withheld row's first generation ended in
+`Unexpected citation trailer`. That fails closed: the PR merges main and draws on its new head.
 
 **Gating rule — two different standards (July 2026, learned the hard way):**
 - **Resolver/guard changes** gate DETERMINISTICALLY: the offline suites replay real failure shapes

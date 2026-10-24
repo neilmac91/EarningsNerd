@@ -214,6 +214,27 @@ async def test_retry_exhaustion_has_one_terminal_error_without_private_candidate
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("surface", ["answer", "repeated_citations"])
+async def test_a_regeneration_due_after_the_question_budget_is_never_started(monkeypatch, surface):
+    """The retry condition's deadline clause (``answer_filing_question``): a rejection that would buy the
+    regeneration once the question's budget has run out ends with the publication error. No second provider
+    call starts, so the stream never ends in the failure an expired budget would raise inside it."""
+    calls = []
+
+    async def stream(*_args, **kwargs):
+        calls.append(kwargs["deadline"])
+        yield rejected(surface)
+
+    monkeypatch.setattr(copilot_service, "chat_deadline", lambda: asyncio.get_running_loop().time())
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
+    rows = await collect()
+    assert len(calls) == 1
+    assert [row for row in rows if row["type"] in {"complete", "error"}] == [
+        {"type": "error", "message": copilot_service._PUBLICATION_ERROR},
+    ]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("case", [
     "malformed", "upstream", "ambiguous", "missing_source",
     "missing_source_excerpt", "quoted_section", "missing_id",
