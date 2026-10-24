@@ -189,3 +189,13 @@ line its settled controls could not, so the header grew 56px as the check settle
 scrolled. The full bar now shows from 72rem (1152px, 2304px with the text doubled), sized from its widest row with
 either access mode's label (1057px in Inter, 1123px in DejaVu Sans), and `frontend/tests/e2e/reflow-200.spec.ts`
 holds the compact bar just below it and the full bar on one line at it, the longest label set in as a copy fixture.
+
+**Recurrence (2026-10-24, the company page's filings index, E168)**: the index's grid switched at `md` and its rows at
+`sm`, and the page's Compare periods column at `lg`, px breakpoints, while what they hold is set in rem: the grid's
+fixed tracks (20rem) and the column (20rem) double with the text. Under 200% text the grid's period column was 0px
+wide at 768, 1024 and 1440px, its dates printing over the periods; at 1024px the column left the filings card 208px,
+its rows running under the Compare periods card; and on a phone the code column and the EDGAR square's room left the
+period no width, so at 320px a year's caret painted past the card, and from 320 to 390px the square sat over the
+period. They now switch at 40, 48 and 64rem, and below 15rem of list a row stacks (a container query), and
+`frontend/tests/e2e/reflow-200.spec.ts` loads the index at 320 to 2304px under 200% text. The two other grids with
+rem tracks behind a px breakpoint (`NarrativePane`'s `sm`, `SummaryBlocks`'s `lg`) were not measured here.

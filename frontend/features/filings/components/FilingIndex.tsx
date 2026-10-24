@@ -58,13 +58,14 @@ export interface FilingIndexProps {
 // set — the responsive-grid-base-track rule). From 48rem: form · period · filed · actions.
 // The index's breakpoints are rem media queries (48rem for md's grid, 40rem for sm's rows), which follow the reader's
 // text size: 768 and 640px at the default size, as md and sm were, and 1536 and 1280px under 200% text. At md and sm,
-// px at any size, the four-column grid and the toolbar's row needed 640 and 637px under 200% text, and ran past a
-// 576px list at 768px and a 142px one at 1024px (E168; the company page's columns, in page-client.tsx, likewise).
-// Below 15rem of list (a phone under enlarged text: up to 610px under 200% text and 458px under 150%, and never at the
-// default size from 320px up) a row is one column (the container variant): its form code beside the EDGAR square, then its
-// period and filed date at the row's whole width. Beside the 3.5rem code column and the EDGAR square's 3.5rem the
-// period had no width left at 320px under 200% text, and from 320 to 360px the square sat over its last word. The list
-// is the query container (`[container-type:inline-size]`); a container query's rem is the reader's text size too.
+// px at any size, the grid's fixed tracks (20rem, 640px under 200% text) left the period column 0px in a 578px list at
+// 768px, a 526px one at 1440px and a 110px one at 1024px, and the toolbar's 637px row ran past the card (E168; the
+// company page's columns, in page-client.tsx, likewise).
+// Below 15rem of list (a phone under enlarged text: below 610px under 200% text and 458px under 150%, and never at the
+// default size from 306px up) a row is one column (the container variant): its form code beside the EDGAR square, then
+// its period and filed date at the row's whole width. Beside the 3.5rem code column and the EDGAR square's 3.5rem the
+// period had no width left at 320px under 200% text, and from 320 to 390px the square sat over its text. The list is
+// the query container (`[container-type:inline-size]`); a container query's rem is the reader's text size too.
 const ROW_TRACKS =
   'grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2 [@container(width<15rem)]:grid-cols-1 [@media(min-width:48rem)]:grid-cols-[4.5rem_minmax(0,1fr)_8.5rem_7rem] [@media(min-width:48rem)]:gap-x-0'
 // Display is set apart from the tracks: `grid` and `hidden` in one class string would resolve by
