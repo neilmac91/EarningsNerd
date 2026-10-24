@@ -190,6 +190,15 @@ scrolled. The full bar now shows from 72rem (1152px, 2304px with the text double
 either access mode's label (1057px in Inter, 1123px in DejaVu Sans), and `frontend/tests/e2e/reflow-200.spec.ts`
 holds the compact bar just below it and the full bar on one line at it, the longest label set in as a copy fixture.
 
+**Recurrence (2026-10-24, the compact bar's wordmark and the full bar's controls, E175; chief design on #1558)**:
+the compact bar showed its wordmark from `sm`, 640px at any text size, so with the text doubled a guest's row
+stopped fitting at 640 to 900px and the bar grew 14 or 88px as the account link appeared. The wordmark now shows
+from 40rem (1280px with the text doubled). And the full bar's controls changed width as the check settled, from
+the 36px placeholder to a guest's links or a reader's avatar, so its nav moved 35 to 211px; a hidden copy of a
+guest's controls now shares their grid cell, so the cell keeps a guest's width in every state, in any font and
+either access mode. `frontend/tests/e2e/header-covers-nothing.spec.ts` holds the header's height at 640 and 800px
+under 200% text with either label, and the nav's left edge in each full-bar state.
+
 **Recurrence (2026-10-24, the company page's filings index, E168)**: the index's grid switched at `md` and its rows at
 `sm`, and the page's Compare periods column at `lg`, px breakpoints, while what they hold is set in rem: the grid's
 fixed tracks (20rem) and the column (20rem) double with the text. Under 200% text the grid's period column was 0px
