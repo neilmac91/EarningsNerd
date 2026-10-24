@@ -10,12 +10,22 @@ from sqlalchemy.orm import Session
 from app.models import User
 
 
-def apply_profile_update(db: Session, current_user: User, data: Dict[str, Any]) -> None:
-    """Apply the validated profile fields and commit (``data`` holds only the fields the client sent)."""
+def apply_profile_update(db: Session, current_user: User, data: Dict[str, Any]) -> Dict[str, Any]:
+    """Apply the validated profile fields and commit (``data`` holds only the fields the client sent);
+    return the profile the response shows.
+
+    The profile is read before the commit, which expires the row: read after it, the row would be
+    loaded again on a new checkout."""
     if "full_name" in data:
         current_user.full_name = data["full_name"]
+    profile = {
+        "id": current_user.id,
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "is_pro": current_user.is_pro,
+    }
     db.commit()
-    db.refresh(current_user)
+    return profile
 
 
 def delete_user(db: Session, current_user: User) -> None:

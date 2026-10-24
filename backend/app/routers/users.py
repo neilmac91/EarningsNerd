@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator
@@ -14,6 +15,7 @@ from app.routers.auth import get_current_user, _clear_auth_cookie, _clear_refres
 # The user_* services are imported as modules, not functions: their functions stay patchable at
 # their home, and no handler below can shadow a service function of the same name.
 from app.services import user_account_service, user_data_export_service, user_notification_feed_service
+from app.services import filing_list_service
 from app.services.audit_service import log_user_deletion, log_data_export
 from app.services.entitlements import get_entitlements
 from app.services.notification_service import (
@@ -103,13 +105,17 @@ async def update_profile(
 ):
     """Update editable profile fields (currently the display name)."""
     data = payload.model_dump(exclude_unset=True)
-    user_account_service.apply_profile_update(db, current_user, data)
-    return {
-        "id": current_user.id,
-        "email": current_user.email,
-        "full_name": current_user.full_name,
-        "is_pro": current_user.is_pro,
-    }
+
+    def update() -> Dict[str, Any]:
+        # Each account route's session work is one unit in the thread pool: its reads and writes, its
+        # payload and the release, so no checkout or statement waits on the event loop
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            return user_account_service.apply_profile_update(db, current_user, data)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(update)
 
 
 class NotificationPreferencesResponse(BaseModel):
@@ -162,8 +168,16 @@ async def get_notification_preferences(
     db: Session = Depends(get_db),
 ):
     """Get the current user's new-filing alert preferences (creating defaults if none exist)."""
-    prefs = get_or_create_preferences(db, current_user.id)
-    return _prefs_response(prefs, get_entitlements(current_user))
+
+    def read() -> NotificationPreferencesResponse:
+        try:
+            prefs = get_or_create_preferences(db, current_user.id)
+            # The plan reads the account's subscription row, so it is resolved inside the unit too.
+            return _prefs_response(prefs, get_entitlements(current_user))
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(read)
 
 
 @router.put("/me/notification-preferences", response_model=NotificationPreferencesResponse)
@@ -177,18 +191,26 @@ async def update_notification_preferences(
     Pro-gated toggles (``realtime``, ``notify_8k``) are accepted but **coerced off** for non-Pro
     users (rather than erroring), so the frontend can show them as locked Pro upsells.
     """
-    prefs = get_or_create_preferences(db, current_user.id, commit=False)
-
     VALID_CHANNELS = {"email", "in_app"}
     VALID_DIGESTS = {"immediate", "daily", "weekly"}
     data = update.model_dump(exclude_unset=True)
-    if "channel" in data and data["channel"] not in VALID_CHANNELS:
-        raise HTTPException(status_code=400, detail=f"Channel must be one of: {', '.join(sorted(VALID_CHANNELS))}.")
-    if "digest" in data and data["digest"] not in VALID_DIGESTS:
-        raise HTTPException(status_code=400, detail=f"Digest must be one of: {', '.join(sorted(VALID_DIGESTS))}.")
 
-    ent = apply_preference_update(db, prefs, data, current_user)
-    return _prefs_response(prefs, ent)
+    def write() -> NotificationPreferencesResponse:
+        try:
+            # A refusal is raised in the unit too, so it still releases the auth lookup's connection.
+            if "channel" in data and data["channel"] not in VALID_CHANNELS:
+                raise HTTPException(
+                    status_code=400, detail=f"Channel must be one of: {', '.join(sorted(VALID_CHANNELS))}.")
+            if "digest" in data and data["digest"] not in VALID_DIGESTS:
+                raise HTTPException(
+                    status_code=400, detail=f"Digest must be one of: {', '.join(sorted(VALID_DIGESTS))}.")
+            prefs = get_or_create_preferences(db, current_user.id, commit=False)
+            ent = apply_preference_update(db, prefs, data, current_user)
+            return _prefs_response(prefs, ent)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(write)
 
 
 # --------------------------------------------------------------------------- in-app notifications
@@ -244,7 +266,14 @@ async def list_notifications(
     db: Session = Depends(get_db),
 ):
     """Recent filing alerts for the in-app bell, newest first, plus the unread count."""
-    return _notifications_payload(db, current_user, limit)
+
+    def read() -> NotificationListResponse:
+        try:
+            return _notifications_payload(db, current_user, limit)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(read)
 
 
 @router.post("/me/notifications/seen", response_model=NotificationListResponse)
@@ -252,14 +281,17 @@ async def mark_notifications_seen(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Mark the bell as opened (resets the unread count). Returns the now-read recent list.
+    """Mark the bell as opened (resets the unread count). Returns the now-read recent list, built from
+    the user ``mark_seen`` reads back after its commit."""
 
-    Fetch the real row via ``db.get`` and mutate it directly (rather than a bulk UPDATE) so the
-    response is built from a fresh, in-session user — robust regardless of ``expire_on_commit`` — and
-    so it works for the test stand-in (a non-session user) too.
-    """
-    user = user_notification_feed_service.mark_seen(db, current_user)
-    return _notifications_payload(db, user, 20)
+    def mark() -> NotificationListResponse:
+        try:
+            user = user_notification_feed_service.mark_seen(db, current_user)
+            return _notifications_payload(db, user, 20)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(mark)
 
 
 @router.get("/export")

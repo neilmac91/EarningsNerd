@@ -135,13 +135,23 @@ in one assignment, and the route runs it and the release as one thread-pool unit
 A cache hit now takes a thread hop as well, and a miss waits for the fill on a thread, holding no
 connection. Its burst case holds every checkout off the loop and nothing left for the finalizer
 (2026-10-24, E171).
+The account routes (the profile edit, the alert preferences' read and update, and the bell's list and
+mark) handed their session to services on the loop, on the connection the auth lookup had checked out.
+Eight readers of each on four slots answered as they should, but every statement after the auth lookup
+ran on the loop (16 of 24 for eight profile edits or bell reads, 40 of 48 for eight first preference
+reads or updates, 32 of 40 for eight marks), each write's read after its commit checked a connection out
+there (8 of 16), and every one of them, a refused update included, left its transaction for the
+finalizer. Each is now one thread-pool unit that shapes its answer and releases its session, the
+update's refusal and the plan behind its Pro toggles (the account's subscription row) inside it too, and
+two of their writes are atomic in the database (below). Their burst case holds every checkout,
+statement and release off the loop, each answer and each reader's rows (2026-10-24, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
 dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
 rules, uses it. Its ceilings hold the routes that still hand their session to a call on the loop at
-their counts (the rest of the auth router, E121, and 22 routes in three other routers, E171; five of
+their counts (the rest of the auth router, E121, and 17 routes in three other routers, E171; five of
 those hand-offs, the header's strict ones, use no connection on the loop), so none can add one in a
 form the ratchet counts and a new route starts at 0. Neither half
 sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called
@@ -160,11 +170,18 @@ E118's reviews found that five of its units had relied on the loop's order. With
 Each now holds a lock from its check to its commit (2026-10-19). E171's saved-summary slice found three
 more in the library's writes, each now under `saved_summary_service.saved_row_lock`: two saves of one
 summary both passed the duplicate check and stored it twice, two deletes of one row both succeeded, and a
-notes update racing a delete failed on the deleted row (`StaleDataError`, a 500) (2026-10-24). The gate is
-`backend/tests/unit/test_check_then_write_units_serialize.py`. It meets two threads inside each unit
-after their checks, so without the lock the race happens however loaded the host, and it fails any
-checkout made inside the watch-row or saved-row lock in the races it runs. It covers those eight units
-only.
+notes update racing a delete failed on the deleted row (`StaleDataError`, a 500) (2026-10-24). E171's
+account slice found two more and writes each atomically in the database instead, which reaches every
+instance and the alert scanner too: two first reads of one account's alert preferences both found no
+row, and the second insert's clash on the unique `user_id` answered 500, so the insert runs under a
+SAVEPOINT and a clash reads the stored row (`notification_service.get_or_create_preferences`); and of
+two marks of the bell, the one stamped first could commit last and put its earlier stamp back, so the
+mark's UPDATE writes its stamp only over an older one (`user_notification_feed_service.mark_seen`)
+(2026-10-24). The gate is `backend/tests/unit/test_check_then_write_units_serialize.py`. It meets two
+threads inside each unit after their checks (for the marks, the one stamped first writes once the other
+has committed), so without the lock or the atomic write the race happens however loaded the host, and
+it fails any checkout made inside the watch-row or saved-row lock in the races it runs. It covers those
+ten units only.
 
 Those locks reach one process, and the API runs up to two instances, across which the five races stayed
 open. Since E128 each unit also takes, before its check, a lock in the database that every instance
