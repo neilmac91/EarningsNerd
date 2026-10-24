@@ -15,8 +15,8 @@ import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, property
  *
  * Every .ts and .tsx file under app/, components/, features/, lib/ and hooks/ that spells the token (the dash, a
  * `\u2014` escape, an entity JSX decodes, `&mdash;`, `&#8212;` or `&#x2014;`, or `String.fromCharCode(0x2014)`) is
- * read through the shared reader (tests/unit/heldValues.ts) with `passThrough` on, which follows React's state
- * too (E159: what useState, useReducer, useRef and the other hooks its header names keep), so a value is followed from every
+ * read through the shared reader (tests/unit/heldValues.ts), which follows React's state for every gate (E159: what
+ * useState, useReducer, useRef and the other hooks its header names keep), with `passThrough` on, so a value is followed from every
  * place a name is given it to every place it renders, and a call the reader cannot see is taken to give back what it
  * is handed. The token renders, and fails where it does, as:
  *  - JSX text, or an expression child whose value may hold it, of an intrinsic element, a fragment or a component
