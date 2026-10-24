@@ -99,11 +99,17 @@ call; checkout's claim of a new customer, and its trial's row check after the cu
 are units of their own; and every Stripe call runs off the loop, on the Stripe threads since E170. Their burst case holds every statement, release and Stripe call off the loop and each new
 customer to its own account, and a single request makes each Stripe call with no connection out
 (2026-10-23, E144).
-The pool-lifetime file's AST ratchet reads every async router function and fails a session call on the
-loop in its own body above that function's ceiling (on main before the fix it named both summaries
-routes). Neither half sees a session handed to a service that runs on the loop where the burst does
-not list the route (the rest of the
-auth router, E121, and 29 routes in six other routers, E171), or a background task's own session worked on the loop
+The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
+ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
+routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
+dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
+passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
+rules, uses it. Its ceilings hold the routes that still hand their session to a call on the loop at
+their counts (the rest of the auth router, E121, and 31 routes in seven other routers, E171; six of
+those hand-offs, the header's strict ones, use no connection on the loop), so none can add one in a
+form the ratchet counts and a new route starts at 0. Neither half
+sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called
+where it is written) where the burst does not list the route, or a background task's own session worked on the loop
 (E123 moved the company list's units into the thread pool, `test_filings_endpoint_db_first.py`'s
 off-the-loop cases; the flag-off job runners are E150), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.
