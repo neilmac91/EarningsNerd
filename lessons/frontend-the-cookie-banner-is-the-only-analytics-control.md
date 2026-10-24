@@ -21,8 +21,7 @@ founder-authorized initial-release policy (2026-10-23). No browser privacy signa
 turns them off, stands in for a first choice or hides the bar.
 
 (b) App code reads no such signal. A change that reads one changes /privacy's sentence ("Analytics in your browser stays off until you allow it, and you can change your choice at any
-time in Cookie settings. Session recording is disabled. We don't change this based on your browser's
-Do Not Track setting.") in the same PR,
+time in Cookie settings. We don't change this based on your browser's Do Not Track setting.") in the same PR,
 under a decision of the founder's.
 
 (c) A spec that sends a signal checks both states: a first visit, where the bar shows, and a choice already
