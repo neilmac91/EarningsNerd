@@ -1193,10 +1193,17 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  that focusout (`flushSync`; React's own flush is too late with script on the stack), and the
                  close publishes the bar's height in the same commit, before the browser scrolls the next
                  control into view; otherwise that scroll reserves the open menu, which fills the screen under
-                 200% text. A press outside it (a tap or a click, on a control or on text, marked from its
-                 mousedown to the next task) leaves it open, and a navigation closes it: a close on the press
-                 moved the page under the pointer at the top of a page, and the release activated nothing. A
-                 focus a modal layer takes closes it with a plain update. Escape closes it too, unless a layer
+                 200% text. Below lg a press outside it (a tap or a click, on a control or on text, marked
+                 from its mousedown to the next task) leaves it open, and a navigation closes it: in the
+                 header's flow a close on the press moved the page under the pointer at the top of a page, and
+                 the release activated nothing. From lg, where it lies over the page (its own position absolute,
+                 read at the press, not a breakpoint repeated in the code), a press outside the header closes
+                 it, as it closes the bar's other menus: the header keeps the bar's height, so nothing moves and
+                 the press lands where it was aimed (E182, chief design on #1565; gate:
+                 tests/e2e/header-covers-nothing.spec.ts clicks the landing's pricing switch below the open menu
+                 at 1024x768 and 1100x800, and the menu closes, the switch takes the click and the page holds;
+                 tests/unit/Header.spec.tsx holds both rules). A focus a modal layer takes closes it with a
+                 plain update. Escape closes it too, unless a layer
                  above took the key, returning a focus inside the menu to its toggle; a blur with no next
                  target (another window) leaves it open. Gates:
                  tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/unit/Header.spec.tsx (the menu's
