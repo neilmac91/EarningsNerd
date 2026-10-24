@@ -252,9 +252,10 @@ function emailVerifiedSites(rel: string, source: string): string[] {
  */
 const EMAIL_VERIFIED_READS: [site: string, what: string][] = [
   ['app/routers/subscriptions.py::create_checkout_session', 'the gate: its 403 says "verify your email", and the banner and the dialog name subscribing'],
+  ['app/routers/subscriptions.py::_read_checkout_account', "checkout's first unit, which reads the state for that gate before the session's release"],
   ['app/services/oauth_account_service.py::resolve_google_user', "links Google to an existing account only once both sides have verified the email (the login page's conflict sentence)"],
   ['app/services/oauth_account_service.py::resolve_apple_user', 'the same for Apple'],
-  ['app/routers/auth.py::resend_verification', 'sends no link to a verified address; the answer reads the same either way'],
+  ['app/services/account_mail_service.py::_issue_link', 'sends no verification link to a verified address, after the response; resend-verification answers the same either way'],
   ['app/routers/auth.py::get_current_user_info', 'reports the state (/me), which shows or hides the banner'],
   ['app/services/admin_account_service.py::_provision_account', "reports a new account's state to the admin who created it"],
 ]

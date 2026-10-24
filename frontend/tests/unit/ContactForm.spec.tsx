@@ -106,6 +106,6 @@ describe('ContactForm success panel', () => {
     fillAndSend()
     const heading = await screen.findByRole('heading', { name: 'Message sent' })
     expect(heading.tagName).toBe('H2')
-    expect(screen.getByText('We have your message and will reply within 1–2 business days.')).toBeInTheDocument()
+    expect(screen.getByText('Thanks for your message. The aim is to reply within 2 business days.')).toBeInTheDocument()
   })
 })

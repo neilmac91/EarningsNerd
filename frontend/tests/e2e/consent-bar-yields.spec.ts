@@ -131,7 +131,7 @@ const hitsScrim = (loc: Locator) =>
     return !!at && at !== el && !el.contains(at) && at.classList.contains('bg-overlay')
   })
 /** The site header's bottom edge: the desktop pane sticks there (`lg:top-[var(--site-header-h,4rem)]`), at
-    the header's measured height (61px at 1440 at the default text size), not at a fixed 4rem. */
+    the header's measured height (65px at 1440 at the default text size since E174), not at a fixed 4rem. */
 const headerBottom = (page: Page) => page.evaluate(() => Math.round(document.querySelector('header')!.getBoundingClientRect().bottom))
 const viewport = (page: Page) => page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h

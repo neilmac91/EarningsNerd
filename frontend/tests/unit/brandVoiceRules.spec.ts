@@ -735,13 +735,12 @@ const TREE_REACH = discoverReach(SOURCES)
  * file, or why the text stays.
  */
 const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
-  'app/privacy/page.tsx': { sentenceCase: 16 }, // founder-gated, legal page: its headings wait on the founder (legalDates bump)
   'app/terms/page.tsx': { sentenceCase: 4 }, // founder-gated, legal page: its headings wait on the founder (legalDates bump)
   'features/admin/components/ShareInvite.tsx': { sentenceCase: 1 }, // a known false positive, no PR: the aria-label "Share invite via Messages" names Apple's app; the entry leaves when the label changes
   'features/filings/components/copilot/FilingWorkspace.tsx': { sentenceCase: 1 }, // the Copilot rail's next change (no open PR edits the flagged line; #1278 edits another line of this file; the aria-label "Filing source and Ask")
   'features/marketing/components/ProDepth.tsx': { sentenceCase: 1 }, // the FeatureRow title "Change Report": a product screen's name beside Ask this Filing and Multi-Period Analysis, which PROPER_NOUNS lists and this does not, while the product also writes "change report" in prose (ComparePeriodsCard); the name's case is the records PR's call (07-voice.md); #1311 left it
 }
-const VOICE_RESIDUE_MAX = { entries: 5, violations: 23 }
+const VOICE_RESIDUE_MAX = { entries: 4, violations: 7 }
 
 describe('brand voice rules (docs/brand/07-voice.md)', () => {
   // An element past MAX_VARIANTS throws; the residue test reports it rather than the whole file failing to load.

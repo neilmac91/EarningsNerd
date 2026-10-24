@@ -1,7 +1,9 @@
-"""Small HTTP-target Cloud Tasks adapter; no credentials or filing documents enter task bodies.
+"""Small HTTP-target Cloud Tasks adapter; no credentials, tokens or filing documents enter task bodies.
 
 The metadata server supplies the runtime identity. Deterministic names make an ambiguous create
-safe to retry; HTTP success at the worker means the existing service has finished persistence.
+safe to retry; HTTP success at the worker means the existing service has finished persistence. An
+account mail's body (``AccountMailTask``) is the one that carries a person's address: the address a
+request named and which mail, nothing else (``account_mail_service``, F60).
 """
 from __future__ import annotations
 
@@ -27,7 +29,7 @@ class TaskUnavailable(RuntimeError):
 
 class TaskEnvelope(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["filings", "history", "companyfacts", "internal_job", "probe"]
+    kind: Literal["filings", "history", "companyfacts", "account_mail", "internal_job", "probe"]
     payload: dict
 
 
@@ -38,6 +40,18 @@ class CompanyTask(BaseModel):
 
 class FilingsTask(CompanyTask):
     filing_types: list[str] = Field(min_length=1)
+
+
+AccountMail = Literal["password_reset", "verification"]
+
+
+class AccountMailTask(BaseModel):
+    """The address a forgot-password or resend-verification request named (its schema validated and
+    normalized it) and which mail, nothing else: the worker looks the account up. A refused body's
+    error never quotes its input, the address, so a worker that logs it logs no address."""
+    model_config = ConfigDict(extra="forbid", strict=True, hide_input_in_errors=True)
+    email: str = Field(min_length=3, max_length=320)
+    mail: AccountMail
 
 
 _token: str = ""
@@ -96,6 +110,8 @@ async def enqueue_task(
         FilingsTask.model_validate(payload)
     elif kind in ("history", "companyfacts"):
         CompanyTask.model_validate(payload)
+    elif kind == "account_mail":
+        AccountMailTask.model_validate(payload)
     elif kind == "probe" and payload:
         raise ValueError("Probe tasks contain no business payload")
     body = json.dumps(envelope.model_dump(), sort_keys=True, separators=(",", ":"))

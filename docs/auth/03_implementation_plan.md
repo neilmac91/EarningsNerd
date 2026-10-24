@@ -560,7 +560,7 @@ backend/tests/unit/test_oauth_linking.py
 - [ ] Google OAuth consent screen: verified (submit to Google for production approval)
 - [ ] Apple Developer: domain `earningsnerd.io` verified, Services ID registered, redirect URIs confirmed
 - [ ] Resend: `earningsnerd.io` domain verified for sending; SPF/DKIM configured
-- [ ] Apple email relay: `no-reply@earningsnerd.io` (or chosen from address) registered in Apple Dev Console
+- [ ] Apple email relay: the verified transactional sender (currently `hello@inbound.earningsnerd.io`, with Reply-To `support@earningsnerd.io`) registered in Apple Dev Console
 - [ ] `APPLE_PRIVATE_KEY` calendar reminder set for 5.5 months from key creation date
 - [ ] Auth event monitoring: PostHog dashboard or Sentry alert on auth failure rate > 5%
 - [ ] Run manual test checklist items 1–15

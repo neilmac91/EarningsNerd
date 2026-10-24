@@ -64,8 +64,10 @@ def _main(*, apply: bool, tickers: list[str] | None, limit: int | None) -> None:
 
 
 if __name__ == "__main__":
+    from app.public_email_addresses import SUPPORT_EMAIL
+
     os.environ.setdefault("SKIP_REDIS_INIT", "true")
-    os.environ.setdefault("EDGAR_IDENTITY", "EarningsNerd support@earningsnerd.io")
+    os.environ.setdefault("EDGAR_IDENTITY", f"EarningsNerd {SUPPORT_EMAIL}")
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(
         description="Audit stored financial_fact.reconciled flags (dry run unless --apply)."

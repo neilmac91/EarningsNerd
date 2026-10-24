@@ -5,7 +5,9 @@ import asyncio
 
 from app.database import SessionLocal
 from app.models import Company
-from app.services import facts_service, filing_history_service, filing_list_service, filing_scan_service
+from app.services import (
+    account_mail_service, facts_service, filing_history_service, filing_list_service, filing_scan_service,
+)
 from app.services.durable_tasks import CompanyTask, FilingsTask, TaskEnvelope
 from app.services.edgar.compat import sec_edgar_service
 
@@ -18,6 +20,9 @@ async def run_background_task(envelope: TaskEnvelope) -> None:
     if envelope.kind == "internal_job":
         from app.services.internal_task_runner import run_internal_task
         await run_internal_task(envelope.payload)
+        return
+    if envelope.kind == "account_mail":
+        await account_mail_service.run_account_mail_task(envelope.payload)
         return
     if envelope.kind == "filings":
         task = FilingsTask.model_validate(envelope.payload)

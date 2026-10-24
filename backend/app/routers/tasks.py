@@ -1,4 +1,5 @@
-"""Authenticated Cloud Tasks receiver. Acknowledgement follows successful persistence."""
+"""Authenticated Cloud Tasks receiver. Acknowledgement follows successful persistence, or for an account
+mail an attempted send (``account_mail_service.send_account_mail``)."""
 from __future__ import annotations
 
 import logging

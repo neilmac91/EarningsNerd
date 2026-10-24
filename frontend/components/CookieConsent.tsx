@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useCallback, useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { CookieIcon } from '@/lib/icons'
@@ -286,8 +287,9 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                 </h3>
                 <p id="cookie-recording-desc" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Records your interactions with the site to help us identify and fix bugs.
-                  Sensitive information (passwords, payment details) is always masked. This is
-                  more invasive and is opt-in only.
+                  Recording also requires Analytics cookies to be enabled. Input fields are configured
+                  to be masked, but information displayed elsewhere on a page may still appear.
+                  This is opt-in only.
                 </p>
               </div>
               <div>
@@ -308,8 +310,8 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
           For more information, see our{' '}
           <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
             Privacy Policy
-          </Link>
-          .
+          </Link>. For cookie or privacy questions, email{' '}
+          <a href={contactMailto('privacy')} className="break-all text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.privacy}</a>.
         </p>
       </ModalBody>
 

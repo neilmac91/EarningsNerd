@@ -348,6 +348,22 @@ outbound email: frozen recipient/sender/subject/HTML and plain-text part, the pr
 filings each batch owns). The plain-text part (`body_text`, E110) is covered by the batch's
 `payload_sha256`; a batch frozen before the column holds NULL there and replays as it was frozen,
 its page alone, under the digest it was frozen with.
+Reply-To is also frozen in that envelope and covered by `payload_sha256`. Batches with a
+frozen Reply-To use `reply_to:ready`, `reply_to:claimed`, `reply_to:sending` and
+`reply_to:retryable`; all four remain outside older workers' due, claim and stale-lease
+predicates. Compatible workers accept both state families and retain the family from the
+persisted status on every claim, retry, re-key and lease recovery, even if `reply_to` changes or
+becomes NULL. Legacy NULL Reply-To batches retain their legacy states, omitted header, payload
+hash and provider key. No batch kinds, queues or job schedules change.
+
+During a rollback to an older image, new-protocol batches wait until a compatible worker is
+restored; the older image can continue processing legacy batches. Retain the nullable column,
+status values, provider keys and item ownership. Do not use SQL to relabel states, re-key these
+batches or release their filings to bypass the protocol boundary. Ready/retryable batches
+resume with a compatible worker, and expired preparation leases recover normally. An expired
+sending lease still becomes `ambiguous` and needs the human reconciliation below; rollback
+preserves that uncertainty.
+
 `accepted`, `suppressed` and `ambiguous` are terminal. `ambiguous` means the provider's answer
 was lost after bytes may have left (timeout, dropped connection, unparsable or non-object 5xx
 response, expired sending lease, exhausted attempts, payload drift): the job never dispatches it
@@ -400,6 +416,32 @@ each ended in a documented non-acceptance (the old drain re-keys one whose repla
 before it parks it). Give its filings back to selection as above. Otherwise a `retryable` batch
 needs no action: the job retries it with backoff, re-keying it if the replay window closed.
 Historical `notification_log` rows are never replayed.
+
+### Account mail (F60)
+
+Forgot-password and resend-verification queue their mail, the `account_mail` task, on the shared
+`earningsnerd-background` queue whenever `DURABLE_TASKS_ENABLED` is on (production since
+2026-10-08), so the private task worker sends it, not the API.
+
+- **Where failures surface.** A failed send logs `Reset email NOT sent to user id=N: <class>` (or
+  `Verification email ...`) at ERROR and is not retried. A send that sent nothing (a 429, a 5xx, no
+  connection, no API key) logs `... email not sent to user id=N: <class> (nothing sent)`, and Cloud
+  Tasks delivers it again, up to the queue's five attempts. The worker reports to no Sentry (F50
+  (1)), so these lines reach Cloud Logging only: filter `earningsnerd-task-worker` for `email NOT
+  sent` and `(nothing sent)`. Registration's own verification mail is still sent from the API, whose
+  ERROR lines reach Sentry.
+- **The cap.** `ACCOUNT_MAIL_LIMITER` (`routers/auth.py`) admits 60 account mails an hour per API
+  instance across both routes, after each caller's per-IP (20 an hour per route) and per-address (3
+  an hour) limits. Past it every address gets the same 429 until the window turns, so a flood costs
+  that hour's reset and verification mail instead of backing the queue up.
+- **Latency.** A mail waits behind the task the worker is running (up to the 480 s work timeout) and
+  anything queued before it.
+- **Rollback.** CI updates the worker before the API, so a forward deploy is safe. A revert deploys
+  in the same order, so account mail queued until the API's revert lands meets a worker whose
+  `TaskEnvelope` has no `account_mail` kind: it fails every attempt (422) and is lost, and its senders
+  must ask again. To lose none, first roll the API's traffic back (the Ops workflow's
+  `rollback-traffic`), which stops new account mail reaching the queue; let the queue drain; then
+  revert. Never pause or delete the queue (`docs/DEPLOYMENT.md`).
 
 ### Monitoring Alerts (Suggested Thresholds)
 
@@ -519,7 +561,7 @@ ready transition's own review must have completed. A later manual review of a di
 supersede that completed review's findings; a manual review of the same head requires the ready
 review itself to be clean. A completed review of an earlier head is not enough, because a push does not
 re-trigger Codex here: after fix commits, comment `@codex review` at once, or, while a review
-still shows Running, once it settles. The gate waits up to
+still shows Running, once it completes or is an hour old. The gate waits up to
 twenty minutes, then fails naming the remedy; an `@codex review` comment re-runs the newest gate run
 on the pull request's current head automatically (the workflow's `issue_comment` job, the only one
 holding a write scope, `actions: write`), so a re-requested review is observed without a manual
@@ -528,11 +570,13 @@ however many runs other pull requests have had since. GitHub re-runs a run only 
 first attempt, at most 50 times; past that the job fails, giving GitHub's reason and the remedy (push,
 or edit the body). The job reports each outcome only in its own log, in the Actions tab: its run sits
 on `main`'s latest commit, so the pull request's checks do not show it. Neither a ready mark nor an
-`@codex review` goes in while a review shows Running: the summary carries no run id, so two starts with
-no completion between them never pair with a completion, however clean, and no re-run repairs that
-history (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md` gives the recovery order, and the
-case of a ready review that hangs, F58's open S1). The gate's log shows its reasons only once its job
-ends: its lines are buffered (F58 row). Logic in
+`@codex review` goes in while a review shows Running: the summary carries no run id, so the gate replays
+its history, pairs each completion with the open start of its head and trigger, never with one begun while
+another of them was open (such a start holds the gate for its whole hour), and waits while any start is open,
+until that review completes or is an hour old, when it counts as abandoned (F58 call 1, approved 2026-10-23). A ready review that hangs therefore stops
+blocking an hour after it started, and one fresh draft-to-ready transition then passes; a ready mark or
+request made inside that hour costs the hour again (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`
+gives the recovery order). The gate prints each reason as it polls. Logic in
 `backend/scripts/review_gate.py` (stdlib only), pinned by `tests/unit/test_review_gate.py`. The
 workflow runs on `pull_request_target` and checks out the **base** branch, so a pull request can edit
 neither its own gate script nor the workflow definition (the job never executes pull-request code and
@@ -540,13 +584,15 @@ holds read-only tokens); only the exact Codex GitHub App identity (login, `Bot` 
 trusted; and a reviewed short SHA counts only when the repository resolves it uniquely to the head and
 no other commit of the pull request shares it, so a head minted to share a reviewed prefix stays
 unreviewed while the reviewed object exists. F58 additionally reads GitHub's ready-transition
-timeline and the bot's authenticated comment edit history, pairing a completion with its preceding
-running state. GitHub's event/request timestamps have second precision, so a start in the same second
+timeline and the bot's authenticated comment edit history, replaying it to pair each completion with
+its start. GitHub's event/request timestamps have second precision, so a start in the same second
 cannot establish ordering: the gate requires the next whole-second boundary. The PR's live head
 and latest manual request must agree with that proof. Missing,
 malformed or contradictory evidence waits instead of falling back to an older clean result.
 GitHub retains at most 100 comment revisions and the bot exposes no unique review-run ID, so missing
-required history or ambiguous overlapping starts also wait. Marking ready already requests a review;
+required history waits, and so does a start still open, or an unreadable revision, younger than the hour; a
+start or completion within the hour after an unreadable revision never pairs, and one fresh draft-to-ready
+transition is the way out. Marking ready already requests a review;
 let that cycle finish before sending another manual request for the same head. Thread disposition
 remains a reviewer responsibility (`lessons/ops-merge-after-the-ready-marks-own-codex-review.md`).
 Each run takes the workflow definition from `main` as it

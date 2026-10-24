@@ -17,6 +17,15 @@ caller's choice must shape the work, first validate it where it enters (CLAUDE.m
 bounded canonical set, and count how many distinct payloads one company can produce per dedupe
 bucket. The response can still filter per request. A fix is proven by sending N distinct caller
 values through the real task-naming code, with only the transport faked, and counting the tasks.
+One task departs from this by the founder's decision (F60, option B, 2026-10-23): the account mail
+of forgot-password and resend-verification carries the caller's address, in its body and in its
+dedupe key, since both branches of each route must queue it before any lookup. Its bound is counted:
+the request schema validates the address, and the per-address limit (3 an hour) and per-IP limit (20
+an hour per route) bound each caller, but an IPv6 block rotates past the per-IP one at will, so the
+process-wide `ACCOUNT_MAIL_LIMITER` caps both routes together at 60 an hour per API instance (120 at
+the service's two) against the shared queue's 720 dispatches an hour. A new exception needs the same:
+a founder decision, validation where the value enters, per-caller limits and a process-wide cap taken
+before every enqueue, the count written down, and an `EXEMPT` entry whose callers the gate pins.
 Server-owned names still let a caller pick the company, so a route that needs no login also spends a
 process-wide budget on each handoff. Size it, summed over every serving process, under the queue's
 real drain: a queue that dispatches one task at a time drains one per mean delivery time, which can
@@ -49,19 +58,23 @@ the worker's narrowing. Any other site, such as the operator-only
 Validating a caller's choice into a bounded set, and counting the payloads one company can produce
 per bucket, are review-checked. So are the gate's two limits: it takes `.id` from any object, a
 request model's too, and does not follow callers of `enqueue_internal_job` (today only the
-token-gated internal job routes). What bounds the route since 2026-10-23: `_enqueue_visit_task`
-spends `VISIT_TASK_BUDGET` after its guard and before `enqueue_task`, so a crawl of stored companies
-is served its rows and queues nothing past it. It allows 15 handoffs per 5 minutes per process, 30
-across two instances (0.1/s). The queue dispatches one task at a time, at most 0.2/s, so it drains
-1/max(5 s, mean delivery time); a delivery execs a fresh Python child (about 1.7 s of imports) and a
-history backfill paces 4 EFTS windows at 1 request/s, so a delivery is taken to average 6 s, and
-the cap is then 60% of the drain. The first size, 20, was set against the 0.2/s ceiling and took
-80% of that drain. The synchronous SEC fetch, taken when nothing is stored in the requested forms
-and no listing of the company within the 3-hour freshness TTL found them empty (a first view, once
-per TTL for a company that has none of them, or, on every visit, a listing made only of rows another
-company stores or rows it could not store), spends `LIVE_FETCH_LIMITER` (10 per minute per client IP) and answers 429 past it.
-The payload gate requires a pass-through to spend such a module-level budget first, and a direct
-router `enqueue_task` to sit in a route with `Depends(get_current_user)`. Tests:
+token-gated internal job routes). It does follow the account mail's:
+`test_account_mail_is_queued_only_behind_the_two_routes_limits` holds `queue_account_mail` to the
+auth router's `_queue_account_mail`, that helper to the two routes, each after its two limits, and
+the helper to the cap before its handoff. What bounds the filings route since 2026-10-23:
+`_enqueue_visit_task` spends `VISIT_TASK_BUDGET` after its guard and before `enqueue_task`, so a
+crawl of stored companies is served its rows and queues nothing past it. It allows 15 handoffs per 5
+minutes per process, 30 across two instances (0.1/s). The queue dispatches one task at a time, at
+most 0.2/s, so it drains 1/max(5 s, mean delivery time); a delivery execs a fresh Python child
+(about 1.7 s of imports) and a history backfill paces 4 EFTS windows at 1 request/s, so a delivery
+is taken to average 6 s, and the cap is then 60% of the drain. The first size, 20, was set against
+the 0.2/s ceiling and took 80% of that drain. The synchronous SEC fetch, taken when nothing is
+stored in the requested forms and no listing of the company within the 3-hour freshness TTL found
+them empty (a first view, once per TTL for a company that has none of them, or, on every visit, a
+listing made only of rows another company stores or rows it could not store), spends
+`LIVE_FETCH_LIMITER` (10 per minute per client IP) and answers 429 past it. The payload gate
+requires a pass-through to spend such a module-level budget first, and a direct router
+`enqueue_task` to sit in a route with `Depends(get_current_user)`. Tests:
 `test_filings_routes.py::test_handoffs_past_the_budget_serve_stored_rows_and_queue_nothing_until_the_window_passes`,
 `::test_visits_that_hand_nothing_off_spend_no_budget`,
 `::test_live_fetches_past_the_per_ip_budget_answer_429_only_when_nothing_is_stored` and
