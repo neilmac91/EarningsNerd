@@ -100,7 +100,8 @@ the business card, the footer and the merch; it is the positioning in six words.
 - **Hyphens stay** in compound terms: 10-K, real-time, cold-start, day-of.
 - **En-dashes (–) stay** in genuine numeric or date ranges: Q1–Q4, 30–60s, FY2019–FY2024.
   The analysis page prints a period window through one formatter, `formatAnalysisWindow`
-  (`frontend/features/analysis/lib/periodLabels.ts`), in the form the exports print.
+  (`frontend/features/analysis/lib/periodLabels.ts`), in the form the exports print, and a
+  window of one period as that period: "FY2021 · 1 year", never "FY2021–FY2021".
   `frontend/tests/unit/analysisPeriodWindows.spec.tsx` holds it: no stored key ("FY2019..FY2024")
   or spaced range on the surfaces it renders, no window field read straight into page text, and
   no range joined by hand.

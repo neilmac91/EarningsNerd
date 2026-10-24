@@ -69,9 +69,12 @@ def period_label(period: Any) -> str:
     """Display-only vocabulary; internal lookup and snapshot keys stay unchanged.
 
     A window key "FY2022..FY2024" reads as the range "FY2022–FY2024" (an unspaced en-dash, the
-    voice guide's range form), and a quarter key "2026Q2" as "Q2 2026".
+    voice guide's range form), a window of one period "FY2021..FY2021" as that period, "FY2021"
+    (E177, as the analysis page prints it), and a quarter key "2026Q2" as "Q2 2026".
     """
-    text = re.sub(rf"\b({_PERIOD_KEY})\.\.({_PERIOD_KEY})\b", "\\1\u2013\\2", str(period or ""))
+    text = re.sub(rf"\b({_PERIOD_KEY})\.\.({_PERIOD_KEY})\b",
+                  lambda window: window[1] if window[1] == window[2] else f"{window[1]}\u2013{window[2]}",
+                  str(period or ""))
     return re.sub(r"\b(\d{4})Q([1-4])\b", r"Q\2 \1", text)
 
 

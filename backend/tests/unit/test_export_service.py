@@ -20,6 +20,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.services.analysis_export_metadata import period_label
 from app.services.export_service import SUMMARY_CLOSING_NOTE, ExportService
 from app.services import summary_sections
 
@@ -708,6 +709,20 @@ class TestAnalysisPdfHtml:
         assert ("Input 1: operating cash flow = 2500 USD (2024-01-01 to 2024-12-31) · Accession: "
                 "0000123456-25-000001 · Source tag: us-gaap:Revenues · Filed: 2025-02-14") in html
         assert "raw_tag" not in html and "filed_at" not in html and "accession:" not in html
+
+    def test_one_period_reads_as_that_period(self):
+        """E177: a selection of one period, whose window key the engine writes as "FY2024..FY2024", prints
+        that period in the meta line, as the analysis page prints it under the period picker."""
+        analysis = self._analysis()
+        analysis.period_key = "FY2024..FY2024"
+        analysis.narrative_md = "## The trajectory\nRevenue was $1,500 [2]."
+        analysis.dataset_json.update(period_key="FY2024..FY2024", periods=[{"key": "FY2024"}])
+        html = ExportService().generate_analysis_pdf_html(analysis, self._company())
+        assert '<span class="data">FY2024</span> · ' in html
+        assert "FY2024\u2013FY2024" not in html and "FY2024..FY2024" not in html
+        assert period_label("FY2021..FY2021") == "FY2021" and period_label("2025Q3..2025Q3") == "Q3 2025"
+        assert period_label("FY2022..FY2024") == "FY2022\u2013FY2024" and period_label("2024Q1..2025Q4") == "Q1 2024\u2013Q4 2025"
+        assert period_label("held in FY2021..FY2021, then FY2022..FY2024") == "held in FY2021, then FY2022\u2013FY2024"
 
     def test_titles_ranges_and_note_scopes_read_in_the_voice(self):
         """F07, F12, F20, F21: the title takes a middot, the appendix heading sentence case, the
