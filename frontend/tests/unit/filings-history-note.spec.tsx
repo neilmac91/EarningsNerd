@@ -5,7 +5,7 @@ import FilingsHistoryNote from '@/features/filings/components/FilingsHistoryNote
 import { edgarCompanyUrl } from '@/features/companies/lib/edgar'
 
 // P0-5 guardrail (data-quality plan): the filings panel must state the earliest date shown and
-// link the company's full history on SEC EDGAR by CIK.
+// link the company's full history on SEC.gov (its EDGAR list) by CIK.
 describe('FilingsHistoryNote', () => {
   it('renders the since-date and a CIK-scoped external EDGAR link', () => {
     const { container } = render(
@@ -13,7 +13,8 @@ describe('FilingsHistoryNote', () => {
     )
     expect(container.textContent).toContain('Showing filings since Aug 5, 2025')
 
-    const link = screen.getByRole('link', { name: /full history on sec edgar/i })
+    // A link to the source names SEC.gov, not EDGAR (D-058; evidenceVocabulary.spec.ts).
+    const link = screen.getByRole('link', { name: /full history on sec\.gov/i })
     const href = link.getAttribute('href') ?? ''
     expect(href).toContain('https://www.sec.gov/cgi-bin/browse-edgar')
     expect(href).toContain('action=getcompany')

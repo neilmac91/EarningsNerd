@@ -39,7 +39,7 @@ export default function LandingHero({
             {/* Each form code is one unbroken run (FormCodeText): under 200% text the line broke "10-Ks" at its
                 hyphen at 390px and "10-Qs" at 1440px (tests/e2e/reflow-200.spec.ts). */}
             <p className="mt-5 max-w-[560px] text-base leading-relaxed text-text-secondary-light dark:text-text-secondary-dark sm:text-lg">
-              <FormCodeText text="AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company’s XBRL where they can be, and quotes against the filing’s own text." />
+              <FormCodeText text="AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company’s filed data where they can be, and quotes against the filing’s own text." />
             </p>
 
             <div className="mt-7 flex flex-col items-start gap-2.5">

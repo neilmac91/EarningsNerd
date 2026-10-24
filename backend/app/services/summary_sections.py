@@ -39,6 +39,11 @@ from app.services.summary_schema import (
     SOURCE_UNIT_CONTEXT_VERSION,
 )
 
+# The takeaway cell of a row whose takeaway read-time enrichment withheld when it swapped in the filed
+# figure (provenance_service._swap_in_filed_figures): the summary wrote one, so the exports say why it is not
+# shown, in the page's words (frontend/features/filings/lib/evidenceLabels.ts TAKEAWAY_WITHHELD).
+TAKEAWAY_WITHHELD = "Withheld: written before the figure was corrected."
+
 # Mirror frontend SummarySections.tsx PLACEHOLDER_PATTERNS so exports drop the same
 # "data unavailable" filler the page hides.
 PLACEHOLDER_PATTERNS = (
@@ -277,13 +282,16 @@ def _metrics_block(table: Any, *, exact_delta_owned: bool = False) -> Optional[B
             continue
         _delta = metric_delta_service.delta_for_row(row, exact_owned=exact_delta_owned)
         change_cell = _delta.display if _delta and _delta.display else "—"
+        takeaway = _clean(row.get("commentary"))
+        if not takeaway and row.get("commentary_withheld") == "figure_replaced":
+            takeaway = TAKEAWAY_WITHHELD
         rows.append(
             [
                 metric,
                 _clean(row.get("current_period") or row.get("currentPeriod")),
                 _clean(row.get("prior_period") or row.get("priorPeriod")),
                 change_cell,
-                _clean(row.get("commentary")),
+                takeaway,
             ]
         )
         # Typed row the web renders richly (tone colours + provenance chips). Pass the row through

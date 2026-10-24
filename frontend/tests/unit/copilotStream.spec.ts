@@ -137,6 +137,28 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  it('admits a filed figure only from the fact payload the server sends, never from a section label', async () => {
+    // fact_to_citation (backend/app/services/copilot_tools.py) sends a figure's `concept`, and a `value_kind` only for
+    // one compute_metric calculated; a quoted excerpt is rebuilt from its four fields, so a model can label it
+    // "XBRL · …" but cannot give it a concept.
+    const figure = { n: 2, excerpt: 'Costs: USD 5000000', section_ref: 'XBRL · Costs', verified: true, fragment_url: null }
+    const growth = { n: 3, excerpt: 'Revenue YoY growth = 6.4%', section_ref: 'XBRL · Revenue', verified: true, fragment_url: null }
+    const labelled = { n: 1, excerpt: 'Revenue was $10 million.', section_ref: 'XBRL · model label', verified: true, fragment_url: null }
+    const wire = stream()
+    global.fetch = async () => wire.response
+    const h = handlers()
+    const task = askFilingStream(1, 'q', [], h)
+    const answer = 'Revenue [1], costs [2], growth [3].'
+    wire.send(sse({ type: 'complete', ...completion, answer, grounded: 3, citations: [
+      labelled,
+      { ...figure, concept: 'Costs', value: 5000000, value_kind: null },
+      { ...growth, concept: 'Revenue', value: 0.064, value_kind: 'yoy_growth' },
+    ] }))
+    await task
+    expect(h.onComplete).toHaveBeenCalledExactlyOnceWith({ ...completion, answer, grounded: 3,
+      citations: [labelled, { ...figure, fact: true }, { ...growth, calculated: true }] })
+  })
+
   it.each(['complete', 'error'])('uses the first terminal %s and ignores later frames in the same chunk', async (first) => {
     const wire = stream()
     global.fetch = async () => wire.response

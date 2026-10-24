@@ -61,7 +61,7 @@ The founder's review of PR #1226 measured both on the production build.
   beside its index, nothing past its row or the viewport), not only that two boxes do not meet.
 
 **Evidence**: founder review 5484603342 on PR #1226 (P2 on `CatchCard.tsx`, P3 on
-`MarkedCopy.tsx`); `frontend/tests/e2e/catch-card-reflow.spec.ts`; `frontend/tests/unit/markedCopy.spec.tsx`;
+`MarkedCopy.tsx`); `frontend/tests/e2e/figure-receipt-reflow.spec.ts` (the catch card's successor, D-058); `frontend/tests/unit/markedCopy.spec.tsx`;
 the 125% root-font case in `frontend/tests/e2e/metrics-stacked-cards.spec.ts` for the same method.
 
 **Recurrence (2026-10-14 and 15, the filing page, #1293)**: the founder's design review found the

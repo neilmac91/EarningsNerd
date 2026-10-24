@@ -12,8 +12,8 @@
        colour-coded (blue is a status colour, sage is the action colour).
      - One primary action per screen, and it is not here: the company page's
        lead opens the latest filing (2026-10 critique, 1b); the list marks that
-       row "Latest". Every row is ONE link to its filing; EDGAR is a SIBLING
-       link placed in the actions track — never nested inside the row link.
+       row "Latest". Every row is ONE link to its filing; the SEC.gov link is a
+       SIBLING placed in the actions track — never nested inside the row link.
      - States in place: a ledger-shaped skeleton, Notice + RetryButton, a
        filter-empty line that names the filters, an honest no-filings line.
    The page keeps the queries, the SSR seed + A4 year expansion, the prefetch and
@@ -62,12 +62,14 @@ export interface FilingIndexProps {
 // 768px, a 526px one at 1440px and a 110px one at 1024px, and the toolbar's 637px row ran past the card (E168; the
 // company page's columns, in page-client.tsx, likewise).
 // Below 15rem of list (a phone under enlarged text: below 610px under 200% text and 458px under 150%, and never at the
-// default size from 306px up) a row is one column (the container variant): its form code beside the EDGAR square, then
-// its period and filed date at the row's whole width. Beside the 3.5rem code column and the EDGAR square's 3.5rem the
+// default size from 306px up) a row is one column (the container variant): its form code beside the SEC.gov square, then
+// its period and filed date at the row's whole width. Beside the 3.5rem code column and the SEC.gov square's 3.5rem the
 // period had no width left at 320px under 200% text, and from 320 to 390px the square sat over its text. The list is
 // the query container (`[container-type:inline-size]`); a container query's rem is the reader's text size too.
+// From 48rem the last track holds the SEC.gov link, 5.6rem with its label at right-7 (7.35rem of the row): 7.5rem keeps it
+// inside the track, where 7rem held the "EDGAR" it replaced (D-058).
 const ROW_TRACKS =
-  'grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2 [@container(width<15rem)]:grid-cols-1 [@media(min-width:48rem)]:grid-cols-[4.5rem_minmax(0,1fr)_8.5rem_7rem] [@media(min-width:48rem)]:gap-x-0'
+  'grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2 [@container(width<15rem)]:grid-cols-1 [@media(min-width:48rem)]:grid-cols-[4.5rem_minmax(0,1fr)_8.5rem_7.5rem] [@media(min-width:48rem)]:gap-x-0'
 // Display is set apart from the tracks: `grid` and `hidden` in one class string would resolve by
 // stylesheet order (cx does no tailwind-merge).
 const ROW_GRID = `grid ${ROW_TRACKS}`
@@ -293,8 +295,8 @@ function emptyTitle(form: string, year: string): string {
 
 /**
  * One filing: the whole row is ONE link to /filing/{id}, named by its own content (form, period,
- * markers, "Filed …") — no aria-label, so the accessible name matches what is on screen. EDGAR is a
- * sibling anchor positioned in the actions track (44px square on phones, a 32px text link from md).
+ * markers, "Filed …") — no aria-label, so the accessible name matches what is on screen. The SEC.gov link
+ * is a sibling anchor positioned in the actions track (a 44px square on phones, a 32px text link from 48rem).
  */
 function FilingIndexRow({ filing, filings, isLatest }: { filing: Filing; filings: Filing[]; isLatest: boolean }) {
   const period = periodLabel(filing)
@@ -324,7 +326,7 @@ function FilingIndexRow({ filing, filings, isLatest }: { filing: Filing; filings
           'dark:hover:bg-white/[0.03] dark:active:bg-brand-weak-dark dark:focus-visible:shadow-ring-brand-dark',
         )}
       >
-        {/* In a narrow list the code's line is the EDGAR square's height (2.75rem) and keeps clear of it (pr-12), so the
+        {/* In a narrow list the code's line is the SEC.gov square's height (2.75rem) and keeps clear of it (pr-12), so the
             period and filed date below take the row's whole width. */}
         <span className={cx('font-data text-sm font-semibold [@container(width<15rem)]:flex [@container(width<15rem)]:min-h-11 [@container(width<15rem)]:items-center [@container(width<15rem)]:pr-12', INK)}>
           {filing.filing_type}
@@ -353,7 +355,7 @@ function FilingIndexRow({ filing, filings, isLatest }: { filing: Filing; filings
           href={filing.sec_url}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={`View the ${filing.filing_type} filed ${filed} on SEC EDGAR (opens in a new tab)`}
+          aria-label={`View the ${filing.filing_type} filed ${filed} on SEC.gov (opens in a new tab)`}
           className={cx(
             // In a narrow list the square sits beside the code, at the row's top padding, not centred on the row's text.
             'absolute right-0 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center gap-1.5 rounded-lg',
@@ -364,7 +366,7 @@ function FilingIndexRow({ filing, filings, isLatest }: { filing: Filing; filings
             'dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark',
           )}
         >
-          <span aria-hidden="true" className="hidden text-xs font-semibold [@media(min-width:48rem)]:inline">EDGAR</span>
+          <span aria-hidden="true" className="hidden text-xs font-semibold [@media(min-width:48rem)]:inline">SEC.gov</span>
           <ArrowSquareOutIcon aria-hidden="true" className="h-[18px] w-[18px] [@media(min-width:48rem)]:h-3.5 [@media(min-width:48rem)]:w-3.5" />
         </a>
       )}

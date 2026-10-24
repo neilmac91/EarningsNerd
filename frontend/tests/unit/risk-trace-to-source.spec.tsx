@@ -18,8 +18,8 @@ describe('Risk factor Trace-to-Source', () => {
     render(<SummaryRisks risks={risks} projection={{ version: 1, verified_count: 1, withheld_count: 0 }} />)
     const link = screen.getByRole('link')
     expect(link.getAttribute('href')).toContain('#:~:text=')
-    expect(link.getAttribute('aria-label')).toMatch(/verified in filing/i)
-    expect(link.textContent).toContain('Verified in filing')
+    expect(link.getAttribute('aria-label')).toBe('Source: Quote found in filing (opens in a new tab)')
+    expect(link.textContent).toContain('Quote found in filing')
     expect(screen.getByText('Supply chain constraints persisted through Q3.')).toBeTruthy()
     // The section ref lives in the hover/focus panel (ambient provenance), not inline.
     fireEvent.mouseEnter(link)

@@ -191,7 +191,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
               made the scroller one on its own only while nothing inside it could
               take focus, and a wide table's scroll region can. Inset ring: an
               outer one would sit over what borders the reader, the "Showing ·"
-              line and the pane's tabs above it and the "Original on SEC EDGAR"
+              line and the pane's tabs above it and the "Original on SEC.gov"
               footer's hairline below. */}
           <div
             ref={contentRef}

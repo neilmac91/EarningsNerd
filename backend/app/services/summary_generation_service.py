@@ -268,6 +268,8 @@ def assess_quality(
     )
     grounding_available = bool(usable_excerpt) or any(math.isfinite(v) for v in xbrl_values(xbrl_metrics))
     if not grounding_available:
+        # Literal contract with the badge's words in SummaryDisplay.tsx (NO_GROUNDING_REASON), which
+        # test_quality_grounding_presence.py ties to this string: reword BOTH together.
         reasons.append("filing grounding unavailable: no usable excerpt or numeric XBRL data")
 
     numeric_grounded = grounding_available
@@ -328,7 +330,8 @@ def assess_quality(
             if not numeric_grounded:
                 # Literal contract with the badge de-escalation in SummaryDisplay.tsx
                 # (GROUNDING_REASON) — pinned on both sides (test_assess_quality_bank.py /
-                # summary-quality-badge.spec.tsx); reword BOTH together or safeguard #5 dissolves.
+                # summary-quality-badge.spec.tsx) and tied together by test_quality_grounding_presence.py;
+                # reword BOTH together or safeguard #5 dissolves.
                 reasons.append("financial figures not grounded in SEC XBRL data")
 
     if covered < min_full:
