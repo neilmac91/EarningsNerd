@@ -69,7 +69,9 @@ import { ACCESS_COPY } from '../../features/marketing/lib/access'
  * the final CTA card's opened at md at the reader's text size (48rem), where at md's 768px they took pages to
  * 812-886px; the card is the landing's one-line close since D-045, and the landing's rows open their label
  * column at 64rem the same way. At 1440x900 at the default size the site header's bar spans its container and
- * the logo keeps its top-left place, which the bar's w-full holds. At 390, 360 and 320px under 200% text a dialog's
+ * the logo keeps its top-left place, which the bar's w-full holds. Signed in with 20 alerts, the notification
+ * bell's open panel lies inside the screen at 1024x768, 1440x900 and 2560x960 under 200% text, its title and settings
+ * link in view and its list scrolling inside it (E178). At 390, 360 and 320px under 200% text a dialog's
  * header keeps its title inside the panel and clear of its close button, and a title on a line of its own, under its
  * icon or under the close button alone, takes the header's full width, under the close button too, with no word
  * broken inside it (E158 and E165; the last cases in this file).
@@ -2042,6 +2044,102 @@ for (const { below, at, doubled } of [
         }
       })
     }
+  })
+}
+
+/** The notification bell's open panel under 200% text, signed in with a full list (E178). Only its list was capped, at
+    24rem (768px with the text doubled), so with 20 alerts, the route's default limit, the panel ran past the screen's
+    foot, where the sticky header kept its tail out of reach: the compact bar's at 1024x768 and 1440x900 spanned 128 to
+    1060px, its "Manage alert settings" link ending at 1051px, and the full bar's at 2560x960, a wide screen's window under
+    the browser's own bars, 116 to 1048px. The panel is now capped to the screen under the bar: it lies inside the screen on
+    both axes and takes its height down to within 2rem of the foot, its title and its settings link are whole inside it,
+    and its list scrolls inside it, scrolled to its end showing the last alert whole. The list is answered on top of
+    answerApi's routes (a route registered later answers first). */
+const ALERTS = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA', 'JPM', 'V', 'MA', 'UNH', 'XOM', 'JNJ', 'PG', 'HD', 'COST', 'ABBV', 'KO', 'PEP', 'NFLX'].map(
+  (ticker, i) => ({
+    id: i + 1,
+    filing_id: 100 + i,
+    ticker,
+    company_name: `${ticker} Holdings Inc.`,
+    filing_type: i % 3 ? '10-Q' : '10-K',
+    filing_date: `2026-10-${String(20 - i).padStart(2, '0')}T00:00:00Z`,
+    created_at: `2026-10-${String(20 - i).padStart(2, '0')}T12:00:00Z`,
+    read: true,
+  }),
+)
+type Box = { top: number; bottom: number; left: number; right: number }
+const span = (box: Box) => `${Math.round(box.top)}-${Math.round(box.bottom)}px down, ${Math.round(box.left)}-${Math.round(box.right)}px across`
+
+for (const viewport of [{ width: 1024, height: 768 }, { width: 1440, height: 900 }, { width: 2560, height: 960 }]) {
+  const bar = viewport.width >= 2304 ? 'full' : 'compact'
+  test.describe(`a ${viewport.width}x${viewport.height} desktop at 200% text, signed in, the notification panel`, () => {
+    test.use({ viewport, isMobile: false, hasTouch: false })
+    test(`the ${bar} bar's panel with 20 alerts lies inside the screen, its title and settings link in view and its list scrolling to the last alert`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('en_session_active', '1')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      await answerApi(page, baseURL!, 'pro')
+      const cors = { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' }
+      await page.route(
+        (url) => url.origin === API_ORIGIN && url.pathname === '/api/users/me/notifications',
+        (route) => route.fulfill({ status: 200, headers: cors, json: { items: ALERTS, unread_count: 0 } }),
+      )
+      await page.goto('/pricing')
+      await h1(page)
+      await page.evaluate(() => document.fonts.ready)
+      await doubleTextOnADesktop(page, bar === 'full')
+      // Counted under 200% text: at 1440px the default size shows the full bar, and the doubled text the compact one.
+      const bell = page.getByRole('banner').getByRole('button', { name: /^Notifications/ })
+      await expect(bell, `${viewport.width}px and 200% text: the ${bar} bar's bell, the one bell shown`).toHaveCount(1)
+      await bell.click()
+      const panel = page.getByRole('menu', { name: 'Notifications' })
+      await expect(panel).toBeVisible()
+      await expect(panel.getByRole('list').getByRole('menuitem'), 'the panel lists the 20 alerts').toHaveCount(20)
+
+      const at = `${viewport.width}x${viewport.height} and 200% text`
+      const read = () =>
+        panel.evaluate((el) => {
+          const box = (node: Element) => {
+            const { top, bottom, left, right } = node.getBoundingClientRect()
+            return { top, bottom, left, right }
+          }
+          const list = el.querySelector('ul')!
+          return {
+            screen: { top: 0, left: 0, bottom: document.documentElement.clientHeight, right: document.documentElement.clientWidth },
+            rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
+            panel: box(el),
+            title: box([...el.querySelectorAll('p')].find((p) => p.textContent === 'Notifications')!),
+            settings: box([...el.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'Manage alert settings')!),
+            list: box(list),
+            last: box(list.querySelector('li:last-child a')!),
+            overflow: list.scrollHeight - list.clientHeight,
+          }
+        })
+      const within = (what: string, inner: Box, outer: Box, where: string) => {
+        const message = `${at}: ${what} (${span(inner)}) lies inside ${where} (${span(outer)})`
+        expect(inner.top, message).toBeGreaterThanOrEqual(outer.top - 0.5)
+        expect(inner.bottom, message).toBeLessThanOrEqual(outer.bottom + 0.5)
+        expect(inner.left, message).toBeGreaterThanOrEqual(outer.left - 0.5)
+        expect(inner.right, message).toBeLessThanOrEqual(outer.right + 0.5)
+      }
+      const open = await read()
+      within('the panel', open.panel, open.screen, 'the screen')
+      expect(open.screen.bottom - open.panel.bottom, `${at}: the panel takes the screen's height under the bar, ending within 2rem of its foot`).toBeLessThanOrEqual(2 * open.rem)
+      within('its title', open.title, open.panel, 'the panel')
+      within('its "Manage alert settings" link', open.settings, open.panel, 'the panel')
+      expect(open.overflow, `${at}: the list scrolls inside the panel`).toBeGreaterThan(0)
+      const lines = await headerMenuFit(page, 'Notifications')
+      expect(lines.problems, `${at}: no line of the panel's text paints past the screen's sides`).toEqual([])
+      await panel.getByRole('list').evaluate((list) => {
+        list.scrollTop = list.scrollHeight
+      })
+      const end = await read()
+      within('the last alert, the list scrolled to its end,', end.last, end.list, 'the list')
+    })
   })
 }
 
