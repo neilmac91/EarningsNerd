@@ -414,47 +414,50 @@ unused since generation became account-required in #619; kept because migrations
   fiscal period are left alone. A row from a filing the payload does not name and that was filed
   strictly after the payload's newest filing (its Filing row's date, else its provenance's
   `filed_at`; a row with neither, or one filed that same day, is not protected;
-  `facts/currency.py::protected_rows`) holds its key on the sync's two paths, ratios included,
-  while it is in the view's currency: the upsert stores the payload's row behind it, as behind a
-  known newer filing, the currency step never demotes it, and the sync demotes any other amount,
-  per-share or ratio row it finds current beside it. So a delayed payload, or the sync a new
-  Filing triggers before companyfacts shows that filing, never demotes such a row. The per-filing
-  writer keeps `is_latest` per unit, so a new filing's own rows in a new currency stand beside the
-  old currency's until a companyfacts sync reads one currency there. The view's currency is the
-  payload's series currency unless those rows prove a switch (`facts/currency.py::_proven_switch`):
-  a newer filing whose own currency, read from its rows as `filing_currencies` reads a payload
-  (amount rows by strict majority, per-share rows not voting, a tie deciding nothing), is another,
-  and which is an annual report holding a current row, its currency spanning two period-ends; the
-  one reporting the latest period, then filed last, decides. A stray, a quarterly report or a
-  one-period annual report never proves a switch, as none would decide the series. On a proven
-  switch the sync stores nothing from the payload and demotes every current amount or per-share
-  row of its concepts in another currency than the switch's, protected or not; nothing is
-  promoted and no ratio is replaced. That is the view the sync that names the newer report
-  converges to, with gaps before the switch: the payload's own rows stored current would mix the
-  old currency into the new one's series across years (a wrong number is worse than a gap), and
-  stored not current they would hold identities a later sync skips and never promotes. Without a
-  proof, a newer filing's row outside the view (a stray, or a quarterly report's rows ahead of the
-  annual report that switches) is not protected: the sync that names its filing would demote it,
-  so this one does, and no period holds two currencies. A newer filing in the payload's own
-  currency proves no switch, so a lagging payload still fills the periods before it. In every
-  other sync, at every period the batch presents in an amount or per-share unit that holds no
-  current amount or per-share row, and no current unlabelled twin of a quarter in that unit (the
-  bulk writer's NULL-period rule), the batch's own row there (same unit and accession, stored
-  behind or demoted earlier) is made current, whichever sync left the period so, never a
-  quarantined one: the upsert skips a stored identity and never touches its `is_latest`, so
-  without this a demotion was final. A sync with no stored filing newer than its payload therefore
-  leaves each period it presents one current amount or per-share row, in the series currency,
-  except where its own row there is quarantined (a gap) or a current unlabelled twin holds the
-  quarter. A derived ratio (`pure`) keeps
-  its unit, so where a known filing date kept one computed from other-currency operands current, the
-  sync demotes it and promotes the batch's own calculation at that period; where that calculation is
-  quarantined the stale ratio stays current, and a ratio at a period the batch does not compute is
-  left as it is. A ratio stored before operands were recorded (2026-10-10) counts as USD-derived
-  when it is derived and has no filing owner, because companyfacts was then read only in USD. One
-  stored under the batch calculation's own identity (same filing) keeps its old operands, because
-  ingestion never rewrites an identity; the journaled repair (`docs/quarterly-data-repair.md`)
-  recomputes it. A demoted row stays readable by its accession, as the Copilot's filing scope reads
-  it.
+  `facts/currency.py::protected_rows`) holds its key on the sync's two paths, ratios included, while
+  it is in the payload's series currency and those rows prove no switch: the upsert stores the
+  payload's row behind it, as behind a known newer filing, the currency step never demotes it, and
+  the sync demotes any other amount, per-share or ratio row it finds current beside it. So a delayed
+  payload, or the sync a new Filing triggers before companyfacts shows that filing, never demotes
+  such a row. The per-filing writer keeps `is_latest` per unit, so a new filing's own rows in a new
+  currency stand beside the old currency's until a companyfacts sync reads one currency there. Those
+  rows prove a switch (`facts/currency.py::_proven_switch`) through a newer filing whose own
+  currency, read from its rows as `filing_currencies` reads a payload (the currency more of its
+  amount rows carry than any other, per-share rows not voting, a tie deciding nothing), is another,
+  and which is an annual report holding a current row, its currency spanning two period-ends, that
+  outranks the payload's own deciding report on `filing_currencies`' rank (it reports a period-end
+  at least as late); the one reporting the latest period, then filed last, decides. A stray, a
+  quarterly report, a one-period annual report or an amendment restating a year before the payload's
+  latest annual report never proves a switch, as none would decide the series. On a proven switch no
+  row is protected: the sync stores nothing from the payload and demotes every current amount or
+  per-share row of its concepts in another currency than the switch's, and every one in that
+  currency under a filing the payload reads in another (a convenience translation earlier syncs
+  stored); nothing is promoted and no ratio is replaced. Its current amount and per-share rows are
+  those the sync that names the newer report converges to, with gaps before the switch, or fewer
+  where the per-filing writer stored that report's rows behind older ones: the payload's own rows
+  stored current would mix the old currency into the new one's series across years (a wrong number
+  is worse than a gap), and stored not current they would hold identities a later sync skips and
+  never promotes. Without a proof, a newer filing's row outside the payload's series currency (a
+  stray, or a quarterly report's rows ahead of the annual report that switches) is not protected:
+  the sync that names its filing would demote it, so this one does, and no period holds two
+  currencies. A newer filing in the payload's own currency proves no switch, so a lagging payload
+  still fills the periods before it. In every other sync, at every period the batch presents in an
+  amount or per-share unit that holds no current amount or per-share row, and no current unlabelled
+  twin of a quarter in that unit (the bulk writer's NULL-period rule), the batch's own row there
+  (same unit and accession, stored behind or demoted earlier) is made current, whichever sync left
+  the period so, never a quarantined one: the upsert skips a stored identity and never touches its
+  `is_latest`, so without this a demotion was final. A sync with no stored filing newer than its
+  payload therefore leaves each period it presents one current amount or per-share row, in the
+  series currency, except where its own row there is quarantined (a gap) or a current unlabelled
+  twin holds the quarter. A derived ratio (`pure`) keeps its unit, so where a known filing date kept
+  one computed from other-currency operands current, the sync demotes it and promotes the batch's
+  own calculation at that period; where that calculation is quarantined the stale ratio stays
+  current, and a ratio at a period the batch does not compute is left as it is. A ratio stored
+  before operands were recorded (2026-10-10) counts as USD-derived when it is derived and has no
+  filing owner, because companyfacts was then read only in USD. One stored under the batch
+  calculation's own identity (same filing) keeps its old operands, because ingestion never rewrites
+  an identity; the journaled repair (`docs/quarterly-data-repair.md`) recomputes it. A demoted row
+  stays readable by its accession, as the Copilot's filing scope reads it.
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional
