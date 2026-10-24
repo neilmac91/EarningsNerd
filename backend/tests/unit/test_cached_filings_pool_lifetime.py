@@ -1924,6 +1924,240 @@ async def test_company_routes_release_their_connection_off_the_loop(monkeypatch,
         engine.dispose()
 
 
+_SAVED_STATUS = {"save_missing": 404, "update_missing": 404, "delete_missing": 404}
+# Each reader's library after the burst, by case: the notes of its one row, or no row.
+_SAVED_NOTES_AFTER = {
+    "save": [None], "save_existing": ["Renoted"], "save_missing": [], "list": ["Kept"], "status": ["Kept"],
+    "update": ["Edited"], "update_missing": ["Kept"], "delete": [], "delete_missing": ["Kept"],
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method,path,case", [
+    ("POST", "/api/saved-summaries/", "save"),
+    ("POST", "/api/saved-summaries/", "save_existing"),
+    ("POST", "/api/saved-summaries/", "save_missing"),
+    ("GET", "/api/saved-summaries/", "list"),
+    ("GET", "/api/saved-summaries/status/{summary_id}", "status"),
+    ("PUT", "/api/saved-summaries/{saved_id}", "update"),
+    ("PUT", "/api/saved-summaries/999999", "update_missing"),
+    ("DELETE", "/api/saved-summaries/{saved_id}", "delete"),
+    ("DELETE", "/api/saved-summaries/999999", "delete_missing"),
+])
+async def test_saved_summary_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, case):
+    """Each saved-summary route runs its session work, its payload and the release in one thread-pool
+    unit, its refusals included, so eight readers on four slots leave nothing for the finalizer and
+    make no checkout, statement or release on the loop. The status route is a sync route, which
+    FastAPI runs in the thread pool, and it releases its own connection as well."""
+    from app.models import SavedSummary, User
+    from app.routers import auth
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'saved-summary-routes.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    saved_ids: list[int] = []
+    with sessions() as db:
+        company = Company(cik="0000000001", ticker="CACHED", name="Cached fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000001-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), sec_url="https://example.test/filing/",
+                        document_url="https://example.test/filing.htm")
+        db.add(filing)
+        db.flush()
+        summary = Summary(filing_id=filing.id, business_overview="Overview")
+        db.add(summary)
+        db.flush()
+        summary_id = summary.id
+        for i in range(8):
+            reader = User(email=f"saved-reader-{i}@example.com", is_active=True)
+            db.add(reader)
+            db.flush()
+            if case not in ("save", "save_missing"):
+                row = SavedSummary(user_id=reader.id, summary_id=summary_id, notes="Kept")
+                db.add(row)
+                db.flush()
+                saved_ids.append(row.id)
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    # A statement on the loop blocks it even on a connection the thread pool checked out (the auth
+    # lookup's, which the route's session keeps).
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    # A release on the loop runs its rollback and checkin there, and neither is a checkout or a statement.
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    body = {"summary_id": 999999 if case == "save_missing" else summary_id}
+    if case == "save_existing":
+        body["notes"] = "Renoted"
+
+    async def send(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"saved-reader-{i}@example.com"})
+        target = path.format(summary_id=summary_id, saved_id=saved_ids[i] if saved_ids else 0)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            if method == "POST":
+                return await client.post(target, json=body)
+            if method == "PUT":
+                return await client.put(target, params={"notes": "Edited"})
+            return await client.request(method, target)
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        # Every checkout, the auth lookup's included, waited in the thread pool, and every statement and
+        # release ran there: none on the loop (read before this test's own reads below).
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        assert [response.status_code for response in responses] == [_SAVED_STATUS.get(case, 200)] * 8
+        payloads = [response.json() for response in responses]
+        if case in ("save", "save_existing", "update"):
+            notes = {"save": None, "save_existing": "Renoted", "update": "Edited"}[case]
+            # Each payload reads the summary, filing and company rows, and a new row's created_at, inside
+            # the unit.
+            assert [(payload["summary_id"], payload["notes"], payload["company"]["ticker"],
+                     payload["created_at"] is not None) for payload in payloads] == [
+                (summary_id, notes, "CACHED", True)] * 8
+        elif case == "save_missing":
+            assert payloads == [{"detail": "Summary not found"}] * 8
+        elif case == "list":
+            assert [[(row["summary_id"], row["notes"]) for row in payload] for payload in payloads] == [
+                [(summary_id, "Kept")]] * 8
+        elif case == "status":
+            assert payloads == [{"is_saved": True}] * 8
+        elif case == "delete":
+            assert payloads == [{"status": "success"}] * 8
+        else:
+            assert payloads == [{"detail": "Saved summary not found"}] * 8
+        with sessions() as db:
+            rows = db.query(SavedSummary.user_id, SavedSummary.notes).order_by(SavedSummary.user_id).all()
+        # Each write landed once per reader, and each refusal wrote nothing.
+        assert [tuple(row) for row in rows] == [
+            (user_id, notes) for user_id in range(1, 9) for notes in _SAVED_NOTES_AFTER[case]
+        ]
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("watching", [True, False])
+async def test_upcoming_calendar_releases_its_connection_off_the_loop(monkeypatch, tmp_path, watching):
+    """The dashboard's upcoming calendar reads its rows and releases its session in one thread-pool
+    unit, for a reader who watches nothing as for one who watches a reporting company, so eight readers
+    on four slots leave nothing for the finalizer and make no checkout, statement or release on the
+    loop."""
+    from app.models import EarningsEvent, User, Watchlist
+    from app.routers import auth
+    from app.services.earnings_calendar_service import today_eastern
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'upcoming-calendar.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    reporting_day = today_eastern() + timedelta(days=1)
+    with sessions() as db:
+        company = Company(cik="0000000001", ticker="CACHED", name="Cached fixture")
+        db.add(company)
+        db.flush()
+        db.add(EarningsEvent(ticker="CACHED", company_name="Cached fixture", event_date=reporting_day,
+                             fiscal_period_end=reporting_day - timedelta(days=30), event_time="amc"))
+        for i in range(8):
+            reader = User(email=f"calendar-reader-{i}@example.com", is_active=True)
+            db.add(reader)
+            db.flush()
+            if watching:
+                db.add(Watchlist(user_id=reader.id, company_id=company.id))
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"calendar-reader-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            return await client.get("/api/dashboard/calendar/upcoming")
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+        assert engine.pool.checkedout() == 0
+        # The unit released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        assert [response.status_code for response in responses] == [200] * 8
+        events = [{"ticker": "CACHED", "company_name": "Cached fixture", "earnings_date": reporting_day.isoformat(),
+                   "time": "amc", "eps_estimated": None, "revenue_estimated": None}] if watching else []
+        assert [response.json() for response in responses] == [{"events": events}] * 8
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.parametrize("error", [
     OperationalError("ROLLBACK", {}, Exception("server closed the connection unexpectedly")),
     IllegalStateChangeError("Method 'close()' can't be called here; another method is in progress"),
@@ -2116,17 +2350,7 @@ ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
 
     ("app/routers/auth.py", "verify_email"): 3,
 
-    ("app/routers/dashboard.py", "get_upcoming_calendar"): 1,
-
     ("app/routers/reporting_this_week.py", "get_reporting_this_week"): 1,
-
-    ("app/routers/saved_summaries.py", "delete_saved_summary"): 1,
-
-    ("app/routers/saved_summaries.py", "get_saved_summaries"): 1,
-
-    ("app/routers/saved_summaries.py", "save_summary"): 1,
-
-    ("app/routers/saved_summaries.py", "update_saved_summary"): 1,
 
     ("app/routers/summaries.py", "ask_filing_stream"): 4,
 

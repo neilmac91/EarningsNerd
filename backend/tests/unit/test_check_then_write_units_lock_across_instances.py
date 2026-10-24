@@ -6,6 +6,9 @@ two adds could both write a row, a referral credit could be lost and two joins c
 - The watch-row writes (an add, a remove, an earnings alert's enable and disable) take the account's users row lock
   (``watchlist_service.lock_watch_rows``) before their first read of the watchlist, and before ``watch_row_lock``:
   a unit that waits on one account's row then holds no process lock that other accounts' writes would wait on.
+- The saved-row writes (a save, a notes update, a delete) take the same lock (``saved_summary_service.lock_saved_rows``)
+  before their first read of the library, and before ``saved_row_lock``, for the same reason; two saves of one summary
+  across instances could otherwise store it twice.
 - The waitlist join takes the waitlist's place lock (``waitlist_service._lock_waitlist_places``, a transaction-level
   advisory lock) before its first read of the signups, under ``_join_lock``, which a waiter takes before its first
   query and so waits on holding no connection.
@@ -28,8 +31,9 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import sessionmaker
 
 from app import database
-from app.models import Base, Company, User, WaitlistSignup, Watchlist
-from app.services import earnings_alert_service, waitlist_service, watchlist_service
+from app.models import Base, Company, Filing, SavedSummary, Summary, User, WaitlistSignup, Watchlist
+from app.services import earnings_alert_service, saved_summary_service, waitlist_service, watchlist_service
+from app.utils.datetimes import utcnow
 
 # Exercise existing collection behavior with an explicitly published synthetic operator notice.
 pytestmark = pytest.mark.usefixtures("collection_ready")
@@ -74,13 +78,15 @@ def postgres_named(engine):
     return engine
 
 
-def _recorded(session, statements: list[Recorded]):
-    """``session``, recording each ORM statement it runs, with its parameters and whether ``watch_row_lock`` was held
-    as it ran, each flush with the models it writes, and each end of a transaction."""
+def _recorded(session, statements: list[Recorded], process_lock=None):
+    """``session``, recording each ORM statement it runs, with its parameters and whether ``process_lock``
+    (``watch_row_lock`` unless named) was held as it ran, each flush with the models it writes, and each end of a
+    transaction."""
+    held = process_lock or watchlist_service.watch_row_lock
+
     def record(state) -> None:
         compiled = state.statement.compile(dialect=postgresql.dialect())
-        statements.append(Recorded(str(compiled), {**compiled.params, **(state.parameters or {})},
-                                   watchlist_service.watch_row_lock.locked()))
+        statements.append(Recorded(str(compiled), {**compiled.params, **(state.parameters or {})}, held.locked()))
 
     def flushing(flushed, _context, _instances) -> None:
         statements.append(Recorded("-- flush", {
@@ -196,6 +202,68 @@ def test_the_watch_row_reads_take_no_lock(sessions):
         lambda db, user: earnings_alert_service.count_enabled(db, user.id),
     ):
         statements = _watch_row_statements(sessions, read)
+        assert statements and not _takes_a_lock(statements), statements
+
+
+def _reader(sessions, *, saved: bool) -> None:
+    """The account and a filing's summary (summary 1); ``saved`` puts it in the account's library (row 1)."""
+    with sessions() as db:
+        db.add(User(id=USER_ID, email="reader@example.com", is_active=True))
+        company = Company(cik="0000000001", ticker="LIB", name="Library Co")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="library-0", filing_type="10-Q",
+                        filing_date=utcnow(), sec_url="https://sec.example/", document_url="https://sec.example/doc")
+        db.add(filing)
+        db.flush()
+        summary = Summary(filing_id=filing.id, business_overview="Overview")
+        db.add(summary)
+        db.flush()
+        if saved:
+            db.add(SavedSummary(user_id=USER_ID, summary_id=summary.id, notes="Kept"))
+        db.commit()
+
+
+def _saved_row_statements(sessions, unit) -> list[Recorded]:
+    """As ``_watch_row_statements``, each statement recording whether ``saved_row_lock`` was held as it ran."""
+    statements: list[Recorded] = []
+    with sessions() as db:
+        user = db.get(User, USER_ID)
+        _recorded(db, statements, process_lock=saved_summary_service.saved_row_lock)
+        unit(db, user)
+    return statements
+
+
+@pytest.mark.parametrize("saved, unit, writes", [
+    pytest.param(False, lambda db, user: saved_summary_service.save_summary(db, user_id=user.id, summary_id=1, notes=None),
+                 ("new", "SavedSummary"), id="save"),
+    pytest.param(True, lambda db, user: saved_summary_service.save_summary(db, user_id=user.id, summary_id=1,
+                                                                           notes="Renoted"),
+                 ("dirty", "SavedSummary"), id="save over a saved row"),
+    pytest.param(True, lambda db, user: saved_summary_service.update_saved_summary_notes(
+        db, user_id=user.id, saved_summary_id=1, notes="Edited"), ("dirty", "SavedSummary"), id="notes update"),
+    pytest.param(True, lambda db, user: saved_summary_service.delete_saved_summary(db, user_id=user.id,
+                                                                                   saved_summary_id=1),
+                 ("deleted", "SavedSummary"), id="delete"),
+])
+def test_each_saved_row_write_locks_the_account_before_it_checks(sessions, saved, unit, writes):
+    """Each write as it succeeds. The account's lock comes before the process lock, so a unit that waits on it holds
+    that lock for no other account."""
+    _reader(sessions, saved=saved)
+    statements = _saved_row_statements(sessions, unit)
+    lock = _assert_holds_the_lock_from_its_check_to_its_write(
+        statements, lock=_users_row_lock, lock_value=USER_ID, checks="FROM saved_summaries", writes=writes)
+    assert not statements[lock].process_lock_held, "the account's lock was taken inside saved_row_lock"
+
+
+def test_the_saved_row_reads_take_no_lock(sessions):
+    """The library list and the status read beside the writes take no lock."""
+    _reader(sessions, saved=True)
+    for read in (
+        lambda db, user: saved_summary_service.list_saved_summaries(db, user.id),
+        lambda db, user: saved_summary_service.saved_summary_status(db, user_id=user.id, summary_id=1),
+    ):
+        statements = _saved_row_statements(sessions, read)
         assert statements and not _takes_a_lock(statements), statements
 
 

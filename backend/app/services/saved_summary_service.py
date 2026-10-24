@@ -7,14 +7,16 @@ of a 404 from ``_format_saved_summary_response``.
 
 The response dict is built here, not in the router, because building it is ORM work: after a
 commit the session expires the joined Summary, Filing and Company rows, so reading their
-attributes issues reload SELECTs. Shaping therefore runs inside the same call as the commit.
+attributes issues reload SELECTs. The writes therefore shape it before their commit, in the
+transaction their lock covers (below).
 """
+import threading
 from typing import Optional
 
-from sqlalchemy import desc
+from sqlalchemy import Row, desc
 from sqlalchemy.orm import Session
 
-from app.models import Company, Filing, SavedSummary, Summary
+from app.models import Company, Filing, SavedSummary, Summary, User
 
 
 class SavedSummaryRelatedRowMissing(Exception):
@@ -23,6 +25,66 @@ class SavedSummaryRelatedRowMissing(Exception):
     def __init__(self, detail: str) -> None:
         self.detail = detail
         super().__init__(detail)
+
+
+# Saved-row writes check, then write: the duplicate check before a save, the row read before a notes
+# update and the lookup before a delete. On the event loop the routes ran them one at a time within
+# the process; in the thread pool two requests could both pass a check (two library rows for one
+# summary, or a notes update of a row a delete has removed, which matches no row and answers 500), so
+# each takes this lock from its check to its commit. A holder takes it after its session's first query
+# and makes no new checkout inside it, so it never waits for a pool slot that a waiter holds: a write
+# shapes its answer before its commit, since a read after it would check a connection out again. A
+# waiter's check then sees the holder's commit because each statement reads the latest commit (READ
+# COMMITTED, PostgreSQL's default and production's). This lock reaches one process, and the API runs
+# up to two instances, so before it each unit takes the account's users row lock (``lock_saved_rows``),
+# which every instance shares, as the watch-row writes do (``watchlist_service.watch_row_lock``).
+saved_row_lock = threading.Lock()
+
+
+def lock_saved_rows(db: Session, user_id: int) -> None:
+    """Take ``user_id``'s users row lock for the rest of the caller's transaction.
+
+    Every saved-row write takes it before ``saved_row_lock`` and before its check: the save's duplicate
+    check, the notes update's row read and the delete's lookup. The process lock serializes them within
+    one instance; across the API's instances two saves of one summary could otherwise both pass the
+    duplicate check and store it twice. A second writer waits here for the first's commit, and its
+    check then reads that commit (READ COMMITTED). Taken before the process lock, its wait holds that
+    lock for no other account. FOR NO KEY UPDATE, as ``watchlist_service.lock_watch_rows`` takes it: it
+    serializes these writers and the account's other users row writers, but not the foreign-key checks
+    of inserts that name the user. SQLite ignores it."""
+    db.query(User.id).filter(User.id == user_id).with_for_update(key_share=True).first()
+
+
+def _saved(db: Session, user_id: int, summary_id: int) -> Optional[SavedSummary]:
+    """The user's library row for ``summary_id``: the save's duplicate check."""
+    return db.query(SavedSummary).filter(
+        SavedSummary.user_id == user_id,
+        SavedSummary.summary_id == summary_id
+    ).first()
+
+
+def _owned(db: Session, user_id: int, saved_summary_id: int) -> Optional[SavedSummary]:
+    """The user's library row ``saved_summary_id``: the delete's lookup."""
+    return db.query(SavedSummary).filter(
+        SavedSummary.id == saved_summary_id,
+        SavedSummary.user_id == user_id
+    ).first()
+
+
+def _owned_library_row(db: Session, user_id: int, saved_summary_id: int) -> Optional[Row]:
+    """The user's library row ``saved_summary_id`` with its Summary, Filing and Company, in one query
+    with joins to avoid N+1: the notes update's row read."""
+    return (
+        db.query(SavedSummary, Summary, Filing, Company)
+        .join(Summary, SavedSummary.summary_id == Summary.id)
+        .join(Filing, Summary.filing_id == Filing.id)
+        .join(Company, Filing.company_id == Company.id)
+        .filter(
+            SavedSummary.id == saved_summary_id,
+            SavedSummary.user_id == user_id
+        )
+        .first()
+    )
 
 
 def save_summary(db: Session, *, user_id: int, summary_id: int, notes: Optional[str]) -> Optional[dict]:
@@ -42,35 +104,27 @@ def save_summary(db: Session, *, user_id: int, summary_id: int, notes: Optional[
         return None
     summary, filing, company = row
 
-    # Check if already saved
-    existing = db.query(SavedSummary).filter(
-        SavedSummary.user_id == user_id,
-        SavedSummary.summary_id == summary_id
-    ).first()
-
-    if existing:
-        # Update notes if provided
-        if notes is not None:
-            existing.notes = notes
-            db.commit()
-            db.refresh(existing)
-        return _format_saved_summary_response(
-            existing, db, summary=summary, filing=filing, company=company
+    lock_saved_rows(db, user_id)
+    with saved_row_lock:
+        saved_summary = _saved(db, user_id, summary_id)
+        if saved_summary is None:
+            saved_summary = SavedSummary(
+                user_id=user_id,
+                summary_id=summary_id,
+                notes=notes
+            )
+            db.add(saved_summary)
+            db.flush()
+            # The server-set created_at, read in the transaction the lock covers.
+            db.refresh(saved_summary)
+        elif notes is not None:
+            # Update notes if provided
+            saved_summary.notes = notes
+        saved = _format_saved_summary_response(
+            saved_summary, db, summary=summary, filing=filing, company=company
         )
-
-    # Create new saved summary
-    saved_summary = SavedSummary(
-        user_id=user_id,
-        summary_id=summary_id,
-        notes=notes
-    )
-    db.add(saved_summary)
-    db.commit()
-    db.refresh(saved_summary)
-
-    return _format_saved_summary_response(
-        saved_summary, db, summary=summary, filing=filing, company=company
-    )
+        db.commit()
+    return saved
 
 
 def list_saved_summaries(db: Session, user_id: int) -> list[dict]:
@@ -113,16 +167,14 @@ def saved_summary_status(db: Session, *, user_id: int, summary_id: int) -> Optio
 
 def delete_saved_summary(db: Session, *, user_id: int, saved_summary_id: int) -> bool:
     """Delete the user's saved summary; ``False`` when the user has no such row (nothing is written)."""
-    saved_summary = db.query(SavedSummary).filter(
-        SavedSummary.id == saved_summary_id,
-        SavedSummary.user_id == user_id
-    ).first()
+    lock_saved_rows(db, user_id)
+    with saved_row_lock:
+        saved_summary = _owned(db, user_id, saved_summary_id)
+        if not saved_summary:
+            return False
 
-    if not saved_summary:
-        return False
-
-    db.delete(saved_summary)
-    db.commit()
+        db.delete(saved_summary)
+        db.commit()
 
     return True
 
@@ -134,31 +186,21 @@ def update_saved_summary_notes(
 
     Returns ``None`` when the user has no such row (nothing is written).
     """
-    # Single query with joins to avoid N+1
-    row = (
-        db.query(SavedSummary, Summary, Filing, Company)
-        .join(Summary, SavedSummary.summary_id == Summary.id)
-        .join(Filing, Summary.filing_id == Filing.id)
-        .join(Company, Filing.company_id == Company.id)
-        .filter(
-            SavedSummary.id == saved_summary_id,
-            SavedSummary.user_id == user_id
+    lock_saved_rows(db, user_id)
+    with saved_row_lock:
+        row = _owned_library_row(db, user_id, saved_summary_id)
+        if not row:
+            return None
+        saved_summary, summary, filing, company = row
+
+        if notes is not None:
+            saved_summary.notes = notes
+        updated = _format_saved_summary_response(
+            saved_summary, db, summary=summary, filing=filing, company=company
         )
-        .first()
-    )
-
-    if not row:
-        return None
-    saved_summary, summary, filing, company = row
-
-    if notes is not None:
-        saved_summary.notes = notes
         db.commit()
-        db.refresh(saved_summary)
+    return updated
 
-    return _format_saved_summary_response(
-        saved_summary, db, summary=summary, filing=filing, company=company
-    )
 
 
 def _format_saved_summary_response(
