@@ -109,7 +109,9 @@ export default function SourceValue({ point, label, concept, children, note, com
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`${label}, ${period}: ${point.value == null ? 'unavailable' : display}${description ? `, ${description}` : ''}. View source and calculation`}
-        className="rounded text-inherit underline decoration-border-light decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:decoration-border-dark dark:focus-visible:shadow-ring-brand-dark"
+        // In the metrics table the figure, its marks and the mark gutter are one baseline row the cell's width, justified
+        // to its right edge, so the gutter (DataNoteMark compact) fills only free space and gives way to a full figure.
+        className={`${compactMarks ? 'flex w-full items-baseline justify-end ' : ''}rounded text-inherit underline decoration-border-light decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:decoration-border-dark dark:focus-visible:shadow-ring-brand-dark`}
       >
         {children}<DataNoteMark calculated={calculated} note={note} compact={compactMarks} />
       </button>

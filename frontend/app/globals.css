@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* A figure's minus is drawn, never written. The shared formatters write the ASCII hyphen-minus, which copy, the
+   accessibility tree, spreadsheets and the Excel export all keep; this one-glyph face, Geist Mono's own U+2212 under
+   U+002D alone (SIL OFL 1.1, public/fonts), paints it as the true minus: the plus's length on the plus's axis. It
+   leads the `font-figure` stack (tailwind.config.js), so every other glyph falls through to Geist Mono, and the
+   unicode-range means the 1 KB file loads only where a figure carries a minus. */
+@font-face {
+  font-family: 'EN Figure Minus';
+  src: url('/fonts/en-figure-minus.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+002D;
+}
+
 /* =============================================================================
    EarningsNerd — type v2 font roles (FIXED — the user-facing switcher is retired)
    -----------------------------------------------------------------------------

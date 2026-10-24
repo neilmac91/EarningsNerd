@@ -1,9 +1,9 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Button, Card, DataTable, MissingValue, SegmentedControl, type Column } from '@/components/ui'
 import { FileXlsIcon } from '@/lib/icons'
-import { directionText } from '@/lib/financialTone'
+import { dataDirectionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import { formatTableGrowth, formatTableValue, tableCurrencyLabel, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
@@ -17,6 +17,12 @@ import SourceValue from './SourceValue'
 
 // DataTable's generic requires an index signature (Record<string, unknown>).
 type Row = { series: AnalysisSeries } & Record<string, unknown>
+
+// A figure cell: value over change, each line the cell's full width and right-justified onto one figure edge (the mark
+// gutter to its right, DataNoteMark compact), in the figure face (Geist Mono with a drawn minus), whose fixed 600-unit
+// advance gives tabular lining figures; no tracking, as the data annotation size has none.
+const FIGURE_CELL = 'relative flex flex-col gap-0.5 font-figure tabular-nums lining-nums tracking-normal'
+const FIGURE_LINE = 'flex w-full items-baseline justify-end'
 
 /**
  * Metrics × periods grid: every value in the data face, the period-over-period delta beneath it
@@ -44,7 +50,10 @@ export default function MetricsTable({
 }) {
   const notes = useDataNotes(dataset)
   const selection = useAnalysisTableWindow(dataset)
-  const window = sample ? 'all' : selection.window
+  // PROTOTYPE ONLY (paging vs scroll study): ?tableWindow=none shows every period with no window control.
+  // The table renders after the run's data arrives, never in the server pass, so reading the URL once here is safe.
+  const [windowControl] = useState(() => new URLSearchParams(globalThis.location?.search ?? '').get('tableWindow') !== 'none')
+  const window = sample || !windowControl ? 'all' : selection.window
   const periods = useMemo(() => tablePeriods(dataset, window), [dataset, window])
   const visibleNotes = useMemo(() => tablePresentation(dataset, periods, notes).notes, [dataset, periods, notes])
   // A count agrees with the run's length: "1 of 1 year", "6 of 10 years".
@@ -75,8 +84,9 @@ export default function MetricsTable({
         const point = row.series.points.find((p) => p.period === period.key) ?? { period: period.key, value: null }
         const currencyLabel = tableCurrencyLabel(row.series)
         const sourceLabel = `${row.series.label}${currencyLabel ? ` (${currencyLabel})` : ''}`
-        // A missing figure is MissingValue in its source control; the control's own name reads "unavailable" too.
-        if (point.value == null) return <SourceValue compactMarks point={point} label={sourceLabel} concept={row.series.concept} note={notes.noteFor(point)}><MissingValue /></SourceValue>
+        // A missing figure is MissingValue in its source control; the control's own name reads "unavailable" too. Its
+        // dash stands on the figure edge in the note ink, its letter in the mark gutter.
+        if (point.value == null) return <div className={FIGURE_CELL}><SourceValue compactMarks point={point} label={sourceLabel} concept={row.series.concept} note={notes.noteFor(point)}><MissingValue className="text-note-light dark:text-note-dark" /></SourceValue></div>
         const growthBasis = tableComparisonBasis(dataset.mode, point)
         const growth = point[growthBasis]
         const growthReconciled = point[`${growthBasis}_reconciled`]
@@ -89,14 +99,14 @@ export default function MetricsTable({
         const growthNote = notes.noteForComparison(point, growthBasis)
         const compactGrowth = formatTableGrowth(growth, row.series.percent, tableTokenBudget(false, growthNote?.letter))
         return (
-          <div className="relative flex flex-col items-end gap-0.5">
-            <span className="max-w-full">
-              <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote } : undefined}><span className="inline-block">{formatTableValue(point.value, row.series, tableTokenBudget(calculated, note?.letter))}</span></SourceValue>
+          <div className={FIGURE_CELL}>
+            <span className="block">
+              <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote } : undefined}><span className="inline-block font-medium text-figure-light dark:text-figure-dark">{formatTableValue(point.value, row.series, tableTokenBudget(calculated, note?.letter))}</span></SourceValue>
             </span>
             {growthText && (
-              <span className={`flex flex-col items-end text-xs ${directionText[tone]}`}>
+              <span className={`flex flex-col items-end text-xs ${dataDirectionText[tone]}`}>
                 {dataset.mode === 'quarterly' && growthLabel === 'YoY' && <span>YoY </span>}
-                <span className="inline-flex items-baseline">
+                <span className={FIGURE_LINE}>
                   <span className="sr-only">Change vs {dataset.mode === 'quarterly' && growthLabel === 'YoY' ? 'same quarter last year' : basis} </span>
                   {compactGrowth}<DataNoteMark compact note={growthNote} />
                 </span>
@@ -112,9 +122,9 @@ export default function MetricsTable({
       header: <><span>Metric</span><span className="block font-normal normal-case tracking-normal text-data-xs">value · Δ vs {basis}</span></>,
       rowHeader: true,
       render: (row: Row) => (
-        <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
+        <span className="font-medium text-figure-light dark:text-figure-dark">
           {row.series.label}{tableCurrencyLabel(row.series) ? ' ' : ''}
-          {tableCurrencyLabel(row.series) && <span className="block text-data-xs font-normal text-text-secondary-light dark:text-text-secondary-dark">{tableCurrencyLabel(row.series)}</span>}
+          {tableCurrencyLabel(row.series) && <span className="block text-data-xs font-normal text-note-light dark:text-note-dark">{tableCurrencyLabel(row.series)}</span>}
         </span>
       ),
     }
@@ -146,7 +156,7 @@ export default function MetricsTable({
             : undefined
         return text ? (
           <span
-            className={windowTooltip ? `cursor-help ${directionText[tone]}` : directionText[tone]}
+            className={`${FIGURE_CELL} ${windowTooltip ? `cursor-help ${dataDirectionText[tone]}` : dataDirectionText[tone]}`}
             title={windowTooltip}
           >
             <SourceValue compactMarks
@@ -156,7 +166,8 @@ export default function MetricsTable({
             ><span className="inline-block">{compactText}</span></SourceValue>
           </span>
         ) : (
-          <MissingValue className="text-text-tertiary-light dark:text-text-secondary-dark" />
+          // No window figure: the dash on the figure edge, the gutter kept beside it.
+          <span className={FIGURE_CELL}><span className={FIGURE_LINE}><MissingValue className="text-note-light dark:text-note-dark" /><DataNoteMark compact /></span></span>
         )
       },
     }
@@ -167,7 +178,7 @@ export default function MetricsTable({
   const hasDerived = dataset.series.some((s) => s.points.some((p) => p.provenance?.method === 'calculated' || (!p.provenance && p.derived)) || s.cagr_provenance?.method === 'calculated' || s.window_pp_provenance?.method === 'calculated')
 
   return (
-    <Card as="section" className="[container-type:inline-size] min-w-0 p-4 sm:p-cap-6" data-analysis-metrics>
+    <Card as="section" className="[--mark-gutter:0.4125rem] [container-type:inline-size] min-w-0 p-4 sm:p-cap-6" data-analysis-metrics>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Heading className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -197,7 +208,7 @@ export default function MetricsTable({
       </div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p role="status" className="text-xs text-text-secondary-light dark:text-text-secondary-dark">Showing {periods.length} of {dataset.periods.length} {periodUnit}</p>
-        {!sample && dataset.periods.length > 6 && <SegmentedControl<TableWindow>
+        {!sample && windowControl && dataset.periods.length > 6 && <SegmentedControl<TableWindow>
           label="Table window"
           size="md"
           fullWidth
@@ -229,6 +240,8 @@ export default function MetricsTable({
         }}
         caption={`Metrics by period, ${periods.length} of ${dataset.periods.length} ${periodUnit}: value and change versus ${basis}.${dataset.mode === 'quarterly' ? ' Fiscal quarters follow the company’s reporting calendar. YoY labels identify comparisons versus the prior year when a quarterly comparison is unavailable.' : showsCagr ? ' The final column shows the full selected window CAGR, or percentage-point change for margins.' : ''}`}
         stickyFirstColumn
+        surface="well"
+        pageHeader
         empty="No metrics available for the selected periods."
       />
     </Card>

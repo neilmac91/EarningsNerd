@@ -173,8 +173,8 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
     '--font-editorial': '--font-newsreader',
     '--font-data': '--font-geist-mono',
   }
-  /** The four sanctioned exceptions, each pinned to its exact shape at the end of this block. */
-  const SANCTIONED_STACKS = ['body', 'sans']
+  /** The five sanctioned exceptions, each pinned to its exact shape at the end of this block. */
+  const SANCTIONED_STACKS = ['body', 'figure', 'sans']
   const SANCTIONED_CSS_VARS = ['--font-body', '--font-active']
 
   /** The fontFamily object Tailwind itself will consume, obtained by EVALUATING the config rather
@@ -277,6 +277,13 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
 
   it('tailwind fontFamily.sans stays the --font-body role indirection', () => {
     expect(stack('sans')[0]).toBe('var(--font-body)')
+  })
+
+  // `figure` leads with the one-glyph minus face (globals.css @font-face, unicode-range U+002D), then is the data stack
+  // exactly, so every glyph but the hyphen-minus is the data role's.
+  it('tailwind fontFamily.figure is the minus face, then exactly the data stack', () => {
+    expect(stack('figure')).toEqual(['"EN Figure Minus"', ...stack('data')])
+    expect(globalsCss).toMatch(/@font-face \{\s*font-family: 'EN Figure Minus';[^}]*unicode-range: U\+002D;/)
   })
 
   it('globals.css --font-active stays the --font-body back-compat alias', () => {

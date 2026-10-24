@@ -4,20 +4,33 @@ export function dataNoteDescription(note?: DataNote | null) {
   return note ? `data note ${note.letter}` : ''
 }
 
+// Every mark, † and letter alike, is one footnote type: 11px data face, zero line-height (a mark never sizes its row),
+// raised as a superscript in its own ink, and inline-block, so the source button's dotted underline stops at the figure.
+// Smaller, raised and differently inked, a mark can no longer read as the figure's last glyph ("$4.1B†a").
+const MARK = 'relative inline-block font-figure text-data-xs leading-[0] tracking-normal'
+
 /** The enclosing figure/control owns the accessible name; marks never add a Tab stop. */
 export default function DataNoteMark({ note, calculated = false, announce = false, compact = false }: {
   note?: DataNote | null
   calculated?: boolean
   announce?: boolean
-  /** Dense table affixes retain their type size while using half-pixel spacing at the default root size. */
+  /** The metrics table: marks hang in a gutter one mark wide (--mark-gutter, set by the table) that every figure in a
+   *  column keeps, so a marked and an unmarked figure share one right edge. With no mark the gutter is an empty spacer
+   *  that grows from nothing up to one mark into free space only (a declared width would count toward the line's
+   *  minimum width and push a full nine-glyph figure past its cell). Other surfaces set the marks after a gap. */
   compact?: boolean
 }) {
-  if (!note && !calculated) return null
-  const spacing = compact ? 'ml-[0.03125rem]' : 'ml-0.5'
+  if (!note && !calculated) return compact ? <span aria-hidden="true" data-mark-gutter className="max-w-[var(--mark-gutter)] grow basis-0" /> : null
+  // Superscript height: a mark's top at about the figure's cap height (Geist Mono caps are 0.71em), so the table's 12px
+  // figure raises it 0.35em and the 24px KPI and dialog figures 0.85em. Outside the table the first mark keeps a gap;
+  // in the table the gutter is the gap. A letter after † keeps a 2px gap everywhere: set flush, "†a" read as one
+  // cluster at 1x in dark, and two independent readers dropped the letter (the study's 1x readout).
+  const raise = compact ? '-top-[0.35em]' : '-top-[0.85em]'
+  const gap = compact ? '' : 'ml-0.5'
   return (
     <>
-      {calculated && <span aria-hidden="true" className={`${spacing} text-text-secondary-light dark:text-text-secondary-dark`}>†</span>}
-      {note && <sup aria-hidden="true" data-note-letter={note.letter} data-note-kind={note.kind} className={`${spacing} font-data text-data-xs leading-[0] ${note.kind === 'review' ? 'text-warning-light dark:text-warning-dark' : 'text-text-tertiary-light dark:text-text-secondary-dark'}`}>{note.letter}</sup>}
+      {calculated && <span aria-hidden="true" className={`${MARK} ${raise} ${gap} text-note-light dark:text-note-dark`}>†</span>}
+      {note && <sup aria-hidden="true" data-note-letter={note.letter} data-note-kind={note.kind} className={`${MARK} ${raise} ${calculated ? 'ml-0.5' : gap} ${note.kind === 'review' ? 'text-warning-light dark:text-warning-data-dark' : 'text-note-light dark:text-note-dark'}`}>{note.letter}</sup>}
       {/* Anchor the absolute sr-only box inside the table's scroll boundary. Without this
           containing block, an off-screen comparison can extend the document's scroll width. */}
       {announce && <span className="relative"><span className="sr-only">{`, ${[calculated ? 'calculated' : '', dataNoteDescription(note)].filter(Boolean).join(', ')}`}</span></span>}

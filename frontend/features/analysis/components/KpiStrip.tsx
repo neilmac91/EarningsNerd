@@ -3,7 +3,7 @@
 import { Card } from '@/components/ui'
 import { useCountUp } from '@/hooks/useCountUp'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
-import { directionText } from '@/lib/financialTone'
+import { dataDirectionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth, windowRange } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
@@ -47,17 +47,18 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
   const tone = applySeriesTone(kpi.tone, direction)
   return (
     <Card className="relative row-span-3 grid min-w-0 grid-rows-subgrid gap-y-0.5 p-3 sm:p-4" data-analysis-kpi>
-      <dt className="min-w-0 text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
+      {/* APCA on the panel: the label and period need |Lc| >= 75 (tertiary is 74.1 in light, secondary-dark -48.6). */}
+      <dt className="min-w-0 text-xs font-medium uppercase tracking-eyebrow text-text-secondary-light dark:text-note-dark">
         {kpi.label}
       </dt>
-      <dd data-kpi-value className="tnum min-w-0 font-data text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+      <dd data-kpi-value className="min-w-0 font-figure text-2xl font-semibold tabular-nums lining-nums text-figure-light dark:text-figure-dark">
         <SourceValue point={kpi.point} label={kpi.label} concept={kpi.concept} note={kpi.note} comparison={text ? { label: kpi.growthLabel, display: text, provenance: kpi.growthProvenance, reconciled: kpi.growthReconciled, note: kpi.growthNote } : undefined}>{animated}</SourceValue>
       </dd>
-      <dd className="tnum flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 self-start font-data text-xs">
-        <span className="text-text-secondary-light dark:text-text-secondary-dark">
+      <dd className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 self-start font-figure text-xs tabular-nums lining-nums tracking-normal">
+        <span className="text-text-secondary-light dark:text-note-dark">
           {formatAnalysisPeriod(kpi.point.period)}{kpi.latestAvailable && <span> · latest available</span>}
         </span>
-        {text && <span className={`${directionText[tone]}${kpi.growthTitle ? ' cursor-help' : ''}`} title={kpi.growthTitle}>
+        {text && <span className={`${dataDirectionText[tone]}${kpi.growthTitle ? ' cursor-help' : ''}`} title={kpi.growthTitle}>
           {kpi.growthLabel} {text}<DataNoteMark note={kpi.growthNote} />
         </span>}
       </dd>

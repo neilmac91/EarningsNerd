@@ -25,6 +25,11 @@ const gain = {
   dark: '#34D399',  // emerald-400 — 9.7:1 on navy, text-safe
   soft: '#DCFCE7',
   softDark: 'rgba(52,211,153,0.14)',
+  // Change text on the analysis figure surfaces (the metrics table's well and the KPI cards), held to APCA
+  // |Lc| >= 75: green-800 is Lc 82.6 on the light well and 81.3 on panel (the 700 is 72.4 / 71.1);
+  // emerald-300 is Lc -78.5 on the dark well and -75.5 on panel (emerald-400 is -65.6 / -62.6).
+  data: '#166534',
+  dataDark: '#6EE7B7',
 }
 const loss = {
   light: '#DC2626',  // red-600 — GRAPHIC/chip value only: 4.0:1 on cream / 4.4:1 on white (FAILS AA for text)
@@ -32,6 +37,10 @@ const loss = {
   dark: '#FB7185',  // rose-400 — 7.0:1 on navy, text-safe
   soft: '#FEE2E2',
   softDark: 'rgba(251,113,133,0.14)',
+  // Figure surfaces, APCA |Lc| >= 75: red-700 already holds Lc 78.4 / 77.2 in light; dark needs rose-200,
+  // Lc -83.1 on the dark well and -80.1 on panel (rose-400 is -49.7 / -46.7, the weakest ink on the table).
+  data: '#B91C1C',
+  dataDark: '#FECDD3',
 }
 const flat = {
   light: '#6B7280', // gray-500
@@ -96,6 +105,8 @@ module.exports = {
           dark: gain.dark,
           soft: gain.soft,
           'soft-dark': gain.softDark,
+          data: gain.data,
+          'data-dark': gain.dataDark,
         },
         loss: {
           DEFAULT: loss.light,
@@ -104,6 +115,8 @@ module.exports = {
           dark: loss.dark,
           soft: loss.soft,
           'soft-dark': loss.softDark,
+          data: loss.data,
+          'data-dark': loss.dataDark,
         },
         flat: {
           light: flat.light,
@@ -112,7 +125,9 @@ module.exports = {
 
         // ---- UI state ---- (light values sized for the warm cream surface, not white)
         success: { light: '#15803D', dark: '#22C55E' }, // was #16A34A — 3.3:1 as text; green-700 holds 4.5:1 on cream
-        warning: { light: '#92400E', dark: '#F59E0B' }, // was #B45309 — 3.8:1 inside its 13% tint; amber-800 holds 5.2:1 in-tint, 6.4:1 on cream
+        // data-dark: a review letter on the analysis figure surfaces, APCA Lc -81.8 on the dark well, -78.8 on panel
+        // (amber-500 is -59.9 / -56.9 at 11px); light keeps amber-800 (Lc 82.2 on the light well).
+        warning: { light: '#92400E', dark: '#F59E0B', 'data-dark': '#FCD34D' }, // was #B45309 — 3.8:1 inside its 13% tint; amber-800 holds 5.2:1 in-tint, 6.4:1 on cream
         error: { light: '#B91C1C', dark: '#F87171', emphasis: '#991B1B' }, // was #DC2626 (white label = 4.4:1); red-700 fill = 6.5:1, emphasis = destructive hover, 8.3:1
         // info.text (blue-700): the in-tint LABEL ink — #2563EB inside its own 10% tint
         // is 4.3:1 on cream (icon/graphic only there); #1D4ED8 holds 5.6:1 in-tint, 6.0:1 bare.
@@ -168,6 +183,22 @@ module.exports = {
           dark: '#374151', // gray-700
         },
 
+        // ---- Analysis figure surfaces (the metrics table's well, the KPI cards' figures) ----
+        // Measured with APCA (apca-w3 0.1.9) against the actual ground; targets by role: figures and metric names
+        // |Lc| >= 90 (Bronze: non-body text no smaller than 12px), change lines and labels >= 75, marks >= 60, rules >= 15.
+        // well: the table's inset sheet inside its panel Card. Platinum white is cooler and brighter than warm paper;
+        // near-black is the navy ground itself, so the sheet reads as recessed in dark.
+        well: { light: '#FCFCFD', dark: '#0B1120' },
+        // rule: the well's row hairlines and outline. border-light is Lc 10.0 on the well (below the non-text 15);
+        // strong: the two rules of a hovered row (Lc 35.8 / -27.6), the hover that leaves every text pair unchanged.
+        rule: { light: '#D9DCE1', dark: '#4B5563', 'strong-light': '#B5BAC2', 'strong-dark': '#6B7280' },
+        // figure: values and metric names. Espresso is Lc 102.5 on the light well; dark needs gray-200, Lc -91.6
+        // (text-primary-dark #D7DADC is -83.3).
+        figure: { light: '#1A1A17', dark: '#E5E7EB' },
+        // note: period headers, flat changes, †, neutral letters and the missing-value token. Tertiary is Lc 75.4 on
+        // the light well; dark needs gray-300, -80.3 on the well and -77.3 on panel (secondary #9CA3AF is -51.6).
+        note: { light: '#636A77', dark: '#D1D5DB' },
+
         // v3: the ONE modal/sheet scrim (brand navy @ 55%), both themes —
         // replaces the bg-slate-950/60 and bg-black/50 hand-rolls.
         overlay: 'rgba(11, 17, 32, 0.55)',
@@ -194,6 +225,10 @@ module.exports = {
         // Technical & data: Geist Mono + tabular-nums — money, %, tickers, XBRL, verbatim excerpts.
         data: ['var(--font-geist-mono)', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
         mono: ['var(--font-geist-mono)', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
+        // The data role for an analysis figure: Geist Mono, with a true minus. "EN Figure Minus" (app/globals.css) is a
+        // one-glyph face that draws Geist Mono's own U+2212 for U+002D, so the hyphen-minus the shared formatters write
+        // stays the DOM text (copy, the accessibility tree, the Excel export) and paints as a minus. The rest is `data`.
+        figure: ['"EN Figure Minus"', 'var(--font-geist-mono)', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
         // fontFamily.system / .grotesque were PURGED at the v2 cutover (zero usage, confirmed by
         // scan) — do not reintroduce. The v2.1 export resurrected them; #497 re-removed them.
       },
