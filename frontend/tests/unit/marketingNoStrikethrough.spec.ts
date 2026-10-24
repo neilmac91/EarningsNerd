@@ -263,6 +263,9 @@ describe('the landing page strikes through no figure', () => {
     ['an element made by a maker taken from React', `const { createElement: make } = React\nexport const A = () => make('del', null, '$391.0B')`],
     ['an element made by an imported maker bound to a name', `import { createElement } from 'react'\nconst h = createElement\nexport const A = () => h('del', null, '$391.0B')`],
     ['an element made by a bound maker', `const h = React.createElement.bind(React)\nexport const A = () => h('s', null, '$391.0B')`],
+    ['an element made by a maker in parentheses', `const h = (React.createElement)\nexport const A = () => h('del', null, '$391.0B')`],
+    // A name bound to a maker declared below it is followed on a second pass.
+    ['an element made by a name bound before its maker', `export const A = () => { const h = make; return h('del', null, '$391.0B') }\nconst make = React.createElement`],
   ])('fails a planted %s', (_, source) => {
     expect(strikesIn('features/x/Planted.tsx', source)).toBe(true)
   })

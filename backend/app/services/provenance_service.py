@@ -692,6 +692,15 @@ def _filed_prior(
     return None, False
 
 
+# A dash of any kind, the spaces around it with it: a model may write the grounding's "—" as "-" or "–".
+_DASH_RE = re.compile(r"\s*[-\u2010-\u2015\u2212]\s*")
+
+
+def _label_words(label: str) -> str:
+    """A label as its words: in any case, its spacing and its dashes of any kind read as one."""
+    return _DASH_RE.sub(" — ", " ".join(label.casefold().split()))
+
+
 def _names_the_debt_balance(label: Any, xbrl_standardized: Optional[dict]) -> bool:
     """Whether a row's label is the one the grounding gives this filing's own debt balance at run time
     (``ai.debt_scope.debt_balance_label``, "Debt — noncurrent long-term debt"), which names the scope of the
@@ -699,8 +708,16 @@ def _names_the_debt_balance(label: Any, xbrl_standardized: Optional[dict]) -> bo
     short-term borrowings", which the grounding prints on its component lines) names another line."""
     if not isinstance(label, str) or not isinstance(xbrl_standardized, dict) or not label.strip().casefold().startswith("debt"):
         return False
-    given = debt_balance_label(build_debt_scope_view(xbrl_standardized))
-    return " ".join(label.casefold().split()) == " ".join(given.casefold().split())
+    return _label_words(label) == _label_words(debt_balance_label(build_debt_scope_view(xbrl_standardized)))
+
+
+def _row_metric_key(label: Any, xbrl_standardized: Optional[dict]) -> Optional[str]:
+    """The concept a row's label names: its whole label (``source_metric_key``), or the debt line for the label
+    the grounding gives this filing's own balance. The check and the swap read the key from here alone."""
+    key = source_metric_key(label)
+    if key is None and _names_the_debt_balance(label, xbrl_standardized):
+        key = "long_term_debt"
+    return key
 
 
 def _names_the_filed_line(key: str, label: Any, fact: dict) -> bool:
@@ -758,9 +775,7 @@ def build_metric_source(
         "xbrl_concept": None,
     }
 
-    key = source_metric_key(metric_row.get("metric"))
-    if key is None and _names_the_debt_balance(metric_row.get("metric"), xbrl_standardized):
-        key = "long_term_debt"
+    key = _row_metric_key(metric_row.get("metric"), xbrl_standardized)
     entry = xbrl_standardized.get(key) if key and isinstance(xbrl_standardized, dict) else None
     current = _filed_fact(entry, "current")
     shown = {field: _figure_text(_row_figure(metric_row, field)) for field in _ROW_PERIOD_FACT}
@@ -844,14 +859,17 @@ _MONTH = (
 )
 # A number a percent, a scale or basis points follow is an amount, whatever it is shaped like: "2025 million",
 # "Note 7, 120 million", "June 25 percent", "Dec 15 bps". One shaped like a year with no unit ("1999 for the
-# year") reads as a year.
+# year") reads as a year. An abbreviation a "&" or "-" joins to a name is no unit ("FY2025 PP&E", "Q4 M&A",
+# "Q3 T-Mobile"); one standing alone is read as a unit in any case, the safe way ("Q4 BP demand" withholds).
 _NO_UNIT = (
-    r"(?!\s*(?:%|(?:percent|per\s?cent|percentage\s+points?|basis\s+points?|bps?|pp|ppts?|pts|thousand|million|billion"
-    r"|trillion|mn|bn|tn)\b|[kmbt]\b(?![&-])))"
+    r"(?!\s*(?:%|(?:percent|per\s?cent|percentage\s+points?|basis\s+points?|thousand|million|billion|trillion)\b"
+    r"|(?:bps?|pp|ppts?|pts|mn|bn|tn|[kmbt])\b(?![&-])))"
 )
-# One number of an Item, Note or Part list, whole (its letter a capital, "7A", never a scale, "2b"), and never
-# one a unit or a thousands group follows ("Note 3, 25%", "Note 12, 1,250 positions").
-_LISTED = rf"\d+(?-i:[A-C])?(?!\d)(?!,\d{{3}}\b){_NO_UNIT}"
+# One number of an Item, Note or Part list: one or two digits, as a filing numbers them, whole (its letter a
+# capital, "7A", never a scale, "2b"), and never one a unit or a thousands group follows ("Note 3, 25%", "Note 12,
+# 1,250 positions"). A larger number is a count ("Note 12, 250 positions"); a count of one or two digits after a
+# listed number ("Item 7, 40 stores") still reads as one of the list.
+_LISTED = rf"\d{{1,2}}(?-i:[A-C])?(?!\d)(?!,\d{{3}}\b){_NO_UNIT}"
 _NON_FIGURE_NUMBER_RE = re.compile(
     rf"(?<![$€£¥\d.,])\b(?:FY|CY)\s?['’]?\d{{2}}(?:\d{{2}})?\b{_NO_UNIT}"
     rf"|\b(?:Q[1-4]|[1-4]Q|H[12]|[12]H){_PERIOD_TAIL}\b{_NO_UNIT}"
@@ -880,7 +898,7 @@ def _swap_in_filed_figures(row: dict, mismatched: list[str], xbrl_standardized: 
     pair. A takeaway that states a figure was written from the replaced one, so it is withheld rather
     than left to contradict its row; one that names only a year, a quarter or an Item stays.
     """
-    key = source_metric_key(row.get("metric"))
+    key = _row_metric_key(row.get("metric"), xbrl_standardized)
     entry = xbrl_standardized[key]
     reporting_currency = xbrl_standardized.get("reporting_currency")
     replaced: dict[str, Any] = {}
@@ -934,11 +952,13 @@ def _refresh_normalized(section: dict, xbrl_standardized: Optional[dict]) -> Non
     facts = normalized.get("metrics") if isinstance(normalized, dict) else None
     if not isinstance(facts, list):
         return
-    # Generation writes the facts in the table's order, so the k-th fact a name carries is the k-th row of that name.
+    # Generation writes the facts in the table's order, naming each by its row's "metric" or "Metric"
+    # (``attach_normalized_facts``), so the k-th fact a name carries is the k-th row of that name.
     rows: dict[str, list[dict]] = {}
     for row in section["table"]:
-        if isinstance(row, dict) and isinstance(row.get("metric"), str):
-            rows.setdefault(row["metric"], []).append(row)
+        row_name = (row.get("metric") or row.get("Metric")) if isinstance(row, dict) else None
+        if isinstance(row_name, str):
+            rows.setdefault(row_name, []).append(row)
     for index, fact in enumerate(facts):
         name = fact.get("metric") if isinstance(fact, dict) else None
         row = rows[name].pop(0) if isinstance(name, str) and rows.get(name) else None
@@ -954,7 +974,7 @@ def _refresh_normalized(section: dict, xbrl_standardized: Optional[dict]) -> Non
         else:
             continue
         facts[index] = json.loads(NormalizedFact(
-            metric=row["metric"],
+            metric=name,
             current_period=_text_or_none(figures[0]),
             prior_period=_text_or_none(figures[1]),
             commentary=_text_or_none(figures[2]) or None,

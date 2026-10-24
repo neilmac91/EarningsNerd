@@ -558,6 +558,9 @@ class TestFigureCheck:
         ("Operating cash flow", "operating_cash_flow",
          "us-gaap:NetCashProvidedByUsedInOperatingActivitiesContinuingOperations", "unchecked"),
         ("Operating cash flow", "operating_cash_flow", "us-gaap:NetCashProvidedByUsedInOperatingActivities", "replaced"),
+        # A "net" label narrows revenue alone: the statement's own cash-flow line names its filed line.
+        ("Net cash provided by operating activities", "operating_cash_flow", "us-gaap:NetCashProvidedByUsedInOperatingActivities", "replaced"),
+        ("Net cash from operating activities", "operating_cash_flow", "ifrs-full:CashFlowsFromUsedInOperatingActivities", "replaced"),
         ("Operating income", "operating_income", None, "replaced"),  # one scope across its candidates
     ])
     def test_a_period_figure_is_replaced_only_by_the_line_its_label_names(self, metric, key, tag, outcome):
@@ -835,6 +838,9 @@ class TestFiledFigureSwap:
         "See Note 7, 120k units shipped.",
         "See Note 7, 120m in charges.",
         "See Note 7, 2t in assets.",
+        "Margins widened Dec 15 BPS.",
+        # A count past two digits after a listed number is no Item or Note.
+        "As described in Note 12, 250 positions were eliminated.",
     ])
     def test_a_takeaway_that_states_a_number_is_withheld(self, commentary):
         row = self._enrich({"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
@@ -872,6 +878,12 @@ class TestFiledFigureSwap:
         "See Notes 3–5.",
         "See Items 7-8.",
         "See Notes 3, 4 and 5.",
+        # An abbreviation joined to a name is no unit: property, plant and equipment.
+        "FY2025 PP&E additions rose on data center builds.",
+        "Q4 PP&E purchases rose.",
+        "June 30 PP&E balances rose.",
+        "Note 9 PP&E rose.",
+        "Items 7 and 7A explain the 10-K's Q4 PP&E-led capex.",
     ])
     def test_a_takeaway_that_names_no_figure_stays(self, commentary):
         # Years, quarters and the filing's own Items and Notes are not figures the swap replaced.
@@ -970,6 +982,18 @@ class TestFiledFigureSwap:
         assert [(fact["metric"], fact["currentPeriod"], round(fact["deltaPercent"], 1)) for fact in (operating, sales)] == [
             ("Operating income", "$133,050,000,000", 8.0), ("Total net sales", "$416.2B", 6.4)]
         assert (sales["currentValue"], sales["priorValue"]) == (416_161e6, 391_035e6)
+
+    def test_a_fact_named_by_its_rows_capitalised_key_pairs_with_that_row(self):
+        # attach_normalized_facts names a fact by its row's "metric" or "Metric", so the second "Revenue" fact is the
+        # second row's: the first, a row the check never reads, keeps the fact generation stored.
+        first = {"metric": "Revenue", "currentPeriod": "$400.0B", "priorPeriod": "$391.0B", "deltaPercent": 2.3}
+        fh = {"table": [{"Metric": "Revenue", "current_period": "$400.0B", "prior_period": "$391.0B"},
+                        {"metric": "Revenue", "current_period": "$416.2B", "prior_period": "$391.0B"}],
+              "normalized": {"metrics": [dict(first),
+                                         {"metric": "Revenue", "currentPeriod": "$416.2B", "priorPeriod": "$391.0B", "deltaPercent": 6.4}]}}
+        kept, bound = prov.enrich_financial_highlights(fh, _filing(), APPLE)["normalized"]["metrics"]
+        assert kept == first
+        assert (bound["currentPeriod"], bound["currentValue"], bound["priorValue"]) == ("$416.2B", 416_161e6, 391_035e6)
 
     def test_a_row_whose_name_is_not_text_leaves_the_facts_as_stored(self):
         fh = {"table": [{"metric": ["Revenue"], "current_period": "$416.2B"}],
@@ -1125,11 +1149,25 @@ class TestLabelsTheModelIsGiven:
             return prov.build_metric_source({"metric": metric, "current_period": shown, "prior_period": "—"}, _filing(), xbrl, None)
 
         assert check(label, "$10.0B")["source_verified"] is True, label
-        assert check(f"  {label.upper()} ", "$10.0B")["source_verified"] is True  # case and spacing are not the label
+        # Case, spacing and the kind of dash are not the label: a model may write the grounding's "—" as "-" or "–".
+        for written in (f"  {label.upper()} ", label.replace(" ", "  "), label.replace(" — ", " - "), label.replace(" — ", "–"), label.replace(" — ", "—")):
+            assert check(written, "$10.0B")["source_verified"] is True, written
         differs = check(label, "$12.0B")
         assert differs["source_checkable"] is False and "source_mismatched" not in differs
         others = [f"Debt — {phrase}" for phrase in SCOPE_PHRASE.values()] + ["Debt Balance (maturity scope unavailable)"]
         assert [other for other in others if other != label and check(other, "$10.0B")["source_checkable"]] == []
+
+    def test_the_swap_reads_the_debt_line_by_the_key_the_check_read(self, monkeypatch):
+        # The run-time debt label maps through the grounding, not the label map, so the swap takes the check's own key:
+        # were a debt tag ever a line its label names, a differing figure would be replaced, never raise.
+        from app.services.ai.debt_scope import build_debt_scope_view, debt_balance_label
+
+        monkeypatch.setitem(prov._EXACT_SCOPE_TAGS, "long_term_debt", frozenset({"LongTermDebtNoncurrent"}))
+        fact = {"period": "2025-09-27", "value": 10_000e6, "form": "10-K", "currency": "USD", "raw_tag": "us-gaap:LongTermDebtNoncurrent"}
+        xbrl = {"reporting_currency": "USD", "long_term_debt": {"current": fact}}
+        label = debt_balance_label(build_debt_scope_view(xbrl))
+        row = prov.enrich_financial_highlights({"table": [{"metric": label, "current_period": "$12.0B"}]}, _filing(), xbrl)["table"][0]
+        assert (row["current_period"], row["source_replaced"]) == ("$10,000,000,000", {"current_period": "$12.0B"})
 
 
 class TestScopeTagsHoldTheirSources:
