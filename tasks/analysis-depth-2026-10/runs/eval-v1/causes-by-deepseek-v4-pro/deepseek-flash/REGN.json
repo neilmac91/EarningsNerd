@@ -1,0 +1,58 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "REGN",
+ "split": "dev",
+ "claims": 4,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "That increase was driven by higher profits primarily associated with an increase in Dupixent sales .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in our share of profits during the year ended December\u00a031, 2025, compared to 2024, was driven by higher profits primarily associated with an increase in Dupixent sales."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 states higher profits driven by increase in Dupixent sales."
+  },
+  {
+   "sentence": "Offsetting it, US EYLEA sales fell 42.4% and subtracted 14.2pp , on lower volumes from competitive pressure and the EYLEA HD transition plus a lower net selling price .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net product sales of EYLEA decreased in 2025 compared to 2024, due to (i) lower sales volumes as a result of continued competitive pressures (as described below), loss in market share to compounded bevacizumab due to patient affordability constraints, and the continued transition of patients to EYLEA HD, and (ii) a lower net selling price."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 states lower volumes from competitive pressures and EYLEA HD transition plus lower net selling price."
+  },
+  {
+   "sentence": "R&D rose 14.0% to $5.85 billion, or 40.8% of revenue ; the filing describes the program composition but states no single cause for the increase .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The following table summarizes our direct research and development expenses by clinical development program and other significant categories of research and development expenses. Direct research and development expenses are comprised primarily of costs paid to third parties for clinical and product development activities, including costs related to preclinical research activities, clinical trials, and the portion of research and development expenses incurred by our collaborators that we are obligated to reimburse. Indirect research and development expenses have not been allocated directly to each program, and primarily consist of costs to compensate personnel, overhead and infrastructure costs to maintain our facilities, and other costs related to activities that benefit multiple projects. Clinical manufacturing costs primarily consist of costs to manufacture bulk drug product for clinical development purposes as well as related drug filling, packaging, and labeling costs."
+    }
+   ],
+   "label": "unsupported",
+   "reason": "P6 only describes program composition, no cause for increase."
+  },
+  {
+   "sentence": "SG&A fell 8.6% , primarily due to lower charitable contributions to Good Days .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general, and administrative expenses decreased in 2025, compared to 2024, primarily due to lower charitable contributions to Good Days, an independent non-profit patient assistance organization with a Retinal Vascular and Neovascular Disease Fund (the \"Fund\"). In July 2025, we launched a matching program for donations made to the Fund and committed to quarterly matching donations through the end of 2025. During the fourth quarter of 2025, we recognized approximately $60\u00a0million in connection with matching donations made to the Fund. We have also recently committed to matching donations for up to a total of $200\u00a0million during 2026."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 states decrease primarily due to lower charitable contributions to Good Days."
+  }
+ ],
+ "cost_usd": 0.000848
+}

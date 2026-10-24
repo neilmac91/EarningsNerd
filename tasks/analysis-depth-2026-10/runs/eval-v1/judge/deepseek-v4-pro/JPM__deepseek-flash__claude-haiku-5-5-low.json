@@ -1,0 +1,86 @@
+{
+ "ticker": "JPM",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper analysis of growth drivers, margin trends, and cash conversion, with stronger causal links and peer comparisons. Both are well-grounded, but A's coverage of red flags and watch items is more specific and actionable. A's clarity and calibration are slightly better."
+   },
+   "cost_usd": 0.005149,
+   "latency_s": 2.787,
+   "input_tokens": 9029,
+   "output_tokens": 127,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper analysis of growth drivers, margin trends, and cash conversion, with stronger causal links and peer comparisons. Both are well-grounded, but A's coverage of red flags and watch items is more specific and actionable. A's clarity and calibration are slightly better.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A is more grounded: it cites specific passages for causal claims and flags proxy-sourced net income. Draft B adds geographic detail but misreads the efficiency percentile and makes unsupported allowance-cushion claims. A's depth on drivers and red flags is stronger, with clearer numeric watch items."
+   },
+   "cost_usd": 0.005157,
+   "latency_s": 2.828,
+   "input_tokens": 9029,
+   "output_tokens": 131,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"B\",\n    \"grounding\": \"A\",\n    \"coverage\": \"B\",\n    \"clarity\": \"B\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A is more grounded: it cites specific passages for causal claims and flags proxy-sourced net income. Draft B adds geographic detail but misreads the efficiency percentile and makes unsupported allowance-cushion claims. A's depth on drivers and red flags is stronger, with clearer numeric watch items.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.010306
+}

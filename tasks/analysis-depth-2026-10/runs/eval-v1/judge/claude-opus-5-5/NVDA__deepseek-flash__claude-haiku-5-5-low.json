@@ -1,0 +1,86 @@
+{
+ "ticker": "NVDA",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A has more depth: China drag, compute versus networking split, the Groq investing driver and peer context. But A presents the 75.5% cash-and-investments collapse and the peer ranking as fact, though FY2026 short-term investments are missing. A also adds 'product mix' without support and states interpretations as settled. B discloses the data gap, ties the FY2023 cash drop to the cited Arm cost, and labels its analysis. Grounding decides it."
+   },
+   "cost_usd": 0.132481,
+   "latency_s": 13.495,
+   "input_tokens": 15240,
+   "output_tokens": 812,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A has more depth: China drag, compute versus networking split, the Groq investing driver and peer context. But A presents the 75.5% cash-and-investments collapse and the peer ranking as fact, though FY2026 short-term investments are missing. A also adds 'product mix' without support and states interpretations as settled. B discloses the data gap, ties the FY2023 cash drop to the cited Arm cost, and labels its analysis. Grounding decides it.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is richer: Data Center share history, R&D/SG&A leverage, China drag, working capital, SBC and the Groq investing outflow. But it states the 75.5% cash collapse and the peer net-cash ranking as fact, missing the absent FY2026 short-term investments that A flags. B also adds uncited 'product mix' and an FY2024 driver claim. A says less, admits the gross-margin fall is unexplained and labels its analysis, so it wins on grounding."
+   },
+   "cost_usd": 0.134257,
+   "latency_s": 13.323,
+   "input_tokens": 15242,
+   "output_tokens": 900,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B is richer: Data Center share history, R&D/SG&A leverage, China drag, working capital, SBC and the Groq investing outflow. But it states the 75.5% cash collapse and the peer net-cash ranking as fact, missing the absent FY2026 short-term investments that A flags. B also adds uncited 'product mix' and an FY2024 driver claim. A says less, admits the gross-margin fall is unexplained and labels its analysis, so it wins on grounding.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.266738
+}

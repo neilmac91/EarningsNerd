@@ -1,0 +1,94 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "CVX",
+ "split": "holdout",
+ "claims": 7,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "Revenue rose 51.5% in FY2022  and net income rose 127.6% ; the filing attributes the pre-tax gain to higher upstream realizations and downstream margins .",
+   "passages": [
+    {
+     "id": "P57",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in income tax expense in 2022 of $8.1 billion is due to the increase in total income before tax for the company of $28.0 billion. The increase in income before taxes for the company is primarily the result of higher upstream realizations and downstream margins."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states higher upstream realizations and downstream margins caused income increase."
+  },
+  {
+   "sentence": "Revenue fell 4.6%  to $184 billion ; the filing attributes this mainly to lower crude and refined product prices, partly offset by higher volumes and gas prices .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and other operating revenues decreased in 2025 mainly due to lower crude oil and refined product prices, partially offset by higher crude oil and refined product sales volumes and higher natural gas prices and volumes."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes revenue decrease to lower crude and product prices, offset by volumes and gas."
+  },
+  {
+   "sentence": "Cost of revenue fell 9.2% , taking its share of revenue to 57.2% from 58.8% , a 1.6pp gain, as purchased crude and products fell .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Purchased crude oil and products decreased in 2025 due to lower crude oil and refined product prices and volumes, partially offset by higher natural gas prices and volumes."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports purchased crude and products fell, but not revenue share change."
+  },
+  {
+   "sentence": "The effective tax rate rose to 36.8%  from 27.6%  in FY2023, which the filing attributes to the mix of earnings across tax jurisdictions .",
+   "passages": [
+    {
+     "id": "P33",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Income Taxes The effective tax rate for the company can change substantially during periods of significant earnings volatility. This is due to the mix effects that are impacted by both the absolute level of earnings or losses and whether they arise in higher or lower tax rate jurisdictions. As a result, a decline or increase in the effective income tax rate in one period may not be indicative of expected results in future periods. Additional information related to the company\u2019s effective income tax rate is included in Note 17 Taxes to the Consolidated Financial Statements."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes effective tax rate changes to mix effects across jurisdictions."
+  },
+  {
+   "sentence": "DD&A rose to 10.7% of revenue  from 8.5% , which the filing attributes to higher production and rates .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Depreciation, depletion and amortization expenses increased in 2025 primarily due to higher production and higher rates."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes DD&A increase to higher production and rates."
+  },
+  {
+   "sentence": "Operating cash flow rose 7.8%  in FY2025, which the filing attributes to higher TCO distributions and legacy Hess contributions that offset lower prices .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash, Cash Equivalents and Marketable Securities Total balances were $6.3 billion and $6.8 billion at December\u00a031, 2025 and 2024, respectively. The company holds its cash with a diverse group of major financial institutions and has processes and safeguards in place designed to manage its cash balances and mitigate the risk of loss. Cash provided by operating activities in 2025 was $33.9 billion, compared to $31.5 billion in 2024, primarily as higher cash distributions from TCO and contributions from legacy Hess assets more than offset the impact of lower commodity prices. Between January and March 2025, Chevron purchased 15.38 million shares of Hess common stock in open market transactions for approximately $2.2 billion. Cash provided by operating activities was net of contributions to employee pension plans of approximately $588 million in 2025 and $844 million in 2024. Capital expenditures totaled $17.3 billion in 2025 compared to $16.4 billion in 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes operating cash flow increase to TCO distributions and Hess contributions."
+  },
+  {
+   "sentence": "Revenue has fallen three years running, down 16.5% , 1.8%  and 4.6%  from FY2023 to FY2025 ; the FY2025 cut reflects lower prices .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and other operating revenues decreased in 2025 mainly due to lower crude oil and refined product prices, partially offset by higher crude oil and refined product sales volumes and higher natural gas prices and volumes."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports FY2025 decrease due to lower prices, but not prior years."
+  }
+ ],
+ "cost_usd": 0.001288
+}

@@ -1,0 +1,86 @@
+{
+ "ticker": "CVX",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A compares operating cash flow to net income against a median that is actually free cash flow to net income, which is a misread. It also presents debt as funding buybacks without support. Draft B labels its own analysis, puts the recast caveat up front, admits the non-US downstream fall is unexplained, and adds peer and interest-expense context. B has flaws: a tax-rate base taken from FY2023 and a non-sequitur 'so' on EPS. Even so, B is better grounded and deeper."
+   },
+   "cost_usd": 0.141421,
+   "latency_s": 17.759,
+   "input_tokens": 15485,
+   "output_tokens": 1161,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A compares operating cash flow to net income against a median that is actually free cash flow to net income, which is a misread. It also presents debt as funding buybacks without support. Draft B labels its own analysis, puts the recast caveat up front, admits the non-US downstream fall is unexplained, and adds peer and interest-expense context. B has flaws: a tax-rate base taken from FY2023 and a non-sequitur 'so' on EPS. Even so, B is better grounded and deeper.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A cites income-before-tax passages as causes of FY2023 revenue falls, and the international passage omits downstream margins. It presents the FY2023 tax rate as the prior-year base and links EPS to costs with a non sequitur. B uses correct prior-year baselines and shows the cyclical arc clearly. B errs too: it compares OCF/NI with an FCF/NI median and states debt-funding as fact. A has richer peer context and stronger caveats."
+   },
+   "cost_usd": 0.146201,
+   "latency_s": 19.622,
+   "input_tokens": 15485,
+   "output_tokens": 1400,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A cites income-before-tax passages as causes of FY2023 revenue falls, and the international passage omits downstream margins. It presents the FY2023 tax rate as the prior-year base and links EPS to costs with a non sequitur. B uses correct prior-year baselines and shows the cyclical arc clearly. B errs too: it compares OCF/NI with an FCF/NI median and states debt-funding as fact. A has richer peer context and stronger caveats.\"}\n```"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.287622
+}

@@ -1,0 +1,94 @@
+{
+ "system": "claude-haiku-5-5-low",
+ "ticker": "REGN",
+ "split": "dev",
+ "claims": 7,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "FY2021 revenue rose 89.1% to $16,071.7m  on REGEN-COV U.S. sales of $5,828.0m , which the filing ties to a September 2021 U.S. government supply agreement .",
+   "passages": [
+    {
+     "id": "P39",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As of December\u00a031, 2021, Accounts receivable had increased by $1.927 billion, compared to December\u00a031, 2020, primarily due to REGEN-COV sales in connection with our September 2021 agreement to supply drug product to the U.S. government. Other non-cash items, net, in 2021 included inventory write-offs and reserves totaling $457.1 million, primarily related to REGEN-COV. Accounts payable, accrued expenses, and other liabilities as of December 31, 2021 included a $259.6 million fourth quarter 2021 true-up payment owed in connection with global gross profits under our Roche collaboration agreement."
+    }
+   ],
+   "label": "partial",
+   "reason": "P39 ties the accounts receivable increase, not the revenue growth, to REGEN-COV sales under the September 2021 agreement."
+  },
+  {
+   "sentence": "Regeneron's share of Sanofi antibody profits, $5,241.6m , was the largest contributor, adding 9.3pp  on 33.6% growth , which the filing ties to higher Dupixent sales .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in our share of profits during the year ended December\u00a031, 2025, compared to 2024, was driven by higher profits primarily associated with an increase in Dupixent sales."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 attributes the higher share of profits to increased Dupixent sales."
+  },
+  {
+   "sentence": "EYLEA U.S. sales fell 42.4% to $2,747.8m , costing 14.2pp ; the filing cites lower volumes, competition and a lower net selling price .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net product sales of EYLEA decreased in 2025 compared to 2024, due to (i) lower sales volumes as a result of continued competitive pressures (as described below), loss in market share to compounded bevacizumab due to patient affordability constraints, and the continued transition of patients to EYLEA HD, and (ii) a lower net selling price."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 cites lower volumes from competitive pressures and a lower net selling price."
+  },
+  {
+   "sentence": "Lower SG&A, down 8.6% , added 2.0pp , which the filing attributes to smaller charitable contributions to the Good Days fund .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general, and administrative expenses decreased in 2025, compared to 2024, primarily due to lower charitable contributions to Good Days, an independent non-profit patient assistance organization with a Retinal Vascular and Neovascular Disease Fund (the \"Fund\"). In July 2025, we launched a matching program for donations made to the Fund and committed to quarterly matching donations through the end of 2025. During the fourth quarter of 2025, we recognized approximately $60\u00a0million in connection with matching donations made to the Fund. We have also recently committed to matching donations for up to a total of $200\u00a0million during 2026."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 attributes the SG&A decrease primarily to lower charitable contributions to Good Days."
+  },
+  {
+   "sentence": "Capex rose 21.8% to $718.6m in FY2023 , which the filing attributes to Tarrytown and Rensselaer facility expansion .",
+   "passages": [
+    {
+     "id": "P19",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Capital expenditures in 2023 included costs incurred in connection with the expansion of our Tarrytown, New York location, as well as costs associated with the expansion of our manufacturing facilities in Rensselaer, New York (including the ongoing construction of a fill/finish facility and related equipment). Additionally, capital expenditures in 2023 is net of grant proceeds of $60.0\u00a0million primarily related to the expansion of our facilities in New York. We expect to incur capital expenditures of $825 million to $950 million in 2024 primarily in connection with the continued expansion of our research, preclinical manufacturing, and support facilities at our Tarrytown, New York campus and our manufacturing facilities. We expect continued significant capital expenditures over the next several years in connection with the planned expansion of our Tarrytown, New York campus."
+    }
+   ],
+   "label": "partial",
+   "reason": "P19 says 2023 capex included Tarrytown and Rensselaer expansion costs but does not give them as the cause of the increase."
+  },
+  {
+   "sentence": "Operating margin has fallen four years running , and the filing ties the FY2025 EYLEA U.S. decline of 42.4%  to competition and lower net pricing .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net product sales of EYLEA decreased in 2025 compared to 2024, due to (i) lower sales volumes as a result of continued competitive pressures (as described below), loss in market share to compounded bevacizumab due to patient affordability constraints, and the continued transition of patients to EYLEA HD, and (ii) a lower net selling price."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 ties the EYLEA decline to competition and a lower net selling price. The margin trend makes no causal claim."
+  },
+  {
+   "sentence": "Receivables still equal 146 days of sales , against 101 days in FY2016 , after a build to $6,036.5m in FY2021  that the filing ties to REGEN-COV sales .",
+   "passages": [
+    {
+     "id": "P39",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As of December\u00a031, 2021, Accounts receivable had increased by $1.927 billion, compared to December\u00a031, 2020, primarily due to REGEN-COV sales in connection with our September 2021 agreement to supply drug product to the U.S. government. Other non-cash items, net, in 2021 included inventory write-offs and reserves totaling $457.1 million, primarily related to REGEN-COV. Accounts payable, accrued expenses, and other liabilities as of December 31, 2021 included a $259.6 million fourth quarter 2021 true-up payment owed in connection with global gross profits under our Roche collaboration agreement."
+    }
+   ],
+   "label": "supported",
+   "reason": "P39 states the FY2021 receivables increase was primarily due to REGEN-COV sales."
+  }
+ ],
+ "cost_usd": 0.04056
+}

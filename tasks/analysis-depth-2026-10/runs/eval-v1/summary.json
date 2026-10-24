@@ -1,0 +1,3996 @@
+{
+ "label": "eval-v1",
+ "systems": [
+  "current",
+  "deepseek-flash",
+  "claude-sonnet-5-5",
+  "claude-haiku-5-5-low",
+  "claude-haiku-5-5"
+ ],
+ "splits": {
+  "dev": {
+   "companies": 10,
+   "arms": {
+    "current": {
+     "n": 10,
+     "generated": 10,
+     "words_mean": 242.1,
+     "cost_mean": 0.0001962,
+     "latency_p50": 1.87,
+     "latency_p90": 2.246
+    },
+    "deepseek-flash": {
+     "n": 10,
+     "generated": 10,
+     "first_pass_gate": 8,
+     "final_gate": 10,
+     "first_pass_gate_now": 8,
+     "final_gate_now": 10,
+     "repaired": 2,
+     "claims_mean": 75,
+     "first_pass_claims": 750,
+     "first_pass_failed_claims": 2,
+     "final_failed_claims": 0,
+     "failure_classes_first_pass": {
+      "no_match": 2,
+      "cause_without_passage": 2
+     },
+     "sentence_mix": {
+      "fact": 0.09152542372881356,
+      "comparison": 0.6644067796610169,
+      "cause": 0.24067796610169492,
+      "judgement": 0.003389830508474576
+     },
+     "sentences_mean": 29.5,
+     "causes_mean": 7.1,
+     "passages_cited_mean": 8.7,
+     "words_mean": 647.3,
+     "words_max": 735,
+     "cost_mean": 0.004235,
+     "cost_billed_mean": 0.004235,
+     "input_tokens_mean": 44816.6,
+     "output_tokens_mean": 2229.7,
+     "latency_p50": 9.394,
+     "latency_p90": 16.138
+    },
+    "claude-sonnet-5-5": {
+     "n": 10,
+     "generated": 10,
+     "first_pass_gate": 8,
+     "final_gate": 10,
+     "first_pass_gate_now": 8,
+     "final_gate_now": 10,
+     "repaired": 2,
+     "claims_mean": 73.5,
+     "first_pass_claims": 735,
+     "first_pass_failed_claims": 2,
+     "final_failed_claims": 0,
+     "failure_classes_first_pass": {
+      "no_match": 1,
+      "period": 1
+     },
+     "sentence_mix": {
+      "fact": 0.22972972972972974,
+      "comparison": 0.3918918918918919,
+      "cause": 0.2533783783783784,
+      "judgement": 0.125
+     },
+     "sentences_mean": 29.6,
+     "causes_mean": 7.5,
+     "passages_cited_mean": 8.3,
+     "words_mean": 621.3,
+     "words_max": 656,
+     "cost_mean": 0.1441285,
+     "cost_billed_mean": 0.211671,
+     "input_tokens_mean": 60975.4,
+     "output_tokens_mean": 6881,
+     "latency_p50": 45.958,
+     "latency_p90": 63.224
+    },
+    "claude-haiku-5-5-low": {
+     "n": 10,
+     "generated": 10,
+     "first_pass_gate": 6,
+     "final_gate": 9,
+     "first_pass_gate_now": 6,
+     "final_gate_now": 10,
+     "repaired": 4,
+     "claims_mean": 67.9,
+     "first_pass_claims": 682,
+     "first_pass_failed_claims": 9,
+     "final_failed_claims": 1,
+     "failure_classes_first_pass": {
+      "no_match": 6,
+      "period": 3
+     },
+     "sentence_mix": {
+      "fact": 0.2491103202846975,
+      "comparison": 0.4128113879003559,
+      "cause": 0.24555160142348753,
+      "judgement": 0.09252669039145907
+     },
+     "sentences_mean": 28.1,
+     "causes_mean": 6.9,
+     "passages_cited_mean": 8.1,
+     "words_mean": 564,
+     "words_max": 614,
+     "cost_mean": 0.0168962,
+     "cost_billed_mean": 0.0235748,
+     "input_tokens_mean": 71067.3,
+     "output_tokens_mean": 20349,
+     "latency_p50": 79.629,
+     "latency_p90": 112.462
+    },
+    "claude-haiku-5-5": {
+     "n": 10,
+     "generated": 10,
+     "first_pass_gate": 5,
+     "final_gate": 10,
+     "first_pass_gate_now": 5,
+     "final_gate_now": 10,
+     "repaired": 5,
+     "claims_mean": 66.4,
+     "first_pass_claims": 663,
+     "first_pass_failed_claims": 7,
+     "final_failed_claims": 0,
+     "failure_classes_first_pass": {
+      "no_match": 4,
+      "period": 2,
+      "direction": 1
+     },
+     "sentence_mix": {
+      "fact": 0.20557491289198607,
+      "comparison": 0.4355400696864111,
+      "cause": 0.2787456445993031,
+      "judgement": 0.08013937282229965
+     },
+     "sentences_mean": 28.7,
+     "causes_mean": 8.0,
+     "passages_cited_mean": 9.1,
+     "words_mean": 589,
+     "words_max": 674,
+     "cost_mean": 0.0190412,
+     "cost_billed_mean": 0.0225463,
+     "input_tokens_mean": 77267.9,
+     "output_tokens_mean": 30227.5,
+     "latency_p50": 115.634,
+     "latency_p90": 156.43
+    }
+   },
+   "judge": {
+    "judged_pairs": 60,
+    "incomplete_panels": 0,
+    "panels": {
+     "consensus": 38,
+     "neutral": 22
+    },
+    "wins": {
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "tie": 10
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "deepseek-flash": 1,
+      "tie": 9
+     },
+     "current|deepseek-flash": {
+      "deepseek-flash": 8,
+      "current": 1,
+      "tie": 1
+     },
+     "current|claude-haiku-5-5-low": {
+      "claude-haiku-5-5-low": 10
+     },
+     "current|claude-sonnet-5-5": {
+      "tie": 1,
+      "claude-sonnet-5-5": 9
+     },
+     "claude-sonnet-5-5|claude-haiku-5-5-low": {
+      "tie": 10
+     }
+    },
+    "consensus": {
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "tie": 10
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "tie": 10
+     },
+     "current|claude-haiku-5-5-low": {
+      "claude-haiku-5-5-low": 10
+     },
+     "current|claude-sonnet-5-5": {
+      "tie": 1,
+      "claude-sonnet-5-5": 9
+     }
+    },
+    "judged_by": {
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "consensus of claude-opus-5-5 + deepseek-v4-pro": 10
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "gemma-4-31b": 2,
+      "consensus of claude-opus-5-5 + deepseek-v4-pro": 8
+     },
+     "current|deepseek-flash": {
+      "claude-opus-5-5": 10
+     },
+     "current|claude-haiku-5-5-low": {
+      "consensus of claude-opus-5-5 + deepseek-v4-pro": 10
+     },
+     "current|claude-sonnet-5-5": {
+      "consensus of claude-opus-5-5 + deepseek-v4-pro": 10
+     },
+     "claude-sonnet-5-5|claude-haiku-5-5-low": {
+      "deepseek-v4-pro": 10
+     }
+    },
+    "criteria": {
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "depth": {
+       "tie": 5,
+       "deepseek-flash": 5
+      },
+      "grounding": {
+       "tie": 9,
+       "claude-haiku-5-5-low": 1
+      },
+      "coverage": {
+       "deepseek-flash": 4,
+       "tie": 6
+      },
+      "clarity": {
+       "tie": 9,
+       "deepseek-flash": 1
+      },
+      "calibration": {
+       "tie": 10
+      }
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "depth": {
+       "deepseek-flash": 1,
+       "tie": 9
+      },
+      "grounding": {
+       "tie": 10
+      },
+      "coverage": {
+       "deepseek-flash": 2,
+       "tie": 8
+      },
+      "clarity": {
+       "tie": 10
+      },
+      "calibration": {
+       "tie": 10
+      }
+     },
+     "current|deepseek-flash": {
+      "depth": {
+       "deepseek-flash": 10
+      },
+      "grounding": {
+       "current": 10
+      },
+      "coverage": {
+       "deepseek-flash": 10
+      },
+      "clarity": {
+       "deepseek-flash": 10
+      },
+      "calibration": {
+       "tie": 4,
+       "deepseek-flash": 5,
+       "current": 1
+      }
+     },
+     "current|claude-haiku-5-5-low": {
+      "depth": {
+       "claude-haiku-5-5-low": 10
+      },
+      "grounding": {
+       "tie": 9,
+       "claude-haiku-5-5-low": 1
+      },
+      "coverage": {
+       "claude-haiku-5-5-low": 10
+      },
+      "clarity": {
+       "claude-haiku-5-5-low": 10
+      },
+      "calibration": {
+       "claude-haiku-5-5-low": 10
+      }
+     },
+     "current|claude-sonnet-5-5": {
+      "depth": {
+       "claude-sonnet-5-5": 10
+      },
+      "grounding": {
+       "tie": 8,
+       "claude-sonnet-5-5": 2
+      },
+      "coverage": {
+       "claude-sonnet-5-5": 10
+      },
+      "clarity": {
+       "claude-sonnet-5-5": 10
+      },
+      "calibration": {
+       "claude-sonnet-5-5": 10
+      }
+     },
+     "claude-sonnet-5-5|claude-haiku-5-5-low": {
+      "depth": {
+       "tie": 10
+      },
+      "grounding": {
+       "tie": 9,
+       "claude-sonnet-5-5": 1
+      },
+      "coverage": {
+       "tie": 10
+      },
+      "clarity": {
+       "tie": 10
+      },
+      "calibration": {
+       "tie": 10
+      }
+     }
+    },
+    "by_judge": {
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "claude-opus-5-5": {
+       "claude-haiku-5-5-low": 9,
+       "tie": 1
+      },
+      "deepseek-v4-pro": {
+       "tie": 7,
+       "deepseek-flash": 3
+      }
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "claude-opus-5-5": {
+       "claude-sonnet-5-5": 10
+      },
+      "gemma-4-31b": {
+       "deepseek-flash": 1,
+       "tie": 1
+      },
+      "deepseek-v4-pro": {
+       "tie": 7,
+       "deepseek-flash": 3
+      }
+     },
+     "current|deepseek-flash": {
+      "claude-opus-5-5": {
+       "deepseek-flash": 8,
+       "current": 1,
+       "tie": 1
+      }
+     },
+     "current|claude-haiku-5-5-low": {
+      "claude-opus-5-5": {
+       "claude-haiku-5-5-low": 10
+      },
+      "deepseek-v4-pro": {
+       "claude-haiku-5-5-low": 10
+      }
+     },
+     "current|claude-sonnet-5-5": {
+      "claude-opus-5-5": {
+       "tie": 1,
+       "claude-sonnet-5-5": 9
+      },
+      "deepseek-v4-pro": {
+       "claude-sonnet-5-5": 10
+      }
+     },
+     "claude-sonnet-5-5|claude-haiku-5-5-low": {
+      "deepseek-v4-pro": {
+       "tie": 10
+      }
+     }
+    },
+    "swap_agreement": {
+     "claude-opus-5-5": [
+      0.94,
+      50
+     ],
+     "deepseek-v4-pro": [
+      0.52,
+      50
+     ],
+     "gemma-4-31b": [
+      0.5,
+      2
+     ]
+    },
+    "between_judges": [
+     0.475,
+     40
+    ]
+   },
+   "causes": {
+    "causes": {
+     "deepseek-flash": {
+      "counts": {
+       "supported": 58,
+       "partial": 13
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      }
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "unsupported": 4,
+       "partial": 12,
+       "supported": 59
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      }
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "supported": 58,
+       "unsupported": 5,
+       "partial": 6
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      }
+     },
+     "claude-haiku-5-5": {
+      "counts": {
+       "unsupported": 6,
+       "supported": 65,
+       "partial": 9
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      }
+     },
+     "gold": {
+      "counts": {
+       "partial": 8,
+       "supported": 19
+      },
+      "auditors": {
+       "claude-opus-5-5": 3
+      }
+     }
+    },
+    "causes-by-claude-opus-5-5": {
+     "deepseek-flash": {
+      "counts": {
+       "supported": 58,
+       "partial": 13
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      }
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "partial": 15,
+       "supported": 59,
+       "unsupported": 1
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      }
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "partial": 14,
+       "supported": 55
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      }
+     },
+     "gold": {
+      "counts": {
+       "partial": 8,
+       "supported": 19
+      },
+      "auditors": {
+       "claude-opus-5-5": 3
+      }
+     }
+    },
+    "causes-by-deepseek-v4-pro": {
+     "deepseek-flash": {
+      "counts": {
+       "supported": 61,
+       "unsupported": 4,
+       "partial": 6
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      }
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "unsupported": 4,
+       "partial": 12,
+       "supported": 59
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      }
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "supported": 58,
+       "unsupported": 5,
+       "partial": 6
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      }
+     },
+     "gold": {
+      "counts": {
+       "supported": 16,
+       "unsupported": 1,
+       "partial": 10
+      },
+      "auditors": {
+       "deepseek-v4-pro": 3
+      }
+     }
+    }
+   },
+   "semantics": {
+    "semantics": {
+     "deepseek-flash": {
+      "counts": {
+       "consistent": 736,
+       "mismatch": 12,
+       "mismatch_bound": 4,
+       "mismatch_ambiguous": 3,
+       "mismatch_substantive": 5
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "SNAP",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 17.1% of revenue in FY2025 and at least 10% in each of the last nine years, 191.1% of the operating loss .",
+        "reason": "10% is a nine-year floor, not the FY2025 value of 17.1%."
+       },
+       {
+        "ticker": "JPM",
+        "kind": "ambiguous",
+        "claim": "1.2pp",
+        "sentence": "International was the FY2025 driver: EMEA added 1.2pp and Asia-Pacific 1.2pp , with Asia-Pacific revenue up 17.3% .",
+        "reason": "Sentence gives this to Asia-Pacific; match is the EMEA contribution."
+       },
+       {
+        "ticker": "JPM",
+        "kind": "ambiguous",
+        "claim": "6.0%",
+        "sentence": "The credit-loss provision rose to 7.8% of revenue in FY2025  from 6.0% in FY2024 , above the 6.0% peer median .",
+        "reason": "Sentence calls this the peer median; match is JPM's own FY2024 value."
+       },
+       {
+        "ticker": "COST",
+        "kind": "ambiguous",
+        "claim": "0.1pp",
+        "sentence": "FY2026 margin rose 0.1pp, with SG&A adding 0.1pp and cost of revenue flat .",
+        "reason": "Sentence calls it SG&A contribution, not total operating margin change"
+       },
+       {
+        "ticker": "PG",
+        "kind": "substantive",
+        "claim": "1.02x",
+        "sentence": "Operating cash flow of $19.6 billion was 1.22x net income in FY2026, above the 1.02x window median, and free cash flow of $15.1 billion was 0.94x .",
+        "reason": "Sentence implies an OCF/net income median; matched value is the FCF/net income median."
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio has been below 1.0x every year of the window and fell to 0.68x in FY2026, a persistent negative working capital position typical of the business model rather than a new stress .",
+        "reason": "1.0x is a threshold across all years, not the FY2026 current ratio."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "-35.6%",
+        "sentence": "Net debt is 38.8% of revenue, better than the -35.6% peer median but only the 43rd percentile of seven industrials peers .",
+        "reason": "Net-cash-basis peer median presented on a net-debt basis; sign is wrong."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "-$26.2 billion",
+        "sentence": "Net debt: a further widening beyond the FY2025 -$26.2 billion would extend the two-year trend; a narrowing back toward the FY2023 -$22.1 billion would reverse it .",
+        "reason": "Net cash value with negative sign labeled as net debt; basis confused."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "-$22.1 billion",
+        "sentence": "Net debt: a further widening beyond the FY2025 -$26.2 billion would extend the two-year trend; a narrowing back toward the FY2023 -$22.1 billion would reverse it .",
+        "reason": "Net cash value with negative sign labeled as net debt; basis confused."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "substantive",
+        "claim": "$1.5 billion",
+        "sentence": "The FY2021 trough reflected a $1.5 billion Mountain Valley Pipeline impairment and unfavorable non-qualifying hedge activity .",
+        "reason": "Sentence ties it to the FY2021 trough; the passage is from the FY2020 10-K."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "Long-term debt grew 18.8% a year against 6.9% for equity, and the current ratio of 0.60x is still below 1.0x .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio value."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio has stayed below 1.0x every year, at 0.60x in FY2025, though that is the window high .",
+        "reason": "1.0x is a threshold across every year, not the FY2025 current ratio."
+       }
+      ]
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "consistent": 734
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "flagged": []
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "consistent": 670,
+       "mismatch": 7,
+       "mismatch_ambiguous": 1,
+       "mismatch_bound": 2,
+       "mismatch_substantive": 4
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "COST",
+        "kind": "ambiguous",
+        "claim": "16%",
+        "sentence": "The 10-K ties FY2021 growth to comparable sales up 16% and FY2022 to up 14%, both helped by new warehouses .",
+        "reason": "16% is comparable sales growth, not revenue growth."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "bound",
+        "claim": "24.0%",
+        "sentence": "Net margin of 13.1% sits 3.4pp below operating margin, with the effective tax rate up to 24.0% from 19.7% .",
+        "reason": "Sentence says effective tax rate 24.0%, but matched to net margin FY2025."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "$26.2 billion",
+        "sentence": "Net debt reached $26.2 billion in FY2025, up from $22.1 billion in FY2023, or 38.8% of revenue .",
+        "reason": "Sentence says net debt $26.2B, but matched to net cash (cash and investments less debt) FY2025."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "$22.1 billion",
+        "sentence": "Net debt reached $26.2 billion in FY2025, up from $22.1 billion in FY2023, or 38.8% of revenue .",
+        "reason": "Sentence says net debt $22.1B, but matched to net cash FY2023."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "38.8%",
+        "sentence": "Net debt reached $26.2 billion in FY2025, up from $22.1 billion in FY2023, or 38.8% of revenue .",
+        "reason": "Sentence says net debt 38.8% of revenue, but matched to net cash % of revenue FY2025."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "$26.2 billion",
+        "sentence": "Net debt wider than the FY2025 level of $26.2 billion in the FY2026 10-K would extend the two-year widening .",
+        "reason": "Sentence says net debt $26.2B, but matched to net cash FY2025."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "26.5%",
+        "sentence": "A tax rate back above FY2024's 5.6%  would show the FY2025 benefit fading and push net margin below 26.5%  in the FY2026 10-K.",
+        "reason": "26.5% is net margin, not tax rate."
+       }
+      ]
+     },
+     "claude-haiku-5-5": {
+      "counts": {
+       "consistent": 662,
+       "mismatch": 1,
+       "mismatch_bound": 1
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio of 0.68x  is below 1.0x, but it has stayed between 0.63x  and 0.88x  across the window, so it is structural rather than new.",
+        "reason": "Sentence says below 1.0x, but matched to current ratio 0.68x."
+       }
+      ]
+     }
+    },
+    "semantics-by-claude-opus-5-5": {
+     "deepseek-flash": {
+      "counts": {
+       "consistent": 736,
+       "mismatch": 12,
+       "mismatch_bound": 4,
+       "mismatch_ambiguous": 3,
+       "mismatch_substantive": 5
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "SNAP",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 17.1% of revenue in FY2025 and at least 10% in each of the last nine years, 191.1% of the operating loss .",
+        "reason": "10% is a nine-year floor, not the FY2025 value of 17.1%."
+       },
+       {
+        "ticker": "JPM",
+        "kind": "ambiguous",
+        "claim": "1.2pp",
+        "sentence": "International was the FY2025 driver: EMEA added 1.2pp and Asia-Pacific 1.2pp , with Asia-Pacific revenue up 17.3% .",
+        "reason": "Sentence gives this to Asia-Pacific; match is the EMEA contribution."
+       },
+       {
+        "ticker": "JPM",
+        "kind": "ambiguous",
+        "claim": "6.0%",
+        "sentence": "The credit-loss provision rose to 7.8% of revenue in FY2025  from 6.0% in FY2024 , above the 6.0% peer median .",
+        "reason": "Sentence calls this the peer median; match is JPM's own FY2024 value."
+       },
+       {
+        "ticker": "COST",
+        "kind": "ambiguous",
+        "claim": "0.1pp",
+        "sentence": "FY2026 margin rose 0.1pp, with SG&A adding 0.1pp and cost of revenue flat .",
+        "reason": "Sentence calls it SG&A contribution, not total operating margin change"
+       },
+       {
+        "ticker": "PG",
+        "kind": "substantive",
+        "claim": "1.02x",
+        "sentence": "Operating cash flow of $19.6 billion was 1.22x net income in FY2026, above the 1.02x window median, and free cash flow of $15.1 billion was 0.94x .",
+        "reason": "Sentence implies an OCF/net income median; matched value is the FCF/net income median."
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio has been below 1.0x every year of the window and fell to 0.68x in FY2026, a persistent negative working capital position typical of the business model rather than a new stress .",
+        "reason": "1.0x is a threshold across all years, not the FY2026 current ratio."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "-35.6%",
+        "sentence": "Net debt is 38.8% of revenue, better than the -35.6% peer median but only the 43rd percentile of seven industrials peers .",
+        "reason": "Net-cash-basis peer median presented on a net-debt basis; sign is wrong."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "-$26.2 billion",
+        "sentence": "Net debt: a further widening beyond the FY2025 -$26.2 billion would extend the two-year trend; a narrowing back toward the FY2023 -$22.1 billion would reverse it .",
+        "reason": "Net cash value with negative sign labeled as net debt; basis confused."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "-$22.1 billion",
+        "sentence": "Net debt: a further widening beyond the FY2025 -$26.2 billion would extend the two-year trend; a narrowing back toward the FY2023 -$22.1 billion would reverse it .",
+        "reason": "Net cash value with negative sign labeled as net debt; basis confused."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "substantive",
+        "claim": "$1.5 billion",
+        "sentence": "The FY2021 trough reflected a $1.5 billion Mountain Valley Pipeline impairment and unfavorable non-qualifying hedge activity .",
+        "reason": "Sentence ties it to the FY2021 trough; the passage is from the FY2020 10-K."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "Long-term debt grew 18.8% a year against 6.9% for equity, and the current ratio of 0.60x is still below 1.0x .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio value."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio has stayed below 1.0x every year, at 0.60x in FY2025, though that is the window high .",
+        "reason": "1.0x is a threshold across every year, not the FY2025 current ratio."
+       }
+      ]
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "consistent": 729,
+       "mismatch": 5,
+       "mismatch_bound": 3,
+       "mismatch_substantive": 1,
+       "mismatch_ambiguous": 1
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "SNAP",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 17.1% of revenue in FY2025 and above 10% in each of nine years, equal to 191.1% of the operating loss .",
+        "reason": "10% is a multi-year threshold, not the FY2025 SBC/revenue value."
+       },
+       {
+        "ticker": "NVDA",
+        "kind": "substantive",
+        "claim": "83rd percentile",
+        "sentence": "FY2026 cash and investments of $10.6 billion equal cash alone, so the 83rd percentile net cash rank among six semis peers is unreliable .",
+        "reason": "Percentile is net cash as a share of revenue, not absolute net cash rank."
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio was 0.68x in FY2026, below 1.0x, and has never exceeded the window high of 0.88x .",
+        "reason": "1.0x is used as a threshold, not the FY2026 current ratio value."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio of 0.60x in FY2025 is below 1.0x , though it is the highest reading in the window .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio value."
+       },
+       {
+        "ticker": "MSFT",
+        "kind": "ambiguous",
+        "claim": "1.2pp",
+        "sentence": "The FY2026 bridge was +1.2pp in total: cost of revenue cost 0.9pp, R&D added 0.8pp and other lines added 1.2pp .",
+        "reason": "Sentence calls it the other-lines effect; the match is the total margin change."
+       }
+      ]
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "consistent": 669,
+       "mismatch": 8,
+       "mismatch_bound": 7,
+       "mismatch_ambiguous": 1
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "SNAP",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "High and ongoing: stock-based compensation of $1.02 billion  was 17.1% of revenue  and 191.1% of the operating loss , above 10% for nine years .",
+        "reason": "10% is a nine-year threshold, not the FY2025 SBC ratio of 17.1%."
+       },
+       {
+        "ticker": "COST",
+        "kind": "ambiguous",
+        "claim": "16%",
+        "sentence": "The 10-K ties FY2021 growth to comparable sales up 16% and FY2022 to up 14%, both helped by new warehouses .",
+        "reason": "Sentence calls it FY2021 comparable sales; match is FY2022 total revenue growth."
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio was 0.68x  against a window median of 0.72x , and has been below 1.0x in every year of the window .",
+        "reason": "1.0x is a threshold, not the FY2026 current ratio value (0.68x)."
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio below 1.0x  is 0.68x in FY2026  and under 1.0x every year since FY2017 , so it looks structural; the passages cited do not explain it.",
+        "reason": "1.0x is a threshold, not the FY2026 current ratio."
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio below 1.0x  is 0.68x in FY2026  and under 1.0x every year since FY2017 , so it looks structural; the passages cited do not explain it.",
+        "reason": "1.0x is a threshold across all years, not the FY2026 current ratio."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "bound",
+        "claim": "24.0%",
+        "sentence": "Net margin of 13.1% sits 3.4pp below operating margin, with the effective tax rate up to 24.0% from 19.7% .",
+        "reason": "Sentence calls it effective tax rate; match is net margin."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio of 0.60x  is below 1.0x but above its window median of 0.52x .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio value."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "26.5%",
+        "sentence": "A tax rate back above FY2024's 5.6%  would show the FY2025 benefit fading and push net margin below 26.5%  in the FY2026 10-K.",
+        "reason": "Sentence calls 26.5% net margin; match is the FY2024 effective tax rate."
+       }
+      ]
+     }
+    },
+    "semantics-by-deepseek-v4-pro": {
+     "deepseek-flash": {
+      "counts": {
+       "consistent": 740,
+       "mismatch": 8,
+       "mismatch_substantive": 7,
+       "mismatch_bound": 1
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "SNAP",
+        "kind": "substantive",
+        "claim": "$3,485.6 million",
+        "sentence": "FY2017's operating loss of $3,485.6 million was driven by a $2.6 billion increase in stock-based compensation tied to the IPO-related RSUs and the CEO award .",
+        "reason": "Sentence says operating loss, matched to operating income"
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio has been below 1.0x every year of the window and fell to 0.68x in FY2026, a persistent negative working capital position typical of the business model rather than a new stress .",
+        "reason": "1.0x is not FY2026 current ratio"
+       },
+       {
+        "ticker": "NEE",
+        "kind": "substantive",
+        "claim": "$1.5 billion",
+        "sentence": "The FY2021 trough reflected a $1.5 billion Mountain Valley Pipeline impairment and unfavorable non-qualifying hedge activity .",
+        "reason": "Sentence attributes $1.5 billion impairment to FY2021, but passage is from FY2020 10-K."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "substantive",
+        "claim": "$951 million",
+        "sentence": "Depreciation and amortization rose $951 million, mainly higher amortization of deferred storm costs from Hurricanes Debby, Helene and Milton .",
+        "reason": "Sentence attributes $951 million to FY2025, but passage is from FY2025 10-K; period unclear."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "substantive",
+        "claim": "$1,256 million",
+        "sentence": "Corporate and Other results fell $1,256 million on unfavorable non-qualifying hedge activity and higher average debt balances .",
+        "reason": "Sentence attributes $1,256 million to FY2025, but passage is from FY2025 10-K; period unclear."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "substantive",
+        "claim": "$89 million",
+        "sentence": "The shift from net over-recovery to net under-recovery of cost recovery clauses cut FPL's operating cash flow by about $89 million .",
+        "reason": "Sentence attributes $89 million to FY2025, but passage is from FY2025 10-K; period unclear."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "substantive",
+        "claim": "$585 million",
+        "sentence": "The FY2025 effective tax rate of -17.7% reflects clean energy tax credits, which rose about $585 million at NEER .",
+        "reason": "Sentence attributes $585 million to FY2025, but passage is from FY2025 10-K; period unclear."
+       },
+       {
+        "ticker": "MSFT",
+        "kind": "substantive",
+        "claim": "365",
+        "sentence": "FY2026 was the sharpest step, with revenue up 17.8% on growth in Microsoft Cloud, Azure and Microsoft 365 Commercial cloud .",
+        "reason": "365 is part of product name, not a metric"
+       }
+      ]
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "consistent": 734
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "flagged": []
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "consistent": 670,
+       "mismatch": 7,
+       "mismatch_ambiguous": 1,
+       "mismatch_bound": 2,
+       "mismatch_substantive": 4
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "COST",
+        "kind": "ambiguous",
+        "claim": "16%",
+        "sentence": "The 10-K ties FY2021 growth to comparable sales up 16% and FY2022 to up 14%, both helped by new warehouses .",
+        "reason": "16% is comparable sales growth, not revenue growth."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "bound",
+        "claim": "24.0%",
+        "sentence": "Net margin of 13.1% sits 3.4pp below operating margin, with the effective tax rate up to 24.0% from 19.7% .",
+        "reason": "Sentence says effective tax rate 24.0%, but matched to net margin FY2025."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "$26.2 billion",
+        "sentence": "Net debt reached $26.2 billion in FY2025, up from $22.1 billion in FY2023, or 38.8% of revenue .",
+        "reason": "Sentence says net debt $26.2B, but matched to net cash (cash and investments less debt) FY2025."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "$22.1 billion",
+        "sentence": "Net debt reached $26.2 billion in FY2025, up from $22.1 billion in FY2023, or 38.8% of revenue .",
+        "reason": "Sentence says net debt $22.1B, but matched to net cash FY2023."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "38.8%",
+        "sentence": "Net debt reached $26.2 billion in FY2025, up from $22.1 billion in FY2023, or 38.8% of revenue .",
+        "reason": "Sentence says net debt 38.8% of revenue, but matched to net cash % of revenue FY2025."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "$26.2 billion",
+        "sentence": "Net debt wider than the FY2025 level of $26.2 billion in the FY2026 10-K would extend the two-year widening .",
+        "reason": "Sentence says net debt $26.2B, but matched to net cash FY2025."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "26.5%",
+        "sentence": "A tax rate back above FY2024's 5.6%  would show the FY2025 benefit fading and push net margin below 26.5%  in the FY2026 10-K.",
+        "reason": "26.5% is net margin, not tax rate."
+       }
+      ]
+     }
+    }
+   }
+  },
+  "holdout": {
+   "companies": 10,
+   "arms": {
+    "current": {
+     "n": 10,
+     "generated": 10,
+     "words_mean": 248.8,
+     "cost_mean": 0.0001923,
+     "latency_p50": 1.776,
+     "latency_p90": 2.175
+    },
+    "deepseek-flash": {
+     "n": 10,
+     "generated": 10,
+     "first_pass_gate": 5,
+     "final_gate": 9,
+     "first_pass_gate_now": 5,
+     "final_gate_now": 10,
+     "repaired": 5,
+     "claims_mean": 71,
+     "first_pass_claims": 713,
+     "first_pass_failed_claims": 8,
+     "final_failed_claims": 1,
+     "failure_classes_first_pass": {
+      "no_match": 5,
+      "period": 2,
+      "direction": 1
+     },
+     "sentence_mix": {
+      "fact": 0.1288135593220339,
+      "comparison": 0.6271186440677966,
+      "cause": 0.23389830508474577,
+      "judgement": 0.010169491525423728
+     },
+     "sentences_mean": 29.5,
+     "causes_mean": 6.9,
+     "passages_cited_mean": 8,
+     "words_mean": 587.8,
+     "words_max": 659,
+     "cost_mean": 0.0070225,
+     "cost_billed_mean": 0.0070225,
+     "input_tokens_mean": 55920.3,
+     "output_tokens_mean": 2625.6,
+     "latency_p50": 11.132,
+     "latency_p90": 15.517
+    },
+    "claude-sonnet-5-5": {
+     "n": 10,
+     "generated": 10,
+     "first_pass_gate": 7,
+     "final_gate": 10,
+     "first_pass_gate_now": 7,
+     "final_gate_now": 10,
+     "repaired": 3,
+     "claims_mean": 72.9,
+     "first_pass_claims": 727,
+     "first_pass_failed_claims": 3,
+     "final_failed_claims": 0,
+     "failure_classes_first_pass": {
+      "period": 1,
+      "direction": 2
+     },
+     "sentence_mix": {
+      "fact": 0.21649484536082475,
+      "comparison": 0.41237113402061853,
+      "cause": 0.2646048109965636,
+      "judgement": 0.10652920962199312
+     },
+     "sentences_mean": 29.1,
+     "causes_mean": 7.7,
+     "passages_cited_mean": 8.6,
+     "words_mean": 602.7,
+     "words_max": 633,
+     "cost_mean": 0.2167213,
+     "cost_billed_mean": 0.3435036,
+     "input_tokens_mean": 67564.8,
+     "output_tokens_mean": 8874.3,
+     "latency_p50": 59.767,
+     "latency_p90": 65.471
+    },
+    "claude-haiku-5-5-low": {
+     "n": 10,
+     "generated": 10,
+     "first_pass_gate": 3,
+     "final_gate": 10,
+     "first_pass_gate_now": 6,
+     "final_gate_now": 10,
+     "repaired": 7,
+     "claims_mean": 68,
+     "first_pass_claims": 684,
+     "first_pass_failed_claims": 8,
+     "final_failed_claims": 0,
+     "failure_classes_first_pass": {
+      "direction": 4,
+      "period": 3,
+      "no_match": 1
+     },
+     "sentence_mix": {
+      "fact": 0.1936619718309859,
+      "comparison": 0.45774647887323944,
+      "cause": 0.2640845070422535,
+      "judgement": 0.08450704225352113
+     },
+     "sentences_mean": 28.4,
+     "causes_mean": 7.5,
+     "passages_cited_mean": 8.7,
+     "words_mean": 591.2,
+     "words_max": 641,
+     "cost_mean": 0.0193801,
+     "cost_billed_mean": 0.027777,
+     "input_tokens_mean": 88861.2,
+     "output_tokens_mean": 21867.9,
+     "latency_p50": 89.277,
+     "latency_p90": 104.663
+    },
+    "claude-haiku-5-5": {
+     "n": 10,
+     "generated": 10,
+     "first_pass_gate": 8,
+     "final_gate": 9,
+     "first_pass_gate_now": 9,
+     "final_gate_now": 10,
+     "repaired": 2,
+     "claims_mean": 71.5,
+     "first_pass_claims": 714,
+     "first_pass_failed_claims": 2,
+     "final_failed_claims": 1,
+     "failure_classes_first_pass": {
+      "no_match": 1,
+      "direction": 1
+     },
+     "sentence_mix": {
+      "fact": 0.1945392491467577,
+      "comparison": 0.4641638225255973,
+      "cause": 0.29692832764505117,
+      "judgement": 0.04436860068259386
+     },
+     "sentences_mean": 29.3,
+     "causes_mean": 8.7,
+     "passages_cited_mean": 9.1,
+     "words_mean": 610.5,
+     "words_max": 668,
+     "cost_mean": 0.014947799999999999,
+     "cost_billed_mean": 0.0157654,
+     "input_tokens_mean": 59189.1,
+     "output_tokens_mean": 27239.4,
+     "latency_p50": 112.288,
+     "latency_p90": 140.692
+    }
+   },
+   "judge": {
+    "judged_pairs": 60,
+    "incomplete_panels": 0,
+    "panels": {
+     "consensus": 37,
+     "neutral": 23
+    },
+    "wins": {
+     "current|claude-sonnet-5-5": {
+      "claude-sonnet-5-5": 10
+     },
+     "current|deepseek-flash": {
+      "current": 1,
+      "tie": 2,
+      "deepseek-flash": 7
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "claude-sonnet-5-5": 1,
+      "tie": 8,
+      "deepseek-flash": 1
+     },
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "tie": 10
+     },
+     "current|claude-haiku-5-5-low": {
+      "claude-haiku-5-5-low": 10
+     },
+     "claude-sonnet-5-5|claude-haiku-5-5-low": {
+      "tie": 8,
+      "claude-sonnet-5-5": 2
+     }
+    },
+    "consensus": {
+     "current|claude-sonnet-5-5": {
+      "claude-sonnet-5-5": 10
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "tie": 10
+     },
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "tie": 10
+     },
+     "current|claude-haiku-5-5-low": {
+      "claude-haiku-5-5-low": 10
+     }
+    },
+    "judged_by": {
+     "current|claude-sonnet-5-5": {
+      "consensus of claude-opus-5-5 + deepseek-v4-pro": 10
+     },
+     "current|deepseek-flash": {
+      "claude-opus-5-5": 10
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "gemma-4-31b": 3,
+      "consensus of claude-opus-5-5 + deepseek-v4-pro": 7
+     },
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "consensus of claude-opus-5-5 + deepseek-v4-pro": 10
+     },
+     "current|claude-haiku-5-5-low": {
+      "consensus of claude-opus-5-5 + deepseek-v4-pro": 10
+     },
+     "claude-sonnet-5-5|claude-haiku-5-5-low": {
+      "deepseek-v4-pro": 10
+     }
+    },
+    "criteria": {
+     "current|claude-sonnet-5-5": {
+      "depth": {
+       "claude-sonnet-5-5": 10
+      },
+      "grounding": {
+       "tie": 9,
+       "claude-sonnet-5-5": 1
+      },
+      "coverage": {
+       "claude-sonnet-5-5": 10
+      },
+      "clarity": {
+       "claude-sonnet-5-5": 10
+      },
+      "calibration": {
+       "claude-sonnet-5-5": 10
+      }
+     },
+     "current|deepseek-flash": {
+      "depth": {
+       "deepseek-flash": 10
+      },
+      "grounding": {
+       "current": 9,
+       "tie": 1
+      },
+      "coverage": {
+       "deepseek-flash": 10
+      },
+      "clarity": {
+       "deepseek-flash": 10
+      },
+      "calibration": {
+       "current": 2,
+       "tie": 2,
+       "deepseek-flash": 6
+      }
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "depth": {
+       "claude-sonnet-5-5": 1,
+       "tie": 8,
+       "deepseek-flash": 1
+      },
+      "grounding": {
+       "tie": 8,
+       "claude-sonnet-5-5": 2
+      },
+      "coverage": {
+       "tie": 10
+      },
+      "clarity": {
+       "tie": 10
+      },
+      "calibration": {
+       "tie": 8,
+       "claude-sonnet-5-5": 2
+      }
+     },
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "depth": {
+       "tie": 10
+      },
+      "grounding": {
+       "tie": 9,
+       "claude-haiku-5-5-low": 1
+      },
+      "coverage": {
+       "tie": 10
+      },
+      "clarity": {
+       "tie": 10
+      },
+      "calibration": {
+       "tie": 9,
+       "claude-haiku-5-5-low": 1
+      }
+     },
+     "current|claude-haiku-5-5-low": {
+      "depth": {
+       "claude-haiku-5-5-low": 10
+      },
+      "grounding": {
+       "tie": 8,
+       "claude-haiku-5-5-low": 2
+      },
+      "coverage": {
+       "claude-haiku-5-5-low": 10
+      },
+      "clarity": {
+       "claude-haiku-5-5-low": 10
+      },
+      "calibration": {
+       "claude-haiku-5-5-low": 10
+      }
+     },
+     "claude-sonnet-5-5|claude-haiku-5-5-low": {
+      "depth": {
+       "tie": 8,
+       "claude-sonnet-5-5": 2
+      },
+      "grounding": {
+       "tie": 7,
+       "claude-sonnet-5-5": 3
+      },
+      "coverage": {
+       "tie": 8,
+       "claude-sonnet-5-5": 2
+      },
+      "clarity": {
+       "tie": 8,
+       "claude-sonnet-5-5": 2
+      },
+      "calibration": {
+       "tie": 8,
+       "claude-sonnet-5-5": 2
+      }
+     }
+    },
+    "by_judge": {
+     "current|claude-sonnet-5-5": {
+      "claude-opus-5-5": {
+       "claude-sonnet-5-5": 10
+      },
+      "deepseek-v4-pro": {
+       "claude-sonnet-5-5": 10
+      }
+     },
+     "current|deepseek-flash": {
+      "claude-opus-5-5": {
+       "current": 1,
+       "tie": 2,
+       "deepseek-flash": 7
+      }
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "claude-opus-5-5": {
+       "claude-sonnet-5-5": 8,
+       "tie": 1,
+       "deepseek-flash": 1
+      },
+      "gemma-4-31b": {
+       "claude-sonnet-5-5": 1,
+       "deepseek-flash": 1,
+       "tie": 1
+      },
+      "deepseek-v4-pro": {
+       "tie": 9,
+       "deepseek-flash": 1
+      }
+     },
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "claude-opus-5-5": {
+       "tie": 2,
+       "claude-haiku-5-5-low": 7,
+       "deepseek-flash": 1
+      },
+      "deepseek-v4-pro": {
+       "tie": 9,
+       "deepseek-flash": 1
+      }
+     },
+     "current|claude-haiku-5-5-low": {
+      "claude-opus-5-5": {
+       "claude-haiku-5-5-low": 10
+      },
+      "deepseek-v4-pro": {
+       "claude-haiku-5-5-low": 10
+      }
+     },
+     "claude-sonnet-5-5|claude-haiku-5-5-low": {
+      "deepseek-v4-pro": {
+       "tie": 8,
+       "claude-sonnet-5-5": 2
+      }
+     }
+    },
+    "swap_agreement": {
+     "claude-opus-5-5": [
+      0.9,
+      50
+     ],
+     "deepseek-v4-pro": [
+      0.48,
+      50
+     ],
+     "gemma-4-31b": [
+      0.6666666666666666,
+      3
+     ]
+    },
+    "between_judges": [
+     0.575,
+     40
+    ]
+   },
+   "causes": {
+    "causes": {
+     "deepseek-flash": {
+      "counts": {
+       "supported": 49,
+       "partial": 19,
+       "unsupported": 1
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      }
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "supported": 55,
+       "unsupported": 4,
+       "partial": 18
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      }
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "supported": 60,
+       "partial": 11,
+       "unsupported": 4
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      }
+     },
+     "claude-haiku-5-5": {
+      "counts": {
+       "supported": 71,
+       "unsupported": 2,
+       "partial": 14
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      }
+     }
+    },
+    "causes-by-claude-opus-5-5": {
+     "deepseek-flash": {
+      "counts": {
+       "supported": 49,
+       "partial": 19,
+       "unsupported": 1
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      }
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "supported": 57,
+       "partial": 19,
+       "unsupported": 1
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      }
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "supported": 58,
+       "partial": 17
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      }
+     }
+    },
+    "causes-by-deepseek-v4-pro": {
+     "deepseek-flash": {
+      "counts": {
+       "supported": 56,
+       "partial": 9,
+       "unsupported": 4
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      }
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "supported": 55,
+       "unsupported": 4,
+       "partial": 18
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      }
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "supported": 60,
+       "partial": 11,
+       "unsupported": 4
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      }
+     }
+    }
+   },
+   "semantics": {
+    "semantics": {
+     "deepseek-flash": {
+      "counts": {
+       "consistent": 693,
+       "mismatch": 16,
+       "mismatch_substantive": 9,
+       "mismatch_ambiguous": 2,
+       "mismatch_bound": 5
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "VRTX",
+        "kind": "substantive",
+        "claim": "$2.02 billion",
+        "sentence": "Buybacks of $2.02 billion absorbed 63.2% of free cash flow in FY2025, yet the diluted share count was unchanged .",
+        "reason": "Metric is buybacks plus dividends; sentence says buybacks only."
+       },
+       {
+        "ticker": "VRTX",
+        "kind": "ambiguous",
+        "claim": "63.2%",
+        "sentence": "Buybacks of $2.02 billion absorbed 63.2% of free cash flow in FY2025, yet the diluted share count was unchanged .",
+        "reason": "Ratio is buybacks plus dividends over FCF, attributed to buybacks only."
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "substantive",
+        "claim": "75th percentile",
+        "sentence": "Net cash was 30.5% of revenue, above the peer median of 17.8% and the 75th percentile of four peers .",
+        "reason": "75th is the company's own percentile rank, not a peer threshold it exceeds."
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 13.8% of revenue in FY2025 and at least 10% in each of the last five years, persistent dilution pressure .",
+        "reason": "10% is a five-year floor claim, not the FY2025 value cited."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "ambiguous",
+        "claim": "0.3pp",
+        "sentence": "The FY2025 margin slipped 0.3pp, with cost of revenue taking 0.3pp and SG&A adding 0.1pp .",
+        "reason": "Sentence calls it the cost-of-revenue effect, but it matched total operating margin change."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "substantive",
+        "claim": "1.01x",
+        "sentence": "Operating cash flow of $6.6 billion was 1.77x net income in FY2025, down from the 1.01x window median .",
+        "reason": "Sentence says OCF/net income median; match is the FCF/net income median."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio of 0.94x sits below 1.0x, though it matches the window median and is above the 0.83x FY2018 low .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio value."
+       },
+       {
+        "ticker": "CVX",
+        "kind": "substantive",
+        "claim": "1.10x",
+        "sentence": "Operating cash flow of $33.9 billion was 2.76x net income, well above the 1.10x window median .",
+        "reason": "Sentence implies OCF/net income median; matched value is FCF/net income median."
+       },
+       {
+        "ticker": "CVX",
+        "kind": "bound",
+        "claim": "100%",
+        "sentence": "Watch free cash flow against the $16.6 billion FY2025 level and the 149.7% payout ratio; a ratio above 100% again would keep buybacks debt-funded .",
+        "reason": "100% is a hypothetical threshold, not the FY2025 payout value of 149.7%."
+       },
+       {
+        "ticker": "KO",
+        "kind": "bound",
+        "claim": "80%",
+        "sentence": "Free cash flow stayed below 80% of net income in FY2024 and FY2025, at 0.45x and 0.40x .",
+        "reason": "80% is a stated threshold, not a growth between the two ratios."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "6.5pp",
+        "sentence": "Below the line, interest expense of $3.17 billion  and a 20.1% tax rate  left net margin 6.5pp under operating margin .",
+        "reason": "Calculation mixes FY2025 net margin with FY2024 operating margin; sentence implies the same year."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "0.91x",
+        "sentence": "Operating cash flow of $7.46 billion was 1.48x net income in FY2025 , against a 0.91x window median .",
+        "reason": "Value is the FCF/net income median; sentence presents it as the OCF/net income median."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "$5.52 billion",
+        "sentence": "Net debt was $5.52 billion at FY2025 , down from $35.8 billion in FY2021 , or 12.1% of revenue .",
+        "reason": "Value is net cash (cash less debt); sentence calls it net debt."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "$35.8 billion",
+        "sentence": "Net debt was $5.52 billion at FY2025 , down from $35.8 billion in FY2021 , or 12.1% of revenue .",
+        "reason": "Value is FY2021 net cash; sentence calls it net debt."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "12.1%",
+        "sentence": "Net debt was $5.52 billion at FY2025 , down from $35.8 billion in FY2021 , or 12.1% of revenue .",
+        "reason": "Value is net cash % of revenue; sentence attributes it to net debt."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio of 0.55x is below 1.0x and near the 0.53x window low, leaving little short-term cushion .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio."
+       }
+      ]
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "consistent": 720,
+       "mismatch": 4,
+       "mismatch_substantive": 4
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$89.6 billion",
+        "sentence": "Net debt reached $89.6 billion in FY2025, up from $84.0 billion a year earlier .",
+        "reason": "Net debt vs net cash sign"
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$84.0 billion",
+        "sentence": "Net debt reached $89.6 billion in FY2025, up from $84.0 billion a year earlier .",
+        "reason": "Net debt vs net cash sign"
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$50.0 billion",
+        "sentence": "Net debt rose nine years in a row, from $50.0 billion in FY2016 to $89.6 billion, while interest expense went from $1.92 billion to $3.63 billion .",
+        "reason": "Net debt vs net cash sign"
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$89.6 billion",
+        "sentence": "Net debt rose nine years in a row, from $50.0 billion in FY2016 to $89.6 billion, while interest expense went from $1.92 billion to $3.63 billion .",
+        "reason": "Net debt vs net cash sign"
+       }
+      ]
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "consistent": 678,
+       "mismatch": 1,
+       "mismatch_substantive": 1
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "VRTX",
+        "kind": "substantive",
+        "claim": "$1.56 billion",
+        "sentence": "Net income of $2.10 billion in FY2018  was lifted by a one-time $1.56 billion tax benefit from releasing the valuation allowance .",
+        "reason": "Tax benefit cited from FY2020 10-K, not FY2018."
+       }
+      ]
+     },
+     "claude-haiku-5-5": {
+      "counts": {
+       "consistent": 701,
+       "mismatch": 11,
+       "mismatch_bound": 1,
+       "mismatch_substantive": 9,
+       "mismatch_ambiguous": 1
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "RIVN",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 13.8% of revenue in FY2025 , at least 10% for five years , which the filing ties to accrued bonus incentives .",
+        "reason": "10% threshold not from cited FY2025 value."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "84%",
+        "sentence": "Cloud Infrastructure supplied 84% of constant-currency cloud growth in FY2026 , adding 13.7pp  to revenue growth of 17.3% .",
+        "reason": "84% is from passage, not a specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$7.0 billion",
+        "sentence": "Operating expenses rose $7.0 billion, led by $6.0 billion more cloud and software costs, mainly infrastructure , and $1.5 billion of restructuring .",
+        "reason": "$7.0B from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$6.0 billion",
+        "sentence": "Operating expenses rose $7.0 billion, led by $6.0 billion more cloud and software costs, mainly infrastructure , and $1.5 billion of restructuring .",
+        "reason": "$6.0B from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "ambiguous",
+        "claim": "$1.5 billion",
+        "sentence": "Operating expenses rose $7.0 billion, led by $6.0 billion more cloud and software costs, mainly infrastructure , and $1.5 billion of restructuring .",
+        "reason": "$1.5B from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$1.5 billion",
+        "sentence": "Stock-compensation tax benefits of $1.5 billion largely offset a $933 million remeasurement charge , and the effective tax rate was 28.4%  against 39.2% .",
+        "reason": "$1.5B from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$933 million",
+        "sentence": "Stock-compensation tax benefits of $1.5 billion largely offset a $933 million remeasurement charge , and the effective tax rate was 28.4%  against 39.2% .",
+        "reason": "$933M from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$34.4 billion",
+        "sentence": "Capital expenditure rose $34.4 billion  to $55.7 billion , or 82.6% of revenue  against 37.0% in FY2025 .",
+        "reason": "$34.4B from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$11.2 billion",
+        "sentence": "The $11.2 billion operating cash flow increase included $4.6 billion of customer prepayment inflows .",
+        "reason": "$11.2B from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$4.6 billion",
+        "sentence": "The $11.2 billion operating cash flow increase included $4.6 billion of customer prepayment inflows .",
+        "reason": "$4.6B from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$42.7 billion",
+        "sentence": "Working capital turned positive to $4.8 billion , mainly from financing proceeds including $42.7 billion of senior notes .",
+        "reason": "$42.7B from passage, not specific metric."
+       }
+      ]
+     }
+    },
+    "semantics-by-claude-opus-5-5": {
+     "deepseek-flash": {
+      "counts": {
+       "consistent": 693,
+       "mismatch": 16,
+       "mismatch_substantive": 9,
+       "mismatch_ambiguous": 2,
+       "mismatch_bound": 5
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "VRTX",
+        "kind": "substantive",
+        "claim": "$2.02 billion",
+        "sentence": "Buybacks of $2.02 billion absorbed 63.2% of free cash flow in FY2025, yet the diluted share count was unchanged .",
+        "reason": "Metric is buybacks plus dividends; sentence says buybacks only."
+       },
+       {
+        "ticker": "VRTX",
+        "kind": "ambiguous",
+        "claim": "63.2%",
+        "sentence": "Buybacks of $2.02 billion absorbed 63.2% of free cash flow in FY2025, yet the diluted share count was unchanged .",
+        "reason": "Ratio is buybacks plus dividends over FCF, attributed to buybacks only."
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "substantive",
+        "claim": "75th percentile",
+        "sentence": "Net cash was 30.5% of revenue, above the peer median of 17.8% and the 75th percentile of four peers .",
+        "reason": "75th is the company's own percentile rank, not a peer threshold it exceeds."
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 13.8% of revenue in FY2025 and at least 10% in each of the last five years, persistent dilution pressure .",
+        "reason": "10% is a five-year floor claim, not the FY2025 value cited."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "ambiguous",
+        "claim": "0.3pp",
+        "sentence": "The FY2025 margin slipped 0.3pp, with cost of revenue taking 0.3pp and SG&A adding 0.1pp .",
+        "reason": "Sentence calls it the cost-of-revenue effect, but it matched total operating margin change."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "substantive",
+        "claim": "1.01x",
+        "sentence": "Operating cash flow of $6.6 billion was 1.77x net income in FY2025, down from the 1.01x window median .",
+        "reason": "Sentence says OCF/net income median; match is the FCF/net income median."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio of 0.94x sits below 1.0x, though it matches the window median and is above the 0.83x FY2018 low .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio value."
+       },
+       {
+        "ticker": "CVX",
+        "kind": "substantive",
+        "claim": "1.10x",
+        "sentence": "Operating cash flow of $33.9 billion was 2.76x net income, well above the 1.10x window median .",
+        "reason": "Sentence implies OCF/net income median; matched value is FCF/net income median."
+       },
+       {
+        "ticker": "CVX",
+        "kind": "bound",
+        "claim": "100%",
+        "sentence": "Watch free cash flow against the $16.6 billion FY2025 level and the 149.7% payout ratio; a ratio above 100% again would keep buybacks debt-funded .",
+        "reason": "100% is a hypothetical threshold, not the FY2025 payout value of 149.7%."
+       },
+       {
+        "ticker": "KO",
+        "kind": "bound",
+        "claim": "80%",
+        "sentence": "Free cash flow stayed below 80% of net income in FY2024 and FY2025, at 0.45x and 0.40x .",
+        "reason": "80% is a stated threshold, not a growth between the two ratios."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "6.5pp",
+        "sentence": "Below the line, interest expense of $3.17 billion  and a 20.1% tax rate  left net margin 6.5pp under operating margin .",
+        "reason": "Calculation mixes FY2025 net margin with FY2024 operating margin; sentence implies the same year."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "0.91x",
+        "sentence": "Operating cash flow of $7.46 billion was 1.48x net income in FY2025 , against a 0.91x window median .",
+        "reason": "Value is the FCF/net income median; sentence presents it as the OCF/net income median."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "$5.52 billion",
+        "sentence": "Net debt was $5.52 billion at FY2025 , down from $35.8 billion in FY2021 , or 12.1% of revenue .",
+        "reason": "Value is net cash (cash less debt); sentence calls it net debt."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "$35.8 billion",
+        "sentence": "Net debt was $5.52 billion at FY2025 , down from $35.8 billion in FY2021 , or 12.1% of revenue .",
+        "reason": "Value is FY2021 net cash; sentence calls it net debt."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "12.1%",
+        "sentence": "Net debt was $5.52 billion at FY2025 , down from $35.8 billion in FY2021 , or 12.1% of revenue .",
+        "reason": "Value is net cash % of revenue; sentence attributes it to net debt."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio of 0.55x is below 1.0x and near the 0.53x window low, leaving little short-term cushion .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio."
+       }
+      ]
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "consistent": 715,
+       "mismatch": 9,
+       "mismatch_bound": 2,
+       "mismatch_ambiguous": 3,
+       "mismatch_substantive": 4
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "RIVN",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 13.8% of revenue in FY2025 and at least 10% in each of the last five years .",
+        "reason": "10% is a five-year floor, not the FY2025 SBC ratio of 13.8%."
+       },
+       {
+        "ticker": "USB",
+        "kind": "ambiguous",
+        "claim": "2.8%",
+        "sentence": "From FY2016 to FY2025 net interest income compounded at 4.0% , ahead of noninterest income at 2.8%  and net income at 2.8% .",
+        "reason": "Sentence says net income CAGR; match is noninterest income CAGR."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "ambiguous",
+        "claim": "0.3pp",
+        "sentence": "FY2025 operating margin fell 0.3pp, with cost of revenue subtracting 0.3pp and SG&A adding 0.1pp .",
+        "reason": "Sentence calls this the cost-of-revenue effect; match is the total operating margin change."
+       },
+       {
+        "ticker": "KO",
+        "kind": "substantive",
+        "claim": "5.2%",
+        "sentence": "Cash and equivalents were $10.3 billion in FY2025, down 5.2%, and the 1.46x current ratio is the window high against a 1.13x median .",
+        "reason": "Decline is cash-and-investments growth, sentence attributes it to cash and equivalents."
+       },
+       {
+        "ticker": "KO",
+        "kind": "substantive",
+        "claim": "100th percentile",
+        "sentence": "Reported net cash of $8,775 million and its 100th percentile peer rank among six peers are therefore unreliable and support no conclusion .",
+        "reason": "Percentile is for net cash % of revenue, sentence says net cash rank."
+       },
+       {
+        "ticker": "KO",
+        "kind": "bound",
+        "claim": "80%",
+        "sentence": "Free cash flow ran below 80% of net income in FY2024 and FY2025, at 0.45x and 0.40x, with FY2024 tied to the $6.0 billion IRS deposit .",
+        "reason": "80% is an analyst threshold, not the IRS deposit passage figure."
+       },
+       {
+        "ticker": "DE",
+        "kind": "ambiguous",
+        "claim": "0.9pp",
+        "sentence": "The FY2024 margin fell 3.7pp, with SG&A costing 1.9pp, R&D 0.9pp and other lines 0.9pp .",
+        "reason": "Sentence calls it 'other lines', but the match is the R&D effect."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "8.2%",
+        "sentence": "Diluted shares rose from 691.0 million to 777.0 million, so EPS compounded at 8.2% against 9.7% for net income .",
+        "reason": "Sentence ties EPS to diluted shares; the cited value is basic EPS CAGR."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "0th percentile",
+        "sentence": "Net debt reached $97.6 billion, up from $81.4 billion, and at 145.0% of revenue ranks in the 0th percentile of six software peers .",
+        "reason": "Percentile ranks net cash; on a net debt basis the ranking reverses."
+       }
+      ]
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "consistent": 671,
+       "mismatch": 8,
+       "mismatch_bound": 2,
+       "mismatch_ambiguous": 2,
+       "mismatch_substantive": 4
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "RIVN",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation has been at least 10% of revenue for five years , at 13.8% in FY2025  and $741 million .",
+        "reason": "10% is a five-year floor, not the FY2025 SBC share value (13.8%)."
+       },
+       {
+        "ticker": "AMD",
+        "kind": "ambiguous",
+        "claim": "$577 million",
+        "sentence": "Net margin of 12.5% sits 1.8pp above operating margin, helped by $577 million of unrealized investment gains and an $853 million tax release .",
+        "reason": "Matched to total other income, but sentence calls it unrealized investment gains."
+       },
+       {
+        "ticker": "CVX",
+        "kind": "substantive",
+        "claim": "27.6%",
+        "sentence": "The effective tax rate rose to 36.8%  from 27.6% , a move that mix effects across jurisdictions can drive .",
+        "reason": "Sentence implies the prior year, FY2024, but the value is FY2023."
+       },
+       {
+        "ticker": "CVX",
+        "kind": "bound",
+        "claim": "100%",
+        "sentence": "Buybacks and dividends of $24.8 billion  were 149.7% of free cash flow , the third straight year above 100% .",
+        "reason": "100% is a threshold, not the FY2025 metric value of 149.7%."
+       },
+       {
+        "ticker": "DE",
+        "kind": "ambiguous",
+        "claim": "0.9pp",
+        "sentence": "SG&A accounts for 1.9pp  and R&D for 0.9pp  of that fall, with other lines adding 0.9pp .",
+        "reason": "Sentence says other lines; matched to R&D effect."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "$5.5 billion",
+        "sentence": "Net debt narrowed to $5.5 billion in FY2025 , or 12.1% of revenue , from $10.5 billion in FY2023 .",
+        "reason": "Called net debt; matched value is net cash, opposite basis."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "12.1%",
+        "sentence": "Net debt narrowed to $5.5 billion in FY2025 , or 12.1% of revenue , from $10.5 billion in FY2023 .",
+        "reason": "Called net debt % of revenue; matched to net cash % of revenue."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "$10.5 billion",
+        "sentence": "Net debt narrowed to $5.5 billion in FY2025 , or 12.1% of revenue , from $10.5 billion in FY2023 .",
+        "reason": "Called net debt FY2023; matched to net cash FY2023."
+       }
+      ]
+     }
+    },
+    "semantics-by-deepseek-v4-pro": {
+     "deepseek-flash": {
+      "counts": {
+       "consistent": 704,
+       "mismatch": 7,
+       "mismatch_bound": 1,
+       "mismatch_substantive": 6
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "RIVN",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 13.8% of revenue in FY2025 and at least 10% in each of the last five years, persistent dilution pressure .",
+        "reason": "10% is not FY2025 SBC/revenue; sentence says at least 10% in each of last five years, but matched to FY2025 only."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "0.91x",
+        "sentence": "Operating cash flow of $7.46 billion was 1.48x net income in FY2025 , against a 0.91x window median .",
+        "reason": "Sentence says OCF/NI median, but cited is FCF/NI median."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$89.6 billion",
+        "sentence": "Net debt reached $89.6 billion in FY2025, 282.3% of revenue, from $50.0 billion in FY2016 .",
+        "reason": "Sentence says net debt $89.6 billion, but cited value is net cash -$89.6 billion; sign/basis mismatch."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "282.3%",
+        "sentence": "Net debt reached $89.6 billion in FY2025, 282.3% of revenue, from $50.0 billion in FY2016 .",
+        "reason": "Sentence says net debt 282.3% of revenue, but cited value is net cash % of revenue -282.3%; sign/basis mismatch."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$50.0 billion",
+        "sentence": "Net debt reached $89.6 billion in FY2025, 282.3% of revenue, from $50.0 billion in FY2016 .",
+        "reason": "Sentence says net debt $50.0 billion, but cited value is net cash -$50.0 billion; sign/basis mismatch."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "-$50.0 billion",
+        "sentence": "Net debt has deepened for nine straight years, from -$50.0 billion to -$89.6 billion .",
+        "reason": "Sentence says net debt -$50.0 billion, but cited value is net cash -$50.0 billion; sign/basis mismatch."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "-$89.6 billion",
+        "sentence": "Net debt has deepened for nine straight years, from -$50.0 billion to -$89.6 billion .",
+        "reason": "Sentence says net debt -$89.6 billion, but cited value is net cash -$89.6 billion; sign/basis mismatch."
+       }
+      ]
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "consistent": 720,
+       "mismatch": 4,
+       "mismatch_substantive": 4
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$89.6 billion",
+        "sentence": "Net debt reached $89.6 billion in FY2025, up from $84.0 billion a year earlier .",
+        "reason": "Net debt vs net cash sign"
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$84.0 billion",
+        "sentence": "Net debt reached $89.6 billion in FY2025, up from $84.0 billion a year earlier .",
+        "reason": "Net debt vs net cash sign"
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$50.0 billion",
+        "sentence": "Net debt rose nine years in a row, from $50.0 billion in FY2016 to $89.6 billion, while interest expense went from $1.92 billion to $3.63 billion .",
+        "reason": "Net debt vs net cash sign"
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$89.6 billion",
+        "sentence": "Net debt rose nine years in a row, from $50.0 billion in FY2016 to $89.6 billion, while interest expense went from $1.92 billion to $3.63 billion .",
+        "reason": "Net debt vs net cash sign"
+       }
+      ]
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "consistent": 678,
+       "mismatch": 1,
+       "mismatch_substantive": 1
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "flagged": [
+       {
+        "ticker": "VRTX",
+        "kind": "substantive",
+        "claim": "$1.56 billion",
+        "sentence": "Net income of $2.10 billion in FY2018  was lifted by a one-time $1.56 billion tax benefit from releasing the valuation allowance .",
+        "reason": "Tax benefit cited from FY2020 10-K, not FY2018."
+       }
+      ]
+     }
+    }
+   }
+  },
+  "all": {
+   "companies": 20,
+   "arms": {
+    "current": {
+     "n": 20,
+     "generated": 20,
+     "words_mean": 245.45,
+     "cost_mean": 0.00019425,
+     "latency_p50": 1.889,
+     "latency_p90": 2.246
+    },
+    "deepseek-flash": {
+     "n": 20,
+     "generated": 20,
+     "first_pass_gate": 13,
+     "final_gate": 19,
+     "first_pass_gate_now": 13,
+     "final_gate_now": 20,
+     "repaired": 7,
+     "claims_mean": 73,
+     "first_pass_claims": 1463,
+     "first_pass_failed_claims": 10,
+     "final_failed_claims": 1,
+     "failure_classes_first_pass": {
+      "no_match": 7,
+      "cause_without_passage": 2,
+      "period": 2,
+      "direction": 1
+     },
+     "sentence_mix": {
+      "fact": 0.11016949152542373,
+      "comparison": 0.6457627118644068,
+      "cause": 0.23728813559322035,
+      "judgement": 0.006779661016949152
+     },
+     "sentences_mean": 29.5,
+     "causes_mean": 7.0,
+     "passages_cited_mean": 8.35,
+     "words_mean": 617.55,
+     "words_max": 735,
+     "cost_mean": 0.00562875,
+     "cost_billed_mean": 0.00562875,
+     "input_tokens_mean": 50368.45,
+     "output_tokens_mean": 2427.65,
+     "latency_p50": 9.818,
+     "latency_p90": 16.091
+    },
+    "claude-sonnet-5-5": {
+     "n": 20,
+     "generated": 20,
+     "first_pass_gate": 15,
+     "final_gate": 20,
+     "first_pass_gate_now": 15,
+     "final_gate_now": 20,
+     "repaired": 5,
+     "claims_mean": 73.2,
+     "first_pass_claims": 1462,
+     "first_pass_failed_claims": 5,
+     "final_failed_claims": 0,
+     "failure_classes_first_pass": {
+      "period": 2,
+      "no_match": 1,
+      "direction": 2
+     },
+     "sentence_mix": {
+      "fact": 0.2231686541737649,
+      "comparison": 0.4020442930153322,
+      "cause": 0.25894378194207834,
+      "judgement": 0.11584327086882454
+     },
+     "sentences_mean": 29.35,
+     "causes_mean": 7.6,
+     "passages_cited_mean": 8.45,
+     "words_mean": 612,
+     "words_max": 656,
+     "cost_mean": 0.1804249,
+     "cost_billed_mean": 0.2775873,
+     "input_tokens_mean": 64270.1,
+     "output_tokens_mean": 7877.65,
+     "latency_p50": 56.587,
+     "latency_p90": 65.471
+    },
+    "claude-haiku-5-5-low": {
+     "n": 20,
+     "generated": 20,
+     "first_pass_gate": 9,
+     "final_gate": 19,
+     "first_pass_gate_now": 12,
+     "final_gate_now": 20,
+     "repaired": 11,
+     "claims_mean": 67.95,
+     "first_pass_claims": 1366,
+     "first_pass_failed_claims": 17,
+     "final_failed_claims": 1,
+     "failure_classes_first_pass": {
+      "no_match": 7,
+      "period": 6,
+      "direction": 4
+     },
+     "sentence_mix": {
+      "fact": 0.22123893805309736,
+      "comparison": 0.4353982300884956,
+      "cause": 0.25486725663716814,
+      "judgement": 0.08849557522123894
+     },
+     "sentences_mean": 28.25,
+     "causes_mean": 7.2,
+     "passages_cited_mean": 8.4,
+     "words_mean": 577.6,
+     "words_max": 641,
+     "cost_mean": 0.01813815,
+     "cost_billed_mean": 0.025675899999999998,
+     "input_tokens_mean": 79964.25,
+     "output_tokens_mean": 21108.45,
+     "latency_p50": 89.277,
+     "latency_p90": 112.462
+    },
+    "claude-haiku-5-5": {
+     "n": 20,
+     "generated": 20,
+     "first_pass_gate": 13,
+     "final_gate": 19,
+     "first_pass_gate_now": 14,
+     "final_gate_now": 20,
+     "repaired": 7,
+     "claims_mean": 68.95,
+     "first_pass_claims": 1377,
+     "first_pass_failed_claims": 9,
+     "final_failed_claims": 1,
+     "failure_classes_first_pass": {
+      "no_match": 5,
+      "direction": 2,
+      "period": 2
+     },
+     "sentence_mix": {
+      "fact": 0.2,
+      "comparison": 0.45,
+      "cause": 0.28793103448275864,
+      "judgement": 0.06206896551724138
+     },
+     "sentences_mean": 29.0,
+     "causes_mean": 8.35,
+     "passages_cited_mean": 9.1,
+     "words_mean": 599.75,
+     "words_max": 674,
+     "cost_mean": 0.0169945,
+     "cost_billed_mean": 0.01915585,
+     "input_tokens_mean": 68228.5,
+     "output_tokens_mean": 28733.45,
+     "latency_p50": 115.634,
+     "latency_p90": 156.43
+    }
+   },
+   "judge": {
+    "judged_pairs": 120,
+    "incomplete_panels": 0,
+    "panels": {
+     "consensus": 75,
+     "neutral": 45
+    },
+    "wins": {
+     "current|claude-sonnet-5-5": {
+      "claude-sonnet-5-5": 19,
+      "tie": 1
+     },
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "tie": 20
+     },
+     "current|deepseek-flash": {
+      "current": 2,
+      "tie": 3,
+      "deepseek-flash": 15
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "deepseek-flash": 2,
+      "claude-sonnet-5-5": 1,
+      "tie": 17
+     },
+     "current|claude-haiku-5-5-low": {
+      "claude-haiku-5-5-low": 20
+     },
+     "claude-sonnet-5-5|claude-haiku-5-5-low": {
+      "tie": 18,
+      "claude-sonnet-5-5": 2
+     }
+    },
+    "consensus": {
+     "current|claude-sonnet-5-5": {
+      "claude-sonnet-5-5": 19,
+      "tie": 1
+     },
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "tie": 20
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "tie": 20
+     },
+     "current|claude-haiku-5-5-low": {
+      "claude-haiku-5-5-low": 20
+     }
+    },
+    "judged_by": {
+     "current|claude-sonnet-5-5": {
+      "consensus of claude-opus-5-5 + deepseek-v4-pro": 20
+     },
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "consensus of claude-opus-5-5 + deepseek-v4-pro": 20
+     },
+     "current|deepseek-flash": {
+      "claude-opus-5-5": 20
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "gemma-4-31b": 5,
+      "consensus of claude-opus-5-5 + deepseek-v4-pro": 15
+     },
+     "current|claude-haiku-5-5-low": {
+      "consensus of claude-opus-5-5 + deepseek-v4-pro": 20
+     },
+     "claude-sonnet-5-5|claude-haiku-5-5-low": {
+      "deepseek-v4-pro": 20
+     }
+    },
+    "criteria": {
+     "current|claude-sonnet-5-5": {
+      "depth": {
+       "claude-sonnet-5-5": 20
+      },
+      "grounding": {
+       "tie": 17,
+       "claude-sonnet-5-5": 3
+      },
+      "coverage": {
+       "claude-sonnet-5-5": 20
+      },
+      "clarity": {
+       "claude-sonnet-5-5": 20
+      },
+      "calibration": {
+       "claude-sonnet-5-5": 20
+      }
+     },
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "depth": {
+       "tie": 15,
+       "deepseek-flash": 5
+      },
+      "grounding": {
+       "tie": 18,
+       "claude-haiku-5-5-low": 2
+      },
+      "coverage": {
+       "deepseek-flash": 4,
+       "tie": 16
+      },
+      "clarity": {
+       "tie": 19,
+       "deepseek-flash": 1
+      },
+      "calibration": {
+       "tie": 19,
+       "claude-haiku-5-5-low": 1
+      }
+     },
+     "current|deepseek-flash": {
+      "depth": {
+       "deepseek-flash": 20
+      },
+      "grounding": {
+       "current": 19,
+       "tie": 1
+      },
+      "coverage": {
+       "deepseek-flash": 20
+      },
+      "clarity": {
+       "deepseek-flash": 20
+      },
+      "calibration": {
+       "current": 3,
+       "tie": 6,
+       "deepseek-flash": 11
+      }
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "depth": {
+       "deepseek-flash": 2,
+       "claude-sonnet-5-5": 1,
+       "tie": 17
+      },
+      "grounding": {
+       "tie": 18,
+       "claude-sonnet-5-5": 2
+      },
+      "coverage": {
+       "deepseek-flash": 2,
+       "tie": 18
+      },
+      "clarity": {
+       "tie": 20
+      },
+      "calibration": {
+       "tie": 18,
+       "claude-sonnet-5-5": 2
+      }
+     },
+     "current|claude-haiku-5-5-low": {
+      "depth": {
+       "claude-haiku-5-5-low": 20
+      },
+      "grounding": {
+       "tie": 17,
+       "claude-haiku-5-5-low": 3
+      },
+      "coverage": {
+       "claude-haiku-5-5-low": 20
+      },
+      "clarity": {
+       "claude-haiku-5-5-low": 20
+      },
+      "calibration": {
+       "claude-haiku-5-5-low": 20
+      }
+     },
+     "claude-sonnet-5-5|claude-haiku-5-5-low": {
+      "depth": {
+       "tie": 18,
+       "claude-sonnet-5-5": 2
+      },
+      "grounding": {
+       "tie": 16,
+       "claude-sonnet-5-5": 4
+      },
+      "coverage": {
+       "tie": 18,
+       "claude-sonnet-5-5": 2
+      },
+      "clarity": {
+       "tie": 18,
+       "claude-sonnet-5-5": 2
+      },
+      "calibration": {
+       "tie": 18,
+       "claude-sonnet-5-5": 2
+      }
+     }
+    },
+    "by_judge": {
+     "current|claude-sonnet-5-5": {
+      "claude-opus-5-5": {
+       "claude-sonnet-5-5": 19,
+       "tie": 1
+      },
+      "deepseek-v4-pro": {
+       "claude-sonnet-5-5": 20
+      }
+     },
+     "deepseek-flash|claude-haiku-5-5-low": {
+      "claude-opus-5-5": {
+       "claude-haiku-5-5-low": 16,
+       "tie": 3,
+       "deepseek-flash": 1
+      },
+      "deepseek-v4-pro": {
+       "tie": 16,
+       "deepseek-flash": 4
+      }
+     },
+     "current|deepseek-flash": {
+      "claude-opus-5-5": {
+       "current": 2,
+       "tie": 3,
+       "deepseek-flash": 15
+      }
+     },
+     "deepseek-flash|claude-sonnet-5-5": {
+      "claude-opus-5-5": {
+       "claude-sonnet-5-5": 18,
+       "tie": 1,
+       "deepseek-flash": 1
+      },
+      "gemma-4-31b": {
+       "deepseek-flash": 2,
+       "claude-sonnet-5-5": 1,
+       "tie": 2
+      },
+      "deepseek-v4-pro": {
+       "tie": 16,
+       "deepseek-flash": 4
+      }
+     },
+     "current|claude-haiku-5-5-low": {
+      "claude-opus-5-5": {
+       "claude-haiku-5-5-low": 20
+      },
+      "deepseek-v4-pro": {
+       "claude-haiku-5-5-low": 20
+      }
+     },
+     "claude-sonnet-5-5|claude-haiku-5-5-low": {
+      "deepseek-v4-pro": {
+       "tie": 18,
+       "claude-sonnet-5-5": 2
+      }
+     }
+    },
+    "swap_agreement": {
+     "claude-opus-5-5": [
+      0.92,
+      100
+     ],
+     "deepseek-v4-pro": [
+      0.5,
+      100
+     ],
+     "gemma-4-31b": [
+      0.6,
+      5
+     ]
+    },
+    "between_judges": [
+     0.525,
+     80
+    ]
+   },
+   "causes": {
+    "causes": {
+     "deepseek-flash": {
+      "counts": {
+       "supported": 107,
+       "partial": 32,
+       "unsupported": 1
+      },
+      "auditors": {
+       "claude-opus-5-5": 20
+      }
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "unsupported": 8,
+       "partial": 30,
+       "supported": 114
+      },
+      "auditors": {
+       "deepseek-v4-pro": 20
+      }
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "supported": 118,
+       "partial": 17,
+       "unsupported": 9
+      },
+      "auditors": {
+       "deepseek-v4-pro": 20
+      }
+     },
+     "claude-haiku-5-5": {
+      "counts": {
+       "unsupported": 8,
+       "supported": 136,
+       "partial": 23
+      },
+      "auditors": {
+       "deepseek-v4-pro": 20
+      }
+     },
+     "gold": {
+      "counts": {
+       "partial": 8,
+       "supported": 19
+      },
+      "auditors": {
+       "claude-opus-5-5": 3
+      }
+     }
+    },
+    "causes-by-claude-opus-5-5": {
+     "deepseek-flash": {
+      "counts": {
+       "supported": 107,
+       "partial": 32,
+       "unsupported": 1
+      },
+      "auditors": {
+       "claude-opus-5-5": 20
+      }
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "partial": 34,
+       "supported": 116,
+       "unsupported": 2
+      },
+      "auditors": {
+       "claude-opus-5-5": 20
+      }
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "partial": 31,
+       "supported": 113
+      },
+      "auditors": {
+       "claude-opus-5-5": 20
+      }
+     },
+     "gold": {
+      "counts": {
+       "partial": 8,
+       "supported": 19
+      },
+      "auditors": {
+       "claude-opus-5-5": 3
+      }
+     }
+    },
+    "causes-by-deepseek-v4-pro": {
+     "deepseek-flash": {
+      "counts": {
+       "supported": 117,
+       "unsupported": 8,
+       "partial": 15
+      },
+      "auditors": {
+       "deepseek-v4-pro": 20
+      }
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "unsupported": 8,
+       "partial": 30,
+       "supported": 114
+      },
+      "auditors": {
+       "deepseek-v4-pro": 20
+      }
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "supported": 118,
+       "partial": 17,
+       "unsupported": 9
+      },
+      "auditors": {
+       "deepseek-v4-pro": 20
+      }
+     },
+     "gold": {
+      "counts": {
+       "supported": 16,
+       "unsupported": 1,
+       "partial": 10
+      },
+      "auditors": {
+       "deepseek-v4-pro": 3
+      }
+     }
+    }
+   },
+   "semantics": {
+    "semantics": {
+     "deepseek-flash": {
+      "counts": {
+       "consistent": 1429,
+       "mismatch": 28,
+       "mismatch_substantive": 14,
+       "mismatch_ambiguous": 5,
+       "mismatch_bound": 9
+      },
+      "auditors": {
+       "claude-opus-5-5": 20
+      },
+      "analyses": 20,
+      "flagged": [
+       {
+        "ticker": "VRTX",
+        "kind": "substantive",
+        "claim": "$2.02 billion",
+        "sentence": "Buybacks of $2.02 billion absorbed 63.2% of free cash flow in FY2025, yet the diluted share count was unchanged .",
+        "reason": "Metric is buybacks plus dividends; sentence says buybacks only."
+       },
+       {
+        "ticker": "VRTX",
+        "kind": "ambiguous",
+        "claim": "63.2%",
+        "sentence": "Buybacks of $2.02 billion absorbed 63.2% of free cash flow in FY2025, yet the diluted share count was unchanged .",
+        "reason": "Ratio is buybacks plus dividends over FCF, attributed to buybacks only."
+       },
+       {
+        "ticker": "SNAP",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 17.1% of revenue in FY2025 and at least 10% in each of the last nine years, 191.1% of the operating loss .",
+        "reason": "10% is a nine-year floor, not the FY2025 value of 17.1%."
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "substantive",
+        "claim": "75th percentile",
+        "sentence": "Net cash was 30.5% of revenue, above the peer median of 17.8% and the 75th percentile of four peers .",
+        "reason": "75th is the company's own percentile rank, not a peer threshold it exceeds."
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 13.8% of revenue in FY2025 and at least 10% in each of the last five years, persistent dilution pressure .",
+        "reason": "10% is a five-year floor claim, not the FY2025 value cited."
+       },
+       {
+        "ticker": "JPM",
+        "kind": "ambiguous",
+        "claim": "1.2pp",
+        "sentence": "International was the FY2025 driver: EMEA added 1.2pp and Asia-Pacific 1.2pp , with Asia-Pacific revenue up 17.3% .",
+        "reason": "Sentence gives this to Asia-Pacific; match is the EMEA contribution."
+       },
+       {
+        "ticker": "JPM",
+        "kind": "ambiguous",
+        "claim": "6.0%",
+        "sentence": "The credit-loss provision rose to 7.8% of revenue in FY2025  from 6.0% in FY2024 , above the 6.0% peer median .",
+        "reason": "Sentence calls this the peer median; match is JPM's own FY2024 value."
+       },
+       {
+        "ticker": "COST",
+        "kind": "ambiguous",
+        "claim": "0.1pp",
+        "sentence": "FY2026 margin rose 0.1pp, with SG&A adding 0.1pp and cost of revenue flat .",
+        "reason": "Sentence calls it SG&A contribution, not total operating margin change"
+       },
+       {
+        "ticker": "TGT",
+        "kind": "ambiguous",
+        "claim": "0.3pp",
+        "sentence": "The FY2025 margin slipped 0.3pp, with cost of revenue taking 0.3pp and SG&A adding 0.1pp .",
+        "reason": "Sentence calls it the cost-of-revenue effect, but it matched total operating margin change."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "substantive",
+        "claim": "1.01x",
+        "sentence": "Operating cash flow of $6.6 billion was 1.77x net income in FY2025, down from the 1.01x window median .",
+        "reason": "Sentence says OCF/net income median; match is the FCF/net income median."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio of 0.94x sits below 1.0x, though it matches the window median and is above the 0.83x FY2018 low .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio value."
+       },
+       {
+        "ticker": "CVX",
+        "kind": "substantive",
+        "claim": "1.10x",
+        "sentence": "Operating cash flow of $33.9 billion was 2.76x net income, well above the 1.10x window median .",
+        "reason": "Sentence implies OCF/net income median; matched value is FCF/net income median."
+       },
+       {
+        "ticker": "CVX",
+        "kind": "bound",
+        "claim": "100%",
+        "sentence": "Watch free cash flow against the $16.6 billion FY2025 level and the 149.7% payout ratio; a ratio above 100% again would keep buybacks debt-funded .",
+        "reason": "100% is a hypothetical threshold, not the FY2025 payout value of 149.7%."
+       },
+       {
+        "ticker": "PG",
+        "kind": "substantive",
+        "claim": "1.02x",
+        "sentence": "Operating cash flow of $19.6 billion was 1.22x net income in FY2026, above the 1.02x window median, and free cash flow of $15.1 billion was 0.94x .",
+        "reason": "Sentence implies an OCF/net income median; matched value is the FCF/net income median."
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio has been below 1.0x every year of the window and fell to 0.68x in FY2026, a persistent negative working capital position typical of the business model rather than a new stress .",
+        "reason": "1.0x is a threshold across all years, not the FY2026 current ratio."
+       },
+       {
+        "ticker": "KO",
+        "kind": "bound",
+        "claim": "80%",
+        "sentence": "Free cash flow stayed below 80% of net income in FY2024 and FY2025, at 0.45x and 0.40x .",
+        "reason": "80% is a stated threshold, not a growth between the two ratios."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "-35.6%",
+        "sentence": "Net debt is 38.8% of revenue, better than the -35.6% peer median but only the 43rd percentile of seven industrials peers .",
+        "reason": "Net-cash-basis peer median presented on a net-debt basis; sign is wrong."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "-$26.2 billion",
+        "sentence": "Net debt: a further widening beyond the FY2025 -$26.2 billion would extend the two-year trend; a narrowing back toward the FY2023 -$22.1 billion would reverse it .",
+        "reason": "Net cash value with negative sign labeled as net debt; basis confused."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "-$22.1 billion",
+        "sentence": "Net debt: a further widening beyond the FY2025 -$26.2 billion would extend the two-year trend; a narrowing back toward the FY2023 -$22.1 billion would reverse it .",
+        "reason": "Net cash value with negative sign labeled as net debt; basis confused."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "6.5pp",
+        "sentence": "Below the line, interest expense of $3.17 billion  and a 20.1% tax rate  left net margin 6.5pp under operating margin .",
+        "reason": "Calculation mixes FY2025 net margin with FY2024 operating margin; sentence implies the same year."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "0.91x",
+        "sentence": "Operating cash flow of $7.46 billion was 1.48x net income in FY2025 , against a 0.91x window median .",
+        "reason": "Value is the FCF/net income median; sentence presents it as the OCF/net income median."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "$5.52 billion",
+        "sentence": "Net debt was $5.52 billion at FY2025 , down from $35.8 billion in FY2021 , or 12.1% of revenue .",
+        "reason": "Value is net cash (cash less debt); sentence calls it net debt."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "$35.8 billion",
+        "sentence": "Net debt was $5.52 billion at FY2025 , down from $35.8 billion in FY2021 , or 12.1% of revenue .",
+        "reason": "Value is FY2021 net cash; sentence calls it net debt."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "12.1%",
+        "sentence": "Net debt was $5.52 billion at FY2025 , down from $35.8 billion in FY2021 , or 12.1% of revenue .",
+        "reason": "Value is net cash % of revenue; sentence attributes it to net debt."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "substantive",
+        "claim": "$1.5 billion",
+        "sentence": "The FY2021 trough reflected a $1.5 billion Mountain Valley Pipeline impairment and unfavorable non-qualifying hedge activity .",
+        "reason": "Sentence ties it to the FY2021 trough; the passage is from the FY2020 10-K."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "Long-term debt grew 18.8% a year against 6.9% for equity, and the current ratio of 0.60x is still below 1.0x .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio value."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio has stayed below 1.0x every year, at 0.60x in FY2025, though that is the window high .",
+        "reason": "1.0x is a threshold across every year, not the FY2025 current ratio."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio of 0.55x is below 1.0x and near the 0.53x window low, leaving little short-term cushion .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio."
+       }
+      ]
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "consistent": 1454,
+       "mismatch": 4,
+       "mismatch_substantive": 4
+      },
+      "auditors": {
+       "deepseek-v4-pro": 20
+      },
+      "analyses": 20,
+      "flagged": [
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$89.6 billion",
+        "sentence": "Net debt reached $89.6 billion in FY2025, up from $84.0 billion a year earlier .",
+        "reason": "Net debt vs net cash sign"
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$84.0 billion",
+        "sentence": "Net debt reached $89.6 billion in FY2025, up from $84.0 billion a year earlier .",
+        "reason": "Net debt vs net cash sign"
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$50.0 billion",
+        "sentence": "Net debt rose nine years in a row, from $50.0 billion in FY2016 to $89.6 billion, while interest expense went from $1.92 billion to $3.63 billion .",
+        "reason": "Net debt vs net cash sign"
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$89.6 billion",
+        "sentence": "Net debt rose nine years in a row, from $50.0 billion in FY2016 to $89.6 billion, while interest expense went from $1.92 billion to $3.63 billion .",
+        "reason": "Net debt vs net cash sign"
+       }
+      ]
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "consistent": 1348,
+       "mismatch": 8,
+       "mismatch_substantive": 5,
+       "mismatch_ambiguous": 1,
+       "mismatch_bound": 2
+      },
+      "auditors": {
+       "deepseek-v4-pro": 20
+      },
+      "analyses": 20,
+      "flagged": [
+       {
+        "ticker": "VRTX",
+        "kind": "substantive",
+        "claim": "$1.56 billion",
+        "sentence": "Net income of $2.10 billion in FY2018  was lifted by a one-time $1.56 billion tax benefit from releasing the valuation allowance .",
+        "reason": "Tax benefit cited from FY2020 10-K, not FY2018."
+       },
+       {
+        "ticker": "COST",
+        "kind": "ambiguous",
+        "claim": "16%",
+        "sentence": "The 10-K ties FY2021 growth to comparable sales up 16% and FY2022 to up 14%, both helped by new warehouses .",
+        "reason": "16% is comparable sales growth, not revenue growth."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "bound",
+        "claim": "24.0%",
+        "sentence": "Net margin of 13.1% sits 3.4pp below operating margin, with the effective tax rate up to 24.0% from 19.7% .",
+        "reason": "Sentence says effective tax rate 24.0%, but matched to net margin FY2025."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "$26.2 billion",
+        "sentence": "Net debt reached $26.2 billion in FY2025, up from $22.1 billion in FY2023, or 38.8% of revenue .",
+        "reason": "Sentence says net debt $26.2B, but matched to net cash (cash and investments less debt) FY2025."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "$22.1 billion",
+        "sentence": "Net debt reached $26.2 billion in FY2025, up from $22.1 billion in FY2023, or 38.8% of revenue .",
+        "reason": "Sentence says net debt $22.1B, but matched to net cash FY2023."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "38.8%",
+        "sentence": "Net debt reached $26.2 billion in FY2025, up from $22.1 billion in FY2023, or 38.8% of revenue .",
+        "reason": "Sentence says net debt 38.8% of revenue, but matched to net cash % of revenue FY2025."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "$26.2 billion",
+        "sentence": "Net debt wider than the FY2025 level of $26.2 billion in the FY2026 10-K would extend the two-year widening .",
+        "reason": "Sentence says net debt $26.2B, but matched to net cash FY2025."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "26.5%",
+        "sentence": "A tax rate back above FY2024's 5.6%  would show the FY2025 benefit fading and push net margin below 26.5%  in the FY2026 10-K.",
+        "reason": "26.5% is net margin, not tax rate."
+       }
+      ]
+     },
+     "claude-haiku-5-5": {
+      "counts": {
+       "consistent": 1363,
+       "mismatch": 12,
+       "mismatch_bound": 2,
+       "mismatch_substantive": 9,
+       "mismatch_ambiguous": 1
+      },
+      "auditors": {
+       "deepseek-v4-pro": 20
+      },
+      "analyses": 20,
+      "flagged": [
+       {
+        "ticker": "RIVN",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 13.8% of revenue in FY2025 , at least 10% for five years , which the filing ties to accrued bonus incentives .",
+        "reason": "10% threshold not from cited FY2025 value."
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio of 0.68x  is below 1.0x, but it has stayed between 0.63x  and 0.88x  across the window, so it is structural rather than new.",
+        "reason": "Sentence says below 1.0x, but matched to current ratio 0.68x."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "84%",
+        "sentence": "Cloud Infrastructure supplied 84% of constant-currency cloud growth in FY2026 , adding 13.7pp  to revenue growth of 17.3% .",
+        "reason": "84% is from passage, not a specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$7.0 billion",
+        "sentence": "Operating expenses rose $7.0 billion, led by $6.0 billion more cloud and software costs, mainly infrastructure , and $1.5 billion of restructuring .",
+        "reason": "$7.0B from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$6.0 billion",
+        "sentence": "Operating expenses rose $7.0 billion, led by $6.0 billion more cloud and software costs, mainly infrastructure , and $1.5 billion of restructuring .",
+        "reason": "$6.0B from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "ambiguous",
+        "claim": "$1.5 billion",
+        "sentence": "Operating expenses rose $7.0 billion, led by $6.0 billion more cloud and software costs, mainly infrastructure , and $1.5 billion of restructuring .",
+        "reason": "$1.5B from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$1.5 billion",
+        "sentence": "Stock-compensation tax benefits of $1.5 billion largely offset a $933 million remeasurement charge , and the effective tax rate was 28.4%  against 39.2% .",
+        "reason": "$1.5B from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$933 million",
+        "sentence": "Stock-compensation tax benefits of $1.5 billion largely offset a $933 million remeasurement charge , and the effective tax rate was 28.4%  against 39.2% .",
+        "reason": "$933M from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$34.4 billion",
+        "sentence": "Capital expenditure rose $34.4 billion  to $55.7 billion , or 82.6% of revenue  against 37.0% in FY2025 .",
+        "reason": "$34.4B from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$11.2 billion",
+        "sentence": "The $11.2 billion operating cash flow increase included $4.6 billion of customer prepayment inflows .",
+        "reason": "$11.2B from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$4.6 billion",
+        "sentence": "The $11.2 billion operating cash flow increase included $4.6 billion of customer prepayment inflows .",
+        "reason": "$4.6B from passage, not specific metric."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "$42.7 billion",
+        "sentence": "Working capital turned positive to $4.8 billion , mainly from financing proceeds including $42.7 billion of senior notes .",
+        "reason": "$42.7B from passage, not specific metric."
+       }
+      ]
+     }
+    },
+    "semantics-by-claude-opus-5-5": {
+     "deepseek-flash": {
+      "counts": {
+       "consistent": 1429,
+       "mismatch": 28,
+       "mismatch_substantive": 14,
+       "mismatch_ambiguous": 5,
+       "mismatch_bound": 9
+      },
+      "auditors": {
+       "claude-opus-5-5": 20
+      },
+      "analyses": 20,
+      "flagged": [
+       {
+        "ticker": "VRTX",
+        "kind": "substantive",
+        "claim": "$2.02 billion",
+        "sentence": "Buybacks of $2.02 billion absorbed 63.2% of free cash flow in FY2025, yet the diluted share count was unchanged .",
+        "reason": "Metric is buybacks plus dividends; sentence says buybacks only."
+       },
+       {
+        "ticker": "VRTX",
+        "kind": "ambiguous",
+        "claim": "63.2%",
+        "sentence": "Buybacks of $2.02 billion absorbed 63.2% of free cash flow in FY2025, yet the diluted share count was unchanged .",
+        "reason": "Ratio is buybacks plus dividends over FCF, attributed to buybacks only."
+       },
+       {
+        "ticker": "SNAP",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 17.1% of revenue in FY2025 and at least 10% in each of the last nine years, 191.1% of the operating loss .",
+        "reason": "10% is a nine-year floor, not the FY2025 value of 17.1%."
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "substantive",
+        "claim": "75th percentile",
+        "sentence": "Net cash was 30.5% of revenue, above the peer median of 17.8% and the 75th percentile of four peers .",
+        "reason": "75th is the company's own percentile rank, not a peer threshold it exceeds."
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 13.8% of revenue in FY2025 and at least 10% in each of the last five years, persistent dilution pressure .",
+        "reason": "10% is a five-year floor claim, not the FY2025 value cited."
+       },
+       {
+        "ticker": "JPM",
+        "kind": "ambiguous",
+        "claim": "1.2pp",
+        "sentence": "International was the FY2025 driver: EMEA added 1.2pp and Asia-Pacific 1.2pp , with Asia-Pacific revenue up 17.3% .",
+        "reason": "Sentence gives this to Asia-Pacific; match is the EMEA contribution."
+       },
+       {
+        "ticker": "JPM",
+        "kind": "ambiguous",
+        "claim": "6.0%",
+        "sentence": "The credit-loss provision rose to 7.8% of revenue in FY2025  from 6.0% in FY2024 , above the 6.0% peer median .",
+        "reason": "Sentence calls this the peer median; match is JPM's own FY2024 value."
+       },
+       {
+        "ticker": "COST",
+        "kind": "ambiguous",
+        "claim": "0.1pp",
+        "sentence": "FY2026 margin rose 0.1pp, with SG&A adding 0.1pp and cost of revenue flat .",
+        "reason": "Sentence calls it SG&A contribution, not total operating margin change"
+       },
+       {
+        "ticker": "TGT",
+        "kind": "ambiguous",
+        "claim": "0.3pp",
+        "sentence": "The FY2025 margin slipped 0.3pp, with cost of revenue taking 0.3pp and SG&A adding 0.1pp .",
+        "reason": "Sentence calls it the cost-of-revenue effect, but it matched total operating margin change."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "substantive",
+        "claim": "1.01x",
+        "sentence": "Operating cash flow of $6.6 billion was 1.77x net income in FY2025, down from the 1.01x window median .",
+        "reason": "Sentence says OCF/net income median; match is the FCF/net income median."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio of 0.94x sits below 1.0x, though it matches the window median and is above the 0.83x FY2018 low .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio value."
+       },
+       {
+        "ticker": "CVX",
+        "kind": "substantive",
+        "claim": "1.10x",
+        "sentence": "Operating cash flow of $33.9 billion was 2.76x net income, well above the 1.10x window median .",
+        "reason": "Sentence implies OCF/net income median; matched value is FCF/net income median."
+       },
+       {
+        "ticker": "CVX",
+        "kind": "bound",
+        "claim": "100%",
+        "sentence": "Watch free cash flow against the $16.6 billion FY2025 level and the 149.7% payout ratio; a ratio above 100% again would keep buybacks debt-funded .",
+        "reason": "100% is a hypothetical threshold, not the FY2025 payout value of 149.7%."
+       },
+       {
+        "ticker": "PG",
+        "kind": "substantive",
+        "claim": "1.02x",
+        "sentence": "Operating cash flow of $19.6 billion was 1.22x net income in FY2026, above the 1.02x window median, and free cash flow of $15.1 billion was 0.94x .",
+        "reason": "Sentence implies an OCF/net income median; matched value is the FCF/net income median."
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio has been below 1.0x every year of the window and fell to 0.68x in FY2026, a persistent negative working capital position typical of the business model rather than a new stress .",
+        "reason": "1.0x is a threshold across all years, not the FY2026 current ratio."
+       },
+       {
+        "ticker": "KO",
+        "kind": "bound",
+        "claim": "80%",
+        "sentence": "Free cash flow stayed below 80% of net income in FY2024 and FY2025, at 0.45x and 0.40x .",
+        "reason": "80% is a stated threshold, not a growth between the two ratios."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "-35.6%",
+        "sentence": "Net debt is 38.8% of revenue, better than the -35.6% peer median but only the 43rd percentile of seven industrials peers .",
+        "reason": "Net-cash-basis peer median presented on a net-debt basis; sign is wrong."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "-$26.2 billion",
+        "sentence": "Net debt: a further widening beyond the FY2025 -$26.2 billion would extend the two-year trend; a narrowing back toward the FY2023 -$22.1 billion would reverse it .",
+        "reason": "Net cash value with negative sign labeled as net debt; basis confused."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "-$22.1 billion",
+        "sentence": "Net debt: a further widening beyond the FY2025 -$26.2 billion would extend the two-year trend; a narrowing back toward the FY2023 -$22.1 billion would reverse it .",
+        "reason": "Net cash value with negative sign labeled as net debt; basis confused."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "6.5pp",
+        "sentence": "Below the line, interest expense of $3.17 billion  and a 20.1% tax rate  left net margin 6.5pp under operating margin .",
+        "reason": "Calculation mixes FY2025 net margin with FY2024 operating margin; sentence implies the same year."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "0.91x",
+        "sentence": "Operating cash flow of $7.46 billion was 1.48x net income in FY2025 , against a 0.91x window median .",
+        "reason": "Value is the FCF/net income median; sentence presents it as the OCF/net income median."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "$5.52 billion",
+        "sentence": "Net debt was $5.52 billion at FY2025 , down from $35.8 billion in FY2021 , or 12.1% of revenue .",
+        "reason": "Value is net cash (cash less debt); sentence calls it net debt."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "$35.8 billion",
+        "sentence": "Net debt was $5.52 billion at FY2025 , down from $35.8 billion in FY2021 , or 12.1% of revenue .",
+        "reason": "Value is FY2021 net cash; sentence calls it net debt."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "12.1%",
+        "sentence": "Net debt was $5.52 billion at FY2025 , down from $35.8 billion in FY2021 , or 12.1% of revenue .",
+        "reason": "Value is net cash % of revenue; sentence attributes it to net debt."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "substantive",
+        "claim": "$1.5 billion",
+        "sentence": "The FY2021 trough reflected a $1.5 billion Mountain Valley Pipeline impairment and unfavorable non-qualifying hedge activity .",
+        "reason": "Sentence ties it to the FY2021 trough; the passage is from the FY2020 10-K."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "Long-term debt grew 18.8% a year against 6.9% for equity, and the current ratio of 0.60x is still below 1.0x .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio value."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio has stayed below 1.0x every year, at 0.60x in FY2025, though that is the window high .",
+        "reason": "1.0x is a threshold across every year, not the FY2025 current ratio."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio of 0.55x is below 1.0x and near the 0.53x window low, leaving little short-term cushion .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio."
+       }
+      ]
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "consistent": 1444,
+       "mismatch": 14,
+       "mismatch_bound": 5,
+       "mismatch_ambiguous": 4,
+       "mismatch_substantive": 5
+      },
+      "auditors": {
+       "claude-opus-5-5": 20
+      },
+      "analyses": 20,
+      "flagged": [
+       {
+        "ticker": "SNAP",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 17.1% of revenue in FY2025 and above 10% in each of nine years, equal to 191.1% of the operating loss .",
+        "reason": "10% is a multi-year threshold, not the FY2025 SBC/revenue value."
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 13.8% of revenue in FY2025 and at least 10% in each of the last five years .",
+        "reason": "10% is a five-year floor, not the FY2025 SBC ratio of 13.8%."
+       },
+       {
+        "ticker": "USB",
+        "kind": "ambiguous",
+        "claim": "2.8%",
+        "sentence": "From FY2016 to FY2025 net interest income compounded at 4.0% , ahead of noninterest income at 2.8%  and net income at 2.8% .",
+        "reason": "Sentence says net income CAGR; match is noninterest income CAGR."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "ambiguous",
+        "claim": "0.3pp",
+        "sentence": "FY2025 operating margin fell 0.3pp, with cost of revenue subtracting 0.3pp and SG&A adding 0.1pp .",
+        "reason": "Sentence calls this the cost-of-revenue effect; match is the total operating margin change."
+       },
+       {
+        "ticker": "NVDA",
+        "kind": "substantive",
+        "claim": "83rd percentile",
+        "sentence": "FY2026 cash and investments of $10.6 billion equal cash alone, so the 83rd percentile net cash rank among six semis peers is unreliable .",
+        "reason": "Percentile is net cash as a share of revenue, not absolute net cash rank."
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio was 0.68x in FY2026, below 1.0x, and has never exceeded the window high of 0.88x .",
+        "reason": "1.0x is used as a threshold, not the FY2026 current ratio value."
+       },
+       {
+        "ticker": "KO",
+        "kind": "substantive",
+        "claim": "5.2%",
+        "sentence": "Cash and equivalents were $10.3 billion in FY2025, down 5.2%, and the 1.46x current ratio is the window high against a 1.13x median .",
+        "reason": "Decline is cash-and-investments growth, sentence attributes it to cash and equivalents."
+       },
+       {
+        "ticker": "KO",
+        "kind": "substantive",
+        "claim": "100th percentile",
+        "sentence": "Reported net cash of $8,775 million and its 100th percentile peer rank among six peers are therefore unreliable and support no conclusion .",
+        "reason": "Percentile is for net cash % of revenue, sentence says net cash rank."
+       },
+       {
+        "ticker": "KO",
+        "kind": "bound",
+        "claim": "80%",
+        "sentence": "Free cash flow ran below 80% of net income in FY2024 and FY2025, at 0.45x and 0.40x, with FY2024 tied to the $6.0 billion IRS deposit .",
+        "reason": "80% is an analyst threshold, not the IRS deposit passage figure."
+       },
+       {
+        "ticker": "DE",
+        "kind": "ambiguous",
+        "claim": "0.9pp",
+        "sentence": "The FY2024 margin fell 3.7pp, with SG&A costing 1.9pp, R&D 0.9pp and other lines 0.9pp .",
+        "reason": "Sentence calls it 'other lines', but the match is the R&D effect."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio of 0.60x in FY2025 is below 1.0x , though it is the highest reading in the window .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio value."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "8.2%",
+        "sentence": "Diluted shares rose from 691.0 million to 777.0 million, so EPS compounded at 8.2% against 9.7% for net income .",
+        "reason": "Sentence ties EPS to diluted shares; the cited value is basic EPS CAGR."
+       },
+       {
+        "ticker": "MSFT",
+        "kind": "ambiguous",
+        "claim": "1.2pp",
+        "sentence": "The FY2026 bridge was +1.2pp in total: cost of revenue cost 0.9pp, R&D added 0.8pp and other lines added 1.2pp .",
+        "reason": "Sentence calls it the other-lines effect; the match is the total margin change."
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "0th percentile",
+        "sentence": "Net debt reached $97.6 billion, up from $81.4 billion, and at 145.0% of revenue ranks in the 0th percentile of six software peers .",
+        "reason": "Percentile ranks net cash; on a net debt basis the ranking reverses."
+       }
+      ]
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "consistent": 1340,
+       "mismatch": 16,
+       "mismatch_bound": 9,
+       "mismatch_ambiguous": 3,
+       "mismatch_substantive": 4
+      },
+      "auditors": {
+       "claude-opus-5-5": 20
+      },
+      "analyses": 20,
+      "flagged": [
+       {
+        "ticker": "SNAP",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "High and ongoing: stock-based compensation of $1.02 billion  was 17.1% of revenue  and 191.1% of the operating loss , above 10% for nine years .",
+        "reason": "10% is a nine-year threshold, not the FY2025 SBC ratio of 17.1%."
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation has been at least 10% of revenue for five years , at 13.8% in FY2025  and $741 million .",
+        "reason": "10% is a five-year floor, not the FY2025 SBC share value (13.8%)."
+       },
+       {
+        "ticker": "COST",
+        "kind": "ambiguous",
+        "claim": "16%",
+        "sentence": "The 10-K ties FY2021 growth to comparable sales up 16% and FY2022 to up 14%, both helped by new warehouses .",
+        "reason": "Sentence calls it FY2021 comparable sales; match is FY2022 total revenue growth."
+       },
+       {
+        "ticker": "AMD",
+        "kind": "ambiguous",
+        "claim": "$577 million",
+        "sentence": "Net margin of 12.5% sits 1.8pp above operating margin, helped by $577 million of unrealized investment gains and an $853 million tax release .",
+        "reason": "Matched to total other income, but sentence calls it unrealized investment gains."
+       },
+       {
+        "ticker": "CVX",
+        "kind": "substantive",
+        "claim": "27.6%",
+        "sentence": "The effective tax rate rose to 36.8%  from 27.6% , a move that mix effects across jurisdictions can drive .",
+        "reason": "Sentence implies the prior year, FY2024, but the value is FY2023."
+       },
+       {
+        "ticker": "CVX",
+        "kind": "bound",
+        "claim": "100%",
+        "sentence": "Buybacks and dividends of $24.8 billion  were 149.7% of free cash flow , the third straight year above 100% .",
+        "reason": "100% is a threshold, not the FY2025 metric value of 149.7%."
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio was 0.68x  against a window median of 0.72x , and has been below 1.0x in every year of the window .",
+        "reason": "1.0x is a threshold, not the FY2026 current ratio value (0.68x)."
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio below 1.0x  is 0.68x in FY2026  and under 1.0x every year since FY2017 , so it looks structural; the passages cited do not explain it.",
+        "reason": "1.0x is a threshold, not the FY2026 current ratio."
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio below 1.0x  is 0.68x in FY2026  and under 1.0x every year since FY2017 , so it looks structural; the passages cited do not explain it.",
+        "reason": "1.0x is a threshold across all years, not the FY2026 current ratio."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "bound",
+        "claim": "24.0%",
+        "sentence": "Net margin of 13.1% sits 3.4pp below operating margin, with the effective tax rate up to 24.0% from 19.7% .",
+        "reason": "Sentence calls it effective tax rate; match is net margin."
+       },
+       {
+        "ticker": "DE",
+        "kind": "ambiguous",
+        "claim": "0.9pp",
+        "sentence": "SG&A accounts for 1.9pp  and R&D for 0.9pp  of that fall, with other lines adding 0.9pp .",
+        "reason": "Sentence says other lines; matched to R&D effect."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "$5.5 billion",
+        "sentence": "Net debt narrowed to $5.5 billion in FY2025 , or 12.1% of revenue , from $10.5 billion in FY2023 .",
+        "reason": "Called net debt; matched value is net cash, opposite basis."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "12.1%",
+        "sentence": "Net debt narrowed to $5.5 billion in FY2025 , or 12.1% of revenue , from $10.5 billion in FY2023 .",
+        "reason": "Called net debt % of revenue; matched to net cash % of revenue."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "$10.5 billion",
+        "sentence": "Net debt narrowed to $5.5 billion in FY2025 , or 12.1% of revenue , from $10.5 billion in FY2023 .",
+        "reason": "Called net debt FY2023; matched to net cash FY2023."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio of 0.60x  is below 1.0x but above its window median of 0.52x .",
+        "reason": "1.0x is a benchmark threshold, not the FY2025 current ratio value."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "26.5%",
+        "sentence": "A tax rate back above FY2024's 5.6%  would show the FY2025 benefit fading and push net margin below 26.5%  in the FY2026 10-K.",
+        "reason": "Sentence calls 26.5% net margin; match is the FY2024 effective tax rate."
+       }
+      ]
+     }
+    },
+    "semantics-by-deepseek-v4-pro": {
+     "deepseek-flash": {
+      "counts": {
+       "consistent": 1444,
+       "mismatch": 15,
+       "mismatch_substantive": 13,
+       "mismatch_bound": 2
+      },
+      "auditors": {
+       "deepseek-v4-pro": 20
+      },
+      "analyses": 20,
+      "flagged": [
+       {
+        "ticker": "SNAP",
+        "kind": "substantive",
+        "claim": "$3,485.6 million",
+        "sentence": "FY2017's operating loss of $3,485.6 million was driven by a $2.6 billion increase in stock-based compensation tied to the IPO-related RSUs and the CEO award .",
+        "reason": "Sentence says operating loss, matched to operating income"
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "bound",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 13.8% of revenue in FY2025 and at least 10% in each of the last five years, persistent dilution pressure .",
+        "reason": "10% is not FY2025 SBC/revenue; sentence says at least 10% in each of last five years, but matched to FY2025 only."
+       },
+       {
+        "ticker": "PG",
+        "kind": "bound",
+        "claim": "1.0x",
+        "sentence": "The current ratio has been below 1.0x every year of the window and fell to 0.68x in FY2026, a persistent negative working capital position typical of the business model rather than a new stress .",
+        "reason": "1.0x is not FY2026 current ratio"
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "0.91x",
+        "sentence": "Operating cash flow of $7.46 billion was 1.48x net income in FY2025 , against a 0.91x window median .",
+        "reason": "Sentence says OCF/NI median, but cited is FCF/NI median."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "substantive",
+        "claim": "$1.5 billion",
+        "sentence": "The FY2021 trough reflected a $1.5 billion Mountain Valley Pipeline impairment and unfavorable non-qualifying hedge activity .",
+        "reason": "Sentence attributes $1.5 billion impairment to FY2021, but passage is from FY2020 10-K."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "substantive",
+        "claim": "$951 million",
+        "sentence": "Depreciation and amortization rose $951 million, mainly higher amortization of deferred storm costs from Hurricanes Debby, Helene and Milton .",
+        "reason": "Sentence attributes $951 million to FY2025, but passage is from FY2025 10-K; period unclear."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "substantive",
+        "claim": "$1,256 million",
+        "sentence": "Corporate and Other results fell $1,256 million on unfavorable non-qualifying hedge activity and higher average debt balances .",
+        "reason": "Sentence attributes $1,256 million to FY2025, but passage is from FY2025 10-K; period unclear."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "substantive",
+        "claim": "$89 million",
+        "sentence": "The shift from net over-recovery to net under-recovery of cost recovery clauses cut FPL's operating cash flow by about $89 million .",
+        "reason": "Sentence attributes $89 million to FY2025, but passage is from FY2025 10-K; period unclear."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "substantive",
+        "claim": "$585 million",
+        "sentence": "The FY2025 effective tax rate of -17.7% reflects clean energy tax credits, which rose about $585 million at NEER .",
+        "reason": "Sentence attributes $585 million to FY2025, but passage is from FY2025 10-K; period unclear."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$89.6 billion",
+        "sentence": "Net debt reached $89.6 billion in FY2025, 282.3% of revenue, from $50.0 billion in FY2016 .",
+        "reason": "Sentence says net debt $89.6 billion, but cited value is net cash -$89.6 billion; sign/basis mismatch."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "282.3%",
+        "sentence": "Net debt reached $89.6 billion in FY2025, 282.3% of revenue, from $50.0 billion in FY2016 .",
+        "reason": "Sentence says net debt 282.3% of revenue, but cited value is net cash % of revenue -282.3%; sign/basis mismatch."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$50.0 billion",
+        "sentence": "Net debt reached $89.6 billion in FY2025, 282.3% of revenue, from $50.0 billion in FY2016 .",
+        "reason": "Sentence says net debt $50.0 billion, but cited value is net cash -$50.0 billion; sign/basis mismatch."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "-$50.0 billion",
+        "sentence": "Net debt has deepened for nine straight years, from -$50.0 billion to -$89.6 billion .",
+        "reason": "Sentence says net debt -$50.0 billion, but cited value is net cash -$50.0 billion; sign/basis mismatch."
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "-$89.6 billion",
+        "sentence": "Net debt has deepened for nine straight years, from -$50.0 billion to -$89.6 billion .",
+        "reason": "Sentence says net debt -$89.6 billion, but cited value is net cash -$89.6 billion; sign/basis mismatch."
+       },
+       {
+        "ticker": "MSFT",
+        "kind": "substantive",
+        "claim": "365",
+        "sentence": "FY2026 was the sharpest step, with revenue up 17.8% on growth in Microsoft Cloud, Azure and Microsoft 365 Commercial cloud .",
+        "reason": "365 is part of product name, not a metric"
+       }
+      ]
+     },
+     "claude-sonnet-5-5": {
+      "counts": {
+       "consistent": 1454,
+       "mismatch": 4,
+       "mismatch_substantive": 4
+      },
+      "auditors": {
+       "deepseek-v4-pro": 20
+      },
+      "analyses": 20,
+      "flagged": [
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$89.6 billion",
+        "sentence": "Net debt reached $89.6 billion in FY2025, up from $84.0 billion a year earlier .",
+        "reason": "Net debt vs net cash sign"
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$84.0 billion",
+        "sentence": "Net debt reached $89.6 billion in FY2025, up from $84.0 billion a year earlier .",
+        "reason": "Net debt vs net cash sign"
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$50.0 billion",
+        "sentence": "Net debt rose nine years in a row, from $50.0 billion in FY2016 to $89.6 billion, while interest expense went from $1.92 billion to $3.63 billion .",
+        "reason": "Net debt vs net cash sign"
+       },
+       {
+        "ticker": "DUK",
+        "kind": "substantive",
+        "claim": "$89.6 billion",
+        "sentence": "Net debt rose nine years in a row, from $50.0 billion in FY2016 to $89.6 billion, while interest expense went from $1.92 billion to $3.63 billion .",
+        "reason": "Net debt vs net cash sign"
+       }
+      ]
+     },
+     "claude-haiku-5-5-low": {
+      "counts": {
+       "consistent": 1348,
+       "mismatch": 8,
+       "mismatch_substantive": 5,
+       "mismatch_ambiguous": 1,
+       "mismatch_bound": 2
+      },
+      "auditors": {
+       "deepseek-v4-pro": 20
+      },
+      "analyses": 20,
+      "flagged": [
+       {
+        "ticker": "VRTX",
+        "kind": "substantive",
+        "claim": "$1.56 billion",
+        "sentence": "Net income of $2.10 billion in FY2018  was lifted by a one-time $1.56 billion tax benefit from releasing the valuation allowance .",
+        "reason": "Tax benefit cited from FY2020 10-K, not FY2018."
+       },
+       {
+        "ticker": "COST",
+        "kind": "ambiguous",
+        "claim": "16%",
+        "sentence": "The 10-K ties FY2021 growth to comparable sales up 16% and FY2022 to up 14%, both helped by new warehouses .",
+        "reason": "16% is comparable sales growth, not revenue growth."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "bound",
+        "claim": "24.0%",
+        "sentence": "Net margin of 13.1% sits 3.4pp below operating margin, with the effective tax rate up to 24.0% from 19.7% .",
+        "reason": "Sentence says effective tax rate 24.0%, but matched to net margin FY2025."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "$26.2 billion",
+        "sentence": "Net debt reached $26.2 billion in FY2025, up from $22.1 billion in FY2023, or 38.8% of revenue .",
+        "reason": "Sentence says net debt $26.2B, but matched to net cash (cash and investments less debt) FY2025."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "$22.1 billion",
+        "sentence": "Net debt reached $26.2 billion in FY2025, up from $22.1 billion in FY2023, or 38.8% of revenue .",
+        "reason": "Sentence says net debt $22.1B, but matched to net cash FY2023."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "38.8%",
+        "sentence": "Net debt reached $26.2 billion in FY2025, up from $22.1 billion in FY2023, or 38.8% of revenue .",
+        "reason": "Sentence says net debt 38.8% of revenue, but matched to net cash % of revenue FY2025."
+       },
+       {
+        "ticker": "CAT",
+        "kind": "substantive",
+        "claim": "$26.2 billion",
+        "sentence": "Net debt wider than the FY2025 level of $26.2 billion in the FY2026 10-K would extend the two-year widening .",
+        "reason": "Sentence says net debt $26.2B, but matched to net cash FY2025."
+       },
+       {
+        "ticker": "NEE",
+        "kind": "bound",
+        "claim": "26.5%",
+        "sentence": "A tax rate back above FY2024's 5.6%  would show the FY2025 benefit fading and push net margin below 26.5%  in the FY2026 10-K.",
+        "reason": "26.5% is net margin, not tax rate."
+       }
+      ]
+     }
+    }
+   }
+  }
+ }
+}

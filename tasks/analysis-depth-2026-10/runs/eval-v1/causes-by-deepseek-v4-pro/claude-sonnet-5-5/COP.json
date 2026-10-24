@@ -1,0 +1,106 @@
+{
+ "system": "claude-sonnet-5-5",
+ "ticker": "COP",
+ "split": "dev",
+ "claims": 8,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "Revenue rose 76.5% to $61.0 billion in FY2022 on higher realized commodity prices and volumes from the Shell Permian acquisition .",
+   "passages": [
+    {
+     "id": "P59",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and other operating revenues increased $32,666 million in 2022, mainly due to higher realized commodity prices and higher sales volumes, primarily due to our Shell Permian acquisition, partially offset by assets divested. See Note 3."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states revenue increase due to higher prices and volumes from Shell Permian acquisition."
+  },
+  {
+   "sentence": "Revenue then fell 20.5% in FY2023 on lower realized prices, partly offset by higher sales volumes .",
+   "passages": [
+    {
+     "id": "P47",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and other operating revenues decreased $22,353 million in 2023, primarily due to lower realized commodity prices partially offset by higher sales volumes."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states revenue decrease due to lower prices partially offset by higher volumes."
+  },
+  {
+   "sentence": "The filing attributes the FY2025 increase to higher volumes, including Marathon Oil, partly offset by lower realized crude and bitumen prices .",
+   "passages": [
+    {
+     "id": "P28",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and other operating revenues increased $4,199 million in 2025, primarily due to higher volumes of $6,197 million, inclusive of sales volumes from our acquisition of Marathon Oil and higher realized gas prices of $824 million and the timing of sales as compared to 2024. These increases were partially offset by lower realized crude and bitumen prices of $4,615 million and $349 million, respectively. See Note 3."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states increase due to higher volumes including Marathon Oil, partly offset by lower crude prices."
+  },
+  {
+   "sentence": "The filing says DD&A increased $1,901 million in 2025, mainly from the Marathon Oil acquisition and higher production volumes .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "DD&A increased $1,901 million in 2025 primarily due to impacts from our acquisition of Marathon Oil in the fourth quarter of 2024 and higher production volumes. See Note 3."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states DD&A increase due to Marathon Oil acquisition and higher production volumes."
+  },
+  {
+   "sentence": "SG&A fell to 1.5% of revenue from 2.1% because 2024 included $545 million of Marathon Oil transaction expenses .",
+   "passages": [
+    {
+     "id": "P23",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general and administrative expenses decreased $265 million in 2025, primarily due to the absence of transaction expenses of $545 million associated with our acquisition of Marathon Oil in 2024, partially offset by severance costs related to a restructuring in 2025. See Note 3 and See Note 14."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states SG&A decrease due to absence of Marathon Oil transaction expenses."
+  },
+  {
+   "sentence": "Operating cash flow slipped from $20.1 billion in 2024 because of lower commodity prices, mostly offset by Marathon Oil operations .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash provided by operating activities in 2025 totaled $19.8 billion, compared with $20.1 billion for 2024, and $20.0 billion for 2023. The decrease in 2025 compared to 2024 resulted from lower commodity prices, mostly offset by operations from the 2024 Marathon Oil acquisition. See Note 3."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states decrease due to lower commodity prices, mostly offset by Marathon Oil operations."
+  },
+  {
+   "sentence": "In FY2025 total debt shows only a $1.0 billion current portion, while interest expense rose to $1.2 billion, which the filing ties to debt assumed from Marathon Oil .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net interest expense consists of interest and debt expense, net of interest income and capitalized interest. Net interest expense increased in 2025 due to higher interest expense driven by debt assumed from our acquisition of Marathon Oil. See Note 3 and Note 7."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports interest expense increase due to debt assumed from Marathon Oil, but not current portion."
+  },
+  {
+   "sentence": "D&A reached 19.5% of revenue in FY2025 against 9.6% in FY2022, driven by the Marathon Oil acquisition and higher volumes .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "DD&A increased $1,901 million in 2025 primarily due to impacts from our acquisition of Marathon Oil in the fourth quarter of 2024 and higher production volumes. See Note 3."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states DD&A increase due to Marathon Oil acquisition and higher volumes."
+  }
+ ],
+ "cost_usd": 0.00135
+}

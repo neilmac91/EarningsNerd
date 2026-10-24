@@ -1,0 +1,86 @@
+{
+ "ticker": "KO",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis of refranchising, margin drivers, and cash conversion, with better coverage of balance sheet and red flags. Draft B has a grounding issue: it claims total debt is incomplete but cites only short-term borrowings, not the full debt line. A's claims are better supported."
+   },
+   "cost_usd": 0.005294,
+   "latency_s": 2.456,
+   "input_tokens": 10339,
+   "output_tokens": 135,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"B\",\n    \"coverage\": \"A\",\n    \"clarity\": \"tie\",\n    \"calibration\": \"B\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis of refranchising, margin drivers, and cash conversion, with better coverage of balance sheet and red flags. Draft B has a grounding issue: it claims total debt is incomplete but cites only short-term borrowings, not the full debt line. A's claims are better supported.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper, better-supported analysis: it explains the FY2025 margin jump via other operating charges, quantifies segment contributions, flags data breaks, and gives concrete watch items. Draft B has unsupported claims (e.g., debt-funded buybacks) and weaker grounding. A wins on grounding and depth."
+   },
+   "cost_usd": 0.005294,
+   "latency_s": 3.766,
+   "input_tokens": 10339,
+   "output_tokens": 135,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper, better-supported analysis: it explains the FY2025 margin jump via other operating charges, quantifies segment contributions, flags data breaks, and gives concrete watch items. Draft B has unsupported claims (e.g., debt-funded buybacks) and weaker grounding. A wins on grounding and depth.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.010588
+}

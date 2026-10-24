@@ -1,0 +1,118 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "REGN",
+ "split": "dev",
+ "claims": 9,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "Net product sales supplied 77.1pp of that growth , mostly REGEN-COV U.S. sales of $5.83 billion  under a September 2021 U.S. government supply agreement .",
+   "passages": [
+    {
+     "id": "P39",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As of December\u00a031, 2021, Accounts receivable had increased by $1.927 billion, compared to December\u00a031, 2020, primarily due to REGEN-COV sales in connection with our September 2021 agreement to supply drug product to the U.S. government. Other non-cash items, net, in 2021 included inventory write-offs and reserves totaling $457.1 million, primarily related to REGEN-COV. Accounts payable, accrued expenses, and other liabilities as of December 31, 2021 included a $259.6 million fourth quarter 2021 true-up payment owed in connection with global gross profits under our Roche collaboration agreement."
+    }
+   ],
+   "label": "unsupported",
+   "reason": "Passage discusses accounts receivable increase, not net product sales growth or REGEN-COV U.S. sales."
+  },
+  {
+   "sentence": "REGEN-COV U.S. sales were $0 in FY2022 ; the FY2021 10-K says an FDA revision left REGEN-COV no longer authorized for use .",
+   "passages": [
+    {
+     "id": "P43",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cost of goods sold increased in 2021, compared to 2020, primarily due to the recognition of manufacturing costs in connection with the product sales of REGEN-COV. During 2021, the Company also recorded a $259.6 million true-up payment owed in connection with global gross profits under our Roche collaboration agreement described above. Additionally, during the fourth quarter of 2021, the Company recorded a $231.7\u00a0million charge to write down its REGEN-COV inventory as a result of data that showed REGEN-COV was highly unlikely to be active against the Omicron variant and the FDA revision of the EUA for REGEN-COV, pursuant to which REGEN-COV was no longer authorized for use in any U.S. states, territories, or jurisdictions. Refer to Part I, Item 1. \"Business - Products - REGEN-COV - Emergency and Temporary Use Authorizations\" for additional information."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states FDA revision left REGEN-COV no longer authorized for use."
+  },
+  {
+   "sentence": "The filing ties that rise to higher Dupixent sales, with the profit share up 33.6%  .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in our share of profits during the year ended December\u00a031, 2025, compared to 2024, was driven by higher profits primarily associated with an increase in Dupixent sales."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes profit share increase to higher Dupixent sales."
+  },
+  {
+   "sentence": "EYLEA U.S. sales fell 42.4% , subtracting 14.2pp , on lower volumes, competitive pressure and lower net prices .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net product sales of EYLEA decreased in 2025 compared to 2024, due to (i) lower sales volumes as a result of continued competitive pressures (as described below), loss in market share to compounded bevacizumab due to patient affordability constraints, and the continued transition of patients to EYLEA HD, and (ii) a lower net selling price."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage cites lower volumes, competitive pressures, and lower net selling price."
+  },
+  {
+   "sentence": "SG&A fell 8.6% , adding 2.0pp  on lower charitable contributions ; R&D, up 14.0% , cost 4.7pp .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general, and administrative expenses decreased in 2025, compared to 2024, primarily due to lower charitable contributions to Good Days, an independent non-profit patient assistance organization with a Retinal Vascular and Neovascular Disease Fund (the \"Fund\"). In July 2025, we launched a matching program for donations made to the Fund and committed to quarterly matching donations through the end of 2025. During the fourth quarter of 2025, we recognized approximately $60\u00a0million in connection with matching donations made to the Fund. We have also recently committed to matching donations for up to a total of $200\u00a0million during 2026."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports SG&A decrease due to lower charitable contributions, but not R&D increase."
+  },
+  {
+   "sentence": "The FY2022 fall of 16.7pp  came mainly from R&D at 11.4pp  and SG&A at 6.0pp , where headcount and Libtayo costs rose .",
+   "passages": [
+    {
+     "id": "P34",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general, and administrative expenses increased in 2022, compared to 2021, primarily due to higher headcount and headcount-related costs, an increase in commercialization-related expenses for Libtayo (as effective July 1, 2022, the Company became solely responsible for the commercialization of Libtayo worldwide), and higher contributions to an independent not-for-profit patient assistance organization, partly offset by costs in 2021 for educational campaigns related to COVID-19 that did not recur during 2022. Selling, general, and administrative expenses also included $256.4 million and $213.3 million of stock-based compensation expense in 2022 and 2021, respectively."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports SG&A increase from headcount and Libtayo costs, but not R&D."
+  },
+  {
+   "sentence": "The FY2020 low of 0.57x  followed a $1.36 billion receivables build, partly from extended EYLEA payment terms .",
+   "passages": [
+    {
+     "id": "P51",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our net income of $3.513 billion in 2020 included net unrealized gains on equity securities (included in other non-cash items) of $196.0 million. As of December 31, 2020, trade, Sanofi, and other accounts receivables increased by $1.356 billion, compared to December 31, 2019, partly as a result of extending payment terms to certain of our EYLEA customers due to the COVID-19 pandemic. Inventories increased as of December 31, 2020, compared to December 31, 2019, partially as a result of purchasing additional raw materials in anticipation of potential disruptions to our supply chain due to the COVID-19 pandemic. Deferred taxes as of December\u00a031, 2020 decreased by $75.6 million, compared to December 31, 2019, primarily due to non-cash compensation expense and unrealized gains (net) on equity securities as described above."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states receivables increased partly due to extended EYLEA payment terms."
+  },
+  {
+   "sentence": "Debt of $1.99 billion  dates from $1.98 billion of FY2020 issuance , tied to a bridge loan facility and senior notes .",
+   "passages": [
+    {
+     "id": "P53",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other income (expense), net, in 2020, compared to 2019, was positively impacted by the recognition of unrealized and realized gains on marketable securities. Other income (expense), net, in 2020, compared to 2019, was negatively impacted by a decrease in interest income earned on available-for-sale debt securities primarily due to lower interest rates. In addition, interest expense in 2020, compared to 2019, increased as a result of the 2020 bridge loan facility and issuance of senior notes (as described below)."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage mentions 2020 bridge loan facility and senior notes issuance."
+  },
+  {
+   "sentence": "The 42.4% EYLEA U.S. decline  is attributed to competition, compounded bevacizumab, the move to EYLEA HD and lower prices .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net product sales of EYLEA decreased in 2025 compared to 2024, due to (i) lower sales volumes as a result of continued competitive pressures (as described below), loss in market share to compounded bevacizumab due to patient affordability constraints, and the continued transition of patients to EYLEA HD, and (ii) a lower net selling price."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes EYLEA decline to competition, bevacizumab, EYLEA HD transition, and lower prices."
+  }
+ ],
+ "cost_usd": 0.001956
+}

@@ -1,0 +1,104 @@
+{
+ "system": "claude-haiku-5-5-low",
+ "ticker": "SNAP",
+ "split": "dev",
+ "claims": 7,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The steepest move was FY2017, when revenue rose 104.0% as the number of advertisements delivered increased .",
+   "passages": [
+    {
+     "id": "P81",
+     "filing": "FY2018 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue for the year ended December\u00a031, 2017 increased $420.5 million compared to the same period in 2016. The increase in revenue was primarily due to an increase in the number of advertisements delivered. The number of advertisements delivered increased between the periods primarily due to an increase in advertisers and demand across our product offerings, our growing sales efforts, and increased user engagement as measured by an increase in DAUs. Additionally, there was incremental spend in advertisements sold through our self-serve platform which launched in November 2016 and allows advertisers access to inventory that historically has been available at a lower price than Snap-managed campaigns. ARPU increased due to the growth in revenue as a result of the number of advertisements delivered, which outpaced DAU growth during the period."
+    }
+   ],
+   "label": "supported",
+   "reason": "P81 states the FY2017 revenue increase was primarily due to more advertisements delivered."
+  },
+  {
+   "sentence": "Operating loss nearly doubled from $702.1 million in FY2021  to $1,395.3 million in FY2022 ; the filing attributes lower Adjusted EBITDA to higher cost of revenue and operating expenses .",
+   "passages": [
+    {
+     "id": "P42",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net loss for the year ended December\u00a031, 2022 was $1,429.7 million, compared to $488.0 million for the same period in 2021. Adjusted EBITDA for the year ended December\u00a031, 2022 was $377.6 million, compared to $616.7 million for the same period in 2021. The decrease in Adjusted EBITDA was attributable to increased cost of revenue and overall operating expenses, partially offset by increased revenues."
+    }
+   ],
+   "label": "supported",
+   "reason": "P42 attributes the lower Adjusted EBITDA to higher cost of revenue and operating expenses, as the sentence says."
+  },
+  {
+   "sentence": "Advertising impressions rose about 17% while cost per impression fell about 10%, and other revenue grew on subscriber numbers .",
+   "passages": [
+    {
+     "id": "P24",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue for the year ended December\u00a031, 2025 increased $570.0 million compared to the same period in 2024. The increase was driven by a $282.4 million increase in advertising revenue for the year ended December\u00a031, 2025. The increase in advertising revenue was primarily driven by an increase in global advertising impressions volume of approximately 17% compared to the prior year, largely due to expanded advertising delivery within Sponsored Snaps and Spotlight. The increase in advertising revenue was partially offset by a decrease in the cost per advertising impression of approximately 10%, which is driven by strong growth in impressions delivery. The increase in total revenue was also driven by a $287.6 million increase in other revenue, which is predominantly due to higher subscription revenue from growth in the number of subscribers."
+    }
+   ],
+   "label": "supported",
+   "reason": "P24 cites ~17% more impressions, ~10% lower cost per impression, and other revenue growth from more subscribers."
+  },
+  {
+   "sentence": "Sales and marketing fell $42.4 million on lower advertising spend and prior-year event timing , while R&D rose $101.9 million on product investment .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and marketing expenses for the year ended December\u00a031, 2025 decreased $42.4 million compared to the same period in 2024. The decrease was primarily driven by the timing of marketing events occurring in the prior year, lower advertising and marketing investments, as well as $19.9 million in restructuring charges recognized in 2024. The decrease was partially offset by higher employee compensation due to additional sales and marketing headcount."
+    },
+    {
+     "id": "P23",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Research and development expenses for the year ended December\u00a031, 2025 increased $101.9 million compared to the same period in 2024. The increase was primarily due to investments in product development, including higher employee compensation due to additional research and development headcount. The increase was partially offset by $38.8\u00a0million in restructuring charges recognized in 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "P22 cites event timing and lower advertising spend; P23 cites product development investment for the R&D increase."
+  },
+  {
+   "sentence": "Net margin of -7.8%  sits 1.2pp above operating margin , partly because other income of $68.9 million  included $96.7 million of extinguishment gains .",
+   "passages": [
+    {
+     "id": "P18",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other income, net for the year ended December\u00a031, 2025 was $68.9 million, compared to other expense, net of $16.8 million for the same period in 2024. Other income, net for the current year was primarily driven by $96.7 million in gains on extinguishment associated with the repurchases of certain outstanding convertible notes, which is discussed within Note 7 to our consolidated financial statements included elsewhere in this Annual Report on Form 10-K, partially offset by $12.6 million in net losses on strategic investments. Other expense, net in the prior year was primarily the result of $7.4\u00a0million in net losses on strategic investments and a $6.7 million net loss on extinguishment associated with the repurchases of certain outstanding convertible notes in the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "P18 states other income was primarily driven by $96.7 million of extinguishment gains."
+  },
+  {
+   "sentence": "The gap is mainly non-cash: operating cash flow starts from the loss and adds back $1.0 billion of stock-based compensation  and $164 million of D&A .",
+   "passages": [
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities was $656.2 million for the year ended December\u00a031, 2025, compared to net cash provided by operating activities of $413.5 million for the year ended December\u00a031, 2024, resulting primarily from our net loss, adjusted for non-cash items, including stock-based compensation expense of $1.0 billion, depreciation and amortization expense of $163.6 million and gains on debt extinguishment of $96.7 million. Net cash provided by operating activities for the year ended December\u00a031, 2025 was also driven by a $45.9 million increase in accounts payable and a $66.7 million increase in prepaid expenses and other current assets primarily due to the timing of payments, as well as a $31.8 million increase in accounts receivable due to the timing of collections."
+    },
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities was $656.2 million for the year ended December\u00a031, 2025, compared to net cash provided by operating activities of $413.5 million for the year ended December\u00a031, 2024, resulting primarily from our net loss, adjusted for non-cash items, including stock-based compensation expense of $1.0 billion, depreciation and amortization expense of $163.6 million and gains on debt extinguishment of $96.7 million. Net cash provided by operating activities for the year ended December\u00a031, 2025 was also driven by a $45.9 million increase in accounts payable and a $66.7 million increase in prepaid expenses and other current assets primarily due to the timing of payments, as well as a $31.8 million increase in accounts receivable due to the timing of collections."
+    }
+   ],
+   "label": "supported",
+   "reason": "P13 states operating cash flow reflects the net loss adjusted for stock-based compensation and D&A."
+  },
+  {
+   "sentence": "Interest expense rose to $122 million from $21.6 million , primarily from the 2033 and 2034 notes issued in 2025 .",
+   "passages": [
+    {
+     "id": "P19",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Interest expense for the year ended December\u00a031, 2025 increased $100.4 million compared to the same period in 2024. The increase was primarily driven by additional interest expense on our senior notes due in 2033 (the \u201c2033 Notes\u201d) and our senior notes due in 2034 (the \u201c2034 Notes\u201d), which were issued in February 2025 and August 2025, respectively."
+    }
+   ],
+   "label": "supported",
+   "reason": "P19 attributes the interest expense increase to the 2033 and 2034 Notes issued in 2025."
+  }
+ ],
+ "cost_usd": 0.045312
+}

@@ -1,0 +1,86 @@
+{
+ "ticker": "SNAP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper, well-sourced analysis of growth drivers, margin components, and cash conversion, with explicit peer comparisons and numeric thresholds. Draft B is solid but less comprehensive, occasionally noting unexplained items. A's grounding is stronger with more precise citations and no unsupported claims."
+   },
+   "cost_usd": 0.005935,
+   "latency_s": 3.288,
+   "input_tokens": 10960,
+   "output_tokens": 128,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper, well-sourced analysis of growth drivers, margin components, and cash conversion, with explicit peer comparisons and numeric thresholds. Draft B is solid but less comprehensive, occasionally noting unexplained items. A's grounding is stronger with more precise citations and no unsupported claims.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A is more grounded: every claim is tied to a cited source, and it explicitly flags unsupported items. Draft B adds geographic detail and peer comparisons but some figures lack direct citations, weakening reliability. A's depth on cash conversion and red flags is stronger, while B's coverage is broader but less verifiable. A wins on grounding and depth."
+   },
+   "cost_usd": 0.005965,
+   "latency_s": 2.681,
+   "input_tokens": 10960,
+   "output_tokens": 143,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"B\",\n    \"grounding\": \"A\",\n    \"coverage\": \"B\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A is more grounded: every claim is tied to a cited source, and it explicitly flags unsupported items. Draft B adds geographic detail and peer comparisons but some figures lack direct citations, weakening reliability. A's depth on cash conversion and red flags is stronger, while B's coverage is broader but less verifiable. A wins on grounding and depth.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.0119
+}

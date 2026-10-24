@@ -1,0 +1,86 @@
+{
+ "ticker": "TGT",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft B explains drivers, inflections, and peer context with cited sources, while Draft A mostly restates table values. B's causal claims are supported by quoted passages, and it covers growth, margins, cash, balance sheet, red flags, and watch items. B is clearer and better calibrated."
+   },
+   "cost_usd": 0.003226,
+   "latency_s": 3.078,
+   "input_tokens": 7091,
+   "output_tokens": 132,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"B\",\n    \"grounding\": \"B\",\n    \"coverage\": \"B\",\n    \"clarity\": \"B\",\n    \"calibration\": \"B\"\n  },\n  \"overall\": \"B\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft B explains drivers, inflections, and peer context with cited sources, while Draft A mostly restates table values. B's causal claims are supported by quoted passages, and it covers growth, margins, cash, balance sheet, red flags, and watch items. B is clearer and better calibrated.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "strong",
+    "rationale": "Draft A explains drivers, inflections, and context with cited sources, while Draft B merely restates table values. A's grounding is solid, coverage is comprehensive, and it separates facts from judgments. B lacks depth and analysis."
+   },
+   "cost_usd": 0.003199,
+   "latency_s": 2.36,
+   "input_tokens": 7091,
+   "output_tokens": 118,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"strong\",\n  \"rationale\": \"Draft A explains drivers, inflections, and context with cited sources, while Draft B merely restates table values. A's grounding is solid, coverage is comprehensive, and it separates facts from judgments. B lacks depth and analysis.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.006425
+}

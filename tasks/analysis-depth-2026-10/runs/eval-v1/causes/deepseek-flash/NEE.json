@@ -1,0 +1,111 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "NEE",
+ "split": "dev",
+ "claims": 8,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2024 decline came from lower storm and fuel cost recovery revenues at FPL .",
+   "passages": [
+    {
+     "id": "P35",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "During 2024, operating revenues decreased $1,346 million primarily related to lower storm cost recovery revenues and lower fuel cost recovery revenues, partly offset by an increase in retail base revenues."
+    }
+   ],
+   "label": "supported",
+   "reason": "P35 attributes the 2024 revenue decrease to lower storm and fuel cost recovery revenues."
+  },
+  {
+   "sentence": "The FY2021 trough reflected a $1.5 billion Mountain Valley Pipeline impairment and unfavorable non-qualifying hedge activity .",
+   "passages": [
+    {
+     "id": "P63",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "NEER's results increased in 2021 primarily driven by the absence of an impairment charge related to its investment in Mountain Valley Pipeline occurring in 2020 and higher earnings on new investments, partly offset by unfavorable non-qualifying hedge activity compared to 2020 and the absence of the 2020 gain on the sale of the Spain projects. In 2021, NEER added approximately 2,008 MW of new wind generating capacity and 728 MW of solar generating capacity, repowered 435 MW of wind generating capacity and increased its backlog of contracted renewable development projects."
+    },
+    {
+     "id": "P68",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "NEER recognized $1.4 billion of equity in losses of equity method investees in 2020 compared to $67 million of equity in earnings of equity method investees for the prior year period. The change for 2020 primarily reflects an impairment charge related to the investment in Mountain Valley Pipeline of approximately $1.5 billion. See Note 4 - Nonrecurring Fair Value Measurements."
+    }
+   ],
+   "label": "partial",
+   "reason": "The MVP impairment was a 2020 charge. In 2021 its absence raised results; only unfavorable hedge activity is a 2021 drag."
+  },
+  {
+   "sentence": "FPL's FY2025 revenue rose on higher storm cost recovery, retail base and storm protection plan revenues, partly offset by lower fuel recovery .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "During 2025, operating revenues increased $1,243 million primarily due to higher storm cost recovery, retail base and storm protection plan cost recovery revenues, partly offset by lower fuel cost recovery revenues."
+    }
+   ],
+   "label": "supported",
+   "reason": "P21 states exactly these drivers, with lower fuel cost recovery revenues as the offset."
+  },
+  {
+   "sentence": "NEER's results increased on higher earnings from new investments, partly offset by higher financing costs .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "NEER's results increased in 2025 primarily reflecting higher earnings from new investments, partly offset by higher financing costs. In 2025, NEER added approximately 1,604 MW of new wind generating capacity, 2,859 MW of solar generating capacity and 1,799 MW of battery storage capacity and increased its backlog of contracted development projects."
+    }
+   ],
+   "label": "supported",
+   "reason": "P26 states that new investment earnings were partly offset by higher financing costs."
+  },
+  {
+   "sentence": "Depreciation and amortization rose $951 million, mainly higher amortization of deferred storm costs from Hurricanes Debby, Helene and Milton .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Depreciation and amortization expense increased $951 million during 2025 primarily reflecting higher amortization of deferred storm costs, primarily associated with Hurricanes Debby, Helene and Milton, as discussed above, of approximately $1,090\u00a0million and increased depreciation related to higher plant in service balances, partly offset by the impact of reserve amortization. Reserve amortization, or reversal of such amortization, reflects adjustments to accrued asset removal costs provided under the 2021 rate agreement in order to achieve the targeted regulatory ROE. Reserve amortization is recorded as either an increase or decrease to accrued asset removal costs which is reflected in noncurrent regulatory assets on NEE's and FPL's consolidated balance sheets. As of December\u00a031, 2025, approximately $303\u00a0million of reserve amortization remains available for future amortization through the RSM under the 2025 rate agreement."
+    }
+   ],
+   "label": "supported",
+   "reason": "P16 names higher amortization of deferred storm costs from Debby, Helene and Milton as the primary driver."
+  },
+  {
+   "sentence": "Corporate and Other results fell $1,256 million on unfavorable non-qualifying hedge activity and higher average debt balances .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Corporate and Other's results decreased $1,256 million during 2025 primarily due to unfavorable after-tax impacts of approximately $1,002 million, as compared to the prior year, related to non-qualifying hedge activity as a result of changes in the fair value of interest rate derivative instruments used to manage interest rate and foreign currency exchange rate risk associated primarily with outstanding and expected future debt issuances and borrowings (see Note\u00a03) as well as higher average debt balances."
+    }
+   ],
+   "label": "supported",
+   "reason": "P8 cites unfavorable non-qualifying hedge activity and higher average debt balances."
+  },
+  {
+   "sentence": "The shift from net over-recovery to net under-recovery of cost recovery clauses cut FPL's operating cash flow by about $89 million .",
+   "passages": [
+    {
+     "id": "P19",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenues from fuel and other cost recovery clauses and pass-through costs, such as franchise fees, revenue taxes and storm-related surcharges, are largely a pass-through of costs. Such revenues also include a return on investment allowed to be recovered through the cost recovery clauses on certain assets, primarily related to certain solar, environmental projects, storm protection plan investments and the unamortized balance of the regulatory asset associated with FPL's acquisition of a generation facility. See Item\u00a01. Business \u2013 FPL \u2013 FPL Regulation \u2013 FPL Electric Rate Regulation \u2013 Cost Recovery Clauses. Under-recovery or over-recovery of cost recovery clause and other pass-through costs (deferred clause and franchise expenses and revenues) can significantly affect NEE's and FPL's operating cash flows. During 2025, the change from a net over-recovery of cost recovery clauses to a net under-recovery of cost recovery clauses impacted FPL's operating cash flows by approximately $89 million, primarily related to higher fuel prices."
+    }
+   ],
+   "label": "supported",
+   "reason": "P19 states the shift to net under-recovery impacted FPL operating cash flows by about $89 million."
+  },
+  {
+   "sentence": "The FY2025 effective tax rate of -17.7% reflects clean energy tax credits, which rose about $585 million at NEER .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "NEER's effective income tax rate for 2025 and 2024 was approximately (343)% and (165)%, respectively, and is primarily based on the composition of pretax income in 2025 and 2024 as well as the impact of clean energy tax credits. PTCs from wind and solar projects and ITCs from solar, battery storage and certain wind projects are included in NEER\u2019s earnings. PTCs are recognized as wind and solar energy is generated and sold based on a per kWh rate prescribed in applicable federal and state statutes. During the year ended December 31, 2025, clean energy tax credits increased by approximately $585\u00a0million reflecting growth in NEER's business. See Note\u00a01 \u2013 Income Taxes for a discussion of clean energy tax credits, Note\u00a05 and Note\u00a016."
+    }
+   ],
+   "label": "partial",
+   "reason": "P11 ties clean energy credits to NEER's own tax rate, not the consolidated -17.7% rate."
+  }
+ ],
+ "cost_usd": 0.044112
+}

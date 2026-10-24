@@ -1,0 +1,111 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "COST",
+ "split": "dev",
+ "claims": 8,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "FY2021 was the first inflection, with revenue up 17.5% on a 16% comparable-sales increase driven by shopping frequency, average ticket and strong non-foods and e-commerce sales .",
+   "passages": [
+    {
+     "id": "P54",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Comparable sales increased 16% during 2021 and were positively impacted by increases in shopping frequency and average ticket. There was an increase of 44% in e-commerce comparable sales in 2021, driven by an increase of 80% in the first half of the year."
+    },
+    {
+     "id": "P56",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $28,832 or 18% during 2021. The improvement was attributable to an increase in comparable sales of 16%, and sales at new warehouses opened in 2020 and 2021. While sales in all core merchandise categories increased, sales were particularly strong in non-foods. Sales increases were also strong in our warehouse ancillary and other businesses, predominantly e-commerce and gasoline. Certain merchandise categories were impacted by inflation higher than what we have experienced in recent years."
+    }
+   ],
+   "label": "supported",
+   "reason": "P54 attributes comps to shopping frequency and average ticket; P56 cites strong non-foods and e-commerce sales."
+  },
+  {
+   "sentence": "FY2022 was the second, revenue up 15.8% as comparable sales rose 14%, with the strongest growth in gasoline, business centers and travel amid inflation .",
+   "passages": [
+    {
+     "id": "P42",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $30,678 or 16% during 2022. The improvement was attributable to an increase in comparable sales of 14%, and sales at new warehouses opened in 2021 and 2022. Sales increased $15,830 in core merchandise categories and $14,848 in warehouse ancillary and other businesses. The rate of increase was strongest in our gasoline, business centers, and travel businesses. Sales continued to be impacted by inflation, higher than what we experienced in previous fiscal years."
+    }
+   ],
+   "label": "supported",
+   "reason": "P42 credits 14% comparable sales, strongest growth in gasoline, business centers and travel, and continued inflation."
+  },
+  {
+   "sentence": "FY2026 net sales rose $27.3 billion, of which comparable sales added $22.5 billion on a 5% higher average ticket and 3% more shopping frequency .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $27,335 or 10% during 2026. The improvement was primarily attributable to an increase in comparable sales of $22,457 or 8%. Comparable sales were positively impacted by increases of 5% in average ticket and 3% in shopping frequency. The remaining increase in net sales was driven by sales at the 25 net new warehouses opened since the end of 2025."
+    }
+   ],
+   "label": "supported",
+   "reason": "P14 attributes comparable sales growth to a 5% rise in average ticket and 3% in shopping frequency."
+  },
+  {
+   "sentence": "Membership fees grew 11.0% to $5.9 billion on new sign-ups, fee increases and Executive upgrades .",
+   "passages": [
+    {
+     "id": "P13",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Membership fee revenue increased 11% in 2026, driven by new member sign-ups, membership fee increases, and upgrades to Executive memberships. At the end of 2026, member renewal rates were 92.3% in the U.S. and Canada and 89.8% worldwide."
+    }
+   ],
+   "label": "supported",
+   "reason": "P13 cites new sign-ups, fee increases and Executive upgrades as the drivers."
+  },
+  {
+   "sentence": "SG&A fell 10 basis points as a share of sales, though excluding gasoline inflation it rose one basis point, and currency moves added $126 of expense .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "SG&A expenses as a percentage of net sales decreased 10 basis points compared to 2025. SG&A expenses as a percentage of net sales excluding the impact of gasoline price inflation was 9.26%, an increase of one basis point. Changes in foreign currencies relative to the U.S. dollar increased SG&A expenses by $126, attributable to our Other International and Canadian operations. SG&A expenses as a percentage of net sales increased in our Canadian and Other International segments and were flat in our U.S. segment compared to 2025."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 states foreign currency changes increased SG&A by $126, along with the basis-point movements."
+  },
+  {
+   "sentence": "Gross margin fell three basis points, with IEEPA tariff refunds adding three basis points and a sales-mix shift into ancillary businesses helping that line .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin percentage decreased three basis points. Excluding the impact of gasoline price inflation on net sales, gross margin percentage was 11.22%, an increase of 10 basis points. This increase was positively impacted by 19 basis points in warehouse ancillary and other businesses, primarily gasoline and pharmacy, offset by an 11 basis point decrease in core merchandise categories. The majority of the increase in warehouse ancillary and other businesses and the decrease in core merchandise categories was due to the change in sales mix as warehouse ancillary and other businesses sales grew at a faster rate than core merchandise categories. Core merchandise categories were also negatively impacted by our co-branded credit card program as a result of reward costs associated with higher gasoline sales. IEEPA tariff refunds, net of investment in price reductions for members, positively impacted gross margin by three basis points."
+    }
+   ],
+   "label": "supported",
+   "reason": "P12 says IEEPA refunds, net of price investment, added three bps and that sales mix drove ancillary gains."
+  },
+  {
+   "sentence": "The FY2026 increase was mainly higher operating income plus a reduced net investment in inventories from faster turns and improved supplier payment terms .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our cash flow provided by operations is primarily from net sales and membership fees. Cash flow used in operations generally consists of payments to merchandise suppliers, warehouse operating costs, including wages and employee benefits, utilities, credit and debit card processing fees, and operating leases. Cash used in operations also includes payments for income taxes. Changes in our net investment in merchandise inventories (the difference between merchandise inventories and accounts payable) is impacted by several factors, including inventory levels and turnover, payment terms with suppliers, and early payments to obtain discounts. Net cash provided by operating activities totaled $15,817 in 2026, compared to $13,335 in 2025. The increase was primarily due to higher operating income, as well as reduced net investment in merchandise inventories. The latter was a result of faster inventory turns and improved payment terms with suppliers."
+    }
+   ],
+   "label": "supported",
+   "reason": "P6 cites higher operating income and reduced net inventory investment from faster turns and better supplier terms."
+  },
+  {
+   "sentence": "FY2026 financing outflow of $3.4 billion covered dividends, buybacks and debt repayment .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash used in financing activities totaled $3,355 in 2026, compared to $3,775 in 2025. Cash flow used in financing activities primarily related to the payment of dividends, repurchases of common stock, repayments of short-term borrowings and long-term debt, and withholding taxes on stock-based awards. Cash flow provided by financing activities included proceeds from short-term borrowings and issuance of long-term debt."
+    }
+   ],
+   "label": "supported",
+   "reason": "P4 lists dividends, stock repurchases and debt repayments as the main financing outflows."
+  }
+ ],
+ "cost_usd": 0.050224
+}

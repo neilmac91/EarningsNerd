@@ -1,0 +1,1704 @@
+{
+ "ticker": "AMD",
+ "arm": "deepseek-flash",
+ "family": "deepseek",
+ "model": "deepseek-flash",
+ "split": "holdout",
+ "profile": "operating",
+ "window": "FY2016..FY2025",
+ "snapshot_id": "7e64c5ca95dbac405a944adc851cd09e34db8ed22b8559ce724dcdc57a2e5691",
+ "prompt_sha256": "d558d371f739479c44f6727a2fb1166f82fbade3f74e6d37f3b2c4fc401229ba",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 36920,
+   "cached_input_tokens": 1920,
+   "output_tokens": 1790,
+   "reasoning_tokens": 0,
+   "latency_s": 8.736,
+   "cost_usd": 0.00633,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 38710
+   },
+   "problems": [],
+   "raw": "{\"sections\": [\n  {\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Revenue compounded at 26.0% a year from $4,319 million in FY2016 to $34,639 million in FY2025 [F1][F10][F231].\"},\n    {\"type\": \"comparison\", \"text\": \"The path was a step change rather than a smooth climb: revenue rose 68.3% in FY2021 and 43.6% in FY2022, then fell 3.9% in FY2023 before recovering 13.7% and 34.3% [D258][D314][D370][D426][D483].\"},\n    {\"type\": \"cause\", \"text\": \"The FY2022 jump included the Xilinx acquisition, which added Embedded revenue of $4.6 billion against $246 million in FY2021 [S110][S109][P41].\"},\n    {\"type\": \"cause\", \"text\": \"The FY2023 decline came from a 25% fall in Client revenue on weak PC demand and inventory correction, partly offset by Embedded [P35].\"},\n    {\"type\": \"cause\", \"text\": \"FY2025 growth was driven by Data Center and Client and Gaming, with Data Center revenue up 32% to $16.6 billion [P15].\"}\n  ]},\n  {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Data Center is now the largest segment at 48.0% of revenue and contributed 15.7pp of the 34.3% FY2025 growth [D692][D694][D483].\"},\n    {\"type\": \"cause\", \"text\": \"That growth came from strong demand for EPYC processors and Instinct GPU accelerators [P13].\"},\n    {\"type\": \"comparison\", \"text\": \"Client and Gaming added 19.0pp in FY2025, with Client revenue up 51% on a 31% rise in processor unit shipments and a 15% rise in average selling price [D701][P10].\"},\n    {\"type\": \"comparison\", \"text\": \"Operating income grew 94.4% against revenue growth of 34.3%, an incremental operating margin of 20.3% [D484][D483][D511].\"},\n    {\"type\": \"comparison\", \"text\": \"Diluted EPS rose 165.0% against net income growth of 164.2%, as the diluted share count was flat at -0.1% [D487][D485][D506].\"}\n  ]},\n  {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating margin of 10.7% in FY2025 sits above the 7.2% window median but far below the 22.2% FY2021 high [F60][D795][D794].\"},\n    {\"type\": \"comparison\", \"text\": \"Gross margin reached a window high of 49.5%, up 0.2pp, with cost of revenue adding only 0.2pp to operating margin [F40][D498][D513].\"},\n    {\"type\": \"cause\", \"text\": \"Gross margin gains were limited by roughly $440 million of net inventory and related charges tied to the MI308 export control [P14].\"},\n    {\"type\": \"comparison\", \"text\": \"SG&A took 1.2pp off operating margin as it grew 48.9% against revenue growth of 34.3% [D515][D503][D483].\"},\n    {\"type\": \"cause\", \"text\": \"Net margin of 12.5% exceeded operating margin of 10.7%, helped by $577 million of other income from unrealized investment gains and a $103 million tax benefit [F80][F60][P5][P4].\"}\n  ]},\n  {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating cash flow of $7,709 million was 1.78x net income, and free cash flow of $6,735 million was 1.55x, against a window median of 1.17x [F110][F70][D470][F130][D471][D810].\"},\n    {\"type\": \"comparison\", \"text\": \"Free cash flow margin of 19.4% matched the FY2021 high of 19.6% [D467][D803].\"},\n    {\"type\": \"cause\", \"text\": \"Operating cash flow was reduced by a $2.2 billion inventory build to support the Data Center ramp [P3].\"},\n    {\"type\": \"comparison\", \"text\": \"Capex of $974 million was 2.8% of revenue and 1.87x D&A, the highest ratio in the window [F120][D466][D472].\"}\n  ]},\n  {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Net cash reached $6,456 million, or 18.6% of revenue, the 100th percentile against six semis peers whose median is -13.9% [D476][D477][D826][D827].\"},\n    {\"type\": \"cause\", \"text\": \"Total debt rose 138% to $4,096 million after the March 2025 issuance of $1.5 billion of notes [D475][D508][P6].\"},\n    {\"type\": \"comparison\", \"text\": \"Buybacks of $1,316 million were 19.5% of free cash flow, and the diluted share count fell 0.1% [X150][D479][D506].\"},\n    {\"type\": \"comparison\", \"text\": \"Return on average equity of 7.2% ranks at the 17th percentile against a peer median of 26.7% [D482][D830][D831].\"}\n  ]},\n  {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating margin of 10.7% is at the 17th percentile against a semis peer median of 31.0%, despite revenue growth of 34.3% [F60][D818][D819][D483].\"},\n    {\"type\": \"comparison\", \"text\": \"Total debt rose 138% in FY2025 to $4,096 million, though net cash still rose to $6,456 million [D475][D508][D476].\"},\n    {\"type\": \"comparison\", \"text\": \"Days inventory outstanding climbed to 165 days from 160, extending a rise from 106 days in FY2022 [D481][D424][D312].\"},\n    {\"type\": \"fact\", \"text\": \"The effective tax rate moved -21.3pp to -2.5% on an $853 million release of uncertain tax positions, a one-period item [D469][D412][P4].\"}\n  ]},\n  {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"If operating margin holds above the 7.2% window median, the FY2025 recovery is durable; a slip back toward the 1.8% FY2023 level would reverse it [D795][F58].\"},\n    {\"type\": \"comparison\", \"text\": \"Watch days inventory outstanding against the 165-day FY2025 level; a further rise would signal demand lagging the Data Center build [D481].\"},\n    {\"type\": \"comparison\", \"text\": \"Watch net cash against the $6,456 million FY2025 level, given the 138% debt increase, in the FY2026 10-K [D476][D508].\"}\n  ]}\n]}"
+  },
+  {
+   "attempt": "repair",
+   "input_tokens": 38787,
+   "cached_input_tokens": 36864,
+   "output_tokens": 1746,
+   "reasoning_tokens": 0,
+   "latency_s": 6.781,
+   "cost_usd": 0.001447,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 40533
+   },
+   "problems": [],
+   "raw": "{\"sections\": [{\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [{\"type\": \"fact\", \"text\": \"Revenue compounded at 26.0% a year from $4,319 million in FY2016 to $34,639 million in FY2025 [F1][F10][F231].\"}, {\"type\": \"comparison\", \"text\": \"The path was a step change rather than a smooth climb: revenue rose 68.3% in FY2021 and 43.6% in FY2022, then fell 3.9% in FY2023 before recovering 13.7% and 34.3% [D258][D314][D370][D426][D483].\"}, {\"type\": \"cause\", \"text\": \"The FY2022 jump included the Xilinx acquisition, which added Embedded revenue of $4.6 billion against $246 million in FY2021 [S110][S109][P41].\"}, {\"type\": \"cause\", \"text\": \"The FY2023 decline came from a 25% fall in Client revenue on weak PC demand and inventory correction, partly offset by Embedded [P35].\"}, {\"type\": \"cause\", \"text\": \"FY2025 growth was driven by Data Center and Client and Gaming, with Data Center revenue up 32% to $16.6 billion [P15].\"}]}, {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"Data Center is now the largest segment at 48.0% of revenue and contributed 15.7pp of the 34.3% FY2025 growth [D692][D694][D483].\"}, {\"type\": \"cause\", \"text\": \"That growth came from strong demand for EPYC processors and Instinct GPU accelerators [P13].\"}, {\"type\": \"comparison\", \"text\": \"Client and Gaming added 19.0pp in FY2025, with Client revenue up 51% on a 31% rise in processor unit shipments and a 15% rise in average selling price [D701][P10].\"}, {\"type\": \"comparison\", \"text\": \"Operating income grew 94.4% against revenue growth of 34.3%, an incremental operating margin of 20.3% [D484][D483][D511].\"}, {\"type\": \"comparison\", \"text\": \"Diluted EPS rose 165.0% against net income growth of 164.2%, as the diluted share count was flat at -0.1% [D487][D485][D506].\"}]}, {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"Operating margin of 10.7% in FY2025 sits above the 7.2% window median but far below the 22.2% FY2021 high [F60][D795][D794].\"}, {\"type\": \"comparison\", \"text\": \"Gross margin reached a window high of 49.5%, up 0.2pp, with cost of revenue adding only 0.2pp to operating margin [F40][D498][D513].\"}, {\"type\": \"cause\", \"text\": \"Gross margin gains were limited by roughly $440 million of net inventory and related charges tied to the MI308 export control [P14].\"}, {\"type\": \"comparison\", \"text\": \"SG&A took 1.2pp off operating margin as it grew 48.9% against revenue growth of 34.3% [D515][D503][D483].\"}, {\"type\": \"cause\", \"text\": \"Net margin of 12.5% exceeded operating margin of 10.7%, helped by $577 million of other income from unrealized investment gains and a $103 million tax benefit [F80][F60][P5][P4].\"}]}, {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"Operating cash flow of $7,709 million was 1.78x net income, and free cash flow of $6,735 million was 1.55x, against a window median of 1.17x [F110][F70][D470][F130][D471][D810].\"}, {\"type\": \"comparison\", \"text\": \"Free cash flow margin of 19.4% in FY2025 sits just below the FY2021 window high of 19.6% [D467][D803].\"}, {\"type\": \"cause\", \"text\": \"Operating cash flow was reduced by a $2.2 billion inventory build to support the Data Center ramp [P3].\"}, {\"type\": \"comparison\", \"text\": \"Capex of $974 million was 2.8% of revenue and 1.87x D&A, the highest ratio in the window [F120][D466][D472].\"}]}, {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"Net cash reached $6,456 million, or 18.6% of revenue, the 100th percentile against six semis peers whose median is -13.9% [D476][D477][D826][D827].\"}, {\"type\": \"cause\", \"text\": \"Total debt rose 138% to $4,096 million after the March 2025 issuance of $1.5 billion of notes [D475][D508][P6].\"}, {\"type\": \"comparison\", \"text\": \"Buybacks of $1,316 million were 19.5% of free cash flow, and the diluted share count fell 0.1% [X150][D479][D506].\"}, {\"type\": \"comparison\", \"text\": \"Return on average equity of 7.2% ranks at the 17th percentile against a peer median of 26.7% [D482][D830][D831].\"}]}, {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"Operating margin of 10.7% is at the 17th percentile against a semis peer median of 31.0%, despite revenue growth of 34.3% [F60][D818][D819][D483].\"}, {\"type\": \"comparison\", \"text\": \"Total debt rose 138% in FY2025 to $4,096 million, though net cash still rose to $6,456 million [D475][D508][D476].\"}, {\"type\": \"comparison\", \"text\": \"Days inventory outstanding climbed to 165 days from 160, extending a rise from 106 days in FY2022 [D481][D424][D312].\"}, {\"type\": \"fact\", \"text\": \"The effective tax rate moved -21.3pp to -2.5% on an $853 million release of uncertain tax positions, a one-period item [D469][D412][P4].\"}]}, {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [{\"type\": \"comparison\", \"text\": \"If operating margin holds above the 7.2% window median, the FY2025 recovery is durable; a slip back toward the 1.8% FY2023 level would reverse it [D795][F58].\"}, {\"type\": \"comparison\", \"text\": \"Watch days inventory outstanding against the 165-day FY2025 level; a further rise would signal demand lagging the Data Center build [D481].\"}, {\"type\": \"comparison\", \"text\": \"Watch net cash against the $6,456 million FY2025 level, given the 138% debt increase, in the FY2026 10-K [D476][D508].\"}]}]}"
+  }
+ ],
+ "usage": {
+  "input_tokens": 75707,
+  "cached_input_tokens": 38784,
+  "output_tokens": 3536,
+  "reasoning_tokens": 0
+ },
+ "latency_s": 15.517,
+ "cost_usd": 0.007777,
+ "generation_ok": true,
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 26.0% a year from $4,319 million in FY2016 to $34,639 million in FY2025 [F1][F10][F231]."
+     },
+     {
+      "type": "comparison",
+      "text": "The path was a step change rather than a smooth climb: revenue rose 68.3% in FY2021 and 43.6% in FY2022, then fell 3.9% in FY2023 before recovering 13.7% and 34.3% [D258][D314][D370][D426][D483]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2022 jump included the Xilinx acquisition, which added Embedded revenue of $4.6 billion against $246 million in FY2021 [S110][S109][P41]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2023 decline came from a 25% fall in Client revenue on weak PC demand and inventory correction, partly offset by Embedded [P35]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2025 growth was driven by Data Center and Client and Gaming, with Data Center revenue up 32% to $16.6 billion [P15]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Data Center is now the largest segment at 48.0% of revenue and contributed 15.7pp of the 34.3% FY2025 growth [D692][D694][D483]."
+     },
+     {
+      "type": "cause",
+      "text": "That growth came from strong demand for EPYC processors and Instinct GPU accelerators [P13]."
+     },
+     {
+      "type": "comparison",
+      "text": "Client and Gaming added 19.0pp in FY2025, with Client revenue up 51% on a 31% rise in processor unit shipments and a 15% rise in average selling price [D701][P10]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating income grew 94.4% against revenue growth of 34.3%, an incremental operating margin of 20.3% [D484][D483][D511]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS rose 165.0% against net income growth of 164.2%, as the diluted share count was flat at -0.1% [D487][D485][D506]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of 10.7% in FY2025 sits above the 7.2% window median but far below the 22.2% FY2021 high [F60][D795][D794]."
+     },
+     {
+      "type": "comparison",
+      "text": "Gross margin reached a window high of 49.5%, up 0.2pp, with cost of revenue adding only 0.2pp to operating margin [F40][D498][D513]."
+     },
+     {
+      "type": "cause",
+      "text": "Gross margin gains were limited by roughly $440 million of net inventory and related charges tied to the MI308 export control [P14]."
+     },
+     {
+      "type": "comparison",
+      "text": "SG&A took 1.2pp off operating margin as it grew 48.9% against revenue growth of 34.3% [D515][D503][D483]."
+     },
+     {
+      "type": "cause",
+      "text": "Net margin of 12.5% exceeded operating margin of 10.7%, helped by $577 million of other income from unrealized investment gains and a $103 million tax benefit [F80][F60][P5][P4]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $7,709 million was 1.78x net income, and free cash flow of $6,735 million was 1.55x, against a window median of 1.17x [F110][F70][D470][F130][D471][D810]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin of 19.4% in FY2025 sits just below the FY2021 window high of 19.6% [D467][D803]."
+     },
+     {
+      "type": "cause",
+      "text": "Operating cash flow was reduced by a $2.2 billion inventory build to support the Data Center ramp [P3]."
+     },
+     {
+      "type": "comparison",
+      "text": "Capex of $974 million was 2.8% of revenue and 1.87x D&A, the highest ratio in the window [F120][D466][D472]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net cash reached $6,456 million, or 18.6% of revenue, the 100th percentile against six semis peers whose median is -13.9% [D476][D477][D826][D827]."
+     },
+     {
+      "type": "cause",
+      "text": "Total debt rose 138% to $4,096 million after the March 2025 issuance of $1.5 billion of notes [D475][D508][P6]."
+     },
+     {
+      "type": "comparison",
+      "text": "Buybacks of $1,316 million were 19.5% of free cash flow, and the diluted share count fell 0.1% [X150][D479][D506]."
+     },
+     {
+      "type": "comparison",
+      "text": "Return on average equity of 7.2% ranks at the 17th percentile against a peer median of 26.7% [D482][D830][D831]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of 10.7% is at the 17th percentile against a semis peer median of 31.0%, despite revenue growth of 34.3% [F60][D818][D819][D483]."
+     },
+     {
+      "type": "comparison",
+      "text": "Total debt rose 138% in FY2025 to $4,096 million, though net cash still rose to $6,456 million [D475][D508][D476]."
+     },
+     {
+      "type": "comparison",
+      "text": "Days inventory outstanding climbed to 165 days from 160, extending a rise from 106 days in FY2022 [D481][D424][D312]."
+     },
+     {
+      "type": "fact",
+      "text": "The effective tax rate moved -21.3pp to -2.5% on an $853 million release of uncertain tax positions, a one-period item [D469][D412][P4]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "If operating margin holds above the 7.2% window median, the FY2025 recovery is durable; a slip back toward the 1.8% FY2023 level would reverse it [D795][F58]."
+     },
+     {
+      "type": "comparison",
+      "text": "Watch days inventory outstanding against the 165-day FY2025 level; a further rise would signal demand lagging the Data Center build [D481]."
+     },
+     {
+      "type": "comparison",
+      "text": "Watch net cash against the $6,456 million FY2025 level, given the 138% debt increase, in the FY2026 10-K [D476][D508]."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 617,
+ "gate": {
+  "passed": true,
+  "sentences": 30,
+  "sentence_types": {
+   "fact": 2,
+   "comparison": 20,
+   "cause": 8
+  },
+  "claims": 82,
+  "verified": 82,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 26.0% a year from $4,319 million in FY2016 to $34,639 million in FY2025 [F1][F10][F231].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F231"
+    ],
+    "claims": [
+     {
+      "claim": "26.0%",
+      "value": 26.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F231"
+      ]
+     },
+     {
+      "claim": "$4,319 million",
+      "value": 4319.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$34,639 million",
+      "value": 34639.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The path was a step change rather than a smooth climb: revenue rose 68.3% in FY2021 and 43.6% in FY2022, then fell 3.9% in FY2023 before recovering 13.7% and 34.3% [D258][D314][D370][D426][D483].",
+    "type": "comparison",
+    "citations": [
+     "D258",
+     "D314",
+     "D370",
+     "D426",
+     "D483"
+    ],
+    "claims": [
+     {
+      "claim": "68.3%",
+      "value": 68.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D258"
+      ]
+     },
+     {
+      "claim": "43.6%",
+      "value": 43.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D314"
+      ]
+     },
+     {
+      "claim": "3.9%",
+      "value": 3.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D370"
+      ]
+     },
+     {
+      "claim": "13.7%",
+      "value": 13.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D426"
+      ]
+     },
+     {
+      "claim": "34.3%",
+      "value": 34.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D483"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2022 jump included the Xilinx acquisition, which added Embedded revenue of $4.6 billion against $246 million in FY2021 [S110][S109][P41].",
+    "type": "cause",
+    "citations": [
+     "S110",
+     "S109",
+     "P41"
+    ],
+    "claims": [
+     {
+      "claim": "$4.6 billion",
+      "value": 4.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S110"
+      ]
+     },
+     {
+      "claim": "$246 million",
+      "value": 246.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S109"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2023 decline came from a 25% fall in Client revenue on weak PC demand and inventory correction, partly offset by Embedded [P35].",
+    "type": "cause",
+    "citations": [
+     "P35"
+    ],
+    "claims": [
+     {
+      "claim": "25%",
+      "value": 25.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P35",
+      "ids": [
+       "P35"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2025 growth was driven by Data Center and Client and Gaming, with Data Center revenue up 32% to $16.6 billion [P15].",
+    "type": "cause",
+    "citations": [
+     "P15"
+    ],
+    "claims": [
+     {
+      "claim": "32%",
+      "value": 32.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P15",
+      "ids": [
+       "P15"
+      ]
+     },
+     {
+      "claim": "$16.6 billion",
+      "value": 16.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P15",
+      "ids": [
+       "P15"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Data Center is now the largest segment at 48.0% of revenue and contributed 15.7pp of the 34.3% FY2025 growth [D692][D694][D483].",
+    "type": "comparison",
+    "citations": [
+     "D692",
+     "D694",
+     "D483"
+    ],
+    "claims": [
+     {
+      "claim": "48.0%",
+      "value": 48.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D692"
+      ]
+     },
+     {
+      "claim": "15.7pp",
+      "value": 15.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D694"
+      ]
+     },
+     {
+      "claim": "34.3%",
+      "value": 34.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D483"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "That growth came from strong demand for EPYC processors and Instinct GPU accelerators [P13].",
+    "type": "cause",
+    "citations": [
+     "P13"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Client and Gaming added 19.0pp in FY2025, with Client revenue up 51% on a 31% rise in processor unit shipments and a 15% rise in average selling price [D701][P10].",
+    "type": "comparison",
+    "citations": [
+     "D701",
+     "P10"
+    ],
+    "claims": [
+     {
+      "claim": "19.0pp",
+      "value": 19.0,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D701"
+      ]
+     },
+     {
+      "claim": "51%",
+      "value": 51.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P10",
+      "ids": [
+       "P10"
+      ]
+     },
+     {
+      "claim": "31%",
+      "value": 31.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P10",
+      "ids": [
+       "P10"
+      ]
+     },
+     {
+      "claim": "15%",
+      "value": 15.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P10",
+      "ids": [
+       "P10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating income grew 94.4% against revenue growth of 34.3%, an incremental operating margin of 20.3% [D484][D483][D511].",
+    "type": "comparison",
+    "citations": [
+     "D484",
+     "D483",
+     "D511"
+    ],
+    "claims": [
+     {
+      "claim": "94.4%",
+      "value": 94.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D484"
+      ]
+     },
+     {
+      "claim": "34.3%",
+      "value": 34.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D483"
+      ]
+     },
+     {
+      "claim": "20.3%",
+      "value": 20.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D511"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted EPS rose 165.0% against net income growth of 164.2%, as the diluted share count was flat at -0.1% [D487][D485][D506].",
+    "type": "comparison",
+    "citations": [
+     "D487",
+     "D485",
+     "D506"
+    ],
+    "claims": [
+     {
+      "claim": "165.0%",
+      "value": 165.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D487"
+      ]
+     },
+     {
+      "claim": "164.2%",
+      "value": 164.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D485"
+      ]
+     },
+     {
+      "claim": "-0.1%",
+      "value": -0.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D506"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating margin of 10.7% in FY2025 sits above the 7.2% window median but far below the 22.2% FY2021 high [F60][D795][D794].",
+    "type": "comparison",
+    "citations": [
+     "F60",
+     "D795",
+     "D794"
+    ],
+    "claims": [
+     {
+      "claim": "10.7%",
+      "value": 10.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F60"
+      ]
+     },
+     {
+      "claim": "7.2%",
+      "value": 7.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D795"
+      ]
+     },
+     {
+      "claim": "22.2%",
+      "value": 22.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D794"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Gross margin reached a window high of 49.5%, up 0.2pp, with cost of revenue adding only 0.2pp to operating margin [F40][D498][D513].",
+    "type": "comparison",
+    "citations": [
+     "F40",
+     "D498",
+     "D513"
+    ],
+    "claims": [
+     {
+      "claim": "49.5%",
+      "value": 49.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F40"
+      ]
+     },
+     {
+      "claim": "0.2pp",
+      "value": 0.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D498"
+      ]
+     },
+     {
+      "claim": "0.2pp",
+      "value": 0.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D498"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Gross margin gains were limited by roughly $440 million of net inventory and related charges tied to the MI308 export control [P14].",
+    "type": "cause",
+    "citations": [
+     "P14"
+    ],
+    "claims": [
+     {
+      "claim": "$440 million",
+      "value": 440.0,
+      "unit": "usd",
+      "qualifier": "approx",
+      "status": "verified",
+      "matched": "passage P14",
+      "ids": [
+       "P14"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "SG&A took 1.2pp off operating margin as it grew 48.9% against revenue growth of 34.3% [D515][D503][D483].",
+    "type": "comparison",
+    "citations": [
+     "D515",
+     "D503",
+     "D483"
+    ],
+    "claims": [
+     {
+      "claim": "1.2pp",
+      "value": 1.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D515"
+      ]
+     },
+     {
+      "claim": "48.9%",
+      "value": 48.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D503"
+      ]
+     },
+     {
+      "claim": "34.3%",
+      "value": 34.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D483"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin of 12.5% exceeded operating margin of 10.7%, helped by $577 million of other income from unrealized investment gains and a $103 million tax benefit [F80][F60][P5][P4].",
+    "type": "cause",
+    "citations": [
+     "F80",
+     "F60",
+     "P5",
+     "P4"
+    ],
+    "claims": [
+     {
+      "claim": "12.5%",
+      "value": 12.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F80"
+      ]
+     },
+     {
+      "claim": "10.7%",
+      "value": 10.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F60"
+      ]
+     },
+     {
+      "claim": "$577 million",
+      "value": 577.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P5",
+      "ids": [
+       "P5"
+      ]
+     },
+     {
+      "claim": "$103 million",
+      "value": 103.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P4",
+      "ids": [
+       "P4"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow of $7,709 million was 1.78x net income, and free cash flow of $6,735 million was 1.55x, against a window median of 1.17x [F110][F70][D470][F130][D471][D810].",
+    "type": "comparison",
+    "citations": [
+     "F110",
+     "F70",
+     "D470",
+     "F130",
+     "D471",
+     "D810"
+    ],
+    "claims": [
+     {
+      "claim": "$7,709 million",
+      "value": 7709.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F110"
+      ]
+     },
+     {
+      "claim": "1.78x",
+      "value": 1.78,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D470"
+      ]
+     },
+     {
+      "claim": "$6,735 million",
+      "value": 6735.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F130"
+      ]
+     },
+     {
+      "claim": "1.55x",
+      "value": 1.55,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D471"
+      ]
+     },
+     {
+      "claim": "1.17x",
+      "value": 1.17,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D810"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow margin of 19.4% in FY2025 sits just below the FY2021 window high of 19.6% [D467][D803].",
+    "type": "comparison",
+    "citations": [
+     "D467",
+     "D803"
+    ],
+    "claims": [
+     {
+      "claim": "19.4%",
+      "value": 19.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D467"
+      ]
+     },
+     {
+      "claim": "19.6%",
+      "value": 19.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D803"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow was reduced by a $2.2 billion inventory build to support the Data Center ramp [P3].",
+    "type": "cause",
+    "citations": [
+     "P3"
+    ],
+    "claims": [
+     {
+      "claim": "$2.2 billion",
+      "value": 2.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P3",
+      "ids": [
+       "P3"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Capex of $974 million was 2.8% of revenue and 1.87x D&A, the highest ratio in the window [F120][D466][D472].",
+    "type": "comparison",
+    "citations": [
+     "F120",
+     "D466",
+     "D472"
+    ],
+    "claims": [
+     {
+      "claim": "$974 million",
+      "value": 974.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F120"
+      ]
+     },
+     {
+      "claim": "2.8%",
+      "value": 2.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D466"
+      ]
+     },
+     {
+      "claim": "1.87x",
+      "value": 1.87,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D472"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash reached $6,456 million, or 18.6% of revenue, the 100th percentile against six semis peers whose median is -13.9% [D476][D477][D826][D827].",
+    "type": "comparison",
+    "citations": [
+     "D476",
+     "D477",
+     "D826",
+     "D827"
+    ],
+    "claims": [
+     {
+      "claim": "$6,456 million",
+      "value": 6456.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D476"
+      ]
+     },
+     {
+      "claim": "18.6%",
+      "value": 18.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D477"
+      ]
+     },
+     {
+      "claim": "100th percentile",
+      "value": 100.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D826"
+      ]
+     },
+     {
+      "claim": "-13.9%",
+      "value": -13.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D827"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Total debt rose 138% to $4,096 million after the March 2025 issuance of $1.5 billion of notes [D475][D508][P6].",
+    "type": "cause",
+    "citations": [
+     "D475",
+     "D508",
+     "P6"
+    ],
+    "claims": [
+     {
+      "claim": "138%",
+      "value": 138.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D508"
+      ]
+     },
+     {
+      "claim": "$4,096 million",
+      "value": 4096.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D475"
+      ]
+     },
+     {
+      "claim": "$1.5 billion",
+      "value": 1.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P6",
+      "ids": [
+       "P6"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks of $1,316 million were 19.5% of free cash flow, and the diluted share count fell 0.1% [X150][D479][D506].",
+    "type": "comparison",
+    "citations": [
+     "X150",
+     "D479",
+     "D506"
+    ],
+    "claims": [
+     {
+      "claim": "$1,316 million",
+      "value": 1316.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X150"
+      ]
+     },
+     {
+      "claim": "19.5%",
+      "value": 19.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D479"
+      ]
+     },
+     {
+      "claim": "0.1%",
+      "value": 0.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D506"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Return on average equity of 7.2% ranks at the 17th percentile against a peer median of 26.7% [D482][D830][D831].",
+    "type": "comparison",
+    "citations": [
+     "D482",
+     "D830",
+     "D831"
+    ],
+    "claims": [
+     {
+      "claim": "7.2%",
+      "value": 7.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D482"
+      ]
+     },
+     {
+      "claim": "17th percentile",
+      "value": 17.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D830"
+      ]
+     },
+     {
+      "claim": "26.7%",
+      "value": 26.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D831"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Operating margin of 10.7% is at the 17th percentile against a semis peer median of 31.0%, despite revenue growth of 34.3% [F60][D818][D819][D483].",
+    "type": "comparison",
+    "citations": [
+     "F60",
+     "D818",
+     "D819",
+     "D483"
+    ],
+    "claims": [
+     {
+      "claim": "10.7%",
+      "value": 10.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F60"
+      ]
+     },
+     {
+      "claim": "17th percentile",
+      "value": 17.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D818"
+      ]
+     },
+     {
+      "claim": "31.0%",
+      "value": 31.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D819"
+      ]
+     },
+     {
+      "claim": "34.3%",
+      "value": 34.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D483"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Total debt rose 138% in FY2025 to $4,096 million, though net cash still rose to $6,456 million [D475][D508][D476].",
+    "type": "comparison",
+    "citations": [
+     "D475",
+     "D508",
+     "D476"
+    ],
+    "claims": [
+     {
+      "claim": "138%",
+      "value": 138.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D508"
+      ]
+     },
+     {
+      "claim": "$4,096 million",
+      "value": 4096.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D475"
+      ]
+     },
+     {
+      "claim": "$6,456 million",
+      "value": 6456.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D476"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Days inventory outstanding climbed to 165 days from 160, extending a rise from 106 days in FY2022 [D481][D424][D312].",
+    "type": "comparison",
+    "citations": [
+     "D481",
+     "D424",
+     "D312"
+    ],
+    "claims": [
+     {
+      "claim": "165 days",
+      "value": 165.0,
+      "unit": "days",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D481"
+      ]
+     },
+     {
+      "claim": "160",
+      "value": 160.0,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D424"
+      ]
+     },
+     {
+      "claim": "106 days",
+      "value": 106.0,
+      "unit": "days",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D312"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The effective tax rate moved -21.3pp to -2.5% on an $853 million release of uncertain tax positions, a one-period item [D469][D412][P4].",
+    "type": "fact",
+    "citations": [
+     "D469",
+     "D412",
+     "P4"
+    ],
+    "claims": [
+     {
+      "claim": "-21.3pp",
+      "value": -21.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp D469-D412",
+      "ids": [
+       "D469",
+       "D412"
+      ]
+     },
+     {
+      "claim": "-2.5%",
+      "value": -2.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D469"
+      ]
+     },
+     {
+      "claim": "$853 million",
+      "value": 853.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P4",
+      "ids": [
+       "P4"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "If operating margin holds above the 7.2% window median, the FY2025 recovery is durable; a slip back toward the 1.8% FY2023 level would reverse it [D795][F58].",
+    "type": "comparison",
+    "citations": [
+     "D795",
+     "F58"
+    ],
+    "claims": [
+     {
+      "claim": "7.2%",
+      "value": 7.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D795"
+      ]
+     },
+     {
+      "claim": "1.8%",
+      "value": 1.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F58"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Watch days inventory outstanding against the 165-day FY2025 level; a further rise would signal demand lagging the Data Center build [D481].",
+    "type": "comparison",
+    "citations": [
+     "D481"
+    ],
+    "claims": [
+     {
+      "claim": "165",
+      "value": 165.0,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D481"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Watch net cash against the $6,456 million FY2025 level, given the 138% debt increase, in the FY2026 10-K [D476][D508].",
+    "type": "comparison",
+    "citations": [
+     "D476",
+     "D508"
+    ],
+    "claims": [
+     {
+      "claim": "$6,456 million",
+      "value": 6456.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D476"
+      ]
+     },
+     {
+      "claim": "138%",
+      "value": 138.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D508"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ]
+ },
+ "first_pass_gate": {
+  "passed": false,
+  "claims": 82,
+  "verified": 81,
+  "failed_claims": 1,
+  "failures": [
+   {
+    "section": "cash",
+    "sentence": "Free cash flow margin of 19.4% matched the FY2021 high of 19.6% [D467][D803].",
+    "type": "comparison",
+    "failure": "'19.4%' matches cited but not in the period(s) named (2021)"
+   }
+  ]
+ },
+ "first_pass_output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 26.0% a year from $4,319 million in FY2016 to $34,639 million in FY2025 [F1][F10][F231]."
+     },
+     {
+      "type": "comparison",
+      "text": "The path was a step change rather than a smooth climb: revenue rose 68.3% in FY2021 and 43.6% in FY2022, then fell 3.9% in FY2023 before recovering 13.7% and 34.3% [D258][D314][D370][D426][D483]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2022 jump included the Xilinx acquisition, which added Embedded revenue of $4.6 billion against $246 million in FY2021 [S110][S109][P41]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2023 decline came from a 25% fall in Client revenue on weak PC demand and inventory correction, partly offset by Embedded [P35]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2025 growth was driven by Data Center and Client and Gaming, with Data Center revenue up 32% to $16.6 billion [P15]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Data Center is now the largest segment at 48.0% of revenue and contributed 15.7pp of the 34.3% FY2025 growth [D692][D694][D483]."
+     },
+     {
+      "type": "cause",
+      "text": "That growth came from strong demand for EPYC processors and Instinct GPU accelerators [P13]."
+     },
+     {
+      "type": "comparison",
+      "text": "Client and Gaming added 19.0pp in FY2025, with Client revenue up 51% on a 31% rise in processor unit shipments and a 15% rise in average selling price [D701][P10]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating income grew 94.4% against revenue growth of 34.3%, an incremental operating margin of 20.3% [D484][D483][D511]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS rose 165.0% against net income growth of 164.2%, as the diluted share count was flat at -0.1% [D487][D485][D506]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of 10.7% in FY2025 sits above the 7.2% window median but far below the 22.2% FY2021 high [F60][D795][D794]."
+     },
+     {
+      "type": "comparison",
+      "text": "Gross margin reached a window high of 49.5%, up 0.2pp, with cost of revenue adding only 0.2pp to operating margin [F40][D498][D513]."
+     },
+     {
+      "type": "cause",
+      "text": "Gross margin gains were limited by roughly $440 million of net inventory and related charges tied to the MI308 export control [P14]."
+     },
+     {
+      "type": "comparison",
+      "text": "SG&A took 1.2pp off operating margin as it grew 48.9% against revenue growth of 34.3% [D515][D503][D483]."
+     },
+     {
+      "type": "cause",
+      "text": "Net margin of 12.5% exceeded operating margin of 10.7%, helped by $577 million of other income from unrealized investment gains and a $103 million tax benefit [F80][F60][P5][P4]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $7,709 million was 1.78x net income, and free cash flow of $6,735 million was 1.55x, against a window median of 1.17x [F110][F70][D470][F130][D471][D810]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin of 19.4% matched the FY2021 high of 19.6% [D467][D803]."
+     },
+     {
+      "type": "cause",
+      "text": "Operating cash flow was reduced by a $2.2 billion inventory build to support the Data Center ramp [P3]."
+     },
+     {
+      "type": "comparison",
+      "text": "Capex of $974 million was 2.8% of revenue and 1.87x D&A, the highest ratio in the window [F120][D466][D472]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net cash reached $6,456 million, or 18.6% of revenue, the 100th percentile against six semis peers whose median is -13.9% [D476][D477][D826][D827]."
+     },
+     {
+      "type": "cause",
+      "text": "Total debt rose 138% to $4,096 million after the March 2025 issuance of $1.5 billion of notes [D475][D508][P6]."
+     },
+     {
+      "type": "comparison",
+      "text": "Buybacks of $1,316 million were 19.5% of free cash flow, and the diluted share count fell 0.1% [X150][D479][D506]."
+     },
+     {
+      "type": "comparison",
+      "text": "Return on average equity of 7.2% ranks at the 17th percentile against a peer median of 26.7% [D482][D830][D831]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of 10.7% is at the 17th percentile against a semis peer median of 31.0%, despite revenue growth of 34.3% [F60][D818][D819][D483]."
+     },
+     {
+      "type": "comparison",
+      "text": "Total debt rose 138% in FY2025 to $4,096 million, though net cash still rose to $6,456 million [D475][D508][D476]."
+     },
+     {
+      "type": "comparison",
+      "text": "Days inventory outstanding climbed to 165 days from 160, extending a rise from 106 days in FY2022 [D481][D424][D312]."
+     },
+     {
+      "type": "fact",
+      "text": "The effective tax rate moved -21.3pp to -2.5% on an $853 million release of uncertain tax positions, a one-period item [D469][D412][P4]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "If operating margin holds above the 7.2% window median, the FY2025 recovery is durable; a slip back toward the 1.8% FY2023 level would reverse it [D795][F58]."
+     },
+     {
+      "type": "comparison",
+      "text": "Watch days inventory outstanding against the 165-day FY2025 level; a further rise would signal demand lagging the Data Center build [D481]."
+     },
+     {
+      "type": "comparison",
+      "text": "Watch net cash against the $6,456 million FY2025 level, given the 138% debt increase, in the FY2026 10-K [D476][D508]."
+     }
+    ]
+   }
+  ]
+ }
+}

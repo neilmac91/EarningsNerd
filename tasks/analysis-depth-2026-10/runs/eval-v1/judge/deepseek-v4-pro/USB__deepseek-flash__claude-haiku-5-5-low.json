@@ -1,0 +1,86 @@
+{
+ "ticker": "USB",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper, better-supported analysis, explaining drivers, margins, and cash conversion with precise citations. It covers more dimensions and is clearer, with proportionate judgments and concrete watch items. Draft B has some unsupported claims and less depth."
+   },
+   "cost_usd": 0.005376,
+   "latency_s": 2.362,
+   "input_tokens": 9517,
+   "output_tokens": 120,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper, better-supported analysis, explaining drivers, margins, and cash conversion with precise citations. It covers more dimensions and is clearer, with proportionate judgments and concrete watch items. Draft B has some unsupported claims and less depth.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis, better peer context, and more specific watch items, all well-supported by cited filings. Draft B is solid but less detailed and occasionally repeats table values. A's grounding is strong, with every claim traceable to sources."
+   },
+   "cost_usd": 0.005381,
+   "latency_s": 3.262,
+   "input_tokens": 9517,
+   "output_tokens": 123,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis, better peer context, and more specific watch items, all well-supported by cited filings. Draft B is solid but less detailed and occasionally repeats table values. A's grounding is strong, with every claim traceable to sources.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.010757
+}

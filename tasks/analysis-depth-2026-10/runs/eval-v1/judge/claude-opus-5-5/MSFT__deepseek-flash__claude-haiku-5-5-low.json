@@ -1,0 +1,86 @@
+{
+ "ticker": "MSFT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A offers richer product and cost-line drivers, explains operating cash flow, and discloses the FY2017 restatement. But its quoted passage is cut off before the $51.4bn and $22.2bn investing figures, and it implies debt 'fell' and cash 'held' without prior-year support. Its capex watch item reads like a forecast. B is fully supported, labels its interpretation, and adds the FY2021 useful-life inflection and OpenAI non-recurrence caveat, but its overlap flag lacks a citation."
+   },
+   "cost_usd": 0.135793,
+   "latency_s": 14.528,
+   "input_tokens": 15144,
+   "output_tokens": 1016,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A offers richer product and cost-line drivers, explains operating cash flow, and discloses the FY2017 restatement. But its quoted passage is cut off before the $51.4bn and $22.2bn investing figures, and it implies debt 'fell' and cash 'held' without prior-year support. Its capex watch item reads like a forecast. B is fully supported, labels its interpretation, and adds the FY2021 useful-life inflection and OpenAI non-recurrence caveat, but its overlap flag lacks a citation.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts cite a truncated cash-flow passage for the $51.4bn property-additions figure it never states. B adds an unsupported $22.2bn components claim, so A edges grounding. B offers much more supported depth: FY2018/19 tax inflections, Azure 41% and Copilot/E5 drivers, opex causes and R&D margin effects. B also discloses the FY2017 restatement problem. A's labelled caveat on OpenAI gains is good, but B serves the reader better overall."
+   },
+   "cost_usd": 0.135709,
+   "latency_s": 16.122,
+   "input_tokens": 15146,
+   "output_tokens": 1011,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts cite a truncated cash-flow passage for the $51.4bn property-additions figure it never states. B adds an unsupported $22.2bn components claim, so A edges grounding. B offers much more supported depth: FY2018/19 tax inflections, Azure 41% and Copilot/E5 drivers, opex causes and R&D margin effects. B also discloses the FY2017 restatement problem. A's labelled caveat on OpenAI gains is good, but B serves the reader better overall.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.271502
+}

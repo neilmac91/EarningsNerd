@@ -1,0 +1,86 @@
+{
+ "ticker": "SNAP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both say the subscription driver comes from a truncated passage that never mentions it. A adds more unsupported detail: 'team workspaces, not capacity expansion' for capex, and 'debt rose' with the 2034 Notes omitted. B stretches a single R&D cause to explain the FY2024 margin gain. A has broader depth (geography, G&A, FY2022 inflection, peer margin). B labels its analysis, flags the non-recurring gain and grounds the interest-expense jump, giving it better calibration."
+   },
+   "cost_usd": 0.155893,
+   "latency_s": 15.8,
+   "input_tokens": 16819,
+   "output_tokens": 1351,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both say the subscription driver comes from a truncated passage that never mentions it. A adds more unsupported detail: 'team workspaces, not capacity expansion' for capex, and 'debt rose' with the 2034 Notes omitted. B stretches a single R&D cause to explain the FY2024 margin gain. A has broader depth (geography, G&A, FY2022 inflection, peer margin). B labels its analysis, flags the non-recurring gain and grounds the interest-expense jump, giving it better calibration.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "Both drafts attribute other-revenue growth to subscriptions, which the truncated passage never states. B adds more unsupported claims: capex 'not capacity expansion', 'debt rose' when the table shows long-term debt fell, and a FY2022 cause read from an Adjusted EBITDA passage. B is deeper, with geography, peer margin, R&D and G&A drivers and the refinancing. A labels its interpretations, sets tighter watch thresholds and flags interest cost, so grounding tips it to A."
+   },
+   "cost_usd": 0.150793,
+   "latency_s": 14.476,
+   "input_tokens": 16819,
+   "output_tokens": 1096,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"Both drafts attribute other-revenue growth to subscriptions, which the truncated passage never states. B adds more unsupported claims: capex 'not capacity expansion', 'debt rose' when the table shows long-term debt fell, and a FY2022 cause read from an Adjusted EBITDA passage. B is deeper, with geography, peer margin, R&D and G&A drivers and the refinancing. A labels its interpretations, sets tighter watch thresholds and flags interest cost, so grounding tips it to A.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.306686
+}

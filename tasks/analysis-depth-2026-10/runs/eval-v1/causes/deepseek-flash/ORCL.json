@@ -1,0 +1,106 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "ORCL",
+ "split": "holdout",
+ "claims": 8,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2023 step came from the Cerner acquisition, which contributed $5.9 billion of revenue, 11.8% of the year .",
+   "passages": [
+    {
+     "id": "P48",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Excluding the effects of foreign currency rate fluctuations, our total revenues increased across our three businesses during fiscal 2023 relative to fiscal 2022 primarily due to revenue contributions from our acquisition of Cerner. Excluding the impact of our acquisition of Cerner, the constant currency revenues increase during fiscal 2023 relative to fiscal 2022 in our cloud and license business was attributable to growth in our cloud services and license support revenues as customers purchased our applications and infrastructure technologies via cloud and license deployment models and also renewed their related cloud contracts and license support contracts to continue to gain access to the latest versions of our technologies and to receive support services, partially offset by a decrease in our cloud license and on-premise license revenues. In our hardware business, the increase during fiscal 2023 was primarily due to growth in our Oracle Exadata and certain other strategic hardware product offerings."
+    }
+   ],
+   "label": "supported",
+   "reason": "P48 attributes the FY2023 revenue increase primarily to revenue contributions from the Cerner acquisition."
+  },
+  {
+   "sentence": "FY2026 growth came from cloud, as cloud applications and cloud infrastructure contributed 16% and 84% of cloud revenue growth .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our cloud and software business\u2019 total revenues increased by $9.3 billion in reported currency in fiscal 2026 relative to fiscal 2025 primarily due to an increase in cloud revenues as customers purchased our applications and infrastructure technologies and renewed their related cloud contracts. Excluding the favorable impact of currency rate fluctuations of 2% in fiscal 2026, cloud applications and cloud infrastructure contributed 16% and 84%, respectively, to the constant currency growth in cloud revenues in fiscal 2026. The Americas, the EMEA and the Asia Pacific regions contributed 87%, 6% and 7%, respectively, to the constant currency revenue growth for this business during fiscal 2026."
+    }
+   ],
+   "label": "supported",
+   "reason": "P17 attributes growth to cloud revenue, with applications and infrastructure contributing 16% and 84% of constant-currency cloud growth."
+  },
+  {
+   "sentence": "The drag was infrastructure expense for cloud growth, which lifted cloud and software expenses by $6.0 billion and cut that segment's margin to 58.9% .",
+   "passages": [
+    {
+     "id": "P19",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Total GAAP operating expenses increased by $7.0 billion in reported currency in fiscal 2026 relative to fiscal 2025. The increase in GAAP operating expenses in reported currency was primarily due to a $6.0 billion increase in cloud and software expenses primarily due to higher infrastructure expenses; a $1.5 billion increase in restructuring and other expenses primarily due to higher restructuring expenses; a $412 million increase in research and development expenses primarily due to an increase in employee-related expenses and an increase in computer equipment expenses; an $86 million increase in hardware expenses; and a $16 million increase in general and administrative expenses, in each case during fiscal 2026 relative to fiscal 2025. These increases in GAAP operating expenses in reported currency were partially offset by a $636 million decrease in expenses for the amortization of intangible assets as certain of our assets were fully amortized; a $320 million decrease in sales and marketing expenses primarily due to lower employee related expenses;"
+    }
+   ],
+   "label": "supported",
+   "reason": "P19 says cloud and software expenses rose $6.0 billion, primarily due to higher infrastructure expenses."
+  },
+  {
+   "sentence": "R&D fell to 15.3% of revenue, the window low, adding 1.9pp, as growth slowed to 4.2% on higher employee and equipment costs .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Total research and development expenses increased by $412 million in reported currency in fiscal 2026 relative to fiscal 2025. Excluding the favorable effects of currency rate fluctuations of less than 1% in fiscal 2026, the constant currency increase in research and development expenses was primarily due to a $234 million increase in employee-related expenses, including stock-based compensation, and a $132 million increase in computer equipment expenses in fiscal 2026 relative to fiscal 2025."
+    }
+   ],
+   "label": "partial",
+   "reason": "P12 says employee and equipment costs explain the R&D increase. It does not attribute the falling R&D share of revenue to them."
+  },
+  {
+   "sentence": "Net margin rose 3.5pp to 25.2% as the effective tax rate fell to 28.4% from 39.2%, helped by $1.5 billion more stock-based compensation tax benefit .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Provision for income taxes increased in fiscal 2026 relative to fiscal 2025 primarily related to an unfavorable impact of $933 million from the enactment of the U.S. One, Big, Beautiful Bill Act, which was signed into law on July 4, 2025 that required a remeasurement of a deferred tax liability previously recorded during fiscal 2021 as part of the partial realignment of our legal entity structure, an unfavorable jurisdictional mix of earnings of $589 million, higher income before provision for income taxes of $584 million and a net change in unrecognized tax benefits associated with settlements with tax authorities and other events of $240 million, substantially offset by an increase in tax benefits related to stock-based compensation of $1.5 billion and the realization of a one-time tax attribute of $125 million."
+    }
+   ],
+   "label": "partial",
+   "reason": "P9 says the tax provision increased, with the $1.5 billion stock-compensation benefit as an offset. It does not state that the tax rate fell."
+  },
+  {
+   "sentence": "The $34.4 billion capex increase was the main investing outflow, partly offset by $4.3 billion from the Ampere sale .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash used for investing activities increased by $30.1 billion in fiscal 2026 relative to fiscal 2025 primarily due to a $34.4 billion increase in capital expenditures, partially offset by $4.3 billion of cash proceeds from the sale of our investment in Ampere."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 attributes higher investing outflows to the $34.4 billion capex increase, partly offset by $4.3 billion of Ampere proceeds."
+  },
+  {
+   "sentence": "Operating cash flow gained on higher net income and $4.6 billion of customer prepayments with a significant financing component .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities increased by $11.2 billion in fiscal 2026 relative to fiscal 2025 primarily due to higher net income adjusted for certain non-cash charges and higher cash favorable working capital changes, net, which includes $4.6 billion cash inflows from customer prepayments with significant financing component."
+    }
+   ],
+   "label": "supported",
+   "reason": "P6 cites higher adjusted net income and working capital changes, including $4.6 billion of customer prepayments."
+  },
+  {
+   "sentence": "Debt rose 39.9% to $129.5 billion on $42.7 billion of senior notes and $5.0 billion of mandatory convertible preferred .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "was primarily due to proceeds from the issuance of senior notes, net of issuance costs, of $42.7 billion during fiscal 2026; $32.0 billion of cash inflows from our operations; $5.0 billion of cash proceeds from the issuance of Mandatory Convertible Preferred Stock, net of issuance costs; $4.9 billion of cash inflows from the sale of our investments, primarily in Ampere; $3.3 billion of cash inflows from short-term financing related to capital expenditures, net; and $1.3 billion of net cash provided by our employee stock programs, partially offset by $55.7 billion of cash used for capital expenditures; $5.8 billion of cash used to pay dividends to our common and preferred stockholders; $5.0 billion of cash used for scheduled repayments of debt; $851 million of cash used for repayment of commercial paper, net; $337 million of cash outflows for other financing activities, net; $864 million of cash used for purchases of non-current investments; and $95 million of cash used for repurchases of our common stock, in each case during fiscal 2026."
+    }
+   ],
+   "label": "partial",
+   "reason": "P7 explains a cash change, not debt. Senior notes plausibly raised debt, but mandatory convertible preferred stock is equity, not debt."
+  }
+ ],
+ "cost_usd": 0.051456
+}

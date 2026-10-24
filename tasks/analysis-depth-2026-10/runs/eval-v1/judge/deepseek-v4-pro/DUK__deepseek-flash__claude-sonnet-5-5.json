@@ -1,0 +1,86 @@
+{
+ "ticker": "DUK",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis, linking growth to rate cases, weather, and segments, and explains margin and cash conversion drivers. Draft B has stronger grounding, explicitly noting unsupported claims and data anomalies, but A's interpretations are mostly supported. A's coverage is broader, and its clarity and calibration are comparable. Grounding is close, but A's depth advantage outweighs minor support gaps."
+   },
+   "cost_usd": 0.00482,
+   "latency_s": 2.789,
+   "input_tokens": 9325,
+   "output_tokens": 151,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"B\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis, linking growth to rate cases, weather, and segments, and explains margin and cash conversion drivers. Draft B has stronger grounding, explicitly noting unsupported claims and data anomalies, but A's interpretations are mostly supported. A's coverage is broader, and its clarity and calibration are comparable. Grounding is close, but A's depth advantage outweighs minor support gaps.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis, better peer context, and more specific red flags and watch items, all well-supported by cited sources. Draft B has some unsupported claims and less precise coverage."
+   },
+   "cost_usd": 0.004741,
+   "latency_s": 3.543,
+   "input_tokens": 9325,
+   "output_tokens": 111,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis, better peer context, and more specific red flags and watch items, all well-supported by cited sources. Draft B has some unsupported claims and less precise coverage.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.009561
+}

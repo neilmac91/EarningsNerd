@@ -1,0 +1,86 @@
+{
+ "ticker": "NEE",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A blames the FY2021 margin trough on the Mountain Valley Pipeline impairment, but its own source dates that charge to 2020. It cites a $585m tax-credit figure the passage never states, and implies debt issuance funded capex without netting repayments. Draft B flags the margin swings it cannot explain, nets debt issued against repaid, and sources the FY2022 and FY2024 revenue moves. It also adds XPLR impairments and an ROE peer comparison. Both cite an unsupported $89m figure."
+   },
+   "cost_usd": 0.128645,
+   "latency_s": 13.819,
+   "input_tokens": 14618,
+   "output_tokens": 869,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A blames the FY2021 margin trough on the Mountain Valley Pipeline impairment, but its own source dates that charge to 2020. It cites a $585m tax-credit figure the passage never states, and implies debt issuance funded capex without netting repayments. Draft B flags the margin swings it cannot explain, nets debt issued against repaid, and sources the FY2022 and FY2024 revenue moves. It also adds XPLR impairments and an ROE peer comparison. Both cite an unsupported $89m figure.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft B misreads its own source: it blames the FY2021 margin trough on the Mountain Valley Pipeline impairment, but that charge was taken in 2020. B also cites a $585m tax-credit figure missing from the truncated passage, and attributes net debt to capex without any capex data. A openly says the FY2021 and FY2023 swings are unexplained, though its fuel-price cause for the $89m cash impact is also unsupported. A adds peer margin, ROE and XPLR context."
+   },
+   "cost_usd": 0.129133,
+   "latency_s": 13.011,
+   "input_tokens": 14614,
+   "output_tokens": 895,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"Draft B misreads its own source: it blames the FY2021 margin trough on the Mountain Valley Pipeline impairment, but that charge was taken in 2020. B also cites a $585m tax-credit figure missing from the truncated passage, and attributes net debt to capex without any capex data. A openly says the FY2021 and FY2023 swings are unexplained, though its fuel-price cause for the $89m cash impact is also unsupported. A adds peer margin, ROE and XPLR context.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.257778
+}

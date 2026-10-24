@@ -1,0 +1,86 @@
+{
+ "ticker": "DE",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis, better segment-level attribution, and more precise red flags and watch items, all well-supported by cited filings. Draft B is solid but less comprehensive and occasionally less precise."
+   },
+   "cost_usd": 0.005111,
+   "latency_s": 2.452,
+   "input_tokens": 9511,
+   "output_tokens": 112,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis, better segment-level attribution, and more precise red flags and watch items, all well-supported by cited filings. Draft B is solid but less comprehensive and occasionally less precise.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis, segment-level drivers, and margin decomposition, all well-supported by cited filings. It covers more red flags and actionable watch items with numeric thresholds. Draft B has some unsupported claims (e.g., Wirtgen acquisition adding 12%) and less precise segment analysis. A is clearer and better calibrated."
+   },
+   "cost_usd": 0.005164,
+   "latency_s": 2.876,
+   "input_tokens": 9511,
+   "output_tokens": 139,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis, segment-level drivers, and margin decomposition, all well-supported by cited filings. It covers more red flags and actionable watch items with numeric thresholds. Draft B has some unsupported claims (e.g., Wirtgen acquisition adding 12%) and less precise segment analysis. A is clearer and better calibrated.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.010275
+}

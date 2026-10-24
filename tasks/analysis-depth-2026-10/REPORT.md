@@ -1,0 +1,615 @@
+# The AI trend analysis: depth, grounding, pipeline and model
+
+Study of the "AI trend analysis" section of Multi-Period Analysis, October 2026. Branch
+`claude/trend-analysis-depth-eval`. Nothing in production was changed: the proposed prompt, the gate and the
+harness live under `backend/evals/trend_depth/` and `backend/prompts/trends-depth-analyst-agent.md`, and the
+grounding rule waits for approval (`GROUNDING-RULE.md`).
+
+## Summary
+
+- **The section cannot be deep today, by construction.** Code writes every sentence it can contain, and
+  the model only picks sentence IDs, under a prompt that forbids causes. Of 705 sentences in 40 reproduced
+  analyses:
+  - 42% restate a figure and 58% derive a comparison;
+  - none states a cause and none is a judgement;
+  - 96% of the numeric sentences contain no figure the metrics table beside them lacks.
+
+  Changing the model alone cannot fix this.
+- **The filings can support much more,** and the evidence can be assembled by code:
+  - segment and product revenue from each 10-K's XBRL;
+  - the cost lines and the margin bridge;
+  - cash conversion, net cash and capital returns;
+  - peer percentiles from our own facts store;
+  - MD&A and note passages that state causes, each with a link to the paragraph on EDGAR.
+
+  Three hand-written gold analyses, Regeneron, Snap and JPMorgan, show the target: 698, 647 and 649 words,
+  every number reconciled by the gate, and 27 causes each tied to a quoted passage.
+- **Proposed.** An evidence pack, a prompt that writes typed sentences (fact, comparison, cause,
+  judgement) under a four-tier grounding rule, and a deterministic gate that reconciles every number before
+  anything is shown. The gate allows one repair, then falls back to today's narrative. **The rule needs
+  your approval before any production work** (`GROUNDING-RULE.md`).
+- **Result, 20 companies, 10 of them held out:**
+  - judges preferred the proposal to the current analysis 19–0 (Sonnet 5.5), 20–0 (Haiku 5.5) and 15–2
+    (DeepSeek flash), each verdict surviving a position swap;
+  - after at most one repair, every proposed output reconciled every number (the three as-run failures
+    were gate errors, since fixed; §7.2);
+  - a quarter of sentences now state a cause, and an auditor from another model family found 76–78% of
+    those fully supported by the cited passage and 0–1% unsupported. The hand-written gold scored 70% and 0%.
+- **Model: Claude Sonnet 5.5,** at $0.18 per fresh analysis (about $180 per 1,000) and about a minute's
+  latency.
+  - DeepSeek flash costs $0.0056 and takes 10 seconds. It gives verified numbers the wrong metric, period or
+    sign about three times as often (9–10 per 1,000 against 3), and it marks almost none of its interpretation
+    as analysis.
+  - The judge evidence on the head-to-head is mixed. Opus prefers Sonnet 18–1, mostly on grounding and
+    calibration. DeepSeek V4 Pro is position-biased and inconclusive. Gemma 4 31B, the neutral judge, has
+    judged 5 of 20 pairs so far (DeepSeek 2, Sonnet 1, 2 splits) and has not yet confirmed Opus's margin.
+    The recommendation therefore rests mainly on the judge-free measures, and it should be confirmed by the
+    blind human pack before launch.
+  - DeepSeek remains the budget option once two evidence gaps are fixed.
+- **Still open:**
+  - the blind human pack (§9c) is built but not yet rated;
+  - the Gemini arm awaits its daily quota (scheduled);
+  - Claude ran through the CLI rather than the API, which affects its latency figures.
+
+## 1. How the analysis is produced today
+
+The full map, with links to the code, is `PIPELINE.md`. In short:
+
+- **Facts.** SEC companyfacts are normalised to 26 concepts and stored with "latest filing wins"
+  (`facts/companyfacts.py`, `upsert_facts_bulk`). The dataset behind the page (`trend_analysis/dataset.py`)
+  aligns up to ten fiscal years, adds growth, CAGRs and percentage-point changes, and numbers every value
+  `F1…Fn`.
+- **Generator input.** Code writes every sentence the analysis can contain, from about 15 templates
+  (`observations.py`). The model, `deepseek-flash` (DeepSeek V4.1 Flash, thinking off, temperature 0.2, per
+  ADR-0008 and `app/config.py`), sees only that catalogue of about 2,000 tokens and returns up to three IDs
+  per section. Its prompt forbids it to "infer causes … or relationships". It sees no filing text, no MD&A
+  and no segment data.
+- **Citations.** `resolve_narrative_citations` renumbers `[F#]` to `[1]…[n]` and attaches each value's XBRL
+  tag or formula. `scan_numeric_fidelity` checks the figure before each marker. Because code wrote the
+  sentence, the check passes by construction.
+- **Cost, latency, caching.** Measured over 45 reproduced runs: $0.0002 per fresh analysis at the off-peak
+  list price ($0.0004 at peak), p50 1.9 s and p90 2.2 s for the whole stream. Results are cached per company,
+  window and dataset fingerprint while `PROMPT_VERSION` (`trends-v7-observations`) is unchanged; a forced
+  regeneration is metered against the 100-a-month fair-use cap.
+
+## 2. What it says today
+
+The census (`census/README.md`, `census/results.md`) reproduced 40 annual and 5 quarterly analyses
+through the production code path and classified every sentence twice: once by template kind, and once
+blind by an LLM labeller. Cohen's κ between the two was 0.72.
+
+| Annual sentences (n = 705) | Restated figure | Derived comparison | Causal claim | Judgement |
+|---|---|---|---|---|
+| By template kind | 41.6% | 58.4% | 0.0% | 0.0% |
+| Blind LLM labelling | 32.5% | 66.5% | 0.0% | 1.0% |
+
+- 662 of 692 numeric sentences (95.7%) contain no figure that the metrics table on the same page lacks.
+- Only 36.5% of sentences are there because the model chose them; code requires the rest.
+- An analysis mentions 7.6 of the 19.4 series in its dataset on average, in 17.6 sentences.
+
+The pipeline's output is a property of its templates. A better model cannot add depth while the model may
+only pick among code-written sentences that are forbidden to state causes.
+
+## 3. What the filings can support
+
+`drivers/README.md` builds the driver tree for REGN, SNAP, JPM, COST and NVDA: revenue by segment or
+product, then gross margin, the operating cost lines and operating margin, then net income, operating cash
+flow and free cash flow. It adds a common-size view (`drivers/*-common-size.csv`). Every node is classed by
+where its evidence comes from:
+
+| Company | Structured XBRL | Structured, partial | Filing text only | Not available |
+|---|---|---|---|---|
+| REGN | 12 | 3 | 3 | 2 |
+| SNAP | 14 | 1 | 4 | 1 |
+| JPM | 8 | 1 | 5 | 0 |
+| COST | 12 | 2 | 5 | 1 |
+| NVDA | 15 | 1 | 2 | 2 |
+
+The pattern holds across the five companies:
+
+- **Structured facts cover:** product and segment revenue (from each 10-K's own XBRL dimensions), the cost
+  lines, stock-based compensation, cash conversion, capex, net cash, buybacks and dividends.
+- **Only the text has:** price against volume, guidance, the causes of any movement, and bank capital
+  ratios.
+- **Neither has:** unit metrics that the company does not tag.
+
+Building this evidence found defects in the facts layer that the current page inherits:
+
+| Defect | Evidence | Effect today |
+|---|---|---|
+| Recast and original figures sit side by side ("latest filing wins") | Regeneron FY2018–FY2019 revenue are the FY2020 10-K's recast figures; FY2017 was never recast | The table shows FY2018 revenue −12.4% and a 49.3% operating margin. As first reported, revenue grew 14.3%. This is the screenshot in the brief. |
+| Proxy-statement (DEF 14A) net income replaces the 10-K's | 29 of 78 companies in the harness store (JPM FY2021–FY2025: $48.3B rounded against $48,334M) | Rounded or differently scoped net income, and the margins built on it |
+| Insurers and managed care get no annual window | UNH, PGR, ELV, CI, HUM, TRV, ALL: their top line is ingested as premiums, and `has_core` wants revenue | No annual analysis at all for these companies |
+| Long-term debt disappears after FY2020–FY2021 | `long_term_debt` maps only `LongTermDebtNoncurrent` and `LongTermDebt`. Chevron and ConocoPhillips have tagged `LongTermDebtAndCapitalLeaseObligations` since then, and Deere's recent 10-Ks carry neither tag | The table's long-term debt row goes blank. Debt and net debt built on it fall to the current portion: Deere's total debt reads $43.8B in FY2021 and $13.8B in FY2025. One proposed analysis repeated the figure (§7.4); Sonnet flagged the break for CVX and COP |
+| Chubb's top line reads "Net interest income −$764.0M" | census | A wrong label on an insurer |
+| XOM resolves to a new CIK with 27 facts | SEC ticker map | ExxonMobil's history is unreachable by ticker |
+
+Reading 10-K text also needs three fallbacks the app's section parser lacks:
+
+- MD&A in the annual-report exhibit (USB's EX-13);
+- MD&A after Item 16 (Deere);
+- older 10-Ks found only through companyfacts accessions (JPM).
+
+## 4. Content specification and gold examples
+
+`SPEC.md` specifies seven sections:
+
+1. the arc, with inflection points and their stated causes;
+2. growth drivers and operating leverage;
+3. margins and the cost-line bridge, each move tied to a filing passage;
+4. cash conversion;
+5. net cash or debt and liquidity against peer percentiles from our own store, and capital allocation;
+6. red flags ranked by severity and persistence;
+7. what to watch, with thresholds anchored on cited levels.
+
+It also sets profiles for banks, loss-makers and insurers, and a length of 450 to 700 words.
+
+Three gold analyses were written by hand to that specification, using only stored facts and quoted 10-K
+passages, each passage with its EDGAR location (`gold/`):
+
+| Gold example | Words | Numbers verified by the gate | Cause sentences | Passages cited (outside the pack's selection) |
+|---|---|---|---|---|
+| Regeneron FY2016–FY2025 (operating) | 698 | 67 of 67 | 7 | 10 (6) |
+| Snap FY2016–FY2025 (loss-maker) | 647 | 68 of 68 | 9 | 19 (7) |
+| JPMorgan Chase FY2016–FY2025 (bank) | 649 | 75 of 75 | 11 | 21 (16) |
+
+The last column is the main limit on depth that this study found. The passage selector (`passages.py`)
+picks up to 90 passages per company by causal language, recency and inflection years. Writing the gold
+examples needed passages it had not picked: a minority for Regeneron and Snap, and three quarters for
+JPMorgan. A bank's causes live in segment and credit discussions that read less like "increased …
+due to". The generators can only cite what the pack contains, so better passage selection would deepen
+every model's output at once.
+
+## 5. The grounding rule (proposal, awaiting approval)
+
+`GROUNDING-RULE.md` proposes four tiers:
+
+| Tier | Sentence | Must cite | Checked by |
+|---|---|---|---|
+| 1 | Fact: a filed or calculated figure | the figure's ID | gate: the number equals the cited value at its printed precision |
+| 2 | Comparison: growth, change, share, ranking | its inputs, or the derived value | gate: the number equals a cited value or a derivation of cited values; direction and year must agree |
+| 3 | Cause: why something moved | a 10-K passage that states it, plus the figure | gate: a passage is cited and every number reconciles; audit: the passage states the cause |
+| 4 | Judgement: what it means | the figures it interprets | gate: no number that does not reconcile; shown to the reader as *Analysis* |
+
+The gate (`backend/evals/trend_depth/factcheck.py`) parses every number with its unit, scale and
+qualifier. It reconciles each one against the values the sentence cites, their pairwise derivations and
+the figures printed in cited passages, and it checks the year and the direction word. Its rules are pinned
+by 36 unit tests (`backend/tests/unit/test_trend_depth_factcheck.py`). In production it would sit where
+`scan_numeric_fidelity` sits. A failure gets one regeneration that names the failed sentences, and a second
+failure falls back to the current code-written narrative.
+
+The gate checks numbers, not the words around them. "Revenue grew 8.3%", citing an 8.3% growth in cash,
+would pass it. §7.4 measures how often that happens. **No part of the rule is implemented in production;
+§10 lists what approval would authorise.**
+
+## 6. How the models were evaluated
+
+- **Companies.** 20 companies in ten sector pairs, one company of each pair for development and the other
+  held out:
+
+  | Sector | Development | Held out |
+  |---|---|---|
+  | Biopharma | REGN | VRTX |
+  | Loss-making consumer tech and autos | SNAP | RIVN |
+  | Banks | JPM | USB |
+  | Retail | COST | TGT |
+  | Semiconductors | NVDA | AMD |
+  | Energy | COP | CVX |
+  | Staples | PG | KO |
+  | Industrials | CAT | DE |
+  | Utilities | NEE | DUK |
+  | Software | MSFT | ORCL |
+
+  The prompt was tuned on development companies only (runs `dev-v1` to `dev-v4`). It was then frozen
+  (sha256 `d558d371…`, recorded in every output) before any held-out output was generated. The window is
+  the page's "Last 10" fiscal years.
+- **Evidence.** One pack per company (`packs/*.json.gz`), built through the app's own SEC transports. A
+  pack holds:
+  - the page's dataset (`F`);
+  - extended companyfacts lines, first-reported against latest (`X`);
+  - 10-K XBRL disaggregation (`S`);
+  - derived driver metrics, window levels and peer percentiles from the store (`D`);
+  - up to 90 10-K passages with EDGAR text-fragment links (`P`);
+  - ranked red-flag candidates (`R`);
+  - data checks.
+
+  With the prompt, a pack is 24,000 to 53,000 input tokens (mean 37,000).
+- **Systems.**
+  - `current`: the production pipeline end to end, `stream_trend_narrative` with deepseek-flash, over the
+    same window and the same facts.
+  - The proposed prompt on:
+    - deepseek-flash (thinking off, temperature 0.2);
+    - Claude Sonnet 5.5 (medium effort);
+    - Claude Haiku 5.5 (low and medium effort);
+    - Gemini 3.8 Flash (see the caveats: quota).
+- **Gate and repair.** Every proposed output went through the gate. A failure got one repair call naming the
+  failed sentences, exactly as the production proposal would. Both the first-try and the final results are
+  reported.
+- **Rubric judge, position-swapped.**
+  - Every pair of systems was judged for every company, once with each draft first. A judge's verdict
+    counts only when both orders agree; otherwise it is a tie, and the disagreement is reported as
+    position bias.
+  - No judge ever comes from the family of either output. Claude Opus 5.5 judges pairs without a Claude
+    output, and DeepSeek V4 Pro judges pairs without a DeepSeek output.
+  - For Claude-against-DeepSeek pairs the intended neutral judge, Gemini 3.8 Flash, was out of quota. Those
+    pairs got a consensus panel instead: Opus and V4 Pro, each biased only toward its own side, with a
+    verdict only when both agree. The two model-choice pairs (DeepSeek against Sonnet and against Haiku)
+    also got a neutral judge: Google's Gemma 4 31B.
+  - The judge reads both drafts in one neutral reader format (`readable.py`), with the sources list quoting
+    every cited passage, beside the metrics table the reader sees.
+- **Causal-support audit** (`causes.py`). For every cause sentence, an auditor reads the full text of the
+  cited passages and labels the sentence supported, partial or unsupported. By default the auditor comes
+  from a family other than the generator's. Because DeepSeek's outputs were then audited by Opus and
+  Claude's by V4 Pro, every system was also audited by both auditors (`causes-by-*`) for a like-for-like
+  comparison.
+- **Semantic audit** (`semantics.py`). For every number the gate verified, an auditor sees the sentence and
+  what the number was matched to, and says whether the sentence attributes the number to that metric and
+  period. It is the check the gate cannot make.
+  - Planted errors validated it: three sentences had a metric swapped (revenue relabelled as operating cash
+    flow) and two had a year swapped. Together the gate and the audit caught all 11 affected claims: the
+    gate caught 2, the audit 9.
+  - Its flags are split deterministically into substantive, bound ("below 1.0x", true of the cited value)
+    and ambiguous (several cited values match the number).
+- **Cost and latency** are measured from every call's real token usage and wall-clock time. Cost is the
+  API list price of the measured tokens, including any repair call.
+
+## 7. Results
+
+The full generated tables are `runs/eval-v1/REPORT.md` and `runs/eval-v1/summary.json`, both from
+`python -m evals.trend_depth.report`. All 20 companies generated on every arm, with no failed generations.
+
+### 7.1 The proposal against the current analysis
+
+| Pair, all 20 companies | Proposal wins | Current wins | Tie or position split | Judged by |
+|---|---|---|---|---|
+| Sonnet 5.5 vs current | 19 | 0 | 1 | consensus of Opus and V4 Pro, both agreeing |
+| Haiku 5.5 (low) vs current | 20 | 0 | 0 | consensus of Opus and V4 Pro, both agreeing |
+| DeepSeek flash vs current | 15 | 2 | 3 | Opus (neutral) |
+
+Each judge's own verdict needs both position orders to agree.
+
+- **Held-out half:** Sonnet 10–0, Haiku 10–0, DeepSeek 7–1.
+- **Depth, coverage and clarity:** Opus scored all three for the proposal on all 20 companies, for each of
+  the three models.
+- **Grounding is the exception.** Opus gave grounding to the current analysis on 19 of 20 companies against
+  DeepSeek, 14 against Haiku and 13 against Sonnet. Code writes every current sentence, so it cannot be
+  wrong; it also says almost nothing.
+
+### 7.2 The fact-check gate
+
+| System | Gate pass, first try | After one repair | Claims checked per analysis | Cause sentences per analysis | Words (max) |
+|---|---|---|---|---|---|
+| DeepSeek flash | 13 of 20 | 19 of 20 as run · **20 of 20** current gate | 73 | 7.0 | 618 (735) |
+| Claude Sonnet 5.5 | 15 of 20 | **20 of 20** | 73 | 7.6 | 612 (656) |
+| Claude Haiku 5.5, low effort | 9 of 20 as run · 12 current gate | 19 of 20 as run · **20 of 20** current gate | 68 | 7.2 | 578 (641) |
+| Claude Haiku 5.5, medium effort | 13 of 20 as run · 14 current gate | 19 of 20 as run · **20 of 20** current gate | 69 | 8.3 | 600 (674) |
+
+"Current gate" is the same outputs re-checked by the gate after four fixes made after the run. Each fix
+removed a false positive, and each comes with a unit test:
+
+1. a word claim ("nearly doubled") displaced the figures in year binding (found on SNAP, development);
+2. "$18-19 billion" lost its scale (CVX, held out);
+3. the noun "growth" was read as a direction word (TGT, held out);
+4. "dropping below the 65.5%" is a level, not a fall (NVDA, development).
+
+The gold examples and every development output were re-checked after each fix, and no fix introduced a new
+failure. Two of the fixes were found on held-out companies, and the outputs themselves were never changed.
+Every proposed output therefore reconciles every number after at most one repair. The first-try failures
+were "matches nothing", period and direction errors (DeepSeek 10, Sonnet 5, Haiku-low 17, as run), plus two
+DeepSeek cause sentences that cited no passage.
+
+Per company, in the form first try → after repair · claims checked (fail counts are failed checks;
+† = passes under the current gate):
+
+| Company | Split | deepseek-flash | claude-sonnet-5-5 | claude-haiku-5-5-low | claude-haiku-5-5 |
+|---|---|---|---|---|---|
+| REGN | dev | pass → pass · 82 | pass → pass · 85 | pass → pass · 79 | pass → pass · 71 |
+| VRTX | holdout | pass → pass · 62 | 1 failed → pass · 77 | pass → pass · 63 | pass → pass · 65 |
+| SNAP | dev | pass → pass · 86 | pass → pass · 67 | 4 failed → FAIL (pass †) · 72 | 3 failed → pass · 67 |
+| RIVN | holdout | pass → pass · 73 | pass → pass · 58 | 1 failed → pass · 67 | 1 failed → pass · 60 |
+| JPM | dev | pass → pass · 61 | 1 failed → pass · 61 | 1 failed → pass · 66 | pass → pass · 64 |
+| USB | holdout | pass → pass · 66 | 1 failed → pass · 70 | 1 failed → pass · 71 | pass → pass · 74 |
+| COST | dev | pass → pass · 83 | pass → pass · 77 | 2 failed → pass · 68 | 1 failed → pass · 74 |
+| TGT | holdout | 1 failed → pass · 74 | pass → pass · 70 | 1 failed → pass · 68 | 1 failed → FAIL (pass †) · 72 |
+| NVDA | dev | 3 failed → pass · 77 | pass → pass · 75 | pass → pass · 64 | 1 failed → pass · 63 |
+| AMD | holdout | 1 failed → pass · 82 | pass → pass · 88 | 1 failed → pass · 77 | pass → pass · 88 |
+| COP | dev | pass → pass · 65 | 1 failed → pass · 62 | pass → pass · 61 | pass → pass · 59 |
+| CVX | holdout | 4 failed → FAIL (pass †) · 64 | pass → pass · 76 | pass → pass · 64 | pass → pass · 79 |
+| PG | dev | pass → pass · 83 | pass → pass · 86 | pass → pass · 71 | 1 failed → pass · 68 |
+| KO | holdout | pass → pass · 69 | pass → pass · 74 | 2 failed → pass · 66 | pass → pass · 75 |
+| CAT | dev | pass → pass · 75 | pass → pass · 80 | pass → pass · 65 | pass → pass · 71 |
+| DE | holdout | pass → pass · 72 | pass → pass · 69 | 1 failed → pass · 64 | pass → pass · 64 |
+| NEE | dev | pass → pass · 60 | pass → pass · 72 | pass → pass · 66 | pass → pass · 64 |
+| DUK | holdout | 1 failed → pass · 71 | pass → pass · 75 | pass → pass · 78 | pass → pass · 72 |
+| MSFT | dev | 1 failed → pass · 78 | pass → pass · 70 | 2 failed → pass · 67 | 1 failed → pass · 63 |
+| ORCL | holdout | 1 failed → pass · 77 | 1 failed → pass · 72 | 1 failed → pass · 62 | pass → pass · 66 |
+
+### 7.3 Do the cited passages state the causes?
+
+Every cause sentence was audited against the full text of the passages it cites. Results are shown under
+each auditor; * marks a system audited by its own family.
+
+| System (cause sentences) | Opus 5.5: supported / partial / unsupported | DeepSeek V4 Pro: supported / partial / unsupported |
+|---|---|---|
+| DeepSeek flash (140) | 76% / 23% / 1% | 84% / 11% / 6% * |
+| Claude Sonnet 5.5 (152) | 76% / 22% / 1% * | 75% / 20% / 5% |
+| Claude Haiku 5.5, low (144) | 78% / 22% / 0% * | 82% / 12% / 6% |
+| Gold examples (27) | 70% / 30% / 0% | 59% / 37% / 4% |
+
+- **Causal faithfulness does not separate the models.** Under the same auditor, all three sit within a few
+  points of each other and of the hand-written gold.
+- **"Partial" is the common failing, not invention.** A typical partial: a passage that explains one year
+  cited for a multi-year trend, or a passage that covers one of the two causes a sentence gives.
+- **Opus is the more reliable auditor.** V4 Pro marked the gold sentence "SG&A gave back 2.0 points because
+  charitable contributions … fell" unsupported because it read "gave back" as a cost rise. It also marks
+  "partial" when a passage lacks a figure, though it was told to judge causation only.
+- **The audit catches real misreadings.** Example: DeepSeek wrote that Deere's "production costs stayed
+  unfavorable", and its cited passage says they "were favorable in 2024"; both auditors marked it
+  unsupported.
+
+### 7.4 Is each verified number said about the right thing?
+
+The semantic audit asks, for each of about 1,450 verified claims per system, whether the sentence gives
+the number the metric and period it was matched to.
+
+| System | Substantive flags, Opus auditor | Substantive flags, V4 Pro auditor | Bound / ambiguous flags (Opus) |
+|---|---|---|---|
+| DeepSeek flash | 14 of 1,457 | 13 of 1,459 * | 9 / 5 |
+| Claude Sonnet 5.5 | 5 of 1,458 * | 4 of 1,458 | 5 / 4 |
+| Claude Haiku 5.5, low | 4 of 1,356 * | 5 of 1,356 | 9 / 3 |
+
+DeepSeek gives verified numbers the wrong metric, period or sign about three times as often as either
+Claude model, and that holds under DeepSeek's own-family auditor too. Reading all 28 of DeepSeek's flags:
+
+- **The commonest error (4 companies)** compares the operating-cash-flow-to-net-income ratio with the window
+  median of *free* cash flow to net income. The pack has no operating-cash-flow median, so the model took the
+  nearest one.
+- **Net cash and net debt signs.** "Net debt is 38.8% of revenue, better than the −35.6% peer median" (CAT)
+  gets the comparison backwards.
+- **Mixed periods.** One margin difference took the two margins from different years (DE).
+- **Data rather than wording.** Three Deere flags restate correctly a pack value that is wrong: the
+  missing long-term debt in §3. Sonnet's output for Chevron and ConocoPhillips noticed the same kind of
+  break and flagged it; DeepSeek's did not.
+- **Not errors.** Bound flags are true statements ("the current ratio of 0.55x is below 1.0x"). Ambiguous
+  flags are numbers that two cited values both match (JPM's EMEA and Asia-Pacific both added 1.2pp).
+
+Planted errors confirm what the audit can and cannot see (`runs/plant-sem/`). Revenue relabelled as
+operating cash flow in three sentences was caught on all 7 affected claims, and year swaps were caught on
+all 4. The gate alone caught 2 of the 11.
+
+### 7.5 What the judges and the gate do not measure
+
+- **Marking judgements.** The rule requires interpretation to be shown as *Analysis*:
+  - DeepSeek typed 4 of 590 sentences (0.7%) as judgement, and wrote interpretive wording ("structural",
+    "pressure", "cushion") into 5.6% of its fact and comparison sentences.
+  - Sonnet typed 11.6% as judgement and left such wording in 2.6% of the others; Haiku-low 8.8% and 1.8%.
+
+  A DeepSeek analysis therefore presents most of its interpretation as if it were data. The gate cannot see
+  this, and it is the main reason Opus scored calibration for Sonnet over DeepSeek on 19 of 20 companies.
+- **Unsigned falls.** "The three years to FY2025 show a 5.3% CAGR" (COP, DeepSeek) states a −5.3% CAGR as
+  growth. The gate accepts it because no direction word or minus sign is present. A rule that fails such
+  claims was tried and rejected here, because all six claims it flagged were false positives (for example,
+  "Revenue declined three years running: 16.5% …"). It is listed as a gate follow-up.
+- **Thin red flags.** Haiku-low's REGN analysis listed two red flags and missed the high-severity
+  recast-revenue break that Sonnet and DeepSeek both reported.
+- **Errors only a careful reader finds.** Opus's rationales name concrete errors in DeepSeek's drafts for
+  all 8 of the first 8 companies read, among them a misread CAGR sign, an
+  invented tariff-refund cause and a cause the passage contradicts. For 2 of the 8 they also name errors in
+  Sonnet's drafts, such as causes their passages do not state (AMD) and segment passages applied firm-wide
+  (JPM). Two of the DeepSeek errors were checked by hand and confirmed (§9d).
+
+### 7.6 Choosing the model
+
+| Evidence | DeepSeek flash | Claude Haiku 5.5 (low) | Claude Sonnet 5.5 |
+|---|---|---|---|
+| Beats current (judge) | 15–2 | 20–0 | 19–0 |
+| Gate, first try / after repair (current gate) | 13 / 20 | 12 / 20 | 15 / 20 |
+| Cause sentences fully supported (Opus) | 76% | 78% | 76% |
+| Mislabelled numbers per 1,000 verified (both auditors) | 9–10 | 3–4 | 3 |
+| Judgements marked as analysis | 0.7% of sentences | 8.8% | 11.6% |
+| Opus judge, head to head with DeepSeek | — | Haiku 16–1 | Sonnet 18–1 |
+| V4 Pro judge, head to head with DeepSeek | — | DeepSeek 4–0, 16 position splits | DeepSeek 4–0, 16 position splits |
+| Gemma 4 31B (neutral), head to head with DeepSeek | — | pending (follow-up) | Sonnet 1, DeepSeek 2, 2 position splits (5 of 20 so far) |
+| List cost per fresh analysis, repairs included | $0.0056 | $0.018 | $0.18 |
+| Latency p50 / p90 | 10 s / 16 s | 89 s / 112 s | 57 s / 65 s |
+
+- **The consensus panels tie** on every DeepSeek-against-Claude pair. That is not evidence of equal quality:
+  V4 Pro, one of the two panel judges, agreed with itself across the position swap on only 50% of pairs,
+  against Opus's 92%, so the panel can rarely agree.
+- **The two judges that discriminate:**
+  - Opus is a Claude-family judge with a possible self-preference, but its rationales cite checkable errors,
+    and its preference rests on grounding and calibration, not on depth, where it rated DeepSeek against
+    Sonnet a tie on 13 of 20.
+  - Gemma 4 31B is the neutral check. At the time of writing it had judged 5 of the 20 DeepSeek-against-
+    Sonnet pairs: DeepSeek 2 (SNAP and RIVN), Sonnet 1 (VRTX) and 2 position splits. That is too few to
+    settle anything, and so far it does not show Opus's margin. The free tier answers slowly, with
+    intermittent server errors, so the remaining pairs and the DeepSeek-against-Haiku pairs complete in the
+    scheduled follow-up (§11), which updates this section.
+
+  The objective measures above point the same way as Opus.
+- **Sonnet against Haiku** was judged by V4 Pro only (Sonnet 2–0, 18 position splits), which does not
+  separate them. On the objective measures they are close. Haiku is a tenth of the cost, but slower, because
+  it spends 18,000–27,000 tokens thinking, and it needs a repair more often.
+
+## 8. Cost and latency at volume
+
+Measured per fresh analysis over 20 companies, at API list prices for the measured tokens, including repair
+calls:
+
+| System | Per analysis | 1,000 a month | 10,000 a month | Latency p50 / p90 | Input / output tokens |
+|---|---|---|---|---|---|
+| Current (production) | $0.0002 | $0.19 | $1.94 | 1.9 s / 2.2 s | 2,000 / 270 |
+| DeepSeek flash, proposal | $0.0056 | $5.63 | $56.29 | 10 s / 16 s | 50,000 / 2,400 |
+| Claude Haiku 5.5 low, proposal | $0.018 | $18.14 | $181.38 | 89 s / 112 s | 80,000 / 21,000 |
+| Claude Haiku 5.5 medium, proposal | $0.017 | $16.99 | $169.94 | 116 s / 156 s | 68,000 / 29,000 |
+| Claude Sonnet 5.5, proposal | $0.18 | $180.42 | $1,804.25 | 57 s / 65 s | 64,000 / 7,900 |
+
+- **DeepSeek** is priced at the off-peak rate. The peak rate (weekdays 01:00–04:00 and 06:00–10:00 UTC) is
+  double: $0.011 per analysis.
+- **Claude** ran through `claude -p`, not the API (§11). The CLI billed Sonnet at $0.28 per analysis, against
+  $0.18 at list for the same tokens; the difference is cache writes the CLI makes and a one-shot call never
+  reads. Through the API without caching, list is the right figure.
+- **Volume.** Analyses are cached per company, window and dataset fingerprint, so a fresh generation happens
+  only on a company's first view in a window, after a new filing changes its facts, after a prompt version
+  change, or on a forced regeneration (capped at 100 a user a month). The production analytics needed to
+  estimate the real monthly count (PostHog `analysis_inference_cost`) were not available to this study.
+- **Latency** is the bigger product change. The current page shows the analysis about 2 seconds after the
+  request. The proposal holds the output until the gate has passed, so the reader waits the full generation:
+  10 seconds with DeepSeek, about a minute with Sonnet. A progress state is needed either way, and background
+  generation after each 10-K for watched companies would hide most of it.
+
+## 9. Independent verification
+
+**(a) Gate results per model, all 20 companies.** §7.2 has the table: first try and after the one repair,
+with the claims checked per analysis. The gate's code is `factcheck.py` and its rules are pinned by
+`backend/tests/unit/test_trend_depth_factcheck.py` (38 tests, one per failure class and per accepted form).
+To re-check any output: `python -m evals.trend_depth.report --label eval-v1 …`, or `factcheck.check` on a
+record's `output`.
+
+**(b) Pairwise preference matrix, with position-swap agreement.** Every pair ran in both orders for all 20
+companies, and a judge's verdict counts only when both orders agree.
+
+| Pair (x vs y), 20 companies | Verdict used (x wins · y wins · tie or split) | Opus 5.5 | DeepSeek V4 Pro | Gemma 4 31B |
+|---|---|---|---|---|
+| Current vs DeepSeek flash | 2 · 15 · 3 (claude-opus-5-5 (20)) | 2 · 15 · 3 | not run (own family) | not run |
+| Current vs Sonnet 5.5 | 0 · 19 · 1 (consensus of claude-opus-5-5 + deepseek-v4-pro (20)) | 0 · 19 · 1 | 0 · 20 · 0 | not run |
+| Current vs Haiku 5.5 low | 0 · 20 · 0 (consensus of claude-opus-5-5 + deepseek-v4-pro (20)) | 0 · 20 · 0 | 0 · 20 · 0 | not run |
+| DeepSeek flash vs Sonnet 5.5 | 2 · 1 · 17 (gemma-4-31b (5); consensus of claude-opus-5-5 + deepseek-v4-pro (15)) | 1 · 18 · 1 | 4 · 0 · 16 | 2 · 1 · 2 |
+| DeepSeek flash vs Haiku 5.5 low | 0 · 0 · 20 (consensus of claude-opus-5-5 + deepseek-v4-pro (20)) | 1 · 16 · 3 | 4 · 0 · 16 | not run |
+| Sonnet 5.5 vs Haiku 5.5 low | 2 · 0 · 18 (deepseek-v4-pro (20)) | not run (own family) | 2 · 0 · 18 | not run |
+
+Position-swap agreement on the overall verdict: Claude Opus 5.5 92% of 100 pairs, DeepSeek V4 Pro 50% of 100,
+Gemma 4 31B 60% of 5 pairs. Raw verdicts, both orders, with rationales: `runs/eval-v1/judge/<judge>/`.
+
+**(c) Blind preference pack for finance-literate raters.** `human-pack/` holds the pack: the current analysis
+against the proposed one for REGN, SNAP, JPM, COST and VRTX.
+- **What raters get:** `index.html` (the metrics table and the two analyses as A and B, with each quoted
+  passage linked to its 10-K paragraph) and `scoring-sheet.csv` (preference, then usefulness, trust after
+  spot-checking two sources, and clarity, each 1–5, plus any statement the rater believes is wrong).
+- **Blinding:** the A/B order is drawn from a random seed recorded only in the unblinding key. The key is
+  kept outside this public repository, and its SHA-256 is in `human-pack/README.md`.
+- **Which proposal:** the pack uses Sonnet 5.5, the recommended model.
+  `python -m evals.trend_depth.human_pack --proposed deepseek-flash …` rebuilds it for DeepSeek.
+- **Status:** not yet run. Two or three raters, about 45 minutes each.
+
+**(d) Every causal claim in the three gold examples, with the EDGAR passage it rests on.**
+`gold/CAUSES.md` has 27 cause sentences and 40 sentence–passage rows. Each row carries the filing, the
+accession, the item and heading, a link that opens the 10-K at the paragraph (text fragment), the quoted
+text, and the label an Opus auditor gave it: 19 supported, 8 partial, 0 unsupported.
+
+Two of the errors the judge attributed to DeepSeek were checked by hand against the pack:
+- COP's "5.3% CAGR" is the pack's −5.31;
+- Deere's passage P16 reads "Production costs were favorable in 2024".
+
+**(e) Held-out against development.**
+
+| System | Split | Gate first try | Gate after repair | Substantive mislabels (Opus) | Causes supported (Opus) | Beats current |
+|---|---|---|---|---|---|---|
+| DeepSeek flash | dev | 8 of 10 | 10 of 10 | 5 | 82% | 8–1 |
+| DeepSeek flash | held out | 5 of 10 | 10 of 10 | 9 | 71% | 7–1 |
+| Claude Sonnet 5.5 | dev | 8 of 10 | 10 of 10 | 1 | 79% | 9–0 |
+| Claude Sonnet 5.5 | held out | 7 of 10 | 10 of 10 | 4 | 74% | 10–0 |
+| Claude Haiku 5.5, low | dev | 6 of 10 | 10 of 10 | 0 | 80% | 10–0 |
+| Claude Haiku 5.5, low | held out | 6 of 10 | 10 of 10 | 4 | 77% | 10–0 |
+
+Gate figures here use the current gate.
+
+- **Every system did a little worse on held-out companies,** as it should, since the prompt was tuned on the
+  development half.
+- **DeepSeek dropped the most:** first-try passes fell from 8 to 5 and mislabels rose from 5 to 9. That
+  suggests the prompt's instructions hold less robustly for it.
+- **Verdicts against current did not change** between the halves.
+
+## 10. Recommendation
+
+1. **Pipeline.** Replace the observation catalogue with the evidence pack (§6) and let the model write the
+   analysis under the four-tier rule. The order: build the pack, then generate, then run the gate, then at
+   most one repair naming the failed sentences, then fall back to today's code-written narrative if the
+   repair also fails. Nothing reaches the cache or the page before the gate passes. The pack's inputs come
+   through the existing SEC transports and are cached per accession.
+2. **Prompt.** `backend/prompts/trends-depth-analyst-agent.md` as frozen (sha256 `d558d371…`), under a new
+   `PROMPT_VERSION`. Fix two pack gaps before launch:
+   - add the operating-cash-flow-to-net-income window median;
+   - give net debt as its own positive value, with the sign stated in the label.
+
+   Both are behind DeepSeek's commonest mislabels, and the fix helps every model.
+3. **Grounding rule.** The four tiers in `GROUNDING-RULE.md`, enforced by the gate in the request path. Add
+   the causal audit and the semantic audit as a weekly sampled check, the way `backend/evals/RUNBOOK.md` runs
+   the Copilot citation audit. They cost about $0.01 a sample with V4 Pro, or $0.20 with Opus, which is the
+   better auditor. **This needs your approval before any of it is built.**
+4. **Model: Claude Sonnet 5.5**, through the Anthropic SDK behind the `openai_service.py` façade, for this
+   surface only.
+   - **Why Sonnet:**
+     - every output passed the gate after at most one repair;
+     - it had the fewest mislabelled numbers;
+     - it marks its judgements and flags data problems in the evidence itself;
+     - Opus, the judge most consistent across the position swap (92%), preferred it to DeepSeek on grounding
+       and calibration.
+
+     Its cost is $0.18 per fresh analysis: about $180 per 1,000 fresh analyses a month. Its latency is about
+     a minute.
+   - **How firm this is:** it rests on the measures that need no judge and on Opus. The neutral judge has not
+     confirmed it yet (§7.6).
+   - **Decisions it needs:** a new ADR that supersedes ADR-0008 for this surface, and an `ANTHROPIC_API_KEY`
+     secret.
+   - **The budget alternative is DeepSeek flash** at $0.0056 and 10 seconds, after the two pack fixes, and
+     after a further development round on judgement typing, its clearest weakness. Choose it if the human
+     pack shows raters do not see the difference.
+   - **Haiku 5.5** is close to Sonnet on the objective measures at a tenth of the cost, but it was slower in
+     this configuration, needed a repair on 8 of 20 companies, and was thinner on red flags in the one draft
+     read closely. Before choosing it, measure Haiku without extended thinking on the development half.
+5. **Fix the facts-layer defects in §3 regardless.** They affect today's page:
+   - recast rows beside first-reported ones;
+   - proxy-statement net income;
+   - no annual window for insurers;
+   - the unmapped long-term debt tags;
+   - the XOM CIK.
+6. **Before switching on:**
+   - run the human pack (§9c); to settle Sonnet against DeepSeek, also run the DeepSeek version of the
+     pack on the same raters;
+   - re-run this harness on the final prompt and pack (`backend/evals/trend_depth/README.md`, about USD 25);
+   - add the Gemini arm when its quota allows (a follow-up is scheduled; §11).
+
+What approval would authorise is listed at the end of `GROUNDING-RULE.md`. Nothing in production has
+changed.
+
+## 11. Caveats
+
+- **Claude through the CLI.** No `ANTHROPIC_API_KEY` was available, so every Claude call went through
+  `claude -p` on the logged-in subscription (the repository's judge pattern). Costs are list prices for the
+  measured tokens. Latency includes the CLI's start-up, and `--effort` stands in for the API's thinking
+  settings. An API re-run with the key would firm up the Claude latency figures.
+- **Gemini partly missing.** The Gemini key is on the free tier: Pro and Gemini 4 Argon have no quota, and
+  Gemini 3.8 Flash allows 20 requests a day. The Gemini 3.8 Flash arm generated only REGN, in a development
+  run, before the quota ran out, so it is not in the comparison. A follow-up session is scheduled for 07:20 UTC
+  on 25 October to generate its 20 companies over one or two days of quota, judge it against the other
+  systems, and update this report. Gemma 4 31B, from the same free tier, stood in as the neutral judge; it
+  had judged 5 of its 40 pairs when this report was written, and the follow-up completes it.
+- **Self-preference.** No judge from outside both families was available at full strength for the
+  DeepSeek-against-Claude pairs. Opus's preference for Claude outputs may include self-preference. §7.6
+  weighs it against the objective measures, which do not depend on a judge, and against Gemma.
+- **Census reproductions.** The census reproduced production through its code path on a local copy of the
+  facts. It did not read production rows, and no production logs or analytics were available.
+- **Evidence quality bounds every model.** Passage selection missed most of the passages the bank gold
+  example needed (§4). The packs inherit the facts-layer defects, and the missing Deere debt misled DeepSeek
+  in §7.4.
+- **The gate checks numbers, not meaning.** Its known gaps are counts of periods ("four years running"),
+  unsigned falls, and attribution, which the semantic audit measures.
+- **Twenty companies.** Differences of one or two companies in a split are noise. The robust results are
+  proposal against current, the gate's after-repair pass rate, and DeepSeek's higher mislabel rate, which
+  holds under both auditors and in both splits.
+
+## 12. Re-running
+
+`backend/evals/trend_depth/README.md` has the commands. In short:
+
+1. `generate` with a new label;
+2. `judge`;
+3. `causes` and `semantics`;
+4. `report`.
+
+Packs and outputs are committed, so a prompt change re-runs against the same evidence, and the report puts
+the development and held-out halves side by side. A full run like `eval-v1` cost about USD 42. Total
+spend for this study was about USD 53: USD 42.3 for `eval-v1` (judging 24.2, audits 11.5, generation 6.6),
+USD 9.6 for the development runs and USD 0.6 for the census labelling. The Gemma judge and the Gemini
+arm run on the free tier.

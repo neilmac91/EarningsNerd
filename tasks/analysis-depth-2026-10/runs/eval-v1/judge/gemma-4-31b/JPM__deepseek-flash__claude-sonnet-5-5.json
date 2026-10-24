@@ -1,0 +1,8 @@
+{
+ "ticker": "JPM",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "gemma-4-31b",
+ "error": "InternalServerError: Error code: 500 - [{'error': {'code': 500, 'message': 'Internal error encountered.', 'status': 'INTERNAL'}}]"
+}

@@ -1,0 +1,154 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "DE",
+ "split": "holdout",
+ "claims": 12,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2018 revenue increase of 25.6%  followed the Wirtgen acquisition, which added 12 percent to net sales .",
+   "passages": [
+    {
+     "id": "P72",
+     "filing": "FY2018 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Worldwide net income attributable to Deere & Company in 2018 was $2,368 million, or $7.24 per share diluted ($7.34 basic), compared with $2,159 million, or $6.68 per share diluted ($6.76 basic), in 2017. Affecting 2018 net income were increases to the provision for income taxes of $704 million due to the enactment of U.S. tax reform legislation on December 22, 2017 (tax reform) (see Note 8). Worldwide net sales and revenues increased 26 percent to $37,358 million in 2018, compared with $29,738 million in 2017. Net sales of the worldwide equipment operations rose 29 percent in 2018 to $33,351 million from $25,885 million last year. The company's acquisition of the Wirtgen Group Holding GmbH (Wirtgen) (see Note 4) in December 2017 added 12 percent to net sales for the year. Sales included price realization of 1 percent with no significant currency translation effect. Equipment net sales in the United States and Canada increased 25 percent for 2018, with Wirtgen adding 4 percent. Outside the U.S. and Canada, net sales increased 34 percent for the year, with Wirtgen adding 22 percent."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states Wirtgen acquisition added 12 percent to net sales."
+  },
+  {
+   "sentence": "Operating income rose 86.1% in FY2021  as the cost of sales ratio fell, mainly on price realization .",
+   "passages": [
+    {
+     "id": "P45",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The cost of sales to net sales ratio decreased compared to 2020 mainly due to price realization and the impact of impairments and employee-separation expenses recorded in 2020 (see Note 5). Finance and interest income reduced slightly in 2021 due to lower average interest rates, largely offset by a higher average credit portfolio. Other income increased primarily due to operating lease disposition gains. Research and development expenses were lower in 2021 largely due to employee-separation expenses incurred in 2020 (see Note 5) and organizational efficiencies. Selling, administrative and general expenses decreased mostly due to employee-separation expenses recorded in 2020 (see Note 5) and a lower provision for credit losses, partially offset by higher incentive compensation. Interest expense decreased in 2021 due to lower average borrowing rates. Other operating expenses were lower compared to 2020 largely due to lower retirement benefit costs, reduced depreciation of equipment on operating leases, and the impact of operating lease impairments recorded in 2020 (see Note 5)."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage says cost of sales ratio decreased mainly due to price realization."
+  },
+  {
+   "sentence": "The FY2025 filing cites a 30% drop in U.S. and Canada sales volumes, partly offset by 22% growth in Brazil .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales volumes decreased 30% in the U.S. and Canada, partially offset by an increase of 22% in Brazil. Price realization was up 1% in the U.S. and Canada. In Brazil, price realization was up 4% as demand was strong due to higher grower production. Price realization in the rest of the world was down slightly due to moderating market conditions."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states sales volumes decreased 30% in U.S. and Canada, partially offset by 22% increase in Brazil."
+  },
+  {
+   "sentence": "Financial Services grew 23.5% in FY2024  and added 1.7pp to group growth , as average wholesale receivables rose 26 percent .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Average wholesale receivables increased 26 percent driven by higher dealer used inventory levels. While new retail note volumes moderated due to reduced retail demand, average retail portfolio levels grew due to higher volumes in recent years resulting in a 9 percent increase. Revenue also increased due to higher average financing rates. Excluding the impact of a one-time correction of the accounting treatment for financing incentives offered to John Deere dealers in 2023 (see Note 4), net income declined as a result of a higher provision for credit losses and less-favorable financing spreads driven primarily by the receivable portfolio mix. These factors were partially offset by income earned on higher average portfolio balances."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports wholesale receivables increase but not Financial Services growth or group contribution."
+  },
+  {
+   "sentence": "The filing says production costs were favourable on lower material costs, partly offset by higher overhead from lower volumes .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Production costs were favorable in 2024 due to lower material and employee profit-sharing incentives costs, partially offset by higher manufacturing overhead costs driven by lower volumes and production inefficiencies."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states production costs favorable due to lower material costs, partially offset by higher overhead."
+  },
+  {
+   "sentence": "The FY2021 margin gain of 6.1pp  came mainly from price realization, with lower SG&A after 2020 separation costs .",
+   "passages": [
+    {
+     "id": "P45",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The cost of sales to net sales ratio decreased compared to 2020 mainly due to price realization and the impact of impairments and employee-separation expenses recorded in 2020 (see Note 5). Finance and interest income reduced slightly in 2021 due to lower average interest rates, largely offset by a higher average credit portfolio. Other income increased primarily due to operating lease disposition gains. Research and development expenses were lower in 2021 largely due to employee-separation expenses incurred in 2020 (see Note 5) and organizational efficiencies. Selling, administrative and general expenses decreased mostly due to employee-separation expenses recorded in 2020 (see Note 5) and a lower provision for credit losses, partially offset by higher incentive compensation. Interest expense decreased in 2021 due to lower average borrowing rates. Other operating expenses were lower compared to 2020 largely due to lower retirement benefit costs, reduced depreciation of equipment on operating leases, and the impact of operating lease impairments recorded in 2020 (see Note 5)."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports price realization and lower SG&A due to 2020 separation costs, but not margin gain."
+  },
+  {
+   "sentence": "The FY2018 tax rate of 42.4%  included a $704 million tax reform charge , so that year's net margin of 6.3%  understates operations.",
+   "passages": [
+    {
+     "id": "P72",
+     "filing": "FY2018 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Worldwide net income attributable to Deere & Company in 2018 was $2,368 million, or $7.24 per share diluted ($7.34 basic), compared with $2,159 million, or $6.68 per share diluted ($6.76 basic), in 2017. Affecting 2018 net income were increases to the provision for income taxes of $704 million due to the enactment of U.S. tax reform legislation on December 22, 2017 (tax reform) (see Note 8). Worldwide net sales and revenues increased 26 percent to $37,358 million in 2018, compared with $29,738 million in 2017. Net sales of the worldwide equipment operations rose 29 percent in 2018 to $33,351 million from $25,885 million last year. The company's acquisition of the Wirtgen Group Holding GmbH (Wirtgen) (see Note 4) in December 2017 added 12 percent to net sales for the year. Sales included price realization of 1 percent with no significant currency translation effect. Equipment net sales in the United States and Canada increased 25 percent for 2018, with Wirtgen adding 4 percent. Outside the U.S. and Canada, net sales increased 34 percent for the year, with Wirtgen adding 22 percent."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports tax reform charge but not tax rate or net margin."
+  },
+  {
+   "sentence": "The filing credits FY2025 operating cash flow to net income adjusted for non-cash items and lower receivables, less an OPEB contribution .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash inflows from operating activities were $7.5 billion in 2025, driven by net income adjusted for non-cash provisions and a decrease in receivables related to sales, partially offset by an other postretirement benefit (OPEB) contribution."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states operating cash flow driven by net income adjusted for non-cash provisions and lower receivables, partially offset by OPEB contribution."
+  },
+  {
+   "sentence": "Conversion fell to 0.66x in FY2022  on higher receivables and inventories and a $1.00 billion OPEB contribution .",
+   "passages": [
+    {
+     "id": "P27",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Positive cash flows from consolidated operating activities in 2022 were $4,699 million. This resulted from net income adjusted for non-cash provisions, partially offset by an increase in receivables related to sales, an increase in inventories, and a $1,000 million voluntary contribution to a U.S. other postretirement benefit (OPEB) plan. Cash outflows from investing activities were $8,485 million in 2022. The primary drivers were growth in the retail customer receivable and lease portfolios; purchases of property and equipment; a change in collateral on derivatives - net; and acquisitions of businesses, net of cash acquired. Cash inflows from financing activities were $826 million in 2022, due to an increase in borrowings, partially offset by repurchases of common stock and dividends paid. Cash, cash equivalents, and restricted cash decreased $3,184 million during 2022."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports higher receivables, inventories, and OPEB contribution, but not conversion ratio."
+  },
+  {
+   "sentence": "The filing says the two businesses are capitalised differently and use separate metrics , so consolidated net cash mixes the two.",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Equipment operations and Financial Services participate in different industries. Equipment operations primarily generate earnings and cash flows by manufacturing and selling equipment, service parts, and technology solutions to dealers and retail customers. Financial Services finance sales and leases by dealers of new and used equipment that is largely manufactured by equipment operations. Those earnings and cash flows generally are the difference between the finance income received from customer payments less interest expense, and depreciation on equipment subject to an operating lease. The two businesses are capitalized differently and have separate performance metrics. The supplemental consolidating data is also used by management due to these differences."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states businesses are capitalized differently and have separate performance metrics."
+  },
+  {
+   "sentence": "The FY2024 filing ties lower shipments to rising grain stocks, lower commodity prices and elevated interest rates .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Each equipment operations segment experienced lower shipment volumes partially offset by price realization during 2024. Rising global grain stocks, lower commodity prices, elevated interest rates, and the effect of inventory management contributed to lower shipment volumes for large and small agriculture. Declines in housing starts, decreases in rental purchases, lower levels of commercial real estate construction, and the effect of inventory management contributed to lower shipment volumes for construction equipment."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage ties lower shipments to rising grain stocks, lower commodity prices, and elevated interest rates."
+  },
+  {
+   "sentence": "The provision for credit losses rose to $296 million in FY2025  from -$16.0 million in FY2023 , as delinquencies rose in agriculture and turf accounts .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "During 2025, the allowance for credit losses increased, primarily due to higher expected losses on agriculture and turf customer accounts as a result of elevated delinquencies and a decline in market conditions."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports higher expected losses due to delinquencies, but not specific provision figures."
+  }
+ ],
+ "cost_usd": 0.002675
+}
