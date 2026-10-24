@@ -389,8 +389,10 @@ unused since generation became account-required in #619; kept because migrations
   company row and preserve a known newer accession. The per-filing writer also preserves untied
   current companyfacts rows when their filing chronology cannot be established; the bulk writer
   also preserves a current row the companyfacts sync passes it as newer than its payload (below),
-  and otherwise uses the received normalizer ordering where local Filing chronology is unavailable. Older accession facts remain
-  available for their own filing even when they are not the current company value.
+  and otherwise uses the received normalizer ordering where local Filing chronology is unavailable. The
+  companyfacts sync then makes its payload's winner the one current row at each period it presents,
+  outside a period such a newer row holds (below). Older accession facts remain available for their
+  own filing even when they are not the current company value.
 - Companyfacts reads each filing in its own currency (`facts/currency.py::filing_currencies`).
   A filing's (accession's) currency is the one that tags more of its kept amount items than any
   other, instants included, each counted once per tag, period end and span on the collector's own
@@ -416,62 +418,71 @@ unused since generation became account-required in #619; kept because migrations
   `filed_at`; a row with neither, or one filed that same day, is not protected;
   `facts/currency.py::protected_rows`) holds its key on the sync's two paths, ratios included, while
   it is in the payload's series currency, its filing's stored rows vote no other currency (below), and
-  those rows prove no switch: the upsert stores the
-  payload's row behind it, as behind a known newer filing, the currency step never demotes it, and
-  the sync demotes any other amount, per-share or ratio row it finds current beside it. So a delayed
-  payload, or the sync a new Filing triggers before companyfacts shows that filing, never demotes
-  such a row. The per-filing writer keeps `is_latest` per unit, so a new filing's own rows in a new
-  currency stand beside the old currency's until a companyfacts sync reads one currency there. Those
-  rows prove a switch (`facts/currency.py::_proven_switch`) through a newer filing whose own
-  currency, read from its rows as `filing_currencies` reads a payload (the currency more of its
-  amount rows carry than any other, per-share rows not voting, a tie deciding nothing), is another,
-  and which is an annual report holding a current row, its currency spanning two period-ends, that
-  outranks the payload's own deciding report on `filing_currencies`' rank (it reports a period-end
-  at least as late); the one reporting the latest period, then filed last, decides. A stray, a
-  quarterly report, a one-period annual report or an amendment restating a year before the payload's
-  latest annual report never proves a switch, as none would decide the series. On a proven switch no
-  row is protected: the sync stores nothing from the payload and demotes every current amount or
-  per-share row of its concepts in another currency than the switch's, and every one in that
-  currency under a filing whose own currency is another (a convenience translation earlier syncs
-  stored), as the payload reads it or, for a newer filing it does not name, as that filing's stored
-  rows vote; nothing is promoted and no ratio is replaced. Its current amount and per-share rows are
-  those a sync whose payload names every stored filing converges to, with gaps before the switch,
-  or fewer wherever that sync would make current a row not current now. The tests show four such
-  shapes: rows in the new currency no writer has stored yet (that report's derived or unextracted
+  those rows prove no switch: the upsert stores the payload's row behind it, as behind a known newer
+  filing, the currency step never demotes it, and the sync demotes any other amount, per-share or
+  ratio row it finds current beside it. It holds its key whether or not it is current there: where it
+  sits behind a later convenience translation the sync demotes, that key is a gap until the sync that
+  names its filing, never the payload's older figure. So a delayed payload, or the sync a new Filing
+  triggers before companyfacts shows that filing, never demotes such a row. The per-filing writer
+  keeps `is_latest` per unit, so a new filing's own rows in a new currency stand beside the old
+  currency's until a companyfacts sync reads one currency there. Those rows prove a switch
+  (`facts/currency.py::_proven_switch`) through a newer filing whose own currency, read from its rows
+  as `filing_currencies` reads a payload (the currency more of its amount rows carry than any other,
+  per-share rows not voting, a tie deciding nothing), is another, and which is an annual report
+  holding a current row, its currency spanning two period-ends, that outranks the payload's own
+  deciding report on `filing_currencies`' rank (it reports a period-end at least as late); the one
+  reporting the latest period, then filed last, decides. A stray, a quarterly report, a one-period
+  annual report or an amendment restating a year before the payload's latest annual report never
+  proves a switch, as none would decide the series. On a proven switch no row is protected: the sync
+  stores nothing from the payload and demotes every current amount or per-share row of its concepts
+  in another currency than the switch's, and every one in that currency under a filing whose own
+  currency is another (a convenience translation earlier syncs stored), as the payload reads it or,
+  for a filing it does not name, as that filing's stored rows vote; nothing is promoted and no ratio
+  is replaced. Its current amount and per-share rows are those a sync whose payload names every
+  stored filing converges to, with gaps before the switch, or more in the first window below, or
+  fewer wherever that sync would make current a row not current now. The tests show four shapes of
+  fewer: rows in the new currency no writer has stored yet (that report's derived or unextracted
   amounts; on a switch back, the older filings' rows), that report's rows the per-filing writer
   stored behind older ones, a new-currency quarterly report's rows an earlier sync demoted, and that
   report's rows a later filing's row in the new currency demoted, which the stale sync demotes as a
-  convenience translation, or more in the window below. The sync stores nothing because the payload's
-  own rows stored current would mix the old currency into the new one's series across years (a wrong
-  number is worse than a gap), and stored not current they would hold identities a later sync skips
-  and never promotes. Without a proof, a newer filing's row outside the payload's series currency (a
-  stray, or a quarterly report's rows ahead of the annual report that switches) is not protected:
-  the sync that names its filing would demote it, so this one does, and no period holds two
-  currencies. Nor is a newer filing's amount or per-share row in the currency the sync reads where
-  that filing's stored rows vote another currency (more of its amount rows in one other currency than
-  in any other, as `_proven_switch` counts): on either path it is a convenience translation, as the
-  sync that names the filing reads it, so the sync demotes it, and outside a switch the batch's own
-  row holds the period (`facts/currency.py::_foreign`). Until that sync such a row stays current, a
-  wrong number, where the stored amount rows tie for the most, or more of them are in the sync's
-  currency than in any other (per-share rows do not vote), or the filing is not known to be newer
-  than the payload. The stored units are the per-filing writer's per-concept picks (a tie goes to a
-  non-USD code), so a newer filing those picks read mostly in another currency than its payload items
-  do has its rows in the sync's currency demoted until that sync: a gap at its own periods, and,
-  outside a switch, at a period the payload presents from an older filing, the older figure, which
-  stays current after that sync too.
-  A newer filing in the payload's own currency proves no switch, so a lagging payload
-  still fills the periods before it. In every other sync, at every period the batch presents in an
-  amount or per-share unit that holds no current amount or per-share row, and no current unlabelled
-  twin of a quarter in that unit (the bulk writer's NULL-period rule), the batch's own row there
-  (same unit and accession, stored behind or demoted earlier) is made current, whichever sync left
-  the period so, never a quarantined one: the upsert skips a stored identity and never touches its
-  `is_latest`, so without this a demotion was final. A sync with no stored filing newer than its
-  payload therefore leaves each period it presents one current amount or per-share row, in the
-  series currency, except where its own row there is quarantined (a gap) or a current unlabelled
-  twin holds the quarter. A derived ratio (`pure`) keeps its unit, so where a known filing date kept
-  one computed from other-currency operands current, the sync demotes it and promotes the batch's
-  own calculation at that period; where that calculation is quarantined the stale ratio stays
-  current, and a ratio at a period the batch does not compute is left as it is. A ratio stored
+  convenience translation. The sync stores nothing because the payload's own rows stored current
+  would mix the old currency into the new one's series across years (a wrong number is worse than a
+  gap), and stored not current they would hold identities a later sync skips. Without a proof, a
+  newer filing's row outside the payload's series currency (a stray, or a quarterly report's rows
+  ahead of the annual report that switches) is not protected: the sync that names its filing would
+  demote it, so this one does, and no period holds two currencies. Nor is a row in the currency the
+  sync reads under a filing the payload does not name, newer or not, whose stored rows vote another
+  currency (more of its amount rows in one other currency than in any other, as `_proven_switch`
+  counts): on either path it is a convenience translation, as the sync that names the filing reads
+  it, so the sync demotes it (`facts/currency.py::_foreign`); outside a switch the batch's own row
+  then holds a period the batch presents, and a period it does not present is a gap. The vote leaves
+  two windows, each closed by the sync that names the filing. A row in the sync's currency under a
+  filing whose payload items read another currency stays current, a wrong number, where the vote
+  names no other currency: its stored amount rows tie for the most, or more of them are in the
+  sync's currency than in any other, or it holds no amount row (per-share rows do not vote); at a
+  period the batch presents, only a protected row stays so. And the vote reads the per-filing
+  writer's per-concept picks (a tie goes to a non-USD code), so where it names another currency than
+  the filing's payload items, the filing's rows in the sync's currency are demoted: a gap at a period
+  the batch does not present, and at one it presents from an older filing, that older figure.
+  A newer filing in the payload's own currency proves no switch, so a lagging payload still fills
+  the periods before it. In every other sync, at every period the batch presents in an amount or
+  per-share unit, the batch's own row there (same unit and accession, just stored, stored behind or
+  demoted earlier) is made the one current amount or per-share row and every other there is
+  demoted, whichever sync or writer left the period so (`facts/currency.py::_promote_batch_rows`):
+  the upsert skips a stored identity and never touches its `is_latest`, so without this an earlier
+  demotion, an amendment stored behind its original's companyfacts row, or a lagging sync's older
+  figure stayed for good. Four cases are left as found: a period a protected row holds (above), a
+  quarantined batch row, never promoted, a quarter whose unlabelled twin in that unit is current (the
+  bulk writer's NULL-period rule), and a proven switch. A row of a filing the payload does not name
+  and not known to be newer than it (undated, or filed on or before its newest date) is not
+  protected, so it yields such a period to the batch's row, an older filing's included, until the
+  sync that names it. A sync whose payload names every stored filing therefore leaves each period it
+  presents one current amount or per-share row, its payload's winner there, except where that row is
+  quarantined or a current unlabelled twin holds the quarter. A derived ratio (`pure`) keeps its
+  unit, so where a known filing date kept one computed from other-currency operands current, the
+  sync demotes it and promotes the batch's own calculation at that period; where that calculation is
+  quarantined the stale ratio stays current, and a ratio at a period the batch does not compute is
+  left as it is. A ratio stored
   before operands were recorded (2026-10-10) counts as USD-derived when it is derived and has no
   filing owner, because companyfacts was then read only in USD. One stored under the batch
   calculation's own identity (same filing) keeps its old operands, because ingestion never rewrites

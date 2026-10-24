@@ -48,13 +48,15 @@ other, over two period-ends), and that reports a period at least as late as the 
 the response's currency: the response predates a switch of the reporting currency, so the sync
 stores nothing from it and keeps only that currency current, demoting the newer filings' rows in
 the currency it reads too, and that currency's convenience rows under the filings whose own
-currency is another (as the response reads them, or, for a newer filing it does not name, as that
+currency is another (as the response reads them, or, for a filing it does not name, as that
 filing's stored rows vote). Otherwise a newer filing's row in another currency (a stray, or a
 quarterly report ahead of the annual report) is demoted, and an older response still demotes the
-rows of a newer filing in another currency that it names or cannot protect. So run the
-sync once companyfacts shows the company's latest filing. The sync makes its own row current at a period that
-holds none, but never a row this repair quarantined, for any reason (a rolled-back insert among
-them): those periods stay gaps. The sync leaves one thing for this repair: an annual ratio (a
+rows of a newer filing in another currency that it names or cannot protect. So run the sync once
+companyfacts shows the company's latest filing: a sync whose response names every stored filing
+makes its own row the one current row at every period it presents, whatever earlier syncs or the
+per-filing writer left there, but never a row this repair quarantined, for any reason (a rolled-back
+insert among them): such a period is left as the sync found it, a gap where it demoted what was
+current there. The sync leaves one thing for this repair: an annual ratio (a
 margin or the current ratio) that an older sync computed from other-currency operands under the
 same filing as the series-currency calculation. That identity is occupied, so the sync keeps its
 old operands; the repair's computed-metric correction recomputes it from the series-currency
