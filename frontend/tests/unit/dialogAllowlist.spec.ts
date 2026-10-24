@@ -357,7 +357,7 @@ describe('dialogs ship only through ui/Modal (or the documented bespoke layers)'
   })
 
   it('the allowlist is shrink-only', () => {
-    expect(Object.keys(ALLOW).length, 'compose <Modal> instead of adding an entry').toBeLessThanOrEqual(MAX_ALLOWLIST_SIZE)
+    expect(Object.keys(ALLOW).length, 'compose <Modal> instead of adding an entry').toBe(MAX_ALLOWLIST_SIZE)
   })
 
   it.each(Object.entries(ALLOW))('%s still declares exactly its pinned dialog sites', (file, { counts, reason }) => {

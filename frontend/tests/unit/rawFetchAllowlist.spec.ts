@@ -15,8 +15,8 @@ import { RAW_FETCH_ALLOWLIST } from '../../eslint.rawFetchAllowlist.mjs'
  *   (a) every allow-listed file still exists and still contains at least one raw fetch call;
  *   (b) each file's raw fetch call count equals its pinned `fetchCalls` — adding a call fails until
  *       the pin is bumped AND the PR justifies it (SSE reader or Next server/ISR fetch only);
- *   (c) the list is shrink-only (MAX_ALLOWLIST_SIZE is a frozen ceiling — lower it when a file is
- *       removed, never raise it).
+ *   (c) the list is shrink-only (MAX_ALLOWLIST_SIZE equals its size: lower it in the commit that
+ *       removes a file, never raise it).
  * Call sites are counted with the TypeScript AST using exactly the shapes the ESLint selectors
  * forbid — `fetch(...)` and `<expr>.fetch(...)` — so comments and `refetch()` never count.
  */
@@ -60,13 +60,13 @@ describe('raw fetch allow-list (two-directional rule-12 gate)', () => {
     expect(countRawFetchCalls(fixture, 'fixture.ts')).toBe(3)
   })
 
-  it('is shrink-only: the entry count never exceeds the frozen ceiling', () => {
+  it('is shrink-only: the entry count equals MAX_ALLOWLIST_SIZE', () => {
     expect(
       RAW_FETCH_ALLOWLIST.length,
-      `RAW_FETCH_ALLOWLIST has ${RAW_FETCH_ALLOWLIST.length} entries but the ceiling is ${MAX_ALLOWLIST_SIZE}. ` +
+      `RAW_FETCH_ALLOWLIST has ${RAW_FETCH_ALLOWLIST.length} entries and MAX_ALLOWLIST_SIZE is ${MAX_ALLOWLIST_SIZE}. ` +
         'Raw fetch is sanctioned only for SSE readers and Next server/ISR fetches — route new HTTP through ' +
         'lib/api/client.ts instead of adding an entry.',
-    ).toBeLessThanOrEqual(MAX_ALLOWLIST_SIZE)
+    ).toBe(MAX_ALLOWLIST_SIZE)
   })
 
   it('every entry names an existing file with a stated reason', () => {

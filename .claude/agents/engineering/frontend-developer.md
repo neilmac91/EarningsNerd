@@ -44,7 +44,8 @@ and supersession labels must follow the values and source filing through every d
 Theme or token changes apply across public and authenticated surfaces: run the design-system
 legacy-color check and inspect both themes on preview. Use existing tokens, not copied color samples.
 
-From `frontend/`: `npm run lint`, `npx tsc -p tsconfig.ci.json`,
-`npm run test -- --run`, `npm run build`, and relevant Playwright against `next start` with no
-backend. Source runtime pins are `frontend/.nvmrc` and `frontend/package.json`; follow the
-existing lockstep test when changing them. Do not claim production verification from a build alone.
+Follow the canonical [commands](../../../CLAUDE.md#commands) and
+[commit hygiene](../../../AGENTS.md#8-commit-hygiene) for the full frontend gate and relevant
+Playwright against `next start` with no backend. Run heavyweight local verification through the
+launcher described there. Source runtime pins are `frontend/.nvmrc` and `frontend/package.json`;
+follow the existing lockstep test when changing them. Do not claim production verification from a build alone.

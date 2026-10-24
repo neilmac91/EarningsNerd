@@ -49,7 +49,9 @@ For existing-table changes, add an idempotent SQL migration under `backend/migra
 follow CLAUDE rule 3; do not alter applied files. Preserve source values, accession identity and
 reconciliation semantics. Production repair is separate from shipping a capability.
 
-From `backend/`, use pinned runtime/dev dependencies and run
-`ruff check . && bandit -r app -ll && python -m pytest`. Tests belong in the existing unit,
-integration, smoke or performance roots. AI-affecting changes also require the evaluation RUNBOOK;
-backend-path pushes deploy, so follow serialized migration/traffic/health verification.
+Use pinned runtime/dev dependencies and follow the canonical [commands](../../../CLAUDE.md#commands)
+and [commit hygiene](../../../AGENTS.md#8-commit-hygiene), including the whole frontend unit suite
+before every backend-path push. Run heavyweight local verification through the launcher described
+there. Tests belong in the existing unit, integration, smoke or performance roots. AI-affecting
+changes also require the evaluation RUNBOOK; backend changes outside `backend/tests/` deploy on
+merge, so follow serialized migration/traffic/health verification.

@@ -50,6 +50,14 @@ def envelope(answer, *, excerpt=KNOWN, followups=FOLLOWUPS, section="Item 2 — 
 
 
 def rejected(surface="answer"):
+    if surface == "repeated_citations":
+        # copilot-eval's shape (BABA viewed-native-revenue-2025, run 38942183029): a short-excerpt
+        # array, a note correcting it, then a second array.
+        return (f"{INVENTED} [1].\n===CITATIONS===\n"
+                + json.dumps([{"n": 1, "excerpt": "robust", "section": "Item 2 — MD&A"}])
+                + f"\nNote: {INVENTED} is too short, so here is a proper contiguous span instead.\n"
+                + "===CITATIONS===\n" + json.dumps([{"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"}])
+                + "\n===FOLLOWUPS===\n" + json.dumps(FOLLOWUPS))
     if surface == "not_disclosed":
         return (f'===NOT_DISCLOSED===\nThe filing does not explain "{INVENTED}".'
                 + "\n===FOLLOWUPS===\n" + json.dumps(FOLLOWUPS))
@@ -76,7 +84,8 @@ async def collect(selected_filing=None):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("surface", ["answer", "followup", "not_disclosed", "citation_excerpt", "elided_quote"])
+@pytest.mark.parametrize("surface", ["answer", "followup", "not_disclosed", "citation_excerpt", "elided_quote",
+                                     "repeated_citations"])
 async def test_quotation_retry_safety_gate(monkeypatch, surface):
     """One grouped rule gate: a private mismatch retries fresh, once, with bounded custody."""
     selected = filing()
@@ -154,15 +163,20 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
     assert POISON not in json.dumps(calls[1]["messages"]) and INVENTED not in json.dumps(calls[1]["messages"])
     first_system, retry_system = calls[0]["messages"][0], calls[1]["messages"][0]
     assert first_system["role"] == retry_system["role"] == "system"
-    assert retry_system["content"] != first_system["content"]
-    assert "quot" in retry_system["content"].lower() and "contiguous" in retry_system["content"].lower()
     # The first generation keeps SYSTEM_PROMPT's bytes. A decision-F retry adds the evidence guidance
-    # alone; only an excerpt failure adds the table guidance, chosen by its owned exception class.
-    added = "\n\n" + copilot_prompt._EVIDENCE_RETRY_GUIDANCE
+    # alone; only an excerpt failure adds the table guidance, chosen by its owned exception class. Text
+    # after the citation array never reached source matching, so its owned class adds nothing: the
+    # regeneration re-samples with SYSTEM_PROMPT byte-identical, the composition already measured.
+    if surface == "repeated_citations":
+        added = ""
+    else:
+        assert retry_system["content"] != first_system["content"]
+        assert "quot" in retry_system["content"].lower() and "contiguous" in retry_system["content"].lower()
+        added = "\n\n" + copilot_prompt._EVIDENCE_RETRY_GUIDANCE
     if surface == "citation_excerpt":
         added += "\n\n" + copilot_prompt._CITATION_EXCERPT_RETRY_GUIDANCE
-    assert first_system["content"].startswith(copilot_prompt.SYSTEM_PROMPT)
-    assert retry_system["content"] == first_system["content"] + added
+    assert first_system["content"] == copilot_prompt.SYSTEM_PROMPT
+    assert retry_system["content"] == copilot_prompt.SYSTEM_PROMPT + added
     assert complete["usage"]["total_tokens"] == 26
     assert complete["usage"]["call_count"] == 2
     assert complete["usage"]["estimated_cost_usd"] == pytest.approx(0.003)
@@ -175,7 +189,8 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("surface", ["answer", "citation_excerpt", "elided_quote", "cross_cause"])
+@pytest.mark.parametrize("surface", ["answer", "citation_excerpt", "elided_quote", "cross_cause",
+                                     "repeated_citations"])
 async def test_retry_exhaustion_has_one_terminal_error_without_private_candidates(monkeypatch, surface):
     calls, closed = [], []
     surfaces = ("answer", "elided_quote") if surface == "cross_cause" else (surface, surface)
@@ -199,16 +214,49 @@ async def test_retry_exhaustion_has_one_terminal_error_without_private_candidate
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("surface", ["answer", "repeated_citations"])
+async def test_a_regeneration_due_after_the_question_budget_is_never_started(monkeypatch, surface):
+    """The retry condition's deadline clause (``answer_filing_question``): a rejection that would buy the
+    regeneration once the question's budget has run out ends with the publication error. No second provider
+    call starts, so the stream never ends in the failure an expired budget would raise inside it."""
+    calls = []
+
+    async def stream(*_args, **kwargs):
+        calls.append(kwargs["deadline"])
+        yield rejected(surface)
+
+    monkeypatch.setattr(copilot_service, "chat_deadline", lambda: asyncio.get_running_loop().time())
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
+    rows = await collect()
+    assert len(calls) == 1
+    assert [row for row in rows if row["type"] in {"complete", "error"}] == [
+        {"type": "error", "message": copilot_service._PUBLICATION_ERROR},
+    ]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("case", [
     "malformed", "upstream", "ambiguous", "missing_source",
     "missing_source_excerpt", "quoted_section", "missing_id",
     "short_source", "leading_zero_missing", "late_quoted_label",
-    "short_excerpt_with_quoted_label", "duplicate_id_with_missing_id",
+    "short_excerpt_with_quoted_label", "duplicate_id_with_missing_id", "fenced_note",
+    "object_with_note", "invalid_declaration_with_note",
 ])
 async def test_other_rejections_do_not_buy_another_generation(monkeypatch, case):
     selected = filing()
     payload = {
         "malformed": 'A private answer [1].\n===CITATIONS===[{"n":1,',
+        # A note inside a citation fence is "Unclosed citation fence", not the trailer: still terminal.
+        "fenced_note": (f'Management said "{KNOWN}" [1].\n===CITATIONS===\n```json\n'
+                        + json.dumps([{"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"}])
+                        + "\nNote: corrected below.\n```"),
+        # A malformed declaration keeps its own terminal reason whatever text follows it.
+        "object_with_note": (f'Management said "{KNOWN}" [1].\n===CITATIONS===\n'
+                             + json.dumps({"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"})
+                             + "\nNote: corrected below.\n===CITATIONS===\n[]"),
+        "invalid_declaration_with_note": (f'Management said "{KNOWN}" [1].\n===CITATIONS===\n'
+                                          + json.dumps([{"n": "1", "excerpt": KNOWN, "section": "Item 2 — MD&A"}])
+                                          + "\nNote: corrected below.\n===CITATIONS===\n[]"),
         "upstream": STREAM_ERROR_SENTINEL + "offline provider failed",
         "ambiguous": envelope(f'The filing said "{KNOWN}" [1]. [More](https://example.invalid)'),
         "missing_source": f'The filing said "{KNOWN}".\n===CITATIONS===[]',
@@ -299,6 +347,42 @@ async def test_a_short_or_twice_declared_excerpt_buys_one_regeneration_with_tabl
         assert all(c["verified"] is True for c in terminal[0]["citations"])
     else:
         assert terminal == [{"type": "error", "message": copilot_service._PUBLICATION_ERROR}]
+
+
+@pytest.mark.parametrize("tail", [
+    "\n===CITATIONS===\n[]",  # a second array straight after the first
+    "\nNote: the excerpt above is too short.\n===CITATIONS===\n[]",  # copilot-eval's note, then a second array
+    " Contradictory extra prose.",  # prose after the array
+    "\n===FOLLOWU",  # a followups line cut short, as a truncated generation leaves it (RUNBOOK)
+])
+def test_text_after_the_citation_array_buys_a_re_sample_with_no_guidance(tail):
+    """The trailer reason buys the regeneration through its owned class, never through its text.
+
+    The logged reason is unchanged, so copilot-eval's `publication withheld:` label and the triage
+    replay read it as before. Its guidance is empty, not None: nothing was source-matched, so the
+    regeneration re-samples with SYSTEM_PROMPT byte-identical. The same reason on the base class is terminal.
+    """
+    quotations = copilot_service._RETRYABLE_QUOTATION_FAILURES
+    raw = json.dumps([{"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"}]) + tail
+    with pytest.raises(copilot_service._UnpublishableAnswer) as caught:
+        copilot_service._parse_citations(raw)
+    assert str(caught.value) == "Unexpected citation trailer"
+    assert copilot_prompt._retry_guidance(caught.value, quotations) == ""
+    assert copilot_prompt._retry_guidance(copilot_service._UnpublishableAnswer(str(caught.value)), quotations) is None
+
+
+@pytest.mark.parametrize(("declaration", "reason"), [
+    ({"n": 1, "excerpt": KNOWN}, "Citation declaration is not an array"),
+    ([{"n": "1", "excerpt": KNOWN}], "Invalid citation declaration"),
+])
+def test_only_a_well_formed_array_makes_what_follows_it_a_trailer(declaration, reason):
+    """The declaration checks run before the trailer check, so a malformed array keeps its own
+    terminal reason and buys no regeneration, whatever text follows it."""
+    raw = json.dumps(declaration) + "\nNote: corrected below.\n===CITATIONS===\n[]"
+    with pytest.raises(copilot_service._UnpublishableAnswer) as caught:
+        copilot_service._parse_citations(raw)
+    assert (type(caught.value), str(caught.value)) == (copilot_service._UnpublishableAnswer, reason)
+    assert copilot_prompt._retry_guidance(caught.value, copilot_service._RETRYABLE_QUOTATION_FAILURES) is None
 
 
 @pytest.mark.asyncio
@@ -436,7 +520,7 @@ def client():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_pro", [False, True])
 @pytest.mark.parametrize("outcome", ["recovered", "exhausted"])
-@pytest.mark.parametrize("surface", ["answer", "citation_excerpt", "elided_quote"])
+@pytest.mark.parametrize("surface", ["answer", "citation_excerpt", "elided_quote", "repeated_citations"])
 async def test_real_asgi_retry_meters_once_and_refunds_only_terminal_failure(
     client, monkeypatch, is_pro, outcome, surface,
 ):

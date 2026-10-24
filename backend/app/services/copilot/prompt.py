@@ -8,7 +8,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any, Optional
 
-from app.services.copilot.exceptions import _RegenerableEvidenceMismatch
+from app.services.copilot.exceptions import _RegenerableCitationTrailer, _RegenerableEvidenceMismatch
 from app.services.provenance_service import _MIN_VERIFIABLE_LEN
 
 
@@ -39,15 +39,18 @@ figure and its citation out. Each excerpt is one unbroken span of at least {_MIN
 characters, and each citation number has exactly one declaration."""
 
 
-def _retry_guidance(rejection: Exception, retryable_quotations: frozenset[str]) -> str:
-    """The text added to the private regeneration's system message, or "" when none may run.
+def _retry_guidance(rejection: Exception, retryable_quotations: frozenset[str]) -> Optional[str]:
+    """The text added to the private regeneration's system message, or None when none may run.
 
     Chosen by the owned exception class or reason code, never from candidate text. A decision-F
-    quotation reason keeps the evidence guidance alone; an excerpt failure adds the table guidance.
+    quotation reason keeps the evidence guidance alone; an excerpt failure adds the table guidance;
+    text after the citation array was never source-matched, so it gets "": a re-sample of SYSTEM_PROMPT.
     """
     if isinstance(rejection, _RegenerableEvidenceMismatch):
         return _EVIDENCE_RETRY_GUIDANCE + "\n\n" + _CITATION_EXCERPT_RETRY_GUIDANCE
-    return _EVIDENCE_RETRY_GUIDANCE if str(rejection) in retryable_quotations else ""
+    if isinstance(rejection, _RegenerableCitationTrailer):
+        return ""
+    return _EVIDENCE_RETRY_GUIDANCE if str(rejection) in retryable_quotations else None
 
 
 SYSTEM_PROMPT = f"""You are EarningsNerd's "Ask this Filing" assistant. You answer questions about a \

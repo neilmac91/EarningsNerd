@@ -117,13 +117,31 @@ alone, in CIK order, a stored row's update in its place among the inserts: 0 of 
 burst case holds every statement and release off the loop and those racers to one row, and
 `test_company_routes.py` holds each unit's write order, read at the statements; no CI step races the
 searches on PostgreSQL (2026-10-24, E171).
+The saved-summary routes (the save, the library list, the notes update and the delete) and the dashboard's
+upcoming calendar handed their session to services on the loop, on the connection the auth lookup had
+checked out. Eight readers of each on four slots answered as they should, but every statement after the
+auth lookup ran on the loop (56 of 64 for eight saves, 48 of 56 for eight notes updates, 16 of 24 for
+eight calendars), a save's or a notes update's read after its commit checked a connection out there (8 of
+16), and every route but a delete that found its row left its transaction for the finalizer, the
+saved-summary status read, a sync route, among them. Each async route is now one thread-pool unit, the status route releases its
+own connection, and the library's writes hold a lock from their check to their commit (below). Their
+burst case holds every checkout, statement and release off the loop and each reader to its own library
+(2026-10-24, E171).
+The homepage's reporting-this-week strip, public, ran its read in the thread pool from its service, behind
+a single-flight lock on the loop, but left that read's transaction for the finalizer: eight readers on four
+slots left the one reader's on a cold cache, and all eight with a cache that never holds. The service is
+now synchronous, as the notable-filings strip's is, its single flight a thread lock and its cache replaced
+in one assignment, and the route runs it and the release as one thread-pool unit: neither burst leaves one.
+A cache hit now takes a thread hop as well, and a miss waits for the fill on a thread, holding no
+connection. Its burst case holds every checkout off the loop and nothing left for the finalizer
+(2026-10-24, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
 dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
 rules, uses it. Its ceilings hold the routes that still hand their session to a call on the loop at
-their counts (the rest of the auth router, E121, and 28 routes in six other routers, E171; six of
+their counts (the rest of the auth router, E121, and 22 routes in three other routers, E171; five of
 those hand-offs, the header's strict ones, use no connection on the loop), so none can add one in a
 form the ratchet counts and a new route starts at 0. Neither half
 sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called
@@ -139,10 +157,14 @@ E118's reviews found that five of its units had relied on the loop's order. With
 - two removes both succeeded;
 - a disable racing a remove failed on the deleted row.
 
-Each now holds a lock from its check to its commit (2026-10-19). The gate is
+Each now holds a lock from its check to its commit (2026-10-19). E171's saved-summary slice found three
+more in the library's writes, each now under `saved_summary_service.saved_row_lock`: two saves of one
+summary both passed the duplicate check and stored it twice, two deletes of one row both succeeded, and a
+notes update racing a delete failed on the deleted row (`StaleDataError`, a 500) (2026-10-24). The gate is
 `backend/tests/unit/test_check_then_write_units_serialize.py`. It meets two threads inside each unit
 after their checks, so without the lock the race happens however loaded the host, and it fails any
-checkout made inside the watch-row lock. It covers those five units only.
+checkout made inside the watch-row or saved-row lock in the races it runs. It covers those eight units
+only.
 
 Those locks reach one process, and the API runs up to two instances, across which the five races stayed
 open. Since E128 each unit also takes, before its check, a lock in the database that every instance
@@ -151,15 +173,28 @@ row lock (`watchlist_service.lock_watch_rows`, FOR NO KEY UPDATE, as the refresh
 before the process lock. That lock serves every account: a unit that waited on one account's row inside
 it, behind a Stripe delivery's read say, stalled every other account's writes on the instance, and with
 the auth lookup's connection each waiter holds, three such waiters and the stalled unit filled the
-instance's four-slot pool. The join takes the waitlist's place lock, a transaction-level advisory lock,
-since no row is common to every join (`waitlist_service._lock_waitlist_places`), inside its process lock,
+instance's four-slot pool. The library's writes take the same users row lock before their own process
+lock (`saved_summary_service.lock_saved_rows`, E171). Inside that process lock a library write can still
+wait in PostgreSQL behind an admin tool's delete, which takes no users row lock: a save at its INSERT's
+foreign-key check on a summary being deleted, an update or a delete on a bookmark the reset-all is
+deleting. Every account's library write on the instance then waits too: a local PostgreSQL probe held
+another account's save of another summary 1.49 to 1.51 s behind a 1.5 s admin delete, and the waiting save
+failed its foreign-key check (500). Taking the summary's key-share lock at the save's read, before both
+locks, ended that wait (0.006 to 0.021 s) but deadlocked a save over a saved row with the reset-all, which
+deletes the bookmarks before their summaries, as `scripts/reset_filing_summary.py --include-saved` does
+(40P01, five runs of five in each order), so the save takes no lock on its summary until both of their
+orders change with it. The join takes the waitlist's place lock, a
+transaction-level advisory lock, since no row is common to every join
+(`waitlist_service._lock_waitlist_places`), inside its process lock,
 which a waiter takes before its first query and so waits on holding no connection. Its place is one past
 the highest held, so no two signups on the list share one even after a deletion, and its credit one
 UPDATE that adds to the stored score. The process locks stay: under SQLite they are the only serialization.
 `backend/tests/unit/test_check_then_write_units_lock_across_instances.py` holds each lock from before its
-unit's first read to the commit of its write, as statements compiled for PostgreSQL, the watch-row lock
-outside the process lock and the reads beside them taking no lock, and the credit to one that a
-concurrent commit cannot lose. No CI step races two instances on PostgreSQL. The pull request's local run
+unit's first read to the commit of its write, as statements compiled for PostgreSQL, the watch-row and
+saved-row locks outside their process locks and the reads beside them taking no lock, each saved-row
+write's commit inside `saved_row_lock` with no checkout inside it and nothing run there after the commit
+(a read after the commit would check a connection out inside the lock), the save taking no lock on its
+summary, and the credit to one that a concurrent commit cannot lose. No CI step races two instances on PostgreSQL. The pull request's local run
 did, with a process lock per thread for each instance: two enables at the cap, two adds, two removes, a
 disable against a remove, an add against an enable, and two joins with and without a link. It also timed
 other accounts' adds while one account waited on a held row.

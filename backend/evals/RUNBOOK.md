@@ -763,12 +763,12 @@ reused as year labels on gross-profit/net-income figures).
 
 | Layer | Citation kind | Check | On failure |
 |---|---|---|---|
-| Publication admission | text `[n]` | an answer must contain a complete citation envelope and array with unambiguous referenced identities; every referenced excerpt must pass the existing source matcher | candidate withheld; a referenced excerpt that fails the matcher (of any length) or a referenced ID declared twice may privately regenerate once as described below; terminal failures return an application error; no draft prose is published |
+| Publication admission | text `[n]` | an answer must contain a complete citation envelope and array with unambiguous referenced identities; every referenced excerpt must pass the existing source matcher | candidate withheld; a referenced excerpt that fails the matcher (of any length), a referenced ID declared twice, or text after a well-formed citation array other than the followups block may privately regenerate once as described below; terminal failures return an application error; no draft prose is published |
 | Excerpt verification | text `[n]` | the WHOLE displayed excerpt is contiguous in the normalized filing (`verify_whole_excerpt_in_text`: only a quote pair wrapping the entire excerpt is stripped, never an inner quoted span; `_MIN_VERIFIABLE_LEN` floor, 24), and the section label contains none of decision F's double quote marks `"`, `＂`, `“`, `”`, `„`, `‟` (`section_label_is_quoted`, which reads F's one `_QUOTE_MARK_RE` definition; labels are published unchecked); the published excerpt is never trimmed or substituted. The eval's CITATION gate (`score_citation_faithfulness`) re-checks every published text citation with this same verifier and label predicate | referenced failed evidence prevents completion; unused failed declarations remain omitted |
 | Final numbering | both | an unresolved literal numeric marker must not acquire an unrelated citation's number | whole answer withheld with an application error |
 | Prose quotations (decision F) | — | `_withhold_unsupported_quotations`: the answer is read as displayed markdown within a small subset that both renderers are assumed to read alike (react-markdown + remark-gfm on screen, markdown-it-py here: paragraphs, headings, thematic breaks, lists, top-level blockquotes and tables, emphasis, code). That agreement is the residual assumption, not exact parity; a quoting answer that uses anything else (link syntax and raw URL, www. and email literals; raw HTML, images, reference definitions, footnotes, deep nesting, runs of three or more emphasis delimiters, any adjacent pair of different `*`, `_`, `~`, a Unicode space (U+00A0, U+2000-U+200A, U+202F, U+205F, U+3000) at a line's edge, ...) fails closed. A URL or address built from character references or escapes (`www&#46;sec.gov`) is linked by the display too but shows the same text, so it is read as text. The not-disclosed reason and every follow-up chip (as published, after the 140-character trim) are displayed as plain text and read as such. On every surface, text that may quote and holds a control character, a line or paragraph separator, a byte-order mark, a bidi control, a right-to-left script, an astral character or a character unassigned in Python's Unicode tables fails closed. In each, every double-quoted span of at least `_MIN_QUOTED_LEN` (8) normalized characters (the founder's decision on PR #1029; citation excerpts keep `_MIN_VERIFIABLE_LEN`, 24), or with an interior ellipsis, must occur contiguously in the normalized filing, and the quote marks must admit exactly one balanced reading within the work bounds. Single quotes, guillemets, other marks and blockquotes are not checked (decided scope), and shorter quoted spans are labels | candidate withheld before any answer, reason or chip is emitted; only the reason code is logged; never repaired; one fresh generation may recover the two source-matching reasons described below |
 | Marker resolution | both | every inline marker resolves to a declared source | unresolvable F-marker stripped from prose |
-| Value adjacency | fact `[Fn]` | a figure matching the fact's value (display-rounding tolerance) must sit in the claim span before the marker — bounded by the previous marker | occurrence stripped, counted as misplaced |
+| Value adjacency | fact `[Fn]` | a figure in the claim span before the marker — bounded by the previous marker — must match the fact's magnitude and must not state the opposite sign (`_fact_matches_adjacent_number`, readings in `copilot/figures.py`). Magnitude: only a bare figure gets the display-scaling tolerance ("81.46" for $81.46B); a figure with its own scale word (thousand to trillion) or `$`, inside or outside accounting parentheses, reads at face value, so "$1.2 million" on a $1.2B fact fails; a `$` written before a minus sign is not read, so "$-1.2" is a bare figure. Sign, falsification-only: an unsigned negative amount or margin fails when its own clause or the label before it names a profit-type metric, the span holds no sign word and the figure is not used attributively ("net income was $1.2B" on a loss fails; "swung to a $1.2B [F1] loss" keeps); an unsigned negative growth rate fails on a rise stated in its clause; a positive rate fails when written negative ("-15.3%", "(15.3)%"), and a positive growth rate also on a fall stated in its clause. Wording that states neither keeps the marker, positive amounts are not sign-checked, and a span with no figure keeps it; the known false keeps and strips are listed in `_figure_sign_agrees` and `_figure_matches_value`, and the rest under #1377's "Not in this PR" (an en dash is not read as a minus, for one) | occurrence stripped, counted as misplaced |
 | Concept adjacency | fact `[Fn]` | the claim span must not name a *different* curated metric while never naming the fact's own (right value, wrong label — `_CONCEPT_SYNONYMS`) | occurrence stripped, counted as misplaced |
 | Filing origin | fact `[Fn]` | trusted viewed accession and native reporting currency bind every tool query; each returned fact and derived operand retains origin | unavailable tool result, no verified marker |
 | Currency adjacency | fact `[Fn]` | explicit ISO/symbol and supported textual currency labels, including inline emphasis/code formatting, must match the adjacent fact | occurrence stripped, counted as misplaced |
@@ -780,7 +780,13 @@ reused as year labels on gross-profit/net-income figures).
 One `quotation_not_in_source` or `elided_quotation` rejection, or a referenced citation failure
 (an excerpt that fails the matcher, whatever its length, or a referenced ID declared twice) with an
 adequate source, every referenced literal declared and quote-free section labels, may privately
-start one fresh generation from the original filing and question. The rejected candidate is never
+start one fresh generation from the original filing and question. So may one `Unexpected citation
+trailer` rejection: text after a well-formed citation array other than the followups block, such as a note and a
+second array, which copilot-eval withheld on BABA's `viewed-native-revenue-2025` (run 38942183029;
+[evidence](../../tasks/review-evidence/copilot-citation-trailer-retry-2026-10-23/README.md)). A followups line cut
+short (`===FOLLOWU`, as a truncated generation would leave it) is such text too, so it buys the same one
+regeneration; an array that is incomplete, not an array, or holds an invalid declaration keeps its own terminal
+reason whatever follows it. The rejected candidate is never
 repaired, published or added to the replacement prompt. Both generations use the same selected
 source and original 75-second provider deadline;
 their physical usage is accumulated, while successful-answer quota is charged once. The replacement
@@ -788,15 +794,20 @@ passes every existing admission check. A citation rejection combined with a miss
 source, an undeclared referenced literal or a quoted section label is ineligible for regeneration.
 Until 2026-10-16 an excerpt under the 24-character floor and a twice-declared ID were ineligible too.
 On the sections source production uses, every retained BABA withhold of that day was one of those two,
-so it had no recovery ([evidence](../../tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md)). The regeneration's system message
+so it had no recovery ([evidence](../../tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md)). After a
+decision-F or citation rejection the regeneration's system message
 appends `_EVIDENCE_RETRY_GUIDANCE`; after a citation failure (`_RegenerableEvidenceMismatch`, chosen by
 the owned class, never from candidate text) it also appends `_CITATION_EXCERPT_RETRY_GUIDANCE`, which
 names the table-text shapes that fail and the two that verify: no text citation for a figure that has
-its `[F#]`, or one whole sentence or the whole row exactly as the filing shows it. The decision-F
+its `[F#]`, or one whole sentence or the whole row exactly as the filing shows it. After a trailer
+rejection (`_RegenerableCitationTrailer`, also chosen by the owned class) it appends nothing: that candidate
+never reached source matching, so the regeneration is a fresh sample whose system message is `SYSTEM_PROMPT`
+unchanged, the composition every first generation runs and is measured on. (A one-array guidance text for it,
+composition `863fb9b91a4e`, was drafted in #1551 and withdrawn unmeasured.) The decision-F
 guidance is unchanged (that retry's bytes move only with `SYSTEM_PROMPT`), and the first generation
-never sees either guidance text.
+never sees any guidance text.
 Admission checks run in order (envelope, citations, final numbering, decision F) and the first rejection
-decides: an eligible citation failure regenerates even when a later check would also have rejected that
+decides: an eligible envelope or citation failure regenerates even when a later check would also have rejected that
 candidate, and the replacement passes every check. A second rejection, a first rejection for any other
 reason, provider failure or exhausted budget remains terminal. Prompt guidance prefers cited paraphrases and exact
 contiguous direct quotations, with quote-free displayed followups, refusal reasons and section labels.
@@ -804,10 +815,11 @@ Citation excerpts preserve all source punctuation, including inner quotation mar
 
 **Copilot prompt revisions.** Each system-message composition is listed by the first 12 hex digits of
 its SHA-256 (UTF-8), with the source its live measurement used: the first generation's system message
-(`SYSTEM_PROMPT`), and the regeneration's system message after a decision-F rejection and after a
-citation failure. `tests/unit/test_copilot_prompt_revisions.py` keeps the same hashes as a list: it
-fails when the current bytes are not the newest entry, when the table's hashes differ from the list,
-or when a row's evidence path does not exist. So the PR that edits any of them records the new
+(`SYSTEM_PROMPT`), and the regeneration's system message after a decision-F rejection, after a
+citation failure and after a trailer rejection. `tests/unit/test_copilot_prompt_revisions.py` keeps the
+same hashes as a list: it fails when the current bytes are not the newest entry, when the table's hashes
+differ from the list, when a row's evidence path does not exist, or when an owned rejection class makes the
+chooser send a retry message that no column hashes. So the PR that edits any of them records the new
 identity and what it was measured on. The history is append-only by review: overwriting or dropping a
 row needs the same edit to the list, which shows as a removed line in that test's diff. A row's
 "Measured on" and "Evidence" cells are not compared and may be completed once its measurement exists.
@@ -815,12 +827,13 @@ The context message, tool schemas and generation options are model-facing too bu
 to them is review-checked. #1111's revision was measured only on the regex fallback, because SEC's
 403 had silently removed sections from every eval source, and nothing showed it.
 
-| First generation | Decision-F retry | Citation retry | Introduced | Measured on | Evidence |
-|---|---|---|---|---|---|
-| `a88b6fb1de5b` | — | — | before #1111 | sections to 2026-10-05, then the regex fallback | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
-| `d46ef28f000a` | `f3b340db1e35` | `f3b340db1e35` | #1111, 2026-10-07 | the regex fallback only (sections absent 2026-10-06 to #1350) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
-| `d46ef28f000a` | `f3b340db1e35` | `ae01453ef90d` | 2026-10-16, citation retry | sections: run 38860895429, 17/18 (one BABA row withheld after its retry) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
-| `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | 2026-10-16, whole-row rule | sections: run 38878772611, 18/18 with no retry (pre-registered); merging also required the merge head's own 18/18 draw (README) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
+| First generation | Decision-F retry | Citation retry | Trailer retry | Introduced | Measured on | Evidence |
+|---|---|---|---|---|---|---|
+| `a88b6fb1de5b` | — | — | — | before #1111 | sections to 2026-10-05, then the regex fallback | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
+| `d46ef28f000a` | `f3b340db1e35` | `f3b340db1e35` | — | #1111, 2026-10-07 | the regex fallback only (sections absent 2026-10-06 to #1350) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
+| `d46ef28f000a` | `f3b340db1e35` | `ae01453ef90d` | — | 2026-10-16, citation retry | sections: run 38860895429, 17/18 (one BABA row withheld after its retry) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
+| `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | — | 2026-10-16, whole-row rule | sections: run 38878772611, 18/18 with no retry (pre-registered); merging also required the merge head's own 18/18 draw (README) | `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/README.md` |
+| `c221b7e3c5c2` | `34d01dadbac0` | `bf240eb01f4c` | `c221b7e3c5c2` | #1551, 2026-10-24, trailer retry | sections: byte-identical to the first generation (row above; 1,530 first generations since #1360, step 0 in README) | `tasks/review-evidence/copilot-citation-trailer-retry-2026-10-23/README.md` |
 
 Copilot publishes answer prose only in its final admitted completion. Fixed progress and tool
 activity remain live. The browser rejects malformed or known-unverified completion payloads,
@@ -1017,8 +1030,9 @@ from `tool_trace.generation_attempts` and enforces decision F, as production doe
 kept unchanged for the records that pin it) predates #1111's second generation and exits 3 on any
 report that holds a recovered row. A report recorded before the 2026-10-16 eligibility change whose
 withheld row's first generation was under the floor or twice-declared replays as UNEXPLAINED under
-later code, because the replay asks for a second generation the run never recorded. That fails closed:
-the PR merges main and draws on its new head.
+later code, because the replay asks for a second generation the run never recorded. So does a report
+recorded on a head without #1551's trailer retry whose withheld row's first generation ended in
+`Unexpected citation trailer`. That fails closed: the PR merges main and draws on its new head.
 
 **Gating rule — two different standards (July 2026, learned the hard way):**
 - **Resolver/guard changes** gate DETERMINISTICALLY: the offline suites replay real failure shapes

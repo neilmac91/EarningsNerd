@@ -21,14 +21,18 @@ the fill and recheck the cache after acquiring it. A waiter behind a failed read
 `_fetch`). `backend/tests/unit/test_reporting_this_week_service.py::test_failed_fetch_is_not_cached`
 fails a read on a cold instance and again on a warm one, where ET midnight changes the key while
 Monday's success is still inside the TTL; the healthy retry after each must return the week. Test
-the warm case: a cold cache has no timestamp, so code that writes the failed entry but not its
-timestamp still passes there. `::test_successful_empty_week_is_cached` pins the other half, an
-empty week fetched once. `::test_waiting_fetch_lets_another_request_release_its_connection` sends
+the warm case: there a key without the ET day serves Monday's week without reading, which a cold
+cache cannot show (and before E171 made the cache one snapshot, a cold cache with no timestamp also
+passed code that wrote the failed list but not its time). `::test_successful_empty_week_is_cached`
+pins the other half, an empty week fetched once.
+`::test_waiting_fetch_lets_another_request_release_its_connection` sends
 two ASGI requests through a one-slot QueuePool. `::test_concurrent_misses_share_one_read` sends
 eight cold-cache requests at a blocked read and expects one read;
-`::test_failed_read_lets_the_next_waiter_retry` sends three, fails the first read, and expects the
-second request to read again and the third to hit the cache. `notable_filings_service.py` follows
-the rule with a thread lock, since its route reads in the thread pool (#1437):
+`::test_failed_read_lets_the_next_waiter_retry` sends three, fails the first read, and expects one
+more read and one cache hit. Since E171 the strip's route runs the read and its release as one
+thread-pool unit, so its lock is a thread lock and each test request runs in a thread.
+`notable_filings_service.py` follows the rule with a thread lock too, since its route reads in the
+thread pool (#1437):
 `test_notable_filings_service.py::test_a_failed_read_is_not_cached` (cold and warm),
 `::test_a_successful_empty_read_is_cached`, `::test_a_miss_during_a_fill_waits_for_it_and_reads_nothing`
 and `::test_a_failed_read_lets_the_next_waiter_read_again`. The company filings list's freshness stamp

@@ -546,7 +546,8 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  Phones below 640px start at
                  the newest period. “← Earlier quarters” (or years) appears only on phones while
                  earlier columns are off-screen; the hidden hint line retains its height at the
-                 start so native keyboard scrolling does not shift the page. Generic table hints
+                 start so native keyboard scrolling does not shift the page. A one-period table
+                 hints “← Metric names” instead, all that lies to its left. Generic table hints
                  keep their existing static behavior.
                  A table-only segmented window defaults to All, with Newest 6 and Earliest 6 when
                  more than six periods exist. Charts, KPI cards, data-note totals and full exports
@@ -557,6 +558,9 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  Headers show quarter/year on two lines with the complete quarter/year accessible name.
                  The annual final column names the full report range and CAGR; visible prose explains
                  that percent-unit rows instead show the recorded window’s percentage-point change.
+                 A one-year run has no final column, nor the legend's or the caption's sentence on it:
+                 a CAGR and a window change need two years. Counts agree with the run (“Showing 1 of
+                 1 year”).
                  The table's Notes chip lists only letters present in its visible cells, including
                  unavailable values and annual window comparisons, in report note order.
                  The change basis is stated once, while
