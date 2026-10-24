@@ -202,9 +202,9 @@ describe('FullTextSearch date filters', () => {
     }
   })
 
-  // E154: the date fields were hand-rolled, off the field recipe (34px tall on a phone, the panel's fill, a 10% white
-  // hairline in dark), so its 44px touch height, held by inputClassesNoOverrides.spec.tsx's height gate, did not reach
-  // them. They take inputClasses() now, every class of it, sized to their content.
+  // E154: the date fields were hand-rolled, off the field recipe (30px tall at the default size, the panel's fill, a
+  // 10% white hairline in dark), so its 44px touch height, held by inputClassesNoOverrides.spec.tsx's height gate, did
+  // not reach them. They take inputClasses() now, every class of it, sized to their content.
   it('builds each date field on the field recipe, sized to its content, its picker drawn dark in the dark theme', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>

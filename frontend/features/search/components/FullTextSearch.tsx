@@ -218,7 +218,7 @@ export default function FullTextSearch() {
       </div>
 
       {/* The date fields are the field recipe (inputClasses: its fill, hairline, focus ring and 44px touch height),
-          sized to their content, where they were hand-rolled at 34px on a phone (E154). They may shrink to their row
+          sized to their content, where they were hand-rolled at 30px (E154). They may shrink to their row
           (min-w-0): Chrome keeps blank room in a date field for a six-digit year, so under 200% text each field was
           312px in a 256px row at 320px and took the page to 344px; shrunk to the row it gives up that blank room, and
           "mm/dd/yyyy" and a set date stay whole (tests/e2e/reflow-200.spec.ts). The dark color scheme draws the native
