@@ -111,11 +111,12 @@ timeout. One local probe held two searches of the same two new companies, in opp
 third transaction's uncommitted insert of the two rows, which then rolled back: 11 of 20 runs deadlocked.
 Another held a search's batch, which updated a stored row before inserting a new company with a lower
 CIK, against a second search's conflict recovery, which wrote the two in CIK order: 6 of 10. The probes
-force those interleavings; they do not measure how often traffic meets one. The batch and its recovery
-now write each company alone, in CIK order, a stored row's update in its place among the inserts: 0 of 20
-in each probe. Their burst case holds every statement and release off the loop and those racers to one
-row, and `test_company_routes.py` holds each unit's write order; no CI step races the searches on
-PostgreSQL (2026-10-24, E171).
+line the two units up behind a blocker, and the race once it lets go deadlocked in about half the runs;
+they do not measure how often traffic meets one. The batch and its recovery now write each company
+alone, in CIK order, a stored row's update in its place among the inserts: 0 of 20 in each probe. Their
+burst case holds every statement and release off the loop and those racers to one row, and
+`test_company_routes.py` holds each unit's write order, read at the statements; no CI step races the
+searches on PostgreSQL (2026-10-24, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the

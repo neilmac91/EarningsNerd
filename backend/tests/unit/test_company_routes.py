@@ -26,6 +26,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import sessionmaker
 
 import app.routers.companies as companies_router
+from app import database
 from app.database import SessionLocal, get_db
 from app.models import Company, Filing
 from app.services import company_lookup_service
@@ -341,21 +342,34 @@ def _seed_stale(*ciks):
 
 @pytest.fixture()
 def company_writes():
-    """("insert" or "update", CIK) of each companies row the ORM writes, in the order it writes them."""
-    written = []
+    """Each companies statement in the order it reaches the database: ("insert", CIK) per row inserted,
+    ("update", row id) per row updated, and each SAVEPOINT and RELEASE; ``_by_cik`` reads the ids as
+    CIKs. The mapper's before_insert and before_update events cannot stand in: within one flush they
+    fire for every new row before any stored one, while the flush sends its UPDATEs first."""
+    sent = []
 
-    def listener(operation):
-        def record(_mapper, _connection, target):
-            written.append((operation, target.cik))
+    def record(_conn, _cursor, statement, _parameters, context, _executemany):
+        head = " ".join(statement.split()[:3]).upper()
+        if head.startswith("INSERT INTO COMPANIES"):
+            sent.extend(("insert", params["cik"]) for params in context.compiled_parameters)
+        elif head.startswith("UPDATE COMPANIES"):
+            sent.extend(("update", params["companies_id"]) for params in context.compiled_parameters)
+        elif head.startswith(("SAVEPOINT", "RELEASE")):
+            sent.append((head.split()[0].lower(), None))
 
-        return record
+    event.listen(database.engine, "before_cursor_execute", record)
+    yield sent
+    event.remove(database.engine, "before_cursor_execute", record)
 
-    on_insert, on_update = listener("insert"), listener("update")
-    event.listen(Company, "before_insert", on_insert)
-    event.listen(Company, "before_update", on_update)
-    yield written
-    event.remove(Company, "before_insert", on_insert)
-    event.remove(Company, "before_update", on_update)
+
+def _by_cik(writes):
+    """``company_writes`` with each updated row's id read as its CIK."""
+    db = SessionLocal()
+    try:
+        cik_of = dict(db.query(Company.id, Company.cik).all())
+    finally:
+        db.close()
+    return [(operation, cik_of[key] if operation == "update" else key) for operation, key in writes]
 
 
 def _search_high_mid_low(client, monkeypatch):
@@ -382,7 +396,7 @@ def test_search_writes_each_company_in_cik_order_whatever_sec_order(
     assert [(row["cik"], row["ticker"]) for row in resp.json()] == [
         (HIGH_CIK, "ZZ3"), (MID_CIK, "ZZ2"), (LOW_CIK, "ZZ1"),
     ]
-    assert company_writes == [("insert", LOW_CIK), ("update", MID_CIK), ("insert", HIGH_CIK)]
+    assert _by_cik(company_writes) == [("insert", LOW_CIK), ("update", MID_CIK), ("insert", HIGH_CIK)]
 
 
 def test_search_conflict_recovery_writes_each_company_in_cik_order(
@@ -410,11 +424,11 @@ def test_search_conflict_recovery_writes_each_company_in_cik_order(
     ]
     batch = [("insert", LOW_CIK), ("update", MID_CIK), ("update", HIGH_CIK)]  # then its commit fails
     recovery = [
-        ("resolve", LOW_CIK), ("insert", LOW_CIK),
+        ("resolve", LOW_CIK), ("savepoint", None), ("insert", LOW_CIK), ("release", None),
         ("resolve", MID_CIK), ("update", MID_CIK),
         ("resolve", HIGH_CIK), ("update", HIGH_CIK),
     ]
-    assert company_writes == batch + recovery
+    assert _by_cik(company_writes) == batch + recovery
 
 
 # --- /trending -------------------------------------------------------------------------------

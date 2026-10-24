@@ -123,7 +123,8 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
     ),
     ("app/routers/companies.py", "search_companies"): (
         "read-through cache: persists Company rows discovered via the SEC ticker lookup "
-        "(db.add/flush/commit; the concurrent-search race re-resolves each CIK under a SAVEPOINT)"
+        "(db.add/flush/commit; the concurrent-search race re-resolves each CIK, inserting a new one "
+        "under a SAVEPOINT)"
     ),
     ("app/routers/companies.py", "get_company"): (
         "read-through cache: creates/self-heals the Company row from SEC data on a miss (db.commit)"
