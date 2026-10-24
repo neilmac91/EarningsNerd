@@ -13,7 +13,8 @@ One rule, two halves in this one module:
   with a dead one, logout-all, refresh, and a password login with the right password and a wrong
   one, which also holds no connection while it hashes), each watchlist route and its refusals, each analysis route
   and a refusal of each, the waitlist join and verification, the contact form and the feedback
-  submit, the usage and subscription-status reads, and Stripe checkout and the billing portal must
+  submit, the usage and subscription-status reads, Stripe checkout and the billing portal, and the
+  company lookup, search and trending list (eight racers for one new company's row included) must
   answer an eight-request burst with no checkout on the loop and nothing left for the finalizer; and
   the join, the contact form and the feedback submit must send their mails, the analysis exports
   render, and Stripe checkout and the portal make their Stripe calls, with no connection out.
@@ -46,7 +47,7 @@ from app.models import (
     Company, Filing, FilingContentCache, FinancialFact, NotableFiling, Summary, SummaryGenerationProgress,
     WaitlistSignup,
 )
-from app.routers import filings, notable_filings, watchlist
+from app.routers import companies, filings, notable_filings, watchlist
 from app.services import filing_list_service, notable_filings_service
 from app.services.filing_amendment_service import expand_amendment_forms
 from app.services.rate_limiter import RateLimiter
@@ -1800,6 +1801,124 @@ async def test_analysis_exports_hold_no_connection_while_they_render(monkeypatch
         engine.dispose()
 
 
+_NEW_COMPANY = {"cik": "0000000009", "ticker": "NEWCO", "name": "New Co", "exchange": "NYSE"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path,case", [
+    ("/api/companies/CACHED", "lookup_stored"),
+    ("/api/companies/NEWCO", "lookup_new"),
+    ("/api/companies/NOSUCH", "lookup_missing"),
+    ("/api/companies/search?q=cached", "search_stored"),
+    ("/api/companies/search?q=newco", "search_new"),
+    ("/api/companies/trending", "trending"),
+])
+async def test_company_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, path, case):
+    """The company lookup, the search and the trending list run their session work in thread-pool
+    units, each released before the route's next SEC or Yahoo await, so eight readers on four slots
+    leave nothing for the finalizer and make no checkout or statement on the loop. Eight lookups, or
+    eight searches, of one new company race for its row: one inserts it and the rest serve it, the
+    search's losers through its conflict recovery and the lookup's through the resolver's."""
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'company-routes.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    Company.__table__.create(engine)
+    Filing.__table__.create(engine)
+    Summary.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        company = Company(cik="0000000001", ticker="CACHED", name="Cached fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000001-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), sec_url="https://example.test/filing/",
+                        document_url="https://example.test/filing.htm")
+        db.add(filing)
+        db.commit()
+        company_id, filing_id = company.id, filing.id
+
+    async def resolve_ticker(ticker: str) -> dict[str, Any] | None:
+        return dict(_NEW_COMPANY) if ticker == "NEWCO" else None
+
+    async def search_company(query: str) -> list[dict[str, Any]]:
+        if query == "cached":
+            return [{"cik": "0000000001", "ticker": "CACHED", "name": "Cached fixture", "exchange": None}]
+        return [dict(_NEW_COMPANY)]
+
+    async def primary_ticker_for_cik(cik: str) -> str:
+        return {"0000000001": "CACHED", "0000000009": "NEWCO"}[cik]
+
+    async def no_quote(_ticker: str) -> None:
+        return None
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(companies.sec_edgar_service, "resolve_ticker", resolve_ticker)
+    monkeypatch.setattr(companies.sec_edgar_service, "search_company", search_company)
+    monkeypatch.setattr(companies.sec_edgar_service, "primary_ticker_for_cik", primary_ticker_for_cik)
+    monkeypatch.setattr(companies, "get_stock_quote", no_quote)
+    monkeypatch.setattr(companies, "_get_stock_quote_with_timeout", no_quote)
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
+        ) as client:
+            responses = await asyncio.gather(*[client.get(path) for _ in range(8)])
+        # Every checkout waited in the thread pool, and every statement ran there: none on the loop
+        # (read before this test's own lookup below, which runs on the loop).
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert engine.pool.checkedout() == 0
+        # Each unit released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        assert [response.status_code for response in responses] == [404 if case == "lookup_missing" else 200] * 8
+        payloads = [response.json() for response in responses]
+        unquoted = {"stock_quote": None, "coverage_status": None, "coverage_reason": None}
+        cached = {"id": company_id, "cik": "0000000001", "ticker": "CACHED", "name": "Cached fixture",
+                  "exchange": None, **unquoted}
+        if case == "lookup_missing":
+            assert payloads == [{"detail": "Company not found"}] * 8
+        elif case in ("lookup_new", "search_new"):
+            with sessions() as db:
+                [stored_id] = [row.id for row in db.query(Company).filter(Company.cik == _NEW_COMPANY["cik"])]
+            new = {"id": stored_id, **_NEW_COMPANY, **unquoted, "latest_filing": None}
+            assert payloads == [[new] if case == "search_new" else new] * 8
+        elif case == "search_stored":
+            # The search's snapshot names the filing the company page leads with, read in the same unit.
+            assert [[(row["id"], row["latest_filing"]["id"]) for row in payload] for payload in payloads] == [
+                [(company_id, filing_id)]] * 8
+        else:
+            assert payloads == ([{**cached, "latest_filing": None}] if case == "lookup_stored"
+                                else [[{**cached, "latest_filing": None}]]) * 8
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.parametrize("error", [
     OperationalError("ROLLBACK", {}, Exception("server closed the connection unexpectedly")),
     IllegalStateChangeError("Method 'close()' can't be called here; another method is in progress"),
@@ -1991,12 +2110,6 @@ ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/auth.py", "unlink_connection"): 2,
 
     ("app/routers/auth.py", "verify_email"): 3,
-
-    ("app/routers/companies.py", "get_company"): 3,
-
-    ("app/routers/companies.py", "get_trending_companies"): 1,
-
-    ("app/routers/companies.py", "search_companies"): 3,
 
     ("app/routers/dashboard.py", "get_upcoming_calendar"): 1,
 

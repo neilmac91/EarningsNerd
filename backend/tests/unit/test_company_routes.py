@@ -497,16 +497,19 @@ def test_stored_ticker_lookup_failure_is_not_the_wrapped_500(client, monkeypatch
     assert resp.json() == {"detail": "db down", "type": "internal_server_error"}
 
 
-def test_post_persist_release_failure_is_not_the_wrapped_500(client, monkeypatch, override_db):
-    """The release after the persistence unit also runs outside the try (unlike the persistence
-    unit itself, below)."""
+def test_a_failed_release_after_the_persistence_unit_is_logged_and_the_row_served(
+    client, monkeypatch, override_db, caplog
+):
+    """The persistence unit releases the session in a ``finally`` that logs a failed close instead of
+    raising it (``filing_list_service.release_request_session``), so a release that fails after the
+    commit serves the stored company, not a 500."""
     db = SessionLocal()
     real_close = db.close
     closes = []
 
     def close():
         closes.append(1)
-        if len(closes) == 2:  # 1: before the SEC wait; 2: after the persistence unit
+        if len(closes) == 2:  # 1: the lookup unit's, before the SEC wait; 2: the persistence unit's
             raise RuntimeError("release failed")
         real_close()
 
@@ -515,8 +518,16 @@ def test_post_persist_release_failure_is_not_the_wrapped_500(client, monkeypatch
     monkeypatch.setattr(sec_edgar_service, "search_company", _sec(_hit(NEW_CIK, "ZZ2", "Zeta Two")))
     monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
     resp = TestClient(app, raise_server_exceptions=False).get("/api/companies/ZZ2")
-    assert resp.status_code == 500
-    assert resp.json() == {"detail": "release failed", "type": "internal_server_error"}
+    assert resp.status_code == 200
+    body = resp.json()
+    assert (body["cik"], body["ticker"], body["name"]) == (NEW_CIK, "ZZ2", "Zeta Two")
+    [logged] = [r for r in caplog.records if "Releasing the request session failed" in r.getMessage()]
+    assert str(logged.exc_info[1]) == "release failed"
+    verify = SessionLocal()
+    try:
+        assert verify.query(Company).filter(Company.cik == NEW_CIK).one().id == body["id"]
+    finally:
+        verify.close()
 
 
 def test_miss_with_unpersistable_sec_hit_is_the_wrapped_500(client, monkeypatch):

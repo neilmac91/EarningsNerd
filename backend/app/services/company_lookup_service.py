@@ -1,16 +1,17 @@
 """Company lookups and read-through persistence behind ``app/routers/companies.py``.
 
-Moved from the router (search, trending, get-by-ticker) so it stays HTTP only. Every function is
-one synchronous unit on the request's session and runs where the router used to run it (on the
-event loop, between the router's SEC and Yahoo awaits). The units that end a request's database
-work snapshot the response identities and close the session in the same unit, so no pooled
-connection is held through a slow upstream (``tests/unit/test_company_routes_pool_lifetime.py``;
-the filing routes follow the same rule, ``lessons/ops-release-cached-filing-reads-before-yield.md``).
-The snapshot must precede the close inside one unit: after a commit the rows are expired, and
-close() expunges them, so a read after the close raises DetachedInstanceError (a 500) instead of
-serving the row. The Session object stays reusable after a close, which the get-by-ticker miss
-path relies on.
-Outcomes the router turns into a log line or an HTTP error are signalled with
+Moved from the router (search, trending, get-by-ticker) so it stays HTTP only. Each function the
+router calls is one synchronous unit on the request's session, which the router runs in the thread
+pool between its SEC and Yahoo awaits, so its checkout never waits on the event loop. Each unit
+snapshots its response rows, then releases the request's pooled connection in a ``finally``
+(:func:`~app.services.filing_list_service.release_request_session`), so none is held through a slow
+upstream or left for the dependency's finalizer (``tests/unit/test_company_routes_pool_lifetime.py``
+and ``tests/unit/test_cached_filings_pool_lifetime.py``; the filing routes follow the same rule,
+``lessons/ops-release-cached-filing-reads-before-yield.md``). The snapshot must precede the release
+inside one unit: after a commit the rows are expired, and the release expunges them, so a read after
+it raises DetachedInstanceError (a 500) instead of serving the row. The Session object stays
+reusable after a release, which the get-by-ticker miss path and the search's conflict recovery rely
+on. Outcomes the router turns into a log line or an HTTP error are signalled with
 ``SearchUpsertConflict`` or a ``None`` return.
 """
 from datetime import timedelta
@@ -22,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Company, Filing
 from app.services.company_resolution import resolve_or_create_company_by_cik
+from app.services.filing_list_service import release_request_session
 from app.services.latest_filing_service import LatestFilingRef, latest_filings
 from app.utils.datetimes import utcnow
 
@@ -48,34 +50,36 @@ def company_identity(company: Company) -> dict:
     }
 
 
-def release_company_row(db: Session, company: Company) -> dict:
-    """Snapshot one company's response fields, then release the request's connection."""
-    company_row = company_identity(company)
-    db.close()
-    return company_row
-
-
-def release_search_rows(
-    db: Session, companies: List[Company]
-) -> Tuple[List[dict], Dict[int, LatestFilingRef]]:
-    """Snapshot each company's response fields in order, and the filing each company page leads
-    with (keyed by company id, absent when none is stored), then release the request's connection.
-    """
+def _search_rows(db: Session, companies: List[Company]) -> Tuple[List[dict], Dict[int, LatestFilingRef]]:
+    """Each company's response fields in order, and the filing each company page leads with (keyed by
+    company id, absent when none is stored)."""
     company_rows = [company_identity(company) for company in companies]
-    latest_by_company = latest_filings(db, [row["id"] for row in company_rows])
-    db.close()
-    return company_rows, latest_by_company
+    return company_rows, latest_filings(db, [row["id"] for row in company_rows])
 
 
 def upsert_search_results(
     db: Session,
     sec_results: List[Dict[str, Any]],
     primary_by_cik: Dict[str, Optional[str]],
-) -> List[Company]:
-    """Store or update the searched companies, ONE row per CIK, in SEC result order.
+) -> Tuple[List[dict], Dict[int, LatestFilingRef]]:
+    """Store or update the searched companies, ONE row per CIK, in SEC result order, and return
+    their response rows and lead filings; releases the session.
 
-    Raises :class:`SearchUpsertConflict` when the flush or commit hits the unique-CIK race.
+    Raises :class:`SearchUpsertConflict` when the flush or commit hits the unique-CIK race, after
+    the release has rolled the batch back.
     """
+    try:
+        return _search_rows(db, _upsert_companies(db, sec_results, primary_by_cik))
+    finally:
+        release_request_session(db)
+
+
+def _upsert_companies(
+    db: Session,
+    sec_results: List[Dict[str, Any]],
+    primary_by_cik: Dict[str, Optional[str]],
+) -> List[Company]:
+    """The searched companies' rows, stored or updated and committed, in SEC result order."""
     # Store or update companies in database — ONE row per CIK (data-quality plan P0-1).
     # SEC's ticker file carries one entry per LISTED SECURITY: iterating it raw returned N
     # duplicate rows per company and let the LAST entry's ticker win the persisted row
@@ -155,27 +159,31 @@ def resolve_search_conflict(
     sec_results: List[Dict[str, Any]],
     primary_by_cik: Dict[str, Optional[str]],
     response_ciks: List[str],
-) -> List[Company]:
-    """Recover from :class:`SearchUpsertConflict`: roll back, re-resolve each CIK, commit."""
-    # The batch rollback discards ALL pending inserts, so re-resolve each CIK individually via
-    # the per-row-SAVEPOINT helper — a race on one CIK no longer drops the other genuinely-new
-    # companies from the response.
-    db.rollback()
-    by_cik: Dict[str, Company] = {}
-    for cik in response_ciks:
-        sec_data = next(r for r in sec_results if r.get("cik") == cik)
-        primary = primary_by_cik[cik]
-        by_cik[cik] = resolve_or_create_company_by_cik(
-            db,
-            cik=cik,
-            ticker=primary or sec_data.get("ticker"),
-            name=sec_data.get("name"),
-            exchange=sec_data.get("exchange"),
-            path="companies.search",
-            canonical_ticker=primary,
-        )
-    db.commit()
-    return [by_cik[c] for c in response_ciks]
+) -> Tuple[List[dict], Dict[int, LatestFilingRef]]:
+    """Recover from :class:`SearchUpsertConflict`: re-resolve each CIK, commit, and return the
+    response rows and lead filings in SEC order; releases the session."""
+    # The failed batch's release rolled back ALL its pending inserts (and the rollback below any a
+    # caller left unreleased), so re-resolve each CIK individually via the per-row-SAVEPOINT helper —
+    # a race on one CIK no longer drops the other genuinely-new companies from the response.
+    try:
+        db.rollback()
+        by_cik: Dict[str, Company] = {}
+        for cik in response_ciks:
+            sec_data = next(r for r in sec_results if r.get("cik") == cik)
+            primary = primary_by_cik[cik]
+            by_cik[cik] = resolve_or_create_company_by_cik(
+                db,
+                cik=cik,
+                ticker=primary or sec_data.get("ticker"),
+                name=sec_data.get("name"),
+                exchange=sec_data.get("exchange"),
+                path="companies.search",
+                canonical_ticker=primary,
+            )
+        db.commit()
+        return _search_rows(db, [by_cik[c] for c in response_ciks])
+    finally:
+        release_request_session(db)
 
 
 def trending_company_rows(db: Session, limit: int) -> List[dict]:
@@ -184,69 +192,73 @@ def trending_company_rows(db: Session, limit: int) -> List[dict]:
     # the bound is the UTC instant, never the process's local wall clock.
     thirty_days_ago = utcnow() - timedelta(days=30)
 
-    # Get companies with most filings in recent period
-    trending_query = db.query(
-        Company.id,
-        Company.cik,
-        Company.ticker,
-        Company.name,
-        Company.exchange,
-        func.count(Filing.id).label('filing_count')
-    ).join(
-        Filing, Company.id == Filing.company_id
-    ).filter(
-        Filing.filing_date >= thirty_days_ago
-    ).group_by(
-        Company.id
-    ).order_by(
-        desc('filing_count')
-    ).limit(limit).all()
+    try:
+        # Get companies with most filings in recent period
+        trending_query = db.query(
+            Company.id,
+            Company.cik,
+            Company.ticker,
+            Company.name,
+            Company.exchange,
+            func.count(Filing.id).label('filing_count')
+        ).join(
+            Filing, Company.id == Filing.company_id
+        ).filter(
+            Filing.filing_date >= thirty_days_ago
+        ).group_by(
+            Company.id
+        ).order_by(
+            desc('filing_count')
+        ).limit(limit).all()
 
-    company_rows = [
-        {
-            "id": row.id,
-            "cik": row.cik,
-            "ticker": row.ticker,
-            "name": row.name,
-            "exchange": row.exchange,
-        }
-        for row in trending_query
-    ]
-    db.close()
-    return company_rows
+        return [
+            {
+                "id": row.id,
+                "cik": row.cik,
+                "ticker": row.ticker,
+                "name": row.name,
+                "exchange": row.exchange,
+            }
+            for row in trending_query
+        ]
+    finally:
+        release_request_session(db)
 
 
 def find_company_row_by_ticker(db: Session, ticker: str) -> Optional[dict]:
-    """The stored company's response row, or None on a miss; releases the session either way.
-
-    The miss releases the SELECT's transaction before the router's SEC wait; the Session stays
-    reusable for :func:`persist_sec_company`.
+    """The stored company's response row, or None on a miss; releases the session either way, so the
+    miss path's SEC awaits hold no connection. The Session stays reusable for
+    :func:`persist_sec_company`.
     """
-    company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
-    if not company:
-        db.close()
-        return None
-    return release_company_row(db, company)
+    try:
+        company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
+        return None if company is None else company_identity(company)
+    finally:
+        release_request_session(db)
 
 
-def persist_sec_company(db: Session, sec_data: Dict[str, Any], primary: Optional[str]) -> Company:
-    """Create or self-heal the Company row for an SEC search hit and commit it.
+def persist_sec_company(db: Session, sec_data: Dict[str, Any], primary: Optional[str]) -> dict:
+    """Create or self-heal the Company row for an SEC search hit, commit it, and return its response
+    row; releases the session.
 
-    Does not release the session: the router snapshots it with :func:`release_company_row`.
+    Any exception propagates to the router's miss-path handlers unchanged.
     """
-    # CIK-first: when this CIK already has a row under another ticker (e.g. a
-    # preferred-class overwrite like JPM-PM), reuse it instead of 500-ing on the
-    # unique-CIK insert (data-quality plan, interim safeguard 1). A genuinely-new
-    # row gets the CANONICAL primary ticker, not whatever class was queried (P0-1).
-    company = resolve_or_create_company_by_cik(
-        db,
-        cik=sec_data["cik"],
-        ticker=primary or sec_data["ticker"],
-        name=sec_data["name"],
-        exchange=sec_data.get("exchange"),
-        path="companies.get_company",
-        canonical_ticker=primary,  # self-heal a stale JPM-PM row → JPM (P0-1)
-    )
-    db.commit()
-    db.refresh(company)
-    return company
+    try:
+        # CIK-first: when this CIK already has a row under another ticker (e.g. a
+        # preferred-class overwrite like JPM-PM), reuse it instead of 500-ing on the
+        # unique-CIK insert (data-quality plan, interim safeguard 1). A genuinely-new
+        # row gets the CANONICAL primary ticker, not whatever class was queried (P0-1).
+        company = resolve_or_create_company_by_cik(
+            db,
+            cik=sec_data["cik"],
+            ticker=primary or sec_data["ticker"],
+            name=sec_data["name"],
+            exchange=sec_data.get("exchange"),
+            path="companies.get_company",
+            canonical_ticker=primary,  # self-heal a stale JPM-PM row → JPM (P0-1)
+        )
+        db.commit()
+        db.refresh(company)
+        return company_identity(company)
+    finally:
+        release_request_session(db)
