@@ -54,8 +54,10 @@ and [`screens/variants/ring-light-full.png`](screens/variants/ring-light-full.pn
    - the Data notes strip becomes one line of fine print under the table;
    - the exports follow the same rule.
 
-   After the backfill, most companies would show no mark at all. A mark that does appear keeps its
-   meaning.
+   Under this scheme most companies already show no mark. 77 of production's 82 latest-year flags
+   are legacy calculations, so at most 5 of the 27 companies keep a marked cell in their newest year.
+   The backfill then clears the legacy notes from the fine print and the dialog as well. A mark
+   that does appear keeps its meaning.
 4. **Data notes: one neutral line under the table, in plain words (§3).** The comprehension
    rounds settled the words, and they carry over: "Not in our data … shown as —, never as zero";
    "Calculated before 10 October 2026, when we began keeping each calculation's inputs".
@@ -65,8 +67,8 @@ and [`screens/variants/ring-light-full.png`](screens/variants/ring-light-full.pn
      carries no letter, and both readers put it at 4. Each reconciled it from the evidence on the
      page: operating cash flow minus capex.
 5. **The page and the exports drift apart.**
-   - Independent re-scores of the page: severity sum 50 → 48 → 43 across the current page and two
-     prototype rounds; severity-3 problems 7 → 4 → 4 (§4).
+   - An independent heuristic re-score of the current page found 24 problems, 7 of them severity 3
+     (§4.2). The ring prototypes it also scored are superseded for the notation by §2.8.
    - The exports passed 44 of 70 file checks; 16 were partial and 10 failed (§5).
    - The PDF and workbook print the company in EDGAR capitals and raw ISO timestamps.
    - The PDF's key sits one page away from its table.
@@ -75,10 +77,10 @@ and [`screens/variants/ring-light-full.png`](screens/variants/ring-light-full.pn
 6. **Order (§6):**
    1. The lineage backfill. It shares no code file with any UI plan.
    2. The quiet notation, after #1597.
-   3. The data-notes words.
+   3. The data-notes words, then the restatement note (its own backend change; they share
+      `data_notes.py`).
    4. The exports, split so each piece follows the sibling that owns its file and #1601.
    5. Surfaces and the results header, last.
-   6. The restatement note, alongside the data-notes words (its own backend change).
 7. **One decision for the founder before step 2 (§2.9).** The 2026-10 redesign records the
    founder's rule "never hide a note". A P0 review enforced it for exactly the case the quiet
    scheme stops marking: a figure whose only note is `legacy_calculation`. The proposed wording is
@@ -226,8 +228,8 @@ API ([verification](verification/heuristic-rescore-transcripts.md#set-z--prototy
 `is_latest` value differs by more than a set tolerance from the value its own annual filing
 reported, which is still stored as a non-latest row of that accession, add a note: "restated
 in a later filing". It does question the number, so under the quiet scheme it is one of the few
-notes that marks a figure (§2.1), in neutral ink. The blind test's quiet-design readers found the
-note, but read it as housekeeping (§2.8). So the change also covers:
+notes that marks a figure (§2.1), in neutral ink. Both of the blind test's quiet-design readers
+found the note, and one read it as housekeeping (§2.8). So the change also covers:
 - **The dialog** names both values and both filings, with their dates.
 - **Growth across the restatement** (FY2017→FY2018 here) reads as not comparable (n/m) rather
   than −12.4%, because its two years come from different scopes.
@@ -270,10 +272,10 @@ mark. That version is kept in [`prototype/notation-prototype.diff`](prototype/no
 - **A mark means the number itself is in question.** A figure carries a mark only when a note
   doubts that the value is what the filings support:
   - a later filing restated it (WP5's note, §1.6), or the filings disagree (`source_conflict`);
-  - a reported value could not be matched to the filed data (`source_check_needed`,
-    `value_mismatch`, `unit_mismatch`, `period_mismatch`);
-  - a calculation disagrees with its inputs or cannot find them (`calculation_mismatch`,
-    `missing_calculation_inputs`; the backfill's honest outcomes, §1.5).
+  - a reported value could not be matched to the filed data (`source_check_needed`);
+  - a calculation disagrees with its inputs, cannot find them, or combines inputs that do not fit
+    together. Examples are `calculation_mismatch` and `missing_calculation_inputs` (the backfill's
+    honest outcomes, §1.5), and `unit_mismatch` and `period_mismatch`.
 
   A note about the record rather than the value gets no mark. Today that is `legacy_calculation`
   alone: 77 of production's 82 latest-year review flags, and all 11 REGN cells reproduce exactly
@@ -289,7 +291,7 @@ mark. That version is kept in [`prototype/notation-prototype.diff`](prototype/no
 - **Filtered, never reclassified.** The scheme decides only which notes put a mark beside a
   figure.
   - Note kinds, reasons and totals stay as the backend computes them.
-  - The fine print and the dialog still name every note, legacy included.
+  - The fine print and the dialog still name and count every note, legacy included.
   - The page never says "No figures need review" while a legacy note exists.
   - The page never calls a legacy figure validated.
 - **One rule on every surface.** The page, PDF, workbook and chart PNG mark the same notes. One
@@ -302,7 +304,7 @@ mark. That version is kept in [`prototype/notation-prototype.diff`](prototype/no
 |---|---|---|---|
 | Questions the number (restated, filings disagree, unmatched, calculation mismatch) | A neutral raised letter. The growth figures built on it carry the same letter, as now. Figures calculated from it should too (WP5: FY2018 margins built on restated revenue) | The letter, its places and one sentence, in the summary line | The note in full. For a restatement: both values, both filings and their dates |
 | Calculated, inputs linked | nothing | Named in the sentence above the table | Method, formula, linked inputs |
-| Calculated before lineage existed (`legacy_calculation`) | nothing | One sentence and its places, in the open detail | "Calculated before 10 October 2026 …; shown as stored, inputs not linked" |
+| Calculated before lineage existed (`legacy_calculation`) | nothing | One sentence, its places and its counts (figures, and the growth built on them), in the open detail | "Calculated before 10 October 2026 …; shown as stored, inputs not linked" |
 | Not in our data | "—" | A count in the summary; one sentence in the detail | "Not in our data" |
 | No validation record | nothing | A count in the summary; one sentence in the detail | "No check recorded" |
 
@@ -359,7 +361,8 @@ There is almost nothing to key, so there is no key beside every mark:
   filed figures. Select any value for its source and full precision."
 - **Notes chips.** The table's chip lists only the visible marked letters and opens the fine print
   at that note. Each chart's chip does the same. A hollow point appears only where a note is
-  marked.
+  marked, and the chart's chip explains it ("Notes a · hollow point: figure carries note a"). The
+  PNG footer carries the same line.
 - **Fine print.** Its summary line names each marked letter with its places and words. Its open
   detail lists every note.
 - **Exports.** The PDF puts the same line under its table, on the same page. The workbook puts it
@@ -374,7 +377,7 @@ There is almost nothing to key, so there is no key beside every mark:
 | Charts | Hollow point and letter for marked notes only. A gap breaks the line, as now. The letter takes the mark's ink and keeps its panel-colour halo. |
 | Narrative and sources | A citation chip carries a letter only for a marked note. In the source list, "Calculated figure" and "Calculated from recorded inputs" become "calculated from filed figures" and "calculated before we kept its inputs". "Sources identify filed figures or calculated figures (marked †)" becomes "Sources identify filed and calculated figures". Raw precision belongs to the analysis plan (§7). |
 | Data notes | One line of fine print under the table (§3). |
-| PDF | No dagger after each value (`export_service.py:349`). The calculated sentence and the fine print sit under the table, on the same page. Letters for marked notes only, with the page's reason sentences. |
+| PDF | No dagger after each value (`export_service.py:349`). As on the page, the calculated sentence sits above the table and the fine print under it, on the same page. Letters for marked notes only, with the page's reason sentences. |
 | Excel | Every note stays as a cell comment, which is the workbook's evidence dialog. A marked note also shows its letter in the grid through the number format (`#,##0" a"`), so the cell stays numeric. No warning-ink fonts. The fine print goes on the Metrics header row. |
 | Chart PNG | The period range in the subtitle ("REGN · Margins · FY2016–FY2025"). The footer names marked letters only. |
 
@@ -439,6 +442,11 @@ full, is in [its JSON](verification/notation-variant-test.json).
   fund analyst. Each saw only its page and declared any outside knowledge.
 - **Re-run.** The quiet and no-marks builds first leaked letters into the narrative's citation
   chips. Both were re-run after the fix (R2, S2).
+  - Between the runs, the quiet copy also changed, in answer to the first-run quiet readers:
+    "the company's filings disagree" became "restated in a later filing; we show the later value",
+    and the legacy count left the summary line.
+  - R2 is therefore not copy-controlled against R. Both first-run quiet readers had already found
+    the revenue from the page with the older words.
 
 | Design | Overall trust | FCF $4.1B (correct) | FY2018 revenue $5.1B (restated) | The page flagged the revenue | Clean | Trustworthy |
 |---|---|---|---|---|---|---|
@@ -461,7 +469,8 @@ full, is in [its JSON](verification/notation-variant-test.json).
    the page, and if I later found an unflagged wrong number, I'd stop trusting the whole product."
    The no-marks readers both asked for a mark on that cell.
 4. **What the quiet design still lacks goes to WP5.**
-   - The restatement note read "like a routine housekeeping footnote".
+   - One of the two quiet readers found the restatement note "worded like a routine housekeeping
+     footnote".
    - Readers want the as-filed value, the restating filing and its date one tap away.
    - Growth across the restatement should read as not comparable.
    - Figures computed from the restated value should inherit its letter.
@@ -510,9 +519,15 @@ enforced it for exactly the case the scheme stops marking: a `legacy_calculation
 | Unit specs | the six files in §2.7, plus `analysis-table-format.spec.ts:41` (the dagger's glyph is freed under decision 6) | Re-pin as §2.7 says. |
 | Browser gate | `tests/e2e/analysis-layout.spec.ts` and `fixtures/analysisLayoutApi.ts` | Dagger counts, legacy and unavailable letters, the chip's name and the summary text. Keep the discrepancy state's letters as proof. |
 
-**With the exports (WP3).** `test_export_service.py:648`, `:675`, `:677`, `:761` and `:813`, plus
-`test_export_voice.py:188`, pin the PDF's dagger, its gap letter and the order of its Data notes
-heading. The workbook already keeps notes in comments (`test_excel_export.py:218`).
+**With the exports (WP3).** These pins move with the exports:
+- `test_export_service.py:648` and `:675`: the PDF's dagger.
+- `:677`: its gap letter.
+- `:761`: its single Data notes heading.
+- `:813`: its count line.
+- `test_export_voice.py:188`: the heading order.
+- `frontend/tests/unit/chart-export.spec.ts:67-98`: the PNG's note for a legacy YoY.
+
+The workbook already keeps notes in comments (`test_excel_export.py:218`).
 
 **Scope notes.**
 - The filing page's "Change†" (`FinancialMetricsTable.tsx:222`) keeps its dagger. The two surfaces
@@ -545,7 +560,7 @@ heading. The workbook already keeps notes in comments (`test_excel_export.py:218
    and no inputs, so the reader cannot do the check the note asks for. The backfill (§1.5) fixes
    that; copy cannot.
 
-**Outcome.** The first-round reader put trust at 2/5 and had to guess at "a". They called the note
+**Outcome.** The current-page reader put trust at 2/5 and had to guess at "a". They called the note
 jargon and found the two superscripts easy to confuse
 ([transcript](verification/comprehension-transcripts.md#current-design-production-as-of-2026-10-24)).
 
@@ -562,7 +577,7 @@ the metrics table: neutral ink, 12px, one line while closed, and the detail one 
      select one to see both filings. Revenue FY2018, FY2019.
   Calculated before 10 October 2026, when we began keeping each calculation's inputs; shown as stored, with its inputs
      not linked. Operating margin FY2023, FY2024, FY2025; Net margin FY2023, FY2024, FY2025; Free cash flow FY2023,
-     FY2024, FY2025; Working capital FY2024; Current ratio FY2024.
+     FY2024, FY2025; Working capital FY2024; Current ratio FY2024. 11 figures; 16 growth figures built on them.
   Not in our data for these periods; shown as —, never as zero. Long-term debt FY2016, FY2017, FY2018.
   Select any figure to see its source filing, method and inputs. Automated checks confirm that reported figures come
      from the company's filed data (XBRL); they are not an audit of the company's accounts.
@@ -574,8 +589,8 @@ The screens are [`quiet-light-datanotes-closed.png`](screens/variants/quiet-ligh
 page, [`quiet-light-full.png`](screens/variants/quiet-light-full.png). The ring design's strip
 is in [`screens/`](screens/) as `final-*`.
 
-- **The summary line.** It names each marked note with its places and words. It counts the gaps
-  and the calculated figures, and nothing is in warning ink.
+- **The summary line.** It names each marked note with its places and words. It counts the gaps,
+  any figures with no check recorded, and the calculated figures. Nothing is in warning ink.
   - With no marked note it reads "Data notes · 3 not in our data, shown as — · 50 calculated from
     filed figures".
   - When every populated figure passed and no note exists, it keeps "No figures need review" with
@@ -587,8 +602,9 @@ is in [`screens/`](screens/) as `final-*`.
   locates the comparison.
 - **Chips.** The native `<details>` stays, so a Notes chip can open the fine print at its note.
 - **The landing sample** keeps its "sample data (one saved run)" label in the fine print (D-046).
-- **Where the copy lives.** The copy moves to `data_notes.REASONS` on the backend (WP2), so the PDF,
-  workbook and PNG print the same words. The prototype maps reasons on the frontend only.
+- **Where the copy lives.** The new words are written into `data_notes.REASONS` on the backend
+  (WP2). It already holds today's words, and the PDF prints them, so every surface that prints a
+  note's message prints the new ones. The prototype maps reasons on the frontend only.
 
 ### 3.3 Wording
 
@@ -597,6 +613,7 @@ is in [`screens/`](screens/) as `final-*`.
 | Summary, a note that questions the number | "11 figures need review (a)" (every review note in one count) | "ᵃ Revenue FY2018, FY2019: restated in a later filing; we show the later value": places and words, no count |
 | Summary, legacy calculations | inside the same count | detail only |
 | Summary, gaps | "3 unavailable (b)" | "3 not in our data, shown as —" |
+| Summary, no validation record | "18 figures have no validation record" (the landing sample) | "18 with no check recorded" |
 | Summary, calculated | "50 calculated †" | "50 calculated from filed figures" |
 | `legacy_calculation` | "This saved calculation predates the current source checks. Its inputs need review." | "Calculated before 10 October 2026, when we began keeping each calculation's inputs; shown as stored, with its inputs not linked." |
 | WP5 restatement | (none: the figure reads clean) | "Restated in a later filing: the year's own annual report gave a different value. We show the later filing's value; select one to see both filings." |
@@ -638,7 +655,7 @@ do. The full transcripts are in
 
 ### 3.5 What the tests leave open
 
-- **The restatement note reads like housekeeping** (§2.8, R2). WP5's dialog must show both values
+- **One reader took the restatement note for housekeeping** (§2.8, R2 retail). WP5's dialog must show both values
   and both filings with their dates. Growth across the restatement should read as not comparable,
   and figures calculated from the restated value should inherit the letter.
 - **A legacy figure carries no mark.** A reader learns of its incomplete record only in the fine
@@ -740,7 +757,7 @@ Rule and its existing tokens, and it leaves the table's interior to that plan.
 
 | Level | Token | Holds | Change from today |
 |---|---|---|---|
-| Ground | `background` | The page title, the **results header** (new: "Regeneron Pharmaceuticals, Inc. · REGN · Annual FY2016–FY2025 · data as of 24 Oct 2026"), the disclaimer | The results header is new. Data notes leave the ground for fine print under the metrics table (§3.2) |
+| Ground | `background` | The page title, the **results header** (new: "Regeneron Pharmaceuticals, Inc. · REGN · Annual FY2016–FY2025 · data as of 24 Oct 2026"), the disclaimer | The results header is new. Data notes move from under the KPI cards to fine print on the ground, directly under the metrics table card (§3.2) |
 | Control | `panel`, hairline, **no shadow** | The company and period form | Drops from `shadow-e2` to a hairline. An input area is not content, and today it outranks the results |
 | Content | `panel`, hairline, `shadow-e2` light / fill + hairline dark | KPI strip, charts, AI analysis, metrics table: one card per module | Unchanged; the chart grid stays one card per chart |
 | Overlay | `shadow-e4` / `e5` | Evidence modal, popovers | Unchanged |
@@ -767,11 +784,11 @@ openpyxl and Pillow. The full pass/fail table is in
 | Excel (identical across themes apart from export timestamps: correct) | Company in EDGAR capitals. Raw ISO timestamps. 14 review cells and 52 calculated cells carry only a comment triangle, so a figure that needs a check looks like any calculated one. The dagger appears only in the Overview count line. No print setup (orientation, fit to width). Title metadata empty, creator "openpyxl". |
 | Chart PNG (follows the page theme; background = panel token) | No fiscal-year range in the image, only '16–'25 ticks; the range is in the file name. On the Margins chart, the hollow-ring marker isn't in the key and the note letters are grey, not review ink. No DPI tag: at 6.5in wide it prints at 154 dpi, with axis text about 9pt. |
 
-**Under the quiet scheme (§2.5) the exports follow the page.** That settles two of the misses
-above outright:
-- The 52 DejaVu daggers go with the per-value dagger.
-- In the workbook, a figure in question gets a visible letter in the grid, while the comment
-  triangle stays the evidence for every note.
+**Under the quiet scheme (§2.5) the exports follow the page.**
+- **Settled.** The 52 DejaVu daggers go with the per-value dagger.
+- **Partly settled.** In the workbook, a figure in question gets a visible letter in the grid, and
+  the comment triangle stays the evidence for every note. A legacy cell keeps its comment only,
+  as it carries no mark on the page.
 
 The PDF's key-on-another-page miss becomes fine print under the table, on the same page.
 
@@ -803,7 +820,7 @@ no sibling branch exists yet. The computation is reproducible from the
 | **#1600 waitlist-source** (5) | 1 | · | · | · | · | · | · | · | · | · | 1 | 1 | 1 | — |
 
 Every shared file by pair is listed under the matrix in
-[verification/file-overlap.md](verification/file-overlap.md). Two shared files are worth naming:
+[verification/file-overlap.md](verification/file-overlap.md). Three points are worth naming:
 - `DESIGN.md` and `DESIGN_SYSTEM.md` (WP1, WP4, #1597, section-nav). The edit sites are disjoint:
   #1597 edits DESIGN.md line 343 and DESIGN_SYSTEM.md 907 and 2191–2203. Section-nav edits 482
   and 1210–1241. WP1 edits DESIGN.md's frontmatter components and line 498, and DESIGN_SYSTEM.md
@@ -847,7 +864,7 @@ These came out of this evaluation but sit in the sibling areas.
   - "Compressed 5.9pp" beside 30.9% → 24.9%, a rounding artefact (Y-F19).
   - Raw machine precision in the source list.
   - Templated repetition.
-  - "Calculated figure" against "Calculated from recorded inputs".
+  - "Calculated figure" against "Calculated from recorded inputs": the words are settled in §2.5.
 - **Table:**
   - Growth on negative bases (−7,527.1%).
   - Unexplained "—" in the window column.

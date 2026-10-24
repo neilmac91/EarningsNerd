@@ -60,9 +60,18 @@ The prompt and schema are in the workflow script, quoted in [methods](../methods
 
 **The leak and the re-test.** After the first run, the quiet and no-marks builds turned out to still
 show letters on the narrative's citation chips ("[8]ᵇ … [13]ᵇ"). `NarrativePane` builds its own
-notes model, and the variant filter missed it. Three evaluators named the unexplained "b". The
-filter was extended to `NarrativePane`, and R and S were re-run with identical prompts as R2 and
-S2. The first-run R and S verdicts are kept below but superseded.
+notes model, and the variant filter missed it. All four first-run quiet and no-marks evaluators
+named the unexplained "b". The filter was extended to `NarrativePane`, and R and S were re-run with
+identical prompts as R2 and S2. The first-run R and S verdicts are kept below but superseded.
+
+**The re-test changed more than the leak.** Between the runs, the quiet design's fine print also
+changed, in answer to the first-run quiet readers:
+- "the company's filings disagree" became "restated in a later filing; we show the later value";
+- "11 of them before we kept calculation records" moved from the summary line to the open detail.
+
+So R2 is not copy-controlled against R. Both first-run quiet readers had already found the revenue
+from the page with the older words. The current and ring designs carry their own words ("13 figures
+need review (a, b)", "2 need a source check"), because the words are part of each design.
 
 ## Results
 
@@ -99,10 +108,10 @@ knowledge or cross-checking, told it FY2018 revenue was in question.
    say there what is wrong.
    - Current, retail: "Mark only the figures that are actually doubtful, such as FY2018 revenue, with a single quiet neutral marker whose tap or hover says in plain words what is off and links the filing. Drop the orange '13 figures need review' count l…"
    - Ring, pro: "Don't remove the flags, and don't push them all into the fine print. The FY2018 revenue flag is the most useful thing on the page, and if I later found an unflagged wrong number, I'd stop trusting the whole product. Instead, swap the generic 'needs a source check' for one short line on each flag say…"
-   - No marks, retail: "Remove the unexplained superscript 'b' from routine calculated figures. The Sources list already says 'Calculated figure', and the table note already says which rows are derived, so a single line of fine print is enough. Use an inline mark only for the rare fi…"
+   - No marks (fixed), retail: "Add a visible per-cell data-quality marker, a small warning dot with a tooltip and a legend, on values that fail the page's own cross-checks. FY2018 is the example: revenue falls 12.4% while operating income rises 21.9% and margins jump to about 49%. Those fla…"
    - No marks (fixed), pro: "Add a visible per-cell data-quality marker with a legend for any figure that fails a cross-period consistency check, uses a different revenue concept than adjacent years, or comes from a restated or amended filing. Example: a small flag on FY2018 revenue readi…"
 4. **What the quiet design still lacks.** It concerns the questioned figure itself, so it belongs to WP5.
-   - R2 retail: "The note is worded like a routine housekeeping footnote rather than a warning, so I noticed it mainly because the numbers around it don't fit together."
+   - One of the two quiet readers (R2 retail): "The note is worded like a routine housekeeping footnote rather than a warning, so I noticed it mainly because the numbers around it don't fit together."
    - Both R2 evaluators asked for the as-filed value, the restating filing and its date at the figure
      (hover, tap or the evidence dialog). They also wanted growth across the restatement shown as not
      comparable rather than as −12.4%.
@@ -117,6 +126,16 @@ The full verdicts, every field, are in [notation-variant-test.json](notation-var
 ## The rules check (one agent, read-only, over the whole repository)
 
 > **Verdict.** Most of the quiet scheme can ship as a design change. No ADR touches it. No D-0xx founder decision requires the dagger, warning ink or the strip under the KPI cards: the Calculation Provenance Rule and the † came from #1191's design work, not a founder decision. The founder's 2026-10-10 analysis decisions (letters as the note mark, the period vocabulary, the glyph budget, "Unavailable" / "No figures need review") all stay compatible. No marketing, pricing, legal or brand promise depends on a visible per-figure mark. The PR must still update a lot together: DESIGN.md's rule with the .impeccable/design.json sidecar (designSnapshotParity), the Data note mark, Analysis table, Data notes strip and §10 entries in frontend/DESIGN_SYSTEM.md, the reconciliation lesson, the superseded parts of the redesign doc, this branch's own coherence.md and prototype, the in-product copy that names the † (NarrativePane:121, DataNotes:103), the landing demo and teaser layout, and the unit, e2e and backend export tests that pin daggers, legacy and unavailable letters and the strip's place. One item needs the founder's explicit word first. Item 2 removes the on-figure letter from figures whose stored validation is needs_review (legacy_calculation), from unavailable values and from figures with no validation record. The redesign records this as the founder's "never hide a note", and a P0 review enforced it for exactly this case. The founder's message leans this way, so a one-line confirmation recorded as a decision (narrowing the rule to "every note stays in the dialog and the data notes; only notes that question the number keep a mark") is enough. Keep this presentation-only: the note kind and totals stay as they are, legacy figures are never shown as validated, and the fine print never says "No figures need review" while a legacy note exists. Reclassifying legacy_calculation in the backend would change what counts as needs_review, a separate founder call that also breaks the strict note-kind decoder for tabs already open. The rest is design scope: decide whether the Q4 column-header and period-picker daggers stay, and handle the letters stored in saved snapshots, where a legacy note can keep "a" while the only visible letter is "b".
+
+**Read against this revision.** The rules check ran against the first version of `coherence.md`
+and the first quiet prototype. Checked by hand afterwards:
+- **Done.** The row for `coherence.md` (its lines :33, :230, :314 and :320) describes that first
+  version, and this revision carries it out.
+- **A cited line.** In `analysis-layout.spec.ts`, the dagger assertion is at :120; :116 is the loop
+  head.
+- **A pin's subject.** `test_export_service.py:813` pins the PDF's count line ("4 comparisons need
+  review · …"), not a "calculated †" clause. The only "1 calculated †" in the export tests is a
+  sample string at `test_export_voice.py:199`.
 
 Public promises that depend on visible marks:
 
