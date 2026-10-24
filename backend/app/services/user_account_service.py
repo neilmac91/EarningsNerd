@@ -38,9 +38,17 @@ def delete_user(db: Session, current_user: User) -> None:
     The account's row lock comes first, as every rotation and revocation of its refresh tokens takes
     it before their rows (``refresh_token_service.lock_user_tokens``). The cascade deletes those rows
     before the account's, so in the other order a logout or refresh racing the deletion deadlocks with
-    it, and PostgreSQL aborts one of the two."""
+    it, and PostgreSQL aborts one of the two.
+
+    The delete goes through the row this session holds, read after the lock (``db.get``): the route
+    releases its session before its third-party calls, so ``current_user`` is no longer this session's.
+    With no row (the account deleted since the lookup, as by a second deletion at once) it raises, and
+    the route answers 500, as it did before (the deletion-failure policy is F18's)."""
     db.query(User.id).filter(User.id == current_user.id).with_for_update().first()
-    db.delete(current_user)
+    user = db.get(User, current_user.id)
+    if user is None:
+        raise LookupError(f"Account {current_user.id} was deleted after its lookup")
+    db.delete(user)
     db.commit()
 
 

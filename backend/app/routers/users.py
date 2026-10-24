@@ -107,10 +107,10 @@ async def update_profile(
     data = payload.model_dump(exclude_unset=True)
 
     def update() -> Dict[str, Any]:
-        # The profile edit's session work, and each preference and bell route's, is one unit in the
-        # thread pool: its reads and writes, its payload and the release, so no checkout or statement
-        # waits on the event loop (lessons/ops-release-cached-filing-reads-before-yield.md). The export
-        # and the deletion still work their session on the loop (E171).
+        # The profile edit's session work, and each preference, bell and export route's, is one unit in
+        # the thread pool: its reads and writes, its payload and the release, so no checkout or statement
+        # waits on the event loop (lessons/ops-release-cached-filing-reads-before-yield.md). The deletion
+        # releases the auth lookup's connection before its third-party calls and writes in one unit after.
         try:
             return user_account_service.apply_profile_update(db, current_user, data)
         finally:
@@ -305,23 +305,34 @@ async def export_user_data(
 
     Provider logs, audit records, correspondence and backups are not included in this export.
     """
-    try:
-        export_data = user_data_export_service.build_user_data_export(db, current_user)
+    user_id = current_user.id
 
-        logger.info(f"User data export completed for user {current_user.id}")
+    def export() -> JSONResponse:
+        # One unit in the thread pool, as the profile edit's: the payload, its audit row and the release,
+        # then the response, rendered there too. The audit row's commit expires the account row, so
+        # nothing after it reads the row.
+        try:
+            export_data = user_data_export_service.build_user_data_export(db, current_user)
 
-        # Create audit log entry
-        log_data_export(db, current_user.id, current_user.email)
+            logger.info(f"User data export completed for user {user_id}")
+
+            # Create audit log entry
+            log_data_export(db, user_id, current_user.email)
+        finally:
+            filing_list_service.release_request_session(db)
 
         return JSONResponse(
             content=export_data,
             headers={
-                "Content-Disposition": f'attachment; filename="earningsnerd_data_export_{current_user.id}_{utcnow().strftime("%Y%m%d_%H%M%S")}.json"'
+                "Content-Disposition": f'attachment; filename="earningsnerd_data_export_{user_id}_{utcnow().strftime("%Y%m%d_%H%M%S")}.json"'
             }
         )
 
+    try:
+        return await run_in_threadpool(export)
+
     except Exception as e:
-        logger.error(f"Error exporting user data for user {current_user.id}: {str(e)}")
+        logger.error(f"Error exporting user data for user {user_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="We could not export your data. Try again in a moment."
@@ -347,6 +358,21 @@ def _cancel_billable_subscriptions(stripe_customer_id: str, user_id: int) -> Non
         logger.info(f"Cancelled Stripe subscription {subscription.id} for user {user_id}")
 
 
+def _request_posthog_deletion(user_id: int) -> None:
+    """Send PostHog the account's ``$delete`` event and wait for it to go. The flush waits up to 10 s, so the
+    account deletion runs this in a worker thread, off the event loop, holding no pooled connection."""
+    # PostHog GDPR deletion — keyed by distinct_id (user id). Do not echo the
+    # email back as a property; the $delete event already targets this person.
+    posthog_client.capture(
+        distinct_id=str(user_id),
+        event='$delete',
+        properties={
+            'deletion_timestamp': utcnow().isoformat()
+        }
+    )
+    posthog_client.flush()  # Ensure the event is sent immediately
+
+
 @router.delete("/me")
 async def delete_user_account(
     current_user: User = Depends(get_current_user),
@@ -365,16 +391,20 @@ async def delete_user_account(
     Stripe customer, audit and provider records can remain. Provider actions are best-effort;
     this endpoint does not establish universal erasure or a fixed legal retention period.
     """
+    # The auth lookup loaded these, so reading them makes no statement.
+    user_id = current_user.id
+    user_email = current_user.email
+    stripe_customer_id = current_user.stripe_customer_id
     try:
-        user_id = current_user.id
-        user_email = current_user.email
-        stripe_customer_id = current_user.stripe_customer_id
-
         # Log deletion for audit trail (before deleting user)
         logger.warning(
             f"USER DELETION: User {user_id} ({user_email}) account deletion initiated. "
             f"Stripe customer: {stripe_customer_id}"
         )
+
+        # The auth lookup's connection goes back before the third-party calls, so none of them holds
+        # one; the audit row and the deletion run after them as one unit in the thread pool (E171).
+        await run_in_threadpool(filing_list_service.release_request_session, db)
 
         # Delete from third-party services BEFORE deleting from database
         deletion_results = {
@@ -399,16 +429,7 @@ async def delete_user_account(
         # 2. Send deletion request to PostHog
         if POSTHOG_AVAILABLE and posthog_client:
             try:
-                # PostHog GDPR deletion — keyed by distinct_id (user id). Do not echo the
-                # email back as a property; the $delete event already targets this person.
-                posthog_client.capture(
-                    distinct_id=str(user_id),
-                    event='$delete',
-                    properties={
-                        'deletion_timestamp': utcnow().isoformat()
-                    }
-                )
-                posthog_client.flush()  # Ensure the event is sent immediately
+                await run_in_threadpool(_request_posthog_deletion, user_id)
                 deletion_results["posthog"] = "deletion_requested"
                 logger.info(f"PostHog deletion event sent for user {user_id}")
             except Exception as e:
@@ -426,16 +447,26 @@ async def delete_user_account(
                 logger.error(f"Failed to anonymize Sentry user {user_id}: {str(e)}")
                 deletion_results["sentry"] = f"error: {str(e)}"
 
-        # Create audit log BEFORE deleting user (so we can still reference user_id)
-        log_user_deletion(
-            db=db,
-            user_id=user_id,
-            user_email=user_email,
-            third_party_results=deletion_results
-        )
+        def record_and_delete() -> None:
+            # One unit in the thread pool: a failure is rolled back before the release.
+            try:
+                # Create audit log BEFORE deleting user (so we can still reference user_id)
+                log_user_deletion(
+                    db=db,
+                    user_id=user_id,
+                    user_email=user_email,
+                    third_party_results=deletion_results
+                )
 
-        # Delete user from database (cascade delete will handle related records)
-        user_account_service.delete_user(db, current_user)
+                # Delete user from database (cascade delete will handle related records)
+                user_account_service.delete_user(db, current_user)
+            except Exception:
+                user_account_service.rollback_account_deletion(db)
+                raise
+            finally:
+                filing_list_service.release_request_session(db)
+
+        await run_in_threadpool(record_and_delete)
 
         # Clear all session cookies (access + session-presence + refresh) using the same helpers
         # as logout. The previous code cleared a non-existent "auth_token" cookie, leaving the real
@@ -459,8 +490,7 @@ async def delete_user_account(
         }
 
     except Exception as e:
-        user_account_service.rollback_account_deletion(db)
-        logger.error(f"Error deleting user account {current_user.id}: {str(e)}")
+        logger.error(f"Error deleting user account {user_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="We could not delete your account. Contact support."
