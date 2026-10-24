@@ -18,9 +18,9 @@ One rule, two halves in this one module:
   the join, the contact form and the feedback submit must send their mails, the analysis exports
   render, and Stripe checkout and the portal make their Stripe calls, with no connection out.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
-  fails a session call on the loop in the route's own body above that route's ceiling, so a route
-  the burst does not list cannot add such a call unseen. Neither half sees a session handed to a
-  service that runs on the loop; that and the ratchet's other gaps are under its section below.
+  fails a session call on the loop in the route's own body, or the session handed to a call there,
+  above that route's ceiling, so a route the burst does not list cannot add either unseen. The
+  ratchet's gaps are under its section below.
 """
 
 import ast
@@ -1830,51 +1830,150 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 # The fix shape is a sync function handed to ``run_in_threadpool`` that does the session work, builds
 # the payload and releases the session (``get_summary``, ``get_what_changed``, ``get_company_peers``),
 # or a service that reads and releases in one unit, called through ``run_in_threadpool``. A service
-# called with the session on the loop checks out on the loop too, which this walk cannot see.
+# called with the session on the loop checks out on the loop too.
 #
 # An AST walk reads every ``async def`` under ``app/routers/`` that receives a session: a parameter
 # named ``db``, annotated with ``Session`` (bare or inside ``Annotated``, or through a module-level
 # alias of either) or defaulting to ``Depends(get_db...)``, plus any name the body binds to one
-# (``s = db``, ``s: Session = db``, ``(s := db)``). It counts each attribute the function's own body
-# reads off that session (``db.query(...)``, ``db.commit()``, ``fn = db.get``), nested ``async def``
-# bodies included since they run on the loop too. Nested sync functions and lambdas are skipped (the
-# thread pool runs them), and so is an uncalled method handed straight to the thread pool
-# (``run_in_threadpool(db.commit)``).
+# (``s = db``, ``s: Session = db``, ``(s := db)``). It counts each use of that session in the
+# function's own body, nested ``async def`` bodies included since they run on the loop too:
+#
+# - each attribute read off it (``db.query(...)``, ``db.commit()``, ``fn = db.get``);
+# - each call it is handed to, as an argument or a keyword's value (``service.read(db, 1)``,
+#   ``service.read(session=db)``, ``await service.aread(db)``), but a thread dispatcher's.
+#
+# Nested sync functions and lambdas are skipped (the thread pool runs them), and so is an uncalled
+# method, or the session itself, handed straight to the thread pool (``run_in_threadpool(db.commit)``,
+# ``run_in_threadpool(service.read, db, 1)``). A thread dispatcher is a call whose last name is in
+# ``_THREAD_DISPATCHERS``.
+#
+# Strict: the walk does not look inside a callee, so it counts each call the session is handed to,
+# though a callee may never use it on the loop: ``reporting_this_week_service.get_reporting_this_week``
+# hands its read to the thread pool itself (leaving that transaction for the finalizer, E171), and
+# ``admin_account_service.create_free_account``, a refusal, never uses the session. A session handed
+# to the thread pool inside ``functools.partial`` is counted too, as partial's argument. The route
+# hands its units to ``run_in_threadpool`` itself instead, with the session among that call's own
+# arguments, and stops handing the session to a callee that never uses it.
 #
 # A function's count may not exceed its ceiling in ``ON_LOOP_CEILINGS``; an unlisted function's
-# ceiling is 0, so every new async route starts clean. The ceilings are the counts when the ratchet
-# landed. A PR that moves a route's session work off the loop lowers its entry in the same diff and
+# ceiling is 0, so every new async route starts clean. The ceilings are the counts when the walk last
+# changed. A PR that moves a route's session work off the loop lowers its entry in the same diff and
 # deletes it at 0. The ratchet fails only above a ceiling, never below one: while other branches edit
 # routers in parallel (as #1325 did, moving the contact form's persistence into a service), an exact match would
 # turn main red when one of them merges with fewer calls, as ``test_router_orm_ceilings_allowlist.py``
 # explains. Lowering is therefore each fixing PR's job, checked in review.
 #
 # Out of reach, and left to the burst test above for the routes it lists and to review elsewhere: a
-# session handed to a service or helper that runs on the loop
-# (``auth_account_service.complete_password_reset(db, ...)`` in reset_password, E121),
-# a nested sync function or lambda called directly on the loop
-# instead of through the thread pool, a session reached through an attribute or a container, a
-# session the route opens itself from ``SessionLocal`` (it does not wait on the dependency's
-# finalizer), and an ORM instance's lazy load, or its refresh once a commit has expired it (the
-# generate stream's force branch, E104, has its own case above). ``test_walk_sees_each_form``
-# scores the walk on planted forms, the gaps among them, so a regression in the walk fails there
-# instead of passing every router vacuously.
+# session handed inside a container or a starred argument (``service.read((db, 1))``,
+# ``service.read(*[db])``), a nested sync function or lambda that closes over the session and is
+# called directly on the loop instead of through the thread pool, a session reached through an
+# attribute, a session the route opens itself from ``SessionLocal`` (it does not wait on the
+# dependency's finalizer), and an ORM instance's lazy load, or its refresh once a commit has expired
+# it (the generate stream's force branch, E104, has its own case above). ``test_walk_sees_each_form``
+# scores the walk on planted forms, the gaps and strict forms among them, so a regression in the walk
+# fails there instead of passing every router vacuously.
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 
 # (router file relative to backend/, function name) -> its ceiling. Counted by this file's own walk
 # when the ratchet landed (2026-10-16), after its PR took the summary read and its progress poll off
-# the loop. The blank line between entries keeps in-place number edits on different entries
-# mergeable in any order.
+# the loop, and recounted when the walk began counting the session handed to a call (2026-10-24):
+# each entry but the generate stream's and the two exports' is a route E121 (``auth.py``) or E171
+# names in ``tasks/todo.md``. The blank line between entries keeps in-place number edits on different
+# entries mergeable in any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
-    ("app/routers/summaries.py", "ask_filing_stream"): 1,
+    ("app/routers/admin.py", "audit_stale_xbrl"): 1,
+
+    ("app/routers/admin.py", "bulk_reset_stale_xbrl"): 1,
+
+    ("app/routers/admin.py", "clear_filing_xbrl"): 1,
+
+    ("app/routers/admin.py", "create_free_account"): 1,
+
+    ("app/routers/admin.py", "delete_filing_summary"): 1,
+
+    ("app/routers/admin.py", "list_feedback"): 1,
+
+    ("app/routers/admin.py", "list_invites"): 1,
+
+    ("app/routers/admin.py", "mint_invite"): 2,
+
+    ("app/routers/admin.py", "refresh_stale_summaries"): 2,
+
+    ("app/routers/admin.py", "resend_invite"): 2,
+
+    ("app/routers/admin.py", "reset_all_summaries"): 3,
+
+    ("app/routers/admin.py", "reset_filing"): 1,
+
+    ("app/routers/admin.py", "revoke_invite"): 2,
+
+    ("app/routers/admin.py", "update_feedback_status"): 3,
+
+    ("app/routers/auth.py", "apple_callback"): 6,
+
+    ("app/routers/auth.py", "apple_login"): 1,
+
+    ("app/routers/auth.py", "apple_start"): 1,
+
+    ("app/routers/auth.py", "change_password"): 2,
+
+    ("app/routers/auth.py", "google_callback"): 6,
+
+    ("app/routers/auth.py", "google_login"): 1,
+
+    ("app/routers/auth.py", "google_start"): 1,
+
+    ("app/routers/auth.py", "list_connections"): 1,
+
+    ("app/routers/auth.py", "register"): 5,
+
+    ("app/routers/auth.py", "reset_password"): 2,
+
+    ("app/routers/auth.py", "unlink_connection"): 2,
+
+    ("app/routers/auth.py", "verify_email"): 3,
+
+    ("app/routers/companies.py", "get_company"): 3,
+
+    ("app/routers/companies.py", "get_trending_companies"): 1,
+
+    ("app/routers/companies.py", "search_companies"): 3,
+
+    ("app/routers/dashboard.py", "get_upcoming_calendar"): 1,
+
+    ("app/routers/reporting_this_week.py", "get_reporting_this_week"): 1,
+
+    ("app/routers/saved_summaries.py", "delete_saved_summary"): 1,
+
+    ("app/routers/saved_summaries.py", "get_saved_summaries"): 1,
+
+    ("app/routers/saved_summaries.py", "save_summary"): 1,
+
+    ("app/routers/saved_summaries.py", "update_saved_summary"): 1,
+
+    ("app/routers/summaries.py", "ask_filing_stream"): 4,
 
     ("app/routers/summaries.py", "export_summary_csv"): 2,
 
     ("app/routers/summaries.py", "export_summary_pdf"): 2,
 
     ("app/routers/summaries.py", "generate_summary_stream"): 7,
+
+    ("app/routers/users.py", "delete_user_account"): 3,
+
+    ("app/routers/users.py", "export_user_data"): 2,
+
+    ("app/routers/users.py", "get_notification_preferences"): 1,
+
+    ("app/routers/users.py", "list_notifications"): 1,
+
+    ("app/routers/users.py", "mark_notifications_seen"): 2,
+
+    ("app/routers/users.py", "update_notification_preferences"): 2,
+
+    ("app/routers/users.py", "update_profile"): 1,
 }
 
 # The walk must keep seeing the routers' async session routes; fewer means a broken walk.
@@ -1915,7 +2014,8 @@ def _session_params(fn: ast.AsyncFunctionDef, aliases: set[str]) -> set[str]:
 
 
 def _on_loop_uses(fn: ast.AsyncFunctionDef, sessions: set[str]) -> list[tuple[int, str]]:
-    """``(line, attribute)`` for each session attribute read on the loop in ``fn``."""
+    """``(line, use)`` for each use of the session on the loop in ``fn``: an attribute read off it,
+    or ``handed to <callee>`` for a call it is handed to."""
     names = set(sessions)
     handed_to_thread: set[int] = set()
     uses: list[tuple[int, str]] = []
@@ -1925,6 +2025,10 @@ def _on_loop_uses(fn: ast.AsyncFunctionDef, sessions: set[str]) -> list[tuple[in
             return  # runs where it is handed, normally the thread pool
         if isinstance(node, ast.Call) and _tail(node.func) in _THREAD_DISPATCHERS:
             handed_to_thread.update(id(arg) for arg in node.args)
+        elif isinstance(node, ast.Call):
+            arguments = [*node.args, *(keyword.value for keyword in node.keywords)]
+            if any(isinstance(argument, ast.Name) and argument.id in names for argument in arguments):
+                uses.append((node.lineno, f"handed to {ast.unparse(node.func)}"))
         bound = node.value if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)) else None
         if isinstance(bound, ast.Name) and bound.id in names:
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
@@ -1987,12 +2091,12 @@ def test_async_routes_keep_the_request_session_off_the_loop():
         if len(sites) > ON_LOOP_CEILINGS.get((path, name), 0)
     }
     assert not over, (
-        "These async routes work their request session on the event loop beyond their ceiling "
-        f"(line, attribute): {over}. Move the session work, the payload and the release into one "
-        "sync function handed to run_in_threadpool, or into a service that reads and releases in "
-        "one unit, called through run_in_threadpool: a service called with the session on the loop "
-        "checks out on the loop too (lessons/ops-release-cached-filing-reads-before-yield.md). Do "
-        "not raise a ceiling to pass."
+        "These async routes work their request session on the event loop, or hand it to a call "
+        f"there, beyond their ceiling (line, use): {over}. Move the session work, the payload and "
+        "the release into one sync function handed to run_in_threadpool, or into a service that "
+        "reads and releases in one unit, called through run_in_threadpool with the session as its "
+        "argument: a service called with the session on the loop checks out on the loop too "
+        "(lessons/ops-release-cached-filing-reads-before-yield.md). Do not raise a ceiling to pass."
     )
 
 
@@ -2004,6 +2108,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 import anyio
 import asyncio
+import functools
 
 SessionDep = Annotated[Session, Depends(get_db)]
 
@@ -2083,8 +2188,52 @@ async def clean_no_session(request: Request):
 def clean_sync_route(db: Session = Depends(get_db)):
     return db.query(Row).all()
 
-async def gap_service_on_the_loop(db: Session = Depends(get_db)):
+async def flags_a_service_on_the_loop(db: Session = Depends(get_db)):
     return service.read(db, 1)
+
+async def flags_a_keyword_handoff(db: Session = Depends(get_db)):
+    return service.read(row_id=1, session=db)
+
+async def flags_one_call_handed_the_session_twice(db: Session = Depends(get_db)):
+    return service.copy(db, target=db)
+
+async def flags_an_awaited_service(db: Session = Depends(get_db)):
+    return await service.aread(db, 1)
+
+async def flags_a_handoff_through_an_alias(db: Session = Depends(get_db)):
+    held = db
+    return service.read(held, 1)
+
+async def flags_a_sync_def_called_with_the_session(db: Session = Depends(get_db)):
+    def unit(session):
+        return session.query(Row).all()
+    return unit(db)
+
+async def flags_a_handoff_in_a_nested_async_def(db: Session = Depends(get_db)):
+    async def stream():
+        yield service.read(db, 1)
+    return stream()
+
+async def flags_a_handoff_and_a_read(db: Session = Depends(get_db)):
+    rows = service.read(db, 1)
+    db.commit()
+    return rows
+
+async def clean_service_to_the_pool(db: Session = Depends(get_db)):
+    await run_in_threadpool(service.read, db, 1)
+    await run_in_threadpool(service.read, row_id=1, session=db)
+    await anyio.to_thread.run_sync(service.read, db)
+    await asyncio.get_running_loop().run_in_executor(None, service.read, db)
+    return await asyncio.to_thread(service.read, db, 1)
+
+async def strict_partial_to_the_pool(db: Session = Depends(get_db)):
+    return await run_in_threadpool(functools.partial(service.read, db, 1))
+
+async def gap_session_in_a_container(db: Session = Depends(get_db)):
+    return service.read((db, 1))
+
+async def gap_session_starred(db: Session = Depends(get_db)):
+    return service.read(*[db], **{"row_id": 1})
 
 async def gap_closure_called_on_the_loop(db: Session = Depends(get_db)):
     def unit():
@@ -2098,11 +2247,11 @@ async def gap_session_in_an_attribute(holder: Holder):
     return holder.db.query(Row).all()
 '''
 
-# Function -> how many on-loop session reads the walk must find. ``gap_`` forms break the rule but
-# are out of the walk's reach (the header names them); they are planted so a widened walk updates
-# this table on purpose. The walk reads no other planted function: ``clean_no_session`` and
-# ``gap_session_in_an_attribute`` receive no session, and ``clean_sync_route`` is a sync route
-# (FastAPI runs it in the thread pool).
+# Function -> how many on-loop session uses the walk must find. ``gap_`` forms break the rule but
+# are out of the walk's reach, and ``strict_`` forms keep it but are counted (the header names
+# both); they are planted so a widened or narrowed walk updates this table on purpose. The walk
+# reads no other planted function: ``clean_no_session`` and ``gap_session_in_an_attribute`` receive
+# no session, and ``clean_sync_route`` is a sync route (FastAPI runs it in the thread pool).
 _PLANTED_COUNTS = {
     "flags_a_query_chain": 1,
     "flags_each_call_in_branches": 4,
@@ -2120,7 +2269,18 @@ _PLANTED_COUNTS = {
     "clean_threadpool_closure": 0,
     "clean_uncalled_method_to_the_pool": 0,
     "clean_lambda_to_the_pool": 0,
-    "gap_service_on_the_loop": 0,
+    "flags_a_service_on_the_loop": 1,
+    "flags_a_keyword_handoff": 1,
+    "flags_one_call_handed_the_session_twice": 1,
+    "flags_an_awaited_service": 1,
+    "flags_a_handoff_through_an_alias": 1,
+    "flags_a_sync_def_called_with_the_session": 1,
+    "flags_a_handoff_in_a_nested_async_def": 1,
+    "flags_a_handoff_and_a_read": 2,
+    "clean_service_to_the_pool": 0,
+    "strict_partial_to_the_pool": 1,
+    "gap_session_in_a_container": 0,
+    "gap_session_starred": 0,
     "gap_closure_called_on_the_loop": 0,
 }
 
