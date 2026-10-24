@@ -9,7 +9,7 @@
 
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { ENABLE_CALENDAR } from '@/lib/featureFlags'
+import { ENABLE_CALENDAR, LOGO_DEV_ENABLED } from '@/lib/featureFlags'
 import EarningsCalendarPage from '@/features/calendar/components/EarningsCalendarPage'
 
 export const metadata: Metadata = {
@@ -20,5 +20,11 @@ export const metadata: Metadata = {
 
 export default function CalendarRoute() {
   if (!ENABLE_CALENDAR) notFound()
-  return <EarningsCalendarPage />
+  return (
+    <>
+      {/* Every row carries a company mark once the week's events answer; the handshake runs with the HTML. */}
+      {LOGO_DEV_ENABLED && <link rel="preconnect" href="https://img.logo.dev" />}
+      <EarningsCalendarPage />
+    </>
+  )
 }

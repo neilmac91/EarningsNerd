@@ -3,7 +3,7 @@ filings it owns.
 
 The scan services used to send first and log afterwards, so a concurrent run could send twice
 and a failed attempt suppressed every retry. Now selection persists a ``DeliveryBatch`` (frozen
-subject, HTML and plain text, a provider idempotency key bound to that payload) with its ordered
+addresses, subject, HTML and plain text, a provider idempotency key bound to that payload) with its ordered
 ``DeliveryItem`` rows BEFORE any external send, and delivery moves through fenced conditional
 transitions (``notification_delivery_service``). The compatibility ``NotificationLog`` row and the
 watchlist watermark are written only when the provider accepts the email.
@@ -28,6 +28,14 @@ STATUS_AMBIGUOUS = "ambiguous"    # acceptance unknown; never auto-dispatched ag
 STATUS_SUPPRESSED = "suppressed"  # current user/watch/preference/entitlement state forbids dispatch
 TERMINAL_STATUSES = frozenset({STATUS_ACCEPTED, STATUS_AMBIGUOUS, STATUS_SUPPRESSED})
 
+# Old images select/claim/reap only the four legacy spellings above. Every live state of a
+# new Reply-To envelope stays outside that vocabulary, including preparation and sending leases.
+# Terminal outcomes are shared. Keep these strings within the existing VARCHAR(20).
+REPLY_TO_STATUSES = {
+    status: f"reply_to:{status}"
+    for status in (STATUS_READY, STATUS_CLAIMED, STATUS_SENDING, STATUS_RETRYABLE)
+}
+
 
 class DeliveryBatch(Base):
     __tablename__ = "earningsnerd_delivery_batches"
@@ -45,6 +53,9 @@ class DeliveryBatch(Base):
     # Frozen at selection: a retry replays these bytes, never a re-query or a re-render.
     to_email = Column(Text, nullable=False)
     from_email = Column(Text, nullable=False)
+    # Frozen with the envelope. NULL preserves the omitted header on pre-Reply-To batches,
+    # including those already attempted under their persisted provider idempotency key.
+    reply_to = Column(Text, nullable=True)
     expected_item_count = Column(Integer, nullable=False)
     subject = Column(Text, nullable=False)
     body_html = Column(Text, nullable=False)
