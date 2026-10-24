@@ -362,7 +362,8 @@ function readPostmodifiers(tokens: Token[], phrase: NounPhrase): NounPhrase {
   let i = phrase.end
   for (;;) {
     const token = tokens[i]
-    if (!token) break
+    // A condition's opening words are its clause's, not the phrase's ("each endpoint except when it is public").
+    if (!token || conditionAt(tokens, i)) break
     if (token.text === ',') {
       const close = asideEnd(tokens, i)
       if (close < 0) break

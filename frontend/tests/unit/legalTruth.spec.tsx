@@ -2411,6 +2411,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Every endpoint [in our API] requires a login.</p>', true],
       ['<p>While the docs are public, every endpoint requires a login.</p>', true],
       ['<p>While search is public, each endpoint requires a token.</p>', true],
+      // A condition's opening words are its clause's, not a phrase's, so "except when" after the endpoints is a condition
+      // that narrows, not a preposition with no object, which would leave them whole.
+      ['<p>A login is required for each endpoint except when it is public.</p>', false],
+      ['<p>We require authentication on every endpoint except when it is public.</p>', false],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
