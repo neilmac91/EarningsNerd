@@ -1,0 +1,332 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "audit_closeout_metadata_snapshot",
+  "snapshot_at": "2026-10-24T00:44:10Z",
+  "timezone": "Etc/UTC",
+  "repository": "neilmac91/EarningsNerd",
+  "scope": "Records-only audit disposition snapshot after the founder authorized addressing comments and managing merges. Two bounded fixes have merged; #1554 remains implemented and pending its required review. No new application changes are included in the records PR.",
+  "main_source_snapshot": {
+    "sha": "b8fe9a51f1ea6a37f2f7cae26f11cb2e986edf9d",
+    "read_at": "2026-10-24T00:43:03Z",
+    "scope": "Local origin/main source used for adjacent resend claims and open owner rows; not a claim about the production revision."
+  },
+  "history_preservation": {
+    "original_audit_date": "2026-10-15",
+    "original_audit_source_sha": "1f12fc835fcbf525042473ab0e988b4827734f38",
+    "original_receipt_at": "2026-10-23T21:41:17.175161+00:00",
+    "instruction": "Preserve original captures, capture dates, and earlier verification/continuation receipts. This file is a later snapshot, not a rewrite of their observations.",
+    "archive_pr": 1340,
+    "archive_merge_sha": "37e33944e2128111e4eb7ca280fbb3be2f672a71",
+    "archive_merged_at": "2026-10-23T21:08:02Z",
+    "verification_checked_at_utc": "2026-10-23T21:43:08.089386+00:00"
+  },
+  "owner_prs": {
+    "1535": {
+      "number": 1535,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1535",
+      "title": "fix(auth): forgot-password and resend-verification answer the same way for every address and send their mail after the response, capped and retried (F60)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "905ff4558e5374ccf3f4d4a9feaf22140719ce03",
+      "merged_at": "2026-10-23T23:48:49Z",
+      "merge_sha": "1cbe3dcc28808413f0ed6027c45aae1f37ad73d2",
+      "api_updated_at": "2026-10-24T00:23:32Z"
+    },
+    "1542": {
+      "number": 1542,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1542",
+      "title": "brand(chrome): the open phone menu closes when focus leaves the site header from the keyboard or a script, before the next control is scrolled into view; a press leaves it open (E167)",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "80ebac07f6143922e46d2423ebfbda4534adac8b",
+      "merged_at": "2026-10-24T00:17:06Z",
+      "merge_sha": "979668cf0959fe9ef963b7a428ffbc6862e4b7e7",
+      "api_updated_at": "2026-10-24T00:17:08Z"
+    },
+    "1555": {
+      "number": 1555,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1555",
+      "title": "feat(marks): company marks on a white tile at their exact pixel size, with the site's own fallback",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "16a58f39b5420a172b7473ee5d28c3a702520348",
+      "merged_at": "2026-10-24T00:00:21Z",
+      "merge_sha": "a8779713811ded2b3d853dea321b61573e3d9401",
+      "api_updated_at": "2026-10-24T00:06:45Z"
+    },
+    "1558": {
+      "number": 1558,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1558",
+      "title": "brand(header): the full bar shows from 72rem and the compact bar below it, so the bar keeps one line and the auth check no longer changes it (E173, E175)",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "head_sha": "3efbf071fea815afcfbde3b2e544d291890cbd0b",
+      "merged_at": null,
+      "api_updated_at": "2026-10-24T00:39:54Z"
+    }
+  },
+  "production_receipt": {
+    "verified_at": "2026-10-24T00:03:54Z",
+    "verified_commit": "15d1a9beb6d7ced884ea4ed5858dc4d33cc0580c",
+    "deployment_id": 7291346071,
+    "environment": "Production",
+    "status": "success",
+    "description": "Deployment has completed",
+    "deployment_status_created_at": "2026-10-24T00:03:25Z",
+    "deployment_url": "https://earnings-nerd-qvgcgjlk2-neil-mac-aogains-projects.vercel.app",
+    "github_status_target_url": "https://vercel.com/neil-mac-aogains-projects/earnings-nerd/82q4uDRPJWcHmJYZANTRcZDzXYLu",
+    "github_deployment_status_api_url": "https://api.github.com/repos/neilmac91/EarningsNerd/deployments/7291346071/statuses",
+    "verification_method": "GitHub Vercel commit status and vercel[bot] deployment status; read-only public HTTP GETs.",
+    "http_checks": [
+      {
+        "url": "https://earningsnerd.io/",
+        "final_url": "https://www.earningsnerd.io/",
+        "redirect_status": 308,
+        "status": 200,
+        "checked_at": "2026-10-24T00:03:53Z",
+        "content": "Expected landing hero appears in HTML."
+      },
+      {
+        "url": "https://earningsnerd.io/check-email",
+        "final_url": "https://www.earningsnerd.io/check-email",
+        "redirect_status": 308,
+        "status": 200,
+        "checked_at": "2026-10-24T00:03:54Z",
+        "content": "HTML title Check your inbox | EarningsNerd."
+      }
+    ],
+    "limitations": [
+      "This is the dated 15d1a9be deployment receipt; no later serving revision is asserted.",
+      "Vercel direct inspection returned 403 because the connector lacked team access; no permissions were changed.",
+      "GitHub names the environment Production and reports success, while its legacy production_environment boolean is false.",
+      "Public response headers do not expose a commit SHA, so these HTTP reads do not independently bind the custom-domain response to the deployment revision.",
+      "No browser interaction, email send or delivery verification was performed."
+    ]
+  },
+  "residual_source_boundaries": [
+    {
+      "item": "Shared resend confirmations",
+      "classification": "still_reproducible_source",
+      "source_sha": "b8fe9a51f1ea6a37f2f7cae26f11cb2e986edf9d",
+      "paths": [
+        {
+          "path": "frontend/features/auth/components/VerificationBanner.tsx",
+          "line": 86,
+          "claim": "Verification email sent. Check your inbox."
+        },
+        {
+          "path": "frontend/features/auth/components/EmailVerificationModal.tsx",
+          "line": 166,
+          "claim": "New link sent. Only the newest link works. Not there in a minute or two? Check your spam folder."
+        },
+        {
+          "path": "frontend/features/auth/components/EmailVerificationModal.tsx",
+          "line": 193,
+          "claim": "Link sent"
+        }
+      ],
+      "boundary": "#1553 resolves /check-email only; merged #1535 supplies deferred-mail behavior and does not correct these frontend confirmations. An opaque success response does not prove dispatch. Keep a bounded frontend follow-up; do not claim app-wide closure.",
+      "browser_reproduction": false
+    },
+    {
+      "item": "E173 and E175 desktop line count",
+      "classification": "already_owned_elsewhere",
+      "owner_pr": 1558,
+      "boundary": "#1558 owns the full/compact-bar switch and desktop line-count correction. Its pending implementation is not a completed audit fix."
+    },
+    {
+      "item": "Remaining E175 geometry",
+      "classification": "already_owned_elsewhere",
+      "owner": "E175",
+      "boundary": "#1558 explicitly leaves desktop horizontal reservation and phone wordmark/shift handling to E175's own PR/ruling. Do not erase this owner or reuse October 15 widths as current measurements."
+    },
+    {
+      "item": "E156 live-example badge reflow",
+      "classification": "already_owned_elsewhere",
+      "owner": "E156",
+      "source_sha": "b8fe9a51f1ea6a37f2f7cae26f11cb2e986edf9d",
+      "boundary": "Existing open owner on main for the live hero card at enlarged text; this metadata pass did not perform a new geometry measurement."
+    },
+    {
+      "item": "DS-12 loaded company logo rendering",
+      "classification": "resolved",
+      "owner_pr": 1555,
+      "boundary": "Merged white-tile/exact-size/fallback implementation resolves the unbacked-logo mechanism. F64 provider asset reports and attribution confirmation remain founder-account work, not a new audit UI decision. Historical contrast values are not current measurements."
+    },
+    {
+      "item": "E167 phone-menu focus",
+      "classification": "resolved",
+      "owner_pr": 1542,
+      "boundary": "Merged disclosure focus/escape/navigation behavior resolves the owned focus defect. This metadata pass relies on that PR's recorded verification, not a new browser run."
+    },
+    {
+      "item": "DS-04/DS-05 landmarks and fallback headings",
+      "classification": "already_owned_elsewhere",
+      "owner_pr": 1554,
+      "boundary": "Implemented and reviewed locally on b2e394f2; ready PR still awaits its required Codex review and merge. Do not queue a second implementation or label it resolved on main."
+    }
+  ],
+  "pending_finalize": {
+    "records_pr": 1541,
+    "semantics_pr": 1554,
+    "semantics_merged": false,
+    "semantics_next_step": "Wait for the current review to complete. If it remains Running for an hour, apply the documented abandoned-review recovery no earlier than 2026-10-24T01:13:38Z, then require a clean review and checks before merge.",
+    "production_after_semantics": "Not observed; leave absent until an actual later receipt.",
+    "note": "Records can finalize as this dated snapshot independently of #1554. Its pending status remains historically accurate if #1554 merges later."
+  },
+  "evidence_window": {
+    "started_at": "2026-10-24T00:42:39Z",
+    "ended_at": "2026-10-24T00:44:10Z"
+  },
+  "main": "b8fe9a51f1ea6a37f2f7cae26f11cb2e986edf9d",
+  "implementation_merges": [
+    {
+      "number": 1553,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1553",
+      "title": "fix(auth): keep check-email resend confirmation conditional",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "ed7a6ce4b354e4b0467b336b8900fda23ed45389",
+      "merged_at": "2026-10-24T00:02:06Z",
+      "api_updated_at": "2026-10-24T00:02:08Z",
+      "codex_review": {
+        "url": "https://github.com/neilmac91/EarningsNerd/pull/1553#issuecomment-6377177798",
+        "comment_id": 6377177798,
+        "comment_updated_at": "2026-10-24T00:00:25Z",
+        "trigger": "Draft marked ready",
+        "commit_sha": "ed7a6ce4b354e4b0467b336b8900fda23ed45389",
+        "has_any_findings": false,
+        "has_unresolved_findings": false,
+        "status": "completed"
+      },
+      "finding_scope": "Resolves /check-email resend confirmation; shared banner/modal claims remain.",
+      "review_gate": {
+        "conclusion": "success",
+        "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/40042673035/job/120717521397",
+        "completed_at": "2026-10-24T00:01:07Z"
+      },
+      "ci": {
+        "conclusion": "success",
+        "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/40036480489"
+      },
+      "merge_commit_sha": "04b823d7a66bdf3ca32a5909c765ed3aa33829b7"
+    },
+    {
+      "number": 1554,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1554",
+      "title": "fix(a11y): retain main landmarks and company fallback headings",
+      "state": "open",
+      "merged": false,
+      "draft": false,
+      "head_sha": "b2e394f233d86d77938fbff8417c9ae57510ea64",
+      "merged_at": null,
+      "api_updated_at": "2026-10-24T00:16:57Z",
+      "codex_review": {
+        "url": "https://github.com/neilmac91/EarningsNerd/pull/1554#issuecomment-6377351644",
+        "comment_id": 6377351644,
+        "comment_updated_at": "2026-10-24T00:13:41Z",
+        "trigger": "Draft marked ready",
+        "commit_sha": "b2e394f233d86d77938fbff8417c9ae57510ea64",
+        "has_any_findings": null,
+        "has_unresolved_findings": null,
+        "status": "running",
+        "running_since": "2026-10-24T00:13:37.862914Z",
+        "earliest_abandoned_recovery": "2026-10-24T01:13:38Z"
+      },
+      "finding_scope": "DS-04/DS-05 implementation and AuthShell support-address wrapping are prepared on ready PR; not yet on main.",
+      "ci": {
+        "conclusion": "success",
+        "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/40043846401",
+        "e2e_completed_at": "2026-10-24T00:28:54Z"
+      },
+      "review_gate": {
+        "conclusion": "failure",
+        "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/40043901624/job/120721070070",
+        "completed_at": "2026-10-24T00:33:57Z",
+        "boundary": "Required review remains Running in the independently read Codex summary. CI success does not satisfy this gate."
+      },
+      "state_note": "Ready for review; implemented and CI green, awaiting external Codex review and merge.",
+      "local_validation": {
+        "lint": "passed",
+        "typecheck": "passed",
+        "unit_files": 282,
+        "unit_tests": 3884,
+        "build": "passed",
+        "semantics_browser_tests": 40,
+        "auth_reflow_browser_tests": 27,
+        "review_comment_fix": "AuthShell uses overflow-wrap:anywhere and wbr after @; painted address keeps support@ / earningsnerd.io at the reviewed sizes in both themes.",
+        "support_wrap_mutation": "Restoring break-all failed all four enlarged-text cases; exact restoration passed all eight focused cases."
+      },
+      "chief_design_receipt": "https://github.com/neilmac91/EarningsNerd/pull/1554#issuecomment-6377392864"
+    },
+    {
+      "number": 1557,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1557",
+      "title": "fix(a11y): keep mobile research sheets above page chrome",
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "654ee1f62c8c461b6b618c45857eb9fc230251bc",
+      "merged_at": "2026-10-24T00:02:46Z",
+      "api_updated_at": "2026-10-24T00:02:47Z",
+      "codex_review": {
+        "url": "https://github.com/neilmac91/EarningsNerd/pull/1557#issuecomment-6377178470",
+        "comment_id": 6377178470,
+        "comment_updated_at": "2026-10-24T00:01:14Z",
+        "trigger": "Draft marked ready",
+        "commit_sha": "654ee1f62c8c461b6b618c45857eb9fc230251bc",
+        "has_any_findings": false,
+        "has_unresolved_findings": false,
+        "status": "completed"
+      },
+      "finding_scope": "Resolves DS-03 phone sheet/header layering and citation portal host/focus behavior; standalone Ask has source/unit coverage, routed Source has browser coverage.",
+      "review_gate": {
+        "conclusion": "success",
+        "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/40042674929/job/120717576678",
+        "completed_at": "2026-10-24T00:01:41Z"
+      },
+      "ci": {
+        "conclusion": "success",
+        "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/40037901421"
+      },
+      "chief_design_receipt": "https://github.com/neilmac91/EarningsNerd/pull/1557#issuecomment-6376629558",
+      "merge_commit_sha": "15d1a9beb6d7ced884ea4ed5858dc4d33cc0580c"
+    }
+  ],
+  "source_inventory": {
+    "sha": "b8fe9a51f1ea6a37f2f7cae26f11cb2e986edf9d",
+    "list_ceilings": 17,
+    "legitimate_z_maxima": 2,
+    "copied_card_shells": 7,
+    "stale_active_statements": 5,
+    "deferred_page_loaders": 3,
+    "limits": "Source inspection and existing owner evidence, not fresh screenshots or geometry measurements."
+  },
+  "records_review": {
+    "tier": "records",
+    "method": "One independent read-only pass, with a bounded final delta check after the snapshot is assembled.",
+    "preflight_blockers": 0,
+    "preflight_should_fixes": 2,
+    "resolution": "Both preflight wording issues corrected. Bounded final delta review independently verified ownership, merge/review metadata, links, chronology and preserved archive/receipts.",
+    "status": "completed",
+    "blockers": 0,
+    "should_fix": 0
+  },
+  "archive_and_link_validation": {
+    "local_links_and_anchors_checked": 104,
+    "remote_urls_counted_not_fetched": 149,
+    "original_files_verified": 389,
+    "captures": 339,
+    "capture_bytes": 1596853,
+    "capture_manifest_sha256": "9412d7234033c8f945b2568f71129a1d144b0a3848b788ec3fe015fffa01a499",
+    "original_record_manifest_sha256": "fdfb511130fb7895ee6ef9dfba7b718fe6f56b9729cd4e9ca27177a615af0eec",
+    "original_verification_receipt_unchanged": true,
+    "errors": [],
+    "continuation_receipt_unchanged": true
+  }
+}
