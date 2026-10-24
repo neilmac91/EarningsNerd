@@ -9,8 +9,9 @@ Keeps the "what should this user be alerted about, and how" logic in one place:
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import NotificationPreferences
@@ -18,19 +19,44 @@ from app.services.entitlements import Entitlements, get_entitlements
 from app.models import User
 
 
-def get_or_create_preferences(db: Session, user_id: int, *, commit: bool = True) -> NotificationPreferences:
-    """Return the user's prefs row, creating one with defaults if absent."""
-    prefs = (
+def _preferences(db: Session, user_id: int) -> Optional[NotificationPreferences]:
+    """The user's prefs row: the get-or-create's check."""
+    return (
         db.query(NotificationPreferences)
         .filter(NotificationPreferences.user_id == user_id)
         .first()
     )
-    if prefs is None:
-        prefs = NotificationPreferences(user_id=user_id)
-        db.add(prefs)
-        if commit:
-            db.commit()
-            db.refresh(prefs)
+
+
+def get_or_create_preferences(db: Session, user_id: int, *, commit: bool = True) -> NotificationPreferences:
+    """Return the user's prefs row, creating one with defaults if absent.
+
+    Two callers can both find no row: two first requests of one account, which run at once in the
+    thread pool or on the API's two instances, or a request and the alert scanner. The insert runs
+    under a SAVEPOINT, so the second insert's clash on the unique ``user_id`` rolls back only that
+    insert, and the caller reads the row the first one stored: PostgreSQL holds the second insert
+    until the first's transaction ends, and the read after it sees that commit (READ COMMITTED).
+    The caller's pending state is flushed first, so a clash caught here can only be this insert's.
+    On SQLite (the tests), when the caller has written nothing yet, the SAVEPOINT opens the transaction
+    and its RELEASE commits it, so there the update's ``commit=False`` insert is stored at once;
+    PostgreSQL holds it until the caller commits."""
+    prefs = _preferences(db, user_id)
+    if prefs is not None:
+        return prefs
+    db.flush()
+    prefs = NotificationPreferences(user_id=user_id)
+    try:
+        with db.begin_nested():  # SAVEPOINT: a unique-user_id clash must not poison the transaction
+            db.add(prefs)
+            db.flush()
+    except IntegrityError:
+        stored = _preferences(db, user_id)
+        if stored is None:
+            raise
+        return stored
+    if commit:
+        db.commit()
+        db.refresh(prefs)
     return prefs
 
 
