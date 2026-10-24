@@ -44,11 +44,12 @@ from sqlalchemy.pool import QueuePool
 
 from app import database
 from app.models import (
-    Company, Filing, FilingContentCache, FinancialFact, NotableFiling, Summary, SummaryGenerationProgress,
-    WaitlistSignup,
+    Company, EarningsEvent, Filing, FilingContentCache, FinancialFact, NotableFiling, Summary,
+    SummaryGenerationProgress, WaitlistSignup,
 )
-from app.routers import companies, filings, notable_filings, watchlist
-from app.services import filing_list_service, notable_filings_service
+from app.models.earnings import STATUS_REPORTED
+from app.routers import companies, filings, notable_filings, reporting_this_week, watchlist
+from app.services import filing_list_service, notable_filings_service, reporting_this_week_service
 from app.services.filing_amendment_service import expand_amendment_forms
 from app.services.rate_limiter import RateLimiter
 from app.utils.datetimes import utcnow
@@ -83,6 +84,7 @@ pytestmark = pytest.mark.usefixtures("collection_ready")
     ("/api/waitlist/status/reader@example.com", "waitlist_status"),
     ("/api/waitlist/status/nobody@example.com", "waitlist_missing"),
     ("/api/notable_filings", "notable"),
+    ("/api/reporting_this_week", "reporting"),
 ])
 async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     monkeypatch, tmp_path, path, payload_kind
@@ -106,6 +108,7 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     SummaryGenerationProgress.__table__.create(engine)
     WaitlistSignup.__table__.create(engine)
     NotableFiling.__table__.create(engine)
+    EarningsEvent.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
     accession = "0000000001-26-000001"
     with sessions() as db:
@@ -135,6 +138,12 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
                                  company_name="Cached fixture", form="10-K", reason="annual_report", score=55,
                                  filed_date=notable_filings_service.today_eastern(),
                                  sec_url="https://example.test/filing/"))
+        if payload_kind == "reporting":
+            # The stored company's report this week, already out, so the strip shows it on any weekday.
+            monday, _ = reporting_this_week_service.current_market_week()
+            db.add(EarningsEvent(ticker="CACHED", company_name="Cached fixture", event_date=monday,
+                                 fiscal_period_end=monday - timedelta(days=30), event_time="amc",
+                                 status=STATUS_REPORTED, anticipation_score=100))
         if payload_kind == "progress_stalled":
             stalled_at = utcnow() - timedelta(hours=1)
             db.add(SummaryGenerationProgress(filing_id=filing.id, stage="analyzing",
@@ -184,6 +193,16 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
         monkeypatch.setattr(notable_filings, "notable_filings_service", reader)
         monkeypatch.setattr(settings, "NOTABLE_FILINGS_ENABLED", True)
         monkeypatch.setattr(notable_filings_service, "MIN_COMPANIES", 1)
+    if payload_kind == "reporting":
+        from app.config import settings
+
+        # One company enough to serve the strip, no index filter, and a cache that never holds, so
+        # each of the eight requests reads.
+        strip = reporting_this_week_service.ReportingThisWeekService()
+        strip._cache_ttl = timedelta(0)
+        monkeypatch.setattr(reporting_this_week, "reporting_this_week_service", strip)
+        monkeypatch.setattr(reporting_this_week_service, "MIN_COMPANIES", 1)
+        monkeypatch.setattr(settings, "CALENDAR_INDEX_FILTER_ENABLED", False)
     filing_list_service._mark_filings_synced("CACHED", expand_amendment_forms(["10-K", "10-Q"]), company_id)
     try:
         async with httpx.AsyncClient(
@@ -247,6 +266,10 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
             elif payload_kind == "notable":
                 # The feed: its window and summary reads and the release in one unit off the event loop.
                 assert [(row["ticker"], row["form"]) for row in payload["filings"]] == [("CACHED", "10-K")]
+            elif payload_kind == "reporting":
+                # The strip: its week's read and the release in one unit off the event loop.
+                assert payload["status"] == "ok"
+                assert [(row["ticker"], row["time"]) for row in payload["companies"]] == [("CACHED", "amc")]
             else:
                 assert payload == {"detail": "Filing not found"}
         assert engine.pool.checkedout() == 0
@@ -2269,9 +2292,7 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 # thread dispatcher is a call whose last name is in ``_THREAD_DISPATCHERS``.
 #
 # Strict: the walk does not look inside a callee, so it counts each call the session is handed to,
-# though a callee may never use it on the loop. On main six such hand-offs never do:
-# - ``reporting_this_week_service.get_reporting_this_week`` hands its read to the thread pool itself
-#   (leaving that transaction for the finalizer, E171);
+# though a callee may never use it on the loop. On main five such hand-offs never do:
 # - ``admin_account_service.create_free_account``, a refusal, never uses the session;
 # - the four OAuth starts' ``_start_google`` and ``_start_apple`` put their state write in the thread
 #   pool themselves (since #1547).
@@ -2382,8 +2403,6 @@ ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/auth.py", "unlink_connection"): 2,
 
     ("app/routers/auth.py", "verify_email"): 3,
-
-    ("app/routers/reporting_this_week.py", "get_reporting_this_week"): 1,
 
     ("app/routers/summaries.py", "ask_filing_stream"): 4,
 

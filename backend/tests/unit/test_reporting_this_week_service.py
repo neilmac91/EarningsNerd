@@ -3,6 +3,7 @@ anticipation_score (the curated intersect is retired — the score carries the m
 Never raises."""
 import asyncio
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
 import httpx
@@ -88,8 +89,7 @@ def test_current_market_week_stable_across_weekend():
 # ---- DB-backed ranking ----------------------------------------------------
 
 @pytest.mark.requires_db
-@pytest.mark.asyncio
-async def test_ranked_by_anticipation_score():
+def test_ranked_by_anticipation_score():
     _clear_week()
     monday, _ = current_market_week()
     _seed("AAPL", monday + timedelta(days=1), score=1500)
@@ -100,7 +100,7 @@ async def test_ranked_by_anticipation_score():
         db = _new_db()
         # today=monday keeps every seeded (estimated) row visible under the past-day filter,
         # whatever real weekday the suite runs on.
-        result = await ReportingThisWeekService().get_reporting_this_week(db, today=monday)
+        result = ReportingThisWeekService().get_reporting_this_week(db, today=monday)
         db.close()
         assert result["status"] == "ok"
         tickers = [c["ticker"] for c in result["companies"]]
@@ -110,27 +110,25 @@ async def test_ranked_by_anticipation_score():
 
 
 @pytest.mark.requires_db
-@pytest.mark.asyncio
-async def test_empty_status_when_no_events():
+def test_empty_status_when_no_events():
     _clear_week()
     monday, _ = current_market_week()
     db = _new_db()
-    result = await ReportingThisWeekService().get_reporting_this_week(db, today=monday)
+    result = ReportingThisWeekService().get_reporting_this_week(db, today=monday)
     db.close()
     assert result["companies"] == []
     assert result["status"] == "empty"
 
 
 @pytest.mark.requires_db
-@pytest.mark.asyncio
-async def test_below_minimum_count_treated_as_empty():
+def test_below_minimum_count_treated_as_empty():
     _clear_week()
     monday, _ = current_market_week()
     _seed("AAPL", monday, score=1000)
     _seed("JPM", monday, score=900)  # only 2 — below MIN_COMPANIES (4)
     try:
         db = _new_db()
-        result = await ReportingThisWeekService().get_reporting_this_week(db, today=monday)
+        result = ReportingThisWeekService().get_reporting_this_week(db, today=monday)
         db.close()
         assert result["companies"] == []
         assert result["status"] == "empty"
@@ -139,15 +137,14 @@ async def test_below_minimum_count_treated_as_empty():
 
 
 @pytest.mark.requires_db
-@pytest.mark.asyncio
-async def test_respects_limit():
+def test_respects_limit():
     _clear_week()
     monday, _ = current_market_week()
     for i in range(10):
         _seed(f"T{i:02d}", monday, score=1000 - i)
     try:
         db = _new_db()
-        result = await ReportingThisWeekService().get_reporting_this_week(db, limit=5, today=monday)
+        result = ReportingThisWeekService().get_reporting_this_week(db, limit=5, today=monday)
         db.close()
         assert len(result["companies"]) == 5
     finally:
@@ -155,8 +152,7 @@ async def test_respects_limit():
 
 
 @pytest.mark.requires_db
-@pytest.mark.asyncio
-async def test_past_days_serve_facts_only():
+def test_past_days_serve_facts_only():
     """Mid-week, days already behind us show only reported rows; estimates ahead still show."""
     _clear_week()
     monday, _ = current_market_week()
@@ -169,7 +165,7 @@ async def test_past_days_serve_facts_only():
     _seed("FUT4", monday + timedelta(days=4), score=600)
     try:
         db = _new_db()
-        result = await ReportingThisWeekService().get_reporting_this_week(db, today=wednesday)
+        result = ReportingThisWeekService().get_reporting_this_week(db, today=wednesday)
         db.close()
         tickers = [c["ticker"] for c in result["companies"]]
         assert "PASTE" not in tickers
@@ -180,21 +176,19 @@ async def test_past_days_serve_facts_only():
 
 
 @pytest.mark.requires_db
-@pytest.mark.asyncio
-async def test_never_raises_on_query_error():
+def test_never_raises_on_query_error():
     # A broken session must degrade to empty, never raise.
     class _BrokenDB:
         def query(self, *a, **k):
             raise RuntimeError("boom")
 
-    result = await ReportingThisWeekService().get_reporting_this_week(_BrokenDB())
+    result = ReportingThisWeekService().get_reporting_this_week(_BrokenDB())
     assert result["companies"] == []
     assert result["status"] == "empty"
 
 
 @pytest.mark.requires_db
-@pytest.mark.asyncio
-async def test_cache_hit_avoids_refetch():
+def test_cache_hit_avoids_refetch():
     _clear_week()
     monday, _ = current_market_week()
     for t, s in (("AAPL", 1000), ("JPM", 900), ("MSFT", 800), ("GOOGL", 700)):
@@ -210,21 +204,21 @@ async def test_cache_hit_avoids_refetch():
 
         svc._fetch = counting
         db = _new_db()
-        first = await svc.get_reporting_this_week(db, today=monday)
-        second = await svc.get_reporting_this_week(db, today=monday)
+        first = svc.get_reporting_this_week(db, today=monday)
+        second = svc.get_reporting_this_week(db, today=monday)
         db.close()
         assert first == second
         assert calls["n"] == 1  # second served from cache
 
         db = _new_db()
-        await svc.get_reporting_this_week(db, force_refresh=True, today=monday)
+        svc.get_reporting_this_week(db, force_refresh=True, today=monday)
         db.close()
         assert calls["n"] == 2  # force_refresh bypasses cache
 
         # A new ET day is a cache MISS even inside the TTL — the past-day filter must roll at
         # midnight, not when the 6h TTL happens to lapse.
         db = _new_db()
-        await svc.get_reporting_this_week(db, today=monday + timedelta(days=1))
+        svc.get_reporting_this_week(db, today=monday + timedelta(days=1))
         db.close()
         assert calls["n"] == 3
     finally:
@@ -232,8 +226,7 @@ async def test_cache_hit_avoids_refetch():
 
 
 @pytest.mark.requires_db
-@pytest.mark.asyncio
-async def test_failed_fetch_is_not_cached():
+def test_failed_fetch_is_not_cached():
     """A failed read serves empty to that request only. Caching it would keep the homepage strip
     blank for the 6h TTL after the database recovers."""
     _clear_week()
@@ -249,17 +242,17 @@ async def test_failed_fetch_is_not_cached():
     try:
         svc = ReportingThisWeekService()
         # A cold instance: the first-ever read fails, then a healthy one returns the week.
-        failed = await svc.get_reporting_this_week(_BrokenDB(), today=monday)
+        failed = svc.get_reporting_this_week(_BrokenDB(), today=monday)
         assert failed["companies"] == []
         assert failed["status"] == "empty"
         db = _new_db()
-        assert (await svc.get_reporting_this_week(db, today=monday))["status"] == "ok"
+        assert svc.get_reporting_this_week(db, today=monday)["status"] == "ok"
 
         # A warm instance: ET midnight changes the key while Monday's success is still inside
         # the TTL, and the new day's first read fails. The retry on that key must not hit it.
-        failed = await svc.get_reporting_this_week(_BrokenDB(), today=tuesday)
+        failed = svc.get_reporting_this_week(_BrokenDB(), today=tuesday)
         assert failed["status"] == "empty"
-        recovered = await svc.get_reporting_this_week(db, today=tuesday)
+        recovered = svc.get_reporting_this_week(db, today=tuesday)
         db.close()
         assert recovered["status"] == "ok"
         assert [c["ticker"] for c in recovered["companies"]] == ["AAPL", "JPM", "MSFT", "GOOGL"]
@@ -268,8 +261,7 @@ async def test_failed_fetch_is_not_cached():
 
 
 @pytest.mark.requires_db
-@pytest.mark.asyncio
-async def test_successful_empty_week_is_cached():
+def test_successful_empty_week_is_cached():
     """Only a failure skips the cache: a week that really has no events is cached like any other."""
     _clear_week()
     monday, _ = current_market_week()
@@ -283,8 +275,8 @@ async def test_successful_empty_week_is_cached():
 
     svc._fetch = counting
     db = _new_db()
-    first = await svc.get_reporting_this_week(db, today=monday)
-    second = await svc.get_reporting_this_week(db, today=monday)
+    first = svc.get_reporting_this_week(db, today=monday)
+    second = svc.get_reporting_this_week(db, today=monday)
     db.close()
     assert first["status"] == second["status"] == "empty"
     assert calls["n"] == 1
@@ -293,30 +285,39 @@ async def test_successful_empty_week_is_cached():
 _WEEK_TICKERS = ["AAPL", "JPM", "MSFT", "GOOGL"]
 
 
-async def _cold_burst(n, reads_return):
-    """`n` concurrent requests on a cold cache. The first read is held until every request has
-    checked the cache; each read returns the next item of `reads_return` (None = a failed read).
-    Returns the responses and the number of reads."""
+def _cold_burst(n, reads_return):
+    """`n` concurrent requests on a cold cache, each in a thread of its own as the route's unit runs.
+    The first read is held until every request has checked the cache; each read returns the next
+    item of `reads_return` (None = a failed read). Returns the responses and the number of reads."""
     monday, _ = current_market_week()
-    loop = asyncio.get_running_loop()
-    read_started = asyncio.Event()
+    checks = threading.Semaphore(0)
     release_reads = threading.Event()
     reads: list[int] = []
 
     def fetch(db, mon, fri, today):
         result = reads_return[min(len(reads), len(reads_return) - 1)]
         reads.append(1)
-        loop.call_soon_threadsafe(read_started.set)
         release_reads.wait(timeout=2)
         return result
 
     svc = ReportingThisWeekService()
     svc._fetch = fetch
-    requests = [asyncio.create_task(svc.get_reporting_this_week(None, today=monday)) for _ in range(n)]
-    # The tasks were all queued before the first read could start, so all have missed by now.
-    await asyncio.wait_for(read_started.wait(), timeout=2)
-    release_reads.set()
-    return await asyncio.wait_for(asyncio.gather(*requests), timeout=3), len(reads)
+    check = svc._cached
+
+    def counted(key, now):
+        try:
+            return check(key, now)
+        finally:
+            checks.release()
+
+    svc._cached = counted
+    with ThreadPoolExecutor(max_workers=n) as pool:
+        requests = [pool.submit(svc.get_reporting_this_week, None, today=monday) for _ in range(n)]
+        # Each request's first check and the first reader's recheck under the lock: all have missed
+        # before any read returns, since the others wait on the lock that reader holds.
+        assert all(checks.acquire(timeout=2) for _ in range(n + 1))
+        release_reads.set()
+        return [request.result(timeout=3) for request in requests], len(reads)
 
 
 def _week():
@@ -324,22 +325,21 @@ def _week():
     return [ReportingCompany(t, f"{t} Inc", monday, "amc") for t in _WEEK_TICKERS]
 
 
-@pytest.mark.asyncio
-async def test_concurrent_misses_share_one_read():
+def test_concurrent_misses_share_one_read():
     """A burst on a cold or expired cache (a fresh instance, ET midnight) waits for one read and is
     served from it. A read per request would check out a pooled connection each."""
-    responses, reads = await _cold_burst(8, [_week()])
+    responses, reads = _cold_burst(8, [_week()])
     assert reads == 1
     assert all([c["ticker"] for c in r["companies"]] == _WEEK_TICKERS for r in responses)
 
 
-@pytest.mark.asyncio
-async def test_failed_read_lets_the_next_waiter_retry():
+def test_failed_read_lets_the_next_waiter_retry():
     """A failed read is still neither cached nor shared: it serves its own request, the next waiter
     reads again, and the rest are served from that success."""
-    responses, reads = await _cold_burst(3, [None, _week()])
+    responses, reads = _cold_burst(3, [None, _week()])
     assert reads == 2
-    assert [r["status"] for r in responses] == ["empty", "ok", "ok"]
+    # The failed read answers whichever request took the lock first.
+    assert sorted(r["status"] for r in responses) == ["empty", "ok", "ok"]
 
 
 @pytest.mark.asyncio

@@ -1,10 +1,12 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.services import filing_list_service
 from app.services.reporting_this_week_service import reporting_this_week_service
 
 router = APIRouter()
@@ -33,5 +35,17 @@ async def get_reporting_this_week(
     """Most-anticipated large-cap companies reporting earnings in the current US market week
     (Mon-Fri, America/New_York). Returns an empty `companies` list (never an error) on
     weekends, holidays, a sparse week, or upstream failure — the frontend omits the
-    homepage section entirely when `companies` is empty."""
-    return await reporting_this_week_service.get_reporting_this_week(db, limit=limit)
+    homepage section entirely when `companies` is empty.
+
+    The read and the session release are one unit off the event loop: the route is public, so no
+    auth dependency checks the session out first, a checkout waiting on a full pool must not stop
+    the request holding the last connection from finishing and releasing it, and the pooled
+    connection is back before the route yields to the dependency's finalizer
+    (``lessons/ops-release-cached-filing-reads-before-yield.md``)."""
+    def week_for_reader() -> Dict[str, Any]:
+        try:
+            return reporting_this_week_service.get_reporting_this_week(db, limit=limit)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(week_for_reader)
