@@ -1355,9 +1355,10 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     }
     // A reader that finds nothing must not pass: the app styles a handful of fields itself and builds the rest with inputClasses().
     // Four since the four hand-rolled checkboxes became the one components/ui/Checkbox.tsx (ADM-37); three since the
-    // feedback form's textarea took inputClasses() (E154), which moved it to the factory's count, one higher with it.
-    expect(fields, 'fields that style themselves').toBeGreaterThanOrEqual(3)
-    expect(factory, 'fields built with inputClasses()').toBeGreaterThanOrEqual(16)
+    // feedback form's textarea took inputClasses() (E154's first half), which moved it to the factory's count, one higher
+    // with it; one, the checkbox, since the search page's two date fields took it too (E154), two higher there.
+    expect(fields, 'fields that style themselves').toBeGreaterThanOrEqual(1)
+    expect(factory, 'fields built with inputClasses()').toBeGreaterThanOrEqual(18)
     expect(findings).toEqual([])
   })
 
