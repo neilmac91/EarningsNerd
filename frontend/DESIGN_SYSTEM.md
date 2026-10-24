@@ -1168,10 +1168,19 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  and in a wider fallback, so the full bar never wraps and the auth check never changes its
                  lines (E173, E175; gate: tests/e2e/reflow-200.spec.ts holds the compact bar at 1151 and
                  2303px and the full bar on one line at 1152 and 2304px, with either access mode's label).
-                 From lg to 72rem the compact bar carries a signed-in reader's NotificationBell too, after the
-                 theme toggle as in the full bar, so the bell stays wherever the full bar showed it before,
-                 and the header holds its panel so that one of it and the menu is open at a time (the same
-                 case opens both, the menu from the keyboard too). In either bar the bell's panel is a column
+                 Below 72rem the compact bar carries a signed-in reader's NotificationBell too, at every width,
+                 after the theme toggle as in the full bar, and the header holds its panel so that one of it
+                 and the menu is open at a time (the same case opens both, the menu from the keyboard too).
+                 Below lg the panel spans the screen under the bar at the bar's own inset (16px, 24px from
+                 sm): the bell's box is static there, so the panel's box is the header's, the sticky column
+                 that holds the bar, and the panel keeps its place below the bell. A 20rem panel anchored at
+                 the bell ran off the screen's left edge there, by 64px at 320px at the default size (E176,
+                 chief design on #1565; gate: tests/e2e/reflow-200.spec.ts holds the bell on the bar's line
+                 and its open panel on the bar's content edges, inside the screen, its list scrolling to the
+                 last alert, at 320px at the default size and 390 and 768px under 200% text). Below 72rem the
+                 compact menu, the only menu there, also holds an admin's links after Settings and before Log
+                 out, as UserMenu orders them (gates: the same case; tests/unit/Header.spec.tsx). In either bar
+                 the bell's panel is a column
                  no taller than the screen under the bar: the screen less the header's published height, the
                  bar's own while the panel is open, and the panel's 0.5rem offset
                  (`max-h-[calc(100dvh_-_var(--site-header-h,4rem)_-_0.5rem)]`). Its title and settings link
@@ -1207,7 +1216,13 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  compact bar still grows: under 200% text in CI's fonts, a wrapped label (14px) at 360px with
                  "Sign up" and 390 to 450px with "Request invite", and a whole row at 320px with either label
                  and at 360 and 375px with "Request invite". Chief design accepts that band, since any
-                 reservation would give every reader the same extra row (#1558, comment 6377073723).
+                 reservation would give every reader the same extra row (#1558, comment 6377073723). A
+                 signed-in reader's bell joins the compact bar as the check settles (E176) and needs less:
+                 below about 10.4rem (332px under 200% text) the bell and the menu button take a row of their
+                 own as it appears, the bar 137 to 225px at 320 and 330px under 200% text, within the same
+                 band (#1565, comment 6380050139); a reader's bar holds one row at 320px at the default size
+                 and from 334px under 200% text (gate: the held-check case's reader-only states at 320px and
+                 at 360 and 390px under 200% text).
                  A page's own header (SecondaryHeader: pricing, the dashboard, the watchlist, admin) scrolls
                  with the page on an opaque panel; only a table's
                  header cells stick at `top-0`, inside the table's own scroll box. The document's

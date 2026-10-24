@@ -1985,7 +1985,7 @@ for (const viewport of [{ width: 2304, height: 1296 }, { width: 2560, height: 14
     comment 6375980005): 1152px at the default size and 2304px with the text doubled. Below it the compact bar shows,
     its menu button and, opened, its menu, while the full bar's nav and controls are display:none; from it, the other way
     round, a menu left open included. A signed-in reader's notification bell shows once in either bar, the compact bar's
-    from lg, where the full bar showed it before: after the theme toggle and before the menu button, its panel inside the
+    at every width (E176): after the theme toggle and before the menu button, its panel inside the
     screen, and one of that panel and the menu open at a time, the menu opened from the keyboard too, where no press
     outside the panel closes it (chief design on #1558, comment 6377073723). At the threshold the full bar
     keeps one line with its widest settled controls: a signed-in reader's, and a guest's with either access mode's
@@ -2188,6 +2188,206 @@ for (const viewport of [{ width: 1024, height: 768 }, { width: 1440, height: 900
       })
       const end = await read()
       within('the last alert, the list scrolled to its end,', end.last, end.list, 'the list')
+    })
+  })
+}
+
+/** A signed-in reader's bell in the phone bar (E176, chief design on #1565, comment 6380050139). Below lg the compact
+    bar's bell was hidden, so a phone kept the unread state behind the menu; and shown there, its panel, 20rem wide and
+    anchored at the bell's right edge, ran off the screen's left edge, by 64px at 320px at the default size and at every
+    phone width under 200% text. The bell now sits on the bar's line, after the theme toggle where it shows and before
+    the menu button, and below lg its panel spans the screen under the bar, inset as the bar is: its sides lie on the
+    bar's content edges, its title and settings link are whole inside it, no alert's line is cut short (a truncated
+    line cut the date from every alert at 390px under 200% text), no alert's date breaks across lines (with a wrap
+    inside it, "· Oct", then "20, 2026", 3 dates broke at 320px and 13 at 390px under 200% text; chief design on #1576,
+    comment 6382172889), no line of its text paints past the screen's sides, and its list scrolls to the last alert. The
+    reader is an admin, whose compact menu then holds the admin links after Settings and before Log out, inside the
+    screen, and lists each destination once: Calendar, while its flag is on, was in the nav's links and again in the
+    account links. The reader and the list are answered on top of answerApi's routes (a route registered later answers
+    first). The alerts carry their companies' own names, of every length, so a
+    line's wrap falls at many places along it: the shared fixture's short names let every line fit or wrap before its
+    date. */
+const NAMED_ALERTS = ALERTS.map((alert, i) => ({
+  ...alert,
+  company_name: [
+    'Apple Inc.',
+    'Microsoft Corporation',
+    'NVIDIA Corporation',
+    'Amazon.com, Inc.',
+    'Alphabet Inc.',
+    'Meta Platforms, Inc.',
+    'Tesla, Inc.',
+    'JPMorgan Chase & Co.',
+    'Visa Inc.',
+    'Mastercard Incorporated',
+    'UnitedHealth Group Incorporated',
+    'Exxon Mobil Corporation',
+    'Johnson & Johnson',
+    'The Procter & Gamble Company',
+    'The Home Depot, Inc.',
+    'Costco Wholesale Corporation',
+    'AbbVie Inc.',
+    'The Coca-Cola Company',
+    'PepsiCo, Inc.',
+    'Netflix, Inc.',
+  ][i],
+}))
+for (const state of [
+  { width: 320, height: 640, doubled: false },
+  { width: 390, height: 844, doubled: true },
+  { width: 768, height: 1024, doubled: true },
+  // Above 24rem, where the compact bar shows its theme toggle, so the bell's place after it is read.
+  { width: 640, height: 900, doubled: false },
+] as const) {
+  const at = `${state.width}x${state.height}${state.doubled ? ' and 200% text' : ' at the default size'}`
+  test.describe(`a ${state.width}px ${state.width < 640 ? 'phone' : 'tablet'}${state.doubled ? ' at 200% text' : ''}, signed in, the bell in the bar`, () => {
+    test.use({ viewport: { width: state.width, height: state.height }, isMobile: true, hasTouch: true })
+    test("the bell sits on the bar's line, its panel spans the screen under the bar, and an admin's menu holds the admin links", async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('en_session_active', '1')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      await answerApi(page, baseURL!, 'pro')
+      const cors = { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' }
+      await page.route(
+        (url) => url.origin === API_ORIGIN && url.pathname === '/api/auth/me',
+        (route) => route.fulfill({ status: 200, headers: cors, json: { id: 1, email: 'admin@example.com', full_name: 'Admin User', is_pro: true, is_beta: false, is_admin: true, email_verified: true } }),
+      )
+      await page.route(
+        (url) => url.origin === API_ORIGIN && url.pathname === '/api/users/me/notifications',
+        (route) => route.fulfill({ status: 200, headers: cors, json: { items: NAMED_ALERTS, unread_count: 0 } }),
+      )
+      await page.goto('/pricing')
+      await h1(page)
+      await page.evaluate(() => document.fonts.ready)
+      if (state.doubled) await doubleText(page)
+      // The site header: /pricing's own page header is a banner too.
+      const banner = page.locator('header[data-site-header]')
+      const bell = banner.getByRole('button', { name: /^Notifications/ })
+      await expect(bell, `${at}: the compact bar's bell, the one bell shown`).toHaveCount(1)
+      const place = await banner.evaluate((header) => {
+        const shown = (el: Element) => el.getBoundingClientRect().width > 0
+        const middle = (el: Element) => {
+          const box = el.getBoundingClientRect()
+          return box.top + box.height / 2
+        }
+        const toggle = [...header.querySelectorAll('button[aria-label^="Switch to"]')].find(shown)
+        const bellButton = [...header.querySelectorAll('button[aria-label^="Notifications"]')].find(shown)!
+        const menuButton = header.querySelector('button[aria-label="Open menu"]')!
+        return {
+          toggleShown: !!toggle,
+          afterToggle: toggle ? bellButton.getBoundingClientRect().left >= toggle.getBoundingClientRect().right : true,
+          beforeMenu: bellButton.getBoundingClientRect().right <= menuButton.getBoundingClientRect().left,
+          oneLine: Math.abs(middle(bellButton) - middle(menuButton)) <= 1,
+        }
+      })
+      // The toggle leaves the bar at 24rem and below (384px, 768px under 200% text), so only a state above it reads
+      // the bell's place after the toggle.
+      const toggleShown = state.width > (state.doubled ? 768 : 384)
+      expect(place, `${at}: the bell sits after the theme toggle where it shows, before the menu button, on the bar's line`).toEqual({ toggleShown, afterToggle: true, beforeMenu: true, oneLine: true })
+
+      await bell.click()
+      const panel = page.getByRole('menu', { name: 'Notifications' })
+      await expect(panel).toBeVisible()
+      await expect(panel.getByRole('list').getByRole('menuitem'), 'the panel lists the 20 alerts').toHaveCount(20)
+      const read = () =>
+        panel.evaluate((el) => {
+          const box = (node: Element) => {
+            const { top, bottom, left, right } = node.getBoundingClientRect()
+            return { top, bottom, left, right }
+          }
+          const bar = el.closest('header')!.firstElementChild!
+          const barStyle = getComputedStyle(bar)
+          const barBox = bar.getBoundingClientRect()
+          const list = el.querySelector('ul')!
+          return {
+            screen: { top: 0, left: 0, bottom: document.documentElement.clientHeight, right: document.documentElement.clientWidth },
+            content: { left: barBox.left + parseFloat(barStyle.paddingLeft), right: barBox.right - parseFloat(barStyle.paddingRight) },
+            panel: box(el),
+            title: box([...el.querySelectorAll('p')].find((p) => p.textContent === 'Notifications')!),
+            settings: box([...el.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'Manage alert settings')!),
+            list: box(list),
+            last: box(list.querySelector('li:last-child a')!),
+            overflow: list.scrollHeight - list.clientHeight,
+            cut: [...list.querySelectorAll('a > span:last-child > span')].filter((line) => line.scrollWidth > line.clientWidth + 1).map((line) => line.textContent),
+            // An alert's date, the text after its " · ", read as a range over the line's text, so it is found however
+            // the line is marked up: its fragments' tops more than 2px apart put it on two lines.
+            split: [...list.querySelectorAll('a > span:last-child > span:last-child')].flatMap((line) => {
+              const nodes: Text[] = []
+              const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT)
+              while (walker.nextNode()) nodes.push(walker.currentNode as Text)
+              const text = nodes.map((node) => node.data).join('')
+              const from = text.lastIndexOf(' · ')
+              if (from < 0 || !nodes.length) return []
+              const range = document.createRange()
+              let skip = from + 3
+              for (const node of nodes) {
+                if (skip < node.data.length) {
+                  range.setStart(node, skip)
+                  break
+                }
+                skip -= node.data.length
+              }
+              const last = nodes[nodes.length - 1]
+              range.setEnd(last, last.data.length)
+              const tops = [...range.getClientRects()].filter((rect) => rect.width > 0).map((rect) => rect.top)
+              return tops.length && Math.max(...tops) - Math.min(...tops) > 2 ? [text.slice(from + 3)] : []
+            }),
+            dates: [...list.querySelectorAll('a > span:last-child > span:last-child')].filter((line) => line.textContent?.includes(' · ')).length,
+          }
+        })
+      const within = (what: string, inner: Box, outer: Box, where: string) => {
+        const message = `${at}: ${what} (${span(inner)}) lies inside ${where} (${span(outer)})`
+        expect(inner.top, message).toBeGreaterThanOrEqual(outer.top - 0.5)
+        expect(inner.bottom, message).toBeLessThanOrEqual(outer.bottom + 0.5)
+        expect(inner.left, message).toBeGreaterThanOrEqual(outer.left - 0.5)
+        expect(inner.right, message).toBeLessThanOrEqual(outer.right + 0.5)
+      }
+      const open = await read()
+      within('the panel', open.panel, open.screen, 'the screen')
+      expect(
+        { left: Math.round(open.panel.left), right: Math.round(open.panel.right) },
+        `${at}: the panel spans the screen under the bar, its sides on the bar's content edges (${Math.round(open.content.left)} and ${Math.round(open.content.right)}px)`,
+      ).toEqual({ left: Math.round(open.content.left), right: Math.round(open.content.right) })
+      within('its title', open.title, open.panel, 'the panel')
+      within('its "Manage alert settings" link', open.settings, open.panel, 'the panel')
+      expect(open.cut, `${at}: no alert's line is cut short; each wraps inside its row`).toEqual([])
+      expect(open.dates, `${at}: each alert's second line ends with its date`).toBe(20)
+      expect(open.split, `${at}: no alert's date breaks across lines; a wrap comes before it`).toEqual([])
+      expect(open.overflow, `${at}: the list scrolls inside the panel`).toBeGreaterThan(0)
+      const lines = await headerMenuFit(page, 'Notifications')
+      expect(lines.problems, `${at}: no line of the panel's text paints past the screen's sides`).toEqual([])
+      await panel.getByRole('list').evaluate((list) => {
+        list.scrollTop = list.scrollHeight
+      })
+      const end = await read()
+      within('the last alert, the list scrolled to its end,', end.last, end.list, 'the list')
+
+      // The menu opened closes the panel; an admin's links follow Settings and precede Log out, inside the screen.
+      await banner.getByRole('button', { name: 'Open menu' }).click()
+      const menu = page.getByRole('navigation', { name: 'Mobile navigation' })
+      await expect(menu).toBeVisible()
+      await expect(panel, `${at}: the menu opened closes the panel`).toBeHidden()
+      const order = await menu.evaluate((nav) => {
+        const viewport = document.documentElement.clientWidth
+        const stops = [...nav.querySelectorAll('a[href], button')]
+        const labels = stops.map((el) => el.textContent?.trim() ?? '')
+        const settings = labels.indexOf('Settings')
+        const outside = stops
+          .filter((el) => el.textContent?.trim().startsWith('Admin'))
+          .map((el) => el.getBoundingClientRect())
+          .filter((box) => box.left < -0.5 || box.right > viewport + 0.5).length
+        const hrefs = stops.map((el) => el.getAttribute('href')).filter((href): href is string => href !== null)
+        return { run: labels.slice(settings, settings + 4), outside, twice: hrefs.filter((href, i) => hrefs.indexOf(href) !== i) }
+      })
+      expect(order.run, `${at}: Settings, the admin links, then Log out`).toEqual(['Settings', 'Admin · Invites', 'Admin · Feedback', 'Log out'])
+      expect(order.outside, `${at}: the admin links lie inside the screen's sides`).toBe(0)
+      // The menu holds the nav's links above the account links, so a destination in both lists, as Calendar was while
+      // its flag is on (CI's e2e env sets it), showed twice (chief design on #1576, comment 6382172889).
+      expect(order.twice, `${at}: the menu lists each destination once`).toEqual([])
     })
   })
 }
