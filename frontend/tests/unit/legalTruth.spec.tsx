@@ -133,7 +133,11 @@ import { closingBracket, matchAt, negates, nounPhraseAt, readSentence, spanText,
  *    it picks some out, as on main under "each" or "any", while main refused it under "all" or "every", and fails where
  *    it names the whole ("Each endpoint (in our API) requires a login."), which main passed; a fronted condition with
  *    no comma that narrows passes, where main refused it; a phrase after "each endpoint" that restates every request
- *    fails, where main passed it; and a quantifier after its noun passes, as on main.
+ *    fails, where main passed it; and a quantifier after its noun passes, as on main. Under "all" and "every", "nothing
+ *    else does" holds by the reader's own lexicons (what restates every request, RESTATED; the whole-API names; the
+ *    words that say a login absent, "public", "open" and "bypasses" among them since #1594's fifth round), so a
+ *    paraphrase outside them that main refused may pass, while one inside them fails as on main ("Every endpoint is
+ *    never public.", "Nothing bypasses authentication on every endpoint.").
  * 2. The account events (D-051). /security's PostHog line scopes the consent to the browser, and a sentence of
  *    its own, ACCOUNT_EVENTS_DISCLOSURE (lib/consentCopy.ts), names no provider and says the service records how
  *    accounts use it against the internal account id, whatever the reader chose. /security and /privacy each place
@@ -517,11 +521,11 @@ const WHOLE_WORDS = /^(?:single|individual|last|API|API['’]s|REST|HTTP|Earning
     PR, E162), and any other names some ("your", "a"). */
 const WHOLE_DETERMINERS = new Set(['the', 'our', 'its'])
 /** A prepositional phrase after the endpoints that names the API as a whole, which narrows nothing ("each endpoint in
-    our API", "of the API", "on EarningsNerd"; E162), while any other picks some of them out ("each endpoint in the
-    admin namespace": Codex's thread 4351169046). */
+    our API", "of the API", "on EarningsNerd"; E162; "at EarningsNerd" since #1594's fifth round), while any other picks
+    some of them out ("each endpoint in the admin namespace": Codex's thread 4351169046). */
 const namesTheWholeApi = (m: Postmodifier) =>
   m.kind === 'preposition' &&
-  /^(?:in|of|on|across|throughout|within)$/.test(m.preposition ?? '') &&
+  /^(?:in|of|on|at|across|throughout|within)$/.test(m.preposition ?? '') &&
   !!m.object &&
   /^(?:API|EarningsNerd|service|site|platform|backend)$/i.test(m.object.head.text) &&
   m.object.quantifier === null &&
@@ -563,9 +567,19 @@ function bracketed(reading: Reading, phrase: NounPhrase): { reading: Reading; po
   const read = nounPhraseAt(unbracketed, phrase.start)
   return { reading: { ...reading, tokens: unbracketed }, postmodifiers: (read?.postmodifiers ?? []).filter((m) => m.start >= open) }
 }
+/** A prepositional phrase after the endpoints whose object is taken whole or denied, with nothing more said of it, which
+    picks none of them out (#1594's fifth round): "in every environment", "for any caller", "with no exception". */
+const takesAllOrNone = (m: Postmodifier) =>
+  m.kind === 'preposition' &&
+  !!m.object &&
+  !m.object.takenBack &&
+  ['every', 'all', 'each', 'any', 'no'].includes(m.object.quantifier ?? '') &&
+  m.object.determiners.every((d) => WHOLE_DETERMINERS.has(d)) &&
+  !m.object.premodifiers.length &&
+  !m.object.postmodifiers.length
 /** A postmodifier after the endpoints that picks none of them out: an aside, or a phrase that names the whole API or
-    every request, or a relative clause that names the whole set again. */
-const leavesWhole = (reading: Reading, m: Postmodifier) => !m.restrictive || namesTheWholeApi(m) || restatesEveryRequest(m) || restatesTheSet(reading, m)
+    every request or whose object is taken whole or denied, or a relative clause that names the whole set again. */
+const leavesWhole = (reading: Reading, m: Postmodifier) => !m.restrictive || namesTheWholeApi(m) || restatesEveryRequest(m) || takesAllOrNone(m) || restatesTheSet(reading, m)
 /** The endpoints taken whole (E162): "endpoints" under one of the quantifiers given, not taken back ("not every", "not
     all", "almost every": a denial on the quantifier, #1456's Not in this PR), with only WHOLE_DETERMINERS and
     WHOLE_WORDS before it and nothing after it that picks some out (leavesWhole): a prepositional phrase (but one that
@@ -638,11 +652,13 @@ const WITHOUT_A_LOGIN = new RegExp(
   'i',
 )
 /** What a condition after the login need restates rather than narrows (#1456's twelfth round): the endpoint itself
-    called, used or accessed ("only when you call it", "when it is called"), a caller with no login ("only if you are
-    not signed in", "only for anonymous requests", "only when your session has expired"), a caller the service does
-    not know (#1456's Not in this PR, E162: "only if we do not know you", "if we cannot identify you") or a purpose
-    ("only for your safety", "only to keep your data safe"), each of which is every request. */
-const RESTATED = String.raw`(?:\s+[\w'’-]+){0,3}?\s+(?:(?:call|use|access|reach|query|open)(?:s|es|ing)?\s+(?:it|them|the\s+API|(?:the|an|this|that|each|any|every|all)\s+endpoints?)|(?:called|used|accessed|reached|queried|opened)|not\s+(?:yet\s+)?(?:signed|logged)[- ]in|(?:signed|logged)[- ]out|anonymous(?:ly)?|unauthenticated|unauthori[sz]ed|guests?|visitors?|(?:session|token|login)\s+(?:has\s+|is\s+)?expired|(?:without|lack(?:s|ing)?|ha(?:ve|s)\s+no|with\s+no|no)\s+(?:an?\s+)?(?:valid\s+)?(?:login|token|session|credentials?|authentication|account)|(?:(?:do|does|did|could)(?:\s+not|n['’]t)|can(?:not|\s+not|['’]t))\s+(?:know|identify|recogni[sz]e)\s+(?:you|who\s+you\s+are)|unknown|unidentified)\b|\s+(?:(?:your|our|its|their)\s+)?(?:keep|protect|secure|safeguard|safety|security|protection|privacy)\b`
+    called, used, accessed or hit, or the whole API used ("only when you call it", "when it is called", and since #1594's
+    fifth round "whenever you hit every endpoint", "when you use EarningsNerd"), a request received ("whenever it
+    receives a request"), a caller with no login ("only if you are not signed in", "only for anonymous requests", "only
+    when your session has expired"), a caller the service does not know (#1456's Not in this PR, E162: "only if we do
+    not know you", "if we cannot identify you") or a purpose ("only for your safety", "only to keep your data safe"),
+    each of which is every request. */
+const RESTATED = String.raw`(?:\s+[\w'’-]+){0,3}?\s+(?:(?:(?:call|use|access|reach|query|open)(?:s|es|ing)?|hits?|hitting)\s+(?:it|them|(?:(?:the|our)\s+)?(?:API|EarningsNerd|service|site|platform|backend)|(?:the|an|this|that|each|any|every|all)\s+endpoints?)|(?:receives?|received|receiving|gets?|getting|handles?|handled|handling)\s+(?:(?:a|an|any|each|every)\s+)?(?:requests?|calls?)|(?:called|used|accessed|reached|queried|opened)|not\s+(?:yet\s+)?(?:signed|logged)[- ]in|(?:signed|logged)[- ]out|anonymous(?:ly)?|unauthenticated|unauthori[sz]ed|guests?|visitors?|(?:session|token|login)\s+(?:has\s+|is\s+)?expired|(?:without|lack(?:s|ing)?|ha(?:ve|s)\s+no|with\s+no|no)\s+(?:an?\s+)?(?:valid\s+)?(?:login|token|session|credentials?|authentication|account)|(?:(?:do|does|did|could)(?:\s+not|n['’]t)|can(?:not|\s+not|['’]t))\s+(?:know|identify|recogni[sz]e)\s+(?:you|who\s+you\s+are)|unknown|unidentified)\b|\s+(?:(?:your|our|its|their)\s+)?(?:keep|protect|secure|safeguard|safety|security|protection|privacy)\b`
 const RESTATES = new RegExp(String.raw`^(?:${RESTATED})`, 'i')
 /** What an "unless" restates (E162): the caller already signed in or holding a login ("unless you are already signed
     in", "unless you hold a valid token"), which leaves every request made without one. */
@@ -772,10 +788,11 @@ function phraseAround(tokens: Token[], at: number): NounPhrase | null {
   return found
 }
 /** The login words from one token to another (LOGIN_FORMS), each with its sense: 1 where it says the login, -1 where it
-    says the login absent ("unauthenticated", "anonymous") or stands after "no", "optional", "without" or "lacks" ("no
-    valid token", "an optional token", "without a token"). A noun in another role is none: before a noun it names
-    (the nouns it may stand before, LOGIN_HEAD, read past: "the OAuth token format"), unless the clause's verb group
-    starts there ("A valid token protects ..."), or a possessive ("the session's expiry"). */
+    says the login absent ("unauthenticated", "anonymous") or stands after "no", "optional", "without", "lacks" or,
+    since #1594's fifth round, "bypasses" ("no valid token", "an optional token", "without a token", "bypasses
+    authentication"). A noun in another role is none: before a noun it names (the nouns it may stand before, LOGIN_HEAD,
+    read past: "the OAuth token format"), unless the clause's verb group starts there ("A valid token protects ..."), or
+    a possessive ("the session's expiry"). */
 function loginWordsIn(reading: Reading, from: number, to: number, predicate: number): LoginWord[] {
   const { tokens } = reading
   const found: LoginWord[] = []
@@ -790,7 +807,10 @@ function loginWordsIn(reading: Reading, from: number, to: number, predicate: num
     if (form.noun && (modifier || /'s$/.test(tokens[end - 1].lower))) continue
     const phrase = phraseAround(tokens, k)
     const opposite =
-      phrase?.quantifier === 'no' || !!phrase?.premodifiers.some((w) => /^(?:optional|no)$/.test(w.lower)) || /^(?:without|lacks?|lacking)$/.test(tokens[(phrase?.start ?? k) - 1]?.lower ?? '')
+      phrase?.quantifier === 'no' ||
+      !!phrase?.premodifiers.some((w) => /^(?:optional|no)$/.test(w.lower)) ||
+      /^(?:without|lacks?|lacking|bypass(?:es|ed|ing)?)$/.test(tokens[(phrase?.start ?? k) - 1]?.lower ?? '') ||
+      /^bypass(?:es|ed|ing)?$/.test(tokens[k - 1]?.lower ?? '')
     found.push({ at: k, end, sense: (form.absent ? -1 : 1) * (opposite ? -1 : 1) })
     k = end - 1
   }
@@ -906,9 +926,11 @@ const theFloor = (reading: Reading, clause: Clause) => {
     takes "behind ..." as where, not which ("We put all endpoints behind a paywall." fails, as on main). The clause is
     narrowed by a condition (narrows), but not one that keeps the endpoints to a login, or denied on its verb or its
     subject, unless every login word it reaches then says the login (turnedSenses: "Nobody can call every endpoint
-    without a token." denies a login's absence). Another role, the opposite sense, a possible modal or a verb that lets
-    a login in, "public", a clause the verb takes as its object and no login said excuse nothing here: they are the
-    floor's, for "each" and "any" and for the phrases main's reading did not cover ("every single endpoint"). */
+    without a token." denies a login's absence, and since #1594's fifth round so do "Every endpoint is never public."
+    and "Nothing bypasses authentication on every endpoint.": OPEN, loginWordsIn). Another role, the opposite sense, a
+    possible modal or a verb that lets a login in, "public", a clause the verb takes as its object and no login said
+    excuse nothing here: they are the floor's, for "each" and "any" and for the phrases main's reading did not cover
+    ("every single endpoint"). */
 const MAIN_BLANKET = /^(?:all|every)\b(?:\s+of)?(?:\s+(?:our|the))?(?:\s+API)?\s+endpoints?\b/i
 const PLACES = /^(?:puts?|keeps?|kept|places?|placed|locks?|locked|hides?|hid|hidden)\s+/i
 /** The prepositions whose phrase after the endpoints picks some out ("in the admin namespace", "of the admin API", "for
@@ -916,6 +938,11 @@ const PLACES = /^(?:puts?|keeps?|kept|places?|placed|locks?|locked|hides?|hid|hi
     verb's own phrase after them ("over HTTPS", "via the gateway", "for a week") says how or when, not which. */
 const PICKS_OUT = /^(?:in|of|within|under|on|at|for|with|behind|from|inside|outside|except|excluding)$/
 const A_SPAN_OF_TIME = /^(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)$/i
+/** The endpoints said to be public or open at the clause's verb ("is public", "are open", "stays open"), a login's absence
+    that a denial turns into the claim, as it turns a login word ("Every endpoint is never public."; #1594's fifth round). */
+const OPEN = /^(?:public|open)$/
+const BE = /^(?:is|are|was|were|be|been|being|isn['’]t|aren['’]t|wasn['’]t|weren['’]t)$/
+const STAYS = /^(?:stays?|stayed|remains?|remained)$/
 const theBlanket = (reading: Reading, clause: Clause) => {
   const { tokens } = reading
   const places = atTheVerb(reading, clause.predicate, PLACES) >= 0
@@ -933,9 +960,14 @@ const theBlanket = (reading: Reading, clause: Clause) => {
     return !!phrase && !phrase.postmodifiers.some(narrowing(reading)) && !bracket?.postmodifiers.some(narrowing(bracket.reading))
   })
   if (!blanketed || clause.conditions.some((c) => !keepsToALogin(reading, c) && narrows(reading, c))) return false
-  if (!verbGroupAt(tokens, clause.predicate).negated && !deniedSubjectOf(clause)) return true
+  const group = verbGroupAt(tokens, clause.predicate)
+  const denied = deniedSubjectOf(clause)
+  if (!group.negated && !denied) return true
   const conditions = clause.conditions.filter((c) => !keepsToALogin(reading, c))
   const senses = turnedSenses(reading, clause, (k) => !conditions.some((c) => k >= c.start && k < c.end), clause.end)
+  const state = STAYS.test(tokens[group.verb]?.lower ?? '') ? group.verb + 1 : group.verb
+  const be = state > group.verb || tokens.slice(clause.predicate, group.verb).some((t) => BE.test(t.lower))
+  if (be && OPEN.test(tokens[state]?.lower ?? '')) senses.push((group.negated ? 1 : -1) * (denied ? -1 : 1))
   return senses.length > 0 && senses.every((sense) => sense > 0)
 }
 /** Every endpoint behind authentication, read by clause (header item 1; E162): the endpoints taken whole needing a
@@ -2300,6 +2332,24 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>All endpoints we have are protected.</p>', true],
       ['<p>We protect every endpoint we have.</p>', true],
       ['<p>Every endpoint we have added this year requires a login.</p>', false],
+      // The lexicons the excuses are read by: a condition that restates every request ("hit", a request received, the
+      // whole API used), "at" the whole API, a phrase whose object is taken whole or denied, and a denial that turns
+      // "public", "open" or "bypass", which says the login as a denied login's absence does. Beside them, what still
+      // narrows or denies, and "bypass" read in the opposite sense under each.
+      ['<p>A login is required whenever you hit every endpoint.</p>', true],
+      ['<p>Every endpoint requires a login whenever it receives a request.</p>', true],
+      ['<p>Every endpoint requires a login when you use EarningsNerd.</p>', true],
+      ['<p>Every endpoint at EarningsNerd requires authentication.</p>', true],
+      ['<p>Every endpoint in every environment requires a login.</p>', true],
+      ['<p>Every endpoint with no exception requires a login.</p>', true],
+      ['<p>Every endpoint is never public.</p>', true],
+      ['<p>Nothing bypasses authentication on every endpoint.</p>', true],
+      ['<p>No request bypasses authentication on each endpoint.</p>', true],
+      ['<p>Every endpoint requires a login when you use the admin API.</p>', false],
+      ['<p>Every endpoint at the admin console requires authentication.</p>', false],
+      ['<p>Every endpoint in every admin namespace requires a login.</p>', false],
+      ['<p>Every endpoint does not return public data.</p>', false],
+      ['<p>Some requests bypass authentication on each endpoint.</p>', false],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],

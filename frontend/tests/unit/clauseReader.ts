@@ -12,7 +12,9 @@
  * at each quantifier (nounPhraseAt), and every login word in the clause, so a clause that names the endpoints taken
  * whole with a login word fails unless this reading finds why it does not say the claim (a condition that narrows, a
  * denial on its verb or its subject, the login word in another role or in the opposite sense), at the cost of failing a
- * login word the endpoints only handle ("Each endpoint counts failed logins.").
+ * login word the endpoints only handle ("Each endpoint counts failed logins."). The blanket's excuses and the floor's
+ * reasons are read by the family's own lexicons (what restates every request, the whole-API names, the words that say a
+ * login absent), so a paraphrase outside them that main refused may pass.
  *
  * Tokens (tokensOf). A word is letters and digits, joined by a hyphen or an apostrophe ("API's", "token-based",
  * "can't") or by a point between digits ("99.9"); any other mark is a token of its own. Each keeps where it stands, so
@@ -164,9 +166,9 @@ const CLOSED = new Set([...QUANTIFIERS, ...TAKES_BACK, ...DETERMINERS, ...PRONOU
 
 /** The verbs the reading knows, as lemmas: each is read in its forms (VERB_FORMS). */
 const LEMMAS = `accept access add allow answer appear apply approve ask assign audit authenticate authorise authorize become
-belong block break bring build cache calculate call cancel cap capture carry cause change charge check choose claim clear close
-collect come compare compute confirm connect contain continue control copy cost count cover create cut decide decline decrypt
-define delete deliver demand deny depend deploy describe detect differ display document download drop email emit enable
+belong block break bring build bypass cache calculate call cancel cap capture carry cause change charge check choose claim clear
+close collect come compare compute confirm connect contain continue control copy cost count cover create cut decide decline
+decrypt define delete deliver demand deny depend deploy describe detect differ display document download drop email emit enable
 encrypt end enforce ensure enter erase expect expire explain export expose fail fall fetch fill filter find finish fit fix
 follow force forget forward front gate generate get give go grant guarantee guard handle happen hash have help hide hit hold
 honor honour host identify ignore import include insist invite invoke involve issue join keep know lack last launch lead
