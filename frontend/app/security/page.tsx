@@ -194,7 +194,7 @@ export default function SecurityPage() {
               <li>You can export the records available through that feature and delete your account from your account settings; the Privacy Policy explains records that can remain</li>
               <li>
                 Registrations, logins, failed logins, logouts, data exports and account deletions are written to an audit log,
-                and so are administrators&apos; invites, feedback status changes and new free accounts
+                and so are administrators&apos; invites and feedback status changes
               </li>
             </ul>
             <p className="text-text-secondary-light dark:text-text-secondary-dark">

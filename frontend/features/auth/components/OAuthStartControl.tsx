@@ -4,6 +4,12 @@ import { useRef, useState, type ReactNode } from 'react'
 import { startOAuthWithInvite } from '@/features/auth/api/auth-api'
 import { oauthStartHref } from '@/features/auth/lib/oauthStart'
 import { cx } from '@/components/ui'
+import type { AccountAgreement } from '@/features/legal/api/legal-api'
+
+export interface OAuthSignup {
+  ready: boolean
+  prepare: () => Promise<AccountAgreement | null>
+}
 
 /** The provider as the buttons name it ("Continue with Google"), so a failed start says what did not continue. */
 const PROVIDER_NAME = { google: 'Google', apple: 'Apple' } as const
@@ -19,19 +25,22 @@ export default function OAuthStartControl({
   apiBase,
   provider,
   invite,
+  signup,
   className,
   children,
 }: {
   apiBase: string
   provider: 'google' | 'apple'
   invite?: string
+  signup?: OAuthSignup
   className: string
   children: ReactNode
 }) {
   const [failed, setFailed] = useState(false)
+  const [busy, setBusy] = useState(false)
   const inFlight = useRef(false)
 
-  if (!invite) {
+  if (!invite && !signup) {
     return (
       <a href={oauthStartHref(apiBase, provider)} className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', className)}>
         {children}
@@ -40,21 +49,26 @@ export default function OAuthStartControl({
   }
 
   const start = async () => {
-    if (inFlight.current) return
+    if (inFlight.current || (signup && !signup.ready)) return
     inFlight.current = true
+    setBusy(true)
     setFailed(false)
     try {
-      const url = await startOAuthWithInvite(provider, invite)
+      const agreement = signup ? await signup.prepare() : undefined
+      if (signup && !agreement) return
+      const url = await startOAuthWithInvite(provider, invite, agreement ?? undefined)
       window.location.assign(url)
     } catch {
       setFailed(true)
+    } finally {
       inFlight.current = false
+      setBusy(false)
     }
   }
 
   return (
     <div>
-      <button type="button" onClick={start} className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', className)}>
+      <button type="button" onClick={start} aria-disabled={busy || (signup && !signup.ready) || undefined} aria-busy={busy || undefined} className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', className)}>
         {children}
       </button>
       {failed && (

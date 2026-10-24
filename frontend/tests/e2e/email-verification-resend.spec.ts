@@ -54,7 +54,7 @@ async function openPrompt(page: Page, baseURL: string, theme: 'light' | 'dark', 
   await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
   await page.addInitScript((t) => {
     localStorage.setItem('theme', t)
-    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: 'x' }))
+    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-23T00:00:00Z' }))
   }, theme)
   // Credentialed cross-origin responses need these two; Playwright answers any preflight itself.
   const cors = { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true' }

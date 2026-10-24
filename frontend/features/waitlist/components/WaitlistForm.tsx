@@ -1,5 +1,8 @@
 'use client'
 
+import { CollectionGate } from '@/features/legal/components/CollectionGate'
+import type { LegalReadiness } from '@/features/legal/api/legal-api'
+
 import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -34,7 +37,7 @@ const unknownReferralDescription = 'Check the link with whoever shared it.'
 // "Join without the code" than its Notice.
 const pillLinkClass = buttonVariants({ variant: 'secondary', size: 'sm', wrap: true, className: 'max-w-full' })
 
-export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps) {
+function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & { recheck: () => Promise<LegalReadiness | null> }) {
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
@@ -92,6 +95,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
     setIsSubmitting(true)
     try {
+      if (!(await recheck())?.collection_available) return
       const data = await joinWaitlist(
         {
           email: email.trim(),
@@ -316,4 +320,8 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
       </div>
     </Card>
   )
+}
+
+export default function WaitlistForm(props: WaitlistFormProps) {
+  return <CollectionGate surface="waitlist" title="Waitlist registration is currently closed">{(recheck) => <OpenWaitlistForm source={props.source} recheck={recheck} />}</CollectionGate>
 }

@@ -12,7 +12,7 @@ import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { CheckIcon } from '@/lib/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import SecondaryHeader from '@/components/SecondaryHeader'
-import { Button, Card, Notice, Switch } from '@/components/ui'
+import { Button, Card, Notice, Switch, cx, primaryUnavailableClass, secondaryUnavailableClass } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
@@ -22,6 +22,8 @@ import { PRO_PRICING } from './prices'
 import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
 import { takeCarriedReturnNotice, useCarryReturnNotice } from '@/features/subscriptions/lib/returnNotice'
 import { registerHrefWithRedirect, stashPostAuthRedirect } from '@/lib/postAuthRedirect'
+import { useLegalReadiness } from '@/features/legal/hooks/useLegalReadiness'
+import Link from 'next/link'
 
 interface CurrentUser {
   id: number
@@ -82,6 +84,9 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
 }) {
   const router = useRouter()
   const yearlyLabelId = useId()
+  const { readiness, loading: checkingReadiness, recheck } = useLegalReadiness()
+  const checkoutAvailable = readiness?.checkout_available === true
+  const collectionAvailable = readiness?.collection_available === true
   const [isLoadingCheckout, setIsLoadingCheckout] = useState<string | null>(null)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const checkoutErrorRef = useRef<HTMLDivElement>(null)
@@ -183,9 +188,12 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
   const handleUpgrade = async (priceId: string) => {
     // Decide from resolved data only, before any loading state, analytics event or request: an
     // unresolved identity or a missing subscription snapshot is not a purchase decision.
-    if (!billingResolved || !identityResolved) return
+    if (!billingResolved || !identityResolved || !checkoutAvailable) return
     // Guests can't create a checkout session (401) — send them to sign up, then back here.
     if (isGuest) {
+      if (!collectionAvailable) return
+      const fresh = await recheck()
+      if (!fresh?.checkout_available || !fresh.collection_available) return
       const destination = pricingHref(billingCycle)
       stashPostAuthRedirect(destination)
       router.push(registerHrefWithRedirect(destination))
@@ -196,6 +204,10 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
     setCheckoutError(null)
     setIsLoadingCheckout(priceId)
     try {
+      if (!(await recheck())?.checkout_available) {
+        setIsLoadingCheckout(null)
+        return
+      }
       const priceValue = billingCycle === 'monthly' ? PRO_PRICING.monthly : PRO_PRICING.yearly
       analytics.checkoutStarted('pro', priceValue, billingCycle)
       await checkoutMutation.mutateAsync(priceId)
@@ -216,8 +228,8 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
 
   // Beta members get Pro free via the 100%-off forever promo (applied server-side at checkout).
   // Reframe the Pro card around their $0 total with no card.
-  // Waits for the subscription snapshot: "Claim Pro" must not appear before Pro is ruled out.
-  const showBetaOffer = Boolean(currentUser?.is_beta) && subscriptionResolved && !isPaidPro
+  // Waits for the subscription snapshot and an available checkout: the offer is fulfilled there.
+  const showBetaOffer = checkoutAvailable && Boolean(currentUser?.is_beta) && subscriptionResolved && !isPaidPro
 
   // Client-side mirror of the checkout's trial rule (create_checkout_session): first-time
   // subscriber (no Subscription row → status null; guests count too) + MONTHLY cycle + not beta.
@@ -245,9 +257,10 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
   // purchase decision until the account resolves (or the visitor is a confirmed guest).
   const unresolvedCta = accountFailed ? 'Plan unavailable' : 'Checking your plan…'
 
-  const handleGetStartedFree = () => {
+  const handleGetStartedFree = async () => {
     // Same readiness as the buy action: an unresolved identity is not a guest.
-    if (!identityResolved || isAuthenticated) return
+    if (!identityResolved || isAuthenticated || !collectionAvailable) return
+    if (!(await recheck())?.collection_available) return
     router.push(access.href)
   }
 
@@ -273,11 +286,12 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
       cta: !accountResolved
         ? unresolvedCta
         : !isAuthenticated
-        ? access.cta
+        ? collectionAvailable ? access.cta : 'Registration closed'
         : subscription?.is_pro
         ? 'Free plan'
         : 'Current plan',
       disabled: !accountResolved || isAuthenticated,
+      unavailable: !collectionAvailable,
       priceId: null,
       betaOriginal: null,
       billingNote: null,
@@ -307,6 +321,8 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
         ? 'Current plan'
         : isTrialing
         ? 'Current plan (trial)'
+        : !checkoutAvailable
+        ? checkingReadiness ? 'Checking availability…' : 'Checkout unavailable'
         : showBetaOffer
         ? 'Claim Pro'
         : trialEligible
@@ -316,6 +332,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
       // auto-charges at trial end; an enabled buy button here creates a duplicate (see comment
       // above isTrialing). Existing subscribers manage billing from their account settings.
       disabled: !accountResolved || isPaidPro || isTrialing,
+      unavailable: !checkoutAvailable,
       priceId: billingCycle === 'monthly' ? 'price_pro_monthly' : 'price_pro_yearly',
       popular: true,
       trialNote: trialEligible ? `First ${TRIAL_DAYS} days free · cancel anytime, no charge` : null,
@@ -520,7 +537,8 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
                 variant={plan.popular ? 'primary' : 'secondary'}
                 size="lg"
                 wrap
-                className="w-full"
+                className={cx('w-full', plan.unavailable && !isLoadingCheckout && (plan.popular ? primaryUnavailableClass : secondaryUnavailableClass))}
+                aria-disabled={plan.unavailable || undefined}
                 onClick={() => (plan.priceId ? handleUpgrade(plan.priceId) : handleGetStartedFree())}
                 disabled={plan.disabled || (isAuthenticated && !plan.priceId)}
                 loading={plan.priceId !== null && isLoadingCheckout === plan.priceId}
@@ -531,6 +549,12 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
             </Card>
           ))}
         </div>
+
+        {!checkoutAvailable && (
+          <div className="mx-auto mt-8 max-w-2xl">
+            <Notice title="New subscriptions are currently unavailable" description={<>You can still browse the plans and use your existing account.{' '}<Link href="/dashboard/settings#billing" className="box-decoration-clone rounded-sm underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Manage existing billing</Link>.</>} />
+          </div>
+        )}
 
         {/* FAQ */}
         <div className="mt-16 max-w-3xl mx-auto">

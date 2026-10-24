@@ -33,6 +33,7 @@ from typing import Any
 
 import httpx
 import pytest
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.exc import IllegalStateChangeError, OperationalError
 from sqlalchemy.orm import Session, sessionmaker
@@ -49,6 +50,9 @@ from app.services.filing_amendment_service import expand_amendment_forms
 from app.services.rate_limiter import RateLimiter
 from app.utils.datetimes import utcnow
 from main import app
+
+# Exercise existing collection behavior with an explicitly published synthetic operator notice.
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 
 @pytest.mark.asyncio
@@ -393,8 +397,8 @@ async def test_analysis_stream_releases_its_connection_before_the_body_streams(m
 
 @pytest.mark.asyncio
 async def test_force_regeneration_refreshes_no_expired_row_on_the_loop(monkeypatch, tmp_path):
-    """The Pro force branch of the generate stream commits (it clears the XBRL and the progress
-    row), and the commit expires the request's user and filing. The route read the user's id and
+    """The Pro force branch of the generate stream commits (it clears the progress row; the XBRL
+    snapshot stays, P11), and the commit expires the request's user and filing. The route read the user's id and
     the filing's type and ticker after that commit, so each refreshed its row with a fresh checkout
     on the event loop, which freezes the loop for the pool timeout once the pool is full. The route
     now reads them before the commit, so the force path checks out once, for the auth lookup, in the
@@ -459,13 +463,15 @@ async def test_force_regeneration_refreshes_no_expired_row_on_the_loop(monkeypat
         assert engine.pool.checkedout() == 0
         # One checkout, the auth lookup's, in the thread pool.
         assert request_checkouts == [False]
-        # The force branch ran: its commit cleared the progress row and the XBRL.
+        # The force branch ran: its commit cleared the progress row and kept the XBRL snapshot, which
+        # the run replaces only with fresh XBRL (refresh_xbrl).
         with sessionmaker(bind=engine)() as db:
             assert db.query(SummaryGenerationProgress).count() == 0
-            assert db.get(Filing, filing_id).xbrl_data is None
+            assert db.get(Filing, filing_id).xbrl_data == {"revenue": 1}
         # The pipeline was handed the snapshots taken before that commit.
         [call] = pipeline_calls
         assert (call["user_id"], call["force_regenerate"], call["current_user"].is_pro) == (user_id, True, True)
+        assert call["refresh_xbrl"] is True
         assert (call["telemetry_ctx"]["filing_type"], call["telemetry_ctx"]["ticker"]) == ("10-K", "FORCE")
     finally:
         engine.dispose()
@@ -1379,6 +1385,10 @@ def _billing_fixture(monkeypatch, tmp_path, *, with_customer: bool, rival: bool 
     from app.config import settings
     from app.models import User
     from app.routers import auth
+    from app.services import legal_readiness_service
+
+    # Keep the dormant Stripe path's pool and ownership regressions under the launch hold.
+    monkeypatch.setattr(legal_readiness_service, "is_checkout_available", lambda: True)
 
     engine = create_engine(
         f"sqlite:///{tmp_path / 'billing.db'}",
@@ -1469,7 +1479,8 @@ async def _bill(transport: httpx.ASGITransport, route: str, i: int) -> httpx.Res
 async def test_checkout_and_portal_release_their_connection_before_stripe(monkeypatch, tmp_path, route, with_customer):
     """Checkout reads what it needs in one thread-pool unit and releases it before any Stripe call, a new
     customer's claim and the trial's row check after the customer step are units of their own, and the
-    billing portal releases before its one call; every Stripe call runs in the thread pool. Eight payers on four slots, each Stripe call taking 0.3 s, so
+    billing portal releases before its one call; every Stripe call runs off the loop (on the Stripe threads, which
+    test_stripe_threads_allowlist.py holds, E170). Eight payers on four slots, each Stripe call taking 0.3 s, so
     answer 8x200 with no checkout, statement or release on the loop, nothing left for the finalizer,
     and each new customer stored on its own payer (E144)."""
     from app.models import User
@@ -1504,7 +1515,7 @@ async def test_checkout_and_portal_release_their_connection_before_stripe(monkey
 ], ids=["checkout-new-customer", "checkout-lost-claim", "checkout-stored-customer", "portal"])
 async def test_checkout_and_portal_hold_no_connection_while_stripe_answers(
         monkeypatch, tmp_path, route, with_customer, rival, calls):
-    """One checkout, or one portal session: every Stripe call runs in the thread pool with no connection
+    """One checkout, or one portal session: every Stripe call runs off the loop with no connection
     checked out, the losing checkout's retrieve of the customer stored first included, and each session
     names the payer's customer (and checkout the payer, whom the webhook binds the subscription to)."""
     from app.models import User

@@ -28,6 +28,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
@@ -35,6 +36,9 @@ from sqlalchemy.pool import QueuePool
 from app.database import Base
 from app.models import Company, User, WaitlistSignup, Watchlist
 from app.services import earnings_alert_service, waitlist_service, watchlist_service
+
+# Exercise existing collection behavior with an explicitly published synthetic operator notice.
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 
 @pytest.fixture

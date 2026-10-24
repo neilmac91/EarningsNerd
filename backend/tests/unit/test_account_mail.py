@@ -47,6 +47,7 @@ from app.services import durable_tasks as transport
 from app.services.durable_tasks import AccountMailTask
 from app.services.rate_limiter import RateLimiter
 from app.services.resend_service import ResendAmbiguousError, ResendPermanentError, ResendRetryableError
+from tests.support.account_agreement import ACCOUNT_AGREEMENT
 from tests.support.summary_stream_harness import reset_rate_limiters
 
 FORGOT_OPAQUE = {"message": "If an account exists for that email, a password reset link is on its way."}
@@ -546,12 +547,12 @@ async def test_a_failed_send_logs_the_exception_class_not_its_message(
 
 
 @pytest.mark.requires_db
-def test_registrations_verification_send_logs_the_exception_class_not_its_message(client, mail, caplog):
+def test_registrations_verification_send_logs_the_exception_class_not_its_message(client, mail, caplog, collection_ready):
     """Registration sends its verification link in its request, through the same send and the same line."""
     mail.verification.side_effect = _provider_error_quoting_the_link
     address = _address("register")
     with caplog.at_level(logging.INFO):
-        answer = client.post("/api/auth/register", json={"email": address, "password": "Sup3rSecretPassw0rd"})  # gitleaks:allow
+        answer = client.post("/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": address, "password": "Sup3rSecretPassw0rd"})  # gitleaks:allow
     assert answer.status_code == 200, answer.text
     link = mail.verification.await_args.kwargs["verification_link"]
     [record] = _send_failure_records(caplog)

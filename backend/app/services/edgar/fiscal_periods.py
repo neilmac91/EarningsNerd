@@ -1,11 +1,9 @@
-"""Anchor per-filing fiscal labels to the filing's own fiscal focus, never calendar months or years."""
-from datetime import date, timedelta
+"""Anchor per-filing fiscal labels to the filing's own fiscal focus, never to calendar months or years; where
+no focus is trusted the labellers add no label and the fact normalizer keeps the calendar year of the end."""
+from datetime import date
 from typing import Any, Optional
 
-from app.services.facts.calendar import ANNUAL_FORMS
-
-# A 52/53-week calendar drifts a few days from whole quarters and years; transition periods do not.
-_DRIFT_DAYS = 18
+from app.services.facts.fiscal_naming import ANNUAL_FORMS, DRIFT_DAYS as _DRIFT_DAYS, focus_years, years_back
 
 
 def _focus_year(fiscal_year: Any) -> Optional[int]:
@@ -44,19 +42,19 @@ def annual_fiscal_label(end: str, report_end: Any, fiscal_year: Any, fiscal_peri
 
     A retailer's year ending 1 February 2025 is its fiscal 2024, and a 52-week year ending
     1 January 2023 is fiscal 2022. The DEI focus names the year the filing reports; a comparative
-    ends a whole number of fiscal years earlier. Like the companyfacts writer
-    (``facts/calendar.reported_fiscal_year``) this trusts only an annual report's FY focus that names
-    the anchor's end year or the year before; it narrows the year before to a year that mostly lies
-    in it (one ending by early July), so a lagging focus on a December year keeps the default.
-    Unlike that writer it sees one filing and no filing date, so it can neither outvote an outlier
-    focus across the years nor tell whether a late report's year chain holds a timely one. The
-    per-filing writer makes up for the first where companyfacts already stores a trusted year for one
-    of the report's period ends: it moves the filing's annual labels onto that year chain
+    ends a whole number of fiscal years earlier (``facts/fiscal_naming.years_back``). Like the
+    companyfacts writer (``facts/fiscal_naming.reported_fiscal_year``) this trusts only an annual
+    report's FY focus that names the anchor's end year or the year before; it narrows the year before
+    to a year that mostly lies in it (``facts/fiscal_naming.focus_years``: one ending by early July),
+    so a lagging focus on a December year keeps the default. That writer names a year chain that no
+    timely report names by its late reports' own focus under the same narrowing, so a late report is
+    named alike. Unlike that writer this sees one filing, so it cannot outvote an outlier focus across
+    the years. The per-filing writer makes up for that where companyfacts already stores a trusted
+    year for one of the report's period ends: it moves the filing's annual labels onto that year chain
     (``facts/fiscal_evidence.adopt_trusted_fiscal_years``). Before the first companyfacts sync it
     cannot, so a year named by its end under a lagging focus (Salesforce's fiscal 2026, ended
-    31 January 2026, focus 2025) keeps the year before; the stored-row relabel (#1372) rewrites only
-    calendar-default labels, so such a row stays until the filing's facts are rewritten. Both are
-    known limits (``lessons/sec-fact-writers-name-a-period-alike.md``).
+    31 January 2026, focus 2025) keeps the year before until the stored-row relabel (#1372) moves the
+    filing by the one offset companyfacts names (``lessons/sec-fact-writers-name-a-period-alike.md``).
     Returns {} when the calendar year of the end already names the year (the fact normalizer's
     default, so a calendar-aligned issuer's points keep their exact shape), when the focus is not
     trusted, or when the point is not a whole number of years before the anchor.
@@ -66,12 +64,10 @@ def annual_fiscal_label(end: str, report_end: Any, fiscal_year: Any, fiscal_peri
         point, anchor = date.fromisoformat(end), date.fromisoformat(report_end)
     except (TypeError, ValueError):
         return {}
-    # The calendar year the fiscal year ends in, or the one its midpoint falls in.
-    if fiscal_period != "FY" or fiscal_year not in (anchor.year, (anchor - timedelta(days=183)).year):
+    if fiscal_period != "FY" or fiscal_year not in focus_years(anchor):
         return {}
-    days = (anchor - point).days
-    years = round(days / 365.25)
-    if days < 0 or abs(days - years * 365.25) > _DRIFT_DAYS or fiscal_year - years == point.year:
+    years = years_back(point, anchor)
+    if years is None or fiscal_year - years == point.year:
         return {}
     return {"fiscal_year": fiscal_year - years, "fiscal_period": "FY"}
 

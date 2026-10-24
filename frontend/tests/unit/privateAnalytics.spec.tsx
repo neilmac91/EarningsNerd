@@ -4,7 +4,7 @@ import { hydrateRoot } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
 import type { ComponentProps } from 'react'
 import { beforeSendVercel, PrivateAnalytics } from '@/app/private-analytics'
-import { CONSENT_VERSION, saveCookiePreferences } from '@/components/CookieConsent'
+import { CONSENT_VERSION, saveCookiePreferences, clearCookiePreferences } from '@/components/CookieConsent'
 
 /**
  * Vercel Web Analytics only after consent (D-046, D4). The consent bar says analytics stay off until the visitor
@@ -35,7 +35,7 @@ vi.mock('@vercel/analytics/next', async (importOriginal) => {
 type VercelWindow = Window & { va?: unknown; vaq?: unknown; vam?: unknown }
 const vercelScripts = () => document.head.querySelectorAll('script[data-sdkn^="@vercel/analytics"]')
 const choose = (analytics: boolean) =>
-  act(() => saveCookiePreferences({ essential: true, analytics, sessionRecording: false, timestamp: '' }))
+  act(() => saveCookiePreferences({ essential: true, analytics, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z' }))
 const pageview = { type: 'pageview' as const, url: 'https://example.test/pricing' }
 
 afterEach(() => {
@@ -47,6 +47,8 @@ afterEach(() => {
   delete w.vaq
   delete w.vam
   localStorage.clear()
+  vi.restoreAllMocks()
+  clearCookiePreferences()
   mounts.live = 0
   mounts.total = 0
 })
@@ -70,7 +72,7 @@ describe('Vercel Web Analytics waits for analytics consent', () => {
 
   it.each([
     ['no choice stored yet', null],
-    ['Essential only', { essential: true, analytics: false, sessionRecording: false, timestamp: '' }],
+    ['Essential only', { essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z' }],
   ])('renders nothing with %s: no Analytics component, no script', (_label, stored) => {
     if (stored) localStorage.setItem('cookie_consent', JSON.stringify(stored))
     const { container } = render(<PrivateAnalytics />)
@@ -90,19 +92,36 @@ describe('Vercel Web Analytics waits for analytics consent', () => {
   })
 
   it('loads at once on a page opened with analytics allowed', () => {
-    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: true, sessionRecording: false, timestamp: '', version: CONSENT_VERSION }))
+    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: true, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z', version: CONSENT_VERSION }))
     render(<PrivateAnalytics />)
     expect(mounts.live).toBe(1)
     expect(vercelScripts()).toHaveLength(1)
   })
 
   it('unmounts on a withdrawal and drops every event the loaded script would send, which stays until the next load', () => {
-    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: true, sessionRecording: false, timestamp: '', version: CONSENT_VERSION }))
+    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: true, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z', version: CONSENT_VERSION }))
     render(<PrivateAnalytics />)
     choose(false)
     expect(mounts.live).toBe(0)
     expect(beforeSendVercel(pageview)).toBeNull()
     // The library's limit: no unload, so its script tag remains in this page.
+    expect(vercelScripts()).toHaveLength(1)
+  })
+
+  it.each(['failed-write', 'cross-tab-clear'] as const)('stops the loaded SDK component and its send hook on %s', mode => {
+    render(<PrivateAnalytics />)
+    choose(true)
+    expect(mounts.live).toBe(1)
+    if (mode === 'failed-write') {
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('Unavailable') })
+      vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new DOMException('Unavailable') })
+      choose(false)
+    } else {
+      localStorage.clear()
+      act(() => window.dispatchEvent(new StorageEvent('storage', { key: null, storageArea: localStorage })))
+    }
+    expect(mounts.live).toBe(0)
+    expect(beforeSendVercel(pageview)).toBeNull()
     expect(vercelScripts()).toHaveLength(1)
   })
 })

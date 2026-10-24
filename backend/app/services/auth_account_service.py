@@ -21,6 +21,10 @@ from sqlalchemy.orm import Session
 
 from app.models import InviteCode, User
 from app.services import invite_service, login_lockout
+from app.services.account_agreement_service import (
+    AcceptedAccountAgreement, require_current_agreement, stage_account_agreement,
+)
+from app.services.legal_readiness_service import require_collection_available
 from app.services.refresh_token_service import create_refresh_token, lock_user_tokens, revoke_all_for_user
 
 EMAIL_VERIFY_EXPIRY_HOURS = 24
@@ -63,6 +67,7 @@ def create_password_account(
     hashed_password: str,
     full_name: Optional[str],
     invite: Optional[InviteCode],
+    agreement: AcceptedAccountAgreement | None = None,
 ) -> Optional[User]:
     """Create and commit an unverified password account; None when no account may result.
 
@@ -70,6 +75,8 @@ def create_password_account(
     mode). None covers a lost redemption race and a lost concurrent-create race for the same email;
     the caller answers both with its opaque response.
     """
+    require_collection_available()
+    agreement = require_current_agreement(agreement)
     user = User(
         email=email,
         hashed_password=hashed_password,
@@ -79,6 +86,7 @@ def create_password_account(
     db.add(user)
     try:
         db.flush()
+        stage_account_agreement(db, user, agreement, source="password")
         # Closed beta: consume the (already-validated) single-use invite in the SAME transaction as
         # the insert and tag the user beta-eligible, so the 100%-off promo applies at checkout. A
         # lost redemption race rolls the account back too (the invite's single-use invariant holds),

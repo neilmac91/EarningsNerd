@@ -13,10 +13,11 @@ from app.models import User
 from app.routers.auth import get_current_user
 from app.config import settings
 from starlette.concurrency import run_in_threadpool
-from app.services import billing_account_service, filing_list_service
+from app.services import billing_account_service, filing_list_service, legal_readiness_service
 from app.services.billing_serving_prices import serving_pro_prices
 from app.services.subscription_webhook_service import process_stripe_event, SubscriptionEventBusy
 from app.services.stripe_subscription_reader import SubscriptionReconciliationUnavailable
+from app.services.stripe_threads import run_on_stripe_threads
 from app.services.entitlements import get_entitlements, get_plan, is_pro_user
 from app.services.subscription_service import (
     get_current_month,
@@ -230,6 +231,11 @@ async def create_checkout_session(
     sub in-app while Stripe keeps charging it (staff review, PR #619).
     """
     account = await run_in_threadpool(_read_checkout_account, db, current_user)
+    if not legal_readiness_service.is_checkout_available():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="New subscriptions are not available yet. You can still manage existing billing in Settings.",
+        )
     if not account.email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -268,9 +274,9 @@ async def create_checkout_session(
             filing_list_service.release_request_session(db)
 
     try:
-        # Create or retrieve Stripe customer; every Stripe call runs in the thread pool.
+        # Create or retrieve Stripe customer; every Stripe call runs on the Stripe threads (E170).
         if not account.stripe_customer_id:
-            customer = await run_in_threadpool(
+            customer = await run_on_stripe_threads(
                 stripe.Customer.create, email=account.email, metadata={"user_id": str(account.user_id)}
             )
             stored_customer_id = await run_in_threadpool(claim_customer, customer.id)
@@ -286,9 +292,9 @@ async def create_checkout_session(
                 # so a payment through either session finds the account (E166).
                 logger.info("Checkout for user_id=%s uses the customer stored first; %s has no subscription",
                             account.user_id, customer.id)
-                customer = await run_in_threadpool(stripe.Customer.retrieve, stored_customer_id)
+                customer = await run_on_stripe_threads(stripe.Customer.retrieve, stored_customer_id)
         else:
-            customer = await run_in_threadpool(stripe.Customer.retrieve, account.stripe_customer_id)
+            customer = await run_on_stripe_threads(stripe.Customer.retrieve, account.stripe_customer_id)
 
         # Create checkout session
         frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
@@ -348,7 +354,7 @@ async def create_checkout_session(
             }
             session_kwargs["payment_method_collection"] = "always"
 
-        checkout_session = await run_in_threadpool(stripe.checkout.Session.create, **session_kwargs)
+        checkout_session = await run_on_stripe_threads(stripe.checkout.Session.create, **session_kwargs)
 
         return {"url": checkout_session.url}
     except stripe.error.StripeError as e:
@@ -381,7 +387,7 @@ async def create_portal_session(
 
     try:
         frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
-        portal_session = await run_in_threadpool(
+        portal_session = await run_on_stripe_threads(
             stripe.billing_portal.Session.create,
             customer=customer_id,
             return_url=f"{frontend_url}/dashboard",

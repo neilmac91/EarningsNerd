@@ -100,7 +100,7 @@ export default function SettingsPage() {
   if (userLoading && !userFailure.failed) {
     return (
       <div className="min-h-screen bg-background-light dark:bg-background-dark">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           {header}
           {/* The first two sections in their own cards and shapes, so each lands where its bones stood:
               Profile's email, display name and Save; Billing's plan and usage rows and its action. Raw bones
@@ -132,14 +132,14 @@ export default function SettingsPage() {
             </Card>
             <span className="sr-only">Loading your settings…</span>
           </div>
-        </div>
+        </main>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {header}
 
         <div className={enterClass}>
@@ -315,7 +315,7 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

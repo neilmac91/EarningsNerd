@@ -6861,6 +6861,17 @@ Full local and hosted verification plus independent exact-head review precede re
   writers whose paid steps started (one failing a second later) and seven balance readouts on GitHub. Chief
   defects 30 (a loop over `gh api` calls with a variable in the path) and 31 (foreground sleeps); no classifier
   denial of the chief's commands and one hook refusal of them in the window. Closure 201.
+- 2026-10-23 (record 51, `runtime/control/DECISIONS-51.md`): PR #1528 (record 50) merged `b6b466cd` by another
+  writer under the shared account, not by the chief, after a draft-to-ready switch that was not the chief's
+  either (forty-sixth deploy-skip proof: its main run succeeded and its deploy job skipped every deploy step);
+  before them, its fact-check, its reviewer's two passes, the founder's call on a hung Codex review and the
+  chief's one ready mark, each ready review clean. Closure 202 registers record 50's survey, fact-check and
+  reviewer and pre-registers this record's survey and fact-check and record 52's reviewer. A read-only survey
+  of the window before the record was written. Nine main merges, one of them a backend deploy, healthy; no job
+  cut off at the browser tests' limit; production not read live. No CODE RED spend; no ledger event; fifteen
+  runs by other writers whose paid steps started (one failing at once), fifteen balance readouts and two Ops
+  runs on GitHub. Chief defect 32 (a mask that a cut ran ahead of); no classifier denial of the chief's commands
+  and no hook refusal of them in the window. Closure 202.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and

@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 from app.services.fact_provenance import fact_operand
 from app.services.facts.calendar import (
-    _fiscal_year_windows, _label_quarters, fiscal_duration_values, fiscal_year_labels, reported_fiscal_year,
+    _fiscal_year_windows, _label_quarters, fiscal_duration_values, fiscal_year_labels,
 )
 from app.services.facts.concepts import (
     COMPANYFACTS_DURATION_TAGS, COMPANYFACTS_INSTANT_TAGS, NON_NEGATIVE_CONCEPTS,
@@ -14,6 +14,7 @@ from app.services.facts.concepts import (
 )
 from app.services.facts.currency import admitted_items, series_unit
 from app.services.facts.derive import derive_same_period_metrics
+from app.services.facts.fiscal_naming import reported_fiscal_year, year_ending_on
 from app.services.facts.quarterly import (
     QUARTER_WINDOW, derive_cumulative_quarters, derive_quarter_sum_fallback, reported_fact,
 )
@@ -241,10 +242,9 @@ def _append_reported_companyfacts(
                 fiscal_period, fiscal_year = "FY", fy_labels[end]
             elif end in quarter_labels:
                 fiscal_period, fiscal_year = quarter_labels[end]
-            elif record.get("first_fp") == "FY":
-                # FY-end balance sheet older than the earliest FY duration window; the original
-                # Use an original annual report's year when available, never a later comparative.
-                fiscal_period, fiscal_year = "FY", reported_fiscal_year(record, end) or end.year
+            elif record.get("first_fp") == "FY":  # A year-end balance outside every window (an opening balance)
+                fiscal_period = "FY"  # closes the year ending on its date, counted back from the next window.
+                fiscal_year = year_ending_on(end, fy_labels) or reported_fiscal_year(record, end) or end.year
             elif record.get("first_fp") in _VALID_FP:
                 fy = record.get("first_fy")
                 fiscal_period = record["first_fp"]

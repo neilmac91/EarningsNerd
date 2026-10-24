@@ -4,8 +4,9 @@ import posthog from 'posthog-js'
 import { PostHogProvider as PHProvider } from 'posthog-js/react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, Suspense, useState } from 'react'
-import { getCookiePreferences, type CookiePreferences } from '@/components/CookieConsent'
-import { canRecordTelemetry, onRecordingBlocked, sanitizeTelemetryUrl } from '@/lib/telemetryPrivacy'
+import { subscribeCookiePreferences } from '@/lib/browserConsent'
+import { applyPostHogConsent, browserAnalyticsAllowed, installPostHogConsentGuard } from '@/lib/posthogConsent'
+import { sanitizeTelemetryUrl } from '@/lib/telemetryPrivacy'
 import { initializePostHogPrivacy, postHogPrivacyConfig } from '@/lib/posthogPrivacy'
 import { PostHogReadyContext } from '@/lib/posthogReady'
 
@@ -14,7 +15,7 @@ function PostHogPageView() {
   const searchParams = useSearchParams()
 
   useEffect(() => {
-    if (pathname && posthog && posthog?.__loaded) {
+    if (pathname && posthog?.__loaded && browserAnalyticsAllowed()) {
       try {
         let url = window.origin + pathname
         if (searchParams && searchParams.toString()) {
@@ -51,121 +52,49 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY
     const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com'
-
-    // Without a key there is no SDK to start: only the choice is followed, so identification can still mirror the
-    // account id into Sentry once analytics is allowed.
-    if (!key) {
-      console.warn('PostHog: NEXT_PUBLIC_POSTHOG_KEY not set, analytics disabled')
-      const followChoice = (event?: Event) => {
-        const chosen = event ? (event as CustomEvent<CookiePreferences>).detail : getCookiePreferences()
-        setAnalyticsAllowed(chosen?.analytics === true)
-      }
-      followChoice()
-      window.addEventListener('cookieConsentChanged', followChoice)
-      return () => window.removeEventListener('cookieConsentChanged', followChoice)
-    }
-
-    // Check cookie consent before initializing PostHog
-    const initializePostHog = (preferences?: CookiePreferences | null) => {
+    let active = true
+    let starting = false
+    const followChoice = () => {
+      const allowed = browserAnalyticsAllowed()
+      setAnalyticsAllowed(allowed)
+      if (!key) return // Identification can still mirror the account id into Sentry after consent.
       try {
-        const consent = preferences || getCookiePreferences()
-        setAnalyticsAllowed(consent?.analytics === true)
-
-        // Only initialize if user has consented to analytics
-        // OR if no preferences set yet (will be handled by cookie banner)
-        if (consent && !consent.analytics) {
-          // User explicitly rejected analytics
-          if (posthog?.__loaded) {
-            // If already loaded, opt out
-            posthog.opt_out_capturing()
-            posthog.stopSessionRecording()
-          }
+        installPostHogConsentGuard(posthog)
+        if (posthog.__loaded) {
+          applyPostHogConsent(posthog)
           return
         }
-
-        // Don't initialize until user has made a choice
-        // Exception: if no consent recorded, we'll wait for the banner
-        if (!consent && typeof window !== 'undefined') {
-          // Wait for cookie consent to be set
-          return
-        }
-
-        // Initialize PostHog with consent-aware settings
-        if (!initialized && !posthog?.__loaded) {
-          posthog.init(key, {
-            api_host: host,
-            capture_pageview: false, // We handle it manually
-            capture_pageleave: consent?.analytics || false,
-            autocapture: consent?.analytics || false,
-            // Avoid SDK reintroducing raw initial URLs before feature-flag requests. Sanitized
-            // attribution is seeded in loaded, before the SDK requests remote configuration.
-            ...postHogPrivacyConfig(posthog),
-            disable_session_recording: !consent?.sessionRecording || !canRecordTelemetry(),
-            bootstrap: { featureFlags: {} },
-            loaded: (posthogClient) => {
-              initializePostHogPrivacy(posthog)
-              if (process.env.NODE_ENV === 'development') {
-                posthogClient.debug()
-              }
-
-              // Start session recording only if user explicitly consented
-              if (consent?.sessionRecording && canRecordTelemetry()) {
-                posthogClient.startSessionRecording()
-              } else {
-                posthogClient.stopSessionRecording()
-              }
-
-              // Opt in if analytics consented
-              if (consent?.analytics) {
-                posthogClient.opt_in_capturing()
-              }
-
-              // The page-view tracker joins on this state, and PostHogReadyContext waits on it. It is set here, in
-              // the loaded callback, since posthog.__loaded changing does not re-render React.
+        if (!allowed || starting) return
+        starting = true
+        posthog.init(key, {
+          api_host: host,
+          capture_pageview: false,
+          capture_pageleave: true,
+          autocapture: true,
+          opt_out_capturing_by_default: true,
+          ...postHogPrivacyConfig(posthog),
+          bootstrap: { featureFlags: {} },
+          loaded: () => {
+            // Initialization may finish after a refusal/clear in this or another tab. Never use
+            // the choice captured by the init closure to opt back in or start recording.
+            initializePostHogPrivacy(posthog)
+            applyPostHogConsent(posthog)
+            if (active) {
               setInitialized(true)
-            },
-          })
-        } else if (posthog?.__loaded) {
-          // Update existing PostHog instance based on consent
-          if (consent?.analytics) {
-            posthog.opt_in_capturing()
-
-            // Update session recording based on consent
-            if (consent.sessionRecording && canRecordTelemetry()) {
-              posthog.startSessionRecording()
-            } else {
-              posthog.stopSessionRecording()
+              setAnalyticsAllowed(browserAnalyticsAllowed())
             }
-          } else {
-            posthog.opt_out_capturing()
-            posthog.stopSessionRecording()
-          }
-        }
+          },
+        })
       } catch (error) {
+        starting = false
         console.error('PostHog: Failed to initialize or update PostHog', error)
       }
     }
-
-    const unsubscribeRecordingGuard = onRecordingBlocked(() => {
-      if (posthog?.__loaded) posthog.stopSessionRecording()
-    })
-
-    // Initialize on mount
-    initializePostHog()
-
-    // Listen for consent changes
-    const handleConsentChange = (event: Event) => {
-      const customEvent = event as CustomEvent<CookiePreferences>
-      initializePostHog(customEvent.detail)
-    }
-
-    window.addEventListener('cookieConsentChanged', handleConsentChange)
-
-    return () => {
-      window.removeEventListener('cookieConsentChanged', handleConsentChange)
-      unsubscribeRecordingGuard()
-    }
-  }, [initialized])
+    // Subscribe before init: synchronous loaded callbacks and concurrent choices follow one store.
+    const unsubscribe = subscribeCookiePreferences(followChoice)
+    followChoice()
+    return () => { active = false; unsubscribe() }
+  }, [])
 
   // One tree before and after the SDK loads. The provider stays mounted around the page and only the page-view
   // tracker joins once PostHog has loaded, so a first allow from the footer's Cookie settings never remounts the

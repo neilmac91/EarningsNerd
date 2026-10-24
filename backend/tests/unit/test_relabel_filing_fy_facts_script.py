@@ -8,11 +8,11 @@ companyfacts year onto filing-owned FY rows that still carry the calendar defaul
 it can trust: every companyfacts FY row the fiscal-year-window writer stored at that period end
 (provenance version 1, since #1191) names one year, and at least one of them is a duration. Rows
 stored before #1191 (NULL provenance) carry the calendar year of their end and are no evidence. An
-instant-only label is never copied: the companyfacts writer names its oldest opening balance by one
-report's fy or by calendar year (``facts/companyfacts.py``
-``reported_fiscal_year(record, end) or end.year``). A relabel that would give a label another
-period end of the same filing and concept, or of the concept's current rows, already carries is
-held.
+instant-only label is never copied: the companyfacts writer once named its oldest opening balance by
+one report's fy or by calendar year, and rows it stored then carry the same provenance. A label a
+labeller set moves only with its whole filing, by one offset this run's SEC read confirms. A relabel
+that would give a label another period end of the same filing and concept, or of the concept's
+current rows, already carries is held.
 """
 import json
 from contextlib import contextmanager
@@ -28,6 +28,7 @@ from app import database
 from app.models import Base, Company, Filing, FinancialFact
 from app.models.financial_fact_revision import FinancialFactRevision
 from app.services import facts_service, quarterly_fact_repair
+from app.services.edgar import fiscal_periods
 from app.services.facts import fiscal_evidence
 from app.services.fact_provenance import reported_provenance
 from app.utils.sec_urls import build_sec_archive_url
@@ -47,8 +48,13 @@ CALENDARS = {
     # Apple: a September year; the calendar year of the end already names the year.
     "AAPL": {2022: ("2021-09-26", "2022-09-24"), 2023: ("2022-09-25", "2023-09-30"),
              2024: ("2023-10-01", "2024-09-28")},
+    # Salesforce: a January year named by its end; its fiscal 2026 10-K carries DEI focus 2025.
+    "CRM": {2022: ("2021-02-01", "2022-01-31"), 2023: ("2022-02-01", "2023-01-31"),
+            2024: ("2023-02-01", "2024-01-31"), 2025: ("2024-02-01", "2025-01-31"),
+            2026: ("2025-02-01", "2026-01-31"), 2027: ("2026-02-01", "2027-01-31")},
 }
-CIKS = {"TGT": "0000027419", "JNJ": "0000200406", "AAPL": "0000320193", "DEC": "0000000777"}  # DEC: synthetic
+CIKS = {"TGT": "0000027419", "JNJ": "0000200406", "AAPL": "0000320193", "CRM": "0001108524",
+        "DEC": "0000000777"}  # DEC: synthetic
 LEGACY = None  # provenance of a row the companyfacts writer stored before #1191
 
 
@@ -185,29 +191,51 @@ def _writes(statements):
     return [s for s in statements if s.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE"))]
 
 
-def _payload(company, reports, report_years):
-    """A companyfacts payload: each 10-K reports its year and two comparatives (revenue, equity)."""
+def _payload(company, reports, report_years, *, opening=False, focus=None):
+    """A companyfacts payload: each 10-K reports its year and two comparatives (revenue, equity). With
+    ``opening``, its equity statement's opening balance too, which closed the year before those three;
+    ``focus`` maps a report's year to the DEI focus it carries, where that lags."""
     calendar = CALENDARS[company.ticker]
     revenue, equity = [], []
     for fy in report_years:
         accn, filed = reports[fy]
+        tagged = (focus or {}).get(fy, fy)
         revenue += [{"start": calendar[y][0], "end": calendar[y][1], "val": 10.0 * y, "accn": accn,
-                     "fy": fy, "fp": "FY", "form": "10-K", "filed": filed} for y in (fy, fy - 1, fy - 2)]
-        equity += [{"end": calendar[y][1], "val": 5.0 * y, "accn": accn, "fy": fy, "fp": "FY",
-                    "form": "10-K", "filed": filed} for y in (fy, fy - 1, fy - 2)]
+                     "fy": tagged, "fp": "FY", "form": "10-K", "filed": filed} for y in (fy, fy - 1, fy - 2)]
+        equity += [{"end": calendar[y][1], "val": 5.0 * y, "accn": accn, "fy": tagged, "fp": "FY",
+                    "form": "10-K", "filed": filed} for y in (fy, fy - 1, fy - 2, *((fy - 3,) if opening else ()))]
     return {"cik": int(company.cik), "facts": {"us-gaap": {"Revenues": {"units": {"USD": revenue}},
                                                            "StockholdersEquity": {"units": {"USD": equity}}}}}
 
 
-def _unlabelled_annual_points(company, years):
+def _unlabelled_annual_points(company, years, opening=False):
     """A 10-K's points as pre-P5 extractions (and Filing.xbrl_data snapshots taken before P5) give
-    them: annual points carry no fiscal_year, so the per-filing writer stores the calendar year."""
+    them: annual points carry no fiscal_year, so the per-filing writer stores the calendar year.
+    With ``opening``, the equity statement's opening balance, which closed the year before ``years``."""
     calendar = CALENDARS[company.ticker]
+    balances = (*years, min(years) - 1) if opening else years
     return {
         "revenue": {"series": [{"period": calendar[y][1], "period_start": calendar[y][0], "value": 10.0 * y,
                                 "form": "10-K", "raw_tag": "us-gaap:Revenues"} for y in years]},
         "shareholders_equity": {"series": [{"period": calendar[y][1], "value": 5.0 * y, "form": "10-K",
-                                            "raw_tag": "us-gaap:StockholdersEquity"} for y in years]},
+                                            "raw_tag": "us-gaap:StockholdersEquity"} for y in balances]},
+    }
+
+
+def _labelled_annual_points(company, report_fy, focus):
+    """A 10-K's points as P5's extraction gives them: each annual point labelled from the filing's DEI focus."""
+    calendar = CALENDARS[company.ticker]
+    years = (report_fy, report_fy - 1, report_fy - 2)
+
+    def point(y, **fields):
+        label = fiscal_periods.filing_point_label("10-K", calendar[y][1], calendar[report_fy][1], focus, "FY")
+        return {"period": calendar[y][1], "form": "10-K", **fields, **label}
+
+    return {
+        "revenue": {"series": [point(y, period_start=calendar[y][0], value=10.0 * y, raw_tag="us-gaap:Revenues")
+                               for y in years]},
+        "shareholders_equity": {"series": [point(y, value=5.0 * y, raw_tag="us-gaap:StockholdersEquity")
+                                           for y in years]},
     }
 
 
@@ -351,8 +379,8 @@ def test_a_label_that_is_not_the_calendar_default_is_never_overwritten(db):
     """Only the per-filing writer's calendar default is the defect; any other label was set by a
     labeller (P5's annual label), and a weaker stored source never overwrites it."""
     company, filing = _company(db, "TGT")
-    # The fiscal-year-window writer falls back to calendar years for a chain with no timely
-    # original annual report (facts/calendar.py), so a current-writer row can name 2023 here.
+    # Until 2026-10-23 the fiscal-year-window writer fell back to calendar years for a chain with no
+    # timely original annual report, and those rows remain, so a current-writer row can name 2023 here.
     for fy in (2022, 2023):
         start, end = CALENDARS["TGT"][fy]
         _fact(db, company, concept="revenue", end=end, start=start, fiscal_year=_day(end).year)
@@ -882,3 +910,145 @@ def test_a_collision_holds_its_whole_period_end(db, sec):
 
     assert result["relabels"] == [] and result["skipped"]["label_collision"] == 4
     assert result["held"] == {"label_collision": ["2022-01-02", "2023-01-01"]}
+
+
+def test_the_companyfacts_oldest_opening_balance_no_longer_holds_the_filings_equity(db, writer_before_1364):
+    """#1372's held Target equity, from the production writers: a sync of the fiscal 2023 report, whose equity
+    statement opens with the balance that closed fiscal 2020 (30 January 2021); the fiscal 2024 10-K opened
+    before P5, its own statement opening at fiscal 2021's close; then a resync. The companyfacts writer named
+    the 2021 balance 2021, the year the filing's fiscal 2021 balance relabels to, so the relabel held that
+    period end and, in turn, every later one of the filing. It now names that balance fiscal 2020."""
+    company, filing = _company(db, "TGT")
+    db.commit()
+    reports = {2023: (_accession(company, 24), "2024-03-13"), 2024: (filing.accession_number, "2025-03-12")}
+    facts_service._persist_companyfacts_payload(db, company, _payload(company, reports, [2023], opening=True))
+    facts_service.process_filing_facts(
+        db, filing, standardized=_unlabelled_annual_points(company, (2024, 2023, 2022), opening=True),
+    )
+    facts_service._persist_companyfacts_payload(db, company, _payload(company, reports, [2023, 2024], opening=True))
+    opening = db.query(FinancialFact).filter_by(company_id=company.id, period_end=_day(CALENDARS["TGT"][2020][1])).one()
+    assert (opening.filing_id, opening.fiscal_year) == (None, 2020)
+
+    result = _apply(db, company)
+
+    assert result["relabels"] == [
+        {"period_end": "2022-01-29", "from": 2022, "to": 2021, "rows": 1},
+        {"period_end": "2023-01-28", "from": 2023, "to": 2022, "rows": 2},
+        {"period_end": "2024-02-03", "from": 2024, "to": 2023, "rows": 2},
+    ]
+    assert result["held"] == {"no_companyfacts_fy": ["2025-02-01"]}
+
+
+def _crm_opened_before_any_sync(db):
+    """Salesforce's fiscal 2026 10-K opened before companyfacts stored any year for the company: its focus
+    (2025) names each of its years one low, and the first sync skips every identity the filing owns."""
+    company, filing = _company(db, "CRM", year=26)
+    db.commit()
+    facts_service.process_filing_facts(db, filing, standardized=_labelled_annual_points(company, 2026, focus=2025))
+    reports = {2025: (_accession(company, 25), "2025-03-05"), 2026: (filing.accession_number, "2026-03-05")}
+    payload = _payload(company, reports, [2025, 2026], focus={2026: 2025})
+    facts_service._persist_companyfacts_payload(db, company, payload)
+    assert _labels(db, company) == [
+        ("revenue", "2024-01-31", 2023), ("revenue", "2025-01-31", 2024), ("revenue", "2026-01-31", 2025),
+        ("shareholders_equity", "2024-01-31", 2023), ("shareholders_equity", "2025-01-31", 2024),
+        ("shareholders_equity", "2026-01-31", 2025),
+    ]
+    return company, filing, payload
+
+
+def test_a_filing_named_by_a_lagging_focus_before_the_first_sync_moves_by_its_one_offset(db, sec):
+    """No stored row vouches for the filing's years, and its labels are not calendar defaults, so the relabel
+    used to hold them. The SEC read names each of them one higher, the year that ends on its date: the whole
+    filing moves by that one offset, the per-filing writer's own adoption rule, journaled like any relabel."""
+    company, filing, payload = _crm_opened_before_any_sync(db)
+    sec.payloads[company.cik] = payload
+
+    result = relabel.relabel_company(db, company.id, apply=True, run_id="lagging",
+                                     read=relabel.companyfacts_read(company.id, company.cik, company.sic))
+    db.commit()
+
+    assert result["relabels"] == [
+        {"period_end": "2024-01-31", "from": 2023, "to": 2024, "rows": 2},
+        {"period_end": "2025-01-31", "from": 2024, "to": 2025, "rows": 2},
+        {"period_end": "2026-01-31", "from": 2025, "to": 2026, "rows": 2},
+    ]
+    assert result["revisions"] == 6 and result["skipped"] == dict.fromkeys(relabel.SKIP_REASONS, 0)
+    assert _chart(db, filing)["revenue"] == [("2024-01-31", 2024), ("2025-01-31", 2025), ("2026-01-31", 2026)]
+    assert db.query(FinancialFactRevision).filter_by(run_id="lagging", action="apply").count() == 6
+
+
+def test_a_labellers_labels_move_only_by_one_offset_the_current_writers_read_confirms(db, sec):
+    """Salesforce: a stored current-writer row names fiscal 2024's end 2023, as the filing does, while the read
+    names its two newer years one higher: two offsets, so none of its labeller-set years move. Target: P5's
+    fiscal labels beside stored rows the companyfacts writer named by calendar year for a chain with no
+    timely report, which the current writer's read now names by the fiscal year: the stored years are never
+    taken over a labeller's label the read contradicts."""
+    crm, crm_filing, payload = _crm_opened_before_any_sync(db)
+    sec.payloads[crm.cik] = payload
+    start, end = CALENDARS["CRM"][2024]
+    _fact(db, crm, concept="revenue", end=end, start=start, fiscal_year=2023, accession=_accession(crm, 24))
+    tgt, tgt_filing = _company(db, "TGT")
+    for fy in (2022, 2023):
+        start, end = CALENDARS["TGT"][fy]
+        _fact(db, tgt, concept="revenue", end=end, start=start, fiscal_year=_day(end).year)
+        _fact(db, tgt, concept="revenue", end=end, start=start, fiscal_year=fy, source="edgar_xbrl", filing=tgt_filing)
+    db.commit()
+    sec.payloads[tgt.cik] = _payload(tgt, {2023: (_accession(tgt, 24), "2024-03-13"),
+                                           2024: (tgt_filing.accession_number, "2025-03-12")}, [2023, 2024])
+    before = _states(db)
+
+    results = [relabel.relabel_company(db, company.id, apply=True, run_id="held",
+                                       read=relabel.companyfacts_read(company.id, company.cik, company.sic))
+               for company in (crm, tgt)]
+    db.commit()
+
+    assert _states(db) == before
+    assert [result["relabel_rows"] for result in results] == [0, 0]
+    assert results[0]["held"] == {"not_calendar_default": ["2025-01-31", "2026-01-31"]}
+    assert results[0]["skipped"]["already_agrees"] == 2
+    assert results[1]["held"] == {"not_calendar_default": ["2023-01-28", "2024-02-03"]}
+
+
+def test_a_labellers_filing_moves_whole_or_not_at_all(db, sec):
+    """Salesforce's lagging fiscal 2026 10-K was opened before the first sync, and its fiscal 2027 10-K synced
+    before the relabel ran. That report's equity statement opens at fiscal 2024's close, the only row stored
+    there (the filing owns every other identity at that end), so that end holds as instant-only while the
+    read confirms the two newer ends' one offset. Moving those two would give the filing's chart fiscal 2023,
+    2025 and 2026: the whole filing holds instead, one year low as before and never split."""
+    company, filing, payload = _crm_opened_before_any_sync(db)
+    reports = {2025: (_accession(company, 25), "2025-03-05"), 2026: (filing.accession_number, "2026-03-05"),
+               2027: (_accession(company, 27), "2027-03-05")}
+    later = _payload(company, reports, [2025, 2026, 2027], opening=True, focus={2026: 2025})
+    facts_service._persist_companyfacts_payload(db, company, later)
+    sec.payloads[company.cik] = later
+    before, chart = _states(db), _chart(db, filing)
+
+    result = relabel.relabel_company(db, company.id, apply=True, run_id="whole",
+                                     read=relabel.companyfacts_read(company.id, company.cik, company.sic))
+    db.commit()
+
+    assert result["relabels"] == [] and result["partial_filings"] == []
+    assert result["held"] == {"not_calendar_default": ["2025-01-31", "2026-01-31"],
+                              "untrusted_instant_only": ["2024-01-31"]}
+    assert _states(db) == before and _chart(db, filing) == chart
+    assert chart["revenue"] == [("2024-01-31", 2023), ("2025-01-31", 2024), ("2026-01-31", 2025)]
+
+
+def test_a_null_label_beside_a_filing_that_moves_is_never_filled(db, sec):
+    """A NULL is no label to move: the filing's labelled rows move by their one read-confirmed offset, and
+    the NULL row at the same period end, which the read names too, keeps its NULL."""
+    company, filing, payload = _crm_opened_before_any_sync(db)
+    sec.payloads[company.cik] = payload
+    start, end = CALENDARS["CRM"][2026]
+    unlabelled = _fact(db, company, concept="operating_income", end=end, start=start, fiscal_year=None,
+                       source="edgar_xbrl", filing=filing, raw_tag="us-gaap:OperatingIncomeLoss")
+    db.commit()
+
+    result = relabel.relabel_company(db, company.id, apply=True, run_id="null",
+                                     read=relabel.companyfacts_read(company.id, company.cik, company.sic))
+    db.commit()
+
+    db.refresh(unlabelled)
+    assert unlabelled.fiscal_year is None
+    assert result["held"] == {"not_calendar_default": ["2026-01-31"]} and result["relabel_rows"] == 6
+    assert _chart(db, filing)["revenue"] == [("2024-01-31", 2024), ("2025-01-31", 2025), ("2026-01-31", 2026)]

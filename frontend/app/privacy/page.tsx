@@ -1,3 +1,4 @@
+import { LegalOperatorNotice } from '@/features/legal/components/LegalOperatorNotice'
 import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { ACCOUNT_EVENTS_DISCLOSURE, ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 import { Metadata } from 'next'
@@ -17,6 +18,7 @@ export default function PrivacyPage() {
       <div className="max-w-none">
         <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark">Privacy policy</h1>
         <p className="text-lg text-text-secondary-light dark:text-text-secondary-dark">Last updated: {LEGAL_DATES.privacy}</p>
+        <LegalOperatorNotice />
         <p className="mt-8 text-text-secondary-light dark:text-text-secondary-dark">
           This policy explains how personal information is handled through the EarningsNerd website and service.
           For privacy questions, requests or complaints, contact{' '}
@@ -49,7 +51,7 @@ export default function PrivacyPage() {
           </p>
           <ul className="mt-4 list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li><strong>Contract:</strong> Providing requested accounts, features and subscriptions.</li>
-            <li><strong>Consent:</strong> Optional browser analytics and session recording; consent can be withdrawn in Cookie settings.</li>
+            <li><strong>Consent:</strong> Optional browser analytics; consent can be withdrawn in Cookie settings.</li>
             <li><strong>Legitimate interests:</strong> Operating and improving the service, responding to enquiries, managing usage, troubleshooting, security and preventing abuse, subject to your rights.</li>
             <li><strong>Legal obligations:</strong> Applicable accounting, tax, lawful disclosure and other recordkeeping duties.</li>
           </ul>
@@ -73,7 +75,7 @@ export default function PrivacyPage() {
             <li><strong>AI and payments:</strong> DeepSeek for the inputs described above; Stripe for billing and subscriptions.</li>
             <li><strong>Login and security:</strong> Google or Apple for chosen social login; Cloudflare Turnstile for bot checks and Have I Been Pwned for partial password-hash breach checks, where enabled.</li>
             <li><strong>Email:</strong> Resend and Google Workspace for recipient details, service messages and correspondence.</li>
-            <li><strong>Analytics and diagnostics:</strong> PostHog for optional browser analytics/recording and separate account-linked operational usage; Sentry for errors and performance; Vercel Web Analytics for cookieless traffic measurement.</li>
+            <li><strong>Analytics and diagnostics:</strong> PostHog for optional browser analytics and separate account-linked operational usage; Sentry for errors and performance; Vercel Web Analytics for cookieless traffic measurement.</li>
           </ul>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
             Information may also be disclosed to comply with law, investigate abuse or protect legal rights.
@@ -100,12 +102,17 @@ export default function PrivacyPage() {
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">Cookies and choices</h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
             Essential browser storage supports login and site functionality. Optional PostHog and Vercel
-            browser analytics require an enabling choice. PostHog recording has a separate preference
-            and also requires analytics. These activities can be linked to your account; recording can include
-            displayed page content despite input masking. Review or withdraw choices using Cookie settings in the footer.
+            browser analytics require an enabling choice. Browser analytics can be linked to your account.
+            Session recording is disabled. Review or withdraw choices using Cookie settings in the footer.
           </p>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
-            Analytics and session recording in your browser stay off until you allow them, and you can change your choice at any time in Cookie settings. We don&apos;t change this based on your browser&apos;s Do Not Track setting.
+            Analytics in your browser stays off until you allow it, and you can change your choice at any time in Cookie settings. We don&apos;t change this based on your browser&apos;s Do Not Track setting.
+          </p>
+          <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
+            Withdrawal applies immediately in the current tab. If your browser cannot save the choice,
+            Cookie settings explains the limitation; check your choice after reloading or opening another tab.
+            A request already sent cannot be recalled, and withdrawing consent does not erase information
+            already received by a provider.
           </p>
           <ul className="mt-4 list-disc pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li><strong>Analytics Cookies:</strong>{' '}{ANALYTICS_CONSENT_CLAUSE}</li>
@@ -181,7 +188,7 @@ export default function PrivacyPage() {
             to report a concern. No internet service can guarantee absolute security.
           </p>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
-            EarningsNerd is intended for people who have reached the age of majority under the{' '}
+            Accounts are available only to people who are at least 18 and legally adults where they live, as required by the{' '}
             <Link href="/terms" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Terms</Link>.
             Contact the privacy address if a child has supplied personal information. Policy changes are posted
             here with an updated date; additional notice will be provided where required by law.

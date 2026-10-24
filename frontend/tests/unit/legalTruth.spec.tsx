@@ -238,12 +238,15 @@ const LEGAL_TEXT: Record<LegalPage, LedgerRow[]> = {
   terms: [
     { date: 'June 16, 2026', sha256: '82ecb15a746bee66' },
     { date: 'October 24, 2026', sha256: '89066f92fb69856d' },
+    { date: 'October 24, 2026', sha256: 'eb7c1fb1123812fe', sameDay: '#1547 changes the page after #1121 on the same day' },
   ],
   privacy: [
     { date: 'June 22, 2026', sha256: '455802b5d59fad8f' },
     { date: 'October 20, 2026', sha256: 'c1bc2d9daec940d1' },
     { date: 'October 21, 2026', sha256: '865b53735c88175d' },
     { date: 'October 24, 2026', sha256: '41094b4709f20a10' },
+    { date: 'October 24, 2026', sha256: 'db18a4591671aa83', sameDay: '#1547 changes the page after #1121 on the same day' },
+    { date: 'October 24, 2026', sha256: '6ed68d37e514f0bd', sameDay: '#1552 changes the page after #1547 on the same day' },
   ],
   security: [
     { date: 'June 22, 2026', sha256: '13d1b7070566bf07' },
@@ -251,6 +254,7 @@ const LEGAL_TEXT: Record<LegalPage, LedgerRow[]> = {
     { date: 'October 21, 2026', sha256: '272031790b35816d', sameDay: '#1397 changed the page that day too' },
     { date: 'October 21, 2026', sha256: 'f01e686b3c5afee8', sameDay: '#1449 changed the page that day too' },
     { date: 'October 24, 2026', sha256: '1fdda29a88473317' },
+    { date: 'October 24, 2026', sha256: '6b266b1d62f0e9b7', sameDay: '#1547 changes the page after #1121 on the same day' },
   ],
 }
 
@@ -1013,7 +1017,6 @@ const AUDITED: Record<string, string[]> = {
   'account deletions': ['user_deleted'],
   "administrators' invites": ['invite_minted', 'invite_revoked', 'invite_resent'],
   "administrators' feedback status changes": ['feedback_status_changed'],
-  "administrators' new free accounts": ['free_account_created'],
 }
 
 /** The audit_logs actions the backend writes that the item does not name, and what each records. The item names part
@@ -1991,7 +1994,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['Registrations, logins, failed logins, logouts, data exports, account deletions and administrator actions are written to an audit log', ['"administrator actions": no audit_logs row is known to record it']],
       // Round 3's item named logouts while a logout after the session token's expiry wrote no row (Codex's r4331250317
       // on a0f511aa); since E137 every logout that ends a session writes one.
-      ["Registrations, logins, failed logins, logouts, data exports and account deletions are written to an audit log, and so are administrators' invites, feedback status changes and new free accounts", []],
+      ["Registrations, logins, failed logins, logouts, data exports and account deletions are written to an audit log, and so are administrators' invites and feedback status changes", []],
+      ["Logins are written to an audit log, and so are administrators' new free accounts", [`"administrators' new free accounts": no audit_logs row is known to record it`]],
       ["Logins are written to an audit log, and so are administrators' summary deletions", [`"administrators' summary deletions": no audit_logs row is known to record it`]],
       ['Registrations and logins are written to an audit log', []],
     ]
@@ -2371,13 +2375,13 @@ describe('the account events have a sentence of their own, true of the API (D-05
 })
 
 describe('the consent clause and /privacy say the same thing, from one constant (D-046, F33)', () => {
-  it("is D-046's sentence, pinned beside the version a stored allow must carry (CONSENT_VERSION)", () => {
+  it("is D-046's sentence, pinned with the version a stored allow must carry (CONSENT_VERSION)", () => {
     expect(
       { clause: ANALYTICS_CONSENT_CLAUSE, version: CONSENT_VERSION },
       'a change to what the clause says an allow covers moves CONSENT_VERSION (components/CookieConsent.tsx) in the same commit, so a reader who allowed analytics under the old words chooses again',
     ).toEqual({
       clause: 'Usage statistics through PostHog, so we can see which pages work. When you are logged in they are tied to an internal account id.',
-      version: 2,
+      version: 3,
     })
   })
 

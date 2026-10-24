@@ -594,8 +594,9 @@ Analysis reflow  The page title and selected-company rows wrap. Narrative cards 
                  export/refresh Buttons use size="sm" wrap and max-w-full. The shared wrap state
                  keeps min-h-8 and lets labels grow within the card without conflicting utilities.
 
-Analysis reading <NarrativePane> — compact monetary amounts and quarter labels in prose, without
-                 changing link destinations, code or source excerpts. Preserve enough precision
+Analysis reading <NarrativePane> — compact monetary amounts and period labels in prose (a quarter as
+                 Q2 2026, a window as one range), without changing link destinations, code or source
+                 excerpts. Preserve enough precision
                  to keep a stated comparison meaningful. Up to three recognized source operands
                  remain inline with their original citation controls; longer lists fold beneath a
                  neutral summary that names every applicable note letter. Unrecognized content
@@ -656,7 +657,11 @@ Data notes strip <DataNotes> — hairlines above and below a native details disc
                  Note chips reveal and focus the same stable note ID. Citation-only supplemental
                  notes remain in the narrative and do not increase the report's figure counts.
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
-                 FY2026 and all API/snapshot/selection keys retain their original identity.
+                 FY2026 and all API/snapshot/selection keys retain their original identity. A
+                 window prints one way, through formatAnalysisWindow: one unspaced range, FY2016–FY2025
+                 or Q1 2024–Q4 2025, as the exports print it. tests/unit/analysisPeriodWindows.spec.tsx
+                 holds it: the analysis surfaces it renders carry no window key, no window field is read
+                 straight into page text, and no file but periodLabels.ts joins a range.
 
 Locked preview   <PeekLocked feature preview="full|screen"> (features/subscriptions): a Pro feature shown
                  locked, the real component blurred, dimmed, inert and aria-hidden under a centred Pro pill
@@ -1134,17 +1139,29 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  `--site-header-h` (components/Header.tsx), the one offset under it, and is the one bar that
                  sticks at the top of the viewport. Sticky and fixed chrome below the header reads it,
                  `top-[var(--site-header-h,4rem)]`, never a fixed `top-16` or a `sticky top-0`, so a bar that
-                 wraps under enlarged text covers nothing. Where the bar wraps from lg (1024 to 1440px under
-                 200% text), the desktop controls keep the right of their own line: the logo's mr-auto and the
-                 controls' ml-auto share the bar's free space, never justify-between alone, which puts a line's
-                 only block at its start, so the notification and account menus, anchored at their right edge
-                 (right-0), open on the screen (E160; gate: tests/e2e/reflow-200.spec.ts opens each menu at
-                 1024, 1280 and 1440px under 200% text, and holds the one-line bar's nav midway at 1440px).
-                 The desktop controls block holds min-h-10, the md button's height, so the bar is one height
-                 while the auth check runs and after it, for a guest and a signed-in reader (E174; gate:
-                 tests/e2e/header-covers-nothing.spec.ts holds the check open, scrolls, and answers it at 1280
-                 and 1440px, and at 1024 and 1440px under 200% text). Where the check changes the bar's lines
-                 it does not hold yet: E173 at 1024 to 1031px, E175 under 200% text at 1280 and 390px.
+                 wraps under enlarged text covers nothing. The full bar (the nav and the desktop controls)
+                 shows from 72rem and the compact bar (the mobile actions and the menu) below it, all four on
+                 one arbitrary variant, `[@media(min-width:72rem)]`: a media query's rem is the reader's text
+                 size, 1152px at the default size and 2304px under 200% text. 72rem leaves the full bar's
+                 widest row (every flag-gated link and a guest's longest account label) room to spare in Inter
+                 and in a wider fallback, so the full bar never wraps and the auth check never changes its
+                 lines (E173, E175; gate: tests/e2e/reflow-200.spec.ts holds the compact bar at 1151 and
+                 2303px and the full bar on one line at 1152 and 2304px, with either access mode's label).
+                 From lg to 72rem the compact bar carries a signed-in reader's NotificationBell too, after the
+                 theme toggle as in the full bar, so the bell stays wherever the full bar showed it before,
+                 and the header holds its panel so that one of it and the menu is open at a time (the same
+                 case opens both, the menu from the keyboard too). The logo's mr-auto and the controls'
+                 ml-auto share the full bar's free space, never justify-between alone, which puts a line's
+                 only block at its start, so should the bar ever wrap, the notification and account menus,
+                 anchored at their right edge (right-0), still open on the screen (E160; gate: the same spec
+                 opens each menu at 2304 and 2560px under 200% text with a copy fixture that lengthens the nav
+                 until the bar wraps, and holds the one-line bar's nav midway at 1440px). The desktop controls
+                 block holds min-h-10, the md button's height, so the bar is one height while the auth check
+                 runs and after it, for a guest and a signed-in reader (E174; gate:
+                 tests/e2e/header-covers-nothing.spec.ts holds the check open, scrolls, and answers it in the
+                 compact bar at 1024px and the full bar at 1152 and 1440px, and under 200% text in the compact
+                 bar at 1024 and 1440px and the full bar at 2304px). Below 1024px under 200% text a guest's
+                 account link can still change the compact bar's lines as it appears (E175).
                  A page's own header (SecondaryHeader: pricing, the dashboard, the watchlist, admin) scrolls
                  with the page on an opaque panel; only a table's
                  header cells stick at `top-0`, inside the table's own scroll box. The document's
@@ -1160,27 +1177,52 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  did (gates: tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/unit/SummaryBlocks.spec.tsx,
                  the /filing walk at 390px in tests/e2e/header-covers-nothing.spec.ts). The padding steps aside while
                  focus is inside the site header (`html:has([data-site-header]:focus-within)`): the header is
-                 stuck in view, and the padding, which counts its open mobile menu, would scroll the page
-                 behind the menu at every Tab through it, and move the page when a control in the bar took
-                 focus while it was scrolled; a Tab out of the open menu lands below it. Gates:
-                 tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/e2e/reflow-200.spec.ts (the filing
-                 page's section nav at 200% text) and tests/e2e/header-covers-nothing.spec.ts (a Shift+Tab walk
+                 stuck in view, and the padding, which counts its open mobile menu below lg, would scroll the
+                 page behind the menu at every Tab through it, and move the page when a control in the bar
+                 took focus while it was scrolled. The open menu is a disclosure: it closes when focus leaves
+                 the header (a focusout whose next target is outside it) from the keyboard or a script, inside
+                 that focusout (`flushSync`; React's own flush is too late with script on the stack), and the
+                 close publishes the bar's height in the same commit, before the browser scrolls the next
+                 control into view; otherwise that scroll reserves the open menu, which fills the screen under
+                 200% text. A press outside it (a tap or a click, on a control or on text, marked from its
+                 mousedown to the next task) leaves it open, and a navigation closes it: a close on the press
+                 moved the page under the pointer at the top of a page, and the release activated nothing. A
+                 focus a modal layer takes closes it with a plain update. Escape closes it too, unless a layer
+                 above took the key, returning a focus inside the menu to its toggle; a blur with no next
+                 target (another window) leaves it open. Gates:
+                 tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/unit/Header.spec.tsx (the menu's
+                 close and its height in the focusout, a press, a navigation, Escape),
+                 tests/e2e/reflow-200.spec.ts (the filing page's section nav at 200% text) and
+                 tests/e2e/header-covers-nothing.spec.ts (a Shift+Tab walk
                  of /, /pricing and /analysis with no stop wholly under the bar; /pricing's page header off the
                  screen once scrolled past; the open menu's Tab walk and the bar's own stops leaving the page where
-                 it is).
+                 it is, a Tab out of the open menu or a focus moved by script out of it closing it and landing
+                 inside the screen, below the bar, at both text sizes, and, since the compact bar shows on a
+                 desktop below 72rem, at 1440x900 under 200% text for a signed-in reader, and a tap on a link below
+                 the open menu at the top of the page following it, the next page opening with the menu closed).
                  The open mobile menu scrolls inside the viewport: the header is a column no taller than it
                  (`flex max-h-dvh flex-col`), the bar keeps its own height (`w-full shrink-0`; a column's child
                  with auto side margins is not stretched) and the menu panel takes the rest
                  (`overflow-y-auto overscroll-contain`, its scroll padding the nav's inset, as the Modal
                  panel's). The cap is the bar's own height, never `--site-header-h`, which counts the open
-                 menu. A sticky header taller than the viewport stays stuck to its top until the page's end,
-                 so the menu's last rows (Log out, the account link) showed only there, 36,942px down the
-                 landing at 200% text. Gate: tests/e2e/reflow-200.spec.ts (390x664 and 360x640 at 200%,
-                 a guest and a signed-in reader: a wheel and focus bring the last row into view inside the
-                 menu, a second wheel at its end leaves the page behind it unmoved, and neither the page nor
-                 the menu scrolls sideways; the menu's own scroll width is read, since a row it clips adds
+                 menu below lg. A sticky header taller than the viewport stays stuck to its top until the
+                 page's end, so the menu's last rows (Log out, the account link) showed only there, 36,942px
+                 down the landing at 200% text. Gate: tests/e2e/reflow-200.spec.ts (390x664 and 360x640 at
+                 200%, a guest and a signed-in reader: a wheel and focus bring the last row into view inside
+                 the menu, a second wheel at its end leaves the page behind it unmoved, and neither the page
+                 nor the menu scrolls sideways; the menu's own scroll width is read, since a row it clips adds
                  nothing to the page's), and at 1440x900 the bar spans its container with the logo in its
-                 top-left place, which `w-full` holds.
+                 top-left place, which `w-full` holds. From lg, where the compact bar shows on a desktop below
+                 72rem, the open menu leaves the header's flow (`lg:absolute lg:inset-x-0 lg:top-full`) and
+                 lies over the page under the bar, as the header's other menus do, with their `e2` lift and
+                 its own lower border, its height capped at the screen's foot (`calc(100dvh - 100%)`, the
+                 header's own height being the bar's). So the header's box and `--site-header-h` stay the
+                 bar's, and the sticky chrome under it keeps its size and place: in the flow, the open menu
+                 shrank the filing workspace's pane at 1100x800 from 550 to 12px, and from 254 to 0px under
+                 200% text (chief design on #1558; gate: tests/e2e/header-covers-nothing.spec.ts, at 1100x800
+                 on /filing/3 for a Pro reader, at both text sizes, at the top of the page and scrolled: with
+                 the menu open the pane keeps its top and height, the page its scroll and the header its
+                 published height, and the menu lies over the pane and ends inside the screen).
                  The consent layer: a lower z alone would let the launcher cover a consent choice, so while
                  the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
                  `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the
@@ -1404,7 +1446,10 @@ Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P
 
 Hero example     <HeroExample example>  (features/marketing, critique 1d) — the example IS the product, on ONE
                  surface (rounded-xl panel + hairline + e2, dark: fill + hairline): "Example summary" with the
-                 quality Badge, the identity line (company, then ticker · form · filed in the data face, Sep
+                 quality Badge in a row that wraps (the badge goes under the label where the two do not fit side
+                 by side, and below a 24rem viewport its label wraps inside it, as a Button's does, the badge
+                 taking the 16px step there, a rounded box once it wraps; E156), the
+                 identity line (company, then ticker · form · filed in the data face, Sep
                  between; each middot in one item with the fact before it, so a wrapped line never starts or
                  stands with one; the form one nowrap run; the date an inline-block after "filed", so it moves
                  down whole and breaks only after its day), the summary's opening, the figures as ONE hairline
@@ -1425,7 +1470,12 @@ Hero example     <HeroExample example>  (features/marketing, critique 1d) — th
                  and the example, no two figures meeting, every form code on one line, no painted line starting
                  with a middot; at both text sizes the strip's rules as painted, a row's leading rule and the
                  first row's top rule clipped, every other rule inside the strip, the first figure's label flush
-                 with the card; the page at 320px).
+                 with the card; the page at 320px) and tests/e2e/hero-example-badge.spec.ts (CI's build serves
+                 the fallback, which has no badge, so the live badge is laid into its row from
+                 fixtures/hero-example-live-badge.html, which tests/unit/hero-example-surface.spec.tsx holds to
+                 the render: under the label at 320 and 390px under 200% text, beside it at the row's right at
+                 390px at the default size and at 1440px under 200% text, inside the card, a rounded box where
+                 its label wraps, the page not scrolling sideways).
 
 Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain statements, each scoped to what
                  the implementation establishes ("where a match is found"); "generated" stays distinct from
@@ -1644,7 +1694,19 @@ summary's writer error; the watchlist's empty and error cards; the waitlist exam
 A fallback that replaces the whole page passes `headingLevel="h1"` (app/error.tsx, the dashboard's
 error boundary, the providers' GlobalErrorBoundary, the signed-in routes' account card
 `features/auth/components/AccountLoadFailure.tsx`; global-error.tsx writes its own h1; gate:
-tests/unit/errorBoundaryHeadings.spec.tsx).
+tests/unit/errorBoundaryHeadings.spec.tsx). The company page's invalid ticker, missing or failed company
+read and unsupported-issuer cards also replace the whole page and pass h1
+(tests/unit/company-page-lead.spec.tsx); the heading's visual size stays GuidanceCard's.
+
+Each page frame owns one `main` landmark. The root layout's `div#main` is only the focusable skip-link
+target, never an enclosing main. AuthShell owns the form pane's main, outside its utility and brand panes;
+settings, ticker-filings and company frames retain one main while loading or showing a terminal state.
+An error boundary or account-load failure replaces the page and owns its main too. Gates:
+tests/e2e/skip-link.spec.ts (root target and no nested main), tests/e2e/text-floors.spec.ts (all six auth
+routes and the route error boundary), and the existing errorBoundaryHeadings, dashboardLoadingSkeletons,
+TickerFilingsView and company-page-lead unit specs (their loading and terminal branches). Loading-heading
+presentation remains with the loading-state work; a landmark does not change its visual design.
+
 The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
 titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
