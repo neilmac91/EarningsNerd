@@ -1,7 +1,8 @@
 """Execute the browser scope on real Git histories; cost controls must fail closed.
 
-Only Markdown records under tasks/, lessons/ and docs/ omit browser builds. All
-application, contract, policy and migration suites retain their existing coverage.
+Markdown records under tasks/, lessons/ and docs/, plus the two named CODE RED
+JSON families, omit browser builds. All application, contract, record-validation,
+policy and migration suites retain their existing coverage.
 A computed scope also says whether the change touches the offer (``prices_changed``,
 read by the price-agreement job); a scope that falls back to the full suite says
 nothing about it, so an unknown scope can never skip that job.
@@ -16,6 +17,10 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 PRICES = "frontend/app/pricing/prices.ts"
+CONTROL = "tasks/code-red-20261004/runtime/control"
+APPOINTMENTS = f"{CONTROL}/APPOINTMENTS.json"
+EXCLUSION = f"{CONTROL}/source-context-exclusion-203.json"
+RECORD_PATHS = ("tasks/todo.md", APPOINTMENTS, EXCLUSION)
 
 
 def scoped(records, prices=False):
@@ -80,6 +85,33 @@ def classify(history, tmp_path, event="push", **overrides):
     ("tasks/archive/a record.md", True),
     ("lessons/ops-new.md", True),
     ("docs/nested/guide.md", True),
+    (APPOINTMENTS, True),
+    (EXCLUSION, True),
+    (f"{CONTROL}/source-context-exclusion-0.json", True),
+    (f"{CONTROL}/source-context-exclusion-00203.json", True),
+    (f"{CONTROL}/appointments.json", False),
+    (f"{CONTROL}/APPOINTMENTS.json.bak", False),
+    (f"{CONTROL}/other.json", False),
+    (f"{CONTROL}/nested/APPOINTMENTS.json", False),
+    (f"{CONTROL}-other/APPOINTMENTS.json", False),
+    (f"{CONTROL}/source-context-exclusion-.json", False),
+    (f"{CONTROL}/source-context-exclusion-1evil.json", False),
+    (f"{CONTROL}/source-context-exclusion-1evil2.json", False),
+    (f"{CONTROL}/source-context-exclusion--1.json", False),
+    (f"{CONTROL}/source-context-exclusion-+1.json", False),
+    (f"{CONTROL}/source-context-exclusion-1.0.json", False),
+    (f"{CONTROL}/source-context-exclusion-١.json", False),
+    (f"{CONTROL}/source-context-exclusion-１.json", False),
+    (f"{CONTROL}/source-context-exclusion-1١.json", False),
+    (f"{CONTROL}/source-context-exclusion-1.JSON", False),
+    (f"{CONTROL}/source-context-exclusion-1.json.bak", False),
+    (f"{CONTROL}/source-context-exclusion-1/2.json", False),
+    (f"{CONTROL}/nested/source-context-exclusion-1.json", False),
+    (f"{CONTROL}-other/source-context-exclusion-1.json", False),
+    ("other/" + EXCLUSION, False),
+    ("\n" + EXCLUSION, False),
+    (EXCLUSION + "\n", False),
+    (f"{CONTROL}/source-context-exclusion-1\n2.json", False),
     ("backend/prompts/summary.md", False),
     ("backend/app/config.py", False),
     ("backend/migrations/new.sql", False),
@@ -118,25 +150,46 @@ def test_scope_classifies_real_changes(history, tmp_path, path, records):
     assert output == scoped(records, prices=path == PRICES)
 
 
-def test_scope_uses_whole_push_and_preserves_both_rename_sides(history, tmp_path):
+@pytest.mark.parametrize("extra_path", [None, "backend/app/config.py", "frontend/app/page.tsx", PRICES])
+def test_scope_classifies_record_bundles_and_mixed_changes(history, tmp_path, extra_path):
+    _, _, git, write = history
+    for path in RECORD_PATHS:
+        write(path)
+    if extra_path:
+        write(extra_path)
+    git("add", ".")
+    git("commit", "-qm", "record bundle with optional application change")
+    result, output = classify(history, tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert output == scoped(extra_path is None, prices=extra_path == PRICES)
+
+
+@pytest.mark.parametrize("record_path,renamed_record_path", [
+    ("tasks/todo.md", "tasks/runtime.md"),
+    (APPOINTMENTS, EXCLUSION),
+    (EXCLUSION, APPOINTMENTS),
+])
+def test_scope_uses_whole_push_and_preserves_both_rename_sides(
+    history, tmp_path, record_path, renamed_record_path,
+):
     repo, _, git, write = history
     before = git("rev-parse", "HEAD")
     write("backend/app/runtime.md")
     git("add", ".")
     git("commit", "-qm", "runtime")
-    write("tasks/todo.md")
+    write(record_path)
     git("add", ".")
     git("commit", "-qm", "records tail")
     result, output = classify(history, tmp_path, BEFORE_SHA=before)
     assert result.returncode == 0 and output == scoped(False)
 
     # Moving an identical runtime file into records must not hide its deletion.
-    git("mv", "backend/app/runtime.md", "tasks/runtime.md")
+    git("mv", "backend/app/runtime.md", renamed_record_path)
     git("commit", "-qm", "rename into records")
     result, output = classify(history, tmp_path)
     assert result.returncode == 0 and output == scoped(False)
 
-    git("mv", "tasks/runtime.md", "backend/app/runtime.md")
+    git("mv", renamed_record_path, "backend/app/runtime.md")
     git("commit", "-qm", "rename out of records")
     result, output = classify(history, tmp_path)
     assert result.returncode == 0 and output == scoped(False)
@@ -146,14 +199,20 @@ def test_scope_uses_whole_push_and_preserves_both_rename_sides(history, tmp_path
     result, output = classify(history, tmp_path)
     assert result.returncode == 0 and output == scoped(False)
 
+    (repo / record_path).unlink()
+    git("commit", "-qam", "delete record")
+    result, output = classify(history, tmp_path)
+    assert result.returncode == 0 and output == scoped(True)
 
-def test_scope_finds_an_offer_change_anywhere_in_the_change(history, tmp_path):
+
+@pytest.mark.parametrize("record_path", RECORD_PATHS)
+def test_scope_finds_an_offer_change_anywhere_in_the_change(history, tmp_path, record_path):
     repo, _, git, write = history
     before = git("rev-parse", "HEAD")
     write(PRICES, "export const PRO_PRICING = proPricing(30, 300)\n")
     git("add", ".")
     git("commit", "-qm", "offer")
-    write("tasks/todo.md")
+    write(record_path)
     git("add", ".")
     git("commit", "-qm", "records tail")
     result, output = classify(history, tmp_path, BEFORE_SHA=before)
@@ -166,10 +225,11 @@ def test_scope_finds_an_offer_change_anywhere_in_the_change(history, tmp_path):
     assert result.returncode == 0 and output == scoped(False, prices=True)
 
 
-def test_pr_scope_compares_checked_merge_to_its_base_parent(history, tmp_path):
+@pytest.mark.parametrize("record_path", RECORD_PATHS)
+def test_pr_scope_compares_checked_merge_to_its_base_parent(history, tmp_path, record_path):
     _, _, git, write = history
     git("switch", "-qc", "feature")
-    write("tasks/todo.md")
+    write(record_path)
     git("add", ".")
     git("commit", "-qm", "records")
     head = git("rev-parse", "HEAD")
@@ -204,13 +264,14 @@ def test_pr_scope_reports_the_pull_requests_own_offer_change(history, tmp_path):
     assert result.returncode == 0 and output == scoped(False, prices=True)
 
 
-def test_unknown_empty_manual_and_mismatched_inputs_never_skip(history, tmp_path):
+@pytest.mark.parametrize("record_path", RECORD_PATHS)
+def test_unknown_empty_manual_and_mismatched_inputs_never_skip(history, tmp_path, record_path):
     _, _, git, write = history
-    write("tasks/todo.md")
+    write(record_path)
     git("add", ".")
     git("commit", "-qm", "records")
     # An unusable push base falls back to the full suite and says nothing about the offer.
-    for overrides in ({"BEFORE_SHA": "0" * 40}, {"BEFORE_SHA": "HEAD^"}):
+    for overrides in ({"BEFORE_SHA": "0" * 40}, {"BEFORE_SHA": "HEAD^"}, {"BEFORE_SHA": ""}):
         result, output = classify(history, tmp_path, **overrides)
         assert result.returncode == 0 and output == "records_only=false"
     result, output = classify(history, tmp_path, BEFORE_SHA=git("rev-parse", "HEAD"))

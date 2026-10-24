@@ -80,7 +80,12 @@ jobs:
           while IFS= read -r -d '' CHANGED_PATH; do
             case "$CHANGED_PATH" in
               tasks/*.md|lessons/*.md|docs/*.md) ;;
-              *) RECORDS_ONLY=false ;;
+              tasks/code-red-20261004/runtime/control/APPOINTMENTS.json) ;;
+              *)
+                # Only numbered CODE RED records join the JSON allowance; match the whole path
+                # and literal ASCII digits. The backend record validator still checks their content.
+                [[ "$CHANGED_PATH" =~ ^tasks/code-red-20261004/runtime/control/source-context-exclusion-[0123456789]+\.json$ ]] || RECORDS_ONLY=false
+                ;;
             esac
             case "$CHANGED_PATH" in
               frontend/app/pricing/prices.ts) PRICES_CHANGED=true ;;
