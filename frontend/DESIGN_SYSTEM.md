@@ -594,8 +594,9 @@ Analysis reflow  The page title and selected-company rows wrap. Narrative cards 
                  export/refresh Buttons use size="sm" wrap and max-w-full. The shared wrap state
                  keeps min-h-8 and lets labels grow within the card without conflicting utilities.
 
-Analysis reading <NarrativePane> — compact monetary amounts and quarter labels in prose, without
-                 changing link destinations, code or source excerpts. Preserve enough precision
+Analysis reading <NarrativePane> — compact monetary amounts and period labels in prose (a quarter as
+                 Q2 2026, a window as one range), without changing link destinations, code or source
+                 excerpts. Preserve enough precision
                  to keep a stated comparison meaningful. Up to three recognized source operands
                  remain inline with their original citation controls; longer lists fold beneath a
                  neutral summary that names every applicable note letter. Unrecognized content
@@ -656,7 +657,11 @@ Data notes strip <DataNotes> — hairlines above and below a native details disc
                  Note chips reveal and focus the same stable note ID. Citation-only supplemental
                  notes remain in the narrative and do not increase the report's figure counts.
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
-                 FY2026 and all API/snapshot/selection keys retain their original identity.
+                 FY2026 and all API/snapshot/selection keys retain their original identity. A
+                 window prints one way, through formatAnalysisWindow: one unspaced range, FY2016–FY2025
+                 or Q1 2024–Q4 2025, as the exports print it. tests/unit/analysisPeriodWindows.spec.tsx
+                 holds it: the analysis surfaces it renders carry no window key, no window field is read
+                 straight into page text, and no file but periodLabels.ts joins a range.
 
 Locked preview   <PeekLocked feature preview="full|screen"> (features/subscriptions): a Pro feature shown
                  locked, the real component blurred, dimmed, inert and aria-hidden under a centred Pro pill

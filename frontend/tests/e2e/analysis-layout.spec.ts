@@ -852,7 +852,7 @@ for (const theme of THEMES) for (const width of [320, 390, 1480]) for (const tex
       await from.selectOption('2022Q1')
       await expect(to).toHaveValue('2024Q4')
       await expect(page.getByRole('status').filter({ hasText: 'To moved' })).toHaveText('To moved to Q4 2024 to keep at most 12 quarters.')
-      await expect(page.getByText('Q1 2022 – Q4 2024 · 12 quarters', { exact: true })).toBeVisible()
+      await expect(page.getByText('Q1 2022–Q4 2024 · 12 quarters', { exact: true })).toBeVisible()
       for (const select of [from, to]) {
         const geometry = await select.evaluate((element) => {
           const field = element as HTMLSelectElement
