@@ -31,4 +31,9 @@ second request to read again and the third to hit the cache. `notable_filings_se
 the rule with a thread lock, since its route reads in the thread pool (#1437):
 `test_notable_filings_service.py::test_a_failed_read_is_not_cached` (cold and warm),
 `::test_a_successful_empty_read_is_cached`, `::test_a_miss_during_a_fill_waits_for_it_and_reads_nothing`
-and `::test_a_failed_read_lets_the_next_waiter_read_again`.
+and `::test_a_failed_read_lets_the_next_waiter_read_again`. The company filings list's freshness stamp
+(`filing_list_service.py`) is written only after SEC answered the listing, and the route answers a
+fresh key from the stored rows even when the listing found nothing:
+`test_filings_routes.py::test_a_listing_that_found_nothing_is_answered_from_its_stamp_until_the_ttl_passes`
+and `::test_a_failed_live_listing_stamps_nothing_so_the_next_visit_fetches_again` (cold and stale).
+It has no single-flight lock: concurrent misses of one key each fetch, as before.

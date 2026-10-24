@@ -17,6 +17,7 @@ from app.routers import tasks
 from app.routers import filings
 from app.services import durable_tasks as transport, filing_history_service as history
 from app.utils.datetimes import utcnow
+from tests.support.filings_budgets import unspend_filings_budgets
 
 
 @pytest.fixture
@@ -136,6 +137,7 @@ def test_partial_history_keeps_retry_eligible_without_losing_inserted_rows(monke
 
 @pytest.mark.asyncio
 async def test_repeat_cached_visits_do_not_wait_on_the_control_plane(monkeypatch):
+    unspend_filings_budgets(monkeypatch)
     monkeypatch.setattr(filings, "_visit_task_handoffs", {})
     clock = SimpleNamespace(timestamp=lambda: 101)
     monkeypatch.setattr(filings, "utcnow", lambda: clock)

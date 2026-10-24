@@ -53,12 +53,12 @@ const mockUser = {
   email_verified: true,
 }
 
-function renderHeader() {
+function renderHeader(props: React.ComponentProps<typeof Header> = {}) {
   // retry:false so a thrown queryFn surfaces as an error immediately (no backoff in tests).
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const utils = render(
     <QueryClientProvider client={queryClient}>
-      <Header />
+      <Header {...props} />
     </QueryClientProvider>,
   )
   return { queryClient, ...utils }
@@ -83,6 +83,35 @@ describe('Header auth state', () => {
     expect(bells[1].parentElement!.previousElementSibling).toHaveAttribute('data-testid', 'theme-toggle')
     expect(bells[1].parentElement!.nextElementSibling).toBe(screen.getByRole('button', { name: 'Open menu' }))
     expect(screen.queryByRole('link', { name: /log in/i })).not.toBeInTheDocument()
+  })
+
+  it("keeps a copy of a guest's controls in the full bar's cell for a reader, which nothing can focus or read", async () => {
+    vi.mocked(getCurrentUserSafe).mockResolvedValue(mockUser)
+    const { container } = renderHeader()
+    await screen.findByTestId('user-menu')
+    // The cell keeps a guest's width whatever the check shows, so the nav keeps its place (E175): the copy shares the
+    // live controls' grid cell, which sets them at its right edge.
+    const copy = container.querySelector('span[aria-hidden="true"].invisible')
+    expect(copy).not.toBeNull()
+    expect(copy).toHaveTextContent(new RegExp(`^Log in${ACCESS_COPY.invite.cta}$`))
+    expect(copy!.querySelectorAll('a, button, input, select, textarea, [tabindex]')).toHaveLength(0)
+    const live = copy!.nextElementSibling as HTMLElement
+    expect([copy, live].map((el) => el!.className.includes('col-start-1 row-start-1'))).toEqual([true, true])
+    expect(live).toHaveClass('justify-end')
+    expect(within(live).getByTestId('user-menu')).toBeInTheDocument()
+  })
+
+  it("keeps the copy in step with a guest's own controls in either access mode", async () => {
+    vi.mocked(getCurrentUserSafe).mockResolvedValue(null)
+    for (const accessMode of ['invite', 'public'] as const) {
+      const { container, unmount } = renderHeader({ accessMode })
+      await screen.findByRole('link', { name: /log in/i })
+      // The copy takes the build's own account label, so its width is a guest's in either mode.
+      const copy = container.querySelector('span[aria-hidden="true"].invisible')!
+      expect(copy.textContent, accessMode).toBe(`Log in${ACCESS_COPY[accessMode].cta}`)
+      expect(copy.nextElementSibling!.textContent, accessMode).toBe(copy.textContent)
+      unmount()
+    }
   })
 
   it('shows Log in / the account CTA only on a definitive logged-out (null)', async () => {
