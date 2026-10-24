@@ -19,7 +19,7 @@ export default function ContactPage() {
             Contact
           </h1>
           <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
-            Send a question or share feedback about EarningsNerd.
+            Get help with your account, ask a question or contact us about privacy.
           </p>
         </div>
 

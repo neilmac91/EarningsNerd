@@ -6,6 +6,7 @@ from logging import Logger
 from sqlalchemy.orm import Session
 
 from app.models import ContactSubmission
+from app.services.legal_readiness_service import require_collection_available
 
 
 class ContactPersistenceError(Exception):
@@ -22,6 +23,7 @@ def persist_contact_submission(
     ip_address: str,
     logger: Logger,
 ) -> ContactSubmission:
+    require_collection_available()
     # Construction stays outside the protected transaction, as in the HTTP adapter.
     db_submission = ContactSubmission(
         name=name,

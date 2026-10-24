@@ -153,6 +153,8 @@ _IMPORTS: dict[tuple[str, str | None], frozenset[str]] = {
     ("html", None): frozenset({"escape", "unescape"}),  # the escaping _greeting applies, and a link's address unescaped
     ("re", None): frozenset({"compile", "IGNORECASE", "DOTALL", "Match", "Pattern"}),  # patterns, and their types
     ("app.config", "settings"): frozenset({"FRONTEND_URL"}),  # the frontend's address
+    # A readiness boolean only: no recipient data, template access or other module attributes.
+    ("app.services", "legal_readiness_service"): frozenset({"is_marketing_available"}),
     (TRANSPORT_MODULE, TRANSPORT): frozenset(),  # the transport, to which a mail's text part goes: only called
 }
 # What each allowed import binds, and the attributes the module may read of it.

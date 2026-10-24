@@ -1,3 +1,4 @@
+import { LegalOperatorNotice } from '@/features/legal/components/LegalOperatorNotice'
 import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { ACCOUNT_EVENTS_DISCLOSURE, ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 import { Metadata } from 'next'
@@ -17,6 +18,7 @@ export default function PrivacyPage() {
       <div className="max-w-none">
         <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark">Privacy policy</h1>
         <p className="text-lg text-text-secondary-light dark:text-text-secondary-dark">Last updated: {LEGAL_DATES.privacy}</p>
+        <LegalOperatorNotice />
         <p className="mt-8 text-text-secondary-light dark:text-text-secondary-dark">
           This policy explains how personal information is handled through the EarningsNerd website and service.
           For privacy questions, requests or complaints, contact{' '}
@@ -181,7 +183,7 @@ export default function PrivacyPage() {
             to report a concern. No internet service can guarantee absolute security.
           </p>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
-            EarningsNerd is intended for people who have reached the age of majority under the{' '}
+            Accounts are available only to people who are at least 18 and legally adults where they live, as required by the{' '}
             <Link href="/terms" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Terms</Link>.
             Contact the privacy address if a child has supplied personal information. Policy changes are posted
             here with an updated date; additional notice will be provided where required by law.

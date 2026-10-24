@@ -1,3 +1,4 @@
+import { legalReady } from './fixtures/legalReady'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import RegisterForm from '@/features/auth/components/RegisterForm'
@@ -41,6 +42,12 @@ vi.mock('@/lib/serverApi', async (importOriginal) => ({
   fetchSignupConfig,
 }))
 
+const acceptAgreement = () => {
+  fireEvent.click(screen.getByRole('checkbox', { name: /at least 18/i }))
+  fireEvent.click(screen.getByRole('checkbox', { name: /agree to the/i }))
+}
+const agreement = { adult_eligible: true, terms_accepted: true, terms_version: legalReady.terms_version, eligibility_version: legalReady.eligibility_version }
+
 const socialLink = (provider: 'Google' | 'Apple') =>
   screen.queryByRole('link', { name: `Continue with ${provider}` })
 
@@ -58,14 +65,16 @@ describe('RegisterForm social sign-up follows the invite gate', () => {
     expect(screen.getByRole('button', { name: /sign up with email/i })).toBeInTheDocument()
   })
 
-  it('offers plain social sign-up in public mode', () => {
+  it('offers assent-bound social signup in public mode', () => {
     render(<RegisterForm inviteOnly={false} betaPromoActive={false} />)
-    expect(socialLink('Google')).toHaveAttribute('href', '/api/auth/google')
-    expect(socialLink('Apple')).toHaveAttribute('href', '/api/auth/apple')
+    expect(socialLink('Google')).toBeNull()
+    expect(socialLink('Apple')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Continue with Google' })).not.toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Continue with Apple' })).not.toHaveAttribute('aria-disabled', 'true')
     expect(screen.queryByRole('link', { name: 'Request an invite' })).toBeNull()
   })
 
-  it('starts an invited social sign-up with the invite in the request body, never in a URL', () => {
+  it('starts an invited social sign-up with assent and the invite in the body, never in a URL', async () => {
     const invite = 'tok en+/=1'
     searchParams.set('invite', invite)
     render(<RegisterForm inviteOnly betaPromoActive={false} />)
@@ -75,10 +84,11 @@ describe('RegisterForm social sign-up follows the invite gate', () => {
     for (const anchor of Array.from(document.querySelectorAll('a'))) {
       expect(anchor.getAttribute('href') ?? '').not.toMatch(/invite/)
     }
+    acceptAgreement()
     fireEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
-    expect(startOAuthWithInvite).toHaveBeenCalledWith('google', invite)
+    await waitFor(() => expect(startOAuthWithInvite).toHaveBeenCalledWith('google', invite, agreement))
     fireEvent.click(screen.getByRole('button', { name: 'Continue with Apple' }))
-    expect(startOAuthWithInvite).toHaveBeenCalledWith('apple', invite)
+    await waitFor(() => expect(startOAuthWithInvite).toHaveBeenCalledWith('apple', invite, agreement))
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Request an invite' })).toBeNull()
   })
@@ -86,6 +96,7 @@ describe('RegisterForm social sign-up follows the invite gate', () => {
   it('a refused invited start names, under its own button, the provider it could not continue with', async () => {
     searchParams.set('invite', 'tok')
     render(<RegisterForm inviteOnly betaPromoActive={false} />)
+    acceptAgreement()
     for (const provider of ['Google', 'Apple'] as const) {
       startOAuthWithInvite.mockRejectedValueOnce(new Error('start refused'))
       const button = screen.getByRole('button', { name: `Continue with ${provider}` })
@@ -100,6 +111,7 @@ describe('RegisterForm social sign-up follows the invite gate', () => {
     fireEvent.click(screen.getByRole('button', { name: /sign up with email/i }))
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'person@example.com' } })
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'a-long-enough-passphrase' } })
+    acceptAgreement()
     const submit = screen.getByRole('button', { name: 'Create account' })
     expect(submit).not.toBeDisabled()
 
@@ -207,4 +219,10 @@ describe('RegisterForm password field: the rule and the meter', () => {
     fireEvent.change(password, { target: { value: 'a'.repeat(PASSWORD_MIN_LENGTH) } })
     expect(screen.getByText('Weak')).toBeInTheDocument()
   })
+})
+
+// These cases exercise the form after release; legalReadiness.spec.tsx holds the closed and stale gates.
+vi.mock('@/features/legal/hooks/useLegalReadiness', async () => {
+  const { readyLegalHook } = await import('./fixtures/legalReady')
+  return { useLegalReadiness: () => readyLegalHook }
 })

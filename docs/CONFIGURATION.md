@@ -83,6 +83,12 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `REVERSE_TRIAL_DAYS` | `7` | Duration of the retired reverse trial, days. |
 | `REGISTRATION_MODE` | `"public"` | Validated public or invite_only registration, enforced on `/api/auth/register` and on the Google/Apple callbacks (an invited social sign-up sends the invite in the body of `POST /api/auth/google|apple/start`, never in a URL); CI explicitly sets invite_only on the service. |
 | `INVITE_EXPIRY_HOURS` | `168` | Invite token lifetime, hours. |
+| `LEGAL_COLLECTION_ENABLED` | `false` | Opt-in for new registration, waitlist and general-contact collection; also requires a complete, explicitly published operator notice. Does not enable checkout or promotion. See [LEGAL_READINESS.md](LEGAL_READINESS.md). |
+| `LEGAL_OPERATOR_PUBLISHED` | `false` | Explicit authorization to return complete operator notice fields from `/api/legal/readiness` for display on the legal pages. Draft values remain withheld while false. |
+| `LEGAL_OPERATOR_NAME` | `""` | Verified legal operator name for the public notice; no personal default. |
+| `LEGAL_OPERATOR_POSTAL_ADDRESS` | `""` | Verified public postal address; multiline text supported. |
+| `LEGAL_OPERATOR_COUNTRY` | `""` | Operator country for the public notice. |
+| `LEGAL_OPERATOR_EMAIL` | `""` | Reachable legal-contact address; validated as an email before the notice can be published. |
 | `INTERNAL_JOB_TOKEN` | `""` | Shared internal-job endpoint secret; unset endpoints return 503. |
 | `DURABLE_TASKS_ENABLED` | `false` | Opt-in queue handoff for on-visit work, internal jobs and the account mail of forgot-password and resend-verification (F60). Enable after authenticated worker delivery is verified; keep CPU always allocated until then. |
 | `TASKS_PROJECT_ID` | `""` | Project containing the task queue; required when durable delivery is enabled. |

@@ -1,6 +1,9 @@
 'use client'
 
 import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
+import { CollectionGate } from '@/features/legal/components/CollectionGate'
+import type { LegalReadiness } from '@/features/legal/api/legal-api'
+
 import { useEffect, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { submitContactForm } from '@/features/contact/api/contact-api'
@@ -36,7 +39,7 @@ function sendErrorMessage(err: unknown): string {
   return typeof detail === 'string' && detail.trim() ? detail : SEND_FAILED
 }
 
-export default function ContactForm() {
+function OpenContactForm({ recheck }: { recheck: () => Promise<LegalReadiness | null> }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [subject, setSubject] = useState('')
@@ -116,6 +119,7 @@ export default function ContactForm() {
     setIsSubmitting(true)
 
     try {
+      if (!(await recheck())?.collection_available) return
       await submitContactForm(
         {
           name: name.trim(),
@@ -318,4 +322,8 @@ export default function ContactForm() {
       </div>
     </form>
   )
+}
+
+export default function ContactForm() {
+  return <CollectionGate surface="contact" title="General contact is currently closed">{(recheck) => <OpenContactForm recheck={recheck} />}</CollectionGate>
 }

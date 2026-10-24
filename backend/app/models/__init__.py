@@ -24,6 +24,7 @@ from app.models.usage_reservation import UsageReservation
 from app.models.notification_delivery import DeliveryBatch, DeliveryItem
 from app.models.filing_section_text import FilingSectionText
 from app.models.section_review import SectionReview
+from app.models.account_agreement import AccountAgreement
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ class User(Base):
     watchlist = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     oauth_accounts = relationship("OAuthAccount", back_populates="user", cascade="all, delete-orphan")
+    account_agreements = relationship("AccountAgreement", back_populates="user", cascade="all, delete-orphan")
     # 1:1 billing state. The webhook keeps both this row and the `is_pro` mirror in sync.
     subscription = relationship(
         "Subscription", back_populates="user", uselist=False, cascade="all, delete-orphan"
@@ -115,7 +117,7 @@ class OAuthAccount(Base):
 
 
 class OAuthState(Base):
-    """Short-lived state+nonce for OAuth flows that can't use SameSite cookies (Apple form_post).
+    """Single-use Google/Apple state, with nonce and optional explicit signup agreement evidence.
 
     ``expires_at`` is stored as naive UTC to match the ``datetime.utcnow()`` convention used by
     RefreshToken — a tz-aware column compared against a naive value (or vice versa) raises
@@ -135,6 +137,10 @@ class OAuthState(Base):
     # redeems it when it creates the account).
     # NULL for a plain sign-in. Additive: self-healed by database.ensure_additive_columns.
     invite_code_hash = Column(String(64), nullable=True)
+    # Only an explicit signup confirmation populates these; legacy/login state has no assent.
+    agreement_terms_version = Column(String(32), nullable=True)
+    agreement_eligibility_version = Column(String(32), nullable=True)
+    agreement_accepted_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class LoginAttempt(Base):
@@ -350,6 +356,7 @@ class FilingContentCache(Base):
 
 
 __all__ = [
+    "AccountAgreement",
     "Base",
     "Company",
     "ContactSubmission",
