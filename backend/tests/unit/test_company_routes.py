@@ -37,8 +37,10 @@ from main import app
 
 RACED_CIK = "0009900001"
 NEW_CIK = "0009900002"
-# The write-order cases' companies, listed in SEC order HIGH, MID, LOW.
+# The write-order cases' companies. SEC lists them MID, HIGH, LOW, neither CIK order nor its reverse, and their
+# primary tickers fall as the CIK rises, so an order taken from SEC's or from the tickers cannot pass for CIK order.
 LOW_CIK, MID_CIK, HIGH_CIK = "0009900011", "0009900012", "0009900013"
+_FALLING_PRIMARY = {LOW_CIK: "ZZ3", MID_CIK: "ZZ2", HIGH_CIK: "ZZ1"}
 _CIKS = [form for cik in (RACED_CIK, NEW_CIK, LOW_CIK, MID_CIK, HIGH_CIK) for form in (cik, cik.lstrip("0"))]
 
 
@@ -345,10 +347,16 @@ def company_writes():
     """Each companies statement in the order it reaches the database: ("insert", CIK) per row inserted,
     ("update", row id) per row updated, and each SAVEPOINT and RELEASE; ``_by_cik`` reads the ids as
     CIKs. The mapper's before_insert and before_update events cannot stand in: within one flush they
-    fire for every new row before any stored one, while the flush sends its UPDATEs first."""
+    fire for every new row before any stored one, while the flush sends its UPDATEs first. Each
+    execution is read once: SQLite runs a multi-row INSERT as one statement per row, every one of them
+    carrying the whole execution's parameters."""
     sent = []
+    executions = []
 
     def record(_conn, _cursor, statement, _parameters, context, _executemany):
+        if any(context is seen for seen in executions):
+            return
+        executions.append(context)
         head = " ".join(statement.split()[:3]).upper()
         if head.startswith("INSERT INTO COMPANIES"):
             sent.extend(("insert", params["cik"]) for params in context.compiled_parameters)
@@ -372,12 +380,19 @@ def _by_cik(writes):
     return [(operation, cik_of[key] if operation == "update" else key) for operation, key in writes]
 
 
-def _search_high_mid_low(client, monkeypatch):
+def _search_mid_high_low(client, monkeypatch):
+    async def falling_primary(cik):
+        return _FALLING_PRIMARY[cik]
+
     monkeypatch.setattr(
-        sec_edgar_service, "search_company", _sec(_hit(HIGH_CIK), _hit(MID_CIK), _hit(LOW_CIK))
+        sec_edgar_service, "search_company", _sec(_hit(MID_CIK), _hit(HIGH_CIK), _hit(LOW_CIK))
     )
-    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", falling_primary)
     return client.get("/api/companies/search", params={"q": "zeta"})
+
+
+# The answer keeps SEC's order, and each row its primary ticker.
+_ANSWER = [(MID_CIK, "ZZ2"), (HIGH_CIK, "ZZ1"), (LOW_CIK, "ZZ3")]
 
 
 def test_search_writes_each_company_in_cik_order_whatever_sec_order(
@@ -391,11 +406,9 @@ def test_search_writes_each_company_in_cik_order_whatever_sec_order(
     _seed_stale(MID_CIK)
     company_writes.clear()  # the seed's own insert
     override_db(SessionLocal())
-    resp = _search_high_mid_low(client, monkeypatch)
+    resp = _search_mid_high_low(client, monkeypatch)
     assert resp.status_code == 200
-    assert [(row["cik"], row["ticker"]) for row in resp.json()] == [
-        (HIGH_CIK, "ZZ3"), (MID_CIK, "ZZ2"), (LOW_CIK, "ZZ1"),
-    ]
+    assert [(row["cik"], row["ticker"]) for row in resp.json()] == _ANSWER
     assert _by_cik(company_writes) == [("insert", LOW_CIK), ("update", MID_CIK), ("insert", HIGH_CIK)]
 
 
@@ -417,11 +430,9 @@ def test_search_conflict_recovery_writes_each_company_in_cik_order(
 
     monkeypatch.setattr(company_lookup_service, "resolve_or_create_company_by_cik", recording)
     override_db(db)
-    resp = _search_high_mid_low(client, monkeypatch)
+    resp = _search_mid_high_low(client, monkeypatch)
     assert resp.status_code == 200
-    assert [(row["cik"], row["ticker"]) for row in resp.json()] == [
-        (HIGH_CIK, "ZZ3"), (MID_CIK, "ZZ2"), (LOW_CIK, "ZZ1"),
-    ]
+    assert [(row["cik"], row["ticker"]) for row in resp.json()] == _ANSWER
     batch = [("insert", LOW_CIK), ("update", MID_CIK), ("update", HIGH_CIK)]  # then its commit fails
     recovery = [
         ("resolve", LOW_CIK), ("savepoint", None), ("insert", LOW_CIK), ("release", None),
