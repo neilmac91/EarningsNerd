@@ -15,7 +15,8 @@ Tasks drives it (deliver until 2xx, at most five attempts, the queue's setting i
 attempted send answers 2xx whatever its outcome, and only a failure that sent nothing (before the send,
 or a send the provider's client classes as retryable) answers 503 and is delivered again. A failed send
 logs the exception's class, never its message, which can quote the token-bearing request body; no log
-line carries the address. The process-wide account-mail cap answers every address alike once spent.
+line carries the address. The process-wide account-mail cap answers every address alike once spent, from
+whichever client IP the request comes.
 """
 import base64
 import hashlib
@@ -336,6 +337,22 @@ def test_the_account_mail_cap_answers_every_address_alike_once_spent(client, clo
     assert [answer.status_code for answer in answers] == [429, 429]
     assert answers[0].json() == answers[1].json() == {"detail": "Too many requests right now. Try again later."}
     assert len(cloud_tasks.creates) == 2
+
+
+@pytest.mark.requires_db
+def test_a_caller_that_changes_its_ip_meets_the_cap_spent(client, cloud_tasks, monkeypatch, mail):
+    """The cap bounds every caller together, keyed on nothing the request carries, so a caller that changes its
+    client IP between requests, as an IPv6 block lets it at will, meets the cap another IP spent. Keyed per
+    client IP, each new IP would bring a cap of its own."""
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
+    monkeypatch.setattr(auth_module, "ACCOUNT_MAIL_LIMITER", RateLimiter(limit=1, window_seconds=3600))
+    answers = [
+        client.post("/api/auth/forgot-password", json={"email": _address(tag)}, headers={"X-Forwarded-For": ip})
+        for tag, ip in (("capip1", "2001:db8::1"), ("capip2", "2001:db8::2"))
+    ]
+    assert answers[0].status_code == 200
+    assert (answers[1].status_code, answers[1].json()) == (429, {"detail": "Too many requests right now. Try again later."})
+    assert len(cloud_tasks.creates) == 1
 
 
 @pytest.mark.requires_db
