@@ -286,8 +286,8 @@ async def run_invocation(
                 return result
 
             def measured_excerpt(db: Any, filing: Any, filing_text: Any,
-                                 sections: Any = None) -> Any:
-                result = original_excerpt(db, filing, filing_text, sections=sections)
+                                 sections: Any = None, **options: Any) -> Any:
+                result = original_excerpt(db, filing, filing_text, sections=sections, **options)
                 grounding["source_calls"].append({
                     "owner": "get_or_cache_excerpt", "accession": filing.accession_number,
                     "filing_text_sha256": hashlib.sha256((filing_text or "").encode("utf-8")).hexdigest(),

@@ -162,14 +162,14 @@ describe('InsiderActivityPanel', () => {
   })
 
   // E89 (chief design's approach, #1381's thread): at 320 to 390px under 200% text the panel broke four ways, so the
-  // card takes E120's capped inset, the window control spans the card below sm and wraps whole segments rather than
+  // card takes E120's capped inset, the window control spans the card below 40rem and wraps whole segments rather than
   // running past it, the signal row wraps as a Notice's does, and each separator dot is held to the word before it.
-  it('takes the capped inset and spans the time window across the card below sm', async () => {
+  it('takes the capped inset and spans the time window across the card below 40rem', async () => {
     getInsiderActivity.mockResolvedValue(RESP)
     renderPanel()
     expect((await screen.findByText('Insider activity')).closest('section')).toHaveClass('p-cap-6')
     const group = screen.getByRole('group', { name: 'Time window' })
-    expect(group).toHaveClass('w-full', 'flex-wrap', 'sm:w-auto')
+    expect(group).toHaveClass('w-full', 'flex-wrap', '[@media(min-width:40rem)]:w-auto')
     for (const segment of within(group).getAllByRole('button')) expect(segment).toHaveClass('flex-1')
   })
 

@@ -15,14 +15,21 @@
                  dark FLIPS to navy ink on brand-dark (white on brand.fill-dark
                  is 3.7:1 — never revert to it).
      - sizes:    sm 1.625rem, 26px at the default root (desktop toolbars — the
-                 calendar) · md 36px (touch) · adaptive = 36px below sm,
-                 1.625rem from sm up. Heights are rem (px figures here are at
+                 calendar) · md 36px, the comfortable size (fields keep the 44px
+                 touch height; a phone segment is at least 79px wide, clear of
+                 WCAG 2.5.8's 24px) · adaptive = 36px below sm, 1.625rem from sm
+                 up, a device's switch (a phone's touch size), so it stays at sm. Heights are rem (px figures here are at
                  the 16px root), so enlarged text keeps its segments: at a 32px
                  root text-xs's 32px line box overflowed a fixed 26px.
      - mono:     an option whose label is a code (10-K, 10-Q) sets it in the
                  data face, so a form code reads the same here as in the rows.
      - labels never break (10-K/A breaks at its hyphen and slash otherwise);
-                 fullWidth wraps whole segments onto another row instead.
+                 fullWidth wraps whole segments onto another row instead, below
+                 40rem: 640px at the default size and 1280px under 200% text, a
+                 rem switch because what the row must hold is set in rem. At sm,
+                 640px at any text size, one row of five forms ran past its card
+                 under 200% text (E183, chief design on #1570, comment 6380853186;
+                 tests/e2e/reflow-200.spec.ts).
      - cap:      at most MAX_SEGMENTS (five) options; a longer set is a compact
                  select beside its label (DESIGN.md). A set known only at run
                  time (the filings form filter) checks itself against it.
@@ -58,8 +65,8 @@ export interface SegmentedControlProps<T extends string> {
   value: T
   onChange: (value: T) => void
   size?: SegmentedControlSize
-  /** Stretch the segments across the row below sm (phone toolbars), wrapping onto another row when
-   *  they do not fit, so every option stays visible; one auto-width row from sm up. */
+  /** Stretch the segments across the row below 40rem (phone toolbars, and narrow ones under enlarged text), wrapping
+   *  onto another row when they do not fit, so every option stays visible; one auto-width row from 40rem up. */
   fullWidth?: boolean
   /** Keep unavailable modes in the Tab order so their explanation can be read. Defaults to native disabled. */
   focusableDisabled?: boolean
@@ -100,7 +107,7 @@ export function SegmentedControl<T extends string>({
   className,
 }: SegmentedControlProps<T>) {
   return (
-    <div role="group" aria-label={label} className={cx(SHELL, fullWidth && 'flex w-full flex-wrap gap-y-1 sm:inline-flex sm:w-auto sm:flex-nowrap', className)}>
+    <div role="group" aria-label={label} className={cx(SHELL, fullWidth && 'flex w-full flex-wrap gap-y-1 [@media(min-width:40rem)]:inline-flex [@media(min-width:40rem)]:w-auto [@media(min-width:40rem)]:flex-nowrap', className)}>
       {options.map((option) => {
         const selected = option.value === value
         return (
@@ -117,7 +124,7 @@ export function SegmentedControl<T extends string>({
             className={cx(
               SEGMENT,
               SIZE[size],
-              fullWidth && 'flex-1 sm:flex-none',
+              fullWidth && 'flex-1 [@media(min-width:40rem)]:flex-none',
               option.mono && 'font-data tabular-nums',
               selected ? SELECTED : option.disabled && focusableDisabled ? UNAVAILABLE : RESTING,
             )}

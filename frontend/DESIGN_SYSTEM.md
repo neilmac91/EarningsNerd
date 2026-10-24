@@ -622,7 +622,8 @@ Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly
                  query container. Below 13em of its actual text size, main uses px-2 and the control
                  Card uses px-1.5, preserving full selected tokens at enlarged phone text. The shared
                  field padding and font stay unchanged; ordinary 320px+ layouts retain their spacing.
-                 The range comes before its count in the summary.
+                 The range comes before its count in the summary, and a selection of one period
+                 names that period: FY2021 · 1 year, never FY2021–FY2021 (E177).
                  Moving an endpoint keeps the range ordered and within the server-provided cap and
                  announces an automatically moved other endpoint through role=status. Unavailable
                  annual years remain visible but disabled options. Table windows never alter selection.
@@ -660,7 +661,8 @@ Data notes strip <DataNotes> — hairlines above and below a native details disc
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
                  FY2026 and all API/snapshot/selection keys retain their original identity. A
                  window prints one way, through formatAnalysisWindow: one unspaced range, FY2016–FY2025
-                 or Q1 2024–Q4 2025, as the exports print it. tests/unit/analysisPeriodWindows.spec.tsx
+                 or Q1 2024–Q4 2025, and a window of one period as that period, FY2021, as the exports
+                 print it. tests/unit/analysisPeriodWindows.spec.tsx
                  holds it: the analysis surfaces it renders carry no window key, no window field is read
                  straight into page text, and no file but periodLabels.ts joins a range.
 
@@ -956,13 +958,23 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  is visible, so not a radiogroup/tablist. Shell = panel + hairline + e1, rounded-lg, p-1;
                  segment rounded (8), 600 weight — 12px labels at 26px (sm; adaptive from sm up), 14px at 36px
                  (md; adaptive below sm); selected = the primary colorway (bg-brand + white; dark NAVY ink on
-                 brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. The 26px height is
+                 brand-dark). sm 26px · md 36px, the comfortable size (the 44px touch height belongs to
+                 fields; a phone segment is at least 79px wide, clear of WCAG 2.5.8's 24px; E155) · adaptive
+                 36px below sm, 26px from sm up, a device's switch that stays at sm. The 26px height is
                  1.625rem, so it scales with the root and holds its label at 200% text. `mono` options set
                  codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
                  `fullWidth` stretches the segments across a phone row and wraps them onto another row when
                  they do not fit (a form filter with amendments; the feedback form's type under 200% text,
-                 E169), so every option stays visible; from sm up it is one auto-width row. Optional
-                 disabled options remain visible and use native disabled semantics by default.
+                 E169), so every option stays visible; from 40rem it is one auto-width row: 640px at the
+                 default size and 1280px under 200% text, a rem switch because what the row holds is set in
+                 rem. At sm, 640px at any size, a five-form filter painted its "10-Q/A" segment to 692px past
+                 a card ending at 592px at 640px under 200% text (E183, chief design on #1570; gates:
+                 tests/e2e/reflow-200.spec.ts holds the five-form filter inside its card at 640 and 700px under
+                 200% text, and tests/unit/segmentedControlFullWidthSwitch.spec.tsx the 40rem classes, with no
+                 layout class switching at a px breakpoint). The adaptive size's height still switches at sm,
+                 so under 200% text from 640px an adaptive control's full-width rows take the sm segment
+                 (1.625rem, 52px under 200% text). Optional disabled options remain visible and use native
+                 disabled semantics by default.
                  `focusableDisabled` keeps unavailable options in the Tab order with aria-disabled and
                  `descriptionId`; activation is refused.
                  The controlled selected option keeps its primary colourway even if unavailable,
