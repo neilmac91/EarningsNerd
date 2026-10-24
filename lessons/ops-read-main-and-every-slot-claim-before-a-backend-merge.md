@@ -18,6 +18,8 @@ from another session.
 **Rule.** Immediately before merging a pull request that changes `backend/` outside `backend/tests/`:
 1. **Main's newest push runs.** Read `ci.yml`'s newest runs on `main` (event `push`). If the newest
    backend-changing push's `deploy-backend` has not finished, or its health is not yet verified, wait.
+   A cancelled or failed `deploy-backend` on a backend-changing push counts as unverified. Re-run that
+   job, since its commit carries every change before it, and verify it before the next merge.
 2. **Slot claims.** Read the comments of every open pull request updated since the last verified backend
    deploy for a slot claim: a comment that it is taking the slot, or that asks later merges to hold.
    Honour the claim until that pull request posts its verification.
@@ -26,18 +28,32 @@ from another session.
 4. **Your own claim.** Post a claim on the pull request when it merges, and the verification when its
    deploy is healthy, so the next merger can read both.
 
+Any merge to main, a frontend-only or docs-only one included, waits while a backend deploy is pending
+behind a running one. Its own `deploy-backend` job would take the pending place (below).
+
 **Why the concurrency group is not enough.**
 - **It does not stop a merge.** It orders deploy jobs, so two never run at once, but a second merge can
   still land while the first deploy is unverified.
 - **A failed deploy is not retried.** So a merge stacked behind one ships on a base nobody verified.
 - **It can skip a deploy.** GitHub keeps one running and one pending job per group: "By default, any
   existing `pending` job or workflow in the same concurrency group will be canceled," and "the new queued
-  job or workflow will take its place" (GitHub's concurrency documentation). With three backend merges in
-  quick succession, the middle merge's `deploy-backend` is cancelled, and its run reads as cancelled.
+  job or workflow will take its place" (GitHub's concurrency documentation).
+  - **Every push to main queues a `deploy-backend` job,** a frontend-only or docs-only push included. The
+    job has no path filter: it skips its steps only after "Detect backend changes", which reads the pushed
+    commit's own diff (`git diff HEAD^ HEAD`).
+  - **So a later push can cancel a pending backend deploy,** backend-changing or not. If the later push
+    changes no backend file, its own job deploys nothing. The cancelled change then stays undeployed
+    until its job is re-run, and its run reads as cancelled.
+  - **This rests on the documentation and the workflow file,** not on a cancellation seen here. The window
+    is real, though: #1549's deploy job queued at 01:20:23 and started at 01:20:32, after #1547's ended.
 
-**Gate.** Review-checked. No check on a pull request can see main's deploy state at the moment of the
-merge, and the merge call carries no such condition. The concurrency group is the machine part, and it
-covers only overlapping deploys.
+**Gate.** Review-checked.
+- **No check can see it.** No check on a pull request can see main's deploy state at the moment of the
+  merge, and the merge call carries no such condition.
+- **The concurrency group is the machine part,** and it covers only overlapping deploys.
+- **A machine fix for the skipped deploy** would have the detector compare the pushed commit with the
+  commit the backend now serves, not with `HEAD^`. A later push would then deploy what a cancelled one
+  missed. That is a high-tier CI change, not built here.
 
 **Evidence.**
 - #1547's claim and merge: comments 6377804402 (00:54:25) and 6377811629 (00:54:59). The mistake was
