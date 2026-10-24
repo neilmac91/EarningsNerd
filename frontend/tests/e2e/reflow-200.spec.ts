@@ -972,6 +972,55 @@ for (const state of [
   })
 }
 
+/** The filings index's form filter with five forms under 200% text (E183, chief design on #1570, comment 6380853186;
+    components/ui/SegmentedControl.tsx). The control's full-width form took its one auto-width row from `sm`, 640px at
+    any text size, so with amendments in the set (All, 10-K, 10-Q, 10-K/A, 10-Q/A) its "10-Q/A" segment painted to 692px
+    past a card ending at 592px at 640px and at 652px at 700px, and the page scrolled sideways. It switches at 40rem
+    now, 1280px under 200% text, so the full-width form, whole segments wrapping, holds below it: at 640 and 700px every
+    segment and every line of its label lies inside the card, with the rest of the index, and the page does not scroll
+    sideways. The filings route answers the five forms on top of answerSite's routes. */
+const FIVE_FORMS = [
+  companyFiling(11, '10-K', '2025-10-31', '2025-09-27'),
+  companyFiling(12, '10-Q', '2025-08-01', '2025-06-28'),
+  companyFiling(13, '10-K/A', '2025-01-15', '2024-09-28'),
+  companyFiling(15, '10-Q/A', '2025-03-01', '2024-12-28'),
+  companyFiling(14, '10-K', '2024-11-01', '2024-09-28'),
+]
+for (const width of [640, 700]) {
+  test.describe(`a ${width}px screen at 200% text, the filings index's five-form filter`, () => {
+    test.use({ viewport: { width, height: 1400 }, isMobile: false, hasTouch: false })
+    test(`company (/company/AAPL) keeps the five-form filter and the index inside its card at ${width}px and 200% text`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      await answerSite(page, baseURL!, false, { path: '/api/filings/company/AAPL', status: 200, body: FIVE_FORMS })
+      await page.goto('/company/AAPL')
+      const card = page.getByRole('region', { name: 'SEC filings' })
+      const filter = card.getByRole('group', { name: 'Filter by form' })
+      await expect(filter.getByRole('button'), 'the filter holds All and the four forms').toHaveText(['All', '10-K', '10-Q', '10-K/A', '10-Q/A'])
+      await page.evaluate(() => document.fonts.ready)
+      const cdp = await page.context().newCDPSession(page)
+      await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+      await expect
+        .poll(() => page.evaluate(() => ({ root: getComputedStyle(document.documentElement).fontSize, oneRow: matchMedia('(min-width: 40rem)').matches })), {
+          message: `the 200% text setting took at ${width}px: the root computes to 32px and the control's 40rem query does not match`,
+        })
+        .toEqual({ root: '32px', oneRow: false })
+      await settle(page)
+      await page.evaluate(() => document.fonts.ready)
+
+      const at = `${width}px and 200% text`
+      const fit = await indexFit(card)
+      expect(fit.past, `${at}: every segment, line of text and box in the index lies inside its card (${fit.card})`).toEqual([])
+      const sideways = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+      expect(sideways, `${at}: the page does not scroll sideways`).toBeLessThanOrEqual(0)
+    })
+  })
+}
+
 /** The cookie settings dialog's category rows at 200% text (components/CookieConsent.tsx), opened from the footer's
     "Cookie settings" on a page whose visitor has already chosen. Each row takes the Notice's recipe: it wraps, its text
     column keeps 9rem beside the box or takes the card's width with the box under it, and a word too long for the column
