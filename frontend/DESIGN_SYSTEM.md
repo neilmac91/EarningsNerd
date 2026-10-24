@@ -969,8 +969,9 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  tests/e2e/reflow-200.spec.ts holds the five-form filter inside its card at 640 and 700px under
                  200% text, and tests/unit/segmentedControlFullWidthSwitch.spec.tsx the 40rem classes, with no
                  layout class switching at a px breakpoint). The adaptive size's height still switches at sm,
-                 so under 200% text from 640px an adaptive control's full-width rows take 26px segments. Optional
-                 disabled options remain visible and use native disabled semantics by default.
+                 so under 200% text from 640px an adaptive control's full-width rows take the sm segment
+                 (1.625rem, 52px under 200% text). Optional disabled options remain visible and use native
+                 disabled semantics by default.
                  `focusableDisabled` keeps unavailable options in the Tab order with aria-disabled and
                  `descriptionId`; activation is refused.
                  The controlled selected option keeps its primary colourway even if unavailable,
