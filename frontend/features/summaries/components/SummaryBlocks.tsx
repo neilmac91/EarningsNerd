@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useMemo, useRef, type ReactNode, type Ref } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react'
 import { Badge, countControlClass, cx } from '@/components/ui'
 import { useOverflowRegion } from '@/hooks/useOverflowRegion'
 import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
@@ -15,6 +15,16 @@ import { normalizeRisk } from '@/lib/formatters'
 import type { RiskFactor } from '@/types/summary'
 import type { BlockEvidence, ChangeReport, RenderedBlock, RenderedSection, Summary } from '@/features/summaries/api/summaries-api'
 import { parseNumeric } from '@/lib/format'
+
+/** The filing page's section nav's rendered height, published on <html> as a CSS length: below lg the nav sticks
+    under the site header, a second bar. The document's top scroll padding adds it to the header's (app/globals.css),
+    so a keyboard focus lands below both bars, and a section's scroll margin gives it back, so an anchor jump lands
+    where it did. 0px from lg up, where the nav is hidden; unset when the nav is not mounted (DESIGN_SYSTEM.md §4
+    Stacking; tests/e2e/header-covers-nothing.spec.ts walks /filing at 390px). */
+export const SECTION_NAV_HEIGHT_PROPERTY = '--section-nav-h'
+
+// Isomorphic layout effect (the repo's SSR-safe alias, as in Header): the nav renders on the server too.
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 // A block/row citation → the shared Trace-to-Source chip (T4). Renders nothing when there's nothing to
 // trace (SourceTrace's own guard), so an unenriched or uncited block is unaffected. The excerpt is shown
@@ -178,7 +188,10 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
                 key={section.id}
                 id={section.id}
                 aria-labelledby={`${section.id}-heading`}
-                className="scroll-mt-16 lg:scroll-mt-8"
+                // Its own room beyond the bars: 4rem below the site header, less the section nav, which the
+                // document's scroll padding reserves below lg, so a jump lands where it did before the padding
+                // counted the nav; 2rem from lg, where the nav is hidden.
+                className="scroll-mt-[calc(4rem_-_var(--section-nav-h,0px))] lg:scroll-mt-8"
               >
                 {/* Only the tone badge wraps: the index and the heading are one group that never wraps,
                     so a long heading wraps its own words beside its index, never drops beneath it. When
@@ -224,8 +237,26 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
  * accessibility tree (each is display:none at the other breakpoint), so their labels can differ.
  */
 function MobileSectionNav({ sections }: { sections: PageSection[] }) {
+  const navRef = useRef<HTMLElement>(null)
+  // Publish the nav's height (SECTION_NAV_HEIGHT_PROPERTY) before the first paint and on every reflow (a text-size
+  // change; the lg breakpoint, where it is hidden and measures 0px); cleared when it leaves.
+  useIsoLayoutEffect(() => {
+    const nav = navRef.current
+    if (!nav) return
+    const root = document.documentElement
+    const measure = () => root.style.setProperty(SECTION_NAV_HEIGHT_PROPERTY, `${Math.ceil(nav.getBoundingClientRect().height)}px`)
+    measure()
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null
+    observer?.observe(nav)
+    return () => {
+      observer?.disconnect()
+      root.style.removeProperty(SECTION_NAV_HEIGHT_PROPERTY)
+    }
+  }, [])
   return (
     <nav
+      ref={navRef}
+      data-section-nav
       aria-label="Jump to section"
       className="sticky top-[var(--site-header-h,4rem)] z-sticky -mx-4 mb-11 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
     >
