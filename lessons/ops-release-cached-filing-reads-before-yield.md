@@ -105,13 +105,17 @@ should, but with every checkout and statement on the loop (13 of 13 statements f
 new company, 24 of 24 for eight searches of a stored one). Each unit now runs in the thread pool and
 releases in a `finally`. Off the loop, eight lookups or eight searches of one new company race for its
 row, as two instances always could: the unique CIK decides, and each loser serves the stored row through
-the resolver's recovery or the search's. Two searches of the same new companies in opposite orders did
-worse. On PostgreSQL their batches deadlocked, and the one PostgreSQL aborted answered 500 after the
-deadlock timeout: 11 of 20 runs of a local probe that held both searches behind an uncommitted insert of
-the two rows. The batch now inserts its new rows, and its recovery resolves its CIKs, in CIK order: 0 of
-30. Their burst case holds every statement and release off the loop and those racers to one row, and
-`test_company_routes.py` holds each order; no CI step races the searches on PostgreSQL (2026-10-24,
-E171).
+the resolver's recovery or the search's. Two searches writing the same companies in different orders did
+worse: on PostgreSQL they deadlocked, and the one PostgreSQL aborted answered 500 after the deadlock
+timeout. One local probe held two searches of the same two new companies, in opposite orders, behind a
+third transaction's uncommitted insert of the two rows, which then rolled back: 11 of 20 runs deadlocked.
+Another held a search's batch, which updated a stored row before inserting a new company with a lower
+CIK, against a second search's conflict recovery, which wrote the two in CIK order: 6 of 10. The probes
+force those interleavings; they do not measure how often traffic meets one. The batch and its recovery
+now write each company alone, in CIK order, a stored row's update in its place among the inserts: 0 of 20
+in each probe. Their burst case holds every statement and release off the loop and those racers to one
+row, and `test_company_routes.py` holds each unit's write order; no CI step races the searches on
+PostgreSQL (2026-10-24, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
