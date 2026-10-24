@@ -115,6 +115,51 @@ analysis data fingerprint incorporates fact/provenance changes, so a corrected d
 reuse a narrative generated from the old inputs. Check the company's quarterly API, tables,
 charts, narrative and exports before expanding to another small cohort.
 
+## Run it through the Ops workflow
+
+The production database is reachable only from Cloud Run and through the Ops workflow's Cloud SQL
+proxy. The Ops workflow (`.github/workflows/ops.yml`, dispatched from main) runs this script on its
+runner through that proxy, so the report lands in the run's log. Operation
+`repair-quarterly-dry-run` runs the preview and `repair-quarterly-apply` runs the apply.
+
+- **Tickers.** Both need the `tickers` input: an explicit comma-separated list of at most 50, which
+  the workflow checks before any step runs. An empty list is refused, never read as every company.
+  The step passes `--tickers` and `--limit 50`, so the script's default of 10 does not refuse a
+  longer list.
+- **No other flags.** Ops passes no other flag, so it cannot pass `--companyfacts-dir`,
+  `--eps-manifest` or `--rollback-run`. Each run reads companyfacts from SEC itself, one read per
+  company under the shared limiter, at the one request a second every SEC-calling process is
+  pinned to (`docs/OPERATIONS.md`, "SEC budgets per process").
+- **The apply re-plans.** The apply plans again from a fresh SEC read, so its own report is the
+  record of what changed, not the preview's. Compare the two before closing the change.
+- **Session guards.** Before the script, the step prints the session's settings as Postgres reports
+  them: `session read_only=on lock_timeout=10s statement_timeout=2min` for the preview, and
+  `read_only=off` for the apply. It stops unless they are the step's own. The preview's
+  transactions are read-only, so Postgres refuses any write.
+- **Approval.** The apply waits for the founder's approval on the `ops-apply` environment before any
+  step runs (`docs/DEPLOYMENT.md`, "One-shot maintenance runs"). Approve it promptly, because the run
+  executes the commit main had at dispatch. The workflow also refuses to start while a CI run for a
+  push to main is in flight; for an apply, that check runs after the approval.
+- **Failures and retries.** A failed company fails the run, and nothing retries it. The batch's other
+  companies still run, each in its own transaction, and those that succeed stay committed. A re-run
+  of an approved apply writes nothing and fails visibly, so a retry is a fresh dispatch with a fresh
+  approval.
+- **The report.** The JSON report is printed in the log. It is also kept for 30 days as the run's
+  artifact `quarterly-repair-<run id>`
+  (`gh run download <run id> -R neilmac91/EarningsNerd -n quarterly-repair-<run id>`). Save the
+  apply's `run_id` from it; the audited rollback needs it.
+- **Both are public.** The repository is public, so anyone can read the log, and anyone signed in
+  to GitHub can download the artifact. The report holds tickers, company ids, period ends, values and provenance, all public
+  filing data. GitHub masks secrets in the log but not inside an artifact. The report carries no
+  credential, but an `error` entry can quote the failing SQL and its parameters, and a failed
+  connection's error names the database user and the database.
+
+The deployment has no staging tier (`docs/DEPLOYMENT.md` lists production only), so the staging run
+asked for above has no target. Instead, the founder reads the production preview before approving
+the apply. The database backup is still the founder's to confirm or take before the first apply,
+since only the founder has GCP credentials. The audited rollback below has no Ops operation; it runs
+through the job image (`docs/fiscal-year-label-repair.md`, "Apply (founder sign-off required)").
+
 ## Audited rollback
 
 Preview first; then pass `--apply` to execute:
