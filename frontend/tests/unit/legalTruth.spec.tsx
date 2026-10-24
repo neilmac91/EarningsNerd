@@ -2312,6 +2312,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Every endpoint caches responses when idle and responds with 401 to unauthenticated requests.</p>', true],
       ['<p>Every endpoint does not cache responses and does not require a login.</p>', false],
       ['<p>Every endpoint caches responses when idle and requires a login only when accessing private records.</p>', false],
+      // Under each the floor passes the carried claim on the first predicate's denial, as main does: a gap.
+      ['<p>Each endpoint does not cache responses and responds with 401 to unauthenticated requests.</p>', 'gap'],
       // A phrase in brackets after the endpoints is read without the brackets: one that names the whole API, the whole
       // set again or nothing at all leaves them whole, under each as under every (main passed the each form), and the
       // clause's predicate starts after it, so its own denial is read. Beside them, an exception in brackets picks some
@@ -2348,6 +2350,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Nothing bypasses authentication on every endpoint.</p>', true],
       ['<p>Nothing bypasses the login on every endpoint.</p>', true],
       ['<p>No request bypasses authentication on each endpoint.</p>', true],
+      // Under each, the floor passes a restating "hit" and a denied "public", as main does: gaps.
+      ['<p>A login is required whenever you hit each endpoint.</p>', 'gap'],
+      ['<p>Each endpoint is never public.</p>', 'gap'],
       ['<p>Every endpoint requires a login when you use the admin API.</p>', false],
       ['<p>Every endpoint at the admin console requires authentication.</p>', false],
       ['<p>Every endpoint in every admin namespace requires a login.</p>', false],
