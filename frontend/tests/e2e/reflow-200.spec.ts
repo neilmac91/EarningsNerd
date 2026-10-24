@@ -2037,8 +2037,9 @@ for (const viewport of [{ width: 1024, height: 768 }, { width: 1440, height: 900
     anchored at the bell's right edge, ran off the screen's left edge, by 64px at 320px at the default size and at every
     phone width under 200% text. The bell now sits on the bar's line, after the theme toggle where it shows and before
     the menu button, and below lg its panel spans the screen under the bar, inset as the bar is: its sides lie on the
-    bar's content edges, its title and settings link are whole inside it, no line of its text paints past the screen's
-    sides, and its list scrolls to the last alert. The reader is an admin, whose compact menu then holds the admin links
+    bar's content edges, its title and settings link are whole inside it, no alert's line is cut short (a truncated
+    line cut the date from every alert at 390px under 200% text), no line of its text paints past the screen's sides,
+    and its list scrolls to the last alert. The reader is an admin, whose compact menu then holds the admin links
     after Settings and before Log out, inside the screen. The reader and the list are answered on top of answerApi's
     routes (a route registered later answers first). */
 for (const state of [
@@ -2071,7 +2072,8 @@ for (const state of [
       await h1(page)
       await page.evaluate(() => document.fonts.ready)
       if (state.doubled) await doubleText(page)
-      const banner = page.getByRole('banner')
+      // The site header: /pricing's own page header is a banner too.
+      const banner = page.locator('header[data-site-header]')
       const bell = banner.getByRole('button', { name: /^Notifications/ })
       await expect(bell, `${at}: the compact bar's bell, the one bell shown`).toHaveCount(1)
       const place = await banner.evaluate((header) => {
@@ -2114,6 +2116,7 @@ for (const state of [
             list: box(list),
             last: box(list.querySelector('li:last-child a')!),
             overflow: list.scrollHeight - list.clientHeight,
+            cut: [...list.querySelectorAll('a > span:last-child > span')].filter((line) => line.scrollWidth > line.clientWidth + 1).map((line) => line.textContent),
           }
         })
       const within = (what: string, inner: Box, outer: Box, where: string) => {
@@ -2131,6 +2134,7 @@ for (const state of [
       ).toEqual({ left: Math.round(open.content.left), right: Math.round(open.content.right) })
       within('its title', open.title, open.panel, 'the panel')
       within('its "Manage alert settings" link', open.settings, open.panel, 'the panel')
+      expect(open.cut, `${at}: no alert's line is cut short; each wraps inside its row`).toEqual([])
       expect(open.overflow, `${at}: the list scrolls inside the panel`).toBeGreaterThan(0)
       const lines = await headerMenuFit(page, 'Notifications')
       expect(lines.problems, `${at}: no line of the panel's text paints past the screen's sides`).toEqual([])

@@ -155,12 +155,15 @@ export default function NotificationBell({
                         item.read ? 'bg-transparent' : 'bg-brand-strong dark:bg-brand-strong-dark'
                       }`}
                     />
+                    {/* An alert's lines wrap, breaking a long token inside the row, never truncate: in the phone panel at
+                        390px under 200% text a truncated line cut the date from every alert, the company name ending at
+                        "·…" (E176; tests/e2e/reflow-200.spec.ts). */}
                     <span className="min-w-0">
-                      <span className="block truncate text-sm text-text-primary-light dark:text-text-primary-dark">
+                      <span className="block text-sm text-text-primary-light [overflow-wrap:anywhere] dark:text-text-primary-dark">
                         New <span className="font-data">{item.filing_type}</span> from{' '}
                         <span className="font-data font-semibold">{item.ticker}</span>
                       </span>
-                      <span className="block truncate text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                      <span className="block text-xs text-text-secondary-light [overflow-wrap:anywhere] dark:text-text-secondary-dark">
                         {formatCompanyName(item.company_name)}
                         {item.filing_date ? ` · ${formatLocalDate(item.filing_date, 'MMM d, yyyy')}` : ''}
                       </span>
