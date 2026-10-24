@@ -11,11 +11,13 @@ const rows: Row[] = [{ id: 'r' }]
 let resizes: Set<() => void>
 const resize = () => [...resizes].forEach(callback => callback())
 let viewport: number
+let periods: number
 let periodWidth: number
 let metricWidth: number
 
 beforeEach(() => {
   viewport = 316
+  periods = 12
   periodWidth = 68
   metricWidth = 104
   resizes = new Set()
@@ -27,7 +29,7 @@ beforeEach(() => {
   })
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) { return viewport })
   vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
-    return Math.max(viewport, metricWidth + periodWidth * 12 + Number.parseFloat(this.style.paddingInlineEnd || '0'))
+    return Math.max(viewport, metricWidth + periodWidth * periods + Number.parseFloat(this.style.paddingInlineEnd || '0'))
   })
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
     const width = this.tagName === 'TH' ? (this === this.parentElement?.firstElementChild ? metricWidth : periodWidth) : viewport
@@ -139,6 +141,28 @@ describe('DataTable opt-in column scrolling', () => {
     act(() => resize())
     expect(screen.queryByText('← Earlier quarters')).not.toBeInTheDocument()
     expect(region).not.toHaveAttribute('aria-describedby')
+  })
+
+  it('ends a short overflow on the period’s own stop, never inside the unstuck label (E185)', () => {
+    // One period under enlarged text at 390px: the 208px label and a 136px period overflow a 292px region by 52px,
+    // less than the label, so the range ends where the period starts, past the whole label.
+    const media = window.matchMedia('(max-width: 767px)')
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ ...media, matches: true })
+    viewport = 292
+    metricWidth = 208
+    periodWidth = 136
+    periods = 1
+    render(<DataTable columns={columns.slice(0, 2)} rows={rows} rowKey={(row) => row.id} layout="fixed" colWidths={['6.5rem', '4.25rem']}
+      stickyFirstColumn snapColumns scrollRegion={{ label: 'One year', hint: '← Earlier year', startAtEndOnMobile: true }} />)
+    const region = screen.getByRole('region', { name: 'One year' })
+    expect(screen.getByRole('rowheader')).not.toHaveClass('sticky')
+    expect(region.style.paddingInlineEnd).toBe('156px')
+    expect(region.scrollWidth - region.clientWidth).toBe(metricWidth)
+    expect(region.scrollLeft).toBe(metricWidth)
+    fireEvent.keyDown(region, { key: 'Home' })
+    expect(region.scrollLeft).toBe(0)
+    fireEvent.keyDown(region, { key: 'ArrowRight' })
+    expect(region.scrollLeft).toBe(metricWidth)
   })
 
   it('scrolls a focused source clear of the sticky row header', () => {
