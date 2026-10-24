@@ -9,6 +9,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -688,6 +689,49 @@ def test_blinding_reads_the_source_line_of_an_export_written_before_or_after_e19
     export.write_text(f"{header}Source: EDGAR · <p>Revenue rose.</p>", encoding="utf-8")
     with pytest.raises(ValueError, match="unrecognized export generation-date metadata"):
         _reviewer_artifact(export, "export", row, config, "H01")
+
+
+def _rewrite_export(fixture: dict[str, Any], row: dict[str, Any], text: str) -> None:
+    """An export as its run wrote it: the receipt, result and slot hashes follow its new bytes."""
+    export = fixture["outputs"].parent / row["export_path"]
+    export.write_text(text, encoding="utf-8")
+    receipt_path = export.parent / "receipt.json"
+    receipt = json.loads(receipt_path.read_text())
+    receipt["artifact_sha256"]["export_html"] = hashlib.sha256(export.read_bytes()).hexdigest()
+    _write(receipt_path, receipt)
+    result = _write(export.parent / "result.json", receipt)
+    with sqlite3.connect(fixture["outputs"].parent / "budget.sqlite3") as db:
+        db.execute("UPDATE slots SET result_sha=? WHERE id=?", (result["sha256"], row["slot_id"]))
+
+
+@pytest.mark.parametrize("lines", [("Original on SEC.gov", "Original on SEC.gov"),
+                                   ("Source: SEC EDGAR", "Source: SEC EDGAR"),
+                                   ("Source: SEC EDGAR", "Original on SEC.gov")],
+                         ids=["since-E190", "retained-from-before", "mixed"])
+def test_blinding_refuses_a_packet_set_whose_exports_mix_the_source_line(
+        tmp_path: Path, lines: tuple[str, str]) -> None:
+    """An arm generated before E190 prints "Source: SEC EDGAR" with the archive folder, one generated after
+    it "Original on SEC.gov" with the document, so a packet set that mixed them would tell a reviewer the
+    arm: the builder refuses it before it writes anything, and builds a set that carries one line."""
+    fixture = _fixture(tmp_path)
+    records = json.loads(fixture["outputs"].read_text())["records"]
+    header = "Filing Date: May 01, 2026 · Period End: March 31, 2026 · Generated September 21, 2026<br>"
+    for row, line in zip(records[:2], lines):
+        _rewrite_export(fixture, row, f"{header}{line} · https://www.sec.gov/Archives/x.htm<p>Revenue rose.</p>")
+    fixture["outputs"].write_text(json.dumps(inspect_outputs(
+        fixture["outputs"].parent, fixture["outputs"].parent, expected_manifest_sha=fixture["manifest_sha"])))
+    build = lambda: build_blinded_packets(  # noqa: E731
+        fixture["manifest"], fixture["archive"], fixture["preflight"], fixture["outputs"],
+        tmp_path / "reviewers", tmp_path / "custodian", expected_manifest_sha=fixture["manifest_sha"])
+    if lines[0] != lines[1]:
+        with pytest.raises(ValueError, match="more than one source line"):
+            build()
+        assert not (tmp_path / "reviewers").exists() and not (tmp_path / "custodian").exists()
+        return
+    assert build()["mapping_path"]
+    projected = [path.read_text(encoding="utf-8") for path in (tmp_path / "reviewers").rglob("export.html")]
+    assert sum(f"Period End: March 31, 2026<br>{lines[0]}" in text for text in projected) == 4
+    assert not any("Generated September" in text for text in projected)
 
 
 def test_blinding_refuses_unknown_nested_execution_marker_or_canonical_shape(tmp_path: Path) -> None:
