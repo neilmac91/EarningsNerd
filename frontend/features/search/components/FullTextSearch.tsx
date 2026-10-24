@@ -217,10 +217,12 @@ export default function FullTextSearch() {
         })}
       </div>
 
-      {/* The date fields take the Input primitive's 14px text (the forms plugin set them in 1rem) and may shrink to
-          their row (min-w-0). Chrome keeps blank room in a date field for a six-digit year, so under 200% text each
-          field was 312px in a 256px row at 320px and took the page to 344px; shrunk to the row it gives up that blank
-          room, and "mm/dd/yyyy" and a set date stay whole (tests/e2e/reflow-200.spec.ts). */}
+      {/* The date fields are the field recipe (inputClasses: its fill, hairline, focus ring and 44px touch height),
+          sized to their content, where they were hand-rolled at 34px on a phone (E154). They may shrink to their row
+          (min-w-0): Chrome keeps blank room in a date field for a six-digit year, so under 200% text each field was
+          312px in a 256px row at 320px and took the page to 344px; shrunk to the row it gives up that blank room, and
+          "mm/dd/yyyy" and a set date stay whole (tests/e2e/reflow-200.spec.ts). The dark color scheme draws the native
+          picker's icon and calendar for the dark field. */}
       <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
         <span>Filed between</span>
         <input
@@ -229,7 +231,7 @@ export default function FullTextSearch() {
           max={endDate || undefined}
           onChange={(e) => setStartDate(e.target.value)}
           aria-label="Filed on or after"
-          className="min-w-0 rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark px-2 py-1 text-sm text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand focus:shadow-ring-brand focus:outline-none focus:ring-0 focus:ring-offset-0 dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark"
+          className={inputClasses({ autoWidth: true, className: 'min-w-0 dark:[color-scheme:dark]' })}
         />
         <span>and</span>
         <input
@@ -238,7 +240,7 @@ export default function FullTextSearch() {
           min={startDate || undefined}
           onChange={(e) => setEndDate(e.target.value)}
           aria-label="Filed on or before"
-          className="min-w-0 rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark px-2 py-1 text-sm text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand focus:shadow-ring-brand focus:outline-none focus:ring-0 focus:ring-offset-0 dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark"
+          className={inputClasses({ autoWidth: true, className: 'min-w-0 dark:[color-scheme:dark]' })}
         />
         {(startDate || endDate) && (
           <button
