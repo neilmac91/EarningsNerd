@@ -22,6 +22,12 @@ import { ACCESS_COPY } from '../../features/marketing/lib/access'
  * launchers) does not scroll, so neither is a page stop here, and the walk must reach the bar, so a walk cut short
  * fails. The walk runs in the light theme: a theme changes no geometry the walk reads.
  *
+ * Both bars on the filing page: below lg its section nav sticks under the site header, a second bar, and the
+ * document's padding reserves it too (E164, chief design's ruling on #1521). The walk counts a stop hidden when it
+ * lies wholly under the site header, or under the nav while the nav is stuck at the bar's foot; the nav's own chips
+ * are measured against the site header alone. /filing/3 is walked at 390x844 at both text sizes, its API answered
+ * from the filing fixtures (tests/e2e/fixtures/filing3Api.ts).
+ *
  * The header's own stops: the padding steps aside while focus is inside the site header
  * (`html:has([data-site-header]:focus-within)`). The header is stuck in view, and the padding, which counts its
  * open mobile menu, scrolled the page behind the menu at every Tab through it (from 2,350px to the top in five
@@ -141,14 +147,20 @@ async function walkBack(page: Page): Promise<{ stops: number; reachedBar: boolea
       const label = (el.getAttribute('aria-label') || el.textContent || el.getAttribute('placeholder') || el.tagName).replace(/\s+/g, ' ').trim().slice(0, 60)
       const inBar = bar.contains(el)
       const own = inBar || fixed || r.width === 0 || r.height === 0
-      return { done: false as const, own, inBar, label: `${el.tagName.toLowerCase()} "${label}"`, top: r.top, bottom: r.bottom, barTop: b.top, barBottom: b.bottom, scrollY: window.scrollY }
+      // The filing page's section nav, while it reaches the bar's foot (stuck there, or leaving with its column), covers
+      // what passes beneath it as the bar does; a chip of its own can only lie under the bar.
+      const nav = document.querySelector('nav[aria-label="Jump to section"]')
+      const n = nav?.getBoundingClientRect()
+      const inNav = !!nav && nav.contains(el)
+      const navCovers = !!n && n.height > 0 && n.top <= b.bottom + 1 && !inNav
+      return { done: false as const, own, inBar, label: `${el.tagName.toLowerCase()} "${label}"`, top: r.top, bottom: r.bottom, barTop: b.top, barBottom: navCovers ? Math.max(b.bottom, n.bottom) : b.bottom, scrollY: window.scrollY }
     })
     if (stop.done) break
     stops++
     if (stops > MAX_STOPS) throw new Error(`the walk passed ${MAX_STOPS} stops without coming back round`)
     if (stop.inBar) reachedBar = true
-    // The bar sits at the top of the viewport, so a stop that ends above its bottom edge is wholly behind it (or above
-    // the screen altogether).
+    // The bar (and a stuck section nav below it) sits at the top of the viewport, so a stop that ends above its bottom
+    // edge is wholly behind it (or above the screen altogether).
     if (!stop.own && stop.bottom <= stop.barBottom + 0.5) {
       hidden.push({ label: stop.label, top: stop.top, bottom: stop.bottom, barBottom: stop.barBottom, scrollY: stop.scrollY })
     }
@@ -218,6 +230,113 @@ for (const viewport of VIEWPORTS) {
     }
   }
 }
+
+test.describe('a keyboard focus clears both bars / /filing/3 / 390px', () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
+  for (const doubled of [false, true]) {
+    const name = `390px${doubled ? ' under 200% text' : ''}`
+    test(`a Shift+Tab walk of /filing/3 finds no stop wholly under the bar or the section nav, ${name}`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem('theme', 'light')
+        localStorage.setItem('en:copilot-coachmark-v1', '1')
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+      })
+      await answerApi(page, baseURL!, 'anon')
+      await page.goto('/filing/3')
+      // Only a rendered summary has its section nav.
+      await expect(page.getByRole('navigation', { name: 'Jump to section' })).toBeVisible()
+      if (doubled) await doubleText(page)
+      await settle(page)
+      const walk = await walkBack(page)
+      expect(walk.stops, `/filing/3, ${name}: the walk reached the page's stops`).toBeGreaterThan(3)
+      expect(walk.reachedBar, `/filing/3, ${name}: the walk came back round to the site header`).toBe(true)
+      expect(
+        walk.hidden.map((s) => `${s.label} at ${s.top.toFixed(0)} to ${s.bottom.toFixed(0)}px, under bars ending at ${s.barBottom.toFixed(0)}px (scrollY ${s.scrollY.toFixed(0)})`),
+        `/filing/3, ${name}: a focused control wholly behind the site header or the section nav`,
+      ).toEqual([])
+    })
+
+    // The fixture's stops lie far apart, so the walk scrolls to each before it can settle under the nav. This puts one
+    // there: the summary's first control, scrolled until it sits wholly under the stuck nav, then reached by a Shift+Tab
+    // from the control after it. With the header's height alone in the padding, the browser left it there (at 73 to
+    // 93px under a nav ending at 122px; 155 to 223px under 256px under 200% text).
+    test(`a Shift+Tab onto a control the page scrolled under the section nav lands below both bars, ${name}`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem('theme', 'light')
+        localStorage.setItem('en:copilot-coachmark-v1', '1')
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+      })
+      await answerApi(page, baseURL!, 'anon')
+      await page.goto('/filing/3')
+      await expect(page.getByRole('navigation', { name: 'Jump to section' })).toBeVisible()
+      if (doubled) await doubleText(page)
+      await settle(page)
+      const before = await page.evaluate(async () => {
+        const nav = document.querySelector('nav[aria-label="Jump to section"]')!
+        const stops = [...document.querySelectorAll<HTMLElement>('section[id] a[href], section[id] button')].filter((el) => el.getClientRects().length && !nav.contains(el))
+        const [target, next] = stops
+        const headerBottom = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+        window.scrollBy(0, target.getBoundingClientRect().top - headerBottom - 4)
+        await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+        target.dataset.underNav = ''
+        next.focus({ preventScroll: true })
+        const t = target.getBoundingClientRect()
+        const n = nav.getBoundingClientRect()
+        return { label: (target.getAttribute('aria-label') || target.textContent || '').trim(), top: t.top, bottom: t.bottom, navTop: n.top, navBottom: n.bottom, headerBottom }
+      })
+      expect(
+        [Math.abs(before.navTop - before.headerBottom) <= 1, before.top >= before.headerBottom - 0.5, before.bottom <= before.navBottom + 0.5],
+        `${name}: ${before.label} set wholly under the stuck section nav (${before.top.toFixed(0)} to ${before.bottom.toFixed(0)}px, the nav ${before.navTop.toFixed(0)} to ${before.navBottom.toFixed(0)}px)`,
+      ).toEqual([true, true, true])
+      await page.keyboard.press('Shift+Tab')
+      const after = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement
+        const r = el.getBoundingClientRect()
+        return { onTarget: 'underNav' in el.dataset, top: r.top, bottom: r.bottom, navBottom: document.querySelector('nav[aria-label="Jump to section"]')!.getBoundingClientRect().bottom }
+      })
+      expect(after.onTarget, `${name}: the Shift+Tab reached ${before.label}`).toBe(true)
+      expect(
+        [after.top >= after.navBottom - 0.5, after.bottom <= 844.5],
+        `${name}: ${before.label} lands at ${after.top.toFixed(0)} to ${after.bottom.toFixed(0)}px, below the section nav ending at ${after.navBottom.toFixed(0)}px and inside the screen`,
+      ).toEqual([true, true])
+    })
+
+    // A focus inside the stuck nav drops the nav's share of the padding, or each chip would lie inside the reserved
+    // strip and every Tab through them would scroll the page.
+    test(`a Tab through the stuck section nav's chips leaves the page where it is, ${name}`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem('theme', 'light')
+        localStorage.setItem('en:copilot-coachmark-v1', '1')
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+      })
+      await answerApi(page, baseURL!, 'anon')
+      await page.goto('/filing/3')
+      const nav = page.getByRole('navigation', { name: 'Jump to section' })
+      await expect(nav).toBeVisible()
+      if (doubled) await doubleText(page)
+      await settle(page)
+      // Into the summary's second section, so the nav is stuck under the bar.
+      const scrolled = await page.evaluate(async () => {
+        const sections = [...document.querySelectorAll<HTMLElement>('section[id]')]
+        window.scrollBy(0, sections[1].getBoundingClientRect().top - 300)
+        await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+        const n = document.querySelector('nav[aria-label="Jump to section"]')!.getBoundingClientRect()
+        return { scrollY: window.scrollY, stuck: Math.abs(n.top - document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom) <= 1 }
+      })
+      expect(scrolled.stuck, `${name}: the section nav is stuck under the bar`).toBe(true)
+      const chips = nav.getByRole('link')
+      const count = await chips.count()
+      expect(count, `${name}: the nav has chips to walk`).toBeGreaterThan(1)
+      await chips.first().evaluate((el: HTMLElement) => el.focus({ preventScroll: true }))
+      for (let i = 1; i < count; i++) {
+        await page.keyboard.press('Tab')
+        const now = await page.evaluate(() => ({ scrollY: window.scrollY, inNav: !!document.querySelector('nav[aria-label="Jump to section"]')!.contains(document.activeElement) }))
+        expect(now.inNav, `${name}: Tab ${i} stays in the nav`).toBe(true)
+        expect(now.scrollY, `${name}: Tab ${i} through the section nav's chips moved the page from ${scrolled.scrollY}px`).toBe(scrolled.scrollY)
+      }
+    })
+  }
+})
 
 /**
  * The open-menu walk: with the page scrolled to 2000px the menu is opened from the keyboard, its toggle focused without

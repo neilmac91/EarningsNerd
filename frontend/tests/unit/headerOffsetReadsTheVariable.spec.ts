@@ -23,7 +23,11 @@ import { describe, expect, it } from 'vitest'
  *      beyond the header (`scroll-mt-16`). The padding steps aside while focus is inside the site header
  *      (`html:has([data-site-header]:focus-within)`, held here with the header's attribute): the header
  *      is stuck in view, and the padding, which counts its open mobile menu, would scroll the page behind
- *      the menu at every Tab through it;
+ *      the menu at every Tab through it. Below lg the filing page's section nav, a second bar stuck under the
+ *      header, publishes its height as `--section-nav-h` and the padding adds it, so a margin that reads the
+ *      nav's height gives it back (`scroll-mt-[calc(4rem_-_var(--section-nav-h,0px))]`) and never adds it
+ *      again; a focus inside the nav drops the nav's share (`html:has([data-section-nav]:focus-within)`,
+ *      held here with the nav's attribute);
  *   3. a `sticky` class list whose `top-` (or `inset-`, `inset-y-`) does not read the variable: `sticky
  *      top-0`, a small step, `top-px` or an arbitrary length, which sticks the element under the site header
  *      (the page header did, its title showing through the bar and its back link unclickable beneath it).
@@ -81,6 +85,19 @@ function scrollMarginsReadingTheHeader(text: string): string[] {
   return found
 }
 
+/** Rule 2, the section nav's half: the top scroll margins in one string that read `--section-nav-h` other than to
+    give it back. The document's padding already adds the nav below lg, so a margin may only subtract it. */
+function scrollMarginsAddingTheNav(text: string): string[] {
+  const found: string[] = []
+  for (const m of text.matchAll(TOKEN)) {
+    const [, variants, negative, utility, value] = m
+    if (!utility.startsWith('scroll-m') || !/(?:var\(|\[)--section-nav-h\b/.test(value)) continue
+    const readsOnlyToSubtract = value.split(/(?:var\(|\[)--section-nav-h\b/).slice(0, -1).every((before) => /_-_$/.test(before))
+    if (!readsOnlyToSubtract) found.push(`${variants}${negative}${utility}-${value}`)
+  }
+  return found
+}
+
 /** Whether a class list holds `sticky`, behind any variants. */
 const holdsSticky = (text: string) => /(?:^|[\s"'`{])(?:[a-z0-9[\]().@=/&>_!-]+:)*!?sticky(?=$|[\s"'`}])/.test(text)
 
@@ -134,7 +151,7 @@ function scanSource(rel: string, source: string): Finding[] {
     if (owner) push(3, node, stickyTopsUnderTheHeader(listOf(node)))
     if (stringish(node)) {
       push(1, node, headerOffsets(node.text))
-      push(2, node, scrollMarginsReadingTheHeader(node.text))
+      push(2, node, [...scrollMarginsReadingTheHeader(node.text), ...scrollMarginsAddingTheNav(node.text)])
       if (!inList) push(3, node, stickyTopsUnderTheHeader(node.text))
     }
     ts.forEachChild(node, (child) => visit(child, inList || owner))
@@ -184,6 +201,17 @@ describe('every offset under the site header reads --site-header-h, and the docu
       'scroll-mt-16 lg:scroll-mt-8 scroll-my-4 scroll-m-2 scroll-mt-0 scroll-mb-[var(--site-header-h,4rem)] top-[var(--site-header-h,4rem)]',
     )).toEqual([])
     expect(scrollMarginsReadingTheHeader('scroll-mt-[--site-header-h]')).toEqual(['scroll-mt-[--site-header-h]'])
+    // A margin may read the section nav's height only to give it back.
+    expect(scrollMarginsAddingTheNav('scroll-mt-[calc(4rem_-_var(--section-nav-h,0px))] lg:scroll-mt-8 scroll-mt-16')).toEqual([])
+    expect(scrollMarginsAddingTheNav(
+      'scroll-mt-[calc(4rem_+_var(--section-nav-h,0px))] scroll-mt-[var(--section-nav-h)] md:scroll-my-[--section-nav-h] scroll-mt-[calc(4rem_-_var(--section-nav-h)_+_var(--section-nav-h))]',
+    )).toEqual([
+      'scroll-mt-[calc(4rem_+_var(--section-nav-h,0px))]',
+      'scroll-mt-[var(--section-nav-h)]',
+      'md:scroll-my-[--section-nav-h]',
+      'scroll-mt-[calc(4rem_-_var(--section-nav-h)_+_var(--section-nav-h))]',
+    ])
+    expect(scrollMarginsAddingTheNav('top-[var(--section-nav-h)] scroll-mb-[var(--section-nav-h)]')).toEqual([])
 
     expect(stickyTopsUnderTheHeader('sticky top-0 z-40')).toEqual(['top-0'])
     expect(stickyTopsUnderTheHeader('lg:sticky lg:top-4')).toEqual(['lg:top-4'])
@@ -220,17 +248,25 @@ describe('every offset under the site header reads --site-header-h, and the docu
     expect(offenders, "read the header's height: top-[var(--site-header-h,4rem)]").toEqual([])
   })
 
-  it("no top scroll margin reads the header's height, and the document's scroll padding does", () => {
+  it("no top scroll margin reads the header's height or adds the section nav's, and the document's scroll padding reads both", () => {
     const offenders = scanApp().filter((f) => f.rule === 2).map((f) => f.site)
     expect(
       offenders,
-      "the document's scroll-padding-top already clears the header: a section's scroll margin holds only its own room (scroll-mt-16)",
+      "the document's scroll-padding-top already clears the header and the section nav: a section's scroll margin holds only its own room (scroll-mt-16), less the nav's share",
     ).toEqual([])
     const globalsCss = readFileSync(path.join(ROOT, 'app/globals.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
     const html = globalsCss.match(/@layer base\s*\{\s*html\s*\{([^}]*)\}/)?.[1] ?? ''
-    expect(html, 'app/globals.css: html sets scroll-padding-top: var(--site-header-h, 4rem)').toMatch(
-      /(?:^|;)\s*scroll-padding-top:\s*var\(--site-header-h,\s*4rem\);/,
+    expect(html, 'app/globals.css: html sets scroll-padding-top: calc(var(--site-header-h, 4rem) + var(--section-nav-h, 0px))').toMatch(
+      /(?:^|;)\s*scroll-padding-top:\s*calc\(var\(--site-header-h,\s*4rem\)\s*\+\s*var\(--section-nav-h,\s*0px\)\);/,
     )
+    expect(
+      globalsCss,
+      "app/globals.css: a focus inside the section nav drops the nav's share and keeps the header's, or a Tab through its chips scrolls the page",
+    ).toMatch(/html:has\(\[data-section-nav\]:focus-within\)\s*\{\s*scroll-padding-top:\s*var\(--site-header-h,\s*4rem\);?\s*\}/)
+    expect(
+      readFileSync(path.join(ROOT, 'features/summaries/components/SummaryBlocks.tsx'), 'utf8'),
+      "features/summaries/components/SummaryBlocks.tsx: the section nav carries data-section-nav",
+    ).toMatch(/<nav\b[^>]*\sdata-section-nav[\s>]/)
     expect(
       globalsCss,
       'app/globals.css: the padding steps aside while focus is inside the site header, or a Tab through its open menu scrolls the page behind it',
