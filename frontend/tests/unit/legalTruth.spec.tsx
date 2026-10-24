@@ -871,20 +871,21 @@ const theFloor = (reading: Reading, clause: Clause) => {
 }
 /** Main's blanket over "all" and "every" (#1594's fourth round; header item 1). Main refused any sentence with "all" or
     "every" before "endpoints", with "of", "our" or "the" and "API" between at most (MAIN_BLANKET), whatever it said of
-    them, and so does this, read by clause: a clause where such a phrase stands fails, login word or not, unless E162's
-    structure finds why not, and nothing else does. The phrase is narrowed by what follows it (a prepositional phrase, a
-    relative clause or a participle that picks some out, but not one that names the whole API, every request or the
-    whole set again, nor a login: wholeEndpoints, loginAfter), by a phrase in brackets after it, or by the quantifier
-    taken back ("not every", "almost all"); a set named before ("these", "those", "such") stands outside main's phrase.
-    A prepositional phrase picks some out only after a preposition that can (PICKS_OUT: "in", "of", "for", "under",
-    "with", ...), not a verb's own phrase read as theirs ("We serve all endpoints over HTTPS.", "for a week"), and a
-    verb that places the endpoints ("puts", "keeps", "locks", "hides") takes "behind ..." as where, not which ("We put
-    all endpoints behind a paywall." fails, as on main). The clause is narrowed by a condition (narrows), but not one
-    that keeps the endpoints to a login, or denied on its verb or its subject, unless every login word it reaches then
-    says the login (turnedSenses: "Nobody can call every endpoint without a token." denies a login's absence). Another
-    role, the opposite sense, a possible modal or a verb that lets a login in, "public", a clause the verb takes as its
-    object and no login said excuse nothing here: they are the floor's, for "each" and "any" and for the phrases main's
-    reading did not cover ("every single endpoint"). */
+    them, and so does this, read by clause: a clause where such a phrase stands, or that carries one on as its subject
+    ("Every endpoint does not cache responses and responds with 401 to unauthenticated requests.": #1594's fifth round),
+    fails, login word or not, unless E162's structure finds why not, and nothing else does. The phrase is narrowed by
+    what follows it (a prepositional phrase, a relative clause or a participle that picks some out, but not one that
+    names the whole API, every request or the whole set again, nor a login: wholeEndpoints, loginAfter), by a phrase in
+    brackets after it, or by the quantifier taken back ("not every", "almost all"); a set named before ("these",
+    "those", "such") stands outside main's phrase. A prepositional phrase picks some out only after a preposition that
+    can (PICKS_OUT: "in", "of", "for", "under", "with", ...), not a verb's own phrase read as theirs ("We serve all
+    endpoints over HTTPS.", "for a week"), and a verb that places the endpoints ("puts", "keeps", "locks", "hides")
+    takes "behind ..." as where, not which ("We put all endpoints behind a paywall." fails, as on main). The clause is
+    narrowed by a condition (narrows), but not one that keeps the endpoints to a login, or denied on its verb or its
+    subject, unless every login word it reaches then says the login (turnedSenses: "Nobody can call every endpoint
+    without a token." denies a login's absence). Another role, the opposite sense, a possible modal or a verb that lets
+    a login in, "public", a clause the verb takes as its object and no login said excuse nothing here: they are the
+    floor's, for "each" and "any" and for the phrases main's reading did not cover ("every single endpoint"). */
 const MAIN_BLANKET = /^(?:all|every)\b(?:\s+of)?(?:\s+(?:our|the))?(?:\s+API)?\s+endpoints?\b/i
 const PLACES = /^(?:puts?|keeps?|kept|places?|placed|locks?|locked|hides?|hid|hidden)\s+/i
 /** The prepositions whose phrase after the endpoints picks some out ("in the admin namespace", "of the admin API", "for
@@ -895,8 +896,10 @@ const A_SPAN_OF_TIME = /^(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?
 const theBlanket = (reading: Reading, clause: Clause) => {
   const { tokens } = reading
   const places = atTheVerb(reading, clause.predicate, PLACES) >= 0
+  const carried = clause.carried ? clause.subject : null
   const blanketed = tokens.some((t, k) => {
-    if (k < clause.start || k >= clause.end || !/^(?:all|every)$/.test(t.lower) || matchAt(reading, k, MAIN_BLANKET) < 0) return false
+    const inClause = (k >= clause.start && k < clause.end) || (!!carried && k >= carried.start && k < carried.end)
+    if (!inClause || !/^(?:all|every)$/.test(t.lower) || matchAt(reading, k, MAIN_BLANKET) < 0) return false
     if (k > 0 && nounPhraseAt(tokens, k - 1)?.takenBack) return false
     const phrase = phraseIn(reading, clause, k)
     const narrowing = (m: Postmodifier) =>
@@ -2247,6 +2250,15 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>All endpoints behind authentication return JSON.</p>', true],
       ['<p>Every endpoint in the admin namespace behind a login requires a token.</p>', false],
       ['<p>Not every endpoint behind a login requires a token.</p>', false],
+      // #1594's fifth round, the third lens. A clause that carries all or every endpoints on as its subject meets main's
+      // blanket too, so an excuse on the first predicate, a denial or a condition, leaves the second to it; beside them,
+      // the second predicate denied or narrowed itself.
+      ['<p>Every endpoint does not cache responses and responds with 401 to unauthenticated requests.</p>', true],
+      ['<p>Every endpoint never caches responses and accepts authenticated requests only.</p>', true],
+      ['<p>All endpoints do not cache data and require that the caller holds a valid token.</p>', true],
+      ['<p>Every endpoint caches responses when idle and responds with 401 to unauthenticated requests.</p>', true],
+      ['<p>Every endpoint does not cache responses and does not require a login.</p>', false],
+      ['<p>Every endpoint caches responses when idle and requires a login only when accessing private records.</p>', false],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
