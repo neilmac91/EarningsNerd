@@ -69,8 +69,11 @@
  * predicate starts after one between its subject and its verb group (the endpoint family reads what one holds as it
  * would be without the brackets); a prepositional phrase after a noun is read as that noun's, wherever else it may
  * attach ("every endpoint for each request" names its requests, and a family decides whether such a phrase narrows); a
- * quantifier after its noun ("the endpoints all require a login") is not read; and a fronted condition with no comma
- * runs to the first quantified noun phrase with a verb group after its own verb.
+ * quantifier after its noun ("the endpoints all require a login") is not read; a fronted condition with no comma runs
+ * to the first quantified noun phrase with a verb group after its own verb; and, as #1594's sixth round found, a noun's
+ * contraction with "is" or "has" reads as a possessive ("every endpoint's not public"), quotation marks around a word
+ * of a noun phrase end the phrase there, a path or a number in words before the noun is no word of the phrase ("every
+ * /api endpoint", "all forty endpoints"), and an aside between dashes is not read.
  *
  */
 
@@ -498,12 +501,18 @@ function skipIntroduction(tokens: Token[], at: number): number {
 
 const HARD = /^[;:]$/
 
-/** The token that closes a bracket opened at a token, nested brackets read whole; -1 where none closes it. */
+/** The brackets the reading pairs: round and, since #1594's sixth round, square ("[admin only]"). */
+const BRACKETS: Record<string, string> = { '(': ')', '[': ']' }
+/** The token that closes a bracket opened at a token, nested brackets read whole; -1 where none closes it or no bracket
+    opens there. */
 export function closingBracket(tokens: Token[], open: number): number {
+  const opening = tokens[open]?.text ?? ''
+  const closing = BRACKETS[opening]
+  if (!closing) return -1
   let depth = 0
   for (let k = open; k < tokens.length; k++) {
-    if (tokens[k].text === '(') depth++
-    else if (tokens[k].text === ')' && --depth === 0) return k
+    if (tokens[k].text === opening) depth++
+    else if (tokens[k].text === closing && --depth === 0) return k
   }
   return -1
 }
@@ -543,7 +552,7 @@ function readClause(tokens: Token[], at: number, how: Next, carriedSubject: Noun
     }
     // A phrase in brackets between the subject and its verb group is passed over, so the predicate starts at the verb
     // group after it ("Every endpoint (in the admin namespace) requires a login."; #1594's fifth round).
-    const bracket = subject && tokens[i]?.text === '(' ? closingBracket(tokens, i) : -1
+    const bracket = subject ? closingBracket(tokens, i) : -1
     if (bracket > 0 && startsPredicate(tokens, bracket + 1)) i = bracket + 1
     const between = subject && tokens[i]?.text === ',' ? conditionAt(tokens, i) : null
     if (between) {

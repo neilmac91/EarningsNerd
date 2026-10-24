@@ -138,8 +138,10 @@ import { closingBracket, matchAt, negates, nounPhraseAt, readSentence, spanText,
  *    noun passes, as on main. Under "all" and "every", "nothing else does" holds by the reader's own lexicons (what
  *    restates every request, RESTATED; the whole-API names; the words that say a login absent, "public", "open" and
  *    "bypasses" among them since #1594's fifth round; and since its sixth the times a phrase after them may name,
- *    A_TIME, "at the moment", "in 2026"), so a paraphrase outside them that main refused may pass, while one inside
- *    them fails as on main ("Every endpoint is never public.", "Nothing bypasses authentication on every endpoint.").
+ *    A_TIME, "at the moment", "in 2026"; the verbs a relative clause names the whole set again with, RESTATES_THE_SET;
+ *    and the prepositions that may pick some out, PICKS_OUT), so a paraphrase outside them that main refused may pass
+ *    ("Every endpoint we've ever shipped requires a login."), while one inside them fails as on main ("Every endpoint
+ *    is never public.", "Nothing bypasses authentication on every endpoint.").
  * 2. The account events (D-051). /security's PostHog line scopes the consent to the browser, and a sentence of
  *    its own, ACCOUNT_EVENTS_DISCLOSURE (lib/consentCopy.ts), names no provider and says the service records how
  *    accounts use it against the internal account id, whatever the reader chose. /security and /privacy each place
@@ -567,7 +569,7 @@ const UNIVERSAL = ['all', 'every', 'each', 'any']
 function bracketed(reading: Reading, phrase: NounPhrase): { reading: Reading; postmodifiers: Postmodifier[]; bare: boolean } | null {
   const { tokens } = reading
   const open = phrase.end
-  const close = tokens[open]?.text === '(' ? closingBracket(tokens, open) : -1
+  const close = closingBracket(tokens, open)
   if (close < 0) return null
   const unbracketed = [...tokens.slice(0, open), ...tokens.slice(open + 1, close)]
   const read = nounPhraseAt(unbracketed, phrase.start)
@@ -682,15 +684,16 @@ const HOLDS_A_LOGIN = new RegExp(
   'i',
 )
 /** The subordinating words whose condition narrows when the endpoints need a login (E162): "when", "whenever", "if",
-    "once", "while" (not after a comma, where it sets another clause against this one: "Each endpoint requires a login,
-    while the docs are public.") and "unless"; after "only", "for" and "to" too ("only for private records"). */
+    "once", "while" (not after a comma or opening the sentence, where it sets another clause against this one: "Each
+    endpoint requires a login, while the docs are public.", and since #1594's sixth round "While the docs are public,
+    every endpoint requires a login.") and "unless"; after "only", "for" and "to" too ("only for private records"). */
 const NARROWING = new Set(['when', 'whenever', 'if', 'once', 'while', 'unless'])
 /** Whether a condition narrows when the endpoints need a login: it opens with a NARROWING word, not after "even" or "not
     only" ("even when it is public" narrows nothing), and does not restate every request (RESTATED, or HOLDS_A_LOGIN
     after "unless"); one after "except" narrows whatever it says. */
-function narrows(reading: Reading, { adverb, subordinator, comma, words, end }: Condition): boolean {
+function narrows(reading: Reading, { adverb, subordinator, comma, start, words, end }: Condition): boolean {
   if (adverb === 'even' || adverb === 'not only') return false
-  const opens = adverb === 'only' ? NARROWING.has(subordinator) || subordinator === 'for' || subordinator === 'to' : NARROWING.has(subordinator) && !(subordinator === 'while' && comma)
+  const opens = adverb === 'only' ? NARROWING.has(subordinator) || subordinator === 'for' || subordinator === 'to' : NARROWING.has(subordinator) && !(subordinator === 'while' && (comma || start === 0))
   if (!opens || adverb === 'except') return opens
   return !(subordinator === 'unless' ? HOLDS_A_LOGIN : RESTATES).test(` ${spanText(reading, words, end)}`)
 }
@@ -2402,6 +2405,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ["<p>Every endpoint we've got requires a login.</p>", true],
       ["<p>Each endpoint we've got requires a login.</p>", true],
       ["<p>Every endpoint we've added requires a login.</p>", false],
+      // E162's own red-team probe (#1594's sixth round): square brackets are read as round ones, and a "while" that
+      // opens the sentence sets its clause against the next one, as after a comma, and narrows nothing.
+      ['<p>Each endpoint [admin only] requires a login.</p>', false],
+      ['<p>Every endpoint [in our API] requires a login.</p>', true],
+      ['<p>While the docs are public, every endpoint requires a login.</p>', true],
+      ['<p>While search is public, each endpoint requires a token.</p>', true],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
