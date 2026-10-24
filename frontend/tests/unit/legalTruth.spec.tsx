@@ -78,7 +78,7 @@ import { matchAt, negates, nounPhraseAt, readSentence, spanText, verbGroupAt, ty
  *    the endpoints said to be public. Its precision cost: a login word the endpoints only handle reads as the claim
  *    ("Each endpoint counts failed logins.", "Each endpoint logs your session.", "Each endpoint rotates the session
  *    token.", "Each endpoint returns data that requires a login."), and its holes stand where main read nothing either
- *    ("Each endpoint responds with 401 to unauthenticated requests." passes, as on main). An account or a token counts
+ *    ("Each endpoint responds with 401 to unauthenticated requests." is planted as a gap). An account or a token counts
  *    as a login only as the credential itself ("requires an account", "a signed-in account", "requires a token"), so
  *    "Each endpoint requires an account ID." and "Each endpoint expects a token parameter, but it is optional." pass,
  *    and so does "No API endpoints require authentication.", which says the opposite; search, company pages and
@@ -2170,20 +2170,20 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Every endpoint is public, even for signed-in readers.</p>', true],
       // #1594's fourth round, the second combined lens: all and every sentences main's blanket refused and the floor let
       // through on one of its reasons. Main's blanket refuses each again, beside a twin a narrowing or a denial excuses,
-      // and an each or any twin, which the floor reads as before and passes, as main does. A condition that restates
-      // every request:
+      // and an each or any twin, still the claim, which the floor passes on the same reason, as main does: a gap. A
+      // condition that restates every request:
       ['<p>Every endpoint returns 401 if you are not signed in.</p>', true],
       ['<p>Every endpoint rejects the request unless you are signed in.</p>', true],
       ['<p>All endpoints return 401 unless the request carries a valid token.</p>', true],
       ['<p>Requests are rejected at every endpoint unless they carry a token.</p>', true],
       ['<p>Every endpoint returns 401 if the record is private.</p>', false],
-      ['<p>Each endpoint returns 401 if you are not signed in.</p>', false],
+      ['<p>Each endpoint returns 401 if you are not signed in.</p>', 'gap'],
       // A rejection of what its own denied clause says lacks a login:
       ['<p>Every endpoint rejects callers who are not signed in.</p>', true],
       ['<p>Every endpoint rejects requests that are not authenticated.</p>', true],
       ['<p>Every endpoint rejects any request that does not carry a token.</p>', true],
       ['<p>Every endpoint in the admin namespace rejects callers who are not signed in.</p>', false],
-      ['<p>Each endpoint rejects callers who are not signed in.</p>', false],
+      ['<p>Each endpoint rejects callers who are not signed in.</p>', 'gap'],
       // A clause the verb takes as its object:
       ['<p>Every endpoint requires that the caller holds a valid token.</p>', true],
       ['<p>Every endpoint requires that the request carry a token.</p>', true],
@@ -2191,33 +2191,33 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Every endpoint ensures that the caller is logged in.</p>', true],
       ['<p>Every endpoint verifies that the caller is authenticated.</p>', true],
       ['<p>Every endpoint does not require that the caller holds a valid token.</p>', false],
-      ['<p>Each endpoint requires that the caller holds a valid token.</p>', false],
+      ['<p>Each endpoint requires that the caller holds a valid token.</p>', 'gap'],
       // A denied subject with a possible modal: a denial of a login's absence says the login.
       ['<p>Nobody can call every endpoint without a token.</p>', true],
       ['<p>No user can call all endpoints without signing in.</p>', true],
       ['<p>Nobody can call every endpoint in the admin namespace without a token.</p>', false],
-      ['<p>Nobody can call any endpoint without a token.</p>', false],
+      ['<p>Nobody can call any endpoint without a token.</p>', 'gap'],
       // "public" in the clause:
       ['<p>Every endpoint enforces authentication for public and private data alike.</p>', true],
       ['<p>Every endpoint authenticates the caller before returning public filings.</p>', true],
       ['<p>We authenticate every endpoint, public or private.</p>', true],
       ['<p>Every endpoint authenticates requests, even for public data.</p>', true],
       ['<p>We do not authenticate every endpoint, public or private.</p>', false],
-      ['<p>Each endpoint enforces authentication for public and private data alike.</p>', false],
+      ['<p>Each endpoint enforces authentication for public and private data alike.</p>', 'gap'],
       // "only" at the end, "exclusively" and "and nothing else":
       ['<p>Every endpoint accepts authenticated requests only.</p>', true],
       ['<p>Every endpoint can be reached with a valid token only.</p>', true],
       ['<p>All endpoints support OAuth authentication exclusively.</p>', true],
       ['<p>Every endpoint accepts authenticated requests and nothing else.</p>', true],
       ['<p>Every endpoint in the admin namespace accepts authenticated requests only.</p>', false],
-      ['<p>Each endpoint accepts authenticated requests only.</p>', false],
+      ['<p>Each endpoint accepts authenticated requests only.</p>', 'gap'],
       // The other 401 phrasings:
       ['<p>Every endpoint responds with 401 to unauthenticated requests.</p>', true],
       ['<p>Unauthenticated requests to every endpoint receive a 401 error.</p>', true],
       ['<p>Unauthenticated requests to every endpoint get a 401.</p>', true],
       ['<p>Every endpoint answers unauthenticated requests with a 401.</p>', true],
       ['<p>Every endpoint in the admin namespace responds with 401 to unauthenticated requests.</p>', false],
-      ['<p>Each endpoint responds with 401 to unauthenticated requests.</p>', false],
+      ['<p>Each endpoint responds with 401 to unauthenticated requests.</p>', 'gap'],
       // The blanket's own readings: a phrase in brackets after all or every endpoints excuses them as a narrowing (main
       // refused it), a condition that keeps them to a login narrows nothing, and neither does a verb's own phrase after
       // them, which the reading takes as theirs.
