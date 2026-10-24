@@ -198,7 +198,7 @@ async function expectBothControlSetsUsable(page: Page, menu?: Rect) {
 /**
  * The site header (z-50, top-anchored) ranks above the bar by design; its mobile menu opens in flow
  * inside the header. Where the open menu ends above the bar (390x844: a signed-in reader's menu, with the
- * Search and Calendar links CI's e2e build turns on, ends at 607px against a bar at 615) every choice
+ * Search and Calendar links CI's e2e build turns on, ends at 559px against a bar at 615) every choice
  * stays operable with it open, and both launchers lie under the menu until it closes; on a short phone
  * (320x568) the open menu reaches the bar's region and covers a choice until the user closes it — a
  * user-opened, user-closed surface, documented in DESIGN_SYSTEM §4 (before this change the bar covered

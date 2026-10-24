@@ -2187,6 +2187,8 @@ for (const state of [
   { width: 320, height: 640, doubled: false },
   { width: 390, height: 844, doubled: true },
   { width: 768, height: 1024, doubled: true },
+  // Above 24rem, where the compact bar shows its theme toggle, so the bell's place after it is read.
+  { width: 640, height: 900, doubled: false },
 ] as const) {
   const at = `${state.width}x${state.height}${state.doubled ? ' and 200% text' : ' at the default size'}`
   test.describe(`a ${state.width}px ${state.width < 640 ? 'phone' : 'tablet'}${state.doubled ? ' at 200% text' : ''}, signed in, the bell in the bar`, () => {
@@ -2227,12 +2229,16 @@ for (const state of [
         const bellButton = [...header.querySelectorAll('button[aria-label^="Notifications"]')].find(shown)!
         const menuButton = header.querySelector('button[aria-label="Open menu"]')!
         return {
+          toggleShown: !!toggle,
           afterToggle: toggle ? bellButton.getBoundingClientRect().left >= toggle.getBoundingClientRect().right : true,
           beforeMenu: bellButton.getBoundingClientRect().right <= menuButton.getBoundingClientRect().left,
           oneLine: Math.abs(middle(bellButton) - middle(menuButton)) <= 1,
         }
       })
-      expect(place, `${at}: the bell sits after the theme toggle where it shows, before the menu button, on the bar's line`).toEqual({ afterToggle: true, beforeMenu: true, oneLine: true })
+      // The toggle leaves the bar at 24rem and below (384px, 768px under 200% text), so only a state above it reads
+      // the bell's place after the toggle.
+      const toggleShown = state.width > (state.doubled ? 768 : 384)
+      expect(place, `${at}: the bell sits after the theme toggle where it shows, before the menu button, on the bar's line`).toEqual({ toggleShown, afterToggle: true, beforeMenu: true, oneLine: true })
 
       await bell.click()
       const panel = page.getByRole('menu', { name: 'Notifications' })
