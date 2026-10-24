@@ -76,15 +76,15 @@ const scanned = (rel: string) => /\.tsx?$/.test(rel) && rel !== path.join('compo
  * any local name, whose type may be "checkbox". The type is read as a value through the shared model (heldValues.ts)
  * from each of its writers: the `type` attribute's value and each spread's `type` (`<input {...props} />` where
  * `props = { type: 'checkbox' as const }`), held in a same-file binding, a conditional's arms, a property written
- * under a key the scan cannot read or React's state, with the model's `state` on (what useState, useReducer, useRef
- * and the other hooks HeldOptions.state names keep, E159); in any letter case, since the browser reads the value so (`type="Checkbox"` draws
+ * under a key the scan cannot read or React's state (what useState, useReducer, useRef and the other hooks the
+ * model's header names keep, E159); in any letter case, since the browser reads the value so (`type="Checkbox"` draws
  * one). A writer that a later attribute overrides still counts, which fails closed. Out of reach, as in the model: a
  * value from another module, a tag held in a variable (`const Tag = 'input'`) and a type set on the DOM node.
  */
 function rawCheckboxes(file: string, text: string): number[] {
   if (!/checkbox/i.test(text)) return []
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
-  const { valueOf } = heldValues<'checkbox'>(sf, (e) => (ts.isStringLiteralLike(e) && e.text.toLowerCase() === 'checkbox' ? ['checkbox'] : undefined), { state: true })
+  const { valueOf } = heldValues<'checkbox'>(sf, (e) => (ts.isStringLiteralLike(e) && e.text.toLowerCase() === 'checkbox' ? ['checkbox'] : undefined))
   const knownAs = knownAsIn(scopeResolver(sf))
   const isCheckbox = (value: Held<'checkbox'> | undefined) => !!value && leavesOf(value).has('checkbox')
   const lines: number[] = []

@@ -28,8 +28,8 @@ import { componentTag, heldValues, leavesOf, propertyOf, renderedLeavesOf, scope
  * `conformedName`, which their JSON downloads write), is served wherever it is declared: a fill of it is data and
  * never checked, and a read of it is the served name, so printing it fails.
  *
- * Values are followed through each file by the shared reader (tests/unit/heldValues.ts) with `passThrough` and
- * `state` on, so a name held in a const, a destructuring, a parameter a same-file call fills, a same-file function's
+ * Values are followed through each file by the shared reader (tests/unit/heldValues.ts) with `passThrough` on,
+ * so a name held in a const, a destructuring, a parameter a same-file call fills, a same-file function's
  * return, a callback the reader holds, React's state (useState with what its setter is handed, useReducer with
  * what its dispatcher is handed, useActionState and react-dom's useFormState as a reducer, useOptimistic with what
  * its setter is handed or what its update function returns, a reducer the reader does not hold (another module's)
@@ -488,7 +488,7 @@ function readerOf(sf: ts.SourceFile, servedReturns: ReadonlySet<Returner>) {
       code does (a callback, a reducer, an initializer, a parameter a same-file function calls). */
   const serving = (e: ts.Expression): Leaf[] | undefined => (crossTargets(e, sf).some((fn) => servedReturns.has(fn)) ? ['serving'] : undefined)
   const calls = (leaf: Leaf): Leaf[] | undefined => (leaf === 'serving' ? ['served'] : undefined)
-  return { declarationOf, values: heldValues<Leaf>(sf, leafOf, { passThrough: true, state: true, calls }) }
+  return { declarationOf, values: heldValues<Leaf>(sf, leafOf, { passThrough: true, calls }) }
 }
 type Reader = ReturnType<typeof readerOf>
 

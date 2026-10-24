@@ -30,8 +30,8 @@ import { heldValues, isWrite, leavesOf, memberKey, scopeResolver } from './heldV
  * nobody reads counts once, as a bare import does. The reading follows every other way a name is given a glyph too:
  * each assignment, a loop's variable, a parameter at each same-file call (a component's props and children included),
  * a callback however it is handed over, a function's return, what is put in an object or an array after it is made,
- * React's createElement, cloneElement, Children and useMemo, and React's state with the reading's `state` on (what
- * useState, useReducer, useRef and the other hooks HeldOptions.state names keep, E159). A Map's `get` and Reflect.get read a member where they
+ * React's createElement, cloneElement, Children and useMemo, and React's state (what useState,
+ * useReducer, useRef and the other hooks the reading's header names keep, E159). A Map's `get` and Reflect.get read a member where they
  * are called, and the object Object.assign, a definition or Reflect.set puts a property on is written there, not read
  * whole. A glyph handed to a same-file function or component
  * counts where it is read there, not where it is passed, and a glyph a same-file component draws counts at each place
@@ -196,7 +196,7 @@ export function glyphUses(source: string, fileName: string): Counts {
     return glyph ? [rootAt('m', node, glyph)] : undefined
   }
   // What each same-file binding holds, by the reading the heading-icon clause shares (tests/unit/heldValues.ts).
-  const values = heldValues(sf, rootsOf, { memberLeaf: memberRoots, state: true })
+  const values = heldValues(sf, rootsOf, { memberLeaf: memberRoots })
   // Each read of a root, of a holder or of a holder's member. A hold counts where its holder is read, and a closing
   // tag repeats its opening tag's name: one use.
   const uses = new Map<Root, number>()
@@ -604,7 +604,7 @@ describe('reserved glyphs keep their one meaning', () => {
       QuotesIcon: 2,
       SparkleIcon: 2,
     })
-    // React's state, read with `state` on (E159): a glyph an initializer returns, one a setter is handed and one a ref
+    // React's state, which the reading follows (E159): a glyph an initializer returns, one a setter is handed and one a ref
     // holds count at each render, as a held glyph does.
     expect(given(['export function P() { const [Mark] = useState(() => QuotesIcon); return <><Mark /><Mark /></> }'])).toEqual({ QuotesIcon: 2 })
     expect(given(['export function P2() { const [Mark, setMark] = useState(null); useEffect(() => setMark(() => QuotesIcon), []); return <><Mark /><Mark /></> }'])).toEqual({ QuotesIcon: 2 })

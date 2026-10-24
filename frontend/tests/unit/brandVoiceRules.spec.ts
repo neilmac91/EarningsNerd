@@ -46,8 +46,8 @@ import { isIconModule } from './iconModules'
  *    gate shares (tests/unit/heldValues.ts) from every place a name is given one: its declaration, each assignment, a
  *    destructuring, a loop, a parameter at each same-file call (a component's props included), a callback however it is
  *    handed over, a function's return, what is put in an object after it is made, React's createElement,
- *    cloneElement and Children, and React's state with the reader's `state` on (useState with what its initializer
- *    returns and what its setter is handed, useReducer, useRef and the other hooks HeldOptions.state names; E159); a
+ *    cloneElement and Children, and React's state (useState with what its initializer returns and what its setter is
+ *    handed, useReducer, useRef and the other hooks the reader's header names; E159); a
  *    same-file component that renders an icon puts it in the heading it is placed in (`<AlertMark />`); any other
  *    expression placed in the heading is read by its value (`{ok && mark}`, `{createElement(BellIcon)}`). Out of
  *    reach, planted as gaps in the self-check and review-checked: an icon that crosses modules (an app module's
@@ -645,7 +645,7 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
     if (ts.isIdentifier(x)) return isIconName(x) || /Icon$/.test(x.text) ? ['icon'] : isIconNamespace(x) ? ['namespace'] : undefined
     return ts.isPropertyAccessExpression(x) && ts.isIdentifier(x.expression) && /Icon$/.test(x.name.text) ? ['icon'] : undefined
   }
-  const values = heldValues<'icon' | 'namespace'>(sf, iconLeaf, { memberLeaf: (leaf) => (leaf === 'namespace' ? ['icon'] : undefined), state: true })
+  const values = heldValues<'icon' | 'namespace'>(sf, iconLeaf, { memberLeaf: (leaf) => (leaf === 'namespace' ? ['icon'] : undefined) })
   const holdsIcon = (e: ts.Expression) => leavesOf(values.valueOf(e)).has('icon')
   const isIconTag = (n: ts.JsxOpeningLikeElement): boolean => {
     const name = n.tagName
@@ -1243,7 +1243,7 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '5 headingIcon',
       '6 headingIcon',
     ])
-    // React's state, read with the reader's `state` on (E159): an icon an initializer returns, one a setter is handed,
+    // React's state, which the reader follows (E159): an icon an initializer returns, one a setter is handed,
     // one a reducer returns and one a ref holds, each placed in a heading.
     const held = [
       "import { BellIcon } from '@/lib/icons'",

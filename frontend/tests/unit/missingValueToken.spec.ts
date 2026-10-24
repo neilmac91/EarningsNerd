@@ -15,8 +15,8 @@ import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, property
  *
  * Every .ts and .tsx file under app/, components/, features/, lib/ and hooks/ that spells the token (the dash, a
  * `\u2014` escape, an entity JSX decodes, `&mdash;`, `&#8212;` or `&#x2014;`, or `String.fromCharCode(0x2014)`) is
- * read through the shared reader (tests/unit/heldValues.ts) with `passThrough` and `state` on (React's state since E159:
- * what useState, useReducer, useRef and the other hooks HeldOptions.state names keep), so a value is followed from every
+ * read through the shared reader (tests/unit/heldValues.ts) with `passThrough` on, which follows React's state
+ * too (E159: what useState, useReducer, useRef and the other hooks its header names keep), so a value is followed from every
  * place a name is given it to every place it renders, and a call the reader cannot see is taken to give back what it
  * is handed. The token renders, and fails where it does, as:
  *  - JSX text, or an expression child whose value may hold it, of an intrinsic element, a fragment or a component
@@ -160,7 +160,7 @@ function findingsIn(text: string, file: string): Finding[] {
       if (ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || ts.isJsxFragment(e)) return ['element']
       return ts.isCallExpression(e) && elementCall(e) ? ['element'] : undefined
     },
-    { textLeaf: (jsxText) => (isTokenText(jsxText.text) ? ['token'] : undefined), passThrough: true, state: true },
+    { textLeaf: (jsxText) => (isTokenText(jsxText.text) ? ['token'] : undefined), passThrough: true },
   )
   const holds = (e: ts.Expression | undefined) => !!e && leavesOf(values.valueOf(e)).has('token')
   const kindOfType = (type: ts.Expression | undefined): Kind => (type && values.valueOf(type).fns?.size ? 'own' : 'unread')
@@ -404,7 +404,7 @@ const FORMS: Array<[Mark, string, string]> = [
   ['gap', 'export function M82({ v }: { v?: string }) { return <td>{fmtOwnFallback(v)}</td> }', "an imported formatter's own fallback"],
   ['gap', 'export function M83() { return <td>{OWN_TOKEN}</td> }', 'an imported constant'],
   ['gap', "export const M84 = [{ key: 'v', header: 'V', render: (r: Row) => r.v ?? '—' }]", 'a column list handed to a component in another module'],
-  ['flag', "export function M85() { const [mark] = useState('—'); return <td>{mark}</td> }", 'React state, read with `state` on (E159)'],
+  ['flag', "export function M85() { const [mark] = useState('—'); return <td>{mark}</td> }", 'React state, which the reader follows (E159)'],
   ['flag', "export function M96() { const [mark] = useReducer((s: string) => s, '—'); return <td>{mark}</td> }", "a reducer's initial state (E159)"],
   ['flag', "export function M97({ v }: { v?: string }) { const [mark, setMark] = useState(v); if (!v) setMark('—'); return <td>{mark}</td> }", 'what a setter is handed (E159)'],
   ['flag', "export function M98() { const mark = useRef('—'); return <td>{mark.current}</td> }", "a ref's current (E159)"],
