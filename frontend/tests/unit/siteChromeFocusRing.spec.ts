@@ -117,14 +117,13 @@ const RING_RESIDUE: Record<string, number> = {
   'features/filings/components/copilot/ReaderTable.tsx': 2, // brand-copilot (Markdown renderer props spreads)
   'features/filings/components/copilot/SecondaryPaneTabs.tsx': 1, // brand-copilot
   'features/fundamentals/components/FundamentalsTrendChart.tsx': 3, // the chart props spreads the scan cannot read; #1292 ringed its controls
-  'features/marketing/components/CatchCard.tsx': 1, // #1311 (brand-public-pages) left it, and no open PR edits the file; the next public-pages change rings it
   'features/marketing/components/HeroExample.tsx': 1, // #1311 ringed its links; the evidence chip's className is sourceTraceChipClass(), a recipe the scan does not read (brand-filing-page owns SourceTrace)
   'features/marketing/components/TraceToSourceDemo.tsx': 1, // its one stop is the source chip, whose className is sourceTraceChipClass(), a recipe that carries the ring and the scan does not read (brand-filing-page owns SourceTrace; E143 checked it)
   'features/peers/components/PeerComparisonPanel.tsx': 2, // #1292 ringed its controls; the rest are chart props spreads the scan cannot read
   'features/summaries/components/FinancialMetricsTable.tsx': 2, // brand-filing-page
   'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
 }
-const RING_RESIDUE_MAX = { files: 19, stops: 57 }
+const RING_RESIDUE_MAX = { files: 18, stops: 56 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the
@@ -210,10 +209,11 @@ function thirdPartyTags(source: string, fileName: string): string[] {
  * `export … from` that is not type-only, and every lazy `import('…')`, through `@/` or relative paths,
  * including .ts modules such as a barrel's index.ts. A module reached at all is read whole, but a named
  * re-export (`export { Modal } from './Modal'`) leads on only when the chrome takes that name; an
- * `export *` passes the names on. Only the .tsx modules are returned; a .ts module renders nothing itself.
+ * `export *` passes the names on. Only the modules JSX may be written in are returned: .tsx, .jsx and .js (allowJs
+ * compiles JSX in a .js module); a .ts module renders nothing itself.
  */
 function chromeFiles(roots: string[] = CHROME_ROOTS, root: string = ROOT): string[] {
-  return walkImports(roots, root).filter((file) => file.endsWith('.tsx'))
+  return walkImports(roots, root).filter((file) => /\.(?:[jt]sx|js)$/.test(file))
 }
 
 const RINGS = [
@@ -912,6 +912,9 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       'components/ui/Modal.tsx': 'export const Modal = () => null\nexport const ModalHeader = () => null',
       'components/ui/Input.tsx': 'export const Input = () => null',
       'components/ui/InputProps.tsx': 'export type InputProps = object',
+      'app/js/layout.tsx': "import { Strip } from '@/components/chrome/Strip'\nimport { Rail } from '@/components/chrome/Rail'",
+      'components/chrome/Strip.jsx': 'export const Strip = () => null',
+      'components/chrome/Rail.js': 'export const Rail = () => null',
     }
     try {
       for (const [file, source] of Object.entries(files)) {
@@ -924,6 +927,8 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       expect(chromeFiles(['app/admin/layout.tsx'], dir)).toEqual(['app/admin/layout.tsx', 'components/ui/Input.tsx', 'components/ui/Modal.tsx'])
       // A module loaded lazily is chrome too.
       expect(chromeFiles(['app/lazy/layout.tsx'], dir)).toEqual(['app/lazy/layout.tsx', 'components/chrome/Menu.tsx'])
+      // A .jsx or .js module renders as a .tsx one does (allowJs).
+      expect(chromeFiles(['app/js/layout.tsx'], dir)).toEqual(['app/js/layout.tsx', 'components/chrome/Rail.js', 'components/chrome/Strip.jsx'])
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -1355,9 +1360,10 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     }
     // A reader that finds nothing must not pass: the app styles a handful of fields itself and builds the rest with inputClasses().
     // Four since the four hand-rolled checkboxes became the one components/ui/Checkbox.tsx (ADM-37); three since the
-    // feedback form's textarea took inputClasses() (E154), which moved it to the factory's count, one higher with it.
-    expect(fields, 'fields that style themselves').toBeGreaterThanOrEqual(3)
-    expect(factory, 'fields built with inputClasses()').toBeGreaterThanOrEqual(16)
+    // feedback form's textarea took inputClasses() (E154's first half), which moved it to the factory's count, one higher
+    // with it; one, the checkbox, since the search page's two date fields took it too (E154), two higher there.
+    expect(fields, 'fields that style themselves').toBeGreaterThanOrEqual(1)
+    expect(factory, 'fields built with inputClasses()').toBeGreaterThanOrEqual(18)
     expect(findings).toEqual([])
   })
 

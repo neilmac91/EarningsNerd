@@ -35,7 +35,7 @@ export default function FilingsHistoryNote({ oldestFilingDate, cik }: FilingsHis
         rel="noopener noreferrer"
         className={cx(IDENTITY_LINK, 'inline-flex items-center gap-1')}
       >
-        Full history on SEC EDGAR
+        Full history on SEC.gov
         <ArrowSquareOutIcon aria-hidden="true" className="h-3.5 w-3.5" />
       </a>
     </p>

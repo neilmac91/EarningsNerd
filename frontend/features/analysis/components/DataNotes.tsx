@@ -99,7 +99,7 @@ export default function DataNotes({ dataset, sample = false }: { dataset: Analys
         </summary>
         <div className="space-y-3 pb-3 pt-1 text-xs leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
           <DataNotesList notes={model.notes} locations={locations} />
-          <p>Automated checks confirm that reported figures come from the company’s SEC XBRL data and that calculations combine compatible periods and units; they are not an audit of the company’s accounts.</p>
+          <p>Automated checks confirm that reported figures come from the company’s filed data (XBRL) and that calculations combine compatible periods and units; they are not an audit of the company’s accounts.</p>
           <p>Select a figure to inspect its source, reporting period and calculation. Letters identify data notes; † marks a calculated figure, not an error. Comparisons retain notes from their source inputs. Counts describe distinct figures and comparisons, not the number of places they appear.</p>
           <details>
             <summary className="cursor-pointer rounded font-medium focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Sources &amp; methods</summary>

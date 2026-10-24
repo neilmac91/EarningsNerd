@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   // 'Page | EarningsNerd': the page first, the brand last (D-038). A plain string, no template: every
   // route's own layout or page writes its whole title, and routeMetadata.spec.ts holds the form.
   title: 'AI summaries of SEC filings | EarningsNerd',
-  description: 'The summary that shows its work. AI summaries of 10-Ks and 10-Qs from SEC EDGAR, with figures checked against the company’s XBRL where they can be.',
+  description: 'The summary that shows its work. AI summaries of 10-Ks and 10-Qs from SEC EDGAR, with figures checked against the company’s filed data where they can be.',
   keywords: ['SEC filings', '10-K', '10-Q', 'financial analysis', 'earnings', 'stock analysis', 'AI summaries', 'SEC EDGAR'],
   metadataBase: new URL('https://www.earningsnerd.io'),
   // No title or description here: Next fills og:title, og:description and the twitter pair from each

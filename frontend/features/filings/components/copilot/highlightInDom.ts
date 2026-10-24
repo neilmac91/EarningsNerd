@@ -44,7 +44,7 @@ export const CITATION_HIGHLIGHT_CSS = [
 /**
  * Paint for `::highlight(copilot-find)`: where a jump the server did not locate lands, so the reader still
  * sees where it landed: a summary chip's section heading (every metric chip, a verified XBRL figure's
- * included, and every Cited chip), or the text an XBRL fact's jump found. Nothing unlocated takes the
+ * included, and every "Section linked" or "Quote not found" chip), or the text an XBRL fact's jump found. Nothing unlocated takes the
  * device (D-044), so this is the reader's neutral sage from before it: the brand sage at 22%, one rule for
  * both themes as it was, in the reader's own ink, with no hairline.
  */

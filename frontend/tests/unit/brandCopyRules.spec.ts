@@ -181,7 +181,7 @@ import { routeFiles, walkImports } from './importWalk'
  *    place DEVICE_PLACES does not list. On a row of a list (what a
  *    `.map` or `.flatMap` callback returns, through the file's components, so a summary block is one) a
  *    marker or a marked block renders only under a test of its located flag, a risk's `source_verified`
- *    (the chip's "Verified in filing", D-028) or an evidence's `verified`: `=== true` or the field itself,
+ *    (the chip's "Quote found in filing", D-028, D-058) or an evidence's `verified`: `=== true` or the field itself,
  *    `!== true` on a conditional's false branch, an `if` around the return, a conjunction or a same-file
  *    const holding one; a helper's call is a guard the gate does not read, so it fails closed. One marker
  *    per row and per line, so the twins never overprint, none inside a marked block (a quote block takes
@@ -989,13 +989,13 @@ const NOT_COLOUR = new RegExp(
     + String.raw`|^text-\[(?:length:|[\d.]|(?:calc|clamp|min|max)\()|^fill-(?:none|current|inherit)$`,
 )
 /** Variants that apply only under the pointer (hover: and active:, and their group- and peer- forms: activity,
-    sage's other job), and those that colour a pseudo-element rather than the element's own text. Every other
-    variant is a state an element can rest in, so its colour counts: dark:, a breakpoint, aria-*, data-*,
-    disabled:, open:, visited: (a link stays visited), target: (a section stays the fragment's target), and
-    focus: in all its forms, since keyboard focus draws the sage ring and a focused control stays focused while
-    it is read. A selected tab's sage count is a sage count. */
+    sage's other job), and those that colour a pseudo-element rather than the element's own text (first-line: and
+    first-letter: colour its own text, so they count). Every other variant is a state an element can rest in, so its
+    colour counts: dark:, a breakpoint, aria-*, data-*, disabled:, open:, visited: (a link stays visited), target: (a
+    section stays the fragment's target), and focus: in all its forms, since keyboard focus draws the sage ring and a
+    focused control stays focused while it is read. A selected tab's sage count is a sage count. */
 const ACTIVITY = /^(?:(?:group|peer)-)?(?:hover|active)(?:\/[\w-]+)?$|^\[.*:(?:hover|active)\b.*\]$/
-const PSEUDO = /^(?:placeholder|file|marker|selection|before|after|first-letter|first-line|backdrop)$/
+const PSEUDO = /^(?:placeholder|file|marker|selection|before|after|backdrop)$/
 const SVG_TEXT = new Set(['text', 'tspan', 'textPath'])
 const CITATION = /^\[F?\d+\]$/
 /** SEC form codes are names, not values ("Open the 10-K", "10-Ks and 10-Qs"), as a form code read from a variable
@@ -2172,7 +2172,7 @@ describe('brand rule 1c: the withholding promise names risk excerpts', () => {
   // Of a summary's quotes, only risk excerpts are withheld when the filing's text does not match:
   // the server projects a risk only from a whitespace-exact span and counts the rest
   // (backend/app/services/provenance_service.py). A Forward Signals quote stays on the page,
-  // labelled Cited, while AI_FORWARD_QUOTE_GATE is off (backend/app/services/ai/
+  // labelled Section linked or Quote not found, while AI_FORWARD_QUOTE_GATE is off (backend/app/services/ai/
   // forward_quote_gate.py). So a public surface may promise that risk excerpts are located or
   // withheld, or are the filing's own words, never that quotes in general are (the founder's
   // review of PR #1226). An object literal is read as one statement, so a claims row's subject
@@ -3210,7 +3210,7 @@ const DEVICE_PLACES: Record<string, { parts: DevicePart[]; why: string }> = {
   },
   'features/summaries/components/SummaryRisks.tsx': {
     parts: ['margin', 'marker', 'block'],
-    why: "the filing page's Risks: each row whose excerpt the server located, its chip's Verified in filing (D-028, D-044)",
+    why: "the filing page's Risks: each row whose excerpt the server located, its chip's Quote found in filing (D-028, D-044, D-058)",
   },
   'features/summaries/components/SummaryBlocks.tsx': {
     parts: ['block'],
@@ -3220,7 +3220,7 @@ const DEVICE_PLACES: Record<string, { parts: DevicePart[]; why: string }> = {
 /** What keeps its citation chips: a margin never holds an answer, the narrative or their chips. */
 const CHIP_SURFACES = new Set(['CitationChip', 'CopilotMessage', 'NarrativePane'])
 const CHIP_CALLS = new Set(['injectCitationMarkers'])
-/** The server's located flags: a risk's `source_verified` (the chip's "Verified in filing") and a block's or a row's
+/** The server's located flags: a risk's `source_verified` (the chip's "Quote found in filing") and a block's or a row's
     evidence `verified` (BlockEvidence: the whole quote found in the filing text). */
 const LOCATED_FIELDS = new Set(['source_verified', 'verified'])
 /** Tags whose content runs on the line of the element around them, so their markers share it. */

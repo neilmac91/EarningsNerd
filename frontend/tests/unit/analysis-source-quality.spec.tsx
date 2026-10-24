@@ -210,7 +210,7 @@ describe('Financial origin and source checks', () => {
     expect(value).toHaveFocus()
     await user.click(screen.getByRole('button', { name: /Revenue, Q3 2023.*View source/ }))
     const reported = screen.getByRole('dialog')
-    expect(reported).toHaveTextContent('Taken from the company’s XBRL data as filed with the SEC.')
+    expect(reported).toHaveTextContent('Taken from the figures the company filed with the SEC (its XBRL data).')
     expect(reported).not.toHaveTextContent('Calculated from reported figures with compatible periods and units.')
   })
 

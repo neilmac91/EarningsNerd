@@ -78,7 +78,7 @@ describe('FilingIndex', () => {
   it('keeps EDGAR a sibling of the row link, never nested inside it', () => {
     const { container } = render(<Harness />)
     const row = screen.getByRole('link', { name: /^10-Q\s+Quarter ended Jul 26, 2026/ })
-    const edgar = screen.getByRole('link', { name: 'View the 10-Q filed Aug 26, 2026 on SEC EDGAR (opens in a new tab)' })
+    const edgar = screen.getByRole('link', { name: 'View the 10-Q filed Aug 26, 2026 on SEC.gov (opens in a new tab)' })
     expect(edgar).toHaveAttribute('href', 'https://www.sec.gov/edgar/1')
     expect(edgar).toHaveAttribute('target', '_blank')
     expect(edgar).toHaveAttribute('rel', 'noopener noreferrer')

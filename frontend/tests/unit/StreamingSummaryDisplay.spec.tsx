@@ -55,16 +55,16 @@ describe('StreamingSummaryDisplay live region', () => {
     expect(status.className).toContain('sr-only')
   })
 
-  it('names the filing type when fetching from SEC EDGAR', async () => {
+  it('names the filing type when fetching from SEC.gov', async () => {
     renderAt('fetching')
     await act(async () => {})
-    expect(screen.getByText('Fetching the 10-K from SEC EDGAR.')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByText('Fetching the 10-K from SEC.gov.')).toHaveAttribute('aria-live', 'polite')
   })
 
   it('changes only on stage transitions, not on progress ticks', async () => {
     const { rerender } = renderAt('analyzing', 5)
     await act(async () => {})
-    const live = () => screen.getByText(/^(Checking figures against the company’s XBRL|Writing the summary)\.$/)
+    const live = () => screen.getByText(/^(Checking figures against the filing’s data|Writing the summary)\.$/)
     const before = live().textContent
     rerender(
       <StreamingSummaryDisplay streamingText="" stage="analyzing" message="" filing={filing} elapsedSeconds={20} />,
@@ -103,7 +103,7 @@ describe('StreamingSummaryDisplay step log', () => {
     expect(pending.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-text-tertiary-light', 'dark:text-text-secondary-dark']))
     expect(pending.className).not.toMatch(/text-text-(?:tertiary|secondary)-(?:light|dark)\//)
     for (let el: HTMLElement | null = pending; el; el = el.parentElement) expect(el.className).not.toMatch(/\bopacity-/)
-    expect(screen.getByText('Fetching the 10-K from SEC EDGAR').className).toContain('font-medium')
+    expect(screen.getByText('Fetching the 10-K from SEC.gov').className).toContain('font-medium')
   })
 
   it('reads the four steps in the product voice, the first naming the filing’s own form', async () => {
@@ -111,9 +111,9 @@ describe('StreamingSummaryDisplay step log', () => {
     await act(async () => {})
     const labels = screen.getAllByRole('listitem').map((item) => item.textContent)
     expect(labels).toEqual([
-      'Fetching the 10-K from SEC EDGAR',
+      'Fetching the 10-K from SEC.gov',
       'Reading the statements, risk factors and MD&A',
-      'Checking figures against the company’s XBRL',
+      'Checking figures against the filing’s data',
       'Writing the summary',
     ])
   })

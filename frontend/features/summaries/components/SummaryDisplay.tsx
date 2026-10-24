@@ -39,11 +39,26 @@ const FundamentalsTrendChart = dynamic(
 // accusatory data-integrity verdict (it false-fired on every bank pre-fix). The full reason
 // list stays available in the badge tooltip.
 const GROUNDING_REASON = 'financial figures not grounded in SEC XBRL data'
+const NO_GROUNDING_REASON = 'filing grounding unavailable: no usable excerpt or numeric XBRL data'
+// Each server reason in plain words for what its check covers (D-058, no acronym in a label), while the comparison
+// keeps the server's string (backend/app/services/summary_generation_service.py; test_quality_grounding_presence.py
+// holds the keys to it). The grounding check looks for the filed revenue (a bank's components) and net income
+// anywhere in the summary's text, so it says nothing was matched. The tooltip reads each reason in full; the badge,
+// which keeps to one line (Badge is nowrap), reads its first reason in short.
+const REASON_WORDS: Record<string, string> = {
+  [GROUNDING_REASON]: 'the filed revenue or net income is not stated in the summary',
+  [NO_GROUNDING_REASON]: 'the filing’s text and figures were unavailable to check against',
+}
+const BADGE_WORDS: Record<string, string> = {
+  [GROUNDING_REASON]: 'filed revenue or net income not stated',
+  [NO_GROUNDING_REASON]: 'no filing text or figures to check',
+}
+export const reasonWords = (reason: string): string => REASON_WORDS[reason] ?? reason
 export function partialBadgeLabel(reasons: string[] | undefined): string {
   if (reasons && reasons.length === 1 && reasons[0] === GROUNDING_REASON) {
     return 'Partial coverage'
   }
-  return `Partial${reasons && reasons.length ? ` · ${reasons[0]}` : ''}`
+  return `Partial${reasons && reasons.length ? ` · ${BADGE_WORDS[reasons[0]] ?? reasonWords(reasons[0])}` : ''}`
 }
 
 export interface SummaryDisplayProps {
@@ -188,7 +203,7 @@ export function SummaryDisplay({
               {showQualityBadge && quality?.tier ? (
                 <Badge
                   variant={quality.tier === 'full' ? 'brand' : 'warning'}
-                  title={quality.reasons && quality.reasons.length ? quality.reasons.join('; ') : undefined}
+                  title={quality.reasons && quality.reasons.length ? quality.reasons.map(reasonWords).join('; ') : undefined}
                 >
                   {quality.tier === 'full' ? 'Full summary' : partialBadgeLabel(quality.reasons)}
                 </Badge>

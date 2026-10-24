@@ -21,7 +21,7 @@ function Checks({ value, note, unavailable = false }: { value: QualityValue; not
   const passed = !missing && !note && value.provenance?.validation === 'passed'
   const status = missing ? 'Unavailable' : review ? 'Needs review' : passed ? 'Automated checks passed' : 'No validation record'
   const passedExplanation = value.provenance?.method === 'reported'
-    ? 'Taken from the company’s XBRL data as filed with the SEC.'
+    ? 'Taken from the figures the company filed with the SEC (its XBRL data).'
     : value.provenance?.method === 'calculated' ? 'Calculated from reported figures with compatible periods and units.' : null
   return <div className="space-y-1">
     <p className={review ? 'font-medium text-warning-light dark:text-warning-dark' : 'font-medium'}>

@@ -33,7 +33,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  * counts what the server located and withheld; it never claims more than that scope.
  *
  * The brand device marks what the server located, and only that (D-044): a row whose excerpt it
- * located (`source_verified`, the chip's "Verified in filing", D-028) carries a bracketed marker on
+ * located (`source_verified`, the chip's "Quote found in filing", D-028, D-058) carries a bracketed marker on
  * its heading, numbered in reading order among the located rows, the marker's twin sits in the margin
  * on the marker's line (MarkedCopy measures it), and the excerpt is a marked block in the filing's
  * face (`.en-marked`, Newsreader: the Source Voice Rule). One marker per row, so the twins never
