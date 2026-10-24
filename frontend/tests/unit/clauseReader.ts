@@ -36,16 +36,18 @@
  * and outside its conditions, opens a clause too, the clause a verb takes as its object ("We guarantee that each
  * endpoint requires a login."). A clause's subject is read after what introduces it (adverbs, connectives and a
  * prepositional phrase, each with its comma or not), and its predicate starts at its verb group (verbGroupAt:
- * auxiliaries, modals, adverbs, a negation and a catenative's "to" before its verb).
+ * auxiliaries, modals, adverbs, a negation and a catenative's "to" before its verb). A negation directly before "only",
+ * "merely", "just", "simply" or "solely" adds to the verb and denies nothing ("not only requires authentication but
+ * also returns JSON", "does not merely require a login"), so negates and verbGroupAt read it as no negation.
  *
  * Out of reach: a verb the lexicon lacks reads as a noun after a noun, so a phrase runs on over it, and a noun the
  * lexicon also lists as a verb ends a phrase after another noun ("the access logs" reads as "the access" and a verb); a
  * subject named twice ("each endpoint and each page") reads as its first phrase alone, and a pronoun as no more than
  * itself ("each one"); a negation that governs a clause from outside it ("It is not true that ...") is not read; a
  * fronted phrase is an introduction, never a restriction ("In the admin namespace, each endpoint ..."), and a phrase in
- * brackets is not read; a prepositional phrase after a noun is that noun's, wherever else it may attach ("for each
- * endpoint for each request"); and a fronted condition with no comma runs to the first quantified noun phrase with a
- * verb group after its own verb.
+ * brackets is not read; a prepositional phrase after a noun is read as that noun's, wherever else it may attach ("every
+ * endpoint for each request" names its requests, and a family decides whether such a phrase narrows); and a fronted
+ * condition with no comma runs to the first quantified noun phrase with a verb group after its own verb.
  */
 
 export type Token = { text: string; lower: string; start: number; end: number }
@@ -121,6 +123,9 @@ const SUBORDINATOR_PHRASES = [['so', 'that'], ['as', 'long', 'as'], ['as', 'soon
 const RELATIVES = words('that which who whom whose where')
 const AUXILIARIES = words('am is are was were be been being has have had having do does did can could may might must shall should will would')
 const NEGATIONS = words('not never')
+/** The words after a negation that turn it into an addition: "not only requires a login but also logs the request",
+    "does not merely require a login". */
+const ADDITIVE = words('only merely just simply solely')
 const ADVERBS = words(
   'also always still only just even then now today currently already again likewise similarly too ever all both each often usually sometimes here there however therefore thus moreover furthermore additionally instead otherwise indeed meanwhile yet so',
 )
@@ -184,33 +189,42 @@ const isAdverb = (token: Token | undefined) => !!token && (ADVERBS.has(token.low
     stands there. A phrase of these is read where an adverb is, never as a prepositional phrase after a noun. */
 const adverbAt = (tokens: Token[], at: number) =>
   ADVERBIAL_PHRASES.find((phrase) => phrase.every((w, k) => lower(tokens[at + k]) === w))?.length ?? (isAdverb(tokens[at]) ? 1 : 0)
-/** A negation: "not", "never", "no longer" and a negated auxiliary or modal ("cannot", "doesn't", "won't"). */
-export const negates = (token: Token | undefined, next?: Token) =>
+/** A negation's form: "not", "never", "no longer" and a negated auxiliary or modal ("cannot", "doesn't", "won't"). */
+const negationForm = (token: Token | undefined, next?: Token) =>
   !!token && (NEGATIONS.has(token.lower) || /^(?:cannot|[a-z]+n't)$/.test(token.lower) || (token.lower === 'no' && lower(next) === 'longer'))
+/** A negation directly before ADDITIVE adds to what follows and denies no verb (#1594's review, Codex's thread
+    4367778501): "not only X but also Y" says X. */
+const additive = (token: Token | undefined, next?: Token) => negationForm(token, next) && ADDITIVE.has(lower(next))
+/** A negation that denies what follows: a negation's form, not before ADDITIVE ("does not require", "never requires";
+    "does not merely require" is no denial). */
+export const negates = (token: Token | undefined, next?: Token) => negationForm(token, next) && !ADDITIVE.has(lower(next))
 
 /** A word that may stand in a noun phrase: as its first word anything but a closed-class word; after it, not a verb the
     lexicon knows or an adverb either. */
 const nominal = (token: Token | undefined, first: boolean) =>
   isWord(token) && !CLOSED.has(lower(token)) && !negates(token) && (first || (!VERB_FORMS.has(lower(token)) && !isAdverb(token)))
 
-/** Whether a verb group starts at a token: adverbs, then an auxiliary, a modal, a negation or a verb the lexicon knows.
-    A word that takes a quantifier back opens a noun phrase there, not a verb group ("and not every endpoint ..."). */
+/** Whether a verb group starts at a token: adverbs and an additive negation ("not only"), then an auxiliary, a modal, a
+    negation or a verb the lexicon knows. A word that takes a quantifier back opens a noun phrase there, not a verb
+    group ("and not every endpoint ..."). */
 function startsPredicate(tokens: Token[], at: number): boolean {
   if (TAKES_BACK.has(lower(tokens[at])) && QUANTIFIERS.has(lower(tokens[at + 1]))) return false
   let i = at
-  for (let n = adverbAt(tokens, i); n; n = adverbAt(tokens, i)) i += n
+  for (let n = additive(tokens[i], tokens[i + 1]) ? 1 : adverbAt(tokens, i); n; n = additive(tokens[i], tokens[i + 1]) ? 1 : adverbAt(tokens, i)) i += n
   const word = lower(tokens[i])
   return AUXILIARIES.has(word) || negates(tokens[i], tokens[i + 1]) || VERB_FORMS.has(word)
 }
 
-/** A verb group: auxiliaries, modals, adverbs, a negation and a catenative with its "to", then the verb. */
+/** A verb group: auxiliaries, modals, adverbs, a negation and a catenative with its "to", then the verb. An additive
+    negation ("not only", "does not merely") is read past and leaves the group undenied. */
 export function verbGroupAt(tokens: Token[], at: number): VerbGroup {
   let i = at
   let negated = false
   for (;;) {
     const token = tokens[i]
     if (!token) break
-    if (negates(token, tokens[i + 1])) {
+    if (additive(token, tokens[i + 1])) i++
+    else if (negates(token, tokens[i + 1])) {
       negated = true
       i += token.lower === 'no' ? 2 : 1
     } else if (CATENATIVES.has(token.lower) && lower(tokens[i + 1]) === 'to') i += 2
