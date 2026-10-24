@@ -63,7 +63,9 @@ request model's too, and does not follow callers of `enqueue_internal_job` (toda
 token-gated internal job routes). It does follow the account mail's:
 `test_account_mail_is_queued_only_behind_the_two_routes_limits` holds `queue_account_mail` to the
 auth router's `_queue_account_mail`, that helper to the two routes, each after its two limits, and
-the helper to the cap before its handoff. What bounds the filings route since 2026-10-23:
+the helper to the cap before its handoff, charged on one literal key with `include_client_ip=False`
+so every caller shares it (`test_account_mail.py::test_a_caller_that_changes_its_ip_meets_the_cap_spent`
+drives it). What bounds the filings route since 2026-10-23:
 `_enqueue_visit_task` spends `VISIT_TASK_BUDGET` after its guard and before `enqueue_task`, so a
 crawl of stored companies is served its rows and queues nothing past it. It allows 11 handoffs per 5
 minutes per process, 22 across two instances (0.073/s). The queue dispatches one task at a time, at
@@ -84,7 +86,7 @@ request, the company's submissions JSON, on edgartools' bucket (1 request/s per 
 client takes at most a sixth of each process's pace while SEC answers. The payload gate requires a
 pass-through to spend such a module-level budget first, a direct router `enqueue_task` to sit in a
 route with `Depends(get_current_user)`, and every `EXEMPT` site to say whether a request with no
-login reaches it, and its cap (`EXEMPT_PUBLIC_CAPS`). Tests:
+login reaches it, and its cap and key (`EXEMPT_PUBLIC_CAPS`). Tests:
 `test_filings_routes.py::test_handoffs_past_the_budget_serve_stored_rows_and_queue_nothing_until_the_window_passes`,
 `::test_visits_that_hand_nothing_off_spend_no_budget`,
 `::test_live_fetches_past_the_per_ip_budget_answer_429_only_when_nothing_is_stored`,
@@ -94,7 +96,8 @@ login reaches it, and its cap (`EXEMPT_PUBLIC_CAPS`). Tests:
 pace from `ci.yml`, and
 `::test_the_public_handoff_caps_take_at_most_two_thirds_of_the_queue_drain_across_the_api_instances`,
 which sums the cap of every producer the payload gate finds a request with no login reaching
-(`public_queue_caps`) and reads the API's instance cap from `ci.yml` and the queue's provisioning from
+(`public_queue_caps`, a limiter once per key it is charged on) and reads the API's instance cap from
+`ci.yml` and the queue's provisioning from
 `docs/DEPLOYMENT.md`. Its 6 s delivery time is an estimate, and the route's SEC reach is
 review-checked. The same route's in-process refresh (`DURABLE_TASKS_ENABLED=false`, not the
 production path) still takes the caller's canonical forms in the caller's order: it queues nothing

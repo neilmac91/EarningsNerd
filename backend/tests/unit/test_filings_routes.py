@@ -1068,9 +1068,11 @@ def test_a_listing_that_found_nothing_is_answered_from_its_stamp_until_the_ttl_p
     """A fund, a trust, or a company with only 8-K or Form 3/4/5 rows has nothing in the default forms, so
     its live fetch persists nothing. That successful empty listing is the answer until the freshness TTL
     passes: the site's ISR renders of the page, all from one Vercel IP, cost one SEC fetch and one
-    live-fetch slot per TTL, hand nothing off, and are never refused. Before, every render fetched again,
-    and the eleventh in a minute from one IP got the 429 that ISR caches as an unavailable page for 30
-    minutes."""
+    live-fetch slot per TTL and are never refused. Once the company's history is backfilled, as here, they
+    hand nothing off; before that, with the on-visit backfill flag on, the history backfill is handed off
+    ahead of the stamp check, once per 5-minute bucket, until the worker stamps it. Before, every render
+    fetched again, and the eleventh in a minute from one IP got the 429 that ISR caches as an unavailable
+    page for 30 minutes."""
     with sessions() as s:
         company_id = _seed_company(s).id
         _seed_filing(s, company_id, "0000000002", "0000000002-25-000001", "8-K")  # not a default form
@@ -1312,10 +1314,11 @@ def test_the_public_handoff_caps_take_at_most_two_thirds_of_the_queue_drain_acro
     operator jobs and tasks already queued. Sized against the ceiling, a handoff budget of 20 per 5 minutes
     on each of two instances took 80% of a 6 s drain, and 15 took 80% too once the account mail was counted."""
     assert QUEUE_PROVISIONING in " ".join((ROOT / "docs/DEPLOYMENT.md").read_text(encoding="utf-8").split())
-    caps = set(public_queue_caps().values())
-    assert {("app.routers.filings", "VISIT_TASK_BUDGET"), ("app.routers.auth", "ACCOUNT_MAIL_LIMITER")} <= caps
+    caps = set(public_queue_caps().values())  # one budget per limiter and key: a limiter keeps a window per key
+    assert {("app.routers.filings", "VISIT_TASK_BUDGET", "visit-tasks"),
+            ("app.routers.auth", "ACCOUNT_MAIL_LIMITER", "account-mail")} <= caps
     instances = _service_instances(_run(SERVICE_STEP))
-    limiters = [getattr(importlib.import_module(module), name) for module, name in sorted(caps)]
+    limiters = [getattr(importlib.import_module(module), name) for module, name, _key in sorted(caps)]
     handoffs_per_second = sum(Fraction(instances * cap.limit, cap.window_seconds) for cap in limiters)
     drain = Fraction(1, max(DISPATCH_INTERVAL_SECONDS, ASSUMED_DELIVERY_SECONDS))
     assert handoffs_per_second <= Fraction(2, 3) * drain

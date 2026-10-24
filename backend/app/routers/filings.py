@@ -34,11 +34,11 @@ _visit_task_handoffs: dict[str, float] = {}
 # drains 1/max(5 s, mean delivery time): a delivery execs a fresh Python child (about 1.7 s of imports)
 # and a history backfill paces 4 EFTS windows at 1 request/s, about 6 s in all. Forgot-password and
 # resend-verification feed the same queue under their own process-wide cap (ACCOUNT_MAIL_LIMITER in
-# routers/auth.py, 60 an hour). On each of the API's at most two instances, 11 per 5 minutes is 22 per 5
-# minutes (0.073/s), and with the account mail at its cap (0.033/s) 0.107/s: 64% of the drain while
-# deliveries average 6 s, two thirds of it at 6.25 s and all of it at 9.375 s (pinned, summed over every
-# producer a request without a login reaches, in test_filings_routes.py). Past the budget a visit still
-# serves its stored rows and queues nothing; a visit after the window queues the task.
+# routers/auth.py, 60 an hour per process). 11 per 5 minutes per process is 22 per 5 minutes across the
+# API's at most two instances (0.073/s), and with the account mail at its cap (0.033/s) 0.107/s: 64% of the
+# drain while deliveries average 6 s, two thirds of it at 6.25 s and all of it at 9.375 s (pinned, summed
+# over every producer a request without a login reaches, in test_filings_routes.py). Past the budget a
+# visit still serves its stored rows and queues nothing; a visit after the window queues the task.
 VISIT_TASK_BUDGET = RateLimiter(limit=11, window_seconds=300)
 # The live SEC fetch, taken when nothing is stored in the requested forms and no listing of this
 # company within the freshness TTL found them empty (a first view, a company that has none of them once
