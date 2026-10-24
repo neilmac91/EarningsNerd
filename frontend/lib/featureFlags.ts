@@ -161,8 +161,10 @@ export const ENABLE_FULLTEXT_SEARCH =
 
 /**
  * Logo.dev publishable token presence. When set, company marks hotlink `img.logo.dev`
- * (components/CompanyLogo.tsx) and the landing page preconnects to that host; when unset, marks
- * stay on the ticker monogram and no preconnect is emitted.
+ * (components/CompanyLogo.tsx) and the routes that show marks as they load (the landing, a company
+ * page, the calendar, every /dashboard route through its layout) preconnect to that host; a surface
+ * whose marks follow a search (the analysis page, the search lists) does not. When unset, marks stay
+ * on the ticker monogram and no preconnect is emitted.
  */
 export const LOGO_DEV_ENABLED = Boolean(process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN)
 

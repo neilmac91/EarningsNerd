@@ -450,6 +450,22 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
 
+Company mark     <CompanyLogo ticker name decorative size>  (components/) — the one way a company's mark is
+                 drawn beside its ticker, at 20–36px (gate: tests/unit/companyMarkSingleSource.spec.ts holds
+                 the CDN's mark URL to the component). A square white tile in both themes (§9): bg-white, the
+                 hairline pair ring-border-light dark:ring-white/10, rounded-sm under 28px and rounded from
+                 28px, never a circle (Logo.dev serves square tiles and transparent marks, and a circle cut
+                 the tiles' corners). The ticker's initials in text-brand-strong sit under the mark and stay
+                 when the CDN has no logo (the URL asks it for a 404) or the image fails; the mark fades in
+                 over them. The image is a plain img with 1x/2x/3x candidates at exactly the slot's size, lazy
+                 except the one `priority` mark above a page's fold. `decorative` is required: true beside the
+                 company's name or ticker as text (aria-hidden), false when the mark stands alone (role=img,
+                 "<name> logo"). The slot is a fixed box, so no outcome shifts the row. The shape and ground are
+                 gated (tests/unit/CompanyLogo.spec.tsx: the tile, its radius step, never rounded-full, never a
+                 brand ground). Verify both themes against the PR's preview with
+                 `node scripts/capture-company-marks.mjs <preview url>` (crops and a sheet per theme and pixel
+                 ratio): a release check run once per change to the marks, not a monitor.
+
 Input            <Input>  — fill is the BRIGHTEST surface so the field reads on BOTH the cream page
                  AND an off-white card: bg-white dark:bg-white/5 + hairline + brand focus ring
 
@@ -1856,6 +1872,15 @@ fallback, a Cited jump and an XBRL fact never register the device's highlight; a
   white surface, the multicolour "G", the hairline and the label ink its branding guideline sets); it does
   not excuse a stale value. When the consent screens are set up (`tasks/todo.md` F38), check the button
   against Google's current guideline and record the values here.
+- **Company marks sit on a white tile in both themes** (`components/CompanyLogo.tsx`): a third
+  party's mark is drawn for white, and the provider serves two kinds of asset, full-bleed square tiles
+  in the brand's own ground and transparent marks, so the slot is a white tile (`bg-white`) with the
+  hairline pair (`ring-border-light dark:ring-white/10`) and the scale's small radius (4px under 28px,
+  8px from 28px), never a circle (it cut the tiles' corners) and never the brand tint (a black mark
+  on the dark tint measured 1.4:1). The initials monogram keeps the light ink (`text-brand-strong`)
+  on that tile in both themes; `tests/unit/themePairs.spec.ts` lists it in its residue beside the
+  Google button's hairline. The exemption covers the mark's own ground; the ticker and name beside it
+  pair as usual.
 - **Status + financial colors are semantic** — keep them; reserve loud status colors for genuine
   state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `GuidanceCard`).
 - **Progress / step / completion indicators use the BRAND accent (sage), not success-green.**
