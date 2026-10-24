@@ -128,10 +128,10 @@ describe('FilingIndex', () => {
     render(<Harness filings={withAmendments} />)
     const group = screen.getByRole('group', { name: 'Filter by form' })
     expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['All', '10-K', '10-Q', '10-K/A', '10-Q/A'])
-    // Below sm the segments stretch across the card and wrap onto another row rather than spill out of
-    // it (five mono segments need about 320px); from sm up they are one row. A label never breaks
-    // ("10-" over "K/A"), so a segment that does not fit moves whole.
-    expect(group).toHaveClass('w-full', 'flex-wrap', 'sm:flex-nowrap')
+    // Below 40rem the segments stretch across the card and wrap onto another row rather than spill out of
+    // it (five mono segments need about 320px at the default size); from 40rem they are one row (E183). A label
+    // never breaks ("10-" over "K/A"), so a segment that does not fit moves whole.
+    expect(group).toHaveClass('w-full', 'flex-wrap', '[@media(min-width:40rem)]:flex-nowrap')
     for (const segment of within(group).getAllByRole('button')) expect(segment).toHaveClass('whitespace-nowrap')
   })
 

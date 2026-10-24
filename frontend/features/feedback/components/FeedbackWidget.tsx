@@ -11,8 +11,9 @@ import { ENABLE_FEEDBACK_WIDGET } from '@/lib/featureFlags'
 import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
 
 // The report's kind: one choice among options that all show, so the SegmentedControl (E35), at its `md` size and
-// stretched across the form below sm, wrapping whole segments onto another row where the dialog is narrower than the
-// row (a phone at 200% text, E169); from sm up it is one content-width row, as `fullWidth` documents.
+// stretched across the form below 40rem (1280px under 200% text), wrapping whole segments onto another row where the
+// dialog is narrower than the row (a phone at 200% text, E169); from 40rem up it is one content-width row, as
+// `fullWidth` documents (E183).
 const TYPES: readonly SegmentedOption<FeedbackType>[] = [
   { value: 'bug', label: 'Bug' },
   { value: 'feature', label: 'Idea' },

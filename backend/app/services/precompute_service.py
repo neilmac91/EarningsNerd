@@ -54,7 +54,7 @@ async def precompute_one(
     """
     from app.config import settings
     from app.database import SessionLocal
-    from app.models import Company, Filing, FilingContentCache, Summary
+    from app.models import Company, Filing, Summary
     from app.services.company_resolution import resolve_or_create_company_by_cik
     from app.services.edgar.compat import sec_edgar_service
     from app.services.summary_generation_service import generate_summary_background
@@ -189,46 +189,28 @@ async def precompute_one(
         result["status"] = "already_cached"
         return result
 
-    # A forced refresh never deletes the stored summary: the one orchestrator regenerates it IN PLACE
-    # under keep-better (force_regenerate below), so its summaries.id and any saved_summaries bookmark
-    # survive, and a failed or lower-ranked run keeps it (lessons/arch-fk-safe-bulk-deletes.md). Only
-    # the cached excerpt is cleared, so the run builds it with the current extraction; the stored value
-    # goes back in the finally below whenever the stored summary stays (a raise or a cancellation
-    # included, not a killed process), None included, so read-time verification reads that summary
-    # against the same cache text as before the run. With no excerpt (stored so, or while the run is in
-    # flight), provenance_service reads citations against the legacy markdown_content and Risks against
-    # risk_source_text, else that column; when neither is there the citations show unverified and the
-    # Risks section is withheld. A filing with no cache row before the run keeps the row the run creates.
+    # A forced refresh never deletes the stored summary and clears nothing before its run: the one
+    # orchestrator regenerates it IN PLACE under keep-better (force_regenerate), so its summaries.id and
+    # any saved_summaries bookmark survive, and a failed or lower-ranked run keeps it
+    # (lessons/arch-fk-safe-bulk-deletes.md). rebuild_excerpt has the run build its excerpt with the
+    # current extraction instead of reusing the stored one; the run keeps that excerpt to itself and
+    # finalize stores it in the same commit as a replacing summary, so a kept summary is never left
+    # beside an excerpt it was not generated from, whatever else runs on this filing meanwhile. A rebuild
+    # whose summary replaces with no excerpt (its build returned nothing, raised, or the enrichment join
+    # dropped it) clears the stored, stale excerpt in that commit instead (clear_stale_excerpt).
     stored = None
-    stored_excerpt: Optional[str] = None
-    had_cache = False
     if force:
         with SessionLocal() as db:
             stored = db.query(Summary.id, Summary.updated_at).filter(Summary.filing_id == filing_id).first()
-            cache = (
-                db.query(FilingContentCache)
-                .filter(FilingContentCache.filing_id == filing_id)
-                .first()
-            )
-            if cache:
-                had_cache = True
-                stored_excerpt, cache.critical_excerpt = cache.critical_excerpt, None
-            db.commit()
 
     # Generate outside any session (it manages its own; idempotent if a Summary slipped in).
-    outcome = None
-    try:
-        outcome = await generate_summary_background(filing_id, None, force_regenerate=force)
-    finally:
-        with SessionLocal() as db:
-            summary = db.query(Summary.id, Summary.updated_at).filter(Summary.filing_id == filing_id).first()
-            # The in-place UPDATE stamps updated_at, so an unchanged (id, updated_at) was not replaced.
-            replaced = stored is None or summary is None or tuple(summary) != tuple(stored)
-            if not replaced and had_cache:
-                db.query(FilingContentCache).filter(FilingContentCache.filing_id == filing_id).update(
-                    {FilingContentCache.critical_excerpt: stored_excerpt}, synchronize_session=False
-                )
-                db.commit()
+    outcome = await generate_summary_background(
+        filing_id, None, force_regenerate=force, rebuild_excerpt=force
+    )
+    with SessionLocal() as db:
+        summary = db.query(Summary.id, Summary.updated_at).filter(Summary.filing_id == filing_id).first()
+    # The in-place UPDATE stamps updated_at, so an unchanged (id, updated_at) was not replaced.
+    replaced = stored is None or summary is None or tuple(summary) != tuple(stored)
 
     if summary is None:
         result["status"] = "generation_failed"

@@ -10,7 +10,7 @@ in place under keep-better and reports generated, kept, failed or generation_fai
 import asyncio
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -113,7 +113,7 @@ async def test_20f_supported_when_fpi_flag_on(monkeypatch):
     acc = f"acc-{uuid.uuid4().hex[:10]}"
     _patch_sec(monkeypatch, filings=[_sec_filing(acc, "20-F")])
 
-    async def fake_gen(filing_id, user_id=None, *, force_regenerate=False):
+    async def fake_gen(filing_id, user_id=None, *, force_regenerate=False, rebuild_excerpt=False):
         from app.database import SessionLocal
         from app.models import Summary
 
@@ -155,7 +155,7 @@ async def test_generates_when_missing(monkeypatch):
     acc = f"acc-{uuid.uuid4().hex[:10]}"
     _patch_sec(monkeypatch, filings=[_sec_filing(acc)])
 
-    async def fake_gen(filing_id, user_id=None, *, force_regenerate=False):
+    async def fake_gen(filing_id, user_id=None, *, force_regenerate=False, rebuild_excerpt=False):
         from app.database import SessionLocal
         from app.models import Summary
 
@@ -299,25 +299,18 @@ def _bookmark_target_exists(user_id):
         return db.get(Summary, bookmark.summary_id) is not None
 
 
-def _writes_a_fresh_excerpt(db, filing, _filing_text, sections=None):
-    # As get_or_cache_excerpt does for a cleared excerpt: build one and store it before the run's
-    # result is judged, so a kept summary would otherwise be left beside an excerpt it never saw.
-    filing.content_cache.critical_excerpt = FRESH_EXCERPT
-    db.commit()
-    return FRESH_EXCERPT
+def _current_extraction():
+    # The real excerpt builder (get_or_cache_excerpt), whose extraction builds FRESH_EXCERPT.
+    from app.services import summary_generation_service, summary_pipeline
+
+    return (
+        patch.object(summary_pipeline, "get_or_cache_excerpt", summary_generation_service.get_or_cache_excerpt),
+        patch.object(summary_pipeline.openai_service, "extract_critical_sections",
+                     MagicMock(return_value=FRESH_EXCERPT)),
+    )
 
 
-def _creates_the_cache_row(db, filing, _filing_text, sections=None):
-    # As get_or_cache_excerpt does for a filing with no cache row: build an excerpt and add the row.
-    from app.models import FilingContentCache
-
-    db.add(FilingContentCache(filing_id=filing.id, critical_excerpt=FRESH_EXCERPT))
-    db.commit()
-    return FRESH_EXCERPT
-
-
-def _forced_precompute(monkeypatch, ticker, acc, *, payload=None, side_effect=None, document_fails=False,
-                       excerpt_builder=_writes_a_fresh_excerpt):
+def _forced_precompute(monkeypatch, ticker, acc, *, payload=None, side_effect=None, document_fails=False):
     from contextlib import nullcontext
 
     from app.services import summary_pipeline
@@ -326,10 +319,10 @@ def _forced_precompute(monkeypatch, ticker, acc, *, payload=None, side_effect=No
     _patch_sec(monkeypatch, filings=[_sec_filing(acc)])
     failing_document = patch.object(summary_pipeline.sec_edgar_service, "get_filing_document",
                                     AsyncMock(side_effect=RuntimeError("SEC 503")))
+    builder, extraction = _current_extraction()
     reset_inflight()
     try:
-        with stream_boundaries(payload=payload) as summarize, \
-                patch.object(summary_pipeline, "get_or_cache_excerpt", excerpt_builder), \
+        with stream_boundaries(payload=payload) as summarize, builder, extraction, \
                 failing_document if document_fails else nullcontext():
             summarize.side_effect = side_effect
             return asyncio.run(precompute_one(ticker, "10-K", force=True))
@@ -372,16 +365,19 @@ def test_forced_precompute_regenerates_in_place_under_keep_better(monkeypatch, o
         assert excerpt == stored_excerpt  # the stored summary keeps the excerpt it was generated from, or none
 
 
-def test_forced_precompute_keeps_the_cache_row_a_run_creates_where_there_was_none(monkeypatch):
-    # With no cache row before the run, nothing was cleared and nothing goes back: the row the run
-    # creates, and its excerpt, stay beside the summary keep-better keeps.
+def test_forced_precompute_creates_no_cache_row_beside_a_kept_summary(monkeypatch):
+    # With no cache row before the run, the excerpt the run builds is its own: keep-better keeps the
+    # stored summary, so no cache row is written beside it.
+    from app.database import SessionLocal
+    from app.models import FilingContentCache
+
     ticker, acc, filing_id, summary_id, user_id = _seed_forced(with_cache=False)
 
-    result = _forced_precompute(monkeypatch, ticker, acc, side_effect=TimeoutError("budget exhausted"),
-                                excerpt_builder=_creates_the_cache_row)
+    result = _forced_precompute(monkeypatch, ticker, acc, side_effect=TimeoutError("budget exhausted"))
 
     assert result["status"] == "kept"
-    assert _stored(filing_id) == (1, summary_id, STORED_FULL, FRESH_EXCERPT)
+    with SessionLocal() as db:
+        assert db.query(FilingContentCache).filter(FilingContentCache.filing_id == filing_id).first() is None
     assert _bookmark_target_exists(user_id)
 
 
@@ -405,25 +401,18 @@ def test_forced_precompute_tells_a_replace_from_a_keep_on_a_row_refreshed_before
 @pytest.mark.parametrize("stored_excerpt", [STORED_EXCERPT, None], ids=["excerpt", "no-excerpt"])
 @pytest.mark.parametrize("error", [RuntimeError("database down"), asyncio.CancelledError()],
                          ids=["raises", "cancelled"])
-def test_forced_precompute_puts_the_excerpt_back_when_the_run_raises_or_is_cancelled(monkeypatch, error, stored_excerpt):
-    # The excerpt is cleared before the run so that it rebuilds with the current extraction. A run that
-    # raises (a database error before the pipeline turns failures into events) or is cancelled (the
-    # job or the API server stops) still leaves the kept summary with the excerpt it was built from.
+def test_forced_precompute_clears_nothing_before_a_run_that_raises_or_is_cancelled(monkeypatch, error, stored_excerpt):
+    # The run rebuilds its excerpt privately (rebuild_excerpt), so the stored one is never cleared: a run
+    # that raises (a database error before the pipeline turns failures into events) or is cancelled
+    # (the job or the API server stops), or a killed process, leaves the stored summary its excerpt.
     from app.services import summary_generation_service
 
     ticker, acc, filing_id, summary_id, user_id = _seed_forced(excerpt=stored_excerpt)
     _patch_sec(monkeypatch, filings=[_sec_filing(acc)])
     mid_run = {}
 
-    async def run_that_ends_abruptly(fid, user_id=None, *, force_regenerate=False):
-        from app.database import SessionLocal
-        from app.models import FilingContentCache
-
-        mid_run["excerpt"] = _stored(fid)[3]
-        with SessionLocal() as db:  # as the run's excerpt build does before it is judged
-            db.query(FilingContentCache).filter(FilingContentCache.filing_id == fid).one() \
-                .critical_excerpt = FRESH_EXCERPT
-            db.commit()
+    async def run_that_ends_abruptly(fid, user_id=None, *, force_regenerate=False, rebuild_excerpt=False):
+        mid_run.update(excerpt=_stored(fid)[3], force=force_regenerate, rebuild=rebuild_excerpt)
         raise error
 
     monkeypatch.setattr(summary_generation_service, "generate_summary_background", run_that_ends_abruptly)
@@ -431,7 +420,7 @@ def test_forced_precompute_puts_the_excerpt_back_when_the_run_raises_or_is_cance
     with pytest.raises(type(error)):
         asyncio.run(precompute_one(ticker, "10-K", force=True))
 
-    assert mid_run == {"excerpt": None}  # cleared while the run builds its own
+    assert mid_run == {"excerpt": stored_excerpt, "force": True, "rebuild": True}
     assert _stored(filing_id) == (1, summary_id, STORED_FULL, stored_excerpt)
     assert _bookmark_target_exists(user_id)
 
@@ -462,12 +451,15 @@ def test_forced_precompute_never_deletes_a_bookmarked_summary_under_enforced_for
 
 @pytest.mark.parametrize(("payload", "status"), [(None, "generated"), (PROVIDER_ERROR, "generation_failed")])
 def test_forced_precompute_of_a_filing_without_a_summary(monkeypatch, payload, status):
+    # The cached excerpt is a failed unforced run's (cached mid-run, no summary saved): the INSERT that
+    # saves this run's summary stores the excerpt it rebuilt, and a run that saves none leaves it.
     ticker, acc, filing_id, _summary_id, _user_id = _seed_forced(with_summary=False)
 
     result = _forced_precompute(monkeypatch, ticker, acc, payload=payload)
 
     assert result["status"] == status
-    assert _stored(filing_id)[0] == (1 if status == "generated" else 0)
+    count, _row_id, _overview, excerpt = _stored(filing_id)
+    assert (count, excerpt) == ((1, FRESH_EXCERPT) if status == "generated" else (0, STORED_EXCERPT))
 
 
 @pytest.mark.parametrize(
