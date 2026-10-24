@@ -116,7 +116,6 @@ def _upsert_companies(
                 name=sec_data.get("name"),
                 exchange=sec_data.get("exchange"),
             )
-            db.add(company)
             new_companies.append(company)
         else:
             updated = False
@@ -140,6 +139,12 @@ def _upsert_companies(
 
         companies.append(company)
         response_ciks.append(cik)
+
+    # Added in CIK order, whatever SEC's order, so two searches inserting the same new companies take
+    # their unique-index locks in one order: in opposite orders the two batches deadlocked on
+    # PostgreSQL, once they ran off the event loop, and the one PostgreSQL aborted answered 500.
+    for company in sorted(new_companies, key=lambda company: company.cik):
+        db.add(company)
 
     if new_companies or updated_companies:
         try:
@@ -168,7 +173,7 @@ def resolve_search_conflict(
     try:
         db.rollback()
         by_cik: Dict[str, Company] = {}
-        for cik in response_ciks:
+        for cik in sorted(response_ciks):  # CIK order, as the batch inserts (see _upsert_companies)
             sec_data = next(r for r in sec_results if r.get("cik") == cik)
             primary = primary_by_cik[cik]
             by_cik[cik] = resolve_or_create_company_by_cik(

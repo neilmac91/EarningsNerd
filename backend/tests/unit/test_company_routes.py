@@ -4,7 +4,8 @@ The error mapping of these three routes had no route-level test: the SEC-unavail
 generic 500 detail strings, the 404, the unsupported-foreign response, which get-by-ticker failures
 stay outside its wrapped 500, and the multi-CIK concurrent-search recovery (its
 ``company_upsert_conflict`` line on the router's logger, its commit, the resolver's ``path``
-labels, which errors enter it and the generic 500 when it fails too). This suite pins them for the
+labels, which errors enter it and the generic 500 when it fails too), and the CIK order the search's
+batch and its recovery write in. This suite pins them for the
 move of the routes' database work into ``app/services/company_lookup_service.py``. Row counts
 cannot see a dropped recovery commit here: under SQLite's legacy transaction handling the per-row
 SAVEPOINT is the outermost transaction and its RELEASE commits, so a commit spy pins it instead.
@@ -20,7 +21,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import sessionmaker
 
@@ -323,6 +324,53 @@ def test_search_non_integrity_commit_failure_skips_the_conflict_recovery(
     ]
     assert commits == [0]
     assert resolver_paths == []
+
+
+def test_search_inserts_new_companies_in_cik_order_whatever_sec_order(client, monkeypatch, override_db):
+    """The batch adds its new rows in CIK order and answers in SEC's, so two searches inserting the same
+    new companies take their unique-index locks in one order: in opposite orders their batches
+    deadlocked on PostgreSQL once they ran off the event loop, and the aborted one answered 500."""
+    inserted = []
+
+    def record(_mapper, _connection, target):
+        inserted.append(target.cik)
+
+    event.listen(Company, "before_insert", record)
+    try:
+        override_db(SessionLocal())
+        monkeypatch.setattr(
+            sec_edgar_service, "search_company", _sec(_hit(NEW_CIK, "ZZ2", "Zeta Two"), _hit(RACED_CIK, "ZZ1"))
+        )
+        monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
+        resp = client.get("/api/companies/search", params={"q": "zeta"})
+    finally:
+        event.remove(Company, "before_insert", record)
+    assert resp.status_code == 200
+    assert [row["cik"] for row in resp.json()] == [NEW_CIK, RACED_CIK]
+    assert inserted == [RACED_CIK, NEW_CIK]
+
+
+def test_search_conflict_recovery_resolves_in_cik_order(client, monkeypatch, override_db, caplog):
+    """The recovery resolves its CIKs in the batch's order, CIK order, and still answers in SEC's."""
+    db = SessionLocal()
+    _spy_commits(monkeypatch, db, caplog, fail_first=_unique_cik_violation())
+    resolved = []
+    real = company_lookup_service.resolve_or_create_company_by_cik
+
+    def recording(db, **kwargs):
+        resolved.append(kwargs["cik"])
+        return real(db, **kwargs)
+
+    monkeypatch.setattr(company_lookup_service, "resolve_or_create_company_by_cik", recording)
+    override_db(db)
+    monkeypatch.setattr(
+        sec_edgar_service, "search_company", _sec(_hit(NEW_CIK, "ZZ2", "Zeta Two"), _hit(RACED_CIK, "ZZ1"))
+    )
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
+    resp = client.get("/api/companies/search", params={"q": "zeta"})
+    assert resp.status_code == 200
+    assert [row["cik"] for row in resp.json()] == [NEW_CIK, RACED_CIK]
+    assert resolved == [RACED_CIK, NEW_CIK]
 
 
 # --- /trending -------------------------------------------------------------------------------

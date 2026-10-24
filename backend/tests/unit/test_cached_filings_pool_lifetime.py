@@ -1816,9 +1816,10 @@ _NEW_COMPANY = {"cik": "0000000009", "ticker": "NEWCO", "name": "New Co", "excha
 async def test_company_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, path, case):
     """The company lookup, the search and the trending list run their session work in thread-pool
     units, each released before the route's next SEC or Yahoo await, so eight readers on four slots
-    leave nothing for the finalizer and make no checkout or statement on the loop. Eight lookups, or
-    eight searches, of one new company race for its row: one inserts it and the rest serve it, the
-    search's losers through its conflict recovery and the lookup's through the resolver's."""
+    leave nothing for the finalizer and make no checkout, statement or release on the loop. Eight
+    lookups, or eight searches, of one new company race for its row: one inserts it and the rest serve
+    it, whichever racers lose through the search's conflict recovery or the resolver's (whether any
+    loses depends on timing; the ratchet holds where the recovery runs)."""
     engine = create_engine(
         f"sqlite:///{tmp_path / 'company-routes.db'}",
         connect_args={"check_same_thread": False},
@@ -1876,6 +1877,9 @@ async def test_company_routes_release_their_connection_off_the_loop(monkeypatch,
     loop_statements: list[bool] = []
     event.listen(engine, "before_cursor_execute",
                  lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    # A release on the loop runs its rollback and checkin there, and neither is a checkout or a statement.
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
 
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
     monkeypatch.setattr(app, "dependency_overrides", {})
@@ -1889,10 +1893,11 @@ async def test_company_routes_release_their_connection_off_the_loop(monkeypatch,
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
         ) as client:
             responses = await asyncio.gather(*[client.get(path) for _ in range(8)])
-        # Every checkout waited in the thread pool, and every statement ran there: none on the loop
-        # (read before this test's own lookup below, which runs on the loop).
+        # Every checkout waited in the thread pool, and every statement and release ran there: none on
+        # the loop (read before this test's own lookup below, which runs on the loop).
         assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
         assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
         assert engine.pool.checkedout() == 0
         # Each unit released its own connection; the dependency's finalizer found nothing open.
         assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
