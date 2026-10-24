@@ -1764,7 +1764,9 @@ for (const viewport of [{ width: 2304, height: 1296 }, { width: 2560, height: 14
     comment 6375980005): 1152px at the default size and 2304px with the text doubled. Below it the compact bar shows,
     its menu button and, opened, its menu, while the full bar's nav and controls are display:none; from it, the other way
     round, a menu left open included. A signed-in reader's notification bell shows once in either bar, the compact bar's
-    from lg, where the full bar showed it before, and its menu opens inside the screen. At the threshold the full bar
+    from lg, where the full bar showed it before: after the theme toggle and before the menu button, its panel inside the
+    screen, and one of that panel and the menu open at a time, the menu opened from the keyboard too, where no press
+    outside the panel closes it (chief design on #1558, comment 6377073723). At the threshold the full bar
     keeps one line with its widest settled controls: a signed-in reader's, and a guest's with either access mode's
     account link (ACCESS_COPY's cta, set into the link as a copy fixture, since the build answers one mode). So the
     auth check never changes the bar's lines. Before, the full
@@ -1814,17 +1816,35 @@ for (const { below, at, doubled } of [
         await expect(nav, `${below}px at ${size}: the full bar's nav is hidden`).toBeHidden()
         await expect(controls, `${below}px at ${size}: the full bar's controls are hidden`).toBeHidden()
         const bell = banner.getByRole('button', { name: /^Notifications/ })
+        const menu = page.getByRole('navigation', { name: 'Mobile navigation' })
+        const panel = page.getByRole('menu', { name: 'Notifications' })
         if (who === 'reader') {
           await expect(bell, `${below}px at ${size}: the compact bar's bell, the one bell shown`).toHaveCount(1)
+          const order = await banner.evaluate((header) => {
+            const box = (el: Element | null | undefined) => el?.getBoundingClientRect()
+            const visible = (el: Element) => el.getBoundingClientRect().width > 0
+            const toggle = box([...header.querySelectorAll('button[aria-label^="Switch to"]')].find(visible))
+            const bellBox = box([...header.querySelectorAll('button[aria-label^="Notifications"]')].find(visible))
+            const menuButton = box(header.querySelector('button[aria-label="Open menu"]'))
+            return toggle && bellBox && menuButton ? { afterToggle: bellBox.left >= toggle.right, beforeMenu: bellBox.right <= menuButton.left } : null
+          })
+          expect(order, `${below}px at ${size}: the bell sits after the theme toggle and before the menu button`).toEqual({ afterToggle: true, beforeMenu: true })
           await bell.click()
-          await expect(page.getByRole('menu', { name: 'Notifications' })).toBeVisible()
+          await expect(panel).toBeVisible()
           const fit = await headerMenuFit(page, 'Notifications')
           expect(fit.problems, `${below}px at ${size}: the compact bar's notification menu`).toEqual([])
+          // One open at a time: the menu opened from the keyboard closes the panel, and the bell then closes the menu.
+          await banner.getByRole('button', { name: 'Open menu' }).focus()
+          await page.keyboard.press('Enter')
+          await expect(menu, `${below}px at ${size}: the menu opens from the keyboard`).toBeVisible()
+          await expect(panel, `${below}px at ${size}: and the bell's panel closes`).toBeHidden()
+          await bell.click()
+          await expect(panel, `${below}px at ${size}: the bell's panel opens`).toBeVisible()
+          await expect(menu, `${below}px at ${size}: and the menu closes`).toBeHidden()
           await page.keyboard.press('Escape')
-          await expect(page.getByRole('menu', { name: 'Notifications' })).toBeHidden()
+          await expect(panel).toBeHidden()
         }
         await banner.getByRole('button', { name: 'Open menu' }).click()
-        const menu = page.getByRole('navigation', { name: 'Mobile navigation' })
         await expect(menu, `${below}px at ${size}: the compact bar's menu opens`).toBeVisible()
 
         await page.setViewportSize({ width: at, height: 900 })

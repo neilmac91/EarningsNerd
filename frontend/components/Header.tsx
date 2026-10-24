@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -55,6 +55,13 @@ export default function Header({
   accessMode?: AccessMode
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  // The compact bar's bell panel, held here so that one of it and the menu is open at a time: opening either closes
+  // the other.
+  const [bellOpen, setBellOpen] = useState(false)
+  const onBellOpenChange = useCallback((next: boolean) => {
+    setBellOpen(next)
+    if (next) setMobileMenuOpen(false)
+  }, [])
   const router = useRouter()
   const queryClient = useQueryClient()
   const account = ACCESS_COPY[accessMode]
@@ -203,15 +210,15 @@ export default function Header({
             leaves the logo's row. Only when even that cannot sit beside the logo does the bar wrap
             and this group take its own row at the right (tests/e2e/reflow-200.spec.ts). */}
         <div className="flex min-w-min grow basis-0 items-center justify-end gap-1 [@media(min-width:72rem)]:hidden">
+          <ThemeToggle className="min-h-11 min-w-11 [@media(max-width:24rem)]:hidden" />
           {/* From lg the compact bar stands where the full bar did, so a signed-in reader keeps the notification bell
-              there, first in the group, so the theme toggle and the menu button keep their places as the check
-              settles. Below lg the phone bar is as it was. */}
+              there: after the theme toggle, as in the full bar, where a guest's link sits, with the bar's 44px target.
+              One of its panel and the menu is open at a time. Below lg the phone bar is as it was (E176). */}
           {user && (
             <div className="hidden lg:block">
-              <NotificationBell className="min-h-11 min-w-11" />
+              <NotificationBell className="min-h-11 min-w-11" open={bellOpen} onOpenChange={onBellOpenChange} />
             </div>
           )}
-          <ThemeToggle className="min-h-11 min-w-11 [@media(max-width:24rem)]:hidden" />
           {(user === null || isError) && (
             <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11 min-w-0 py-2 [@media(max-width:24rem)]:px-2' })}>
               {account.ctaShort}
@@ -220,7 +227,10 @@ export default function Header({
           <button
             ref={menuButtonRef}
             type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={() => {
+              setBellOpen(false)
+              setMobileMenuOpen(!mobileMenuOpen)
+            }}
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileMenuOpen}

@@ -21,7 +21,10 @@ vi.mock('@/components/ThemeToggle', () => ({
 }))
 vi.mock('@/components/EarningsNerdLogo', () => ({ default: () => null }))
 vi.mock('@/features/notifications/components/NotificationBell', () => ({
-  default: ({ className = '' }: { className?: string }) => <div data-testid="notification-bell" className={className} />,
+  // A press asks to toggle the panel; data-open shows a held panel's state (absent where the bell holds its own).
+  default: ({ className = '', open, onOpenChange }: { className?: string; open?: boolean; onOpenChange?: (open: boolean) => void }) => (
+    <button type="button" data-testid="notification-bell" data-open={open === undefined ? undefined : String(open)} className={className} onClick={() => onOpenChange?.(!open)} />
+  ),
 }))
 vi.mock('@/features/auth/components/UserMenu', () => ({
   default: ({ user }: { user: { email: string } }) => <div data-testid="user-menu">{user.email}</div>,
@@ -67,11 +70,14 @@ describe('Header auth state', () => {
     renderHeader()
 
     expect(await screen.findByTestId('user-menu')).toHaveTextContent('neil@earningsnerd.io')
-    // One bell in each bar: the full bar's, and from lg the compact bar's, with the compact bar's 44px target.
+    // One bell in each bar: the full bar's, and from lg the compact bar's, with the compact bar's 44px target, after
+    // its theme toggle and before the menu button, where a guest's link sits.
     const bells = screen.getAllByTestId('notification-bell')
     expect(bells).toHaveLength(2)
     expect(bells[1]).toHaveClass('min-h-11', 'min-w-11')
     expect(bells[1].parentElement).toHaveClass('hidden', 'lg:block')
+    expect(bells[1].parentElement!.previousElementSibling).toHaveAttribute('data-testid', 'theme-toggle')
+    expect(bells[1].parentElement!.nextElementSibling).toBe(screen.getByRole('button', { name: 'Open menu' }))
     expect(screen.queryByRole('link', { name: /log in/i })).not.toBeInTheDocument()
   })
 
@@ -167,6 +173,25 @@ describe('Header theme toggle placement', () => {
     expect(row).toContain('hidden')
     expect(row).toContain(NARROW_SHOWN)
     expect(screen.getAllByTestId('theme-toggle')).toHaveLength(3)
+  })
+
+  // The compact bar's bell panel and its menu: one is open at a time, opening either closes the other.
+  it("keeps one of the compact bar's bell panel and its menu open at a time", async () => {
+    vi.mocked(getCurrentUserSafe).mockResolvedValue(mockUser)
+    renderHeader()
+    await screen.findByTestId('user-menu')
+    const bell = screen.getAllByTestId('notification-bell')[1]
+    expect(bell).toHaveAttribute('data-open', 'false')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))
+    expect(screen.getByRole('navigation', { name: 'Mobile navigation' })).toBeInTheDocument()
+    fireEvent.click(bell)
+    expect(bell, 'the panel opens').toHaveAttribute('data-open', 'true')
+    expect(screen.queryByRole('navigation', { name: 'Mobile navigation' }), 'and closes the menu').not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))
+    expect(screen.getByRole('navigation', { name: 'Mobile navigation' }), 'the menu opens').toBeInTheDocument()
+    expect(bell, 'and closes the panel').toHaveAttribute('data-open', 'false')
   })
 
   // The Theme row is the menu's first row, ahead of the nav links, so it opens directly under the bar, in

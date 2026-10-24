@@ -1,7 +1,7 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { BellIcon } from '@/lib/icons'
@@ -18,10 +18,28 @@ import {
  * badge. Reads the same alerts the email scanner records (GET /me/notifications); opening the bell
  * marks them seen (POST /me/notifications/seen), which clears the badge. Rendered only when
  * authenticated (the Header gates it). `className` joins the trigger's own, as ThemeToggle's does: the
- * compact header bar gives it the 44px target its other controls keep.
+ * compact header bar gives it the 44px target its other controls keep. `open` and `onOpenChange` let a parent
+ * hold the panel, as the compact bar does so that one of the panel and its menu is open at a time; without
+ * them the bell holds its own.
  */
-export default function NotificationBell({ className = '' }: { className?: string }) {
-  const [open, setOpen] = useState(false)
+export default function NotificationBell({
+  className = '',
+  open: heldOpen,
+  onOpenChange,
+}: {
+  className?: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
+  const [ownOpen, setOwnOpen] = useState(false)
+  const open = heldOpen ?? ownOpen
+  const setOpen = useCallback(
+    (next: boolean) => {
+      if (heldOpen === undefined) setOwnOpen(next)
+      onOpenChange?.(next)
+    },
+    [heldOpen, onOpenChange],
+  )
   const containerRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
 
@@ -60,7 +78,7 @@ export default function NotificationBell({ className = '' }: { className?: strin
       document.removeEventListener('mousedown', onClick)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [open, setOpen])
 
   const toggle = () => {
     const next = !open
