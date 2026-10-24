@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUserSafe, exportUserData, deleteUserAccount } from '@/features/auth/api/auth-api'
 import { useRouter } from 'next/navigation'
@@ -165,11 +166,11 @@ export default function SettingsPage() {
                   Export your data
                 </h2>
                 <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
-                  Download a complete copy of your data including your profile, search history,
-                  saved summaries, watchlist, and usage statistics in JSON format.
+                  Download the account records available through this feature, including your profile, search history,
+                  saved summaries, watchlist and usage statistics, in JSON format.
                 </p>
                 <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mb-4">
-                  This is your right under GDPR Article 20 (Data Portability).
+                  For other personal information or data rights requests, see the Privacy Policy below.
                 </p>
               </div>
             </div>
@@ -195,7 +196,8 @@ export default function SettingsPage() {
             {exportMutation.isError && (
               <div className="mt-4 flex items-center text-sm text-error-light dark:text-error-dark">
                 <WarningCircleIcon className="h-4 w-4 mr-2" />
-                Failed to export data. Please try again or contact support.
+                <span>Could not export your data. Please try again or email{' '}
+                  <a href={contactMailto('privacy')} className="break-all underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.privacy}</a>.</span>
               </div>
             )}
           </Card>
@@ -208,7 +210,7 @@ export default function SettingsPage() {
                   Delete account
                 </h2>
                 <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
-                  Permanently delete your account and all associated data. This action cannot be undone.
+                  Delete your account and associated application records. Some billing, audit and provider records can remain, as explained in the Privacy Policy. This action cannot be undone.
                 </p>
               </div>
             </div>
@@ -234,11 +236,11 @@ export default function SettingsPage() {
                         <li>Delete all your search history</li>
                         <li>Delete all your saved summaries and notes</li>
                         <li>Delete your watchlist</li>
-                        <li>Cancel any active subscriptions</li>
-                        <li>Remove all your usage data</li>
+                        <li>Attempt to cancel active Stripe subscriptions; check billing if cancellation fails</li>
+                        <li>Remove associated application database usage records</li>
                       </ul>
                       <p className="text-sm text-error-light dark:text-error-dark font-medium">
-                        This action cannot be undone and your data cannot be recovered.
+                        The deleted application records cannot be recovered through the service.
                       </p>
                     </div>
                   </div>
@@ -294,7 +296,8 @@ export default function SettingsPage() {
                 {deleteMutation.isError && (
                   <div className="flex items-center text-sm text-error-light dark:text-error-dark">
                     <WarningCircleIcon className="h-4 w-4 mr-2" />
-                    We could not delete your account. Contact support.
+                    <span>We could not delete your account. Contact support.{' '}
+                      <a href={contactMailto('privacy')} className="break-all underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.privacy}</a>.</span>
                   </div>
                 )}
               </div>

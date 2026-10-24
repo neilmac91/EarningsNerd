@@ -348,6 +348,22 @@ outbound email: frozen recipient/sender/subject/HTML and plain-text part, the pr
 filings each batch owns). The plain-text part (`body_text`, E110) is covered by the batch's
 `payload_sha256`; a batch frozen before the column holds NULL there and replays as it was frozen,
 its page alone, under the digest it was frozen with.
+Reply-To is also frozen in that envelope and covered by `payload_sha256`. Batches with a
+frozen Reply-To use `reply_to:ready`, `reply_to:claimed`, `reply_to:sending` and
+`reply_to:retryable`; all four remain outside older workers' due, claim and stale-lease
+predicates. Compatible workers accept both state families and retain the family from the
+persisted status on every claim, retry, re-key and lease recovery, even if `reply_to` changes or
+becomes NULL. Legacy NULL Reply-To batches retain their legacy states, omitted header, payload
+hash and provider key. No batch kinds, queues or job schedules change.
+
+During a rollback to an older image, new-protocol batches wait until a compatible worker is
+restored; the older image can continue processing legacy batches. Retain the nullable column,
+status values, provider keys and item ownership. Do not use SQL to relabel states, re-key these
+batches or release their filings to bypass the protocol boundary. Ready/retryable batches
+resume with a compatible worker, and expired preparation leases recover normally. An expired
+sending lease still becomes `ambiguous` and needs the human reconciliation below; rollback
+preserves that uncertainty.
+
 `accepted`, `suppressed` and `ambiguous` are terminal. `ambiguous` means the provider's answer
 was lost after bytes may have left (timeout, dropped connection, unparsable or non-object 5xx
 response, expired sending lease, exhausted attempts, payload drift): the job never dispatches it
@@ -400,6 +416,32 @@ each ended in a documented non-acceptance (the old drain re-keys one whose repla
 before it parks it). Give its filings back to selection as above. Otherwise a `retryable` batch
 needs no action: the job retries it with backoff, re-keying it if the replay window closed.
 Historical `notification_log` rows are never replayed.
+
+### Account mail (F60)
+
+Forgot-password and resend-verification queue their mail, the `account_mail` task, on the shared
+`earningsnerd-background` queue whenever `DURABLE_TASKS_ENABLED` is on (production since
+2026-10-08), so the private task worker sends it, not the API.
+
+- **Where failures surface.** A failed send logs `Reset email NOT sent to user id=N: <class>` (or
+  `Verification email ...`) at ERROR and is not retried. A send that sent nothing (a 429, a 5xx, no
+  connection, no API key) logs `... email not sent to user id=N: <class> (nothing sent)`, and Cloud
+  Tasks delivers it again, up to the queue's five attempts. The worker reports to no Sentry (F50
+  (1)), so these lines reach Cloud Logging only: filter `earningsnerd-task-worker` for `email NOT
+  sent` and `(nothing sent)`. Registration's own verification mail is still sent from the API, whose
+  ERROR lines reach Sentry.
+- **The cap.** `ACCOUNT_MAIL_LIMITER` (`routers/auth.py`) admits 60 account mails an hour per API
+  instance across both routes, after each caller's per-IP (20 an hour per route) and per-address (3
+  an hour) limits. Past it every address gets the same 429 until the window turns, so a flood costs
+  that hour's reset and verification mail instead of backing the queue up.
+- **Latency.** A mail waits behind the task the worker is running (up to the 480 s work timeout) and
+  anything queued before it.
+- **Rollback.** CI updates the worker before the API, so a forward deploy is safe. A revert deploys
+  in the same order, so account mail queued until the API's revert lands meets a worker whose
+  `TaskEnvelope` has no `account_mail` kind: it fails every attempt (422) and is lost, and its senders
+  must ask again. To lose none, first roll the API's traffic back (the Ops workflow's
+  `rollback-traffic`), which stops new account mail reaching the queue; let the queue drain; then
+  revert. Never pause or delete the queue (`docs/DEPLOYMENT.md`).
 
 ### Monitoring Alerts (Suggested Thresholds)
 
