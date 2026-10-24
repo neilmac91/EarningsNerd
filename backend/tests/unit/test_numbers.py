@@ -359,7 +359,8 @@ def test_a_hostile_cell_is_read_scalar_by_scalar_in_linear_time(hostile, expecte
     """``display_scalars`` searches the whole cell, so it tries the grammar at every position. It
     collapses each whitespace run first: a possessive run refuses at once from one start, but a
     search starting inside a long run would scan the rest of it from every position. The bound is
-    generous; a quadratic read of these cells takes far longer."""
+    generous (each cell reads in at most about 50 ms; without the collapse the 100k-space cell takes
+    about 12 s), so ``test_wall_clock_bounds.py`` lists it in ``ALLOWED`` as a performance guard."""
     from app.utils.numbers import display_scalars
 
     started = time.perf_counter()

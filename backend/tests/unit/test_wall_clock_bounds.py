@@ -60,6 +60,9 @@ ALLOWED = {
         "a performance guard: the best of three runs, about 40 ms, against 0.25 s",
     "tests/unit/test_citation_markers.py::TestCopilotConfiguration::test_linear_on_degenerate_whitespace_runs":
         "a performance guard: the linear scan takes milliseconds, the quadratic regression seconds",
+    "tests/unit/test_numbers.py::test_a_hostile_cell_is_read_scalar_by_scalar_in_linear_time":
+        "a performance guard: each cell reads in at most about 50 ms, against 2 s; without the whitespace "
+        "collapse the 100k-space cell takes about 12 s",
     "tests/unit/test_recovery_context.py::test_actual_generation_deadline_covers_source_preparation_and_prevents_late_sdk":
         "the 75 s budget's remaining time read just after the worker starts, against 70 s: 5 s of slack",
     "tests/unit/test_redis_disabled_skip.py::test_cache_ops_are_fast_no_op_when_disabled":
