@@ -180,6 +180,22 @@ export const fmtCurrency = (
   return formatter.format(num)
 }
 
+/**
+ * The en-US symbol of an ISO 4217 currency code: "$" for USD, "¥" for JPY, "CA$" for CAD, "CHF" for
+ * a currency the locale writes by its code. Anything that is not a three-letter code (an XBRL unit
+ * such as "shares", a missing unit) gives null: that amount shows with no symbol, never as dollars
+ * (lessons/frontend-xbrl-amounts-carry-their-own-currency.md).
+ */
+export const currencySymbol = (code: string | null | undefined): string | null => {
+  if (!code || !/^[A-Z]{3}$/.test(code)) return null
+  try {
+    const parts = getFormatter({ style: 'currency', currency: code, currencyDisplay: 'symbol' }).formatToParts(0)
+    return parts.find((part) => part.type === 'currency')?.value ?? null
+  } catch {
+    return null
+  }
+}
+
 export const fmtPercent = (
   value: NumericInput,
   options?: { digits?: number; signed?: boolean }
