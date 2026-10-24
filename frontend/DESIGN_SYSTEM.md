@@ -1371,7 +1371,8 @@ Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P
 Hero example     <HeroExample example>  (features/marketing, critique 1d) — the example IS the product, on ONE
                  surface (rounded-xl panel + hairline + e2, dark: fill + hairline): "Example summary" with the
                  quality Badge in a row that wraps (the badge goes under the label where the two do not fit side
-                 by side, and below a 24rem viewport its label wraps inside it, as a Button's does; E156), the
+                 by side, and below a 24rem viewport its label wraps inside it, as a Button's does, the badge
+                 taking the 16px step there, a rounded box once it wraps; E156), the
                  identity line (company, then ticker · form · filed in the data face, Sep
                  between; each middot in one item with the fact before it, so a wrapped line never starts or
                  stands with one; the form one nowrap run; the date an inline-block after "filed", so it moves
@@ -1397,7 +1398,8 @@ Hero example     <HeroExample example>  (features/marketing, critique 1d) — th
                  the fallback, which has no badge, so the live badge is laid into its row from
                  fixtures/hero-example-live-badge.html, which tests/unit/hero-example-surface.spec.tsx holds to
                  the render: under the label at 320 and 390px under 200% text, beside it at the row's right at
-                 390px and at 1440px under 200% text, inside the card, the page not scrolling sideways).
+                 390px at the default size and at 1440px under 200% text, inside the card, a rounded box where
+                 its label wraps, the page not scrolling sideways).
 
 Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain statements, each scoped to what
                  the implementation establishes ("where a match is found"); "generated" stays distinct from

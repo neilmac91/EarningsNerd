@@ -155,14 +155,15 @@ function HeroExample({
             viewport the badge's label may wrap too, as a Button's does (384px at the default text size, 768px under a
             200% text setting): on a line of its own at 320px under 200% text the one-line badge was 236px, wider than
             the card's 222px content box. The media variant comes after Badge's whitespace-nowrap in the stylesheet, so
-            it wins, and the label still breaks only where the badge does not fit. */}
+            it wins, and the label still breaks only where the badge does not fit. A chip whose label can wrap takes the
+            16px step (DESIGN.md, the radius scale): a pill on one line, a rounded box once it wraps, never a capsule. */}
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <p className={cx('text-xs font-medium', MUTED)}>Example summary</p>
           {data.qualityTier === 'full' && (
             <Badge
               variant="brand"
               icon={<CheckCircleIcon className="h-3 w-3" aria-hidden="true" />}
-              className="[@media(max-width:24rem)]:whitespace-normal"
+              className="[@media(max-width:24rem)]:whitespace-normal [@media(max-width:24rem)]:rounded-xl"
             >
               Full summary
             </Badge>

@@ -12,7 +12,8 @@ import { expect, test, type Page } from '@playwright/test'
  *
  * On one line at 390px under 200% text the badge took the page to 422px. On a line of its own at 320px it was still
  * 236px, wider than the card's 222px content box. The row wraps, so the badge goes under the label where the two do
- * not fit side by side, and below a 24rem viewport the badge's label wraps inside it. Where the two fit (390px at the
+ * not fit side by side, and below a 24rem viewport the badge's label wraps inside it, the badge then a rounded box
+ * (the 16px step), never a capsule whose curve crosses its text. Where the two fit (390px at the
  * default text size, 1440px under 200% text) the badge keeps the row's right, beside the label. The label's painted
  * text is read with a Range (lessons/frontend-check-brand-layouts-at-200-percent-text.md).
  */
@@ -82,13 +83,17 @@ for (const c of CASES) {
             badge: box(badge.getBoundingClientRect()),
             badgeText: badge.textContent,
             lines,
+            radius: parseFloat(getComputedStyle(badge).borderTopLeftRadius),
             scrollWidth: document.documentElement.scrollWidth,
-            innerWidth: window.innerWidth,
+            // A phone view's innerWidth grows with an overflow; the root's clientWidth is the screen's.
+            clientWidth: document.documentElement.clientWidth,
+            dark: document.documentElement.classList.contains('dark'),
           }
         })
         const where = `${at}, ${theme}: label ${JSON.stringify(m.label)}, badge ${JSON.stringify(m.badge)}, row ${JSON.stringify(m.row)}`
         expect(m.badgeText, 'the laid badge is the live one').toBe('Full summary')
-        expect(m.scrollWidth, `${at}, ${theme}: the page does not scroll sideways`).toBeLessThanOrEqual(m.innerWidth)
+        expect(m.dark, `${at}: the ${theme} theme is the one on the page`).toBe(theme === 'dark')
+        expect(m.scrollWidth, `${at}, ${theme}: the page does not scroll sideways`).toBeLessThanOrEqual(m.clientWidth)
         expect(m.badge.left, `${where}: the badge starts inside the card's content box`).toBeGreaterThanOrEqual(m.row.left - 0.5)
         expect(m.badge.right, `${where}: the badge ends inside the card's content box`).toBeLessThanOrEqual(m.row.right + 0.5)
         expect(m.lines.length, `${where}: the badge paints its label`).toBeGreaterThan(0)
@@ -101,9 +106,14 @@ for (const c of CASES) {
         } else {
           expect(m.badge.top, `${where}: the badge sits wholly under the label`).toBeGreaterThanOrEqual(m.label.bottom - 0.5)
         }
+        const lineCount = new Set(m.lines.map((line) => Math.round(line.top))).size
         if (c.width >= 390) {
           // The badge's label breaks only where the badge cannot fit on a line of its own.
-          expect(new Set(m.lines.map((line) => Math.round(line.top))).size, `${where}: the badge's label on one line`).toBe(1)
+          expect(lineCount, `${where}: the badge's label on one line`).toBe(1)
+        }
+        if (lineCount > 1) {
+          // A chip whose label wraps is a rounded box, never a capsule whose curve crosses its text (DESIGN.md's radius scale).
+          expect(m.radius, `${where}: the wrapped badge's corners are a rounded box's`).toBeLessThan((m.badge.bottom - m.badge.top) / 2)
         }
       })
     }
