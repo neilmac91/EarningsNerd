@@ -857,6 +857,8 @@ class TestFiledFigureSwap:
         "Per Item 7, 40-store expansion drove growth.",
         "Per Note 9, 10-year notes refinanced the revolver.",
         "Per Item 7, 12-percent growth in Services.",
+        # A spaced em dash does not end the list, so the number before it reads as a figure, the safe way.
+        "See Notes 3, 4 — leases rose.",
     ])
     def test_a_takeaway_that_states_a_number_is_withheld(self, commentary):
         row = self._enrich({"metric": "Operating income", "current_period": "$132,100M", "prior_period": "$123,216M",
@@ -912,6 +914,7 @@ class TestFiledFigureSwap:
         "See Notes 3, 4-5.",
         "See Notes 3, 4–5 for leases.",
         "See Items 7, 7A – Market Risk.",
+        "See Notes 3, 4 - leases rose.",
     ])
     def test_a_takeaway_that_names_no_figure_stays(self, commentary):
         # Years, quarters and the filing's own Items and Notes are not figures the swap replaced.

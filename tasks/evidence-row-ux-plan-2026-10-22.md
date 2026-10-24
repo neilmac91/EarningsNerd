@@ -2,7 +2,7 @@
 
 2026-10-22 · Claude Code session, from the founder's annotated screenshot.
 
-**Status (later on 2026-10-22).** The founder answered §6 ([D-058](../docs/brand/decisions-log.md)): the plain
+**Status (updated 2026-10-24).** The founder answered §6 ([D-058](../docs/brand/decisions-log.md)): the plain
 vocabulary across the whole product (Q1); the evidence row on the AI's real output (Q2); a checked figure that
 differs is replaced by the filed figure (Q3); the sample moves to Apple's FY2026 10-K once it is filed (Q4, open as
 E172 in `tasks/todo.md`). Implementation is on this branch. Where it departs from §2–§3: Q3's swap retires R5's

@@ -1001,19 +1001,19 @@ Index list       <FilingIndex> (features/filings/components) — the recipe for 
                  colour, no per-row document icon (the caret in the actions track, from 48rem, is an
                  aria-hidden navigation cue, not a type signal). One grid template for the column header and
                  every row (form · period · filed · actions) so values align across groups. The row is ONE
-                 <Link>, named by its own content (no aria-label); a secondary target (EDGAR) is a SIBLING
+                 <Link>, named by its own content (no aria-label); a secondary target (the filing on SEC.gov) is a SIBLING
                  anchor absolutely placed in the actions track — never an <a> inside the row link. 48px rows
-                 from 48rem, 64px two-line rows below it with a 44px EDGAR square. The index's breakpoints
+                 from 48rem, 64px two-line rows below it with a 44px SEC.gov square. The index's breakpoints
                  are rem media queries, 40rem for sm's rows and 48rem for md's grid (640 and 768px at the
                  default size, 1280 and 1536px under 200% text), and the list is a query container: below
                  15rem of list (a phone under enlarged text: below 610px under 200% text, 458px under 150%) a
-                 row is one column, its code beside the EDGAR square at the square's height and its period
+                 row is one column, its code beside the SEC.gov square at the square's height and its period
                  and filed date below at the row's width. The heading's count and a year's count wrap onto
                  lines of their own wherever they do not fit. At the px breakpoints the grid's 20rem of fixed
                  tracks left the period column 0px under 200% text at 768, 1024 and 1440px, and at 320 to
-                 390px the EDGAR square sat over the period (E168; gate: tests/e2e/reflow-200.spec.ts loads
+                 390px the SEC.gov square sat over the period (E168; gate: tests/e2e/reflow-200.spec.ts loads
                  the index at 320, 360, 390, 768, 1024, 1440 and 2304px under 200% text: every box and line
-                 of it inside its card, no row's text under its EDGAR square, the Compare periods card off
+                 of it inside its card, no row's text under its SEC.gov square, the Compare periods card off
                  it). Group headers are <h3><button aria-expanded aria-controls>; collapsed lists stay in the
                  DOM with `hidden`. One primary action per screen, and on the company page it is the lead's
                  (Company identity, below): the list only marks the latest row "Latest", and rows never carry
