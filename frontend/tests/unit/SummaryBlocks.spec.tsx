@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { SummaryBlocks } from '@/features/summaries/components/SummaryBlocks'
@@ -388,11 +389,25 @@ describe('SummaryBlocks', () => {
     const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       return { height: this.hasAttribute('data-section-nav') ? height : 0 } as DOMRect
     })
+    // A layout effect after the nav's, in the same commit, reads what the nav published. React runs every layout effect
+    // before the browser paints and every passive effect after, so a publish from a passive effect reads '' here.
+    let inTheCommit: string | undefined
+    function ReadsInTheCommit() {
+      useLayoutEffect(() => {
+        inTheCommit = document.documentElement.style.getPropertyValue('--section-nav-h')
+      }, [])
+      return null
+    }
     try {
-      const { unmount } = render(<SummaryBlocks sections={sections} summary={summary} />)
+      const { unmount } = render(
+        <>
+          <SummaryBlocks sections={sections} summary={summary} />
+          <ReadsInTheCommit />
+        </>,
+      )
       const root = document.documentElement
       expect(screen.getByRole('navigation', { name: 'Jump to section' })).toHaveAttribute('data-section-nav')
-      expect(root.style.getPropertyValue('--section-nav-h'), 'published before the first paint, rounded up').toBe('53px')
+      expect(inTheCommit, 'published in the commit that mounts the nav, before the first paint, rounded up').toBe('53px')
       // From lg the nav is display:none and measures 0.
       height = 0
       resize?.()
