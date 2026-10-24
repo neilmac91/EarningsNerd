@@ -1018,7 +1018,7 @@ PLAN = {
     "WP2 data-notes words": [
         "backend/app/services/trend_analysis/data_notes.py", "backend/tests/unit/test_analysis_data_notes.py",
         "backend/tests/fixtures/analysis_data_notes.json", A + "components/DataNotes.tsx", A + "lib/dataNotes.ts",
-        "backend/app/services/analysis_export_metadata.py", "frontend/tests/unit/data-notes.spec.ts",
+        A + "lib/provenance.ts", "backend/app/services/analysis_export_metadata.py", "frontend/tests/unit/data-notes.spec.ts",
         "frontend/tests/unit/analysis-source-quality.spec.tsx", "frontend/tests/unit/analysisPeriodWindows.spec.tsx",
     ],
     "WP3 exports": [

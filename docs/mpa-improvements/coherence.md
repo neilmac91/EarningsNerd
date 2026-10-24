@@ -55,8 +55,10 @@ and [`screens/variants/ring-light-full.png`](screens/variants/ring-light-full.pn
    - the exports follow the same rule.
 
    Under this scheme most companies already show no mark. 77 of production's 82 latest-year flags
-   are legacy calculations, so at most 5 of the 27 companies keep a marked cell in their newest year.
-   The backfill then clears the legacy notes from the fine print and the dialog as well. A mark
+   are legacy calculations. The other 5 cells are all `source_check_needed`, in 3 of the 27
+   companies, so at most 3 keep a marked value in their newest year. That count leaves out growth
+   figures inheriting an older year's note. The backfill then clears the legacy notes from the
+   fine print and the dialog as well. A mark
    that does appear keeps its meaning.
 4. **Data notes: one neutral line under the table, in plain words (§3).** The comprehension
    rounds settled the words, and they carry over: "Not in our data … shown as —, never as zero";
@@ -291,7 +293,8 @@ mark. That version is kept in [`prototype/notation-prototype.diff`](prototype/no
 - **Filtered, never reclassified.** The scheme decides only which notes put a mark beside a
   figure.
   - Note kinds, reasons and totals stay as the backend computes them.
-  - The fine print and the dialog still name and count every note, legacy included.
+  - The fine print names and counts every note, legacy included. The dialog names each figure's
+    own note.
   - The page never says "No figures need review" while a legacy note exists.
   - The page never calls a legacy figure validated.
 - **One rule on every surface.** The page, PDF, workbook and chart PNG mark the same notes. One
@@ -443,8 +446,11 @@ full, is in [its JSON](verification/notation-variant-test.json).
 - **Re-run.** The quiet and no-marks builds first leaked letters into the narrative's citation
   chips. Both were re-run after the fix (R2, S2).
   - Between the runs, the quiet copy also changed, in answer to the first-run quiet readers:
-    "the company's filings disagree" became "restated in a later filing; we show the later value",
-    and the legacy count left the summary line.
+    - "the company's filings disagree" became "restated in a later filing; we show the later
+      value";
+    - the legacy count left the summary line;
+    - the restatement sentence in the closed detail was reworded, which the readers could not
+      see.
   - R2 is therefore not copy-controlled against R. Both first-run quiet readers had already found
     the revenue from the page with the older words.
 
@@ -523,7 +529,7 @@ enforced it for exactly the case the scheme stops marking: a `legacy_calculation
 - `test_export_service.py:648` and `:675`: the PDF's dagger.
 - `:677`: its gap letter.
 - `:761`: its single Data notes heading.
-- `:813`: its count line.
+- `:813`: the count line of the PDF and the workbook's Overview.
 - `test_export_voice.py:188`: the heading order.
 - `frontend/tests/unit/chart-export.spec.ts:67-98`: the PNG's note for a legacy YoY.
 
@@ -577,11 +583,14 @@ the metrics table: neutral ink, 12px, one line while closed, and the detail one 
      select one to see both filings. Revenue FY2018, FY2019.
   Calculated before 10 October 2026, when we began keeping each calculation's inputs; shown as stored, with its inputs
      not linked. Operating margin FY2023, FY2024, FY2025; Net margin FY2023, FY2024, FY2025; Free cash flow FY2023,
-     FY2024, FY2025; Working capital FY2024; Current ratio FY2024. 11 figures; 16 growth figures built on them.
+     FY2024, FY2025; Working capital FY2024; Current ratio FY2024. 11 figures; 16 growth figures built on them.¹
   Not in our data for these periods; shown as —, never as zero. Long-term debt FY2016, FY2017, FY2018.
   Select any figure to see its source filing, method and inputs. Automated checks confirm that reported figures come
      from the company's filed data (XBRL); they are not an audit of the company's accounts.
 ```
+
+¹ The prototype's detail has no counts, as the screens below show. This design adds them, because
+the fine print must keep counting legacy notes (§2.1).
 
 The screens are [`quiet-light-datanotes-closed.png`](screens/variants/quiet-light-datanotes-closed.png),
 [`quiet-light-datanotes-open.png`](screens/variants/quiet-light-datanotes-open.png),
@@ -602,9 +611,14 @@ is in [`screens/`](screens/) as `final-*`.
   locates the comparison.
 - **Chips.** The native `<details>` stays, so a Notes chip can open the fine print at its note.
 - **The landing sample** keeps its "sample data (one saved run)" label in the fine print (D-046).
-- **Where the copy lives.** The new words are written into `data_notes.REASONS` on the backend
-  (WP2). It already holds today's words, and the PDF prints them, so every surface that prints a
-  note's message prints the new ones. The prototype maps reasons on the frontend only.
+- **Where the copy lives.** WP2 writes the new words into both copies of the reason map:
+  - `data_notes.REASONS` on the backend reaches the page, PDF, workbook and PNG through the notes
+    envelope's `message`.
+  - `REASONS` in `frontend/features/analysis/lib/provenance.ts:41` serves local grouping without an
+    envelope, the per-figure fallback in `SourceValue` and the fundamentals badges.
+
+  The shared fixture `backend/tests/fixtures/analysis_data_notes.json` pins the two copies equal.
+  The prototype maps reasons on the frontend only.
 
 ### 3.3 Wording
 
@@ -613,7 +627,7 @@ is in [`screens/`](screens/) as `final-*`.
 | Summary, a note that questions the number | "11 figures need review (a)" (every review note in one count) | "ᵃ Revenue FY2018, FY2019: restated in a later filing; we show the later value": places and words, no count |
 | Summary, legacy calculations | inside the same count | detail only |
 | Summary, gaps | "3 unavailable (b)" | "3 not in our data, shown as —" |
-| Summary, no validation record | "18 figures have no validation record" (the landing sample) | "18 with no check recorded" |
+| Summary, no validation record | "N figures have no validation record (c)" (`DataNotes.tsx:94`) | "N with no check recorded" |
 | Summary, calculated | "50 calculated †" | "50 calculated from filed figures" |
 | `legacy_calculation` | "This saved calculation predates the current source checks. Its inputs need review." | "Calculated before 10 October 2026, when we began keeping each calculation's inputs; shown as stored, with its inputs not linked." |
 | WP5 restatement | (none: the figure reads clean) | "Restated in a later filing: the year's own annual report gave a different value. We show the later filing's value; select one to see both filings." |
@@ -628,9 +642,9 @@ Each sentence promises only what the code enforces:
 - "10 October 2026" is #1191's merge date.
 - "Not in our data" makes no claim about whether the company reported the figure.
 - "Restated in a later filing" needs WP5's check that the year's own filing reported another
-  value. A plain disagreement keeps the `source_conflict` sentence. The first-run quiet readers
-  found "the company's filings disagree" alarming and unresolved, so that sentence names what is
-  shown and how to compare.
+  value. A plain disagreement keeps the `source_conflict` sentence. Of the first-run quiet readers,
+  one found "the company's filings disagree" alarming and both found it unresolved, so that
+  sentence names what is shown and how to compare.
 
 ### 3.4 Comprehension test
 
@@ -806,7 +820,7 @@ no sibling branch exists yet. The computation is reproducible from the
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | **WP0 lineage backfill** (10) | — | · | · | · | · | · | · | · | · | · | 1 | 1 | 1 | 1 |
 | **WP1 quiet notation** (29) | · | — | 4 | · | 6 | 2 | 3 | 2 | 5 | · | 3 | 2 | · | · |
-| **WP2 data-notes words** (9) | · | 4 | — | 1 | · | 3 | · | · | · | · | · | · | · | · |
+| **WP2 data-notes words** (10) | · | 4 | — | 1 | · | 3 | · | · | · | · | · | · | · | · |
 | **WP3 exports** (9) | · | · | 1 | — | · | · | 2 | 1 | 1 | 3 | · | · | · | · |
 | **WP4 surfaces + results header** (8) | · | 6 | · | · | — | · | 1 | · | 1 | · | 2 | 2 | · | · |
 | **WP5 restatement note** (7) | · | 2 | 3 | · | · | — | · | · | · | · | · | · | · | · |
@@ -918,7 +932,7 @@ The full breakdowns by metric, sector, year, reason and method are in
 [verification/flag-frequency-by-year.md](verification/flag-frequency-by-year.md). The
 full-population SQL is [`ops/detection/mpa_notation_frequency.sql`](../../ops/detection/mpa_notation_frequency.sql).
 
-### b. Heuristic evaluation, before and after (blind re-scores)
+### b. Independent heuristic re-scores (X the current page; Y and Z the ring prototypes, superseded for the notation by §2.8)
 
 | Set | Severity sum | Sev 1 / 2 / 3 / 4 | Findings |
 |---|---:|---|---:|

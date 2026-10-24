@@ -67,7 +67,11 @@ identical prompts as R2 and S2. The first-run R and S verdicts are kept below bu
 **The re-test changed more than the leak.** Between the runs, the quiet design's fine print also
 changed, in answer to the first-run quiet readers:
 - "the company's filings disagree" became "restated in a later filing; we show the later value";
-- "11 of them before we kept calculation records" moved from the summary line to the open detail.
+- "11 of them before we kept calculation records" was dropped from the summary line. The open
+  detail lists the legacy figures' places without a count;
+- the restatement sentence in the closed detail was reworded, from "The company's filings report
+  different values for these figures…" to "Restated in a later filing: the year's own annual
+  report gave a different value…". Readers saw the fine print closed, so they could not see it.
 
 So R2 is not copy-controlled against R. Both first-run quiet readers had already found the revenue
 from the page with the older words. The current and ring designs carry their own words ("13 figures
@@ -133,7 +137,8 @@ and the first quiet prototype. Checked by hand afterwards:
   version, and this revision carries it out.
 - **A cited line.** In `analysis-layout.spec.ts`, the dagger assertion is at :120; :116 is the loop
   head.
-- **A pin's subject.** `test_export_service.py:813` pins the PDF's count line ("4 comparisons need
+- **A pin's subject.** `test_export_service.py:813` pins the count line of the PDF and the
+  workbook's Overview ("4 comparisons need
   review · …"), not a "calculated †" clause. The only "1 calculated †" in the export tests is a
   sample string at `test_export_voice.py:199`.
 

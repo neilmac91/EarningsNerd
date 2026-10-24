@@ -12,7 +12,7 @@ Cells count shared files; · means none.
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | **WP0 lineage backfill** (10 files) | — | · | · | · | · | · | · | · | · | · | 1 | 1 | 1 | 1 |
 | **WP1 quiet notation** (29 files) | · | — | 4 | · | 6 | 2 | 3 | 2 | 5 | · | 3 | 2 | · | · |
-| **WP2 data-notes words** (9 files) | · | 4 | — | 1 | · | 3 | · | · | · | · | · | · | · | · |
+| **WP2 data-notes words** (10 files) | · | 4 | — | 1 | · | 3 | · | · | · | · | · | · | · | · |
 | **WP3 exports** (9 files) | · | · | 1 | — | · | · | 2 | 1 | 1 | 3 | · | · | · | · |
 | **WP4 surfaces + results header** (8 files) | · | 6 | · | · | — | · | 1 | · | 1 | · | 2 | 2 | · | · |
 | **WP5 restatement note** (7 files) | · | 2 | 3 | · | · | — | · | · | · | · | · | · | · | · |
