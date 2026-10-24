@@ -208,10 +208,12 @@ describe('Company page lead', () => {
     const card = screen.getByRole('complementary', { name: 'Compare periods' })
     expect(await within(card).findByRole('link', { name: 'Open change report' })).toHaveAttribute('href', '/filing/11#what-changed')
     expect(api.getWhatChanged).toHaveBeenCalledWith(11)
-    // The aside and the filings share one grid: two tracks from lg up, one below.
+    // The aside and the filings share one grid: two tracks from 64rem (lg's 1024px at the default size, 2048px under
+    // 200% text, so the doubled text keeps one column), one below (E168).
     const grid = card.parentElement as HTMLElement
     expect(grid.className).toMatch(/grid-cols-1/)
-    expect(grid.className).toMatch(/lg:grid-cols-\[minmax\(0,1fr\)_20rem\]/)
+    expect(grid.className).toMatch(/\[@media\(min-width:64rem\)\]:grid-cols-\[minmax\(0,1fr\)_20rem\]/)
+    expect(grid.className).not.toMatch(/(?:^|\s)lg:grid-cols-/)
     expect(within(grid).getByRole('region', { name: 'SEC filings' })).toBeInTheDocument()
   })
 
@@ -222,7 +224,7 @@ describe('Company page lead', () => {
     expect(screen.queryByRole('complementary', { name: 'Compare periods' })).toBeNull()
     expect(api.getWhatChanged).not.toHaveBeenCalled()
     const list = screen.getByRole('region', { name: 'SEC filings' })
-    expect((list.parentElement as HTMLElement).className).not.toMatch(/lg:grid-cols-/)
+    expect((list.parentElement as HTMLElement).className).not.toMatch(/grid-cols-\[minmax/)
   })
 })
 

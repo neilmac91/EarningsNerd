@@ -996,19 +996,29 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
-                 bg-white / dark:bg-white/[0.03], never darker), no stripes, no row tints, no per-type colour,
-                 no per-row document icon (the md-up caret in the actions track is an aria-hidden navigation cue,
-                 not a type signal). One grid template for the column header and every row (form · period ·
-                 filed · actions) so values align across groups. The row is ONE <Link>, named by its own
-                 content (no aria-label); a secondary target (EDGAR) is a SIBLING anchor absolutely placed in
-                 the actions track — never an <a> inside the row link. 48px rows from md, 64px two-line rows
-                 on phones with a 44px EDGAR square. Group headers are <h3><button aria-expanded
-                 aria-controls>; collapsed lists stay in the DOM with `hidden`. One primary action per screen,
-                 and on the company page it is the lead's (Company identity, below): the list only marks the
-                 latest row "Latest", and rows never carry a primary button. Choosing a year filter opens
-                 its group. Skeleton = the ledger's own tracks; errors = Notice + RetryButton in place.
-                 Gate: a `border-l|s-(2|4|8)` side stripe on a rounded box is lint-banned
-                 (earningsnerd/no-side-stripe, eslint.designRules.mjs).
+                 bg-white / dark:bg-white/[0.03], never darker), no stripes, no row tints, no per-type
+                 colour, no per-row document icon (the caret in the actions track, from 48rem, is an
+                 aria-hidden navigation cue, not a type signal). One grid template for the column header and
+                 every row (form · period · filed · actions) so values align across groups. The row is ONE
+                 <Link>, named by its own content (no aria-label); a secondary target (EDGAR) is a SIBLING
+                 anchor absolutely placed in the actions track — never an <a> inside the row link. 48px rows
+                 from 48rem, 64px two-line rows below it with a 44px EDGAR square. The index's breakpoints
+                 are rem media queries, 40rem for sm's rows and 48rem for md's grid (640 and 768px at the
+                 default size, 1280 and 1536px under 200% text), and the list is a query container: below
+                 15rem of list (a phone under enlarged text: below 610px under 200% text, 458px under 150%) a
+                 row is one column, its code beside the EDGAR square at the square's height and its period
+                 and filed date below at the row's width. The heading's count and a year's count wrap onto
+                 lines of their own wherever they do not fit. At the px breakpoints the grid's 20rem of fixed
+                 tracks left the period column 0px under 200% text at 768, 1024 and 1440px, and at 320 to
+                 390px the EDGAR square sat over the period (E168; gate: tests/e2e/reflow-200.spec.ts loads
+                 the index at 320, 360, 390, 768, 1024, 1440 and 2304px under 200% text: every box and line
+                 of it inside its card, no row's text under its EDGAR square, the Compare periods card off
+                 it). Group headers are <h3><button aria-expanded aria-controls>; collapsed lists stay in the
+                 DOM with `hidden`. One primary action per screen, and on the company page it is the lead's
+                 (Company identity, below): the list only marks the latest row "Latest", and rows never carry
+                 a primary button. Choosing a year filter opens its group. Skeleton = the ledger's own
+                 tracks; errors = Notice + RetryButton in place. Gate: a `border-l|s-(2|4|8)` side stripe on
+                 a rounded box is lint-banned (earningsnerd/no-side-stripe, eslint.designRules.mjs).
 
 Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissible initialFocusRef>
                    <ModalHeader id="<id>" onClose icon={…?} tone="brand|success|warning|error">Title</ModalHeader>
@@ -1460,16 +1470,18 @@ Company identity <CompanyIdentity company latest summaryReady actions>  (feature
                  pressed, `loading` while it saves). Sector and fiscal-year convention wait for the payload.
 
 Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P-07) — the entry to a change
-                 report: an <aside> Card (p-cap-5, h2 18/600) beside the filings index on lg+ (grid-cols-1 base,
-                 lg 1fr + 20rem), shown only for selectComparisonFiling (the newest annual report with an
-                 earlier annual period listed). Up to three hairline rows: metric · the change in WhatChanged's
-                 own vocabulary (exported Change: ▲/▼ glyph + the server's display string or —, in its tone's ink)
-                 · the Read-as word; "N more in the change report."; one 12px line counting the wording comparison
-                 the report carries ("12 paragraphs of risk factors changed." / "No wording changes in the risk
-                 factors."); a sage text link "Open change report →" to /filing/{id}#what-changed. Same read and
-                 query key as the filing page's section (useWhatChanged). States in place: ledger bones, Notice +
-                 RetryButton, a plain line when nothing is comparable (a wording comparison alone keeps the link,
-                 over the line that no figures compare). No risk diff until the backend serves one again.
+                 report: an <aside> Card (p-cap-5, h2 18/600) beside the filings index from 64rem (lg's
+                 1024px at the default size, 2048px under 200% text; grid-cols-1 base, then 1fr + 20rem,
+                 E168), shown only for selectComparisonFiling (the newest annual report with an earlier
+                 annual period listed). Up to three hairline rows: metric · the change in WhatChanged's own
+                 vocabulary (exported Change: ▲/▼ glyph + the server's display string or —, in its tone's
+                 ink) · the Read-as word; "N more in the change report."; one 12px line counting the wording
+                 comparison the report carries ("12 paragraphs of risk factors changed." / "No wording
+                 changes in the risk factors."); a sage text link "Open change report →" to
+                 /filing/{id}#what-changed. Same read and query key as the filing page's section
+                 (useWhatChanged). States in place: ledger bones, Notice + RetryButton, a plain line when
+                 nothing is comparable (a wording comparison alone keeps the link, over the line that no
+                 figures compare). No risk diff until the backend serves one again.
 
 Hero example     <HeroExample example>  (features/marketing, critique 1d) — the example IS the product, on ONE
                  surface (rounded-xl panel + hairline + e2, dark: fill + hairline): "Example summary" with the
