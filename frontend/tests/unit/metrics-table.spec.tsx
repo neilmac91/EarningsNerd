@@ -236,6 +236,63 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     expect(screen.getByText(/n\/m means not meaningful/)).toHaveTextContent('The final column shows CAGR, or percentage-point change for percent-unit rows. Each value’s source detail states its calculation range.')
   })
 
+  it('drops the final column, its legend and its caption on a one-year run, whose count reads in the singular (E185)', () => {
+    // A run of one year has no window: the engine's CAGR and window change need two years, so the column
+    // would show the missing-value mark in every row (chief design on #1586, comment 6384261233).
+    const oneYear: AnalysisDataset = {
+      ...annualDataset,
+      period_key: 'FY2024..FY2024',
+      periods: annualDataset.periods.slice(-1),
+      series: annualDataset.series.map((series) => ({ ...series, cagr: null, window_pp: null, window_pp_range: null, points: series.points.slice(-1) })),
+    }
+    const { container } = render(<MetricsTable dataset={oneYear} />)
+    expect(screen.getAllByRole('columnheader')).toHaveLength(2)
+    expect(screen.getByRole('columnheader', { name: 'FY2024' })).toBeInTheDocument()
+    expect(screen.queryByText('CAGR')).not.toBeInTheDocument()
+    expect(screen.getByText(/n\/m means not meaningful/).textContent).toBe('n/m means not meaningful.')
+    expect(container.querySelector('caption')?.textContent).toBe('Metrics by period, 1 of 1 year: value and change versus prior year.')
+    expect(screen.getByText(/^Showing /).textContent).toBe('Showing 1 of 1 year')
+  })
+
+  it('names the metric names as what lies left of a one-period table on a phone, annual or quarterly (E185)', () => {
+    // A phone opens the table at its end. One period under enlarged text at 390px (a 208px label and a 136px period in a
+    // 292px region) overflows, and only the labels lie to its left (chief design on #1590, comment 6385421681).
+    const media = window.matchMedia('(max-width: 639px)')
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ ...media, matches: true })
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(292)
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      const columns = this.querySelectorAll('thead th').length
+      return Math.max(292, 208 + 136 * Math.max(columns - 1, 0) + Number.parseFloat(this.style.paddingInlineEnd || '0'))
+    })
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const width = this.tagName === 'TH' ? (this === this.parentElement?.firstElementChild ? 208 : 136) : 292
+      return { x: 0, y: 0, top: 0, bottom: 24, left: 0, right: width, width, height: 24, toJSON: () => ({}) }
+    })
+    try {
+      const oneYear: AnalysisDataset = {
+        ...annualDataset,
+        period_key: 'FY2024..FY2024',
+        periods: annualDataset.periods.slice(-1),
+        series: annualDataset.series.map((series) => ({ ...series, cagr: null, window_pp: null, window_pp_range: null, points: series.points.slice(-1) })),
+      }
+      const oneQuarter: AnalysisDataset = {
+        ...dataset,
+        period_key: '2024Q3..2024Q3',
+        periods: dataset.periods.slice(0, 1),
+        series: dataset.series.map((series) => ({ ...series, points: series.points.slice(0, 1) })),
+      }
+      for (const [run, unit] of [[oneYear, 'year'], [oneQuarter, 'quarter']] as const) {
+        const { unmount } = render(<MetricsTable dataset={run} />)
+        expect(screen.getByRole('region', { name: `Metrics by period, scrollable table of 1 ${unit}` })).toHaveAccessibleDescription('← Metric names')
+        unmount()
+      }
+      render(<MetricsTable dataset={annualDataset} />)
+      expect(screen.getByRole('region', { name: 'Metrics by period, scrollable table of 2 years' })).toHaveAccessibleDescription('← Earlier years')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
   it('inverts tone for long-term debt: a decrease renders gain-toned, not loss-toned', () => {
     render(<MetricsTable dataset={annualDataset} />)
     const delta = screen.getByText('-25.2%')
