@@ -452,7 +452,7 @@ function PanelCard({
           notes: exportNotes,
         },
       }
-    )
+    ).catch(() => false)
     if (downloaded) {
       analytics.exportGenerated({
         surface: 'analysis',
@@ -463,8 +463,9 @@ function PanelCard({
         panel: panel.title,
       })
     } else {
-      // The export stops rather than draw the plot in another font (chartExport), so say it did.
-      toast.error('Could not create the chart image. Please try again.')
+      // No image was made: no plot, an image or canvas that failed, a face it could not embed (chartExport stops
+      // rather than draw the plot in another font), or a throw. Say so; a click must never do nothing.
+      toast.error('Could not create the chart image. Try again.')
     }
   }
 

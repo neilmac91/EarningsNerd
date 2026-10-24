@@ -152,8 +152,7 @@
         ["a", "Premiums earned Q3 ’23–Q4 ’23: Not available in this dataset."],
         ["†", "Calculated by EarningsNerd from reported figures in the marked periods (Premiums earned)."],
         ["", "YoY growth is calculated by EarningsNerd from reported figures."],
-        ["—", "YoY growth needs the same period a year earlier; the first year of this window has none."],
-        ["—", "YoY growth unavailable for Q3 ’24–Q4 ’24: Premiums earned is missing for the period or the same period a year earlier."]
+        ["—", "YoY growth needs the same period a year earlier; none for Q3 ’23–Q4 ’24."]
       ],
       "strip": []
     },
@@ -309,8 +308,7 @@
         ["a", "Premiums earned Q3 ’23–Q4 ’23: Not available in this dataset."],
         ["†", "Calculated by EarningsNerd from reported figures in the marked periods (Premiums earned)."],
         ["", "YoY growth is calculated by EarningsNerd from reported figures."],
-        ["—", "YoY growth needs the same period a year earlier; the first year of this window has none."],
-        ["—", "YoY growth unavailable for Q3 ’24–Q4 ’24: Premiums earned is missing for the period or the same period a year earlier."]
+        ["—", "YoY growth needs the same period a year earlier; none for Q3 ’23–Q4 ’24."]
       ],
       "strip": []
     }
@@ -857,13 +855,13 @@
         }
       ],
       "legend": [
+        ["Long-term debt", "not in dataset", 0, "line", null, true],
         ["Cash", "$178M", 0, "line", "circle", false],
-        ["Equity", "$34.3B", 1, "bar", null, false],
-        ["Long-term debt", "not in dataset", 0, "line", null, true]
+        ["Equity", "$34.3B", 1, "bar", null, false]
       ],
       "notes": [],
       "footnotes": [
-        ["", "Not in this dataset: Long-term debt (never drawn as zero)."]
+        ["", "Long-term debt isn’t in this dataset for this window (not shown as zero)."]
       ],
       "strip": []
     },
@@ -994,13 +992,13 @@
         }
       ],
       "legend": [
+        ["Long-term debt", "not in dataset", 0, "line", null, true],
         ["Cash", "$178M", 0, "line", "circle", false],
-        ["Equity", "$34.3B", 1, "bar", null, false],
-        ["Long-term debt", "not in dataset", 0, "line", null, true]
+        ["Equity", "$34.3B", 1, "bar", null, false]
       ],
       "notes": [],
       "footnotes": [
-        ["", "Not in this dataset: Long-term debt (never drawn as zero)."]
+        ["", "Long-term debt isn’t in this dataset for this window (not shown as zero)."]
       ],
       "strip": [
         [

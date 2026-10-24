@@ -5,7 +5,7 @@ import { openAnalysis, type AnalysisTheme } from './fixtures/analysisLayoutApi'
 /**
  * The downloaded chart PNG paints the plot the reader saw. The export rasterizes the plot's SVG as an
  * isolated image, which the page's webfonts never reach on their own, so the axis and label text used
- * to paint in the platform monospace (1.4–2.4% of the plot's pixels differed from the screen).
+ * to paint in the platform monospace (1.5–1.7% of the plot's pixels differed from the screen).
  * chartExport now carries the Geist Mono faces into that image. This gate takes each panel's plot
  * region out of the PNG the real export downloads and compares it with an element screenshot of the
  * on-screen SVG, both at the export's 2× scale. The plot region is where the export drew the SVG image,
@@ -16,7 +16,7 @@ const SCALE = 2
 /** A channel difference above this is a different pixel; smaller ones are antialiasing noise. */
 const CHANNEL_TOLERANCE = 25
 /** The share of a plot's pixels that may differ. Measured on one machine: with the fallback font
- *  1.4–2.4% did; with the faces embedded the worst panel had 0.011%. */
+ *  1.5–1.7% did; with the faces embedded the worst panel had 0.011%. Chromium only, the browser CI runs. */
 const MAX_DIFFERING = 0.001
 
 declare global {

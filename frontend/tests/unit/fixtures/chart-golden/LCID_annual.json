@@ -118,7 +118,7 @@
       "notes": [],
       "footnotes": [
         ["", "YoY growth is calculated by EarningsNerd from reported figures."],
-        ["—", "YoY growth needs the same period a year earlier; the first year of this window has none."],
+        ["—", "YoY growth needs the same period a year earlier; none for FY2019."],
         ["", "Growth bars beyond the axis are broken; their printed value is the true value."]
       ],
       "strip": []
@@ -241,7 +241,7 @@
       "notes": [],
       "footnotes": [
         ["", "YoY growth is calculated by EarningsNerd from reported figures."],
-        ["—", "YoY growth needs the same period a year earlier; the first year of this window has none."],
+        ["—", "YoY growth needs the same period a year earlier; none for FY2019."],
         ["", "Growth bars beyond the axis are broken; their printed value is the true value."]
       ],
       "strip": []

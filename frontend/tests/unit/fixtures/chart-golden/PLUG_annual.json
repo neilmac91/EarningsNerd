@@ -138,8 +138,7 @@
       "footnotes": [
         ["a", "Revenue FY2020: Not available in this dataset."],
         ["", "YoY growth is calculated by EarningsNerd from reported figures."],
-        ["—", "YoY growth needs the same period a year earlier; the first year of this window has none."],
-        ["—", "YoY growth unavailable for FY2020–FY2021: Revenue is missing for the period or the same period a year earlier."]
+        ["—", "YoY growth needs the same period a year earlier; none for FY2016, FY2020–FY2021."]
       ],
       "strip": []
     },
@@ -281,8 +280,7 @@
       "footnotes": [
         ["a", "Revenue FY2020: Not available in this dataset."],
         ["", "YoY growth is calculated by EarningsNerd from reported figures."],
-        ["—", "YoY growth needs the same period a year earlier; the first year of this window has none."],
-        ["—", "YoY growth unavailable for FY2020–FY2021: Revenue is missing for the period or the same period a year earlier."]
+        ["—", "YoY growth needs the same period a year earlier; none for FY2016, FY2020–FY2021."]
       ],
       "strip": []
     }

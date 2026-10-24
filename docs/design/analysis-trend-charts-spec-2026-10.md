@@ -167,23 +167,28 @@ says so; everything else follows the spec.
   draws nothing and says: “These figures are filed in more than one currency, so one scale can’t show them. The
   table lists each in its own currency.”
 - **Copy.** The engine's x ticks print ’ (row 27 of §0.4); today's Recharts ticks keep the ASCII apostrophe until the
-  renderer replaces them. Strings follow `docs/voice-and-style.md` and its gates: an absent series' legend item reads
-  `Long-term debt not in dataset` beside its dashed swatch, with no em dash, and the missing-growth footnote says “the
-  first year of this window has none” in both modes, since copy never types a count of periods.
+  renderer replaces them. Strings follow `docs/voice-and-style.md` and its gates: an absent long-term debt's legend
+  item reads `Long-term debt not in dataset` beside its dashed swatch, with no em dash, and its footnote says “not
+  shown as zero” for “not shown as $0”, since amounts carry their own currency. A company with revenue but no margin
+  series, a case A12 does not list, reads “Margin figures aren’t in this company’s filed data.”
+- **A1 with no values.** A panel with no values, or only zeros, draws its zero rule alone: ticks `[0]` over the
+  domain `[0, 1]`. A1's `V = {0, 1}` would label an empty growth panel `0%`, `+0.25%` … `+1.00%`, and an all-zero
+  panel `0%` and `+1%`, values no figure has.
 - **Not yet in the engine.** `theme.ts` (§3.8's tokens) lands with the renderer: its dark tokens are owner decision
   3 in §0.3. The tolerance file (§1.0, M20) is readout tooling and stays out of the product.
-- **The gate.** `frontend/tests/unit/chart-engine.spec.ts` runs the model checks M1–M6, M8–M12, M18 and M21, M7,
-  M13, M16 and M17 in part, and A4, A7, A13b and G6, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`
+- **The gate.** `frontend/tests/unit/chart-engine.spec.ts` runs the model checks M1–M6, M8–M13, M18 and M21, M7,
+  M16 and M17 in part, and A4 (apart from its planner), A7, A13b and G6, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`
   (chosen from the 73 for their cases, trimmed to the plotted concepts and their quality fields, values unchanged),
   for every chart and both views, at 342, 502 and 1030 px. Golden plans for REGN, LCID, PLUG, BYND, JPM and PGR are
   in `tests/unit/fixtures/chart-golden/`. Before landing, the same checks passed on the audit's 75 datasets (600
   tests). M14, M15, M19 and M20 and the D checks need a renderer or the table; they land with the renderer.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
-  the paint is the same. When a face cannot be read, the export stops with an error toast rather than paint a
-  fallback. `tests/e2e/chart-export-fidelity.spec.ts` holds E1 for every panel in both themes (at most 0.1% of plot
-  pixels may differ by more than 25 in a channel; the worst panel measured 0.011%, and 1.5–1.7% with the faces left
-  out). The plan's `latin-ext` preload is not taken: the export reads the faces itself, so the preload would only
+  the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet
+  the script cannot read (one served from another origin), the export stops with an error toast rather than paint a
+  fallback. `tests/e2e/chart-export-fidelity.spec.ts` holds E1 for every panel in both themes, in Chromium, the one
+  browser CI runs (at most 0.1% of plot pixels may differ by more than 25 in a channel; the worst panel measured
+  0.011%, and 1.5–1.7% with the faces left out). Safari and Firefox are not yet checked (E192). The plan's `latin-ext` preload is not taken: the export reads the faces itself, so the preload would only
   spare the screen a brief swap of the † glyph, for 14.7 KB more on every route's critical path.
 - **What this spec supersedes, and when.** When the renderer replaces today's charts (report §10, step 7), this spec
   replaces three rules of `docs/design/analysis-data-notes-redesign-2026-10.md` §4.7 for the four trend charts. Note

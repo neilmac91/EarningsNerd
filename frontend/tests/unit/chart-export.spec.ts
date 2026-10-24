@@ -319,6 +319,22 @@ describe('embeddedFontFaces', () => {
     expect(read).toEqual([url('latin'), url('latin')])
   })
 
+  it('stops when the text paints in a family loaded from a sheet it cannot read', async () => {
+    // A cross-origin stylesheet (a CDN) hides its rules, while the page's font set still lists its faces.
+    stubPageFaces('remote')
+    const read = serveFaces()
+    // jsdom has no FontFaceSet; the browser's lists every face the page loads, by family.
+    Object.defineProperty(document, 'fonts', { configurable: true, value: { forEach: (each: (face: { family: string }) => void) => [{ family: '"Remote Mono"' }, { family: `"${MONO}"` }].forEach(each) } })
+    try {
+      expect(await embeddedFontFaces([{ family: '"Remote Mono", ui-monospace, monospace', text: '$1B' }])).toBeNull()
+      // A family the readable sheet serves still embeds, wherever an unreadable one stands later in its stack.
+      expect(await embeddedFontFaces([{ family: `${MONO}, "Remote Mono", monospace`, text: '$1B' }])).toContain('data:font/woff2;base64,')
+      expect(read).toHaveLength(1)
+    } finally {
+      delete (document as { fonts?: unknown }).fonts
+    }
+  })
+
   it('embeds nothing on a page that serves no webfont', async () => {
     vi.spyOn(document, 'styleSheets', 'get').mockReturnValue([] as never)
     expect(await embeddedFontFaces([{ family: MONO_STACK, text: '$1B' }])).toBe('')
@@ -563,6 +579,16 @@ describe('exportPanelPng header', () => {
     const first = isolated.documentElement.firstElementChild!
     expect(first.tagName).toBe('style')
     expect(first.textContent).toMatch(new RegExp(`^@font-face\\{font-family:"${MONO}";.*src:url\\("data:font/woff2;base64,[^"]+"\\);\\}$`))
+    expect(downloadBlob).toHaveBeenCalledOnce()
+  })
+
+  it('draws the loaded image when decode() rejects after load, as WebKit has done for SVG images', async () => {
+    class DecodeRejects extends FakeImage {
+      decode = () => Promise.reject(new DOMException('decode failed', 'EncodingError'))
+    }
+    vi.stubGlobal('Image', DecodeRejects)
+    expect(await exportPanelPng(makeContainer(), 'x.png', { header: HEADER })).toBe(true)
+    expect(ctx.drawImage).toHaveBeenCalled()
     expect(downloadBlob).toHaveBeenCalledOnce()
   })
 

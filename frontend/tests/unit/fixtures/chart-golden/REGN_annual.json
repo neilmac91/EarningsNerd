@@ -133,7 +133,7 @@
       "notes": [],
       "footnotes": [
         ["", "YoY growth is calculated by EarningsNerd from reported figures."],
-        ["—", "YoY growth needs the same period a year earlier; the first year of this window has none."]
+        ["—", "YoY growth needs the same period a year earlier; none for FY2016."]
       ],
       "strip": []
     },
@@ -270,7 +270,7 @@
       "notes": [],
       "footnotes": [
         ["", "YoY growth is calculated by EarningsNerd from reported figures."],
-        ["—", "YoY growth needs the same period a year earlier; the first year of this window has none."]
+        ["—", "YoY growth needs the same period a year earlier; none for FY2016."]
       ],
       "strip": []
     }
@@ -368,13 +368,11 @@
       ],
       "legend": [
         ["Operating", "24.9%", 0, "line", "circle", false],
-        ["Net", "31.4%", 1, "line", "square", false],
-        ["Gross", "not in dataset", 0, "line", null, true]
+        ["Net", "31.4%", 1, "line", "square", false]
       ],
       "notes": [],
       "footnotes": [
-        ["", "Operating and Net margin are calculated by EarningsNerd from reported figures."],
-        ["", "Not in this dataset: Gross margin (never drawn as zero)."]
+        ["", "Operating and Net margin are calculated by EarningsNerd from reported figures."]
       ],
       "strip": []
     },
@@ -470,13 +468,11 @@
       ],
       "legend": [
         ["Operating", "24.9%", 0, "line", "circle", false],
-        ["Net", "31.4%", 1, "line", "square", false],
-        ["Gross", "not in dataset", 0, "line", null, true]
+        ["Net", "31.4%", 1, "line", "square", false]
       ],
       "notes": [],
       "footnotes": [
-        ["", "Operating and Net margin are calculated by EarningsNerd from reported figures."],
-        ["", "Not in this dataset: Gross margin (never drawn as zero)."]
+        ["", "Operating and Net margin are calculated by EarningsNerd from reported figures."]
       ],
       "strip": [
         [

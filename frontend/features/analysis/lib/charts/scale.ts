@@ -23,9 +23,9 @@ function niceCore(values: number[], nmax: number, nmin: number): NiceAxis {
   const hi = Math.max(0, ...values)
   // No value, or only zeros (a one-period window's growth): the zero rule alone, labelled "0%" or "$0".
   if (lo === hi) return { domain: [0, 1], ticks: [0], step: 1 }
-  for (let exponent = -3; exponent <= 14; exponent++) {
+  for (let exponent = -12; exponent <= 15; exponent++) {
     for (const mantissa of [1, 2, 2.5, 5]) {
-      const step = mantissa * Math.pow(10, exponent)
+      const step = Number(`${mantissa}e${exponent}`) // parsed, so 1e-4 is exactly the double 0.0001
       const first = Math.floor(lo / step + 1e-9) * step
       const last = Math.ceil(hi / step - 1e-9) * step
       const intervals = Math.round((last - first) / step)
@@ -35,7 +35,8 @@ function niceCore(values: number[], nmax: number, nmin: number): NiceAxis {
       }
     }
   }
-  return { domain: [lo, hi], ticks: [lo, 0, hi], step: hi - lo }
+  // Unreachable for finite values (the grid spans 1e-12 to 5e15); kept so an infinite value cannot loop.
+  return { domain: [lo, hi], ticks: [...new Set([lo, 0, hi])], step: hi - lo }
 }
 
 /**
@@ -70,6 +71,24 @@ export function moneyUnit(maxAbs: number): MoneyUnit {
   if (maxAbs >= 1e6) return { div: 1e6, suffix: 'M' }
   if (maxAbs >= 1e3) return { div: 1e3, suffix: 'K' }
   return { div: 1, suffix: '' }
+}
+
+/** |value| in its own unit at `significant` figures, cents at the finest (F$): a mantissa that rounds to 1,000 steps
+ *  up a unit, so 999,960 reads "1.00M", never "1000K". */
+function ownUnit(value: number, significant: number): string {
+  const abs = Math.abs(value)
+  const at = (unit: MoneyUnit) => {
+    const mantissa = abs / unit.div
+    const magnitude = Math.floor(Math.log10(mantissa))
+    const digits = Math.max(0, Math.min(2, significant - 1 - magnitude))
+    const text = mantissa.toFixed(digits)
+    // Rounding up to the next power of ten can add a figure ("9.996" → "10.00"): one decimal fewer keeps the count.
+    const shown = digits + Math.floor(Math.log10(Number(text))) + 1
+    return digits > 0 && shown > significant ? mantissa.toFixed(digits - 1) : text
+  }
+  let unit = moneyUnit(abs)
+  if (Number(at(unit)) >= 1000 && unit.suffix !== 'T') unit = moneyUnit(abs * 1000)
+  return `${at(unit)}${unit.suffix}`
 }
 
 const decimalsOf = (value: number) => {
@@ -121,11 +140,7 @@ export function moneyFormat(values: number[], step: number, ticks: number[], cur
     if (value === 0) return `${prefix}0`
     const sign = value < 0 ? MINUS : ''
     const scaled = Math.abs(value / unit.div)
-    if (printed && scaled < Math.pow(10, 1 - digits)) {
-      const own = moneyUnit(Math.abs(value))
-      const mantissa = Math.abs(value) / own.div
-      return `${sign}${prefix}${mantissa.toFixed(Math.max(0, Math.min(2, 2 - Math.floor(Math.log10(mantissa)))))}${own.suffix}`
-    }
+    if (printed && scaled < Math.pow(10, 1 - digits)) return `${sign}${prefix}${ownUnit(value, 3)}`
     return `${sign}${prefix}${group(scaled.toFixed(digits))}${unit.suffix}`
   }
   return {
@@ -142,9 +157,7 @@ export function moneyFormat(values: number[], step: number, ticks: number[], cur
 export function compactMoney(value: number, currency: string | null): string {
   const prefix = moneyPrefix(currency)
   if (value === 0) return `${prefix}0`
-  const own = moneyUnit(Math.abs(value))
-  const mantissa = Math.abs(value) / own.div
-  return `${value < 0 ? MINUS : ''}${prefix}${mantissa.toFixed(Math.max(0, 1 - Math.floor(Math.log10(mantissa))))}${own.suffix}`
+  return `${value < 0 ? MINUS : ''}${prefix}${ownUnit(value, 2)}`
 }
 
 /** A2 for a percent axis: margins unsigned, growth signed ("+50%", "0%", "−50%"). */

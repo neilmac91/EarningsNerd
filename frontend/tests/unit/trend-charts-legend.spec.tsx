@@ -267,7 +267,15 @@ describe('TrendCharts PNG export outcome', () => {
     vi.mocked(exportPanelPng).mockResolvedValue(false)
     render(<TrendCharts dataset={dataset} exportEnabled />)
     fireEvent.click(within(screen.getByText('Margins').closest('section')!).getByRole('button', { name: 'Download chart as PNG' }))
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not create the chart image. Please try again.'))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not create the chart image. Try again.'))
+    expect(analytics.exportGenerated).not.toHaveBeenCalled()
+  })
+
+  it('says so too when the export throws (a canvas the browser will not read back)', async () => {
+    vi.mocked(exportPanelPng).mockRejectedValue(new DOMException('tainted', 'SecurityError'))
+    render(<TrendCharts dataset={dataset} exportEnabled />)
+    fireEvent.click(within(screen.getByText('Margins').closest('section')!).getByRole('button', { name: 'Download chart as PNG' }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not create the chart image. Try again.'))
     expect(analytics.exportGenerated).not.toHaveBeenCalled()
   })
 

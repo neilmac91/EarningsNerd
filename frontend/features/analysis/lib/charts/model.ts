@@ -181,21 +181,27 @@ function valuesOf(ds: AnalysisDataset, series: AnalysisSeries | undefined): Mode
 
 type GrowthState = 'value' | 'structural' | 'nm-zero' | 'nm-sign' | 'unavailable'
 
-/** YoY growth as percent, with the state of every slot (spec §3.4, A11). */
+/** The same period a year earlier, keyed as the backend's comparisons key it (FY2023 → FY2022, 2024Q2 → 2023Q2). */
+const yearEarlier = (key: string) => key.replace(/^FY(\d{4})$/, (_, year) => `FY${Number(year) - 1}`).replace(/^(\d{4})(Q[1-4])$/, (_, year, quarter) => `${Number(year) - 1}${quarter}`)
+
+/** YoY growth as percent, with the state of every slot (spec §3.4, A11). A slot whose year-earlier period comes before
+ *  the window is structural; one whose year-earlier period is inside it but has no comparison (a gap in the window, or
+ *  a missing value) is unavailable. FY and quarter keys each sort as their periods do. */
 function growthOf(ds: AnalysisDataset, series: AnalysisSeries): { points: ModelPoint[]; states: GrowthState[] } {
   const byPeriod = new Map(series.points.map((point) => [point.period, point]))
-  const lag = ds.mode === 'annual' ? 1 : 4
+  const first = ds.periods[0]?.key ?? ''
   const states: GrowthState[] = []
-  const points = ds.periods.map(({ key }, i): ModelPoint => {
+  const points = ds.periods.map(({ key }): ModelPoint => {
     const point = byPeriod.get(key)
     if (typeof point?.yoy === 'number') {
       states.push('value')
       return { period: key, value: point.yoy * 100 }
     }
-    const prior = i >= lag ? byPeriod.get(ds.periods[i - lag].key) : undefined
+    const priorKey = yearEarlier(key)
+    const prior = byPeriod.get(priorKey)
     const state: GrowthState = point?.yoy === 'nm' ? 'nm-sign'
       : point?.value != null && prior?.value === 0 ? 'nm-zero'
-        : i < lag ? 'structural' : 'unavailable'
+        : priorKey < first ? 'structural' : 'unavailable'
     states.push(state)
     return { period: key, value: null, nm: state === 'nm-sign' || state === 'nm-zero' }
   })
@@ -332,8 +338,8 @@ function stripOf(marks: ModelMark[], formatOf: (mark: ModelMark) => AxisFormat):
   })
 }
 
-/** A chart's canonical series: concept, legend label, and the name its footnotes use. */
-type SeriesSpec = readonly [concept: string, label: string, name: string]
+/** A chart's canonical series: concept and legend label. */
+type SeriesSpec = readonly [concept: string, label: string]
 
 /** Line marks for the canonical series present, coloured and shaped in order over those (A8). */
 function lineMarks(ds: AnalysisDataset, specs: readonly SeriesSpec[], by: Record<string, AnalysisSeries>): ModelMark[] {
@@ -342,15 +348,10 @@ function lineMarks(ds: AnalysisDataset, specs: readonly SeriesSpec[], by: Record
   }))
 }
 
-/** Legend items for canonical series with no value in the window. */
-function absentItems(ds: AnalysisDataset, specs: readonly SeriesSpec[], by: Record<string, AnalysisSeries>): LegendItem[] {
-  return specs.filter(([concept]) => !present(by[concept], ds)).map(([, label]) => ({ label, color: 0, swatch: 'line' as const, value: 'not in dataset', absent: true }))
-}
-
-const absentFootnote = (ds: AnalysisDataset, specs: readonly SeriesSpec[], by: Record<string, AnalysisSeries>): Footnote[] => {
-  const names = specs.filter(([concept]) => !present(by[concept], ds)).map(([, , name]) => name)
-  return names.length ? [{ mark: '', text: `Not in this dataset: ${joinNames(names)} (never drawn as zero).` }] : []
-}
+/** An absent long-term debt keeps its legend item, first as in canonical order, and a footnote, so missing debt never
+ *  reads as no debt (spec §3.4, §3.6). An absent gross margin or free cash flow is not listed. */
+const ABSENT_DEBT: LegendItem = { label: 'Long-term debt', color: 0, swatch: 'line', value: 'not in dataset', absent: true }
+const ABSENT_DEBT_NOTE: Footnote = { mark: '', text: 'Long-term debt isn’t in this dataset for this window (not shown as zero).' }
 
 function unavailableModel(ds: AnalysisDataset, id: ChartId, title: string, unit: string | null, sentence: string): ChartModel {
   return { id, title, subtitle: subtitleOf(ds, unit), mode: ds.mode, periods: periodsOf(ds), panels: [], legend: [], notesBand: null, footnotes: [], unavailable: sentence, strip: [] }
@@ -378,16 +379,13 @@ export function buildToplineModel(ds: AnalysisDataset, notes: DataNotesModel = r
   const growthMark: ModelMark = { kind: 'growth', seriesKey: `${top.concept}:yoy`, label: 'YoY growth', color: 1, points: growth.points, labelled: true }
   const growthPanel = percentPanel('growth', 'YoY growth', 0.4, 4, [growthMark], true)
   const { band, letters, partly } = notesBandOf(ds, notes, [top], top)
-  const statePeriods = (state: GrowthState) => ds.periods.filter((_, i) => growth.states[i] === state).map((period) => period.key)
-  const structural = statePeriods('structural')
-  const unavailable = statePeriods('unavailable')
-  const zeroBase = statePeriods('nm-zero')
-  const signChange = statePeriods('nm-sign')
+  const statePeriods = (...states: GrowthState[]) => ds.periods.filter((_, i) => states.includes(growth.states[i])).map((period) => period.key)
+  // One line for every growth slot printed "—", structural or unavailable, and one for every "n/m" (spec §3.3).
+  const dashed = statePeriods('structural', 'unavailable')
+  const notMeaningful = statePeriods('nm-zero', 'nm-sign')
   const growthNotes: Footnote[] = [
-    ...(structural.length ? [{ mark: '—', text: `YoY growth needs the same period a year earlier; the first year of this window has none.` }] : []),
-    ...(unavailable.length ? [{ mark: '—', text: `YoY growth unavailable for ${periodRuns(ds, unavailable)}: ${top.label} is missing for the period or the same period a year earlier.` }] : []),
-    ...(zeroBase.length ? [{ mark: 'n/m', text: `Not meaningful: the prior-year base is zero (${periodRuns(ds, zeroBase)}).` }] : []),
-    ...(signChange.length ? [{ mark: 'n/m', text: `Not meaningful: the sign changed (${periodRuns(ds, signChange)}).` }] : []),
+    ...(dashed.length ? [{ mark: '—', text: `YoY growth needs the same period a year earlier; none for ${periodRuns(ds, dashed)}.` }] : []),
+    ...(notMeaningful.length ? [{ mark: 'n/m', text: `Not meaningful: the prior-year figure was zero or of the opposite sign (${periodRuns(ds, notMeaningful)}).` }] : []),
     ...(growthMark.points.some((point) => point.offscale) ? [{ mark: '', text: 'Growth bars beyond the axis are broken; their printed value is the true value.' }] : []),
   ]
   return {
@@ -402,7 +400,7 @@ export function buildToplineModel(ds: AnalysisDataset, notes: DataNotesModel = r
   }
 }
 
-const MARGIN_SERIES = [['gross_margin', 'Gross', 'Gross margin'], ['operating_margin', 'Operating', 'Operating margin'], ['net_margin', 'Net', 'Net margin']] as const
+const MARGIN_SERIES = [['gross_margin', 'Gross'], ['operating_margin', 'Operating'], ['net_margin', 'Net']] as const
 
 export function buildMarginsModel(ds: AnalysisDataset, notes: DataNotesModel = resolveDataNotes(ds)): ChartModel {
   const by = byConcept(ds)
@@ -413,7 +411,9 @@ export function buildMarginsModel(ds: AnalysisDataset, notes: DataNotesModel = r
       ? `Margins need revenue. ${company} reports net interest income instead; see Net interest income & growth.`
       : present(by.premiums_earned, ds)
         ? `Margins need revenue. ${company} reports premiums earned instead; see Premiums earned & growth.`
-        : 'Margins need revenue, which is not in this company’s filed data.'
+        : present(by.revenue, ds)
+          ? 'Margin figures aren’t in this company’s filed data.'
+          : 'Margins need revenue, which is not in this company’s filed data.'
     return unavailableModel(ds, 'margins', 'Margins', '% of revenue', sentence)
   }
   const panel = percentPanel('margins', null, 1, 8, marks, false)
@@ -425,7 +425,6 @@ export function buildMarginsModel(ds: AnalysisDataset, notes: DataNotesModel = r
     id: 'margins', title: 'Margins', subtitle: subtitleOf(ds, '% of revenue'), mode: ds.mode, periods: periodsOf(ds), panels: [panel],
     legend: [
       ...marks.map((mark) => ({ label: mark.label, color: mark.color, swatch: 'line' as const, marker: mark.marker, value: latestValue(ds, mark, format), absent: false })),
-      ...absentItems(ds, MARGIN_SERIES, by),
     ],
     notesBand: band, unavailable: null, strip: stripOf(marks, () => format),
     footnotes: [
@@ -433,17 +432,16 @@ export function buildMarginsModel(ds: AnalysisDataset, notes: DataNotesModel = r
       // "Gross, Operating and Net margin", not "Gross margin, Operating margin and Net margin".
       ...calculatedFootnotes(partly, fully.length ? [...fully.slice(0, -1), `${fully.at(-1)} margin`] : []),
       ...(marks.some((mark) => mark.points.some((point) => point.offscale)) ? [{ mark: '↓↑', text: 'Values beyond the axis range are printed in the band at the plot edge.' }] : []),
-      ...absentFootnote(ds, MARGIN_SERIES, by),
     ],
   }
 }
 
-const CASH_SERIES = [['operating_cash_flow', 'Operating CF', 'Operating cash flow'], ['free_cash_flow', 'Free cash flow', 'Free cash flow'], ['net_income', 'Net income', 'Net income']] as const
+const CASH_SERIES = [['operating_cash_flow', 'Operating CF'], ['free_cash_flow', 'Free cash flow'], ['net_income', 'Net income']] as const
 
 export function buildCashModel(ds: AnalysisDataset, notes: DataNotesModel = resolveDataNotes(ds)): ChartModel {
   const by = byConcept(ds)
   const marks = lineMarks(ds, CASH_SERIES, by)
-  if (!marks.length) return unavailableModel(ds, 'cash', 'Cash generation', null, 'Cash-flow figures are not in this company’s filed data.')
+  if (!marks.length) return unavailableModel(ds, 'cash', 'Cash generation', null, 'Cash-flow figures aren’t in this company’s filed data.')
   const series = marks.map((mark) => by[mark.seriesKey])
   const { currency, mixed } = currencyOf(ds, series)
   if (mixed) return unavailableModel(ds, 'cash', 'Cash generation', null, MIXED_CURRENCY)
@@ -454,25 +452,22 @@ export function buildCashModel(ds: AnalysisDataset, notes: DataNotesModel = reso
     id: 'cash', title: 'Cash generation', subtitle: subtitleOf(ds, currency), mode: ds.mode, periods: periodsOf(ds), panels: [panel],
     legend: [
       ...marks.map((mark) => ({ label: mark.label, color: mark.color, swatch: 'line' as const, marker: mark.marker, value: latestValue(ds, mark, format), absent: false })),
-      ...absentItems(ds, CASH_SERIES, by),
     ],
     notesBand: band, unavailable: null, strip: stripOf(marks, () => format),
     footnotes: [
       ...letterFootnotes(ds, letters, marks.map((mark) => mark.seriesKey), false),
       ...calculatedFootnotes(partly, marks.filter((mark) => fullyCalculated(by[mark.seriesKey], ds)).map((mark) => mark.label)),
-      ...absentFootnote(ds, CASH_SERIES, by),
     ],
   }
 }
 
-const DEBT_CASH_SERIES = [['long_term_debt', 'Long-term debt', 'Long-term debt'], ['cash_and_equivalents', 'Cash', 'Cash']] as const
-const BALANCE_SERIES = [...DEBT_CASH_SERIES, ['shareholders_equity', 'Equity', 'Shareholders’ equity']] as const
+const DEBT_CASH_SERIES = [['long_term_debt', 'Long-term debt'], ['cash_and_equivalents', 'Cash']] as const
 
 export function buildBalanceModel(ds: AnalysisDataset, notes: DataNotesModel = resolveDataNotes(ds)): ChartModel {
   const by = byConcept(ds)
   const lines = lineMarks(ds, DEBT_CASH_SERIES, by)
   const equitySeries = present(by.shareholders_equity, ds) ? by.shareholders_equity : undefined
-  if (!lines.length && !equitySeries) return unavailableModel(ds, 'balance', 'Balance sheet', null, 'Balance-sheet figures are not in this company’s filed data.')
+  if (!lines.length && !equitySeries) return unavailableModel(ds, 'balance', 'Balance sheet', null, 'Balance-sheet figures aren’t in this company’s filed data.')
   const series = [...lines.map((mark) => by[mark.seriesKey]), ...(equitySeries ? [equitySeries] : [])]
   const { currency, mixed } = currencyOf(ds, series)
   if (mixed) return unavailableModel(ds, 'balance', 'Balance sheet', null, MIXED_CURRENCY)
@@ -483,19 +478,20 @@ export function buildBalanceModel(ds: AnalysisDataset, notes: DataNotesModel = r
   const panels = [...(lines.length ? [panelA] : []), ...(equitySeries ? [panelB] : [])]
   const { band, letters, partly } = notesBandOf(ds, notes, series)
   const drawn = [...lines, ...(equitySeries ? [equity] : [])]
+  const debtAbsent = !present(by.long_term_debt, ds)
   return {
     id: 'balance', title: 'Balance sheet', subtitle: subtitleOf(ds, currency), mode: ds.mode, periods: periodsOf(ds), panels,
     legend: [
+      ...(debtAbsent ? [ABSENT_DEBT] : []),
       ...lines.map((mark) => ({ label: mark.label, color: mark.color, swatch: 'line' as const, marker: mark.marker, value: latestValue(ds, mark, panelA.axis.format), absent: false })),
       ...(equitySeries ? [{ label: 'Equity', color: equity.color, swatch: 'bar' as const, value: latestValue(ds, equity, panelB.axis.format), absent: false }] : []),
-      ...absentItems(ds, BALANCE_SERIES, by),
     ],
     notesBand: band, unavailable: null,
     strip: stripOf(drawn, (mark) => (mark.kind === 'signedBar' ? panelB.axis.format : panelA.axis.format)),
     footnotes: [
       ...letterFootnotes(ds, letters, series.map((s) => s.concept), false),
       ...calculatedFootnotes(partly, drawn.filter((mark) => fullyCalculated(by[mark.seriesKey], ds)).map((mark) => mark.label)),
-      ...absentFootnote(ds, BALANCE_SERIES, by),
+      ...(debtAbsent ? [ABSENT_DEBT_NOTE] : []),
     ],
   }
 }

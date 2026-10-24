@@ -84,8 +84,9 @@ function resolveBackground(el: HTMLElement): string {
 }
 
 /** Rasterize SVG markup in an isolated image document (data URI keeps the canvas untainted).
- *  Resolves null on decode failure so callers can degrade instead of throwing. Waits for `decode()`
- *  where the browser has it, so embedded fonts have painted before the canvas draws the image. */
+ *  Resolves null on load failure so callers can degrade instead of throwing. Waits for `decode()`
+ *  where the browser has it, so embedded fonts have painted before the canvas draws the image; a
+ *  `decode()` that rejects after the image loaded is not fatal, and the loaded image is drawn. */
 async function loadSvgImage(markup: string): Promise<HTMLImageElement | null> {
   const image = new Image()
   image.decoding = 'sync'
@@ -95,13 +96,7 @@ async function loadSvgImage(markup: string): Promise<HTMLImageElement | null> {
   })
   image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`
   if (!(await loaded)) return null
-  if (typeof image.decode === 'function') {
-    try {
-      await image.decode()
-    } catch {
-      return null
-    }
-  }
+  if (typeof image.decode === 'function') await image.decode().catch(() => undefined)
   return image
 }
 
@@ -157,30 +152,40 @@ function faceDataUri(url: string): Promise<string | null> {
 /**
  * The page's webfont faces that the plot's text paints with, as `@font-face` rules whose sources are
  * data URIs: a webfont never loads into the isolated image document on its own, so without them the
- * PNG's plot drew in the platform monospace (1.4–2.4% of its pixels differed from the screen). For
+ * PNG's plot drew in the platform monospace (1.5–1.7% of its pixels differed from the screen). For
  * each text, the first family of its resolved stack that the page serves from a file is the family it
  * paints in; of that family's faces, those whose `unicode-range` covers one of the text's characters
  * are embedded, each keeping that range, without which the subsets would shadow one another (latin-ext
- * carries † alone). Resolves null when a needed face cannot be read: the export then stops rather than
- * paint a fallback. Exported for tests.
+ * carries † alone). Resolves null when a needed face cannot be read, or when the text paints in a
+ * family the page loads from a stylesheet this script cannot read (one served from another origin):
+ * the export then stops rather than paint a fallback. Exported for tests.
  */
 export async function embeddedFontFaces(texts: { family: string; text: string }[]): Promise<string | null> {
-  const faces = fontFaceRules().flatMap((rule) => {
+  const rules = fontFaceRules()
+  const declared = new Set(rules.map((rule) => familyNames(rule.style.getPropertyValue('font-family'))[0]))
+  // The page's font set holds every face it loads, those of an unreadable sheet among them.
+  const loaded = new Set<string>()
+  if (typeof document.fonts?.forEach === 'function') document.fonts.forEach((face) => loaded.add(familyNames(face.family)[0]))
+  const faces = rules.flatMap((rule) => {
     const source = /url\(\s*["']?([^"')]+)["']?\s*\)/.exec(rule.style.getPropertyValue('src'))
     return source ? [{ rule, url: new URL(source[1], rule.parentStyleSheet?.href ?? document.baseURI).href }] : []
   })
+  const served = new Set(faces.map((face) => familyNames(face.rule.style.getPropertyValue('font-family'))[0]))
   const needed = new Map<string, (typeof faces)[number]>()
   for (const { family, text } of texts) {
     const codePoints = [...text].map((character) => character.codePointAt(0)!)
-    const name = familyNames(family).find((candidate) => faces.some((face) => familyNames(face.rule.style.getPropertyValue('font-family'))[0] === candidate))
-    if (!name) continue
+    const stack = familyNames(family)
+    const at = stack.findIndex((candidate) => served.has(candidate) || (loaded.has(candidate) && !declared.has(candidate)))
+    if (at < 0) continue // a system stack: the image paints it as the page does
+    const name = stack[at]
+    if (!served.has(name)) return null
     for (const face of faces) {
       if (familyNames(face.rule.style.getPropertyValue('font-family'))[0] !== name) continue
       const ranges = parseUnicodeRange(face.rule.style.getPropertyValue('unicode-range'))
       if (codePoints.some((point) => ranges.some(([start, end]) => point >= start && point <= end))) needed.set(face.url, face)
     }
   }
-  const rules: string[] = []
+  const embedded: string[] = []
   for (const { rule, url } of needed.values()) {
     const uri = await faceDataUri(url)
     if (!uri) return null
@@ -188,9 +193,9 @@ export async function embeddedFontFaces(texts: { family: string; text: string }[
       .map((property) => [property, rule.style.getPropertyValue(property)] as const)
       .filter(([, value]) => value)
       .map(([property, value]) => `${property}:${value};`)
-    rules.push(`@font-face{${descriptors.join('')}src:url("${uri}");}`)
+    embedded.push(`@font-face{${descriptors.join('')}src:url("${uri}");}`)
   }
-  return rules.join('')
+  return embedded.join('')
 }
 
 // The EN monogram geometry — public/assets/earningsnerd-mark-sage.svg with the fill

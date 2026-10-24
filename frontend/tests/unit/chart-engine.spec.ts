@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { layoutChart, MIN_SLOT, noteGlyphs, OFF_GLYPH, textWidth, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, textWidth, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { compactMoney, moneyFormat, MINUS, niceAxis, percentFormat } from '@/features/analysis/lib/charts/scale'
 import { currencySymbol } from '@/lib/format'
@@ -58,6 +58,7 @@ describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source })
       // M8: the height depends on the view and mode only, so a card never shifts as its width settles.
       expect(new Set(layouts.map((layout) => layout.height)).size).toBe(1)
       if (view === 'card') expect(layouts[0].height).toBe(320)
+      layouts.forEach((layout, i) => expect(layout.width, 'M6: below the minimum the SVG keeps its width and scrolls in its card').toBe(Math.max(WIDTHS[view][i], minChartWidth(model))))
       for (const layout of layouts) {
         expect(layout.slot, 'A7: a slot never falls below its minimum').toBeGreaterThanOrEqual(MIN_SLOT - 1e-9)
         const texts = svgStrings(model, layout)
@@ -76,6 +77,10 @@ describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source })
           const labels = ticks.map(format.tick)
           expect(new Set(labels.filter((label) => /[1-9]/.test(label)).map((label) => label.replace(/[^KMBT%]/g, ''))).size, 'M3: one unit per axis').toBeLessThanOrEqual(1)
           expect(labels[ticks.indexOf(0)], 'M3: zero prints bare').toMatch(/^(\$0|0%)$/)
+          if (format.kind === 'money') {
+            // M3: a money axis takes the next unit before a tick needs four integer digits ("$1,000M" reads "$1B").
+            for (const label of labels) expect(label.replace(/[^\d.]/g, '').split('.')[0].length, `M3: ${label}`).toBeLessThanOrEqual(3)
+          }
           expect(Math.max(...labels.map(textWidth)) + 8, 'M5: the gutter holds the widest tick').toBeLessThanOrEqual(layout.gutter + 1e-9)
           const percent = format.kind !== 'money'
           for (const mark of box.panel.marks) for (const point of mark.points) {
@@ -114,10 +119,26 @@ describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source })
             expect(Boolean(bar.label), 'A4: every bar of a labelled panel prints its value, or none does').toBe(printed)
             if (bar.label) expect(bar.label.text).toBe(format.value(bar.value, box.labels.decimals!))
           }
+          // A4, checked apart from its planner: printed bar labels stay inside the SVG and clear of each other,
+          // each an 11 px line box (9 px above its baseline, 2 below) with 1 px between any two.
+          const boxes = box.bars.flatMap((bar) => bar.label ? [{ ...bar.label, x: bar.x + bar.width / 2, w: textWidth(bar.label.text) }] : [])
+          for (const a of boxes) {
+            expect(a.x - a.w / 2, `L1: the ${a.text} label starts inside the SVG`).toBeGreaterThanOrEqual(0)
+            expect(a.x + a.w / 2, `L1: the ${a.text} label ends inside it`).toBeLessThanOrEqual(layout.width)
+          }
+          boxes.forEach((a, i) => boxes.slice(i + 1).forEach((b) => {
+            const apart = a.x + a.w / 2 + 1 <= b.x - b.w / 2 || b.x + b.w / 2 + 1 <= a.x - a.w / 2 || a.y + 2 + 1 <= b.y - 9 || b.y + 2 + 1 <= a.y - 9
+            expect(apart, `A4: the ${a.text} and ${b.text} labels overlap`).toBe(true)
+          }))
           // M18: a bar slot without a value prints "—", or "n/m" when the growth is not meaningful.
           const barMarks = box.panel.marks.filter((mark) => mark.kind !== 'line')
           expect(box.bars.length + box.gaps.length, 'every bar slot is a bar or a printed gap').toBe(barMarks.reduce((sum, mark) => sum + mark.points.length, 0))
           for (const gap of box.gaps) expect(gap.text).toBe(barMarks.some((mark) => mark.points.some((point) => point.period === gap.period && point.nm)) ? 'n/m' : '—')
+          // M13: every non-zero signed stub prints its value or records the drop (its value is then in the strip).
+          for (const bar of box.bars) {
+            if (!bar.stub || bar.value === 0 || !box.panel.marks.some((mark) => mark.seriesKey === bar.seriesKey && mark.kind === 'signedBar')) continue
+            expect(box.nearZero.some((label) => label.period === bar.period) !== box.nearZeroDropped.includes(bar.period), `M13: ${bar.period}`).toBe(true)
+          }
           // A13b: a non-zero signed bar too short to show its sign prints its value, with the sign.
           for (const label of box.nearZero) {
             const point = box.panel.marks[0].points.find((p) => p.period === label.period)!
@@ -190,7 +211,7 @@ describe('the cases the step-1 data required', () => {
     expect(ticks(m, 1)).toEqual([`${MINUS}50%`, '0%', '+50%', '+100%'])
     expect(labelsOf(m, 0)).toEqual(['$4.9B', '$5.9B', '$5.1B', '$6.6B', '$8.5B', '$16.1B', '$12.2B', '$13.1B', '$14.2B', '$14.3B'])
     expect(labelsOf(m, 1)).toEqual(['—', '+20.8%', `${MINUS}12.4%`, '+27.4%', '+29.6%', '+89.1%', `${MINUS}24.3%`, '+7.8%', '+8.3%', '+1.0%'])
-    expect(m.footnotes).toContainEqual({ mark: '—', text: 'YoY growth needs the same period a year earlier; the first year of this window has none.' })
+    expect(m.footnotes).toContainEqual({ mark: '—', text: 'YoY growth needs the same period a year earlier; none for FY2016.' })
     expect(m.footnotes).toContainEqual({ mark: '', text: 'YoY growth is calculated by EarningsNerd from reported figures.' })
   })
 
@@ -221,8 +242,8 @@ describe('the cases the step-1 data required', () => {
     expect(labelsOf(m, 0).slice(0, 4)).toEqual(['—', '$0', '$0', '$55.0M'])
     expect(labelsOf(m, 1)).toEqual(['—', '—', 'n/m', 'n/m', '+2,915%', '+167.4%', '+12.1%', '+8.4%'])
     expect(m.panels[1].marks[0].points.find((point) => point.period === 'FY2022')!.offscale).toBe('above')
-    expect(m.footnotes).toContainEqual({ mark: 'n/m', text: 'Not meaningful: the prior-year base is zero (FY2020–FY2021).' })
-    expect(m.footnotes.some((note) => note.mark === '—' && note.text.startsWith('YoY growth unavailable for FY2019'))).toBe(true)
+    expect(m.footnotes).toContainEqual({ mark: 'n/m', text: 'Not meaningful: the prior-year figure was zero or of the opposite sign (FY2020–FY2021).' })
+    expect(m.footnotes).toContainEqual({ mark: '—', text: 'YoY growth needs the same period a year earlier; none for FY2018–FY2019.' })
   })
 
   it('LCID margins: −18,093% does not flatten the axis; the clipped values are flagged for the edge band', () => {
@@ -236,9 +257,13 @@ describe('the cases the step-1 data required', () => {
   it('a bank, an insurer and a REIT: the top line falls back, and a chart that does not apply says why', () => {
     expect(model('JPM_annual', 'topline').title).toBe('Net interest income & growth')
     expect(model('JPM_annual', 'margins').unavailable).toBe('Margins need revenue. JPMorgan Chase & Co reports net interest income instead; see Net interest income & growth.')
+    // Missing debt never reads as no debt: its item stays, first as in canonical order, with a footnote. An absent free
+    // cash flow is not listed.
     const balance = model('JPM_annual', 'balance')
-    expect(balance.legend.find((item) => item.absent)).toMatchObject({ label: 'Long-term debt', value: 'not in dataset' })
-    expect(balance.footnotes).toContainEqual({ mark: '', text: 'Not in this dataset: Long-term debt (never drawn as zero).' })
+    expect(balance.legend.map((item) => [item.label, item.absent])).toEqual([['Long-term debt', true], ['Cash', false], ['Equity', false]])
+    expect(balance.legend[0].value).toBe('not in dataset')
+    expect(balance.footnotes).toContainEqual({ mark: '', text: 'Long-term debt isn’t in this dataset for this window (not shown as zero).' })
+    expect(model('JPM_annual', 'cash').legend.map((item) => item.label)).toEqual(['Operating CF', 'Net income'])
     const pgr = model('PGR_quarterly', 'topline')
     expect(pgr.title).toBe('Premiums earned & growth')
     expect(Object.entries(pgr.notesBand!).filter(([, glyphs]) => glyphs.some((glyph) => glyph.text === '†')).map(([period]) => period)).toEqual(['2024Q4', '2025Q4'])
@@ -253,7 +278,31 @@ describe('the cases the step-1 data required', () => {
     })
     expect(m.footnotes[0].mark).toBe('a')
     expect(m.footnotes[0].text).toMatch(/^Operating margin and Net margin FY2023–FY2025: /)
-    expect(m.legend.find((item) => item.absent)!.label).toBe('Gross')
+    expect(m.legend.map((item) => item.label), 'an absent gross margin is not listed').toEqual(['Operating', 'Net'])
+  })
+
+  it('a gap in the window: the year after it is unavailable, not structural, and a zero base is found by its key', () => {
+    // The backend's annual axis keeps only the fiscal years that have rows, so a window can skip one.
+    const gap = model('REGN_annual', 'topline', (ds) => {
+      ds.periods = ds.periods.filter((period) => period.key !== 'FY2019')
+      for (const series of ds.series) series.points = series.points.filter((point) => point.period !== 'FY2019')
+      ds.series.find((s) => s.concept === 'revenue')!.points.find((point) => point.period === 'FY2020')!.yoy = null
+    })
+    expect(gap.footnotes).toContainEqual({ mark: '—', text: 'YoY growth needs the same period a year earlier; none for FY2016, FY2020.' })
+    const zeroBase = model('REGN_annual', 'topline', (ds) => {
+      const revenue = ds.series.find((s) => s.concept === 'revenue')!
+      ds.periods = ds.periods.filter((period) => period.key !== 'FY2019')
+      revenue.points = revenue.points.filter((point) => point.period !== 'FY2019')
+      Object.assign(revenue.points.find((point) => point.period === 'FY2018')!, { value: 0 })
+      revenue.points.find((point) => point.period === 'FY2020')!.yoy = null
+    })
+    // FY2020's year-earlier period, FY2019, is the gap, so FY2018's zero is not its base.
+    expect(zeroBase.panels[1].marks[0].points.find((point) => point.period === 'FY2020')!.nm).toBeFalsy()
+  })
+
+  it('a company with revenue but no margin series says the margins are missing, not the revenue', () => {
+    const m = model('REGN_annual', 'margins', (ds) => { ds.series = ds.series.filter((s) => !s.concept.endsWith('_margin')) })
+    expect(m.unavailable).toBe('Margin figures aren’t in this company’s filed data.')
   })
 
   it('a one-period window: an empty growth panel shows its zero rule alone', () => {
@@ -308,6 +357,16 @@ describe('A1 and A2: ticks and printed values', () => {
     expect([format.tick(0), format.value(-997_000, 1), format.value(27.1e6, 2), format.value(-1.2e9, 1)]).toEqual(['$0', `${MINUS}$997K`, '$27.1M', `${MINUS}$1.2B`])
     expect([percentFormat(25, true).tick(0), percentFormat(10, false).tick(0), percentFormat(25, true).value(-13.4)]).toEqual(['0%', '0%', `${MINUS}13.4%`])
     expect([compactMoney(-3.588e6, 'USD'), compactMoney(85.1e6, 'USD'), compactMoney(-997e3, 'USD')]).toEqual([`${MINUS}$3.6M`, '$85M', `${MINUS}$997K`])
+  })
+
+  it('F$: an own-unit value that rounds to 1,000 steps up a unit, keeping its significant figures', () => {
+    const format = moneyFormat([16e9], 5e9, [0, 5e9, 10e9, 15e9, 20e9], 'USD')
+    expect([format.value(999_950, 1), format.value(9_996_000, 0), format.value(0.5, 0)]).toEqual(['$1.00M', '$10.0M', '$0.50'])
+    expect([compactMoney(999_600, 'USD'), compactMoney(-999_960_000, 'USD'), compactMoney(9.96e6, 'USD')]).toEqual(['$1.0M', `${MINUS}$1.0B`, '$10M'])
+  })
+
+  it('A1 under 0.001: the grid reaches as far down as the data, so zero is never doubled', () => {
+    expect(niceAxis([0.0004, 0.0008], 8)).toMatchObject({ ticks: [0, 0.0001, 0.0002, 0.0003, 0.0004, 0.0005, 0.0006, 0.0007, 0.0008], step: 0.0001 })
   })
 })
 

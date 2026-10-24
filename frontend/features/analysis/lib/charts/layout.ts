@@ -101,6 +101,8 @@ export interface PanelBox {
   gaps: SlotText[]
   /** A signed bar drawn as the 2 px stub prints its value: the stub alone can't show the sign. */
   nearZero: NearZeroLabel[]
+  /** The periods whose near-zero label did not fit (A13b); their values stay in the strip. */
+  nearZeroDropped: string[]
 }
 
 export interface ChartLayout {
@@ -159,7 +161,7 @@ function planOffScale(panel: ModelPanel, side: 'above' | 'below', x: (period: st
   return { depth: rows.length, items }
 }
 
-type PanelFrame = Omit<PanelBox, 'labels' | 'bars' | 'gaps' | 'nearZero'>
+type PanelFrame = Omit<PanelBox, 'labels' | 'bars' | 'gaps' | 'nearZero' | 'nearZeroDropped'>
 type Bar = Omit<PlacedBar, 'label'>
 
 const zeroOf = (box: PanelFrame) => box.y(Math.max(box.panel.axis.domain[0], Math.min(0, box.panel.axis.domain[1])))
@@ -213,21 +215,22 @@ function planLabels(mark: ModelMark, box: PanelFrame, bars: Bar[], width: number
 /** A13b: a non-zero signed bar whose true length is under 2 px is drawn as the 2 px stub on its sign's
  *  side, and prints its value to 2 significant figures in its own unit, on the side of the zero rule that
  *  has room. A label that would not fit its slot or would touch the previous one is left to the strip. */
-function planNearZero(box: PanelFrame, bars: Bar[], slot: number): NearZeroLabel[] {
+function planNearZero(box: PanelFrame, bars: Bar[], slot: number): Pick<PanelBox, 'nearZero' | 'nearZeroDropped'> {
   const zero = zeroOf(box)
   const above = zero - box.top >= 14
   const signed = new Set(box.panel.marks.filter((mark) => mark.kind === 'signedBar').map((mark) => mark.seriesKey))
-  const labels: NearZeroLabel[] = []
+  const nearZero: NearZeroLabel[] = []
+  const nearZeroDropped: string[] = []
   for (const bar of bars) {
     if (!signed.has(bar.seriesKey) || !bar.stub || bar.value === 0) continue
     const text = compactMoney(bar.value, box.panel.currency)
     const w = textWidth(text)
     const centre = bar.x + bar.width / 2
-    const last = labels.at(-1)
-    if (w > slot - 2 || (last && last.x + textWidth(last.text) / 2 + 2 > centre - w / 2)) continue
-    labels.push({ period: bar.period, x: centre, y: above ? zero - 5 : zero + 13, text })
+    const last = nearZero.at(-1)
+    if (w > slot - 2 || (last && last.x + textWidth(last.text) / 2 + 2 > centre - w / 2)) nearZeroDropped.push(bar.period)
+    else nearZero.push({ period: bar.period, x: centre, y: above ? zero - 5 : zero + 13, text })
   }
-  return labels
+  return { nearZero, nearZeroDropped }
 }
 
 export function layoutChart(model: ChartModel, containerWidth: number, view: ChartView): ChartLayout {
@@ -291,7 +294,7 @@ export function layoutChart(model: ChartModel, containerWidth: number, view: Cha
     const gaps = panel.marks.flatMap((mark) => mark.kind === 'line' ? [] : mark.points
       .filter((point) => point.value == null)
       .map((point): SlotText => ({ period: point.period, text: point.nm ? 'n/m' : '—', x: x(point.period), y: zero - 3 })))
-    return { ...frame, labels, bars, gaps, nearZero: planNearZero(frame, placed, slot) }
+    return { ...frame, labels, bars, gaps, ...planNearZero(frame, placed, slot) }
   })
   const xTickY = cursor + 13
   cursor += xAxisHeight

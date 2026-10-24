@@ -134,7 +134,7 @@
       "notes": [],
       "footnotes": [
         ["", "YoY growth is calculated by EarningsNerd from reported figures."],
-        ["—", "YoY growth needs the same period a year earlier; the first year of this window has none."]
+        ["—", "YoY growth needs the same period a year earlier; none for FY2016."]
       ],
       "strip": []
     },
@@ -272,7 +272,7 @@
       "notes": [],
       "footnotes": [
         ["", "YoY growth is calculated by EarningsNerd from reported figures."],
-        ["—", "YoY growth needs the same period a year earlier; the first year of this window has none."]
+        ["—", "YoY growth needs the same period a year earlier; none for FY2016."]
       ],
       "strip": []
     }
@@ -438,13 +438,10 @@
       ],
       "legend": [
         ["Operating CF", "−$148B", 0, "line", "circle", false],
-        ["Net income", "$57B", 1, "line", "square", false],
-        ["Free cash flow", "not in dataset", 0, "line", null, true]
+        ["Net income", "$57B", 1, "line", "square", false]
       ],
       "notes": [],
-      "footnotes": [
-        ["", "Not in this dataset: Free cash flow (never drawn as zero)."]
-      ],
+      "footnotes": [],
       "strip": []
     },
     "expanded": {
@@ -539,13 +536,10 @@
       ],
       "legend": [
         ["Operating CF", "−$148B", 0, "line", "circle", false],
-        ["Net income", "$57B", 1, "line", "square", false],
-        ["Free cash flow", "not in dataset", 0, "line", null, true]
+        ["Net income", "$57B", 1, "line", "square", false]
       ],
       "notes": [],
-      "footnotes": [
-        ["", "Not in this dataset: Free cash flow (never drawn as zero)."]
-      ],
+      "footnotes": [],
       "strip": [
         [
           "Operating CF",
@@ -704,13 +698,13 @@
         }
       ],
       "legend": [
+        ["Long-term debt", "not in dataset", 0, "line", null, true],
         ["Cash", "$343B", 0, "line", "circle", false],
-        ["Equity", "$362B", 1, "bar", null, false],
-        ["Long-term debt", "not in dataset", 0, "line", null, true]
+        ["Equity", "$362B", 1, "bar", null, false]
       ],
       "notes": [],
       "footnotes": [
-        ["", "Not in this dataset: Long-term debt (never drawn as zero)."]
+        ["", "Long-term debt isn’t in this dataset for this window (not shown as zero)."]
       ],
       "strip": []
     },
@@ -833,13 +827,13 @@
         }
       ],
       "legend": [
+        ["Long-term debt", "not in dataset", 0, "line", null, true],
         ["Cash", "$343B", 0, "line", "circle", false],
-        ["Equity", "$362B", 1, "bar", null, false],
-        ["Long-term debt", "not in dataset", 0, "line", null, true]
+        ["Equity", "$362B", 1, "bar", null, false]
       ],
       "notes": [],
       "footnotes": [
-        ["", "Not in this dataset: Long-term debt (never drawn as zero)."]
+        ["", "Long-term debt isn’t in this dataset for this window (not shown as zero)."]
       ],
       "strip": [
         [
