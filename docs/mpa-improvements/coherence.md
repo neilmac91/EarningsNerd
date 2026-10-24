@@ -7,6 +7,12 @@ Evidence lives beside this file: [`verification/`](verification/), [`screens/`](
 [`exports/`](exports/), [`competitors/`](competitors/), [`prototype/`](prototype/) and the
 [methods appendix](methods.md).
 
+**Revised the same day.** The first version recommended ringed review letters, "needs a source
+check" on the KPI cards and a key beside every mark. The founder found that dramatic and
+distrust-inducing. A blind test of four designs agreed, so the recommendation is now the quiet scheme in §2.
+The ring design stays on record in [`prototype/notation-prototype.diff`](prototype/notation-prototype.diff)
+and [`screens/variants/ring-light-full.png`](screens/variants/ring-light-full.png).
+
 ## 0. The answer first
 
 1. **Fix the data before the design.** In production, "needs review" is on 16.9% of the newest
@@ -25,21 +31,39 @@ Evidence lives beside this file: [`verification/`](verification/), [`screens/`](
    −12.4%, where the original filings give +14.3%, and an operating margin of 49.3% that is about
    37.8% on the original revenue. Both pass every automated check (§1.6). The trust signal is
    inverted: "a" sits on 11 correct figures while a materially restated one reads clean.
-3. **The marks need one system, not a resize.** Today the dagger takes the size of whatever figure
-   it follows, 24px on a KPI card. A letter's meaning changes from company to company: "a" is
-   "needs review" on REGN, but "unavailable" on a company with no review notes. And "needs review"
-   uses the same footnote form as "not in our data". §2 defines one flag component:
-   - every flag is set at the 11px data-xs size;
-   - a review letter is ringed, so it never depends on colour alone;
-   - a gap letter is plain;
-   - the dagger is fixed and quiet;
-   - one key travels with every surface that shows a mark.
-4. **Data notes should answer "how far can I trust this, and where are the weak figures?" in one
-   line** (§3). Readers were tested on the current page and on three prototype rounds, each read
-   by a fresh model instance with no context. The current page earned trust in the $4.1B free cash
-   flow of 2/5, and the reader had to guess what "a" meant. Rounds 2 and 3 earned 3/5, "plausible
-   but unconfirmed", with the meaning stated from the page. That is the calibration the data
-   supports until the backfill lands.
+3. **Mark only what questions the number; keep everything else one click away (§2).** Competitors
+   mark nothing (§4.3). EarningsNerd's difference is that every figure opens its source, method and
+   inputs. That holds without a mark on every figure. In a blind test, four designs shown on one
+   REGN data state were each read by two fresh evaluators (§2.8). It included a planted restatement
+   note on FY2018–FY2019 revenue:
+
+   | Design | Trust in FCF $4.1B (correct) | Page told them FY2018 revenue was in question | Clean | Feels trustworthy |
+   |---|---|---|---|---|
+   | Current (dagger + warning-ink letters) | 3, 4 | both | 3, 3 | 3, 3 |
+   | Ring (the first proposal) | 3, 3 | both | 3, 3 | 3, 4 |
+   | **Quiet** (recommended) | **4, 4** | **both** | **4, 4** | **4, 4** |
+   | No marks at all | 4, 4 | **neither** | 4, 4 | 4, 4 |
+
+   Removing the marks from correct figures raised trust and calm. Removing every mark hid the one
+   real problem: the no-marks readers caught it only by cross-checking rows and from memory. Both
+   asked for a mark on that figure. The quiet scheme:
+   - no dagger on any figure; one sentence above the table names the calculated metrics;
+   - a small neutral letter, with no ring and no warning ink, only where a note questions the number;
+   - the legacy-calculation notes and gaps go unmarked, but remain in the fine print and the
+     evidence dialog;
+   - the Data notes strip becomes one line of fine print under the table;
+   - the exports follow the same rule.
+
+   After the backfill, most companies would show no mark at all. A mark that does appear keeps its
+   meaning.
+4. **Data notes: one neutral line under the table, in plain words (§3).** The comprehension
+   rounds settled the words, and they carry over: "Not in our data … shown as —, never as zero";
+   "Calculated before 10 October 2026, when we began keeping each calculation's inputs".
+   - **The comprehension test.** The reader of the current page put the $4.1B free cash flow at
+     2/5 and had to guess what "a" meant.
+   - **The blind test.** Readers of the current page put it at 3 and 4. Under the quiet scheme it
+     carries no letter, and both readers put it at 4. Each reconciled it from the evidence on the
+     page: operating cash flow minus capex.
 5. **The page and the exports drift apart.**
    - Independent re-scores of the page: severity sum 50 → 48 → 43 across the current page and two
      prototype rounds; severity-3 problems 7 → 4 → 4 (§4).
@@ -50,11 +74,19 @@ Evidence lives beside this file: [`verification/`](verification/), [`screens/`](
    - Neither chart PNG states its period range.
 6. **Order (§6):**
    1. The lineage backfill. It shares no code file with any UI plan.
-   2. The flag component and its tokens, after #1597.
+   2. The quiet notation, after #1597.
    3. The data-notes words.
    4. The exports, split so each piece follows the sibling that owns its file and #1601.
    5. Surfaces and the results header, last.
    6. The restatement note, alongside the data-notes words (its own backend change).
+7. **One decision for the founder before step 2 (§2.9).** The 2026-10 redesign records the
+   founder's rule "never hide a note". A P0 review enforced it for exactly the case the quiet
+   scheme stops marking: a figure whose only note is `legacy_calculation`. The proposed wording is
+   "every note stays in the evidence dialog and the data notes; only a note that questions the
+   number keeps a mark beside the figure". The change stays presentation-only:
+   - note kinds and totals are unchanged;
+   - a legacy figure is never shown as validated;
+   - the fine print never says "No figures need review" while a legacy note exists.
 
 ## 1. What the notation means, and how often it fires
 
@@ -192,10 +224,18 @@ API ([verification](verification/heuristic-rescore-transcripts.md#set-z--prototy
 
 **The change (WP5).** The dataset already reads every row of the company. When a fiscal year's
 `is_latest` value differs by more than a set tolerance from the value its own annual filing
-reported, which is still stored as a non-latest row of that accession, add a note kind "restated
-in a later filing". That note is a fact, not a fault: it shows in neutral ink, names both values
-and filings, and the evidence modal shows both. Before choosing the tolerance, count how often it
-fires across the 27 companies with the census method.
+reported, which is still stored as a non-latest row of that accession, add a note: "restated
+in a later filing". It does question the number, so under the quiet scheme it is one of the few
+notes that marks a figure (§2.1), in neutral ink. The blind test's quiet-design readers found the
+note, but read it as housekeeping (§2.8). So the change also covers:
+- **The dialog** names both values and both filings, with their dates.
+- **Growth across the restatement** (FY2017→FY2018 here) reads as not comparable (n/m) rather
+  than −12.4%, because its two years come from different scopes.
+- **Calculated figures** whose input carries the note (FY2018–FY2019 margins) inherit its letter,
+  as growth already does.
+
+Before choosing the tolerance, count how often the note fires across the 27 companies with the
+census method.
 
 **Owner.** Data (`trend_analysis/dataset.py`, `dataset_quality.py`, `data_notes.py`), routine
 tier. Its letter, word and colour belong to this notation system (§2.2).
@@ -217,143 +257,268 @@ lands, and again after the backfill's apply, to confirm the drop.
 
 ## 2. The notation as one system
 
+This section was revised after the founder's review. §2.8 has the test that replaced the first
+version: ringed review letters, "needs a source check" on the KPI cards and a key beside every
+mark. That version is kept in [`prototype/notation-prototype.diff`](prototype/notation-prototype.diff).
+
 ### 2.1 Principles
 
-- **Quiet for the routine, loud for a concern.** Calculation is routine: production calculates
-  105 of 484 latest-year figures, and REGN 50 of 200. A concern should be rare once §1.5 lands:
-  production's latest year would drop from 82 review cells to at most 5 plus whatever the dry run
-  finds. So the dagger recedes, and a concern always carries a word as well as a mark.
-- **Shape before colour.** A review letter is ringed; a gap letter is plain. Warning ink adds
-  emphasis but is never the only signal (WCAG 1.4.1).
-- **One size.** Every flag is set at the data-xs step (11px), raised, and never scaled by the figure
-  it follows. A 24px dagger beside "$4.1B" reads as part of the number.
-- **One key beside every mark.** No surface shows a mark whose meaning is only in a collapsed
-  disclosure.
-- **One vocabulary.** The flag words join
-  [`evidenceLabels.ts`](../../frontend/features/filings/lib/evidenceLabels.ts), the single home
-  the evidence-label lesson and `evidenceVocabulary.spec.ts` enforce. They are:
-  - "calculated";
-  - "needs a source check";
-  - "not in our data";
-  - "no check recorded";
-  - "restated in a later filing" (WP5).
+- **Evidence on demand.** Every figure opens its source filing, method, inputs and checks in the
+  shared evidence dialog. That is where provenance lives. None of the three competitors offers it,
+  and none marks a figure's origin (§4.3). The evidence is the difference; a mark on every figure
+  is not.
+- **A mark means the number itself is in question.** A figure carries a mark only when a note
+  doubts that the value is what the filings support:
+  - a later filing restated it (WP5's note, §1.6), or the filings disagree (`source_conflict`);
+  - a reported value could not be matched to the filed data (`source_check_needed`,
+    `value_mismatch`, `unit_mismatch`, `period_mismatch`);
+  - a calculation disagrees with its inputs or cannot find them (`calculation_mismatch`,
+    `missing_calculation_inputs`; the backfill's honest outcomes, §1.5).
 
-### 2.2 The flag component
+  A note about the record rather than the value gets no mark. Today that is `legacy_calculation`
+  alone: 77 of production's 82 latest-year review flags, and all 11 REGN cells reproduce exactly
+  from their inputs. A gap shows "—" and needs no letter. A missing validation record makes no
+  claim either way. The list of record-only reasons is closed. Any other reason marks the figure, so
+  a new reason fails loud, not silent.
+- **Calculation is routine, so it goes unmarked.** One sentence above the table names the
+  calculated metrics. Each figure's evidence dialog states the method and inputs. Its accessible
+  name keeps "calculated", so a screen reader still hears what the dagger used to say.
+- **Small and neutral.** The letter is raised and set at the 11px data-xs size in secondary text
+  ink. It never scales with the figure, and it has no ring and no warning ink. A mark that appears
+  rarely does not need to shout, and both quiet-design readers found it (§2.8).
+- **Filtered, never reclassified.** The scheme decides only which notes put a mark beside a
+  figure.
+  - Note kinds, reasons and totals stay as the backend computes them.
+  - The fine print and the dialog still name every note, legacy included.
+  - The page never says "No figures need review" while a legacy note exists.
+  - The page never calls a legacy figure validated.
+- **One rule on every surface.** The page, PDF, workbook and chart PNG mark the same notes. One
+  reason list decides, held by `data_notes.py` and `lib/dataNotes.ts`, and the shared notes fixture
+  (`backend/tests/fixtures/analysis_data_notes.json`) pins the two copies equal.
 
-`FigureFlag`, an evolution of `DataNoteMark`, renders at most two flags after a figure: the
-calculation flag, then the note flag. The prototype is in
-[`prototype/notation-prototype.diff`](prototype/notation-prototype.diff).
+### 2.2 What each note shows, and where
 
-| State | Glyph | Size / weight | Light ink | Dark ink | Shape | Placement | Hover text and accessible name |
-|---|---|---|---|---|---|---|---|
-| Calculated | † | data-xs (0.6875rem), 500, Inter | `text-tertiary-light` #636A77 (5.2:1 on panel) | `text-secondary-dark` #9CA3AF (5.8:1) | none | raised, 0.125rem after the figure (compact: 0.5px in table cells) | "† calculated by EarningsNerd from filed figures" |
-| Needs a source check | the report's letter | data-xs, 500 | `warning-light` #92400E (6.8:1) | `warning-dark` #F59E0B (6.8:1) | 1px ring in the same ink, full radius, 1.35em box | after the dagger if any, raised | "Note a: needs a source check" |
-| Not in our data / no check recorded | the report's letter | data-xs, 500 | `text-tertiary-light` | `text-secondary-dark` | none | raised; on a missing value it follows "—" | "Note b: not in our data" / "Note c: no check recorded" |
-| Restated in a later filing (WP5) | the report's letter | data-xs, 500 | `text-secondary-light` | `text-secondary-dark` | none | raised | "Note d: restated in a later filing" |
+| Note | On the figure | In the fine print under the table | In the evidence dialog |
+|---|---|---|---|
+| Questions the number (restated, filings disagree, unmatched, calculation mismatch) | A neutral raised letter. The growth figures built on it carry the same letter, as now. Figures calculated from it should too (WP5: FY2018 margins built on restated revenue) | The letter, its places and one sentence, in the summary line | The note in full. For a restatement: both values, both filings and their dates |
+| Calculated, inputs linked | nothing | Named in the sentence above the table | Method, formula, linked inputs |
+| Calculated before lineage existed (`legacy_calculation`) | nothing | One sentence and its places, in the open detail | "Calculated before 10 October 2026 …; shown as stored, inputs not linked" |
+| Not in our data | "—" | A count in the summary; one sentence in the detail | "Not in our data" |
+| No validation record | nothing | A count in the summary; one sentence in the detail | "No check recorded" |
 
-Kind decides the shape, so a reader can tell a check from a gap without the key. Letters stay
-report-local, as footnotes do in a filing. The key travels with them.
+**Letters.** Letters stay report-local, as a filing's footnotes do. Only marked notes need a letter
+the reader can see, so WP2 letters the marked notes first, and a page's first visible letter is "a".
+Saved snapshots keep their stored letters. An old snapshot can show "b" alone, and the fine print
+maps it. A figure's accessible name follows what is visible: it names a marked note and says
+"calculated" where the figure is calculated. A record-only note is read in the dialog, where
+sighted readers find it too.
+
+**The prototype.** [`prototype/notation-quiet.diff`](prototype/notation-quiet.diff), captured in
+[`screens/variants/`](screens/variants/): `quiet-light-full`, `quiet-dark-full`, both phone widths,
+the KPI cards, and the fine print closed and open.
+- It filters marks in `DataNotesContext`, `DataNotesLink` and `NarrativePane`.
+- It prints the fine print from `QuietDataNotes.tsx`.
+- Its record-only list is `legacy_calculation` alone. Unavailable and unknown notes are unmarked
+  by kind.
+- Its summary sentence covers only the restatement case.
+
+It is a design instrument, not the code to merge.
 
 ### 2.3 Tokens, in DESIGN.md's frontmatter format
 
 ```yaml
-typography:
-  flag:
-    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
-    fontSize: "0.6875rem"
-    fontWeight: 500
-    lineHeight: "1"
 components:
-  figure-flag-calculated:
-    textColor: "{colors.text-tertiary-light}"
-    typography: "{typography.flag}"
-  figure-flag-calculated-dark:
-    textColor: "{colors.text-secondary-dark}"
-  figure-flag-review:
-    textColor: "{colors.warning-light}"
-    typography: "{typography.flag}"
-    rounded: "{rounded.full}"
-    height: "1.35em"
-    padding: "0 0.2em"
-  figure-flag-review-dark:
-    textColor: "{colors.warning-dark}"
-  figure-flag-gap:
-    textColor: "{colors.text-tertiary-light}"
-    typography: "{typography.flag}"
-  figure-flag-gap-dark:
-    textColor: "{colors.text-secondary-dark}"
-  notation-key:
+  figure-note-mark:
     textColor: "{colors.text-secondary-light}"
-    typography: "{typography.flag}"
+    typography: "{typography.data-xs}"
+  figure-note-mark-dark:
+    textColor: "{colors.text-secondary-dark}"
+  data-notes-fine-print:
+    textColor: "{colors.text-secondary-light}"
+  data-notes-fine-print-dark:
+    textColor: "{colors.text-secondary-dark}"
 ```
 
-The ring is a 1px border in `currentColor`. The frontmatter has no border key, so it is described
-in prose, as the existing components do. Inter carries the dagger; the PDF currently falls back to
-DejaVu for it (§5). The change refreshes `DESIGN.md`, `.impeccable/design.json` and
-`DESIGN_SYSTEM.md` together and runs `designSnapshotParity.spec.ts`. A mutation-proven gate keeps
-the rule in place (CLAUDE.md rule 12): a figure affix in `features/analysis` that sets the dagger
-or a note letter outside `FigureFlag` fails `dataXsAllowlist.spec.ts`'s extension.
+The change mostly removes rules. The dagger's sizing goes, the warning-ink letters go, and the
+strip's place under the KPI cards goes.
+- **Legibility.** `text-secondary-light` (#374151) and `text-secondary-dark` (#9CA3AF, 5.8:1 on
+  the dark panel) both clear 4.5:1. `text-floors.spec.ts` re-checks the fine print.
+- **Type.** The fine print is 12px running copy (`text-xs`), not `data-xs`, so the exact caps in
+  `dataXsAllowlist.spec.ts` don't move.
+- **Same-PR refresh.** `DESIGN.md`'s Calculation Provenance Rule, `.impeccable/design.json`
+  (`designSnapshotParity.spec.ts`) and `DESIGN_SYSTEM.md` are refreshed in the same PR (§2.9).
+- **The rule-12 gate.** A unit spec over the shared notes fixture: every questioning reason renders
+  a mark on the page, the PDF and the PNG, and every record-only reason renders none. A mutation
+  that flips either direction fails it.
 
 ### 2.4 The key
 
-`NotationKey` lists only the marks its surface shows, each with its word: "† calculated · ⓐ needs a
-source check · b not in our data". Each letter links to its note. It sits:
-- in the Data notes summary;
-- in the metrics table header, replacing the "Notes a, b" chip and the separate "† calculated";
-- under each chart's legend, replacing the "Notes a" chip and adding "○ hollow point: figure
-  carries a note";
-- in the narrative's sources heading;
-- on the PDF's table page;
-- in the workbook's Metrics header row;
-- in the chart PNG footer.
+There is almost nothing to key, so there is no key beside every mark:
+- **Above the table**, one sentence replaces the "† calculated" label: "Figures are rounded for
+  display; margins, free cash flow, working capital and the current ratio are calculated from
+  filed figures. Select any value for its source and full precision."
+- **Notes chips.** The table's chip lists only the visible marked letters and opens the fine print
+  at that note. Each chart's chip does the same. A hollow point appears only where a note is
+  marked.
+- **Fine print.** Its summary line names each marked letter with its places and words. Its open
+  detail lists every note.
+- **Exports.** The PDF puts the same line under its table, on the same page. The workbook puts it
+  on the Metrics header row.
 
 ### 2.5 Per-surface rules
 
 | Surface | Rule |
 |---|---|
-| KPI card | Flags after the figure at flag size. A review note also writes "needs a source check" in warning ink on the period line, because the headline is what most readers see. |
-| Metrics table | Compact flags (0.5px gap). One flag pair per value and per comparison. The ring must not raise the row: in the prototype the ring made flagged rows a few pixels taller, so the implementation sets the ring's box inside the row's existing line height. |
-| Charts | Hollow point plus the ringed letter (SVG ring = 1px circle stroke) for a review note, a plain letter for a gap. The letter takes the flag ink, not the chart label ink, and keeps its panel-colour halo. The key under the legend explains the hollow point. Amber review ink beside the amber `chart-2` series is separated by the ring, not by hue. |
-| Narrative and sources | Citation chip followed by the note flag (as now, ringed). In the source list, the dagger and the words "calculated from recorded inputs" or "calculated, inputs not linked" replace "Calculated figure". Raw precision belongs to the analysis plan (§7). |
-| Data notes | §3. |
-| PDF | The key under the table on the same page. The dagger and note letters in Inter. The summary words match the page's: "carry note a", not "need review". |
-| Excel | A visible flag in the grid without breaking numbers: the number format carries the mark, so `0.0%" †"` and `#,##0" †ⓐ"` keep each cell numeric. Review cells also take warning-ink font. The comment stays for the reason. The key goes on the Metrics header row as well as the Overview. |
-| Chart PNG | The period range in the subtitle ("REGN · Margins · FY2016–FY2025"). The key line, including the hollow point. Ringed review letters. |
+| KPI card | The figure and its period line. A letter appears only when the headline figure's own note questions it. No warning words on the card. For REGN today, all four cards are clean ([`quiet-light-kpis.png`](screens/variants/quiet-light-kpis.png)). |
+| Metrics table | The sentence above the table. A compact letter (0.5px gap) on marked values and the comparisons built on them. A gap is "—" with no letter. The Q4 column-header dagger and the period picker's "Q4 2023 †" mark periods, not figures. WP1 decides whether to keep them or turn them into words ("Q4 derived"). Either way, the picker must still show which Q4s are calculated (redesign doc :915–916). |
+| Charts | Hollow point and letter for marked notes only. A gap breaks the line, as now. The letter takes the mark's ink and keeps its panel-colour halo. |
+| Narrative and sources | A citation chip carries a letter only for a marked note. In the source list, "Calculated figure" and "Calculated from recorded inputs" become "calculated from filed figures" and "calculated before we kept its inputs". "Sources identify filed figures or calculated figures (marked †)" becomes "Sources identify filed and calculated figures". Raw precision belongs to the analysis plan (§7). |
+| Data notes | One line of fine print under the table (§3). |
+| PDF | No dagger after each value (`export_service.py:349`). The calculated sentence and the fine print sit under the table, on the same page. Letters for marked notes only, with the page's reason sentences. |
+| Excel | Every note stays as a cell comment, which is the workbook's evidence dialog. A marked note also shows its letter in the grid through the number format (`#,##0" a"`), so the cell stays numeric. No warning-ink fonts. The fine print goes on the Metrics header row. |
+| Chart PNG | The period range in the subtitle ("REGN · Margins · FY2016–FY2025"). The footer names marked letters only. |
 
 ### 2.6 Reconciling with the sibling reports
 
-No sibling report exists yet. `docs/mpa-improvements/` was absent on every branch on 2026-10-24
-at 20:05 UTC and again at 21:10 UTC, across all 42 remote branches. So nothing conflicts today.
-For when they land:
-- This report owns notation semantics: the states, words, glyphs, sizes, colours, key and
-  vocabulary.
-- The charts plan owns marker geometry and placement, but consumes `figure-flag-*` and
-  `NotationKey`.
-- The table plan owns cell layout and density, but uses the compact `FigureFlag` and keeps the key
-  in the header.
-- The analysis plan owns narrative wording and the source list, but marks figures through
-  `FigureFlag`.
+No sibling report exists yet. On 2026-10-24, `docs/mpa-improvements/` held none on any remote
+branch: 42 checked at 20:05 UTC and 21:10 UTC, 44 at 22:18 UTC. So nothing conflicts today. For
+when they land:
+- This report owns notation semantics: which notes mark a figure, the words, the glyph, size and
+  ink, and the vocabulary.
+- The charts plan owns marker geometry and placement, and uses `figure-note-mark` and the marking
+  rule (§2.1).
+- The table plan owns cell layout and density. It uses the compact mark and the sentence above the
+  table.
+- The analysis plan owns narrative wording and the source list. Its chips mark through the same
+  rule.
 
-A sibling proposal that adds a mark, recolours one or moves the key off its surface is resolved in
-favour of §2, unless it brings comprehension-test evidence as strong as §3.4's. Merge order (§6)
-puts the component first, so each sibling builds on it rather than beside it.
+A sibling proposal that marks routine figures, recolours a mark or brings back a strip of counts is
+resolved in favour of §2, unless it brings blind-test evidence as strong as §2.8's. Merge order
+(§6) puts the notation first, so each sibling builds on it rather than beside it.
 
 ### 2.7 What the prototype changes and breaks
 
-The prototype ([`prototype/notation-prototype.diff`](prototype/notation-prototype.diff)) applies
-cleanly to `a41c6e4`. It touches `DataNoteMark.tsx`, `DataNotes.tsx`, `KpiStrip.tsx` and
-`MetricsTable.tsx`. Against the analysis unit specs, 17 tests fail, all in files that pin today's
-markup and copy. Those specs are the implementation's to-do list, not regressions to argue away:
-- `analysis-source-quality.spec.tsx`: 9, the note letters, the "Notes" chip and the locator copy;
-- `narrative-pane.spec.tsx`: 4, the citation mark markup;
-- `metrics-table.spec.tsx`: 1, the dagger markup;
-- `analysisPeriodWindows.spec.tsx`: 1, the en-dash join, which the prototype's `placesSentence`
-  does itself;
-- and others.
+[`prototype/notation-quiet.diff`](prototype/notation-quiet.diff) applies to `a41c6e4`.
+- It edits `AnalysisPageClient.tsx`, `DataNoteMark.tsx`, `DataNotesContext.tsx`,
+  `DataNotesLink.tsx`, `MetricsTable.tsx` and `NarrativePane.tsx`.
+- It adds `QuietDataNotes.tsx` and `notationVariant.ts`.
+- The switch defaults to `current`, so all 233 tests in the 14 analysis unit spec files pass
+  unchanged.
 
-The `placesSentence` en-dash must move into the period formatter
-(`analysisPeriodWindows.spec.tsx` pins that). The prototype is a design instrument; it is not the
-code to merge.
+With `NEXT_PUBLIC_NOTATION_VARIANT=quiet`, 23 tests fail in six files. Each one pins something
+the scheme removes: a legacy-calculation letter, an unavailable letter, the "† calculated" label,
+or the rounding sentence that the calculated-metrics sentence replaces.
+- `trend-charts-annotation.spec.tsx`: 7. Chips ("Review data notes a"), hollow points and tooltip
+  notes, all built on legacy and gap letters.
+- `analysis-source-quality.spec.tsx`: 6. The chip's unavailable letter ("Review data notes z, a"),
+  the unavailable cell's accessible name, the locators, and "† calculated" in the Q4 case.
+- `narrative-pane.spec.tsx`: 6. Legacy-calculation chips and their accessible names ("… data note
+  a").
+- `metrics-table.spec.tsx`: 2. "† calculated", and the old rounding sentence.
+- `kpi-strip.spec.tsx`: 1. A value's accessible name that included a note the scheme leaves
+  unmarked.
+- `trend-charts-legend.spec.tsx`: 1. The chart chip "Review data notes a, b".
+
+They are the implementation's to-do list. The fix switches each case to a questioning reason where
+the mark is the point (`source_conflict`), and asserts no mark where the note is record-only. That
+keeps proof that questioning notes stay marked. The browser gate `analysis-layout.spec.ts` and its
+fixture move the same way (§2.9).
+
+### 2.8 Four designs, tested blind
+
+The method, the full table and the quotes are in
+[verification/notation-variant-test.md](verification/notation-variant-test.md). Every verdict, in
+full, is in [its JSON](verification/notation-variant-test.json).
+
+**Setup.**
+- **Data.** One local REGN data state. FY2018–FY2019 revenue was planted as a restatement note
+  (`source_conflict`), standing in for WP5. In production these cells read clean today.
+- **Designs.** Four, unlabelled (P–S): current, ring, quiet and no marks. Each was a full page at
+  1440px.
+- **Readers.** Two fresh model instances per design: a paying retail investor and a sceptical
+  fund analyst. Each saw only its page and declared any outside knowledge.
+- **Re-run.** The quiet and no-marks builds first leaked letters into the narrative's citation
+  chips. Both were re-run after the fix (R2, S2).
+
+| Design | Overall trust | FCF $4.1B (correct) | FY2018 revenue $5.1B (restated) | The page flagged the revenue | Clean | Trustworthy |
+|---|---|---|---|---|---|---|
+| Current | 3, 3 | 3, 4 | 2, 2 | both | 3, 3 | 3, 3 |
+| Ring | 3, 3 | 3, 3 | 2, 2 | both | 3, 3 | 3, 4 |
+| **Quiet** (fixed) | 3, 3 | **4, 4** | 2, 2 | **both** | **4, 4** | **4, 4** |
+| No marks (fixed) | 3, 3 | 4, 4 | 2, 2 | **neither** | 4, 4 | 4, 4 |
+
+1. **Taking the marks off correct figures costs nothing.** Trust in the correct $4.1B rose, and
+   cleanliness and trustworthiness rose from 3 to 4. Overall trust is 3 in every verdict, so the
+   marks never bought trust.
+2. **Removing every mark hides the one real problem.**
+   - Both no-marks readers wrote that nothing on the page flags FY2018 revenue. They doubted it
+     only by cross-checking rows (revenue −12.4% beside operating income +21.9%) and from memory.
+     A reader who doesn't cross-check takes the false −12.4% as real.
+   - Both quiet readers found it from the page.
+3. **Readers of every design asked for the same thing.** Mark only the doubtful figure, quietly,
+   and say what is wrong where it appears. The ring design's analyst: "Don't remove the flags, and
+   don't push them all into the fine print. The FY2018 revenue flag is the most useful thing on
+   the page, and if I later found an unflagged wrong number, I'd stop trusting the whole product."
+   The no-marks readers both asked for a mark on that cell.
+4. **What the quiet design still lacks goes to WP5.**
+   - The restatement note read "like a routine housekeeping footnote".
+   - Readers want the as-filed value, the restating filing and its date one tap away.
+   - Growth across the restatement should read as not comparable.
+   - Figures computed from the restated value should inherit its letter.
+
+**Decision.** Quiet. Removal scored the same on cleanliness, trust in the correct figure and
+trustworthiness, so a mark on the doubtful figure costs nothing. Without it, the page would be
+silent when the data is wrong. EarningsNerd's sourcing difference would then become a promise the
+page no longer keeps where it matters.
+
+### 2.9 What the quiet scheme must update, and the one founder decision
+
+A read-only agent searched the repository for everything the quiet scheme contradicts. Its full
+findings, with file, line and exact words, are in
+[verification/notation-variant-test.md](verification/notation-variant-test.md#the-rules-check-one-agent-read-only-over-the-whole-repository).
+
+**Needs the founder first.** The founder's "never hide a note" is recorded in
+`tasks/analysis-redesign-2026-10/astra-prompt.md:74` and `review-2026-10-10.md:36`. A P0 review
+enforced it for exactly the case the scheme stops marking: a `legacy_calculation` figure.
+- **The decision.** A one-line confirmation narrowing it to "every note stays in the evidence
+  dialog and the data notes; only a note that questions the number keeps a mark beside the figure".
+  It is recorded as a decision row in `docs/brand/decisions-log.md`, with both task files pointing
+  at it.
+- **What still holds.** The rule's other two clauses: never mark a legacy record validated, and
+  never say "verified".
+- **What is out of scope.** Reclassifying `legacy_calculation` in the backend changes what counts
+  as needs-review (redesign doc :896), a separate call. It would also break the strict note-kind
+  decoder (`dataNotesContract.ts:59`) for tabs already open.
+
+**Not blocked.**
+- No ADR or D-0xx decision requires the dagger, warning ink or the strip under the KPI cards. The
+  Calculation Provenance Rule came from #1191's design work.
+- No marketing, pricing, legal or brand page promises a visible per-figure mark.
+- The founder's 2026-10-10 analysis decisions stay compatible: letters as the note mark, the glyph
+  budget, "Unavailable" and "No figures need review".
+
+**Same PR as the notation (WP1).**
+
+| Kind | Where | Change |
+|---|---|---|
+| Rule and sidecar | `DESIGN.md:498`, `.impeccable/design.json:602` | Rewrite the Calculation Provenance Rule for §2.1 and keep "a calculation describes a figure's origin, not a failed check". `designSnapshotParity.spec.ts` checks both copies. |
+| Recipes | `frontend/DESIGN_SYSTEM.md:492` (note mark), `:564` (table chip, Q4 dagger), `:645` (Data notes strip), `:2083` (§10) | Rewrite each for §2.2–§2.5. Keep the native `<details>` so a chip can open a note. Keep the sample's "sample data (one saved run)" label (D-046). |
+| Lesson | `lessons/arch-reconciliation-follows-values-and-growth.md:20` | "Keep a mark at each affected figure" becomes "at each figure whose note questions the number; every note in the dialog, the data notes and the exports". The process lesson from this correction is already in this branch: `lessons/brand-test-a-trust-mark-blind-against-quieter-and-none.md`. |
+| Design record | `docs/design/analysis-data-notes-redesign-2026-10.md` §1, §4.2, §4.3, §4.10 | A dated supersession note. Its §9 decisions stay in force. |
+| In-product copy | `NarrativePane.tsx:121`, `DataNotes.tsx:103` | Both promise a † that no longer appears (§2.5). |
+| Landing | `AnalysisDemo.tsx:45`, `AnalysisTeaser.tsx:41` | Move the notes below the table, as on the page. |
+| Unit specs | the six files in §2.7, plus `analysis-table-format.spec.ts:41` (the dagger's glyph is freed under decision 6) | Re-pin as §2.7 says. |
+| Browser gate | `tests/e2e/analysis-layout.spec.ts` and `fixtures/analysisLayoutApi.ts` | Dagger counts, legacy and unavailable letters, the chip's name and the summary text. Keep the discrepancy state's letters as proof. |
+
+**With the exports (WP3).** `test_export_service.py:648`, `:675`, `:677`, `:761` and `:813`, plus
+`test_export_voice.py:188`, pin the PDF's dagger, its gap letter and the order of its Data notes
+heading. The workbook already keeps notes in comments (`test_excel_export.py:218`).
+
+**Scope notes.**
+- The filing page's "Change†" (`FinancialMetricsTable.tsx:222`) keeps its dagger. The two surfaces
+  now differ on purpose, and the PR should say so.
+- The brand audit's T11 finding, "the disclaimer forgot to be a product" (`docs/brand/00-audit.md:55`),
+  supports moving the notes below the table.
 
 ## 3. Data notes from the subscriber's side
 
@@ -386,51 +551,78 @@ jargon and found the two superscripts easy to confuse
 
 ### 3.2 The design
 
-One summary line answers trust and severity. One line answers where. Details sit beneath.
+The first design put a plain-words summary, a "where" line and the key in a strip under the KPI
+cards. After the founder's review and the blind test (§2.8), the data notes become fine print under
+the metrics table: neutral ink, 12px, one line while closed, and the detail one click away.
 
 ```
-Data notes   Of 200 figures, 186 passed automated checks   ⓐ 11 need a source check   ᵇ 3 not in our data   † 50 calculated   Details
-             Ringed letters mark figures to check before relying on them: Operating margin, Net margin and Free cash flow
-             (FY2023–FY2025); Working capital and Current ratio (FY2024). 16 growth figures built on them carry the same note.
+▸ Data notes · ᵃ Revenue FY2018, FY2019: restated in a later filing; we show the later value · 3 not in our data, shown as — · 50 calculated from filed figures
 
-ⓐ  Inputs not linked. We calculated these figures before 10 October 2026, when we began recording each calculation's
-    inputs. This note says the record is incomplete, not that the figure is wrong: it is shown as stored, without links to
-    its inputs. Before relying on one, open it and compare it with the filing.
-    Operating margin (FY2023, FY2024, FY2025); … · 11 figures · 13 YoY · 1 CAGR · 2 window pp
-    ▸ Growth figures that carry this note
-ᵇ  Not in our data for these periods. Shown as —, never as zero.  Long-term debt (FY2016, FY2017, FY2018). 3 figures.
+  a. Restated in a later filing: the year's own annual report gave a different value. We show the later filing's value;
+     select one to see both filings. Revenue FY2018, FY2019.
+  Calculated before 10 October 2026, when we began keeping each calculation's inputs; shown as stored, with its inputs
+     not linked. Operating margin FY2023, FY2024, FY2025; Net margin FY2023, FY2024, FY2025; Free cash flow FY2023,
+     FY2024, FY2025; Working capital FY2024; Current ratio FY2024.
+  Not in our data for these periods; shown as —, never as zero. Long-term debt FY2016, FY2017, FY2018.
+  Select any figure to see its source filing, method and inputs. Automated checks confirm that reported figures come
+     from the company's filed data (XBRL); they are not an audit of the company's accounts.
 ```
 
-The screens are [`final-light-datanotes-closed.png`](screens/final-light-datanotes-closed.png),
-[`final-light-datanotes-open.png`](screens/final-light-datanotes-open.png),
-[`final-dark-datanotes-open.png`](screens/final-dark-datanotes-open.png) and
-[`final-light-kpis.png`](screens/final-light-kpis.png); the before states are in the same folder.
+The screens are [`quiet-light-datanotes-closed.png`](screens/variants/quiet-light-datanotes-closed.png),
+[`quiet-light-datanotes-open.png`](screens/variants/quiet-light-datanotes-open.png),
+[`quiet-dark-datanotes-open.png`](screens/variants/quiet-dark-datanotes-open.png) and the full
+page, [`quiet-light-full.png`](screens/variants/quiet-light-full.png). The ring design's strip
+is in [`screens/`](screens/) as `final-*`.
 
-- The "where" sentence groups metrics that share a span ("Operating margin, Net margin and Free
-  cash flow (FY2023–FY2025)").
-- Comparison locators move into a nested disclosure.
-- When nothing needs review, the strip says so in one line, as now.
-- The copy moves to `data_notes.REASONS` on the backend, so the PDF, workbook and PNG print the
-  same words. The prototype maps reasons on the frontend only.
+- **The summary line.** It names each marked note with its places and words. It counts the gaps
+  and the calculated figures, and nothing is in warning ink.
+  - With no marked note it reads "Data notes · 3 not in our data, shown as — · 50 calculated from
+    filed figures".
+  - When every populated figure passed and no note exists, it keeps "No figures need review" with
+    the checked count (founder decision 9). It never says that while a legacy note exists.
+- **Legacy notes** appear only in the detail. Their sentence says the record is incomplete, not
+  the figure.
+- **Comparison locators move off the page.** "13 year-over-year comparisons carry this note. The
+  table shows 13. Exports carry all 13." describes plumbing. The letter on each growth figure
+  locates the comparison.
+- **Chips.** The native `<details>` stays, so a Notes chip can open the fine print at its note.
+- **The landing sample** keeps its "sample data (one saved run)" label in the fine print (D-046).
+- **Where the copy lives.** The copy moves to `data_notes.REASONS` on the backend (WP2), so the PDF,
+  workbook and PNG print the same words. The prototype maps reasons on the frontend only.
 
 ### 3.3 Wording
 
 | Place | Today | Proposed |
 |---|---|---|
-| Summary, review | "11 figures need review (a)" | "ⓐ 11 need a source check" |
-| Summary, comparisons | "16 comparisons carry note a" | "16 growth figures built on them carry the same note" (in the where-line) |
-| Summary, total | (absent) | "Of 200 figures, 186 passed automated checks" |
-| Summary, gaps | "3 unavailable (b)" | "ᵇ 3 not in our data" |
-| `legacy_calculation` | "This saved calculation predates the current source checks. Its inputs need review." | "Inputs not linked. We calculated these figures before 10 October 2026, when we began recording each calculation's inputs. This note says the record is incomplete, not that the figure is wrong: it is shown as stored, without links to its inputs. Before relying on one, open it and compare it with the filing." |
-| `source_check_needed` | "A source check remains unresolved. Review the original filing before use." | "Not yet matched to the filing. Our automated check could not confirm these figures against the company's filed data. Open one to compare it with the filing." |
-| `not_in_dataset` | "Not available in this dataset." | "Not in our data for these periods. Shown as —, never as zero." |
-| Legend | "Letters identify data notes; † marks a calculated figure, not an error." | "A ringed letter marks a figure that needs a source check; a plain letter marks a gap; † marks a figure we calculated, not an error." |
-| KPI card | (nothing) | "FY2025 · needs a source check" |
+| Summary, a note that questions the number | "11 figures need review (a)" (every review note in one count) | "ᵃ Revenue FY2018, FY2019: restated in a later filing; we show the later value": places and words, no count |
+| Summary, legacy calculations | inside the same count | detail only |
+| Summary, gaps | "3 unavailable (b)" | "3 not in our data, shown as —" |
+| Summary, calculated | "50 calculated †" | "50 calculated from filed figures" |
+| `legacy_calculation` | "This saved calculation predates the current source checks. Its inputs need review." | "Calculated before 10 October 2026, when we began keeping each calculation's inputs; shown as stored, with its inputs not linked." |
+| WP5 restatement | (none: the figure reads clean) | "Restated in a later filing: the year's own annual report gave a different value. We show the later filing's value; select one to see both filings." |
+| `source_conflict` (filings disagree, no later restatement) | "Available sources disagree on this figure." | "The company's filings report different values for this figure. We show the most recent filing's value; select it to compare." |
+| `source_check_needed` | "A source check remains unresolved. Review the original filing before use." | "Not yet matched to the filing: our automated check could not confirm this figure against the company's filed data. Select it to compare with the filing." |
+| `not_in_dataset` | "Not available in this dataset." | "Not in our data for these periods; shown as —, never as zero." |
+| Legend | "Letters identify data notes; † marks a calculated figure, not an error." | "Select any figure to see its source filing, method and inputs. Automated checks confirm that reported figures come from the company's filed data (XBRL); they are not an audit of the company's accounts." |
+| Above the table | "Figures are rounded for display. Select a value for full precision." | "Figures are rounded for display; margins, free cash flow, working capital and the current ratio are calculated from filed figures. Select any value for its source and full precision." |
+| KPI card | "$4.1B†ᵃ" | "$4.1B": a letter only for a note that questions the figure |
 
-Each sentence promises only what the code enforces. "10 October 2026" is #1191's merge date. "Not
-in our data" makes no claim about whether the company reported the figure.
+Each sentence promises only what the code enforces:
+- "10 October 2026" is #1191's merge date.
+- "Not in our data" makes no claim about whether the company reported the figure.
+- "Restated in a later filing" needs WP5's check that the year's own filing reported another
+  value. A plain disagreement keeps the `source_conflict` sentence. The first-run quiet readers
+  found "the company's filings disagree" alarming and unresolved, so that sentence names what is
+  shown and how to compare.
 
 ### 3.4 Comprehension test
+
+These rounds tested the ring design's words, before the founder's review. Two of their findings
+carry over to the quiet scheme:
+- the gap sentence ("never as zero");
+- the legacy sentence's point that the record is incomplete, not the figure.
+
+The marks they explained are gone. The quiet design's own test is §2.8.
 
 Each round gave one image to a separate model instance with no context, asking what "a", "b" and
 "†" mean, how far it would trust the $4.1B free cash flow, what it would check, and what it would
@@ -444,18 +636,20 @@ do. The full transcripts are in
 | 2 | "incomplete record, not a wrong figure" | stated from the page | a gap, not zero | calculated | 3/5 "plausible but unconfirmed" | open it, compare with the filing |
 | 3 | the same | stated from the page | a gap, not zero | calculated | 3/5 | names the formulas to check: OCF − capex, NI ÷ revenue |
 
-### 3.5 What the test leaves open
+### 3.5 What the tests leave open
 
-- The ring and plain distinction still leans on the legend sentence; the round-3 reader found it
-  in the fine print. The key in the summary line (§2.4) carries it in the shipping version; the
-  prototype placed the key in the table header only.
-- "11 need a source check" beside "16 growth figures" reads as two different counts. Name the
-  growth figures inline ("13 YoY, 1 CAGR and 2 window changes") instead of in the mono line.
-- Flagged growth figures keep their green and red direction ink. Keep it: direction and trust are
-  separate axes. But the ringed letter must stay adjacent so the colour is not read as
-  confirmation.
-- Amber still reads as alarm for a record that is only incomplete. The backfill removes the case;
-  until it lands, the words carry the nuance.
+- **The restatement note reads like housekeeping** (§2.8, R2). WP5's dialog must show both values
+  and both filings with their dates. Growth across the restatement should read as not comparable,
+  and figures calculated from the restated value should inherit the letter.
+- **A legacy figure carries no mark.** A reader learns of its incomplete record only in the fine
+  print's detail or the dialog. That is the founder decision in §2.9, and the backfill (§1.5)
+  removes the case.
+- **Growth figures keep their direction ink when marked.** Direction and doubt are separate axes.
+  The neutral letter sits next to the colour, so the colour is not read as confirmation.
+- **Closed by the quiet scheme:**
+  - amber read as alarm for a record that is only incomplete;
+  - ringed versus plain letters needed the legend;
+  - "11 need a source check" beside "16 growth figures" read as two different counts.
 
 ## 4. Evaluating the page
 
@@ -513,6 +707,8 @@ The severity-3 problems left in Z are four:
 
 All four transcripts are in
 [verification/heuristic-rescore-transcripts.md](verification/heuristic-rescore-transcripts.md).
+These sets scored the ring prototype. For the notation itself, the blind variant test (§2.8)
+supersedes them.
 
 ### 4.3 Competitor teardown
 
@@ -530,7 +726,8 @@ bot check closed the door.
 What the teardown shows:
 1. None of the three marks calculated or checked figures. Per-figure provenance is EarningsNerd's
    difference, and it is a liability only when it is loud for the routine and quiet for the real.
-   §2's principle is the remedy.
+   The quiet scheme (§2) matches them on routine figures and keeps the evidence one click away. It
+   marks only a figure in question, which none of them can do, because none of them checks.
 2. All three present a multi-year statement on one surface. EarningsNerd stacks nine equal cards.
 3. All three show period-end dates in the table itself. EarningsNerd shows them only in the
    evidence dialog.
@@ -543,17 +740,17 @@ Rule and its existing tokens, and it leaves the table's interior to that plan.
 
 | Level | Token | Holds | Change from today |
 |---|---|---|---|
-| Ground | `background` | The page title, the **results header** (new: "Regeneron Pharmaceuticals, Inc. · REGN · Annual FY2016–FY2025 · data as of 24 Oct 2026", then the notation key), the Data notes strip, the disclaimer | The results header is new; Data notes moves up to sit under it, since it governs every module below |
+| Ground | `background` | The page title, the **results header** (new: "Regeneron Pharmaceuticals, Inc. · REGN · Annual FY2016–FY2025 · data as of 24 Oct 2026"), the disclaimer | The results header is new. Data notes leave the ground for fine print under the metrics table (§3.2) |
 | Control | `panel`, hairline, **no shadow** | The company and period form | Drops from `shadow-e2` to a hairline. An input area is not content, and today it outranks the results |
 | Content | `panel`, hairline, `shadow-e2` light / fill + hairline dark | KPI strip, charts, AI analysis, metrics table: one card per module | Unchanged; the chart grid stays one card per chart |
 | Overlay | `shadow-e4` / `e5` | Evidence modal, popovers | Unchanged |
 
 **Spacing.**
-- 12px (`gap-3`) between the results header and Data notes, and between Data notes and the KPI
-  strip. They read as one block.
+- 12px (`gap-3`) between the results header and the KPI strip, so they read as one block.
+- 8px between the metrics table card and the Data notes fine print beneath it.
 - 24px (`gap-6`) between content modules on desktop and 16px (`gap-4`) below `sm`.
 - Module insets keep `p-cap-6`.
-- Flags keep the 0.125rem gap (§2.2).
+- A mark keeps the 0.125rem gap after its figure, and 0.5px in table cells (§2.5).
 - The floating Feedback launcher reserves the KPI strip's area on phones by offsetting above it,
   the same way the consent inset works (`bottomChromeLadder.spec.ts` gates the ladder).
 
@@ -570,6 +767,14 @@ openpyxl and Pillow. The full pass/fail table is in
 | Excel (identical across themes apart from export timestamps: correct) | Company in EDGAR capitals. Raw ISO timestamps. 14 review cells and 52 calculated cells carry only a comment triangle, so a figure that needs a check looks like any calculated one. The dagger appears only in the Overview count line. No print setup (orientation, fit to width). Title metadata empty, creator "openpyxl". |
 | Chart PNG (follows the page theme; background = panel token) | No fiscal-year range in the image, only '16–'25 ticks; the range is in the file name. On the Margins chart, the hollow-ring marker isn't in the key and the note letters are grey, not review ink. No DPI tag: at 6.5in wide it prints at 154 dpi, with axis text about 9pt. |
 
+**Under the quiet scheme (§2.5) the exports follow the page.** That settles two of the misses
+above outright:
+- The 52 DejaVu daggers go with the per-value dagger.
+- In the workbook, a figure in question gets a visible letter in the grid, while the comment
+  triangle stays the evidence for every note.
+
+The PDF's key-on-another-page miss becomes fine print under the table, on the same page.
+
 Theme behaviour is consistent but undocumented. The PDF and workbook are always light; the PNG
 follows the page. Keep that, and say so in the export menu ("Image matches your theme").
 
@@ -582,27 +787,32 @@ no sibling branch exists yet. The computation is reproducible from the
 
 | | WP0 | WP1 | WP2 | WP3 | WP4 | WP5 | charts | analysis | table | #1601 | #1597 | section-nav | #1583 | #1600 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **WP0 lineage backfill** (10 files) | — | · | · | · | · | · | · | · | · | · | 1 | 1 | 1 | 1 |
-| **WP1 flag + key + tokens** (18) | · | — | 1 | · | 4 | 1 | 3 | 1 | 3 | · | 4 | 2 | · | 1 |
-| **WP2 data-notes words** (9) | · | 1 | — | 1 | 1 | 3 | · | · | · | · | · | · | · | · |
-| **WP3 exports** (8) | · | · | 1 | — | · | · | 2 | 1 | 1 | 2 | · | · | · | · |
-| **WP4 surfaces + results header** (9) | · | 4 | 1 | · | — | · | 1 | · | 1 | · | 2 | 2 | · | · |
-| **WP5 restatement note** (7) | · | 1 | 3 | · | · | — | · | · | · | · | · | · | · | · |
+| **WP0 lineage backfill** (10) | — | · | · | · | · | · | · | · | · | · | 1 | 1 | 1 | 1 |
+| **WP1 quiet notation** (29) | · | — | 4 | · | 6 | 2 | 3 | 2 | 5 | · | 3 | 2 | · | · |
+| **WP2 data-notes words** (9) | · | 4 | — | 1 | · | 3 | · | · | · | · | · | · | · | · |
+| **WP3 exports** (9) | · | · | 1 | — | · | · | 2 | 1 | 1 | 3 | · | · | · | · |
+| **WP4 surfaces + results header** (8) | · | 6 | · | · | — | · | 1 | · | 1 | · | 2 | 2 | · | · |
+| **WP5 restatement note** (7) | · | 2 | 3 | · | · | — | · | · | · | · | · | · | · | · |
 | **charts plan (scope)** (7) | · | 3 | · | 2 | 1 | · | — | · | 1 | · | 1 | 1 | · | · |
-| **analysis plan (scope)** (7) | · | 1 | · | 1 | · | · | · | — | · | 1 | · | · | · | · |
-| **table plan (scope)** (7) | · | 3 | · | 1 | 1 | · | 1 | · | — | · | 1 | 1 | · | · |
-| **#1601 export-source** (6) | · | · | · | 2 | · | · | · | 1 | · | — | 1 | · | · | · |
-| **#1597 status-line** (17) | 1 | 4 | · | · | 2 | · | 1 | · | 1 | 1 | — | 3 | 1 | 1 |
-| **section-nav, no PR** (9) | 1 | 2 | · | · | 2 | · | 1 | · | 1 | · | 3 | — | 1 | 1 |
-| **#1583 per-filing currency** (9) | 1 | · | · | · | · | · | · | · | · | · | 1 | 1 | — | 1 |
-| **#1600 waitlist-source** (5) | 1 | 1 | · | · | · | · | · | · | · | · | 1 | 1 | 1 | — |
+| **analysis plan (scope)** (7) | · | 2 | · | 1 | · | · | · | — | · | 1 | · | · | · | · |
+| **table plan (scope)** (7) | · | 5 | · | 1 | 1 | · | 1 | · | — | · | 1 | 1 | · | · |
+| **#1601 export-source** (6) | · | · | · | 3 | · | · | · | 1 | · | — | 1 | · | · | · |
+| **#1597 status-line** (19) | 1 | 3 | · | · | 2 | · | 1 | · | 1 | 1 | — | 3 | 2 | 1 |
+| **section-nav (no PR)** (9) | 1 | 2 | · | · | 2 | · | 1 | · | 1 | · | 3 | — | 1 | 1 |
+| **#1583 per-filing-currency** (9) | 1 | · | · | · | · | · | · | · | · | · | 2 | 1 | — | 1 |
+| **#1600 waitlist-source** (5) | 1 | · | · | · | · | · | · | · | · | · | 1 | 1 | 1 | — |
 
 Every shared file by pair is listed under the matrix in
 [verification/file-overlap.md](verification/file-overlap.md). Two shared files are worth naming:
 - `DESIGN.md` and `DESIGN_SYSTEM.md` (WP1, WP4, #1597, section-nav). The edit sites are disjoint:
-  #1597 edits DESIGN.md line 343 and DESIGN_SYSTEM.md 907 and 2191–2203; section-nav edits 482 and
-  1210–1241; WP1 edits the frontmatter, line 498, 492–500, 645–660 and 2083–2095. Git merges them,
-  but `designSnapshotParity` reads the whole file, so rebase and rerun it after each.
+  #1597 edits DESIGN.md line 343 and DESIGN_SYSTEM.md 907 and 2191–2203. Section-nav edits 482
+  and 1210–1241. WP1 edits DESIGN.md's frontmatter components and line 498, and DESIGN_SYSTEM.md
+  492–500, 564, 645–661 and 2083–2095. Git merges them, but `designSnapshotParity` reads the whole
+  file, so rebase and rerun it after each.
+- The quiet WP1 is wider than the ring version: 29 files against 18 (re-measured 22:18 UTC). It
+  shares four files with WP2 and six with WP4, so the three land strictly in sequence. It also
+  takes `NarrativePane.tsx` from the analysis plan's scope and `tableFormat.ts` from the table
+  plan's, which is one more reason the siblings follow it.
 - `export_service.py` (WP3, #1601, analysis). #1601 edits the summary export at lines 87–90 and
   187. WP3 edits the analysis PDF at 306–500. Disjoint, but both edit `test_export_service.py`.
 
@@ -612,11 +822,11 @@ unresolved conflict.
 | Step | Lands | After | Visible result |
 |---|---|---|---|
 | 1 | **WP0** lineage backfill: high tier; the apply needs the founder's approval | #1583's deploy is verified (one unverified backend deploy at a time; its only shared file is `tasks/todo.md`) | Up to 77 of 82 latest-year "needs review" flags disappear in production. REGN's 11 if the dry run matches the local check |
-| 2 | **WP1** flag, key and tokens: routine | #1597 merges (it shares the design docs and both e2e floors). The section-nav branch rebases on whichever lands first | Fixed-size dagger, ringed review letters, the key beside every mark |
-| 3 | **WP2** data-notes words and **WP5** restatement note, one after the other (they share `data_notes.py` and its test) | WP1 (they use `FigureFlag`) | Plain-words summary and where-line. REGN's FY2018–FY2019 revenue gains a "restated in a later filing" note |
-| 4a | **charts plan**, then **WP3-png** (`chartExport.ts`) | WP1 | Chart letters ringed, key under the legend; PNG states its period range |
-| 4b | **table plan**, then **WP3-xlsx** (`excel_export_service.py`) | WP1 | Table header key; flags visible in the workbook grid |
-| 4c | **#1601**, then the **analysis plan**, then **WP3-pdf** (`export_service.py`) | WP1, #1601 | Formatted company name, readable dates, key on the table page, Inter dagger |
+| 2 | **WP1** quiet notation: routine tier, after the founder's decision (§2.9) | #1597 merges (it shares the design docs and the text-floor gate). The section-nav branch rebases on whichever lands first | No dagger on figures. A neutral letter only where a note questions the number. Data notes as fine print under the table |
+| 3 | **WP2** data-notes words and **WP5** restatement note, one after the other (they share `data_notes.py` and its test) | WP1 (they share its notes files and its marking rule) | The fine print's words come from the backend, so the exports match. REGN's FY2018–FY2019 revenue gains a "restated in a later filing" letter, with both filings in the dialog |
+| 4a | **charts plan**, then **WP3-png** (`chartExport.ts`) | WP1 | Chart marks only for notes in question; the PNG states its period range |
+| 4b | **table plan**, then **WP3-xlsx** (`excel_export_service.py`) | WP1 | The sentence above the table. A letter in the workbook grid for figures in question |
+| 4c | **#1601**, then the **analysis plan**, then **WP3-pdf** (`export_service.py`) | WP1, #1601 | Formatted company name and readable dates. Fine print on the table's page. No per-value dagger |
 | 5 | **WP4** surfaces and results header | 4a–4c (it moves every module) | Results header, quieter control card, the Feedback launcher clear of the KPIs |
 
 4a, 4b and 4c can run in parallel: their only shared file is `DESIGN_SYSTEM.md`, in sections that
@@ -658,6 +868,10 @@ These came out of this evaluation but sit in the sibling areas.
   `mpa_notation_frequency.sql` (§1.7).
 - **The page and exports are a local reproduction calibrated to production (§1.4), not production
   captures.** Production's own page could not be opened without a Pro session.
+- **The variant test (§2.8) had two readers per design.** They were model instances, not
+  subscribers, and they saw a static page with no hover and no dialog. Its restatement note was
+  planted locally. Production carries none until WP5. Read it as directional. It is still the
+  only test that put the four designs side by side on one data state.
 - **Each heuristic set had one evaluator.** The comprehension test is one model instance per round,
   not a panel of subscribers, so it shows misreadings, not their rates.
 - **The composites shown to the current-page and round-1 readers stacked Data notes closed above
@@ -730,3 +944,17 @@ The matrix is in §6; the full pairwise file list is in
 - Finviz: statements, light and dark;
 - Alpha Spread: AI financial profile, light (supplement);
 - `captures.json`, the URL and theme each was captured from.
+
+### g. Notation variant test (added after the founder's review)
+
+| Design | FCF $4.1B trust | Revenue flagged from the page | Clean | Trustworthy |
+|---|---|---|---|---|
+| Current | 3, 4 | both | 3, 3 | 3, 3 |
+| Ring | 3, 3 | both | 3, 3 | 3, 4 |
+| Quiet | 4, 4 | both | 4, 4 | 4, 4 |
+| No marks | 4, 4 | neither | 4, 4 | 4, 4 |
+
+The method, every verdict and the rules check are in
+[verification/notation-variant-test.md](verification/notation-variant-test.md) and
+[its JSON](verification/notation-variant-test.json). The four pages are in
+[`screens/variants/`](screens/variants/).

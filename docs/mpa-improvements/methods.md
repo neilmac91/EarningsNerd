@@ -869,6 +869,117 @@ print("\n".join(l for l in out.splitlines() if l.startswith(("all|","reason|","o
 ```
 
 
+## Notation variant test
+
+The test is described in [verification/notation-variant-test.md](verification/notation-variant-test.md).
+The four designs ran on the local stack above, with REGN's FY2018–FY2019 revenue rows planted as
+`source_conflict` (the SQL is in that file).
+- The variants came from one build, switched by `NEXT_PUBLIC_NOTATION_VARIANT` (`current`, `quiet`
+  or `none`; see [`prototype/notation-quiet.diff`](prototype/notation-quiet.diff)).
+- The ring design came from [`prototype/notation-prototype.diff`](prototype/notation-prototype.diff).
+- Captures used `capture_before.js` (above) with the design's prefix: full page, 1440px, light.
+- Each full page was cut with Pillow into 1500px-tall tiles, `page-<label>-1..3.png`.
+
+The workflow script ran eight blind verdicts and the rules check in parallel. The re-test ran the
+same `testPrompt` and `VERDICT` for the labels `R2` and `S2` only.
+
+```js
+export const meta = {
+  name: 'mpa-notation-variant-test',
+  description: 'Blind-test four notation designs for trust calibration and visual appeal, and check repo rules that dropping marks would collide with',
+  phases: [
+    { title: 'Blind test', detail: '4 unlabelled designs x 2 personas, structured verdicts' },
+    { title: 'Rules check', detail: 'documented decisions, gates and promises that a quieter notation must update' },
+  ],
+}
+
+const DIR = '<scratch>/blind'
+const DESIGNS = ['P', 'Q', 'R', 'S']
+const PERSONAS = [
+  { key: 'retail', text: 'a self-directed retail investor who pays for this research tool and checks a company before buying its shares' },
+  { key: 'pro', text: 'a professional equity analyst at a small fund who uses paid data terminals daily and is sceptical of any figure that is not sourced' },
+]
+
+const VERDICT = {
+  type: 'object',
+  properties: {
+    trust_overall: { type: 'integer', minimum: 1, maximum: 5, description: 'How far you would rely on the page\'s numbers overall (1 = not at all, 5 = fully)' },
+    trust_fcf_fy2025: { type: 'integer', minimum: 1, maximum: 5, description: 'Trust in the FY2025 Free cash flow figure of $4.1B' },
+    trust_fcf_reason: { type: 'string' },
+    trust_revenue_fy2018: { type: 'integer', minimum: 1, maximum: 5, description: 'Trust in the FY2018 Revenue figure ($5.1B, shown with -12.4% growth)' },
+    trust_revenue_reason: { type: 'string' },
+    noticed_issue_with_fy2018_revenue: { type: 'boolean', description: 'Did anything on the page itself (not your own knowledge) tell you the FY2018 revenue might be problematic?' },
+    page_evidence_for_revenue: { type: 'string', description: 'Quote what on the page told you, or "nothing on the page"' },
+    used_outside_knowledge: { type: 'boolean', description: 'Did your FY2018 revenue judgement rely on what you already know about the company rather than the page?' },
+    figures_you_would_check: { type: 'array', items: { type: 'string' } },
+    visual_cleanliness: { type: 'integer', minimum: 1, maximum: 5, description: '1 = cluttered or alarming, 5 = clean and calm' },
+    alarming_or_distracting: { type: 'array', items: { type: 'string' }, description: 'Elements that felt alarming, dramatic or distracting, quoted or described' },
+    site_feels_trustworthy: { type: 'integer', minimum: 1, maximum: 5, description: 'Does the product as a whole feel trustworthy and professional?' },
+    where_to_find_source: { type: 'string', description: 'Where on this page would you go to see where a figure came from?' },
+    what_marks_mean: { type: 'string', description: 'Any symbols or letters next to figures, and what you think they mean; "none seen" if none' },
+    one_change: { type: 'string', description: 'The one change you would make to how this page signals data quality' },
+  },
+  required: ['trust_overall', 'trust_fcf_fy2025', 'trust_fcf_reason', 'trust_revenue_fy2018', 'trust_revenue_reason',
+    'noticed_issue_with_fy2018_revenue', 'page_evidence_for_revenue', 'used_outside_knowledge', 'figures_you_would_check',
+    'visual_cleanliness', 'alarming_or_distracting', 'site_feels_trustworthy', 'where_to_find_source', 'what_marks_mean', 'one_change'],
+}
+
+const RULES = {
+  type: 'object',
+  properties: {
+    collisions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          file: { type: 'string' },
+          line: { type: 'integer' },
+          quote: { type: 'string', description: 'The exact words that the change would contradict' },
+          kind: { type: 'string', enum: ['founder-decision', 'adr', 'design-rule', 'lesson', 'test-gate', 'public-promise', 'legal', 'other'] },
+          severity: { type: 'string', enum: ['blocker-needs-founder', 'must-update-in-same-pr', 'note'] },
+          what_to_do: { type: 'string' },
+        },
+        required: ['file', 'quote', 'kind', 'severity', 'what_to_do'],
+      },
+    },
+    public_promises_that_depend_on_visible_marks: { type: 'array', items: { type: 'string' } },
+    verdict: { type: 'string', description: 'Can the quiet scheme ship as a design change, or does any item need a founder decision first? One paragraph.' },
+  },
+  required: ['collisions', 'public_promises_that_depend_on_visible_marks', 'verdict'],
+}
+
+function testPrompt(design, persona) {
+  return `You are ${persona.text}. You have opened the "Multi-Period Analysis" page of a paid SEC-filing research product for Regeneron (REGN), fiscal years 2016-2025. Look ONLY at these three screenshots, which are the page from top to bottom, using the Read tool on each, and open nothing else (no other files, no code, no web search):
+${DIR}/page-${design}-1.png
+${DIR}/page-${design}-2.png
+${DIR}/page-${design}-3.png
+
+Judge the page as it appears, as that user would. Base every trust judgement on what the page shows you; if you also know something about the company from memory, say so in used_outside_knowledge and keep it out of the page-based answers. Be candid about anything that feels alarming, dramatic, cluttered or untrustworthy, and about anything that feels missing. Return the structured verdict.`
+}
+
+phase('Blind test')
+const cells = DESIGNS.flatMap((design) => PERSONAS.map((persona) => ({ design, persona })))
+const testsPromise = parallel(cells.map((cell) => () =>
+  agent(testPrompt(cell.design, cell.persona), { label: `design ${cell.design} · ${cell.persona.key}`, phase: 'Blind test', schema: VERDICT })
+    .then((verdict) => verdict && ({ design: cell.design, persona: cell.persona.key, ...verdict }))))
+
+const rulesPromise = agent(`You are reviewing a proposed change to the EarningsNerd repository (working tree at /home/user/EarningsNerd; read-only task: do not edit, commit or run anything that writes). The Multi-Period Analysis page (frontend/features/analysis/) currently marks every calculated figure with a dagger (†) and marks figures by lettered "data notes" (DataNoteMark, DataNotes, DataNotesLink), with review concerns in warning ink, and shows a "Data notes" strip right under the headline KPI cards.
+
+The proposed "quiet" scheme:
+1. No dagger on figures anywhere on the page; one sentence above the metrics table says which metrics are calculated, and each figure's evidence dialog (SourceValue) still states method, inputs and checks.
+2. No on-figure mark for a figure whose only note is a missing calculation record (reason legacy_calculation), for unavailable figures (they already show "—"), or for a missing validation record. Those stay in the evidence dialog and the data notes.
+3. Only a note that questions the number itself (for example the company's filings disagree, a calculation mismatch, an unresolved source check) keeps a small neutral superscript letter, no warning colour.
+4. The Data notes strip moves below the metrics table as one line of fine print, neutral ink.
+5. Exports (PDF, workbook, chart PNG) follow the same policy.
+
+Find every place in the repository this would contradict or require changing: founder decisions and design decision records (look for D-0xx entries and decision logs under tasks/ and docs/), ADRs in docs/adr/, DESIGN.md (especially "The Calculation Provenance Rule"), frontend/DESIGN_SYSTEM.md (the "Data note mark", "Data notes strip" recipes and §10), lessons/ (especially the brand and evidence-label lessons), test gates and specs that pin the dagger, the letters, warning ink or the strip's position (frontend/tests/unit, frontend/tests/e2e, backend/tests), and any public promise in marketing, landing, pricing, legal or brand copy (docs/brand/, frontend/app, frontend/features/marketing) that depends on visible per-figure marks. For each, give the file, line, the exact words, the kind, and whether it is a blocker that needs the founder's decision, something that must be updated in the same PR, or a note. Then give a one-paragraph verdict.`, { label: 'rules check', phase: 'Rules check', schema: RULES })
+
+const [tests, rules] = await Promise.all([testsPromise, rulesPromise])
+const results = tests.filter(Boolean)
+log(`${results.length} of ${cells.length} blind verdicts returned; rules check ${rules ? 'returned' : 'missing'}`)
+return { results, rules }
+```
+
 ## File-overlap script
 
 ```python
@@ -876,7 +987,7 @@ print("\n".join(l for l in out.splitlines() if l.startswith(("all|","reason|","o
 
 Live branches are measured (git diff --name-only against their merge base with origin/main).
 Work packages list the files the change edits. Sibling scopes list the files their areas own,
-because no sibling branch exists yet (checked 2026-10-24 20:05 and 21:10 UTC).
+because no sibling branch exists yet (checked 2026-10-24 20:05, 21:10 and 22:18 UTC).
 """
 import itertools
 import subprocess
@@ -889,14 +1000,20 @@ PLAN = {
         "backend/tests/unit/test_ops_workflow_wiring.py", "backend/tests/unit/test_migration_lock_safety.py",
         "docs/filing-lineage-repair.md", "docs/DEPLOYMENT.md", "ops/detection/mpa_notation_frequency.sql", "tasks/todo.md",
     ],
-    "WP1 flag + key + tokens": [
-        A + "components/DataNoteMark.tsx", A + "components/DataNotesLink.tsx", A + "components/MetricsTable.tsx",
-        A + "components/KpiStrip.tsx", A + "components/TrendCharts.tsx", "frontend/features/filings/lib/evidenceLabels.ts",
+    "WP1 quiet notation": [
+        A + "components/DataNoteMark.tsx", A + "components/DataNotesLink.tsx", A + "components/DataNotesContext.tsx",
+        A + "components/MetricsTable.tsx", A + "components/KpiStrip.tsx", A + "components/TrendCharts.tsx",
+        A + "components/NarrativePane.tsx", A + "components/DataNotes.tsx", A + "components/AnalysisPageClient.tsx",
+        A + "components/AnalysisTeaser.tsx", A + "lib/dataNotes.ts", A + "lib/tableFormat.ts",
+        "frontend/features/marketing/components/AnalysisDemo.tsx",
         "DESIGN.md", ".impeccable/design.json", "frontend/DESIGN_SYSTEM.md",
+        "lessons/arch-reconciliation-follows-values-and-growth.md", "docs/design/analysis-data-notes-redesign-2026-10.md",
+        "docs/brand/decisions-log.md",
         "frontend/tests/unit/metrics-table.spec.tsx", "frontend/tests/unit/kpi-strip.spec.tsx",
         "frontend/tests/unit/analysis-source-quality.spec.tsx", "frontend/tests/unit/narrative-pane.spec.tsx",
-        "frontend/tests/unit/trend-charts-annotation.spec.tsx", "frontend/tests/unit/evidenceVocabulary.spec.ts",
-        "frontend/tests/unit/dataXsAllowlist.spec.ts", "frontend/tests/e2e/text-floors.spec.ts", "frontend/tests/e2e/reflow-200.spec.ts",
+        "frontend/tests/unit/trend-charts-annotation.spec.tsx", "frontend/tests/unit/data-notes.spec.ts",
+        "frontend/tests/unit/analysis-table-format.spec.ts", "frontend/tests/e2e/analysis-layout.spec.ts",
+        "frontend/tests/e2e/fixtures/analysisLayoutApi.ts", "frontend/tests/e2e/text-floors.spec.ts",
     ],
     "WP2 data-notes words": [
         "backend/app/services/trend_analysis/data_notes.py", "backend/tests/unit/test_analysis_data_notes.py",
@@ -908,10 +1025,10 @@ PLAN = {
         "backend/app/services/export_service.py", "backend/app/services/excel_export_service.py",
         "backend/app/services/analysis_export_metadata.py", "backend/app/services/pdf_branding.py", A + "lib/chartExport.ts",
         "backend/tests/unit/test_export_service.py", "backend/tests/unit/test_excel_export.py",
-        "frontend/tests/unit/chart-export.spec.ts",
+        "backend/tests/unit/test_export_voice.py", "frontend/tests/unit/chart-export.spec.ts",
     ],
     "WP4 surfaces + results header": [
-        A + "components/AnalysisPageClient.tsx", A + "components/KpiStrip.tsx", A + "components/DataNotes.tsx",
+        A + "components/AnalysisPageClient.tsx", A + "components/KpiStrip.tsx",
         "frontend/features/feedback/components/FeedbackWidget.tsx", "frontend/tests/unit/bottomChromeLadder.spec.ts",
         "frontend/tests/e2e/analysis-layout.spec.ts", "DESIGN.md", "frontend/DESIGN_SYSTEM.md", ".impeccable/design.json",
     ],

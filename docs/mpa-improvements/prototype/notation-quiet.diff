@@ -152,14 +152,14 @@ index ef38c4341..4718ede2f 100644
          ? ' Fiscal quarters follow the company’s reporting calendar. A Q4 header † means some flow figures are calculated from annual totals less the first nine months; it does not mark the column’s balance-sheet figures as calculated.'
          : showsCagr ? ' The final column shows CAGR, or percentage-point change for percent-unit rows. Each value’s source detail states its calculation range.' : null}</p>
 diff --git a/frontend/features/analysis/components/NarrativePane.tsx b/frontend/features/analysis/components/NarrativePane.tsx
-index 7bd7dafad..59e7ea0a2 100644
+index 7bd7dafad..910349e2e 100644
 --- a/frontend/features/analysis/components/NarrativePane.tsx
 +++ b/frontend/features/analysis/components/NarrativePane.tsx
 @@ -19,6 +19,7 @@ import { structuredNarrativeParts } from '@/features/analysis/lib/narrativePrese
  import { usePrintDetails } from '@/features/analysis/lib/usePrintDetails'
  import { useReportDataNotes } from './DataNotesContext'
  import DataNoteMark, { dataNoteDescription } from './DataNoteMark'
-+import { NOTATION_VARIANT } from '@/features/analysis/lib/notationVariant'
++import { NOTATION_VARIANT, isSilentNote } from '@/features/analysis/lib/notationVariant'
  import DataNotesLink from './DataNotesLink'
  import { DataNotesList } from './DataNotes'
  
@@ -181,12 +181,30 @@ index 7bd7dafad..59e7ea0a2 100644
  
  /** The teaser's sample is one saved run of the pipeline (features/analysis/demo, D-046): its figures are the
   *  pipeline's, not approximations, but the run is not the reader's own. Readers do not know the word "pipeline", so
+@@ -218,9 +219,14 @@ export default function NarrativePane({
+   // different quality record. Reuse report letters; append citation-only notes without
+   // changing dataset counts or inferring that a separately checked value clears the citation.
+   const presentation = completion?.narrative_presentation
+-  const notes = useMemo(() => presentation
+-    ? qualityNotesModelFromWire(presentation.notes.notes)
+-    : groupQualityNotes(completion?.citations ?? [], reportNotes ?? undefined), [reportNotes, completion?.citations, presentation])
++  const notes = useMemo(() => {
++    const model = presentation
++      ? qualityNotesModelFromWire(presentation.notes.notes)
++      : groupQualityNotes(completion?.citations ?? [], reportNotes ?? undefined)
++    // Prototype: the narrative's own lookup follows the same silent-note policy as the report surfaces.
++    return NOTATION_VARIANT === 'current' ? model
++      : { ...model, noteForQuality: (value: Parameters<typeof model.noteForQuality>[0]) => { const note = model.noteForQuality(value); return note && !isSilentNote(note) ? note : null } }
++  }, [reportNotes, completion?.citations, presentation])
+   const citedNoteKeys = new Set((completion?.citations ?? []).map((citation) => notes.noteForQuality(citation)?.key))
+   const citedNotes = notes.notes.filter((note) => citedNoteKeys.has(note.key))
+   const reportNoteKeys = new Set(reportNotes?.notes.map((note) => note.key))
 diff --git a/frontend/features/analysis/components/QuietDataNotes.tsx b/frontend/features/analysis/components/QuietDataNotes.tsx
 new file mode 100644
-index 000000000..30405d092
+index 000000000..add57ed26
 --- /dev/null
 +++ b/frontend/features/analysis/components/QuietDataNotes.tsx
-@@ -0,0 +1,48 @@
+@@ -0,0 +1,47 @@
 +'use client'
 +
 +import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
@@ -197,7 +215,7 @@ index 000000000..30405d092
 +
 +/** Prototype copy (docs/mpa-improvements/coherence.md §2): one sentence per reason, the reader's words. */
 +const QUIET_COPY: Record<string, string> = {
-+  source_conflict: 'The company’s filings report different values for these figures. We show the most recent filing’s value; select one to compare it with the filing.',
++  source_conflict: 'Restated in a later filing: the year’s own annual report gave a different value. We show the later filing’s value; select one to see both filings.',
 +  legacy_calculation: 'Calculated before 10 October 2026, when we began keeping each calculation’s inputs; shown as stored, with its inputs not linked.',
 +  not_in_dataset: 'Not in our data for these periods; shown as —, never as zero.',
 +}
@@ -214,16 +232,15 @@ index 000000000..30405d092
 +  const model = useDataNotes(dataset)
 +  const marked = model.notes.filter((note) => !isSilentNote(note) && note.values.length > 0)
 +  const gaps = model.notes.filter((note) => note.kind === 'unavailable').reduce((count, note) => count + note.values.length, 0)
-+  const unlinked = model.notes.filter((note) => note.kind === 'review' && isSilentNote(note)).reduce((count, note) => count + note.values.length, 0)
 +  const calculated = model.totals.calculated
 +  return (
 +    <section className="min-w-0 text-xs leading-relaxed text-text-secondary-light dark:text-text-secondary-dark" data-analysis-data-notes>
 +      <details>
 +        <summary className="cursor-pointer rounded py-1 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
 +          <span className="font-medium text-text-primary-light dark:text-text-primary-dark">Data notes</span>
-+          {marked.map((note) => <span key={note.key}> · <sup className="font-data">{note.letter}</sup> {places(note.values)}: the company’s filings disagree</span>)}
++          {marked.map((note) => <span key={note.key}> · <sup className="font-data">{note.letter}</sup> {places(note.values)}: restated in a later filing; we show the later value</span>)}
 +          {gaps > 0 && <span> · {gaps} not in our data, shown as —</span>}
-+          {calculated > 0 && <span> · {calculated} calculated from filed figures{unlinked > 0 && `, ${unlinked} of them before we kept calculation records`}</span>}
++          {calculated > 0 && <span> · {calculated} calculated from filed figures</span>}
 +        </summary>
 +        <div className="space-y-2 pb-2 pt-1">
 +          {model.notes.map((note) => <p key={note.key} id={note.id} tabIndex={-1} className="rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
