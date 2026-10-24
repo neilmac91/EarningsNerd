@@ -140,7 +140,8 @@ async function walkBack(page: Page): Promise<{ stops: number; reachedBar: boolea
       for (let node: Element | null = el; node; node = node.parentElement) if (getComputedStyle(node).position === 'fixed') fixed = true
       const r = el.getBoundingClientRect()
       const b = bar.getBoundingClientRect()
-      const nav = document.querySelector('[data-section-nav]')
+      // By its name, not its data-section-nav: main's nav, the walk's before, carries no attribute.
+      const nav = document.querySelector('nav[aria-label="Jump to section"]')
       const n = nav?.getBoundingClientRect()
       const navStuck = !!n && n.height > 0 && Math.abs(n.top - b.bottom) <= 1
       const label = (el.getAttribute('aria-label') || el.textContent || el.getAttribute('placeholder') || el.tagName).replace(/\s+/g, ' ').trim().slice(0, 60)
@@ -255,6 +256,64 @@ for (const doubled of [false, true]) {
         walk.hidden.map((s) => `${s.label} at ${s.top.toFixed(0)} to ${s.bottom.toFixed(0)}px, under bars ending at ${s.barBottom.toFixed(0)}px (scrollY ${s.scrollY.toFixed(0)})`),
         `/filing/3, ${name}: a focused control wholly behind the site header or the section nav`,
       ).toEqual([])
+    })
+
+    // The walk's stops need not come to rest in the nav's band, so this case puts one there: a summary control whose
+    // next stop holds focus, the page scrolled so the control sits just under the bar, in the stuck nav's band. A
+    // Shift+Tab onto it scrolls it below the nav, since the padding counts the nav; with the header's height alone the
+    // control read as in view and stayed behind the nav, which the walk could miss.
+    test('a Shift+Tab onto a control in the stuck nav\'s band brings it out below the nav', async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem('theme', 'light')
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+        localStorage.setItem('en:copilot-coachmark-v1', '1')
+      })
+      await answerApi(page, baseURL!, 'anon')
+      await page.goto('/filing/3')
+      const nav = page.getByRole('navigation', { name: 'Jump to section' })
+      await expect(nav).toBeVisible()
+      await expect(page.getByRole('status', { name: 'Checking whether you are logged in', includeHidden: true })).toHaveCount(0)
+      if (doubled) await doubleText(page)
+      await settle(page)
+      // The first summary control after the nav that has a next stop, both tagged; the page scrolled so it sits 2px
+      // under the bar, then its next stop focused without a scroll.
+      const placed = await page.evaluate(() => {
+        const nav = document.querySelector('nav[aria-label="Jump to section"]')!
+        const stops = [...document.querySelectorAll<HTMLElement>('main a[href], main button, main [tabindex="0"]')].filter((el) => {
+          const r = el.getBoundingClientRect()
+          return r.width > 0 && r.height > 0 && !nav.contains(el) && !!(nav.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)
+        })
+        const target = stops[0]
+        const next = stops[1]
+        if (!target || !next) return null
+        target.dataset.bandTarget = ''
+        const bar = document.querySelector('[data-site-header]')!.getBoundingClientRect()
+        window.scrollBy(0, target.getBoundingClientRect().top - bar.bottom - 2)
+        next.focus({ preventScroll: true })
+        return { label: (target.getAttribute('aria-label') || target.textContent || target.tagName).replace(/\s+/g, ' ').trim().slice(0, 40) }
+      })
+      expect(placed, `${name}: the summary has two controls after the nav`).not.toBeNull()
+      await settle(page)
+      const before = await page.evaluate(() => {
+        const t = document.querySelector('[data-band-target]')!.getBoundingClientRect()
+        const n = document.querySelector('nav[aria-label="Jump to section"]')!.getBoundingClientRect()
+        const b = document.querySelector('[data-site-header]')!.getBoundingClientRect()
+        return { top: t.top, navTop: n.top, navBottom: n.bottom, barBottom: b.bottom }
+      })
+      expect(Math.abs(before.navTop - before.barBottom), `${name}: the nav is stuck under the bar (${before.navTop.toFixed(0)}px, the bar ending at ${before.barBottom.toFixed(0)}px)`).toBeLessThanOrEqual(1)
+      expect(before.top, `${name}: "${placed!.label}" sits in the nav's band before the press`).toBeLessThan(before.navBottom)
+      await page.keyboard.press('Shift+Tab')
+      await settle(page)
+      const after = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement
+        const n = document.querySelector('nav[aria-label="Jump to section"]')!.getBoundingClientRect()
+        return { isTarget: 'bandTarget' in el.dataset, top: el.getBoundingClientRect().top, navBottom: n.bottom }
+      })
+      expect(after.isTarget, `${name}: the Shift+Tab focuses "${placed!.label}"`).toBe(true)
+      expect(
+        after.top,
+        `${name}: "${placed!.label}", focused, starts at ${after.top.toFixed(0)}px, below the stuck nav ending at ${after.navBottom.toFixed(0)}px`,
+      ).toBeGreaterThanOrEqual(after.navBottom - 0.5)
     })
   })
 }
