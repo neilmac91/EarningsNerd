@@ -228,19 +228,19 @@ def process_filing_facts(
 
 
 def upsert_facts_bulk(
-    db: Session, facts: list[dict[str, Any]], *, commit: bool = True
+    db: Session, facts: list[dict[str, Any]], *, commit: bool = True, protected: frozenset[int] = frozenset()
 ) -> dict[str, int]:
     """Batched writer for latest-filed winners from a full-history companyfacts payload.
 
-    A full ingest is ~23 concepts × up to ~50 periods — the per-row two-query loop in
-    ``upsert_facts`` would be thousands of round trips. This prefetches the company's existing
-    rows once, then applies the same rules in memory: identity skip (idempotent), ``is_latest``
-    demotion per (concept, period_end, fiscal_period, unit), plus the D1 rule — a labelled
-    Q1..Q4 row demotes the legacy NULL-``fiscal_period`` twin for the same period so a quarter
-    never has two current rows. Facts must already carry ``reconciled`` (no gate runs here —
-    see ``normalize_companyfacts``). Known Filing dates also protect an already-stored newer
-    accession from a delayed SEC response; rows without local Filing metadata retain the
-    normalizer's latest-filed ordering within that response.
+    A full ingest (~23 concepts × up to ~50 periods) would take thousands of round trips in
+    ``upsert_facts``' per-row loop, so this prefetches the company's rows once and applies the same
+    rules in memory: identity skip (idempotent), ``is_latest`` demotion per (concept, period_end,
+    fiscal_period, unit), plus the D1 rule — a labelled Q1..Q4 row demotes the legacy
+    NULL-``fiscal_period`` twin for the same period so a quarter never has two current rows. Facts
+    must already carry ``reconciled`` (no gate runs here — see ``normalize_companyfacts``). Known
+    Filing dates protect an already-stored newer accession from a delayed SEC response, and so does
+    ``protected`` (stored row ids from a filing newer than the payload: ``currency.protected_rows``);
+    other rows retain the normalizer's latest-filed ordering within that response.
     """
     if not facts:
         return {"inserted": 0, "skipped": 0, "demoted": 0}
@@ -290,9 +290,9 @@ def upsert_facts_bulk(
         incoming_date = filing_dates.get(fact["accession"])
         newer = any(
             row.is_latest and row.accession != fact["accession"]
-            and filing_dates.get(row.accession) is not None
-            and (incoming_date is None or
-                 (filing_dates[row.accession], row.accession) > (incoming_date, fact["accession"]))
+            and (row.id in protected or filing_dates.get(row.accession) is not None
+                 and (incoming_date is None or
+                      (filing_dates[row.accession], row.accession) > (incoming_date, fact["accession"])))
             for row in current
         )
         if not newer:

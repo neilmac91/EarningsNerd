@@ -37,8 +37,13 @@ under a filing that reports in another currency (USD convenience rows, a switche
 the switch); only the companyfacts sync does that. Sync such a company first
 (`POST /internal/jobs/sync-companyfacts` with `"force": true`), then preview its repair. Otherwise,
 after the apply, both currencies are current for the same periods. The sync never demotes a row
-from a filing newer than SEC's companyfacts response, so run it once companyfacts shows the
-company's latest filing. The sync leaves one thing for this repair: an annual ratio (a margin or the current
+from a filing that SEC's companyfacts response does not name and that was filed strictly after the
+response's newest filing, where that filing's date is known (its Filing row's, else the row's
+recorded `filed_at`); a row with no known date, or filed the same day, is not protected, and an
+older response still demotes a newer filing it names. So run the sync once companyfacts shows the
+company's latest filing. The sync makes its own row current at a period that holds none, but never
+a row this repair quarantined, for any reason (a rolled-back insert among them): those periods
+stay gaps. The sync leaves one thing for this repair: an annual ratio (a margin or the current
 ratio) that an older sync computed from other-currency operands under the same filing as the
 series-currency calculation. That identity is occupied, so the sync keeps its old operands; the
 repair's computed-metric correction recomputes it from the series-currency operands and journals

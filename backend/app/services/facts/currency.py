@@ -11,8 +11,8 @@ the new one and a stray item never flips the series.
 The currency ranking (``_reporting_currency``) is defined here, not in the per-filing extractor
 that shares it (``edgar/instance/core.py`` re-exports it), so the pure normalizers that import
 this module load no Settings, ORM or EDGAR code, at import or at call time. Only
-``demote_convenience_rows``, which the session-owning ingest calls with the payload's own view
-of itself (``payload_view``), imports the ORM. The collector's item admission
+``protected_rows`` and ``demote_convenience_rows``, which the session-owning ingest calls with the
+payload's own view of itself (``payload_view``), import the ORM. The collector's item admission
 (``admitted_items``) and its pick over the companyfacts registries (``companyfacts_currencies``)
 live here too, so the per-filing pick counts exactly the periods ``companyfacts`` keeps and the
 demotion reads the very pick the collector read.
@@ -21,12 +21,14 @@ from __future__ import annotations
 
 import math
 from datetime import date
-from typing import TYPE_CHECKING, Any, Callable, Iterator, Mapping, NamedTuple
+from typing import TYPE_CHECKING, Any, Iterator, Mapping, NamedTuple
 
 from app.services.facts.fiscal_naming import ANNUAL_FORMS
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
+_QUARTERS = ("Q1", "Q2", "Q3", "Q4")  # concepts._QUARTER_PERIODS, which this module cannot import at load
 
 
 def is_amount_unit(unit: Any) -> bool:
@@ -161,29 +163,31 @@ def companyfacts_currencies(usgaap: dict) -> tuple[str, frozenset[Any]]:
 
 
 class PayloadView(NamedTuple):
-    """What one companyfacts payload shows of itself, for ``demote_convenience_rows``."""
+    """What one companyfacts payload shows of itself, for ``protected_rows`` and ``demote_convenience_rows``."""
 
     currency: str  # the series currency (``companyfacts_currencies``), the one the batch's units carry
     foreign: frozenset[Any]  # the filings whose own facts are in another currency
-    known: frozenset[Any]  # every accession its us-gaap items name, in any unit
+    known: frozenset[Any]  # every accession its items name, in any taxonomy and unit
     newest_filed: str  # its newest ``filed`` date (ISO), "" when no item carries one
 
 
 def payload_view(companyfacts: Any) -> PayloadView:
-    """The raw payload's pick and the filings it knows: every us-gaap item counts, in any unit."""
+    """The raw payload's pick, over its us-gaap items, and the filings it knows: every item of every
+    taxonomy (us-gaap, ifrs-full, dei) counts, in any unit, so a filing companyfacts names under
+    another taxonomy is never taken for one it does not show yet."""
     facts_root = companyfacts.get("facts") if isinstance(companyfacts, dict) else None
-    usgaap = facts_root.get("us-gaap") if isinstance(facts_root, dict) else None
-    usgaap = usgaap if isinstance(usgaap, dict) else {}
+    facts_root = facts_root if isinstance(facts_root, dict) else {}
+    items = (item for taxonomy in facts_root.values() if isinstance(taxonomy, dict)
+             for node in taxonomy.values() if isinstance(node, dict) and isinstance(node.get("units"), dict)
+             for listed in node["units"].values() if isinstance(listed, list)
+             for item in listed if isinstance(item, dict))
     known: set[Any] = set()
     newest = ""
-    for node in usgaap.values():
-        units = node.get("units") if isinstance(node, dict) else None
-        for items in units.values() if isinstance(units, dict) else ():
-            for item in items if isinstance(items, list) else ():
-                if isinstance(item, dict):
-                    known.add(item.get("accn"))
-                    newest = max(newest, str(item.get("filed") or "")[:10])
-    return PayloadView(*companyfacts_currencies(usgaap), frozenset(known), newest)
+    for item in items:
+        known.add(item.get("accn"))
+        newest = max(newest, str(item.get("filed") or "")[:10])
+    usgaap = facts_root.get("us-gaap")
+    return PayloadView(*companyfacts_currencies(usgaap if isinstance(usgaap, dict) else {}), frozenset(known), newest)
 
 
 def _operand_unit(provenance: Any) -> Any:
@@ -209,19 +213,29 @@ def _other_derived(row: Any, currency: str) -> bool:
     return is_amount_unit(operands) and operands != currency
 
 
-def _filed_after_payload(db: Session, rows: list[Any], view: PayloadView) -> Callable[[Any], bool]:
-    """Whether a row is from a filing the payload does not name, filed after the payload's newest.
+def protected_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView) -> frozenset[int]:
+    """The ids of the stored rows of the batch's concepts that no sync of this payload may demote.
 
-    Such a row comes from a newer filing that SEC's companyfacts does not show yet (a delayed
-    response, or a sync a new filing triggers before companyfacts includes it), so a sync of this
-    payload must not demote it. A row's filing date is its Filing row's, as ``upsert_facts_bulk``
-    reads them, else its provenance's ``filed_at``; a row with neither is not protected.
+    Such a row is from a filing the payload does not name, filed after the payload's newest: a newer
+    filing that SEC's companyfacts does not show yet (a delayed response, or the sync a new filing
+    triggers before companyfacts includes it). A row's filing date is its Filing row's, as
+    ``upsert_facts_bulk`` reads them, else its provenance's ``filed_at``; a row with neither, or one
+    filed on the payload's newest date, is not protected. The read takes the fact writers' company
+    lock first, so no writer adds a row between it and the upsert, which stores the batch's row
+    behind a protected current one as it does behind a known newer filing.
     """
-    from app.models import Filing  # lazy: the pure normalizers import this module
+    from app.models import Filing, FinancialFact  # lazy: the pure normalizers import this module
+    from app.services.facts.upsert import _lock_fact_companies
 
-    unnamed = {row.accession for row in rows if row.accession not in view.known}
+    if not facts:
+        return frozenset()
+    _lock_fact_companies(db, facts)
+    rows = [row for row in db.query(FinancialFact.id, FinancialFact.accession, FinancialFact.provenance).filter(
+        FinancialFact.company_id == facts[0]["company_id"],
+        FinancialFact.concept.in_({fact["concept"] for fact in facts}),
+    ) if row.accession not in view.known]
     dates = dict(db.query(Filing.accession_number, Filing.filing_date).filter(
-        Filing.accession_number.in_(unnamed)).all()) if unnamed else {}
+        Filing.accession_number.in_({row.accession for row in rows})).all()) if rows else {}
 
     def filed(row: Any) -> str:
         stored = dates.get(row.accession)
@@ -230,36 +244,35 @@ def _filed_after_payload(db: Session, rows: list[Any], view: PayloadView) -> Cal
         provenance = row.provenance if isinstance(row.provenance, dict) else {}
         return str(provenance.get("filed_at") or "")[:10]
 
-    return lambda row: row.accession not in view.known and filed(row) > view.newest_filed
+    return frozenset(row.id for row in rows if filed(row) > view.newest_filed)
 
 
-def demote_convenience_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView) -> int:
-    """Demote the current rows a companyfacts batch supersedes and return how many; never delete or
-    rewrite one.
+def _kind(unit: str) -> str | None:
+    """What a row competes with for its key here: "amount" for a currency amount or per-share unit, in
+    any currency, "pure" for a ratio, None for any other unit (a share count), which the sync leaves."""
+    return "amount" if is_amount_unit(unit.partition("/")[0]) else ("pure" if unit == "pure" else None)
+
+
+def demote_convenience_rows(
+    db: Session, facts: list[dict[str, Any]], view: PayloadView, protected: frozenset[int],
+) -> int:
+    """Demote the current rows a companyfacts batch supersedes, make its own row current where a key it
+    presents has none, and return how many rows were demoted; never delete or rewrite one.
 
     The batch is read in one series currency (``filing_currencies``), which its amount units carry,
-    and ``view`` is its payload's own (``payload_view``). ``is_latest`` is kept per unit, so the
-    batch's rows leave a row in another currency current beside them. Every current row of a batch
-    concept at a key with a fiscal period, whatever its source or filing, is therefore demoted when
-    its unit is another currency amount or per-share unit (a convenience translation, or a period
-    from before a currency switch that the new currency's filings do not present), in both
-    directions, and when it is any amount or per-share row under a filing whose own currency is
-    another (``view.foreign``): there a figure in the series currency is that filing's convenience
-    translation, as earlier syncs stored it. Where a demotion leaves a key the batch presents with
-    no current amount or per-share row, the batch's own row there (same concept, key, unit and
-    accession), stored behind the demoted one by the upsert's known-filing-date rule or still
-    pending, is promoted. Rows with no fiscal period and other concepts are left alone.
-
-    A ratio (``pure``) keeps its unit across currencies, so the upsert's filing-date rule can keep
-    one computed from other-currency operands (``_other_derived``) current and store the batch's
-    calculation behind it: where the batch has its own calculation at that key, the stale row is
-    demoted and the batch's promoted. A ratio stored under the batch calculation's own identity is
-    skipped by the upsert and left as it is; the journaled repair recomputes it.
-
-    On both paths a row from a filing the payload does not name, filed after the payload's newest
-    (``_filed_after_payload``), is never demoted, and its key is never re-pointed: the payload is
-    older than that filing. A quarantined row is never promoted (``_promotable``). The count is of
-    rows demoted; a promotion takes a demoted row's place and is not counted, as an insert is not.
+    and ``view`` is its payload's own (``payload_view``). ``is_latest`` is kept per unit, so at every
+    key with a fiscal period, over the batch's concepts and whatever a row's source or filing, a
+    current row is demoted when it is an amount or per-share row in another currency (a convenience
+    translation, or a period from before a currency switch that the new currency's filings do not
+    present), in both directions; when it is an amount or per-share row under a filing whose own
+    currency is another (``view.foreign``): there a figure in the series currency is that filing's
+    convenience translation, as earlier syncs stored it; and when a ``protected`` row
+    (``protected_rows``) of its kind, amount or ratio, is current at its key: a newer filing holds
+    its key, so the batch never leaves its own row current beside it. A protected row is never
+    demoted. Then ``_promote_batch_rows`` makes the batch's own row current at every key it presents
+    that holds none, whichever sync left it so, and ``_replace_stale_ratios`` replaces the ratios
+    computed from other-currency operands. Rows with no fiscal period and other concepts are left
+    alone. The count is of rows demoted; a promotion is not counted, as the upsert's insert is not.
     """
     from app.models import FinancialFact  # lazy: the pure normalizers import this module
 
@@ -267,57 +280,76 @@ def demote_convenience_rows(db: Session, facts: list[dict[str, Any]], view: Payl
     currency = next((unit for unit in currencies if is_amount_unit(unit)), None)
     if currency is None:
         return 0
-    ratios: dict[tuple[Any, ...], tuple[str, str]] = {}  # key -> the batch's accession and operand unit
-    for fact in facts:
-        if fact["unit"] == "pure" and _operand_unit(fact.get("provenance")) == currency:
-            key = (fact["concept"], fact["period_end"], fact["fiscal_period"])
-            ratios[key] = (fact["accession"], currency)
     company_id = facts[0]["company_id"]
     concepts = {fact["concept"] for fact in facts}
     rows = db.query(FinancialFact).filter(
-        FinancialFact.company_id == company_id,
-        FinancialFact.concept.in_(concepts),
-        FinancialFact.fiscal_period.isnot(None),
-    ).all()
+        FinancialFact.company_id == company_id, FinancialFact.concept.in_(concepts)).all()
     # The upsert's own rows are still pending (no autoflush): the batch's ratio may be one.
     rows += [obj for obj in db.new if isinstance(obj, FinancialFact) and obj.company_id == company_id
-             and obj.concept in concepts and obj.fiscal_period is not None]
-    protected = _filed_after_payload(db, rows, view)
+             and obj.concept in concepts]
+    labelled = [row for row in rows if row.fiscal_period is not None]
+    newer = {(row.concept, row.period_end, row.fiscal_period, _kind(row.unit)) for row in labelled
+             if row.is_latest and row.id in protected and _kind(row.unit)}
     demoted = 0
-    emptied: set[tuple[Any, ...]] = set()
-    ratio_rows: dict[tuple[Any, ...], list[Any]] = {}
+    for row in labelled:
+        kind, unit_currency = _kind(row.unit), row.unit.partition("/")[0]
+        superseded = (row.concept, row.period_end, row.fiscal_period, kind) in newer or kind == "amount" and (
+            unit_currency != currency or row.accession in view.foreign)
+        if superseded and row.is_latest and row.id not in protected:
+            row.is_latest = False
+            demoted += 1
+    _promote_batch_rows(facts, rows)
+    return demoted + _replace_stale_ratios(facts, labelled, currency, newer)
+
+
+def _promote_batch_rows(facts: list[dict[str, Any]], rows: list[Any]) -> None:
+    """Make the batch's own amount or per-share row (same concept, key, unit and accession) current at
+    every key it presents that holds no current amount or per-share row, in any currency, so a fresh
+    sync leaves each such key one current row whatever earlier syncs left (a stale payload's demotion,
+    a switch and back): the upsert skips a stored identity and never touches its ``is_latest``. A key
+    a protected or known-newer row holds is held, and so is a quarter whose unlabelled twin in the
+    row's unit is current (the upsert's D1 rule). Never a quarantined row (``_promotable``)."""
+    own = {(f["concept"], f["period_end"], f["fiscal_period"]): (f["unit"], f["accession"])
+           for f in facts if _kind(f["unit"]) == "amount"}
+    current = [row for row in rows if row.is_latest and _kind(row.unit) == "amount"]
+    held = {(row.concept, row.period_end, row.fiscal_period) for row in current}
+    twins = {(row.concept, row.period_end, row.unit) for row in current if row.fiscal_period is None}
     for row in rows:
         key = (row.concept, row.period_end, row.fiscal_period)
-        unit_currency = row.unit.partition("/")[0]
-        if is_amount_unit(unit_currency):
-            if (unit_currency != currency or row.accession in view.foreign) and row.is_latest and not protected(row):
-                row.is_latest = False
-                demoted += 1
-                emptied.add(key)
-        elif row.unit == "pure" and key in ratios:
-            ratio_rows.setdefault(key, []).append(row)
-    _promote_batch_rows(facts, rows, emptied)
-    for key, group in ratio_rows.items():
-        batch_ratio = next((row for row in group if _promotable(row)
-                            and (row.accession, _operand_unit(row.provenance)) == ratios[key]), None)
+        if key in held or (row.unit, row.accession) != own.get(key) or not _promotable(row):
+            continue
+        if row.fiscal_period not in _QUARTERS or (row.concept, row.period_end, row.unit) not in twins:
+            row.is_latest = True
+            held.add(key)
+
+
+def _replace_stale_ratios(facts: list[dict[str, Any]], rows: list[Any], currency: str, newer: set) -> int:
+    """Replace each current ratio computed from other-currency operands where the batch has its own.
+
+    A ratio (``pure``) keeps its unit across currencies, so the upsert's filing-date rule can keep one
+    computed from other-currency operands (``_other_derived``) current and store the batch's
+    calculation behind it: where the batch has its own calculation at that key, the stale row is
+    demoted and the batch's promoted, unless a protected ratio holds the key (``newer``) or the
+    batch's calculation is quarantined (``_promotable``), when the stale ratio stays current. A ratio
+    stored under the batch calculation's own identity is skipped by the upsert and left as it is; the
+    journaled repair recomputes it. Returns how many rows were demoted.
+    """
+    ratios = {(f["concept"], f["period_end"], f["fiscal_period"]): f["accession"] for f in facts
+              if f["unit"] == "pure" and _operand_unit(f.get("provenance")) == currency}
+    groups: dict[tuple[Any, ...], list[Any]] = {}
+    for row in rows:
+        key = (row.concept, row.period_end, row.fiscal_period)
+        if row.unit == "pure" and key in ratios and (*key, "pure") not in newer:
+            groups.setdefault(key, []).append(row)
+    demoted = 0
+    for key, group in groups.items():
+        batch_ratio = next((row for row in group if _promotable(row) and row.accession == ratios[key]
+                            and _operand_unit(row.provenance) == currency), None)
         stale = [row for row in group if row.is_latest and _other_derived(row, currency)]
-        if batch_ratio is None or not stale or any(protected(row) for row in stale):
+        if batch_ratio is None or not stale:
             continue
         for row in stale:
             row.is_latest = False
         batch_ratio.is_latest = True
         demoted += len(stale)
     return demoted
-
-
-def _promote_batch_rows(facts: list[dict[str, Any]], rows: list[Any], emptied: set[tuple[Any, ...]]) -> None:
-    """Make the batch's own amount or per-share row current at each key a demotion left with none."""
-    own = {(f["concept"], f["period_end"], f["fiscal_period"]): (f["unit"], f["accession"])
-           for f in facts if is_amount_unit(f["unit"].partition("/")[0])}
-    held = {(row.concept, row.period_end, row.fiscal_period) for row in rows
-            if row.is_latest and is_amount_unit(row.unit.partition("/")[0])}
-    for row in rows:
-        key = (row.concept, row.period_end, row.fiscal_period)
-        if key in emptied and key not in held and (row.unit, row.accession) == own.get(key) and _promotable(row):
-            row.is_latest = True
-            held.add(key)

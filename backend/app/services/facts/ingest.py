@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.models import Company, Filing
 from app.services.facts.companyfacts import normalize_companyfacts
 from app.services.facts.concepts import COMPANYFACTS_INFLIGHT_WAIT_SECONDS, _is_financial_sic
-from app.services.facts.currency import demote_convenience_rows, payload_view
+from app.services.facts.currency import demote_convenience_rows, payload_view, protected_rows
 from app.services.facts.sync_threads import run_to_completion, submit
 from app.services.facts.transport import _fetch_companyfacts_async, logger
 from app.services.facts.upsert import upsert_facts_bulk
@@ -54,15 +54,15 @@ def _companyfacts_fresh_result(
 def _persist_companyfacts_payload(
     db: Session, company: Company, payload: dict[str, Any]
 ) -> dict[str, Any]:
-    """Normalize and persist one already-fetched payload in the caller's short transaction. The batch
-    then demotes its concepts' current rows in another currency, or under a filing whose own currency
-    is another, promoting its own row where that empties a key, but never a row of a filing that the
-    payload does not name and that was filed after it (``payload_view``). Nothing is deleted."""
+    """Normalize and persist one already-fetched payload in the caller's short transaction, deleting
+    nothing: the upsert, then the currency step (``demote_convenience_rows``), where a row of a filing
+    newer than the payload (``protected_rows``) holds its key on both."""
     company_id = company.id  # the commit expires the row; reading it back would check out again
     facts, meta = normalize_companyfacts(company_id, payload, financial_sic=_is_financial_sic(company.sic))
-    view = payload_view(payload)  # read before the upsert takes the company's row lock
-    result = upsert_facts_bulk(db, facts, commit=False)  # all-zero counters for an empty batch
-    result["demoted"] += demote_convenience_rows(db, facts, view)
+    view = payload_view(payload)  # pure: the payload's own pick and the filings it names
+    protected = protected_rows(db, facts, view)  # takes the company's row lock, as the upsert does
+    result = upsert_facts_bulk(db, facts, commit=False, protected=protected)  # all-zero for an empty batch
+    result["demoted"] += demote_convenience_rows(db, facts, view, protected)
     company.facts_synced_at = utcnow()
     db.commit()
     logger.info(

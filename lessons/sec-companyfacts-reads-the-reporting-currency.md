@@ -1,6 +1,6 @@
 # Read each companyfacts filing in its own currency and the series in its latest annual report's; a USD figure beside a filing's own currency is a convenience translation
 
-Date: 2026-10-16, per-filing pick and stale-payload guard 2026-10-24   Area: sec (financial facts)
+Date: 2026-10-16, per-filing pick, stale-payload guard and convergence 2026-10-24   Area: sec (financial facts)
 
 **Context**: The companyfacts ingest read only `units["USD"]` (and `USD/shares`) for every concept.
 A US-GAAP filer that reports in CNY (the Alibaba shape) also tags each 20-F's own year again as a
@@ -44,42 +44,56 @@ calculation built from it, and treat "additive" as "a currency amount" (`is_amou
 (`demote_convenience_rows`), at any key with a fiscal period, whatever a row's source or filing,
 for a USD series too, and never deletes one. It reads the payload's own view (`payload_view`): the
 collector's very pick (`companyfacts_currencies`), and every accession and the newest `filed` date
-its us-gaap items carry. It demotes every current row of its batch's concepts in another currency
-amount or per-share unit, and every amount or per-share row under a filing whose own currency is
-another: there a figure in the series currency is that filing's convenience translation, which the
-syncs before #1365 and #1365's list pick stored. Where a demotion leaves a key the batch presents
-with no current row, it promotes the batch's own row there (the upsert's known-filing-date rule can
-store it behind the convenience row), never a quarantined one. A ratio (`pure`) keeps its unit
-across currencies, so the upsert's filing-date rule can keep one computed from other-currency
+its items carry in any taxonomy. It demotes every current row of its batch's concepts in another
+currency amount or per-share unit, and every amount or per-share row under a filing whose own
+currency is another: there a figure in the series currency is that filing's convenience
+translation, which the syncs before #1365 and #1365's list pick stored. A ratio (`pure`) keeps its
+unit across currencies, so the upsert's filing-date rule can keep one computed from other-currency
 operands current and store the batch's calculation behind it; the writer then demotes the stale
 ratio and promotes the batch's. A derived ratio with no filing owner and no recorded operands
 predates provenance and was read from the USD lists, so it counts as USD-derived. It never rewrites
 an identity: a ratio stored under the batch calculation's own identity (same filing) is corrected
 by the journaled repair.
 
-Never let a payload demote what is newer than it. A sync can persist a payload older than stored
-rows: a delayed SEC response, another process's earlier fetch, or the sync a new Filing triggers
-(the TTL bypass) before SEC's companyfacts shows that filing. A demotion is permanent, because the
-upsert skips a stored identity and never promotes it again, so a stale pre-switch payload once
-demoted every newer-currency row (FY2025 included) and a fresh sync restored none. A row is
-therefore protected on every path, ratios included, when its accession is not among the payload's
-and its filing date (its Filing row's, else its provenance's `filed_at`) is later than the
-payload's newest `filed`; a row with no known date is not protected.
+Make a fresh sync converge, never bookkeep per key incrementally. The upsert skips a stored identity
+and never touches its `is_latest`, so a sync that promotes only where it demoted itself leaves an
+earlier sync's demotion final: a stale payload, or the sync that names a new-currency 10-Q before
+the annual report switches the series, demoted that report's rows and no later sync restored them.
+So at every key the batch presents in an amount or per-share unit that holds no current amount or
+per-share row, the writer makes the batch's own row there current (same unit and accession),
+whichever sync left the key so: never a quarantined row (provenance `unavailable`, any reason),
+and never beside a current unlabelled twin of a quarter in that unit (the bulk writer's NULL-period
+rule). Before widening a promotion, read every writer that sets `is_latest=False` and check that
+none leaves such a key empty on purpose.
+
+Never let a payload demote a row of a filing it does not name and that was filed after it. A sync
+can persist a payload older than stored rows: a delayed SEC response, another process's earlier
+fetch, or the sync a new Filing triggers (the TTL bypass) before SEC's companyfacts shows that
+filing. Such a row (`protected_rows`: its accession is not among the payload's, and its filing
+date, its Filing row's else its provenance's `filed_at`, is strictly later than the payload's
+newest `filed`) holds its key on both of the sync's paths, ratios included: the ids go into the
+upsert, which stores the batch's row behind one as behind a known newer filing, and into the
+currency step, which never demotes one and demotes any other amount, per-share or ratio row current
+beside it, so the batch never leaves its own row current there in another currency. A guard on the
+currency step alone is not enough: the upsert's own demotion is per (concept, period, unit), and a
+ratio's unit is the same in every currency.
 
 Known gaps: a switcher's current series holds only the periods its filings in the new currency
 present (its earlier rows are demoted, not deleted, and stay readable by accession); a ratio at a
 period the batch does not compute is left current, and so is one under a filing in another
-currency (a margin carries no currency); a filing that presents a single period in two currencies
-is a tie, so its items in the series currency are read; a switch first reported in a 10-Q or 6-K,
-or a first annual report in the new currency that tags one year, takes effect only with the next
-annual report presenting comparatives. The per-filing writer keeps `is_latest` per unit, so
-opening an old-currency filing after a switch can add a current row in the old currency, and a new
-filing's own rows in a new currency stand beside the old currency's until a sync whose payload
-names that filing demotes the old ones. The guard needs a filing date: a newer filing's row with
-no Filing row and no `filed_at`, or one filed the same day as the payload's newest, is not
-protected. A promotion happens only at a key this sync demoted, so a key emptied earlier stays
-empty: a filer that switches currency and back keeps its pre-switch years demoted, since their
-identities are stored and the upsert skips them.
+currency (a margin carries no currency), and so is a stale ratio where the batch's own calculation
+is quarantined; a filing that presents a single period in two currencies is a tie, so its items in
+the series currency are read; a switch first reported in a 10-Q or 6-K, or a first annual report
+in the new currency that tags one year, takes effect only with the next annual report presenting
+comparatives. The per-filing writer keeps `is_latest` per unit, so opening an old-currency filing
+after a switch can add a current row in the old currency, and a new filing's own rows in a new
+currency stand beside the old currency's, until the next companyfacts sync. The guard needs a
+filing date: a newer filing's row with no Filing row and no `filed_at`, or one filed the same day
+as the payload's newest, is not protected, and a stale payload still demotes the rows of a newer
+filing it names, until the next fresh sync promotes them again. Until then, a stale payload's own rows are current at the periods
+only it presents (no key holds two currencies). At a key a stale payload in the series currency
+took from an unprotected newer row, the fresh sync skips its own stored identity and leaves the
+older filing's row current: one row in the series currency, not the newest.
 
 **Evidence**: `backend/app/services/facts/currency.py`;
 `backend/app/services/facts/companyfacts.py::_collect_companyfacts_concepts`;
