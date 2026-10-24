@@ -47,8 +47,14 @@ export default function MetricsTable({
   const window = sample ? 'all' : selection.window
   const periods = useMemo(() => tablePeriods(dataset, window), [dataset, window])
   const visibleNotes = useMemo(() => tablePresentation(dataset, periods, notes).notes, [dataset, periods, notes])
-  const periodUnit = dataset.mode === 'quarterly' ? 'quarters' : 'years'
+  // A count agrees with the run's length: "1 of 1 year", "6 of 10 years".
+  const periodUnit = `${dataset.mode === 'quarterly' ? 'quarter' : 'year'}${dataset.periods.length === 1 ? '' : 's'}`
   const basis = dataset.mode === 'quarterly' ? 'prior quarter' : 'prior year'
+  // The engine computes CAGR annual-only (a "compound ANNUAL growth rate" over 12 quarters
+  // isn't well-defined) and over a window of two years or more: in quarterly mode or on a run of
+  // one year the final column would show the missing-value mark in every row, so it is hidden
+  // there entirely, with the legend's sentence and the caption's, rather than shipping as dead UI.
+  const showsCagr = dataset.mode === 'annual' && dataset.periods.length > 1
   const columns = useMemo<Column<Row>[]>(() => {
     const periodColumns: Column<Row>[] = periods.map((period) => {
       const derivedQuarter = period.fiscal_period === 'Q4' && dataset.series.some(series => series.points.some(point => point.period === period.key && point.value != null && point.derived && point.provenance?.method !== 'reported'))
@@ -112,10 +118,7 @@ export default function MetricsTable({
         </span>
       ),
     }
-    // The engine computes CAGR annual-only (a "compound ANNUAL growth rate" over 12 quarters
-    // isn't well-defined) — the column would render "—" for every row in quarterly mode, so it's
-    // hidden there entirely rather than shipping as permanently dead UI.
-    if (dataset.mode !== 'annual') {
+    if (!showsCagr) {
       return [metricColumn, ...periodColumns]
     }
     // An en-dash already offers a line break after it, so the window wraps there in a narrow column.
@@ -158,7 +161,7 @@ export default function MetricsTable({
       },
     }
     return [metricColumn, ...periodColumns, cagrColumn]
-  }, [dataset, notes, periods, basis])
+  }, [dataset, notes, periods, basis, showsCagr])
 
   const rows = useMemo<Row[]>(() => dataset.series.map((series) => ({ series })), [dataset])
   const hasDerived = dataset.series.some((s) => s.points.some((p) => p.provenance?.method === 'calculated' || (!p.provenance && p.derived)) || s.cagr_provenance?.method === 'calculated' || s.window_pp_provenance?.method === 'calculated')
@@ -204,9 +207,9 @@ export default function MetricsTable({
         />}
       </div>
       <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">Figures are rounded for display. Select a value for full precision.</p>
-      <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">n/m means not meaningful. {dataset.mode === 'quarterly'
-        ? 'Fiscal quarters follow the company’s reporting calendar. A Q4 header † means some flow figures are calculated from annual totals less the first nine months; it does not mark the column’s balance-sheet figures as calculated.'
-        : 'The final column shows CAGR, or percentage-point change for percent-unit rows. Each value’s source detail states its calculation range.'}</p>
+      <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">n/m means not meaningful.{dataset.mode === 'quarterly'
+        ? ' Fiscal quarters follow the company’s reporting calendar. A Q4 header † means some flow figures are calculated from annual totals less the first nine months; it does not mark the column’s balance-sheet figures as calculated.'
+        : showsCagr ? ' The final column shows CAGR, or percentage-point change for percent-unit rows. Each value’s source detail states its calculation range.' : null}</p>
       <DataTable<Row>
         key={selection.identity}
         columns={columns}
@@ -223,7 +226,7 @@ export default function MetricsTable({
           hint: `← Earlier ${periodUnit}`,
           startAtEndOnMobile: true,
         }}
-        caption={`Metrics by period, ${periods.length} of ${dataset.periods.length} ${periodUnit}: value and change versus ${basis}. ${dataset.mode === 'quarterly' ? 'Fiscal quarters follow the company’s reporting calendar. YoY labels identify comparisons versus the prior year when a quarterly comparison is unavailable.' : 'The final column shows the full selected window CAGR, or percentage-point change for margins.'}`}
+        caption={`Metrics by period, ${periods.length} of ${dataset.periods.length} ${periodUnit}: value and change versus ${basis}.${dataset.mode === 'quarterly' ? ' Fiscal quarters follow the company’s reporting calendar. YoY labels identify comparisons versus the prior year when a quarterly comparison is unavailable.' : showsCagr ? ' The final column shows the full selected window CAGR, or percentage-point change for margins.' : ''}`}
         stickyFirstColumn
         empty="No metrics available for the selected periods."
       />

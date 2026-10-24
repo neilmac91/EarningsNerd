@@ -557,6 +557,9 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  Headers show quarter/year on two lines with the complete quarter/year accessible name.
                  The annual final column names the full report range and CAGR; visible prose explains
                  that percent-unit rows instead show the recorded window’s percentage-point change.
+                 A one-year run has no final column, nor the legend's or the caption's sentence on it:
+                 a CAGR and a window change need two years. Counts agree with the run (“Showing 1 of
+                 1 year”).
                  The table's Notes chip lists only letters present in its visible cells, including
                  unavailable values and annual window comparisons, in report note order.
                  The change basis is stated once, while
