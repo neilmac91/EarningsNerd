@@ -10,12 +10,26 @@ from sqlalchemy.orm import Session
 from app.models import User
 
 
-def apply_profile_update(db: Session, current_user: User, data: Dict[str, Any]) -> None:
-    """Apply the validated profile fields and commit (``data`` holds only the fields the client sent)."""
+def apply_profile_update(db: Session, current_user: User, data: Dict[str, Any]) -> Dict[str, Any]:
+    """Apply the validated profile fields and commit (``data`` holds only the fields the client sent);
+    return the profile the response shows.
+
+    The write goes through the row this session holds (``db.get``: the auth lookup's own user, or a
+    fresh read of it), so it is saved even if ``current_user`` is not this session's. With no row (an
+    account deleted since the lookup) a rename fails, a 500, as it did before. The profile is read
+    before the commit, which expires the row: read after it, the row would be loaded again on a new
+    checkout."""
+    user = db.get(User, current_user.id)
     if "full_name" in data:
-        current_user.full_name = data["full_name"]
+        user.full_name = data["full_name"]
+    profile = {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "is_pro": user.is_pro,
+    }
     db.commit()
-    db.refresh(current_user)
+    return profile
 
 
 def delete_user(db: Session, current_user: User) -> None:

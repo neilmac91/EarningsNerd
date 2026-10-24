@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models import Company, Filing, NotificationLog, User
@@ -89,15 +89,21 @@ def recent_notifications(db: Session, user: User, limit: int) -> List[Notificati
 def mark_seen(db: Session, current_user: User) -> User:
     """Stamp ``notifications_seen_at`` and commit; return the user the response is built from.
 
-    Fetch the real row via ``db.get`` and mutate it directly (rather than a bulk UPDATE) so the
-    response is built from a fresh, in-session user — robust regardless of ``expire_on_commit`` — and
-    so it works for the test stand-in (a non-session user) too: with no row, the stand-in is
-    returned unchanged.
+    The stamp only moves forward. Two marks of one account can run at once (in the thread pool, or on
+    the API's two instances), and the one stamped first can commit last, so one UPDATE writes the
+    stamp only over an unset or older one, in the database: whichever commits last, the later stamp
+    stands. The row is read back after the commit, so the response's read flags and unread count use
+    the stamp that stands, whatever ``expire_on_commit`` says. With no row, the test stand-in (a
+    non-session user) is returned unchanged.
     """
     user = db.get(User, current_user.id)
-    if user is not None:
-        user.notifications_seen_at = utcnow()
-        db.commit()
-    else:
-        user = current_user
+    if user is None:
+        return current_user
+    now = utcnow()
+    db.query(User).filter(
+        User.id == user.id,
+        or_(User.notifications_seen_at.is_(None), User.notifications_seen_at < now),
+    ).update({User.notifications_seen_at: now}, synchronize_session=False)
+    db.commit()
+    db.refresh(user)
     return user

@@ -139,7 +139,8 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
     ),
     ("app/routers/users.py", "get_notification_preferences"): (
         "lazy create: get_or_create_preferences inserts the default preferences row on first read "
-        "(db.add/commit); the response is the defaults either way"
+        "(db.add/flush/commit); an insert that clashes with another (a concurrent read, an update or "
+        "the alert scanner) rolls back under a SAVEPOINT, and the read answers the stored row"
     ),
     ("app/routers/users.py", "export_user_data"): (
         "audit trail: the GDPR export records who downloaded their data "
@@ -203,7 +204,7 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
         "app/routers/summaries.py::get_summary_progress": {"commit": 1},
     },
     ("app/routers/users.py", "get_notification_preferences"): {
-        "app/services/notification_service.py::get_or_create_preferences": {"add": 1, "commit": 1},
+        "app/services/notification_service.py::get_or_create_preferences": {"add": 1, "commit": 1, "flush": 2},
     },
     ("app/routers/users.py", "export_user_data"): {
         "app/services/audit_service.py::create_audit_log": {"add": 1, "commit": 1},
