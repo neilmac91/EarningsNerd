@@ -17,6 +17,7 @@ import {
   useYAxisScale,
   type TooltipContentProps,
 } from 'recharts'
+import { toast } from 'sonner'
 
 import { ThemeContext } from '@/components/ThemeProvider'
 import { useOverflowRegion } from '@/hooks/useOverflowRegion'
@@ -461,6 +462,9 @@ function PanelCard({
         periodKey: dataset.period_key,
         panel: panel.title,
       })
+    } else {
+      // The export stops rather than draw the plot in another font (chartExport), so say it did.
+      toast.error('Could not create the chart image. Please try again.')
     }
   }
 

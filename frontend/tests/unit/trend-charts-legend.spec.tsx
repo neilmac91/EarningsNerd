@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 // recharts measures the DOM, which jsdom can't do — stub it (same pattern as analysis-teaser.spec.tsx).
 // `chartFault.on` makes the ComposedChart stub throw, so the chart fallback case can fail a panel.
@@ -26,9 +26,15 @@ vi.mock('@/features/analysis/lib/chartExport', async (importOriginal) => {
   return { ...actual, exportPanelPng: vi.fn().mockResolvedValue(true) }
 })
 vi.mock('@/lib/analytics', () => ({ default: { exportGenerated: vi.fn() } }))
+vi.mock('sonner', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('sonner')>()
+  return { ...actual, toast: { ...actual.toast, error: vi.fn() } }
+})
 
 import TrendCharts from '@/features/analysis/components/TrendCharts'
 import { exportPanelPng } from '@/features/analysis/lib/chartExport'
+import analytics from '@/lib/analytics'
+import { toast } from 'sonner'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 
 const dataset: AnalysisDataset = {
@@ -244,6 +250,32 @@ describe('TrendCharts PNG export wiring', () => {
     unmount()
     render(<TrendCharts dataset={{ ...dataset, data_as_of: null }} exportEnabled />)
     expect(clickExport('Margins')?.sourceNote).toBe('Source: SEC filings via EarningsNerd · source refresh time unavailable')
+  })
+})
+
+describe('TrendCharts PNG export outcome', () => {
+  beforeEach(() => {
+    vi.mocked(toast.error).mockClear()
+    vi.mocked(analytics.exportGenerated).mockClear()
+  })
+  afterEach(() => {
+    vi.mocked(exportPanelPng).mockResolvedValue(true)
+  })
+
+  it('tells the reader when no image was made, and records no export', async () => {
+    // exportPanelPng resolves false when it stops rather than paint the plot in a fallback font.
+    vi.mocked(exportPanelPng).mockResolvedValue(false)
+    render(<TrendCharts dataset={dataset} exportEnabled />)
+    fireEvent.click(within(screen.getByText('Margins').closest('section')!).getByRole('button', { name: 'Download chart as PNG' }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not create the chart image. Please try again.'))
+    expect(analytics.exportGenerated).not.toHaveBeenCalled()
+  })
+
+  it('records a downloaded image without an error', async () => {
+    render(<TrendCharts dataset={dataset} exportEnabled />)
+    fireEvent.click(within(screen.getByText('Margins').closest('section')!).getByRole('button', { name: 'Download chart as PNG' }))
+    await waitFor(() => expect(analytics.exportGenerated).toHaveBeenCalledOnce())
+    expect(toast.error).not.toHaveBeenCalled()
   })
 })
 

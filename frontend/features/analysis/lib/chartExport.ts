@@ -1,4 +1,5 @@
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
+import api from '@/lib/api/client'
 import { downloadBlob } from '@/lib/downloadBlob'
 import type { DataNotesModel } from './dataNotes'
 import { formatAnalysisPeriod } from './periodLabels'
@@ -64,9 +65,9 @@ export function exportFilename(dataset: AnalysisDataset, suffix: string, ext: st
 }
 
 // System-first sans — identical intent to the app's `body` stack (see tailwind.config.js:
-// "-apple-system first BY DESIGN"). System fonts are synchronously available, so canvas
-// measureText/fillText render deterministically without waiting on a webfont (the Geist webfont
-// never resolves inside the isolated SVG image doc anyway — the module's documented limitation).
+// "-apple-system first BY DESIGN"). System fonts are synchronously available, so the canvas-drawn
+// header and footer measureText/fillText deterministically without waiting on a webfont. (The plot's
+// own Geist Mono travels inside its SVG image: embeddedFontFaces.)
 const BRAND_FONT = '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, system-ui, sans-serif'
 const font = (weight: number, size: number) => `${weight} ${size}px ${BRAND_FONT}`
 
@@ -83,7 +84,8 @@ function resolveBackground(el: HTMLElement): string {
 }
 
 /** Rasterize SVG markup in an isolated image document (data URI keeps the canvas untainted).
- *  Resolves null on decode failure so callers can degrade instead of throwing. */
+ *  Resolves null on decode failure so callers can degrade instead of throwing. Waits for `decode()`
+ *  where the browser has it, so embedded fonts have painted before the canvas draws the image. */
 async function loadSvgImage(markup: string): Promise<HTMLImageElement | null> {
   const image = new Image()
   image.decoding = 'sync'
@@ -92,7 +94,103 @@ async function loadSvgImage(markup: string): Promise<HTMLImageElement | null> {
     image.onerror = () => resolve(false)
   })
   image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`
-  return (await loaded) ? image : null
+  if (!(await loaded)) return null
+  if (typeof image.decode === 'function') {
+    try {
+      await image.decode()
+    } catch {
+      return null
+    }
+  }
+  return image
+}
+
+/** Code-point ranges of a `unicode-range` descriptor ("U+0000-00FF, U+0131, U+4??"); an empty
+ *  descriptor covers every code point. Exported for tests. */
+export function parseUnicodeRange(descriptor: string): [number, number][] {
+  if (!descriptor.trim()) return [[0, 0x10ffff]]
+  return descriptor.split(',').flatMap((part): [number, number][] => {
+    const token = part.trim().replace(/^u\+/i, '')
+    if (!token) return []
+    if (token.includes('?')) return [[parseInt(token.replace(/\?/g, '0'), 16), parseInt(token.replace(/\?/g, 'f'), 16)]]
+    const [start, end = start] = token.split('-')
+    return [[parseInt(start, 16), parseInt(end, 16)]]
+  })
+}
+
+const familyNames = (stack: string) => stack.split(',').map((name) => name.trim().replace(/^["']|["']$/g, '').toLowerCase()).filter(Boolean)
+
+const fontFaceRules = (): CSSFontFaceRule[] => [...document.styleSheets].flatMap((sheet) => {
+  try {
+    return [...sheet.cssRules].filter((rule): rule is CSSFontFaceRule =>
+      (typeof CSSFontFaceRule !== 'undefined' && rule instanceof CSSFontFaceRule) || rule.type === 5)
+  } catch {
+    return [] // a cross-origin sheet keeps its rules; the app's own fonts are same-origin (next/font)
+  }
+})
+
+const faceDataCache = new Map<string, Promise<string | null>>()
+
+/** A face file as a data URI, read once per page (several panels may export). Null on any failure. */
+function faceDataUri(url: string): Promise<string | null> {
+  let pending = faceDataCache.get(url)
+  if (!pending) {
+    // Through the shared client like every request (an absolute same-origin URL overrides its API base).
+    pending = api.get<Blob>(url, { responseType: 'blob' })
+      .then((response) => response.data)
+      .then((blob) => new Promise<string | null>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+        reader.onerror = () => resolve(null)
+        reader.readAsDataURL(blob)
+      }))
+      .catch(() => null)
+      .then((uri) => {
+        if (!uri) faceDataCache.delete(url) // a later export may retry a failed read
+        return uri
+      })
+    faceDataCache.set(url, pending)
+  }
+  return pending
+}
+
+/**
+ * The page's webfont faces that the plot's text paints with, as `@font-face` rules whose sources are
+ * data URIs: a webfont never loads into the isolated image document on its own, so without them the
+ * PNG's plot drew in the platform monospace (1.4–2.4% of its pixels differed from the screen). For
+ * each text, the first family of its resolved stack that the page serves from a file is the family it
+ * paints in; of that family's faces, those whose `unicode-range` covers one of the text's characters
+ * are embedded, each keeping that range, without which the subsets would shadow one another (latin-ext
+ * carries † alone). Resolves null when a needed face cannot be read: the export then stops rather than
+ * paint a fallback. Exported for tests.
+ */
+export async function embeddedFontFaces(texts: { family: string; text: string }[]): Promise<string | null> {
+  const faces = fontFaceRules().flatMap((rule) => {
+    const source = /url\(\s*["']?([^"')]+)["']?\s*\)/.exec(rule.style.getPropertyValue('src'))
+    return source ? [{ rule, url: new URL(source[1], rule.parentStyleSheet?.href ?? document.baseURI).href }] : []
+  })
+  const needed = new Map<string, (typeof faces)[number]>()
+  for (const { family, text } of texts) {
+    const codePoints = [...text].map((character) => character.codePointAt(0)!)
+    const name = familyNames(family).find((candidate) => faces.some((face) => familyNames(face.rule.style.getPropertyValue('font-family'))[0] === candidate))
+    if (!name) continue
+    for (const face of faces) {
+      if (familyNames(face.rule.style.getPropertyValue('font-family'))[0] !== name) continue
+      const ranges = parseUnicodeRange(face.rule.style.getPropertyValue('unicode-range'))
+      if (codePoints.some((point) => ranges.some(([start, end]) => point >= start && point <= end))) needed.set(face.url, face)
+    }
+  }
+  const rules: string[] = []
+  for (const { rule, url } of needed.values()) {
+    const uri = await faceDataUri(url)
+    if (!uri) return null
+    const descriptors = ['font-family', 'font-style', 'font-weight', 'font-stretch', 'unicode-range']
+      .map((property) => [property, rule.style.getPropertyValue(property)] as const)
+      .filter(([, value]) => value)
+      .map(([property, value]) => `${property}:${value};`)
+    rules.push(`@font-face{${descriptors.join('')}src:url("${uri}");}`)
+  }
+  return rules.join('')
 }
 
 // The EN monogram geometry — public/assets/earningsnerd-mark-sage.svg with the fill
@@ -395,12 +493,12 @@ function drawHeader(
  * `header` (company + ticker + metric title + the panel's shared `legendItems`) to draw the frame;
  * omit it and the export degrades to the bare plot + footer.
  *
- * Known limitation (documented in the audit): the SVG plot is rasterized in an isolated image
- * document, where webfonts (Geist Mono) don't load. Resolve each text node's font stack before
- * serialization so its system monospace fallback survives without the page's CSS variables.
- * The header/footer text is drawn directly on the canvas (main
- * document), so it uses the system sans immediately — no webfont wait. Metrics are close;
- * embedding the font as a data URI is the upgrade path if pixel-identical axis text ever matters.
+ * The SVG plot is rasterized in an isolated image document, where the page's CSS variables and
+ * webfonts don't reach: each text node's font stack is resolved before serialization, and the
+ * Geist Mono faces its characters need travel inside the SVG as data URIs (embeddedFontFaces), so
+ * the PNG's plot paints the same glyphs as the screen. A face that cannot be read stops the export
+ * (resolves false) rather than paint a fallback. The header/footer text is drawn directly on the
+ * canvas (main document), so it uses the system sans immediately — no webfont wait.
  */
 export async function exportPanelPng(
   container: HTMLElement,
@@ -418,6 +516,7 @@ export async function exportPanelPng(
   clone.setAttribute('width', String(width))
   clone.setAttribute('height', String(height))
   const sourceText = svg.querySelectorAll('text, tspan')
+  const painted: { family: string; text: string }[] = []
   clone.querySelectorAll<SVGTextContentElement>('text, tspan').forEach((text, index) => {
     const computedFamily = getComputedStyle(sourceText[index]).fontFamily
     const family = computedFamily && !computedFamily.includes('var(') ? computedFamily : 'monospace'
@@ -425,7 +524,15 @@ export async function exportPanelPng(
     // SVG, including nested tspans, contains no unresolved font variable or inherited page CSS.
     text.style.fontFamily = family
     text.setAttribute('font-family', family)
+    painted.push({ family, text: text.textContent ?? '' })
   })
+  const faces = await embeddedFontFaces(painted)
+  if (faces == null) return false
+  if (faces) {
+    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+    style.textContent = faces
+    clone.insertBefore(style, clone.firstChild)
+  }
 
   const image = await loadSvgImage(new XMLSerializer().serializeToString(clone))
   if (!image) return false

@@ -2106,7 +2106,10 @@ when the SVG remains focused, and does not scroll the chart. The next keyboard a
 the retained hover through the chart’s normal mouse-leave event and resumes its keyboard period.
 Outer arrow keys keep native scrolling. Tooltip changes use a live status; Tab leaves and Shift+Tab
 returns without a trap. The viewport carries the brand focus ring for either keyboard stop. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
-source dates, material gaps and a concise disclosure. Use keyboard/touch source controls, not
+source dates, material gaps and a concise disclosure. The PNG's plot paints the screen's Geist Mono:
+the export carries the page's faces into the isolated SVG image, and when a face cannot be read it
+stops with an error toast rather than paint a fallback (gate: `tests/e2e/chart-export-fidelity.spec.ts`,
+at most 0.1% of plot pixels unlike the screen). Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
 period count and axis space, so a narrow screen never overlaps labels or widens the page.

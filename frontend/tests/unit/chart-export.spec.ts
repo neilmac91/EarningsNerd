@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   chartDataNotes,
+  embeddedFontFaces,
   EXPORT_TEXT,
   HEADER_STAMP,
   exportFilename,
@@ -10,6 +11,7 @@ import {
   layoutLegend,
   layoutExportNotes,
   MARK_STAMP,
+  parseUnicodeRange,
 } from '@/features/analysis/lib/chartExport'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
@@ -18,6 +20,8 @@ import tailwindConfig from '../../tailwind.config.js'
 
 vi.mock('@/lib/downloadBlob', () => ({ downloadBlob: vi.fn() }))
 import { downloadBlob } from '@/lib/downloadBlob'
+vi.mock('@/lib/api/client', () => ({ default: { get: vi.fn() } }))
+import api from '@/lib/api/client'
 
 // Tabular export left this module for the server-built Excel workbook (owner decision D1) —
 // what remains client-side is the PNG path and its filename convention.
@@ -187,6 +191,138 @@ describe('standalone export qualification layout', () => {
     const lines = layoutExportNotes((value) => value.length * 7, [text], 35)
     expect(lines.join('')).toBe(text)
     expect(lines.every((line) => line.length <= 5)).toBe(true)
+  })
+})
+
+/* -------------------------------------------------------------------------
+   Font embedding. jsdom's CSS parser drops a face's `src` and `unicode-range`, so the page's sheets
+   are stubbed with rules shaped as a browser serializes next/font's faces. What the browser then
+   paints from them is gated by tests/e2e/chart-export-fidelity.spec.ts.
+------------------------------------------------------------------------- */
+const MONO = '__Geist_Mono_9a1b'
+const MONO_STACK = `${MONO}, __Geist_Mono_Fallback_9a1b, "Geist Mono", ui-monospace, monospace`
+const LATIN = 'U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308, U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD'
+const LATIN_EXT = 'U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF'
+const CYRILLIC = 'U+400-45F, U+490-491, U+4B0-4B1, U+2116'
+
+/** The page's sheets as a browser serializes next/font's: the mono family's subsets, its metric-matched
+ *  local fallback, another family, a non-face rule, and a cross-origin sheet whose rules can't be read.
+ *  Each test passes its own `tag`, so its faces get their own URLs (the module reads a face once per
+ *  page). Returns a face file's resolved URL. */
+function stubPageFaces(tag: string) {
+  const sheet = { href: `http://localhost:3000/_next/static/${tag}/css/app.css` }
+  const face = (descriptors: Record<string, string>) => ({
+    type: 5,
+    parentStyleSheet: sheet,
+    style: { getPropertyValue: (name: string) => descriptors[name] ?? '' },
+  })
+  const mono = (subset: string, range: string) => face({
+    'font-family': `"${MONO}"`, 'font-style': 'normal', 'font-weight': '100 900', 'font-display': 'swap',
+    src: `url("../media/${subset}.woff2") format("woff2")`, 'unicode-range': range,
+  })
+  const rules = [
+    mono('cyrillic', CYRILLIC),
+    mono('latin-ext', LATIN_EXT),
+    mono('latin', LATIN),
+    face({ 'font-family': '"__Geist_Mono_Fallback_9a1b"', src: 'local("Arial")', 'size-adjust': '134.59%' }),
+    face({ 'font-family': '"__Inter_5c2d"', 'font-style': 'normal', 'font-weight': '100 900', src: 'url("../media/inter-latin.woff2") format("woff2")', 'unicode-range': LATIN }),
+    { type: 1, style: { getPropertyValue: () => '' } },
+  ]
+  const crossOrigin = { href: 'https://cdn.example.test/x.css', get cssRules(): never { throw new DOMException('cross-origin', 'SecurityError') } }
+  vi.spyOn(document, 'styleSheets', 'get').mockReturnValue([crossOrigin, { ...sheet, cssRules: rules }] as never)
+  return (subset: string) => `http://localhost:3000/_next/static/${tag}/media/${subset}.woff2`
+}
+
+/** Serve each face file through the mocked shared client, recording the URLs read. */
+function serveFaces(fail: (url: string) => boolean = () => false) {
+  const read: string[] = []
+  vi.mocked(api.get).mockImplementation(async (url: string) => {
+    read.push(url)
+    if (fail(url)) throw new Error('network')
+    return { data: new Blob([url.split('/').at(-1)!], { type: 'font/woff2' }) }
+  })
+  return read
+}
+
+describe('parseUnicodeRange', () => {
+  it('reads single points, spans and wildcards, in either case and with or without zero padding', () => {
+    expect(parseUnicodeRange('U+0000-00FF, U+0131, u+4??')).toEqual([[0, 0xff], [0x131, 0x131], [0x400, 0x4ff]])
+    expect(parseUnicodeRange('U+0-FF, U+2020')).toEqual([[0, 0xff], [0x2020, 0x2020]])
+  })
+
+  it('treats a face without a range as covering every code point', () => {
+    expect(parseUnicodeRange('')).toEqual([[0, 0x10ffff]])
+    expect(parseUnicodeRange('  ')).toEqual([[0, 0x10ffff]])
+  })
+})
+
+describe('embeddedFontFaces', () => {
+  // Braced: a function returned from beforeEach runs as its teardown, and mockReset returns the mock.
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset()
+  })
+  afterEach(() => vi.restoreAllMocks())
+
+  it('embeds only the subsets whose range covers the painted characters, each keeping its descriptors', async () => {
+    const url = stubPageFaces('digits')
+    const read = serveFaces()
+    const css = await embeddedFontFaces([{ family: MONO_STACK, text: '$10B' }, { family: MONO_STACK, text: '−18,093%' }])
+    expect(read).toEqual([url('latin')])
+    expect(css).toMatch(/^@font-face\{[^}]*\}$/)
+    expect(css).toContain(`font-family:"${MONO}";`)
+    expect(css).toContain('font-style:normal;')
+    expect(css).toContain('font-weight:100 900;')
+    expect(css).toContain(`unicode-range:${LATIN};`)
+    expect(css).toContain('src:url("data:font/woff2;base64,')
+    expect(css).not.toContain('font-display') // a descriptor the isolated image has no use for
+  })
+
+  it('embeds every subset that claims a character, so the browser falls through them as on the page', async () => {
+    // Both the latin and latin-ext subsets claim U+2020; only one of the two files carries the glyph.
+    const url = stubPageFaces('dagger')
+    const read = serveFaces()
+    const css = await embeddedFontFaces([{ family: MONO_STACK, text: '$4.2B†' }])
+    expect(read.sort()).toEqual([url('latin'), url('latin-ext')].sort())
+    expect(css?.match(/@font-face/g)).toHaveLength(2)
+    expect(css).toContain(`unicode-range:${LATIN_EXT};`)
+    expect(css).not.toContain(CYRILLIC)
+  })
+
+  it('takes the first family of the stack the page serves from a file, skipping local fallbacks', async () => {
+    const url = stubPageFaces('stacks')
+    const read = serveFaces()
+    // The fallback family leads this stack but is served by local() only, so Geist Mono paints.
+    await embeddedFontFaces([{ family: `__Geist_Mono_Fallback_9a1b, ${MONO}, monospace`, text: '0%' }])
+    expect(read).toEqual([url('latin')])
+    read.length = 0
+    // A system stack names no served family: nothing to embed, nothing read.
+    expect(await embeddedFontFaces([{ family: 'ui-monospace, Menlo, monospace', text: '0%' }])).toBe('')
+    expect(read).toEqual([])
+  })
+
+  it('reads each face once however many texts and exports need it', async () => {
+    stubPageFaces('once')
+    const read = serveFaces()
+    const texts = [{ family: MONO_STACK, text: '$1B' }, { family: MONO_STACK, text: '$2B' }]
+    const first = await embeddedFontFaces(texts)
+    expect(await embeddedFontFaces(texts)).toBe(first)
+    expect(read).toHaveLength(1)
+  })
+
+  it('resolves null when a needed face cannot be read, and reads it again on the next export', async () => {
+    const url = stubPageFaces('retry')
+    let down = true
+    const read = serveFaces(() => down)
+    expect(await embeddedFontFaces([{ family: MONO_STACK, text: '$1B' }])).toBeNull()
+    down = false
+    expect(await embeddedFontFaces([{ family: MONO_STACK, text: '$1B' }])).toContain('data:font/woff2;base64,')
+    expect(read).toEqual([url('latin'), url('latin')])
+  })
+
+  it('embeds nothing on a page that serves no webfont', async () => {
+    vi.spyOn(document, 'styleSheets', 'get').mockReturnValue([] as never)
+    expect(await embeddedFontFaces([{ family: MONO_STACK, text: '$1B' }])).toBe('')
+    expect(api.get).not.toHaveBeenCalled()
   })
 })
 
@@ -402,6 +538,40 @@ describe('exportPanelPng header', () => {
     expect(isolated.querySelector('text')?.getAttribute('stroke-width')).toBe('3')
     expect(isolated.querySelector('text')?.getAttribute('paint-order')).toBe('stroke')
     expect(svg.outerHTML).toBe(sourceMarkup)
+  })
+
+  /** A plot whose text resolves to the Geist Mono stack, as the browser computes it from the variable. */
+  function monoContainer(text: string): HTMLElement {
+    const container = makeContainer()
+    const svg = container.querySelector('svg')!
+    svg.setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns', 'http://www.w3.org/2000/svg') // jsdom serializes it once only so
+    svg.innerHTML = `<style>.x{}</style><text font-family="var(--font-geist-mono), monospace">${text}</text>`
+    const originalComputedStyle = window.getComputedStyle.bind(window)
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = originalComputedStyle(element, pseudo)
+      if (element.tagName === 'text') Object.defineProperty(style, 'fontFamily', { value: MONO_STACK })
+      return style
+    })
+    return container
+  }
+
+  it('carries the faces the plot paints with into the isolated SVG image, ahead of everything else', async () => {
+    stubPageFaces('export')
+    serveFaces()
+    expect(await exportPanelPng(monoContainer('$10B'), 'font.png')).toBe(true)
+    const isolated = new DOMParser().parseFromString(decodeURIComponent(imageSources[0].split(',').slice(1).join(',')), 'image/svg+xml')
+    const first = isolated.documentElement.firstElementChild!
+    expect(first.tagName).toBe('style')
+    expect(first.textContent).toMatch(new RegExp(`^@font-face\\{font-family:"${MONO}";.*src:url\\("data:font/woff2;base64,[^"]+"\\);\\}$`))
+    expect(downloadBlob).toHaveBeenCalledOnce()
+  })
+
+  it('stops, downloading nothing, rather than paint the plot in a fallback font', async () => {
+    stubPageFaces('export-down')
+    serveFaces(() => true)
+    expect(await exportPanelPng(monoContainer('$10B'), 'font.png')).toBe(false)
+    expect(imageSources).toEqual([]) // the plot was never rasterized
+    expect(downloadBlob).not.toHaveBeenCalled()
   })
 
   it('renders source, missing periods and disclaimer into the downloaded image', async () => {
