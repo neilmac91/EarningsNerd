@@ -248,7 +248,7 @@ describe("the footer's Cookie settings reopens the consent dialog after a choice
     await user.click(control)
     const dialog = screen.getByRole('dialog', { name: 'Cookie preferences' })
     expect(within(dialog).getByRole('checkbox', { name: 'Analytics cookies' })).toBeChecked()
-    expect(within(dialog).getByRole('checkbox', { name: 'Session recording' })).not.toBeChecked()
+    expect(within(dialog).queryByRole('checkbox', { name: 'Session recording' })).not.toBeInTheDocument()
 
     await user.click(within(dialog).getByRole('checkbox', { name: 'Analytics cookies' }))
     await user.click(within(dialog).getByRole('button', { name: 'Save preferences' }))
@@ -282,7 +282,7 @@ describe("the footer's Cookie settings reopens the consent dialog after a choice
     await user.click(control)
     const reopened = screen.getByRole('dialog', { name: 'Cookie preferences' })
     expect(within(reopened).getByRole('checkbox', { name: 'Analytics cookies' })).toBeChecked()
-    expect(within(reopened).getByRole('checkbox', { name: 'Session recording' })).not.toBeChecked()
+    expect(within(reopened).queryByRole('checkbox', { name: 'Session recording' })).not.toBeInTheDocument()
   })
 
   it('sits in the Legal column beside the links, a button with their recipe', () => {
@@ -318,19 +318,17 @@ describe("the footer's Cookie settings reopens the consent dialog after a choice
       expect(stored()).toEqual(allowed)
     })
 
-    it("analytics follows the stored choice and recording stays disabled, each described by its own text alone", async () => {
+    it('analytics follows the stored choice with its own description, and recording is disclosed as disabled', async () => {
       const { user, control } = renderChrome()
       await user.click(control)
       const dialog = screen.getByRole('dialog', { name: 'Cookie preferences' })
 
       const analytics = within(dialog).getByRole('checkbox', { name: 'Analytics cookies' })
-      const recording = within(dialog).getByRole('checkbox', { name: 'Session recording' })
       expect(analytics).toBeEnabled()
       expect(analytics).toBeChecked()
       expect(analytics).toHaveAccessibleDescription(ownDescription('cookie-analytics-desc'))
-      expect(recording).toBeDisabled()
-      expect(recording).not.toBeChecked()
-      expect(recording).toHaveAccessibleDescription(ownDescription('cookie-recording-desc'))
+      expect(within(dialog).getByText(/Session recording is disabled\./)).toBeInTheDocument()
+      expect(within(dialog).queryByRole('checkbox', { name: 'Session recording' })).not.toBeInTheDocument()
       expect(within(dialog).queryByText(/Do Not Track/)).not.toBeInTheDocument()
     })
 

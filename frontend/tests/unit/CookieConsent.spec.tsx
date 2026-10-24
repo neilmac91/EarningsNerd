@@ -55,14 +55,13 @@ describe('CookieConsent settings dialog', () => {
     expect(screen.getByText('Cookies on this site')).toBeInTheDocument() // the banner stays beneath it
     expect(screen.getByRole('checkbox', { name: 'Essential cookies' })).toBeDisabled()
     expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).not.toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'Session recording' })).not.toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'Session recording' })).toBeDisabled()
+    expect(within(dialog).getByText(/Session recording is disabled\./)).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: 'Session recording' })).not.toBeInTheDocument()
     // Checkbox lists its props by name, so each category's description reaches the input only through its
     // aria-describedby forward; a dropped forward would strip these from screen readers.
     expect(screen.getByRole('checkbox', { name: 'Essential cookies' })).toHaveAccessibleDescription(/^Required for the website to function properly\./)
     // D-046 (F33): the clause names PostHog, its purpose and the account link, in the words /privacy also reads.
     expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).toHaveAccessibleDescription(ANALYTICS_CONSENT_CLAUSE)
-    expect(screen.getByRole('checkbox', { name: 'Session recording' })).toHaveAccessibleDescription('Disabled. We do not record browsing sessions.')
   })
 
   it('Save preferences stores the choices, fires cookieConsentChanged and calls onPreferencesChanged', async () => {

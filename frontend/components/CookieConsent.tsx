@@ -191,31 +191,6 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
               </div>
             </div>
           </div>
-
-          {/* Session recording */}
-          <div className="border border-border-light dark:border-border-dark rounded-lg p-cap-4">
-            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-              <div className="min-w-0 flex-[1_1_9rem] break-words">
-                <h3
-                  id="cookie-recording-title"
-                  className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
-                >
-                  Session recording
-                </h3>
-                <p id="cookie-recording-desc" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  Disabled. We do not record browsing sessions.
-                </p>
-              </div>
-              <div>
-                <Checkbox
-                  checked={false}
-                  disabled
-                  aria-labelledby="cookie-recording-title"
-                  aria-describedby="cookie-recording-desc"
-                />
-              </div>
-            </div>
-          </div>
         </div>
 
         <p className="mt-4 text-xs text-text-secondary-light dark:text-text-secondary-dark">
