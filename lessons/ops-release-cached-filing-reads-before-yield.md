@@ -99,11 +99,35 @@ call; checkout's claim of a new customer, and its trial's row check after the cu
 are units of their own; and every Stripe call runs off the loop, on the Stripe threads since E170. Their burst case holds every statement, release and Stripe call off the loop and each new
 customer to its own account, and a single request makes each Stripe call with no connection out
 (2026-10-23, E144).
-The pool-lifetime file's AST ratchet reads every async router function and fails a session call on the
-loop in its own body above that function's ceiling (on main before the fix it named both summaries
-routes). Neither half sees a session handed to a service that runs on the loop where the burst does
-not list the route (the rest of the
-auth router, E121, and 29 routes in six other routers, E171), or a background task's own session worked on the loop
+The company lookup, the search and the trending list, all public, ran their units on the loop between
+their SEC and Yahoo awaits, each released before the next await: eight readers of each answered as they
+should, but with every checkout and statement on the loop (13 of 13 statements for eight lookups of a
+new company, 24 of 24 for eight searches of a stored one). Each unit now runs in the thread pool and
+releases in a `finally`. Off the loop, eight lookups or eight searches of one new company race for its
+row, as two instances always could: the unique CIK decides, and each loser serves the stored row through
+the resolver's recovery or the search's. Two searches writing the same companies in different orders did
+worse: on PostgreSQL they deadlocked, and the one PostgreSQL aborted answered 500 after the deadlock
+timeout. One local probe held two searches of the same two new companies, in opposite orders, behind a
+third transaction's uncommitted insert of the two rows, which then rolled back: 11 of 20 runs deadlocked.
+Another held a search's batch, which updated a stored row before inserting a new company with a lower
+CIK, against a second search's conflict recovery, which wrote the two in CIK order: 6 of 10. The probes
+line the two units up behind a blocker, and the race once it lets go deadlocked in about half the runs;
+they do not measure how often traffic meets one. The batch and its recovery now write each company
+alone, in CIK order, a stored row's update in its place among the inserts: 0 of 20 in each probe. Their
+burst case holds every statement and release off the loop and those racers to one row, and
+`test_company_routes.py` holds each unit's write order, read at the statements; no CI step races the
+searches on PostgreSQL (2026-10-24, E171).
+The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
+ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
+routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
+dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
+passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
+rules, uses it. Its ceilings hold the routes that still hand their session to a call on the loop at
+their counts (the rest of the auth router, E121, and 28 routes in six other routers, E171; six of
+those hand-offs, the header's strict ones, use no connection on the loop), so none can add one in a
+form the ratchet counts and a new route starts at 0. Neither half
+sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called
+where it is written) where the burst does not list the route, or a background task's own session worked on the loop
 (E123 moved the company list's units into the thread pool, `test_filings_endpoint_db_first.py`'s
 off-the-loop cases; the flag-off job runners are E150), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.
