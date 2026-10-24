@@ -45,8 +45,9 @@ is an annual report that holds a current row, whose rows read another currency (
 other, over two period-ends), and that reports a period at least as late as the report that decides
 the response's currency: the response predates a switch of the reporting currency, so the sync
 stores nothing from it and keeps only that currency current, demoting the newer filings' rows in
-the currency it reads too, and that currency's convenience rows under the filings the response
-reads in another currency. Otherwise a newer filing's row in another currency (a stray, or a
+the currency it reads too, and that currency's convenience rows under the filings whose own
+currency is another (as the response reads them, or, for a newer filing it does not name, as that
+filing's stored rows vote). Otherwise a newer filing's row in another currency (a stray, or a
 quarterly report ahead of the annual report) is demoted, and an older response still demotes the
 rows of a newer filing in another currency that it names or cannot protect. So run the
 sync once companyfacts shows the company's latest filing. The sync makes its own row current at a period that

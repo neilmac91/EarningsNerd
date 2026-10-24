@@ -431,15 +431,20 @@ unused since generation became account-required in #619; kept because migrations
   latest annual report never proves a switch, as none would decide the series. On a proven switch no
   row is protected: the sync stores nothing from the payload and demotes every current amount or
   per-share row of its concepts in another currency than the switch's, and every one in that
-  currency under a filing the payload reads in another (a convenience translation earlier syncs
-  stored); nothing is promoted and no ratio is replaced. Its current amount and per-share rows are
+  currency under a filing whose own currency is another (a convenience translation earlier syncs
+  stored), as the payload reads it or, for a newer filing it does not name, as that filing's stored
+  rows vote; nothing is promoted and no ratio is replaced. Its current amount and per-share rows are
   those a sync whose payload names every stored filing converges to, with gaps before the switch,
-  or fewer wherever that sync would make current a row not current now (that report's rows the
-  per-filing writer stored behind older ones, a new-currency quarterly report's rows an earlier sync
-  demoted, or, on a switch back, the older filings' rows in the new currency, which no sync reading
-  the other currency stored). They are more in one shape: a row in the new currency under a newer
-  filing the payload does not name, which that sync reads in another currency, stays current until
-  that sync runs. The sync stores nothing because the payload's own rows stored current would mix
+  or fewer wherever that sync would make current a row not current now. The tests show four such
+  shapes: rows in the new currency no writer has stored yet (that report's derived or unextracted
+  amounts; on a switch back, the older filings' rows), that report's rows the per-filing writer
+  stored behind older ones, a new-currency quarterly report's rows an earlier sync demoted, and that
+  report's rows a later filing's row in the new currency demoted, which the stale sync demotes as a
+  convenience translation. They are more in one window, until that sync: a row in the new currency
+  under a filing the payload does not name, which that sync reads in another currency, where the
+  filing's stored rows do not show that currency (they tie, or hold only its rows in the new
+  currency, or the filing is not known to be newer than the payload, so its rows do not vote). The
+  sync stores nothing because the payload's own rows stored current would mix
   the old currency into the new one's series across years (a wrong number is worse than a gap), and
   stored not current they would hold identities a later sync skips and never promotes. Without a
   proof, a newer filing's row outside the payload's series currency (a

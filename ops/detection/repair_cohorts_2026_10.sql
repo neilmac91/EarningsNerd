@@ -169,14 +169,19 @@ ORDER BY (k.opening_off > 0 OR k.n0 > 0 OR COALESCE(k.newest_filed_days, 0) > 18
          k.ticker, k.company_id;
 
 \echo '3. Non-USD reporters (F61 call 2): a row in a currency other than USD. cf_native = 0: no sync has'
-\echo '   read the native lists (force-sync it). usd_twins_current: current USD rows at the concept, period'
-\echo '   end and fiscal period of a current native row that a companyfacts sync stored (source'
-\echo '   companyfacts, no filing owner, a raw tag). A force-sync that reads the native lists again demotes'
-\echo '   them (currency.py demote_convenience_rows), so after a correct one it reads 0; while cf_native = 0'
-\echo '   it reads 0 too. A USD row beside only a per-filing native row is not counted: a sync need not'
-\echo '   demote it. usd_operand_ratios: current FY ratios with no filing owner whose recorded inputs'
-\echo '   include USD, or none recorded (the repair recomputes them after the sync). ifrs_rows > 0 with'
-\echo '   cf_native = 0: an IFRS filer, which the sync stores nothing for and the repair refuses.'
+\echo '   read the native lists (force-sync it); after a forced sync it stays 0 only where the series reads'
+\echo '   USD (a filer that switched to USD) or the filer reports under IFRS. usd_twins_current: current'
+\echo '   USD rows at the concept, period end and fiscal period of a current native row that a companyfacts'
+\echo '   sync stored (source companyfacts, no filing owner, a raw tag). A force-sync that reads the native'
+\echo '   lists again demotes them (currency.py demote_convenience_rows), so after a correct one it reads 0;'
+\echo '   while cf_native = 0 it reads 0 too. A USD row beside only a per-filing native row is not counted:'
+\echo '   the sync demotes one at a concept its payload carries, but not at a concept only the per-filing'
+\echo '   writer stores, so the count could stay above 0 after a correct sync. usd_operand_ratios: current'
+\echo '   FY ratios with no filing owner whose recorded inputs include USD, or none recorded (the repair'
+\echo '   recomputes them after the sync), counted only while a current native row that a companyfacts sync'
+\echo '   stored remains; blank where none does (a series read in USD, whose USD-derived ratios are right, or'
+\echo '   one no sync has read natively yet). ifrs_rows > 0 with cf_native = 0: an IFRS filer, which the sync'
+\echo '   stores nothing for and the repair refuses.'
 WITH native AS MATERIALIZED (
     SELECT DISTINCT ff.company_id
     FROM financial_fact ff
@@ -188,11 +193,14 @@ WITH native AS MATERIALIZED (
                AS native_units,
            count(*) FILTER (WHERE ff.source = 'companyfacts' AND ff.unit ~ '^[A-Z]{3}(/shares)?$'
                               AND ff.unit NOT IN ('USD', 'USD/shares')) AS cf_native,
-           count(*) FILTER (WHERE ff.is_latest AND ff.unit = 'pure' AND ff.filing_id IS NULL
-                              AND ff.fiscal_period = 'FY' AND ff.source IN ('derived', 'companyfacts')
-                              AND ff.raw_tag IS NULL
-                              AND (ff.provenance IS NULL OR ff.provenance::text = 'null'
-                                   OR ff.provenance::text ~ '"unit"\s*:\s*"USD"')) AS usd_operand_ratios,
+           CASE WHEN bool_or(ff.is_latest AND ff.source = 'companyfacts' AND ff.filing_id IS NULL
+                             AND ff.raw_tag IS NOT NULL AND ff.unit ~ '^[A-Z]{3}(/shares)?$'
+                             AND ff.unit NOT IN ('USD', 'USD/shares'))
+                THEN count(*) FILTER (WHERE ff.is_latest AND ff.unit = 'pure' AND ff.filing_id IS NULL
+                                        AND ff.fiscal_period = 'FY' AND ff.source IN ('derived', 'companyfacts')
+                                        AND ff.raw_tag IS NULL
+                                        AND (ff.provenance IS NULL OR ff.provenance::text = 'null'
+                                             OR ff.provenance::text ~ '"unit"\s*:\s*"USD"')) END AS usd_operand_ratios,
            count(*) FILTER (WHERE ff.raw_tag LIKE 'ifrs-full:%') AS ifrs_rows,
            count(*) AS facts
     FROM financial_fact ff

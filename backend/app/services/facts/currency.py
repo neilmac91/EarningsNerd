@@ -18,9 +18,10 @@ live here too, so the per-filing pick counts exactly the periods ``companyfacts`
 demotion reads the very pick the collector read. Where a newer annual report the payload does not
 show yet, reporting a period at least as late as the payload's own deciding report, proves the
 series switched currency (``_proven_switch``), the sync writes nothing from the payload and leaves
-only that currency current, outside the filings the payload reads in another currency: a wrong
-number is worse than a gap, and the payload's own rows, current at the periods only it presents,
-would mix the old currency into the new one's series across years.
+only that currency current, outside the filings whose own currency is another (as the payload reads
+them, or, for a newer filing it does not name, as that filing's stored rows vote): a wrong number is
+worse than a gap, and the payload's own rows, current at the periods only it presents, would mix
+the old currency into the new one's series across years.
 """
 from __future__ import annotations
 
@@ -242,6 +243,7 @@ class Guard(NamedTuple):
 
     ids: frozenset[int]  # the rows neither of the sync's paths may demote, all in the series currency; none on a switch
     switch: str | None  # the currency a newer annual report proves the series switched to, else None
+    own: Mapping[Any, str]  # each newer filing's own currency, as its stored rows vote; a tie is absent
 
 
 def protected_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView) -> Guard:
@@ -257,7 +259,8 @@ def protected_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView) 
     behind a protected current one as it does behind a known newer filing.
 
     Where those rows prove a switch (``_proven_switch``), no row is protected: the sync stores nothing
-    and demotes by currency (``demote_convenience_rows``). Otherwise a row keeps its protection only in
+    and demotes by currency (``demote_convenience_rows``), reading a newer filing's own currency from
+    its stored rows (``Guard.own``). Otherwise a row keeps its protection only in
     the payload's series currency (``_in_view``): an amount or per-share row in that currency, a ratio
     not computed from another currency's operands, or a row of any other unit (a share count). The sync
     that names its filing would demote a row outside the view, so this one may: a stray, or a quarterly
@@ -267,7 +270,7 @@ def protected_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView) 
     from app.services.facts.upsert import _lock_fact_companies
 
     if not facts:
-        return Guard(frozenset(), None)
+        return Guard(frozenset(), None, {})
     _lock_fact_companies(db, facts)
     columns = (FinancialFact.id, FinancialFact.accession, FinancialFact.unit, FinancialFact.is_latest,
                FinancialFact.form, FinancialFact.concept, FinancialFact.period_end, FinancialFact.fiscal_period,
@@ -288,14 +291,16 @@ def protected_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView) 
         return str(provenance.get("filed_at") or "")[:10]
 
     newer = [row for row in rows if filed(row) > view.newest_filed]
-    switch = _proven_switch(newer, filed, {accession: form for accession, (_stamp, form) in filings.items()}, view)
+    switch, own = _proven_switch(newer, filed, {accession: form for accession, (_stamp, form) in filings.items()}, view)
     return Guard(frozenset() if switch else frozenset(row.id for row in newer if _in_view(row, view.currency)),
-                 switch)
+                 switch, own)
 
 
 def _proven_switch(newer: list[Any], filed: Callable[[Any], str], forms: Mapping[Any, Any],
-                   view: PayloadView) -> str | None:
-    """The currency a newer filing proves the series switched to from the payload's, else None.
+                   view: PayloadView) -> tuple[str | None, dict[Any, str]]:
+    """The currency a newer filing proves the series switched to from the payload's, else None, and
+    each newer filing's own currency as its stored rows vote (a tie is absent), which the switch's
+    demotion reads for a filing the payload does not name.
 
     ``newer`` holds the stored rows of the batch's concepts from filings newer than the payload
     (``protected_rows``). Each such filing (accession) votes from them as ``filing_currencies`` votes
@@ -323,17 +328,19 @@ def _proven_switch(newer: list[Any], filed: Callable[[Any], str], forms: Mapping
         was = stamps.get(row.accession, (False, False, ""))
         stamps[row.accession] = (was[0] or (row.form or forms.get(row.accession)) in ANNUAL_FORMS,
                                  was[1] or bool(row.is_latest), max(was[2], filed(row)))
-    proofs = []
+    proofs, own = [], {}
     for accession, by_unit in votes.items():
         ranked = sorted(((len(keys), unit) for unit, keys in by_unit.items()), reverse=True)
+        if len(ranked) == 1 or ranked[0][0] > ranked[1][0]:
+            own[accession] = ranked[0][1]
         ends = {end for _concept, end, _period in by_unit[ranked[0][1]]}
         annual, current, when = stamps[accession]
         rank = (True, True, max(ends), when)  # filing_currencies' rank of an annual report over two period-ends
-        if ((len(ranked) == 1 or ranked[0][0] > ranked[1][0]) and annual and current and len(ends) >= 2
+        if (accession in own and annual and current and len(ends) >= 2
                 and (view.decider is None or rank > view.decider)):
             proofs.append((*rank[2:], ranked[0][1]))
     deciding = max(proofs, default=None)
-    return deciding[-1] if deciding is not None and deciding[-1] != view.currency else None
+    return (deciding[-1] if deciding is not None and deciding[-1] != view.currency else None), own
 
 
 def _in_view(row: Any, currency: str) -> bool:
@@ -375,16 +382,20 @@ def demote_convenience_rows(db: Session, facts: list[dict[str, Any]], view: Payl
     Where a newer annual report proves the series switched (``guard.switch``), the ingest stores nothing
     from the batch, and this only demotes, at every key with a fiscal period over the batch's concepts,
     each current amount or per-share row in another currency than the switch's, protected or not, and
-    each in the switch's currency under a filing whose own currency, as this payload reads it
-    (``view.own``), is another: the convenience translations the sync that names that report demotes
-    too. Nothing is promoted and no ratio is replaced, so the current amount and per-share rows are
-    those a sync whose payload names every stored filing converges to (gaps before the switch), or
-    fewer wherever that sync would make current a row not current now: the report's rows the
-    per-filing writer stored behind older ones, a quarterly report's rows in the switch's currency
-    that an earlier sync demoted, and, on a switch back, the older filings' rows in that currency,
-    which no sync reading the other currency stored. They are more in one shape: a row in the
-    switch's currency under a newer filing this payload does not name, which that sync reads in
-    another currency, stays current until that sync runs.
+    each in the switch's currency under a filing whose own currency is another, as this payload reads
+    it (``view.own``), else, for a newer filing it does not name, as that filing's stored rows vote
+    (``guard.own``): the convenience translations the sync that names every stored filing demotes too.
+    Nothing is promoted and no ratio is replaced, so the current amount and per-share rows are those
+    that sync converges to (gaps before the switch), or fewer wherever it would make current a row not
+    current now. The tests show four such shapes: rows in the switch's currency that no writer has
+    stored yet (the switching report's derived or unextracted amounts; on a switch back, the older
+    filings' rows), the report's rows the per-filing writer stored behind older ones, a quarterly
+    report's rows in that currency an earlier sync demoted, and the report's rows a later filing's row
+    in that currency demoted, when this sync demotes that row as a convenience translation. They are
+    more in one window, until that sync: a row in the switch's currency under a filing this payload
+    does not name, which that sync reads in another currency, where the filing's stored rows do not
+    show it (they tie, or hold only its rows in the switch's currency, or the filing is not known to
+    be newer than the payload, so its rows do not vote).
     """
     from app.models import FinancialFact  # lazy: the pure normalizers import this module
 
@@ -403,7 +414,7 @@ def demote_convenience_rows(db: Session, facts: list[dict[str, Any]], view: Payl
     if guard.switch:
         stale = [row for row in labelled if row.is_latest and _kind(row.unit) == "amount"
                  and (row.unit.partition("/")[0] != guard.switch
-                      or view.own.get(row.accession, guard.switch) != guard.switch)]
+                      or view.own.get(row.accession, guard.own.get(row.accession, guard.switch)) != guard.switch)]
         for row in stale:
             row.is_latest = False
         return len(stale)
