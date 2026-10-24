@@ -8,9 +8,13 @@ invite_codes table and users.is_beta column come from Base.metadata.create_all â
 import uuid
 
 import pytest
+from tests.support.account_agreement import ACCOUNT_AGREEMENT
+
 from fastapi.testclient import TestClient
 
 from main import app
+
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 VALID_PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit
 
@@ -61,7 +65,7 @@ def test_public_mode_ignores_invite(client):
     """Default (public) registration is unchanged â€” no invite required."""
     resp = client.post(
         "/api/auth/register",
-        json={"email": _unique_email(), "password": VALID_PASSWORD},
+        json={**ACCOUNT_AGREEMENT, "email": _unique_email(), "password": VALID_PASSWORD},
     )
     assert resp.status_code == 200, resp.text
     client.cookies.clear()
@@ -72,13 +76,13 @@ def test_invite_only_rejects_missing_and_bad_invites(client, invite_only):
     """Invite-only mode blocks public signup and rejects an unknown token (403)."""
     no_code = client.post(
         "/api/auth/register",
-        json={"email": _unique_email(), "password": VALID_PASSWORD},
+        json={**ACCOUNT_AGREEMENT, "email": _unique_email(), "password": VALID_PASSWORD},
     )
     assert no_code.status_code == 403, no_code.text
 
     bad_code = client.post(
         "/api/auth/register",
-        json={"email": _unique_email(), "password": VALID_PASSWORD, "invite_code": "garbage"},
+        json={**ACCOUNT_AGREEMENT, "email": _unique_email(), "password": VALID_PASSWORD, "invite_code": "garbage"},
     )
     assert bad_code.status_code == 403, bad_code.text
 
@@ -92,7 +96,7 @@ def test_valid_invite_registers_sets_is_beta_and_is_single_use(client, invite_on
     email = _unique_email()
     resp = client.post(
         "/api/auth/register",
-        json={"email": email, "password": VALID_PASSWORD, "invite_code": raw},
+        json={**ACCOUNT_AGREEMENT, "email": email, "password": VALID_PASSWORD, "invite_code": raw},
     )
     assert resp.status_code == 200, resp.text
     client.cookies.clear()
@@ -109,7 +113,7 @@ def test_valid_invite_registers_sets_is_beta_and_is_single_use(client, invite_on
     # Single-use: the same token can't be redeemed again.
     reuse = client.post(
         "/api/auth/register",
-        json={"email": _unique_email(), "password": VALID_PASSWORD, "invite_code": raw},
+        json={**ACCOUNT_AGREEMENT, "email": _unique_email(), "password": VALID_PASSWORD, "invite_code": raw},
     )
     assert reuse.status_code == 403, reuse.text
 
@@ -121,13 +125,13 @@ def test_email_bound_invite_requires_matching_email(client, invite_only):
 
     wrong = client.post(
         "/api/auth/register",
-        json={"email": _unique_email(), "password": VALID_PASSWORD, "invite_code": raw},
+        json={**ACCOUNT_AGREEMENT, "email": _unique_email(), "password": VALID_PASSWORD, "invite_code": raw},
     )
     assert wrong.status_code == 403, wrong.text
 
     ok = client.post(
         "/api/auth/register",
-        json={"email": bound, "password": VALID_PASSWORD, "invite_code": raw},
+        json={**ACCOUNT_AGREEMENT, "email": bound, "password": VALID_PASSWORD, "invite_code": raw},
     )
     assert ok.status_code == 200, ok.text
     client.cookies.clear()

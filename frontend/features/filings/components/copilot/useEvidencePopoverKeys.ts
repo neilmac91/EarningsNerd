@@ -5,8 +5,9 @@ import { getFocusable } from './useSheetFocusTrap'
 
 /**
  * The keyboard contract of the evidence popovers (SourceTrace's "Source detail" and CitationChip's
- * citation card). Both open on hover or focus and render through a portal at the end of <body>, so
- * the page's own tab order never reached their link: Tab from the chip went to the next chip and the
+ * citation card). Both open on hover or focus and render through a portal outside their text flow
+ * (body, or an active modal for CitationChip), so the page's own tab order never reached their link:
+ * Tab from the chip went to the next chip and the
  * popover closed on blur (EN-01). This hands the keys over explicitly, the way DESIGN_SYSTEM §4's
  * Popover resumes the page's order at its trigger:
  *
@@ -46,7 +47,7 @@ export interface EvidencePopoverKeys {
 
 /**
  * Focus the element the page's sequential order visits after `from`, skipping everything inside
- * `skip` (the portaled popover, which sits at the end of <body>). Document order over the trap's
+ * `skip` (the portaled popover, outside the chip's text flow). Document order over the trap's
  * focusable selector, rendered elements only; with nothing after `from`, focus leaves to <body> as a
  * final Tab would.
  */

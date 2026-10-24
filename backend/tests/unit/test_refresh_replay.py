@@ -18,9 +18,13 @@ import uuid
 from datetime import timedelta
 
 import pytest
+from tests.support.account_agreement import ACCOUNT_AGREEMENT
+
 from fastapi.testclient import TestClient
 
 from main import app
+
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 VALID_PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit
 
@@ -52,16 +56,16 @@ def _unique_email() -> str:
     return f"refreshtest_{uuid.uuid4().hex[:12]}@example.com"
 
 
-@pytest.fixture(scope="module")
-def registered_user(client):
-    """Register one user for the module (register is rate-limited to 5/min/IP)."""
+@pytest.fixture
+def registered_user(client, collection_ready):
+    """Register a user after the explicit collection-ready fixture (5/min/IP limiter)."""
     from tests.support.summary_stream_harness import reset_rate_limiters
 
     reset_rate_limiters()  # module fixtures run before the autouse reset
     email = _unique_email()
     resp = client.post(
         "/api/auth/register",
-        json={"email": email, "password": VALID_PASSWORD, "full_name": "Refresh Test"},
+        json={**ACCOUNT_AGREEMENT, "email": email, "password": VALID_PASSWORD, "full_name": "Refresh Test"},
     )
     assert resp.status_code == 200, resp.text
     return {"email": email, "password": VALID_PASSWORD}

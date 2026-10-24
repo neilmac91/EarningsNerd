@@ -450,6 +450,22 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
 
+Company mark     <CompanyLogo ticker name decorative size>  (components/) — the one way a company's mark is
+                 drawn beside its ticker, at 20–36px (gate: tests/unit/companyMarkSingleSource.spec.ts holds
+                 the CDN's mark URL to the component). A square white tile in both themes (§9): bg-white, the
+                 hairline pair ring-border-light dark:ring-white/10, rounded-sm under 28px and rounded from
+                 28px, never a circle (Logo.dev serves square tiles and transparent marks, and a circle cut
+                 the tiles' corners). The ticker's initials in text-brand-strong sit under the mark and stay
+                 when the CDN has no logo (the URL asks it for a 404) or the image fails; the mark fades in
+                 over them. The image is a plain img with 1x/2x/3x candidates at exactly the slot's size, lazy
+                 except the one `priority` mark above a page's fold. `decorative` is required: true beside the
+                 company's name or ticker as text (aria-hidden), false when the mark stands alone (role=img,
+                 "<name> logo"). The slot is a fixed box, so no outcome shifts the row. The shape and ground are
+                 gated (tests/unit/CompanyLogo.spec.tsx: the tile, its radius step, never rounded-full, never a
+                 brand ground). Verify both themes against the PR's preview with
+                 `node scripts/capture-company-marks.mjs <preview url>` (crops and a sheet per theme and pixel
+                 ratio): a release check run once per change to the marks, not a monitor.
+
 Input            <Input>  — fill is the BRIGHTEST surface so the field reads on BOTH the cream page
                  AND an off-white card: bg-white dark:bg-white/5 + hairline + brand focus ring
 
@@ -1096,17 +1112,24 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  as usual.
 
 Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie-consent bar: above in-page
-                 sticky chrome, BENEATH the sheet scrims and the z-40 research chrome) · z-scrim 35 (the
-                 workspace / rail bottom-sheet scrims: above the bar, under the z-40 sheets they belong to) ·
+                 sticky chrome, BENEATH the modal sheets and the z-40 launchers / coachmark) · z-scrim 35
+                 (retained ladder rung; modal sheets use z-modal for their backdrops) ·
                  z-header 50 (site header; its menus ride it: the notification menu and the account menu
                  sit on this one rung inside the header's stacking context, NotificationBell on the token
                  and UserMenu still on the numeric z-50; tests/unit/NotificationBell.spec.tsx holds both) ·
                  z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the
                  source and viewer sheets — scrim AND panel) ·
                  z-toast 80 (the skip link; sonner manages its own toast layer).
-                 The copilot rail / workspace bottom sheets stay z-40 over z-scrim scrims, so the in-sheet
-                 citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
-                 sticky-cell layering is the one documented exemption.
+                 The copilot rail / workspace bottom sheets and their scrims both use z-modal, above the
+                 site header. The panel follows its scrim in DOM order at that rung. CitationChip portals
+                 into its trigger's active modal container (outside the answer scroller), keeping z-overlay
+                 inside the sheet's stacking context; outside a modal it still portals to body. A breakpoint
+                 change rehosts the card after the pane's modality commits and preserves its focused action;
+                 closing the pane dismisses the card instead of moving it over the page. The sheets
+                 have no transform or clipping ancestor for those fixed cards. A nested Modal or source-detail
+                 sheet portals later to body on z-modal, above the research sheet. Desktop remains nonmodal:
+                 the workspace is static at lg:z-auto and the standalone rail overlay retains lg:z-40.
+                 Never z-[N]; DataTable's internal z-[5] sticky-cell layering is the one documented exemption.
                  The header offset: the site header publishes its rendered height on <html> as
                  `--site-header-h` (components/Header.tsx), the one offset under it, and is the one bar that
                  sticks at the top of the viewport. Sticky and fixed chrome below the header reads it,
@@ -1132,12 +1155,26 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  focus is inside the site header (`html:has([data-site-header]:focus-within)`): the header is
                  stuck in view, and the padding, which counts its open mobile menu, would scroll the page
                  behind the menu at every Tab through it, and move the page when a control in the bar took
-                 focus while it was scrolled; a Tab out of the open menu lands below it. Gates:
-                 tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/e2e/reflow-200.spec.ts (the filing
-                 page's section nav at 200% text) and tests/e2e/header-covers-nothing.spec.ts (a Shift+Tab walk
+                 focus while it was scrolled. The open menu is a disclosure: it closes when focus leaves the
+                 header (a focusout whose next target is outside it) from the keyboard or a script, inside that
+                 focusout (`flushSync`; React's own flush is too late with script on the stack), and the close
+                 publishes the bar's height in the same commit, before the browser scrolls the next control into
+                 view; otherwise that scroll reserves the open menu, which fills the screen under 200% text. A
+                 press outside it (a tap or a click, on a control or on text, marked from its mousedown to the
+                 next task) leaves it open, and a navigation closes it: a close on the press moved the page
+                 under the pointer at the top of a page, and the release activated nothing. A focus a modal
+                 layer takes closes it with a plain update. Escape closes it too, unless a layer above took the
+                 key, returning a focus inside the menu to its toggle; a blur with no next target (another
+                 window) leaves it open. Gates:
+                 tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/unit/Header.spec.tsx (the menu's
+                 close and its height in the focusout, a press, a navigation, Escape),
+                 tests/e2e/reflow-200.spec.ts (the filing page's section nav at 200% text) and
+                 tests/e2e/header-covers-nothing.spec.ts (a Shift+Tab walk
                  of /, /pricing and /analysis with no stop wholly under the bar; /pricing's page header off the
                  screen once scrolled past; the open menu's Tab walk and the bar's own stops leaving the page where
-                 it is).
+                 it is, a Tab out of the open menu or a focus moved by script out of it closing it and landing
+                 inside the screen, below the bar, at both text sizes, and a tap on a link below the open menu at
+                 the top of the page following it, the next page opening with the menu closed).
                  The open mobile menu scrolls inside the viewport: the header is a column no taller than it
                  (`flex max-h-dvh flex-col`), the bar keeps its own height (`w-full shrink-0`; a column's child
                  with auto side margins is not stretched) and the menu panel takes the rest
@@ -1163,7 +1200,7 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  coachmark is deferred, not dismissed, while the bar shows (`hooks/useConsentLayer`); the
                  saved confirmation is a sonner toast, never a fixed corner element. Real modals cover the
                  bar: beneath the settings dialog (z-modal) and beneath an open workspace / rail bottom sheet
-                 (whose z-scrim scrim dims it) its choices are inert — a tap there reaches the scrim and
+                 (whose z-modal scrim dims it and the site header) its choices are inert — a tap there reaches the scrim and
                  closes the sheet, storing nothing — and operable again once the modal closes, which is what
                  the sheet's aria-modal and focus trap already tell keyboard and AT users. In-page sticky
                  chrome stays below the bar: a section nav passing through the bar's region on a short phone
@@ -1183,10 +1220,14 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  to inline zIndex, so a z written apart from its `fixed` still counts; z-toast is exempt only
                  as the top-anchored skip link), no in-page sticky chrome outranks the bar (the top-anchored
                  site header is pinned), the tokens sit on their rungs (sticky < consent < scrim <
-                 the pinned workspace level 40 < header), the pinned bottom chrome takes the inset (the sheets'
+                 the pinned workspace level 40 < header < modal), the sheets and scrims use the modal rung,
+                 and the pinned bottom chrome takes the inset (the sheets'
                  anchor, no `bottom-0` behind any variant, the offset objects' `bottom` from
                  BOTTOM_CHROME_OFFSET, the bar's layout-effect publish, the scroll padding) and the pinned
-                 scrims are full-viewport; every pin list is shrink-only in files, sites and z.
+                 scrims are full-viewport; every pin list is shrink-only in files, sites and z. The existing
+                 consent-bar-yields e2e also hit-tests header controls under an open sheet and verifies a
+                 header tap dismisses only the sheet, while citation-chip-keyboard keeps the nested card
+                 pointer-reachable and preserves its Escape hand-off.
 
 Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per metric instead of the five-column
                  DataTable, switched by CSS alone (`md:hidden` cards, `hidden md:block` table — both in the DOM
@@ -1610,7 +1651,19 @@ summary's writer error; the watchlist's empty and error cards; the waitlist exam
 A fallback that replaces the whole page passes `headingLevel="h1"` (app/error.tsx, the dashboard's
 error boundary, the providers' GlobalErrorBoundary, the signed-in routes' account card
 `features/auth/components/AccountLoadFailure.tsx`; global-error.tsx writes its own h1; gate:
-tests/unit/errorBoundaryHeadings.spec.tsx).
+tests/unit/errorBoundaryHeadings.spec.tsx). The company page's invalid ticker, missing or failed company
+read and unsupported-issuer cards also replace the whole page and pass h1
+(tests/unit/company-page-lead.spec.tsx); the heading's visual size stays GuidanceCard's.
+
+Each page frame owns one `main` landmark. The root layout's `div#main` is only the focusable skip-link
+target, never an enclosing main. AuthShell owns the form pane's main, outside its utility and brand panes;
+settings, ticker-filings and company frames retain one main while loading or showing a terminal state.
+An error boundary or account-load failure replaces the page and owns its main too. Gates:
+tests/e2e/skip-link.spec.ts (root target and no nested main), tests/e2e/text-floors.spec.ts (all six auth
+routes and the route error boundary), and the existing errorBoundaryHeadings, dashboardLoadingSkeletons,
+TickerFilingsView and company-page-lead unit specs (their loading and terminal branches). Loading-heading
+presentation remains with the loading-state work; a landmark does not change its visual design.
+
 The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
 titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
@@ -1856,6 +1909,15 @@ fallback, a Cited jump and an XBRL fact never register the device's highlight; a
   white surface, the multicolour "G", the hairline and the label ink its branding guideline sets); it does
   not excuse a stale value. When the consent screens are set up (`tasks/todo.md` F38), check the button
   against Google's current guideline and record the values here.
+- **Company marks sit on a white tile in both themes** (`components/CompanyLogo.tsx`): a third
+  party's mark is drawn for white, and the provider serves two kinds of asset, full-bleed square tiles
+  in the brand's own ground and transparent marks, so the slot is a white tile (`bg-white`) with the
+  hairline pair (`ring-border-light dark:ring-white/10`) and the scale's small radius (4px under 28px,
+  8px from 28px), never a circle (it cut the tiles' corners) and never the brand tint (a black mark
+  on the dark tint measured 1.4:1). The initials monogram keeps the light ink (`text-brand-strong`)
+  on that tile in both themes; `tests/unit/themePairs.spec.ts` lists it in its residue beside the
+  Google button's hairline. The exemption covers the mark's own ground; the ticker and name beside it
+  pair as usual.
 - **Status + financial colors are semantic** — keep them; reserve loud status colors for genuine
   state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `GuidanceCard`).
 - **Progress / step / completion indicators use the BRAND accent (sage), not success-green.**

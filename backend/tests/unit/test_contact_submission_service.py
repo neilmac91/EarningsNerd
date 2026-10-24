@@ -7,7 +7,11 @@ import logging
 
 import pytest
 
+
 from app.services.contact_submission_service import ContactPersistenceError, persist_contact_submission
+
+# Exercise existing collection behavior with an explicitly published synthetic operator notice.
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 FIELDS = {
     "name": "Ada Lovelace",

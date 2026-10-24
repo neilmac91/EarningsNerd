@@ -366,6 +366,7 @@ from app.routers import (
     reporting_this_week,
     email,
     contact,
+    legal,
     feedback,
     webhooks,
     admin,
@@ -705,6 +706,7 @@ async def request_timeout_middleware(request: Request, call_next):
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(legal.router, prefix="/api/legal", tags=["Legal availability"])
 app.include_router(companies.router, prefix="/api/companies", tags=["Companies"])
 app.include_router(peers.router, prefix="/api/companies", tags=["Peers"])
 app.include_router(insiders.router, prefix="/api/companies", tags=["Insiders"])

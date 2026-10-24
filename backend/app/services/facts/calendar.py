@@ -4,61 +4,45 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-ANNUAL_FORMS = frozenset({"10-K", "10-K/A", "20-F", "20-F/A", "40-F", "40-F/A"})
-
-
-def reported_fiscal_year(record: dict, end: date) -> int | None:
-    """Only a timely original annual report establishes its own fiscal-year label."""
-    evidence = []
-    for candidate in record.get("candidates") or [record]:
-        fy = candidate.get("fy")
-        if (candidate.get("form") not in ANNUAL_FORMS or candidate.get("fp") != "FY"
-                or not isinstance(fy, int) or isinstance(fy, bool) or fy not in {end.year - 1, end.year}
-                or candidate.get("period_end") != end
-                or candidate.get("period_start") != record.get("period_start")):
-            continue
-        try:
-            filed = date.fromisoformat(str(candidate.get("filed") or "")[:10])
-        except ValueError:
-            continue
-        if 0 <= (filed - end).days <= 180:
-            evidence.append((filed, fy))
-    if not evidence:
-        return None
-    earliest = min(item[0] for item in evidence)
-    years = {fy for filed, fy in evidence if filed == earliest}
-    return next(iter(years)) if len(years) == 1 else None
+from app.services.facts.fiscal_naming import ANNUAL_FORMS, own_period_ends, reported_fiscal_year
 
 
 def fiscal_year_labels(duration_values: dict, windows: list[tuple[date, date]]) -> dict[date, int]:
     """Keep January spillover dates and historical comparative labels consistent."""
-    evidence: dict[date, set[int]] = {}
-    for values in duration_values.values():
-        for (end, kind), record in values.items():
-            if kind == "FY" and (year := reported_fiscal_year(record, end)) is not None:
-                evidence.setdefault(end, set()).add(year)
-    labels = {end: next(iter(years)) for end, years in evidence.items() if len(years) == 1}
+    labels, late = _year_labels(duration_values), _year_labels(duration_values, own_period_ends(duration_values))
     chains: list[list[date]] = []
     for _start, end in windows:
         if not chains or not 335 <= (end - chains[-1][-1]).days <= 395:
             chains.append([])
         chains[-1].append(end)
-    return {end: year for chain in chains for end, year in _consistent_year_chain(chain, labels).items()}
+    return {end: year for chain in chains for end, year in _consistent_year_chain(chain, labels, late).items()}
 
 
-def _consistent_year_chain(ends: list[date], labels: dict[date, int]) -> dict[date, int]:
-    """An annual cycle advances one FY; contradictory SEC hints cannot merge cycles."""
-    offsets: dict[int, int] = {}
-    for index, end in enumerate(ends):
-        if end in labels:
-            offset = labels[end] - index
-            offsets[offset] = offsets.get(offset, 0) + 1
-    if not offsets:
-        return {end: end.year for end in ends}
-    # Most independent original annual labels establish the sequence. Equal support
-    # preserves the earliest established label; a later repeated fy cannot overwrite it.
-    base_year = max(offsets, key=offsets.get)
-    return {end: base_year + index for index, end in enumerate(ends)}
+def _year_labels(duration_values: dict, own_ends: dict[str, date] | None = None) -> dict[date, int]:
+    """The one year annual reports name each FY period end by: timely originals, or late reports' own periods."""
+    evidence: dict[date, set[int]] = {}
+    for values in duration_values.values():
+        for (end, kind), record in values.items():
+            if kind == "FY" and (year := reported_fiscal_year(record, end, own_ends)) is not None:
+                evidence.setdefault(end, set()).add(year)
+    return {end: next(iter(years)) for end, years in evidence.items() if len(years) == 1}
+
+
+def _consistent_year_chain(ends: list[date], labels: dict[date, int], late: dict[date, int]) -> dict[date, int]:
+    """An annual cycle advances one FY; contradictory SEC hints cannot merge cycles. A chain no timely
+    original names takes its late reports' own years, as the per-filing writer does; else calendar years."""
+    for evidence in (labels, late):
+        offsets: dict[int, int] = {}
+        for index, end in enumerate(ends):
+            if end in evidence:
+                offset = evidence[end] - index
+                offsets[offset] = offsets.get(offset, 0) + 1
+        if offsets:
+            # Most independent original annual labels establish the sequence. Equal support
+            # preserves the earliest established label; a later repeated fy cannot overwrite it.
+            base_year = max(offsets, key=offsets.get)
+            return {end: base_year + index for index, end in enumerate(ends)}
+    return {end: end.year for end in ends}
 
 
 def _fiscal_year_windows(duration_values: dict) -> list[tuple[date, date]]:

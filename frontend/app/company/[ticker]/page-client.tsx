@@ -266,10 +266,11 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   // Handle case where ticker might not be available
   if (!ticker) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
+      <main className="min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-md">
           <GuidanceCard
             variant="error"
+            headingLevel="h1"
             title="Invalid ticker"
             action={
               <Link href="/" className={buttonVariants({ variant: 'secondary' })}>
@@ -278,16 +279,18 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
             }
           />
         </div>
-      </div>
+      </main>
     )
   }
 
   if (companyLoading) {
     return (
-      <div role="status" aria-label="Loading company" className="min-h-screen flex items-center justify-center">
-        <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
-        <span className="sr-only">Loading company…</span>
-      </div>
+      <main>
+        <div role="status" aria-label="Loading company" className="min-h-screen flex items-center justify-center">
+          <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
+          <span className="sr-only">Loading company…</span>
+        </div>
+      </main>
     )
   }
 
@@ -297,10 +300,11 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     // coverage card below, so the error tint means something broke.
     const loadFailed = companyFailure.failed && !companyNotFound
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
+      <main className="min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-md">
           <GuidanceCard
             variant={loadFailed ? 'error' : 'empty'}
+            headingLevel="h1"
             headingRef={companyCardHeadingRef}
             title={loadFailed ? 'Couldn’t load this company' : 'Company not found'}
             description={
@@ -319,7 +323,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
             }
           />
         </div>
-      </div>
+      </main>
     )
   }
 
@@ -328,11 +332,12 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   // unavailable" state — distinct from a bare "Company not found" — instead of a broken page.
   if (company.coverage_status === 'unsupported_foreign') {
     return (
-      <div className="min-h-screen bg-background-light dark:bg-background-dark">
+      <main className="min-h-screen bg-background-light dark:bg-background-dark">
         <div className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6">
           {/* Honest coverage-unavailable state — an empty, not an error. */}
           <GuidanceCard
             variant="empty"
+            headingLevel="h1"
             // The company Retry's last hand-off target: a retry that answers with an unsupported issuer
             // renders this card and no filings heading.
             headingRef={companyCardHeadingRef}
@@ -349,7 +354,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
             }
           />
         </div>
-      </div>
+      </main>
     )
   }
 

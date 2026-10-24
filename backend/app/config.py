@@ -40,9 +40,10 @@ class Settings(BaseSettings):
     # EDGAR full-text search (EFTS) — searches filing/exhibit text since 2001, keyless.
     SEC_EFTS_BASE_URL: str = "https://efts.sec.gov/LATEST/search-index"
     SEC_EFTS_TIMEOUT_SECONDS: float = 8.0
-    # Historical filings backfill (P1-6): deep 10-K/10-Q history via EFTS windowed listings. Each
-    # window is one query-less page-0 request (EFTS 500s on from>0 for query-less searches), sized
-    # to keep a company's per-window hit count under the ~100 page cap.
+    # Historical filings backfill (P1-6): deep 10-K/10-Q history, and 20-F/40-F behind
+    # ENABLE_FPI_FILINGS, via EFTS windowed listings. Each window is one query-less page-0 request
+    # (EFTS 500s on from>0 for query-less searches), sized to keep a company's per-window hit count
+    # under the ~100 page cap.
     HISTORY_BACKFILL_SINCE_YEAR: int = 2001  # EFTS full-text index begins in 2001
     HISTORY_BACKFILL_WINDOW_YEARS: int = 8   # ~3-4 windows since 2001; ~32 hits/window worst case
     HISTORY_BACKFILL_MAX_COMPANIES: int = 50  # cap per batch-job run
@@ -96,10 +97,21 @@ class Settings(BaseSettings):
     REVERSE_TRIAL_DAYS: int = 7
 
     # Closed-beta invite gate. When REGISTRATION_MODE="invite_only", /api/auth/register requires a
-    # valid, unexpired, unused InviteCode token; "public" (default) keeps registration open so no
-    # behavior changes until prod flips it. Invite magic links expire after INVITE_EXPIRY_HOURS.
+    # valid, unexpired, unused InviteCode token; "public" removes only the invite requirement.
+    # Both modes still require legal collection readiness and the user's own agreement.
+    # Invite magic links expire after INVITE_EXPIRY_HOURS.
     REGISTRATION_MODE: str = "public"
     INVITE_EXPIRY_HOURS: int = 168  # 7 days
+
+    # New personal-data collection requires an explicitly published operator notice as well as
+    # its own rollout switch. Empty defaults disclose no identity. These are public notice fields,
+    # not secrets; only LEGAL_OPERATOR_PUBLISHED permits the API to return their values.
+    LEGAL_COLLECTION_ENABLED: bool = False
+    LEGAL_OPERATOR_PUBLISHED: bool = False
+    LEGAL_OPERATOR_NAME: str = ""
+    LEGAL_OPERATOR_POSTAL_ADDRESS: str = ""
+    LEGAL_OPERATOR_COUNTRY: str = ""
+    LEGAL_OPERATOR_EMAIL: str = ""
 
     # Shared secret for token-gated internal job endpoints (e.g. Cloud Scheduler → /internal/jobs/*).
     # Unset disables those endpoints (they 503). Set to a long random string in prod.

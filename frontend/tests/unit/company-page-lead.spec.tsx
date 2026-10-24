@@ -23,6 +23,7 @@ const api = vi.hoisted(() => ({
   getWhatChanged: vi.fn(),
   getCurrentUserSafe: vi.fn(),
 }))
+const route = vi.hoisted(() => ({ ticker: 'aapl' as string | undefined }))
 vi.mock('@/features/watchlist/api/watchlist-api', () => ({
   addToWatchlist: vi.fn(),
   removeFromWatchlist: vi.fn(),
@@ -42,7 +43,7 @@ vi.mock('@/lib/analytics', () => ({
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('next/navigation', () => ({
-  useParams: () => ({ ticker: 'aapl' }),
+  useParams: () => ({ ticker: route.ticker }),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => '/company/aapl',
   useSearchParams: () => new URLSearchParams(),
@@ -111,7 +112,10 @@ const primaryActions = (container: HTMLElement) =>
     /(^|\s)bg-brand(\s|$)/.test(el.className),
   )
 
-afterEach(() => vi.clearAllMocks())
+afterEach(() => {
+  route.ticker = 'aapl'
+  vi.clearAllMocks()
+})
 
 describe('Company page lead', () => {
   it('states the company and its latest filing, and opens that filing as its one primary action', async () => {
@@ -223,6 +227,12 @@ describe('Company page lead', () => {
 })
 
 describe('Company page when the company does not load (CO-05)', () => {
+  // DS-04/DS-05: a terminal frame replaces the normal company h1 and main, so it owns both.
+  function expectTerminalFrame(title: HTMLElement) {
+    expect(screen.getByRole('main')).toContainElement(title)
+    expect(screen.getAllByRole('heading', { level: 1 })).toEqual([title])
+  }
+
   function renderUnseeded() {
     api.getCompanyFilings.mockResolvedValue([QUARTER, ANNUAL, PRIOR_ANNUAL])
     api.getCurrentUserSafe.mockResolvedValue(null)
@@ -254,7 +264,9 @@ describe('Company page when the company does not load (CO-05)', () => {
   async function pressRetryOverFailure() {
     api.getCompany.mockRejectedValue(new ApiError(503, 'Service unavailable'))
     renderUnseeded()
-    const card = (await screen.findByRole('heading', { name: 'Couldn’t load this company' })).closest('[role="alert"]') as HTMLElement
+    const title = await screen.findByRole('heading', { level: 1, name: 'Couldn’t load this company' })
+    expectTerminalFrame(title)
+    const card = title.closest('[role="alert"]') as HTMLElement
     const retry = within(card).getByRole('button', { name: 'Try again' })
     const answer = deferred<Company>()
     api.getCompany.mockReturnValueOnce(answer.promise)
@@ -270,10 +282,19 @@ describe('Company page when the company does not load (CO-05)', () => {
     return { retry, answer }
   }
 
+  it('gives an invalid ticker its own page heading and main landmark', () => {
+    route.ticker = undefined
+    renderUnseeded()
+    expectTerminalFrame(screen.getByRole('heading', { level: 1, name: 'Invalid ticker' }))
+    expect(screen.getByRole('link', { name: 'Go back home' })).toHaveAttribute('href', '/')
+    expect(api.getCompany).not.toHaveBeenCalled()
+  })
+
   it('says it could not load the company, never prints the raw error, and a Retry loads the page', async () => {
     api.getCompany.mockRejectedValue(new ApiError(503, 'Upstream EDGAR proxy timed out at 10.0.0.4'))
     renderUnseeded()
-    const title = await screen.findByRole('heading', { name: 'Couldn’t load this company' }, { timeout: 4000 })
+    const title = await screen.findByRole('heading', { level: 1, name: 'Couldn’t load this company' }, { timeout: 4000 })
+    expectTerminalFrame(title)
     const card = title.closest('[role="alert"]') as HTMLElement
     expect(card).toHaveTextContent('Try again in a moment.')
     expect(card).not.toHaveTextContent(/EDGAR proxy|10\.0\.0\.4|Error:/)
@@ -287,7 +308,8 @@ describe('Company page when the company does not load (CO-05)', () => {
   it('reads a 404 as not found, an answer in the empty card, with the scope of the search and no Retry', async () => {
     api.getCompany.mockRejectedValue(new ApiError(404, 'Company not found'))
     renderUnseeded()
-    const title = await screen.findByRole('heading', { name: 'Company not found' }, { timeout: 4000 })
+    const title = await screen.findByRole('heading', { level: 1, name: 'Company not found' }, { timeout: 4000 })
+    expectTerminalFrame(title)
     // A 404 is an answer, not a breakage: the empty variant (role="status", the brand tint), never the
     // error card's alert and its error tint, which the load failure keeps.
     expect(title.closest('[role="alert"]')).toBeNull()
@@ -309,7 +331,7 @@ describe('Company page when the company does not load (CO-05)', () => {
       const { client } = renderUnseeded()
       await waitFor(() => expect(client.getQueryState(queryKeys.company('AAPL'))?.fetchStatus).toBe('paused'))
       await settle()
-      expect(screen.getByRole('status', { name: 'Loading company' })).toBeInTheDocument()
+      expect(screen.getByRole('main')).toContainElement(screen.getByRole('status', { name: 'Loading company' }))
       expect(screen.queryByRole('heading', { name: 'Company not found' })).toBeNull()
       expect(screen.queryByText(/No company with a ticker on SEC EDGAR/)).toBeNull()
       expect(api.getCompany).not.toHaveBeenCalled()
@@ -343,7 +365,8 @@ describe('Company page when the company does not load (CO-05)', () => {
     // The query's one retry asks again, and hears the same answer.
     api.getCompany.mockRejectedValue(new ApiError(404, 'Company not found'))
     await act(async () => answer.reject(new ApiError(404, 'Company not found')))
-    const title = await screen.findByRole('heading', { name: 'Company not found' })
+    const title = await screen.findByRole('heading', { level: 1, name: 'Company not found' })
+    expectTerminalFrame(title)
     expect(retry.isConnected).toBe(false)
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
     await waitFor(() => expect(document.activeElement).toBe(title))
@@ -352,7 +375,8 @@ describe('Company page when the company does not load (CO-05)', () => {
   it('hands focus to the coverage card title when the retry answers with an unsupported foreign issuer', async () => {
     const { retry, answer } = await pressRetryOverFailure()
     await act(async () => answer.resolve({ ...COMPANY, coverage_status: 'unsupported_foreign', coverage_reason: 'No SEC financial reports.' }))
-    const title = await screen.findByRole('heading', { name: 'Apple Inc.' })
+    const title = await screen.findByRole('heading', { level: 1, name: 'Apple Inc.' })
+    expectTerminalFrame(title)
     expect(retry.isConnected).toBe(false)
     await waitFor(() => expect(document.activeElement).toBe(title))
   })

@@ -125,6 +125,8 @@ const FORMS: Array<[string, FormUnderTest]> = [
     open: () => {
       render(<RegisterForm inviteOnly={false} betaPromoActive={false} />)
       fireEvent.click(screen.getByRole('button', { name: /sign up with email/i }))
+      fireEvent.click(screen.getByRole('checkbox', { name: /at least 18/i }))
+      fireEvent.click(screen.getByRole('checkbox', { name: /agree to the/i }))
       fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'person@example.com' } })
       fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'a-long-enough-passphrase' } })
     },
@@ -278,4 +280,10 @@ describe('the contact form after a sent message', () => {
     await waitFor(() => expect(api.submitContactForm).toHaveBeenCalledTimes(2))
     expect(api.submitContactForm.mock.calls.map(([, token]) => token)).toEqual(['token-1', 'token-2'])
   })
+})
+
+// These cases exercise the form after release; legalReadiness.spec.tsx holds the closed and stale gates.
+vi.mock('@/features/legal/hooks/useLegalReadiness', async () => {
+  const { readyLegalHook } = await import('./fixtures/legalReady')
+  return { useLegalReadiness: () => readyLegalHook }
 })

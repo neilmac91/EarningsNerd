@@ -1,0 +1,185 @@
+{
+  "date": "2026-10-23",
+  "snapshot_at_utc": "2026-10-23T22:38:35Z",
+  "main": "2f0aa268087721b0d99b6868d10ba5eccc970527",
+  "original_receipt_preserved": "verification.json",
+  "corrections": [
+    "DS-06 vertical settling already owned E174 with a design ruling at the original snapshot; open #1544 owns its bounded fix.",
+    "E160 closed by #1538 after the original snapshot.",
+    "E173/E175 line-count shifts and E167 phone focus retain their existing owners."
+  ],
+  "pull_requests": [
+    {
+      "number": 1538,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "4caa3f5707634a9909a8d192d9a08fbf2af16adf",
+      "merge_commit_sha": "23a37e30c358073e8d845ec641c3f3085b7a96f3",
+      "merged_at": "2026-10-23T21:54:59Z",
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1538",
+      "updated_at": "2026-10-23T21:56:55Z"
+    },
+    {
+      "number": 1542,
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "head_sha": "88eb01853c4ae5036de25559ea966c3df5b73ac1",
+      "merge_commit_sha": null,
+      "merged_at": null,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1542",
+      "updated_at": "2026-10-23T22:12:20Z"
+    },
+    {
+      "number": 1544,
+      "state": "open",
+      "merged": false,
+      "draft": false,
+      "head_sha": "0fcd2c9da142c78381e2ea454a4d00542a583034",
+      "merge_commit_sha": "63f43daed70395f6c7823c90ae6efbbe6d8eaa95",
+      "merged_at": null,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1544",
+      "updated_at": "2026-10-23T22:31:07Z"
+    },
+    {
+      "number": 1535,
+      "state": "open",
+      "merged": false,
+      "draft": false,
+      "head_sha": "905ff4558e5374ccf3f4d4a9feaf22140719ce03",
+      "merge_commit_sha": "0ed5c836965129edd555815db11e724349f657f5",
+      "merged_at": null,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1535",
+      "updated_at": "2026-10-23T22:32:23Z"
+    }
+  ],
+  "scope": "User authorized continuing the recommended narrowed approach. Prepare three separate frontend drafts; no merge or production action.",
+  "archive_and_link_validation": {
+    "local_links_and_anchors_checked": 105,
+    "remote_urls_counted_not_fetched": 139,
+    "original_files_verified": 389,
+    "captures": 339,
+    "capture_bytes": 1596853,
+    "capture_manifest_sha256": "9412d7234033c8f945b2568f71129a1d144b0a3848b788ec3fe015fffa01a499",
+    "original_record_manifest_sha256": "fdfb511130fb7895ee6ef9dfba7b718fe6f56b9729cd4e9ca27177a615af0eec",
+    "original_verification_receipt_unchanged": true,
+    "errors": []
+  },
+  "records_review": {
+    "tier": "records",
+    "method": "One independent read-only pass; fetched original review and later ruling, checked merge ancestry, local links and original hashes",
+    "blockers": 0,
+    "should_fix": 1,
+    "should_fix_resolution": "Scoped the no-held-PR sentence to #1340; #1541 remains held."
+  },
+  "related_copy_residual": {
+    "status": "still reproducible (source)",
+    "sites": [
+      "frontend/features/auth/components/VerificationBanner.tsx:86",
+      "frontend/features/auth/components/EmailVerificationModal.tsx:166",
+      "frontend/features/auth/components/EmailVerificationModal.tsx:193"
+    ],
+    "next_action": "A bounded frontend copy follow-up coordinated with #1535; its backend work does not change these consumers. The check-email draft does not claim app-wide closure."
+  },
+  "later_main_recheck": {
+    "main": "629783b9ec77e5dd556f4e98530eaae7a8a75f87",
+    "pr": 1544,
+    "merged_at": "2026-10-23T22:52:47Z",
+    "disposition": "E174 bounded height fix resolved; E173/E175 remain owned. Earlier snapshot unchanged."
+  },
+  "prepared_drafts": [
+    {
+      "number": 1553,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1553",
+      "head": "ed7a6ce4b354e4b0467b336b8900fda23ed45389",
+      "scope": "check-email conditional resend confirmation",
+      "validation": {
+        "lint": "passed",
+        "typecheck": "passed",
+        "unit_files": 280,
+        "unit_tests": 3867,
+        "build": "passed",
+        "mutation": "old copy failed1/23; exact restore23/23"
+      },
+      "merged": false
+    },
+    {
+      "number": 1554,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1554",
+      "head": "08a141113e2d69681937d32717a04f43494fddcf",
+      "scope": "DS-04 page-owned main landmarks and DS-05 company terminal h1",
+      "validation": {
+        "lint": "passed",
+        "typecheck": "passed",
+        "unit_files": 280,
+        "unit_tests": 3868,
+        "build": "passed",
+        "browser_tests": 40,
+        "mutation": "landmark and h1 probes each failed1/20; exact restore38/38"
+      },
+      "merged": false
+    },
+    {
+      "number": 1557,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1557",
+      "head": "654ee1f62c8c461b6b618c45857eb9fc230251bc",
+      "scope": "DS-03 modal sheet pointer ownership and nested citation focus",
+      "validation": {
+        "lint": "passed",
+        "typecheck": "passed",
+        "unit_files": 280,
+        "unit_tests": 3867,
+        "build": "passed",
+        "browser_tests": 51,
+        "mutation": "scrim regression failed2/12; exact restore12/12"
+      },
+      "merged": false,
+      "limits": "Routed Source browser coverage; standalone Ask source/unit only; no new visual audit captures."
+    }
+  ],
+  "owner_refresh": {
+    "pull_requests": [
+      {
+        "number": 1121,
+        "state": "open",
+        "merged": false,
+        "draft": false,
+        "head_sha": "427f20f2c0ca6b3b08e92a4e1bb702d83ee0a95e",
+        "url": "https://github.com/neilmac91/EarningsNerd/pull/1121"
+      },
+      {
+        "number": 1547,
+        "state": "open",
+        "merged": false,
+        "draft": true,
+        "head_sha": "a577056cbe0616b30007f4523196b92e98bcf0d0",
+        "url": "https://github.com/neilmac91/EarningsNerd/pull/1547"
+      },
+      {
+        "number": 1552,
+        "state": "open",
+        "merged": false,
+        "draft": true,
+        "head_sha": "dcd2d489260db9084244b5094b6c76925f8312de",
+        "url": "https://github.com/neilmac91/EarningsNerd/pull/1552"
+      },
+      {
+        "number": 1530,
+        "state": "open",
+        "merged": false,
+        "draft": true,
+        "head_sha": "58e64031ac3ec06cc28fbea2cea8ace44f6e936a",
+        "url": "https://github.com/neilmac91/EarningsNerd/pull/1530"
+      }
+    ],
+    "result": "No duplicate audit owner or scope change. #1121 preserves div frames; #1547 leaves resend and landmarks untouched; #1552 leaves layering untouched; #1530 vocabulary patches require preserving source-label fixtures on integration."
+  },
+  "implementation_review": {
+    "tier": "routine",
+    "method": "One independent combined source/rules/gates review per draft",
+    "blockers": 0,
+    "refuters": 0,
+    "copies_handoff": "Shared VerificationBanner and EmailVerificationModal confirmations remain a verified follow-up."
+  }
+}

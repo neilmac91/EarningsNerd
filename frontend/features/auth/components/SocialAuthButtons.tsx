@@ -1,5 +1,7 @@
 'use client'
 
+import type { OAuthSignup } from './OAuthStartControl'
+
 import GoogleSignInButton from './GoogleSignInButton'
 import AppleSignInButton from './AppleSignInButton'
 import { ENABLE_APPLE_SIGNIN } from '@/lib/featureFlags'
@@ -10,11 +12,11 @@ import { ENABLE_APPLE_SIGNIN } from '@/lib/featureFlags'
  * `invite` (the closed-beta token from the magic link) rides along to the
  * backend start endpoints, which redeem it when they create the account.
  */
-export default function SocialAuthButtons({ apiBase, invite }: { apiBase: string; invite?: string }) {
+export default function SocialAuthButtons({ apiBase, invite, signup }: { apiBase: string; invite?: string; signup?: OAuthSignup }) {
   return (
     <div className="space-y-3">
-      {ENABLE_APPLE_SIGNIN && <AppleSignInButton apiBase={apiBase} invite={invite} />}
-      <GoogleSignInButton apiBase={apiBase} invite={invite} />
+      {ENABLE_APPLE_SIGNIN && <AppleSignInButton apiBase={apiBase} invite={invite} signup={signup} />}
+      <GoogleSignInButton apiBase={apiBase} invite={invite} signup={signup} />
     </div>
   )
 }

@@ -22,6 +22,8 @@ interface CitationChipProps {
 interface PopoverPos {
   left: number
   top: number
+  host: Element
+  restoreActionFocus: boolean
 }
 
 const CLOSE_DELAY_MS = 120
@@ -60,9 +62,16 @@ export default function CitationChip({ citation }: CitationChipProps) {
     const el = triggerRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
+    const host = el.closest('[aria-modal="true"]') ?? document.body
+    const card = popoverRef.current
     // The layout effect measures and places the card before paint. Its initial coordinates
     // only mount the portal; they do not assume a fixed height for variable source content.
-    setPos({ left: r.left + r.width / 2, top: r.bottom + 8 })
+    setPos({
+      left: r.left + r.width / 2,
+      top: r.bottom + 8,
+      host,
+      restoreActionFocus: !!card && card.parentElement !== host && card.contains(document.activeElement),
+    })
   }, [])
 
   useLayoutEffect(() => {
@@ -90,6 +99,12 @@ export default function CitationChip({ citation }: CitationChipProps) {
     card.style.left = `${left}px`
   }, [pos, excerpt, header, verified, viewer])
 
+  // Rehosting replaces the portal's DOM nodes. Restore its focused action once for that move,
+  // separately from placement so an unrelated viewer update cannot take focus back later.
+  useLayoutEffect(() => {
+    if (pos?.restoreActionFocus) linkRef.current?.focus({ preventScroll: true })
+  }, [pos])
+
   const scheduleClose = useCallback(() => {
     clearCloseTimer()
     closeTimer.current = setTimeout(() => setPos(null), CLOSE_DELAY_MS)
@@ -115,9 +130,26 @@ export default function CitationChip({ citation }: CitationChipProps) {
     }
     window.addEventListener('scroll', onMove, { capture: true, passive: true })
     window.addEventListener('resize', onMove, { passive: true })
+    // The pane's media-query update can commit after the resize handler. Follow its committed
+    // modality too, so a card cannot remain in the old stacking context across lg.
+    const pane = triggerRef.current?.closest('[role="dialog"], [role="complementary"]')
+    const syncHost = () => {
+      const trigger = triggerRef.current
+      const card = popoverRef.current
+      if (!trigger || !card || card.parentElement === (trigger.closest('[aria-modal="true"]') ?? document.body)) return
+      // Dismissal also removes aria-modal: never rehost a hidden pane's card over the page.
+      if (trigger.getClientRects().length === 0) setPos(null)
+      else openPopover()
+    }
+    const observer = new MutationObserver(syncHost)
+    if (pane) {
+      observer.observe(pane, { attributes: true, attributeFilter: ['aria-modal'] })
+      syncHost()
+    }
     return () => {
       window.removeEventListener('scroll', onMove, { capture: true })
       window.removeEventListener('resize', onMove)
+      observer.disconnect()
     }
   }, [pos, openPopover])
 
@@ -242,7 +274,9 @@ export default function CitationChip({ citation }: CitationChipProps) {
               </a>
             )}
           </span>,
-          document.body,
+          // A mobile sheet owns a modal stacking context above body-level popovers. Keep the
+          // card in that context, outside the answer scroller; desktop cards still use body.
+          pos.host,
         )
       : null
 

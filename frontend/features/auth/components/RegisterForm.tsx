@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { register } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
@@ -14,9 +14,16 @@ import PasswordField from '@/features/auth/components/PasswordField'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { loginHrefWithRedirect } from '@/lib/postAuthRedirect'
-import { Button, Input, Notice, cx, primaryUnavailableClass } from '@/components/ui'
+import { Button, Checkbox, Input, Notice, cx, primaryUnavailableClass } from '@/components/ui'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 import { PASSWORD_MIN_LENGTH, PASSWORD_RULE } from '@/lib/passwordRules'
+import { useLegalReadiness } from '@/features/legal/hooks/useLegalReadiness'
+import { CollectionUnavailable } from '@/features/legal/components/CollectionGate'
+import { RegistrationLoading } from '@/features/legal/components/CollectionLoading'
+import type { AccountAgreement } from '@/features/legal/api/legal-api'
+import { ACCOUNT_TERMS_VERSION, ACCOUNT_ELIGIBILITY_VERSION, isAccountPolicyCurrent } from '@/features/legal/policy'
+
+const legalLinkClass = 'box-decoration-clone rounded-sm font-medium text-brand-strong underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark'
 
 export interface RegisterFormProps {
   /**
@@ -35,6 +42,24 @@ export interface RegisterFormProps {
 
 function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
   const router = useRouter()
+  const { readiness, loading: checkingReadiness, recheck } = useLegalReadiness()
+  const policyMismatch = readiness?.collection_available === true && !isAccountPolicyCurrent(readiness)
+  const collectionAvailable = readiness?.collection_available === true && !policyMismatch
+  const betaOfferAvailable = betaPromoActive && readiness?.checkout_available === true
+  const [adultEligible, setAdultEligible] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const agreementReady = adultEligible && termsAccepted
+  const [requirementsError, setRequirementsError] = useState(false)
+  const adultRef = useRef<HTMLInputElement>(null)
+  const termsRef = useRef<HTMLInputElement>(null)
+  const wasAvailable = useRef(false)
+  const statusRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (wasAvailable.current && !collectionAvailable && document.activeElement === document.body) {
+      statusRef.current?.focus({ preventScroll: true })
+    }
+    wasAvailable.current = collectionAvailable
+  }, [collectionAvailable])
   const searchParams = useSearchParams()
   // Closed-beta magic link: /register?invite=<token>. Present → open the email form straight away
   // and pass the token through to every signup path: the register endpoint takes it in the body and
@@ -83,7 +108,7 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
   // Pro is promised only while the beta promo is configured. Invite-only and uninvited: no subhead,
   // the private-beta Notice below carries the message.
   const subhead =
-    isInvited && betaPromoActive
+    isInvited && betaOfferAvailable
       ? 'Finish setting up to get full Pro. No credit card required.'
       : !inviteOnly
         ? `${FREE_SUMMARY_LIMIT} free AI summaries a month. No credit card required.`
@@ -91,21 +116,42 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
           ? 'Your invite opens an account during the private beta.'
           : null
 
+  const confirmRequirements = () => {
+    if (agreementReady) return true
+    setRequirementsError(true)
+    ;(adultEligible ? termsRef : adultRef).current?.focus()
+    return false
+  }
+
+  const prepareAgreement = async (): Promise<AccountAgreement | null> => {
+    if (!collectionAvailable || !readiness || !confirmRequirements()) return null
+    const fresh = await recheck()
+    if (!fresh?.collection_available) return null
+    if (!isAccountPolicyCurrent(fresh)) {
+      setAdultEligible(false)
+      setTermsAccepted(false)
+      return null
+    }
+    return { adult_eligible: true, terms_accepted: true, terms_version: ACCOUNT_TERMS_VERSION, eligibility_version: ACCOUNT_ELIGIBILITY_VERSION }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     // In flight: the submit stays focusable (DS Button `loading` sets aria-disabled, never native
     // disabled), so a repeat Enter must be ignored here. lessons/frontend-busy-controls-stay-focusable.md
     // The wait for a Turnstile token is aria-disabled too, so a press or Enter sends nothing until it comes.
-    if (loading || tokenPending) return
+    if (loading || !collectionAvailable || !confirmRequirements() || tokenPending) return
     setError('')
     setLoading(true)
-    analytics.signupStarted(isInvited ? 'register_invite' : 'register_page')
 
     try {
+      const agreement = await prepareAgreement()
+      if (!agreement) return
+      analytics.signupStarted(isInvited ? 'register_invite' : 'register_page')
       // Verify-first signup: register returns an opaque message and sets no session (so we
       // can't reveal whether the email already existed). The user finishes via the email link
       // or by signing in. Always route to the same "check your email" page.
-      await register(email, password, fullName, turnstileToken, inviteToken)
+      await register(email, password, fullName, turnstileToken, inviteToken, agreement)
       analytics.signupSubmitted()
       router.push(`/check-email?email=${encodeURIComponent(email)}${redirectQuery}`)
     } catch (err: unknown) {
@@ -124,26 +170,26 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
   }
 
   return (
-    <AuthShell>
+    <AuthShell alignTop>
       <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
         Create your account
       </h1>
-      {subhead && (
+      {collectionAvailable && subhead && (
         <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">{subhead}</p>
       )}
 
-      {isInvited && (
+      {collectionAvailable && isInvited && (
         <div className="mt-6 rounded-xl border border-brand-strong/20 bg-brand-strong/5 p-4 dark:border-brand-strong-dark/25 dark:bg-brand-strong-dark/10">
           <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
             You&apos;re invited to the private beta
           </p>
           <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            {betaPromoActive ? 'Your invite includes full Pro access. Create your account below.' : 'Create your account below.'}
+            {betaOfferAvailable ? 'Your invite includes full Pro access. Create your account below.' : 'Create your account below.'}
           </p>
         </div>
       )}
 
-      {!isInvited && inviteOnly && (
+      {collectionAvailable && !isInvited && inviteOnly && (
         <div className="mt-6">
           <Notice
             variant="info"
@@ -170,12 +216,42 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
         </div>
       )}
 
-      <div className="mt-8">
+      {checkingReadiness ? (
+        <RegistrationLoading invited={isInvited} emailVisible={showEmail} socialOffered={socialSignupOffered} />
+      ) : !collectionAvailable ? (
+        <div ref={statusRef} tabIndex={-1} className="mt-8 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+          <CollectionUnavailable
+            title={policyMismatch ? 'Registration needs a refresh' : 'Registration is currently closed'}
+            showLogin={false}
+            description={policyMismatch ? 'The account requirements have changed. Refresh this page to load the current Terms and eligibility requirements before signing up.' : undefined}
+          />
+        </div>
+      ) : <div className="mt-8">
+        <fieldset className="mb-6 space-y-3" aria-describedby={requirementsError ? 'account-requirements-error' : undefined}>
+          <legend className="mb-3 text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Account requirements</legend>
+          <label className="flex items-start gap-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            <Checkbox ref={adultRef} checked={adultEligible} aria-describedby={requirementsError ? 'account-requirements-error' : undefined} onChange={(event) => {
+              setAdultEligible(event.target.checked)
+              if (event.target.checked && termsAccepted) setRequirementsError(false)
+            }} />
+            <span>I am at least 18 and legally an adult where I live.</span>
+          </label>
+          <label className="flex items-start gap-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            <Checkbox ref={termsRef} checked={termsAccepted} aria-describedby={requirementsError ? 'account-requirements-error' : undefined} onChange={(event) => {
+              setTermsAccepted(event.target.checked)
+              if (event.target.checked && adultEligible) setRequirementsError(false)
+            }} />
+            <span>I agree to the{' '}<Link href="/terms" className={legalLinkClass}>Terms of Service</Link>.</span>
+          </label>
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Read how we handle personal data in our{' '}<Link href="/privacy" className={legalLinkClass}>Privacy Policy</Link>.</p>
+          {requirementsError && <p id="account-requirements-error" role="alert" className="text-sm text-error-light dark:text-error-dark">Confirm both statements to create an account.</p>}
+        </fieldset>
         {socialSignupOffered && (
           <>
             <SocialAuthButtons
               apiBase={apiBase}
               invite={inviteToken || undefined}
+              signup={{ ready: !loading, prepare: prepareAgreement }}
             />
             <AuthDivider />
           </>
@@ -206,7 +282,7 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 autoComplete="name"
-                autoFocus
+                autoFocus={!isInvited}
               />
             </div>
 
@@ -252,7 +328,7 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
               // Refused while the token comes, so the browser's own validation never starts either: an empty required
               // field would take focus from a control announced unavailable. Enter in a field submits through this click.
               onClick={(event) => {
-                if (tokenPending) event.preventDefault()
+                if (!confirmRequirements() || tokenPending) event.preventDefault()
               }}
               className={cx('w-full py-2.5 font-semibold active:scale-[0.99]', tokenPending && !loading && primaryUnavailableClass)}
             >
@@ -260,19 +336,7 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
             </Button>
           </form>
         )}
-      </div>
-
-      <p className="mt-6 text-center text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-        By creating an account you agree to our{' '}
-        <Link href="/terms" className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark underline hover:text-brand-strong dark:hover:text-brand-strong-dark">
-          Terms
-        </Link>{' '}
-        and{' '}
-        <Link href="/privacy" className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark underline hover:text-brand-strong dark:hover:text-brand-strong-dark">
-          Privacy Policy
-        </Link>
-        .
-      </p>
+      </div>}
 
       <p className="mt-6 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Already have an account?{' '}

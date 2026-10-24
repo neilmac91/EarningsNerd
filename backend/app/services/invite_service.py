@@ -186,3 +186,13 @@ def reissue_invite(
         expires_in_hours=expires_in_hours,
         cohort=old.cohort,
     )
+
+
+def invite_has_delivery_recipient(db: Session, invite_id: int) -> bool:
+    """Read whether reissue would send mail, before any existing link is revoked or replaced."""
+    invite = db.query(InviteCode).filter(InviteCode.id == invite_id).first()
+    if invite is None:
+        raise InviteNotFoundError(invite_id)
+    if invite.used_at is not None:
+        raise InviteAlreadyRedeemedError(invite_id)
+    return bool(invite.email)

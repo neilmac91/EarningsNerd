@@ -47,7 +47,7 @@ SELECT json_build_object(
          'processed_filings', 'inserted', 'rejected', 'facts_inserted', 'facts_skipped', 'facts_rejected', 'extract_errors', 'flags_refreshed',
          'value_mismatch', 'facts_unstored', 'companyfacts_unavailable', 'source_errors',
          'companies_scanned', 'filings_upserted', 'alerts_sent', 'alerts_failed',
-         'digests_sent', 'digests_failed', 'filings_included', 'generated', 'already_cached',
+         'digests_sent', 'digests_failed', 'filings_included', 'generated', 'already_cached', 'kept',
          'commit_failed', 'generation_failed', 'missing_urls', 'unsupported_form', 'company_not_found'
        )) AS numeric_counters
     FROM matched

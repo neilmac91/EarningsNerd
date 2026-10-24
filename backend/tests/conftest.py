@@ -75,6 +75,13 @@ os.environ["SKIP_REDIS_INIT"] = "true"
 # Disable the HaveIBeenPwned network call in tests so the suite stays hermetic and offline.
 os.environ["PWNED_PASSWORD_CHECK_ENABLED"] = "false"
 
+# Readiness tests start closed regardless of a developer's published operator configuration.
+# Legacy registration/collection tests opt into the synthetic notice with collection_ready.
+os.environ["LEGAL_COLLECTION_ENABLED"] = "false"
+os.environ["LEGAL_OPERATOR_PUBLISHED"] = "false"
+for _legal_field in ("NAME", "POSTAL_ADDRESS", "COUNTRY", "EMAIL"):
+    os.environ["LEGAL_OPERATOR_" + _legal_field] = ""
+
 # A developer's backend/.env can carry live provider keys (telemetry, email, market data, bot checks);
 # pinned empty here (env beats .env in Settings), Sentry's sender, PostHog, Resend, Alpha Vantage and
 # Turnstile stay off in tests and never trip the network gate below or fail a request on a real key. A
@@ -99,6 +106,23 @@ import pytest  # noqa: E402
 from sqlalchemy import Table, event  # noqa: E402
 
 from tests.support.summary_stream_harness import CANONICAL_PAYLOAD  # noqa: E402
+
+
+@pytest.fixture
+def collection_ready(monkeypatch):
+    """A complete synthetic public notice for tests exercising enabled collection behavior."""
+    from app.config import settings
+
+    values = {
+        "LEGAL_COLLECTION_ENABLED": True,
+        "LEGAL_OPERATOR_PUBLISHED": True,
+        "LEGAL_OPERATOR_NAME": "Test Operator",
+        "LEGAL_OPERATOR_POSTAL_ADDRESS": "1 Test Street, Test City",
+        "LEGAL_OPERATOR_COUNTRY": "CH",
+        "LEGAL_OPERATOR_EMAIL": "legal@example.com",
+    }
+    for name, value in values.items():
+        monkeypatch.setattr(settings, name, value)
 
 _PRISTINE_CANONICAL_PAYLOAD = deepcopy(CANONICAL_PAYLOAD)
 
