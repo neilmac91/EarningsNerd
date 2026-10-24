@@ -4,7 +4,7 @@ import json
 from app.utils.datetimes import utcnow
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks, Request
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from app.config import settings
@@ -17,6 +17,7 @@ from app.services.durable_tasks import enqueue_task, TaskUnavailable
 from app.services import filing_list_service, filing_read_service
 from app.services.latest_filing_service import company_list_forms
 from app.services.filing_list_service import other_filing_forms
+from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -25,13 +26,38 @@ logger = logging.getLogger(__name__)
 # app.routers.filings logger name. Bounded by filing_list_service.MAX_FILINGS_SYNC_ENTRIES.
 _visit_task_handoffs: dict[str, float] = {}
 
+# The company-filings route needs no login, and the site's own server renders call it from Vercel's
+# shared IPs with no credential, so it bounds the work a request causes, not the request: one served
+# from stored rows that hands nothing off spends nothing.
+# Durable handoffs spend one budget per process, whoever asks, since no per-IP key bounds callers spread
+# over many IPs. The queue every durable job shares dispatches one task at a time, at most 0.2/s, so it
+# drains 1/max(5 s, mean delivery time): a delivery execs a fresh Python child (about 1.7 s of imports)
+# and a history backfill paces 4 EFTS windows at 1 request/s, about 6 s in all. Forgot-password and
+# resend-verification feed the same queue under their own process-wide cap (ACCOUNT_MAIL_LIMITER in
+# routers/auth.py, 60 an hour per process). 11 per 5 minutes per process is 22 per 5 minutes across the
+# API's at most two instances (0.073/s), and with the account mail at its cap (0.033/s) 0.107/s: 64% of the
+# drain while deliveries average 6 s, two thirds of it at 6.25 s and all of it at 9.375 s (pinned, summed
+# over every producer a request without a login reaches, in test_filings_routes.py). Past the budget a
+# visit still serves its stored rows and queues nothing; a visit after the window queues the task.
+VISIT_TASK_BUDGET = RateLimiter(limit=11, window_seconds=300)
+# The live SEC fetch, taken when nothing is stored in the requested forms and no listing of this
+# company within the freshness TTL found them empty (a first view, a company that has none of them once
+# per TTL, or, on every visit, a listing made only of rows another company stores or rows it could not
+# store), is bounded per client IP in each process, as search's is. A fetch is one SEC request, the
+# company's submissions JSON, on edgartools' bucket, which production paces at 1 request/s per process
+# (EDGAR_RATE_LIMIT_PER_SEC), so while SEC answers one client's fetches take at most a sixth of that pace
+# (pinned in test_filings_routes.py). A failed connection is retried by edgartools, 5 attempts in all.
+LIVE_FETCH_LIMITER = RateLimiter(limit=10, window_seconds=60)
+
 
 async def _enqueue_visit_task(kind: str, payload: dict, *, key: str, seconds: int) -> None:
-    """A queue outage must not hide already-persisted filings from the reader."""
+    """A queue outage or a spent budget must not hide already-persisted filings from the reader."""
     cache_key = f"{kind}:{key}:{json.dumps(payload, sort_keys=True)}"
     now = utcnow().timestamp()
     if now < _visit_task_handoffs.get(cache_key, 0):
         return
+    if not VISIT_TASK_BUDGET.allow("visit-tasks"):
+        return  # left unrecorded, so the next visit after the window hands it off
     try:
         await enqueue_task(kind, payload, dedupe_key=key, dedupe_seconds=seconds)
         expires = (int(now) // seconds + 1) * seconds
@@ -93,6 +119,7 @@ class FilingResponse(BaseModel):
 @router.get("/company/{ticker}", response_model=List[FilingResponse])
 async def get_company_filings(
     ticker: str,
+    request: Request,
     background: BackgroundTasks,
     filing_types: Optional[str] = Query(None, description="Comma-separated filing types (e.g., '10-K,10-Q')"),
     limit: Optional[int] = Query(None, ge=1, le=500, description="Max filings per form group (the 6-Ks, and every other form); default serves the recent cap"),
@@ -170,13 +197,18 @@ async def get_company_filings(
         else:
             background.add_task(filing_list_service.run_history_backfill_on_visit, company_id)
 
-    # B2 fast path: a recently-synced ticker serves its list from the DB (already populated by a
-    # prior live fetch) without the 3-5s SEC round-trip. Falls through to the DB-first / live paths
-    # on a cold or stale key.
-    if filing_list_service.filings_cache_fresh(ticker_upper, types_list):
-        cached = await run_in_threadpool(get_cached_filings)
-        if cached:
-            return cached
+    # B2 fast path: a key whose SEC listing succeeded within the TTL is answered from the DB without
+    # the 3-5s SEC round-trip, even when nothing is stored in these forms. A fund, a trust or a company
+    # with only 8-K or Form 3/4/5 rows lists nothing in the default forms, and that successful empty
+    # listing stays the answer until the TTL passes, so its visits neither fetch again nor spend the
+    # live-fetch budget (lessons/arch-cache-only-reads-that-succeeded.md). Only a listing that succeeded
+    # stamps a key, and only when the stored rows answer for it (filing_list_service.persist_live_filings).
+    # A stamp answers only the company whose listing wrote it: a ticker that passes to another company
+    # within the TTL is listed again for the new one. The stamp is per process and bounded, so another
+    # instance or an evicted key fetches once more. Falls through to the DB-first / live paths on a cold
+    # or stale key.
+    if filing_list_service.filings_cache_fresh(ticker_upper, types_list, company_id):
+        return await run_in_threadpool(get_cached_filings)
 
     # DB-first: we already hold persisted rows for this company (from a prior sync, the filing-scan
     # cron, or precompute), but the freshness stamp is cold/stale (e.g. a fresh Cloud Run instance,
@@ -210,6 +242,11 @@ async def get_company_filings(
             )
         return cached
 
+    # Nothing stored to serve: the live fetch below waits on the process's shared SEC pacing.
+    enforce_rate_limit(
+        request, LIVE_FETCH_LIMITER, "filings-live",
+        error_detail="Too many filing requests. Please retry in a minute.",
+    )
     try:
         # Try to fetch from SEC with a timeout to ensure we respond within frontend's limit
         sec_filings = await asyncio.wait_for(

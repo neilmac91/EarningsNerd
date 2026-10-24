@@ -31,6 +31,7 @@ from app.services.edgar.exceptions import EdgarError
 from app.services.latest_filing_service import company_list_forms
 from app.services.request_work import request_work_scope
 from app.utils.sec_urls import build_sec_archive_url
+from tests.support.filings_budgets import unspend_filings_budgets
 
 # The client fixture stubs the history walk; the FPI backfill tests below put the real one back.
 _REAL_FETCH_HISTORY_ROWS = filing_history_service._fetch_history_rows
@@ -69,6 +70,7 @@ def client(db_engine, monkeypatch):
         return [], 0, 0
 
     monkeypatch.setattr(filing_history_service, "_fetch_history_rows", _no_history_fetch)
+    unspend_filings_budgets(monkeypatch)
     filing_list_service._filings_synced_at.clear()
     filing_list_service._refreshing_keys.clear()
     filing_list_service._history_backfilling_ids.clear()
@@ -411,6 +413,7 @@ def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkey
     monkeypatch.setattr(
         filings_mod.sec_edgar_service, "primary_ticker_for_cik", fake_primary_ticker
     )
+    unspend_filings_budgets(monkeypatch)
     filing_list_service._filings_synced_at.clear()
     filing_list_service._refreshing_keys.clear()
     filing_list_service._history_backfilling_ids.clear()
@@ -486,6 +489,7 @@ def test_cold_fetch_fallbacks_keep_the_request_session_off_the_event_loop(tmp_pa
                  "document_url": sec_url + "primary.htm", "sec_url": sec_url}]
 
     monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", get_filings)
+    unspend_filings_budgets(monkeypatch)
     filing_list_service._filings_synced_at.clear()
 
     with TestingSession() as db:
@@ -516,9 +520,10 @@ def test_db_first_skips_refresh_when_freshly_synced(client, monkeypatch, synced_
     with TestingSession() as s:
         company = _seed_company(s)
         _seed_filing(s, company, "0000895421-25-000010", "10-K", 2025)
+        company_id = company.id
 
     # Only a stamp covering every requested form can suppress the background refresh.
-    filing_list_service._mark_filings_synced("TESTCO", synced_forms)
+    filing_list_service._mark_filings_synced("TESTCO", synced_forms, company_id)
     sec_mock = AsyncMock(return_value=[])
     monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", sec_mock)
 
@@ -549,8 +554,9 @@ def test_filings_limit_param_default_unchanged(client, monkeypatch):
         s.add(company)
         s.commit()
         _seed_history(s, company, 25)
+        company_id = company.id
     # Freshly-synced → DB-first serves without any SEC round-trip.
-    filing_list_service._mark_filings_synced("TESTCO", ["10-K", "10-Q", "10-K/A", "10-Q/A"])
+    filing_list_service._mark_filings_synced("TESTCO", ["10-K", "10-Q", "10-K/A", "10-Q/A"], company_id)
     monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
 
     # Default: capped at CACHED_FILINGS_LIMIT (behaviour unchanged).
@@ -665,7 +671,8 @@ def test_cached_list_keeps_the_20f_behind_sixty_newer_6ks(client, monkeypatch):
         _seed_dated(s, company, f"{FPI_CIK}-26-900001", "20-F", date(2026, 3, 5))
         _seed_dated(s, company, f"{FPI_CIK}-26-800001", "6-K/A", date(2026, 9, 1))  # not a default form
         s.commit()
-    filing_list_service._mark_filings_synced("BPX", company_list_forms())  # serve from the DB
+        company_id = company.id
+    filing_list_service._mark_filings_synced("BPX", company_list_forms(), company_id)  # serve from the DB
     monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
 
     default = tc.get("/api/filings/company/BPX").json()
