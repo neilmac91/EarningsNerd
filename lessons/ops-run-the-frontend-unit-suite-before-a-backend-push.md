@@ -21,7 +21,7 @@ only the backend gate, because no frontend file had changed.
 frontend unit suite from `frontend/`:
 
 ```bash
-npm run test -- --run
+python3 ../ops/dev/verify.py -- npm run test -- --run
 ```
 
 At least 17 unit specs read files under `backend/`, for parity checks, inventories and contracts. They
@@ -51,5 +51,5 @@ skips the paid run. That is a high-tier CI change. Founder row F55 holds the for
 - #1535: `e981dd50a` (CI run 40025627889), then `ab3cda166`. Both pairs are branch heads from before the
   squash merges, so the pull request numbers are the lasting reference.
 - `frontend/tests/unit/authPagesCopy.spec.tsx`: `EMAIL_VERIFIED_READS` and the nearest-`def` scan.
-- CLAUDE.md's backend gate line and `AGENTS.md` §8 stand unchanged. This lesson, in every session's
-  reading, adds the frontend unit step to them for a backend change.
+- [CLAUDE.md's commands](../CLAUDE.md#commands) and [AGENTS.md §8](../AGENTS.md#8-commit-hygiene)
+  include this whole frontend unit step for a backend change, using the cooperative local launcher.

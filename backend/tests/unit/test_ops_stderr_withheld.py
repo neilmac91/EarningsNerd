@@ -8,7 +8,10 @@ These gates keep it that way: every gcloud call in ops.yml discards or captures 
 lists it (the jobs-channel and rollback actions whose progress output remains operator evidence), a file that
 captures stderr is only ever tested with `grep -q`, the logs-probe and proxy-secret classifiers name the class
 describe-service's gcloud_json() names, and an ops/ module never lets a child process inherit stderr and
-captures or reads one only in gcloud_json(). Python a step runs is a file run by path from ops/ or scripts/,
+captures or reads one only in gcloud_json(). The sole local-only exception is verify.py's one command
+spawn: its caller owns the terminal streams. A static-reference guard keeps that launcher out of Actions;
+indirect/dynamic invocation remains a review concern. Its observer and every other spawn stay gated.
+Python a step runs is a file run by path from ops/ or scripts/,
 or a one-line `python3 -c` helper (three today); never a program fed through a heredoc or stdin, nor a step
 shell other than bash. The ops/ modules are standard-library only (ops.yml runs them on the runner's bare
 python3, 3.12 today, while CI tests on 3.11) and linted with the backend rule set, which CI's `ruff check`
@@ -142,6 +145,8 @@ SPAWNERS = {"run", "call", "check_call", "check_output", "Popen", "getoutput", "
 OS_SPAWNERS = re.compile(r"system|popen|spawn\w*|exec\w*|posix_spawn\w*|fork\w*")
 # The one place an ops/ module may capture a child's stderr and read it: the seam that reduces it to a closed class.
 SEAM = ("ops/describe/service.py", "gcloud_json")
+# Local foreground commands preserve the developer's streams, never a public Ops job's output.
+LOCAL_COMMAND = ("ops/dev/verify.py", "run_command", "Popen")
 # Modules that start child processes outside the subprocess/os calls this gate inspects.
 CHILD_MODULES = {"pty", "asyncio", "multiprocessing"}
 # Public modules in 3.11's sys.stdlib_module_names that 3.12 or 3.13 removed: CI's interpreter still lists them; the
@@ -668,8 +673,34 @@ def _functions(tree):
     return owner
 
 
+def _local_command_inherits_streams(node):
+    return (len(node.args) == 1 and not isinstance(node.args[0], ast.Starred)
+            and all(k.arg is not None and k.arg not in {"stdin", "stdout", "stderr"} for k in node.keywords))
+
+
+@pytest.mark.parametrize("call,inherits", [
+    ("subprocess.Popen(command)", True),
+    ("subprocess.Popen(command, start_new_session=True, env=environment)", True),
+    ("subprocess.Popen()", False),
+    ("subprocess.Popen(args=command)", False),
+    ("subprocess.Popen(command, 0)", False),
+    ("subprocess.Popen(*arguments)", False),
+    ("subprocess.Popen(command, *arguments)", False),
+    ("subprocess.Popen(command, **options)", False),
+    ("subprocess.Popen(command, stdin=None)", False),
+    ("subprocess.Popen(command, stdout=subprocess.PIPE)", False),
+    ("subprocess.Popen(command, stderr=subprocess.DEVNULL)", False),
+])
+def test_local_command_exception_refuses_every_redirect_argument_form(call, inherits):
+    assert _local_command_inherits_streams(ast.parse(call).body[0].value) is inherits
+
+
 def test_ops_modules_never_let_a_child_process_inherit_stderr():
-    spawns, stderr_reads = 0, []
+    spawns, local_spawns, stderr_reads = 0, 0, []
+    for workflow in (ROOT / ".github/workflows").iterdir():
+        if workflow.suffix in (".yml", ".yaml"):
+            assert not re.search(r"\bops[/.]dev\b|\bverify\.py\b", workflow.read_text()), (
+                f"{workflow}: the local command launcher must not enter an Actions workflow")
     for path in _ops_modules():
         tree = ast.parse(path.read_text())
         owner = _functions(tree)
@@ -706,6 +737,11 @@ def test_ops_modules_never_let_a_child_process_inherit_stderr():
             assert not (owner_name == "os" and OS_SPAWNERS.fullmatch(function)), f"{path}:{node.lineno}: os.{function}"
             if owner_name == "subprocess" and function in SPAWNERS:
                 spawns += 1
+                if (module, owner.get(node), function) == LOCAL_COMMAND:
+                    local_spawns += 1
+                    assert _local_command_inherits_streams(node), (
+                        "the one local command spawn inherits all three streams, with no expanded/redirect arguments")
+                    continue
                 stderr = [k.value for k in node.keywords if k.arg == "stderr"]
                 assert len(stderr) == 1 and isinstance(stderr[0], ast.Attribute) and stderr[0].attr in (
                     "PIPE", "DEVNULL"), f"{path}:{node.lineno}: subprocess.{function} must set stderr=PIPE or DEVNULL"
@@ -713,6 +749,7 @@ def test_ops_modules_never_let_a_child_process_inherit_stderr():
                 assert stderr[0].attr == "DEVNULL" or (module, owner.get(node)) == SEAM, (
                     f"{path}:{node.lineno}: only gcloud_json() may capture a child's stderr")
     assert spawns >= 2  # describe-service's gcloud seam and the readout's identity reads
+    assert local_spawns == 1, "the local-only exception must name exactly one command spawn"
     # A captured stderr is read in one place only, the seam that reduces it to a closed class.
     assert stderr_reads == [SEAM], stderr_reads
 

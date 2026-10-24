@@ -49,11 +49,16 @@ npm run dev
 
 ## Tests, lint, build
 
+On Linux and macOS, use the [local verification launcher](ops/dev/README.md) for each full
+suite and build. It coordinates heavy work across checkouts; focused tests remain direct.
+Follow the [canonical commands](CLAUDE.md#commands) and [pre-push requirements](AGENTS.md#8-commit-hygiene),
+including the whole frontend unit suite before pushing any backend-path change.
+
 **Backend** (from `backend/`):
 ```bash
-pytest tests/              # the fast lane, in parallel (pytest.ini adds `-n auto` and deselects the performance suite)
-pytest -m "" tests/        # everything, the performance suite included
-pytest tests/unit/         # unit only
+python3 ../ops/dev/verify.py -- pytest tests/       # fast lane, parallel (`-n auto`); performance deselected
+python3 ../ops/dev/verify.py -- pytest -m "" tests/ # everything, the performance suite included
+python3 ../ops/dev/verify.py -- pytest tests/unit/ # whole unit suite
 pytest tests/smoke/ -v     # critical-path smoke tests
 pytest -n 0 tests/unit/test_x.py  # one file, serially (debuggers, quick loops)
 ruff check . && bandit -r app -ll  # lint and security scan, as CI runs them
@@ -61,10 +66,10 @@ ruff check . && bandit -r app -ll  # lint and security scan, as CI runs them
 
 **Frontend** (from `frontend/`):
 ```bash
-npm run test               # Vitest unit tests
-npm run test:e2e           # Playwright E2E
+python3 ../ops/dev/verify.py -- npm run test     # Vitest unit tests
+python3 ../ops/dev/verify.py -- npm run test:e2e # Playwright E2E
 npm run lint               # ESLint
-npm run build              # production build
+python3 ../ops/dev/verify.py -- npm run build    # production build
 ```
 
 ## CI
@@ -72,8 +77,9 @@ npm run build              # production build
 GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR:
 `backend-tests` (ruff + bandit + the parallel pytest fast lane, then the performance suite
 serially), `migrations-postgres` (the migrations and the concurrency tests on PostgreSQL),
-`frontend-tests` (vitest), `e2e-tests` (build + Playwright) and `secret-scan` (gitleaks). All five
-must pass before the backend auto-deploys to Cloud Run on `main`. See
+`frontend-tests` (lint, typecheck and vitest), `e2e-tests` (build + Playwright), `lighthouse` and
+`secret-scan` (gitleaks). Required PR checks also include `review-gate`. After the applicable CI gates
+pass on `main`, changes under `backend/` outside `backend/tests/` deploy to Cloud Run. See
 [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
 
 In a Claude Code session that loads the repository's hooks, `.claude/hooks/secret_scan_guard.py`
@@ -111,7 +117,8 @@ still reads every branch after the push.
 1. Branch off `main`.
 2. Keep changes surgical — touch only what the change requires; match surrounding style.
 3. Add/extend tests for the behavior you change.
-4. Open a PR; ensure CI is green. Backend deploys automatically once merged to `main`.
+4. Open a draft PR; complete the required CI and reviews before merging. Deployable backend changes
+   follow the serialized release and health-verification requirements in [AGENTS.md §6](AGENTS.md#6-deploy-discipline).
 
 ## Where things live
 

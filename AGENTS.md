@@ -207,6 +207,24 @@ founder's private store, not `tasks/`.
 
 ## 8. Commit hygiene
 
-From `backend/`: `ruff check . && bandit -r app -ll && python -m pytest` before every backend
-push. From `frontend/`: `npm run lint && npx tsc -p tsconfig.ci.json && npm run test -- --run &&
-npm run build`. `git status` must be empty after each commit. Open every PR as a draft first.
+From `backend/`, before every backend push:
+
+```bash
+ruff check . && bandit -r app -ll && python3 ../ops/dev/verify.py -- python -m pytest
+```
+
+From `frontend/`:
+
+```bash
+npm run lint && \
+  python3 ../ops/dev/verify.py -- npx tsc -p tsconfig.ci.json && \
+  python3 ../ops/dev/verify.py -- npm run test -- --run && \
+  python3 ../ops/dev/verify.py -- npm run build
+```
+
+Before every push whose diff changes any file under `backend/`, its tests included, also run the
+whole frontend unit suite from `frontend/`: `python3 ../ops/dev/verify.py -- npm run test -- --run`.
+The full frontend gate above already includes that step; a focused selection does not replace it.
+Run heavyweight local verification in the foreground through the [launcher](ops/dev/README.md),
+wrapping each stage separately. Focused checks remain direct and may run concurrently. CI commands
+stay unchanged. `git status` must be empty after each commit. Open every PR as a draft first.
