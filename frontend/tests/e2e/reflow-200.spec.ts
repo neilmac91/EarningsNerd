@@ -1979,10 +1979,11 @@ for (const viewport of [{ width: 1024, height: 768 }, { width: 1440, height: 900
       )
       await page.goto('/pricing')
       await h1(page)
-      const bell = page.getByRole('banner').getByRole('button', { name: /^Notifications/ })
-      await expect(bell, `${viewport.width}px: the ${bar} bar's bell, the one bell shown`).toHaveCount(1)
       await page.evaluate(() => document.fonts.ready)
       await doubleTextOnADesktop(page, bar === 'full')
+      // Counted under 200% text: at 1440px the default size shows the full bar, and the doubled text the compact one.
+      const bell = page.getByRole('banner').getByRole('button', { name: /^Notifications/ })
+      await expect(bell, `${viewport.width}px and 200% text: the ${bar} bar's bell, the one bell shown`).toHaveCount(1)
       await bell.click()
       const panel = page.getByRole('menu', { name: 'Notifications' })
       await expect(panel).toBeVisible()
