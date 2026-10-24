@@ -25,7 +25,7 @@ beautifulsoup4==4.15.0
     # via
     #   -r requirements.in
     #   edgartools
-brotli==1.2.0
+brotli==1.2.1
     # via fonttools
 certifi==2026.10.19
     # via
