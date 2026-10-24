@@ -37,8 +37,9 @@ def get_or_create_preferences(db: Session, user_id: int, *, commit: bool = True)
     insert, and the caller reads the row the first one stored: PostgreSQL holds the second insert
     until the first's transaction ends, and the read after it sees that commit (READ COMMITTED).
     The caller's pending state is flushed first, so a clash caught here can only be this insert's.
-    On SQLite (the tests) the SAVEPOINT opens the transaction and its RELEASE commits it, so there
-    ``commit=False`` stores the row at once; PostgreSQL holds it until the caller commits."""
+    On SQLite (the tests), when the caller has written nothing yet, the SAVEPOINT opens the transaction
+    and its RELEASE commits it, so there the update's ``commit=False`` insert is stored at once;
+    PostgreSQL holds it until the caller commits."""
     prefs = _preferences(db, user_id)
     if prefs is not None:
         return prefs

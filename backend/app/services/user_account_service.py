@@ -15,9 +15,10 @@ def apply_profile_update(db: Session, current_user: User, data: Dict[str, Any]) 
     return the profile the response shows.
 
     The write goes through the row this session holds (``db.get``: the auth lookup's own user, or a
-    fresh read of it), so it is saved even if ``current_user`` is not this session's, as
-    ``user_notification_feed_service.mark_seen`` does. The profile is read before the commit, which
-    expires the row: read after it, the row would be loaded again on a new checkout."""
+    fresh read of it), so it is saved even if ``current_user`` is not this session's. With no row (an
+    account deleted since the lookup) a rename fails, a 500, as it did before. The profile is read
+    before the commit, which expires the row: read after it, the row would be loaded again on a new
+    checkout."""
     user = db.get(User, current_user.id)
     if "full_name" in data:
         user.full_name = data["full_name"]

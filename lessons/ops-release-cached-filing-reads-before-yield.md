@@ -144,9 +144,10 @@ there (8 of 16), and every one of them, a refused update included, left its tran
 finalizer. Each is now one thread-pool unit that shapes its answer and releases its session, the
 update's refusal and the plan behind its Pro toggles (the account's subscription row) inside it too, and
 two of their writes are atomic in the database (below). Their burst case holds every checkout,
-statement and release off the loop, each answer and each reader's rows (2026-10-24, E171). A request
-that fails validation (422) is answered after the auth dependency has run and before the route does, so
-it still leaves the lookup's transaction for the finalizer, here as on every authenticated route.
+statement and release off the loop, each answer and each reader's rows (2026-10-24, E171). A body or
+query that fails its schema (422) is answered after the auth dependency has run and before the route
+does, so it still leaves the lookup's transaction for the finalizer, here as on every authenticated
+route; malformed JSON is refused before any dependency runs.
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
@@ -180,9 +181,10 @@ SAVEPOINT and a clash reads the stored row (`notification_service.get_or_create_
 two marks of the bell, the one stamped first could commit last and put its earlier stamp back, so the
 mark's UPDATE writes its stamp only over an older one (`user_notification_feed_service.mark_seen`)
 (2026-10-24). The gate is `backend/tests/unit/test_check_then_write_units_serialize.py`. It meets two
-threads inside each unit after their checks (for the marks, the one stamped first writes once the other
-has committed), so without the lock or the atomic write the race happens however loaded the host, and
-it fails any checkout made inside the watch-row or saved-row lock in the races it runs. It covers those
+threads inside each unit after their checks (for the marks, the one stamped first checks before the other
+starts and writes once it has committed), so without the lock or the atomic write the race happens
+however loaded the host, and it fails any checkout made inside the watch-row or saved-row lock in the
+races it runs. It covers those
 ten units only. SQLite serializes every writer, so for the two account writes it meets only their
 sequential order. No CI step races them on PostgreSQL, where the second insert waits on the first's
 uncommitted row and the stamp's UPDATE re-checks its WHERE after a row-lock wait. The pull request's

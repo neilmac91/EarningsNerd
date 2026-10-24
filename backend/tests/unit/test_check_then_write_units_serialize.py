@@ -492,20 +492,21 @@ def test_a_first_read_and_a_first_update_of_one_accounts_preferences_both_finish
 
 
 def test_a_mark_stamped_first_that_commits_last_keeps_the_later_stamp(sessions, engine, monkeypatch):
-    """Two marks of one account's bell over an older stamp, and the one stamped first runs its UPDATE only
-    once the other has committed. That UPDATE writes the stamp only over an older one, so the later stamp
-    stands: a plain write, or a check in Python before an unconditional write, puts the earlier one back,
-    and an alert logged between the two stamps reads unread again; a write only over an unset stamp
-    never moves an old one."""
+    """Two marks of one account's bell over an older stamp. The one stamped first makes its check and
+    reaches its UPDATE before the other starts, and runs that UPDATE only once the other has committed.
+    That UPDATE writes the stamp only over an older one, so the later stamp stands: a plain write, or a
+    check in Python before an unconditional write, puts the earlier one back, and an alert logged between
+    the two stamps reads unread again; a write only over an unset stamp never moves an old one."""
     older = datetime(2026, 10, 24, 11, 0, tzinfo=timezone.utc)
     first, later = datetime(2026, 10, 24, 12, 0, tzinfo=timezone.utc), datetime(2026, 10, 24, 12, 1, tzinfo=timezone.utc)
     _account(sessions, seen_at=older)
-    later_committed = threading.Event()
+    first_parked, later_committed = threading.Event(), threading.Event()
     clock = threading.local()
     monkeypatch.setattr(user_notification_feed_service, "utcnow", lambda: clock.stamp)
 
     def park_the_first_update(conn, cursor, statement, *_args):
         if getattr(clock, "parks", False) and statement.lstrip().upper().startswith("UPDATE USERS"):
+            first_parked.set()
             assert later_committed.wait(timeout=10)
 
     event.listen(engine, "before_cursor_execute", park_the_first_update)
@@ -514,6 +515,9 @@ def test_a_mark_stamped_first_that_commits_last_keeps_the_later_stamp(sessions, 
         def unit(db, user):
             clock.stamp, clock.parks = stamp, parks
             try:
+                if not parks:
+                    # Any check the first mark makes before its UPDATE has read the older stamp by now.
+                    assert first_parked.wait(timeout=10)
                 return user_notification_feed_service.mark_seen(db, user).notifications_seen_at
             finally:
                 if not parks:
