@@ -15,7 +15,8 @@ import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, property
  *
  * Every .ts and .tsx file under app/, components/, features/, lib/ and hooks/ that spells the token (the dash, a
  * `\u2014` escape, an entity JSX decodes, `&mdash;`, `&#8212;` or `&#x2014;`, or `String.fromCharCode(0x2014)`) is
- * read through the shared reader (tests/unit/heldValues.ts) with `passThrough` on, so a value is followed from every
+ * read through the shared reader (tests/unit/heldValues.ts) with `passThrough` and `state` on (React's state since E159:
+ * what useState, useReducer, useRef and the other hooks HeldOptions.state names keep), so a value is followed from every
  * place a name is given it to every place it renders, and a call the reader cannot see is taken to give back what it
  * is handed. The token renders, and fails where it does, as:
  *  - JSX text, or an expression child whose value may hold it, of an intrinsic element, a fragment or a component
@@ -56,7 +57,7 @@ import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, property
  * renders verbatim and where a dash often means nil); and stylesheets, since the gate reads .ts and .tsx. Out of
  * reach, each planted as a gap in FORMS below and review-checked: a token that crosses
  * modules (an imported formatter's own fallback, an imported constant, a render prop handed to a component in another
- * module); React state; a class's field read through `this`; a promise's `then`; a generator's `yield`; a missing value
+ * module); a class's field read through `this`; a promise's `then`; a generator's `yield`; a missing value
  * in another glyph (a hyphen, an en dash, which are also signs and ranges; the voice guide's token is the em dash);
  * a value rendered outside the tree (a toast's message, an imperative `textContent`); a tag that may be a same-file
  * component or an import (`cond ? Local : Imported`), read as the same-file one; and the element itself set beside a
@@ -159,7 +160,7 @@ function findingsIn(text: string, file: string): Finding[] {
       if (ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || ts.isJsxFragment(e)) return ['element']
       return ts.isCallExpression(e) && elementCall(e) ? ['element'] : undefined
     },
-    { textLeaf: (jsxText) => (isTokenText(jsxText.text) ? ['token'] : undefined), passThrough: true },
+    { textLeaf: (jsxText) => (isTokenText(jsxText.text) ? ['token'] : undefined), passThrough: true, state: true },
   )
   const holds = (e: ts.Expression | undefined) => !!e && leavesOf(values.valueOf(e)).has('token')
   const kindOfType = (type: ts.Expression | undefined): Kind => (type && values.valueOf(type).fns?.size ? 'own' : 'unread')
@@ -304,7 +305,7 @@ type Mark = 'flag' | 'clean' | 'gap' | 'setup'
     run, so a change to the gate that loses a form, or catches a look-alike, fails. A form the rule can take joins
     with its mark. */
 const FORMS: Array<[Mark, string, string]> = [
-  ['setup', "import { Component, Fragment, Suspense, cloneElement, createElement, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'", ''],
+  ['setup', "import { Component, Fragment, Suspense, cloneElement, createElement, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'", ''],
   ['setup', "import { jsx } from 'react/jsx-runtime'", ''],
   ['setup', "import { toast } from 'sonner'", ''],
   ['setup', "import { Badge, Button, DataTable, MissingValue, Notice } from '@/components/ui'", ''],
@@ -403,7 +404,11 @@ const FORMS: Array<[Mark, string, string]> = [
   ['gap', 'export function M82({ v }: { v?: string }) { return <td>{fmtOwnFallback(v)}</td> }', "an imported formatter's own fallback"],
   ['gap', 'export function M83() { return <td>{OWN_TOKEN}</td> }', 'an imported constant'],
   ['gap', "export const M84 = [{ key: 'v', header: 'V', render: (r: Row) => r.v ?? '—' }]", 'a column list handed to a component in another module'],
-  ['gap', "export function M85() { const [mark] = useState('—'); return <td>{mark}</td> }", 'React state'],
+  ['flag', "export function M85() { const [mark] = useState('—'); return <td>{mark}</td> }", 'React state, read with `state` on (E159)'],
+  ['flag', "export function M96() { const [mark] = useReducer((s: string) => s, '—'); return <td>{mark}</td> }", "a reducer's initial state (E159)"],
+  ['flag', "export function M97({ v }: { v?: string }) { const [mark, setMark] = useState(v); if (!v) setMark('—'); return <td>{mark}</td> }", 'what a setter is handed (E159)'],
+  ['flag', "export function M98() { const mark = useRef('—'); return <td>{mark.current}</td> }", "a ref's current (E159)"],
+  ['clean', "export function M99() { const [mark] = useState('—'); return <td title={mark}>x</td> }", 'React state in a title attribute (E159)'],
   ['gap', "export class M86 extends Component { mark = '—'; render() { return <td>{this.mark}</td> } }", "a class's field read through this"],
   ['gap', "export async function M87(p: Promise<string | undefined>) { const v = await p.then((n) => n ?? '—'); return <td>{v}</td> }", "a promise's then"],
   ['gap', "export function M88() { return <td>{[...marks()].join('')}</td> }", "a generator's yield"],
@@ -424,7 +429,7 @@ describe('the missing-value token renders through MissingValue alone (E88)', () 
     const file = path.join(FRONTEND_ROOT, 'features/zzprobe/Probe.tsx')
     const named = new Set(findingsIn(FORMS.map(([, code]) => code).join('\n'), file).map((f) => f.line))
     const count = (mark: Mark) => FORMS.filter(([m]) => m === mark).length
-    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([66, 16, 13])
+    expect([count('flag'), count('clean'), count('gap')], 'the forms planted: flagged, clean and gaps').toEqual([70, 17, 12])
     const misread = FORMS.flatMap(([mark, code, why], i) =>
       named.has(i + 1) === (mark === 'flag') ? [] : [`line ${i + 1} (${mark}): ${why || code.slice(0, 60)}`],
     )

@@ -472,7 +472,9 @@ export interface HeldOptions<L> {
       (missingValueToken.spec.ts): each part counts once, so a string a loop or a recursion builds settles. By default
       each holds nothing. */
   passThrough?: boolean
-  /** Whether React's state keeps what it is handed and gives it back (companyNameDisplay.spec.ts). A setter or a
+  /** Whether React's state keeps what it is handed and gives it back. Every gate on this reading turns it on
+      (companyNameDisplay.spec.ts, and since E159 brandVoiceRules.spec.ts, missingValueToken.spec.ts,
+      no-em-dash-copy.spec.ts, reservedGlyphs.spec.ts and checkboxRecipe.spec.tsx). A setter or a
       dispatcher is a value, the hook it came from (Held.setters), followed as any other value is: destructured, read by
       index from the hook's pair, held by another name, put in an object, handed to a same-file function or component,
       handed back by a custom hook, or handed as the callback of an array's methods, of `Array.from` or of React's
@@ -958,11 +960,13 @@ export function heldValues<L>(
     // React's state, for a gate that reads it (HeldOptions.state): what each hook keeps, where it gives it back.
     if (state) {
       if (name === 'useState') {
-        // React calls a function its setter is handed (an updater) and keeps what it returns.
+        // React calls a function its setter is handed (an updater) and keeps what it returns, and so a function it is
+        // handed as the initial state (an initializer): the state is never that function (E159).
         const handed = handedTo(x)
         const kept = union({ leaves: handed.leaves, props: handed.props, fns: null }, called(handed, record))
+        const initial = arg(0)
         return withProps([
-          ['0', union(union(arg(0), calledAt(0)), kept)],
+          ['0', union(union({ ...initial, fns: null }, calledAt(0)), kept)],
           ['1', setterOf(x)],
         ])
       }

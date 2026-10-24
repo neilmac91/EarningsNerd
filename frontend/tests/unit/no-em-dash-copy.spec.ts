@@ -24,8 +24,10 @@ import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, property
  * name is given it (a declaration, an assignment, a parameter's or a
  * destructuring's default, a destructuring, a property put on an object
  * after it is made, an array's element, a same-file function's parameter
- * at each call, a same-file component's children, JSX text included) to
- * every place it is read. It is joined into copy, and fails there, as an operand
+ * at each call, a same-file component's children, JSX text included, and
+ * React's state with the reading's `state` on: what useState, useReducer,
+ * useRef and the other hooks HeldOptions.state names keep, E159) to every
+ * place it is read. It is joined into copy, and fails there, as an operand
  * of `+`, either side of `+=`, a template's substitution, a child beside
  * sibling children (JSX's; those React's element calls hand an element, under
  * an import or alias name: `createElement`'s and `cloneElement`'s from the third
@@ -97,7 +99,7 @@ import { componentTag, ELEMENT_MAKERS, heldValues, knownAsIn, leavesOf, property
  * modules (an export read in another file, an imported formatter's fallback, a
  * component named Fragment or a context imported from another module, which
  * may be React's re-exported, and an imported component, whose return the
- * reading cannot see); React state; a class's field read through `this` (a
+ * reading cannot see); a class's field read through `this` (a
  * class component's render among them); a promise's `then`; and a
  * generator's `yield`. A same-file function invoked through
  * `Function.prototype` (`f.call(null, v)`, `f.apply(null, [v])`,
@@ -247,6 +249,7 @@ function violationsIn(text: string, file: string): string[] {
   const types = () =>
     (typesRead ??= heldValues<TypeLeaf>(source, typeLeafOf, {
       memberLeaf: (leaf, key) => (leaf === 'react' ? reactMember(key) : leaf === 'context' && (key === 'Provider' || key === undefined) ? ['fragmentType'] : undefined),
+      state: true,
     }))
   const readsTypes = namesReact(source, text)
   const typeLeaves = (type: ts.Expression | undefined) => (type && readsTypes ? leavesOf(types().valueOf(type)) : new Map<TypeLeaf, number>())
@@ -282,7 +285,7 @@ function violationsIn(text: string, file: string): string[] {
   }
   let kindsRead: HeldValues<Kind> | undefined
   const kinds = () =>
-    (kindsRead ??= heldValues<Kind>(source, kindLeafOf, { textLeaf: (text) => (text.containsOnlyTriviaWhiteSpaces ? undefined : ['text']), rendered: true }))
+    (kindsRead ??= heldValues<Kind>(source, kindLeafOf, { textLeaf: (text) => (text.containsOnlyTriviaWhiteSpaces ? undefined : ['text']), rendered: true, state: true }))
   /** Whether a clone may render into its parent: its element may be a fragment, or render text into its parent. */
   const clonesFragment = (call: ts.CallExpression) => {
     const element = typeArgument(call)
@@ -308,7 +311,7 @@ function violationsIn(text: string, file: string): string[] {
     },
     // The shared reading follows each same-file call into what the function returns (E76), so a formatter's fallback
     // fails where its call is joined into copy; the self-check's E76 plants (88 to 97) fail if it stops.
-    { textLeaf: (jsxText) => (jsxText.text.trim() === EM_DASH ? ['token'] : undefined), suspends: isSuspense, rendered: true },
+    { textLeaf: (jsxText) => (jsxText.text.trim() === EM_DASH ? ['token'] : undefined), suspends: isSuspense, rendered: true, state: true },
   )
   const holdsToken = (joined: Joined) => {
     if (!joined) return false
@@ -698,6 +701,8 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
       'export const GJ = ({ v }: { v?: number }) => <p>{shareText.call(null, v)} shares</p>',
       'export const GK = ({ v }: { v?: number }) => <p>{shareText.apply(null, [v])} shares</p>',
       'export const GL = ({ v }: { v?: number }) => <p>{shareText.bind(null)(v)} shares</p>',
+      'export function GM({ speaker }: { speaker: string }) { const [Wrap] = useState(() => Fragment); return <cite><Wrap>—</Wrap> {speaker}</cite> }',
+      'export function GN() { const [mark] = useState(() => <>—</>); return <p>{cloneElement(mark)} shares</p> }',
     ].join('\n')
     // Lines 3 to 7 stand alone (the text, the literal, a fallback, a template beside an empty expression, an
     // attribute's value) and 18 to 19 hold the token where nothing joins it (a name no line reads, a comparison, a
@@ -729,12 +734,13 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
     // at 89) and in a template (90), a sign before it (91), a middot inside a conditional fragment (92, twice: the call
     // beside the middot, and the fragment, read as its children, beside "Net buying"), a declared formatter's early
     // return beside an sr-only label and the arrow (figure, 93, at 94) and a name given a call's value, read beside a
-    // sign (95); and a callback's return, `map`'s into `join` (96) and `useMemo`'s beside text (97). The forms that
+    // sign (95); and a callback's return, `map`'s into `join` (96) and `useMemo`'s beside text (97). A token held in
+    // React's state, read with the reading's `state` on (E159), fails beside its speaker (79). The forms that
     // replace them pass: a formatter that returns null for a missing value, with the token in an element of its own in
     // its place (98 to 100), and a fallback that is its cell's sole child (101). A fragment is
     // read as its children: FRAG (102) fails beside a unit at 103, as do a fragment in an expression (104) and one
     // written among siblings (105), and one alone in a cell passes, held (106) or written (107). Planted gaps, each out
-    // of reach and read where it is written: React state (79), a class's field (80), an element that holds the token
+    // of reach and read where it is written: a class's field (80), an element that holds the token
     // beside a unit (108), a call's value wrapped in `String` (109) or a method (110), an export read from another file
     // (111, read at 112), an imported formatter's fallback (113), a promise's `then` (114) and a generator's `yield`
     // (115, read at 116). React's Fragment under any name is a fragment too (117 to 121 import it, React, a namespace,
@@ -793,8 +799,10 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
     // handed through a parameter (269, at 270) is known by the parameter's name, so the fragment it makes goes unread.
     // Codex's Function.prototype forms, each beside a unit, fail: a same-file function (271) called through `call`
     // (272), `apply` (273) or a `bind` of it (274) is read as the function (the shared reader), so its fallback is read.
+    // React's state, read by each of the three readings with `state` on (E159): a fragment type a state holds (275) and
+    // a fragment a clone of a state's element reads (276), each beside its copy, fail.
     expect(violationsIn(src, file)).toEqual(
-      [8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28, 31, 39, 42, 43, 46, 51, 51, 51, 52, 53, 56, 58, 60, 61, 63, 69, 71, 72, 73, 74, 74, 75, 75, 76, 78, 82, 83, 84, 85, 86, 89, 90, 91, 92, 92, 94, 95, 96, 97, 103, 104, 105, 122, 123, 124, 125, 126, 128, 131, 132, 133, 134, 135, 143, 144, 146, 151, 152, 153, 154, 155, 157, 159, 162, 163, 164, 166, 167, 168, 169, 171, 172, 173, 175, 176, 177, 178, 179, 180, 181, 183, 185, 188, 189, 192, 193, 194, 195, 204, 205, 209, 212, 214, 216, 218, 220, 222, 224, 226, 228, 231, 235, 236, 237, 238, 239, 241, 243, 245, 246, 249, 255, 259, 260, 262, 264, 272, 273, 274].map(
+      [8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28, 31, 39, 42, 43, 46, 51, 51, 51, 52, 53, 56, 58, 60, 61, 63, 69, 71, 72, 73, 74, 74, 75, 75, 76, 78, 79, 82, 83, 84, 85, 86, 89, 90, 91, 92, 92, 94, 95, 96, 97, 103, 104, 105, 122, 123, 124, 125, 126, 128, 131, 132, 133, 134, 135, 143, 144, 146, 151, 152, 153, 154, 155, 157, 159, 162, 163, 164, 166, 167, 168, 169, 171, 172, 173, 175, 176, 177, 178, 179, 180, 181, 183, 185, 188, 189, 192, 193, 194, 195, 204, 205, 209, 212, 214, 216, 218, 220, 222, 224, 226, 228, 231, 235, 236, 237, 238, 239, 241, 243, 245, 246, 249, 255, 259, 260, 262, 264, 272, 273, 274, 275, 276].map(
         (line) => `features/zzprobe/Probe.tsx:${line} —`,
       ),
     )

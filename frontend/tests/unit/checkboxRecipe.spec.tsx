@@ -75,15 +75,16 @@ const scanned = (rel: string) => /\.tsx?$/.test(rel) && rel !== path.join('compo
  * The lines of the raw checkboxes a source renders: an `<input>` element, or React's `createElement('input', …)` under
  * any local name, whose type may be "checkbox". The type is read as a value through the shared model (heldValues.ts)
  * from each of its writers: the `type` attribute's value and each spread's `type` (`<input {...props} />` where
- * `props = { type: 'checkbox' as const }`), held in a same-file binding, a conditional's arms or a property written
- * under a key the scan cannot read; in any letter case, since the browser reads the value so (`type="Checkbox"` draws
+ * `props = { type: 'checkbox' as const }`), held in a same-file binding, a conditional's arms, a property written
+ * under a key the scan cannot read or React's state, with the model's `state` on (what useState, useReducer, useRef
+ * and the other hooks HeldOptions.state names keep, E159); in any letter case, since the browser reads the value so (`type="Checkbox"` draws
  * one). A writer that a later attribute overrides still counts, which fails closed. Out of reach, as in the model: a
  * value from another module, a tag held in a variable (`const Tag = 'input'`) and a type set on the DOM node.
  */
 function rawCheckboxes(file: string, text: string): number[] {
   if (!/checkbox/i.test(text)) return []
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
-  const { valueOf } = heldValues<'checkbox'>(sf, (e) => (ts.isStringLiteralLike(e) && e.text.toLowerCase() === 'checkbox' ? ['checkbox'] : undefined))
+  const { valueOf } = heldValues<'checkbox'>(sf, (e) => (ts.isStringLiteralLike(e) && e.text.toLowerCase() === 'checkbox' ? ['checkbox'] : undefined), { state: true })
   const knownAs = knownAsIn(scopeResolver(sf))
   const isCheckbox = (value: Held<'checkbox'> | undefined) => !!value && leavesOf(value).has('checkbox')
   const lines: number[] = []
@@ -194,11 +195,15 @@ describe('the shared Checkbox recipe (ADM-37)', () => {
       "export const K = (on: boolean) => <input type={on ? 'radio' : 'text'} />",
       "export const L = () => h('label', { type: 'checkbox' })",
       'export const M = () => <Checkbox aria-label="x" />',
+      // React's state (E159): what an initial value, a setter or a ref holds.
+      "export const O = () => { const [type] = useState('checkbox'); return <input type={type} /> }",
+      "export const P = (on: boolean) => { const [type, setType] = useState('text'); if (on) setType('checkbox'); return <input type={type} /> }",
+      "export const Q = () => { const kind = useRef('checkbox'); return <input type={kind.current} /> }",
       // Out of reach (the header): a tag held in a variable.
       "const Tag = 'input'",
       'export const N = () => <Tag type="checkbox" />',
     ].join('\n')
-    expect(rawCheckboxes('probe.tsx', probe)).toEqual([7, 8, 9, 10, 11, 12, 13, 14])
+    expect(rawCheckboxes('probe.tsx', probe)).toEqual([7, 8, 9, 10, 11, 12, 13, 14, 20, 21, 22])
     expect(rawCheckboxes('probe.tsx', 'export const B = () => <input type="CHECKBOX" />'), 'a file whose only spelling is upper case').toEqual([1])
     expect(rawCheckboxes('probe.ts', "import { createElement } from 'react'\nexport const G = () => createElement('input', { type: 'checkbox' })"), 'a .ts module').toEqual([2])
     expect(['a.tsx', 'a.ts', 'a.css', path.join('components', 'ui', 'Checkbox.tsx')].map(scanned), 'the files the scan reads').toEqual([true, true, false, false])
