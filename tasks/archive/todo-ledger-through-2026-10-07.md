@@ -6875,7 +6875,7 @@ Full local and hosted verification plus independent exact-head review precede re
 - 2026-10-24 (record 52, `runtime/control/DECISIONS-52.md`): PR #1539 (record 51) merged `ef422572` by the
   chief's own squash (forty-seventh deploy-skip proof: its main run succeeded and its deploy job skipped every
   deploy step); before it, its fact-check, a review under the shared account that was not the chief's, its
-  reviewer's two passes and the chief's one ready mark, each ready review clean, two Codex reviews of its draft
+  reviewer's two passes and the chief's one ready mark, its ready review clean, two Codex reviews of its draft
   heads counting as abandoned an hour after they started. Closure 203 registers record 51's survey, fact-check
   and reviewer and pre-registers this record's survey and fact-check and record 53's reviewer. A read-only
   survey of the window before the record was written. Twenty-four main merges, eight of them backend deploys,
