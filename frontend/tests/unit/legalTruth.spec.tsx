@@ -131,14 +131,15 @@ import { closingBracket, matchAt, negates, nounPhraseAt, readSentence, spanText,
  *    public, and", which main refused; a negation that governs a clause from outside and a fronted phrase fail, as on
  *    main; a phrase in brackets after the endpoints, read without the brackets since #1594's fifth round, passes where
  *    it picks some out, as on main under "each" or "any", while main refused it under "all" or "every", and fails where
- *    it names the whole ("Each endpoint (in our API) requires a login."), which main passed; a fronted condition with
- *    no comma that narrows passes, where main refused it; a phrase after "each endpoint" that restates every request
- *    fails, where main passed it; and a quantifier after its noun passes, as on main. Under "all" and "every", "nothing
- *    else does" holds by the reader's own lexicons (what restates every request, RESTATED; the whole-API names; the
- *    words that say a login absent, "public", "open" and "bypasses" among them since #1594's fifth round; and since its
- *    sixth the times a phrase after them may name, A_TIME, "at the moment", "in 2026"), so a paraphrase outside them
- *    that main refused may pass, while one inside them fails as on main ("Every endpoint is never public.", "Nothing
- *    bypasses authentication on every endpoint.").
+ *    it names the whole ("Each endpoint (in our API) requires a login."), which main passed, while words in brackets
+ *    the reader does not take as postmodifiers ("(admin only)", "(beta)") pass under "each" and "any" and fail under
+ *    "all" and "every", as on main; a fronted condition with no comma that narrows passes, where main refused it; a
+ *    phrase after "each endpoint" that restates every request fails, where main passed it; and a quantifier after its
+ *    noun passes, as on main. Under "all" and "every", "nothing else does" holds by the reader's own lexicons (what
+ *    restates every request, RESTATED; the whole-API names; the words that say a login absent, "public", "open" and
+ *    "bypasses" among them since #1594's fifth round; and since its sixth the times a phrase after them may name,
+ *    A_TIME, "at the moment", "in 2026"), so a paraphrase outside them that main refused may pass, while one inside
+ *    them fails as on main ("Every endpoint is never public.", "Nothing bypasses authentication on every endpoint.").
  * 2. The account events (D-051). /security's PostHog line scopes the consent to the browser, and a sentence of
  *    its own, ACCOUNT_EVENTS_DISCLOSURE (lib/consentCopy.ts), names no provider and says the service records how
  *    accounts use it against the internal account id, whatever the reader chose. /security and /privacy each place
@@ -559,15 +560,18 @@ const UNIVERSAL = ['all', 'every', 'each', 'any']
 /** A phrase in brackets right after a noun phrase, read as the postmodifiers it would be without them (#1594's fifth
     round): the phrase read again over its own tokens and what the brackets hold, the postmodifiers they held, and the
     reading over those tokens; null where no closed bracket follows the phrase. "(in the admin namespace)" picks some
-    out, while "(in our API)", "(all 40 of them)" and "(without exception)" leave the phrase whole. */
-function bracketed(reading: Reading, phrase: NounPhrase): { reading: Reading; postmodifiers: Postmodifier[] } | null {
+    out and "(in our API)" leaves the phrase whole. Where the brackets hold more than postmodifiers, or what they hold
+    becomes the phrase's head ("(admin only)", "(beta)", "(all 40 of them)": bare, #1594's sixth round), they are not
+    read as the phrase's. */
+function bracketed(reading: Reading, phrase: NounPhrase): { reading: Reading; postmodifiers: Postmodifier[]; bare: boolean } | null {
   const { tokens } = reading
   const open = phrase.end
   const close = tokens[open]?.text === '(' ? closingBracket(tokens, open) : -1
   if (close < 0) return null
   const unbracketed = [...tokens.slice(0, open), ...tokens.slice(open + 1, close)]
   const read = nounPhraseAt(unbracketed, phrase.start)
-  return { reading: { ...reading, tokens: unbracketed }, postmodifiers: (read?.postmodifiers ?? []).filter((m) => m.start >= open) }
+  const bare = !read || read.head !== phrase.head || read.end < unbracketed.length
+  return { reading: { ...reading, tokens: unbracketed }, postmodifiers: (read?.postmodifiers ?? []).filter((m) => m.start >= open), bare }
 }
 /** A prepositional phrase after the endpoints whose object is taken whole or denied, with nothing more said of it, which
     picks none of them out (#1594's fifth round): "in every environment", "for any caller", "with no exception". */
@@ -593,7 +597,8 @@ const leavesWhole = (reading: Reading, m: Postmodifier) =>
     all", "almost every": a denial on the quantifier, #1456's Not in this PR), with only WHOLE_DETERMINERS and
     WHOLE_WORDS before it and nothing after it that picks some out (leavesWhole): a prepositional phrase (but one that
     names the whole API or every request), a relative clause (but one that names the whole set again) or a participle
-    ("any endpoint returning account data"), or an aside that names an exception, in brackets or not (bracketed). An
+    ("any endpoint returning account data"), or an aside that names an exception, in brackets or not (bracketed: words
+    in brackets the reader does not take as postmodifiers pick some out, as main read them under each and any). An
     aside in commas narrows nothing otherwise (", which returns JSON,"). */
 const wholeEndpoints = (reading: Reading, phrase: NounPhrase | null, quantifiers: string[]) => {
   if (!phrase) return false
@@ -605,7 +610,7 @@ const wholeEndpoints = (reading: Reading, phrase: NounPhrase | null, quantifiers
     phrase.determiners.every((d) => WHOLE_DETERMINERS.has(d)) &&
     phrase.premodifiers.every((w) => WHOLE_WORDS.test(w.text)) &&
     phrase.postmodifiers.every((m) => leavesWhole(reading, m)) &&
-    (!bracket || bracket.postmodifiers.every((m) => leavesWhole(bracket.reading, m)))
+    (!bracket || (!bracket.bare && bracket.postmodifiers.every((m) => leavesWhole(bracket.reading, m))))
   )
 }
 /** A definite modal's "be" before a state or a requirement ("will be protected", "must be authenticated", "will be
@@ -2385,6 +2390,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Every endpoint under /api/admin requires a login.</p>', false],
       ['<p>Each endpoint under /api/admin requires a login.</p>', false],
       ['<p>Every endpoint in the March release requires a login.</p>', false],
+      // Words in brackets the reader does not take as postmodifiers ("(admin only)", "(beta)", "(private ones)") pick
+      // some out under each and any, as main read them, while main's blanket still fails them under every.
+      ['<p>Each endpoint (admin only) requires a login.</p>', false],
+      ['<p>Any endpoint (beta) requires a token.</p>', false],
+      ['<p>Each endpoint (private ones) requires a login.</p>', false],
+      ['<p>Every endpoint (admin only) requires a login.</p>', true],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
