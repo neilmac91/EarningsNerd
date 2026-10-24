@@ -85,7 +85,9 @@ const NEW_SUMMARIES = /\bnew[- ](?:AI )?summar(?:y|ies)\b/i
 const FORCE_READS: Record<string, number> = {
   'services/summary_pipeline.py': 3,
   'services/summary_stages/admission.py': 1,
-  'services/summary_stages/finalize.py': 5,
+  // A forced run keeps the excerpt it builds unsaved until finalize stores it with the summary: neither read is a meter.
+  'services/summary_stages/enrichment.py': 1,
+  'services/summary_stages/finalize.py': 6,
   'services/summary_stages/generation_run.py': 1,
 }
 
