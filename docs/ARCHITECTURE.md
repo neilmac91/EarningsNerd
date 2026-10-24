@@ -38,17 +38,18 @@ reference is [`docs/CONFIGURATION.md`](./CONFIGURATION.md).
 ### Durable after-response work
 
 With `DURABLE_TASKS_ENABLED`, on-visit filing refresh/history and timed-out coverage syncs hand
-identifier-only control messages to Cloud Tasks before claiming delivery. Forgot-password and
-resend-verification queue every request's account mail (the address and which mail, the one task
-body that carries an address) and answer without looking the account up, so their timing no longer
-tells whether an address has an account (F60). The worker looks the account up, issues the token
-and sends. It answers 503, so Cloud Tasks delivers the task again, only when nothing was sent; any
-other failed send is acknowledged, so no retry follows a send that may have gone, though the
-transport's at-least-once delivery can still mail twice, the newer token then replacing the older
-(`account_mail_service`). A process-wide cap (`ACCOUNT_MAIL_LIMITER`, 60 an hour per API instance)
-bounds what the two routes put on the shared queue; flag off, that work runs as a background task
-after the response. A private task-only
-Cloud Run service runs one delivery at a time. Its `task_worker_main:app` entrypoint verifies
+identifier-only control messages to Cloud Tasks before claiming delivery. On-visit handoffs spend a
+per-process budget (`VISIT_TASK_BUDGET` in `routers/filings.py`); past it a visit serves its stored
+rows and queues nothing. Forgot-password and resend-verification queue every request's account mail
+(the address and which mail, the one task body that carries an address) and answer without looking
+the account up, so their timing no longer tells whether an address has an account (F60). The worker
+looks the account up, issues the token and sends. It answers 503, so Cloud Tasks delivers the task
+again, only when nothing was sent; any other failed send is acknowledged, so no retry follows a
+send that may have gone, though the transport's at-least-once delivery can still mail twice, the
+newer token then replacing the older (`account_mail_service`). A process-wide cap
+(`ACCOUNT_MAIL_LIMITER`, 60 an hour per API instance) bounds what the two routes put on the shared
+queue; flag off, that work runs as a background task after the response. A private task-only Cloud
+Run service runs one delivery at a time. Its `task_worker_main:app` entrypoint verifies
 Google-signed OIDC audience and the dedicated service-account email; queue headers grant no access.
 It executes existing services in a fresh Python child, killing and reaping that process at 480
 seconds or on cancellation. Task acknowledgement follows successful persistence, before the

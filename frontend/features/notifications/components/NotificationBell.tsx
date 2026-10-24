@@ -109,13 +109,22 @@ export default function NotificationBell({
         )}
       </button>
 
+      {/* The panel is a column no taller than the screen under the bar: the screen's height less the header's published
+          height (--site-header-h, the bar's own while the panel is open: one of the panel and the compact menu is open at
+          a time, and from lg the open menu lies over the page and adds nothing to it) and the panel's own 0.5rem offset.
+          The bell sits inside the bar, so the panel ends above the screen's foot by at least the bar's lower padding. The
+          title and the settings link keep their height (shrink-0) and the list takes what is left, scrolling inside it;
+          where the screen has room the list's own 24rem cap holds, as before. Before, only the list was capped, at 24rem
+          (768px under 200% text), so with 20 alerts the panel ran past the screen's foot, where the sticky header kept its
+          tail out of reach: at 1024x768 and 1440x900 under 200% text it spanned 128 to 1060px, its settings link ending
+          at 1051px (E178; tests/e2e/reflow-200.spec.ts). */}
       {open && (
         <div
           role="menu"
           aria-label="Notifications"
-          className="absolute right-0 z-header mt-2 w-80 origin-top-right overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none"
+          className="absolute right-0 z-header mt-2 flex max-h-[calc(100dvh_-_var(--site-header-h,4rem)_-_0.5rem)] w-80 origin-top-right flex-col overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none"
         >
-          <div className="border-b border-border-light dark:border-white/10 px-3 py-2.5">
+          <div className="shrink-0 border-b border-border-light dark:border-white/10 px-3 py-2.5">
             <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Notifications</p>
           </div>
 
@@ -158,7 +167,7 @@ export default function NotificationBell({
             </ul>
           )}
 
-          <div className="border-t border-border-light dark:border-white/10 p-1">
+          <div className="shrink-0 border-t border-border-light dark:border-white/10 p-1">
             <Link
               href="/dashboard/settings"
               role="menuitem"
