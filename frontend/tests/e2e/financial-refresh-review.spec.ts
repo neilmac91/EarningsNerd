@@ -19,7 +19,7 @@ for (const theme of ['light', 'dark'] as const) {
       await page.setViewportSize({ width, height: 1000 })
       await page.addInitScript((mode) => {
         localStorage.setItem('theme', mode)
-        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, marketing: false }))
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-23T00:00:00Z' }))
       }, theme)
       await page.route('**/*', async (request) => {
         const url = new URL(request.request().url())
