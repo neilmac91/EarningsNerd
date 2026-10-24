@@ -20,6 +20,7 @@ from app.services.notification_service import (
     apply_preference_update,
     get_or_create_preferences,
 )
+from app.services.stripe_threads import run_on_stripe_threads
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -294,6 +295,25 @@ async def export_user_data(
         )
 
 
+def _cancel_billable_subscriptions(stripe_customer_id: str, user_id: int) -> None:
+    """Cancel each of the customer's Stripe subscriptions that can still bill, walking every page before it
+    returns. The account deletion hands it whole to the Stripe threads (E170), so the list, its later pages and
+    the deletes hold neither the event loop nor a default worker thread."""
+    # status='all', not 'active': a trialing subscription converts to paid at trial end
+    # and a past_due one keeps retrying the card. 'all' also returns ended history, so
+    # the live ones can sit behind the first page: walk every page.
+    subscriptions = stripe.Subscription.list(customer=stripe_customer_id, status='all', limit=100)
+    for subscription in subscriptions.auto_paging_iter():
+        if subscription.status in _ENDED_STRIPE_SUBSCRIPTION_STATUSES:
+            continue
+        if subscription.customer != stripe_customer_id:
+            # The list is external data: never cancel a subscription this customer does not own.
+            logger.warning(f"Skipped Stripe subscription {subscription.id} of another customer for user {user_id}")
+            continue
+        stripe.Subscription.delete(subscription.id)
+        logger.info(f"Cancelled Stripe subscription {subscription.id} for user {user_id}")
+
+
 @router.delete("/me")
 async def delete_user_account(
     current_user: User = Depends(get_current_user),
@@ -333,19 +353,7 @@ async def delete_user_account(
         # 1. Cancel every Stripe subscription that can still bill
         if STRIPE_AVAILABLE and stripe_customer_id:
             try:
-                # status='all', not 'active': a trialing subscription converts to paid at trial end
-                # and a past_due one keeps retrying the card. 'all' also returns ended history, so
-                # the live ones can sit behind the first page: walk every page.
-                subscriptions = stripe.Subscription.list(customer=stripe_customer_id, status='all', limit=100)
-                for subscription in subscriptions.auto_paging_iter():
-                    if subscription.status in _ENDED_STRIPE_SUBSCRIPTION_STATUSES:
-                        continue
-                    if subscription.customer != stripe_customer_id:
-                        # The list is external data: never cancel a subscription this customer does not own.
-                        logger.warning(f"Skipped Stripe subscription {subscription.id} of another customer for user {user_id}")
-                        continue
-                    stripe.Subscription.delete(subscription.id)
-                    logger.info(f"Cancelled Stripe subscription {subscription.id} for user {user_id}")
+                await run_on_stripe_threads(_cancel_billable_subscriptions, stripe_customer_id, user_id)
 
                 # Keep the Stripe customer record for billing administration and applicable retention duties.
                 # stripe.Customer.delete(stripe_customer_id)  # DO NOT DO THIS

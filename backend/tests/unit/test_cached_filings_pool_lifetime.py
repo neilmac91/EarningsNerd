@@ -1479,7 +1479,8 @@ async def _bill(transport: httpx.ASGITransport, route: str, i: int) -> httpx.Res
 async def test_checkout_and_portal_release_their_connection_before_stripe(monkeypatch, tmp_path, route, with_customer):
     """Checkout reads what it needs in one thread-pool unit and releases it before any Stripe call, a new
     customer's claim and the trial's row check after the customer step are units of their own, and the
-    billing portal releases before its one call; every Stripe call runs in the thread pool. Eight payers on four slots, each Stripe call taking 0.3 s, so
+    billing portal releases before its one call; every Stripe call runs off the loop (on the Stripe threads, which
+    test_stripe_threads_allowlist.py holds, E170). Eight payers on four slots, each Stripe call taking 0.3 s, so
     answer 8x200 with no checkout, statement or release on the loop, nothing left for the finalizer,
     and each new customer stored on its own payer (E144)."""
     from app.models import User
@@ -1514,7 +1515,7 @@ async def test_checkout_and_portal_release_their_connection_before_stripe(monkey
 ], ids=["checkout-new-customer", "checkout-lost-claim", "checkout-stored-customer", "portal"])
 async def test_checkout_and_portal_hold_no_connection_while_stripe_answers(
         monkeypatch, tmp_path, route, with_customer, rival, calls):
-    """One checkout, or one portal session: every Stripe call runs in the thread pool with no connection
+    """One checkout, or one portal session: every Stripe call runs off the loop with no connection
     checked out, the losing checkout's retrieve of the customer stored first included, and each session
     names the payer's customer (and checkout the payer, whom the webhook binds the subscription to)."""
     from app.models import User

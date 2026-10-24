@@ -47,7 +47,13 @@ The founder's review of PR #1226 measured both on the production build.
   from their right edge) takes an auto margin toward the other side (`ml-auto`), and the block across
   from it the mirror margin (`mr-auto`), which share a one-line bar's free space as justify-between did
   (E160). A popover anchored at its trigger's edge (`right-0`) goes wherever the wrap takes the trigger,
-  so open it under 200% text where the bar wraps (a desktop at 1024 to 1440px), not only at 390px.
+  so open it under 200% text wherever the bar can wrap, not only at 390px.
+- A bar that must keep one line (the site header's full bar, whose height and lines its auth check must
+  not change) gives way to its compact form at a rem media query, not at a px breakpoint: a media query's
+  rem is the reader's text size, so enlarged text gets the compact form before the full one wraps. Size
+  the query from the full form's widest settled row (every flag-gated link, the longest label any state or
+  access mode shows) in the supported fonts and a wider fallback, with room to spare, since a fit by a few
+  pixels is not a fit (E173, E175).
 - Prove it in Playwright on the real page at 390px with `document.documentElement.style.fontSize
   = '32px'` (or Chromium's own text size, `Page.setFontSizes`), in both themes, measuring painted
   text with a Range, at 320px with the default size, and in the narrowest desktop column the layout
@@ -171,6 +177,15 @@ and 1440px under 200% text the bar wrapped and its controls landed alone on a li
 notification menu (20rem, anchored at the bell's right edge) spanned -408 to 232px and the account menu
 -108 to 372px, every item losing its first letters. The logo's `mr-auto` and the controls' `ml-auto` keep
 the controls at the right of their line (at 1024px the menus span 180 to 820px and 480 to 960px), and
-`frontend/tests/e2e/reflow-200.spec.ts` opens each menu at the three widths under 200% text, with the
-one-line bar at 1440px held to justify-between's place (the nav as far from the logo as from the
-controls).
+`frontend/tests/e2e/reflow-200.spec.ts` opens each menu under 200% text, with the one-line bar at 1440px
+held to justify-between's place (the nav as far from the logo as from the controls). Since E173's 72rem
+switch the full bar shows from 2304px under 200% text, on one line, so the case opens the menus at 2304
+and 2560px with a copy fixture that lengthens the nav until the bar wraps.
+
+**Recurrence (2026-10-23, the site header's two bars, E173 and E175; chief design on #1544)**: the full bar showed
+from `lg`, a px breakpoint, so at 1024px at any text size. A guest's row, about 1030px, wrapped at 1024 to 1031px,
+and with the text doubled the bar wrapped at 1024 to 1440px, where the auth check's 36px placeholder could share a
+line its settled controls could not, so the header grew 56px as the check settled and moved a page already
+scrolled. The full bar now shows from 72rem (1152px, 2304px with the text doubled), sized from its widest row with
+either access mode's label (1057px in Inter, 1123px in DejaVu Sans), and `frontend/tests/e2e/reflow-200.spec.ts`
+holds the compact bar just below it and the full bar on one line at it, the longest label set in as a copy fixture.

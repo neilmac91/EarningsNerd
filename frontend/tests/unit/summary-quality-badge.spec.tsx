@@ -43,7 +43,7 @@ describe('partialBadgeLabel', () => {
     // width: 58 characters of other words reach 392px, so a new or reworded reason is measured before it ships
     // (test_quality_grounding_presence.py requires each reason the server writes to open an entry below). A count of 100 or
     // more passes the box by a pixel (only with AI_FIGURE_TRACE_GATE on), and under 200% text the badge, which never
-    // wraps, is wider than a phone (E156).
+    // wraps, is wider than a phone (E181).
     const firsts = [
       ['financial figures not grounded in SEC XBRL data', 'only 3/9 sections populated'],
       ['filing grounding unavailable: no usable excerpt or numeric XBRL data'],

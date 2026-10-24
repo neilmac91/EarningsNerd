@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -60,6 +60,13 @@ export default function Header({
   accessMode?: AccessMode
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  // The compact bar's bell panel, held here so that one of it and the menu is open at a time: opening either closes
+  // the other.
+  const [bellOpen, setBellOpen] = useState(false)
+  const onBellOpenChange = useCallback((next: boolean) => {
+    setBellOpen(next)
+    if (next) setMobileMenuOpen(false)
+  }, [])
   const router = useRouter()
   const queryClient = useQueryClient()
   const account = ACCESS_COPY[accessMode]
@@ -185,7 +192,8 @@ export default function Header({
   // open mobile menu below it takes the rest and scrolls inside it. A sticky header taller than the viewport stays
   // stuck to its top until the page's very end, so before this a menu longer than the screen showed its tail (Log
   // out, the account CTA) only there: 36,942px down the landing at 200% text on a 390x664 phone. The cap is the
-  // bar's own height, never --site-header-h, which counts the open menu (tests/e2e/reflow-200.spec.ts).
+  // bar's own height, never --site-header-h, which counts the open menu below lg (tests/e2e/reflow-200.spec.ts). From lg
+  // the open menu leaves the column and lies over the page (below).
   return (
     <header ref={headerRef} data-site-header onBlur={closeMenuWhenFocusLeaves} onKeyDown={closeMenuOnEscape} className="sticky top-0 z-50 flex max-h-dvh flex-col border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
       {/* gap-x-1.5 (6px, 12px at 200% text) keeps the logo's clear space, one E-bar or 11.6% of the mark (4.2px, 8.4px;
@@ -193,10 +201,10 @@ export default function Header({
           200% text the link touched it (tests/e2e/reflow-200.spec.ts). w-full: a column's child with auto side
           margins is not stretched, so without it the bar would shrink to its content. */}
       <div className="mx-auto flex w-full max-w-7xl shrink-0 flex-wrap items-center justify-between gap-x-1.5 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
-        {/* Left: Logo. Its mr-auto and the desktop controls' ml-auto share the bar's free space, so a one-line bar lays
-            out as justify-between does; where the bar wraps (lg at 200% text), the controls stay at the right of their
-            own line, where justify-between would put a line's only block at its start, and the menus anchored at
-            their right edge (right-0) open inside the screen (E160). */}
+        {/* Left: Logo. Its mr-auto and the desktop controls' ml-auto share the bar's free space, so the full bar lays out
+            as justify-between does; should it ever wrap (a font wider than its 72rem switch allows for, below), the
+            controls stay at the right of their own line, where justify-between would put a line's only block at its
+            start, and the menus anchored at their right edge (right-0) open inside the screen (E160). */}
         <div className="mr-auto flex items-center">
           {/* Design sizes: 36px mark, 20px wordmark. Below `sm` the bar also carries the theme
               toggle (above 24rem), the short account CTA and the menu button at 44px each, so the wordmark
@@ -207,11 +215,15 @@ export default function Header({
           </Link>
         </div>
 
-        {/* Center: Nav links (desktop). Inline nav switches on at `lg` (not `md`): the full product
-            labels — "Multi-period analysis" plus flag-gated Calendar — overflow the logo/CTAs in the
-            768–1023px band, so tablet widths use the hamburger menu below. Keep the desktop nav, the
-            desktop CTA block, and the two mobile blocks on the SAME breakpoint. */}
-        <nav className="hidden items-center gap-8 lg:flex" aria-label="Main navigation">
+        {/* Center: Nav links (desktop). The full bar (this nav and the desktop controls) shows from 72rem and the compact
+            bar (the mobile actions and the menu) below it. A media query's rem is the reader's text size: 1152px at the
+            default size, 2304px under a 200% text setting, so enlarged text gets the compact bar before the full one
+            would wrap. 72rem leaves the full bar's widest row room to spare: every flag-gated link and a guest's
+            "Create a free account" need 1057px in Inter and 1123px in a wider fallback (DejaVu Sans). So the bar never
+            wraps, and the auth check never changes its lines (E173, E175). An arbitrary variant: Tailwind drops
+            `min-[72rem]:` because the screens are in px. Keep the nav, the desktop controls, the mobile actions and
+            the mobile menu on this one query (tests/e2e/reflow-200.spec.ts). */}
+        <nav className="hidden items-center gap-8 [@media(min-width:72rem)]:flex" aria-label="Main navigation">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
@@ -227,7 +239,7 @@ export default function Header({
             the auth check shows: the 36px placeholder and a signed-in reader's 36px avatar sit centred in the guest's
             40px row, so the header no longer grows 4px when the check settles for a guest and moves a page already
             scrolled (E174). */}
-        <div className="ml-auto hidden min-h-10 items-center gap-3 lg:flex">
+        <div className="ml-auto hidden min-h-10 items-center gap-3 [@media(min-width:72rem)]:flex">
           <ThemeToggle />
           {user ? (
             <>
@@ -255,16 +267,24 @@ export default function Header({
           )}
         </div>
 
-        {/* Mobile actions: 44px touch targets on the icon controls; the short account CTA sits in
-            the bar (not only inside the menu) so a logged-out visitor always has the next step.
+        {/* Mobile actions (the compact bar, below 72rem): 44px touch targets on the icon controls; the short account
+            CTA sits in the bar (not only inside the menu) so a logged-out visitor always has the next step.
             Below a 24rem viewport (a phone with enlarged text) the bar keeps one row: the theme
             toggle, a preference rather than a next step, moves into the menu, the account link
             narrows its padding, and the group lines up from its min-content width (basis-0,
             min-w-min) rather than its one-line width, so the link's label wraps before the group
             leaves the logo's row. Only when even that cannot sit beside the logo does the bar wrap
             and this group take its own row at the right (tests/e2e/reflow-200.spec.ts). */}
-        <div className="flex min-w-min grow basis-0 items-center justify-end gap-1 lg:hidden">
+        <div className="flex min-w-min grow basis-0 items-center justify-end gap-1 [@media(min-width:72rem)]:hidden">
           <ThemeToggle className="min-h-11 min-w-11 [@media(max-width:24rem)]:hidden" />
+          {/* From lg the compact bar stands where the full bar did, so a signed-in reader keeps the notification bell
+              there: after the theme toggle, as in the full bar, where a guest's link sits, with the bar's 44px target.
+              One of its panel and the menu is open at a time. Below lg the phone bar is as it was (E176). */}
+          {user && (
+            <div className="hidden lg:block">
+              <NotificationBell className="min-h-11 min-w-11" open={bellOpen} onOpenChange={onBellOpenChange} />
+            </div>
+          )}
           {(user === null || isError) && (
             <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11 min-w-0 py-2 [@media(max-width:24rem)]:px-2' })}>
               {account.ctaShort}
@@ -273,7 +293,10 @@ export default function Header({
           <button
             ref={menuButtonRef}
             type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={() => {
+              setBellOpen(false)
+              setMobileMenuOpen(!mobileMenuOpen)
+            }}
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileMenuOpen}
@@ -287,10 +310,17 @@ export default function Header({
           gap skips, while space-y's sibling margin would still push the first link down. The panel scrolls inside
           the viewport (the header's cap, above) and never chains to the page behind it (overscroll-contain). Its
           scroll padding equals the nav's inset, as the Modal panel's does, for a browser that scrolls a focused row
-          to the nearest edge; Chromium centres it, and the nav's own padding ends the range. */}
+          to the nearest edge; Chromium centres it, and the nav's own padding ends the range. From lg, where the compact
+          bar now stands below 72rem, the nav takes the bar's 32px inset, so its rows line up with the logo, and the
+          panel leaves the header's flow: it lies over the page under the bar, as the bar's other menus do, with their
+          lift and its own lower edge, and goes no lower than the screen's foot. So the header's box, and the height it
+          publishes, stay the bar's, and the sticky chrome under it keeps its size and place: the filing workspace's
+          pane at 1100x800 went from 550 to 12px under the open menu (chief design on #1558, comment 6377356358;
+          tests/e2e/header-covers-nothing.spec.ts). Below lg the open menu counts, as a phone's scroll padding and
+          sticky chrome read it. */}
       {mobileMenuOpen && (
-        <div ref={menuRef} className="overflow-y-auto overscroll-contain scroll-pb-4 scroll-pt-2 border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark lg:hidden">
-          <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 pb-4 pt-2" aria-label="Mobile navigation">
+        <div ref={menuRef} className="overflow-y-auto overscroll-contain scroll-pb-4 scroll-pt-2 border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark lg:absolute lg:inset-x-0 lg:top-full lg:max-h-[calc(100dvh_-_100%)] lg:border-b lg:shadow-e2 dark:shadow-none [@media(min-width:72rem)]:hidden">
+          <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 pb-4 pt-2 lg:px-8" aria-label="Mobile navigation">
             {/* Below a 24rem viewport the theme toggle lives here, not in the bar (see the mobile actions), as the
                 menu's first row: directly under the bar, so it opens in view, before any scrolling of the menu
                 (tests/e2e/reflow-200.spec.ts). */}

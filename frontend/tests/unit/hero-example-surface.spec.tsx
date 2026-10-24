@@ -130,6 +130,30 @@ describe('HeroExample', () => {
   })
 })
 
+/**
+ * CI's e2e build serves no live example, only the fallback, whose header row has no quality badge. So
+ * tests/e2e/hero-example-badge.spec.ts lays the live badge into the built fallback's row and reads the boxes under
+ * 200% text (E156). The badge it lays is this render's markup, kept in fixtures/hero-example-live-badge.html: after a
+ * change to the badge, run `npx vitest run tests/unit/hero-example-surface.spec.tsx -u` and commit the file (with `-u`
+ * before the path, vitest 5 reads the path as the flag's value and runs the whole suite).
+ */
+describe("the live quality badge the e2e build cannot serve (E156)", () => {
+  it('is kept as a fixture, and the fallback row with it laid in is the live row', async () => {
+    const live = render(<HeroExample example={LIVE} />)
+    const liveRow = live.getByText('Example summary').parentElement as HTMLElement
+    const badge = within(liveRow).getByText('Full summary')
+    expect(badge.parentElement).toBe(liveRow)
+    const [badgeMarkup, liveMarkup] = [badge.outerHTML, liveRow.outerHTML]
+    await expect(`${badgeMarkup}\n`).toMatchFileSnapshot('../e2e/fixtures/hero-example-live-badge.html')
+    live.unmount()
+
+    const fallback = render(<HeroExample example={null} />)
+    const fallbackRow = fallback.getByText('Example summary').parentElement as HTMLElement
+    fallbackRow.insertAdjacentHTML('beforeend', badgeMarkup)
+    expect(fallbackRow.outerHTML).toBe(liveMarkup)
+  })
+})
+
 describe('the live hero source link', () => {
   afterEach(() => vi.unstubAllGlobals())
 
