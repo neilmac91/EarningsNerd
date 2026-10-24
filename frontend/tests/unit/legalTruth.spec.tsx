@@ -780,9 +780,12 @@ const callsTo = (phrase: NounPhrase): NounPhrase => {
   return /^(?:requests?|calls?)$/i.test(phrase.head.text) && /^endpoints?$/i.test(last?.text ?? '') ? { ...phrase, head: last, premodifiers: phrase.premodifiers.slice(0, -1) } : phrase
 }
 /** A prepositional phrase after the endpoints that holds a login word says how they are called, not which of them
-    ("every endpoint behind a login", "with authentication", "without a token"): endpoints hold no login. */
+    ("every endpoint behind a login", "with authentication", "without a token"): endpoints hold no login. The phrase is
+    read to its own end as to a predicate, so a login word that ends it is its head whatever word follows (#1594's
+    fourth round: before it, "login" in "Every endpoint behind a login requires a token." read as the verb's modifier,
+    and the phrase picked some out). */
 const loginAfter = (reading: Reading, m: Postmodifier) =>
-  m.kind === 'preposition' && /^(?:behind|with|without|via|through|by|under)$/.test(m.preposition ?? '') && loginWordsIn(reading, m.start + 1, m.end, -1).length > 0
+  m.kind === 'preposition' && /^(?:behind|with|without|via|through|by|under)$/.test(m.preposition ?? '') && loginWordsIn(reading, m.start + 1, m.end, m.end).length > 0
 /** A verb that rejects what follows it, or in the passive its subject, which turns the sense of a login word there
     ("rejects unauthenticated requests", "refuses requests without a token", "returns 401 without a token"). */
 const REJECTS = /^(?:(?:reject|refus|block|forbid|fail)\w*|deny|denies|denied|denying|turns?\s+away|returns?\s+(?:an?\s+)?(?:401|403)\b)/i
@@ -2223,6 +2226,27 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>We serve all endpoints over HTTPS.</p>', true],
       ['<p>We put all endpoints behind a paywall.</p>', true],
       ['<p>We put all endpoints in the admin namespace behind a paywall.</p>', false],
+      // What does not excuse all or every endpoints, each with a form that pins it: a phrase after them that names the
+      // whole API, the whole set again or every request, a verb's phrase of time ("for a week"), a condition that
+      // restates every request with the endpoints in it, and a purpose before the clause with no comma, whose object is
+      // read no further than the clause's subject (under "any" too, which main passed).
+      ['<p>Every endpoint in our API responds with 401 to unauthenticated requests.</p>', true],
+      ['<p>Every endpoint we expose accepts authenticated requests only.</p>', true],
+      ['<p>We authenticate every endpoint for each request, public or private.</p>', true],
+      ['<p>We log all endpoints for a week.</p>', true],
+      ['<p>A token is required when you call every endpoint.</p>', true],
+      ['<p>To use every endpoint you must log in.</p>', true],
+      ['<p>To use any endpoint you must log in.</p>', true],
+      // A login phrase after the endpoints right before their verb, which says the login of them: until #1594's fourth
+      // round's fix (loginAfter), "login" read there as the verb's modifier, so the phrase picked some out and both the
+      // floor and main's blanket let these through. Beside them, twins a narrowing or the quantifier taken back excuses.
+      ['<p>Every endpoint behind a login requires a token.</p>', true],
+      ['<p>Each endpoint behind a login requires a token.</p>', true],
+      ['<p>Every endpoint behind a login accepts authenticated requests only.</p>', true],
+      ['<p>Any endpoint behind authentication rejects anonymous requests.</p>', true],
+      ['<p>All endpoints behind authentication return JSON.</p>', true],
+      ['<p>Every endpoint in the admin namespace behind a login requires a token.</p>', false],
+      ['<p>Not every endpoint behind a login requires a token.</p>', false],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
