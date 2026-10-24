@@ -1207,7 +1207,16 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  focus is inside the site header (`html:has([data-site-header]:focus-within)`): the header is
                  stuck in view, and the padding, which counts its open mobile menu below lg, would scroll the
                  page behind the menu at every Tab through it, and move the page when a control in the bar
-                 took focus while it was scrolled. The open menu is a disclosure: it closes when focus leaves
+                 took focus while it was scrolled. Below lg the filing page's section nav (SummaryBlocks'
+                 MobileSectionNav), stuck under the bar, publishes its height on <html> as `--section-nav-h`
+                 (0px from lg, where it is display:none, and cleared when it leaves), and the padding is
+                 `calc(var(--site-header-h, 4rem) + var(--section-nav-h, 0px))`, stepping aside while focus is
+                 inside the nav (`[data-section-nav]`) too. A section's margin there is
+                 `calc(4rem - var(--section-nav-h, 0px))`, giving back the nav's share, so an anchor jump lands
+                 where it did. Before, a Shift+Tab onto a control just under the bar left it behind the nav, at
+                 71px under a nav ending at 122px at 390px (E164, chief design on #1521; gates:
+                 tests/e2e/header-covers-nothing.spec.ts, tests/unit/SummaryBlocks.spec.tsx).
+                 The open menu is a disclosure: it closes when focus leaves
                  the header (a focusout whose next target is outside it) from the keyboard or a script, inside
                  that focusout (`flushSync`; React's own flush is too late with script on the stack), and the
                  close publishes the bar's height in the same commit, before the browser scrolls the next
@@ -1222,7 +1231,9 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  close and its height in the focusout, a press, a navigation, Escape),
                  tests/e2e/reflow-200.spec.ts (the filing page's section nav at 200% text) and
                  tests/e2e/header-covers-nothing.spec.ts (a Shift+Tab walk
-                 of /, /pricing and /analysis with no stop wholly under the bar; /pricing's page header off the
+                 of /, /pricing and /analysis with no stop wholly under the bar, and of /filing/3 at 390px at
+                 both text sizes with none under the bar or the stuck section nav, a Shift+Tab onto a control in
+                 the nav's band bringing it out below the nav; /pricing's page header off the
                  screen once scrolled past; the open menu's Tab walk and the bar's own stops leaving the page where
                  it is, a Tab out of the open menu or a focus moved by script out of it closing it and landing
                  inside the screen, below the bar, at both text sizes, and, since the compact bar shows on a
