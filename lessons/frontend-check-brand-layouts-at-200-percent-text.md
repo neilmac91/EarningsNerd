@@ -208,3 +208,11 @@ period no width, so at 320px a year's caret painted past the card, and from 320 
 period. They now switch at 40, 48 and 64rem, and below 15rem of list a row stacks (a container query), and
 `frontend/tests/e2e/reflow-200.spec.ts` loads the index at 320 to 2304px under 200% text. The two other grids with
 rem tracks behind a px breakpoint (`NarrativePane`'s `sm`, `SummaryBlocks`'s `lg`) were not measured here.
+
+**Recurrence (2026-10-24, the segmented control's full-width form, E183; chief design on #1570)**: the primitive took
+its one auto-width row from `sm`, 640px at any text size, while its segments' labels and padding are rem, so under
+200% text the filings index's five-form filter (All, 10-K, 10-Q, 10-K/A, 10-Q/A) painted its "10-Q/A" segment to 692px
+past a card ending at 592px at 640px and at 652px at 700px. The full-width form now switches at 40rem, on all eight
+surfaces that pass `fullWidth`; the adaptive size's height stays at `sm`, a device's touch size rather than a layout.
+`frontend/tests/e2e/reflow-200.spec.ts` holds the five-form filter inside its card at 640 and 700px under 200% text,
+and `frontend/tests/unit/segmentedControlFullWidthSwitch.spec.tsx` fails a layout class behind a px breakpoint.
