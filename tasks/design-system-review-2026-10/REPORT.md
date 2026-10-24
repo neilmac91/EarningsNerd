@@ -1,5 +1,7 @@
 # EarningsNerd design-system review
 
+> **Closeout, 23 October 2026:** this is the preserved 15 October audit. Its implementation plans are historical and superseded by the [closeout addendum and narrowed queue](../design-system-review-closeout-2026-10-23/ADDENDUM.md). Original captures, dates, measurements and scores below are unchanged. PR #1340 has already merged as an archive; this notice grants no implementation or merge approval.
+
 15 October 2026. Review only. Source baseline: `1f12fc835fcbf525042473ab0e988b4827734f38`. Public evidence: [earningsnerd.io](https://www.earningsnerd.io), captured today; its deployed revision was not established. Signed-in evidence: local production build of that baseline, with Playwright API fixtures and no backend or real account.
 
 ## Verdict

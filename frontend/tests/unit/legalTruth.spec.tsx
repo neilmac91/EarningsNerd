@@ -246,6 +246,7 @@ const LEGAL_TEXT: Record<LegalPage, LedgerRow[]> = {
     { date: 'October 21, 2026', sha256: '865b53735c88175d' },
     { date: 'October 24, 2026', sha256: '41094b4709f20a10' },
     { date: 'October 24, 2026', sha256: 'db18a4591671aa83', sameDay: '#1547 changes the page after #1121 on the same day' },
+    { date: 'October 24, 2026', sha256: '6ed68d37e514f0bd', sameDay: '#1552 changes the page after #1547 on the same day' },
   ],
   security: [
     { date: 'June 22, 2026', sha256: '13d1b7070566bf07' },
@@ -2374,13 +2375,13 @@ describe('the account events have a sentence of their own, true of the API (D-05
 })
 
 describe('the consent clause and /privacy say the same thing, from one constant (D-046, F33)', () => {
-  it("is D-046's sentence, pinned beside the version a stored allow must carry (CONSENT_VERSION)", () => {
+  it("is D-046's sentence, pinned with the version a stored allow must carry (CONSENT_VERSION)", () => {
     expect(
       { clause: ANALYTICS_CONSENT_CLAUSE, version: CONSENT_VERSION },
       'a change to what the clause says an allow covers moves CONSENT_VERSION (components/CookieConsent.tsx) in the same commit, so a reader who allowed analytics under the old words chooses again',
     ).toEqual({
       clause: 'Usage statistics through PostHog, so we can see which pages work. When you are logged in they are tied to an internal account id.',
-      version: 2,
+      version: 3,
     })
   })
 

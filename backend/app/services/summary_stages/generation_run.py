@@ -44,6 +44,7 @@ class GenerationRun:
     emit_funnel_telemetry: bool = True
     force_regenerate: bool = False
     replace_unready_only: bool = False
+    refresh_xbrl: bool = False
     request_evidence: SummaryRequestEvidence | None = None
 
     # Timing: ``mark_stage`` closes the current stage and ``release`` logs the breakdown.

@@ -553,13 +553,19 @@ jobs:
             echo "backfill-filing-history ACCEPTED via internal endpoint for: ${TICKERS:-watchlist} (runs in the service background)"
           else
             echo "INTERNAL_JOB_TOKEN not accessible to this SA — using the documented jobs channel."
+            # The walk reads ENABLE_FPI_FILINGS in the process that runs it, and this job's deploy map
+            # does not set it: this execution takes the service's value, so it walks a foreign issuer's
+            # 20-F/40-F as the service does instead of stamping the issuer without them
+            # (backend/tests/unit/test_filing_history_service.py pins the values alike).
             if [ -n "$TICKERS" ]; then
               # ^;^ switches gcloud's --args delimiter to ';' so the comma-separated ticker LIST
               # survives as a single --tickers value.
               gcloud run jobs execute "$JOBS_CHANNEL_JOB" --region="$REGION" \
+                --update-env-vars=ENABLE_FPI_FILINGS=true \
                 --args="^;^scripts/backfill_filing_history.py;--tickers;${TICKERS}" --wait
             else
               gcloud run jobs execute "$JOBS_CHANNEL_JOB" --region="$REGION" \
+                --update-env-vars=ENABLE_FPI_FILINGS=true \
                 --args="scripts/backfill_filing_history.py,--watchlist-only" --wait
             fi
             echo "backfill-filing-history COMPLETED via jobs channel for: ${TICKERS:-watchlist}"

@@ -81,10 +81,13 @@ import { ACCESS_COPY } from '../../features/marketing/lib/access'
  * inline, wraps with it and draws its ring round each line (`box-decoration-clone`): one box there took the whole line
  * under 200% text and pushed the sentence's comma to the start of the next, so its case fails one box.
  *
+ * The auth support address keeps its mailbox and domain intact at 320px default text and 390px at 200%,
+ * in both themes. Its earlier break-all split both words, even though each fits the available line.
+ *
  * Consent is seeded, so the consent bar stays closed, except where the dialog header case opens the consent
  * dialog from it on a first visit: the bar is fixed, adds nothing to the document's scroll width, and its own
  * reflow is not measured here. Light theme only, since a theme changes no
- * geometry, except a dialog's header, which is held in both themes, as
+ * geometry, except the auth support address and a dialog's header, which are held in both themes, as
  * lessons/frontend-check-brand-layouts-at-200-percent-text.md asks: a dark: utility on ModalHeader would move it
  * in one theme alone. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is
  * answered in the browser, as a guest, and the filing page from fixtures/filing3Api.ts (for a guest, and
@@ -395,6 +398,59 @@ const ring = (link: Locator) =>
 /** The login page's link ends its line and stays one box; the register notice's stays inline in its sentence and wraps
     with it, its pieces closed (as one box it took the whole line under 200% text and pushed the comma to the next). */
 const INVITE_RING: Record<string, RegExp> = { '/login': /^one box$/, '/register': /^(?:one inline piece|\d+ closed pieces)$/ }
+
+/** Read every painted character across text nodes: a deliberate wbr must not hide an accidental
+    split inside either part of the address. The general brokenWords check excludes mailto links. */
+const addressLines = (link: Locator): Promise<string[]> =>
+  link.evaluate((element) => {
+    const lines: { top: number; text: string }[] = []
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text = node.textContent ?? ''
+      for (let index = 0; index < text.length; index++) {
+        const range = document.createRange()
+        range.setStart(node, index)
+        range.setEnd(node, index + 1)
+        const top = range.getBoundingClientRect().top
+        const line = lines.find((candidate) => Math.abs(candidate.top - top) < 1)
+        if (line) line.text += text[index]
+        else lines.push({ top, text: text[index] })
+      }
+    }
+    return lines.map((line) => line.text)
+  })
+
+for (const { width, enlarged } of [{ width: 320, enlarged: false }, { width: 390, enlarged: true }]) {
+  test.describe(`auth support address at ${width}px ${enlarged ? '200%' : 'default'} text`, () => {
+    test.use({ viewport: { width, height: 780 }, isMobile: true, hasTouch: true })
+    for (const theme of ['light', 'dark']) {
+      for (const route of ROUTES.filter((r) => r.path === '/login' || r.path === '/register')) {
+        test(`${route.name} keeps the mailbox and domain whole in ${theme}`, async ({ page, baseURL }) => {
+          await page.addInitScript((theme) => {
+            localStorage.setItem('theme', theme)
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+          }, theme)
+          await route.open(page, baseURL!)
+          await page.goto(route.path)
+          await route.ready(page)
+          if (enlarged) await doubleText(page)
+          await page.evaluate(() => document.fonts.ready)
+          const address = 'support@earningsnerd.io'
+          const link = page.getByRole('main').getByRole('link', { name: address, exact: true })
+          await expect(link).toBeVisible()
+          await expect(link).toHaveAttribute('href', `mailto:${address}`)
+          const lines = await addressLines(link)
+          expect(lines.join(''), 'the address remains complete').toBe(address)
+          expect(lines, 'only the boundary after @ may split across lines').toEqual(
+            lines.length === 1 ? [address] : ['support@', 'earningsnerd.io'],
+          )
+          const overflow = await measure(page)
+          expect(overflow.scrollWidth, why(overflow)).toBeLessThanOrEqual(overflow.clientWidth)
+        })
+      }
+    }
+  })
+}
 
 for (const width of [320, 360, 390]) {
   test.describe(`a ${width}px phone: the auth pages' invite link draws its ring closed`, () => {
@@ -814,7 +870,7 @@ test.describe("a failure's controls stay inside their card at 200% text", () => 
     growing at narrow widths (px-cap-6 and p-cap-4, E120): the column is 188, 220 and 244px, and no word in a card
     breaks inside it, read a character at a time. The panel's own sideways scroll is held by the dialog header case
     below, since its title wraps under its icon (#1432) and these rows stay inside their cards. */
-/** The three category cards: inside the open dialog, each box that draws a border and a radius. */
+/** The category cards: inside the open dialog, each box that draws a border and a radius. */
 const COOKIE_CATEGORY_CARDS = '[role="dialog"][aria-modal="true"] div.rounded-lg.border'
 const categoryRows = (dialog: Locator) =>
   dialog.evaluate((root) => {
@@ -866,7 +922,7 @@ test.describe("the cookie settings dialog's boxes and text stay inside their car
         await settle(page)
 
         const rows = await categoryRows(dialog)
-        expect(rows.map((row) => row.title)).toEqual(['Essential cookies', 'Analytics cookies', 'Session recording'])
+        expect(rows.map((row) => row.title)).toEqual(['Essential cookies', 'Analytics cookies'])
         for (const row of rows) {
           const at = `"${row.title}" at ${width}px and 200% text (${row.where})`
           expect(row.boxInCard, `${at}: the box lies inside its card`).toBe(true)
@@ -874,7 +930,7 @@ test.describe("the cookie settings dialog's boxes and text stay inside their car
         }
         // The body's and the cards' insets stop growing under enlarged text (E120), so no word in a card breaks inside it.
         const { words, found } = await brokenWords(page, COOKIE_CATEGORY_CARDS)
-        // Anti-vacuity: the read reaches the three cards' titles and descriptions.
+        // Anti-vacuity: the read reaches both cards' titles and descriptions.
         expect(words, `the cookie dialog's cards at ${width}px: words read`).toBeGreaterThan(30)
         expect(found, `the cookie dialog's cards at ${width}px and 200% text, a word broken inside it: ${found.join('; ')}`).toEqual([])
       })

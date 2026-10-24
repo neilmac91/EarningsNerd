@@ -30,5 +30,9 @@ test.describe('Skip to main content', () => {
     await page.goto('/terms')
     await expect(page.locator('#main')).toHaveCount(1)
     await expect(page.locator('#main')).toHaveAttribute('tabindex', '-1')
+    // The page owns its landmark; the shared target cannot create a second or nested main.
+    await expect(page.locator('div#main')).toHaveCount(1)
+    await expect(page.getByRole('main')).toHaveCount(1)
+    await expect(page.locator('main main')).toHaveCount(0)
   })
 })

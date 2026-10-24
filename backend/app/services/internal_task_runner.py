@@ -3,7 +3,7 @@
 Scheduled Cloud Run jobs remain the primary fleet-wide mechanism. HTTP cohorts are frozen
 before acceptance, then split into one company or ticker/form per task. A planner retry reuses
 the request id and child task names. Forced paid generation is excluded: without a durable
-generation-attempt ledger, retrying it can delete a completed summary and spend twice.
+generation-attempt ledger, retrying it would pay for the same regeneration twice.
 """
 from __future__ import annotations
 
