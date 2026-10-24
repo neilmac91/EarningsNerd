@@ -2323,6 +2323,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Each endpoint (in our API) requires a login.</p>', true],
       ['<p>Each endpoint (in our API) does not require a login.</p>', false],
       ['<p>Every endpoint (except the health check) requires a login.</p>', false],
+      // Main's blanket reads what a bracket holds on its own, where the floor passes the second lens's kind of claim.
+      ['<p>Every endpoint (in our API) accepts authenticated requests only.</p>', true],
       // "have" or "has" as a relative clause's own verb: "every endpoint we have" names the whole set again
       // (RESTATES_THE_SET), and the clause keeps its own verb, under every and each as main read them; beside them, a
       // perfect that picks some out.
@@ -2344,6 +2346,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Every endpoint with no exception requires a login.</p>', true],
       ['<p>Every endpoint is never public.</p>', true],
       ['<p>Nothing bypasses authentication on every endpoint.</p>', true],
+      ['<p>Nothing bypasses the login on every endpoint.</p>', true],
       ['<p>No request bypasses authentication on each endpoint.</p>', true],
       ['<p>Every endpoint requires a login when you use the admin API.</p>', false],
       ['<p>Every endpoint at the admin console requires authentication.</p>', false],
