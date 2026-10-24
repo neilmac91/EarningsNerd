@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useEffect } from 'react'
 import * as Sentry from '@sentry/nextjs'
 import Link from 'next/link'
@@ -19,7 +20,7 @@ export default function Error({
   }, [error])
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
       <div className="w-full max-w-md space-y-4">
         <GuidanceCard
           variant="error"
@@ -45,6 +46,11 @@ export default function Error({
           }
         />
 
+        <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          If the problem continues, email{' '}
+          <a href={contactMailto('support')} className="break-all text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.support}</a>.
+        </p>
+
         {process.env.NODE_ENV === 'development' && (
           <div className="rounded-lg border border-border-light bg-background-light p-4 text-left dark:border-border-dark dark:bg-white/5">
             <h2 className="mb-2 font-mono text-sm font-semibold text-error-light dark:text-error-dark">
@@ -61,6 +67,6 @@ export default function Error({
           </div>
         )}
       </div>
-    </div>
+    </main>
   )
 }

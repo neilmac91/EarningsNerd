@@ -130,7 +130,7 @@ describe('CookieConsent owns the consent layer', () => {
   })
 
   it('stored preferences: no bar, no layer, no event', async () => {
-    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: 'x' }))
+    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z' }))
     render(<CookieConsent />)
     await act(async () => {})
     expect(screen.queryByRole('region', { name: 'Cookie consent' })).not.toBeInTheDocument()

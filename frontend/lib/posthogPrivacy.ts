@@ -1,4 +1,5 @@
 import type { CaptureResult, PostHog, PostHogConfig } from 'posthog-js'
+import { browserAnalyticsAllowed } from './posthogConsent'
 import { canRecordTelemetry, sanitizeTelemetry, sanitizeTelemetryText, sanitizeTelemetryUrl } from './telemetryPrivacy'
 
 /** Clean old SDK attribution/flag stores as well as current event properties. */
@@ -25,17 +26,10 @@ export function initializePostHogPrivacy(client: PostHog): void {
 }
 
 export function beforeSendPostHog(client: PostHog, event: CaptureResult | null): CaptureResult | null {
-  if (!event) return null
-  const mayRecord = canRecordTelemetry()
+  // Session replay is unavailable for this release, including manually captured or queued
+  // snapshots. Consent is checked again here even when SDK opt-out persistence is unavailable.
+  if (!event || !browserAnalyticsAllowed() || event.event === '$snapshot') return null
   sanitizePostHogPersistence(client)
-  if (event.event === '$snapshot') {
-    if (!mayRecord) return null
-    // The recorder masks data before compression. Binary gzip strings can accidentally match
-    // URL patterns, so sanitize only envelope metadata and preserve the opaque replay payload.
-    const { $snapshot_data, ...properties } = event.properties
-    const clean = sanitizeTelemetry({ ...event, properties }, true)
-    return { ...clean, properties: { ...clean.properties, $snapshot_data } }
-  }
   return sanitizeTelemetry(event, true)
 }
 
@@ -58,6 +52,7 @@ export const POSTHOG_RECORDING_PRIVACY = {
 
 export function postHogPrivacyConfig(client: PostHog): Partial<PostHogConfig> {
   return {
+    disable_session_recording: true,
     save_referrer: false,
     save_campaign_params: false,
     enable_recording_console_log: false,

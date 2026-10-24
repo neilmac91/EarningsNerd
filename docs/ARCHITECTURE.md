@@ -38,8 +38,18 @@ reference is [`docs/CONFIGURATION.md`](./CONFIGURATION.md).
 ### Durable after-response work
 
 With `DURABLE_TASKS_ENABLED`, on-visit filing refresh/history and timed-out coverage syncs hand
-identifier-only control messages to Cloud Tasks before claiming delivery. A private task-only
-Cloud Run service runs one delivery at a time. Its `task_worker_main:app` entrypoint verifies
+identifier-only control messages to Cloud Tasks before claiming delivery. On-visit handoffs spend a
+per-process budget (`VISIT_TASK_BUDGET` in `routers/filings.py`); past it a visit serves its stored
+rows and queues nothing. Forgot-password and resend-verification queue every request's account mail
+(the address and which mail, the one task body that carries an address) and answer without looking
+the account up, so their timing no longer tells whether an address has an account (F60). The worker
+looks the account up, issues the token and sends. It answers 503, so Cloud Tasks delivers the task
+again, only when nothing was sent; any other failed send is acknowledged, so no retry follows a
+send that may have gone, though the transport's at-least-once delivery can still mail twice, the
+newer token then replacing the older (`account_mail_service`). A process-wide cap
+(`ACCOUNT_MAIL_LIMITER`, 60 an hour per API instance) bounds what the two routes put on the shared
+queue; flag off, that work runs as a background task after the response. A private task-only Cloud
+Run service runs one delivery at a time. Its `task_worker_main:app` entrypoint verifies
 Google-signed OIDC audience and the dedicated service-account email; queue headers grant no access.
 It executes existing services in a fresh Python child, killing and reaping that process at 480
 seconds or on cancellation. Task acknowledgement follows successful persistence, before the
@@ -171,6 +181,7 @@ frontend/
 | `stripe_subscription_reader.py` | Dedicated exact-ID provider read, validated identity/status/consumed optional fields, zero retries and connect/read inactivity limits; a failed reconciliation read rolls back the event, a failed serving-Price read reports `unavailable` |
 | `billing_serving_prices.py` | The public serving-charge report (`GET /api/subscriptions/prices`): what the bound Pro Prices charge, without IDs, cached per process; one read at a time, and no request waits on another's; the price-agreement checks compare it with the page (`docs/PRICING_OFFER.md`) |
 | `billing_account_service.py` | The reader's `subscriptions` row (served by `GET /api/subscriptions/subscription`, counted by checkout's first-time-trial check) and the claim of a new Stripe customer id before checkout, stored only while the account has none, returning the stored id that checkout then uses (E166); the subscriptions router owns Stripe calls and HTTP responses |
+| `stripe_threads.py` | The Stripe threads: eight of their own, which run checkout's, the billing portal's and the account deletion's calls through stripe-python's global client, out of anyio's default worker threads and off the event loop (E170) |
 | `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage; every rotation and revocation of a user's tokens, a password login's mint, a password change and the account's deletion take the users row lock first |
 | `oauth_verify.py` / `password_utils.py` | Google/Apple JWKS + id-token verification; bcrypt + policy (extracted from the auth router) |
 | `auth_account_service.py` | Password-account persistence, verification/reset tokens and login/password writes; the auth router keeps HTTP gates, password hashing, mail and audit events |
@@ -353,21 +364,24 @@ unused since generation became account-required in #619; kept because migrations
   writer moves an annual report's FY rows onto the years companyfacts already stores for its period
   ends (`facts/fiscal_evidence`: FY rows from the fiscal-year-window writer that name one year and
   include a duration), by one offset for the whole filing; offsets that disagree keep the filing's
-  labels, quarter labels never move, and a report opened before the first sync keeps its own (a
-  known limit). Without a trusted focus, or for a point more than 18 days off a whole number of
-  years from the report date (a transition period), the label is the calendar year of the end,
-  never NULL (a NULL year would drop the period from Multi-Period Analysis). The fact identity
-  leaves the year out, so this is what lets the per-filing and companyfacts writers name a period
-  alike whichever stores it first, wherever a timely annual report (filed within 180 days of its
-  end) anchors the companyfacts year chain, short of that limit. Where a contiguous chain holds
-  none, the companyfacts writer keeps calendar years, for the chain's quarters too, while the
-  per-filing labellers, which see no filing date, name the fiscal year. So a delinquent filer whose
-  fiscal year is named for the calendar year before its end (in practice a year ending in January
-  or February, a 52-week year ending in early January, or a March 20-F named by its start) carries
-  two labels for one period end when its report is opened before the sync; synced first, the
-  report takes the calendar years. A 10-Q filer's quarter rows were already mixed this way before
-  the annual labeller (a 20-F filer has none, so for it the annual mix is new); the open follow-up,
-  in the companyfacts writer, fixes both. The Multi-Period Analysis dataset reads current rows in
+  labels, quarter labels never move, and a report opened before the first sync keeps its own until
+  the stored-row relabel (`docs/fiscal-year-label-repair.md`) moves the filing by that one offset.
+  Without a trusted focus, or for a point more than 18 days off a whole number of years from the
+  report date (a transition period), the label is the calendar year of the end, never NULL (a NULL
+  year would drop the period from Multi-Period Analysis). The fact identity leaves the year out, so
+  this is what lets the per-filing and companyfacts writers name a period alike whichever stores it
+  first. Both count whole years back and trust a report's own focus through one module,
+  `facts/fiscal_naming` (`years_back`, `focus_years`). The companyfacts writer anchors its year
+  chain on timely annual reports (filed within 180 days of the end); a contiguous chain that holds
+  none takes its late reports' own years under the per-filing labellers' trust (a report's own
+  period is the latest year it reports, never a comparative), for the chain's quarters too, and
+  calendar years only where no report names its own period by a trusted year. An FY-end balance
+  outside every year window (an equity statement's oldest opening balance) takes the year that ends
+  on its date, whole years before the next window's (`year_ending_on`). Rows stored before those two
+  rules keep their labels, since a sync is insert-only; the audited quarterly repair relabels a
+  current companyfacts row only where the writer still picks that row's own report, which leaves a
+  delinquent filer's years that a reader-opened newer report re-reports
+  (`docs/fiscal-year-label-repair.md`). The Multi-Period Analysis dataset reads current rows in
   period-end order, so a label that two period ends carry resolves to the later one, the axis
   bucket's own end.
   New labelled quarters demote legacy NULL-period twins; existing persisted snapshots require

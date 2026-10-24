@@ -450,6 +450,22 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
 
+Company mark     <CompanyLogo ticker name decorative size>  (components/) — the one way a company's mark is
+                 drawn beside its ticker, at 20–36px (gate: tests/unit/companyMarkSingleSource.spec.ts holds
+                 the CDN's mark URL to the component). A square white tile in both themes (§9): bg-white, the
+                 hairline pair ring-border-light dark:ring-white/10, rounded-sm under 28px and rounded from
+                 28px, never a circle (Logo.dev serves square tiles and transparent marks, and a circle cut
+                 the tiles' corners). The ticker's initials in text-brand-strong sit under the mark and stay
+                 when the CDN has no logo (the URL asks it for a 404) or the image fails; the mark fades in
+                 over them. The image is a plain img with 1x/2x/3x candidates at exactly the slot's size, lazy
+                 except the one `priority` mark above a page's fold. `decorative` is required: true beside the
+                 company's name or ticker as text (aria-hidden), false when the mark stands alone (role=img,
+                 "<name> logo"). The slot is a fixed box, so no outcome shifts the row. The shape and ground are
+                 gated (tests/unit/CompanyLogo.spec.tsx: the tile, its radius step, never rounded-full, never a
+                 brand ground). Verify both themes against the PR's preview with
+                 `node scripts/capture-company-marks.mjs <preview url>` (crops and a sheet per theme and pixel
+                 ratio): a release check run once per change to the marks, not a monitor.
+
 Input            <Input>  — fill is the BRIGHTEST surface so the field reads on BOTH the cream page
                  AND an off-white card: bg-white dark:bg-white/5 + hairline + brand focus ring
 
@@ -578,8 +594,9 @@ Analysis reflow  The page title and selected-company rows wrap. Narrative cards 
                  export/refresh Buttons use size="sm" wrap and max-w-full. The shared wrap state
                  keeps min-h-8 and lets labels grow within the card without conflicting utilities.
 
-Analysis reading <NarrativePane> — compact monetary amounts and quarter labels in prose, without
-                 changing link destinations, code or source excerpts. Preserve enough precision
+Analysis reading <NarrativePane> — compact monetary amounts and period labels in prose (a quarter as
+                 Q2 2026, a window as one range), without changing link destinations, code or source
+                 excerpts. Preserve enough precision
                  to keep a stated comparison meaningful. Up to three recognized source operands
                  remain inline with their original citation controls; longer lists fold beneath a
                  neutral summary that names every applicable note letter. Unrecognized content
@@ -640,7 +657,11 @@ Data notes strip <DataNotes> — hairlines above and below a native details disc
                  Note chips reveal and focus the same stable note ID. Citation-only supplemental
                  notes remain in the narrative and do not increase the report's figure counts.
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
-                 FY2026 and all API/snapshot/selection keys retain their original identity.
+                 FY2026 and all API/snapshot/selection keys retain their original identity. A
+                 window prints one way, through formatAnalysisWindow: one unspaced range, FY2016–FY2025
+                 or Q1 2024–Q4 2025, as the exports print it. tests/unit/analysisPeriodWindows.spec.tsx
+                 holds it: the analysis surfaces it renders carry no window key, no window field is read
+                 straight into page text, and no file but periodLabels.ts joins a range.
 
 Locked preview   <PeekLocked feature preview="full|screen"> (features/subscriptions): a Pro feature shown
                  locked, the real component blurred, dimmed, inert and aria-hidden under a centred Pro pill
@@ -975,19 +996,29 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
-                 bg-white / dark:bg-white/[0.03], never darker), no stripes, no row tints, no per-type colour,
-                 no per-row document icon (the md-up caret in the actions track is an aria-hidden navigation cue,
-                 not a type signal). One grid template for the column header and every row (form · period ·
-                 filed · actions) so values align across groups. The row is ONE <Link>, named by its own
-                 content (no aria-label); a secondary target (EDGAR) is a SIBLING anchor absolutely placed in
-                 the actions track — never an <a> inside the row link. 48px rows from md, 64px two-line rows
-                 on phones with a 44px EDGAR square. Group headers are <h3><button aria-expanded
-                 aria-controls>; collapsed lists stay in the DOM with `hidden`. One primary action per screen,
-                 and on the company page it is the lead's (Company identity, below): the list only marks the
-                 latest row "Latest", and rows never carry a primary button. Choosing a year filter opens
-                 its group. Skeleton = the ledger's own tracks; errors = Notice + RetryButton in place.
-                 Gate: a `border-l|s-(2|4|8)` side stripe on a rounded box is lint-banned
-                 (earningsnerd/no-side-stripe, eslint.designRules.mjs).
+                 bg-white / dark:bg-white/[0.03], never darker), no stripes, no row tints, no per-type
+                 colour, no per-row document icon (the caret in the actions track, from 48rem, is an
+                 aria-hidden navigation cue, not a type signal). One grid template for the column header and
+                 every row (form · period · filed · actions) so values align across groups. The row is ONE
+                 <Link>, named by its own content (no aria-label); a secondary target (EDGAR) is a SIBLING
+                 anchor absolutely placed in the actions track — never an <a> inside the row link. 48px rows
+                 from 48rem, 64px two-line rows below it with a 44px EDGAR square. The index's breakpoints
+                 are rem media queries, 40rem for sm's rows and 48rem for md's grid (640 and 768px at the
+                 default size, 1280 and 1536px under 200% text), and the list is a query container: below
+                 15rem of list (a phone under enlarged text: below 610px under 200% text, 458px under 150%) a
+                 row is one column, its code beside the EDGAR square at the square's height and its period
+                 and filed date below at the row's width. The heading's count and a year's count wrap onto
+                 lines of their own wherever they do not fit. At the px breakpoints the grid's 20rem of fixed
+                 tracks left the period column 0px under 200% text at 768, 1024 and 1440px, and at 320 to
+                 390px the EDGAR square sat over the period (E168; gate: tests/e2e/reflow-200.spec.ts loads
+                 the index at 320, 360, 390, 768, 1024, 1440 and 2304px under 200% text: every box and line
+                 of it inside its card, no row's text under its EDGAR square, the Compare periods card off
+                 it). Group headers are <h3><button aria-expanded aria-controls>; collapsed lists stay in the
+                 DOM with `hidden`. One primary action per screen, and on the company page it is the lead's
+                 (Company identity, below): the list only marks the latest row "Latest", and rows never carry
+                 a primary button. Choosing a year filter opens its group. Skeleton = the ledger's own
+                 tracks; errors = Notice + RetryButton in place. Gate: a `border-l|s-(2|4|8)` side stripe on
+                 a rounded box is lint-banned (earningsnerd/no-side-stripe, eslint.designRules.mjs).
 
 Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissible initialFocusRef>
                    <ModalHeader id="<id>" onClose icon={…?} tone="brand|success|warning|error">Title</ModalHeader>
@@ -1096,50 +1127,137 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  as usual.
 
 Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie-consent bar: above in-page
-                 sticky chrome, BENEATH the sheet scrims and the z-40 research chrome) · z-scrim 35 (the
-                 workspace / rail bottom-sheet scrims: above the bar, under the z-40 sheets they belong to) ·
+                 sticky chrome, BENEATH the modal sheets and the z-40 launchers / coachmark) · z-scrim 35
+                 (retained ladder rung; modal sheets use z-modal for their backdrops) ·
                  z-header 50 (site header; its menus ride it: the notification menu and the account menu
                  sit on this one rung inside the header's stacking context, NotificationBell on the token
                  and UserMenu still on the numeric z-50; tests/unit/NotificationBell.spec.tsx holds both) ·
                  z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the
                  source and viewer sheets — scrim AND panel) ·
                  z-toast 80 (the skip link; sonner manages its own toast layer).
-                 The copilot rail / workspace bottom sheets stay z-40 over z-scrim scrims, so the in-sheet
-                 citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
-                 sticky-cell layering is the one documented exemption.
+                 The copilot rail / workspace bottom sheets and their scrims both use z-modal, above the
+                 site header. The panel follows its scrim in DOM order at that rung. CitationChip portals
+                 into its trigger's active modal container (outside the answer scroller), keeping z-overlay
+                 inside the sheet's stacking context; outside a modal it still portals to body. A breakpoint
+                 change rehosts the card after the pane's modality commits and preserves its focused action;
+                 closing the pane dismisses the card instead of moving it over the page. The sheets
+                 have no transform or clipping ancestor for those fixed cards. A nested Modal or source-detail
+                 sheet portals later to body on z-modal, above the research sheet. Desktop remains nonmodal:
+                 the workspace is static at lg:z-auto and the standalone rail overlay retains lg:z-40.
+                 Never z-[N]; DataTable's internal z-[5] sticky-cell layering is the one documented exemption.
                  The header offset: the site header publishes its rendered height on <html> as
                  `--site-header-h` (components/Header.tsx), the one offset under it, and is the one bar that
                  sticks at the top of the viewport. Sticky and fixed chrome below the header reads it,
                  `top-[var(--site-header-h,4rem)]`, never a fixed `top-16` or a `sticky top-0`, so a bar that
-                 wraps under enlarged text covers nothing. A page's own header (SecondaryHeader: pricing, the
-                 dashboard, the watchlist, admin) scrolls with the page on an opaque panel; only a table's
+                 wraps under enlarged text covers nothing. The full bar (the nav and the desktop controls)
+                 shows from 72rem and the compact bar (the mobile actions and the menu) below it, all four on
+                 one arbitrary variant, `[@media(min-width:72rem)]`: a media query's rem is the reader's text
+                 size, 1152px at the default size and 2304px under 200% text. 72rem leaves the full bar's
+                 widest row (every flag-gated link and a guest's longest account label) room to spare in Inter
+                 and in a wider fallback, so the full bar never wraps and the auth check never changes its
+                 lines (E173, E175; gate: tests/e2e/reflow-200.spec.ts holds the compact bar at 1151 and
+                 2303px and the full bar on one line at 1152 and 2304px, with either access mode's label).
+                 From lg to 72rem the compact bar carries a signed-in reader's NotificationBell too, after the
+                 theme toggle as in the full bar, so the bell stays wherever the full bar showed it before,
+                 and the header holds its panel so that one of it and the menu is open at a time (the same
+                 case opens both, the menu from the keyboard too). In either bar the bell's panel is a column
+                 no taller than the screen under the bar: the screen less the header's published height, the
+                 bar's own while the panel is open, and the panel's 0.5rem offset
+                 (`max-h-[calc(100dvh_-_var(--site-header-h,4rem)_-_0.5rem)]`). Its title and settings link
+                 keep their height and its list takes the rest, scrolling inside it; where the screen has
+                 room the list's 24rem cap holds. Before, only the list was capped, so under 200% text 20
+                 alerts ran the panel to 1060px on a 768px screen, its settings link out of reach (E178;
+                 gate: tests/e2e/reflow-200.spec.ts serves 20 alerts at 1024x768, 1440x900 and 2560x960 under
+                 200% text and holds the open panel inside the screen, its title and settings link inside it
+                 and its list scrolling to the last alert). The logo's mr-auto and the controls'
+                 ml-auto share the full bar's free space, never justify-between alone, which puts a line's
+                 only block at its start, so should the bar ever wrap, the notification and account menus,
+                 anchored at their right edge (right-0), still open on the screen (E160; gate: the same spec
+                 opens each menu at 2304 and 2560px under 200% text with a copy fixture that lengthens the nav
+                 until the bar wraps, and holds the one-line bar's nav midway at 1440px). The desktop controls
+                 block is one grid cell with two layers: a copy of a guest's controls (the toggle's box, "Log
+                 in" and the account link, as spans in the links' classes, `invisible` and `aria-hidden`,
+                 nothing in it focused or read; role queries skip it, though a text query for a guest's labels
+                 also finds it) and the live controls at the cell's right edge, so the cell keeps a guest's
+                 width whatever the auth check shows, in any font and either access mode, and the nav keeps
+                 its place as the check settles; a reader's toggle, bell and avatar stay together at the
+                 right. The cell holds min-h-10, the md button's height, so the bar is one height while the
+                 check runs and after it, for a guest and a signed-in reader (E174, E175; gate:
+                 tests/e2e/header-covers-nothing.spec.ts holds the check open, scrolls, and answers it in the
+                 compact bar at 1024px and the full bar at 1152 and 1440px, and under 200% text in the compact
+                 bar at 640, 800, 1024 and 1440px and the full bar at 2304px: the header keeps its height, the
+                 full bar's nav its left edge, and a guest's compact bar its height with either access mode's
+                 label; tests/unit/Header.spec.tsx holds the copy unfocusable, unread and in step with a
+                 guest's live controls in either access mode). The wordmark shows from 40rem
+                 (`[@media(min-width:40rem)]:inline`: 640px at the default size, 1280px under 200% text), so
+                 under enlarged text the mark stands alone where a guest's row needs the room. Below about
+                 15rem (480px under 200% text, 360px under 150%) a guest's account link no longer fits beside
+                 the logo as it is, so as it appears its label wraps or it takes a row of its own, and the
+                 compact bar still grows: under 200% text in CI's fonts, a wrapped label (14px) at 360px with
+                 "Sign up" and 390 to 450px with "Request invite", and a whole row at 320px with either label
+                 and at 360 and 375px with "Request invite". Chief design accepts that band, since any
+                 reservation would give every reader the same extra row (#1558, comment 6377073723).
+                 A page's own header (SecondaryHeader: pricing, the dashboard, the watchlist, admin) scrolls
+                 with the page on an opaque panel; only a table's
                  header cells stick at `top-0`, inside the table's own scroll box. The document's
                  `scroll-padding-top` (globals.css) reads the variable once, so a keyboard focus, an anchor
                  jump or a scrollIntoView lands below the bar, never behind it (WCAG 2.2 SC 2.4.11); a
                  section's scroll margin adds only its own room beyond the header (`scroll-mt-16`), never the
                  variable again, which would land every jump one bar lower. The padding steps aside while
                  focus is inside the site header (`html:has([data-site-header]:focus-within)`): the header is
-                 stuck in view, and the padding, which counts its open mobile menu, would scroll the page
-                 behind the menu at every Tab through it, and move the page when a control in the bar took
-                 focus while it was scrolled; a Tab out of the open menu lands below it. Gates:
-                 tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/e2e/reflow-200.spec.ts (the filing
-                 page's section nav at 200% text) and tests/e2e/header-covers-nothing.spec.ts (a Shift+Tab walk
+                 stuck in view, and the padding, which counts its open mobile menu below lg, would scroll the
+                 page behind the menu at every Tab through it, and move the page when a control in the bar
+                 took focus while it was scrolled. The open menu is a disclosure: it closes when focus leaves
+                 the header (a focusout whose next target is outside it) from the keyboard or a script, inside
+                 that focusout (`flushSync`; React's own flush is too late with script on the stack), and the
+                 close publishes the bar's height in the same commit, before the browser scrolls the next
+                 control into view; otherwise that scroll reserves the open menu, which fills the screen under
+                 200% text. Below lg a press outside it (a tap or a click, on a control or on text, marked
+                 from its mousedown to the next task) leaves it open, and a navigation closes it: in the
+                 header's flow a close on the press moved the page under the pointer at the top of a page, and
+                 the release activated nothing. From lg, where it lies over the page (its own position absolute,
+                 read at the press, not a breakpoint repeated in the code), a press outside the header closes
+                 it, as it closes the bar's other menus: the header keeps the bar's height, so nothing moves and
+                 the press lands where it was aimed (E182, chief design on #1565; gate:
+                 tests/e2e/header-covers-nothing.spec.ts clicks the landing's pricing switch below the open menu
+                 at 1024x768 and 1100x800, and the menu closes, the switch takes the click and the page holds;
+                 tests/unit/Header.spec.tsx holds both rules). A focus a modal layer takes closes it with a
+                 plain update. Escape closes it too, unless a layer
+                 above took the key, returning a focus inside the menu to its toggle; a blur with no next
+                 target (another window) leaves it open. Gates:
+                 tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/unit/Header.spec.tsx (the menu's
+                 close and its height in the focusout, a press, a navigation, Escape),
+                 tests/e2e/reflow-200.spec.ts (the filing page's section nav at 200% text) and
+                 tests/e2e/header-covers-nothing.spec.ts (a Shift+Tab walk
                  of /, /pricing and /analysis with no stop wholly under the bar; /pricing's page header off the
                  screen once scrolled past; the open menu's Tab walk and the bar's own stops leaving the page where
-                 it is).
+                 it is, a Tab out of the open menu or a focus moved by script out of it closing it and landing
+                 inside the screen, below the bar, at both text sizes, and, since the compact bar shows on a
+                 desktop below 72rem, at 1440x900 under 200% text for a signed-in reader, and a tap on a link below
+                 the open menu at the top of the page following it, the next page opening with the menu closed).
                  The open mobile menu scrolls inside the viewport: the header is a column no taller than it
                  (`flex max-h-dvh flex-col`), the bar keeps its own height (`w-full shrink-0`; a column's child
                  with auto side margins is not stretched) and the menu panel takes the rest
                  (`overflow-y-auto overscroll-contain`, its scroll padding the nav's inset, as the Modal
                  panel's). The cap is the bar's own height, never `--site-header-h`, which counts the open
-                 menu. A sticky header taller than the viewport stays stuck to its top until the page's end,
-                 so the menu's last rows (Log out, the account link) showed only there, 36,942px down the
-                 landing at 200% text. Gate: tests/e2e/reflow-200.spec.ts (390x664 and 360x640 at 200%,
-                 a guest and a signed-in reader: a wheel and focus bring the last row into view inside the
-                 menu, a second wheel at its end leaves the page behind it unmoved, and neither the page nor
-                 the menu scrolls sideways; the menu's own scroll width is read, since a row it clips adds
+                 menu below lg. A sticky header taller than the viewport stays stuck to its top until the
+                 page's end, so the menu's last rows (Log out, the account link) showed only there, 36,942px
+                 down the landing at 200% text. Gate: tests/e2e/reflow-200.spec.ts (390x664 and 360x640 at
+                 200%, a guest and a signed-in reader: a wheel and focus bring the last row into view inside
+                 the menu, a second wheel at its end leaves the page behind it unmoved, and neither the page
+                 nor the menu scrolls sideways; the menu's own scroll width is read, since a row it clips adds
                  nothing to the page's), and at 1440x900 the bar spans its container with the logo in its
-                 top-left place, which `w-full` holds.
+                 top-left place, which `w-full` holds. From lg, where the compact bar shows on a desktop below
+                 72rem, the open menu leaves the header's flow (`lg:absolute lg:inset-x-0 lg:top-full`) and
+                 lies over the page under the bar, as the header's other menus do, with their `e2` lift and
+                 its own lower border, its height capped at the screen's foot (`calc(100dvh - 100%)`, the
+                 header's own height being the bar's). So the header's box and `--site-header-h` stay the
+                 bar's, and the sticky chrome under it keeps its size and place: in the flow, the open menu
+                 shrank the filing workspace's pane at 1100x800 from 550 to 12px, and from 254 to 0px under
+                 200% text (chief design on #1558; gate: tests/e2e/header-covers-nothing.spec.ts, at 1100x800
+                 on /filing/3 for a Pro reader, at both text sizes, at the top of the page and scrolled: with
+                 the menu open the pane keeps its top and height, the page its scroll and the header its
+                 published height, and the menu lies over the pane and ends inside the screen).
                  The consent layer: a lower z alone would let the launcher cover a consent choice, so while
                  the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
                  `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the
@@ -1152,7 +1270,7 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  coachmark is deferred, not dismissed, while the bar shows (`hooks/useConsentLayer`); the
                  saved confirmation is a sonner toast, never a fixed corner element. Real modals cover the
                  bar: beneath the settings dialog (z-modal) and beneath an open workspace / rail bottom sheet
-                 (whose z-scrim scrim dims it) its choices are inert — a tap there reaches the scrim and
+                 (whose z-modal scrim dims it and the site header) its choices are inert — a tap there reaches the scrim and
                  closes the sheet, storing nothing — and operable again once the modal closes, which is what
                  the sheet's aria-modal and focus trap already tell keyboard and AT users. In-page sticky
                  chrome stays below the bar: a section nav passing through the bar's region on a short phone
@@ -1172,10 +1290,14 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  to inline zIndex, so a z written apart from its `fixed` still counts; z-toast is exempt only
                  as the top-anchored skip link), no in-page sticky chrome outranks the bar (the top-anchored
                  site header is pinned), the tokens sit on their rungs (sticky < consent < scrim <
-                 the pinned workspace level 40 < header), the pinned bottom chrome takes the inset (the sheets'
+                 the pinned workspace level 40 < header < modal), the sheets and scrims use the modal rung,
+                 and the pinned bottom chrome takes the inset (the sheets'
                  anchor, no `bottom-0` behind any variant, the offset objects' `bottom` from
                  BOTTOM_CHROME_OFFSET, the bar's layout-effect publish, the scroll padding) and the pinned
-                 scrims are full-viewport; every pin list is shrink-only in files, sites and z.
+                 scrims are full-viewport; every pin list is shrink-only in files, sites and z. The existing
+                 consent-bar-yields e2e also hit-tests header controls under an open sheet and verifies a
+                 header tap dismisses only the sheet, while citation-chip-keyboard keeps the nested card
+                 pointer-reachable and preserves its Escape hand-off.
 
 Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per metric instead of the five-column
                  DataTable, switched by CSS alone (`md:hidden` cards, `hidden md:block` table — both in the DOM
@@ -1346,20 +1468,25 @@ Company identity <CompanyIdentity company latest summaryReady actions>  (feature
                  pressed, `loading` while it saves). Sector and fiscal-year convention wait for the payload.
 
 Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P-07) — the entry to a change
-                 report: an <aside> Card (p-cap-5, h2 18/600) beside the filings index on lg+ (grid-cols-1 base,
-                 lg 1fr + 20rem), shown only for selectComparisonFiling (the newest annual report with an
-                 earlier annual period listed). Up to three hairline rows: metric · the change in WhatChanged's
-                 own vocabulary (exported Change: ▲/▼ glyph + the server's display string or —, in its tone's ink)
-                 · the Read-as word; "N more in the change report."; one 12px line counting the wording comparison
-                 the report carries ("12 paragraphs of risk factors changed." / "No wording changes in the risk
-                 factors."); a sage text link "Open change report →" to /filing/{id}#what-changed. Same read and
-                 query key as the filing page's section (useWhatChanged). States in place: ledger bones, Notice +
-                 RetryButton, a plain line when nothing is comparable (a wording comparison alone keeps the link,
-                 over the line that no figures compare). No risk diff until the backend serves one again.
+                 report: an <aside> Card (p-cap-5, h2 18/600) beside the filings index from 64rem (lg's
+                 1024px at the default size, 2048px under 200% text; grid-cols-1 base, then 1fr + 20rem,
+                 E168), shown only for selectComparisonFiling (the newest annual report with an earlier
+                 annual period listed). Up to three hairline rows: metric · the change in WhatChanged's own
+                 vocabulary (exported Change: ▲/▼ glyph + the server's display string or —, in its tone's
+                 ink) · the Read-as word; "N more in the change report."; one 12px line counting the wording
+                 comparison the report carries ("12 paragraphs of risk factors changed." / "No wording
+                 changes in the risk factors."); a sage text link "Open change report →" to
+                 /filing/{id}#what-changed. Same read and query key as the filing page's section
+                 (useWhatChanged). States in place: ledger bones, Notice + RetryButton, a plain line when
+                 nothing is comparable (a wording comparison alone keeps the link, over the line that no
+                 figures compare). No risk diff until the backend serves one again.
 
 Hero example     <HeroExample example>  (features/marketing, critique 1d) — the example IS the product, on ONE
                  surface (rounded-xl panel + hairline + e2, dark: fill + hairline): "Example summary" with the
-                 quality Badge, the identity line (company, then ticker · form · filed in the data face, Sep
+                 quality Badge in a row that wraps (the badge goes under the label where the two do not fit side
+                 by side, and below a 24rem viewport its label wraps inside it, as a Button's does, the badge
+                 taking the 16px step there, a rounded box once it wraps; E156), the
+                 identity line (company, then ticker · form · filed in the data face, Sep
                  between; each middot in one item with the fact before it, so a wrapped line never starts or
                  stands with one; the form one nowrap run; the date an inline-block after "filed", so it moves
                  down whole and breaks only after its day), the summary's opening, the figures as ONE hairline
@@ -1380,7 +1507,12 @@ Hero example     <HeroExample example>  (features/marketing, critique 1d) — th
                  and the example, no two figures meeting, every form code on one line, no painted line starting
                  with a middot; at both text sizes the strip's rules as painted, a row's leading rule and the
                  first row's top rule clipped, every other rule inside the strip, the first figure's label flush
-                 with the card; the page at 320px).
+                 with the card; the page at 320px) and tests/e2e/hero-example-badge.spec.ts (CI's build serves
+                 the fallback, which has no badge, so the live badge is laid into its row from
+                 fixtures/hero-example-live-badge.html, which tests/unit/hero-example-surface.spec.tsx holds to
+                 the render: under the label at 320 and 390px under 200% text, beside it at the row's right at
+                 390px at the default size and at 1440px under 200% text, inside the card, a rounded box where
+                 its label wraps, the page not scrolling sideways).
 
 Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain statements, each scoped to what
                  the implementation establishes ("where a match is found"); "generated" stays distinct from
@@ -1599,7 +1731,19 @@ summary's writer error; the watchlist's empty and error cards; the waitlist exam
 A fallback that replaces the whole page passes `headingLevel="h1"` (app/error.tsx, the dashboard's
 error boundary, the providers' GlobalErrorBoundary, the signed-in routes' account card
 `features/auth/components/AccountLoadFailure.tsx`; global-error.tsx writes its own h1; gate:
-tests/unit/errorBoundaryHeadings.spec.tsx).
+tests/unit/errorBoundaryHeadings.spec.tsx). The company page's invalid ticker, missing or failed company
+read and unsupported-issuer cards also replace the whole page and pass h1
+(tests/unit/company-page-lead.spec.tsx); the heading's visual size stays GuidanceCard's.
+
+Each page frame owns one `main` landmark. The root layout's `div#main` is only the focusable skip-link
+target, never an enclosing main. AuthShell owns the form pane's main, outside its utility and brand panes;
+settings, ticker-filings and company frames retain one main while loading or showing a terminal state.
+An error boundary or account-load failure replaces the page and owns its main too. Gates:
+tests/e2e/skip-link.spec.ts (root target and no nested main), tests/e2e/text-floors.spec.ts (all six auth
+routes and the route error boundary), and the existing errorBoundaryHeadings, dashboardLoadingSkeletons,
+TickerFilingsView and company-page-lead unit specs (their loading and terminal branches). Loading-heading
+presentation remains with the loading-state work; a landmark does not change its visual design.
+
 The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
 titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
@@ -1845,6 +1989,15 @@ fallback, a Cited jump and an XBRL fact never register the device's highlight; a
   white surface, the multicolour "G", the hairline and the label ink its branding guideline sets); it does
   not excuse a stale value. When the consent screens are set up (`tasks/todo.md` F38), check the button
   against Google's current guideline and record the values here.
+- **Company marks sit on a white tile in both themes** (`components/CompanyLogo.tsx`): a third
+  party's mark is drawn for white, and the provider serves two kinds of asset, full-bleed square tiles
+  in the brand's own ground and transparent marks, so the slot is a white tile (`bg-white`) with the
+  hairline pair (`ring-border-light dark:ring-white/10`) and the scale's small radius (4px under 28px,
+  8px from 28px), never a circle (it cut the tiles' corners) and never the brand tint (a black mark
+  on the dark tint measured 1.4:1). The initials monogram keeps the light ink (`text-brand-strong`)
+  on that tile in both themes; `tests/unit/themePairs.spec.ts` lists it in its residue beside the
+  Google button's hairline. The exemption covers the mark's own ground; the ticker and name beside it
+  pair as usual.
 - **Status + financial colors are semantic** — keep them; reserve loud status colors for genuine
   state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `GuidanceCard`).
 - **Progress / step / completion indicators use the BRAND accent (sage), not success-green.**

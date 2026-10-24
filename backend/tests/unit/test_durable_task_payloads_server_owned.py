@@ -25,10 +25,33 @@ no other parameter (one would carry caller input past the checked call sites). A
 site must be listed in ``EXEMPT`` with its reason, and a listed site that is gone fails. Growing any
 of these sets is a reviewed change to this file.
 
+A route that needs no login bounds the handoffs its callers can cause: in ``app/routers/`` a direct
+``enqueue_task`` call sits in a route that takes ``Depends(get_current_user)``, and a ``PASS_THROUGH``
+spends a process-wide budget before it hands off, an ``if not LIMITER.allow("<key>"): return`` among
+its own statements ahead of the call, ``LIMITER`` a module-level ``RateLimiter`` bound once. Any other
+form fails closed. The limiter is known by its class name. That it is spent only past the handoff
+guard is pinned by ``test_filings_routes.py``, which also sums, across the API's instances, the cap on
+every site a request with no login reaches (``public_queue_caps``: each ``PASS_THROUGH``'s budget and
+key, as its budget check names them, and each ``EXEMPT`` site's in ``EXEMPT_PUBLIC_CAPS``, which must
+list every ``EXEMPT`` site; a limiter counts once per key) against the drain of the one queue they all
+share; the synchronous SEC calls such a route makes (reached through services and edgartools, out of an
+AST walk's reach) are review-checked.
+
+The exempt ``queue_account_mail`` carries a caller's address (F60), so its callers are followed:
+``test_account_mail_is_queued_only_behind_the_two_routes_limits`` holds it to one helper in the auth
+router, the helper to the forgot-password and resend-verification routes, each after its per-IP and
+per-address limits, and the helper to the process-wide account-mail cap before its handoff, charged on
+the one literal key ``EXEMPT_PUBLIC_CAPS`` names with ``include_client_ip=False``, so every caller
+shares it (any other form fails closed).
+
 Known limits, review-checked: ``.id`` is accepted from any object, so a request model's ``.id``
 passes as a row's. Callers of the exempt ``enqueue_internal_job`` are not followed; today all 10
 routes that reach it carry ``Depends(_require_internal_token)``. An enqueuer looked up by a string
-(``getattr(module, "enqueue_task")``) is out of reach.
+(``getattr(module, "enqueue_task")``) is out of reach, as is a limit a route takes inside a branch
+of its own (the account-mail check counts only the route's own top-level calls). The login
+dependency, like the limiter, is known by its name: a bare ``Depends(get_current_user)`` passes
+whatever ``get_current_user`` the router defines or imports, while attribute access and
+``Annotated`` fail closed.
 """
 import ast
 import builtins
@@ -43,6 +66,7 @@ ENQUEUERS = {"enqueue_task"} | {name for _, name in PASS_THROUGH}
 ENQUEUER_SOURCES = {"enqueue_task": "app.services.durable_tasks"}  # a pass-through is never imported
 KEYS, WINDOWS = ("key", "dedupe_key"), ("seconds", "dedupe_seconds")
 SERVER_OWNED_NAMES = {"company_id"}
+LOGIN = "get_current_user"  # a route that depends on it answers an anonymous caller 401
 SERVER_OWNED_CALLS = {
     "company_list_forms": "app.services.latest_filing_service",
     "other_filing_forms": "app.services.filing_list_service",
@@ -50,6 +74,35 @@ SERVER_OWNED_CALLS = {
 EXEMPT = {
     ("services/internal_task_runner.py", "enqueue_internal_job"): "operator routes (_require_internal_token)",
     ("services/internal_task_runner.py", "run_internal_task"): "worker-side fan-out of an operator job",
+    ("services/account_mail_service.py", "queue_account_mail"): (
+        "F60's account mail (the founder's option B): both branches of forgot-password and resend-verification "
+        "queue it before any lookup, so it carries the address the request schema validated, with a fixed "
+        "two-mail vocabulary; the routes' per-IP and per-address limits bound each caller and the process-wide "
+        "account-mail cap bounds them all (callers pinned by the account-mail test below)"
+    ),
+}
+# The account mail's callers (F60): the one helper that may name the exempt enqueue, the routes that may call
+# that helper, and the limits each must take first.
+ACCOUNT_MAIL_HELPER = ("routers/auth.py", "_queue_account_mail")
+ACCOUNT_MAIL_ROUTES = {"forgot_password", "resend_verification"}
+ACCOUNT_MAIL_CAP = "ACCOUNT_MAIL_LIMITER"
+ACCOUNT_MAIL_CAP_KEY = "account-mail"  # the one key the helper charges the cap on, for every caller
+
+
+def _module_of(rel: str) -> str:
+    return "app." + rel.removesuffix(".py").replace("/", ".")
+
+
+# Every EXEMPT site, with the process-wide cap that bounds it when a request that needs no login reaches it,
+# as (module, RateLimiter name, the one key charged), else None. These and each PASS_THROUGH's budget are the
+# caps test_filings_routes.py sums, times the API's instances, against the drain of the one queue every
+# durable task shares, so a new EXEMPT site must say here whether such a request reaches it, and what caps it.
+EXEMPT_PUBLIC_CAPS = {
+    ("services/internal_task_runner.py", "enqueue_internal_job"): None,  # its routes take the internal token
+    ("services/internal_task_runner.py", "run_internal_task"): None,  # the worker's fan-out of an operator job
+    ("services/account_mail_service.py", "queue_account_mail"): (
+        _module_of(ACCOUNT_MAIL_HELPER[0]), ACCOUNT_MAIL_CAP, ACCOUNT_MAIL_CAP_KEY,
+    ),
 }
 
 
@@ -160,6 +213,58 @@ def _forwards_unchanged(fn: ast.AST, call: ast.Call) -> bool:
             and not {*params[:2], "key", "seconds"} & _stored(fn))
 
 
+def _limiters(tree: ast.Module) -> set[str]:
+    """Module-level names bound to a ``RateLimiter(...)`` and bound nowhere else in the module."""
+    stores = [n.id for n in ast.walk(tree) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)]
+    return {t.id for node in tree.body if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)
+            and _called_name(node.value) == "RateLimiter" for t in node.targets
+            if isinstance(t, ast.Name) and stores.count(t.id) == 1}
+
+
+def _budget_spent_first(fn: ast.AST, call: ast.Call, tree: ast.Module) -> tuple[str, str] | None:
+    """The module-level limiter that must admit ``fn``, and the one literal key it charges, before the
+    statement holding ``call``, ``fn`` returning otherwise, so the count is the process's whoever asks; None
+    when there is none."""
+    for stmt in fn.body:
+        if any(node is call for node in ast.walk(stmt)):
+            return None
+        test = stmt.test if isinstance(stmt, ast.If) else None
+        admits = test.operand if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not) else None
+        if (isinstance(admits, ast.Call) and isinstance(admits.func, ast.Attribute) and admits.func.attr == "allow"
+                and isinstance(admits.func.value, ast.Name) and admits.func.value.id in _limiters(tree)
+                and len(admits.args) == 1 and not admits.keywords and isinstance(admits.args[0], ast.Constant)
+                and isinstance(admits.args[0].value, str)
+                and len(stmt.body) == 1 and isinstance(stmt.body[0], ast.Return) and not stmt.orelse):
+            return admits.func.value.id, admits.args[0].value
+    return None
+
+
+def _spends_a_budget_first(fn: ast.AST, call: ast.Call, tree: ast.Module) -> bool:
+    return _budget_spent_first(fn, call, tree) is not None
+
+
+def public_queue_caps() -> dict[tuple[str, str], tuple[str, str, str]]:
+    """Every enqueue site a request that needs no login reaches, with the process-wide cap that bounds it as
+    (module, RateLimiter name, key): each PASS_THROUGH's budget and key, as its own budget check names them,
+    and each EXEMPT site's listed cap. A limiter keeps one window per key, so each distinct triple is a budget
+    of its own. A direct router call needs a login, so none is among them."""
+    caps = {site: cap for site, cap in EXEMPT_PUBLIC_CAPS.items() if cap is not None}
+    for rel, tree, fn, call in _sites():
+        if fn is not None and (rel, fn.name) in PASS_THROUGH:
+            budget = _budget_spent_first(fn, call, tree)
+            assert budget, f"{rel} {fn.name}: a PASS_THROUGH that spends no budget cannot be counted"
+            caps[(rel, fn.name)] = (_module_of(rel), *budget)
+    return caps
+
+
+def _requires_login(fn: ast.AST) -> bool:
+    """A parameter of ``fn`` defaults to ``Depends(get_current_user)``."""
+    defaults = fn.args.defaults + [d for d in fn.args.kw_defaults if d is not None]
+    return any(isinstance(d, ast.Call) and isinstance(d.func, ast.Name) and d.func.id == "Depends"
+               and len(d.args) == 1 and not d.keywords and isinstance(d.args[0], ast.Name) and d.args[0].id == LOGIN
+               for d in defaults)
+
+
 def _violations(rel: str, tree: ast.Module, fn: ast.AST, call: ast.Call) -> list[str]:
     kwargs = {k.arg: k.value for k in call.keywords}
     payload = call.args[1] if len(call.args) > 1 else kwargs.get("payload")
@@ -199,10 +304,17 @@ def test_public_durable_tasks_are_named_only_by_server_owned_values():
             if not _forwards_unchanged(fn, call):
                 offenders.append(f"{rel}:{call.lineno} {fn.name}: a pass-through must hand enqueue_task its own "
                                  f"kind, payload, key and window unchanged, and take no other parameter: {ast.unparse(call)}")
+            if not _spends_a_budget_first(fn, call, tree):
+                offenders.append(f"{rel}:{call.lineno} {fn.name}: a pass-through must spend a process-wide budget "
+                                 "before it hands off: `if not LIMITER.allow(\"<key>\"): return` ahead of the call, "
+                                 "LIMITER a module-level RateLimiter")
         elif (rel, fn.name) in EXEMPT:
             seen.add((rel, fn.name))
         elif rel.startswith("routers/"):
             offenders += _violations(rel, tree, fn, call)
+            if _called_name(call) == "enqueue_task" and not _requires_login(fn):
+                offenders.append(f"{rel}:{call.lineno} {fn.name}: a route that needs no login hands a durable task "
+                                 "off only through a budgeted PASS_THROUGH; or take Depends(get_current_user)")
         else:
             offenders.append(f"{rel}:{call.lineno} {fn.name}: unlisted enqueue site; add it to EXEMPT with its reason")
     for rel, tree in _modules():
@@ -218,6 +330,13 @@ def test_public_durable_tasks_are_named_only_by_server_owned_values():
     assert not offenders, "\n".join(offenders)
     listed = set(EXEMPT) | PASS_THROUGH
     assert seen == listed, f"stale EXEMPT or PASS_THROUGH entries: {listed - seen}"
+
+
+def test_every_exempt_site_says_whether_a_request_without_a_login_reaches_it():
+    """``test_filings_routes.py`` sums the caps of the sites such a request reaches against the shared queue's
+    drain (``public_queue_caps``), so an EXEMPT site left out of ``EXEMPT_PUBLIC_CAPS`` could feed that queue
+    uncounted."""
+    assert set(EXEMPT_PUBLIC_CAPS) == set(EXEMPT), "list each EXEMPT site in EXEMPT_PUBLIC_CAPS with its cap, or None"
 
 
 @pytest.mark.parametrize("source,escapes", [
@@ -299,3 +418,181 @@ def test_a_fixed_vocabulary_is_called_bare_with_no_arguments():
     assert _server_owned(expr("company_list_forms()"), None)
     assert not _server_owned(expr("forms.company_list_forms()"), None)
     assert not _server_owned(expr("company_list_forms(filing_types)"), None)
+
+
+BUDGET = "VISIT_TASK_BUDGET = RateLimiter(limit=20, window_seconds=300)\n"
+HANDOFF = "    await enqueue_task(kind, payload, dedupe_key=key, dedupe_seconds=seconds)\n"
+SPEND = "    if not VISIT_TASK_BUDGET.allow('visit-tasks'):\n        return\n"
+
+
+@pytest.mark.parametrize("source,spends", [
+    pytest.param(BUDGET + "async def w(kind, payload, *, key, seconds):\n" + SPEND + HANDOFF, True, id="spends"),
+    pytest.param(BUDGET + "async def w(kind, payload, *, key, seconds):\n" + HANDOFF, False, id="no-budget"),
+    pytest.param(BUDGET + "async def w(kind, payload, *, key, seconds):\n" + HANDOFF + SPEND, False, id="after-the-call"),
+    pytest.param(BUDGET + "async def w(kind, payload, *, key, seconds):\n"
+                 "    if not VISIT_TASK_BUDGET.allow('visit-tasks'):\n        pass\n" + HANDOFF, False, id="never-refuses"),
+    pytest.param(BUDGET + "async def w(kind, payload, *, key, seconds):\n"
+                 "    VISIT_TASK_BUDGET.allow('visit-tasks')\n" + HANDOFF, False, id="result-ignored"),
+    pytest.param(BUDGET + "async def w(kind, payload, *, key, seconds):\n"
+                 "    if not VISIT_TASK_BUDGET.allow(key):\n        return\n" + HANDOFF, False, id="a-count-per-key"),
+    pytest.param("VISIT_TASK_BUDGET = object()\nasync def w(kind, payload, *, key, seconds):\n" + SPEND + HANDOFF,
+                 False, id="not-a-limiter"),
+    pytest.param(BUDGET + "async def w(kind, payload, *, key, seconds):\n"
+                 "    VISIT_TASK_BUDGET = RateLimiter(limit=10**9, window_seconds=1)\n" + SPEND + HANDOFF,
+                 False, id="rebound"),
+])
+def test_a_pass_through_spends_a_process_wide_budget_before_it_hands_off(source, spends):
+    tree = ast.parse(source)
+    fn = next(node for node in tree.body if isinstance(node, ast.AsyncFunctionDef))
+    call = next(n for n in ast.walk(fn) if isinstance(n, ast.Call) and _called_name(n) == "enqueue_task")
+    assert _spends_a_budget_first(fn, call, tree) is spends
+
+
+@pytest.mark.parametrize("signature,login", [
+    ("ticker, current_user: User = Depends(get_current_user)", True),
+    ("ticker, *, current_user: User = Depends(get_current_user)", True),
+    ("ticker, current_user: User = Depends(get_current_user_optional)", False),
+    ("ticker, current_user: Annotated[User, Depends(get_current_user)]", False),  # fails closed
+    ("ticker, db: Session = Depends(get_db)", False),
+])
+def test_a_direct_handoff_in_a_router_needs_a_login(signature, login):
+    assert _requires_login(ast.parse(f"async def route({signature}):\n    pass\n").body[0]) is login
+
+
+def _named(node: ast.AST) -> str | None:
+    return node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
+
+
+def _top_level_calls(fn: ast.AST, name: str) -> list[int]:
+    """The indexes of ``fn``'s own statements that are a call of ``name``, awaited or not."""
+    calls = []
+    for index, statement in enumerate(fn.body):
+        value = statement.value if isinstance(statement, ast.Expr) else None
+        value = value.value if isinstance(value, ast.Await) else value
+        if isinstance(value, ast.Call) and _called_name(value) == name:
+            calls.append(index)
+    return calls
+
+
+def _process_wide_key(call: ast.Call, limiter: str) -> str | None:
+    """The key ``call`` charges ``limiter`` on when the call is ``enforce_rate_limit(request, LIMITER, "<key>",
+    ..., include_client_ip=False)``, with the key a string literal, so its count is one for every caller; None
+    for any other form: a key built from the request, the client IP prefixed (the default), the flag or the key
+    passed some other way, or arguments this reading cannot see."""
+    kwargs = {k.arg: k.value for k in call.keywords}
+    flag = kwargs.get("include_client_ip")
+    if (_called_name(call) != "enforce_rate_limit" or len(call.args) != 3 or _named(call.args[1]) != limiter
+            or None in kwargs or not (isinstance(flag, ast.Constant) and flag.value is False)
+            or not (isinstance(call.args[2], ast.Constant) and isinstance(call.args[2].value, str))):
+        return None
+    return call.args[2].value
+
+
+def _account_mail_offenders(modules) -> list[str]:
+    """Why the account mail's callers break its exemption, given ``modules`` as (path, tree) pairs."""
+    enqueue, helper_rel, helper = "queue_account_mail", *ACCOUNT_MAIL_HELPER
+    offenders = []
+    for rel, tree in modules:
+        callees = {id(n.func) for n in ast.walk(tree) if isinstance(n, ast.Call)}
+        offenders += [f"{rel}:{n.lineno}: imports {enqueue}; reach it as account_mail_service.{enqueue} from "
+                      f"{helper} alone" for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)
+                      and any(a.name == enqueue for a in n.names)]
+        for node, scope in _scoped(tree):
+            name = _named(node)
+            if name not in (enqueue, helper) or not isinstance(getattr(node, "ctx", None), ast.Load):
+                continue
+            where = getattr(scope, "name", None)
+            if id(node) not in callees:
+                offenders.append(f"{rel}:{node.lineno}: {name} is used other than as a direct call")
+            elif name == enqueue and (rel, where) != ACCOUNT_MAIL_HELPER:
+                offenders.append(f"{rel}:{node.lineno} {where}: calls {enqueue}; only {helper} may")
+            elif name == helper and (rel != helper_rel or where not in ACCOUNT_MAIL_ROUTES):
+                offenders.append(f"{rel}:{node.lineno} {where}: calls {helper}; only {sorted(ACCOUNT_MAIL_ROUTES)} may")
+    defs = {(rel, fn.name): fn for rel, tree in modules for fn in ast.walk(tree)
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    for route in sorted(ACCOUNT_MAIL_ROUTES):
+        fn = defs.get((helper_rel, route))
+        handoffs = _top_level_calls(fn, helper) if fn else []
+        limits = _top_level_calls(fn, "enforce_rate_limit") if fn else []
+        if len(handoffs) != 1 or len([i for i in limits if i < handoffs[0]]) < 2:
+            offenders.append(f"{helper_rel} {route}: must call {helper} once, as its own statement, after its "
+                             "per-IP and per-address enforce_rate_limit calls")
+    body = defs[ACCOUNT_MAIL_HELPER].body if ACCOUNT_MAIL_HELPER in defs else []
+    caps = [(i, statement.value) for i, statement in enumerate(body) if isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Call) and _called_name(statement.value) == "enforce_rate_limit"
+            and any(_named(a) == ACCOUNT_MAIL_CAP for a in statement.value.args)]
+    handoff = [i for i, statement in enumerate(body) if any(
+        isinstance(n, ast.Call) and _called_name(n) in (enqueue, "add_task") for n in ast.walk(statement))]
+    if not caps or not handoff or caps[0][0] > handoff[0]:
+        offenders.append(f"{helper_rel} {ACCOUNT_MAIL_HELPER[1]}: must take {ACCOUNT_MAIL_CAP} before its handoff")
+    offenders += [f"{helper_rel}:{call.lineno} {ACCOUNT_MAIL_HELPER[1]}: must charge {ACCOUNT_MAIL_CAP} on the one "
+                  f"literal key \"{ACCOUNT_MAIL_CAP_KEY}\" with include_client_ip=False, so every caller shares it; keyed "
+                  "per client IP or by the request, a caller rotating addresses would get a cap of its own"
+                  for _, call in caps if _process_wide_key(call, ACCOUNT_MAIL_CAP) != ACCOUNT_MAIL_CAP_KEY]
+    return offenders
+
+
+def test_account_mail_is_queued_only_behind_the_two_routes_limits():
+    """The account mail's EXEMPT entry rests on its callers (F60): only the auth router's helper names the
+    enqueue, only forgot-password and resend-verification call the helper, each after its per-IP and
+    per-address limits, and the helper takes the process-wide cap before it hands the work off, on one
+    literal key and not per client IP, so an address rotating through an IPv6 block meets the same cap."""
+    assert _account_mail_offenders(list(_modules())) == []
+
+
+ROUTES_SRC = """
+async def _queue_account_mail(request, background, mail, email):
+    enforce_rate_limit(request, ACCOUNT_MAIL_LIMITER, "account-mail", error_detail="x", include_client_ip=False)
+    if settings.DURABLE_TASKS_ENABLED:
+        await account_mail_service.queue_account_mail(mail, email)
+    else:
+        background.add_task(account_mail_service.send_account_mail_after_response, mail, email)
+
+async def forgot_password(payload, request, background):
+    enforce_rate_limit(request, RESET_RESEND_IP_LIMITER, "reset-ip", error_detail="x")
+    enforce_rate_limit(request, RESET_REQUEST_LIMITER, "reset:e", error_detail="x", include_client_ip=False)
+    await _queue_account_mail(request, background, "password_reset", payload.email)
+
+async def resend_verification(payload, request, background):
+    enforce_rate_limit(request, RESET_RESEND_IP_LIMITER, "resend-ip", error_detail="x")
+    enforce_rate_limit(request, RESEND_VERIFY_LIMITER, "resend:e", error_detail="x", include_client_ip=False)
+    await _queue_account_mail(request, background, "verification", payload.email)
+"""
+
+
+def _appending(extra: str):
+    return lambda source: source + extra
+
+
+def _handing_off_before_the_per_address_limit(source: str) -> str:
+    lines = source.splitlines(keepends=True)
+    handoff = next(i for i, line in enumerate(lines) if '"password_reset", payload.email' in line)
+    lines.insert(handoff - 1, lines.pop(handoff))
+    return "".join(lines)
+
+
+def _dropping_the_cap(source: str) -> str:
+    return "".join(line for line in source.splitlines(keepends=True) if ACCOUNT_MAIL_CAP not in line)
+
+
+def _on_the_cap_line(change):
+    return lambda source: "".join(change(line) if ACCOUNT_MAIL_CAP in line else line
+                                  for line in source.splitlines(keepends=True))
+
+
+@pytest.mark.parametrize("change,offends", [
+    (lambda source: source, False),
+    (_appending("\nasync def register(request, background):\n"
+                "    await _queue_account_mail(request, background, 'verification', 'x')\n"), True),
+    (_handing_off_before_the_per_address_limit, True),
+    (_dropping_the_cap, True),
+    (_on_the_cap_line(lambda line: line.replace(", include_client_ip=False", "")), True),
+    (_on_the_cap_line(lambda line: line.replace('"account-mail"', 'f"account-mail:{email}"')), True),
+    (_appending("\nasync def other():\n    await account_mail_service.queue_account_mail('verification', 'x')\n"), True),
+    (_appending("\nfrom app.services.account_mail_service import queue_account_mail\n"), True),
+    (_appending("\nqueue = _queue_account_mail\n"), True),
+], ids=["as-built", "third-caller", "handoff-before-limit", "no-cap", "per-ip-cap", "per-address-cap",
+        "other-enqueue-caller", "imported", "aliased"])
+def test_the_account_mail_check_flags_each_broken_premise(change, offends):
+    offenders = _account_mail_offenders([("routers/auth.py", ast.parse(change(ROUTES_SRC)))])
+    assert bool(offenders) is offends, offenders

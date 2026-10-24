@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import * as Sentry from '@sentry/nextjs'
 import { ArrowsClockwiseIcon, HouseIcon, WarningIcon } from '@/lib/icons'
@@ -62,7 +63,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
+        <main className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
           <div className="w-full max-w-md space-y-4">
             <GuidanceCard
               variant="error"
@@ -93,14 +94,15 @@ export class GlobalErrorBoundary extends Component<Props, State> {
             <p className="text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
               If this problem persists, please contact{' '}
               <a
-                href="mailto:support@earningsnerd.io"
+                href={contactMailto('support')}
                 className="rounded text-brand-strong hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
               >
-                support@earningsnerd.io
+                {CONTACT_ADDRESSES.support}
+
               </a>
             </p>
           </div>
-        </div>
+        </main>
       )
     }
 

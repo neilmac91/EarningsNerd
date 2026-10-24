@@ -11,7 +11,7 @@ from app.routers.auth import get_current_user
 from app.services.summary_generation_service import progress_as_dict
 from app.services.summary_placeholders import is_summary_placeholder
 from app.config import settings
-from app.services import filing_list_service, watchlist_service
+from app.services import filing_list_service, legal_readiness_service, watchlist_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.turnstile import enforce_turnstile
 from app.utils.text import has_control_characters
@@ -408,6 +408,8 @@ async def join_waitlist(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    if not legal_readiness_service.is_collection_available():
+        raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
     enforce_rate_limit(
         request,
         WAITLIST_JOIN_LIMITER,
@@ -444,6 +446,8 @@ async def join_waitlist(
 
     try:
         outcome, signup, referrer, total_signups = await run_in_threadpool(create)
+    except legal_readiness_service.CollectionUnavailable:
+        raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE) from None
     except WaitlistReferralNotFound:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,

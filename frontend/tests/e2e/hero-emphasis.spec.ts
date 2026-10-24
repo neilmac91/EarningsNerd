@@ -44,7 +44,8 @@ for (const surface of SURFACES) {
           await expect.poll(() => heading.evaluate((element) => Object.keys(element).some((key) => key.startsWith('__reactFiber$')))).toBe(true)
           if (surface.path !== '/login') {
             await expect(page.getByRole('banner').getByRole('link', {
-              name: width < 1024 ? /^(Sign up|Request invite)$/ : /^(Sign up|Request an invite)$/,
+              // The compact bar's short account link below 72rem (1152px here), the full bar's from it.
+              name: width < 1152 ? /^(Sign up|Request invite)$/ : /^(Create a free account|Request an invite)$/,
             })).toBeVisible()
           }
           const headingNode = await heading.elementHandle()

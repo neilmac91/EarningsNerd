@@ -1,6 +1,6 @@
 # Let the cookie banner be the only analytics control: never read a browser privacy signal, and move /privacy's sentence with any change to that
 
-Date: 2026-10-19 · Area: frontend / privacy
+Date: 2026-10-19, updated 2026-10-23 · Area: frontend / privacy
 
 **Context.** /privacy said "We respect the 'Do Not Track' browser setting and will not track users who
 have enabled it." CookieConsent read Do Not Track only on a first visit, where it stored "essential only"
@@ -16,13 +16,12 @@ went, and /privacy's sentence changed in the same PR. The founder then scoped th
 **Rule.**
 
 (a) The cookie banner (the bar, its dialog and the footer's Cookie settings) is the only analytics control.
-Analytics and session recording stay off until the visitor allows them there. No browser privacy signal (Do
-Not Track by any spelling, Global Privacy Control, their request headers, an SDK option that reads one)
+Browser analytics stays off until the visitor allows it there. Session recording is disabled under the
+founder-authorized initial-release policy (2026-10-23). No browser privacy signal (Do Not Track by any spelling, Global Privacy Control, their request headers, an SDK option that reads one)
 turns them off, stands in for a first choice or hides the bar.
 
-(b) App code reads no such signal. A change that reads one changes /privacy's sentence ("Analytics and
-session recording in your browser stay off until you allow them, and you can change your choice at any time
-in Cookie settings. We don't change this based on your browser's Do Not Track setting.") in the same PR,
+(b) App code reads no such signal. A change that reads one changes /privacy's sentence ("Analytics in your browser stays off until you allow it, and you can change your choice at any
+time in Cookie settings. We don't change this based on your browser's Do Not Track setting.") in the same PR,
 under a decision of the founder's.
 
 (c) A spec that sends a signal checks both states: a first visit, where the bar shows, and a choice already

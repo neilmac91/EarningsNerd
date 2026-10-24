@@ -10,10 +10,22 @@ vi.mock('@/lib/api/client', async () => {
   return { ...actual, default: { post } }
 })
 
-import { startOAuthWithInvite } from '@/features/auth/api/auth-api'
+import { register, startOAuthWithInvite } from '@/features/auth/api/auth-api'
 import { oauthStartHref } from '@/features/auth/lib/oauthStart'
 
 describe('invited OAuth start keeps the invite out of URLs', () => {
+  const agreement = { adult_eligible: true, terms_accepted: true, terms_version: '2026-10-24', eligibility_version: '2026-10-24' } as const
+
+  it('sends the same complete, flat assent on public OAuth signup and email signup', async () => {
+    post.mockResolvedValue({ data: { url: 'https://accounts.example/consent?state=abc' } })
+    await startOAuthWithInvite('google', undefined, agreement)
+    expect(post).toHaveBeenLastCalledWith('/api/auth/google/start', agreement)
+    await register('reader@example.test', 'long-password', 'Reader', 'captcha-token', undefined, agreement)
+    expect(post).toHaveBeenLastCalledWith('/api/auth/register', {
+      email: 'reader@example.test', password: 'long-password', full_name: 'Reader', invite_code: undefined, ...agreement,
+    }, { headers: { 'cf-turnstile-response': 'captcha-token' } })
+  })
+
   it('POSTs the invite in the body and returns the provider URL', async () => {
     post.mockResolvedValueOnce({ data: { url: 'https://accounts.example/consent?state=abc' } })
     const url = await startOAuthWithInvite('google', 'tok en+/=1')

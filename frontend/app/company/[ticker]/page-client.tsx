@@ -266,10 +266,11 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   // Handle case where ticker might not be available
   if (!ticker) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
+      <main className="min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-md">
           <GuidanceCard
             variant="error"
+            headingLevel="h1"
             title="Invalid ticker"
             action={
               <Link href="/" className={buttonVariants({ variant: 'secondary' })}>
@@ -278,16 +279,18 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
             }
           />
         </div>
-      </div>
+      </main>
     )
   }
 
   if (companyLoading) {
     return (
-      <div role="status" aria-label="Loading company" className="min-h-screen flex items-center justify-center">
-        <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
-        <span className="sr-only">Loading company…</span>
-      </div>
+      <main>
+        <div role="status" aria-label="Loading company" className="min-h-screen flex items-center justify-center">
+          <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
+          <span className="sr-only">Loading company…</span>
+        </div>
+      </main>
     )
   }
 
@@ -297,10 +300,11 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     // coverage card below, so the error tint means something broke.
     const loadFailed = companyFailure.failed && !companyNotFound
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
+      <main className="min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-md">
           <GuidanceCard
             variant={loadFailed ? 'error' : 'empty'}
+            headingLevel="h1"
             headingRef={companyCardHeadingRef}
             title={loadFailed ? 'Couldn’t load this company' : 'Company not found'}
             description={
@@ -319,7 +323,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
             }
           />
         </div>
-      </div>
+      </main>
     )
   }
 
@@ -328,11 +332,12 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   // unavailable" state — distinct from a bare "Company not found" — instead of a broken page.
   if (company.coverage_status === 'unsupported_foreign') {
     return (
-      <div className="min-h-screen bg-background-light dark:bg-background-dark">
+      <main className="min-h-screen bg-background-light dark:bg-background-dark">
         <div className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6">
           {/* Honest coverage-unavailable state — an empty, not an error. */}
           <GuidanceCard
             variant="empty"
+            headingLevel="h1"
             // The company Retry's last hand-off target: a retry that answers with an unsupported issuer
             // renders this card and no filings heading.
             headingRef={companyCardHeadingRef}
@@ -349,7 +354,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
             }
           />
         </div>
-      </div>
+      </main>
     )
   }
 
@@ -424,10 +429,12 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
           <InsiderActivityPanel ticker={normalizedTicker} isFpi={filingsLoading ? undefined : isFpi} />
         )}
 
-        {/* SEC filings, and beside them on lg+ the Compare periods card when there is a pair of annual
+        {/* SEC filings, and beside them from 64rem the Compare periods card when there is a pair of annual
             periods to compare (2026-10 critique, 1b). Keyed on the ticker so the filters reset on a
-            soft navigation to another company. */}
-        <div className={cx('grid grid-cols-1 gap-6', comparisonFiling && 'lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start')}>
+            soft navigation to another company. 64rem, a rem media query, is lg's 1024px at the default size and
+            2048px under 200% text, where the card's 20rem column (640px) leaves the filings their room: at lg, px at any
+            size, it left them 208px at 1024px under 200% text, and the Compare periods card covered their rows (E168). */}
+        <div className={cx('grid grid-cols-1 gap-6', comparisonFiling && '[@media(min-width:64rem)]:grid-cols-[minmax(0,1fr)_20rem] [@media(min-width:64rem)]:items-start')}>
           <FilingIndex
             key={normalizedTicker}
             filings={filings}

@@ -1,4 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
+import { PANE, answerApi } from './fixtures/filing3Api'
+import { ACCESS_COPY } from '../../features/marketing/lib/access'
 
 /**
  * The site header (components/Header.tsx) is the one bar that sticks at the top of the viewport, and it covers
@@ -25,16 +27,22 @@ import { test, expect, type Page } from '@playwright/test'
  * open mobile menu, scrolled the page behind the menu at every Tab through it (from 2,350px to the top in five
  * Tabs at 390px), and a control in the bar that took focus while the page was scrolled moved the page by half a
  * screen. With the page scrolled, the menu opened at 390x844 at both text sizes keeps the page where it is through
- * every Tab in it, and a Tab out of it lands on a control the open menu does not wholly cover, at the default size
- * inside the screen and below the menu (under 200% text the open menu fills the screen: E167); at 1440x900 a focus
- * on the bar's logo or theme toggle leaves the page where it is.
+ * every Tab in it, and a Tab out of it closes the menu and lands on a control inside the screen and below the bar;
+ * at 1440x900 a focus on the bar's logo or theme toggle leaves the page where it is.
+ *
+ * The open menu is a disclosure: it closes when focus leaves the header (E167, chief design's ruling on #1521). Under
+ * 200% text the open menu fills the screen, and it stayed open when a Tab left it, so the next control was scrolled
+ * into view past the screen's foot (784 to 904px). It closes inside the focusout, before the browser scrolls the
+ * next control into view, or that scroll would still reserve the open menu's height; a focus moved by script out
+ * of the open menu, which leaves no microtask between the two, closes it and lands below the bar too.
  *
  * 200% text is Chromium's own text setting (`Page.setFontSizes`, as tests/e2e/reflow-200.spec.ts doubles it), not
  * an inline style on <html>, which no media query reads. CI runs e2e with no backend
  * (lessons/test-e2e-runs-without-backend.md), and the build may name a production API host, so every API request is
  * answered here in the browser whatever its host: the session check 401 (a guest), any other API path 404; every
- * other request but the frontend's own GET and HEAD is aborted. The consent bar is answered before load, so its
- * bottom inset is not in play.
+ * other request but the frontend's own GET and HEAD is aborted. The filing pane's case answers the API from
+ * fixtures/filing3Api.ts, for a Pro reader. The consent bar is answered before load, so its bottom inset is not in
+ * play.
  */
 
 const VIEWPORTS = [
@@ -72,6 +80,12 @@ async function open(page: Page, baseURL: string, route: string, theme: 'light' |
   await answerGuest(page, baseURL)
   await page.goto(route)
   await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /\bdark\b/ : /^(?!.*\bdark\b)/)
+  // The header's auth check settles before a test scrolls: where the check changes the phone bar's lines (below about
+  // 15rem, a band chief design accepts) the header still grows when it settles, and scroll anchoring then moves a page
+  // already scrolled by the difference, which a test of the page holding still would read as a focus moving it; the
+  // held-check case below holds the states where the header must keep its height (E174, E173, E175). Hidden included:
+  // below 72rem the placeholder sits in the full bar's controls, display:none, until the check settles.
+  await expect(page.getByRole('status', { name: 'Checking whether you are logged in', includeHidden: true })).toHaveCount(0)
 }
 
 /** Chromium's own text setting doubled (standard 32, fixed 26), confirmed taken: the root computes to 32px. */
@@ -205,46 +219,105 @@ for (const viewport of VIEWPORTS) {
   }
 }
 
+/**
+ * The open-menu walk: with the page scrolled to 2000px the menu is opened from the keyboard, its toggle focused without
+ * a scroll, as a reader who had tabbed there would have it. A Tab through it keeps the page where it is, and a Tab out
+ * of it closes the menu and lands on a control inside the screen and below the bar.
+ */
+async function walkTheOpenMenu(page: Page, name: string, screenHeight: number) {
+  await page.evaluate(() => window.scrollTo(0, 2000))
+  await settle(page)
+  await page.getByRole('button', { name: 'Open menu' }).evaluate((el: HTMLElement) => el.focus({ preventScroll: true }))
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible()
+  await settle(page)
+  const opened = await focusState(page)
+  expect(opened.scrollY, `${name}: the page is scrolled before the menu's walk`).toBeGreaterThan(1000)
+  let tabs = 0
+  for (;;) {
+    await page.keyboard.press('Tab')
+    const now = await focusState(page)
+    if (!now.inHeader) {
+      await expect(page.getByRole('navigation', { name: 'Mobile navigation' }), `${name}: a Tab out of the open menu, onto ${now.label}, closes it`).toHaveCount(0)
+      expect(
+        [now.top >= now.barBottom - 0.5, now.bottom <= screenHeight + 0.5],
+        `${name}: a Tab out of the open menu lands on ${now.label} at ${now.top.toFixed(0)} to ${now.bottom.toFixed(0)}px, inside the screen and below the bar ending at ${now.barBottom.toFixed(0)}px`,
+      ).toEqual([true, true])
+      break
+    }
+    tabs++
+    expect(now.scrollY, `${name}: Tab ${tabs}, onto ${now.label} in the open menu, moved the page from ${opened.scrollY}px`).toBe(opened.scrollY)
+    expect(tabs, `${name}: the walk through the open menu ends`).toBeLessThan(40)
+  }
+  expect(tabs, `${name}: the walk went through the menu's stops`).toBeGreaterThan(3)
+}
+
 test.describe("the site header's own stops hold the page in place", () => {
   for (const doubled of [false, true]) {
     const name = `390px${doubled ? ' under 200% text' : ''}`
     test.describe(name, () => {
       test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
-      test('a Tab through the open menu keeps the page where it is, and a Tab out of it lands on a control the menu does not cover', async ({ page, baseURL }) => {
+      test('a Tab through the open menu keeps the page where it is, and a Tab out of it closes the menu and lands below the bar', async ({ page, baseURL }) => {
+        await open(page, baseURL!, '/', 'light')
+        if (doubled) await doubleText(page)
+        await settle(page)
+        await walkTheOpenMenu(page, name, 844)
+      })
+
+      // A tap or a click moves focus to what it presses on its mousedown, before its release. The header is in the
+      // page's flow, and at the top of a page nothing anchors the scroll, so a menu that closed on that focusout moved
+      // the page under the finger and the release followed nothing. A press leaves the menu open, as before (chief
+      // design's ruling on #1542), and the navigation it starts closes it. Under 200% text the open menu fills the
+      // screen, so no page control shows below it to press.
+      if (!doubled) {
+        test('a tap on a page link below the open menu, at the top of the page, follows it, and the next page opens with the menu closed', async ({ page, baseURL }) => {
+          await open(page, baseURL!, '/', 'light')
+          await settle(page)
+          expect(await page.evaluate(() => window.scrollY), `${name}: the page is at its top`).toBe(0)
+          const toggle = (await page.getByRole('button', { name: 'Open menu' }).boundingBox())!
+          await page.touchscreen.tap(toggle.x + toggle.width / 2, toggle.y + toggle.height / 2)
+          await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible()
+          await settle(page)
+          const target = await page.evaluate(() => {
+            const menuEnd = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+            const link = [...document.querySelectorAll<HTMLAnchorElement>('main a[href^="/"]')].find((a) => {
+              const r = a.getBoundingClientRect()
+              return r.width > 0 && r.top > menuEnd + 8 && r.bottom < window.innerHeight - 8
+            })
+            if (!link) return null
+            const r = link.getBoundingClientRect()
+            return { href: link.getAttribute('href')!, label: link.textContent!.replace(/\s+/g, ' ').trim(), x: r.x + r.width / 2, y: r.y + r.height / 2, menuEnd }
+          })
+          expect(target, `${name}: a page link shows below the open menu`).not.toBeNull()
+          await page.touchscreen.tap(target!.x, target!.y)
+          await expect(page, `${name}: a tap on "${target!.label}" at ${target!.y.toFixed(0)}px, below the open menu ending at ${target!.menuEnd.toFixed(0)}px, follows it`).toHaveURL(
+            (url) => url.pathname === target!.href,
+          )
+          await expect(page.getByRole('navigation', { name: 'Mobile navigation' }), `${name}: ${target!.href} opens with the menu closed`).toHaveCount(0)
+        })
+      }
+
+      // A focus moved by script runs with script on the stack, so no microtask runs between the focusout and the
+      // browser's scroll: only a close inside the focusout clears the open menu's height from the padding in time.
+      // Without it, under 200% text, the control landed at 91 to 211px, partly under a 151px bar.
+      test('a focus moved by script out of the open menu closes it and lands below the bar', async ({ page, baseURL }) => {
         await open(page, baseURL!, '/', 'light')
         if (doubled) await doubleText(page)
         await settle(page)
         await page.evaluate(() => window.scrollTo(0, 2000))
         await settle(page)
-        // Opened from the keyboard, its toggle focused without a scroll, as a reader who had tabbed there would have it.
         await page.getByRole('button', { name: 'Open menu' }).evaluate((el: HTMLElement) => el.focus({ preventScroll: true }))
         await page.keyboard.press('Enter')
         await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible()
         await settle(page)
-        const opened = await focusState(page)
-        expect(opened.scrollY, `${name}: the page is scrolled before the menu's walk`).toBeGreaterThan(1000)
-        let tabs = 0
-        for (;;) {
-          await page.keyboard.press('Tab')
-          const now = await focusState(page)
-          if (!now.inHeader) {
-            expect(now.bottom, `${name}: a Tab out of the open menu lands on ${now.label} at ${now.top.toFixed(0)} to ${now.bottom.toFixed(0)}px, wholly under a header ending at ${now.barBottom.toFixed(0)}px`).toBeGreaterThan(now.barBottom + 0.5)
-            // At the default size the open menu leaves room below it, and the control lands there, inside the screen. Under
-            // 200% text the menu fills the screen and stays open, so the control lands past its foot: E167 closes the menu
-            // when focus leaves it, and then holds this at both sizes.
-            if (!doubled) {
-              expect(
-                [now.top >= now.barBottom - 0.5, now.bottom <= 844.5],
-                `${name}: a Tab out of the open menu lands on ${now.label} at ${now.top.toFixed(0)} to ${now.bottom.toFixed(0)}px, inside the screen and below the open menu ending at ${now.barBottom.toFixed(0)}px`,
-              ).toEqual([true, true])
-            }
-            break
-          }
-          tabs++
-          expect(now.scrollY, `${name}: Tab ${tabs}, onto ${now.label} in the open menu, moved the page from ${opened.scrollY}px`).toBe(opened.scrollY)
-          expect(tabs, `${name}: the walk through the open menu ends`).toBeLessThan(40)
-        }
-        expect(tabs, `${name}: the walk went through the menu's stops`).toBeGreaterThan(3)
+        await page.locator('main').locator('a[href], button').first().evaluate((el: HTMLElement) => el.focus())
+        await settle(page)
+        const now = await focusState(page)
+        await expect(page.getByRole('navigation', { name: 'Mobile navigation' }), `${name}: a focus moved by script onto ${now.label} closes the open menu`).toHaveCount(0)
+        expect(
+          [now.inHeader, now.top >= now.barBottom - 0.5, now.bottom <= 844.5],
+          `${name}: a focus moved by script out of the open menu lands on ${now.label} at ${now.top.toFixed(0)} to ${now.bottom.toFixed(0)}px, inside the screen and below the bar ending at ${now.barBottom.toFixed(0)}px`,
+        ).toEqual([false, true, true])
       })
     })
   }
@@ -265,4 +338,287 @@ test.describe("the site header's own stops hold the page in place", () => {
       }
     })
   })
+})
+
+// From lg the compact bar stands where the full bar did below 72rem, so under 200% text its menu opens on a desktop too,
+// where a signed-in reader's fills the screen (chief design on #1558, comment 6377073723): the same walk at 1440x900.
+test.describe("the site header's own stops hold the page in place / 1440x900 under 200% text, a signed-in reader", () => {
+  test.use({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
+  test('a Tab through the open menu keeps the page where it is, and a Tab out of it closes the menu and lands below the bar', async ({ page, baseURL }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('theme', 'light')
+      localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+      localStorage.setItem('en_session_active', '1')
+    })
+    const release = await answerHeld(page, baseURL!, 'reader')
+    release()
+    await page.goto('/')
+    await expect(page.getByRole('status', { name: 'Checking whether you are logged in', includeHidden: true })).toHaveCount(0)
+    await doubleText(page)
+    await settle(page)
+    await expect(page.getByRole('button', { name: 'Open menu' }), 'the compact bar shows at 1440px under 200% text').toBeVisible()
+    await expect(page.getByRole('button', { name: /^Notifications/ }), "and a signed-in reader's bell in it").toBeVisible()
+    await walkTheOpenMenu(page, '1440x900 under 200% text, a signed-in reader', 900)
+  })
+})
+
+/** From lg the open menu lies over the page, so a press outside the header closes it, as it closes the bar's other
+    menus, and the press still lands where it was aimed (E182, chief design on #1565, comment 6380050139): the header
+    keeps the bar's height, so nothing moves under the pointer. On / at 1024x768 and 1100x800, a guest's page is
+    scrolled so the pricing row's billing switch, its Monthly choice unchosen (it opens on Annual), shows below where
+    the open menu reaches; a click on it closes the menu and chooses it, and the page stays where it was. Below lg the
+    menu sits in the header's flow, and a press leaves it open (E167, the tap case above). Under 200% text the open
+    menu fills the screen, so no page control shows below it to press. */
+test.describe('from lg a press on the page closes the open menu and reaches its target', () => {
+  for (const viewport of [{ width: 1024, height: 768 }, { width: 1100, height: 800 }]) {
+    test.describe(`${viewport.width}x${viewport.height}`, () => {
+      test.use({ viewport, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
+      test('a click on a control below the open menu closes the menu and reaches the control', async ({ page, baseURL }) => {
+        await open(page, baseURL!, '/', 'light')
+        await settle(page)
+        const label = 'Monthly'
+        const target = page.getByRole('radio', { name: label, exact: true })
+        await expect(target, 'the billing switch opens on Annual, Monthly unchosen').toHaveAttribute('aria-checked', 'false')
+        // Its middle a quarter of the screen above the foot, below where the open menu reaches, scrolled there again
+        // until it rests there: the landing's sections above it can still grow after the first scroll.
+        await expect
+          .poll(
+            async () => {
+              const off = await target.evaluate((el) => {
+                const r = el.getBoundingClientRect()
+                const by = r.top + r.height / 2 - window.innerHeight * 0.75
+                window.scrollBy(0, by)
+                return Math.abs(by)
+              })
+              await settle(page)
+              return off
+            },
+            { message: `${viewport.width}px: "${label}" rests a quarter of the screen above its foot` },
+          )
+          .toBeLessThanOrEqual(1)
+        // A click at the toggle's box, as a pointer presses it: Playwright's own click first scrolls a sticky element's
+        // box into view, which moved this page 400px.
+        const toggle = (await page.getByRole('button', { name: 'Open menu' }).boundingBox())!
+        await page.mouse.click(toggle.x + toggle.width / 2, toggle.y + toggle.height / 2)
+        const menu = page.getByRole('navigation', { name: 'Mobile navigation' })
+        await expect(menu).toBeVisible()
+        await settle(page)
+        const at = await target.evaluate((el) => {
+          const r = el.getBoundingClientRect()
+          const menuEnd = document.querySelector('nav[aria-label="Mobile navigation"]')!.parentElement!.getBoundingClientRect().bottom
+          return { x: r.x + r.width / 2, y: r.y + r.height / 2, menuEnd, scrollY: window.scrollY, foot: window.innerHeight }
+        })
+        expect(at.y, `${viewport.width}px: "${label}" sits below the open menu, which ends at ${Math.round(at.menuEnd)}px`).toBeGreaterThan(at.menuEnd + 8)
+        expect(at.y, `${viewport.width}px: "${label}" sits inside the screen, whose foot is at ${at.foot}px`).toBeLessThan(at.foot - 8)
+        await page.mouse.click(at.x, at.y)
+        await expect(menu, `${viewport.width}px: the press on the page closes the open menu`).toHaveCount(0)
+        await expect(target, `${viewport.width}px: the press reaches "${label}", which is now chosen`).toHaveAttribute('aria-checked', 'true')
+        expect(await page.evaluate(() => window.scrollY), `${viewport.width}px: the page stays where it was`).toBe(at.scrollY)
+      })
+    })
+  }
+})
+
+/**
+ * From lg the open compact menu lies over the page under the bar, as the bar's other menus do, and the height the
+ * header publishes leaves it out (chief design on #1558, comment 6377356358). In the header's flow the open menu
+ * pushed the page down and grew --site-header-h, so the filing workspace's pane, which runs from its own top to the
+ * screen's foot, shrank under it: at 1100x800 from 550 to 12px, and under 200% text from 254 to 0px. At 1100x800 on
+ * /filing/3, a Pro reader with the pane open, at both text sizes, at the top of the page and with the page scrolled
+ * so the pane sticks under the bar: with the menu open the pane keeps its top and its height, the page its scroll, and
+ * the header publishes the bar's height; the menu lies over the pane, the header's layer above it, and ends inside the
+ * screen.
+ */
+test.describe('from lg the open menu lies over the page / 1100x800, a Pro reader on /filing/3', () => {
+  test.use({ viewport: { width: 1100, height: 800 }, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
+  for (const doubled of [false, true]) {
+    const size = doubled ? '200% text' : 'the default text size'
+    test(`at ${size}, the open menu leaves the filing pane its top and its height`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem('theme', 'light')
+        localStorage.setItem('en_session_active', '1')
+        localStorage.setItem('en:copilot-coachmark-v1', '1')
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+      })
+      await answerApi(page, baseURL!, 'pro')
+      await page.goto('/filing/3')
+      await page.getByRole('button', { name: 'Source', exact: true }).click()
+      const pane = page.locator(PANE)
+      await expect(pane).toBeVisible()
+      if (doubled) await doubleText(page)
+      await settle(page)
+      await expect(page.getByRole('button', { name: 'Open menu' }), `${size}: the compact bar shows at 1100px`).toBeVisible()
+      const menu = page.getByRole('navigation', { name: 'Mobile navigation' })
+      const read = () =>
+        pane.evaluate((el) => {
+          const r = el.getBoundingClientRect()
+          return { top: Math.round(r.top), height: Math.round(r.height), published: document.documentElement.style.getPropertyValue('--site-header-h'), scrollY: window.scrollY }
+        })
+
+      for (const scrolled of [false, true]) {
+        const where = `${size}, ${scrolled ? 'the page scrolled' : 'the top of the page'}`
+        if (scrolled) {
+          await page.evaluate(() => window.scrollTo(0, 1200))
+          await settle(page)
+        }
+        const closed = await read()
+        expect(closed.height, `${where}: the pane is open with the menu closed`).toBeGreaterThan(200)
+        if (scrolled) expect(closed.top, `${where}: the pane sticks under the bar`).toBe(parseInt(closed.published))
+        await page.getByRole('button', { name: 'Open menu' }).click()
+        await expect(menu).toBeVisible()
+        await settle(page)
+        const opened = await read()
+        expect(opened, `${where}: with the menu open the pane keeps its top and height (${closed.top}px, ${closed.height}px), the page its scroll, and the header the bar's published height`).toEqual(closed)
+        // A point 8px inside the pane's top left corner: the open menu reaches below it, and lies over it.
+        const point = await pane.evaluate((el) => ({ x: el.getBoundingClientRect().left + 8, y: el.getBoundingClientRect().top + 8 }))
+        const over = await menu.locator('xpath=..').evaluate((panel, { x, y }) => {
+          const hit = document.elementFromPoint(x, y)
+          return { bottom: panel.getBoundingClientRect().bottom, hitsMenu: hit !== null && panel.contains(hit) }
+        }, point)
+        expect(over.bottom, `${where}: the open menu reaches the pane's top`).toBeGreaterThan(point.y)
+        expect(over.hitsMenu, `${where}: the open menu lies over the pane, the header's layer above it`).toBe(true)
+        expect(over.bottom, `${where}: the open menu ends inside the 800px screen`).toBeLessThanOrEqual(800.5)
+        await page.getByRole('button', { name: 'Close menu' }).click()
+        await expect(menu).toHaveCount(0)
+      }
+    })
+  }
+})
+
+/**
+ * The header holds one height as its auth check settles (E174, chief design on #1538, comment 6375148655; E173 and
+ * E175, on #1544, comment 6375980005). The check shows a 36px placeholder, then a guest's Log in and account links
+ * (the md button, 40px) or a signed-in reader's 36px avatar: the full bar's controls take min-h-10, the md button's
+ * height, so every state gives it one height. The check also changed the full bar's lines: a guest's row wrapped at
+ * 1024 to 1031px (E173), and with the text doubled the placeholder shared a line the settled controls could not
+ * (E175). The full bar now shows only from 72rem, where it keeps one line with its widest settled controls, and the
+ * compact bar below it keeps one line from 1024px. With the check held open the page is scrolled, then the check is
+ * answered (a guest's 401, or a reader), and the header keeps its height and the page its place, in the bar each width
+ * shows: the compact bar at 1024px and the full bar at 1152px (72rem) and 1440px at the default size; with the text
+ * doubled the compact bar at 1024 and 1440px and the full bar at 2304px.
+ *
+ * The nav keeps its place too (E175, chief design on #1558, comment 6377073723): the full bar's controls cell keeps a
+ * guest's width whatever the check shows, a hidden copy of a guest's controls in the live ones' grid cell, so in each
+ * full-bar state the nav's left edge holds as the check settles, where it moved 109px for a guest and 35px for a reader
+ * at 1152px. The wordmark shows from 40rem, 1280px with the text doubled, so a guest's compact bar keeps one line at
+ * 640 and 800px under 200% text as well, where it grew 14px with "Sign up" and 88px with "Request invite"; a reader's
+ * holds there as before. A build answers one access mode, so a guest's compact link then takes each mode's label in
+ * turn (a copy fixture), and the header keeps the height it had while the check was held. Below about 15rem (480px
+ * under 200% text) a guest's link cannot share the logo's line, so the bar still grows as it appears: chief design
+ * accepts that band, since any reservation would give every reader the extra row.
+ */
+async function answerHeld(page: Page, baseURL: string, who: 'guest' | 'reader'): Promise<() => void> {
+  const origin = new URL(baseURL).origin
+  let release!: () => void
+  const held = new Promise<void>((done) => (release = done))
+  if (who === 'reader') await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
+  await page.route('**/*', async (route) => {
+    const request = route.request()
+    const url = new URL(request.url())
+    const headers = { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'GET,POST,OPTIONS' }
+    if (url.hostname.endsWith('.sentry.io')) return route.abort()
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/internal/')) {
+      if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+      if (url.pathname === '/api/auth/me') {
+        await held
+        return who === 'reader'
+          ? route.fulfill({ status: 200, headers, json: { id: 1, email: 'pro@example.com', full_name: 'Pro User', is_pro: true, is_beta: false, is_admin: false, email_verified: true } })
+          : route.fulfill({ status: 401, headers, json: { detail: 'Not authenticated' } })
+      }
+      return route.fulfill({ status: 404, headers, json: { detail: 'No backend is available in the header case' } })
+    }
+    if (url.origin === origin && ['GET', 'HEAD'].includes(request.method())) return route.continue()
+    return route.abort()
+  })
+  return release
+}
+
+/** The header's height, the page's scroll, and the full bar's nav's left edge where it shows. */
+const headerAt = (page: Page) =>
+  page.evaluate(() => {
+    const header = document.querySelector('header[data-site-header]')!
+    const nav = header.querySelector('nav[aria-label="Main navigation"]')!.getBoundingClientRect()
+    return { height: header.getBoundingClientRect().height, scrollY: window.scrollY, navLeft: nav.width > 0 ? nav.left : null }
+  })
+
+const HELD_STATES = [
+  { width: 1024, doubled: false, bar: 'compact' },
+  { width: 1152, doubled: false, bar: 'full' },
+  { width: 1440, doubled: false, bar: 'full' },
+  { width: 1024, doubled: true, bar: 'compact' },
+  { width: 1440, doubled: true, bar: 'compact' },
+  { width: 2304, doubled: true, bar: 'full' },
+  { width: 640, doubled: true, bar: 'compact' },
+  { width: 800, doubled: true, bar: 'compact' },
+] as const
+/** The compact bar's account link (ACCESS_COPY's ctaShort, for either access mode). */
+const ACCOUNT_SHORT = /^(Sign up|Request invite)$/
+
+test.describe('the site header holds one height as its auth check settles (E174, E173, E175)', () => {
+  for (const { width, doubled, bar } of HELD_STATES) {
+    for (const who of ['guest', 'reader'] as const) {
+      test.describe(`${width}px${doubled ? ' and 200% text' : ''}, ${who === 'guest' ? 'a guest' : 'a signed-in reader'}`, () => {
+        test.use({ viewport: { width, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
+        test('the header keeps its height, and a scrolled page its place, when the check settles', async ({ page, baseURL }) => {
+          await page.addInitScript((reader) => {
+            localStorage.setItem('theme', 'light')
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+            if (reader) localStorage.setItem('en_session_active', '1')
+          }, who === 'reader')
+          const release = await answerHeld(page, baseURL!, who)
+          await page.goto('/')
+          const placeholder = page.getByRole('status', { name: 'Checking whether you are logged in', includeHidden: true })
+          await expect(placeholder, 'the check is held open, its placeholder in the bar').not.toHaveCount(0)
+          if (doubled) await doubleText(page)
+          await settle(page)
+          await page.evaluate(() => window.scrollTo(0, 2000))
+          await settle(page)
+          const pending = await headerAt(page)
+          expect(pending.scrollY, 'the page is scrolled while the check is held').toBeGreaterThan(1000)
+
+          release()
+          await expect(placeholder).toHaveCount(0)
+          const banner = page.getByRole('banner')
+          const nav = banner.getByRole('navigation', { name: 'Main navigation' })
+          if (bar === 'full') {
+            await expect(nav, `the full bar at ${width}px`).toBeVisible()
+          } else {
+            await expect(banner.getByRole('button', { name: 'Open menu' }), `the compact bar at ${width}px`).toBeVisible()
+            await expect(nav, `the full bar's nav hidden at ${width}px`).toBeHidden()
+          }
+          // The settled controls: the full bar's Log in or account menu, or the compact bar's account link for a guest and,
+          // from lg, its notification bell for a reader. Below lg a reader's compact bar shows nothing the check adds, so
+          // the full bar's account menu, rendered though hidden, marks the check settled there.
+          const settled = bar === 'full'
+            ? banner.getByRole(who === 'guest' ? 'link' : 'button', { name: who === 'guest' ? 'Log in' : 'Account menu' })
+            : who === 'guest'
+              ? banner.getByRole('link', { name: ACCOUNT_SHORT })
+              : width >= 1024
+                ? banner.getByRole('button', { name: /^Notifications/ })
+                : null
+          if (settled) await expect(settled, `the ${bar} bar shows a ${who}'s controls once the check settles`).toBeVisible()
+          else await expect(banner.getByRole('button', { name: 'Account menu', includeHidden: true }), `the check settles for a reader at ${width}px`).toHaveCount(1)
+          await settle(page)
+          const after = await headerAt(page)
+          expect(after.height, `the header while the check ran (${pending.height}px) and after (${after.height}px)`).toBe(pending.height)
+          expect(after.scrollY, `the page scrolled to ${pending.scrollY}px while the check ran`).toBe(pending.scrollY)
+          if (bar === 'full') {
+            expect(pending.navLeft, 'the full bar shows its nav while the check is held').not.toBeNull()
+            expect(Math.abs(after.navLeft! - pending.navLeft!), `the nav's left edge while the check ran (${pending.navLeft}px) and after (${after.navLeft}px)`).toBeLessThanOrEqual(0.5)
+          }
+          // Each access mode's compact label in turn, as a copy fixture: the header keeps its held height with either.
+          if (bar === 'compact' && who === 'guest') {
+            for (const label of [ACCESS_COPY.invite.ctaShort, ACCESS_COPY.public.ctaShort]) {
+              await settled!.evaluate((link, text) => {
+                link.textContent = text
+              }, label)
+              await settle(page)
+              const held = await headerAt(page)
+              expect(held.height, `the header with a guest's "${label}" (${held.height}px), as while the check ran (${pending.height}px)`).toBe(pending.height)
+            }
+          }
+        })
+      })
+    }
+  }
 })

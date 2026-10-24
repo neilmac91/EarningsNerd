@@ -366,6 +366,7 @@ from app.routers import (
     reporting_this_week,
     email,
     contact,
+    legal,
     feedback,
     webhooks,
     admin,
@@ -376,6 +377,7 @@ from app.routers import (
     section_reviews,
     insiders,
     calendar,
+    security_contact,
 )
 
 def _run_on_daemon_thread(loop: asyncio.AbstractEventLoop, name: str, step) -> asyncio.Future:
@@ -704,6 +706,7 @@ async def request_timeout_middleware(request: Request, call_next):
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(legal.router, prefix="/api/legal", tags=["Legal availability"])
 app.include_router(companies.router, prefix="/api/companies", tags=["Companies"])
 app.include_router(peers.router, prefix="/api/companies", tags=["Peers"])
 app.include_router(insiders.router, prefix="/api/companies", tags=["Insiders"])
@@ -728,6 +731,7 @@ app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(internal.router, prefix="/internal", tags=["Internal"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 app.include_router(calendar.router, prefix="/api/calendar", tags=["Calendar"])
+app.include_router(security_contact.router, tags=["Security Contact"])
 
 
 # SEC EDGAR circuit-breaker handler: when the breaker is open we are deliberately

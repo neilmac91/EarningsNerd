@@ -335,8 +335,9 @@ const THEME_PAIR_RESIDUE: Record<string, Record<string, number>> = {
   // The destructive fill and its disabled tint are red-700 under a white label in both themes.
   'components/ui/Button.tsx': { 'bg-error-light': 1, 'disabled:bg-error-light/40': 1 },
   'features/auth/components/GoogleSignInButton.tsx': { 'border-border-light': 1 }, // Google's button stays white in both themes, with its light hairline
+  'components/CompanyLogo.tsx': { 'text-brand-strong': 1 }, // the company mark's tile is white in both themes (DESIGN_SYSTEM.md §9), so its monogram keeps the light ink
 }
-const THEME_PAIR_RESIDUE_MAX = { files: 5, classes: 7 }
+const THEME_PAIR_RESIDUE_MAX = { files: 6, classes: 8 }
 
 /** Bare dark halves per file and class: surfaces dark in both themes on purpose. Each entry says why. */
 const BARE_DARK_RESIDUE: Record<string, Record<string, number>> = {

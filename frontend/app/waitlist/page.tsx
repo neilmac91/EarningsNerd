@@ -217,7 +217,7 @@ export default function WaitlistPage() {
               },
               {
                 title: 'Security',
-                body: 'Your data travels over HTTPS and is kept in Google Cloud SQL, which encrypts it at rest. Card details stay with Stripe.',
+                body: 'HTTPS connections, hashed passwords and card payments handled by Stripe.',
               },
               {
                 title: 'A numbered spot',

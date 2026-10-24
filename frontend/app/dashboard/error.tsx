@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import * as Sentry from '@sentry/nextjs'
@@ -36,7 +37,7 @@ export default function DashboardError({
 
   if (isAuthError) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
         <div className="w-full max-w-md">
           <GuidanceCard
             variant="error"
@@ -47,13 +48,13 @@ export default function DashboardError({
             action={<Button onClick={() => router.push('/login')}>Log in</Button>}
           />
         </div>
-      </div>
+      </main>
     )
   }
 
   // Generic Error UI
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
       <div className="w-full max-w-md">
         <GuidanceCard
           variant="error"
@@ -70,7 +71,12 @@ export default function DashboardError({
             </>
           }
         />
+        <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          If the problem continues, email{' '}
+          <a href={contactMailto('support')} className="break-all text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.support}</a>.
+        </p>
+
       </div>
-    </div>
+    </main>
   )
 }

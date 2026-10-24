@@ -2,6 +2,7 @@ import posthog from 'posthog-js'
 import * as Sentry from '@sentry/nextjs'
 import { getCookiePreferences } from '@/components/CookieConsent'
 import { sanitizeTelemetry } from './telemetryPrivacy'
+import { applyPostHogConsent } from './posthogConsent'
 
 export type SummaryViewIdentity =
   | { state: 'authenticated'; accountId: string }
@@ -33,6 +34,9 @@ const safeReset = () => {
     return
   }
   posthog.reset()
+  // The SDK clears its own consent with the identity. Restore only the current validated
+  // browser choice; a refusal (including one storage could not save) must remain off.
+  if (posthog.__loaded) applyPostHogConsent(posthog)
   try {
     Sentry.setUser(null)
   } catch {

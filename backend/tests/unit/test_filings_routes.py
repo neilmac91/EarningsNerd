@@ -8,15 +8,21 @@ payloads with their release-before-enqueue ordering and their outage warning (st
 the router). This suite pins them so moving the route's database work into ``app/services/`` is
 provably behaviour-neutral. It also pins that ``?filing_types=`` is validated where it enters and
 never reaches the durable refresh, so a caller cannot queue one task per distinct value (the gate
-for ``lessons/arch-caller-input-never-names-a-durable-task.md``). SEC calls are patched on the
-shared ``sec_edgar_service`` singleton; every test runs on a private SQLite engine.
+for ``lessons/arch-caller-input-never-names-a-durable-task.md``), and that the route bounds the work
+a request causes rather than the request: the durable handoffs spend a per-process budget, sized under
+the queue's drain across the API's instances, and the live SEC fetch a per-client one, sized at a sixth
+of the SEC pace it waits on at most, while a visit served from stored rows that hands nothing off
+spends neither. SEC calls are patched on the shared ``sec_edgar_service`` singleton; every test runs on a
+private SQLite engine and with the route's budgets unspent.
 """
 import asyncio
 import base64
+import importlib
 import json
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+from fractions import Fraction
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -34,11 +40,18 @@ from app.database import Base, get_db
 from app.models import Company, Filing
 from app.routers import filings as filings_mod
 from app.services import background_task_runner, durable_tasks as transport, filing_amendment_service, filing_list_service
+from app.services import rate_limiter
 from app.services.durable_tasks import TaskEnvelope, TaskUnavailable
+from app.services.edgar import client as edgar_client_mod
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.config import FilingType
 from app.services.edgar.exceptions import EdgarError
 from app.services.latest_filing_service import company_list_forms
+from app.services.rate_limiter import RateLimiter
+from edgar import httprequests as edgar_httprequests
+from tests.support.filings_budgets import unspend_filings_budgets
+from tests.unit.test_durable_task_payloads_server_owned import public_queue_caps
+from tests.unit.test_sec_process_budgets import ROOT, SERVICE_STEP, _env_map, _run, _service_instances
 
 ROUTER_LOGGER = "app.routers.filings"
 PERSIST_LOGGER = "app.services.filing_list_service"  # the live-persistence skip warnings moved
@@ -76,6 +89,11 @@ def _seed_filing(session, company_id, cik, accession, filing_type="10-K", year=2
     session.commit()
     session.refresh(filing)
     return filing
+
+
+@pytest.fixture(autouse=True)
+def _unspent_budgets(monkeypatch):
+    unspend_filings_budgets(monkeypatch)
 
 
 @pytest.fixture
@@ -650,11 +668,17 @@ def test_filing_types_values_cannot_mint_durable_refresh_tasks(client, sessions,
     statuses = {client.get("/api/filings/company/dur", params={"filing_types": v}).status_code
                 for v in values}
     one_process_creates = len(creates)
-    # Every request on a fresh instance: each create names the one task, which the queue holds.
+    # Every request on a fresh instance, with its own guard and handoff budget: each create names the one
+    # task, which the queue holds. Each value must reach the create, or the proof covers fewer values.
+    reached = []
     for value in values:
         monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
+        unspend_filings_budgets(monkeypatch)
+        before = len(creates)
         client.get("/api/filings/company/dur", params={"filing_types": value})
+        reached.append(len(creates) > before)
 
+    assert reached == [True] * len(values)
     assert len(queue) == len(refreshes), f"{len(queue)} durable tasks queued for one company in one bucket"
     assert sorted(queue.values(), key=lambda task: len(task["payload"]["filing_types"])) == [
         {"kind": "filings", "payload": {"company_id": company_id, "filing_types": forms}} for forms in refreshes
@@ -810,6 +834,494 @@ async def test_handoff_cache_evicts_at_the_freshness_cache_bound(monkeypatch):
         'history:history:2:{"company_id": 2}',
         'history:history:3:{"company_id": 3}',
     ]
+
+
+def _seed_stored(sessions, count):
+    """``count`` backfilled companies C0, C1, ... each holding one stored 10-K, in id order."""
+    ids = []
+    with sessions() as s:
+        for n in range(count):
+            cik = f"{100 + n:010d}"
+            ids.append(_seed_company(s, ticker=f"C{n}", cik=cik).id)
+            _seed_filing(s, ids[-1], cik, f"{cik}-25-000001")
+    return ids
+
+
+def _recording_queue(monkeypatch):
+    """Durable mode with the queue faked: the company ids handed off, in order. The handoff guard's clock
+    is held still, so a run cannot straddle one of its buckets and hand a refresh off twice."""
+    handed = []
+
+    async def enqueue(kind, payload, *, dedupe_key=None, dedupe_seconds=None):
+        handed.append(payload["company_id"])
+        return f"task-{kind}"
+
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+    monkeypatch.setattr(filings_mod, "enqueue_task", enqueue)
+    monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
+    monkeypatch.setattr(filings_mod, "utcnow", lambda: datetime.fromtimestamp(1_800_000_000, timezone.utc))
+    return handed
+
+
+def test_handoffs_past_the_budget_serve_stored_rows_and_queue_nothing_until_the_window_passes(
+    client, sessions, monkeypatch
+):
+    """A durable handoff is work a public visit queues for every durable job to wait behind, so it spends a
+    per-process budget. Past it the visit still answers 200 with its stored rows and queues nothing, and
+    the handoff guard is left unset, so the first visit after the window queues the task. Before the
+    budget every stored company a crawl visited queued a refresh, faster than the queue's 0.2/s drain."""
+    ids = _seed_stored(sessions, 4)
+    handed = _recording_queue(monkeypatch)
+    clock = [1_000.0]
+    monkeypatch.setattr(rate_limiter, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    monkeypatch.setattr(filings_mod, "VISIT_TASK_BUDGET", RateLimiter(limit=2, window_seconds=300))
+    fetch = AsyncMock(return_value=[])
+    monkeypatch.setattr(sec_edgar_service, "get_filings", fetch)
+
+    served = [client.get(f"/api/filings/company/c{n}") for n in range(4)]
+
+    assert [r.status_code for r in served] == [200] * 4
+    assert [[row["company"]["ticker"] for row in r.json()] for r in served] == [[f"C{n}"] for n in range(4)]
+    assert handed == ids[:2]
+    clock[0] += 301  # past the window
+    late = client.get("/api/filings/company/c2")
+    assert late.status_code == 200 and late.json() == served[2].json()
+    assert handed == ids[:3]
+    fetch.assert_not_called()
+
+
+def test_visits_that_hand_nothing_off_spend_no_budget(client, sessions, monkeypatch):
+    """The site's own server renders call this route from Vercel's shared IPs with no credential, once
+    per company page render, and a refused render would cache a filings-less company page for 30
+    minutes. A visit served from stored rows whose refresh this process already handed off this bucket
+    does no work, so it spends neither budget however often it comes from one address."""
+    ids = _seed_stored(sessions, 2)
+    with sessions() as s:
+        _seed_company(s)  # COLD: nothing stored
+    handed = _recording_queue(monkeypatch)
+    monkeypatch.setattr(filings_mod, "VISIT_TASK_BUDGET", RateLimiter(limit=2, window_seconds=300))
+    monkeypatch.setattr(filings_mod, "LIVE_FETCH_LIMITER", RateLimiter(limit=1, window_seconds=60))
+    fetch = AsyncMock(return_value=[])
+    monkeypatch.setattr(sec_edgar_service, "get_filings", fetch)
+
+    first = client.get("/api/filings/company/c0")
+    repeats = [client.get("/api/filings/company/c0") for _ in range(30)]
+    other = client.get("/api/filings/company/c1")
+    cold = client.get("/api/filings/company/cold")
+
+    assert {r.status_code for r in [first, *repeats, other, cold]} == {200}
+    assert all(r.json() == first.json() for r in repeats)
+    assert handed == ids  # the 30 repeats left the second company its handoff
+    assert fetch.await_count == 1  # and the one address its live fetch
+
+
+def test_live_fetches_past_the_per_ip_budget_answer_429_only_when_nothing_is_stored(client, sessions, monkeypatch):
+    """With nothing stored to serve, the request fetches the list from SEC while it waits, on the
+    process's shared SEC pacing (1 request/s in production), so the fetch spends a per-client-IP budget,
+    as search's does. Past it that client gets the 429, detail and Retry-After of the other limited
+    public routes; a company with stored rows is still served to it, and another client's fetch proceeds.
+    A listing that finds nothing is answered from its freshness stamp until the TTL passes (below), so
+    each fetch here names other forms. A caller can still name a new set of forms per request; before the
+    budget each such ``?filing_types=`` took this path, and one naming a form the company never filed
+    took it on every request (#1373)."""
+    with sessions() as s:
+        _seed_company(s)  # COLD: nothing stored
+        warm_id = _seed_company(s, ticker="WARM", cik="0000000003").id
+        _seed_filing(s, warm_id, "0000000003", "0000000003-25-000001")
+    _recording_queue(monkeypatch)
+    fetched = []
+
+    async def get_filings(cik, types):
+        fetched.append(cik)
+        return []
+
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
+    monkeypatch.setattr(filings_mod, "LIVE_FETCH_LIMITER", RateLimiter(limit=2, window_seconds=60))
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+
+    def get(ticker, client_ip, forms=None):
+        return client.get(
+            f"/api/filings/company/{ticker}", params={"filing_types": forms} if forms else None,
+            headers={"X-Forwarded-For": client_ip},
+        )
+
+    allowed = [get("cold", "203.0.113.7", forms) for forms in ("10-K", "10-Q")]
+    refused = get("cold", "203.0.113.7", "8-K")
+    warm = get("warm", "203.0.113.7")
+    other = get("cold", "198.51.100.9", "8-K")
+
+    assert [r.status_code for r in allowed] == [200, 200]
+    assert refused.status_code == 429
+    assert refused.json() == {"detail": "Too many filing requests. Please retry in a minute."}
+    assert 1 <= int(refused.headers["Retry-After"]) <= 60
+    assert warm.status_code == 200
+    assert [row["accession_number"] for row in warm.json()] == ["0000000003-25-000001"]
+    assert other.status_code == 200
+    assert fetched == ["0000000002"] * 3  # the refused request made no SEC call
+
+
+def test_a_client_spends_one_live_fetch_budget_whichever_company_or_forms_it_asks_for(client, sessions, monkeypatch):
+    """The budget is the client's, not a company's or a form list's. A crawl of company pages from one
+    address asks each company for its default forms, with no ``?filing_types=``, which is also how the
+    site's own server renders the page: that request spends the budget as one naming forms does, and past
+    the budget the next company's page is refused too, while another address still fetches it."""
+    with sessions() as s:
+        _seed_company(s)  # COLD: nothing stored
+        _seed_company(s, ticker="BLANK", cik="0000000003")  # a second company with nothing stored
+    fetched = []
+
+    async def get_filings(cik, types):
+        fetched.append((cik, types))
+        return []
+
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
+    monkeypatch.setattr(filings_mod, "LIVE_FETCH_LIMITER", RateLimiter(limit=2, window_seconds=60))
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+
+    def get(ticker, forms=None, client_ip="203.0.113.7"):
+        return client.get(
+            f"/api/filings/company/{ticker}", params={"filing_types": forms} if forms else None,
+            headers={"X-Forwarded-For": client_ip},
+        )
+
+    spent = [get("cold"), get("cold", "8-K")]
+    refused = get("blank")
+    other = get("blank", client_ip="198.51.100.9")
+
+    assert [(r.status_code, r.json()) for r in spent] == [(200, [])] * 2
+    assert (refused.status_code, refused.json()) == (429, {"detail": "Too many filing requests. Please retry in a minute."})
+    assert (other.status_code, other.json()) == (200, [])
+    assert fetched == [  # the refused page made no SEC call
+        ("0000000002", DEFAULT_TYPES), ("0000000002", filing_list_service.requested_filing_types("8-K")),
+        ("0000000003", DEFAULT_TYPES),
+    ]
+
+
+def _submissions(cik, recent):
+    """The submissions JSON SEC serves for ``cik``, as edgartools reads it: ``recent`` (form, accession,
+    filing date, report date, primary document) as its recent window, and one page of older filings
+    listed, which only a full-history load downloads."""
+    columns = ("form", "accessionNumber", "filingDate", "reportDate", "primaryDocument")
+    window = {name: [row[i] for row in recent] for i, name in enumerate(columns)}
+    window.update({name: [""] * len(recent) for name in ("act", "fileNumber", "filmNumber", "items", "primaryDocDescription")})
+    window.update(acceptanceDateTime=[f"{row[2]}T16:05:00.000Z" for row in recent],
+                  size=[1] * len(recent), isXBRL=[1] * len(recent), isInlineXBRL=[1] * len(recent))
+    address = dict.fromkeys(("street1", "street2", "city", "stateOrCountryDescription", "stateOrCountry", "zipCode"))
+    return {
+        "cik": cik.lstrip("0"), "name": "COLD Co", "tickers": ["COLD"], "exchanges": ["NYSE"],
+        "addresses": {"mailing": address, "business": address},
+        "insiderTransactionForOwnerExists": 0, "insiderTransactionForIssuerExists": 0,
+        "filings": {"recent": window, "files": [{"name": f"CIK{cik}-submissions-001.json"}]},
+        **dict.fromkeys(("sic", "sicDescription", "category", "fiscalYearEnd", "entityType", "phone", "flags", "ein",
+                         "description", "website", "investorWebsite", "stateOfIncorporation",
+                         "stateOfIncorporationDescription")),
+    }
+
+
+# What a live fetch costs SEC (test_a_live_fetch_is_one_sec_request): one request, on edgartools' bucket.
+REQUESTS_PER_LIVE_FETCH = 1
+
+
+def test_a_live_fetch_is_one_sec_request(client, sessions, monkeypatch):
+    """The unit the live-fetch budget counts: one fetch is one SEC request, the company's submissions JSON,
+    made by edgartools and so paced by its bucket, not the app's. The listing reads that JSON's recent
+    window and never the older pages it lists, which a full-history load would download one by one, and
+    building the response reads nothing more. Driven through the route, the real edgar client and the real
+    edgartools, with only edgartools' GET faked."""
+    with sessions() as s:
+        _seed_company(s)  # COLD, CIK 0000000002: nothing stored
+    accession = "0000000002-26-000001"
+    gets = []
+
+    def get_with_retry(url, **kwargs):
+        gets.append(url)
+        submissions = _submissions("0000000002", [("10-K", accession, "2026-02-19", "2025-12-31", "cold-10k.htm")])
+        return httpx.Response(200, json=submissions, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(edgar_httprequests, "get_with_retry", get_with_retry)
+
+    listed = client.get("/api/filings/company/cold")
+
+    assert gets == ["https://data.sec.gov/submissions/CIK0000000002.json"]
+    assert len(gets) == REQUESTS_PER_LIVE_FETCH
+    assert (listed.status_code, [row["accession_number"] for row in listed.json()]) == (200, [accession])
+
+
+def test_one_clients_live_fetches_take_at_most_a_sixth_of_the_sec_pace_they_wait_on():
+    """A live fetch waits on edgartools' bucket, which the deploy pins per process (``EDGAR_RATE_LIMIT_PER_SEC``
+    in the service's env map), and makes one request on it, so the per-client budget, counted in requests,
+    stays at a sixth of that pace at most: one address cannot hold the SEC pacing every other request's
+    fetch waits on. Both counts are per process, so the share holds on each instance."""
+    pace = int(_env_map(_run(SERVICE_STEP))["EDGAR_RATE_LIMIT_PER_SEC"])
+    limiter = filings_mod.LIVE_FETCH_LIMITER
+    assert Fraction(limiter.limit * REQUESTS_PER_LIVE_FETCH, limiter.window_seconds) <= Fraction(pace, 6)
+
+
+def _listing_clock(monkeypatch):
+    """The freshness stamp's clock, held still until the test moves it."""
+    now = [datetime(2026, 10, 23, 12, tzinfo=timezone.utc)]
+    monkeypatch.setattr(filing_list_service, "utcnow", lambda: now[0])
+    return now
+
+
+def test_a_listing_that_found_nothing_is_answered_from_its_stamp_until_the_ttl_passes(client, sessions, monkeypatch):
+    """A fund, a trust, or a company with only 8-K or Form 3/4/5 rows has nothing in the default forms, so
+    its live fetch persists nothing. That successful empty listing is the answer until the freshness TTL
+    passes: the site's ISR renders of the page, all from one Vercel IP, cost one SEC fetch and one
+    live-fetch slot per TTL and are never refused. Once the company's history is backfilled, as here, they
+    hand nothing off; before that, with the on-visit backfill flag on, the history backfill is handed off
+    ahead of the stamp check, once per 5-minute bucket, until the worker stamps it. Before, every render
+    fetched again, and the eleventh in a minute from one IP got the 429 that ISR caches as an unavailable
+    page for 30 minutes."""
+    with sessions() as s:
+        company_id = _seed_company(s).id
+        _seed_filing(s, company_id, "0000000002", "0000000002-25-000001", "8-K")  # not a default form
+    handed = _recording_queue(monkeypatch)
+    fetched = []
+
+    async def get_filings(cik, types):
+        fetched.append((cik, types))
+        return []
+
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
+    now = _listing_clock(monkeypatch)
+
+    def render():
+        return client.get("/api/filings/company/cold", headers={"X-Forwarded-For": "76.76.21.21"})
+
+    first = render()
+    # From here a visit that spent a live-fetch slot would be refused.
+    monkeypatch.setattr(filings_mod, "LIVE_FETCH_LIMITER", RateLimiter(limit=0, window_seconds=60))
+    renders = [render() for _ in range(30)]
+    now[0] += filing_list_service.FILINGS_LIST_TTL - timedelta(seconds=1)
+    last_inside = render()
+    assert len(fetched) == 1
+
+    now[0] += timedelta(seconds=1)  # the stamp is a TTL old: the next visit lists again, once
+    monkeypatch.setattr(filings_mod, "LIVE_FETCH_LIMITER", RateLimiter(limit=1, window_seconds=60))
+    after = [render() for _ in range(5)]
+
+    assert [(r.status_code, r.json()) for r in [first, *renders, last_inside, *after]] == [(200, [])] * 37
+    assert fetched == [("0000000002", DEFAULT_TYPES)] * 2
+    assert handed == []
+
+
+@pytest.mark.parametrize("kind", sorted(_COLD_FAILURES))
+def test_a_failed_live_listing_stamps_nothing_so_the_next_visit_fetches_again(client, sessions, monkeypatch, kind):
+    """Only a listing SEC answered is cached (``lessons/arch-cache-only-reads-that-succeeded.md``). A fetch
+    that times out or fails is answered with its error when nothing is stored, and leaves the key as it
+    was, on a cold key and on a stale one alike, so the next visit fetches again instead of being answered
+    an empty list. On the stale key a failure that wrote its stamp would make the visit after it a hit."""
+    error, status, detail, _logs = _COLD_FAILURES[kind]
+    with sessions() as s:
+        _seed_company(s)
+    monkeypatch.setattr(filing_list_service, "SEC_REQUEST_TIMEOUT_SECONDS", 0.05)
+    script = [kind, "listed nothing", kind, "listed nothing"]
+    fetched = []
+
+    async def get_filings(cik, types):
+        outcome = script[len(fetched)]
+        fetched.append(outcome)
+        if outcome != "listed nothing":
+            if error is None:
+                await asyncio.sleep(5)  # outlives the route's timeout
+            raise error
+        return []
+
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+    now = _listing_clock(monkeypatch)
+
+    def visit():
+        return client.get("/api/filings/company/cold")
+
+    cold_failure = visit()
+    cold_retry = visit()
+    stamped = visit()
+    now[0] += filing_list_service.FILINGS_LIST_TTL
+    stale_failure = visit()
+    stale_retry = visit()
+
+    for failed in (cold_failure, stale_failure):
+        assert (failed.status_code, failed.json()) == (status, {"detail": detail})
+    for served in (cold_retry, stamped, stale_retry):
+        assert (served.status_code, served.json()) == (200, [])
+    assert fetched == script  # each failure was followed by a fetch; the stamped visit made none
+
+
+def test_stored_rows_are_served_as_before_whether_the_stamp_is_fresh_or_stale(client, sessions, monkeypatch):
+    """The stamp changes only how a key with nothing stored is answered. A company with rows in the
+    requested forms is served them with no SEC fetch and no live-fetch slot: while its stamp is stale (a
+    TTL old) its refresh is handed off once per bucket, and while it is fresh not at all."""
+    with sessions() as s:
+        stale_id = _seed_company(s, ticker="STALE", cik="0000000003").id
+        _seed_filing(s, stale_id, "0000000003", "0000000003-25-000001")
+        fresh_id = _seed_company(s, ticker="FRESH", cik="0000000004").id
+        _seed_filing(s, fresh_id, "0000000004", "0000000004-25-000001")
+    handed = _recording_queue(monkeypatch)
+    fetch = AsyncMock(return_value=[])
+    monkeypatch.setattr(sec_edgar_service, "get_filings", fetch)
+    monkeypatch.setattr(filings_mod, "LIVE_FETCH_LIMITER", RateLimiter(limit=0, window_seconds=60))
+    now = _listing_clock(monkeypatch)
+    filing_list_service._mark_filings_synced("STALE", DEFAULT_TYPES, stale_id)
+    now[0] += filing_list_service.FILINGS_LIST_TTL
+    filing_list_service._mark_filings_synced("FRESH", DEFAULT_TYPES, fresh_id)
+    assert not filing_list_service.filings_cache_fresh("STALE", DEFAULT_TYPES, stale_id)
+    assert filing_list_service.filings_cache_fresh("FRESH", DEFAULT_TYPES, fresh_id)
+
+    stale = [client.get("/api/filings/company/stale") for _ in range(3)]
+    fresh = [client.get("/api/filings/company/fresh") for _ in range(3)]
+
+    assert [(r.status_code, [row["accession_number"] for row in r.json()]) for r in stale] == [
+        (200, ["0000000003-25-000001"])
+    ] * 3
+    assert [(r.status_code, [row["accession_number"] for row in r.json()]) for r in fresh] == [
+        (200, ["0000000004-25-000001"])
+    ] * 3
+    assert handed == [stale_id]
+    fetch.assert_not_called()
+
+
+def test_a_listing_of_rows_another_company_stores_is_fetched_again_not_answered_empty(client, sessions, monkeypatch):
+    """Accession numbers are unique, so a filing two companies list (a combined annual report of
+    co-registrants, or a Form 4 in its issuer's and its reporting owner's listings) is stored once, under
+    the company whose listing stored it first. The live fetch answers it to the other company too, but
+    that company's stored rows hold nothing, so its stamp could not answer for the listing: the key is
+    left unstamped and the next visit fetches and answers it again, as before, rather than an empty list."""
+    accession = "0000000003-25-000001"
+    with sessions() as s:
+        _seed_company(s)  # COLD: nothing stored of its own
+        parent_id = _seed_company(s, ticker="PARENT", cik="0000000003").id
+        _seed_filing(s, parent_id, "0000000003", accession)
+    fetched = []
+
+    async def get_filings(cik, types):
+        fetched.append(cik)
+        return [{"accession_number": accession, "filing_type": "10-K", "filing_date": "2025-02-19",
+                 "sec_url": _archive("0000000003", accession),
+                 "document_url": _archive("0000000003", accession) + "primary.htm"}]
+
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+
+    visits = [client.get("/api/filings/company/cold") for _ in range(2)]
+
+    assert [(r.status_code, [row["accession_number"] for row in r.json()]) for r in visits] == [
+        (200, [accession])
+    ] * 2
+    assert fetched == ["0000000002"] * 2
+
+
+def test_a_listing_whose_rows_were_all_skipped_is_fetched_again_not_answered_empty(client, sessions, monkeypatch):
+    """SEC's submissions window can list a filing without its primary document. The transformer then gives
+    it no document URL, and the live persistence skips a new row without one, so a listing that was not
+    empty stores nothing. Its stamp could not answer for it: the key is left unstamped, and the next visit
+    fetches again and serves the filing once SEC names its document, rather than an empty list until the
+    TTL passes. Driven through the real transformer, with only edgartools' Company faked."""
+    accession = "0000000002-26-000001"
+    with sessions() as s:
+        _seed_company(s)  # COLD, CIK 0000000002: nothing stored
+    filing = SimpleNamespace(form="10-K", filing_date=date(2026, 2, 19), report_date="2025-12-31",
+                             accession_number=accession, primary_document=None, company="COLD Co")
+    reads = []
+
+    class RecentWindow:
+        """edgartools' Company as the live listing reads it: one recent-window fetch per visit."""
+        cik = 2
+
+        def __init__(self, ident):
+            pass
+
+        def get_filings(self, form=None, amendments=None, trigger_full_load=None, sort_by=None):
+            assert trigger_full_load is False
+            reads.append(form)
+            return [filing] if filing.form in form else []
+
+    monkeypatch.setattr(edgar_client_mod, "EdgarCompany", RecentWindow)
+
+    incomplete = client.get("/api/filings/company/cold")
+    filing.primary_document = "doc.htm"  # SEC's window now names it
+    recovered = client.get("/api/filings/company/cold")
+
+    assert (incomplete.status_code, incomplete.json()) == (200, [])
+    assert (recovered.status_code, [row["accession_number"] for row in recovered.json()]) == (200, [accession])
+    assert reads == [["10-K", "10-Q"]] * 2  # one recent-window read per visit
+
+
+def test_a_stamp_answers_only_the_company_whose_listing_wrote_it(client, sessions, monkeypatch):
+    """The stamp is keyed by (ticker, forms), and a ticker can pass to another company within the TTL: SEC
+    reassigns it to a new CIK, and the old company's row self-heals to its new primary ticker on a visit.
+    A stamp the old company's empty listing wrote must not answer the new one, which has nothing stored:
+    the ticker's next visit fetches the new company's listing live. Before, it was answered an empty list
+    until the TTL passed."""
+    with sessions() as s:
+        old_id = _seed_company(s).id  # COLD, CIK 0000000002: nothing stored
+    new_cik = "0000000005"
+    accession = f"{new_cik}-26-000001"
+    sec_file = {}  # SEC's ticker file: ticker -> CIK
+    fetched = []
+
+    async def search(ticker):
+        cik = sec_file.get(ticker.upper())
+        return [{"cik": cik, "ticker": ticker.upper(), "name": f"{ticker.upper()} Co", "exchange": "NYSE"}] if cik else []
+
+    async def primary(cik):
+        return next(ticker for ticker, listed in sec_file.items() if listed == cik)
+
+    async def get_filings(cik, types):
+        fetched.append(cik)
+        if cik != new_cik:
+            return []
+        return [{"accession_number": accession, "filing_type": "10-K", "filing_date": "2026-02-19",
+                 "sec_url": _archive(new_cik, accession), "document_url": _archive(new_cik, accession) + "primary.htm"}]
+
+    monkeypatch.setattr(sec_edgar_service, "search_company", search)
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", primary)
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+
+    def visit(ticker):
+        r = client.get(f"/api/filings/company/{ticker}")
+        return r.status_code, [row["accession_number"] for row in r.json()]
+
+    stamped = visit("cold")  # the old company's listing finds nothing and stamps COLD
+    sec_file.update({"RENAMED": "0000000002", "COLD": new_cik})
+    renamed = visit("renamed")  # the old company's row self-heals to RENAMED
+    moved = visit("cold")  # COLD now resolves to the new company, which stores nothing yet
+    again = visit("cold")  # its own listing stamped COLD for it, so this visit is a hit
+
+    assert [stamped, renamed, moved, again] == [(200, []), (200, []), (200, [accession]), (200, [accession])]
+    assert fetched == ["0000000002", "0000000002", new_cik]
+    with sessions() as s:
+        assert [(c.id == old_id, c.cik, c.ticker) for c in s.query(Company).order_by(Company.id)] == [
+            (True, "0000000002", "RENAMED"), (False, new_cik, "COLD"),
+        ]
+
+
+# The queue every durable job shares, as docs/DEPLOYMENT.md provisions it: one concurrent dispatch, at most
+# 0.2/s, so a task holds the queue for max(5 s, its delivery time). A delivery execs a fresh Python child
+# (about 1.7 s of imports) and a history backfill paces its 4 EFTS windows at 1 request/s, so a delivery is
+# taken to average 6 s; the worker's measured request latency would replace this estimate.
+QUEUE_PROVISIONING = "one concurrent dispatch, 0.2 dispatches/second"
+DISPATCH_INTERVAL_SECONDS = 5
+ASSUMED_DELIVERY_SECONDS = 6
+
+
+def test_the_public_handoff_caps_take_at_most_two_thirds_of_the_queue_drain_across_the_api_instances():
+    """Every durable task shares one queue, and limiter state is per process, so the caps on what requests
+    that need no login can put on it add up over every producer and every API instance. The payload gate
+    lists those producers (``public_queue_caps``): this route's handoff budget and the account mail's cap
+    (F60). The queue drains one task per max(5 s, delivery time), not its 0.2/s dispatch ceiling, because it
+    dispatches one at a time. Two thirds of that drain at most leaves the rest to companyfacts syncs,
+    operator jobs and tasks already queued. Sized against the ceiling, a handoff budget of 20 per 5 minutes
+    on each of two instances took 80% of a 6 s drain, and 15 took 80% too once the account mail was counted."""
+    assert QUEUE_PROVISIONING in " ".join((ROOT / "docs/DEPLOYMENT.md").read_text(encoding="utf-8").split())
+    caps = set(public_queue_caps().values())  # one budget per limiter and key: a limiter keeps a window per key
+    assert {("app.routers.filings", "VISIT_TASK_BUDGET", "visit-tasks"),
+            ("app.routers.auth", "ACCOUNT_MAIL_LIMITER", "account-mail")} <= caps
+    instances = _service_instances(_run(SERVICE_STEP))
+    limiters = [getattr(importlib.import_module(module), name) for module, name, _key in sorted(caps)]
+    handoffs_per_second = sum(Fraction(instances * cap.limit, cap.window_seconds) for cap in limiters)
+    drain = Fraction(1, max(DISPATCH_INTERVAL_SECONDS, ASSUMED_DELIVERY_SECONDS))
+    assert handoffs_per_second <= Fraction(2, 3) * drain
 
 
 def test_recent_and_single_filing_reads(client, sessions):

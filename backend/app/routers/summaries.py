@@ -250,6 +250,7 @@ async def generate_summary_stream(
         summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
         refresh_unready = False
         cleared_for_regeneration = False
+        refresh_xbrl = False
         if summary:
             # The body this route would replay, judged by the filing page's readiness rule
             # (is_summary_ready). A row the page cannot show as a summary (failure filler, a writer
@@ -284,14 +285,15 @@ async def generate_summary_stream(
                 # saved_summaries bookmark FK'd to it — survives (T1.4). Deleting the row here would
                 # both destroy the bookmark and raise an FK violation on any bookmarked summary in
                 # Postgres. Keep-better applies: a fresh run that comes back below the stored tier keeps
-                # the stored summary. We still clear XBRL + progress so regeneration re-fetches fresh data.
+                # the stored summary. The run re-fetches XBRL (refresh_xbrl below) and replaces the
+                # stored snapshot only with XBRL that arrives; it is not cleared here, so a run the
+                # pipeline refuses, or one that ends early, keeps the snapshot the kept summary's
+                # source verification reads.
                 logger.info(f"[stream:{filing_id}] Force regeneration requested - refreshing in place")
+                refresh_xbrl = True
 
-                if filing.xbrl_data is not None:
-                    filing.xbrl_data = None
-                    logger.info(f"[stream:{filing_id}] Cleared XBRL data for regeneration")
-
-                # Clear progress record
+                # Clear progress record, so the run's row starts a fresh clock. Harmless before
+                # admission: no reader shows the progress row while the summary exists (it is kept).
                 progress = db.query(SummaryGenerationProgress).filter(
                     SummaryGenerationProgress.filing_id == filing_id
                 ).first()
@@ -360,6 +362,7 @@ async def generate_summary_stream(
                 # pipeline re-checks the row, so one another request has since saved and made ready is
                 # served or kept, never regenerated or replaced under the waived Pro gate.
                 replace_unready_only=refresh_unready or (force and summary is None),
+                refresh_xbrl=refresh_xbrl,
                 request_evidence=evidence,
             )) as events:
                 async for event in events:

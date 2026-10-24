@@ -63,11 +63,11 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
 
   if (companyLoading) {
     return (
-      <div className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
+      <main className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
         <div className="flex h-full min-h-screen items-center justify-center">
           <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
         </div>
-      </div>
+      </main>
     )
   }
 
@@ -76,7 +76,7 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
     // the network is the loading state above).
     const loadFailed = companyFailure.failed && !companyNotFound
     return (
-      <div className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
+      <main className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
         <div
           role={loadFailed ? 'alert' : undefined}
           className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center px-6 text-center"
@@ -110,12 +110,12 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
             </Link>
           )}
         </div>
-      </div>
+      </main>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
+    <main className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
       <div className="mx-auto max-w-5xl px-4 py-12">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -217,6 +217,6 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

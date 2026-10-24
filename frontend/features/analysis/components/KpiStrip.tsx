@@ -37,7 +37,7 @@ interface Kpi {
   growthReconciled?: boolean | null
   growthProvenance?: FactProvenance | null
   growthLabel: string
-  /** Basis-window tooltip ("Computed over FY2016..FY2025") — annual cards only. */
+  /** Basis-window tooltip ("Computed over FY2016–FY2025") — annual cards only. */
   growthTitle?: string
 }
 
@@ -97,7 +97,7 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
         ? (win.isPercent ? series.window_pp_provenance : series.cagr_provenance)
         : point.yoy_provenance,
       growthLabel: isAnnual ? win.label : 'YoY',
-      growthTitle: isAnnual && window ? `Computed over ${window}` : undefined,
+      growthTitle: isAnnual && window ? `Computed over ${formatAnalysisPeriod(window)}` : undefined,
     })
   }
   if (kpis.length === 0) return null

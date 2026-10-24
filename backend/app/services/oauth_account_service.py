@@ -14,13 +14,17 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import func
+from sqlalchemy import delete, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import InviteCode, OAuthAccount, OAuthState, User
 from app.services import invite_service, refresh_token_service
+from app.services.account_agreement_service import (
+    AcceptedAccountAgreement, AgreementRequired, require_current_agreement, stage_account_agreement,
+)
+from app.services.legal_readiness_service import is_collection_available
 
 # Lifetime of an OAuth state row; the router gives its state cookies the same max-age.
 OAUTH_STATE_TTL_SECONDS = 600  # 10 minutes
@@ -54,18 +58,26 @@ class LastSignInMethodError(Exception):
 # ─── New accounts (shared by Google and Apple) ─────────────────────────────────
 
 def oauth_new_account_gate(
-    db: Session, *, email: str, email_verified: bool, invite_code_hash: Optional[str]
+    db: Session, *, email: str, email_verified: bool, invite_code_hash: Optional[str],
+    agreement: AcceptedAccountAgreement | None = None,
 ) -> tuple[Optional[str], Optional[InviteCode]]:
     """Decide whether a social sign-in may create a NEW User (linking is decided by the callers).
 
     Returns ``(error_code, invite)``. ``error_code`` is None when creation may proceed, else the
-    ``/login?error=`` code to redirect with: ``email_unverified`` when the provider has not verified
+    ``/login?error=`` code to redirect with: ``registration_unavailable`` while collection is held,
+    ``account_agreement_required`` without current signup assent, ``email_unverified`` when the provider has not verified
     the address (an unverified claim never seeds an account), ``invite_required`` when
     REGISTRATION_MODE is invite_only and the sign-in carries no valid invite. ``invite`` is the
     validated invite the caller must redeem in the SAME transaction as the insert (None in public
     mode). Mirrors the register() gate; tests/unit/test_oauth_invite_gate.py keeps every ``User(``
     construction in app/ behind it (register()'s ``create_password_account`` is gated in register).
     """
+    if not is_collection_available():
+        return "registration_unavailable", None
+    try:
+        require_current_agreement(agreement)
+    except AgreementRequired:
+        return "account_agreement_required", None
     if not email_verified:
         return "email_unverified", None
     if settings.REGISTRATION_MODE != "invite_only":
@@ -84,6 +96,7 @@ def oauth_create_account(
     full_name: Optional[str],
     email_verified: bool,
     invite_code_hash: Optional[str],
+    agreement: AcceptedAccountAgreement | None = None,
 ) -> tuple[Optional[User], Optional[str]]:
     """Create the User for a first social sign-in, or say why not.
 
@@ -95,7 +108,7 @@ def oauth_create_account(
     email is rolled back and raises :class:`OAuthSignInRefused` with ``lost_create_race`` set.
     """
     error_code, invite = oauth_new_account_gate(
-        db, email=email, email_verified=email_verified, invite_code_hash=invite_code_hash
+        db, email=email, email_verified=email_verified, invite_code_hash=invite_code_hash, agreement=agreement,
     )
     if error_code:
         return None, error_code
@@ -103,6 +116,7 @@ def oauth_create_account(
     db.add(user)
     try:
         db.flush()
+        stage_account_agreement(db, user, agreement, source=provider)
     except IntegrityError:
         # Lost a concurrent first-sign-in race for the same email. The router logs it.
         db.rollback()
@@ -117,12 +131,15 @@ def oauth_create_account(
 
 # ─── Single-use state rows ─────────────────────────────────────────────────────
 
-def store_oauth_state(db: Session, state: str, nonce: str, invite_code_hash: Optional[str]) -> None:
+def store_oauth_state(
+    db: Session, state: str, nonce: str, invite_code_hash: Optional[str],
+    agreement: AcceptedAccountAgreement | None = None,
+) -> None:
     """Stage a single-use ``state`` row (10-minute TTL) after GC-ing expired rows; the caller commits.
 
-    Apple always needs one (its form_post callback is checked against the row's nonce); Google only
-    when the sign-in carries an invite, which rides on the row as its hash so the callback can
-    validate and redeem it. Naive UTC throughout (see the OAuthState model) so the comparison is
+    Both providers require one, even for a login without signup assent. The optional invite
+    rides on the row as its hash so the callback can validate and redeem it. Naive UTC for expiry
+    (see the OAuthState model) so the comparison is
     naive-vs-naive on both Postgres and SQLite.
     """
     now = datetime.utcnow()
@@ -131,21 +148,35 @@ def store_oauth_state(db: Session, state: str, nonce: str, invite_code_hash: Opt
         state=state,
         nonce=nonce,
         invite_code_hash=invite_code_hash,
+        agreement_terms_version=agreement.terms_version if agreement else None,
+        agreement_eligibility_version=agreement.eligibility_version if agreement else None,
+        agreement_accepted_at=agreement.accepted_at if agreement else None,
         expires_at=now + timedelta(seconds=OAUTH_STATE_TTL_SECONDS),
     ))
 
 
-def consume_oauth_state(db: Session, state: str) -> Optional[tuple[str, Optional[str]]]:
-    """Delete the row for ``state`` and return its ``(nonce, invite_code_hash)``, or None when the
-    state is unknown or expired (an expired row is deleted too). Single-use by construction."""
-    row = db.query(OAuthState).filter_by(state=state).first()
-    if row is None:
-        return None
-    live = row.expires_at >= datetime.utcnow()
-    nonce, invite_code_hash = row.nonce, row.invite_code_hash
-    db.delete(row)
+def consume_oauth_state(
+    db: Session, state: str,
+) -> Optional[tuple[str, Optional[str], AcceptedAccountAgreement | None]]:
+    """Atomically consume state and its signup evidence; concurrent callbacks cannot share it.
+
+    DELETE RETURNING supplies the winning row in one statement on PostgreSQL and SQLite. Expired
+    state is deleted too, but cannot authorize creation. The caller still verifies browser binding.
+    """
+    row = db.execute(delete(OAuthState).where(OAuthState.state == state).returning(
+        OAuthState.nonce, OAuthState.invite_code_hash, OAuthState.expires_at,
+        OAuthState.agreement_terms_version, OAuthState.agreement_eligibility_version,
+        OAuthState.agreement_accepted_at,
+    )).first()
     db.commit()
-    return (nonce, invite_code_hash) if live else None
+    if row is None or row.expires_at < datetime.utcnow():
+        return None
+    agreement = None
+    if row.agreement_terms_version and row.agreement_eligibility_version and row.agreement_accepted_at:
+        agreement = AcceptedAccountAgreement(
+            row.agreement_terms_version, row.agreement_eligibility_version, row.agreement_accepted_at,
+        )
+    return row.nonce, row.invite_code_hash, agreement
 
 
 def live_invite_hash(db: Session, invite: Optional[str]) -> Optional[str]:
@@ -157,19 +188,22 @@ def live_invite_hash(db: Session, invite: Optional[str]) -> Optional[str]:
     return code_hash if invite_service.invite_hash_is_live(db, code_hash) else None
 
 
-def save_google_state(db: Session, state: str, invite: Optional[str]) -> None:
-    """Commit a state row carrying the invite's hash when ``invite`` is live; otherwise persist
-    nothing (a plain Google sign-in needs no row: its state rides in the SameSite=Lax cookie)."""
+def save_google_state(
+    db: Session, state: str, invite: Optional[str], agreement: AcceptedAccountAgreement | None = None,
+) -> None:
+    """Commit one-time state for Google login/signup, with any live invite and explicit assent."""
     invite_code_hash = live_invite_hash(db, invite)
-    if invite_code_hash is not None:
-        # The nonce column is NOT NULL but unused for Google (no OIDC nonce in this flow).
-        store_oauth_state(db, state, secrets.token_urlsafe(32), invite_code_hash)
-        db.commit()
+    # The nonce column is NOT NULL but unused for Google (no OIDC nonce in this flow).
+    store_oauth_state(db, state, secrets.token_urlsafe(32), invite_code_hash, agreement)
+    db.commit()
 
 
-def save_apple_state(db: Session, state: str, raw_nonce: str, invite: Optional[str]) -> None:
+def save_apple_state(
+    db: Session, state: str, raw_nonce: str, invite: Optional[str],
+    agreement: AcceptedAccountAgreement | None = None,
+) -> None:
     """Commit Apple's state row: the raw nonce its callback checks, plus the invite's hash when live."""
-    store_oauth_state(db, state, raw_nonce, live_invite_hash(db, invite))
+    store_oauth_state(db, state, raw_nonce, live_invite_hash(db, invite), agreement)
     db.commit()
 
 
@@ -183,6 +217,7 @@ def resolve_google_user(
     email_verified: bool,
     full_name: Optional[str],
     invite_code_hash: Optional[str],
+    agreement: AcceptedAccountAgreement | None = None,
 ) -> tuple[User, bool, bool]:
     """Return ``(user, linked_existing, created)`` for a verified Google identity, with the provider
     link (if new) and ``last_login_at`` staged for ``mint_oauth_refresh_token`` to commit.
@@ -220,6 +255,7 @@ def resolve_google_user(
                 full_name=full_name,
                 email_verified=email_verified,
                 invite_code_hash=invite_code_hash,
+                agreement=agreement,
             )
             if user is None:
                 raise OAuthSignInRefused(error_code)
@@ -243,6 +279,7 @@ def resolve_apple_user(
     email_verified: bool,
     full_name: Optional[str],
     invite_code_hash: Optional[str],
+    agreement: AcceptedAccountAgreement | None = None,
 ) -> tuple[User, bool, bool]:
     """Return ``(user, linked_existing, created)`` for a verified Apple identity, with the provider
     link (if new), a first-authorization name fill-in and ``last_login_at`` staged for
@@ -287,6 +324,7 @@ def resolve_apple_user(
                 full_name=full_name,
                 email_verified=email_verified,
                 invite_code_hash=invite_code_hash,
+                agreement=agreement,
             )
             if user_obj is None:
                 raise OAuthSignInRefused(error_code)
