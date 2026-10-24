@@ -6,7 +6,7 @@
  * endpoint or the whole API) and matches it at the places this reading names (matchAt), not anywhere in the sentence.
  * Under its readings the endpoint family keeps main's blanket for "all" and "every" (#1594's fourth round): a clause
  * where "all" or "every" stands before "endpoints" as main read it fails, login word or not, unless this reading finds
- * the phrase narrowed (a phrase after it that picks some out, a phrase in brackets, the quantifier taken back) or the
+ * the phrase narrowed (a phrase after it that picks some out, in brackets or not, the quantifier taken back) or the
  * clause narrowed by a condition or denied, at main's cost ("All endpoints are documented publicly." fails). Under
  * "each" and "any" it keeps main's recall as a floor (#1594's third round): it reads every noun phrase a clause names,
  * at each quantifier (nounPhraseAt), and every login word in the clause, so a clause that names the endpoints taken
@@ -59,11 +59,12 @@
  * record every call" reads as "the access" and a verb); a subject named twice ("each endpoint and each page") reads as
  * its first phrase alone, and a pronoun as no more than itself ("each one"); a negation that governs a clause from
  * outside it ("It is not true that ...") is not read; a fronted phrase is an introduction, never a restriction ("In the
- * admin namespace, each endpoint ..."), and a phrase in brackets is not read; a prepositional phrase after a noun is
- * read as that noun's, wherever else it may attach ("every endpoint for each request" names its requests, and a family
- * decides whether such a phrase narrows); a quantifier after its noun ("the endpoints all require a login") is not
- * read; and a fronted condition with no comma runs to the first quantified noun phrase with a verb group after its own
- * verb.
+ * admin namespace, each endpoint ..."), and a phrase in brackets is not read as the phrase's, though a clause's
+ * predicate starts after one between its subject and its verb group (the endpoint family reads what one holds as it
+ * would be without the brackets); a prepositional phrase after a noun is read as that noun's, wherever else it may
+ * attach ("every endpoint for each request" names its requests, and a family decides whether such a phrase narrows); a
+ * quantifier after its noun ("the endpoints all require a login") is not read; and a fronted condition with no comma
+ * runs to the first quantified noun phrase with a verb group after its own verb.
  *
  */
 
@@ -440,6 +441,16 @@ function skipIntroduction(tokens: Token[], at: number): number {
 
 const HARD = /^[;:]$/
 
+/** The token that closes a bracket opened at a token, nested brackets read whole; -1 where none closes it. */
+export function closingBracket(tokens: Token[], open: number): number {
+  let depth = 0
+  for (let k = open; k < tokens.length; k++) {
+    if (tokens[k].text === '(') depth++
+    else if (tokens[k].text === ')' && --depth === 0) return k
+  }
+  return -1
+}
+
 /** A conjunction or a comma that may join two clauses, and where what it joins starts. */
 function joinAt(tokens: Token[], at: number): { word: string; after: number } | null {
   const word = lower(tokens[at])
@@ -473,6 +484,10 @@ function readClause(tokens: Token[], at: number, how: Next, carriedSubject: Noun
       subject.end = gerund.end
       i = gerund.end
     }
+    // A phrase in brackets between the subject and its verb group is passed over, so the predicate starts at the verb
+    // group after it ("Every endpoint (in the admin namespace) requires a login."; #1594's fifth round).
+    const bracket = subject && tokens[i]?.text === '(' ? closingBracket(tokens, i) : -1
+    if (bracket > 0 && startsPredicate(tokens, bracket + 1)) i = bracket + 1
     const between = subject && tokens[i]?.text === ',' ? conditionAt(tokens, i) : null
     if (between) {
       let close = between.words

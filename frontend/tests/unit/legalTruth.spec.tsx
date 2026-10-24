@@ -13,7 +13,7 @@ import TermsPage from '@/app/terms/page'
 import { CONSENT_VERSION } from '@/components/CookieConsent'
 import { ACCOUNT_EVENTS_DISCLOSURE, ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 import { LEGAL_DATES } from '@/lib/legalDates'
-import { matchAt, negates, nounPhraseAt, readSentence, spanText, verbGroupAt, type Clause, type Condition, type NounPhrase, type Postmodifier, type Reading, type Token } from './clauseReader'
+import { closingBracket, matchAt, negates, nounPhraseAt, readSentence, spanText, verbGroupAt, type Clause, type Condition, type NounPhrase, type Postmodifier, type Reading, type Token } from './clauseReader'
 
 /**
  * The legal pages say what the code and the hosting do, and their dates move with their text (D-046; CLAUDE.md
@@ -53,9 +53,10 @@ import { matchAt, negates, nounPhraseAt, readSentence, spanText, verbGroupAt, ty
  *    it, and nothing else does: a phrase after the endpoints that picks some out (one after "in", "of", "for", "under",
  *    "with" and the like, a relative clause or a participle, but not one that names the whole API, every request, the
  *    whole set again or a login, nor a verb's own phrase read as theirs: "We serve all endpoints over HTTPS." and "We
- *    put all endpoints behind a paywall." fail, as on main), a phrase in brackets after them, the quantifier taken
- *    back, a condition that narrows (but not one that keeps them to a login: "only to signed-in users"), or a denial on
- *    the clause's verb or its subject, unless it denies a login's absence ("We do not require authentication on every
+ *    put all endpoints behind a paywall." fail, as on main), a phrase in brackets after them that does the same, read
+ *    without the brackets ("Every endpoint (in our API) requires a login." fails), the quantifier taken back, a
+ *    condition that narrows (but not one that keeps them to a login: "only to signed-in users"), or a denial on the
+ *    clause's verb or its subject, unless it denies a login's absence ("We do not require authentication on every
  *    endpoint." passes, "Nobody can call every endpoint without a token." fails). Its cost is main's: "All endpoints
  *    are documented publicly." and "Every endpoint accepts a session token." fail. Under "each" and "any", and the all
  *    and every phrases main's reading did not cover ("every single endpoint", "all 40 endpoints"), stands a floor
@@ -128,10 +129,11 @@ import { matchAt, negates, nounPhraseAt, readSentence, spanText, verbGroupAt, ty
  *    Against main, shape by shape, the reader's out-of-reach shapes (tests/unit/clauseReader.ts) read: a subject named
  *    twice passes under "each" and fails under "every", as on main; "each one" passes after "Not every endpoint is
  *    public, and", which main refused; a negation that governs a clause from outside and a fronted phrase fail, as on
- *    main; a phrase in brackets after the endpoints passes, as on main under "each" or "any", while main refused it
- *    under "all" or "every"; a fronted condition with no comma that narrows passes, where main refused it; a phrase
- *    after "each endpoint" that restates every request fails, where main passed it; and a quantifier after its noun
- *    passes, as on main.
+ *    main; a phrase in brackets after the endpoints, read without the brackets since #1594's fifth round, passes where
+ *    it picks some out, as on main under "each" or "any", while main refused it under "all" or "every", and fails where
+ *    it names the whole ("Each endpoint (in our API) requires a login."), which main passed; a fronted condition with
+ *    no comma that narrows passes, where main refused it; a phrase after "each endpoint" that restates every request
+ *    fails, where main passed it; and a quantifier after its noun passes, as on main.
  * 2. The account events (D-051). /security's PostHog line scopes the consent to the browser, and a sentence of
  *    its own, ACCOUNT_EVENTS_DISCLOSURE (lib/consentCopy.ts), names no provider and says the service records how
  *    accounts use it against the internal account id, whatever the reader chose. /security and /privacy each place
@@ -548,20 +550,41 @@ const RESTATES_THE_SET = new RegExp(
 const restatesTheSet = (reading: Reading, m: Postmodifier) => m.kind === 'relative' && RESTATES_THE_SET.test(spanText(reading, m.start, m.end))
 /** The quantifiers that take the endpoints whole for the claim; "no" takes them whole for the claim the other way round. */
 const UNIVERSAL = ['all', 'every', 'each', 'any']
+/** A phrase in brackets right after a noun phrase, read as the postmodifiers it would be without them (#1594's fifth
+    round): the phrase read again over its own tokens and what the brackets hold, the postmodifiers they held, and the
+    reading over those tokens; null where no closed bracket follows the phrase. "(in the admin namespace)" picks some
+    out, while "(in our API)", "(all 40 of them)" and "(without exception)" leave the phrase whole. */
+function bracketed(reading: Reading, phrase: NounPhrase): { reading: Reading; postmodifiers: Postmodifier[] } | null {
+  const { tokens } = reading
+  const open = phrase.end
+  const close = tokens[open]?.text === '(' ? closingBracket(tokens, open) : -1
+  if (close < 0) return null
+  const unbracketed = [...tokens.slice(0, open), ...tokens.slice(open + 1, close)]
+  const read = nounPhraseAt(unbracketed, phrase.start)
+  return { reading: { ...reading, tokens: unbracketed }, postmodifiers: (read?.postmodifiers ?? []).filter((m) => m.start >= open) }
+}
+/** A postmodifier after the endpoints that picks none of them out: an aside, or a phrase that names the whole API or
+    every request, or a relative clause that names the whole set again. */
+const leavesWhole = (reading: Reading, m: Postmodifier) => !m.restrictive || namesTheWholeApi(m) || restatesEveryRequest(m) || restatesTheSet(reading, m)
 /** The endpoints taken whole (E162): "endpoints" under one of the quantifiers given, not taken back ("not every", "not
     all", "almost every": a denial on the quantifier, #1456's Not in this PR), with only WHOLE_DETERMINERS and
-    WHOLE_WORDS before it and nothing after it that picks some out: a prepositional phrase (but one that names the whole
-    API or every request), a relative clause (but one that names the whole set again) or a participle ("any endpoint
-    returning account data"), or an aside that names an exception. An aside in commas narrows nothing otherwise (",
-    which returns JSON,"). */
-const wholeEndpoints = (reading: Reading, phrase: NounPhrase | null, quantifiers: string[]) =>
-  !!phrase &&
-  /^endpoints?$/i.test(phrase.head.text) &&
-  quantifiers.includes(phrase.quantifier ?? '') &&
-  !phrase.takenBack &&
-  phrase.determiners.every((d) => WHOLE_DETERMINERS.has(d)) &&
-  phrase.premodifiers.every((w) => WHOLE_WORDS.test(w.text)) &&
-  phrase.postmodifiers.every((m) => !m.restrictive || namesTheWholeApi(m) || restatesEveryRequest(m) || restatesTheSet(reading, m))
+    WHOLE_WORDS before it and nothing after it that picks some out (leavesWhole): a prepositional phrase (but one that
+    names the whole API or every request), a relative clause (but one that names the whole set again) or a participle
+    ("any endpoint returning account data"), or an aside that names an exception, in brackets or not (bracketed). An
+    aside in commas narrows nothing otherwise (", which returns JSON,"). */
+const wholeEndpoints = (reading: Reading, phrase: NounPhrase | null, quantifiers: string[]) => {
+  if (!phrase) return false
+  const bracket = bracketed(reading, phrase)
+  return (
+    /^endpoints?$/i.test(phrase.head.text) &&
+    quantifiers.includes(phrase.quantifier ?? '') &&
+    !phrase.takenBack &&
+    phrase.determiners.every((d) => WHOLE_DETERMINERS.has(d)) &&
+    phrase.premodifiers.every((w) => WHOLE_WORDS.test(w.text)) &&
+    phrase.postmodifiers.every((m) => leavesWhole(reading, m)) &&
+    (!bracket || bracket.postmodifiers.every((m) => leavesWhole(bracket.reading, m)))
+  )
+}
 /** A definite modal's "be" before a state or a requirement ("will be protected", "must be authenticated", "will be
     required for each endpoint"; E162): a possible one ("can be protected") is not read. */
 const DEFINITE_BE = String.raw`(?:will|must|shall|should|would)\s+(?:always\s+)?be`
@@ -850,7 +873,7 @@ const theFloor = (reading: Reading, clause: Clause) => {
   const collect = (phrase: NounPhrase | null) => {
     if (!phrase) return
     const own = callsTo(phrase)
-    if (tokens[phrase.end]?.text !== '(' && wholeEndpoints(reading, { ...own, postmodifiers: own.postmodifiers.filter((m) => !loginAfter(reading, m)) }, UNIVERSAL)) whole.push(phrase)
+    if (wholeEndpoints(reading, { ...own, postmodifiers: own.postmodifiers.filter((m) => !loginAfter(reading, m)) }, UNIVERSAL)) whole.push(phrase)
     for (const m of phrase.postmodifiers) if (m.kind === 'preposition') collect(m.object)
   }
   if (clause.carried) collect(clause.subject)
@@ -889,9 +912,9 @@ const theFloor = (reading: Reading, clause: Clause) => {
 const MAIN_BLANKET = /^(?:all|every)\b(?:\s+of)?(?:\s+(?:our|the))?(?:\s+API)?\s+endpoints?\b/i
 const PLACES = /^(?:puts?|keeps?|kept|places?|placed|locks?|locked|hides?|hid|hidden)\s+/i
 /** The prepositions whose phrase after the endpoints picks some out ("in the admin namespace", "of the admin API", "for
-    search", "under /api/admin", "with a write scope"); a verb's own phrase after them ("over HTTPS", "via the gateway",
-    "for a week") says how or when, not which. */
-const PICKS_OUT = /^(?:in|of|within|under|on|at|for|with|behind|from|inside|outside)$/
+    search", "under /api/admin", "with a write scope", and an exception, "except the health check", as in commas); a
+    verb's own phrase after them ("over HTTPS", "via the gateway", "for a week") says how or when, not which. */
+const PICKS_OUT = /^(?:in|of|within|under|on|at|for|with|behind|from|inside|outside|except|excluding)$/
 const A_SPAN_OF_TIME = /^(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)$/i
 const theBlanket = (reading: Reading, clause: Clause) => {
   const { tokens } = reading
@@ -902,14 +925,12 @@ const theBlanket = (reading: Reading, clause: Clause) => {
     if (!inClause || !/^(?:all|every)$/.test(t.lower) || matchAt(reading, k, MAIN_BLANKET) < 0) return false
     if (k > 0 && nounPhraseAt(tokens, k - 1)?.takenBack) return false
     const phrase = phraseIn(reading, clause, k)
-    const narrowing = (m: Postmodifier) =>
-      m.restrictive &&
-      !namesTheWholeApi(m) &&
-      !restatesEveryRequest(m) &&
-      !restatesTheSet(reading, m) &&
-      !loginAfter(reading, m) &&
+    const narrowing = (read: Reading) => (m: Postmodifier) =>
+      !leavesWhole(read, m) &&
+      !loginAfter(read, m) &&
       (m.kind !== 'preposition' || (PICKS_OUT.test(m.preposition ?? '') && !(m.preposition === 'for' && A_SPAN_OF_TIME.test(m.object?.head.text ?? '')) && !(places && m.preposition === 'behind')))
-    return !!phrase && tokens[phrase.end]?.text !== '(' && !phrase.postmodifiers.some(narrowing)
+    const bracket = phrase ? bracketed(reading, phrase) : null
+    return !!phrase && !phrase.postmodifiers.some(narrowing(reading)) && !bracket?.postmodifiers.some(narrowing(bracket.reading))
   })
   if (!blanketed || clause.conditions.some((c) => !keepsToALogin(reading, c) && narrows(reading, c))) return false
   if (!verbGroupAt(tokens, clause.predicate).negated && !deniedSubjectOf(clause)) return true
@@ -2070,7 +2091,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Using any endpoint does not require a login.</p>', false],
       ['<p>Each endpoint request must be authenticated.</p>', true],
       ['<p>Each private endpoint request must be authenticated.</p>', false],
-      // A phrase in brackets after the endpoints may pick some out, so they are not taken whole.
+      // A phrase in brackets after the endpoints that picks some out leaves them not taken whole.
       ['<p>Each endpoint (in the admin namespace) requires a login.</p>', false],
       // Credential words the readings above lack.
       ['<p>All endpoints require a password.</p>', true],
@@ -2221,9 +2242,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Every endpoint answers unauthenticated requests with a 401.</p>', true],
       ['<p>Every endpoint in the admin namespace responds with 401 to unauthenticated requests.</p>', false],
       ['<p>Each endpoint responds with 401 to unauthenticated requests.</p>', 'gap'],
-      // The blanket's own readings: a phrase in brackets after all or every endpoints excuses them as a narrowing (main
-      // refused it), a condition that keeps them to a login narrows nothing, and neither does a verb's own phrase after
-      // them, which the reading takes as theirs.
+      // The blanket's own readings: a phrase in brackets after all or every endpoints that picks some out excuses them
+      // as a narrowing (main refused it), a condition that keeps them to a login narrows nothing, and neither does a
+      // verb's own phrase after them, which the reading takes as theirs.
       ['<p>Every endpoint (in the admin namespace) requires a login.</p>', false],
       ['<p>Every endpoint returns public filings only to signed-in users.</p>', true],
       ['<p>We serve all endpoints over HTTPS.</p>', true],
@@ -2259,6 +2280,17 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Every endpoint caches responses when idle and responds with 401 to unauthenticated requests.</p>', true],
       ['<p>Every endpoint does not cache responses and does not require a login.</p>', false],
       ['<p>Every endpoint caches responses when idle and requires a login only when accessing private records.</p>', false],
+      // A phrase in brackets after the endpoints is read without the brackets: one that names the whole API, the whole
+      // set again or nothing at all leaves them whole, under each as under every (main passed the each form), and the
+      // clause's predicate starts after it, so its own denial is read. Beside them, an exception in brackets picks some
+      // out, as in commas (and "(in the admin namespace)" above).
+      ['<p>Every endpoint (in our API) requires a login.</p>', true],
+      ['<p>Every endpoint (all 40 of them) requires a login.</p>', true],
+      ['<p>Every endpoint (without exception) requires a login.</p>', true],
+      ['<p>All endpoints (yes, all) require authentication.</p>', true],
+      ['<p>Each endpoint (in our API) requires a login.</p>', true],
+      ['<p>Each endpoint (in our API) does not require a login.</p>', false],
+      ['<p>Every endpoint (except the health check) requires a login.</p>', false],
       // The page's new sentences and look-alikes, which pass.
       ["<p>The site sends X-Frame-Options DENY and a Content-Security-Policy of frame-ancestors 'none', so other sites cannot show its pages in a frame.</p>", false],
       ["<p>The API's responses under /api carry a Content-Security-Policy of default-src 'none'.</p>", false],
