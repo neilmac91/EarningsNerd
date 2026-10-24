@@ -32,11 +32,13 @@ A US-GAAP filer that reports in another currency (the CNY 20-F shape), or that c
 reporting currency, normalizes through the same per-filing pick as the sync
 (`facts/currency.py::filing_currencies`): the series takes the currency of its latest annual
 report, and filings in another currency are not read, so its repair plans identities in that
-currency only. The repair does not demote the rows in another currency that an older sync stored
-(USD convenience rows, or a switcher's years before the switch); only the companyfacts sync does
-that. Sync such a company first (`POST /internal/jobs/sync-companyfacts` with `"force": true`),
-then preview its repair. Otherwise, after the apply, both currencies are current for the same
-periods. The sync leaves one thing for this repair: an annual ratio (a margin or the current
+currency only. The repair does not demote the rows an older sync stored in another currency, or
+under a filing that reports in another currency (USD convenience rows, a switcher's years before
+the switch); only the companyfacts sync does that. Sync such a company first
+(`POST /internal/jobs/sync-companyfacts` with `"force": true`), then preview its repair. Otherwise,
+after the apply, both currencies are current for the same periods. The sync never demotes a row
+from a filing newer than SEC's companyfacts response, so run it once companyfacts shows the
+company's latest filing. The sync leaves one thing for this repair: an annual ratio (a margin or the current
 ratio) that an older sync computed from other-currency operands under the same filing as the
 series-currency calculation. That identity is occupied, so the sync keeps its old operands; the
 repair's computed-metric correction recomputes it from the series-currency operands and journals

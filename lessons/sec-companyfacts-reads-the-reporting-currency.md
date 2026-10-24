@@ -1,6 +1,6 @@
 # Read each companyfacts filing in its own currency and the series in its latest annual report's; a USD figure beside a filing's own currency is a convenience translation
 
-Date: 2026-10-16, per-filing pick 2026-10-24   Area: sec (financial facts)
+Date: 2026-10-16, per-filing pick and stale-payload guard 2026-10-24   Area: sec (financial facts)
 
 **Context**: The companyfacts ingest read only `units["USD"]` (and `USD/shares`) for every concept.
 A US-GAAP filer that reports in CNY (the Alibaba shape) also tags each 20-F's own year again as a
@@ -25,35 +25,61 @@ earlier sync stored stayed current beside them. The currency belongs to each fil
 
 **Rule**: Pick the currency per filing, never per unit list over the whole history
 (`facts/currency.py::filing_currencies`). A filing's (accession's) own currency is the one that
-tags more of its kept amount items than any other, each counted once per tag, period end and span
-through the collector's own `admitted_items`; a tie leaves the filing undetermined. Never reuse
-`_reporting_currency`'s tie toward a non-USD code at filing level: one stray EUR fact at a USD
-10-K's own period-end would make that 10-K EUR. The series takes the currency of the latest annual
-report, one presenting comparatives (its currency spans two period-ends) first, so a one-period
-amendment or a later quarterly report never flips it. The collector reads every concept in that
-currency and skips every item of a filing whose own currency is another: never read a filing's
-convenience translation, never hard-code "USD", and never let one later or wider list win on its
-own. `_reporting_currency` still lives in that dependency-free module, which
-`edgar/instance/core.py` re-exports, so the normalizer loads no Settings, ORM or EDGAR code when it
-runs. Carry the picked unit on every row and every calculation built from it, and treat "additive"
-as "a currency amount" (`is_amount_unit`), not as "USD". `is_latest` is kept per unit, so the
-companyfacts writer demotes every current row of its batch's concepts in another currency amount
-or per-share unit itself (`demote_convenience_rows`), at any key with a fiscal period, whatever its
-source or filing, and for a USD series too; it never deletes one. A ratio (`pure`) keeps its unit
+tags more of its kept amount items than any other, instants included, each counted once per tag,
+period end and span through the collector's own `admitted_items`; a tie leaves the filing
+undetermined. Never reuse `_reporting_currency`'s tie toward a non-USD code at filing level: one
+stray EUR fact at a USD 10-K's own period-end would make that 10-K EUR. The series takes the
+currency of the deciding filing, the one ranking highest on (an annual report, its currency spans
+two period-ends, its latest period-end, filed): a one-period amendment or a later quarterly report
+never flips it, and neither does a 10-K/A or 20-F/A restating an older year filed after the newer
+annual report. The collector reads every concept in that currency and skips every item of a
+filing whose own currency is another: never read a filing's convenience translation, never
+hard-code "USD", and never let one later or wider list win on its own. `_reporting_currency` still
+lives in that dependency-free module, which `edgar/instance/core.py` re-exports, so the normalizer
+loads no Settings, ORM or EDGAR code when it runs. Carry the picked unit on every row and every
+calculation built from it, and treat "additive" as "a currency amount" (`is_amount_unit`), not as
+"USD".
+
+`is_latest` is kept per unit, so the companyfacts writer corrects stored rows itself
+(`demote_convenience_rows`), at any key with a fiscal period, whatever a row's source or filing,
+for a USD series too, and never deletes one. It reads the payload's own view (`payload_view`): the
+collector's very pick (`companyfacts_currencies`), and every accession and the newest `filed` date
+its us-gaap items carry. It demotes every current row of its batch's concepts in another currency
+amount or per-share unit, and every amount or per-share row under a filing whose own currency is
+another: there a figure in the series currency is that filing's convenience translation, which the
+syncs before #1365 and #1365's list pick stored. Where a demotion leaves a key the batch presents
+with no current row, it promotes the batch's own row there (the upsert's known-filing-date rule can
+store it behind the convenience row), never a quarantined one. A ratio (`pure`) keeps its unit
 across currencies, so the upsert's filing-date rule can keep one computed from other-currency
 operands current and store the batch's calculation behind it; the writer then demotes the stale
 ratio and promotes the batch's. A derived ratio with no filing owner and no recorded operands
-predates provenance and was read from the USD lists, so it counts as USD-derived. It never
-rewrites an identity: a ratio stored under the batch calculation's own identity (same filing) is
-corrected by the journaled repair. Known gaps: a switcher's current series holds only the periods
-its filings in the new currency present (its earlier rows are demoted, not deleted, and stay
-readable by accession), and a ratio at a period the batch does not compute is left current; a
-filing that presents a single period in two currencies is a tie, so its items in the series
-currency are read; a switch first reported in a 10-Q or 6-K, or a first annual report in the new
-currency that tags one year, takes effect only with the next annual report presenting
-comparatives; and the per-filing writer keeps `is_latest` per unit, so opening an old-currency
-filing after a switch can add a current row in the old currency until the next companyfacts sync
-demotes it.
+predates provenance and was read from the USD lists, so it counts as USD-derived. It never rewrites
+an identity: a ratio stored under the batch calculation's own identity (same filing) is corrected
+by the journaled repair.
+
+Never let a payload demote what is newer than it. A sync can persist a payload older than stored
+rows: a delayed SEC response, another process's earlier fetch, or the sync a new Filing triggers
+(the TTL bypass) before SEC's companyfacts shows that filing. A demotion is permanent, because the
+upsert skips a stored identity and never promotes it again, so a stale pre-switch payload once
+demoted every newer-currency row (FY2025 included) and a fresh sync restored none. A row is
+therefore protected on every path, ratios included, when its accession is not among the payload's
+and its filing date (its Filing row's, else its provenance's `filed_at`) is later than the
+payload's newest `filed`; a row with no known date is not protected.
+
+Known gaps: a switcher's current series holds only the periods its filings in the new currency
+present (its earlier rows are demoted, not deleted, and stay readable by accession); a ratio at a
+period the batch does not compute is left current, and so is one under a filing in another
+currency (a margin carries no currency); a filing that presents a single period in two currencies
+is a tie, so its items in the series currency are read; a switch first reported in a 10-Q or 6-K,
+or a first annual report in the new currency that tags one year, takes effect only with the next
+annual report presenting comparatives. The per-filing writer keeps `is_latest` per unit, so
+opening an old-currency filing after a switch can add a current row in the old currency, and a new
+filing's own rows in a new currency stand beside the old currency's until a sync whose payload
+names that filing demotes the old ones. The guard needs a filing date: a newer filing's row with
+no Filing row and no `filed_at`, or one filed the same day as the payload's newest, is not
+protected. A promotion happens only at a key this sync demoted, so a key emptied earlier stays
+empty: a filer that switches currency and back keeps its pre-switch years demoted, since their
+identities are stored and the upsert skips them.
 
 **Evidence**: `backend/app/services/facts/currency.py`;
 `backend/app/services/facts/companyfacts.py::_collect_companyfacts_concepts`;

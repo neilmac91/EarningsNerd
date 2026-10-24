@@ -12,7 +12,7 @@ from app.services.facts.concepts import (
     COMPANYFACTS_DURATION_TAGS, COMPANYFACTS_INSTANT_TAGS, NON_NEGATIVE_CONCEPTS,
     _FI_SKIPPED_CONCEPTS, _QUARTER_PERIODS, _VALID_FP, _unit_for,
 )
-from app.services.facts.currency import admitted_items, filing_currencies
+from app.services.facts.currency import admitted_items, companyfacts_currencies
 from app.services.facts.derive import derive_same_period_metrics
 from app.services.facts.fiscal_naming import reported_fiscal_year, year_ending_on
 from app.services.facts.quarterly import (
@@ -186,7 +186,7 @@ def _collect_companyfacts_concepts(usgaap: dict, financial_sic: bool) -> tuple[
     dict[str, dict[tuple[date, str], dict[str, Any]]], dict[str, dict[tuple[date, str], dict[str, Any]]],
 ]:
     """Collect each concept in the series currency from the filings in it; durations first, registry order."""
-    currency, foreign = filing_currencies(usgaap, COMPANYFACTS_DURATION_TAGS, COMPANYFACTS_INSTANT_TAGS)
+    currency, foreign = companyfacts_currencies(usgaap)  # the pick the sync's demotion reads too
     duration_values: dict[str, dict[tuple[date, str], dict[str, Any]]] = {}
     for concept, tags in COMPANYFACTS_DURATION_TAGS.items():
         if financial_sic and concept in _FI_SKIPPED_CONCEPTS:

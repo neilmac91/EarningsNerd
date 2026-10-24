@@ -392,10 +392,11 @@ unused since generation became account-required in #619; kept because migrations
   available for their own filing even when they are not the current company value.
 - Companyfacts reads each filing in its own currency (`facts/currency.py::filing_currencies`).
   A filing's (accession's) currency is the one that tags more of its kept amount items than any
-  other, each counted once per tag, period end and span on the collector's own admission; a tie
-  leaves the filing undetermined, and its items are read. The series currency is the latest
-  annual report's, preferring one that presents comparatives (its currency spans two period-ends),
-  else the latest other filing's, else USD. The collector reads every concept in that currency
+  other, instants included, each counted once per tag, period end and span on the collector's own
+  admission; a tie leaves the filing undetermined, and its items are read. The series currency is
+  the deciding filing's: an annual report first, then one that presents comparatives (its currency
+  spans two period-ends), then the one reporting the latest period, then the latest filed, so an
+  amendment of an older year filed later never decides; with no determined filing it is USD. The collector reads every concept in that currency
   (per-share concepts in its per-share unit) and skips every item of a filing whose own currency
   is another: there an item in the series currency is a convenience translation. A foreign
   US-GAAP filer's history is therefore stored as reported (CNY, JPY), never from its USD
@@ -405,10 +406,19 @@ unused since generation became account-required in #619; kept because migrations
   and its earlier years are no longer read. One stray item, from a one-period amendment or a
   later quarterly report, never flips the series; a switch first reported in a 10-Q or 6-K takes
   effect with the next annual report. Quarter derivation works in any currency. A sync then
-  demotes, never deletes, every current row of its concepts in another currency amount or
-  per-share unit, at any period with a fiscal period, whatever its source or filing, and for a
-  USD series too; rows with no fiscal period are left alone. The newer-accession rule above is per
-  unit; across units the pick has already chosen the series currency. A derived ratio (`pure`)
+  demotes, never deletes, every current row of its concepts at a period with a fiscal period,
+  whatever its source or filing and for a USD series too, whose unit is another currency amount or
+  per-share unit, or which is an amount or per-share row under a filing whose own currency is
+  another (a convenience translation an earlier sync stored in the series currency); rows with no
+  fiscal period are left alone. Where a demotion leaves a period the batch presents with no current
+  row, the batch's own row there (stored behind by the known-filing-date rule, or pending) is
+  promoted, never a quarantined one. The newer-accession rule above holds across currencies too:
+  no demotion, on any path, touches a row from a filing the payload does not name and that was
+  filed after the payload's newest filing (its Filing row's date, else its provenance's
+  `filed_at`; a row with neither is not protected), so a delayed pre-switch payload, or the sync a
+  new Filing triggers before companyfacts shows that filing, never demotes the newer filing's
+  rows. That matters because a demotion is final: the upsert skips a stored identity and never
+  promotes it again, and a sync promotes only at a period it demoted. A derived ratio (`pure`)
   keeps its unit, so where a known filing date kept one computed from other-currency operands
   current, the sync demotes it and promotes the batch's own calculation at that period; a ratio
   at a period the batch does not compute is left as it is. A ratio stored before operands were
