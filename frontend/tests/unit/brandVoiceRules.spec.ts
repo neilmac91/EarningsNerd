@@ -45,12 +45,13 @@ import { isIconModule } from './iconModules'
  *    placed in the heading (`const mark = <BellIcon />` read as `{mark}`). A value is followed by the reading the glyph
  *    gate shares (tests/unit/heldValues.ts) from every place a name is given one: its declaration, each assignment, a
  *    destructuring, a loop, a parameter at each same-file call (a component's props included), a callback however it is
- *    handed over, a function's return, what is put in an object after it is made, and React's createElement,
- *    cloneElement and Children; a same-file component that renders an icon puts it in the heading it is placed in
- *    (`<AlertMark />`); any other expression placed in the heading is read by its value (`{ok && mark}`,
- *    `{createElement(BellIcon)}`). Out of reach, planted as gaps in the self-check and review-checked: an icon that
- *    crosses modules (an app module's export), React state, a class's field read through `this`, a promise's
- *    `then` and a generator's `yield`.
+ *    handed over, a function's return, what is put in an object after it is made, React's createElement,
+ *    cloneElement and Children, and React's state (useState with what its initializer returns and what its setter is
+ *    handed, useReducer, useRef and the other hooks the reader's header names; E159); a
+ *    same-file component that renders an icon puts it in the heading it is placed in (`<AlertMark />`); any other
+ *    expression placed in the heading is read by its value (`{ok && mark}`, `{createElement(BellIcon)}`). Out of
+ *    reach, planted as gaps in the self-check and review-checked: an icon that crosses modules (an app module's
+ *    export), a class's field read through `this`, a promise's `then` and a generator's `yield`.
  *  - developerWording: copy in lib/ and hooks/ (the fallback errors a user reads) never names the
  *    backend, an API path, a "reader" or an HTTP status number.
  *  - signInVerb: the product's verb is "Log in" (docs/brand/decisions-log.md D-046, F44), so copy never says "sign in"
@@ -1242,13 +1243,27 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '5 headingIcon',
       '6 headingIcon',
     ])
-    // Out of reach, planted as the gaps the header names (each passes): an icon held in React state, a class's field
-    // read through `this`, a promise's then, a generator's yield, and an imported component that renders its prop in a
-    // heading.
+    // React's state, which the reader follows (E159): an icon an initializer returns, one a setter is handed,
+    // one a reducer returns and one a ref holds, each placed in a heading.
+    const held = [
+      "import { BellIcon } from '@/lib/icons'",
+      "import { useReducer, useRef, useState } from 'react'",
+      'export function A() { const [State] = useState(() => BellIcon); return <h2><State />Alerts</h2> }',
+      'export function A2() { const [Mark, setMark] = useState<typeof BellIcon | null>(null); if (!Mark) setMark(() => BellIcon); return <h2>{Mark && <Mark />}Alerts</h2> }',
+      'export function A3() { const [Mark] = useReducer(() => BellIcon, null); return <h2><Mark />Alerts</h2> }',
+      'export function A4() { const mark = useRef(<BellIcon />); return <h2>{mark.current}Alerts</h2> }',
+    ].join('\n')
+    expect(voiceFindings(held, 'features/probe/Held.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
+      '3 headingIcon',
+      '4 headingIcon',
+      '5 headingIcon',
+      '6 headingIcon',
+    ])
+    // Out of reach, planted as the gaps the header names (each passes): a class's field read through `this`, a
+    // promise's then, a generator's yield, and an imported component that renders its prop in a heading.
     const gaps = [
       "import { BellIcon } from '@/lib/icons'",
       "import { Section } from './Section'",
-      'export function A() { const [State] = useState(() => BellIcon); return <h2><State />Alerts</h2> }',
       'export class B { icon = BellIcon; render() { return <h2><this.icon />Alerts</h2> } }',
       'export const C = () => load().then((Later) => <h2><Later />Alerts</h2>)',
       'function* marks() { yield BellIcon }',

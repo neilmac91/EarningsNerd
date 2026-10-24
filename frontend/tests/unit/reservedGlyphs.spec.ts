@@ -30,7 +30,8 @@ import { heldValues, isWrite, leavesOf, memberKey, scopeResolver } from './heldV
  * nobody reads counts once, as a bare import does. The reading follows every other way a name is given a glyph too:
  * each assignment, a loop's variable, a parameter at each same-file call (a component's props and children included),
  * a callback however it is handed over, a function's return, what is put in an object or an array after it is made,
- * and React's createElement, cloneElement, Children and useMemo. A Map's `get` and Reflect.get read a member where they
+ * React's createElement, cloneElement, Children and useMemo, and React's state (what useState,
+ * useReducer, useRef and the other hooks the reading's header names keep, E159). A Map's `get` and Reflect.get read a member where they
  * are called, and the object Object.assign, a definition or Reflect.set puts a property on is written there, not read
  * whole. A glyph handed to a same-file function or component
  * counts where it is read there, not where it is passed, and a glyph a same-file component draws counts at each place
@@ -45,7 +46,7 @@ import { heldValues, isWrite, leavesOf, memberKey, scopeResolver } from './heldV
  *
  * Review-checked, out of the scan's reach and planted as gaps in the self-check: a namespace member read by a key it
  * cannot read (`Icons[name]`), a glyph re-exported through a module of the app's own other than lib/icons.ts, a
- * glyph held in React state, a class's field read through `this`, a promise's `then` and a generator's `yield`.
+ * class's field read through `this`, a promise's `then` and a generator's `yield`.
  * A glyph drawn inside a local component that the file never renders counts once where it is drawn.
  */
 
@@ -603,10 +604,14 @@ describe('reserved glyphs keep their one meaning', () => {
       QuotesIcon: 2,
       SparkleIcon: 2,
     })
-    // Out of reach, planted as the gaps the header names: a glyph held in React state, a class's field read through
-    // `this`, a promise's then and a generator's yield each count once where they are written, though each renders it
-    // twice; and a glyph an app module exports is not known for one.
-    expect(given(['export function P() { const [Mark] = useState(() => QuotesIcon); return <><Mark /><Mark /></> }'])).toEqual({ QuotesIcon: 1 })
+    // React's state, which the reading follows (E159): a glyph an initializer returns, one a setter is handed and one a ref
+    // holds count at each render, as a held glyph does.
+    expect(given(['export function P() { const [Mark] = useState(() => QuotesIcon); return <><Mark /><Mark /></> }'])).toEqual({ QuotesIcon: 2 })
+    expect(given(['export function P2() { const [Mark, setMark] = useState(null); useEffect(() => setMark(() => QuotesIcon), []); return <><Mark /><Mark /></> }'])).toEqual({ QuotesIcon: 2 })
+    expect(given(['export function P3() { const Mark = useRef(QuotesIcon).current; return <><Mark /><Mark /></> }'])).toEqual({ QuotesIcon: 2 })
+    // Out of reach, planted as the gaps the header names: a class's field read through `this`, a promise's then and a
+    // generator's yield each count once where they are written, though each renders it twice; and a glyph an app
+    // module exports is not known for one.
     expect(given(['export class Q { mark = QuotesIcon; render() { return <><this.mark /><this.mark /></> } }'])).toEqual({ QuotesIcon: 1 })
     expect(given(['export const R = () => Promise.resolve(QuotesIcon).then((Mark) => <><Mark /><Mark /></>)'])).toEqual({ QuotesIcon: 1 })
     expect(given(['function* marks() { yield QuotesIcon }', 'export function S() { for (const Mark of marks()) return <><Mark /><Mark /></> }'])).toEqual({ QuotesIcon: 1 })

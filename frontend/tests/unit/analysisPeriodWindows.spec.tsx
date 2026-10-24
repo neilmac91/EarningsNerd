@@ -37,10 +37,10 @@ import type { AnalysisCitation, AnalysisCompletion, AnalysisCoverage, AnalysisDa
 
 /**
  * E78: the analysis page prints a period window one way, the voice guide's unspaced range ("FY2020–FY2025",
- * "Q1 2024–Q4 2025"), which is also how the exports print it (`period_label` in
- * backend/app/services/analysis_export_metadata.py), through formatAnalysisWindow in
+ * "Q1 2024–Q4 2025"), and a window of one period as that period ("FY2021", E177), which is also how the exports
+ * print it (`period_label` in backend/app/services/analysis_export_metadata.py), through formatAnalysisWindow in
  * features/analysis/lib/periodLabels.ts. The API, the stored narrative and every lookup keep the key
- * ("FY2020..FY2025").
+ * ("FY2020..FY2025", "FY2021..FY2021").
  *
  * Three holds.
  *  - What the page renders: the committed demo run (one saved pipeline run, features/analysis/demo) through the
@@ -104,6 +104,14 @@ describe('formatAnalysisWindow', () => {
     expect(formatAnalysisPeriod('draft..final')).toBe('draft..final')
   })
 
+  it('prints a window of one period as that period, never as a range from it to itself (E177)', () => {
+    expect(formatAnalysisWindow('FY2021', 'FY2021')).toBe('FY2021')
+    expect(formatAnalysisWindow('2025Q3', '2025Q3')).toBe('Q3 2025')
+    expect(formatAnalysisWindow('2025Q3', '2025Q3', 'short')).toBe('Q3 ’25')
+    expect(formatAnalysisPeriod('FY2021..FY2021')).toBe('FY2021')
+    expect(formatAnalysisPeriods('Revenue held in FY2021..FY2021 and 2025Q3..2025Q3.')).toBe('Revenue held in FY2021 and Q3 2025.')
+  })
+
   it('formats every key in a run of prose, windows before quarters, and changes nothing a second time', () => {
     const prose = 'Revenue CAGR was +8.7% over FY2020..FY2025 [2]. Margins held from 2024Q1..2025Q4, and net income rose in 2026Q2 [3].'
     const formatted = 'Revenue CAGR was +8.7% over FY2020–FY2025 [2]. Margins held from Q1 2024–Q4 2025, and net income rose in Q2 2026 [3].'
@@ -114,7 +122,8 @@ describe('formatAnalysisWindow', () => {
   it('reads the period key the export reads and joins a window as its period_label does, so the PDF and the page print one range', () => {
     const exportMetadata = readFileSync(path.resolve(process.cwd(), '../backend/app/services/analysis_export_metadata.py'), 'utf8')
     expect(exportMetadata).toContain(`_PERIOD_KEY = r"${ANALYSIS_PERIOD_KEY}"`)
-    expect(exportMetadata).toContain(String.raw`"\\1\u2013\\2"`)
+    // Its two ends joined by the en-dash, and a window of one period printed as that period (E177).
+    expect(exportMetadata).toContain(String.raw`window[1] if window[1] == window[2] else f"{window[1]}\u2013{window[2]}"`)
   })
 })
 
@@ -167,7 +176,10 @@ describe('the other windows a reader meets', () => {
   it.each([
     { mode: 'annual' as const, range: { start: 'FY2020', end: 'FY2025' }, line: 'FY2020–FY2025 · 6 years' },
     { mode: 'quarterly' as const, range: { start: '2024Q1', end: '2025Q4' }, line: 'Q1 2024–Q4 2025 · 8 quarters' },
-  ])('names the $mode range under the period picker as one window', ({ mode, range, line }) => {
+    // E177: a selection of one period names that period, as the exports' period_label prints its key.
+    { mode: 'annual' as const, range: { start: 'FY2021', end: 'FY2021' }, line: 'FY2021 · 1 year' },
+    { mode: 'quarterly' as const, range: { start: '2025Q3', end: '2025Q3' }, line: 'Q3 2025 · 1 quarter' },
+  ])('names the $mode range under the period picker as one window: $line', ({ mode, range, line }) => {
     render(<PeriodPicker coverage={coverage} mode={mode} range={range} onModeChange={vi.fn()} onRangeChange={vi.fn()} />)
     expect(screen.getByText(line)).toBeInTheDocument()
     expect(windowPrints(document.body)).toEqual([])

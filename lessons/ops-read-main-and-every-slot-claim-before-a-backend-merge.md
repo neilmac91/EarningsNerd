@@ -29,13 +29,15 @@ from another session.
    deploy is healthy, so the next merger can read both.
 
 Any merge to main, a frontend-only or docs-only one included, waits while a backend deploy is pending
-behind a running one. Its own `deploy-backend` job would take the pending place (below).
+behind a running one. Keep this release discipline with the queue below: it avoids adding work behind
+an unverified release, and older workflow runs can still replace pending work during rollout.
 
 **Why the concurrency group is not enough.**
 - **It does not stop a merge.** It orders deploy jobs, so two never run at once, but a second merge can
   still land while the first deploy is unverified.
 - **A failed deploy is not retried.** So a merge stacked behind one ships on a base nobody verified.
-- **It can skip a deploy.** GitHub keeps one running and one pending job per group: "By default, any
+- **Its default could skip a deploy.** At the incident's commits, GitHub kept one running and one pending
+  job per group: "By default, any
   existing `pending` job or workflow in the same concurrency group will be canceled," and "the new queued
   job or workflow will take its place" (GitHub's concurrency documentation).
   - **Every push to main queues a `deploy-backend` job,** a frontend-only or docs-only push included. The
@@ -47,15 +49,34 @@ behind a running one. Its own `deploy-backend` job would take the pending place 
   - **This rests on the documentation and the workflow file,** not on a cancellation seen here. The window
     is real, though: #1549's deploy job queued at 01:20:23 and started at 01:20:32, after #1547's ended.
 
-**Gate.** Review-checked.
+**Queue correction (2026-10-24).** `deploy-backend.concurrency` now sets `queue: max` beside
+`cancel-in-progress: false`. GitHub retains up to 100 pending jobs instead of replacing the pending
+job when another arrives. A records-only run still enters the group and reports its rollout switches,
+then skips its deploy steps; it no longer evicts an already-waiting backend job while capacity remains.
+The detector, required checks, permissions and deployment steps are unchanged.
+
+This is a bounded queue, not a release-order guarantee. A full queue cancels additional arrivals.
+FIFO order is when each job starts waiting, not its commit order or workflow-dispatch time, so an older
+backend head can still arrive later. A failed or partial deployment is not repaired by this setting.
+Keep the four merge-turn reads above. Before rolling out this queue policy, let existing main CI and
+deployment runs finish: they retain their older workflow definitions and share the same group.
+Reverting the setting restores the single-pending replacement risk; retain the same release discipline.
+
+**Gate.** Merge-time state remains review-checked; the queue configuration is machine-checked.
 - **No check can see it.** No check on a pull request can see main's deploy state at the moment of the
   merge, and the merge call carries no such condition.
-- **The concurrency group is the machine part,** and it covers only overlapping deploys.
-- **A machine fix for the skipped deploy** would have the detector compare the pushed commit with the
-  commit the backend now serves, not with `HEAD^`. A later push would then deploy what a cancelled one
-  missed. That is a high-tier CI change, not built here.
+- **The concurrency group is the machine part:** it prevents overlapping deploys and retains pending
+  jobs up to its limit. `test_ci_cost_controls.py`'s existing concurrency check requires `queue: max`,
+  `cancel-in-progress: false`, the required deploy dependencies and the PR-only cancellation policy.
+  That test checks the workflow contract; GitHub implements the queue.
+- **Automatic catch-up remains separate.** The detector still compares `HEAD^` with `HEAD`, not a
+  fully verified deployed baseline. Multi-commit push coverage, stale-head prevention and recovery of
+  a failed or partial rollout need separate work; this queue setting does not supply them.
 
 **Evidence.**
+- GitHub's [concurrency guide](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)
+  documents `queue: max`, its 100-job limit and arrival-order behavior. Pairing it with
+  `cancel-in-progress: true` is invalid.
 - #1547's claim and merge: comments 6377804402 (00:54:25) and 6377811629 (00:54:59). The mistake was
   posted there at 01:06 (6377942170).
 - The two runs: 40047306851 (`a97e5271`) and 40047643613 (`3aec67e0`).
