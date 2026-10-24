@@ -9,7 +9,7 @@
  * date matches its merge is review-checked (tests/unit/legalTruth.spec.tsx, item 4).
  */
 export const LEGAL_DATES = {
-  terms: 'June 16, 2026',
-  privacy: 'October 21, 2026',
-  security: 'October 21, 2026',
+  terms: 'October 24, 2026',
+  privacy: 'October 24, 2026',
+  security: 'October 24, 2026',
 } as const

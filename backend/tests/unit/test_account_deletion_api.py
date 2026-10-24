@@ -33,7 +33,7 @@ from app.database import SessionLocal, get_db
 from app.models import AuditLog, User
 from app.routers.auth import _clear_auth_cookie, _clear_refresh_cookie, get_current_user
 
-DELETED_MESSAGE = "Your account and all associated data have been permanently deleted."
+DELETED_MESSAGE = "Your account has been deleted. Some billing, audit and provider records may remain; see the privacy policy for details."
 FAILED_DETAIL = "We could not delete your account. Contact support."
 STRIPE_CUSTOMER = "cus_deleted_account"
 # Every subscription status Stripe documents. The two ended ones can never bill again.

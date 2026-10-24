@@ -450,6 +450,22 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
 
+Company mark     <CompanyLogo ticker name decorative size>  (components/) — the one way a company's mark is
+                 drawn beside its ticker, at 20–36px (gate: tests/unit/companyMarkSingleSource.spec.ts holds
+                 the CDN's mark URL to the component). A square white tile in both themes (§9): bg-white, the
+                 hairline pair ring-border-light dark:ring-white/10, rounded-sm under 28px and rounded from
+                 28px, never a circle (Logo.dev serves square tiles and transparent marks, and a circle cut
+                 the tiles' corners). The ticker's initials in text-brand-strong sit under the mark and stay
+                 when the CDN has no logo (the URL asks it for a 404) or the image fails; the mark fades in
+                 over them. The image is a plain img with 1x/2x/3x candidates at exactly the slot's size, lazy
+                 except the one `priority` mark above a page's fold. `decorative` is required: true beside the
+                 company's name or ticker as text (aria-hidden), false when the mark stands alone (role=img,
+                 "<name> logo"). The slot is a fixed box, so no outcome shifts the row. The shape and ground are
+                 gated (tests/unit/CompanyLogo.spec.tsx: the tile, its radius step, never rounded-full, never a
+                 brand ground). Verify both themes against the PR's preview with
+                 `node scripts/capture-company-marks.mjs <preview url>` (crops and a sheet per theme and pixel
+                 ratio): a release check run once per change to the marks, not a monitor.
+
 Input            <Input>  — fill is the BRIGHTEST surface so the field reads on BOTH the cream page
                  AND an off-white card: bg-white dark:bg-white/5 + hairline + brand focus ring
 
@@ -1096,17 +1112,24 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  as usual.
 
 Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie-consent bar: above in-page
-                 sticky chrome, BENEATH the sheet scrims and the z-40 research chrome) · z-scrim 35 (the
-                 workspace / rail bottom-sheet scrims: above the bar, under the z-40 sheets they belong to) ·
+                 sticky chrome, BENEATH the modal sheets and the z-40 launchers / coachmark) · z-scrim 35
+                 (retained ladder rung; modal sheets use z-modal for their backdrops) ·
                  z-header 50 (site header; its menus ride it: the notification menu and the account menu
                  sit on this one rung inside the header's stacking context, NotificationBell on the token
                  and UserMenu still on the numeric z-50; tests/unit/NotificationBell.spec.tsx holds both) ·
                  z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the
                  source and viewer sheets — scrim AND panel) ·
                  z-toast 80 (the skip link; sonner manages its own toast layer).
-                 The copilot rail / workspace bottom sheets stay z-40 over z-scrim scrims, so the in-sheet
-                 citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
-                 sticky-cell layering is the one documented exemption.
+                 The copilot rail / workspace bottom sheets and their scrims both use z-modal, above the
+                 site header. The panel follows its scrim in DOM order at that rung. CitationChip portals
+                 into its trigger's active modal container (outside the answer scroller), keeping z-overlay
+                 inside the sheet's stacking context; outside a modal it still portals to body. A breakpoint
+                 change rehosts the card after the pane's modality commits and preserves its focused action;
+                 closing the pane dismisses the card instead of moving it over the page. The sheets
+                 have no transform or clipping ancestor for those fixed cards. A nested Modal or source-detail
+                 sheet portals later to body on z-modal, above the research sheet. Desktop remains nonmodal:
+                 the workspace is static at lg:z-auto and the standalone rail overlay retains lg:z-40.
+                 Never z-[N]; DataTable's internal z-[5] sticky-cell layering is the one documented exemption.
                  The header offset: the site header publishes its rendered height on <html> as
                  `--site-header-h` (components/Header.tsx), the one offset under it, and is the one bar that
                  sticks at the top of the viewport. Sticky and fixed chrome below the header reads it,
@@ -1170,7 +1193,7 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  coachmark is deferred, not dismissed, while the bar shows (`hooks/useConsentLayer`); the
                  saved confirmation is a sonner toast, never a fixed corner element. Real modals cover the
                  bar: beneath the settings dialog (z-modal) and beneath an open workspace / rail bottom sheet
-                 (whose z-scrim scrim dims it) its choices are inert — a tap there reaches the scrim and
+                 (whose z-modal scrim dims it and the site header) its choices are inert — a tap there reaches the scrim and
                  closes the sheet, storing nothing — and operable again once the modal closes, which is what
                  the sheet's aria-modal and focus trap already tell keyboard and AT users. In-page sticky
                  chrome stays below the bar: a section nav passing through the bar's region on a short phone
@@ -1190,10 +1213,14 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  to inline zIndex, so a z written apart from its `fixed` still counts; z-toast is exempt only
                  as the top-anchored skip link), no in-page sticky chrome outranks the bar (the top-anchored
                  site header is pinned), the tokens sit on their rungs (sticky < consent < scrim <
-                 the pinned workspace level 40 < header), the pinned bottom chrome takes the inset (the sheets'
+                 the pinned workspace level 40 < header < modal), the sheets and scrims use the modal rung,
+                 and the pinned bottom chrome takes the inset (the sheets'
                  anchor, no `bottom-0` behind any variant, the offset objects' `bottom` from
                  BOTTOM_CHROME_OFFSET, the bar's layout-effect publish, the scroll padding) and the pinned
-                 scrims are full-viewport; every pin list is shrink-only in files, sites and z.
+                 scrims are full-viewport; every pin list is shrink-only in files, sites and z. The existing
+                 consent-bar-yields e2e also hit-tests header controls under an open sheet and verifies a
+                 header tap dismisses only the sheet, while citation-chip-keyboard keeps the nested card
+                 pointer-reachable and preserves its Escape hand-off.
 
 Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per metric instead of the five-column
                  DataTable, switched by CSS alone (`md:hidden` cards, `hidden md:block` table — both in the DOM
@@ -1863,6 +1890,15 @@ fallback, a Cited jump and an XBRL fact never register the device's highlight; a
   white surface, the multicolour "G", the hairline and the label ink its branding guideline sets); it does
   not excuse a stale value. When the consent screens are set up (`tasks/todo.md` F38), check the button
   against Google's current guideline and record the values here.
+- **Company marks sit on a white tile in both themes** (`components/CompanyLogo.tsx`): a third
+  party's mark is drawn for white, and the provider serves two kinds of asset, full-bleed square tiles
+  in the brand's own ground and transparent marks, so the slot is a white tile (`bg-white`) with the
+  hairline pair (`ring-border-light dark:ring-white/10`) and the scale's small radius (4px under 28px,
+  8px from 28px), never a circle (it cut the tiles' corners) and never the brand tint (a black mark
+  on the dark tint measured 1.4:1). The initials monogram keeps the light ink (`text-brand-strong`)
+  on that tile in both themes; `tests/unit/themePairs.spec.ts` lists it in its residue beside the
+  Google button's hairline. The exemption covers the mark's own ground; the ticker and name beside it
+  pair as usual.
 - **Status + financial colors are semantic** — keep them; reserve loud status colors for genuine
   state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `GuidanceCard`).
 - **Progress / step / completion indicators use the BRAND accent (sage), not success-green.**

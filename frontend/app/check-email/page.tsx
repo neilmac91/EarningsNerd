@@ -57,7 +57,7 @@ function CheckEmailContent() {
       </h1>
       {/* Register lands here after sending a link; the account menu's "Verify your email" lands here
           without one. So the page never says a link was just sent: it names where links go, and Resend
-          is what sends one. */}
+          requests one for an account that still needs verifying. */}
       {email ? (
         <>
           <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -87,7 +87,11 @@ function CheckEmailContent() {
 
       {resendStatus === 'sent' && (
         <div className="mt-6">
-          <Notice variant="success" title="Email resent" description="Check your inbox again." />
+          <Notice
+            variant="success"
+            title="Check your inbox"
+            description="If this address belongs to an account that still needs verifying, check your inbox for a new link."
+          />
         </div>
       )}
       {resendStatus === 'error' && (

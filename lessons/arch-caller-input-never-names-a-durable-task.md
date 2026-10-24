@@ -17,6 +17,15 @@ caller's choice must shape the work, first validate it where it enters (CLAUDE.m
 bounded canonical set, and count how many distinct payloads one company can produce per dedupe
 bucket. The response can still filter per request. A fix is proven by sending N distinct caller
 values through the real task-naming code, with only the transport faked, and counting the tasks.
+One task departs from this by the founder's decision (F60, option B, 2026-10-23): the account mail
+of forgot-password and resend-verification carries the caller's address, in its body and in its
+dedupe key, since both branches of each route must queue it before any lookup. Its bound is counted:
+the request schema validates the address, and the per-address limit (3 an hour) and per-IP limit (20
+an hour per route) bound each caller, but an IPv6 block rotates past the per-IP one at will, so the
+process-wide `ACCOUNT_MAIL_LIMITER` caps both routes together at 60 an hour per API instance (120 at
+the service's two) against the shared queue's 720 dispatches an hour. A new exception needs the same:
+a founder decision, validation where the value enters, per-caller limits and a process-wide cap taken
+before every enqueue, the count written down, and an `EXEMPT` entry whose callers the gate pins.
 
 **Evidence**: `enqueue_task` in `backend/app/services/durable_tasks.py` hashes whatever body it is
 given, by design, so the fix belongs to the caller: `backend/app/routers/filings.py` enqueues
@@ -44,7 +53,10 @@ the worker's narrowing. Any other site, such as the operator-only
 Validating a caller's choice into a bounded set, and counting the payloads one company can produce
 per bucket, are review-checked. So are the gate's two limits: it takes `.id` from any object, a
 request model's too, and does not follow callers of `enqueue_internal_job` (today only the
-token-gated internal job routes). The same route's in-process refresh
+token-gated internal job routes). It does follow the account mail's:
+`test_account_mail_is_queued_only_behind_the_two_routes_limits` holds `queue_account_mail` to the
+auth router's `_queue_account_mail`, that helper to the two routes, each after its two limits, and
+the helper to the cap before its handoff. The same route's in-process refresh
 (`DURABLE_TASKS_ENABLED=false`, not the production path) still takes the caller's canonical forms in
 the caller's order: it queues nothing on the shared queue, is deduped per process while in flight,
 and stamps the per-filter freshness key that the fast path reads.
