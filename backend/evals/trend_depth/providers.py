@@ -5,7 +5,8 @@ a backend:
 
 - ``openai_compat``: DeepSeek (``DEEPSEEK_API_KEY``) and Gemini (``GEMINI_API_KEY``, Google's
   OpenAI-compatible endpoint) through the ``openai`` SDK, JSON-object mode.
-- ``anthropic``: Claude through the ``anthropic`` SDK when ``ANTHROPIC_API_KEY`` is set.
+- ``anthropic``: Claude through the ``anthropic`` SDK when ``ANTHROPIC_API_KEY`` is set (``pip install
+  anthropic``; the app does not depend on it). Only this path can turn thinking off (the ``-nothink`` arms).
 - ``claude_cli``: otherwise Claude through ``claude -p`` (the repository's judge pattern,
   ``evals/judge.py::_judge_via_cli``): Claude Code's system prompt is replaced, tools and MCP are off, no
   session persists, and it runs from a temporary directory. It calls the first-party API; its usage and
@@ -40,6 +41,7 @@ class Arm:
     key_env: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
     effort: str = ""
+    thinking: str = ""  # Claude API only: "disabled" (Haiku 5.5) or "between_tools" (Sonnet 5.5); empty = model default
     price_note: str = ""
 
 
@@ -91,6 +93,16 @@ ARMS: dict[str, Arm] = {
         "claude-haiku-5-5-low", "claude", "claude-haiku-5-5", "claude", 0.10, 0.50, 0.01, effort="low",
         price_note="prompts up to 100K tokens; $0.50/$2.50 above",
     ),
+    # Thinking off, which the Claude API allows and the CLI cannot express: Haiku 5.5 takes "disabled" at effort
+    # high or below; Sonnet 5.5 rejects "disabled" and takes "between_tools", its lowest setting.
+    "claude-haiku-5-5-nothink": Arm(
+        "claude-haiku-5-5-nothink", "claude", "claude-haiku-5-5", "claude", 0.10, 0.50, 0.01, effort="low",
+        thinking="disabled", price_note="prompts up to 100K tokens; $0.50/$2.50 above",
+    ),
+    "claude-sonnet-5-5-nothink": Arm(
+        "claude-sonnet-5-5-nothink", "claude", "claude-sonnet-5-5", "claude", 2.00, 10.00, 0.20, effort="medium",
+        thinking="between_tools",
+    ),
     "claude-opus-5-5": Arm(
         "claude-opus-5-5", "claude", "claude-opus-5-5", "claude", 4.00, 20.00, 0.20, effort="medium",
     ),
@@ -123,6 +135,8 @@ async def call(arm: Arm, system: str, user: str, *, max_tokens: int = 16000, jso
         return await _call_openai_compat(arm, system, user, max_tokens, json_mode, timeout_s)
     if os.environ.get("ANTHROPIC_API_KEY"):
         return await _call_anthropic(arm, system, user, max_tokens, timeout_s)
+    if arm.thinking:
+        raise RuntimeError(f"{arm.name}: thinking={arm.thinking!r} needs the Claude API (ANTHROPIC_API_KEY); the CLI cannot set it")
     return await _call_claude_cli(arm, system, user, timeout_s)
 
 
@@ -183,27 +197,43 @@ async def _call_openai_compat(arm: Arm, system: str, user: str, max_tokens: int,
                        "total_tokens": getattr(usage, "total_tokens", None)})
 
 
+def anthropic_request(arm: Arm, system: str, user: str, max_tokens: int) -> dict[str, Any]:
+    """The Messages API request for a Claude arm, kept free of the SDK so tests can pin it.
+
+    Claude 5.5 models think adaptively by default, and the depth is set by ``output_config.effort``; the CLI
+    arms run the same way with ``--effort``. No sampling parameters are sent: Haiku 5.5 rejects any
+    non-default temperature. ``max_tokens`` leaves room for thinking above the visible answer.
+    """
+    request: dict[str, Any] = {
+        "model": arm.model,
+        "max_tokens": max(max_tokens, 32000),
+        "system": system,
+        "messages": [{"role": "user", "content": user}],
+        "output_config": {"effort": arm.effort or "medium"},
+    }
+    if arm.thinking:
+        request["thinking"] = {"type": arm.thinking}
+    return request
+
+
 async def _call_anthropic(arm: Arm, system: str, user: str, max_tokens: int, timeout_s: float) -> CallResult:
     import anthropic
 
-    client = anthropic.AsyncAnthropic(timeout=timeout_s)
+    client = anthropic.AsyncAnthropic(timeout=timeout_s, max_retries=4)  # the SDK backs off on 429, 529 and 5xx
     started = time.monotonic()
-    async with client.messages.stream(
-        model=arm.model,
-        max_tokens=max(max_tokens, 32000),
-        system=system,
-        messages=[{"role": "user", "content": user}],
-        output_config={"effort": arm.effort or "medium"},
-    ) as stream:
+    async with client.messages.stream(**anthropic_request(arm, system, user, max_tokens)) as stream:
         message = await stream.get_final_message()
     latency = time.monotonic() - started
     text = "".join(block.text for block in message.content if block.type == "text")
     usage = message.usage
-    input_tokens = (usage.input_tokens or 0) + (usage.cache_read_input_tokens or 0) + (usage.cache_creation_input_tokens or 0)
-    cached = usage.cache_read_input_tokens or 0
-    return CallResult(text, input_tokens, cached, usage.output_tokens or 0, 0, round(latency, 3),
-                      list_cost(arm, input_tokens, cached, usage.output_tokens or 0), "anthropic", message.model,
-                      {"stop_reason": message.stop_reason})
+    cache_read = usage.cache_read_input_tokens or 0
+    cache_write = usage.cache_creation_input_tokens or 0
+    input_tokens = (usage.input_tokens or 0) + cache_read + cache_write
+    output_tokens = usage.output_tokens or 0  # includes thinking, which bills as output
+    return CallResult(text, input_tokens, cache_read, output_tokens, 0, round(latency, 3),
+                      list_cost(arm, input_tokens, cache_read, output_tokens), "anthropic", message.model,
+                      {"stop_reason": message.stop_reason, "cache_creation_input_tokens": cache_write,
+                       "thinking_blocks": sum(1 for block in message.content if block.type == "thinking")})
 
 
 async def _call_claude_cli(arm: Arm, system: str, user: str, timeout_s: float) -> CallResult:
