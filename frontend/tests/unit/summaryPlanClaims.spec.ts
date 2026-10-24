@@ -79,13 +79,16 @@ const CEILING_CUES = /\bfair[- ]use\b|\b(?:limits?|ceilings?|caps?|capped|allowa
 const NEW_SUMMARIES = /\bnew[- ](?:AI )?summar(?:y|ies)\b/i
 
 /** Where the summary pipeline reads its force flag today, as code, per module under backend/app: the orchestrator's
- * parameter and its pass-through, the run's field, the stored-summary short-circuit (load_filing) and the in-place
- * save (finalize). None of them is a meter: admit's usage gate, the charge at provider start
- * (GenerationRun.begin_charge), the refunds and the usage service count a regeneration as they count any run. */
+ * parameter and its pass-through, the run's field, the stored-summary short-circuit (load_filing), the in-place
+ * save (finalize), and the excerpt a forced run keeps unsaved until its summary is written: enrichment's persist
+ * choice (`persist=False`) and finalize's `replace_excerpt` on the INSERT. None of them is a meter: admit's usage
+ * gate, the charge at provider start (GenerationRun.begin_charge), the refunds and the usage service count a
+ * regeneration as they count any run. */
 const FORCE_READS: Record<string, number> = {
   'services/summary_pipeline.py': 3,
   'services/summary_stages/admission.py': 1,
-  'services/summary_stages/finalize.py': 5,
+  'services/summary_stages/enrichment.py': 1,
+  'services/summary_stages/finalize.py': 6,
   'services/summary_stages/generation_run.py': 1,
 }
 
