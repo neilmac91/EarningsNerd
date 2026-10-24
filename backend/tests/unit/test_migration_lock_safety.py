@@ -827,7 +827,7 @@ def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
     proxy_run = _executable(_step(job, "Start Cloud SQL proxy and export connection env")["run"])
     assert "PGOPTIONS" not in proxy_run, "do not export PGOPTIONS globally — scope it per Cloud SQL step"
     reach = cloud_sql_reach()
-    assert len(reach) >= 4  # the capacity ledger, detection SQL, the ticker repair, the FY relabel
+    assert len(reach) >= 5  # the capacity ledger, detection SQL, the ticker repair, the FY relabel, the quarterly repair
     for _, reach_step in reach:
         name, options = reach_step["name"], (reach_step.get("env") or {}).get("PGOPTIONS", "")
         for match in re.finditer(r"(?<!\$)(?<!\$\{)\bPGOPTIONS\b", reach_step["run"]):
@@ -845,6 +845,7 @@ def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
         ("Run committed detection SQL (read-only snapshots)", 600_000),
         ("Run ticker repair script", 120_000),
         ("Run fiscal-year relabel script", 120_000),
+        ("Run quarterly fact repair script", 120_000),
     ):
         opts = (_step(job, step_name).get("env") or {}).get("PGOPTIONS", "")
         assert (setting_ms(opts, "lock_timeout"), setting_ms(opts, "statement_timeout")) == (10_000, statement_ms), (

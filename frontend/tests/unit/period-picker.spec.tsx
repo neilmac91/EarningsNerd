@@ -64,7 +64,8 @@ describe('PeriodPicker controls', () => {
     const presets = screen.getByRole('group', { name: 'Recent period presets' })
     expect(within(presets).getAllByRole('button')).toHaveLength(1)
     expect(within(presets).getByRole('button', { name: 'Last 1' })).not.toHaveAttribute('aria-pressed')
-    expect(screen.getByText('FY2021–FY2021 · 1 year')).toBeInTheDocument()
+    // A selection of one period names that period, never a range from it to itself (E177).
+    expect(screen.getByText('FY2021 · 1 year')).toBeInTheDocument()
     fireEvent.click(within(presets).getByRole('button', { name: 'Last 1' }))
     expect(onRangeChange).toHaveBeenCalledWith({ start: 'FY2021', end: 'FY2021' })
     const quarterly = screen.getByRole('button', { name: 'Quarterly' })

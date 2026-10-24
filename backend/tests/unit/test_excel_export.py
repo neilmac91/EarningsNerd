@@ -159,9 +159,9 @@ class TestOverviewSheet:
         assert any("July 06, 2026" in t for t in texts)
         assert any("earningsnerd.io/terms" in t for t in texts)
         assert any("not" in t and "investment" in t for t in texts)  # the disclaimer paragraph
-        # One period reads in the singular.
+        # One period reads in the singular, its window key, as the engine writes it, as that one period (E177).
         single = _dataset()
-        single.update(period_key="FY2024", periods=single["periods"][2:])
+        single.update(period_key="FY2024..FY2024", periods=single["periods"][2:])
         overview = load_workbook(io.BytesIO(build_analysis_workbook(single, exported_at=EXPORTED_AT)))["Overview"]
         assert overview["B12"].value == "FY2024 · 1 period"
 

@@ -174,7 +174,9 @@ keep their labels, since a sync is insert-only: an oldest opening balance one ye
 Home Depot, J&J), and a delinquent filer's late chain under calendar years, where its next annual
 report's sync stores the re-reported years under fiscal labels beside the older calendar ones. The
 audited quarterly repair, `scripts/repair_quarterly_facts.py --tickers ...` (preview, then
-`--apply` with sign-off), relabels a current companyfacts row, journaled, only where the writer,
+`--apply` with sign-off; in the Ops workflow, `repair-quarterly-dry-run` then
+`repair-quarterly-apply`, `docs/quarterly-data-repair.md`, "Run it through the Ops workflow"),
+relabels a current companyfacts row, journaled, only where the writer,
 reading SEC now, still picks that row's own report for its period end. That holds for an oldest
 opening balance, which only its own report carries. It does not hold for a delinquent filer whose
 newer annual report a reader opened between two syncs: at the ends that report re-reports, the

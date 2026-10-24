@@ -210,6 +210,80 @@ def test_real_cli_preview_closes_fetch_read_and_does_not_write(db, monkeypatch, 
     assert not any(s.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for s in statements)
 
 
+class _Stdout:
+    """A stdout that tells what was flushed from what is still buffered."""
+
+    def __init__(self):
+        self.flushed, self.pending = "", ""
+
+    def write(self, text):
+        self.pending += text
+        return len(text)
+
+    def flush(self):
+        self.flushed, self.pending = self.flushed + self.pending, ""
+
+
+def test_cli_prints_its_run_id_before_any_company_so_an_interrupted_apply_can_be_rolled_back(
+    db, monkeypatch, tmp_path,
+):
+    """The report prints only once the batch ends, while each company commits as it goes. So the
+    CLI first prints one flushed start line naming the run, and an apply that a cancel or the step's
+    timeout interrupts still leaves in the log the run_id its committed companies are journaled
+    under. A rollback with it over the same tickers reverses those companies and refuses, on its
+    own line, each company the apply never committed."""
+    import json
+    import sys
+
+    from app import database
+
+    old = seed(db)
+    old_id, initial = old.id, repair.snapshot(old)
+    db.add(Company(id=2, ticker="MSFT", cik="789019", name="Microsoft"))
+    db.commit()
+    normalizer(monkeypatch)
+    monkeypatch.setattr(database, "SessionLocal", lambda: Session(db.bind))
+    for cik in ("1326801", "789019"):
+        (tmp_path / f"CIK{int(cik):010d}.json").write_text(json.dumps(payload()))
+    real, seen, out = repair.repair_company, [], _Stdout()
+
+    def interrupted(session, company_id, *args, **kwargs):
+        seen.append((company_id, out.flushed, out.pending))
+        if company_id == 2:
+            raise KeyboardInterrupt  # what a cancel or the step's timeout raises in the script
+        return real(session, company_id, *args, **kwargs)
+
+    monkeypatch.setattr(repair, "repair_company", interrupted)
+    monkeypatch.setattr(sys, "stdout", out)
+    with pytest.raises(KeyboardInterrupt):
+        cli.main(["--tickers", "META,MSFT", "--companyfacts-dir", str(tmp_path), "--apply"])
+    assert [company_id for company_id, _, _ in seen] == [1, 2]
+    _, before_any_company, buffered = seen[0]
+    assert buffered == "" and before_any_company.count("\n") == 1, "one start line, flushed before any company"
+    start = json.loads(before_any_company)
+    assert start == {
+        "started": True, "run_id": start["run_id"], "dry_run": False, "rollback_run": None,
+        "tickers": ["META", "MSFT"],
+    }
+    assert out.flushed + out.pending == before_any_company, "the interrupted run prints no report"
+    journal = db.query(FinancialFactRevision).all()
+    assert {(r.run_id, r.company_id) for r in journal} == {(start["run_id"], 1)}
+
+    out = _Stdout()
+    monkeypatch.setattr(sys, "stdout", out)
+    assert cli.main(["--tickers", "META,MSFT", "--rollback-run", start["run_id"], "--apply"]) == 1
+    line, report = (out.flushed + out.pending).split("\n", 1)
+    rollback, report = json.loads(line), json.loads(report)
+    assert rollback == {
+        "started": True, "run_id": report["run_id"], "dry_run": False,
+        "rollback_run": start["run_id"], "tickers": ["META", "MSFT"],
+    } and report["run_id"] != start["run_id"]
+    assert report["failed"] == 1 and report["companies"][0]["target_run_id"] == start["run_id"]
+    assert report["companies"][1] == {"ticker": "MSFT", "error": "No bounded apply journal for this company/run"}
+    db.expire_all()
+    assert repair.snapshot(db.get(FinancialFact, old_id)) == initial
+
+
 @pytest.mark.asyncio
 async def test_explicit_eps_adapter_keeps_exact_source_and_typed_dates(monkeypatch):
     from app.services.edgar import reported_quarterly_eps
