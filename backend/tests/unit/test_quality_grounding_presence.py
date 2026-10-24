@@ -96,8 +96,9 @@ def _template(node: ast.expr) -> str:
 def _written_reasons(tree: ast.AST) -> set[str]:
     """Every reason a function writes into its ``reasons`` list, however it writes one: a call on the list (an
     ``append`` or an ``insert`` takes its last argument, an ``extend`` each item it is handed), an augmented
-    assignment (``+=``), or an assignment to the list or a slice of it. A value that is not a string or a template
-    is kept as its source, which no measured reason equals."""
+    assignment (``+=``), an assignment to the list or a slice of it, or a sum that adds to the list where it is read
+    (``"reasons": reasons + [...]``). A value that is not a string or a template is kept as its source, which no
+    measured reason equals."""
 
     def is_reasons(node: ast.expr) -> bool:
         return (isinstance(node, ast.Name) and node.id == "reasons") or (isinstance(node, ast.Subscript) and is_reasons(node.value))
@@ -115,6 +116,8 @@ def _written_reasons(tree: ast.AST) -> set[str]:
             written.update([_template(node.args[-1])] if node.func.attr in {"append", "insert"} else items(node.args[-1]))
         elif isinstance(node, ast.AugAssign) and is_reasons(node.target):
             written.update(items(node.value))
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add) and is_reasons(node.left):
+            written.update(items(node.right))
         elif isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             if any(is_reasons(target) for target in targets):
@@ -124,7 +127,7 @@ def _written_reasons(tree: ast.AST) -> set[str]:
 
 def test_the_reason_reader_reads_every_way_a_reason_is_written():
     planted = "\n".join([
-        "reasons: list[str] = []",
+        "reasons: list[str] = ['h']",
         "reasons.append('a')",
         "reasons += ['b', f'c {n}']",
         "reasons.extend(('d',))",
@@ -132,9 +135,10 @@ def test_the_reason_reader_reads_every_way_a_reason_is_written():
         "reasons[:0] = ['f']",
         "reasons = reasons + ['g']",
         "reasons.append(words[n])",
+        "result = {'reasons': reasons + ['i']}",
         "other.append('not a reason')",
     ])
-    assert _written_reasons(ast.parse(planted)) == {"a", "b", "c {}", "d", "e", "f", "g", "words[n]"}
+    assert _written_reasons(ast.parse(planted)) == {"a", "b", "c {}", "d", "e", "f", "g", "h", "i", "words[n]"}
 
 
 def test_each_reason_the_badge_may_show_is_one_its_spec_measures():

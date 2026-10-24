@@ -829,6 +829,7 @@ class TestFiledFigureSwap:
         "Margins widened Dec 15 bp.",
         "Margins widened Dec 15 pp.",
         "Margins widened Dec 15 ppts.",
+        "Margins widened Dec 15 ppt.",
         "Margins widened Dec 15 pts.",
         "Margins widened Dec 15 percentage points.",
         "Margins widened Dec 15 BPS.",
@@ -1118,18 +1119,20 @@ class TestLabelsTheModelIsGiven:
             "  | **Metrics** | Where |", "  |---|---|", '  | Revenue | "Total net sales" |', "",
             "| metric | where |", "|---|---|", "| Net income | bottom line |", "",
             "| Metric | Where |", "|---|---|", '| Cash | “Cash and equivalents”, the "Consolidated Balance Sheets", "Cash per statement" |', "",
-            "| Metric | Where |", "|---|---|", "| Net sales | 'Net sales', ‘Total net revenues’, the company's own line |", "",
+            "| Metric | Where |", "|---|---|", "| Net sales | 'Net sales', ‘Total net revenues’, the company's line, the segment's total |", "",
             "| Segment | where |", "|---|---|", "| Services | Note 13 |",
             "- Revenue (or total net sales), net income (or net profit / earnings attributable to shareholders),",
-            "  margins (or operating margin), and growth versus the prior period.",
+            "  margins (or operating",
+            "  margin), and growth versus the prior period.",
             "- **Operating profit** (or **EBIT**) where the filing states it.",
+            "* Gross profit (or gross margin dollars) where stated.",
             "- Item 18 (or the older Item 17) holds the statements.",
         ])
         assert self.table_labels(text) == {
             "Revenue", "Total net sales", "Net income", "Cash", "Cash and equivalents", "Cash per statement", "Net sales", "Total net revenues"}
         assert self.headline_labels(text) == {
             "Revenue", "total net sales", "net income", "net profit", "earnings attributable to shareholders", "margins",
-            "operating margin", "Operating profit", "EBIT"}
+            "operating margin", "Operating profit", "EBIT", "Gross profit", "gross margin dollars"}
 
     def test_each_label_named_above_is_still_left_unread(self):
         # The other way round (lessons/arch-structural-gates-over-prose-rules.md): an excused label that starts mapping

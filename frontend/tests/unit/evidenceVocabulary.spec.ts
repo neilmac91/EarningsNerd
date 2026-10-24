@@ -23,34 +23,37 @@ import { describe, expect, it } from 'vitest'
  *
  * Copy is what the TypeScript syntax tree holds as text: string literals, template text and JSX text, and a same-file
  * constant JSX renders by name, as it stands or through a method that keeps its words (`.trim()`, a change of case): a
- * string or a template (`as const`, `satisfies`, `!` and parentheses aside), or one field of a same-file object. A name
- * resolves as TypeScript resolves it, so a parameter or another function's constant that shares the name is not that
- * constant. Copy is read as a reader reads it: its character references decoded as HTML decodes them (`&nbsp;`,
- * `&#160;`, which JSX decodes in its text and an attribute's string, and markup a module sets in its own), a
- * compatibility form as its letter (NFKC), the invisible characters taken out, and each run of white space, a line
- * break included, as one space. Not copy: comments, identifiers, the values of attributes that are never shown (an
- * address such as an href or edgarCompanyUrl's result, a class, a data-* hook but `data-en-ref`, whose value MarkedCopy
- * shows as the margin's mark, a download's file name, an id and the references to one), and, outside JSX, a value a
- * match reads: a comparison (`s === 'Verified'`), a `case`, a membership or affix test (`includes`, `startsWith`,
- * `endsWith`, `indexOf`, `has`, `get`), an object key, or a literal type. Inside JSX a matched value is copy, since
- * what it matches may be what is shown (`{s === 'Cited' ? s : ''}`). An event handler's strings are not a link's copy,
- * and rule 1 reads them as it reads a string outside JSX, since a handler may set text that is shown (a toast, a label
- * held in state): the retired phrases in any case and the whole labels in their own case, so a handler's "VERIFIED" or
- * bare "SEC EDGAR" stays review-checked. An attribution outside a link ("Data sourced from SEC EDGAR" in the footer and
- * AiDisclaimer) is not a label, and the plan's R9 leaves it, as it leaves the legal pages (LEGAL, whose links keep
- * their published words). The scan reads the .ts, .tsx, .js and .jsx modules in app, components, features, hooks and
- * lib, what the stylesheets there add with `content:` (a declaration's strings joined, their escapes read:
- * `"Verified \2713"`), and a class's generated content (`before:content-['…']`, an underscore a space). Each data
- * attribute whose value the app reads is listed with what it is for (DATA_READS), and one a stylesheet or a class shows
- * with `attr()` must be one the scan reads as copy.
+ * string or a template (`as const`, `satisfies`, `!` and parentheses aside), each value a `?:`, `??` or `||` chooses
+ * between, or one field of a same-file object. A name resolves as TypeScript resolves it, so a parameter or another
+ * function's constant that shares the name is not that constant. Copy is read as a reader reads it: its character
+ * references decoded as HTML decodes them (`&nbsp;`, `&#160;`, which JSX decodes in its text and an attribute's string,
+ * and markup a module sets in its own), markup in a string by its text, a compatibility form as its letter (NFKC), the
+ * invisible characters taken out, and each run of white space, a line break included, as one space. Not copy: comments,
+ * identifiers, the values of attributes that are never shown (an address such as an href or edgarCompanyUrl's result, a
+ * class, a data-* hook but `data-en-ref`, whose value MarkedCopy shows as the margin's mark, a download's file name, an
+ * id and the references to one), and, outside JSX, a value a match reads: a comparison (`s === 'Verified'`), a `case`,
+ * a membership or affix test (`includes`, `startsWith`, `endsWith`, `indexOf`, `has`, `get`), an object key, or a
+ * literal type. Inside JSX a matched value is copy, since what it matches may be what is shown
+ * (`{s === 'Cited' ? s : ''}`). An event handler's strings are not a link's copy, and rule 1 reads them as it reads a
+ * string outside JSX, since a handler may set text that is shown (a toast, a label held in state): the retired phrases
+ * in any case and the whole labels in their own case, so a handler's "VERIFIED" or bare "SEC EDGAR" stays
+ * review-checked. An attribution outside a link ("Data sourced from SEC EDGAR" in the footer and AiDisclaimer) is not a
+ * label, and the plan's R9 leaves it, as it leaves the legal pages (LEGAL, whose links keep their published words). The
+ * scan reads the .ts, .tsx, .js and .jsx modules in app, components, features, hooks and lib, what the stylesheets
+ * there add with `content:` (a declaration's strings joined, their escapes read: `"Verified \2713"`, its alternative
+ * text after a "/" apart), and a class's generated content in a module or a stylesheet's `@apply`
+ * (`before:content-['…']`, `after:[content:'…']`, an underscore a space). Each data attribute whose value the app reads
+ * is listed with what it is for (DATA_READS), and one a stylesheet or a class shows with `attr()` must be one the scan
+ * reads as copy.
  *
- * It cannot follow copy another module hands a link. The vocabulary module, whose labels other modules render in
- * links (sourceLinkLabel(url), which evidenceLabels.spec.ts pins), names EDGAR nowhere in its copy, which a case below
+ * It cannot follow copy another module hands a link. The vocabulary module, whose labels other modules render in links
+ * (sourceLinkLabel(url), which evidenceLabels.spec.ts pins), names EDGAR nowhere in its copy, which a case below
  * checks; copy any other module hands a link stays review-checked, as do a label built by concatenation or a template
- * that embeds a constant, one split across elements or read from an array, and an object's keys a module renders
- * (`Object.keys`). The OG card's template is read for rule 1 as a browser lays it out: each element's text and each
- * text node's, and each `content:` its styles add, as a label. The planted forms below hold the scan's reach: each way
- * to break a rule fails, each look-alike passes.
+ * that embeds a constant, one split across elements or read from an array, an object's keys a module renders
+ * (`Object.keys`), and a control that opens an address from a handler (`window.open`). The OG card's template is read
+ * for rule 1 as a browser lays it out: each element's text and each text node's, a `<br>` a space, and each `content:`
+ * its styles add, as a label. The planted forms below hold the scan's reach: each way to break a rule fails, each
+ * look-alike passes.
  */
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCANNED = ['app', 'components', 'features', 'hooks', 'lib']
@@ -110,6 +113,9 @@ const isLinkTag = (tag: string) => tag === 'a' || tag === 'Link'
 const attributeName = (attribute: ts.JsxAttribute) => attribute.name.getText()
 const shownAttribute = (attribute: ts.JsxAttribute) =>
   !ADDRESS_ATTRIBUTE.test(attributeName(attribute)) && !UNSHOWN_ATTRIBUTE.test(attributeName(attribute)) && !HANDLER_ATTRIBUTE.test(attributeName(attribute))
+/** The attributes among `names` the scan does not read as copy: an address, a handler's, or one never shown. */
+export const unreadAttributes = (names: string[]) =>
+  names.filter((name) => ADDRESS_ATTRIBUTE.test(name) || UNSHOWN_ATTRIBUTE.test(name) || HANDLER_ATTRIBUTE.test(name))
 
 // String methods that return the same words: a label read through one is the same label (`SOURCE.trim()`).
 const KEEPS_WORDS = new Set(['trim', 'trimStart', 'trimEnd', 'toUpperCase', 'toLowerCase', 'toLocaleUpperCase', 'toLocaleLowerCase', 'normalize'])
@@ -187,10 +193,15 @@ function filesUnder(dir: string, keep: (name: string) => boolean, out: string[] 
   return out
 }
 
-/** Text with its character references read as HTML reads them (`&nbsp;`, `&#160;`, `&CenterDot;`): jsdom's decoder,
-    which knows every name JSX and Next's compiler decode, and HTML's newer ones. A textarea's content is text and
-    character references, never tags. */
+/** Text as HTML reads it (`&nbsp;`, `&#160;`, `&CenterDot;`): jsdom's decoder, which knows every name JSX and Next's
+    compiler decode, and HTML's newer ones. Markup in a string (an `__html`) is read by its text, its tags left out;
+    other text through a textarea, whose content is text and character references, never tags. */
 function decoded(text: string): string {
+  if (/<[a-z!/]/i.test(text)) {
+    const holder = document.createElement('template')
+    holder.innerHTML = text
+    return holder.content.textContent ?? text
+  }
   if (!/&#?\w/.test(text)) return text
   const holder = document.createElement('textarea')
   holder.innerHTML = text
@@ -218,9 +229,19 @@ function unwrap(node: ts.Expression): ts.Expression {
   return at
 }
 
-/** The copy an initializer holds: a string, or a template's text without its substitutions. */
+/** The copy an initializer holds: a string, a template's text without its substitutions, or each of the values a
+    `?:`, `??` or `||` chooses between, joined at "|" so each reads as a label of its own. */
 function initializerText(node: ts.Expression): string | null {
   const value = unwrap(node)
+  const choices = ts.isConditionalExpression(value)
+    ? [value.whenTrue, value.whenFalse]
+    : ts.isBinaryExpression(value) && (value.operatorToken.kind === ts.SyntaxKind.BarBarToken || value.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken)
+      ? [value.left, value.right]
+      : null
+  if (choices) {
+    const texts = choices.map(initializerText).filter((text): text is string => text !== null)
+    return texts.length ? texts.join(' | ') : null
+  }
   if (ts.isTemplateExpression(value)) return decoded([value.head.text, ...value.templateSpans.map((span) => span.literal.text)].join(' '))
   return ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value) ? decoded(value.text) : null
 }
@@ -357,9 +378,11 @@ export function scanAll(files: Map<string, string>): Breach[] {
 export const scan = (rel: string, source: string) => scanAll(new Map([[rel, source]]))
 
 // A `content:` declaration's value, to the end of the declaration: its strings (which may hold `;` or `}`) and the rest.
-// The lookbehind leaves `justify-content:` and `align-content:` out.
-const CONTENT_DECLARATION = /(?<![\w-])content\s*:((?:"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*'|[^;}"'])*)/gi
-const CSS_STRING = /"((?:[^"\\]|\\[\s\S])*)"|'((?:[^'\\]|\\[\s\S])*)'/g
+// A custom property named for content (`--chip-content`) is read too; `justify-content` and `align-content` hold no
+// string.
+const CONTENT_DECLARATION = /content\s*:((?:"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*'|[^;}"'])*)/gi
+// A CSS string, or the "/" that sets a content's alternative text apart (`content: "✓" / "Checked"`).
+const CSS_TOKEN = /"((?:[^"\\]|\\[\s\S])*)"|'((?:[^'\\]|\\[\s\S])*)'|(\/)/g
 const contentValues = (css: string) => [...css.replace(/\/\*[\s\S]*?\*\//g, ' ').matchAll(CONTENT_DECLARATION)].map(([, value]) => value)
 
 /** A CSS string's text, its escapes read as CSS reads them: `\2713 ` is ✓, `\"` a quote, an escaped line break nothing. */
@@ -371,19 +394,26 @@ const cssUnescaped = (text: string) =>
   })
 
 /** The text a stylesheet adds with `content:`, its comments taken out: each declaration's strings, joined as CSS joins
-    them, their escapes read. */
+    them, their escapes read, and its alternative text after a "/" read apart. */
 export const cssContent = (css: string) =>
   contentValues(css)
-    .map((value) => [...value.matchAll(CSS_STRING)].map(([, double, single]) => cssUnescaped(double ?? single)).join(''))
+    .flatMap((value) => {
+      const parts = ['']
+      for (const [, double, single, slash] of value.matchAll(CSS_TOKEN)) {
+        if (slash) parts.push('')
+        else parts[parts.length - 1] += cssUnescaped(double ?? single)
+      }
+      return parts
+    })
     .filter(Boolean)
 
 /** The attributes a stylesheet's `content:` shows the value of (`attr(data-label)`). */
 export const cssShownAttributes = (css: string) =>
   contentValues(css).flatMap((value) => [...value.matchAll(/\battr\(\s*([\w-]+)/gi)].map(([, name]) => name))
 
-// A class's generated content: `before:content-['Matches_filing']` (an underscore is a space, `\_` an underscore) or
-// `after:content-[attr(data-label)]`.
-const CLASS_CONTENT = /content-\[(?:'([^'\s]*)'|"([^"\s]*)"|attr\(([\w-]+)\))\]/g
+// A class's generated content: `before:content-['Matches_filing']` (an underscore is a space, `\_` an underscore),
+// `after:content-[attr(data-label)]`, or an arbitrary property, `after:[content:'Matches_filing']`.
+const CLASS_CONTENT = /(?:content-\[|\[content:)(?:'([^'\s]*)'|"([^"\s]*)"|attr\(([\w-]+)\))\]/g
 
 /** What the generated content of the classes in a text shows: its texts, and the attributes it shows with `attr()`. */
 export function classContent(text: string): { texts: string[]; attributes: string[] } {
@@ -397,16 +427,21 @@ export function classContent(text: string): { texts: string[]; attributes: strin
 }
 
 /** The data attributes a module reads the value of: `el.dataset.name`, `el.dataset['name']`, a name destructured from
-    `el.dataset`, and `el.getAttribute('data-…')`; one read by a computed name or a rest element is `data-*`. A dataset
-    handed on whole is not followed (review-checked). */
+    `el.dataset`, and `el.getAttribute('data-…')`; one read by a computed name, through a name of its own or by a rest
+    element is `data-*`, which no entry lists, so it fails until it is written out. A write or a delete is no read. A
+    dataset handed on whole is not followed (review-checked), and a JSON field named `dataset` reads as one (it fails
+    closed). */
 export function dataReadsIn(sf: ts.SourceFile): string[] {
   const out: string[] = []
   const attribute = (name: string) => `data-${name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`
   const isDataset = (node: ts.Node) => ts.isPropertyAccessExpression(node) && node.name.text === 'dataset'
+  const written = (node: ts.Node) =>
+    ts.isDeleteExpression(node.parent) || (ts.isBinaryExpression(node.parent) && node.parent.left === node && node.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken)
   visit(sf, (node) => {
-    if (ts.isPropertyAccessExpression(node) && isDataset(node.expression)) out.push(attribute(node.name.text))
-    else if (ts.isElementAccessExpression(node) && isDataset(node.expression)) {
-      out.push(ts.isStringLiteralLike(node.argumentExpression) ? attribute(node.argumentExpression.text) : 'data-*')
+    if (ts.isPropertyAccessExpression(node) && isDataset(node.expression)) {
+      if (!written(node)) out.push(attribute(node.name.text))
+    } else if (ts.isElementAccessExpression(node) && isDataset(node.expression)) {
+      if (!written(node)) out.push(ts.isStringLiteralLike(node.argumentExpression) ? attribute(node.argumentExpression.text) : 'data-*')
     } else if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer && isDataset(unwrap(node.initializer))) {
       for (const element of node.name.elements) {
         const name = element.propertyName ?? element.name
@@ -414,7 +449,8 @@ export function dataReadsIn(sf: ts.SourceFile): string[] {
       }
     } else if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'getAttribute') {
       const [name] = node.arguments
-      if (name && ts.isStringLiteralLike(name) && name.text.startsWith('data-')) out.push(name.text)
+      if (name && !ts.isStringLiteralLike(name)) out.push('data-*')
+      else if (name && name.text.startsWith('data-')) out.push(name.text)
     }
   })
   return out
@@ -471,6 +507,7 @@ export function htmlSegments(html: string): string[] {
   const page = new DOMParser().parseFromString(html, 'text/html')
   const added = [...page.querySelectorAll('style')].flatMap((style) => cssContent(style.textContent ?? ''))
   page.querySelectorAll('style, script, template').forEach((node) => node.remove())
+  page.querySelectorAll('br').forEach((br) => br.replaceWith(' '))
   const shown = [page.body, ...page.body.querySelectorAll('*')].flatMap((element) => [
     element.textContent ?? '',
     ...[...element.childNodes].filter((child) => child.nodeType === Node.TEXT_NODE).map((child) => child.textContent ?? ''),
@@ -504,7 +541,11 @@ describe('the evidence vocabulary (D-058)', () => {
 
   it('adds no retired label with a stylesheet’s content', () => {
     expect(sheets).toContain('app/globals.css')
-    expect(sheets.flatMap((rel) => cssContent(readFileSync(path.join(FRONTEND, rel), 'utf8')).filter((text) => retiredText(text, true)))).toEqual([])
+    const added = sheets.flatMap((rel) => {
+      const css = readFileSync(path.join(FRONTEND, rel), 'utf8')
+      return [...cssContent(css), ...classContent(css).texts]
+    })
+    expect(added.filter((text) => retiredText(text, true))).toEqual([])
   })
 
   it('reads as copy each data attribute whose value the app shows', () => {
@@ -516,7 +557,10 @@ describe('the evidence vocabulary (D-058)', () => {
     for (const [name, use] of Object.entries(DATA_READS)) expect(UNSHOWN_ATTRIBUTE.test(name), `${name}: ${use}`).toBe(use !== 'shown')
     // An attribute a stylesheet or a class shows with attr() is copy.
     const styled = [
-      ...sheets.flatMap((rel) => cssShownAttributes(readFileSync(path.join(FRONTEND, rel), 'utf8'))),
+      ...sheets.flatMap((rel) => {
+        const css = readFileSync(path.join(FRONTEND, rel), 'utf8')
+        return [...cssShownAttributes(css), ...classContent(css).attributes]
+      }),
       ...files.flatMap((rel) => {
         const shown: string[] = []
         visit(program.getSourceFile(path.join(FRONTEND, rel))!, (node) => {
@@ -526,7 +570,7 @@ describe('the evidence vocabulary (D-058)', () => {
         return shown
       }),
     ]
-    expect(styled.filter((name) => ADDRESS_ATTRIBUTE.test(name) || UNSHOWN_ATTRIBUTE.test(name) || HANDLER_ATTRIBUTE.test(name))).toEqual([])
+    expect(unreadAttributes(styled)).toEqual([])
   })
 
   it('keeps EDGAR out of the vocabulary module, whose labels other modules render in links', () => {
@@ -582,6 +626,12 @@ describe('the vocabulary scan holds its reach', () => {
     ['a constant asserted not null', `const LABEL = 'Open on SEC EDGAR'!\nexport const A = () => <a href="/f">{LABEL}</a>`],
     ['a field keyed by a string', `const LABELS = { 'source': 'Open on SEC EDGAR' }\nexport const A = () => <a href="/f">{LABELS.source}</a>`],
     ['a link that names it with a soft hyphen', `export const A = ({ u }: { u: string }) => <a href={u}>Full history on ED&shy;GAR</a>`],
+    [
+      'a constant a condition chooses',
+      `export const A = ({ u, annual }: { u: string; annual: boolean }) => { const label = annual ? 'Open the 10-K on EDGAR' : 'Open the 10-Q on SEC.gov'; return <a href={u}>{label}</a> }`,
+    ],
+    ['a constant with a default', `export const A = ({ u, l }: { u: string; l?: string }) => { const label = l ?? 'Open on EDGAR'; return <a href={u}>{label}</a> }`],
+    ['a constant with a fallback', `const LABEL = process.env.X || 'Open on EDGAR'\nexport const A = () => <a href="/f">{LABEL}</a>`],
   ])('fails %s', (_, source) => {
     expect(breaches(source)).toContain('link names EDGAR')
   })
@@ -633,6 +683,12 @@ describe('the vocabulary scan holds its reach', () => {
     ['a badge in parentheses', `export const T = () => <span>{('SEC EDGAR')}</span>`],
     ['a class’s generated content', `export const V = () => <span className="after:content-['Verified']">Revenue</span>`],
     ['a class’s generated content, its spaces written as underscores', `export const V = () => <span className="before:content-['Verified_in_filing']" />`],
+    ['a class’s generated content in capitals', `export const V = () => <span className="after:content-['VERIFIED']">Revenue</span>`],
+    ['a class’s generated content in double quotes', `export const V = () => <span className={'after:content-["Verified"]'}>Revenue</span>`],
+    ['an arbitrary property’s content', `export const V = () => <span className="after:[content:'Verified']">Revenue</span>`],
+    ['a badge a condition chooses', `export const B = ({ ok }: { ok: boolean }) => { const BADGE = ok ? 'VERIFIED' : 'PENDING'; return <span>{BADGE}</span> }`],
+    ['a bare source name a condition chooses', `export const T = ({ x }: { x: boolean }) => { const SOURCE = x ? 'SEC EDGAR' : 'SEC.gov'; return <span>{SOURCE}</span> }`],
+    ['markup a module sets', `export const M = () => <span dangerouslySetInnerHTML={{ __html: 'Revenue · <b>Verified</b>' }} />`],
   ])('fails %s', (_, source) => {
     expect(breaches(source)).toContain('retired label')
   })
@@ -679,6 +735,11 @@ describe('the vocabulary scan holds its reach', () => {
     ['a class’s generated quote marks', `export const Q = () => <blockquote className="before:content-['“'] after:content-['”']">Revenue grew.</blockquote>`],
     ['a counter a class generates', `export const R = () => <span className="before:content-[counter(row,decimal-leading-zero)]" />`],
     ['prose wrapped across lines', `export const P = () => (\n  <p>\n    Each figure is checked against the filing’s\n    XBRL data.\n  </p>\n)`],
+    [
+      'a condition that chooses between the plain labels',
+      `export const B = ({ ok }: { ok: boolean }) => { const BADGE = ok ? 'Matches filing' : 'Linked, not checked'; return <span>{BADGE}</span> }`,
+    ],
+    ['markup with plain words', `export const M = () => <span dangerouslySetInnerHTML={{ __html: '<b>Matches filing</b>' }} />`],
   ])('passes %s', (_, source) => {
     expect(breaches(source)).toEqual([])
   })
@@ -727,6 +788,8 @@ describe('the vocabulary scan holds its reach', () => {
     const sheet = `.a::after { content: "Verified \\2713"; } .b::before { content: "Ver" 'ified'; } .c { justify-content: center; } .d::after { content: "a;b}c"; } .e::after { content: "\\"Cited\\""; }`
     expect(cssContent(sheet)).toEqual(['Verified ✓', 'Verified', 'a;b}c', '"Cited"'])
     expect(cssContent(sheet).filter((text) => retiredText(text, true))).toEqual(['Verified ✓', 'Verified', '"Cited"'])
+    // A content's alternative text is read apart, and a custom property named for content is read too.
+    expect(cssContent(`.f::after { content: "✓" / "Verified"; } .g { --chip-content: 'Cited'; }`)).toEqual(['✓', 'Verified', 'Cited'])
   })
 
   it('reads the attributes a style shows and the data attributes a module reads', () => {
@@ -735,6 +798,10 @@ describe('the vocabulary scan holds its reach', () => {
       texts: ['Matches filing', 'a_b'],
       attributes: ['data-label'],
     })
+    // An arbitrary property, and a stylesheet's @apply.
+    expect(classContent(`after:[content:'Matches_filing'] before:[content:attr(title)]`)).toEqual({ texts: ['Matches filing'], attributes: ['title'] })
+    expect(classContent(`.chip { @apply after:content-['Verified']; }`).texts).toEqual(['Verified'])
+    expect(unreadAttributes(['data-label', 'aria-label', 'href', 'onClick', 'data-en-ref', 'title'])).toEqual(['data-label', 'href', 'onClick'])
     const planted = (source: string) => ts.createSourceFile('features/x/Planted.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
     const reads = [
       `const a = el.dataset.enRef`,
@@ -743,8 +810,15 @@ describe('the vocabulary scan holds its reach', () => {
       `const { label, layoutTwin: twin } = el.dataset`,
       `const d = el.dataset[key]`,
       `const { ...rest } = el.dataset`,
+      `const e = el.getAttribute(LABEL_ATTRIBUTE)`,
+      'const f = el.getAttribute(`data-${key}`)',
+      `el.dataset.count += 1`,
     ].join('\n')
-    expect(dataReadsIn(planted(reads))).toEqual(['data-en-ref', 'data-change-id', 'data-label', 'data-label', 'data-layout-twin', 'data-*', 'data-*'])
+    expect(dataReadsIn(planted(reads))).toEqual([
+      'data-en-ref', 'data-change-id', 'data-label', 'data-label', 'data-layout-twin', 'data-*', 'data-*', 'data-*', 'data-*', 'data-count',
+    ])
+    // A write or a delete is no read.
+    expect(dataReadsIn(planted([`el.dataset.label = 'x'`, `delete el.dataset.label`, `el.dataset['label'] = 'y'`].join('\n')))).toEqual([])
     // A variable named dataset, a field of that name, and an attribute that is not data, are no data attribute read.
     const others = [`const s = dataset.series`, `const t = el.getAttribute('title')`, `const u = demo.dataset as unknown as AnalysisDataset`].join('\n')
     expect(dataReadsIn(planted(others))).toEqual([])
@@ -766,6 +840,8 @@ describe('the OG card scan', () => {
     ['{ } Revenue &CenterDot; Verified', true],
     ['{ } Revenue · Verified in\n      filing', true],
     ['{ } Revenue · SEC <b>XBRL</b>', true],
+    ['{ } Revenue · Cited <b>3</b>', true],
+    ['Figures from SEC<br>XBRL data', true],
     ['{ } Revenue · Matches filing', false],
     ['{ } Revenue &middot; Matches filing', false],
     ['{ } Revenue · <b>Matches</b> filing', false],
