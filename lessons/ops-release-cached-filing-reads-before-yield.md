@@ -99,13 +99,21 @@ call; checkout's claim of a new customer, and its trial's row check after the cu
 are units of their own; and every Stripe call runs off the loop, on the Stripe threads since E170. Their burst case holds every statement, release and Stripe call off the loop and each new
 customer to its own account, and a single request makes each Stripe call with no connection out
 (2026-10-23, E144).
+The company lookup, the search and the trending list, all public, ran their units on the loop between
+their SEC and Yahoo awaits, each released before the next await: eight readers of each answered as they
+should, but with every checkout and statement on the loop (13 of 13 for eight lookups of a new company,
+24 of 24 for eight searches of a stored one). Each unit now runs in the thread pool and releases in a
+`finally`. Off the loop, eight lookups or eight searches of one new company race for its row, as two
+instances always could: the unique CIK decides, and each loser serves the stored row through the
+resolver's recovery or the search's. Their burst case holds every statement and release off the loop
+and those racers to one row (2026-10-24, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
 dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
 rules, uses it. Its ceilings hold the routes that still hand their session to a call on the loop at
-their counts (the rest of the auth router, E121, and 31 routes in seven other routers, E171; six of
+their counts (the rest of the auth router, E121, and 28 routes in six other routers, E171; six of
 those hand-offs, the header's strict ones, use no connection on the loop), so none can add one in a
 form the ratchet counts and a new route starts at 0. Neither half
 sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called
