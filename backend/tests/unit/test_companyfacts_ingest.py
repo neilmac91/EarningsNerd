@@ -1044,10 +1044,10 @@ def _with_later_usd_quarter(payload, form="6-K"):
     return payload
 
 
-def _with_older_year_cny_amendment(payload):
-    """A CNY 20-F/A restating FY2023-24 revenue, filed after the USD 20-F for FY2025."""
+def _with_older_year_cny_amendment(payload, filed="2025-09-01"):
+    """A CNY 20-F/A restating FY2023-24 revenue, filed after the USD 20-F for FY2025 (or on ``filed``)."""
     payload["facts"]["us-gaap"][REV_TAG]["units"]["CNY"].extend(
-        _item(value * 1.01, end, start=start, accn="20FA-2024", fy=2024, form="20-F/A", filed="2025-09-01")
+        _item(value * 1.01, end, start=start, accn="20FA-2024", fy=2024, form="20-F/A", filed=filed)
         for (_fy, start, end, _rate), value in zip(_CNY_YEARS[1:], _CNY_REVENUE[1:]))
     return payload
 
@@ -1400,16 +1400,17 @@ class TestNativeReportingCurrencySync:
         # CNY 20-Fs, then the USD 20-F for FY2025 with the switch's first USD report, a quarterly
         # report filed before it (2024-08-20), then the pre-switch payload again (a delayed SEC
         # response, or another process's older fetch), then the current one. The stale payload does
-        # not name 20F-2025 (filed 2025-07-23, after its newest filing, the quarterly report), whose
-        # current USD rows prove it older than the switch, so its sync changes nothing current. It
-        # demotes none of 20F-2025's rows, ratios included; it leaves the quarterly report's two Q1
-        # rows current, though it names that report and its own currency is not the stale CNY
-        # series'; and it leaves its own CNY rows stored, not current, at the periods only it
-        # presents (FY2021-22, and the FY2023 balance sheet), where they would read CNY beside USD
-        # FY2023-25. The fresh sync then finds the series as the first USD sync left it. Without the
-        # guard the stale sync demotes every USD row; without the stale-payload rule it demotes the
-        # Q1 rows and makes those CNY rows current (the check that no concept spans two currencies
-        # fails first).
+        # not name 20F-2025 (filed 2025-07-23, after its newest filing, the quarterly report), an
+        # annual report whose current rows read USD over FY2023-25, so it proves the payload older
+        # than the switch: the sync stores nothing and demotes every current amount or per-share row
+        # in another currency than USD, here none. It demotes none of 20F-2025's rows, ratios
+        # included, and leaves the quarterly report's two Q1 rows current, though it names that
+        # report and its own currency is not the stale CNY series'; its own CNY rows stay stored, not
+        # current, at the periods only it presents (FY2021-22, and the FY2023 balance sheet), where
+        # they would read CNY beside USD FY2023-25. The fresh sync then finds the series as the first
+        # USD sync left it. Without the guard the stale sync demotes every USD row; without the
+        # switch it demotes the Q1 rows and makes those CNY rows current (the check that no concept
+        # spans two currencies fails first).
         from app.database import SessionLocal
         from app.models import FinancialFact
 
@@ -1429,66 +1430,73 @@ class TestNativeReportingCurrencySync:
         assert sorted({r.unit for r in rows}) == ["USD", "USD/shares", "pure"]
         switched = _current_rows(db, company.id)
 
-        stale = svc._persist_companyfacts_payload(db, company, payload(switched=False))
+        stale = _checked_sync(db, company, payload(switched=False))
         _one_currency_per_concept(db, company.id)
         assert _current_rows(db, company.id) == switched
-        assert (stale["inserted"], stale["demoted"]) == (0, 0)
+        assert (stale["inserted"], stale["skipped"], stale["demoted"]) == (0, 0, 0)
         fresh = _checked_sync(db, company, payload(), final=True)
         assert (fresh["inserted"], fresh["demoted"]) == (0, 0)
         assert _current_rows(db, company.id) == switched
         db.close()
 
-    @pytest.mark.parametrize("amended", [False, True], ids=["as-synced", "with-a-later-cny-amendment"])
-    def test_a_sync_before_companyfacts_shows_a_new_filing_never_demotes_that_filings_own_rows(self, amended):
+    @pytest.mark.parametrize("extra", ["as-synced", "with-a-later-cny-amendment", "with-a-stray-eur-row"])
+    def test_a_sync_before_companyfacts_shows_a_new_currencys_annual_report_reads_only_that_currency(self, extra):
         # A CNY-synced company files its first USD 20-F, and the per-filing writer stores that
         # filing's rows (filing_id set, a Filing row dated 2025-07-23, no filed_at of their own).
         # The per-filing writer keeps is_latest per unit, so CNY and USD are both current at
         # FY2023-24. The new Filing lets the next coverage request bypass the sync TTL, but SEC's
         # companyfacts does not show the filing yet: the payload is the CNY one, filed before it,
-        # with or without a 20-F/A restating FY2024 revenue in CNY (filed 2024-09-01). The new
-        # filing's current USD rows prove the payload older than the switch, so its sync changes
-        # nothing current: it demotes none of the new filing's rows, its USD-derived margins
-        # included, and leaves the 13 CNY rows beside them current (six concepts at FY2023-24 and the
-        # FY2024 balance sheet) as the per-filing writer left them. The amendment's FY2024 revenue is
-        # stored, not current, and 20F-2024's row there, which the upsert demoted, is current again.
-        # The sync that names 20F-2025 then reads the series in USD.
+        # alone, with a 20-F/A restating FY2024 revenue in CNY (filed 2024-09-01), or after the
+        # per-filing writer stored an old 20-F's FY2022 cash flow in EUR. The new filing is an annual
+        # report whose current rows read USD over FY2023-25, so it proves the payload older than the
+        # switch: the sync stores nothing (the amendment neither) and demotes every current amount or
+        # per-share row in another currency than USD (the EUR row too), protected or not, and keeps
+        # every row of the new filing current, its USD-derived margins included. That is the set the
+        # sync that names 20F-2025 converges to: USD FY2023-25, FY2021-22 a gap. Leaving the per-filing
+        # writer's state read FY2023 revenue in USD after FY2022 in CNY, a YoY of -85.5%.
         from app.database import SessionLocal
-        from app.models import Filing, FinancialFact
+        from app.models import FinancialFact
+        from app.services import trend_analysis_service
 
         db = SessionLocal()
         company = _new_company(db)
         tag = f"-{uuid.uuid4().hex[:8]}"  # accession numbers are unique across companies
         stale_payload = _switched_to_usd_payload(switched=False)
-        if amended:
+        if extra == "with-a-later-cny-amendment":
             stale_payload["facts"]["us-gaap"][REV_TAG]["units"]["CNY"].append(_item(
                 _CNY_REVENUE[2] * 1.01, "2024-03-31", start="2023-04-01", accn="20FA-2024", fy=2024,
                 form="20-F/A", filed="2024-09-01"))
         _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
-        filing = Filing(company_id=company.id, accession_number=f"20F-2025{tag}", filing_type="20-F",
-                        filing_date=datetime(2025, 7, 23, tzinfo=timezone.utc),
-                        document_url="https://example.com/d", sec_url="https://example.com/s")
-        db.add(filing)
-        db.commit()
-        own = [{**f, "source": "edgar_xbrl", "filing_id": filing.id, "provenance": {**f["provenance"], "filed_at": None}}
-               for f in svc.normalize_companyfacts(company.id, _suffixed(_switched_to_usd_payload(), tag))[0]
-               if f["accession"] == filing.accession_number]
-        svc.upsert_facts_bulk(db, own)
+        if extra == "with-a-stray-eur-row":
+            svc.upsert_facts_bulk(db, [_fact_dict(company.id, "operating_cash_flow", end=date(2022, 3, 31), unit="EUR",
+                                                  value=24_000e6, accession=f"20F-2022{tag}", source="edgar_xbrl")])
+        filing = _store_per_filing(db, company, _suffixed(_switched_to_usd_payload(), tag), f"20F-2025{tag}", "20-F",
+                                   "2025-07-23")
         ids = {r.id for r in db.query(FinancialFact).filter_by(filing_id=filing.id)}
         assert {r.unit for r in db.query(FinancialFact).filter(FinancialFact.id.in_(ids))} == {
             "USD", "USD/shares", "pure"}
+        other = [r.id for r in db.query(FinancialFact).filter_by(company_id=company.id, is_latest=True)
+                 if r.fiscal_period and not r.unit.startswith("USD") and r.unit != "pure"]
+        stored = db.query(FinancialFact).filter_by(company_id=company.id).count()
 
-        before = _current_rows(db, company.id)
-        stale = svc._persist_companyfacts_payload(db, company, _suffixed(stale_payload, tag))
-        assert _current_rows(db, company.id) == before
-        assert (stale["inserted"], stale["demoted"]) == ((2, 1) if amended else (0, 0))
+        stale = _checked_sync(db, company, _suffixed(stale_payload, tag))
+        _one_currency_per_concept(db, company.id)
+        assert db.query(FinancialFact).filter_by(company_id=company.id).count() == stored  # nothing stored
+        assert (stale["inserted"], stale["skipped"], stale["demoted"]) == (0, 0, len(other))
         assert all(r.is_latest for r in db.query(FinancialFact).filter(FinancialFact.id.in_(ids)))
-        assert [r.is_latest for r in db.query(FinancialFact).filter_by(accession=f"20FA-2024{tag}")] == (
-            [False, False] if amended else [])  # its FY2024 revenue, and the margin computed from it
+        current = _current_rows(db, company.id)
+        assert {unit for *_key, unit, _accession in current} == {"USD", "USD/shares", "pure"}
+        assert sorted(end.year for concept, end, period, *_rest in current if (concept, period) == ("revenue", "FY")) == [
+            2023, 2024, 2025]
+        dataset = trend_analysis_service.build_dataset(db, company, "annual", "FY2021", "FY2025")
+        series = next(s for s in dataset["series"] if s["concept"] == "revenue")
+        assert (series["unit"], [p["value"] for p in series["points"]][:2]) == ("USD", [None, None])
+        assert [p["value"] for p in series["points"]][2:] == pytest.approx(
+            [_CNY_REVENUE[1] / 7, _CNY_REVENUE[2] / 7, _CNY_REVENUE[2] / 7 * 1.05])
 
-        _checked_sync(db, company, _suffixed(_switched_to_usd_payload(), tag), final=True)
-        current = [r for r in db.query(FinancialFact).filter_by(company_id=company.id) if r.is_latest]
-        assert {r.unit for r in current} == {"USD", "USD/shares", "pure"}
-        assert ids <= {r.id for r in current}
+        fresh = _checked_sync(db, company, _suffixed(_switched_to_usd_payload(), tag), final=True)
+        assert (fresh["inserted"], fresh["demoted"]) == (0, 0)
+        assert _current_rows(db, company.id) == current
         db.close()
 
     def test_a_new_currency_quarterly_reports_own_rows_are_current_once_the_annual_report_switches(self):
@@ -1530,27 +1538,29 @@ class TestNativeReportingCurrencySync:
         db.close()
 
     def test_a_stale_payload_after_a_first_sync_past_the_switch_never_leaves_two_currencies_current(self):
-        # A company first synced after its switch, so the stale pre-switch payload stores its CNY
-        # identities for the first time. 20F-2025's rows (filed 2025-07-23, after the payload's
-        # newest, and not named by it) hold their keys on every path: the upsert stores the payload's
-        # CNY-derived FY2023-24 margins behind 20F-2025's, as behind a known newer filing. Their
-        # current USD amounts prove the payload older than the switch, so the sync changes nothing
-        # current: every row the upsert inserted current (30 of the 32: CNY amounts at FY2021-24 and
-        # the margins at FY2021-22) is left not current. Current, FY2021-22 would read CNY beside USD
-        # FY2023-25, and a margin computed in CNY would stand at a period the USD report does not
-        # present. The fresh sync then finds the series as the first sync left it.
+        # A company first synced after its switch, then the stale pre-switch payload, which would
+        # store its CNY identities for the first time. 20F-2025 (filed 2025-07-23, after the payload's
+        # newest, and not named by it) is an annual report whose current rows read USD over FY2023-25,
+        # so it proves the payload older than the switch: the sync stores none of the payload's 32
+        # rows. Stored current, the CNY amounts at FY2021-22 would read CNY beside USD FY2023-25, and
+        # margins computed in CNY would stand at periods the USD report does not present; stored not
+        # current, they would hold identities a later sync skips and never promotes. The fresh sync
+        # then finds the series as the first sync left it.
         from app.database import SessionLocal
+        from app.models import FinancialFact
 
         db = SessionLocal()
         company = _new_company(db)
         _checked_sync(db, company, _switched_to_usd_payload())
         first = _current_rows(db, company.id)
         assert {accession for *_key, accession in first} == {"20F-2025"}
+        stored = db.query(FinancialFact).filter_by(company_id=company.id).count()
 
-        stale = svc._persist_companyfacts_payload(db, company, _switched_to_usd_payload(switched=False))
+        stale = _checked_sync(db, company, _switched_to_usd_payload(switched=False))
         _one_currency_per_concept(db, company.id)
         assert _current_rows(db, company.id) == first
-        assert (stale["inserted"], stale["demoted"]) == (32, 30)
+        assert (stale["inserted"], stale["skipped"], stale["demoted"]) == (0, 0, 0)
+        assert db.query(FinancialFact).filter_by(company_id=company.id).count() == stored
         fresh = _checked_sync(db, company, _switched_to_usd_payload(), final=True)
         assert (fresh["inserted"], fresh["demoted"]) == (0, 0)
         assert _current_rows(db, company.id) == first
@@ -1559,8 +1569,9 @@ class TestNativeReportingCurrencySync:
     def test_a_payload_older_than_a_switch_changes_no_ratio_beside_a_newer_one(self):
         # The upsert keeps one current ratio per key, so no writer leaves the stale payload's own
         # margin current beside the newer filing's; here one is set current anyway, at FY2023 under
-        # 20F-2024 beside 20F-2025's. The stale CNY payload predates the switch 20F-2025's current USD
-        # rows show, so its sync changes nothing current, that margin included, and replaces no ratio.
+        # 20F-2024 beside 20F-2025's. The stale CNY payload predates the switch 20F-2025 proves, so its
+        # sync stores nothing, demotes only amount and per-share rows in another currency than USD
+        # (none here), and replaces no ratio: that margin stays current, as the fresh sync leaves it.
         from app.database import SessionLocal
         from app.models import FinancialFact
 
@@ -1581,7 +1592,7 @@ class TestNativeReportingCurrencySync:
         _one_currency_per_concept(db, company.id)
         assert _current_rows(db, company.id) == before
         assert sorted((r.accession, r.is_latest) for r in margins) == [("20F-2024", True), ("20F-2025", True)]
-        assert (stale["inserted"], stale["demoted"]) == (31, 30)  # all but the FY2024 margin, stored behind
+        assert (stale["inserted"], stale["skipped"], stale["demoted"]) == (0, 0, 0)
         db.close()
 
     def test_a_ratio_a_newer_filing_holds_is_the_only_one_current_there(self):
@@ -1608,40 +1619,272 @@ class TestNativeReportingCurrencySync:
 
         lagging = _checked_sync(db, company, _lagging_usd_payload(fresh=False))
         assert sorted((r.accession, r.is_latest) for r in margins) == [("K23", False), ("K24", True)]
-        assert (lagging["inserted"], lagging["demoted"]) == (2, 1)  # K23's FY2023 revenue and income, behind K24's
+        assert (lagging["inserted"], lagging["demoted"]) == (3, 1)  # K23's FY2023 revenue, income and EPS, behind K24's
         db.close()
 
-    def test_a_newer_filings_row_in_another_currency_that_is_not_current_proves_no_switch(self):
-        # A CNY filer's first USD quarterly report, a 10-Q filed 2024-08-20: the per-filing writer
-        # stored its two Q1 rows, and a sync that named it demoted them while the series is CNY (as
-        # in the test above; set here by hand). A payload that does not name it and is older (newest
-        # 2024-07-22) protects them, but a row no longer current proves no switch: the sync reads its
-        # CNY series and makes it current, as any first sync does.
+    @pytest.mark.parametrize("form", ["10-Q", "20-F"])
+    def test_a_newer_filing_in_another_currency_with_no_current_row_proves_no_switch(self, form):
+        # A CNY filer's first USD report: the switch's first quarterly report (a 10-Q filed 2024-08-20,
+        # its two Q1 rows), or the USD 20-F for FY2025 (filed 2025-07-23). The per-filing writer stored
+        # its rows, and none is current any more (a sync that named the 10-Q demoted them, as in the
+        # test above; set here by hand). A payload that does not name it and is older (newest
+        # 2024-07-22) finds no current row of it, so even the annual report proves no switch: the sync
+        # reads its CNY series and makes it current, as any first sync does.
         from app.database import SessionLocal
-        from app.models import Filing, FinancialFact
+        from app.models import FinancialFact
 
         db = SessionLocal()
         company = _new_company(db)
         tag = f"-{uuid.uuid4().hex[:8]}"
-        filing = Filing(company_id=company.id, accession_number=f"10Q-2025Q1{tag}", filing_type="10-Q",
-                        filing_date=datetime(2024, 8, 20, tzinfo=timezone.utc),
-                        document_url="https://example.com/d", sec_url="https://example.com/s")
-        db.add(filing)
-        db.commit()
         usd = _suffixed(_with_later_usd_quarter(_switched_to_usd_payload(), "10-Q"), tag)  # where it is read
-        svc.upsert_facts_bulk(db, [{**f, "source": "edgar_xbrl", "filing_id": filing.id}
-                                   for f in svc.normalize_companyfacts(company.id, usd)[0]
-                                   if f["accession"] == filing.accession_number])
+        accession, filed = (f"10Q-2025Q1{tag}", "2024-08-20") if form == "10-Q" else (f"20F-2025{tag}", "2025-07-23")
+        filing = _store_per_filing(db, company, usd, accession, form, filed)
         own = db.query(FinancialFact).filter_by(filing_id=filing.id).all()
         for row in own:
             row.is_latest = False
         db.commit()
 
         _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag), final=True)
-        assert sorted((r.unit, r.is_latest) for r in own) == [("USD", False), ("USD", False)]
+        assert not any(r.is_latest for r in own)
         assert sorted((r.period_end.year, r.unit) for r in db.query(FinancialFact).filter_by(
             company_id=company.id, concept="revenue", fiscal_period="FY", is_latest=True)) == [
             (2021, "CNY"), (2022, "CNY"), (2023, "CNY"), (2024, "CNY")]
+        db.close()
+
+    @pytest.mark.parametrize("shape", ["one-period-annual-report", "tied-annual-report"])
+    def test_a_newer_annual_report_that_could_not_decide_the_series_proves_no_switch(self, shape):
+        # A CNY-synced company, then the per-filing writer stores a newer 20-F (filed 2025-07-23) that
+        # filing_currencies would not let decide: one that tags its own year only (FY2025, in USD), or
+        # one whose amount rows split evenly, revenue and net income in USD and both cash flows in CNY
+        # (its diluted EPS in USD/shares does not vote). A tie leaves its currency undetermined, and one
+        # period-end presents no comparatives, so a lagging CNY payload proves no switch: its sync keeps
+        # the CNY series and demotes that 20-F's USD rows, which are outside the CNY view.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
+
+        def edit(fact):
+            if shape == "one-period-annual-report":
+                return fact if fact["period_end"] == date(2025, 3, 31) else None
+            if fact["concept"] in ("operating_cash_flow", "capital_expenditures"):
+                return {**fact, "unit": "CNY", "value": fact["value"] * 7}
+            return fact if fact["concept"] in ("revenue", "net_income", "eps_diluted") else None
+
+        filing = _store_per_filing(db, company, _suffixed(_switched_to_usd_payload(), tag), f"20F-2025{tag}", "20-F",
+                                   "2025-07-23", edit)
+        _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
+        _one_currency_per_concept(db, company.id)
+        rows = db.query(FinancialFact).filter_by(filing_id=filing.id).all()
+        assert not any(r.is_latest for r in rows if r.unit.startswith("USD"))
+        assert sorted((r.period_end.year, r.unit) for r in db.query(FinancialFact).filter_by(
+            company_id=company.id, concept="revenue", fiscal_period="FY", is_latest=True)) == [
+            (2021, "CNY"), (2022, "CNY"), (2023, "CNY"), (2024, "CNY")]
+        db.close()
+
+    def test_the_newer_annual_report_that_reports_the_latest_period_decides_a_switch(self):
+        # A CNY-synced company, then the per-filing writer stores the USD 20-F for FY2025 (filed
+        # 2025-07-23; its rows carry no form, so its Filing row's type names it an annual report) and a
+        # CNY 20-F/A restating FY2023-24 revenue, filed after it (2025-09-01). A lagging CNY payload
+        # names neither, so both are protected and both could decide. As in
+        # filing_currencies, the one reporting the latest period decides, though the amendment was
+        # filed last: the USD report, so the payload predates a switch. The sync stores nothing and
+        # demotes every current amount or per-share row in another currency than USD, the amendment's
+        # rows included (outside the USD view; the sync that names both demotes them too).
+        from app.database import SessionLocal
+        from app.models import Filing, FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
+        _store_per_filing(db, company, _suffixed(_switched_to_usd_payload(), tag), f"20F-2025{tag}", "20-F", "2025-07-23",
+                          lambda fact: {**fact, "form": None})
+        amendment = Filing(company_id=company.id, accession_number=f"20FA-2024{tag}", filing_type="20-F/A",
+                           filing_date=datetime(2025, 9, 1, tzinfo=timezone.utc),
+                           document_url="https://example.com/d", sec_url="https://example.com/s")
+        db.add(amendment)
+        db.commit()
+        svc.upsert_facts_bulk(db, [{**_fact_dict(company.id, end=date(fy, 3, 31), unit="CNY", value=value * 1.01,
+                                                  accession=amendment.accession_number, source="edgar_xbrl"),
+                                    "filing_id": amendment.id, "form": "20-F/A"}
+                                   for fy, value in ((2023, _CNY_REVENUE[1]), (2024, _CNY_REVENUE[2]))])
+
+        def revenue():
+            return sorted((r.period_end.year, r.unit, r.accession.removesuffix(tag)) for r in db.query(FinancialFact)
+                          .filter_by(company_id=company.id, concept="revenue", fiscal_period="FY", is_latest=True))
+
+        stale = _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
+        _one_currency_per_concept(db, company.id)
+        assert (stale["inserted"], stale["skipped"]) == (0, 0)
+        assert revenue() == [(year, "USD", "20F-2025") for year in (2023, 2024, 2025)]
+        current = _current_rows(db, company.id)
+        _checked_sync(db, company, _suffixed(_with_older_year_cny_amendment(_switched_to_usd_payload()), tag), final=True)
+        assert _current_rows(db, company.id) == current
+        db.close()
+
+    @pytest.mark.parametrize("stray", ["capital_expenditures", "eps_diluted"])
+    def test_a_newer_annual_report_in_the_series_currency_keeps_it_and_its_stray_concept_is_demoted(self, stray):
+        # A CNY-synced company, then the per-filing writer stores a CNY 20-F for FY2025 (filed
+        # 2025-07-23; FY2023-24 as 20F-2024 reported them), one concept of which its per-concept pick
+        # read in USD (the stray: capital expenditure, or diluted EPS in USD/shares). A lagging CNY
+        # payload does not name it. Its amount rows read CNY by majority, so it proves no switch, and
+        # it holds its periods in the CNY view; its stray rows are outside that view, so the sync
+        # demotes them. The CNY series reads FY2021-25, the stray concept FY2021-24 in CNY (FY2025 a
+        # gap). Counting any one current row in another currency as a switch left the stray current
+        # beside CNY.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
+
+        def as_a_cny_report(fact):  # 20F-2025's figures at 7 CNY a dollar, but for the stray concept
+            if fact["unit"] == "pure":
+                return None
+            return fact if fact["concept"] == stray else {**fact, "unit": fact["unit"].replace("USD", "CNY"),
+                                                          "value": fact["value"] * 7}
+
+        filing = _store_per_filing(db, company, _suffixed(_switched_to_usd_payload(), tag), f"20F-2025{tag}", "20-F",
+                                   "2025-07-23", as_a_cny_report)
+        _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
+        _one_currency_per_concept(db, company.id)
+
+        def current(concept):
+            return sorted((r.period_end.year, r.unit.partition("/")[0]) for r in db.query(FinancialFact).filter_by(
+                company_id=company.id, concept=concept, fiscal_period="FY", is_latest=True))
+
+        assert current("revenue") == [(year, "CNY") for year in range(2021, 2026)]
+        assert current(stray) == [(year, "CNY") for year in range(2021, 2025)]
+        assert [r.is_latest for r in db.query(FinancialFact).filter_by(filing_id=filing.id, concept=stray)] == [False] * 3
+        db.close()
+
+    @pytest.mark.parametrize("form", ["10-Q", "6-K"])
+    def test_a_new_currency_quarterly_report_never_switches_a_lagging_sync_and_its_annual_report_does(self, form):
+        # A CNY-synced company, then the per-filing writer stores the switch's first USD report, a 10-Q
+        # or 6-K filed 2024-08-20 (its two Q1 rows). A lagging CNY payload does not name it: a quarterly
+        # report proves no switch (it would not decide filing_currencies either), so the sync keeps the
+        # CNY series and demotes the report's rows, which are outside the CNY view. Then the per-filing
+        # writer stores the USD 20-F for FY2025, and the same lagging payload proves the switch: its
+        # sync stores nothing and demotes every CNY row, so the series reads USD FY2023-25. The sync
+        # that names both makes the quarterly report's rows current again.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
+        usd = _suffixed(_with_later_usd_quarter(_switched_to_usd_payload(), form), tag)
+        quarterly = _store_per_filing(db, company, usd, f"{_QUARTER_ACCESSION[form]}{tag}", form, "2024-08-20")
+
+        def revenue():
+            return sorted((r.period_end.year, r.fiscal_period, r.unit) for r in db.query(FinancialFact).filter_by(
+                company_id=company.id, concept="revenue", is_latest=True))
+
+        def quarters():
+            return [r.is_latest for r in db.query(FinancialFact).filter_by(filing_id=quarterly.id)]
+
+        assert quarters() == [True, True]
+        _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
+        _one_currency_per_concept(db, company.id)
+        assert (revenue(), quarters()) == ([(year, "FY", "CNY") for year in range(2021, 2025)], [False, False])
+
+        _store_per_filing(db, company, usd, f"20F-2025{tag}", "20-F", "2025-07-23")
+        switched = _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
+        _one_currency_per_concept(db, company.id)
+        assert (switched["inserted"], switched["skipped"]) == (0, 0)
+        assert (revenue(), quarters()) == ([(year, "FY", "USD") for year in range(2023, 2026)], [False, False])
+        _checked_sync(db, company, usd, final=True)
+        assert quarters() == [True, True]
+        db.close()
+
+    def test_a_stale_payloads_amendment_beside_a_newer_quarterly_report_is_current_after_both_syncs(self):
+        # A CNY-synced company, then the per-filing writer stores the switch's first USD report, a 10-Q
+        # filed 2024-08-20 (its two Q1 rows). Then a payload that lags it and carries a CNY 20-F/A
+        # (filed 2024-08-01) restating FY2023-24 revenue that no earlier sync stored, then the payload
+        # that names the 10-Q. A quarterly report proves no switch, so the lagging sync reads its CNY
+        # view: the 10-Q's USD rows, outside it, are demoted, and the amendment's rows are stored current
+        # over 20F-2024's. They stay current after the sync that names the 10-Q. Leaving them stored not
+        # current stranded the amendment: a later sync skips a stored identity, and 20F-2024's row held
+        # the key against its promotion.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
+        quarterly = _store_per_filing(db, company, _suffixed(_with_later_usd_quarter(_switched_to_usd_payload(), "10-Q"), tag),
+                                      f"10Q-2025Q1{tag}", "10-Q", "2024-08-20")
+
+        def payload(named):
+            data = _with_older_year_cny_amendment(_switched_to_usd_payload(switched=False), filed="2024-08-01")
+            return _suffixed(_with_later_usd_quarter(data, "10-Q") if named else data, tag)
+
+        def revenue():
+            return sorted((r.period_end.year, r.accession.removesuffix(tag)) for r in db.query(FinancialFact).filter_by(
+                company_id=company.id, concept="revenue", fiscal_period="FY", is_latest=True))
+
+        amended = [(2021, "20F-2022"), (2022, "20F-2024"), (2023, "20FA-2024"), (2024, "20FA-2024")]
+        _checked_sync(db, company, payload(named=False))
+        _one_currency_per_concept(db, company.id)
+        assert revenue() == amended
+        assert not any(r.is_latest for r in db.query(FinancialFact).filter_by(filing_id=quarterly.id))
+        _checked_sync(db, company, payload(named=True), final=True)
+        assert revenue() == amended
+        db.close()
+
+    def test_a_stale_payloads_recast_beside_a_newer_filings_stray_row_is_current_after_both_syncs(self):
+        # A USD filer synced through its FY2023 10-K (K23). The per-filing writer stores its next 10-Q
+        # (Q1-24, filed 2024-05-05), whose net income the per-concept pick read in EUR (a stray). A
+        # payload that lags the 10-Q carries a 10-K/A (K23A, filed 2024-03-01) recasting FY2023 revenue
+        # from 1000 to 950, then the payload that names the 10-Q. A stray proves no switch: the lagging
+        # sync demotes the EUR row, outside the USD view, and stores the recast current, which stays
+        # current after the sync that names the 10-Q.
+        from app.database import SessionLocal
+        from app.models import Filing, FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        _checked_sync(db, company, _suffixed(_lagging_usd_payload(fresh=False), tag))
+        filing = Filing(company_id=company.id, accession_number=f"Q1-24{tag}", filing_type="10-Q",
+                        filing_date=datetime(2024, 5, 5, tzinfo=timezone.utc),
+                        document_url="https://example.com/d", sec_url="https://example.com/s")
+        db.add(filing)
+        db.commit()
+        svc.upsert_facts_bulk(db, [{**_fact_dict(company.id, concept, fp="Q1", end=date(2024, 3, 31), unit=unit, value=value,
+                                                  accession=filing.accession_number, source="edgar_xbrl"),
+                                    "filing_id": filing.id, "form": "10-Q"}
+                                   for concept, unit, value in (("revenue", "USD", 280.0), ("net_income", "EUR", 26.0))])
+
+        def payload(named):
+            data = _lagging_usd_payload(fresh=False)
+            usgaap = data["facts"]["us-gaap"]
+            usgaap[REV_TAG]["units"]["USD"].append(_item(950.0, "2023-12-31", start="2023-01-01", accn="K23A", fy=2023,
+                                                         form="10-K/A", filed="2024-03-01"))
+            for name, value in ((REV_TAG, 280.0), ("NetIncomeLoss", 28.0)) if named else ():
+                usgaap[name]["units"]["USD"].append(_item(value, "2024-03-31", start="2024-01-01", accn="Q1-24", fy=2024,
+                                                          fp="Q1", form="10-Q", filed="2024-05-05"))
+            return _suffixed(data, tag)
+
+        def fy2023():
+            return sorted((r.accession.removesuffix(tag), float(r.value), r.is_latest) for r in db.query(FinancialFact)
+                          .filter_by(company_id=company.id, concept="revenue", period_end=date(2023, 12, 31)))
+
+        _checked_sync(db, company, payload(named=False))
+        _one_currency_per_concept(db, company.id)
+        assert fy2023() == [("K23", 1000.0, False), ("K23A", 950.0, True)]
+        assert [(r.unit, r.is_latest) for r in db.query(FinancialFact).filter_by(filing_id=filing.id, concept="net_income")] == [
+            ("EUR", False)]
+        _checked_sync(db, company, payload(named=True), final=True)
+        assert fy2023() == [("K23", 1000.0, False), ("K23A", 950.0, True)]
         db.close()
 
     @pytest.mark.parametrize("newer_rows", ["an-earlier-sync", "the-per-filing-writer"])
@@ -1649,9 +1892,10 @@ class TestNativeReportingCurrencySync:
         # A USD filer's 10-K for FY2024 (K24, filed 2025-02-15) is stored, by a sync that named it or
         # by the per-filing writer (a Filing row, no filed_at of its own), and then a payload that lags
         # it is synced (a delayed SEC response, or the sync a new Filing triggers before companyfacts
-        # shows it). K24's rows hold their keys: K23's FY2023 figures are stored behind K24's restated
-        # ones, which stay current, on the upsert's path too where K24's date is only its rows'
-        # filed_at. A newer filing in the payload's own currency proves no currency switch, so the sync
+        # shows it). K24's rows hold their keys, its diluted EPS (USD/shares, in the USD view) too: K23's
+        # FY2023 figures are stored behind K24's restated ones, which stay current, on the upsert's path
+        # too where K24's date is only its rows' filed_at. A newer filing in the payload's own currency
+        # proves no currency switch, so the sync
         # still makes its own rows current where no row is: FY2022, which the per-filing writer did not
         # store. The sync that names K24 then finds every period it presents held, in USD.
         from app.database import SessionLocal
@@ -1676,9 +1920,12 @@ class TestNativeReportingCurrencySync:
             return sorted((r.period_end.year, r.accession.removesuffix(tag), float(r.value), r.is_latest)
                           for r in db.query(FinancialFact).filter_by(company_id=company.id, concept="revenue"))
 
+        k24 = {r.id for r in db.query(FinancialFact).filter_by(company_id=company.id, accession=f"K24{tag}", is_latest=True)}
+        assert {r.unit for r in db.query(FinancialFact).filter(FinancialFact.id.in_(k24))} == {"USD", "USD/shares", "pure"}
         _checked_sync(db, company, _suffixed(_lagging_usd_payload(fresh=False), tag))
         assert revenue() == [(2022, "K22", 800.0, True), (2023, "K23", 1000.0, False), (2023, "K24", 1050.0, True),
                              (2024, "K24", 1200.0, True)]
+        assert k24 <= {r.id for r in db.query(FinancialFact).filter_by(company_id=company.id, is_latest=True)}
         _checked_sync(db, company, _suffixed(_lagging_usd_payload(fresh=True), tag), final=True)
         assert revenue() == [(2022, "K22", 800.0, True), (2023, "K23", 1000.0, False), (2023, "K24", 1050.0, True),
                              (2024, "K24", 1200.0, True)]
@@ -1714,15 +1961,17 @@ class TestNativeReportingCurrencySync:
             ("CNY", "20F-2024", False), ("USD", "20F-2025", False), ("USD", "20FA-X", True)]
         db.close()
 
-    @pytest.mark.parametrize("filed", [datetime(2024, 8, 20, tzinfo=timezone.utc), None],
-                             ids=["filed-before-the-payloads-newest", "no-filing-date"])
+    @pytest.mark.parametrize("filed", [datetime(2024, 8, 20, tzinfo=timezone.utc), datetime(2025, 7, 23, tzinfo=timezone.utc),
+                                       None],
+                             ids=["filed-before-the-payloads-newest", "filed-on-the-payloads-newest-date", "no-filing-date"])
     def test_a_row_of_an_unnamed_filing_not_known_to_be_newer_is_demoted(self, filed):
-        # After the CNY sync, the per-filing writer stores FY2024 revenue in CNY under a 6-K/A that
+        # After the CNY sync, the per-filing writer stores FY2024 revenue in USD under a 10-K/A that
         # the payload does not name: with a Filing dated 2024-08-20, before the switch payload's
-        # newest (2025-07-23), or with no Filing row and no filed_at. Neither is known to be newer
-        # than the payload, so the switch sync demotes it with 20F-2024's CNY row, and only 20F-2025's
-        # USD row is current there. Protecting every unnamed row, every dated one or an undated one
-        # would leave CNY current beside USD.
+        # newest (2025-07-23), or dated that same day, or with no Filing row and no filed_at. None is
+        # known to be newer than the payload, so none is protected, and the switch sync's upsert,
+        # which knows 20F-2025's date (2025-07-23), demotes it for 20F-2025's restated row: only
+        # 20F-2025's USD row is current there. Protecting every unnamed row, every dated one, one filed
+        # on the payload's newest date or an undated one would keep the older figure current instead.
         from app.database import SessionLocal
         from app.models import Filing, FinancialFact
 
@@ -1730,17 +1979,21 @@ class TestNativeReportingCurrencySync:
         company = _new_company(db)
         tag = f"-{uuid.uuid4().hex[:8]}"
         _checked_sync(db, company, _suffixed(_switched_to_usd_payload(switched=False), tag))
+        db.add(Filing(company_id=company.id, accession_number=f"20F-2025{tag}", filing_type="20-F",
+                      filing_date=datetime(2025, 7, 23, tzinfo=timezone.utc),
+                      document_url="https://example.com/d", sec_url="https://example.com/s"))
         owned = {"source": "edgar_xbrl"}
         if filed is not None:
-            filing = Filing(company_id=company.id, accession_number=f"6KA-OLD{tag}", filing_type="6-K/A",
+            filing = Filing(company_id=company.id, accession_number=f"10KA-OLD{tag}", filing_type="10-K/A",
                             filing_date=filed, document_url="https://example.com/d", sec_url="https://example.com/s")
             db.add(filing)
             db.commit()
             owned["filing_id"] = filing.id
-        svc.upsert_facts_bulk(db, [{**_fact_dict(company.id, end=date(2024, 3, 31), unit="CNY", value=882_000e6,
-                                                  accession=f"6KA-OLD{tag}"), **owned}])
+        db.commit()
+        svc.upsert_facts_bulk(db, [{**_fact_dict(company.id, end=date(2024, 3, 31), value=126_000e6,
+                                                  accession=f"10KA-OLD{tag}"), **owned}])
 
-        svc._persist_companyfacts_payload(db, company, _suffixed(_switched_to_usd_payload(), tag))
+        _checked_sync(db, company, _suffixed(_switched_to_usd_payload(), tag), final=True)
         rows = db.query(FinancialFact).filter_by(company_id=company.id, concept="revenue",
                                                  period_end=date(2024, 3, 31), fiscal_period="FY").all()
         assert sorted((r.unit, r.accession.removesuffix(tag)) for r in rows if r.is_latest) == [("USD", "20F-2025")]
@@ -1774,6 +2027,38 @@ class TestNativeReportingCurrencySync:
         assert sorted((r.fiscal_period or "", r.accession.removesuffix(tag), r.is_latest) for r in rows) == [
             ("", "Q2-24A", True), ("Q2", "Q2-24", False)]
         assert result["demoted"] == 0
+        db.close()
+
+    def test_an_unlabelled_twin_in_another_unit_never_holds_a_quarter(self):
+        # The unlabelled-twin rule is per unit, as the bulk writer's D1 rule is. A USD filer's Q2 2024
+        # revenue row is stored and not current (a stale payload's demotion; set here by hand), and a
+        # 10-Q/A's per-filing row for that quarter carries no fiscal period and was read in EUR
+        # (dated 2025-04-01, before the payload's newest). A sync leaves rows with no fiscal period
+        # alone, and that twin is in another unit, so it does not hold the quarter: the sync makes the
+        # batch's own Q2 row current again.
+        from app.database import SessionLocal
+        from app.models import Filing, FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        _checked_sync(db, company, _suffixed(_calendar_payload(), tag))
+        db.query(FinancialFact).filter_by(company_id=company.id, concept="revenue", period_end=date(2024, 6, 30),
+                                          fiscal_period="Q2").one().is_latest = False
+        filing = Filing(company_id=company.id, accession_number=f"Q2-24A{tag}", filing_type="10-Q/A",
+                        filing_date=datetime(2025, 4, 1, tzinfo=timezone.utc),
+                        document_url="https://example.com/d", sec_url="https://example.com/s")
+        db.add(filing)
+        db.commit()
+        svc.upsert_facts_bulk(db, [{**_fact_dict(company.id, fp=None, end=date(2024, 6, 30), unit="EUR", value=280.0,
+                                                  accession=filing.accession_number, source="edgar_xbrl"),
+                                    "filing_id": filing.id}])
+
+        _checked_sync(db, company, _suffixed(_calendar_payload(), tag), final=True)
+        rows = db.query(FinancialFact).filter_by(company_id=company.id, concept="revenue",
+                                                 period_end=date(2024, 6, 30)).all()
+        assert sorted((r.fiscal_period or "", r.unit, r.accession.removesuffix(tag), r.is_latest) for r in rows) == [
+            ("", "EUR", "Q2-24A", True), ("Q2", "USD", "Q2-24", True)]
         db.close()
 
     def test_a_filing_companyfacts_names_only_under_ifrs_full_is_not_taken_for_a_newer_one(self):
@@ -1986,18 +2271,37 @@ def _usd_lists(payload):
 
 
 def _lagging_usd_payload(*, fresh):
-    """A USD filer's revenue and net income for FY2022 (K22) and FY2023 (K23, filed 2024-02-15); when
-    ``fresh``, also its 10-K for FY2024 (K24, filed 2025-02-15), restating FY2023 at 1050. Without it,
-    the payload lags K24: what SEC's companyfacts returns before it shows that 10-K."""
-    revenue = [_item(800.0, "2022-12-31", start="2022-01-01", accn="K22", fy=2022, filed="2023-02-15"),
-               _item(1000.0, "2023-12-31", start="2023-01-01", accn="K23", fy=2023, filed="2024-02-15")]
-    income = [_item(80.0, "2022-12-31", start="2022-01-01", accn="K22", fy=2022, filed="2023-02-15"),
-              _item(100.0, "2023-12-31", start="2023-01-01", accn="K23", fy=2023, filed="2024-02-15")]
+    """A USD filer's revenue, net income and diluted EPS for FY2022 (K22) and FY2023 (K23, filed
+    2024-02-15); when ``fresh``, also its 10-K for FY2024 (K24, filed 2025-02-15), restating FY2023 (revenue
+    1050). Without it, the payload lags K24: what SEC's companyfacts returns before it shows that 10-K."""
+    lists = {tag: [_item(value, f"{year}-12-31", start=f"{year}-01-01", accn=f"K{year % 100}", fy=year,
+                         filed=f"{year + 1}-02-15") for year, value in zip((2022, 2023), values)]
+             for tag, values in ((REV_TAG, (800.0, 1000.0)), ("NetIncomeLoss", (80.0, 100.0)),
+                                 ("EarningsPerShareDiluted", (0.8, 1.0)))}
     if fresh:
-        for values, items in (((1050.0, 1200.0), revenue), ((105.0, 120.0), income)):
-            items += [_item(value, f"{year}-12-31", start=f"{year}-01-01", accn="K24", fy=2024, filed="2025-02-15")
-                      for year, value in zip((2023, 2024), values)]
-    return _payload({REV_TAG: {"units": {"USD": revenue}}, "NetIncomeLoss": {"units": {"USD": income}}})
+        for tag, values in ((REV_TAG, (1050.0, 1200.0)), ("NetIncomeLoss", (105.0, 120.0)),
+                            ("EarningsPerShareDiluted", (1.05, 1.2))):
+            lists[tag] += [_item(value, f"{year}-12-31", start=f"{year}-01-01", accn="K24", fy=2024, filed="2025-02-15")
+                           for year, value in zip((2023, 2024), values)]
+    return _payload({tag: {"units": {"USD/shares" if tag == "EarningsPerShareDiluted" else "USD": items}}
+                     for tag, items in lists.items()})
+
+
+def _store_per_filing(db, company, payload, accession, form, filed, edit=lambda fact: fact):
+    """Store, as the per-filing writer does, the rows ``payload`` normalizes under ``accession``, each passed
+    through ``edit`` (None drops it): filing_id set, a Filing row of type ``form`` dated ``filed``, no filed_at
+    of their own. The writer keeps is_latest per unit. Returns the Filing."""
+    from app.models import Filing
+
+    filing = Filing(company_id=company.id, accession_number=accession, filing_type=form,
+                    filing_date=datetime.fromisoformat(filed).replace(tzinfo=timezone.utc),
+                    document_url="https://example.com/d", sec_url="https://example.com/s")
+    db.add(filing)
+    db.commit()
+    rows = (edit({**f, "source": "edgar_xbrl", "filing_id": filing.id, "provenance": {**f["provenance"], "filed_at": None}})
+            for f in svc.normalize_companyfacts(company.id, payload)[0] if f["accession"] == accession)
+    svc.upsert_facts_bulk(db, [row for row in rows if row is not None])
+    return filing
 
 
 def _current_rows(db, company_id):
