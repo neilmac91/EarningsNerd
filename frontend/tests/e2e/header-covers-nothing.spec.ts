@@ -445,10 +445,11 @@ test.describe('from lg the open menu lies over the page / 1100x800, a Pro reader
  * full-bar state the nav's left edge holds as the check settles, where it moved 109px for a guest and 35px for a reader
  * at 1152px. The wordmark shows from 40rem, 1280px with the text doubled, so a guest's compact bar keeps one line at
  * 640 and 800px under 200% text as well, where it grew 14px with "Sign up" and 88px with "Request invite"; a reader's
- * holds there as before. A build answers one access mode, so a guest's compact link then takes each mode's label in
- * turn (a copy fixture), and the header keeps the height it had while the check was held. Below about 15rem (480px
- * under 200% text) a guest's link cannot share the logo's line, so the bar still grows as it appears: chief design
- * accepts that band, since any reservation would give every reader the extra row.
+ * holds there too, as its notification bell joins the bar (E176). A build answers one access mode, so a guest's
+ * compact link then takes each mode's label in turn (a copy fixture), and the header keeps the height it had while the
+ * check was held. Below about 15rem (480px under 200% text) a guest's link cannot share the logo's line, so the bar
+ * still grows as it appears: chief design accepts that band, since any reservation would give every reader the extra
+ * row.
  */
 async function answerHeld(page: Page, baseURL: string, who: 'guest' | 'reader'): Promise<() => void> {
   const origin = new URL(baseURL).origin
@@ -529,18 +530,13 @@ test.describe('the site header holds one height as its auth check settles (E174,
             await expect(banner.getByRole('button', { name: 'Open menu' }), `the compact bar at ${width}px`).toBeVisible()
             await expect(nav, `the full bar's nav hidden at ${width}px`).toBeHidden()
           }
-          // The settled controls: the full bar's Log in or account menu, or the compact bar's account link for a guest and,
-          // from lg, its notification bell for a reader. Below lg a reader's compact bar shows nothing the check adds, so
-          // the full bar's account menu, rendered though hidden, marks the check settled there.
+          // The settled controls: the full bar's Log in or account menu, or the compact bar's account link for a guest and
+          // its notification bell for a reader, at every width since E176, so a reader's compact bar holds its height as
+          // the bell appears.
           const settled = bar === 'full'
             ? banner.getByRole(who === 'guest' ? 'link' : 'button', { name: who === 'guest' ? 'Log in' : 'Account menu' })
-            : who === 'guest'
-              ? banner.getByRole('link', { name: ACCOUNT_SHORT })
-              : width >= 1024
-                ? banner.getByRole('button', { name: /^Notifications/ })
-                : null
-          if (settled) await expect(settled, `the ${bar} bar shows a ${who}'s controls once the check settles`).toBeVisible()
-          else await expect(banner.getByRole('button', { name: 'Account menu', includeHidden: true }), `the check settles for a reader at ${width}px`).toHaveCount(1)
+            : banner.getByRole(who === 'guest' ? 'link' : 'button', { name: who === 'guest' ? ACCOUNT_SHORT : /^Notifications/ })
+          await expect(settled, `the ${bar} bar shows a ${who}'s controls once the check settles`).toBeVisible()
           await settle(page)
           const after = await headerAt(page)
           expect(after.height, `the header while the check ran (${pending.height}px) and after (${after.height}px)`).toBe(pending.height)

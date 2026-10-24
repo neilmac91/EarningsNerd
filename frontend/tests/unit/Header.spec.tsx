@@ -74,14 +74,16 @@ describe('Header auth state', () => {
     renderHeader()
 
     expect(await screen.findByTestId('user-menu')).toHaveTextContent('neil@earningsnerd.io')
-    // One bell in each bar: the full bar's, and from lg the compact bar's, with the compact bar's 44px target, after
-    // its theme toggle and before the menu button, where a guest's link sits.
+    // One bell in each bar: the full bar's, and the compact bar's at every width below 72rem (E176), with the compact
+    // bar's 44px target, after its theme toggle and before the menu button, where a guest's link sits. Before, a
+    // wrapper hid the compact bar's below lg, so a phone kept the unread state behind the menu.
     const bells = screen.getAllByTestId('notification-bell')
     expect(bells).toHaveLength(2)
     expect(bells[1]).toHaveClass('min-h-11', 'min-w-11')
-    expect(bells[1].parentElement).toHaveClass('hidden', 'lg:block')
-    expect(bells[1].parentElement!.previousElementSibling).toHaveAttribute('data-testid', 'theme-toggle')
-    expect(bells[1].parentElement!.nextElementSibling).toBe(screen.getByRole('button', { name: 'Open menu' }))
+    expect(bells[1].previousElementSibling).toHaveAttribute('data-testid', 'theme-toggle')
+    expect(bells[1].nextElementSibling).toBe(screen.getByRole('button', { name: 'Open menu' }))
+    expect(bells[1].parentElement, "the compact bar's own group, shown at every width below 72rem").toHaveClass('[@media(min-width:72rem)]:hidden')
+    expect(bells[1].parentElement).not.toHaveClass('hidden')
     expect(screen.queryByRole('link', { name: /log in/i })).not.toBeInTheDocument()
   })
 
@@ -225,6 +227,29 @@ describe('Header theme toggle placement', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))
     expect(screen.getByRole('navigation', { name: 'Mobile navigation' }), 'the menu opens').toBeInTheDocument()
     expect(bell, 'and closes the panel').toHaveAttribute('data-open', 'false')
+  })
+
+  // Below 72rem the compact menu is the only menu, so it holds an admin's links, after Settings and before Log out, as
+  // the account menu orders them (E176, chief design on #1565, comment 6380050139); a reader who is no admin gets none.
+  it.each([
+    ['an admin', true],
+    ['a reader who is no admin', false],
+  ] as const)("holds the admin links in the compact menu for %s, as the account menu orders them", async (_who, isAdmin) => {
+    vi.mocked(getCurrentUserSafe).mockResolvedValue({ ...mockUser, is_admin: isAdmin })
+    renderHeader()
+    await screen.findByTestId('user-menu')
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))
+    const menu = screen.getByRole('navigation', { name: 'Mobile navigation' })
+    const stops = [...menu.querySelectorAll('a[href], button')].map((el) => el.textContent?.trim())
+    const settings = stops.indexOf('Settings')
+    const admin = isAdmin ? ['Admin · Invites', 'Admin · Feedback'] : []
+    expect(settings, 'Settings is in the menu').toBeGreaterThan(-1)
+    expect(stops.slice(settings, settings + admin.length + 2), 'Settings, the admin links, then Log out').toEqual(['Settings', ...admin, 'Log out'])
+    for (const [label, href] of [['Admin · Invites', '/admin/invites'], ['Admin · Feedback', '/admin/feedback']] as const) {
+      const link = within(menu).queryByRole('link', { name: label })
+      if (isAdmin) expect(link).toHaveAttribute('href', href)
+      else expect(link).toBeNull()
+    }
   })
 
   // The Theme row is the menu's first row, ahead of the nav links, so it opens directly under the bar, in
