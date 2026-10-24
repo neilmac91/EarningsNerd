@@ -4,7 +4,8 @@ The error mapping of these three routes had no route-level test: the SEC-unavail
 generic 500 detail strings, the 404, the unsupported-foreign response, which get-by-ticker failures
 stay outside its wrapped 500, and the multi-CIK concurrent-search recovery (its
 ``company_upsert_conflict`` line on the router's logger, its commit, the resolver's ``path``
-labels, which errors enter it and the generic 500 when it fails too). This suite pins them for the
+labels, which errors enter it and the generic 500 when it fails too), and the CIK order the search's
+batch and its recovery write in. This suite pins them for the
 move of the routes' database work into ``app/services/company_lookup_service.py``. Row counts
 cannot see a dropped recovery commit here: under SQLite's legacy transaction handling the per-row
 SAVEPOINT is the outermost transaction and its RELEASE commits, so a commit spy pins it instead.
@@ -20,11 +21,12 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import sessionmaker
 
 import app.routers.companies as companies_router
+from app import database
 from app.database import SessionLocal, get_db
 from app.models import Company, Filing
 from app.services import company_lookup_service
@@ -35,7 +37,11 @@ from main import app
 
 RACED_CIK = "0009900001"
 NEW_CIK = "0009900002"
-_CIKS = [RACED_CIK, NEW_CIK, RACED_CIK.lstrip("0"), NEW_CIK.lstrip("0")]
+# The write-order cases' companies. SEC lists them MID, HIGH, LOW, neither CIK order nor its reverse, and their
+# primary tickers fall as the CIK rises, so an order taken from SEC's or from the tickers cannot pass for CIK order.
+LOW_CIK, MID_CIK, HIGH_CIK = "0009900011", "0009900012", "0009900013"
+_FALLING_PRIMARY = {LOW_CIK: "ZZ3", MID_CIK: "ZZ2", HIGH_CIK: "ZZ1"}
+_CIKS = [form for cik in (RACED_CIK, NEW_CIK, LOW_CIK, MID_CIK, HIGH_CIK) for form in (cik, cik.lstrip("0"))]
 
 
 @pytest.fixture(scope="module")
@@ -235,8 +241,8 @@ def test_search_race_keeps_every_cik_in_sec_order_and_logs_on_the_router_logger(
         logging.WARNING,
         f"company_upsert_conflict cik={RACED_CIK},{NEW_CIK} ticker=zeta path=companies.search",
     )]
-    # The flush failed inside its SAVEPOINT, so the batch commit never ran: the only commit is the
-    # recovery's, after the conflict line.
+    # The batch's flush failed, so its commit never ran: the only commit is the recovery's, after the
+    # conflict line.
     assert commits == [1]
     assert resolver_paths == ["companies.search", "companies.search"]
     verify = SessionLocal()
@@ -323,6 +329,117 @@ def test_search_non_integrity_commit_failure_skips_the_conflict_recovery(
     ]
     assert commits == [0]
     assert resolver_paths == []
+
+
+def _seed_stale(*ciks):
+    """Store each CIK, in the order given, under a ticker that is not its primary's."""
+    seed = SessionLocal()
+    try:
+        for cik in ciks:
+            seed.add(Company(cik=cik, ticker=f"OLD{cik[-1]}", name="Zeta Corp", exchange="NASDAQ"))
+            seed.commit()
+    finally:
+        seed.close()
+
+
+@pytest.fixture()
+def company_writes():
+    """Each companies statement in the order it reaches the database: ("insert", CIK) per row inserted,
+    ("update", row id) per row updated, and each SAVEPOINT and RELEASE; ``_by_cik`` reads the ids as
+    CIKs. The mapper's before_insert and before_update events cannot stand in: within one flush they
+    fire for every new row before any stored one, while the flush sends its UPDATEs first. Each
+    execution is read once: SQLite runs a multi-row INSERT as one statement per row, every one of them
+    carrying the whole execution's parameters."""
+    sent = []
+    executions = []
+
+    def record(_conn, _cursor, statement, _parameters, context, _executemany):
+        if any(context is seen for seen in executions):
+            return
+        executions.append(context)
+        head = " ".join(statement.split()[:3]).upper()
+        if head.startswith("INSERT INTO COMPANIES"):
+            sent.extend(("insert", params["cik"]) for params in context.compiled_parameters)
+        elif head.startswith("UPDATE COMPANIES"):
+            sent.extend(("update", params["companies_id"]) for params in context.compiled_parameters)
+        elif head.startswith(("SAVEPOINT", "RELEASE")):
+            sent.append((head.split()[0].lower(), None))
+
+    event.listen(database.engine, "before_cursor_execute", record)
+    yield sent
+    event.remove(database.engine, "before_cursor_execute", record)
+
+
+def _by_cik(writes):
+    """``company_writes`` with each updated row's id read as its CIK."""
+    db = SessionLocal()
+    try:
+        cik_of = dict(db.query(Company.id, Company.cik).all())
+    finally:
+        db.close()
+    return [(operation, cik_of[key] if operation == "update" else key) for operation, key in writes]
+
+
+def _search_mid_high_low(client, monkeypatch):
+    async def falling_primary(cik):
+        return _FALLING_PRIMARY[cik]
+
+    monkeypatch.setattr(
+        sec_edgar_service, "search_company", _sec(_hit(MID_CIK), _hit(HIGH_CIK), _hit(LOW_CIK))
+    )
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", falling_primary)
+    return client.get("/api/companies/search", params={"q": "zeta"})
+
+
+# The answer keeps SEC's order, and each row its primary ticker.
+_ANSWER = [(MID_CIK, "ZZ2"), (HIGH_CIK, "ZZ1"), (LOW_CIK, "ZZ3")]
+
+
+def test_search_writes_each_company_in_cik_order_whatever_sec_order(
+    client, monkeypatch, override_db, company_writes
+):
+    """The batch writes each company alone, in CIK order, a stored row's update among the new rows'
+    inserts, and answers in SEC's order. So it takes its row locks in the order its conflict recovery
+    and every other search take them: two searches writing the same companies in different orders
+    deadlocked on PostgreSQL once they ran off the event loop, and the one aborted answered 500. One
+    flush of the batch sends the update first."""
+    _seed_stale(MID_CIK)
+    company_writes.clear()  # the seed's own insert
+    override_db(SessionLocal())
+    resp = _search_mid_high_low(client, monkeypatch)
+    assert resp.status_code == 200
+    assert [(row["cik"], row["ticker"]) for row in resp.json()] == _ANSWER
+    assert _by_cik(company_writes) == [("insert", LOW_CIK), ("update", MID_CIK), ("insert", HIGH_CIK)]
+
+
+def test_search_conflict_recovery_writes_each_company_in_cik_order(
+    client, monkeypatch, override_db, caplog, company_writes
+):
+    """The recovery resolves its CIKs in CIK order, as the batch writes, and writes each one before it
+    resolves the next, so two stored rows' ticker self-heals do not wait for the commit, where they go
+    in id order (here HIGH's row is the older). It still answers in SEC's order."""
+    _seed_stale(HIGH_CIK, MID_CIK)
+    company_writes.clear()  # the seed's own inserts
+    db = SessionLocal()
+    _spy_commits(monkeypatch, db, caplog, fail_first=_unique_cik_violation())
+    real = company_lookup_service.resolve_or_create_company_by_cik
+
+    def recording(db, **kwargs):
+        company_writes.append(("resolve", kwargs["cik"]))
+        return real(db, **kwargs)
+
+    monkeypatch.setattr(company_lookup_service, "resolve_or_create_company_by_cik", recording)
+    override_db(db)
+    resp = _search_mid_high_low(client, monkeypatch)
+    assert resp.status_code == 200
+    assert [(row["cik"], row["ticker"]) for row in resp.json()] == _ANSWER
+    batch = [("insert", LOW_CIK), ("update", MID_CIK), ("update", HIGH_CIK)]  # then its commit fails
+    recovery = [
+        ("resolve", LOW_CIK), ("savepoint", None), ("insert", LOW_CIK), ("release", None),
+        ("resolve", MID_CIK), ("update", MID_CIK),
+        ("resolve", HIGH_CIK), ("update", HIGH_CIK),
+    ]
+    assert _by_cik(company_writes) == batch + recovery
 
 
 # --- /trending -------------------------------------------------------------------------------
@@ -497,16 +614,19 @@ def test_stored_ticker_lookup_failure_is_not_the_wrapped_500(client, monkeypatch
     assert resp.json() == {"detail": "db down", "type": "internal_server_error"}
 
 
-def test_post_persist_release_failure_is_not_the_wrapped_500(client, monkeypatch, override_db):
-    """The release after the persistence unit also runs outside the try (unlike the persistence
-    unit itself, below)."""
+def test_a_failed_release_after_the_persistence_unit_is_logged_and_the_row_served(
+    client, monkeypatch, override_db, caplog
+):
+    """The persistence unit releases the session in a ``finally`` that logs a failed close instead of
+    raising it (``filing_list_service.release_request_session``), so a release that fails after the
+    commit serves the stored company, not a 500."""
     db = SessionLocal()
     real_close = db.close
     closes = []
 
     def close():
         closes.append(1)
-        if len(closes) == 2:  # 1: before the SEC wait; 2: after the persistence unit
+        if len(closes) == 2:  # 1: the lookup unit's, before the SEC wait; 2: the persistence unit's
             raise RuntimeError("release failed")
         real_close()
 
@@ -515,8 +635,16 @@ def test_post_persist_release_failure_is_not_the_wrapped_500(client, monkeypatch
     monkeypatch.setattr(sec_edgar_service, "search_company", _sec(_hit(NEW_CIK, "ZZ2", "Zeta Two")))
     monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
     resp = TestClient(app, raise_server_exceptions=False).get("/api/companies/ZZ2")
-    assert resp.status_code == 500
-    assert resp.json() == {"detail": "release failed", "type": "internal_server_error"}
+    assert resp.status_code == 200
+    body = resp.json()
+    assert (body["cik"], body["ticker"], body["name"]) == (NEW_CIK, "ZZ2", "Zeta Two")
+    [logged] = [r for r in caplog.records if "Releasing the request session failed" in r.getMessage()]
+    assert str(logged.exc_info[1]) == "release failed"
+    verify = SessionLocal()
+    try:
+        assert verify.query(Company).filter(Company.cik == NEW_CIK).one().id == body["id"]
+    finally:
+        verify.close()
 
 
 def test_miss_with_unpersistable_sec_hit_is_the_wrapped_500(client, monkeypatch):

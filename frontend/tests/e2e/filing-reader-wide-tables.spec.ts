@@ -24,7 +24,7 @@ import { EXCERPT, PANE, answerApi, type Theme } from './fixtures/filing3Api'
  * answered in the browser. DOM measurements only: no screen reader ran.
  */
 
-const CHIP = 'Source: Verified in filing'
+const CHIP = 'Source: Quote found in filing'
 const READER = `${PANE} .filing-reader`
 
 async function openPage(page: Page, baseURL: string, theme: Theme) {

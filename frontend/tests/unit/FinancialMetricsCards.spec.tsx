@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import FinancialMetricsTable, { type FinancialMetric } from '@/features/summaries/components/FinancialMetricsTable'
 import { FilingViewerProvider } from '@/features/filings/components/copilot/FilingViewerContext'
+import { passageLabel } from '@/features/filings/lib/evidenceLabels'
 
 /**
  * EN-03: below md each metric is one stacked card; at/above md the DataTable is unchanged. The two
@@ -129,6 +130,10 @@ const LONG: FinancialMetric[] = [
   { metric: 'Net income', current_period: '$112,010M', prior_period: '$93,736M', change_display: '+19.5%', change_direction: 'up', change_tone: 'gain', commentary: 'Lower tax rate.' },
 ]
 
+// A popover's link for these rows' URL (no text fragment): its label, then a visually hidden " (opens in a new tab)".
+// jsdom's name computation joins the two without the space a browser keeps, so the space is optional here.
+const FILING_LINK = /^Open the filing on SEC\.gov ?\(opens in a new tab\)$/
+
 const CAPTION_WITH = 'Financial highlights: current period, prior period, change, and investor takeaway per metric'
 const CAPTION_WITHOUT = 'Financial highlights: current period and investor takeaway per metric'
 
@@ -179,8 +184,9 @@ const servedFacts = (rows: FinancialMetric[], hasComparatives: boolean) => ({
       )
     : [],
   takeaways: rows.map((r) => (takeawayOf(r) ?? '—no takeaway')),
-  xbrlChips: rows.filter((r) => r.source_url).map((r) => (r.source_verified ? `Source: ${r.xbrl_concept ? `${r.xbrl_concept} · ` : ''}SEC XBRL` : 'Source: Cited')),
-  takeawayChips: rows.filter((r) => r.commentary_evidence && takeawayOf(r) !== null).map((r) => (r.commentary_evidence!.verified ? 'Source: Verified in filing' : 'Source: Cited')),
+  // With no viewer and no coarse pointer a chip is the link itself, and its name says it opens a new tab.
+  xbrlChips: rows.filter((r) => r.source_url).map((r) => `Source: ${r.source_verified ? 'Matches filing' : 'Linked, not checked'} (opens in a new tab)`),
+  takeawayChips: rows.filter((r) => r.commentary_evidence && takeawayOf(r) !== null).map((r) => `Source: ${passageLabel(r.commentary_evidence!.verified, r.commentary_evidence!.section_ref)} (opens in a new tab)`),
 })
 
 const TONE_TOKENS = /^(font-semibold|(dark:)?text-(gain|loss)-(text|dark)|(dark:)?text-flat-(light|dark))$/
@@ -189,7 +195,7 @@ const tokens = (e: Element) => (e.getAttribute('class') ?? '').split(/\s+/).filt
 
 describe('FinancialMetricsTable — stacked cards below md (EN-03): content parity', () => {
   it.each([
-    ['the full fixture (verified + cited XBRL, evidence, per-ADS, up and down)', FULL, true],
+    ['the full fixture (matched + linked figure chips, evidence, per-ADS, up and down)', FULL, true],
     ['no comparatives (no prior / change anywhere, the short caption)', NO_COMPARATIVES, false],
     ['no commentary (MissingValue, read as "no takeaway"; no chip)', NO_COMMENTARY, true],
     ['no evidence (a takeaway without a chip, nothing invented)', NO_EVIDENCE, true],
@@ -213,7 +219,9 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     if (!hasComparatives) {
       expect(cards.priors).toEqual([])
       expect(cards.changes).toEqual([])
-      expect(all(layout(container, 'table'), 'th')).toHaveLength(3)
+      // Three column headings; the metric name is each row's header (th scope="row"), one more th per row.
+      expect(all(layout(container, 'table'), 'thead th')).toHaveLength(3)
+      expect(all(layout(container, 'table'), 'tbody th[scope="row"]')).toHaveLength(rows.length)
       for (const which of ['cards', 'table'] as const) {
         expect(within(layout(container, which)).queryByText(/prior/i)).toBeNull()
         expect(within(layout(container, which)).queryByText(/change/i)).toBeNull()
@@ -227,7 +235,7 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     if (rows === NO_EVIDENCE || rows === NO_COMMENTARY) {
       expect(cards.takeawayChips).toEqual([])
       expect(all(container, '[data-metric-field="takeaway"] a, [data-metric-field="takeaway"] button')).toHaveLength(0)
-      expect(within(container).queryByText(/Verified in filing/)).toBeNull()
+      expect(within(container).queryByText(/Quote found in filing/)).toBeNull()
     }
     if (rows === MIXED_PRIOR) {
       // strict mirroring: the Prior group is rendered for every row, MissingValue where the row has no prior
@@ -342,7 +350,13 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     // the wrap contract is inherited from the card: overflow-wrap:anywhere also lowers a flex
     // item's min-content width, which break-words cannot — so even the unbreakable token breaks
     expect(tokens(card)).toContain('[overflow-wrap:anywhere]')
-    for (const group of all(card, 'dl > div')) expect(tokens(group)).toContain('min-w-0')
+    // and no group's min-width comes from its content: the two year groups hold a 5rem floor capped at the row (so the
+    // groups line up across cards while they fit), never wider than the row, and the Change group none
+    expect(all(card, 'dl > div').map((group) => tokens(group).filter((t) => t.startsWith('min-w-')))).toEqual([
+      ['min-w-[min(5rem,100%)]'],
+      ['min-w-[min(5rem,100%)]'],
+      ['min-w-0'],
+    ])
     // the long strings render verbatim in BOTH layouts (the formatter left them alone)
     const c = factsOf(layout(container, 'cards'))
     expect(c.currents[0]).toBe(LONG[0].current_period)
@@ -368,19 +382,22 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     expect(text(inRow)).toBe(text(inCard))
     expect(inCard.closest('dl')).toBeNull() // outside the Current / Prior / Change line
     expect(inCard.compareDocumentPosition(card.querySelector('dl')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
-    expect(inRow.closest('td')).toBe(row.querySelectorAll('td')[1]) // the Current cell
+    expect(inRow.closest('td')).toBe(row.querySelectorAll('td')[0]) // the Current cell (the name is the row's th, so the first td)
     expect(within(card).getByText(/CNY 5.7 per ordinary share/)).toBeInTheDocument()
     // rows without the annotation carry none, in either layout
     expect(all(cardList(container)[0], '[data-metric-field="per-ads"]')).toHaveLength(0)
     expect(all(bodyRows(container)[0], '[data-metric-field="per-ads"]')).toHaveLength(0)
   })
 
-  it('the md table is unchanged: five headers in order, the px-2 wrapper, numeric cells right-aligned in the data face', () => {
+  it('the md table keeps five headers in order, the px-2 wrapper, numeric cells right-aligned in the data face', () => {
     const { container } = render(<FinancialMetricsTable metrics={FULL} bare />)
     const t = layout(container, 'table')
     expect(all(t, 'thead th').map(text)).toEqual(['Metric', 'Current Period', 'Prior Period', 'Change', 'Investor Takeaway'])
     expect(tokens(t.firstElementChild!)).toContain('px-2')
-    expect(all(t, 'tbody tr:first-child td').slice(1, 4).map(tokens)).toSatisfy((cells: string[][]) =>
+    // The metric name is each row's header (th scope="row"), so the row's td cells are Current, Prior, Change, Takeaway.
+    expect(all(t, 'tbody tr:first-child th')).toHaveLength(1)
+    expect(t.querySelector('tbody tr:first-child th')).toHaveAttribute('scope', 'row')
+    expect(all(t, 'tbody tr:first-child td').slice(0, 3).map(tokens)).toSatisfy((cells: string[][]) =>
       cells.every((c) => c.includes('text-right') && c.includes('font-data') && c.includes('tabular-nums')),
     )
     expect(tokens(t.querySelector('[data-metric-field="name"]')!)).toEqual(expect.arrayContaining(['flex', 'flex-col', 'font-medium']))
@@ -451,6 +468,19 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     expect(tokens(cards)).toContain('md:hidden')
     expect(tokens(cards)).not.toContain('hidden')
     expect(tokens(table)).toEqual(expect.arrayContaining(['hidden', 'md:block']))
+    expect(tokens(container.firstElementChild as HTMLElement)).not.toContain('[container-type:inline-size]')
+  })
+
+  it('switches at its own 52rem instead with layoutBy="container", the wrapper the query container', () => {
+    // The landing's evidence row: beside its label column the content is 42rem at 1024px, too narrow for the table
+    // (tests/e2e/landing-highlights-alignment.spec.ts measures the real switch).
+    const { container } = render(<FinancialMetricsTable metrics={FULL} bare layoutBy="container" />)
+    const cards = layout(container, 'cards')
+    const table = layout(container, 'table')
+    expect(tokens(container.firstElementChild as HTMLElement)).toContain('[container-type:inline-size]')
+    expect(tokens(cards)).toContain('[@container(min-width:52rem)]:hidden')
+    expect(tokens(table)).toEqual(expect.arrayContaining(['hidden', '[@container(min-width:52rem)]:block']))
+    expect([...tokens(cards), ...tokens(table)].filter((token) => token.startsWith('md:'))).toEqual([])
   })
 
   it('composes with bare and with the self-contained Card: notes once, title once, both layouts inside', () => {
@@ -522,7 +552,7 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
 
   it('touch: a card chip’s sheet closes when the cards are hidden, and focus goes to the same chip in the table', () => {
     setup('coarse', 'table')
-    const cardChip = inLayout('cards').getAllByRole('button', { name: 'Source: Verified in filing' })[0]
+    const cardChip = inLayout('cards').getAllByRole('button', { name: 'Source: Quote found in filing' })[0]
     act(() => cardChip.focus())
     fireEvent.click(cardChip)
     const sheet = screen.getByRole('dialog', { name: 'Source detail' })
@@ -530,35 +560,35 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
 
     crossBreakpoint('cards') // rotated to landscape: the table is the layout shown
     expect(screen.queryByRole('dialog', { name: 'Source detail' })).toBeNull()
-    expect(document.activeElement).toBe(inLayout('table').getAllByRole('button', { name: 'Source: Verified in filing' })[0])
+    expect(document.activeElement).toBe(inLayout('table').getAllByRole('button', { name: 'Source: Quote found in filing' })[0])
   })
 
   it('keyboard: a table chip’s popover closes when the table is hidden, and focus goes to the same chip in its card', () => {
     setup('fine', 'cards')
-    const tableChip = inLayout('table').getByRole('link', { name: 'Source: Revenue · SEC XBRL' })
+    const tableChip = inLayout('table').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' })
     act(() => tableChip.focus())
     const tablePopover = screen.getByRole('group', { name: 'Source detail' })
 
     crossBreakpoint('table') // narrowed below md: the cards are the layout shown
     expect(tablePopover).not.toBeInTheDocument()
-    expect(document.activeElement).toBe(inLayout('cards').getByRole('link', { name: 'Source: Revenue · SEC XBRL' }))
+    expect(document.activeElement).toBe(inLayout('cards').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' }))
     // Focus on the twin opens the twin's own popover, as focus on any chip does: one surface, not two.
     expect(screen.getAllByRole('group', { name: 'Source detail' })).toHaveLength(1)
   })
 
   it('keyboard: when the browser blurs the hidden chip before any resize, focus still goes to its twin', () => {
     setup('fine', 'table')
-    const cardChip = inLayout('cards').getByRole('link', { name: 'Source: Revenue · SEC XBRL' })
+    const cardChip = inLayout('cards').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' })
     act(() => cardChip.focus())
     hidden = 'cards' // the breakpoint flipped; Chromium's focus fixup blurs the chip in a task of its own
     act(() => cardChip.blur())
-    expect(document.activeElement).toBe(inLayout('table').getByRole('link', { name: 'Source: Revenue · SEC XBRL' }))
+    expect(document.activeElement).toBe(inLayout('table').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' }))
     expect(screen.getAllByRole('group', { name: 'Source detail' })).toHaveLength(1)
   })
 
   it('a hover popover closes with its layout and moves no focus (no keyboard focus to hand over)', () => {
     setup('fine', 'cards')
-    fireEvent.mouseEnter(inLayout('table').getByRole('link', { name: 'Source: Revenue · SEC XBRL' }))
+    fireEvent.mouseEnter(inLayout('table').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' }))
     expect(screen.getByRole('group', { name: 'Source detail' })).toBeInTheDocument()
     crossBreakpoint('table')
     expect(screen.queryByRole('group', { name: 'Source detail' })).toBeNull()
@@ -567,7 +597,7 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
 
   it('touch: a ui/Modal raised above the sheet keeps focus when a rotation closes the sheet beneath it', () => {
     setup('coarse', 'table')
-    fireEvent.click(inLayout('cards').getAllByRole('button', { name: 'Source: Verified in filing' })[0])
+    fireEvent.click(inLayout('cards').getAllByRole('button', { name: 'Source: Quote found in filing' })[0])
     expect(screen.getByRole('dialog', { name: 'Source detail' })).toBeInTheDocument()
     // An upper layer (the Feedback dialog, through ui/Modal's marker) opened over the sheet holds focus.
     const upper = document.createElement('div')
@@ -585,7 +615,7 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
 
   it('touch: a resize that leaves the chip rendered (an on-screen keyboard, a small window change) keeps the sheet open', () => {
     setup('coarse', 'table')
-    fireEvent.click(inLayout('cards').getAllByRole('button', { name: 'Source: Verified in filing' })[0])
+    fireEvent.click(inLayout('cards').getAllByRole('button', { name: 'Source: Quote found in filing' })[0])
     crossBreakpoint('table') // still a phone: the cards stay shown
     expect(screen.getByRole('dialog', { name: 'Source detail' })).toBeInTheDocument()
   })
@@ -595,22 +625,22 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
   // element. These pin the key itself and a hand-off from another row.
   it('keyboard: a chip in another row hands focus to that row’s twin, not to the first chip of the layout', () => {
     setup('fine', 'cards')
-    const tableChip = inLayout('table').getByRole('link', { name: 'Source: Cited' }) // row 1's name chip
+    const tableChip = inLayout('table').getByRole('link', { name: 'Source: Linked, not checked (opens in a new tab)' }) // row 1's name chip
     act(() => tableChip.focus())
     crossBreakpoint('table')
-    expect(document.activeElement).toBe(inLayout('cards').getByRole('link', { name: 'Source: Cited' }))
+    expect(document.activeElement).toBe(inLayout('cards').getByRole('link', { name: 'Source: Linked, not checked (opens in a new tab)' }))
   })
 
   it('keyboard: focus in the popover (its EDGAR link) also goes to the twin when the breakpoint hides the chip', () => {
     setup('fine', 'table', { withViewer: true })
-    const cardChip = inLayout('cards').getByRole('button', { name: 'Source: Revenue · SEC XBRL' })
+    const cardChip = inLayout('cards').getByRole('button', { name: 'Source: Matches filing' })
     act(() => cardChip.focus())
     fireEvent.keyDown(cardChip, { key: 'Tab' }) // the popover's EDGAR link takes the next Tab
-    const edgar = within(screen.getByRole('group', { name: 'Source detail' })).getByRole('link', { name: /open in sec edgar/i })
+    const edgar = within(screen.getByRole('group', { name: 'Source detail' })).getByRole('link', { name: FILING_LINK })
     expect(document.activeElement).toBe(edgar)
 
     crossBreakpoint('cards') // widened past md: the table is the layout shown
     expect(edgar).not.toBeInTheDocument()
-    expect(document.activeElement).toBe(inLayout('table').getByRole('button', { name: 'Source: Revenue · SEC XBRL' }))
+    expect(document.activeElement).toBe(inLayout('table').getByRole('button', { name: 'Source: Matches filing' }))
   })
 })

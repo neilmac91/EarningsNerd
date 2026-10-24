@@ -22,7 +22,7 @@ interface CopilotTeaserProps {
 const VALUE_PROPS = [
   'Ask anything about this filing in plain English',
   'Cited passages you can check against the filing',
-  'XBRL citations name the tag they came from',
+  'Figure citations name the filed tag they came from',
 ]
 
 /**

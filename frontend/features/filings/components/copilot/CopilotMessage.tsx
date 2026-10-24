@@ -7,6 +7,7 @@ import { Button, countControlClass, cx } from '@/components/ui'
 import AiDisclaimer, { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import remarkGfm from 'remark-gfm'
 import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
+import { sourceLinkLabel } from '@/features/filings/lib/evidenceLabels'
 import {
   ArrowClockwiseIcon,
   ArrowRightIcon,
@@ -305,7 +306,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     {isHttpUrl(c.fragment_url) ? (
                       <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={LOCATOR_LINK}>
-                        <span className="min-w-0 break-words">{c.section_ref ?? 'XBRL'} · EDGAR</span>
+                        <span className="min-w-0 break-words">{sourceLinkLabel(c.fragment_url)}</span>
                         <OpensOriginal />
                       </a>
                     ) : c.section_ref ? (
@@ -341,6 +342,13 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
     </div>
   )
 }
+
+/** The sources the answer card counts as matched: the server's grounded count, less any figure it calculated, which
+ *  the Sources list shows with its own label (lib/evidenceLabels FIGURE_CALCULATED: the filing does not state it). */
+const matchedSources = (message: CopilotMessageProps['message']): number =>
+  typeof message.grounded === 'number'
+    ? message.grounded - (message.citations?.filter((citation) => citation.calculated === true).length ?? 0)
+    : 0
 
 export default function CopilotMessage({
   message,
@@ -470,11 +478,11 @@ export default function CopilotMessage({
 
           {message.status === 'done' && (
             <>
-              {typeof message.grounded === 'number' && message.grounded > 0 && (
+              {matchedSources(message) > 0 && (
                 // One count, said once: it describes located evidence, not verified answer claims.
                 <p className="mt-2.5 flex items-center gap-1.5 text-data-xs text-text-secondary-light dark:text-text-secondary-dark">
                   <CheckCircleIcon className="h-3.5 w-3.5 text-brand-strong/70 dark:text-brand-strong-dark/70" />
-                  {message.grounded} matched source{message.grounded === 1 ? '' : 's'}
+                  {matchedSources(message)} matched source{matchedSources(message) === 1 ? '' : 's'}
                 </p>
               )}
               {message.citations && <SourcesList citations={message.citations} />}

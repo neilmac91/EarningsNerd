@@ -16,7 +16,7 @@ from app.services.trend_analysis.data_notes import (
 )
 from app.services.trend_analysis.narrative_display import compact_narrative_text
 from app.services.summary_sections import Block, Section, render_sections
-from app.services.provenance_service import project_summary_risks
+from app.services.provenance_service import export_raw_summary
 from app.utils.datetimes import ensure_utc, iso_z, utcnow
 
 # The filing-summary PDF's closing note, one paragraph each: the masthead line, then the
@@ -78,7 +78,7 @@ class ExportService:
 
     def generate_pdf_html(self, summary: Summary, filing: Filing) -> str:
         """HTML for the filing-summary PDF — body sections inside the shared branded shell."""
-        raw_summary = project_summary_risks(summary, filing) or {}
+        raw_summary = export_raw_summary(summary, filing)
 
         meta_html = (
             f"Filing Date: {filing.filing_date.strftime('%B %d, %Y') if filing.filing_date else 'N/A'} · "
@@ -190,7 +190,7 @@ class ExportService:
         # Render every structured section through the shared renderer (single source of truth)
         # so the CSV carries the same content as the PDF and the on-page summary, instead of just
         # the financial-highlights table + risks the old code emitted.
-        raw_summary = project_summary_risks(summary, filing) or {}
+        raw_summary = export_raw_summary(summary, filing)
         for section in render_sections(raw_summary):
             self._write_section_csv(writer, section)
 

@@ -9,20 +9,21 @@ import { useSheetFocusTrap } from '@/features/filings/components/copilot/useShee
 import { useEvidencePopoverKeys } from '@/features/filings/components/copilot/useEvidencePopoverKeys'
 import { shownTwin } from '@/features/filings/lib/layoutTwin'
 import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
+import { passageLabel, passageNote, sourceLinkLabel } from '@/features/filings/lib/evidenceLabels'
 
 /**
  * Shared "Trace to Source" provenance affordance — the ambient, on-brand way every metric and risk
  * claim links back to the SEC filing, matching the Copilot's CitationChip treatment so provenance
  * reads as one consistent texture across the app (Plan D2).
  *
- * A compact verified/cited chip. On a fine pointer it reveals a hover/focus popover (section, the
- * verified/cited explanation, an "Open in SEC EDGAR" deep link). With a `FilingViewerProvider`
- * mounted (the filing page), activating the chip opens the research pane on the Filing tab and
+ * A compact chip in the evidence vocabulary (lib/evidenceLabels). On a fine pointer it reveals a
+ * hover/focus popover (section, what was checked, an "Open the filing on SEC.gov" link). With a
+ * `FilingViewerProvider` mounted (the filing page), activating the chip opens the research pane on the Filing tab and
  * highlights the passage when the filing text is available and matched, or shows the pane's truthful
  * empty state with its original-document action; activation never does nothing (EN-01). On a coarse
  * pointer (touch) a tap opens the bottom sheet, which carries the same detail plus "Show in filing",
- * the in-app jump, so provenance is first-class on mobile rather than a straight drop onto EDGAR.
- * Keyboard: Tab from a focused chip reaches the popover's EDGAR link and Tab again resumes the page
+ * the in-app jump, so provenance is first-class on mobile rather than a straight drop onto SEC.gov.
+ * Keyboard: Tab from a focused chip reaches the popover's SEC.gov link and Tab again resumes the page
  * after the chip; Escape closes the popover or sheet and returns focus to the chip; the sheet traps
  * focus while open. Nothing here reads plan or auth state: the route to the source is the same for
  * anonymous, free and Pro visitors.
@@ -36,14 +37,14 @@ interface SourceTraceProps {
   verified?: boolean | null
   /** e.g. "Item 1A · Risk Factors" — shown as the panel header. */
   sectionRef?: string | null
-  /** Chip text. Defaults to the honest verified/cited vocabulary. */
+  /** Chip text. Defaults to the passage vocabulary: "Quote found in filing", "Section linked" or "Quote not found". */
   label?: string
   /** One-line explanation in the panel (e.g. a metric's XBRL match note). */
   note?: string | null
   /**
    * Verbatim filing text to scroll-highlight in the IN-APP viewer (item 1.4). When a
    * `FilingViewerProvider` is mounted, activating the chip jumps to the source in-app (opening the
-   * pane); the EDGAR link stays available in the popover and the sheet. A verified risk excerpt
+   * pane); the SEC.gov link stays available in the popover and the sheet. A verified risk excerpt
    * anchors precisely; metrics (no verbatim excerpt) fall back to the section heading.
    */
   excerpt?: string | null
@@ -68,9 +69,9 @@ const POPOVER_WIDTH = 288 // w-72
 const CLOSE_DELAY_MS = 120
 
 /**
- * Presentational body of the provenance panel: section header, verified/cited status line, an
- * optional in-app action and the "Open in SEC EDGAR" link. Shared by the desktop popover, the touch
- * bottom-sheet and the landing page's Trace-to-Source demo.
+ * Presentational body of the provenance panel: section header, the line saying what was checked, an
+ * optional in-app action and the link to the filing on SEC.gov. Shared by the desktop popover, the
+ * touch bottom-sheet and the landing page's Trace-to-Source demo.
  */
 export function SourceTracePanelBody({
   header,
@@ -87,20 +88,22 @@ export function SourceTracePanelBody({
   url: string | null
   /** Optional verbatim passage, slotted between the header and the status line. */
   excerpt?: ReactNode
-  /** Optional in-app action (the sheet's "Show in filing"), slotted before the EDGAR link. */
+  /** Optional in-app action (the sheet's "Show in filing"), slotted before the SEC.gov link. */
   action?: ReactNode
-  /** The EDGAR link's ref, for the popover's keyboard hand-off. */
+  /** The SEC.gov link's ref, for the popover's keyboard hand-off. */
   linkRef?: Ref<HTMLAnchorElement>
 }) {
+  // The status line rests in the ink and only the check is sage: a figure's note states the filed amounts, and sage
+  // never colours a value at rest (DESIGN.md, the Separate Signals Rule; D-030).
   const statusLine = isVerified ? (
-    <span className="mt-2 flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark">
-      <CheckCircleIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-      {note || 'Verified against the original SEC filing'}
+    <span className="mt-2 flex items-center gap-1 text-xs font-medium text-text-primary-light dark:text-text-primary-dark">
+      <CheckCircleIcon className="h-3 w-3 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
+      {note || passageNote(true, header)}
     </span>
   ) : (
     <span className="mt-2 flex items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
       <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-      {note || 'Cited. Open the section to confirm.'}
+      {note || passageNote(false, header)}
     </span>
   )
 
@@ -123,7 +126,8 @@ export function SourceTracePanelBody({
           className="mt-2 flex items-center gap-1 rounded-sm text-xs font-medium text-text-secondary-light transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
         >
           <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-          Open in SEC EDGAR
+          {sourceLinkLabel(url)}
+          <span className="sr-only"> (opens in a new tab)</span>
         </a>
       )}
     </>
@@ -133,7 +137,7 @@ export function SourceTracePanelBody({
 export function SourceTrace({ url, verified, sectionRef, label, note, excerpt, kind = 'passage', layoutTwin }: SourceTraceProps) {
   const isVerified = verified === true
   const header = sectionRef?.trim() || null
-  const chipLabel = label ?? (isVerified ? 'Verified in filing' : 'Cited')
+  const chipLabel = label ?? passageLabel(isVerified, header)
   const linkable = isHttpUrl(url)
   const panelId = useId()
 
@@ -308,7 +312,7 @@ function SourceTraceInner({
         if (layer && !layer.contains(triggerRef.current)) return
       }
       e.stopPropagation()
-      // A keyboard user who tabbed into the popover's EDGAR link gets the chip back, not <body>.
+      // A keyboard user who tabbed into the popover's SEC.gov link gets the chip back, not <body>.
       // (The sheet's trap restores focus to the chip itself on close.)
       if (!isCoarse && popoverRef.current?.contains(document.activeElement)) triggerRef.current?.focus()
       setOpen(false)
@@ -337,9 +341,9 @@ function SourceTraceInner({
   )
   useSheetFocusTrap({ active: open && isCoarse, containerRef: sheetRef, onClose: closePanel, restoreFocusRef: returnTarget })
 
-  // Fine pointer: Tab reaches the popover's EDGAR link and resumes the page after the chip; Escape
+  // Fine pointer: Tab reaches the popover's SEC.gov link and resumes the page after the chip; Escape
   // is handled above. See useEvidencePopoverKeys for the shared contract with CitationChip. With no
-  // viewer the chip is itself the EDGAR anchor, so the hand-off would only add a second stop for the
+  // viewer the chip is itself the SEC.gov anchor, so the hand-off would only add a second stop for the
   // same link: it stays off there.
   const triggerIsLink = !isCoarse && !canHighlight && !!url
   const keys = useEvidencePopoverKeys({
@@ -385,8 +389,8 @@ function SourceTraceInner({
   }
 
   // The chip is an anchor when linkable and no viewer is mounted (so fine-pointer click + middle-click
-  // open EDGAR, and it's keyboard-reachable); with a viewer it is the in-app jump; on coarse pointers
-  // it is always the sheet's trigger, with the jump and the EDGAR link inside the sheet.
+  // open SEC.gov, and it's keyboard-reachable); with a viewer it is the in-app jump; on coarse pointers
+  // it is always the sheet's trigger, with the jump and the SEC.gov link inside the sheet.
   const triggerCommon = {
     ref: triggerRef as React.RefObject<HTMLButtonElement> & React.RefObject<HTMLAnchorElement>,
     'aria-label': `Source: ${chipLabel}`,
@@ -418,7 +422,7 @@ function SourceTraceInner({
         excerpt: highlightTarget,
         section_ref: header,
         // Located only with the excerpt the server checked: a heading fallback (every metric chip, a
-        // verified XBRL figure's included, and every Cited chip) is a best-effort section jump, never a
+        // verified XBRL figure's included, and every Section linked chip) is a best-effort section jump, never a
         // passage the server located, so the reader paints it without the device (D-044).
         verified: isVerified && highlightTarget === excerpt,
         fragment_url: url,
@@ -430,7 +434,7 @@ function SourceTraceInner({
 
   const trigger = isCoarse ? (
     // Touch: the documented bottom sheet, which holds the in-app jump (when a viewer is mounted) and
-    // the EDGAR link. Even with a viewer the tap opens the sheet, never a silent jump.
+    // the SEC.gov link. Even with a viewer the tap opens the sheet, never a silent jump.
     <button
       type="button"
       {...triggerCommon}
@@ -443,7 +447,7 @@ function SourceTraceInner({
     </button>
   ) : canHighlight ? (
     // In-app: activating jumps to + highlights the source in the embedded filing viewer, opening the
-    // pane; the hover/focus panel still offers "Open in SEC EDGAR" as the fallback.
+    // pane; the hover/focus panel still offers "Open the filing on SEC.gov" as the fallback.
     <button
       type="button"
       {...triggerCommon}
@@ -454,7 +458,7 @@ function SourceTraceInner({
       {chipInner}
     </button>
   ) : url ? (
-    <a {...triggerCommon} href={url} target="_blank" rel="noopener noreferrer">
+    <a {...triggerCommon} aria-label={`Source: ${chipLabel} (opens in a new tab)`} href={url} target="_blank" rel="noopener noreferrer">
       {chipInner}
     </a>
   ) : (

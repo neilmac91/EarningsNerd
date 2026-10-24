@@ -60,7 +60,9 @@ def test_populated_table_recovers_jpm_components_and_verifiable_provenance():
     class Filing:
         document_url = 'https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/jpm-20251231.htm'
     enriched = enrich_financial_highlights(sections['results_that_matter'], Filing(), grounding)
-    assert all(row['source_verified'] for row in enriched['table'][:2])
+    # Both components and the reported total: "Total net revenue" is JPM's own label for it, which main checked
+    # and the whole-label check reads too (provenance_service._SOURCE_EXTRA_KEYS).
+    assert [row['source_verified'] for row in enriched['table']] == [True, True, True]
     before = deepcopy(sections)
     openai_service._apply_structured_fallbacks(sections, {}, grounding)
     assert sections == before
