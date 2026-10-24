@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import Link from 'next/link'
 import { ArrowLeftIcon, FileTextIcon, ShieldCheckIcon } from '@/lib/icons'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
@@ -7,11 +8,13 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { directionChip } from '@/lib/financialTone'
 import BrandEmphasis from '@/features/marketing/components/BrandEmphasis'
 
+const [supportMailbox, supportDomain] = CONTACT_ADDRESSES.support.split('@')
+
 /**
  * Split-screen auth shell: focused form on the left, a constant branded value
  * pane on the right (hidden on mobile). Used by every auth page.
  */
-export default function AuthShell({ children }: { children: React.ReactNode }) {
+export default function AuthShell({ children, alignTop = false }: { children: React.ReactNode; alignTop?: boolean }) {
   return (
     <div className="grid grid-cols-1 min-h-screen lg:grid-cols-2">
       {/* Form pane */}
@@ -39,9 +42,17 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <div className="flex flex-1 items-center justify-center px-6 pb-16 sm:px-10">
-          <div className="w-full max-w-[400px] animate-fade-up motion-reduce:animate-none">{children}</div>
-        </div>
+        <main className={`flex flex-1 justify-center px-6 pb-16 sm:px-10 ${alignTop ? 'items-start pt-3' : 'items-center'}`}>
+          <div className="w-full max-w-[400px] animate-fade-up motion-reduce:animate-none">
+            {children}
+            <p className="mt-8 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              Need help? Email{' '}
+              <a href={contactMailto('support')} className="[overflow-wrap:anywhere] text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+                {supportMailbox}@<wbr />{supportDomain}
+              </a>.
+            </p>
+          </div>
+        </main>
       </div>
 
       {/* Brand pane */}

@@ -502,3 +502,9 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
     await act(async () => planRefresh.resolve(freeSub))
   })
 })
+
+// These cases exercise the form after release; legalReadiness.spec.tsx holds the closed and stale gates.
+vi.mock('@/features/legal/hooks/useLegalReadiness', async () => {
+  const { readyLegalHook } = await import('./fixtures/legalReady')
+  return { useLegalReadiness: () => readyLegalHook }
+})

@@ -1,0 +1,214 @@
+[
+  {
+    "route": "/login",
+    "theme": "light",
+    "action": "settled Tab focus",
+    "tag": "A",
+    "text": "EarningsNerd",
+    "label": null,
+    "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+    "outline": "rgba(0, 0, 0, 0) solid 2px"
+  },
+  {
+    "route": "/login",
+    "theme": "light",
+    "action": "settled Tab focus",
+    "tag": "BUTTON",
+    "text": "",
+    "label": "Switch to dark mode",
+    "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+    "outline": "rgba(0, 0, 0, 0) solid 2px"
+  },
+  {
+    "route": "/login",
+    "theme": "light",
+    "action": "settled Tab focus",
+    "tag": "A",
+    "text": "Back to home",
+    "label": null,
+    "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+    "outline": "rgba(0, 0, 0, 0) solid 2px"
+  },
+  {
+    "route": "/login",
+    "theme": "light",
+    "action": "settled Tab focus",
+    "tag": "A",
+    "text": "Continue with Apple",
+    "label": null,
+    "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+    "outline": "rgba(0, 0, 0, 0) solid 2px"
+  },
+  {
+    "route": "/login",
+    "theme": "light",
+    "action": "settled Tab focus",
+    "tag": "A",
+    "text": "Continue with Google",
+    "label": null,
+    "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+    "outline": "rgba(0, 0, 0, 0) solid 2px"
+  },
+  {
+    "route": "/login",
+    "theme": "light",
+    "action": "settled Tab focus",
+    "tag": "BUTTON",
+    "text": "Continue with email",
+    "label": null,
+    "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(79, 122, 99) 0px 0px 0px 3px",
+    "outline": "rgba(0, 0, 0, 0) solid 2px"
+  },
+  {
+    "route": "/login",
+    "theme": "light",
+    "action": "settled Tab focus",
+    "tag": "A",
+    "text": "Sign up",
+    "label": null,
+    "shadow": "none",
+    "outline": "rgb(16, 16, 16) auto 1px"
+  },
+  {
+    "route": "/filing/3",
+    "theme": "light",
+    "action": "launcher occlusion",
+    "occlusion": {
+      "text": "▲ and ▼ show the direction of each change. Color and “Read as” show whether that direction is usually favorable for the metric.",
+      "scrollY": 643,
+      "launcher": {
+        "x": 264.109375,
+        "y": 778,
+        "w": 105.890625,
+        "h": 46
+      },
+      "lines": [
+        {
+          "x": 16,
+          "y": 2944,
+          "w": 357.625,
+          "h": 15
+        },
+        {
+          "x": 16,
+          "y": 2960,
+          "w": 339.8125,
+          "h": 15
+        },
+        {
+          "x": 16,
+          "y": 2976,
+          "w": 40.140625,
+          "h": 15
+        }
+      ],
+      "coveredLines": []
+    }
+  },
+  {
+    "route": "/login",
+    "theme": "dark",
+    "action": "settled Tab focus",
+    "tag": "A",
+    "text": "EarningsNerd",
+    "label": null,
+    "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+    "outline": "rgba(0, 0, 0, 0) solid 2px"
+  },
+  {
+    "route": "/login",
+    "theme": "dark",
+    "action": "settled Tab focus",
+    "tag": "BUTTON",
+    "text": "",
+    "label": "Switch to light mode",
+    "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+    "outline": "rgba(0, 0, 0, 0) solid 2px"
+  },
+  {
+    "route": "/login",
+    "theme": "dark",
+    "action": "settled Tab focus",
+    "tag": "A",
+    "text": "Back to home",
+    "label": null,
+    "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+    "outline": "rgba(0, 0, 0, 0) solid 2px"
+  },
+  {
+    "route": "/login",
+    "theme": "dark",
+    "action": "settled Tab focus",
+    "tag": "A",
+    "text": "Continue with Apple",
+    "label": null,
+    "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+    "outline": "rgba(0, 0, 0, 0) solid 2px"
+  },
+  {
+    "route": "/login",
+    "theme": "dark",
+    "action": "settled Tab focus",
+    "tag": "A",
+    "text": "Continue with Google",
+    "label": null,
+    "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+    "outline": "rgba(0, 0, 0, 0) solid 2px"
+  },
+  {
+    "route": "/login",
+    "theme": "dark",
+    "action": "settled Tab focus",
+    "tag": "BUTTON",
+    "text": "Continue with email",
+    "label": null,
+    "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgb(127, 178, 149) 0px 0px 0px 3px",
+    "outline": "rgba(0, 0, 0, 0) solid 2px"
+  },
+  {
+    "route": "/login",
+    "theme": "dark",
+    "action": "settled Tab focus",
+    "tag": "A",
+    "text": "Sign up",
+    "label": null,
+    "shadow": "none",
+    "outline": "rgb(16, 16, 16) auto 1px"
+  },
+  {
+    "route": "/filing/3",
+    "theme": "dark",
+    "action": "launcher occlusion",
+    "occlusion": {
+      "text": "▲ and ▼ show the direction of each change. Color and “Read as” show whether that direction is usually favorable for the metric.",
+      "scrollY": 643,
+      "launcher": {
+        "x": 264.109375,
+        "y": 778,
+        "w": 105.890625,
+        "h": 46
+      },
+      "lines": [
+        {
+          "x": 16,
+          "y": 2944,
+          "w": 357.625,
+          "h": 15
+        },
+        {
+          "x": 16,
+          "y": 2960,
+          "w": 339.8125,
+          "h": 15
+        },
+        {
+          "x": 16,
+          "y": 2976,
+          "w": 40.140625,
+          "h": 15
+        }
+      ],
+      "coveredLines": []
+    }
+  }
+]

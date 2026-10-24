@@ -1,8 +1,11 @@
 /** @type {import('next').NextConfig} */
 const { withSentryConfig } = require('@sentry/nextjs/config')
+const path = require('path')
 
 const nextConfig = {
   reactStrictMode: true,
+  // Public addresses are shared with the backend; include that repository source in the bundle.
+  turbopack: { root: path.resolve(__dirname, '..') },
   transpilePackages: ['recharts'],
   typescript: {
     // `next build` typechecks the same surface as CI's `npm run typecheck`: shipped app/library code.
@@ -10,17 +13,8 @@ const nextConfig = {
     // by Vitest/Playwright and carry their own type debt, so they stay out of the production gate.
     tsconfigPath: 'tsconfig.ci.json',
   },
-  images: {
-    // Logo.dev's ticker-keyed logo CDN (see CompanyLogo.tsx). Hotlinked directly —
-    // no proxy needed since its token is a publishable, client-safe identifier.
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'img.logo.dev',
-        pathname: '/ticker/**',
-      },
-    ],
-  },
+  // No `images` config: nothing renders through next/image. Company marks (components/CompanyLogo.tsx)
+  // are a plain img hotlinked from Logo.dev's CDN with their own 1x/2x/3x candidates.
   env: {
     NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL ||
       (process.env.NODE_ENV === 'production' ? 'https://api.earningsnerd.io' : 'http://localhost:8000'),

@@ -8,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.routers.auth import UserCreate
+from tests.support.account_agreement import ACCOUNT_AGREEMENT
 from app.routers.watchlist import WaitlistJoinRequest
 from app.utils.text import has_control_characters
 
@@ -23,7 +24,7 @@ def _waitlist_source(value):
 
 
 def _user_full_name(value):
-    return UserCreate(email="a@example.com", password=VALID_PASSWORD, full_name=value).full_name
+    return UserCreate(**ACCOUNT_AGREEMENT, email="a@example.com", password=VALID_PASSWORD, full_name=value).full_name
 
 
 FIELDS = [

@@ -133,7 +133,7 @@ describe('Financial origin and source checks', () => {
     }))
     render(<DataNotesProvider dataset={report}><DataNotes dataset={report} /><MetricsTable dataset={report} /></DataNotesProvider>)
     const note = document.getElementById('analysis-data-note-a')!
-    expect(note).toHaveTextContent('Revenue CAGR (FY2020 – FY2025)')
+    expect(note).toHaveTextContent('Revenue CAGR (FY2020–FY2025)')
     for (const basis of ['CAGR', 'window percentage-point']) {
       expect(within(note).getByText(`1 ${basis} comparison carries this note. The headline cards show 1. The table shows 1. Exports carry all 1.`)).toBeInTheDocument()
     }
@@ -274,10 +274,11 @@ describe('Financial origin and source checks', () => {
   ])('presents $label in comparison units while retaining its raw value and source concern', async ({ label, concept, value, unit, display, exact }) => {
     const provenance: FactProvenance = { ...calculated, formula: null, inputs: [], validation: 'needs_review', reasons: ['legacy_calculation'] }
     render(<SourceValue point={{ period: 'FY2020..FY2024', value, unit, provenance }} label={label} concept={concept}>{display}</SourceValue>)
-    const trigger = screen.getByRole('button', { name: `${label}, FY2020..FY2024: ${display}, calculated. View source and calculation` })
+    const trigger = screen.getByRole('button', { name: `${label}, FY2020–FY2024: ${display}, calculated. View source and calculation` })
     trigger.focus()
     await userEvent.keyboard('{Enter}')
     const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveTextContent(`${label} · FY2020–FY2024`)
     expect(within(dialog).getByText(display, { exact: false })).toBeInTheDocument()
     expect(dialog).toHaveTextContent(`As stored: ${exact}`)
     expect(dialog).toHaveTextContent('Needs review')

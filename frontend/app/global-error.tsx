@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import * as Sentry from '@sentry/nextjs'
 
 import { useEffect } from 'react'
@@ -21,7 +22,7 @@ export default function GlobalError({
         // data face in the development detail below among them), and Inter's class.
         <html lang="en" className={`${inter.variable} ${geistMono.variable} ${inter.className}`}>
             <body>
-                <div className="flex min-h-screen flex-col items-center justify-center bg-background-light p-4 text-center dark:bg-background-dark">
+                <main className="flex min-h-screen flex-col items-center justify-center bg-background-light p-4 text-center dark:bg-background-dark">
                     <div className="mx-auto max-w-md space-y-4">
                         <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                             Something went wrong
@@ -44,6 +45,11 @@ export default function GlobalError({
                                 Reload page
                             </button>
                         </div>
+                        <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                          If the problem continues, email{' '}
+                          <a href={contactMailto('support')} className="break-all text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.support}</a>.
+                        </p>
+
                         {process.env.NODE_ENV === 'development' && (
                             <div className="mt-8 overflow-auto rounded-lg bg-error-light/10 p-4 text-left text-sm text-error-light dark:bg-error-dark/10 dark:text-error-dark">
                                 <p className="font-mono">{error.message}</p>
@@ -51,7 +57,7 @@ export default function GlobalError({
                             </div>
                         )}
                     </div>
-                </div>
+                </main>
             </body>
         </html>
     )

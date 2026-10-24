@@ -1,0 +1,150 @@
+[
+  {
+    "id": "active-statecard-comment",
+    "status": "confirmed-known",
+    "file": "frontend/components/ui/GuidanceCard.tsx",
+    "line": 10,
+    "description": "Says components/StateCard.tsx exists with ten importers.",
+    "code_truth": "The tracked component is absent; ui/Notice.tsx:4-6 says it replaces the app-owned StateCard.",
+    "action": "Rewrite present-tense naming explanation as historical or remove.",
+    "overlaps": []
+  },
+  {
+    "id": "active-statecard-barrel-comment",
+    "status": "confirmed-known",
+    "file": "frontend/components/ui/index.ts",
+    "line": 19,
+    "description": "Says guidance name collides with app components/StateCard.tsx.",
+    "code_truth": "No such tracked file remains.",
+    "action": "Remove stale collision explanation.",
+    "overlaps": []
+  },
+  {
+    "id": "skip-link-autofocus-comment",
+    "status": "confirmed-new",
+    "file": "frontend/tests/e2e/skip-link.spec.ts",
+    "line": 6,
+    "description": "Says homepage search takes initial focus by design.",
+    "code_truth": "LandingHero.tsx:52-63 explicitly avoids initial focus; CompanySearch defaults autoFocusDesktop=false at31.",
+    "action": "Correct comment and consider the homepage in the existing route gate.",
+    "overlaps": []
+  },
+  {
+    "id": "auth-toggle-exception",
+    "status": "confirmed-new",
+    "file": "frontend/DESIGN_SYSTEM.md",
+    "line": 1021,
+    "description": "One toggle in global Header; no page-level toggles.",
+    "code_truth": "SiteChrome hides Header on six auth routes; AuthShell.tsx:23 owns their toggle.",
+    "action": "Document single visible toggle per shell, with auth shell exception.",
+    "overlaps": [
+      1278
+    ]
+  },
+  {
+    "id": "inter-download-promise",
+    "status": "confirmed-new",
+    "file": "frontend/app/layout.tsx",
+    "line": 17,
+    "description": "Apple users never download Inter.",
+    "code_truth": "Inter next/font call at20 uses default preload; Inter remains heading font in globals.css.",
+    "action": "State body fallback preference, without network or zero-shift promises.",
+    "overlaps": []
+  },
+  {
+    "id": "only-glow-contract",
+    "status": "confirmed-source-ambiguity",
+    "file": "frontend/DESIGN_SYSTEM.md",
+    "line": 988,
+    "description": "Hero search is the only glow.",
+    "code_truth": "globals.css:267 adds live dark glass-card hover shadow; AuthShell:60 consumes it.",
+    "action": "Remove hover shadow or explicitly name accepted exception; do not silently erase glass surface.",
+    "overlaps": [
+      1278,
+      1310
+    ]
+  },
+  {
+    "id": "copilot-reference-path",
+    "status": "in-flight",
+    "file": "frontend/features/filings/components/copilot/CopilotMessage.tsx",
+    "line": 16,
+    "description": "Points to components/AskFilingAnswer.tsx.",
+    "code_truth": "Actual reference is features/filings/components/AskFilingAnswer.tsx; #1295 deletes reference entirely and rewrites comment.",
+    "action": "Accept #1295 removal; no second PR.",
+    "overlaps": [
+      1295
+    ]
+  },
+  {
+    "id": "reference-renderer-contract",
+    "status": "in-flight",
+    "file": "frontend/features/filings/components/AskFilingAnswer.tsx",
+    "line": 14,
+    "description": "Unused reference renderer retains streaming state that production never reaches.",
+    "code_truth": "Source calls it a reference and notes live Ask never reaches streaming; #1295 removes it.",
+    "action": "Treat as known in-flight dead code, not new production caret.",
+    "overlaps": [
+      1295
+    ]
+  },
+  {
+    "id": "dossier-caret",
+    "status": "dossier-disproved",
+    "file": "attached dossier section 8",
+    "line": 0,
+    "description": "Claims CopilotMessage has dead streaming caret and docs still describe it.",
+    "code_truth": "Current CopilotMessage:23-28 and status union:38 have no streaming; DS:914-931 explicitly explains whole answers.",
+    "action": "Record stale briefing lead, not repository defect.",
+    "overlaps": [
+      1295
+    ]
+  },
+  {
+    "id": "dossier-settings-header",
+    "status": "dossier-disproved",
+    "file": "attached dossier section 9",
+    "line": 0,
+    "description": "Includes settings among SecondaryHeader consumers.",
+    "code_truth": "settings/page.tsx:81-97 has an inline back-link and h1 header.",
+    "action": "Use current source in census.",
+    "overlaps": []
+  },
+  {
+    "id": "dossier-numeric-z-count",
+    "status": "dossier-narrowed",
+    "file": "attached dossier section 9",
+    "line": 0,
+    "description": "Seed 26 grep matches across14files.",
+    "code_truth": "Fresh AST count:19 numeric z literal occurrences across12files; comments account for some grep hits.",
+    "action": "Report AST methodology and preserve sanctioned numeric sites.",
+    "overlaps": [
+      1290
+    ]
+  },
+  {
+    "id": "mockup-name",
+    "status": "not-a-confirmed-defect",
+    "file": "docs/brand/06-system.md",
+    "line": 94,
+    "description": "Product screens shown as real components, never a mockup/device frame.",
+    "code_truth": "Three demos use class mockup-frame but actual product components/citation renderer and simple titlebar, no device frame.",
+    "action": "Clarify class naming only if useful; do not infer violation from name.",
+    "overlaps": [
+      1311,
+      1295
+    ]
+  },
+  {
+    "id": "raw-brand-tint-gate",
+    "status": "known-open",
+    "file": "tasks/decisions-2026-10-09-design-followups.md",
+    "line": 315,
+    "description": "Calls for gate for brand-weak/brand-border lacking dark pair.",
+    "code_truth": "#1310 themePairs detects -light tokens, so bare bg-brand-weak/border-brand-border remain outside that stated scan.",
+    "action": "Retain known follow-up; extend themePairs after #1310 if confirming actual unpaired sites.",
+    "overlaps": [
+      1310
+    ]
+  }
+]

@@ -32,7 +32,7 @@ from main import app
 from app.config import MIN_SECRET_KEY_LENGTH, Settings, settings
 from app.database import get_db
 from app.routers.auth import get_current_user
-from app.services import billing_account_service
+from app.services import billing_account_service, legal_readiness_service
 from app.services.entitlements import Plan, get_entitlements, is_pro_user
 
 
@@ -63,6 +63,8 @@ def _overrides(monkeypatch):
     """Default: a verified, non-beta user with an existing Stripe customer + a resolvable price id.
     The prior-Subscription lookup finds a row, so the default cohort is a repeat subscriber (no
     trial)."""
+    # Preserve the dormant cohort contract; production readiness is tested closed separately.
+    monkeypatch.setattr(legal_readiness_service, "is_checkout_available", lambda: True)
     app.dependency_overrides[get_current_user] = lambda: _user()
     app.dependency_overrides[get_db] = lambda: MagicMock()
     monkeypatch.setattr(
@@ -96,6 +98,8 @@ def _create_and_capture(client, **params):
     assert resp.json()["url"] == "https://checkout.stripe.test/session"
     create.assert_called_once()
     kwargs = create.call_args.kwargs
+    # The webhook binds the paid subscription to the reader by the session's metadata.
+    assert kwargs["metadata"]["user_id"] == str(app.dependency_overrides[get_current_user]().id)
     assert "payment_method_types" not in kwargs
     assert kwargs["allowed_payment_method_types"] == ["card"]
     declared = set(SessionCreateParams.__annotations__)

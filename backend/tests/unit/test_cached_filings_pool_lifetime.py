@@ -13,9 +13,10 @@ One rule, two halves in this one module:
   with a dead one, logout-all, refresh, and a password login with the right password and a wrong
   one, which also holds no connection while it hashes), each watchlist route and its refusals, each analysis route
   and a refusal of each, the waitlist join and verification, the contact form and the feedback
-  submit, and the usage and subscription-status reads must answer an eight-request burst with no
-  checkout on the loop and nothing left for the finalizer; and the join, the contact form and the
-  feedback submit must send their mails, and the analysis exports render, with no connection out.
+  submit, the usage and subscription-status reads, and Stripe checkout and the billing portal must
+  answer an eight-request burst with no checkout on the loop and nothing left for the finalizer; and
+  the join, the contact form and the feedback submit must send their mails, the analysis exports
+  render, and Stripe checkout and the portal make their Stripe calls, with no connection out.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
   fails a session call on the loop in the route's own body above that route's ceiling, so a route
   the burst does not list cannot add such a call unseen. Neither half sees a session handed to a
@@ -32,6 +33,7 @@ from typing import Any
 
 import httpx
 import pytest
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.exc import IllegalStateChangeError, OperationalError
 from sqlalchemy.orm import Session, sessionmaker
@@ -48,6 +50,9 @@ from app.services.filing_amendment_service import expand_amendment_forms
 from app.services.rate_limiter import RateLimiter
 from app.utils.datetimes import utcnow
 from main import app
+
+# Exercise existing collection behavior with an explicitly published synthetic operator notice.
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 
 @pytest.mark.asyncio
@@ -105,6 +110,7 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
                           history_backfilled_at=utcnow())
         db.add(company)
         db.flush()
+        company_id = company.id
         filing = Filing(company_id=company.id, accession_number=accession,
                         filing_type="10-K", filing_date=utcnow(),
                         sec_url="https://example.test/filing/", document_url="https://example.test/filing.htm")
@@ -175,7 +181,7 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
         monkeypatch.setattr(notable_filings, "notable_filings_service", reader)
         monkeypatch.setattr(settings, "NOTABLE_FILINGS_ENABLED", True)
         monkeypatch.setattr(notable_filings_service, "MIN_COMPANIES", 1)
-    filing_list_service._mark_filings_synced("CACHED", expand_amendment_forms(["10-K", "10-Q"]))
+    filing_list_service._mark_filings_synced("CACHED", expand_amendment_forms(["10-K", "10-Q"]), company_id)
     try:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
@@ -392,8 +398,8 @@ async def test_analysis_stream_releases_its_connection_before_the_body_streams(m
 
 @pytest.mark.asyncio
 async def test_force_regeneration_refreshes_no_expired_row_on_the_loop(monkeypatch, tmp_path):
-    """The Pro force branch of the generate stream commits (it clears the XBRL and the progress
-    row), and the commit expires the request's user and filing. The route read the user's id and
+    """The Pro force branch of the generate stream commits (it clears the progress row; the XBRL
+    snapshot stays, P11), and the commit expires the request's user and filing. The route read the user's id and
     the filing's type and ticker after that commit, so each refreshed its row with a fresh checkout
     on the event loop, which freezes the loop for the pool timeout once the pool is full. The route
     now reads them before the commit, so the force path checks out once, for the auth lookup, in the
@@ -458,13 +464,15 @@ async def test_force_regeneration_refreshes_no_expired_row_on_the_loop(monkeypat
         assert engine.pool.checkedout() == 0
         # One checkout, the auth lookup's, in the thread pool.
         assert request_checkouts == [False]
-        # The force branch ran: its commit cleared the progress row and the XBRL.
+        # The force branch ran: its commit cleared the progress row and kept the XBRL snapshot, which
+        # the run replaces only with fresh XBRL (refresh_xbrl).
         with sessionmaker(bind=engine)() as db:
             assert db.query(SummaryGenerationProgress).count() == 0
-            assert db.get(Filing, filing_id).xbrl_data is None
+            assert db.get(Filing, filing_id).xbrl_data == {"revenue": 1}
         # The pipeline was handed the snapshots taken before that commit.
         [call] = pipeline_calls
         assert (call["user_id"], call["force_regenerate"], call["current_user"].is_pro) == (user_id, True, True)
+        assert call["refresh_xbrl"] is True
         assert (call["telemetry_ctx"]["filing_type"], call["telemetry_ctx"]["ticker"]) == ("10-K", "FORCE")
     finally:
         engine.dispose()
@@ -1163,6 +1171,8 @@ def _submit_fixture(monkeypatch, tmp_path, send_email):
     monkeypatch.setattr(auth, "sentry_sdk", None)
     monkeypatch.setattr(turnstile.settings, "TURNSTILE_SECRET_KEY", "")
     monkeypatch.setattr(contact.settings, "RESEND_FROM_EMAIL", "Ops <ops@example.com>")
+    monkeypatch.setattr(contact.settings, "CONTACT_NOTIFICATION_EMAIL", "ops@example.com")
+    monkeypatch.setattr(feedback.settings, "FEEDBACK_NOTIFICATION_EMAIL", "ops@example.com")
     monkeypatch.setattr(contact, "send_email", send_email)
     monkeypatch.setattr(feedback, "send_email", send_email)
     # Each route's limiter is process-wide; each burst starts with a fresh window.
@@ -1358,6 +1368,174 @@ async def test_subscription_reads_release_their_connection_off_the_loop(monkeypa
         assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
         assert loop_statements and loop_statements == [False] * len(loop_statements)
         assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+    finally:
+        engine.dispose()
+
+
+def _billing_fixture(monkeypatch, tmp_path, *, with_customer: bool, rival: bool = False):
+    """A four-slot pool with eight verified readers (each with a Stripe customer, or none), checkout and
+    the billing portal wired to it, and every Stripe call they make faked as a blocking 0.3 s call, as
+    the synchronous SDK is. With ``rival``, another checkout of the account stores its customer while
+    this one creates its own (E166). Returns the engine, a session factory, the request sessions as they
+    open, what ran on the loop (checkouts, statements, checkins), each Stripe call with the connections
+    checked out while it ran and whether it ran on the loop, and each call's last keyword arguments."""
+    from types import SimpleNamespace
+
+    import stripe
+
+    from app.config import settings
+    from app.models import User
+    from app.routers import auth
+    from app.services import legal_readiness_service
+
+    # Keep the dormant Stripe path's pool and ownership regressions under the launch hold.
+    monkeypatch.setattr(legal_readiness_service, "is_checkout_available", lambda: True)
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'billing.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        db.add_all(User(email=f"payer-{i}@example.com", is_active=True, email_verified=True,
+                        stripe_customer_id=f"cus_{i}" if with_customer else None) for i in range(8))
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    # A release on the loop runs its rollback and checkin there, and neither is a checkout or a statement.
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+
+    stripe_calls: list[tuple[str, int, bool]] = []
+    stripe_kwargs: dict[str, dict[str, Any]] = {}
+
+    def slow(name: str, result):
+        def call(*args: Any, **kwargs: Any):
+            stripe_calls.append((name, engine.pool.checkedout(), threading.get_ident() == loop_thread))
+            stripe_kwargs[name] = kwargs
+            time.sleep(0.3)
+            return result(*args, **kwargs)
+        return call
+
+    def created_customer(*args: Any, **kwargs: Any) -> SimpleNamespace:
+        payer = kwargs["email"].split("-")[1].split("@")[0]
+        if rival:
+            with sessions() as other:
+                other.query(User).filter(User.email == kwargs["email"]).update(
+                    {User.stripe_customer_id: f"cus_rival_{payer}"})
+                other.commit()
+        return SimpleNamespace(id=f"cus_{payer}")
+
+    monkeypatch.setattr(stripe.Customer, "create", slow("Customer.create", created_customer))
+    monkeypatch.setattr(stripe.Customer, "retrieve", slow("Customer.retrieve", lambda cid: SimpleNamespace(id=cid)))
+    monkeypatch.setattr(stripe.checkout.Session, "create",
+                        slow("checkout.Session.create", lambda **_: SimpleNamespace(url="https://checkout.stripe.test/s")))
+    monkeypatch.setattr(stripe.billing_portal.Session, "create",
+                        slow("billing_portal.Session.create", lambda **_: SimpleNamespace(url="https://portal.stripe.test/s")))
+    monkeypatch.setattr(settings, "STRIPE_PRICE_MONTHLY_ID", "price_monthly_test")
+    monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    return engine, sessions, request_sessions, on_loop, stripe_calls, stripe_kwargs
+
+
+async def _bill(transport: httpx.ASGITransport, route: str, i: int) -> httpx.Response:
+    """One monthly checkout, or one billing-portal session, signed in as payer ``i``."""
+    from app.routers import auth
+
+    token = auth.create_access_token({"sub": f"payer-{i}@example.com"})
+    async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                 headers={"Authorization": f"Bearer {token}"}) as client:
+        if route == "checkout":
+            return await client.post("/api/subscriptions/create-checkout-session", params={"price_id": "monthly"})
+        return await client.post("/api/subscriptions/create-portal-session")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route,with_customer", [("checkout", False), ("checkout", True), ("portal", True)],
+                         ids=["checkout-new-customer", "checkout-stored-customer", "portal"])
+async def test_checkout_and_portal_release_their_connection_before_stripe(monkeypatch, tmp_path, route, with_customer):
+    """Checkout reads what it needs in one thread-pool unit and releases it before any Stripe call, a new
+    customer's claim and the trial's row check after the customer step are units of their own, and the
+    billing portal releases before its one call; every Stripe call runs off the loop (on the Stripe threads, which
+    test_stripe_threads_allowlist.py holds, E170). Eight payers on four slots, each Stripe call taking 0.3 s, so
+    answer 8x200 with no checkout, statement or release on the loop, nothing left for the finalizer,
+    and each new customer stored on its own payer (E144)."""
+    from app.models import User
+
+    engine, sessions, request_sessions, on_loop, stripe_calls, _ = _billing_fixture(
+        monkeypatch, tmp_path, with_customer=with_customer)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    try:
+        responses = await asyncio.gather(*[_bill(transport, route, i) for i in range(8)])
+        assert [response.status_code for response in responses] == [200] * 8
+        assert engine.pool.checkedout() == 0
+        # Each unit released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert stripe_calls and [on for _, _, on in stripe_calls] == [False] * len(stripe_calls)
+        with sessions() as db:
+            assert [customer for (customer,) in db.query(User.stripe_customer_id).order_by(User.id)] == [
+                f"cus_{i}" for i in range(8)]
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route,with_customer,rival,calls", [
+    ("checkout", False, False, ["Customer.create", "checkout.Session.create"]),
+    # Another checkout stored its customer first, so this one retrieves that customer (E166).
+    ("checkout", False, True, ["Customer.create", "Customer.retrieve", "checkout.Session.create"]),
+    ("checkout", True, False, ["Customer.retrieve", "checkout.Session.create"]),
+    ("portal", True, False, ["billing_portal.Session.create"]),
+], ids=["checkout-new-customer", "checkout-lost-claim", "checkout-stored-customer", "portal"])
+async def test_checkout_and_portal_hold_no_connection_while_stripe_answers(
+        monkeypatch, tmp_path, route, with_customer, rival, calls):
+    """One checkout, or one portal session: every Stripe call runs off the loop with no connection
+    checked out, the losing checkout's retrieve of the customer stored first included, and each session
+    names the payer's customer (and checkout the payer, whom the webhook binds the subscription to)."""
+    from app.models import User
+
+    engine, sessions, _, _, stripe_calls, stripe_kwargs = _billing_fixture(
+        monkeypatch, tmp_path, with_customer=with_customer, rival=rival)
+    try:
+        response = await _bill(httpx.ASGITransport(app=app, raise_app_exceptions=False), route, 0)
+        assert response.status_code == 200, response.text
+        assert stripe_calls == [(name, 0, False) for name in calls]
+        assert engine.pool.checkedout() == 0
+        customer = "cus_rival_0" if rival else "cus_0"
+        if route == "checkout":
+            with sessions() as db:
+                payer = db.query(User.id).filter(User.email == "payer-0@example.com").scalar()
+            sent = stripe_kwargs["checkout.Session.create"]
+            assert (sent["customer"], sent["metadata"]["user_id"]) == (customer, str(payer))
+        else:
+            assert stripe_kwargs["billing_portal.Session.create"]["customer"] == customer
     finally:
         engine.dispose()
 

@@ -58,7 +58,8 @@ describe('TickerFilingsView failures', () => {
   it('a load failure says so with a Retry, holds its card through the refetch, and never prints the raw error', async () => {
     api.getCompany.mockRejectedValue(new ApiError(500, RAW))
     renderRoute()
-    expect(await screen.findByRole('heading', { level: 1, name: 'Filings unavailable' })).toBeInTheDocument()
+    const title = await screen.findByRole('heading', { level: 1, name: 'Filings unavailable' })
+    expect(screen.getByRole('main')).toContainElement(title)
     expect(screen.getByRole('alert')).toHaveTextContent('We couldn’t load filings for AAPL. Try again in a moment.')
     expect(screen.queryByText(RAW, { exact: false })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Go to the homepage' })).not.toBeInTheDocument()
@@ -75,6 +76,7 @@ describe('TickerFilingsView failures', () => {
     expect(screen.getByRole('button', { name: /Trying again/ })).toHaveAttribute('aria-busy', 'true')
     await act(async () => answer(APPLE))
     const heading = await screen.findByRole('heading', { level: 1, name: 'Apple Inc.' })
+    expect(screen.getByRole('main')).toContainElement(heading)
     // The Retry left while it held focus: focus goes to the loaded page's h1, never to <body>.
     expect(heading).toHaveFocus()
   })
@@ -82,7 +84,8 @@ describe('TickerFilingsView failures', () => {
   it('a 404 reads as not found, with the way home and no Retry', async () => {
     api.getCompany.mockRejectedValue(new ApiError(404, RAW))
     renderRoute()
-    expect(await screen.findByRole('heading', { level: 1, name: 'Company not found' })).toBeInTheDocument()
+    const title = await screen.findByRole('heading', { level: 1, name: 'Company not found' })
+    expect(screen.getByRole('main')).toContainElement(title)
     expect(screen.getByText(/No company with a ticker on SEC EDGAR matches/)).toHaveTextContent(
       'No company with a ticker on SEC EDGAR matches AAPL.',
     )
@@ -118,6 +121,7 @@ describe('TickerFilingsView failures', () => {
     await waitFor(() => expect(companyState()?.fetchStatus).toBe('paused'))
     await settle()
     expect(api.getCompany).not.toHaveBeenCalled()
+    expect(screen.getByRole('main')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
     expect(screen.queryByText(/No company with a ticker on SEC EDGAR/)).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
@@ -139,6 +143,7 @@ describe('TickerFilingsView failures', () => {
     await waitFor(() => expect(companyState()).toMatchObject({ status: 'pending', fetchStatus: 'paused', fetchFailureCount: 1 }))
     await settle()
     expect(api.getCompany).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('main')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
     expect(screen.queryByText(/No company with a ticker on SEC EDGAR/)).not.toBeInTheDocument()
     expect(screen.queryByText('Failed to fetch', { exact: false })).not.toBeInTheDocument()
@@ -153,6 +158,7 @@ describe('TickerFilingsView failures', () => {
     api.getCompanyFilings.mockRejectedValue(new ApiError(503, RAW))
     renderRoute()
     const notice = await screen.findByRole('alert')
+    expect(screen.getByRole('main')).toContainElement(notice)
     expect(notice).toHaveTextContent('Couldn’t load the filings')
     expect(notice).toHaveTextContent('Try again in a moment.')
     // Inside the "Recent filings" card, the Notice's scale: never a GuidanceCard's standalone panel (no

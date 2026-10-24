@@ -9,6 +9,7 @@ import CompanySearch from '@/features/companies/components/CompanySearch'
 import { getCompany } from '@/features/companies/api/companies-api'
 import { tickerShaped } from '@/features/companies/lib/tickerShape'
 import CompanyLogo from '@/components/CompanyLogo'
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { Badge, Button, Card, Notice, Skeleton } from '@/components/ui'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
@@ -307,6 +308,9 @@ export default function AnalysisPageClient() {
   }, [dataset, exportingXlsx])
 
   const unsupported = coverage && !coverage.supported
+  // The coverage line names the company as the rest of the app does, in its display casing (EDGAR serves the
+  // conformed name, often in capitals); the ticker stands in until the coverage read lands.
+  const companyName = formatCompanyName(coverage?.company_name) || ticker
   // The narrative card already states the error once. Only the 403 "Pro feature" case adds a way to
   // the plans; the fair-use 429 is a Pro user's monthly cap, so it gets no "See plans" and no repeat.
   const proRequired = narrative.status === 'error' && isAnalysisPaywallError(narrative.error || '')
@@ -337,9 +341,9 @@ export default function AnalysisPageClient() {
         <CompanySearch onSelect={selectCompany} />
         {ticker && (
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            <CompanyLogo decorative ticker={ticker} name={coverage?.company_name || ticker} size={20} />
+            <CompanyLogo decorative ticker={ticker} name={companyName} size={20} />
             <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
-              {coverage?.company_name || ticker}
+              {companyName}
             </span>
             <span className="tnum font-data">{ticker}</span>
           </div>

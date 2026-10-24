@@ -450,6 +450,22 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
 
+Company mark     <CompanyLogo ticker name decorative size>  (components/) — the one way a company's mark is
+                 drawn beside its ticker, at 20–36px (gate: tests/unit/companyMarkSingleSource.spec.ts holds
+                 the CDN's mark URL to the component). A square white tile in both themes (§9): bg-white, the
+                 hairline pair ring-border-light dark:ring-white/10, rounded-sm under 28px and rounded from
+                 28px, never a circle (Logo.dev serves square tiles and transparent marks, and a circle cut
+                 the tiles' corners). The ticker's initials in text-brand-strong sit under the mark and stay
+                 when the CDN has no logo (the URL asks it for a 404) or the image fails; the mark fades in
+                 over them. The image is a plain img with 1x/2x/3x candidates at exactly the slot's size, lazy
+                 except the one `priority` mark above a page's fold. `decorative` is required: true beside the
+                 company's name or ticker as text (aria-hidden), false when the mark stands alone (role=img,
+                 "<name> logo"). The slot is a fixed box, so no outcome shifts the row. The shape and ground are
+                 gated (tests/unit/CompanyLogo.spec.tsx: the tile, its radius step, never rounded-full, never a
+                 brand ground). Verify both themes against the PR's preview with
+                 `node scripts/capture-company-marks.mjs <preview url>` (crops and a sheet per theme and pixel
+                 ratio): a release check run once per change to the marks, not a monitor.
+
 Input            <Input>  — fill is the BRIGHTEST surface so the field reads on BOTH the cream page
                  AND an off-white card: bg-white dark:bg-white/5 + hairline + brand focus ring
 
@@ -578,8 +594,9 @@ Analysis reflow  The page title and selected-company rows wrap. Narrative cards 
                  export/refresh Buttons use size="sm" wrap and max-w-full. The shared wrap state
                  keeps min-h-8 and lets labels grow within the card without conflicting utilities.
 
-Analysis reading <NarrativePane> — compact monetary amounts and quarter labels in prose, without
-                 changing link destinations, code or source excerpts. Preserve enough precision
+Analysis reading <NarrativePane> — compact monetary amounts and period labels in prose (a quarter as
+                 Q2 2026, a window as one range), without changing link destinations, code or source
+                 excerpts. Preserve enough precision
                  to keep a stated comparison meaningful. Up to three recognized source operands
                  remain inline with their original citation controls; longer lists fold beneath a
                  neutral summary that names every applicable note letter. Unrecognized content
@@ -640,7 +657,11 @@ Data notes strip <DataNotes> — hairlines above and below a native details disc
                  Note chips reveal and focus the same stable note ID. Citation-only supplemental
                  notes remain in the narrative and do not increase the report's figure counts.
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
-                 FY2026 and all API/snapshot/selection keys retain their original identity.
+                 FY2026 and all API/snapshot/selection keys retain their original identity. A
+                 window prints one way, through formatAnalysisWindow: one unspaced range, FY2016–FY2025
+                 or Q1 2024–Q4 2025, as the exports print it. tests/unit/analysisPeriodWindows.spec.tsx
+                 holds it: the analysis surfaces it renders carry no window key, no window field is read
+                 straight into page text, and no file but periodLabels.ts joins a range.
 
 Locked preview   <PeekLocked feature preview="full|screen"> (features/subscriptions): a Pro feature shown
                  locked, the real component blurred, dimmed, inert and aria-hidden under a centred Pro pill
@@ -938,10 +959,11 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  1.625rem, so it scales with the root and holds its label at 200% text. `mono` options set
                  codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
                  `fullWidth` stretches the segments across a phone row and wraps them onto another row when
-                 they do not fit (a form filter with amendments), so every option stays visible; from sm up
-                 it is one auto-width row. Optional disabled options remain visible and use native
-                 disabled semantics by default. `focusableDisabled` keeps unavailable options in
-                 the Tab order with aria-disabled and `descriptionId`; activation is refused.
+                 they do not fit (a form filter with amendments; the feedback form's type under 200% text,
+                 E169), so every option stays visible; from sm up it is one auto-width row. Optional
+                 disabled options remain visible and use native disabled semantics by default.
+                 `focusableDisabled` keeps unavailable options in the Tab order with aria-disabled and
+                 `descriptionId`; activation is refused.
                  The controlled selected option keeps its primary colourway even if unavailable,
                  so newly loaded coverage never silently changes the selected mode. This is not
                  a busy-state API.
@@ -962,8 +984,9 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  through a same-file wrapper component (one level) and through the DS Button imported
                  under another name. WordingChanges' review row (LabelToggle) carries the rule's one
                  disable: a second press clears its label, a state the control cannot hold (D-046). A row
-                 without role="group" (FeedbackWidget's type row, E35), a wrapper imported from another
-                 file and a wrapper that renders another wrapper are outside its reach (review-checked).
+                 without role="group", a wrapper imported from another file and a wrapper that renders
+                 another wrapper are outside its reach (review-checked); FeedbackWidget's type row, once the
+                 example named here, is the control now (E35).
                  Gate: tests/unit/segmentedControlOptionCount.spec.ts fails a SegmentedControl given
                  more than five options (MAX_SEGMENTS, which the primitive exports), and pins a site it
                  cannot count statically (FilingIndex's form filter). FilingIndex counts that set, All
@@ -1006,26 +1029,33 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  cannot handle Tab/Escape itself. The header icon tile takes the dialog's tone: brand for a
                  neutral prompt, a status hue for a state glyph (brand never signals a state).
                  The header's icon, title and ✕ share one row while the title can keep 9rem (144px at the
-                 default size, 288px under 200% text) beside the icon, as a Notice's glyph and text column do
-                 (Inline notice). Where it cannot (a phone at 200% text), the title goes to its own line under
-                 the icon and the ✕, at the header's full width, under the ✕ too, the column gap below the
-                 icon (gap-y-1 and the title's pt-2), and the ✕ keeps the top right; the type never steps down
-                 (E158, chief design on #1495). A header with a ✕ is a container for this
-                 ([container-type:inline-size]): below 14.25rem, the row's own width (the 2.5rem icon, two
-                 0.75rem gaps, the 9rem title and the ✕'s 1.25rem margin box), the title takes order-last and
-                 basis-full, since flex-wrap alone, as the Notice uses, would carry the ✕ down after a wrapped
-                 title. With no ✕, flex-wrap alone stacks the title, and with no icon it stays beside the ✕.
-                 The title never overlaps the ✕ or runs past the panel, and a stacked title breaks no word:
-                 under 200% text the consent dialog's is 216, 251 and 277px wide at 320, 360 and 390px (a
-                 header with no icon keeps its title beside the ✕, 64px narrower, E165).
-                 Before E158 it kept the group's width beside the ✕'s column, 152, 187 and 213px, so
-                 "preferences" (197px) broke at 320 and 360px. At the default size nothing moves: at 320, 360,
-                 390 and 1440px the icon, the title and the ✕ keep their boxes, in both themes, and at 1440px
-                 under 200% text the title still sits beside the icon. Gate: e2e reflow-200.spec.ts (the
-                 consent dialog and the email verification prompt at 390, 360 and 320px: the title beside the
-                 icon at the default size and under it at 200% text at the header's full width, under the ✕
-                 too, every painted line inside the panel and clear of the ✕, no word broken, read a character
-                 at a time, the page not scrolling sideways, nor the prompt's panel).
+                 default size, 288px under 200% text) beside what shares it, as a Notice's glyph and text
+                 column do (Inline notice). Where it cannot (a phone at 200% text), the title goes to a line of
+                 its own at the header's full width, under the icon and the ✕ or under the ✕ alone, and the ✕
+                 keeps the top right; the type never steps down (E158 and E165, chief design on #1495 and
+                 #1519). A header with a ✕ is a container for this ([container-type:inline-size]): below the
+                 row's own width the title takes order-last and basis-full, since flex-wrap alone, as the
+                 Notice uses, would carry the ✕ down after a wrapped title. That width is 11rem (the 9rem
+                 title, a 0.75rem gap and the ✕'s 1.25rem margin box), or 14.25rem with an icon (its 2.5rem and
+                 a second gap). justify-between holds the icon left and the ✕ right; with no icon, justify-end
+                 keeps the ✕ alone on its line at the right. A title under the icon sits the column gap below
+                 it (gap-y-1 and the title's pt-2); a title under the ✕ alone sits the column gap below its
+                 glyph (gap-y-1 and the title's mt-2), its box clear of the ✕'s padded hit area. With no ✕,
+                 flex-wrap alone stacks the title. The title never overlaps the ✕ or runs past the panel, and
+                 a title on its own line breaks no word the header's width holds: under 200% text the consent
+                 dialog's is 216, 251 and 277px wide at 320, 360 and 390px, where before E158 it kept the ✕'s
+                 column, 152, 187 and 213px, and "preferences" (197px) broke at 320 and 360px; before E165 the
+                 feedback dialog's kept that column too, and "feedback" (153px) broke at 320px. A word wider
+                 than the whole header still breaks, since nothing can hold it (the analysis evidence dialog's
+                 "Shareholders'", 226px, at 320px). At the default size nothing moves: at 320, 360, 390 and
+                 1440px the icon, the title and the ✕ keep their boxes, in both themes, and at 1440px under
+                 200% text the title still sits beside the icon or the ✕. Gate: e2e reflow-200.spec.ts (the
+                 consent dialog, the email verification prompt and the feedback dialog at 390, 360 and 320px:
+                 the title beside the icon, or the ✕, at the default size and on its own line at 200% text at
+                 the header's full width, under the ✕ too, every painted line inside the panel and clear of
+                 the ✕, the ✕ at the header's top right, no word broken, read a character at a time, the page
+                 not scrolling sideways, nor any dialog's panel: the feedback dialog's type row is the
+                 SegmentedControl, whose segments wrap whole, E169).
                  Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
                  viewer / workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
                  below lg, where it is a sheet, and a complementary landmark on lg+), and the calendar's
@@ -1087,50 +1117,121 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  as usual.
 
 Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie-consent bar: above in-page
-                 sticky chrome, BENEATH the sheet scrims and the z-40 research chrome) · z-scrim 35 (the
-                 workspace / rail bottom-sheet scrims: above the bar, under the z-40 sheets they belong to) ·
+                 sticky chrome, BENEATH the modal sheets and the z-40 launchers / coachmark) · z-scrim 35
+                 (retained ladder rung; modal sheets use z-modal for their backdrops) ·
                  z-header 50 (site header; its menus ride it: the notification menu and the account menu
                  sit on this one rung inside the header's stacking context, NotificationBell on the token
                  and UserMenu still on the numeric z-50; tests/unit/NotificationBell.spec.tsx holds both) ·
                  z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the
                  source and viewer sheets — scrim AND panel) ·
                  z-toast 80 (the skip link; sonner manages its own toast layer).
-                 The copilot rail / workspace bottom sheets stay z-40 over z-scrim scrims, so the in-sheet
-                 citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
-                 sticky-cell layering is the one documented exemption.
+                 The copilot rail / workspace bottom sheets and their scrims both use z-modal, above the
+                 site header. The panel follows its scrim in DOM order at that rung. CitationChip portals
+                 into its trigger's active modal container (outside the answer scroller), keeping z-overlay
+                 inside the sheet's stacking context; outside a modal it still portals to body. A breakpoint
+                 change rehosts the card after the pane's modality commits and preserves its focused action;
+                 closing the pane dismisses the card instead of moving it over the page. The sheets
+                 have no transform or clipping ancestor for those fixed cards. A nested Modal or source-detail
+                 sheet portals later to body on z-modal, above the research sheet. Desktop remains nonmodal:
+                 the workspace is static at lg:z-auto and the standalone rail overlay retains lg:z-40.
+                 Never z-[N]; DataTable's internal z-[5] sticky-cell layering is the one documented exemption.
                  The header offset: the site header publishes its rendered height on <html> as
                  `--site-header-h` (components/Header.tsx), the one offset under it, and is the one bar that
                  sticks at the top of the viewport. Sticky and fixed chrome below the header reads it,
                  `top-[var(--site-header-h,4rem)]`, never a fixed `top-16` or a `sticky top-0`, so a bar that
-                 wraps under enlarged text covers nothing. A page's own header (SecondaryHeader: pricing, the
-                 dashboard, the watchlist, admin) scrolls with the page on an opaque panel; only a table's
+                 wraps under enlarged text covers nothing. The full bar (the nav and the desktop controls)
+                 shows from 72rem and the compact bar (the mobile actions and the menu) below it, all four on
+                 one arbitrary variant, `[@media(min-width:72rem)]`: a media query's rem is the reader's text
+                 size, 1152px at the default size and 2304px under 200% text. 72rem leaves the full bar's
+                 widest row (every flag-gated link and a guest's longest account label) room to spare in Inter
+                 and in a wider fallback, so the full bar never wraps and the auth check never changes its
+                 lines (E173, E175; gate: tests/e2e/reflow-200.spec.ts holds the compact bar at 1151 and
+                 2303px and the full bar on one line at 1152 and 2304px, with either access mode's label).
+                 From lg to 72rem the compact bar carries a signed-in reader's NotificationBell too, after the
+                 theme toggle as in the full bar, so the bell stays wherever the full bar showed it before,
+                 and the header holds its panel so that one of it and the menu is open at a time (the same
+                 case opens both, the menu from the keyboard too). The logo's mr-auto and the controls'
+                 ml-auto share the full bar's free space, never justify-between alone, which puts a line's
+                 only block at its start, so should the bar ever wrap, the notification and account menus,
+                 anchored at their right edge (right-0), still open on the screen (E160; gate: the same spec
+                 opens each menu at 2304 and 2560px under 200% text with a copy fixture that lengthens the nav
+                 until the bar wraps, and holds the one-line bar's nav midway at 1440px). The desktop controls
+                 block is one grid cell with two layers: a copy of a guest's controls (the toggle's box, "Log
+                 in" and the account link, as spans in the links' classes, `invisible` and `aria-hidden`,
+                 nothing in it focused or read; role queries skip it, though a text query for a guest's labels
+                 also finds it) and the live controls at the cell's right edge, so the cell keeps a guest's
+                 width whatever the auth check shows, in any font and either access mode, and the nav keeps
+                 its place as the check settles; a reader's toggle, bell and avatar stay together at the
+                 right. The cell holds min-h-10, the md button's height, so the bar is one height while the
+                 check runs and after it, for a guest and a signed-in reader (E174, E175; gate:
+                 tests/e2e/header-covers-nothing.spec.ts holds the check open, scrolls, and answers it in the
+                 compact bar at 1024px and the full bar at 1152 and 1440px, and under 200% text in the compact
+                 bar at 640, 800, 1024 and 1440px and the full bar at 2304px: the header keeps its height, the
+                 full bar's nav its left edge, and a guest's compact bar its height with either access mode's
+                 label; tests/unit/Header.spec.tsx holds the copy unfocusable, unread and in step with a
+                 guest's live controls in either access mode). The wordmark shows from 40rem
+                 (`[@media(min-width:40rem)]:inline`: 640px at the default size, 1280px under 200% text), so
+                 under enlarged text the mark stands alone where a guest's row needs the room. Below about
+                 15rem (480px under 200% text, 360px under 150%) a guest's account link no longer fits beside
+                 the logo as it is, so as it appears its label wraps or it takes a row of its own, and the
+                 compact bar still grows: under 200% text in CI's fonts, a wrapped label (14px) at 360px with
+                 "Sign up" and 390 to 450px with "Request invite", and a whole row at 320px with either label
+                 and at 360 and 375px with "Request invite". Chief design accepts that band, since any
+                 reservation would give every reader the same extra row (#1558, comment 6377073723).
+                 A page's own header (SecondaryHeader: pricing, the dashboard, the watchlist, admin) scrolls
+                 with the page on an opaque panel; only a table's
                  header cells stick at `top-0`, inside the table's own scroll box. The document's
                  `scroll-padding-top` (globals.css) reads the variable once, so a keyboard focus, an anchor
                  jump or a scrollIntoView lands below the bar, never behind it (WCAG 2.2 SC 2.4.11); a
                  section's scroll margin adds only its own room beyond the header (`scroll-mt-16`), never the
                  variable again, which would land every jump one bar lower. The padding steps aside while
                  focus is inside the site header (`html:has([data-site-header]:focus-within)`): the header is
-                 stuck in view, and the padding, which counts its open mobile menu, would scroll the page
-                 behind the menu at every Tab through it, and move the page when a control in the bar took
-                 focus while it was scrolled; a Tab out of the open menu lands below it. Gates:
-                 tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/e2e/reflow-200.spec.ts (the filing
-                 page's section nav at 200% text) and tests/e2e/header-covers-nothing.spec.ts (a Shift+Tab walk
+                 stuck in view, and the padding, which counts its open mobile menu below lg, would scroll the
+                 page behind the menu at every Tab through it, and move the page when a control in the bar
+                 took focus while it was scrolled. The open menu is a disclosure: it closes when focus leaves
+                 the header (a focusout whose next target is outside it) from the keyboard or a script, inside
+                 that focusout (`flushSync`; React's own flush is too late with script on the stack), and the
+                 close publishes the bar's height in the same commit, before the browser scrolls the next
+                 control into view; otherwise that scroll reserves the open menu, which fills the screen under
+                 200% text. A press outside it (a tap or a click, on a control or on text, marked from its
+                 mousedown to the next task) leaves it open, and a navigation closes it: a close on the press
+                 moved the page under the pointer at the top of a page, and the release activated nothing. A
+                 focus a modal layer takes closes it with a plain update. Escape closes it too, unless a layer
+                 above took the key, returning a focus inside the menu to its toggle; a blur with no next
+                 target (another window) leaves it open. Gates:
+                 tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/unit/Header.spec.tsx (the menu's
+                 close and its height in the focusout, a press, a navigation, Escape),
+                 tests/e2e/reflow-200.spec.ts (the filing page's section nav at 200% text) and
+                 tests/e2e/header-covers-nothing.spec.ts (a Shift+Tab walk
                  of /, /pricing and /analysis with no stop wholly under the bar; /pricing's page header off the
                  screen once scrolled past; the open menu's Tab walk and the bar's own stops leaving the page where
-                 it is).
+                 it is, a Tab out of the open menu or a focus moved by script out of it closing it and landing
+                 inside the screen, below the bar, at both text sizes, and, since the compact bar shows on a
+                 desktop below 72rem, at 1440x900 under 200% text for a signed-in reader, and a tap on a link below
+                 the open menu at the top of the page following it, the next page opening with the menu closed).
                  The open mobile menu scrolls inside the viewport: the header is a column no taller than it
                  (`flex max-h-dvh flex-col`), the bar keeps its own height (`w-full shrink-0`; a column's child
                  with auto side margins is not stretched) and the menu panel takes the rest
                  (`overflow-y-auto overscroll-contain`, its scroll padding the nav's inset, as the Modal
                  panel's). The cap is the bar's own height, never `--site-header-h`, which counts the open
-                 menu. A sticky header taller than the viewport stays stuck to its top until the page's end,
-                 so the menu's last rows (Log out, the account link) showed only there, 36,942px down the
-                 landing at 200% text. Gate: tests/e2e/reflow-200.spec.ts (390x664 and 360x640 at 200%,
-                 a guest and a signed-in reader: a wheel and focus bring the last row into view inside the
-                 menu, a second wheel at its end leaves the page behind it unmoved, and neither the page nor
-                 the menu scrolls sideways; the menu's own scroll width is read, since a row it clips adds
+                 menu below lg. A sticky header taller than the viewport stays stuck to its top until the
+                 page's end, so the menu's last rows (Log out, the account link) showed only there, 36,942px
+                 down the landing at 200% text. Gate: tests/e2e/reflow-200.spec.ts (390x664 and 360x640 at
+                 200%, a guest and a signed-in reader: a wheel and focus bring the last row into view inside
+                 the menu, a second wheel at its end leaves the page behind it unmoved, and neither the page
+                 nor the menu scrolls sideways; the menu's own scroll width is read, since a row it clips adds
                  nothing to the page's), and at 1440x900 the bar spans its container with the logo in its
-                 top-left place, which `w-full` holds.
+                 top-left place, which `w-full` holds. From lg, where the compact bar shows on a desktop below
+                 72rem, the open menu leaves the header's flow (`lg:absolute lg:inset-x-0 lg:top-full`) and
+                 lies over the page under the bar, as the header's other menus do, with their `e2` lift and
+                 its own lower border, its height capped at the screen's foot (`calc(100dvh - 100%)`, the
+                 header's own height being the bar's). So the header's box and `--site-header-h` stay the
+                 bar's, and the sticky chrome under it keeps its size and place: in the flow, the open menu
+                 shrank the filing workspace's pane at 1100x800 from 550 to 12px, and from 254 to 0px under
+                 200% text (chief design on #1558; gate: tests/e2e/header-covers-nothing.spec.ts, at 1100x800
+                 on /filing/3 for a Pro reader, at both text sizes, at the top of the page and scrolled: with
+                 the menu open the pane keeps its top and height, the page its scroll and the header its
+                 published height, and the menu lies over the pane and ends inside the screen).
                  The consent layer: a lower z alone would let the launcher cover a consent choice, so while
                  the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
                  `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the
@@ -1143,7 +1244,7 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  coachmark is deferred, not dismissed, while the bar shows (`hooks/useConsentLayer`); the
                  saved confirmation is a sonner toast, never a fixed corner element. Real modals cover the
                  bar: beneath the settings dialog (z-modal) and beneath an open workspace / rail bottom sheet
-                 (whose z-scrim scrim dims it) its choices are inert — a tap there reaches the scrim and
+                 (whose z-modal scrim dims it and the site header) its choices are inert — a tap there reaches the scrim and
                  closes the sheet, storing nothing — and operable again once the modal closes, which is what
                  the sheet's aria-modal and focus trap already tell keyboard and AT users. In-page sticky
                  chrome stays below the bar: a section nav passing through the bar's region on a short phone
@@ -1163,10 +1264,14 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  to inline zIndex, so a z written apart from its `fixed` still counts; z-toast is exempt only
                  as the top-anchored skip link), no in-page sticky chrome outranks the bar (the top-anchored
                  site header is pinned), the tokens sit on their rungs (sticky < consent < scrim <
-                 the pinned workspace level 40 < header), the pinned bottom chrome takes the inset (the sheets'
+                 the pinned workspace level 40 < header < modal), the sheets and scrims use the modal rung,
+                 and the pinned bottom chrome takes the inset (the sheets'
                  anchor, no `bottom-0` behind any variant, the offset objects' `bottom` from
                  BOTTOM_CHROME_OFFSET, the bar's layout-effect publish, the scroll padding) and the pinned
-                 scrims are full-viewport; every pin list is shrink-only in files, sites and z.
+                 scrims are full-viewport; every pin list is shrink-only in files, sites and z. The existing
+                 consent-bar-yields e2e also hit-tests header controls under an open sheet and verifies a
+                 header tap dismisses only the sheet, while citation-chip-keyboard keeps the nested card
+                 pointer-reachable and preserves its Escape hand-off.
 
 Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per metric instead of the five-column
                  DataTable, switched by CSS alone (`md:hidden` cards, `hidden md:block` table — both in the DOM
@@ -1350,7 +1455,10 @@ Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P
 
 Hero example     <HeroExample example>  (features/marketing, critique 1d) — the example IS the product, on ONE
                  surface (rounded-xl panel + hairline + e2, dark: fill + hairline): "Example summary" with the
-                 quality Badge, the identity line (company, then ticker · form · filed in the data face, Sep
+                 quality Badge in a row that wraps (the badge goes under the label where the two do not fit side
+                 by side, and below a 24rem viewport its label wraps inside it, as a Button's does, the badge
+                 taking the 16px step there, a rounded box once it wraps; E156), the
+                 identity line (company, then ticker · form · filed in the data face, Sep
                  between; each middot in one item with the fact before it, so a wrapped line never starts or
                  stands with one; the form one nowrap run; the date an inline-block after "filed", so it moves
                  down whole and breaks only after its day), the summary's opening, the figures as ONE hairline
@@ -1371,7 +1479,12 @@ Hero example     <HeroExample example>  (features/marketing, critique 1d) — th
                  and the example, no two figures meeting, every form code on one line, no painted line starting
                  with a middot; at both text sizes the strip's rules as painted, a row's leading rule and the
                  first row's top rule clipped, every other rule inside the strip, the first figure's label flush
-                 with the card; the page at 320px).
+                 with the card; the page at 320px) and tests/e2e/hero-example-badge.spec.ts (CI's build serves
+                 the fallback, which has no badge, so the live badge is laid into its row from
+                 fixtures/hero-example-live-badge.html, which tests/unit/hero-example-surface.spec.tsx holds to
+                 the render: under the label at 320 and 390px under 200% text, beside it at the row's right at
+                 390px at the default size and at 1440px under 200% text, inside the card, a rounded box where
+                 its label wraps, the page not scrolling sideways).
 
 Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain statements, each scoped to what
                  the implementation establishes ("where a match is found"); "generated" stays distinct from
@@ -1590,7 +1703,19 @@ summary's writer error; the watchlist's empty and error cards; the waitlist exam
 A fallback that replaces the whole page passes `headingLevel="h1"` (app/error.tsx, the dashboard's
 error boundary, the providers' GlobalErrorBoundary, the signed-in routes' account card
 `features/auth/components/AccountLoadFailure.tsx`; global-error.tsx writes its own h1; gate:
-tests/unit/errorBoundaryHeadings.spec.tsx).
+tests/unit/errorBoundaryHeadings.spec.tsx). The company page's invalid ticker, missing or failed company
+read and unsupported-issuer cards also replace the whole page and pass h1
+(tests/unit/company-page-lead.spec.tsx); the heading's visual size stays GuidanceCard's.
+
+Each page frame owns one `main` landmark. The root layout's `div#main` is only the focusable skip-link
+target, never an enclosing main. AuthShell owns the form pane's main, outside its utility and brand panes;
+settings, ticker-filings and company frames retain one main while loading or showing a terminal state.
+An error boundary or account-load failure replaces the page and owns its main too. Gates:
+tests/e2e/skip-link.spec.ts (root target and no nested main), tests/e2e/text-floors.spec.ts (all six auth
+routes and the route error boundary), and the existing errorBoundaryHeadings, dashboardLoadingSkeletons,
+TickerFilingsView and company-page-lead unit specs (their loading and terminal branches). Loading-heading
+presentation remains with the loading-state work; a landmark does not change its visual design.
+
 The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
 titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
@@ -1836,6 +1961,15 @@ fallback, a Cited jump and an XBRL fact never register the device's highlight; a
   white surface, the multicolour "G", the hairline and the label ink its branding guideline sets); it does
   not excuse a stale value. When the consent screens are set up (`tasks/todo.md` F38), check the button
   against Google's current guideline and record the values here.
+- **Company marks sit on a white tile in both themes** (`components/CompanyLogo.tsx`): a third
+  party's mark is drawn for white, and the provider serves two kinds of asset, full-bleed square tiles
+  in the brand's own ground and transparent marks, so the slot is a white tile (`bg-white`) with the
+  hairline pair (`ring-border-light dark:ring-white/10`) and the scale's small radius (4px under 28px,
+  8px from 28px), never a circle (it cut the tiles' corners) and never the brand tint (a black mark
+  on the dark tint measured 1.4:1). The initials monogram keeps the light ink (`text-brand-strong`)
+  on that tile in both themes; `tests/unit/themePairs.spec.ts` lists it in its residue beside the
+  Google button's hairline. The exemption covers the mark's own ground; the ticker and name beside it
+  pair as usual.
 - **Status + financial colors are semantic** — keep them; reserve loud status colors for genuine
   state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `GuidanceCard`).
 - **Progress / step / completion indicators use the BRAND accent (sage), not success-green.**

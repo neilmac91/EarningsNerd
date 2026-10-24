@@ -1,9 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Request, Response, Query, Form
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, status, Request, Response, Query, Form
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, StrictBool, StrictStr, field_validator, model_validator
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -24,8 +24,14 @@ from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.pwned_passwords import is_password_pwned
 from app.services.turnstile import enforce_turnstile
+from app.schemas.account_agreement import AccountAgreementInput
+from app.services.account_agreement_service import AcceptedAccountAgreement, accept_current_agreement
+from app.services.legal_readiness_service import (
+    CollectionUnavailable, is_checkout_available, require_collection_available,
+)
 from app.utils.text import has_control_characters
 from app.services import (
+    account_mail_service,
     audit_service,
     auth_account_service,
     filing_list_service,
@@ -34,6 +40,7 @@ from app.services import (
     oauth_account_service,
     refresh_token_service,
 )
+from app.services.durable_tasks import AccountMail
 from app.services.oauth_verify import _verify_apple_id_token, _verify_google_id_token
 from app.services.password_utils import (
     _DUMMY_PASSWORD_HASH,
@@ -66,7 +73,14 @@ RESEND_VERIFY_LIMITER = RateLimiter(limit=3, window_seconds=3600)   # 3/hr per e
 # single IP can't spray reset/verification mail to thousands of different addresses (Resend cost +
 # domain-reputation abuse). The per-email limiters stop bombing ONE victim; this stops fan-out.
 RESET_RESEND_IP_LIMITER = RateLimiter(limit=20, window_seconds=3600)  # 20/hr per IP, all emails
-# OAuth starts persist a state row (always for Apple, for an invited Google sign-up): bound the
+# Third tier, one budget per process for the account mail both routes queue (F60): the two limits above
+# bound each caller, not all callers together, and an IPv6 block holds enough addresses to pass the per-IP
+# one at will. Every request that passes them queues a task on the shared one-at-a-time Cloud Tasks queue
+# (0.2 dispatches/s, about 720 an hour), so this caps account mail at 60 an hour per API instance, 120 at
+# the service's two, and a flood costs that hour's reset and verification mail instead of the whole queue.
+# The same 429 answers every address.
+ACCOUNT_MAIL_LIMITER = RateLimiter(limit=60, window_seconds=3600)
+# Every OAuth start persists a single-use state row: bound the
 # unauthenticated writers per IP. Sized for a person retrying a sign-in, not a script.
 OAUTH_START_LIMITER = RateLimiter(limit=20, window_seconds=60)
 # Per-account failed-login lockout is now durable + anti-enumeration (services/login_lockout,
@@ -91,7 +105,7 @@ _APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
 
 # ─── Pydantic schemas ─────────────────────────────────────────────────────────
 
-class UserCreate(BaseModel):
+class UserCreate(AccountAgreementInput):
     email: EmailStr
     password: str
     full_name: Optional[str] = Field(None, max_length=100)
@@ -143,6 +157,29 @@ class OAuthStartRequest(BaseModel):
     """Body of ``POST /api/auth/{google,apple}/start``. The invite travels in the body, never in a
     URL: request logs record query strings, and the raw token is a live single-use credential."""
     invite: Optional[str] = Field(None, max_length=128)
+    # Omitted together means an existing-account login. A signup must confirm every field;
+    # strict booleans refuse strings/numbers, and the shared input validates current versions.
+    adult_eligible: StrictBool | None = None
+    terms_accepted: StrictBool | None = None
+    terms_version: StrictStr | None = None
+    eligibility_version: StrictStr | None = None
+
+    @model_validator(mode="after")
+    def validate_signup_agreement(self) -> "OAuthStartRequest":
+        fields = set(AccountAgreementInput.model_fields)
+        if self.model_fields_set & fields:
+            AccountAgreementInput.model_validate(self.model_dump(include=fields))
+        return self
+
+    def accepted_agreement(self) -> AcceptedAccountAgreement | None:
+        return accept_current_agreement() if self.adult_eligible is True else None
+
+
+def _require_new_collection() -> None:
+    try:
+        require_collection_available()
+    except CollectionUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 class RefreshRequest(BaseModel):
@@ -450,21 +487,33 @@ async def get_current_user_optional(
         return None
 
 
-# ─── Email helper (graceful in dev when Resend is not configured) ──────────────
+# ─── Email helpers (graceful in dev when Resend is not configured) ─────────────
+# account_mail_service mails the reset and verification links, and logs a failed send by the
+# exception's class alone (with the link in local development only).
 
-async def _send_verification_email_safe(db: Session, user: User) -> None:
-    """Generate + persist a verification token and email the link.
-    Falls back to logging the link when Resend is unconfigured (dev)."""
-    raw_token = auth_account_service.issue_email_verification_token(db, user)
+async def _queue_account_mail(
+    request: Request, background: BackgroundTasks, mail: AccountMail, email: str,
+) -> None:
+    """Hand an account mail to work after the response, the same way whatever the address holds.
 
-    link = f"{settings.FRONTEND_URL}/verify-email?token={raw_token}"
-    try:
-        from app.services.email_service import send_verification_email
-        await send_verification_email(to_email=user.email, name=user.full_name, verification_link=link)
-    except Exception as e:
-        # Only log the token-bearing link in local dev (log access -> account takeover otherwise).
-        link_note = f"; link: {link}" if settings.ENVIRONMENT == "development" else ""
-        logger.error(f"Verification email NOT sent to user id={user.id}: {e.__class__.__name__}: {e}{link_note}")
+    The request neither looks the account up, issues a token nor sends: those happen after the answer,
+    in ``account_mail_service.send_account_mail``, which mails only an eligible account (F60). So an
+    address with an account and one without take one path here, and the answer's timing no longer tells
+    them apart. The caller has already taken its per-IP and per-address limits; this takes the
+    process-wide ``ACCOUNT_MAIL_LIMITER`` first. With durable tasks the handoff is the ``account_mail``
+    task, and one Cloud Tasks does not confirm raises ``TaskUnavailable``, which main.py answers 503 for
+    any address; without, a background task in this process, as the other after-response work does when
+    the flag is off. ``test_durable_task_payloads_server_owned.py`` pins who calls this and in what order.
+    """
+    enforce_rate_limit(
+        request, ACCOUNT_MAIL_LIMITER, "account-mail",
+        error_detail="Too many requests right now. Try again later.",
+        include_client_ip=False,
+    )
+    if settings.DURABLE_TASKS_ENABLED:
+        await account_mail_service.queue_account_mail(mail, email)
+    else:
+        background.add_task(account_mail_service.send_account_mail_after_response, mail, email)
 
 
 async def _send_account_exists_email_safe(user: User) -> None:
@@ -482,7 +531,9 @@ async def _send_account_exists_email_safe(user: User) -> None:
             reset_link=f"{settings.FRONTEND_URL}/forgot-password",
         )
     except Exception as e:
-        logger.warning(f"Account-exists email not sent: {e.__class__.__name__}: {e}")
+        # The class alone, as the reset and verification mail log theirs: a provider's error text can
+        # quote the request, the recipient's address among it.
+        logger.warning("Account-exists email not sent: %s", e.__class__.__name__)
 
 
 async def _send_oauth_linked_email_safe(user: User, provider: str) -> None:
@@ -496,7 +547,7 @@ async def _send_oauth_linked_email_safe(user: User, provider: str) -> None:
         from app.services.email_service import send_oauth_linked_email
         await send_oauth_linked_email(to_email=user.email, name=user.full_name, provider=provider)
     except Exception as e:
-        logger.warning(f"OAuth-linked notification not sent: {e.__class__.__name__}: {e}")
+        logger.warning("OAuth-linked notification not sent: %s", e.__class__.__name__)
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────────
@@ -511,8 +562,8 @@ _REGISTER_OPAQUE = {
 
 class RegistrationConfig(BaseModel):
     """Public read of the signup gate. `mode` mirrors settings.REGISTRATION_MODE; `beta_promo_enabled`
-    says whether the closed-beta 100%-off promo is configured (STRIPE_BETA_PROMO_CODE_ID), i.e.
-    whether an invited beta member actually gets Pro at $0."""
+    says whether the closed-beta 100%-off promo is configured AND checkout is available. A
+    configured but unavailable offer must not produce a public promise of Pro at $0."""
 
     mode: str
     beta_promo_enabled: bool
@@ -530,7 +581,7 @@ async def get_registration_config(response: Response):
     response.headers["Cache-Control"] = "public, max-age=300"
     return RegistrationConfig(
         mode=settings.REGISTRATION_MODE,
-        beta_promo_enabled=bool(settings.STRIPE_BETA_PROMO_CODE_ID),
+        beta_promo_enabled=bool(settings.STRIPE_BETA_PROMO_CODE_ID) and is_checkout_available(),
     )
 
 
@@ -555,6 +606,7 @@ async def register(
         "register",
         error_detail="Too many registration attempts. Try again in a minute.",
     )
+    _require_new_collection()
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
 
     # Closed-beta gate. When invite-only, require a valid, unexpired, unused invite BEFORE any
@@ -589,13 +641,17 @@ async def register(
         return _REGISTER_OPAQUE
 
     # Inserts the account and, in the same transaction, redeems the validated invite (beta tag).
-    user = auth_account_service.create_password_account(
-        db,
-        email=user_data.email,
-        hashed_password=hashed_password,
-        full_name=user_data.full_name,
-        invite=invite,
-    )
+    try:
+        user = auth_account_service.create_password_account(
+            db,
+            email=user_data.email,
+            hashed_password=hashed_password,
+            full_name=user_data.full_name,
+            invite=invite,
+            agreement=accept_current_agreement(),
+        )
+    except CollectionUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     if user is None:
         # A lost invite-redemption race or a lost concurrent-create race: stay opaque (rolled back).
         return _REGISTER_OPAQUE
@@ -609,7 +665,7 @@ async def register(
     # Stripe's own trial dedup applies) — verification raises the bar but doesn't alone stop an
     # attacker cycling many disposable-but-verifiable addresses.
 
-    await _send_verification_email_safe(db, user)
+    await account_mail_service.send_verification_link(db, user)
     audit_service.log_register(db, user.id, user.email, ip_address=_hashed_client_ip(request))
 
     # Closed-beta activation funnel (best-effort; telemetry must never break registration). Keyed on
@@ -805,9 +861,13 @@ async def verify_email(
 async def resend_verification(
     payload: ResendVerificationRequest,
     request: Request,
-    db: Session = Depends(get_db),
+    background: BackgroundTasks,
 ):
-    """Resend the email verification link. Rate-limited to 3/hr per address + 20/hr per IP."""
+    """Resend the email verification link. Rate-limited to 3/hr per address + 20/hr per IP, and
+    with forgot-password to 60/hr per process (``ACCOUNT_MAIL_LIMITER``).
+
+    Opaque in body and timing: every request within the limits queues the same mail and gets the same
+    answer; only an unverified account is mailed, after the response (``_queue_account_mail``)."""
     # Per-IP cap across all addresses (stops one IP spraying verification mail to many emails)...
     enforce_rate_limit(
         request, RESET_RESEND_IP_LIMITER, "resend-ip",
@@ -819,23 +879,22 @@ async def resend_verification(
         error_detail="Too many resend requests. Try again later.",
         include_client_ip=False,
     )
-    user = auth_account_service.find_user_by_email(db, payload.email)
+    await _queue_account_mail(request, background, "verification", payload.email)
     # Always return the same response (anti-enumeration)
-    opaque = {"message": "If that email has an unverified account, a new verification link is on its way."}
-    if not user or user.email_verified:
-        return opaque
-
-    await _send_verification_email_safe(db, user)
-    return opaque
+    return {"message": "If that email has an unverified account, a new verification link is on its way."}
 
 
 @router.post("/forgot-password")
 async def forgot_password(
     payload: ForgotPasswordRequest,
     request: Request,
-    db: Session = Depends(get_db),
+    background: BackgroundTasks,
 ):
-    """Request a password reset link. Rate-limited to 3/hr per email address + 20/hr per IP."""
+    """Request a password reset link. Rate-limited to 3/hr per email address + 20/hr per IP, and
+    with resend-verification to 60/hr per process (``ACCOUNT_MAIL_LIMITER``).
+
+    Opaque in body and timing: every request within the limits queues the same mail and gets the same
+    answer; only an account with a password is mailed, after the response (``_queue_account_mail``)."""
     # Per-IP cap across all addresses (stops one IP spraying reset mail to many emails)...
     enforce_rate_limit(
         request, RESET_RESEND_IP_LIMITER, "reset-ip",
@@ -847,25 +906,8 @@ async def forgot_password(
         error_detail="Too many reset requests. Try again later.",
         include_client_ip=False,
     )
-    opaque = {"message": "If an account exists for that email, a password reset link is on its way."}
-
-    user = auth_account_service.find_user_by_email(db, payload.email)
-    if not user or not user.hashed_password:
-        # Unknown email, or a social-only account with no password — reveal nothing extra.
-        return opaque
-
-    raw_token = auth_account_service.issue_password_reset_token(db, user)
-
-    reset_link = f"{settings.FRONTEND_URL}/reset-password?token={raw_token}"
-    try:
-        from app.services.email_service import send_password_reset_email
-        await send_password_reset_email(to_email=user.email, name=user.full_name, reset_link=reset_link)
-    except Exception as e:
-        # Only log the token-bearing link in local dev (a logged reset link = account takeover).
-        link_note = f"; link: {reset_link}" if settings.ENVIRONMENT == "development" else ""
-        logger.error(f"Reset email NOT sent to user id={user.id}: {e.__class__.__name__}: {e}{link_note}")
-
-    return opaque
+    await _queue_account_mail(request, background, "password_reset", payload.email)
+    return {"message": "If an account exists for that email, a password reset link is on its way."}
 
 
 @router.post("/reset-password")
@@ -967,7 +1009,10 @@ def _apple_redirect(url: str) -> RedirectResponse:
 
 # ─── Google OAuth (OIDC via httpx — no extra dependency) ───────────────────────
 
-def _start_google(request: Request, db: Session, invite: Optional[str]) -> tuple[str, str]:
+async def _start_google(
+    request: Request, db: Session, invite: Optional[str],
+    agreement: AcceptedAccountAgreement | None = None,
+) -> tuple[str, str]:
     """Rate limit, save the state (with the invite's hash when the invite is live) and build
     Google's consent URL. Returns ``(url, state)``; the caller sets the state cookie."""
     if not settings.GOOGLE_CLIENT_ID:
@@ -977,8 +1022,9 @@ def _start_google(request: Request, db: Session, invite: Optional[str]) -> tuple
         error_detail="Too many login attempts. Try again shortly.",
     )
     state = secrets.token_urlsafe(32)
-    # Commits a state row only for a live invite; a plain sign-in persists nothing.
-    oauth_account_service.save_google_state(db, state, invite)
+    # Signup assent and any live invite are bound to this single-use state. Plain login also
+    # consumes state but needs no signup evidence for an existing account.
+    await run_in_threadpool(oauth_account_service.save_google_state, db, state, invite, agreement)
     params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
         "redirect_uri": settings.GOOGLE_REDIRECT_URI,
@@ -1000,12 +1046,12 @@ def _set_google_state_cookie(response: Response, state: str) -> None:
 
 @router.get("/google")
 async def google_login(request: Request, db: Session = Depends(get_db)):
-    """Redirect the browser to Google's consent screen (plain sign-in: no invite, nothing persisted).
+    """Redirect the browser to Google's consent screen (plain login: state, no signup assent).
 
     An invited sign-up starts through ``POST /api/auth/google/start`` instead, so the raw invite
     token never appears in a request URL (request logs record query strings).
     """
-    url, state = _start_google(request, db, None)
+    url, state = await _start_google(request, db, None)
     redirect = RedirectResponse(url=url, status_code=302)
     _set_google_state_cookie(redirect, state)
     return redirect
@@ -1019,7 +1065,10 @@ async def google_start(body: OAuthStartRequest, request: Request, db: Session = 
     the callback validates + redeems it when it creates the account. Only the hash is stored, and
     only for an invite that is live; the start is rate limited per IP because it writes a row.
     """
-    url, state = _start_google(request, db, body.invite)
+    agreement = body.accepted_agreement()
+    if agreement is not None:
+        _require_new_collection()
+    url, state = await _start_google(request, db, body.invite, agreement)
     response = JSONResponse({"url": url})
     _set_google_state_cookie(response, state)
     return response
@@ -1046,10 +1095,12 @@ async def google_callback(
     if not stored_state or not secrets.compare_digest(stored_state.encode(), state.encode()):
         return RedirectResponse(f"{frontend_url}/login?error=oauth_state_mismatch", status_code=302)
 
-    # An invited sign-up stored its invite hash against this state (google_login); plain sign-ins
-    # have no row. Consumed up front so the row is single-use whatever happens next.
-    consumed = oauth_account_service.consume_oauth_state(db, state)
-    invite_code_hash = consumed[1] if consumed else None
+    # Consume server state before the provider exchange: restoring a browser cookie must not
+    # replay a finished flow. Only a signup start stores assent; existing login does not need it.
+    consumed = await run_in_threadpool(oauth_account_service.consume_oauth_state, db, state)
+    if consumed is None:
+        return RedirectResponse(f"{frontend_url}/login?error=oauth_state_mismatch", status_code=302)
+    _, invite_code_hash, agreement = consumed
 
     # Exchange the authorization code for tokens, then cryptographically verify the id_token
     # (signature + audience + issuer) rather than trusting an access-token-authenticated
@@ -1093,6 +1144,7 @@ async def google_callback(
             email_verified=email_verified_by_google,
             full_name=full_name,
             invite_code_hash=invite_code_hash,
+            agreement=agreement,
         )
     except oauth_account_service.OAuthSignInRefused as refused:
         if refused.lost_create_race:
@@ -1126,7 +1178,10 @@ async def google_callback(
 
 # ─── Apple Sign In (ES256 client secret, form_post callback, JWKS verification) ──
 
-def _start_apple(request: Request, db: Session, invite: Optional[str]) -> tuple[str, str]:
+async def _start_apple(
+    request: Request, db: Session, invite: Optional[str],
+    agreement: AcceptedAccountAgreement | None = None,
+) -> tuple[str, str]:
     """Rate limit, save the nonce row (with the invite's hash when the invite is live) and build
     Apple's consent URL. Returns ``(url, state)``; the row is committed before the caller returns
     the URL and sets the browser-binding cookie."""
@@ -1139,7 +1194,7 @@ def _start_apple(request: Request, db: Session, invite: Optional[str]) -> tuple[
 
     state = secrets.token_urlsafe(32)
     raw_nonce = secrets.token_urlsafe(32)
-    oauth_account_service.save_apple_state(db, state, raw_nonce, invite)
+    await run_in_threadpool(oauth_account_service.save_apple_state, db, state, raw_nonce, invite, agreement)
 
     # Send sha256(raw_nonce) so Apple stores it in id_token; we verify on callback.
     params = {
@@ -1170,7 +1225,7 @@ def _set_apple_state_cookie(response: Response, state: str) -> None:
 async def apple_login(request: Request, db: Session = Depends(get_db)):
     """Redirect the browser to Apple's consent screen (plain sign-in: no invite). An invited
     sign-up starts through ``POST /api/auth/apple/start`` so the token never rides in a URL."""
-    url, state = _start_apple(request, db, None)
+    url, state = await _start_apple(request, db, None)
     redirect = RedirectResponse(url=url, status_code=302)
     _set_apple_state_cookie(redirect, state)
     return redirect
@@ -1180,7 +1235,10 @@ async def apple_login(request: Request, db: Session = Depends(get_db)):
 async def apple_start(body: OAuthStartRequest, request: Request, db: Session = Depends(get_db)):
     """Start Sign in with Apple for the browser to follow: ``{"url": ...}`` plus the binding cookie
     (``invite``: as for google_start)."""
-    url, state = _start_apple(request, db, body.invite)
+    agreement = body.accepted_agreement()
+    if agreement is not None:
+        _require_new_collection()
+    url, state = await _start_apple(request, db, body.invite, agreement)
     response = JSONResponse({"url": url})
     _set_apple_state_cookie(response, state)
     return response
@@ -1211,10 +1269,10 @@ async def apple_callback(
     expected = _apple_state_cookie_value(state)
     if not bound or not secrets.compare_digest(bound.encode("utf-8"), expected.encode("utf-8")):
         return _apple_redirect(f"{frontend_url}/login?error=oauth_state_mismatch")
-    consumed = oauth_account_service.consume_oauth_state(db, state)
+    consumed = await run_in_threadpool(oauth_account_service.consume_oauth_state, db, state)
     if consumed is None:
         return _apple_redirect(f"{frontend_url}/login?error=oauth_state_mismatch")
-    raw_nonce, invite_code_hash = consumed
+    raw_nonce, invite_code_hash, agreement = consumed
 
     # Verify Apple's id_token
     try:
@@ -1251,6 +1309,7 @@ async def apple_callback(
             email_verified=email_verified_by_apple,
             full_name=full_name,
             invite_code_hash=invite_code_hash,
+            agreement=agreement,
         )
     except oauth_account_service.OAuthSignInRefused as refused:
         if refused.lost_create_race:

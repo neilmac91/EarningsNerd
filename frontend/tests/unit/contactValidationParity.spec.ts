@@ -84,6 +84,11 @@ const VERDICT_PINS = { 'email-validator': '2.3.0', pydantic: '2.14.1' } as const
 
 const api = vi.hoisted(() => ({ submitContactForm: vi.fn() }))
 vi.mock('@/features/contact/api/contact-api', () => ({ submitContactForm: api.submitContactForm }))
+// These cases exercise the released form; legalReadiness.spec.tsx holds the closed collection boundary.
+vi.mock('@/features/legal/hooks/useLegalReadiness', async () => {
+  const { readyLegalHook } = await import('./fixtures/legalReady')
+  return { useLegalReadiness: () => readyLegalHook }
+})
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
   TURNSTILE_SITE_KEY: '',

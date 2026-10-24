@@ -5,6 +5,7 @@ Per-test in-memory SQLite (the response is built from the refreshed ORM row), ``
 with ``TRUSTED_PROXY_HOPS=1`` (the right-most hop is the trusted one).
 """
 import pytest
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -18,6 +19,9 @@ from app.services import rate_limiter
 from app.services import turnstile
 from app.services.contact_submission_service import ContactPersistenceError
 from app.services.resend_service import ResendError
+
+# Exercise existing collection behavior with an explicitly published synthetic operator notice.
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 IP_A = "203.0.113.7"
 IP_B = "198.51.100.9"
@@ -48,6 +52,7 @@ class _EmailRecorder(list):
     def __init__(self) -> None:
         super().__init__()
         self.bodies: list[str] = []
+        self.reply_addresses: list[str | None] = []
 
 
 @pytest.fixture
@@ -57,6 +62,7 @@ def sent_emails(monkeypatch):
     async def _fake_send_email(to, subject, html, *args, **kwargs):
         recorder.append((list(to), subject))
         recorder.bodies.append(html)
+        recorder.reply_addresses.append(kwargs.get("reply_to"))
         if recorder.raise_with is not None:
             raise recorder.raise_with
         return {"id": "msg_test"}
@@ -70,7 +76,9 @@ def client(session_factory, monkeypatch, sent_emails):
     contact_router.CONTACT_LIMITER._hits.clear()
     monkeypatch.setattr(rate_limiter.settings, "TRUSTED_PROXY_HOPS", 1)
     monkeypatch.setattr(turnstile.settings, "TURNSTILE_SECRET_KEY", "")
-    monkeypatch.setattr(contact_router.settings, "RESEND_FROM_EMAIL", f"Ops <{ADMIN_EMAIL}>")
+    monkeypatch.setattr(contact_router.settings, "RESEND_FROM_EMAIL", "Sender <sender@example.com>")
+    monkeypatch.setattr(contact_router.settings, "CONTACT_NOTIFICATION_EMAIL", ADMIN_EMAIL)
+    monkeypatch.setattr(contact_router.settings, "RESEND_REPLY_TO_EMAIL", "help@example.com")
 
     def _get_db():
         db = session_factory()
@@ -105,6 +113,7 @@ def test_submission_persists_hashed_ip_and_sends_admin_and_user_emails(client, s
 
     recipients = [to for to, _subject in sent_emails]
     assert recipients == [[ADMIN_EMAIL], [PAYLOAD["email"]]]
+    assert sent_emails.reply_addresses == [PAYLOAD["email"], "help@example.com"]
 
 
 def test_user_confirmation_never_echoes_the_message_while_the_admin_copy_carries_it(client, sent_emails):

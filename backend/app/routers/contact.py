@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.contact import ContactSubmissionCreate, ContactSubmissionResponse
-from app.services import filing_list_service
+from app.services import filing_list_service, legal_readiness_service
 from app.services.contact_submission_service import (
     ContactPersistenceError,
     persist_contact_submission,
@@ -71,6 +71,10 @@ async def submit_contact_form(
     - Stores the message in the database
     - Sends email notifications to admin and user
     """
+    # New prospect collection stays closed before CAPTCHA, persistence or notifications. Existing
+    # user support and privacy requests remain available through the published role inboxes.
+    if not legal_readiness_service.is_collection_available():
+        raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
     # Limiter first (cheap, local), then Turnstile (network) — same order as the waitlist route.
     enforce_rate_limit(request, CONTACT_LIMITER, "contact", error_detail=CONTACT_RATE_LIMIT_DETAIL)
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
@@ -97,6 +101,8 @@ async def submit_contact_form(
 
     try:
         saved = await run_in_threadpool(persist)
+    except legal_readiness_service.CollectionUnavailable:
+        raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE) from None
     except ContactPersistenceError as failure:
         e = failure.__cause__
         logger.error(f"Database error creating contact submission: {str(e)}")
@@ -177,7 +183,7 @@ async def send_contact_notifications(
 
     # Email to user (confirmation). Deliberately does NOT repeat the submitted message: the
     # recipient address is caller-supplied, so the confirmation carries only our own copy.
-    user_subject = "We received your message - EarningsNerd"
+    user_subject = "Message received - EarningsNerd"
     user_html = f"""
     <html>
       <head>
@@ -192,13 +198,13 @@ async def send_contact_notifications(
       <body>
         <div class="container">
           <div class="header">
-            <h2>Thank You for Contacting EarningsNerd</h2>
+            <h2>Thanks for contacting EarningsNerd</h2>
           </div>
           <div class="content">
             <p>Hi {safe_name},</p>
-            <p>We&apos;ve received your message and will get back to you as soon as possible, typically within 1-2 business days.</p>
-            <p>If you need immediate assistance or have additional information to add, feel free to reply to this email.</p>
-            <p>Best regards,<br>The EarningsNerd Team</p>
+            <p>Thanks for getting in touch. The aim is to reply within 2 business days.</p>
+            <p>If you have anything to add, just reply to this email.</p>
+            <p>EarningsNerd</p>
           </div>
           <div class="footer">
             <p>EarningsNerd · AI summaries of SEC filings<br>
@@ -212,22 +218,17 @@ async def send_contact_notifications(
     # Send both emails
     # Note: In a production environment with high volume, consider using a job queue
     try:
-        # Send to admin (using environment variable or fallback)
-        from_email = settings.RESEND_FROM_EMAIL
-        if not from_email:
-            logger.warning("RESEND_FROM_EMAIL is not set, skipping admin notification")
+        # The inbox recipient is independent of the verified outbound sender.
+        admin_email = settings.CONTACT_NOTIFICATION_EMAIL
+        if not admin_email:
+            logger.warning("CONTACT_NOTIFICATION_EMAIL is not set, skipping admin notification")
         else:
             try:
-                # safe extraction of email
-                if "<" in from_email and ">" in from_email:
-                    admin_email = from_email.split("<")[-1].rstrip(">")
-                else:
-                    admin_email = from_email
-                
                 await send_email(
                     to=[admin_email],
                     subject=admin_subject,
                     html=admin_html,
+                    reply_to=submission.email,
                 )
                 logger.info(f"Admin notification email sent for submission #{submission_id}")
             except Exception as e:
@@ -243,6 +244,7 @@ async def send_contact_notifications(
             to=[submission.email],
             subject=user_subject,
             html=user_html,
+            reply_to=settings.RESEND_REPLY_TO_EMAIL,
         )
         logger.info(f"User confirmation email sent for submission #{submission_id}")
     except ResendError as e:

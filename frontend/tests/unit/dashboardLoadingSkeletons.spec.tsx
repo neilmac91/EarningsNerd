@@ -86,7 +86,7 @@ describe('account settings while the account loads', () => {
     api.getCurrentUserSafe.mockReturnValue(new Promise(() => {}))
     const { container } = renderPage(<SettingsPage />)
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Account settings' })).toBeInTheDocument()
+    expect(screen.getByRole('main')).toContainElement(screen.getByRole('heading', { level: 1, name: 'Account settings' }))
     expect(screen.getByRole('link', { name: 'Back to dashboard' })).toBeInTheDocument()
     expect(screen.getByRole('status', { name: 'Loading your settings' })).toHaveTextContent('Loading your settings…')
     expect(spinner(container)).toBeNull()
@@ -102,6 +102,8 @@ describe('account settings while the account loads', () => {
     api.getNotificationPreferences.mockReturnValue(new Promise(() => {}))
     renderPage(<SettingsPage />)
     const title = screen.getByRole('heading', { level: 1 })
+    const main = screen.getByRole('main')
+    expect(main).toContainElement(title)
 
     await act(async () => me.resolve(USER))
 
@@ -109,6 +111,8 @@ describe('account settings while the account loads', () => {
     expect(profile.closest('.animate-content-in')).not.toBeNull()
     expect(profile.closest('.animate-content-in')).toHaveClass('motion-reduce:animate-none')
     expect(screen.getByRole('heading', { level: 1 })).toBe(title)
+    expect(screen.getByRole('main')).toBe(main)
+    expect(main).toContainElement(profile)
   })
 
   it('paints the sections at once, without the entrance, when the account is cached', () => {
@@ -118,7 +122,7 @@ describe('account settings while the account loads', () => {
     api.getNotificationPreferences.mockReturnValue(new Promise(() => {}))
     const { container } = renderPage(<SettingsPage />, (client) => client.setQueryData(queryKeys.currentUser(), USER))
 
-    expect(screen.getByRole('heading', { name: 'Profile' })).toBeInTheDocument()
+    expect(screen.getByRole('main')).toContainElement(screen.getByRole('heading', { name: 'Profile' }))
     expect(container.querySelector('.animate-content-in')).toBeNull()
   })
 })

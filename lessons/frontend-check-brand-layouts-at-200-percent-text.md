@@ -34,13 +34,26 @@ The founder's review of PR #1226 measured both on the production build.
   which stops growing below a 25rem viewport (E120; gate: the ESLint rule
   `earningsnerd/surface-padding-cap`, and reflow-200's cookie dialog cards read a character at a time).
 - A title between a leading glyph and a trailing control (a dialog header's icon, title and close
-  button) keeps a rem basis beside the glyph (`min-w-0 flex-[1_1_9rem]`, as a Notice's text column
-  does). Where it cannot, it goes to its own line under the glyph and the control, at the row's full
-  width, under the control too, and the control keeps the top right, so no word of it breaks.
-  flex-wrap alone carries the control down after a wrapped title, so the row is a query container
-  that moves the title at the row's own width (`[container-type:inline-size]`, then
-  `[@container(width<14.25rem)]:order-last` and `basis-full`, E158). A row of the three that only
-  shrinks leaves the title a sliver at 200% text, and its words paint past it.
+  button) keeps a rem basis beside them (`min-w-0 flex-[1_1_9rem]`, as a Notice's text column does).
+  Where it cannot, it goes to a line of its own at the row's full width, under the glyph and the
+  control or under the control alone, and the control keeps the top right, so no word of it breaks
+  that the row's width holds. flex-wrap alone carries the control down after a wrapped title, so the
+  row is a query container that moves the title at the row's own width (`[container-type:inline-size]`,
+  then `[@container(width<14.25rem)]:order-last` and `basis-full`, E158; 11rem with no glyph, whose
+  `justify-end` keeps the control alone on its line at the right, E165). A row that only shrinks
+  leaves the title a sliver at 200% text, and its words paint past it.
+- A bar whose blocks wrap (`flex-wrap justify-between`) puts a line's only block at its start, so a block
+  that must keep its edge when it lands alone (the site header's desktop controls, whose menus open
+  from their right edge) takes an auto margin toward the other side (`ml-auto`), and the block across
+  from it the mirror margin (`mr-auto`), which share a one-line bar's free space as justify-between did
+  (E160). A popover anchored at its trigger's edge (`right-0`) goes wherever the wrap takes the trigger,
+  so open it under 200% text wherever the bar can wrap, not only at 390px.
+- A bar that must keep one line (the site header's full bar, whose height and lines its auth check must
+  not change) gives way to its compact form at a rem media query, not at a px breakpoint: a media query's
+  rem is the reader's text size, so enlarged text gets the compact form before the full one wraps. Size
+  the query from the full form's widest settled row (every flag-gated link, the longest label any state or
+  access mode shows) in the supported fonts and a wider fallback, with room to spare, since a fit by a few
+  pixels is not a fit (E173, E175).
 - Prove it in Playwright on the real page at 390px with `document.documentElement.style.fontSize
   = '32px'` (or Chromium's own text size, `Page.setFontSizes`), in both themes, measuring painted
   text with a Range, at 320px with the default size, and in the narrowest desktop column the layout
@@ -155,4 +168,33 @@ at 320 and 360px under 200% text the consent dialog's "preferences" (197px) brok
 187px title. A stacked title now takes the header's full width (216, 251 and 277px at 320, 360 and
 390px), and `frontend/tests/e2e/reflow-200.spec.ts` holds both dialogs: the stacked title at the header's
 full width, under the close button too, every painted line inside the title's box and clear of the close
-button, and no word broken. A header with no icon still keeps its title beside the close button (E165).
+button, and no word broken. A header with no icon kept its title beside the close button until E165
+gave it the same line (the feedback dialog's "feedback", 153px, broke in a 152px title at 320px), and
+the case holds the feedback dialog too.
+
+**Recurrence (2026-10-23, the site header's menus, E160; chief design on #1491)**: signed in at 1024, 1280
+and 1440px under 200% text the bar wrapped and its controls landed alone on a line, at its start, so the
+notification menu (20rem, anchored at the bell's right edge) spanned -408 to 232px and the account menu
+-108 to 372px, every item losing its first letters. The logo's `mr-auto` and the controls' `ml-auto` keep
+the controls at the right of their line (at 1024px the menus span 180 to 820px and 480 to 960px), and
+`frontend/tests/e2e/reflow-200.spec.ts` opens each menu under 200% text, with the one-line bar at 1440px
+held to justify-between's place (the nav as far from the logo as from the controls). Since E173's 72rem
+switch the full bar shows from 2304px under 200% text, on one line, so the case opens the menus at 2304
+and 2560px with a copy fixture that lengthens the nav until the bar wraps.
+
+**Recurrence (2026-10-23, the site header's two bars, E173 and E175; chief design on #1544)**: the full bar showed
+from `lg`, a px breakpoint, so at 1024px at any text size. A guest's row, about 1030px, wrapped at 1024 to 1031px,
+and with the text doubled the bar wrapped at 1024 to 1440px, where the auth check's 36px placeholder could share a
+line its settled controls could not, so the header grew 56px as the check settled and moved a page already
+scrolled. The full bar now shows from 72rem (1152px, 2304px with the text doubled), sized from its widest row with
+either access mode's label (1057px in Inter, 1123px in DejaVu Sans), and `frontend/tests/e2e/reflow-200.spec.ts`
+holds the compact bar just below it and the full bar on one line at it, the longest label set in as a copy fixture.
+
+**Recurrence (2026-10-24, the compact bar's wordmark and the full bar's controls, E175; chief design on #1558)**:
+the compact bar showed its wordmark from `sm`, 640px at any text size, so with the text doubled a guest's row
+stopped fitting at 640 to 900px and the bar grew 14 or 88px as the account link appeared. The wordmark now shows
+from 40rem (1280px with the text doubled). And the full bar's controls changed width as the check settled, from
+the 36px placeholder to a guest's links or a reader's avatar, so its nav moved 35 to 211px; a hidden copy of a
+guest's controls now shares their grid cell, so the cell keeps a guest's width in every state, in any font and
+either access mode. `frontend/tests/e2e/header-covers-nothing.spec.ts` holds the header's height at 640 and 800px
+under 200% text with either label, and the nav's left edge in each full-bar state.

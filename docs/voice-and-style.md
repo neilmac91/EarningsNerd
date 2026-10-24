@@ -99,6 +99,11 @@ the business card, the footer and the merch; it is the positioning in six words.
   dash: split it into two sentences, use a colon, or just cut the aside.
 - **Hyphens stay** in compound terms: 10-K, real-time, cold-start, day-of.
 - **En-dashes (–) stay** in genuine numeric or date ranges: Q1–Q4, 30–60s, FY2019–FY2024.
+  The analysis page prints a period window through one formatter, `formatAnalysisWindow`
+  (`frontend/features/analysis/lib/periodLabels.ts`), in the form the exports print.
+  `frontend/tests/unit/analysisPeriodWindows.spec.tsx` holds it: no stored key ("FY2019..FY2024")
+  or spaced range on the surfaces it renders, no window field read straight into page text, and
+  no range joined by hand.
 - **The bare `—` null-value token stays.** Tables and detail rows render `—` for missing
   data (see `MISSING_TOKENS` in `frontend/lib/format.ts`). That is a data convention, not
   prose. It is the only sanctioned em-dash, and it stands alone, in a cell or an element of
@@ -129,6 +134,20 @@ the business card, the footer and the merch; it is the positioning in six words.
   "The Print", "Results That Matter", "Forward Signals", "Notable Footnotes" …) and keep their
   casing everywhere they are named, including on the sales page.
 - "AI-powered", lowercase p, except at the start of a sentence or in title-case page titles.
+- A company's name prints in its display casing. EDGAR serves the conformed name, often in capitals
+  ("NVIDIA CORP"); `frontend/lib/formatCompanyName.ts` gives "NVIDIA Corp", so a company reads the same in
+  every row, line, mark and on-screen export that names it. Only letter case changes: a legal form keeps its
+  glued marker in capitals ("QUALCOMM INC/DE" prints "Qualcomm Inc/DE"), and a group of tickers EDGAR's
+  full-text search folds into a name stays as served ("Boeing Co (BA, BA-PA)"). Format it once where the name
+  enters a feature (a mapper such as the redlines' `filingPair.ts`, or a component before it prints the line
+  and the mark) and print that. The served name stays the data value: a key, a URL, a search query, an
+  analytics property, an API payload or a cache row, a CSV, a title attribute that quotes the filing, and a
+  record a reader downloads (the evidence pack's JSON, the redlines' review receipt), which keeps EDGAR's name
+  as the filing's header gives it, kept beside the display form as `conformedName`.
+  `frontend/tests/unit/companyNameDisplay.spec.ts` fails a served name printed raw, a `CompanyLogo` given
+  one, a field of the app's own filled with one (a served object handed whole to a view of the app's own
+  among them) and a printed `conformedName`, except the forms its header names as gaps (text a call puts on
+  the screen outside JSX, such as a toast's message, among them).
 - Ellipsis character `…` on loading states ("Logging in…") is fine.
 - One retry verb ([D-032](brand/decisions-log.md)): "Try again", and "Trying again…" while it runs, on every
   retry control and in the copy beside it ("Try again in a moment."); never "Retry" or "please retry".

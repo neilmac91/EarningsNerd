@@ -1,3 +1,4 @@
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { ACCOUNT_EVENTS_DISCLOSURE } from '@/lib/consentCopy'
@@ -190,10 +191,10 @@ export default function SecurityPage() {
             </p>
             <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
               <li>The Privacy Policy says what we collect and why</li>
-              <li>You can download your data and delete your account from your account settings</li>
+              <li>You can export the records available through that feature and delete your account from your account settings; the Privacy Policy explains records that can remain</li>
               <li>
                 Registrations, logins, failed logins, logouts, data exports and account deletions are written to an audit log,
-                and so are administrators&apos; invites, feedback status changes and new free accounts
+                and so are administrators&apos; invites and feedback status changes
               </li>
             </ul>
             <p className="text-text-secondary-light dark:text-text-secondary-dark">
@@ -243,7 +244,7 @@ export default function SecurityPage() {
             </h2>
             <p className="text-text-secondary-light dark:text-text-secondary-dark">
               If you discover a security vulnerability in our platform, we encourage responsible disclosure. Please
-              report security issues to us privately so we can address them before they are publicly disclosed.
+              report security issues privately so they can be addressed before public disclosure. The aim is to reply within 2 business days.
             </p>
             <p className="text-text-secondary-light dark:text-text-secondary-dark">
               To report a security vulnerability:
@@ -251,8 +252,8 @@ export default function SecurityPage() {
             <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
               <li>
                 Email us at{' '}
-                <a href="mailto:security@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
-                  security@earningsnerd.io
+                <a href={contactMailto('security')} className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+                  {CONTACT_ADDRESSES.security}
                 </a>
               </li>
               <li>Provide detailed information about the vulnerability, including steps to reproduce</li>
@@ -279,7 +280,7 @@ export default function SecurityPage() {
                 <strong>Resend:</strong> Sends account and alert emails
               </li>
               <li>
-                <strong>DeepSeek:</strong> AI provider (OpenAI-compatible API) powering summaries and Ask this Filing; only public filing text and the questions you type are sent
+                <strong>DeepSeek:</strong> AI provider powering summaries and Ask this Filing. Selected filing and financial information is sent for analysis; filing questions and recent conversation text are also sent. Personal information in that text is not automatically removed.
               </li>
               <li>
                 <strong>Sentry:</strong> Error reports, as Monitoring above describes
@@ -302,14 +303,16 @@ export default function SecurityPage() {
             <ul className="list-none space-y-2 text-text-secondary-light dark:text-text-secondary-dark">
               <li>
                 General inquiries:{' '}
+                <a href={contactMailto('support')} className="break-all text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.support}</a>{' '}
+                or use the{' '}
                 <Link href="/contact" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                   Contact form
                 </Link>
               </li>
               <li>
                 Security issues:{' '}
-                <a href="mailto:security@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
-                  security@earningsnerd.io
+                <a href={contactMailto('security')} className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+                  {CONTACT_ADDRESSES.security}
                 </a>
               </li>
             </ul>

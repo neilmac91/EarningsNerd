@@ -1,14 +1,14 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
-import CookieConsent, { CONSENT_VERSION, getCookiePreferences, type CookiePreferences } from '@/components/CookieConsent'
+import CookieConsent, { CONSENT_VERSION, getCookiePreferences, clearCookiePreferences, type CookiePreferences } from '@/components/CookieConsent'
 import { buttonVariants } from '@/components/ui'
 import { ANALYTICS_CONSENT_CLAUSE } from '@/lib/consentCopy'
 
 // The "Cookie preferences saved" confirmation is a sonner toast (top-centre Toaster in app/providers.tsx)
 // since EN-02: it must not share the bottom-right corner with the "Ask this Filing" launcher.
-vi.mock('sonner', () => ({ toast: { success: vi.fn() } }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 /**
  * The cookie settings panel is a ui/Modal dialog (DESIGN_SYSTEM §4, gated by dialogAllowlist.spec.ts).
@@ -55,13 +55,13 @@ describe('CookieConsent settings dialog', () => {
     expect(screen.getByText('Cookies on this site')).toBeInTheDocument() // the banner stays beneath it
     expect(screen.getByRole('checkbox', { name: 'Essential cookies' })).toBeDisabled()
     expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).not.toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'Session recording' })).not.toBeChecked()
+    expect(within(dialog).getByText(/Session recording is disabled\./)).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: 'Session recording' })).not.toBeInTheDocument()
     // Checkbox lists its props by name, so each category's description reaches the input only through its
     // aria-describedby forward; a dropped forward would strip these from screen readers.
     expect(screen.getByRole('checkbox', { name: 'Essential cookies' })).toHaveAccessibleDescription(/^Required for the website to function properly\./)
     // D-046 (F33): the clause names PostHog, its purpose and the account link, in the words /privacy also reads.
     expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).toHaveAccessibleDescription(ANALYTICS_CONSENT_CLAUSE)
-    expect(screen.getByRole('checkbox', { name: 'Session recording' })).toHaveAccessibleDescription(/^Records your interactions with the site/)
   })
 
   it('Save preferences stores the choices, fires cookieConsentChanged and calls onPreferencesChanged', async () => {
@@ -191,5 +191,29 @@ describe('a choice stored before the account-id clause (CONSENT_VERSION)', () =>
     render(<CookieConsent onPreferencesChanged={onPreferencesChanged} />)
     expect(bar()).not.toBeInTheDocument()
     expect(onPreferencesChanged).toHaveBeenCalledWith(current)
+  })
+})
+
+
+describe('a failed preference write is not reported as saved', () => {
+  afterEach(() => { vi.restoreAllMocks(); act(() => clearCookiePreferences()) })
+
+  it('withdraws from the footer dialog in memory, shows truthful feedback and reopens on the refused choice', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ essential: true, analytics: true, sessionRecording: false, timestamp: '2026-10-23T12:00:00.000Z', version: CONSENT_VERSION }))
+    const user = userEvent.setup()
+    render(<CookieConsent />)
+    const { OPEN_COOKIE_SETTINGS_EVENT } = await import('@/lib/cookieSettings')
+    act(() => window.dispatchEvent(new Event(OPEN_COOKIE_SETTINGS_EVENT)))
+    await user.click(screen.getByRole('checkbox', { name: 'Analytics cookies' }))
+    vi.mocked(toast.success).mockClear()
+    vi.mocked(toast.error).mockClear()
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('Unavailable') })
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new DOMException('Unavailable') })
+    await user.click(screen.getByRole('button', { name: 'Save preferences' }))
+    expect(getCookiePreferences()?.analytics).toBe(false)
+    expect(toast.success).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith('Cookie preferences could not be saved', expect.objectContaining({ description: expect.stringContaining('Your choice applies in this tab.') }))
+    act(() => window.dispatchEvent(new Event(OPEN_COOKIE_SETTINGS_EVENT)))
+    expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).not.toBeChecked()
   })
 })

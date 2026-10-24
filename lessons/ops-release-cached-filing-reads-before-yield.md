@@ -89,11 +89,21 @@ had checked out: eight readers on four slots answered 8x200 with all eight trans
 finalizer. Each is now one thread-pool unit, and their burst case holds every statement and every
 release off the loop and each reader to their own payload, with and without a subscription row
 (2026-10-23, E144).
+Stripe checkout and the billing portal called Stripe synchronously on the loop, each call blocking it,
+and held a pooled connection across those calls: the auth lookup's, and in checkout, once a new
+customer's claim had committed, the one its read-back opened, which the user's reload and the trial's
+subscription check then used. Eight checkouts on four slots, each Stripe call taking 0.3 s, answered
+4x200 and 4x500 (pool timeouts), with a stored customer or without one, and so did eight portal
+sessions. Each route now reads what it needs in one thread-pool unit, released before its first Stripe
+call; checkout's claim of a new customer, and its trial's row check after the customer step as before,
+are units of their own; and every Stripe call runs off the loop, on the Stripe threads since E170. Their burst case holds every statement, release and Stripe call off the loop and each new
+customer to its own account, and a single request makes each Stripe call with no connection out
+(2026-10-23, E144).
 The pool-lifetime file's AST ratchet reads every async router function and fails a session call on the
 loop in its own body above that function's ceiling (on main before the fix it named both summaries
 routes). Neither half sees a session handed to a service that runs on the loop where the burst does
 not list the route (the rest of the
-auth router, E121, and checkout, E144), or a background task's own session worked on the loop
+auth router, E121, and 29 routes in six other routers, E171), or a background task's own session worked on the loop
 (E123 moved the company list's units into the thread pool, `test_filings_endpoint_db_first.py`'s
 off-the-loop cases; the flag-off job runners are E150), which stays a review check. Local PostgreSQL measurement is separate from production headroom and safe-cohort
 evidence.
