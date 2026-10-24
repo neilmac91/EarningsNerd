@@ -8,3 +8,7 @@ class _UnpublishableAnswer(ValueError):
 
 class _RegenerableEvidenceMismatch(_UnpublishableAnswer):
     """A referenced excerpt failed or its ID was declared twice; labels, literals and source passed."""
+
+
+class _RegenerableCitationTrailer(_UnpublishableAnswer):
+    """Text after a well-formed citation array that is not the followups block; no excerpt was checked yet."""
