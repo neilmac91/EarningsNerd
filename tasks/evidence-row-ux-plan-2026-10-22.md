@@ -16,8 +16,13 @@ which lines the groups up across cards without a container query; the landing ta
 the table squeezed each takeaway to a ribbon (100px wide at 1024px), so R6's checks run wherever the table shows
 (`tests/e2e/landing-highlights-alignment.spec.ts`); and a Copilot citation reads "Matches filing" only when the
 server sent the fact's own payload, since a passage's section label is the model's words and may start "XBRL ·".
-Still pending: E172, the comprehension rounds (§4.3), and the screen-reader, touch and cross-browser checks
-(§4.4).
+On 2026-10-24 the founder checked the Vercel preview in both themes, kept "Matches filing" for a replaced figure
+(not chief design's "Corrected from filing"), and confirmed "Quote not found", "Calculated from filing" and the
+sign-in page's "Filings from SEC.gov". The principal review that day found no blocker or should-fix, and its three
+follow-ups wait for the merge (E184): a read-only count of what the strict check changes for stored summaries, the
+waitlist tile's "Source: SEC EDGAR" following the sign-in page to SEC.gov, and a balance-sheet prior held to the
+filing's own facts. Still pending: E172, E184, the comprehension rounds (§4.3), and the screen-reader, touch and
+cross-browser checks (§4.4).
 
 **Scope.** The landing page's second row (`#evidence`): [`EvidenceSection`](../frontend/features/marketing/components/EvidenceSection.tsx),
 the shared [`FinancialMetricsTable`](../frontend/features/summaries/components/FinancialMetricsTable.tsx) it renders (also the filing

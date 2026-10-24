@@ -579,9 +579,10 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
 
 Analysis evidence <SourceValue> — the shared Modal presents financial display form, the supplied
                  value labelled “As stored” and human-readable units, then Checks, Method and recorded
-                 source lineage. Checks distinguish SEC XBRL admission from compatible-input calculations;
-                 neither claims an audit. Missing figures read “Unavailable”, with the effect of a gap
-                 stated. Quarterly dialogs name the quarter end; source links name their figure and period.
+                 source lineage. Checks tell a reported figure taken from the company’s filed data (XBRL)
+                 apart from a compatible-input calculation; neither claims an audit. Missing figures read
+                 “Unavailable”, with the effect of a gap stated. Quarterly dialogs name the quarter end;
+                 source links name their figure and period.
                  Formula substitution uses operand identity, not list position; it only asserts an
                  equality for a passed calculation. Missing lineage is stated explicitly, never
                  represented as recorded inputs or a scheduled repair. Original SEC links and

@@ -853,7 +853,7 @@ class TestFiledFigureSwap:
         "Note 4, 3 K-cups sold.",
         "Note 4, 3 M&A deals closed.",
         # A count a dash joins to a word after a listed number ("40-store"): a dash before a number goes on with the list
-        # ("Notes 3, 4-5"), and a spaced dash ends its clause, as a colon does.
+        # ("Notes 3, 4-5"), and a spaced hyphen or en dash ends its clause, as a colon does.
         "Per Item 7, 40-store expansion drove growth.",
         "Per Note 9, 10-year notes refinanced the revolver.",
         "Per Item 7, 12-percent growth in Services.",

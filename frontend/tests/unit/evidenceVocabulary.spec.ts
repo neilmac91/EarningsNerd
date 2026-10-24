@@ -205,8 +205,8 @@ function referencesRead(text: string): string {
 }
 
 /** Text as a page shows it. A string that holds markup is read both ways, joined at "|" so each reads apart: as a page
-    lays it out (`htmlSegments`: each element's text and each line apart), as an `__html` shows it, and as written, as
-    React shows any other string (`{'<Verified>'}`). */
+    lays it out (`htmlSegments`: each element's text and each text node's apart), as an `__html` shows it, and as
+    written, as React shows any other string (`{'<Verified>'}`). */
 function decoded(text: string): string {
   const written = referencesRead(text)
   if (!/<[a-z!/]/i.test(text)) return written
