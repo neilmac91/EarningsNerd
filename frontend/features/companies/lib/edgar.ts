@@ -1,4 +1,4 @@
-/** The company's filing index on SEC EDGAR, every form: the lead's "Company on SEC EDGAR" link and
+/** The company's filing index on SEC EDGAR, every form: the lead's "Company on SEC.gov" link and
  *  the page's JSON-LD `sameAs`. */
 export const edgarCompanyUrl = (cik: string) => `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cik}`
 

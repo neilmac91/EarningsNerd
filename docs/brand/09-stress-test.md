@@ -52,6 +52,9 @@ and T11, T9's pricing trace, and the protected mark's two in T13.
 T7 and T13 explicitly carry their previous scores where this pass does not repeat their evidence.
 The captures establish neither production behaviour nor full accessibility compliance.
 
+2026-10-23, after this pass: D-058 retires the catch card that T3 and T6 cite, for "Follow one figure to the filing"
+(#1530). Their scores stand as recorded, from captures that predate it; the next stress test rescores T3 and T6.
+
 ## 3. The three weakest points, fixed
 
 Chosen from the first pass over the captures as the places where the new system was contradicted

@@ -6,6 +6,7 @@ import { AxiosError, AxiosHeaders, type AxiosAdapter, type InternalAxiosRequestC
 vi.mock('@/features/search/api/search-api', () => ({ searchFullText: vi.fn() }))
 
 import FullTextSearch, { FullTextSearchResults } from '@/features/search/components/FullTextSearch'
+import { inputClasses } from '@/components/ui'
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
 import api, { ApiError } from '@/lib/api/client'
 
@@ -198,6 +199,24 @@ describe('FullTextSearch date filters', () => {
       expect(field).toHaveAttribute('type', 'date')
       expect(field).toHaveClass('min-w-0', 'text-sm')
       expect(field.parentElement).toHaveClass('flex', 'flex-wrap')
+    }
+  })
+
+  // E154: the date fields were hand-rolled, off the field recipe (30px tall at the default size, the panel's fill, a
+  // 10% white hairline in dark), so its 44px touch height, held by inputClassesNoOverrides.spec.tsx's height gate, did
+  // not reach them. They take inputClasses() now, every class of it, sized to their content.
+  it('builds each date field on the field recipe, sized to its content, its picker drawn dark in the dark theme', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <FullTextSearch />
+      </QueryClientProvider>,
+    )
+    const recipe = inputClasses({ autoWidth: true }).split(/\s+/)
+    expect(recipe, 'the recipe carries the touch height').toContain('min-h-11')
+    for (const name of ['Filed on or after', 'Filed on or before']) {
+      const field = screen.getByLabelText(name)
+      expect(field).toHaveClass(...recipe, 'dark:[color-scheme:dark]')
+      expect(field).not.toHaveClass('w-full')
     }
   })
 })

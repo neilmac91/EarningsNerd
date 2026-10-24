@@ -228,7 +228,7 @@ export function WhatChanged({
       )}
 
       {metrics?.data_quality === 'partial' && (
-        <p className={cx('mt-2 text-xs', MUTED)}>Some figures were withheld where the SEC XBRL data looked inconsistent.</p>
+        <p className={cx('mt-2 text-xs', MUTED)}>Some figures were withheld where the filing’s data looked inconsistent.</p>
       )}
 
       {risks && (risks.new.length > 0 || risks.resolved.length > 0) && (

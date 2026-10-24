@@ -45,11 +45,21 @@ function publishHeaderHeight(header: HTMLElement) {
 // the server too, where useLayoutEffect warns.
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
+// The compact menu's account links. The menu holds the nav's links above them, so Calendar, which the nav lists while its
+// flag is on, is not repeated here: the menu lists each destination once (chief design on #1576, comment 6382172889;
+// tests/e2e/reflow-200.spec.ts). The account menu (UserMenu), a menu of its own, keeps it.
 const MOBILE_USER_LINKS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/dashboard/watchlist', label: 'Watchlist' },
-  ...(ENABLE_CALENDAR ? [{ href: '/calendar', label: 'Calendar' }] : []),
   { href: '/dashboard/settings', label: 'Settings' },
+]
+
+// An admin's links, after Settings and before Log out, as the account menu (UserMenu) orders them: below 72rem the
+// compact menu is the only menu, so without them an admin had no way to the admin pages there (E176, chief design on
+// #1565, comment 6380050139).
+const MOBILE_ADMIN_LINKS = [
+  { href: '/admin/invites', label: 'Admin · Invites' },
+  { href: '/admin/feedback', label: 'Admin · Feedback' },
 ]
 
 export default function Header({
@@ -304,14 +314,11 @@ export default function Header({
             and this group take its own row at the right (tests/e2e/reflow-200.spec.ts). */}
         <div className="flex min-w-min grow basis-0 items-center justify-end gap-1 [@media(min-width:72rem)]:hidden">
           <ThemeToggle className="min-h-11 min-w-11 [@media(max-width:24rem)]:hidden" />
-          {/* From lg the compact bar stands where the full bar did, so a signed-in reader keeps the notification bell
-              there: after the theme toggle, as in the full bar, where a guest's link sits, with the bar's 44px target.
-              One of its panel and the menu is open at a time. Below lg the phone bar is as it was (E176). */}
-          {user && (
-            <div className="hidden lg:block">
-              <NotificationBell className="min-h-11 min-w-11" open={bellOpen} onOpenChange={onBellOpenChange} />
-            </div>
-          )}
+          {/* A signed-in reader's notification bell sits in the compact bar at every width, after the theme toggle as in
+              the full bar, where a guest's link sits, with the bar's 44px target, so the unread state stays in view
+              rather than behind the menu. One of its panel and the menu is open at a time. Below lg its panel spans the
+              screen under the bar (NotificationBell; E176, chief design on #1565, comment 6380050139). */}
+          {user && <NotificationBell className="min-h-11 min-w-11" open={bellOpen} onOpenChange={onBellOpenChange} />}
           {(user === null || isError) && (
             <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11 min-w-0 py-2 [@media(max-width:24rem)]:px-2' })}>
               {account.ctaShort}
@@ -383,7 +390,7 @@ export default function Header({
                       Verify your email
                     </Link>
                   )}
-                  {MOBILE_USER_LINKS.map((link) => (
+                  {[...MOBILE_USER_LINKS, ...(user.is_admin ? MOBILE_ADMIN_LINKS : [])].map((link) => (
                     <Link
                       key={link.href}
                       href={link.href}

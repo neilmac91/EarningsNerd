@@ -48,8 +48,8 @@ describe('CompanyIdentity', () => {
     render(<CompanyIdentity company={COMPANY} latest={null} />)
     const facts = lineWith('CIK 0000320193')
     expect(facts.className).toContain('font-data')
-    expect(facts).toHaveTextContent(/^NASDAQ\s*·\s*,\s*CIK 0000320193\s*·\s*,\s*Company on SEC EDGAR$/)
-    const edgar = within(facts).getByRole('link', { name: 'Company on SEC EDGAR' })
+    expect(facts).toHaveTextContent(/^NASDAQ\s*·\s*,\s*CIK 0000320193\s*·\s*,\s*Company on SEC\.gov$/)
+    const edgar = within(facts).getByRole('link', { name: 'Company on SEC.gov' })
     expect(edgar).toHaveAttribute('href', 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=320193')
     expect(edgar).toHaveAttribute('target', '_blank')
     expect(edgar).toHaveAttribute('rel', 'noopener noreferrer')
@@ -74,7 +74,7 @@ describe('CompanyIdentity', () => {
     const { container } = render(
       <CompanyIdentity company={quoted} latest={LATEST} summaryReady actions={<button type="button">Open latest summary</button>} />,
     )
-    expect(lineWith('CIK 0000320193')).toHaveTextContent(/^NASDAQ\s*·\s*,\s*CIK 0000320193\s*·\s*,\s*Company on SEC EDGAR$/)
+    expect(lineWith('CIK 0000320193')).toHaveTextContent(/^NASDAQ\s*·\s*,\s*CIK 0000320193\s*·\s*,\s*Company on SEC\.gov$/)
     // The one figure there no filing sources, in any form: a price, a signed change, a percent, a direction ink.
     expect(container).not.toHaveTextContent(/\$|%|227|2\.70|1\.20?/)
     expect(container.querySelector('[class*="text-gain"], [class*="text-loss"]')).toBeNull()
@@ -82,7 +82,7 @@ describe('CompanyIdentity', () => {
 
   it('drops what it does not have: no exchange, no latest filing, no actions', () => {
     const { container } = render(<CompanyIdentity company={{ id: 2, cik: '1045810', ticker: 'NVDA', name: 'NVIDIA CORP' }} latest={null} />)
-    expect(lineWith('CIK 0001045810')).toHaveTextContent(/^CIK 0001045810\s*·\s*,\s*Company on SEC EDGAR$/)
+    expect(lineWith('CIK 0001045810')).toHaveTextContent(/^CIK 0001045810\s*·\s*,\s*Company on SEC\.gov$/)
     expect(screen.queryByText('Latest filing', { exact: false })).toBeNull()
     expect(container.querySelector('button')).toBeNull()
   })

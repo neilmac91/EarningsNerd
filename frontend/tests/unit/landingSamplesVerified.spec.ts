@@ -45,7 +45,12 @@ import * as samples from '@/features/marketing/lib/landing-samples'
  *    (E149), a citation's that of the figure
  *    it cites, a reported figure's on itself and its provenance, and a calculated figure has none; its data notes
  *    and narrative evidence pass the admission the live API path applies; no key or string in it names a model;
- *    and the landing's three-series view counts data notes from those three series alone.
+ *    and the landing's three-series view counts data notes from those three series alone;
+ *  - the evidence row's Highlights rows are the live example's own (landing-example.json, written by
+ *    scripts/snapshot-landing-example.mjs): their dollar figures and percentages are the verified values (other numbers
+ *    a takeaway states, such as the EPS row's share counts, are the audit's to reconcile: docs/brand/00-audit.md), each
+ *    passage a takeaway cites is the filing's sentence verbatim, and the receipt card follows one of those rows to the
+ *    snapshot's own filing.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -62,15 +67,34 @@ const VERIFIED: Record<string, readonly [number, number]> = {
   PaymentsOfDividends: [15_421_000_000, 15_234_000_000],
   'Services net sales': [109_158_000_000, 96_169_000_000],
 }
-const RAW = new Set(Object.values(VERIFIED).flat())
+/** Rates as filed (FY2025, FY2024), in percent; 00-audit.md §4 records them as decimals. */
+const RATES: Record<string, readonly [number, number]> = {
+  EffectiveIncomeTaxRateContinuingOperations: [15.6, 24.1],
+}
+/** An amount a cited Item 7 sentence states in words (00-audit.md §4). */
+const STATED: Record<string, number> = { 'State Aid provision decrease': 10_700_000_000 }
+const RAW = new Set([...Object.values(VERIFIED).flat(), ...Object.values(STATED)])
 
 const growth = ([current, prior]: readonly [number, number]) => ((current - prior) / Math.abs(prior)) * 100
+// A verified value as a summary writes it: in billions at one or two decimals, in whole millions ("$416,161M", as the
+// live example's rows and the statements print them), or per share.
 const DOLLARS = new Set(
-  [...RAW].flatMap((v) => (v >= 1e9 ? [`$${(v / 1e9).toFixed(1)}B`, `$${(v / 1e9).toFixed(2)}B`] : [`$${v.toFixed(2)}`])),
+  [...RAW].flatMap((v) =>
+    v >= 1e9
+      ? [`$${(v / 1e9).toFixed(1)}B`, `$${(v / 1e9).toFixed(2)}B`, `$${(v / 1e6).toLocaleString('en-US')}M`]
+      : [`$${v.toFixed(2)}`],
+  ),
 )
-const PERCENTS = new Set(Object.values(VERIFIED).map((pair) => `${Math.abs(growth(pair)).toFixed(1)}%`))
+const PERCENTS = new Set([
+  ...Object.values(VERIFIED).map((pair) => `${Math.abs(growth(pair)).toFixed(1)}%`),
+  ...Object.values(RATES).flat().map((rate) => `${rate.toFixed(1)}%`),
+])
 
-const DOLLAR_RE = /\$\d[\d,]*(?:\.\d+)?[BMT]?/g
+const DOLLAR_RE = /\$\d[\d,]*(?:\.\d+)?(?:[BMT]\b| (?:thousand|million|billion|trillion)\b)?/g
+const SCALE_LETTER: Record<string, string> = { thousand: 'K', million: 'M', billion: 'B', trillion: 'T' }
+/** Every dollar figure in a text, its scale word written as the letter ("$10.7 billion" reads "$10.7B"). */
+const dollarFigures = (text: string) =>
+  (text.match(DOLLAR_RE) ?? []).map((figure) => figure.replace(/ (thousand|million|billion|trillion)$/, (_, word: string) => SCALE_LETTER[word]))
 const PERCENT_RE = /\d+(?:\.\d+)?%/g
 
 /** Every string and number reachable from a value, with the path that leads to it. */
@@ -125,6 +149,11 @@ describe('landing sample figures come from the verified Apple FY2025 set', () =>
         expect(section, `${concept} ${written}`).toContain(written)
       }
     }
+    for (const [concept, pair] of Object.entries(RATES)) {
+      expect(section, concept).toContain(concept)
+      for (const rate of pair) expect(section, `${concept} ${rate}`).toContain(`${rate.toFixed(1)}%`)
+    }
+    for (const [what, v] of Object.entries(STATED)) expect(section, what).toContain(`$${(v / 1e9).toFixed(1)} billion`)
     expect(FALLBACK_SOURCE).toContain("ticker: 'AAPL'")
   })
 
@@ -132,7 +161,7 @@ describe('landing sample figures come from the verified Apple FY2025 set', () =>
     const strays: string[] = []
     const texts = [...STRINGS, { at: 'HeroExample FALLBACK', value: FALLBACK_SOURCE }]
     for (const { at, value } of texts) {
-      for (const figure of value.match(DOLLAR_RE) ?? []) if (!DOLLARS.has(figure)) strays.push(`${at}: ${figure}`)
+      for (const figure of dollarFigures(value)) if (!DOLLARS.has(figure)) strays.push(`${at}: ${figure}`)
       for (const pct of value.match(PERCENT_RE) ?? []) if (!PERCENTS.has(pct)) strays.push(`${at}: ${pct}`)
     }
     for (const [, delta] of FALLBACK_SOURCE.matchAll(/deltaPercent: (-?\d+(?:\.\d+)?)/g)) {
@@ -148,14 +177,19 @@ describe('landing sample figures come from the verified Apple FY2025 set', () =>
     // The concept behind each label the two show, as the Ask chip clause below ties its labels.
     const ROW_CONCEPT: Record<string, string> = {
       Revenue: 'RevenueFromContractWithCustomerExcludingAssessedTax',
+      'Total net sales': 'RevenueFromContractWithCustomerExcludingAssessedTax',
+      'Services net sales': 'Services net sales',
       'Net income': 'NetIncomeLoss',
       'Diluted EPS': 'EarningsPerShareDiluted',
+      'Diluted earnings per share': 'EarningsPerShareDiluted',
     }
     const SCALE: Record<string, number> = { B: 1e9, M: 1e6, '': 1 }
-    /** A verified value as `shown` writes its figure: in its unit, to its decimals. */
+    /** A verified value as `shown` writes its figure: in its unit, to its decimals, grouped where it is grouped. */
     const asShown = (v: number, shown: string) => {
-      const [, places = '', unit = ''] = shown.match(/^\$\d+(?:\.(\d+))?([BM]?)$/) ?? []
-      return `$${(v / SCALE[unit]).toFixed(places.length)}${unit}`
+      const [, whole = '', places = '', unit = ''] = shown.match(/^\$(\d[\d,]*)(?:\.(\d+))?([BM]?)$/) ?? []
+      const n = v / SCALE[unit]
+      const digits = { minimumFractionDigits: places.length, maximumFractionDigits: places.length }
+      return `$${whole.includes(',') ? n.toLocaleString('en-US', digits) : n.toFixed(places.length)}${unit}`
     }
     /** A change as the hero's formatDelta and a payload's change_display write it. */
     const signed = (pct: number) => `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`
@@ -279,7 +313,7 @@ describe("the Copilot teaser's sample cites passages, as a live Services answer 
 
   it('states only the verified Services pair and its growth', () => {
     const dollars = new Set(SERVICES.flatMap((v) => [`$${(v / 1e9).toFixed(1)}B`, `$${(v / 1e9).toFixed(2)}B`]))
-    const figures = TEXT.match(DOLLAR_RE) ?? []
+    const figures = dollarFigures(TEXT)
     const percents = TEXT.match(PERCENT_RE) ?? []
     expect(figures, 'the sample states the Services figures').toContain(`$${(SERVICES[0] / 1e9).toFixed(1)}B`)
     for (const figure of figures) expect(dollars, `teaser ${figure}: a Services value`).toContain(figure)
@@ -310,6 +344,46 @@ describe('figure rows carry a label, not an XBRL concept', () => {
     for (const label of labels) {
       expect(label).not.toMatch(/:|^[A-Z][a-z]+(?:[A-Z][a-z]*)+$/)
     }
+  })
+})
+
+describe("the evidence row shows the live example's own rows, and follows one of them to the filing", () => {
+  const NORMALIZED_AUDIT = AUDIT.replace(/\s+/g, ' ')
+
+  it('cites, for each takeaway, a passage the filing prints word for word', () => {
+    const cited = samples.SAMPLE_FINANCIAL_METRICS.filter((row) => row.commentary_evidence?.verified)
+    expect(cited.length, 'some rows cite a located passage').toBeGreaterThan(0)
+    for (const row of cited) expect(NORMALIZED_AUDIT, row.metric).toContain(row.commentary_evidence!.excerpt)
+  })
+
+  // The script writes no passage section equal to its row's (it nulls one), so this holds for its output by construction;
+  // it fails a hand edit of the snapshot. The server-side guard is test_a_takeaway_passage_never_borrows_the_tables_section.
+  it('never shows the table\u2019s own section as a passage\u2019s: the figures come from Item 8, the drivers from Item 7', () => {
+    for (const row of samples.SAMPLE_FINANCIAL_METRICS) {
+      const section = row.commentary_evidence?.section_ref
+      if (section) expect(section, row.metric).not.toBe(row.source_section_ref)
+    }
+  })
+
+  it('names the section the demo\u2019s passage sits in, as the audit reads it from the filing', () => {
+    const { SAMPLE_TRACE } = samples
+    expect(SAMPLE_TRACE.sectionRef, 'the Trace demo names its passage\u2019s section (the plan\u2019s \u00a73.6)').toBeTruthy()
+    const [item, heading] = SAMPLE_TRACE.sectionRef!.split(' \u00b7 ')
+    expect(NORMALIZED_AUDIT).toContain(`The passages the rows cite are verbatim in ${item}:`)
+    expect(NORMALIZED_AUDIT).toContain(`under ${heading}, "${SAMPLE_TRACE.excerpt}"`)
+  })
+
+  it('takes its filing identity and its receipt from the snapshot\u2019s own filing', () => {
+    const { SAMPLE_FILING, SAMPLE_RECEIPT } = samples
+    expect(SAMPLE_RECEIPT.accession, 'a receipt read from another filing').toBe(SAMPLE_FILING.accession)
+    expect(SAMPLE_RECEIPT.periodEnd).toBe(SAMPLE_FILING.periodEnd)
+    const row = samples.SAMPLE_FINANCIAL_METRICS.find((r) => r.metric === SAMPLE_RECEIPT.metric)
+    expect(row, `the snapshot has the ${SAMPLE_RECEIPT.metric} row the receipt follows`).toBeDefined()
+    expect(row!.source_verified, 'the receipt follows a figure the server matched').toBe(true)
+    const [revenue] = VERIFIED.RevenueFromContractWithCustomerExcludingAssessedTax
+    expect(SAMPLE_RECEIPT.tagged).toBe(revenue.toLocaleString('en-US'))
+    expect(SAMPLE_RECEIPT.filed).toBe(`$${(revenue / 1e6).toLocaleString('en-US')} million`)
+    expect(NORMALIZED_AUDIT).toContain(`in the ${SAMPLE_RECEIPT.statement} on page ${SAMPLE_RECEIPT.page}`)
   })
 })
 

@@ -87,7 +87,9 @@ const MEANING: Record<string, Counts> = {
   'features/filings/components/SourceTrace.tsx': { QuotesIcon: 1, BracketsCurlyIcon: 1 },
   'features/marketing/components/HeroExample.tsx': { QuotesIcon: 1 },
   'features/marketing/components/TraceToSourceDemo.tsx': { QuotesIcon: 1 },
-  'features/marketing/components/CatchCard.tsx': { BracketsCurlyIcon: 1 },
+  // The evidence row's legend shows each label with its chip's glyph; the receipt card's result is a figure label.
+  'features/marketing/components/EvidenceSection.tsx': { QuotesIcon: 1, BracketsCurlyIcon: 1 },
+  'features/marketing/components/FigureReceipt.tsx': { BracketsCurlyIcon: 1 },
   'features/filings/components/copilot/CopilotMessage.tsx': { BracketsCurlyIcon: 1 }, // an answer's XBRL source rows (ASK-09)
 }
 
