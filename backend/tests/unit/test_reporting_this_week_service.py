@@ -319,7 +319,10 @@ def _cold_burst(n, reads_return):
             missed = 0
             while missed < n + 1 and checks.acquire(timeout=2):
                 missed += 1
-            assert missed == n + 1, f"{missed} of {n + 1} cache checks before the first read returned"
+            # A request that raised before its check would look like a missing check, so its error rides along.
+            assert missed == n + 1, (
+                f"{missed} of {n + 1} cache checks before the first read returned; "
+                f"errors: {[request.exception() for request in requests if request.done()]}")
         finally:
             # A failed precondition still lets the held read return, so the pool's shutdown does not wait
             # out each reader's timeout in turn.
