@@ -843,6 +843,7 @@ class TestFiledFigureSwap:
         "As described in Note 12, 250 positions were eliminated.",
         "As described in Note 12, 25 positions were eliminated.",
         "Item 7, 40 stores opened.",
+        "Item 7 and 250 stores opened.",
         "Note 4, 3 K-cups sold.",
         "Note 4, 3 M&A deals closed.",
     ])
