@@ -26,9 +26,10 @@ slow, progressing response takes longer; the serving-price read runs one at a ti
 webhook event's read, of its subscription or of its invoice (at most one), runs inside the event's one
 worker unit, so another thread would free nothing. The subscription read also keeps the worker's
 transaction and account lock through it; the invoice read comes before the lock and holds neither, so it
-could leave the default threads only if the event were split into units. The account deletion calls
-Stripe on the loop until E171 hands its whole cancellation (the list, its later pages and the deletes) to
-the Stripe threads. A call queued for the threads still runs after its client has had the request-timeout
+could leave the default threads only if the event were split into units. The account deletion called
+Stripe on the event loop; it now hands its whole cancellation (the list, its later pages and the deletes)
+to the Stripe threads as one plain def, `users.py`'s `_cancel_billable_subscriptions`, which finishes its
+walk before it returns. A call queued for the threads still runs after its client has had the request-timeout
 middleware's 504, which lets the route finish, as one waiting for a default token did; a brownout now
 queues from the ninth call in flight, not the 41st.
 
@@ -42,24 +43,32 @@ def or lambda, an async def, a method, a decorated def, a def or lambda nested i
 generator expression's element, conditions or later loops), where a walk counts only if it is used up in
 place (by a `for` loop, a list, set or dict comprehension, or a consumer such as `list`, `sorted` or
 `str.join`, directly or through a call that is itself used up there), unless `SITES` lists it, by its
-form, with the reason (the account deletion's three, until E171, which go together: the lines with its
-reason or route are exactly those three or none). A listed call that changes its form, or a second call
-with its key, fails too. `run_on_stripe_threads` itself refuses a generator, coroutine or async generator
-function, and a result that is a coroutine, an async generator or an iterator from stripe-python, the
-builtins or `itertools`, any of which may hold a walk, and a case proves it. The real-tree case also
-checks that it read the top-level modules, the billing router, the helper and more than 250 modules. Its
-burst holds 48 portal sessions inside Stripe and fails unless eight of them run there at once, all on the
-Stripe threads and each in its request's context, with no default worker token held and an unrelated
-usage read answering. Its planted forms score each rule both ways and mark the rest. Gaps, which break
-the rule but pass, so review holds them: a result's methods other than its page methods, a resource class
-held in a variable or reached through `getattr`, a def handed by name that something also calls through
-another name or from another module, a walk kept by a call used up in place that does not consume it
-(`itertools.tee`), an async page method (`next_page_async`), which holds no thread, a consumer's builtin
-name rebound, and a callable named `run_on_stripe_threads` that is not the helper. Outside the rule: a
-`StripeClient`'s services and other SDKs. Strict, so their writers rewrite them in place: a walk held in
-a variable before a loop uses it up, a generator expression handed to a consumer, a def handed through an
-attribute or defined in another module, and a walk handed to a function the scan does not know.
+form, with the reason; `SITES` is empty. A call's form ends with where the code around
+it runs (`called on the loop` in an async def's own body; `in cancel_billable`, `in a lambda` or `in a
+generator expression` in a nested body), so one moved into a unit for another thread, or out of an async
+route, is a new call; a plain def's own body runs wherever the def is called, which no key records. A
+listed call that changes its form, or a second call with its key, fails too.
+`run_on_stripe_threads` itself refuses a generator, coroutine or async generator function, and a result
+that is a coroutine, an async generator or an iterator from stripe-python, the builtins or `itertools`,
+any of which may hold a walk, and a case proves it. The real-tree case also checks that it read the
+top-level modules, the billing and users routers, the helper and more than 250 modules, and that it sees
+the billing router's five calls and the deletion's three once they are handed anywhere else. Its burst holds 48 portal sessions inside Stripe
+and fails unless eight of them run there at once, all on the Stripe threads and each in its request's
+context, with no default worker token held and an unrelated usage read answering. Its planted forms score
+each rule both ways and mark the rest. Gaps, which break the rule but pass, so review holds them: a
+result's methods other than its page methods, a resource class held in a variable or reached through
+`getattr`, a def handed by name that something also calls through another name or from another module, a
+walk kept by a call used up in place that does not consume it (`itertools.tee`), an async page method
+(`next_page_async`), which holds no thread, a consumer's builtin name rebound, or a `join` or `deque`
+method, that keeps a walk lazy, and a callable named `run_on_stripe_threads` that is not the helper.
+Outside the rule: a `StripeClient`'s services and other SDKs. Strict, so their writers rewrite them in
+place: a walk held in a variable before a loop uses it up, a generator expression of a walk handed to a
+consumer or looped over, a walk unpacked into a display (`[*walk]`), a search result's `next_page` field
+(a string) read as a page method, a Stripe method or def handed through `functools.partial(...)`, a def
+called in a handed lambda, a def handed through a variable or an attribute or defined in another module,
+and a walk handed to a function the scan does not know.
 
 **Evidence**: E144's last-slice review on #1529, 2026-10-23, and its probe (E170); the fix in
-`backend/app/services/stripe_threads.py` and the five Stripe calls in
-`backend/app/routers/subscriptions.py`, with the gate's mutation proofs in its PR's body.
+`backend/app/services/stripe_threads.py`, the five Stripe calls in `backend/app/routers/subscriptions.py`
+and the account deletion's cancellation in `backend/app/routers/users.py`, with the gate's mutation proofs
+in its PR's body.

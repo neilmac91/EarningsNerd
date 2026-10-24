@@ -1,4 +1,4 @@
-"""The billing routes' Stripe calls, on threads of their own, out of anyio's default worker threads (E170).
+"""Calls through Stripe's global client, on threads of their own, out of anyio's default worker threads (E170).
 
 stripe-python's global client is synchronous: a call waits up to 80 s to connect and 80 s for each read,
 and retries twice (``stripe.max_network_retries``). Through ``run_in_threadpool``, checkout's and the
@@ -8,11 +8,12 @@ hold every token, and every unit in the process would wait for one of them to re
 threads of their own: a call waiting for one holds no token and no pool slot, so the rest of the instance
 keeps moving. Eight is a cap, not a pool to tune: a checkout makes two or three calls one after another
 and the portal one, so eight let a few payers through at once while Stripe answers normally, and a
-brownout holds at most these eight threads, which nothing else needs. ``stripe_subscription_reader.py``
-keeps the default threads: its own client makes one attempt with connect and read-inactivity limits of
-2 s and 3 s by default (at most 10 s each), and the serving-price read runs one at a time per process
-(``lessons/ops-stripe-calls-wait-on-threads-of-their-own.md``). The account deletion calls Stripe on the
-loop until E171 hands its cancellation here. Gate: ``tests/unit/test_stripe_threads_allowlist.py``.
+brownout holds at most these eight threads, which nothing else needs. The account deletion's cancellation
+(its list, later pages and deletes) runs here too, as one plain def in ``users.py``; it ran on the event
+loop. ``stripe_subscription_reader.py`` keeps the default threads: its own client makes one attempt with
+connect and read-inactivity limits of 2 s and 3 s by default (at most 10 s each), and the serving-price
+read runs one at a time per process (``lessons/ops-stripe-calls-wait-on-threads-of-their-own.md``). Gate:
+``tests/unit/test_stripe_threads_allowlist.py``.
 """
 from __future__ import annotations
 
@@ -48,11 +49,11 @@ async def run_on_stripe_threads(func: Callable[..., _T], /, *args: Any, **kwargs
         raise TypeError(f"{func!r} runs where it is iterated or awaited; hand over work that finishes here")
     call = functools.partial(contextvars.copy_context().run, func, *args, **kwargs)
     result = await asyncio.get_running_loop().run_in_executor(_STRIPE_THREADS, call)
-    if inspect.iscoroutine(result) or inspect.isasyncgen(result):
-        if inspect.iscoroutine(result):
-            result.close()  # never awaited, so it would warn when collected
-        raise TypeError(f"{func!r} returned a {type(result).__name__}, which runs where it is awaited or iterated; "
-                        "return finished work")
+    if inspect.iscoroutine(result):
+        result.close()  # never awaited, so it would warn when collected
+        raise TypeError(f"{func!r} returned a coroutine, which runs where it is awaited; return finished work")
+    if inspect.isasyncgen(result):
+        raise TypeError(f"{func!r} returned an async generator, which runs where it is iterated; return finished work")
     if isinstance(result, Iterator) and type(result).__module__.split(".")[0] in _WALK_MODULES:
         raise TypeError(f"{func!r} returned an iterator ({type(result).__name__}), which may make its requests where "
                         "it is used; return finished work, such as a list")
