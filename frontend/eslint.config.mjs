@@ -228,13 +228,14 @@ const DESIGN_HEX_RULE = {
   selector: 'Literal[value=/#[0-9a-f]{6}|(?:rgba?|hsla?)\\(|\\[(?:[^\\]\\s]*[:_(,])?#[0-9a-f]{3,4}(?![0-9a-f])[^\\]\\s]*\\]|^#[0-9a-f]{3,4}$/i]',
   message: 'Raw colour (hex, rgb[a]() or hsl[a]()): use a token (mirrors: motion.ts, financialTone, Chart, chartExport).',
 }
-// Every Tailwind palette name and every colour-bearing utility prefix (2026-10-24, the generating card's callout
-// review: the rule had read six prefixes and thirteen names, so `bg-indigo-500` or `fill-blue-500` passed).
-// The §12 grep in DESIGN_SYSTEM.md mirrors the chromatic names; the neutral ones stay with its third grep
-// (the Google button's `bg-slate-50` is that grep's expected hit and this rule's exemption).
+// Every Tailwind palette name and every colour-bearing utility prefix, a side border (`border-l-`) and a ring
+// offset included (2026-10-24, the generating card's callout review: the rule had read six prefixes and
+// thirteen names, so `bg-indigo-500` or `fill-blue-500` passed). The §12 grep in DESIGN_SYSTEM.md mirrors
+// the chromatic names and these prefixes; the neutral names stay with its third grep (the Google button's
+// `bg-slate-50` is that grep's expected hit and this rule's exemption). Planted: tests/unit/designRules.spec.ts.
 const DESIGN_PALETTE_RULE = {
   selector:
-    'Literal[value=/\\b(bg|text|border|ring|from|to|via|fill|stroke|outline|decoration|divide|shadow|accent|caret|placeholder)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|mint)-[0-9]/]',
+    'Literal[value=/\\b(bg|text|border(?:-[trblxyse])?|ring(?:-offset)?|from|to|via|fill|stroke|outline|decoration|divide|shadow|accent|caret|placeholder)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|mint)-[0-9]/]',
   message: 'Raw palette class — semantic tokens only.',
 }
 const DESIGN_Z_RULE = {

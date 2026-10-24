@@ -912,9 +912,12 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  progress indicator in sage with its words in the ink, as the generating card's live-status
                  line is ("10-K · Reading the size-8 fine print…", one line of the voice per pipeline stage,
                  chosen per filing, the stalled sentence in its place; it was a blue info Notice from
-                 2026-07-04 to 2026-10-24) and the Copilot rail's "Reading the filing…" (Copilot pane).
-                 Gate: tests/unit/statusTintResidue.spec.ts pins every status tint class outside
-                 components/ui and every Notice's written variant, shrink-only.
+                 2026-07-04 to 2026-10-24) and the Copilot rail's "Reading the filing…" (Ask answer); one
+                 remains, AnalysisPageClient's history fetch (E186). Gate: tests/unit/statusTintResidue.spec.ts
+                 pins every status tint class outside components/ui (a ground, border, ring, gradient stop,
+                 divide, outline or shadow; status ink on a sentence or glyph is not a tint), every Notice's
+                 written variant, and every `info` Notice call site as a shrink-only table, so a new info
+                 Notice is added on purpose and reviewed for state against activity.
                  GuidanceCard is a STANDALONE centered panel — never nest it inside a
                  Card; inside a Card, Notice is the right scale. Both action rows wrap: GuidanceCard's
                  centres two actions and sets the second under the first when they do not fit side by
@@ -2198,7 +2201,7 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 1. **App-wide, not just the obvious page** — public *and* authenticated.
 2. **Grep gate** — zero residual legacy brand colors AND legacy type roles:
    ```
-   grep -rnE '\b(mint-[0-9]|glow-mint|(bg|text|ring|border|from|to)-primary-[0-9]|emerald-[0-9]|(from|to|via|bg|text|border|ring|fill|stroke|outline|decoration|divide|shadow|accent|caret|placeholder)-(sky|indigo|cyan|teal|violet|fuchsia|purple|pink|rose|orange|yellow|lime|green|red|amber|blue)-[0-9]|Figtree|font-grotesque|#3A2E26|#D99E4A|#92A0E2|text-text-tertiary-dark)' app components features
+   grep -rnE '\b(mint-[0-9]|glow-mint|(bg|text|ring|border|from|to)-primary-[0-9]|emerald-[0-9]|(from|to|via|bg|text|border(-[trblxyse])?|ring(-offset)?|fill|stroke|outline|decoration|divide|shadow|accent|caret|placeholder)-(sky|indigo|cyan|teal|violet|fuchsia|purple|pink|rose|orange|yellow|lime|green|red|amber|blue)-[0-9]|Figtree|font-grotesque|#3A2E26|#D99E4A|#92A0E2|text-text-tertiary-dark)' app components features
    ```
    Status tints are a census, not a grep: `tests/unit/statusTintResidue.spec.ts` pins every
    `info|success|warning|error` tint class outside `components/ui/` and every `<Notice>`'s written

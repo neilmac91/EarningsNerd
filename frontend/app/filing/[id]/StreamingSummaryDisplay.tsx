@@ -40,7 +40,8 @@ import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 // line changes only when the work does: a run in progress is activity, never a status notice
 // (DESIGN_SYSTEM.md §4 › Inline notice, §9). The pools follow the pipeline
 // (backend/app/services/summary_stages): fetching downloads, parsing reads the sections, and the
-// figure work runs under summarizing (analyzing is two yields around a DB write), so those share a pool.
+// figure work runs under summarizing (analyzing is two yields between two progress writes,
+// enrichment.py:187-195, so it lasts milliseconds), so those two stages share a pool.
 const STATUS_LINES = {
   fetching: ['Opening the filing…'],
   parsing: [
@@ -66,8 +67,8 @@ const STATUS_POOL: Record<string, StatusPool> = {
 const STALLED_LINE = 'Taking longer than usual. Still working on it.'
 
 /** The header's live-status line: the stalled sentence, else this filing's line for the stage's pool
-    (unknown and terminal stages take the fetching pool). Deterministic per filing and pool, so it is the
-    same on the server, at hydration and across re-renders, and never flips between two lines of one pool. */
+    (unknown and terminal stages take the fetching pool). Deterministic per filing and pool, so it never
+    flips between two lines of one pool across re-renders, and analyzing and summarizing show the same line. */
 const statusLine = (stage: string, filingId: number, isStalled: boolean): string => {
   if (isStalled) return STALLED_LINE
   const pool = STATUS_POOL[stage] ?? 'fetching'
@@ -205,7 +206,6 @@ export default function StreamingSummaryDisplay({
 }) {
   const [isClient, setIsClient] = useState(false)
   const [optimisticProgress, setOptimisticProgress] = useState(0)
-  const [isStalled, setIsStalled] = useState(false)
   // Focus targets: the progress card's heading takes focus from a Retry that leaves (RetryButton's
   // hand-off), the failure card's heading takes focus nobody holds when it appears.
   const progressHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -218,6 +218,10 @@ export default function StreamingSummaryDisplay({
   }), [])
 
   const isError = stage === 'error' || !!error
+  // Stalled: derived in render, not stored, so the stage and the stall land in one commit and the live region
+  // below changes once per transition. Normal generation runs ~30-60s; only flag a genuine stall well past that
+  // window, and never while the summary is being written, so we never signal "failure" during a healthy run.
+  const isStalled = elapsedSeconds > 45 && stage !== 'completed' && stage !== 'summarizing' && !isError
   // A failed generation (or the monthly limit) ends the run the user is waiting on, often from page load
   // with focus on <body>: its card's heading takes focus then, so the next Tab is the card's action, not
   // the site header. Gated on isClient: the first client render is the skeleton, with no card to focus.
@@ -227,18 +231,6 @@ export default function StreamingSummaryDisplay({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time client detection to gate SSR-unsafe rendering (avoids hydration mismatch)
     setIsClient(true)
   }, [])
-
-  // Stalled state detection
-  useEffect(() => {
-    // Normal generation runs ~30-60s; only flag a genuine stall well past that window
-    // so we never signal "failure" during a healthy run.
-    if (elapsedSeconds > 45 && stage !== 'completed' && stage !== 'summarizing' && !isError) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- derives a stall flag from async streaming elapsed time + generation stage
-      setIsStalled(true)
-    } else {
-      setIsStalled(false)
-    }
-  }, [elapsedSeconds, stage, isError])
 
   // Optimistic progress effect - uses real elapsed time from backend but asymptotic approach
   useEffect(() => {

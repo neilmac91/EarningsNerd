@@ -268,9 +268,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 
 ## 3. Inside the product
 
-- **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): five new loading quips in
-  the voice and one kept ("Reading the size-8 fine print…"), each shown in the card's live-status line in
-  place of "Processing…", one per pipeline stage, chosen per filing, unsigned (the "Reading the filing"
+- **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): seven lines in the voice
+  (five new, one kept, "Reading the size-8 fine print…", and the opening line "Opening the filing…") in three
+  pools, one for fetching, three for parsing and three shared by analyzing and summarizing; one shows per
+  filing in the card's live-status line in place of "Processing…", changing with the pipeline's stage, unsigned (the "Reading the filing"
   signature and its blue info callout went on 2026-10-24: a quip is activity, not a state); the stalled line and the timeout error say what happened
   and what to do. The heading "Generation interrupted" stays. The card reads "Generating the summary"
   and its four steps read "Fetching the 10-K from SEC.gov" (the filing's own form), "Reading the
@@ -294,7 +295,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   which also stops the stream's automatic retry): Pro's fair-use pause, a sign-in or a permission error
   keeps its sentence and no Retry.
   At 200% text the progress card's header row wraps, the percent keeping to the right on a line of
-  its own, and the form code in its meta line ("10-K · Processing…") never breaks at its hyphen.
+  its own, and the form code in its meta line ("10-K · Opening the filing…" at the first stage) never breaks at its hyphen.
 - **Signup gate** (`frontend/features/summaries/components/GenerateSignupGate.tsx`): it follows the
   one access decision (`features/marketing/lib/access.ts`) through the registration payload the
   pricing page reads. In invite-only mode, and until that payload answers or when it cannot, it reads

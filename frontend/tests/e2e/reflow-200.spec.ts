@@ -1229,7 +1229,7 @@ for (const state of [
       await expect(page.getByText('Writing the summary', { exact: true })).toBeVisible()
       await page.evaluate(() => document.fonts.ready)
       if (state.doubled) await doubleText(page)
-      // The line crossfades in on mount (animate-fadeIn, with a 10px rise): its box is read once that has finished.
+      // The line crossfades in on mount (animate-fadeIn; the span is inline, so only its opacity leg applies): its box is read once that has finished.
       await settled(heading.locator('xpath=..'))
       await settle(page)
 

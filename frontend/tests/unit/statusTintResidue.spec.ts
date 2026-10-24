@@ -13,10 +13,11 @@ import { describe, expect, it } from 'vitest'
  * sitting in the blue `info` Notice it had kept for three months. Two gates, one file:
  *
  *  1. STATUS TINT CENSUS. Every .ts/.tsx source under app, components, features, hooks and lib except components/ui
- *     is read through the TypeScript AST, and every status-TINT class token (a ground, a border, a ring, a gradient
- *     stop, a divide, an outline or a shadow: `bg|border|ring|from|to|via|divide|outline|shadow` -
- *     `info|success|warning|error` - `light|dark|text|emphasis`) in a string literal or a template chunk counts, each
- *     match once, so a light/dark pair is two. A comment is not read. Status INK is not a tint and is not counted: a
+ *     is read through the TypeScript AST (a .css file is not read: app/globals.css holds no status tint and @apply is
+ *     not a class string), and every status-TINT class token (a ground, a border or a side border, a ring or a ring
+ *     offset, a gradient stop, a divide, an outline or a shadow: `bg|border(-[trblxyse])?|ring(-offset)?|from|to|via|
+ *     divide|outline|shadow` - `info|success|warning|error` - `light|dark|text|emphasis`) in a string literal or a
+ *     template chunk counts, each match once, so a light/dark pair is two. A comment is not read. Status INK is not a tint and is not counted: a
  *     sentence in `text-error-light`, a glyph in `fill-success-light`, a stroke, are the status colour on a state the
  *     system sanctions (§9), and a token inside another (`shadow-ring-error-dark`, the focus ring the primitives own)
  *     is not read. The gain/loss tones (lib/financialTone.ts) and the brand's tints are not status. RESIDUE lists what
@@ -44,7 +45,7 @@ const TINT_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 const PRIMITIVES = 'components/ui/'
 const NOTICE_DIRS = ['app', 'components', 'features']
 const COMPONENT = 'Notice'
-const STATUS_TINT = /(?<![\w-])(?:bg|border|ring|from|to|via|divide|outline|shadow)-(?:info|success|warning|error)-(?:light|dark|text|emphasis)\b/g
+const STATUS_TINT = /(?<![\w-])(?:bg|border(?:-[trblxyse])?|ring(?:-offset)?|from|to|via|divide|outline|shadow)-(?:info|success|warning|error)-(?:light|dark|text|emphasis)\b/g
 
 const RESIDUE: Record<string, number> = {
   // E185: the pricing usage box, an info tint with a blue usage meter (the dashboard meter below is its sanctioned twin).
@@ -59,7 +60,7 @@ const RESIDUE: Record<string, number> = {
   'features/search/components/FullTextSearch.tsx': 4, // an error Notice clone (2026-10-18)
   'features/filings/components/copilot/CopilotMessage.tsx': 4, // the error bubble, Notice's error recipe verbatim
   'features/calendar/components/DayDetailDialog.tsx': 4, // the "Market closed" info Notice clone
-  'features/companies/components/CompanySearch.tsx': 3, // the error dropdown's dark tint
+  'features/companies/components/CompanySearch.tsx': 3, // the error dropdown's light and dark hairline and its dark ground
   'features/calendar/components/AlertBell.tsx': 4, // the error icon well, GuidanceCard's recipe
   'features/admin/components/BulkResultSummary.tsx': 2, // the error rows' tint
   'features/summaries/components/SummaryActionsBar.tsx': 2, // the hand-rolled success chip (Badge has `success`)
@@ -138,12 +139,14 @@ function componentNames(sf: ts.SourceFile): Set<string> {
 
 /** Every `<Notice>` in one source (`notices`), and each whose variant is not written as a string literal, as
     `file:line <Tag> why` (`unwritten`). */
-export function noticeVariants(source: string, fileName: string): { notices: number; unwritten: string[] } {
+export function noticeVariants(source: string, fileName: string): { notices: number; info: number; unwritten: string[] } {
   const sf = parse(source, fileName)
   const names = componentNames(sf)
   const written = (e: ts.Expression | undefined) => e !== undefined && ts.isStringLiteralLike(e)
+  const literal = (e: ts.Expression | undefined) => (e !== undefined && ts.isStringLiteralLike(e) ? e.text : undefined)
   const key = (name: ts.PropertyName) => name.getText(sf).replace(/['"]/g, '')
   let notices = 0
+  let info = 0
   const unwritten: string[] = []
   const visit = (node: ts.Node): void => {
     if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && names.has(node.tagName.getText(sf))) {
@@ -151,28 +154,49 @@ export function noticeVariants(source: string, fileName: string): { notices: num
       // The variant the element ends with, in source order (the last write wins), or undefined with none; a spread of
       // anything but an object literal makes every prop unknowable.
       let variant: boolean | undefined
+      let value: string | undefined
       let unknowable = false
       for (const attribute of node.attributes.properties) {
         if (ts.isJsxAttribute(attribute)) {
           if (attribute.name.getText(sf) !== 'variant') continue
-          const value = attribute.initializer
-          variant = value !== undefined && (ts.isStringLiteral(value) || (ts.isJsxExpression(value) && written(value.expression)))
+          const init = attribute.initializer
+          variant = init !== undefined && (ts.isStringLiteral(init) || (ts.isJsxExpression(init) && written(init.expression)))
+          value = init === undefined ? undefined : ts.isStringLiteral(init) ? init.text : ts.isJsxExpression(init) ? literal(init.expression) : undefined
         } else if (ts.isObjectLiteralExpression(attribute.expression)) {
           for (const property of attribute.expression.properties) {
             if (ts.isSpreadAssignment(property)) unknowable = true
-            else if (ts.isPropertyAssignment(property) && key(property.name) === 'variant') variant = written(property.initializer)
-            else if (ts.isShorthandPropertyAssignment(property) && property.name.text === 'variant') variant = false
+            else if (ts.isPropertyAssignment(property) && key(property.name) === 'variant') {
+              variant = written(property.initializer)
+              value = literal(property.initializer)
+            } else if (ts.isShorthandPropertyAssignment(property) && property.name.text === 'variant') {
+              variant = false
+              value = undefined
+            }
           }
         } else unknowable = true
       }
       const why = unknowable ? 'spreads a variable: its props are unknowable' : variant === undefined ? 'has no variant' : variant ? null : 'variant is not a string literal'
       if (why) unwritten.push(`${fileName}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1} <${node.tagName.getText(sf)}> ${why}`)
+      else if (value === 'info') info += 1
     }
     ts.forEachChild(node, visit)
   }
   visit(sf)
-  return { notices, unwritten }
+  return { notices, info, unwritten }
 }
+
+/** The `info` Notices on 2026-10-24, per file at their count: each a state (a result, a limit, a mode) or an item
+    that retires it. A new info Notice is added here on purpose, reviewed for state against activity (DESIGN_SYSTEM.md
+    §4 › Inline notice: a run in progress is never a Notice), and the table only shrinks. */
+const INFO_NOTICES: Record<string, number> = {
+  'app/dashboard/page.tsx': 1, // "Checkout finished": a result
+  'app/pricing/page.tsx': 2, // "You returned from checkout": a result; "New subscriptions are currently unavailable": a mode
+  'features/legal/components/CollectionGate.tsx': 1, // collection unavailable: a mode
+  'features/analysis/components/NarrativePane.tsx': 2, // source references that need attention, not enough history: results
+  'features/analysis/components/AnalysisPageClient.tsx': 4, // an unsupported filer (a state); the signed-out guidance, the Pro upsell and the history fetch (activity) wait on E186
+  'features/auth/components/RegisterForm.tsx': 1, // the private-beta guidance waits on E186
+}
+const INFO_NOTICES_MAX = { files: 6, uses: 11 }
 
 describe('status tints are a census (DESIGN_SYSTEM.md §4 › Inline notice, §12)', () => {
   const uses = new Map<string, number>()
@@ -229,12 +253,36 @@ describe('every Notice writes its variant', () => {
       expect.arrayContaining(['features/auth/components/RegisterForm.tsx', 'features/analysis/components/AnalysisPageClient.tsx', 'features/settings/components/BillingPanel.tsx']),
     )
   })
+
+  it('every info Notice is listed, at its count: a new one is a deliberate addition, reviewed for state against activity', () => {
+    const found = new Map<string, number>()
+    for (const file of NOTICE_DIRS.flatMap((dir) => walk(path.join(ROOT, dir)))) {
+      const r = rel(file)
+      const n = noticeVariants(readFileSync(file, 'utf8'), r).info
+      if (n > 0) found.set(r, n)
+    }
+    const problems: string[] = []
+    for (const file of [...new Set([...found.keys(), ...Object.keys(INFO_NOTICES)])].sort()) {
+      const actual = found.get(file) ?? 0
+      const listed = INFO_NOTICES[file] ?? 0
+      if (actual === 0) problems.push(`${file}: no info Notice left: delete its INFO_NOTICES line and lower INFO_NOTICES_MAX`)
+      else if (actual > listed) problems.push(`${file}: ${actual} info Notices, ${listed} listed`)
+      else if (actual < listed) problems.push(`${file}: ${actual} info Notices, ${listed} listed: lower its count and INFO_NOTICES_MAX.uses (stale)`)
+    }
+    expect(
+      problems,
+      'An info Notice is an advisory state (a result, a limit, a mode of the account), never activity: a run in progress is the progress indicator with its words in the ink (DESIGN_SYSTEM.md §4 › Inline notice). Add a genuine state to INFO_NOTICES on purpose, with its reason, and move INFO_NOTICES_MAX with it.',
+    ).toEqual([])
+    // Equality, not a ceiling (lessons/test-allowlist-caps-are-equalities.md).
+    expect(Object.keys(INFO_NOTICES).length, 'INFO_NOTICES changed its files: move INFO_NOTICES_MAX.files with it in the same commit').toBe(INFO_NOTICES_MAX.files)
+    expect(Object.values(INFO_NOTICES).reduce((sum, n) => sum + n, 0), 'INFO_NOTICES changed its uses: move INFO_NOTICES_MAX.uses with it in the same commit').toBe(INFO_NOTICES_MAX.uses)
+  })
 })
 
 describe('the scans catch what they are for (a self-check on fixed sources)', () => {
   it('counts a tint in a string, a JSX attribute, a template chunk and a conditional arm, and nothing else', () => {
     const tinted = [
-      '// text-error-light in a comment is no use',
+      '// bg-error-light in a comment is no use',
       // Three: a tint's background, border and dark background in one class string.
       "const a = 'bg-info-light/10 border-info-light/40 dark:bg-info-dark/15'",
       // Two: a light/dark pair of borders in a JSX attribute.
@@ -249,8 +297,10 @@ describe('the scans catch what they are for (a self-check on fixed sources)', ()
       "const f = 'bg-gain-soft border-loss-light bg-brand-weak text-text-secondary-light bg-info-lighter'",
       // None: status INK on a sentence or a glyph is the status colour on a state, not a tint.
       "const g = 'text-error-light dark:text-error-dark fill-success-light stroke-warning-dark text-info-text'",
+      // Two: a side border (the side-tab stripe's form) and a ring offset are tints too.
+      "const h = 'border-l-4 border-l-warning-light ring-offset-error-dark'",
     ].join('\n')
-    expect(statusTintUses(tinted, 'probe.tsx')).toBe(10)
+    expect(statusTintUses(tinted, 'probe.tsx')).toBe(12)
     expect(statusTintUses("export const tone = 'text-gain-text dark:text-gain-dark'", 'lib/probe.ts')).toBe(0)
   })
 
@@ -273,8 +323,10 @@ describe('the scans catch what they are for (a self-check on fixed sources)', ()
       'const m = <Badge variant={kind} />',
       "const n = <Notice variant={kind} {...{ variant: 'info' }}>t</Notice>",
     ].join('\n')
+    // info: a, d and n (the spread literal's 'info' is n's last write).
     expect(noticeVariants(fixture, 'probe.tsx')).toEqual({
       notices: 13,
+      info: 3,
       unwritten: [
         'probe.tsx:7 <Notice> has no variant',
         'probe.tsx:8 <Notice> variant is not a string literal',
