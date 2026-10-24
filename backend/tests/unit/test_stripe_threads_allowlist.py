@@ -36,38 +36,41 @@ One rule, two halves in this one module:
   generator function, and a result that is a coroutine, an async generator or an iterator from stripe-python,
   the builtins or ``itertools``, any of which may hold a walk, so such work from a def the scan cannot read (one
   handed through an attribute) raises where a test drives it with stripe-python's own objects (a mock passes).
-  ``SITES`` names each other call by file, the outermost function holding it, the call and its form (``called``
-  where it stands, ``handed to <callee>``, ``handed by keyword to <callee>``, or ``named``), with why; it is
-  empty. The form ends with where the code around the call runs: `` on the loop`` in an async def's own body;
-  `` in <def>`` or `` in a lambda`` in the body of one inside that function, and `` in a generator expression``
-  in a generator expression's element, conditions or later loops, which run wherever they are called or
-  iterated; and nothing in a plain def's own body or at module level (``called on the loop``,
-  ``called in cancel_billable``). So a listed call moved into a unit for another thread, or out of an async
-  route, is a new call; a plain def's own body runs wherever the def is called, which no key records. A new call
-  fails until it is listed, a listed call that is gone or changed its form fails until its line is, and two calls
-  with one key fail, since a line excuses one call; a planted case drives each of these three failures. The
-  real-tree case also checks that it read the top-level modules, the billing and users routers, the helper and
-  more than 250 modules, and that it sees the billing router's five calls and the account deletion's three once
-  they are handed anywhere else, so the empty ``SITES`` keeps a floor.
+  The real-tree case fails on any call the scan lists: there is no allowlist. Its failure names each call by
+  file, the outermost function holding it, the call and its form (``called`` where it stands,
+  ``handed to <callee>``, ``handed by keyword to <callee>``, or ``named``), which ends with where the code around
+  it runs: `` on the loop`` in an async def's own body; `` in <def>`` or `` in a lambda`` in the body of one
+  inside that function, and `` in a generator expression`` in a generator expression's element, conditions or
+  later loops; and nothing in a plain def's own body or at module level (``called on the loop``,
+  ``called in cancel_billable``). No key records where its call runs: a def's or lambda's body runs wherever it
+  is called, a generator expression's later parts and a walk's later pages wherever they are iterated, and a
+  named or handed method wherever its taker calls it. So an allowlist line could go on excusing a call moved onto
+  the loop, and an exception is a change to this gate, in review. The real-tree case also checks that it read
+  the top-level modules, the billing and users routers, the helper and more than 250 modules, and that it sees
+  the billing router's five calls and the account deletion's three once they are handed anywhere else, so it
+  keeps a floor.
 - Behaviour: 48 billing-portal sessions held inside Stripe take the eight Stripe threads and none of
   anyio's, each in its request's context, so an unrelated usage read still answers while they wait.
 
 The planted forms score each rule both ways, and they mark what the scan cannot hold. Gaps, which break the
 rule but pass, so review holds them, each planted in ``known_gaps`` where one module can show it: a result's
 methods other than its page methods (``customer.delete()``), a resource class held in a variable or reached
-through ``getattr``, a def handed by name that something also calls through another name or from another
-module, a walk handed to a call used up in place that keeps it rather than consuming it (``itertools.tee``),
-an async page method (``next_page_async``), which waits on the loop and holds no thread, a consumer's builtin
-name rebound, or a ``join`` or ``deque`` method, that keeps a walk lazy, and a callable that is named
-``run_on_stripe_threads`` but is not the helper. Outside the rule: a ``StripeClient``'s services, which do not
-use the global client (``stripe_subscription_reader.py``'s keep the default threads, for the reasons in the
-lesson), and other SDKs. Strict, so their writers rewrite them in place, each planted in ``strict_forms`` or a
-def it hands: a walk held in a variable before a loop uses it up, a generator expression of a walk handed to a
-consumer or looped over by a ``for``, a walk unpacked into a display (``[*walk]``), a search result's
-``next_page`` field, a string, read as a page method, a Stripe method or def handed over through
-``functools.partial(...)``, a def called in a handed lambda, and a def handed through a variable or an
-attribute. A def defined in another module is listed there too, and so is a walk handed to a function the scan
-does not know (``_cancel_each`` in ``lazy_wrappers``), whether that function uses it up or not.
+through ``getattr``, a resource instance built from its class (``stripe.Subscription(sid).delete()``), the
+stripe module held in a name or a parameter's default (``api = stripe``), a def handed by name that something
+also calls through another name or from another module, a walk handed to a call used up in place that keeps it
+rather than consuming it (``itertools.tee``), an async page method (``next_page_async``), which waits on the
+loop and holds no thread, a consumer's builtin name rebound, or a ``join`` or ``deque`` method, that keeps a
+walk lazy, and a callable that is named ``run_on_stripe_threads`` but is not the helper. Outside the rule: a
+``StripeClient``'s services, which do not use the global client (``stripe_subscription_reader.py``'s keep the
+default threads, for the reasons in the lesson), and other SDKs. Strict, so their writers rewrite them in place,
+each planted in ``strict_forms`` or a def it hands: a walk held in a variable before a loop uses it up, a
+generator expression of a walk handed to a consumer or looped over by a ``for``, a walk unpacked into a display
+(``[*walk]``), a search result's ``next_page`` field, a string, read as a page method, a Stripe method or def
+handed over through ``functools.partial(...)``, a def called in a handed lambda, and a def handed through a
+variable or an attribute. A def defined in another module is listed there too, and so is a walk handed to a
+function the scan does not know (``_cancel_each`` in ``lazy_wrappers``), whether that function uses it up or
+not. A resource method that makes no request (``stripe.Subscription.construct_from``) is listed as well; it
+belongs beside ``stripe.Webhook``'s in ``operation``'s exemptions.
 """
 
 from __future__ import annotations
@@ -92,8 +95,6 @@ from main import app
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
-# Empty: every call through the global client runs on the Stripe threads. A line excuses one call, by its key.
-SITES: dict[tuple[str, str, str, str], str] = {}
 
 _ON_STRIPE_THREADS = "run_on_stripe_threads"
 # A list's or a search result's methods that fetch its other pages from Stripe.
@@ -256,24 +257,7 @@ def stripe_operation_sites(source: str, file: str = "probe.py") -> list[tuple[st
     return sites
 
 
-def check_sites(found: list[tuple[str, str, str, str]], sites: dict[tuple[str, str, str, str], str]) -> None:
-    """Fail on the scan's findings against a SITES table: a call it does not list, a line no call answers any more,
-    and a key two calls share (a line excuses one call)."""
-    new = sorted(site for site in found if site not in sites)
-    assert not new, (
-        f"Stripe calls not handed to {_ON_STRIPE_THREADS} at {new}. Hand each call to run_on_stripe_threads, or a "
-        "plain def that makes it, defined in the module that hands it and used nowhere but there, by name; in a def "
-        "or lambda handed there, call each Stripe method in its body and finish each walk in place, in a for loop, a "
-        "list, set or dict comprehension, or list(...) (lessons/ops-stripe-calls-wait-on-threads-of-their-own.md). "
-        "Or list it in SITES with the reason."
-    )
-    gone = sorted(set(sites) - set(found))
-    assert not gone, f"Listed calls no longer found in that form: {gone}. Remove their lines."
-    shared = sorted({site for site in found if found.count(site) > 1})
-    assert not shared, f"Listed calls that share a key: {shared}. A SITES line excuses one call; hand the others over."
-
-
-def test_every_stripe_call_off_the_stripe_threads_is_listed_with_its_reason():
+def test_every_stripe_call_runs_on_the_stripe_threads():
     paths = sorted((BACKEND_DIR / "app").rglob("*.py")) + sorted(BACKEND_DIR.glob("*.py"))
     files = [path.relative_to(BACKEND_DIR).as_posix() for path in paths]
     # The whole backend, not a corner of it: the top-level modules, the routers and the services.
@@ -290,23 +274,14 @@ def test_every_stripe_call_off_the_stripe_threads_is_listed_with_its_reason():
         source = (BACKEND_DIR / module).read_text(encoding="utf-8")
         elsewhere = stripe_operation_sites(source.replace("run_on_stripe_threads(", "run_in_threadpool("))
         assert len(elsewhere) >= calls, f"the scan sees {len(elsewhere)} of {module}'s {calls} Stripe calls"
-    check_sites(found, SITES)
-
-
-def test_the_sites_checks_flag_each_problem():
-    on_the_loop = ("app/x.py", "route", "stripe.Customer.create", "called on the loop")
-    moved = ("app/x.py", "route", "stripe.Customer.create", "called in a lambda")
-    with pytest.raises(AssertionError, match="not handed to run_on_stripe_threads"):
-        check_sites([on_the_loop], {})
-    with pytest.raises(AssertionError, match="no longer found"):
-        check_sites([], {on_the_loop: "a reason"})
-    # A listed call moved into a lambda is a new call, and its line is gone.
-    with pytest.raises(AssertionError, match="not handed to run_on_stripe_threads"):
-        check_sites([moved], {on_the_loop: "a reason"})
-    with pytest.raises(AssertionError, match="share a key"):
-        check_sites([on_the_loop, on_the_loop], {on_the_loop: "a reason"})
-    check_sites([on_the_loop], {on_the_loop: "a reason"})
-    check_sites([], {})
+    assert not found, (
+        f"Stripe calls not handed to {_ON_STRIPE_THREADS} at {sorted(found)}. Hand each call to run_on_stripe_threads, "
+        "or a plain def that makes it, defined in the module that hands it and used nowhere but there, by name; in a "
+        "def or lambda handed there, call each Stripe method in its body and finish each walk in place, in a for loop, "
+        "a list, set or dict comprehension, or list(...) (lessons/ops-stripe-calls-wait-on-threads-of-their-own.md). "
+        "There is no allowlist: no key records where its call runs, so an exception is a change to this gate, and a "
+        "method that makes no request goes beside stripe.Webhook's in operation()'s exemptions."
+    )
 
 
 def test_the_scan_reads_each_form_it_claims():
@@ -581,6 +556,7 @@ async def strict_forms(search, page):
     await run_on_stripe_threads(functools.partial(stripe.Customer.retrieve, "cus_1"))
     await run_on_stripe_threads(functools.partial(_through_partial, "sub_1"))
     await run_on_stripe_threads(lambda: _called_in_a_lambda("sub_1"))
+    stripe.Subscription.construct_from({"id": "sub_1"}, "sk_test")
 
 # Gaps: each of these breaks the rule, but the scan passes it; the header names each, and review holds them.
 def _cancel_aliased(subscription_id):
@@ -599,7 +575,14 @@ async def known_gaps(customer_id, page):
     list = filter
     await run_on_stripe_threads(lambda: list(None, page.auto_paging_iter()))
     await run_on_stripe_threads(lambda: pending.join(page.auto_paging_iter()))
+    await run_on_stripe_threads(lambda: pending.deque(page.auto_paging_iter()))
     await other_helpers.run_on_stripe_threads(stripe.Customer.retrieve, customer_id)
+    stripe.Subscription("sub_1").delete()
+    api = stripe
+    api.Subscription.delete("sub_1")
+
+def _with_the_module_by_default(subscription_id, payments=stripe):
+    payments.Subscription.delete(subscription_id)
 
 def not_operations(payload, signature, secret, subscription):
     stripe.api_key = secret
@@ -709,6 +692,7 @@ stripe.Subscription.delete("sub_2")
         ("probe.py", "strict_forms", "auto_paging_iter", "called in a lambda"),
         ("probe.py", "strict_forms", "next_page", "named on the loop"),
         ("probe.py", "strict_forms", "stripe.Customer.retrieve", "handed to partial on the loop"),
+        ("probe.py", "strict_forms", "stripe.Subscription.construct_from", "called on the loop"),
         ("probe.py", "<module>", "stripe.Subscription.delete", "called"),
     ]
     # A dotted import binds its own name: ``import stripe.checkout`` binds ``stripe``, and with ``as`` the name is

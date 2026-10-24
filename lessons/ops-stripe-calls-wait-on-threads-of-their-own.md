@@ -31,7 +31,10 @@ Stripe on the event loop; it now hands its whole cancellation (the list, its lat
 to the Stripe threads as one plain def, `users.py`'s `_cancel_billable_subscriptions`, which finishes its
 walk before it returns. A call queued for the threads still runs after its client has had the request-timeout
 middleware's 504, which lets the route finish, as one waiting for a default token did; a brownout now
-queues from the ninth call in flight, not the 41st.
+queues from the ninth call in flight, not the 41st. A cancelled request task would stop the account
+deletion at that await, after its cancellation has started at Stripe and before its audit row and the
+row's deletion; nothing cancels one today (uvicorn cancels tasks only after a graceful-shutdown timeout,
+which the deploy does not set).
 
 **Gate**: `backend/tests/unit/test_stripe_threads_allowlist.py`. Its scan reads `app/` and the backend's
 top-level modules and lists each Stripe call a module names through the stripe module
@@ -42,12 +45,13 @@ lambda that is that argument or of a plain def the module only ever hands there 
 def or lambda, an async def, a method, a decorated def, a def or lambda nested in such a body, or a
 generator expression's element, conditions or later loops), where a walk counts only if it is used up in
 place (by a `for` loop, a list, set or dict comprehension, or a consumer such as `list`, `sorted` or
-`str.join`, directly or through a call that is itself used up there), unless `SITES` lists it, by its
-form, with the reason; `SITES` is empty. A call's form ends with where the code around
-it runs (`called on the loop` in an async def's own body; `in cancel_billable`, `in a lambda` or `in a
-generator expression` in a nested body), so one moved into a unit for another thread, or out of an async
-route, is a new call; a plain def's own body runs wherever the def is called, which no key records. A
-listed call that changes its form, or a second call with its key, fails too.
+`str.join`, directly or through a call that is itself used up there). It has no allowlist: its failure
+names each call by file, function, call and form, which ends with where the code around it runs
+(`called on the loop` in an async def's own body; `in cancel_billable`, `in a lambda` or `in a generator
+expression` in a nested body), but no key records where its call runs. A def's or lambda's body runs
+wherever it is called, a generator expression's later parts and a walk's later pages wherever they are
+iterated, and a named or handed method wherever its taker calls it, so a listed line could go on excusing
+a call moved onto the loop; an exception is a change to the gate, in review.
 `run_on_stripe_threads` itself refuses a generator, coroutine or async generator function, and a result
 that is a coroutine, an async generator or an iterator from stripe-python, the builtins or `itertools`,
 any of which may hold a walk, and a case proves it. The real-tree case also checks that it read the
@@ -57,7 +61,9 @@ and fails unless eight of them run there at once, all on the Stripe threads and 
 context, with no default worker token held and an unrelated usage read answering. Its planted forms score
 each rule both ways and mark the rest. Gaps, which break the rule but pass, so review holds them: a
 result's methods other than its page methods, a resource class held in a variable or reached through
-`getattr`, a def handed by name that something also calls through another name or from another module, a
+`getattr`, a resource instance built from its class (`stripe.Subscription(sid).delete()`), the stripe
+module held in a name or a parameter's default, a def handed by name that something also calls through
+another name or from another module, a
 walk kept by a call used up in place that does not consume it (`itertools.tee`), an async page method
 (`next_page_async`), which holds no thread, a consumer's builtin name rebound, or a `join` or `deque`
 method, that keeps a walk lazy, and a callable named `run_on_stripe_threads` that is not the helper.
@@ -66,7 +72,8 @@ place: a walk held in a variable before a loop uses it up, a generator expressio
 consumer or looped over, a walk unpacked into a display (`[*walk]`), a search result's `next_page` field
 (a string) read as a page method, a Stripe method or def handed through `functools.partial(...)`, a def
 called in a handed lambda, a def handed through a variable or an attribute or defined in another module,
-and a walk handed to a function the scan does not know.
+a walk handed to a function the scan does not know, and a resource method that makes no request
+(`construct_from`), which belongs beside `stripe.Webhook`'s in the scan's exemptions.
 
 **Evidence**: E144's last-slice review on #1529, 2026-10-23, and its probe (E170); the fix in
 `backend/app/services/stripe_threads.py`, the five Stripe calls in `backend/app/routers/subscriptions.py`
