@@ -465,7 +465,13 @@ def get_or_cache_excerpt(
     filing: Filing,
     filing_text: Optional[str],
     sections: Optional[Dict[str, str]] = None,
+    *,
+    reuse_stored: bool = True,
+    persist: bool = True,
 ) -> Optional[str]:
+    # ``reuse_stored=False`` builds with the current extraction even when an excerpt is stored;
+    # ``persist=False`` returns the built excerpt without writing it (a forced run's finalize stores it
+    # with the summary it grounds). The defaults are the cache-and-reuse behaviour every other caller has.
     # ``sections`` (when provided) is section text parsed from the fetched primary document; it
     # lets us build a high-precision excerpt even when ``filing_text`` is empty (e.g. a cache-hit
     # path). We still need one of the two inputs to produce anything.
@@ -495,7 +501,7 @@ def get_or_cache_excerpt(
         )
         logger.info("Excerpt provenance: %s", json.dumps(metadata, sort_keys=True))
 
-    if cache and cache.critical_excerpt:
+    if reuse_stored and cache and cache.critical_excerpt:
         observe(cache.critical_excerpt, "legacy_cached_excerpt")
         return cache.critical_excerpt
 
@@ -516,13 +522,14 @@ def get_or_cache_excerpt(
         source = "regex_fallback"
         excerpt = openai_service.extract_critical_sections(filing_text or "", filing_type_key)
     if excerpt:
-        if cache is None:
-            cache = FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt)
-            db.add(cache)
-        else:
-            cache.critical_excerpt = excerpt
-        db.flush()
-        db.commit()
+        if persist:
+            if cache is None:
+                cache = FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt)
+                db.add(cache)
+            else:
+                cache.critical_excerpt = excerpt
+            db.flush()
+            db.commit()
         observe(excerpt, source)
     return excerpt
 
@@ -582,13 +589,16 @@ def _prepare_background_generation(filing_id: int, user_id: Optional[int], *, fo
 
 
 async def generate_summary_background(
-    filing_id: int, user_id: Optional[int], *, force_regenerate: bool = False
+    filing_id: int, user_id: Optional[int], *, force_regenerate: bool = False,
+    rebuild_excerpt: bool = False,
 ):
     """Background task to generate summary.
 
     ``force_regenerate=True`` (admin refresh-stale) skips the existing-summary short-circuit and
     threads the flag into the ONE orchestrator, which UPDATEs the stored row in place (preserving
     ``summaries.id`` so saved-summary bookmarks survive) under a keep-better quality gate.
+    ``rebuild_excerpt=True`` (a forced precompute) has that run build its excerpt with the current
+    extraction; the run stores it only with a summary it writes.
     """
 
     if not await run_in_threadpool(
@@ -616,6 +626,7 @@ async def generate_summary_background(
         telemetry_ctx={},
         emit_funnel_telemetry=False,
         force_regenerate=force_regenerate,
+        rebuild_excerpt=rebuild_excerpt,
     ):
         pass
     # With funnel telemetry suppressed for cron, this is the drain's ONLY per-filing signal in

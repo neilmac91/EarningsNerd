@@ -267,6 +267,7 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
                                 else None
                             ),
                             replace_risk_source=True,
+                            replace_excerpt=True,
                         )
                     session.commit()
                     return existing.id
@@ -301,6 +302,7 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
                         else None
                     ),
                     replace_risk_source=force_regenerate,
+                    replace_excerpt=force_regenerate,
                 )
 
             try:

@@ -7,11 +7,13 @@ bounded ``risk_source_text`` when excerpt extraction was unavailable. They carri
 this is the ONE copy so they can't drift while both paths live (the old path is flag-gated until
 the S1 soak completes).
 
-Excerpt is set only on a fresh row, or on an existing row that has none yet — an existing excerpt
-is never overwritten here. Deliberate excerpt recomputation/overwrite is owned by
-``summary_generation_service.get_or_cache_excerpt`` and is intentionally NOT routed through this
-helper (different semantics). A successful forced summary refresh explicitly replaces its bounded
-Risks source; an ordinary write fills that source only when absent. The caller commits.
+Excerpt is set on a fresh row, or on an existing row that has none yet, except that a forced run
+that writes its summary (``replace_excerpt``) replaces the stored excerpt with the one it built and
+was generated from, in the same commit: a forced run never stores its excerpt before then
+(``get_or_cache_excerpt(persist=False)``). An unforced run's excerpt is cached by
+``summary_generation_service.get_or_cache_excerpt`` when it is built. A successful forced summary
+refresh explicitly replaces its bounded Risks source; an ordinary write fills that source only when
+absent. The caller commits.
 """
 from typing import Any, Optional
 
@@ -29,6 +31,7 @@ def upsert_content_cache(
     sections_payload: Optional[Any],
     risk_source_text: Optional[str] = None,
     replace_risk_source: bool = False,
+    replace_excerpt: bool = False,
 ) -> None:
     """Attach or refresh application-owned fields on a filing's FilingContentCache row.
 
@@ -47,7 +50,7 @@ def upsert_content_cache(
                 )
             )
         else:
-            if excerpt and not cache.critical_excerpt:
+            if excerpt and (replace_excerpt or not cache.critical_excerpt):
                 cache.critical_excerpt = excerpt
             if risk_source_text and (replace_risk_source or not cache.risk_source_text):
                 cache.risk_source_text = risk_source_text

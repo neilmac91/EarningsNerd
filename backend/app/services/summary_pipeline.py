@@ -401,6 +401,7 @@ async def stream_filing_summary(
     force_regenerate: bool = False,
     replace_unready_only: bool = False,
     refresh_xbrl: bool = False,
+    rebuild_excerpt: bool = False,
     request_evidence: SummaryRequestEvidence | None = None,
 ) -> AsyncIterator[dict]:
     """Run the summary pipeline for ``filing_id``, yielding event dicts.
@@ -428,6 +429,11 @@ async def stream_filing_summary(
     on the snapshot; one still running when the enrichment join times out is cancelled, and the run
     generates without XBRL (the snapshot stays). ``force_regenerate`` alone (the refresh-stale drains,
     every background caller) reads the snapshot.
+
+    A ``force_regenerate`` run keeps the excerpt it builds to itself: finalize stores it in the commit
+    that writes the summary, and a run keep-better keeps, or one that fails, stores none, so the
+    stored excerpt changes only with the summary it grounds. ``rebuild_excerpt`` (set only by a forced
+    precompute) builds that excerpt with the current extraction instead of reusing a stored one.
     """
     run = generation_run.GenerationRun(
         filing_id=filing_id,
@@ -440,6 +446,7 @@ async def stream_filing_summary(
         force_regenerate=force_regenerate,
         replace_unready_only=replace_unready_only,
         refresh_xbrl=refresh_xbrl,
+        rebuild_excerpt=rebuild_excerpt,
         request_evidence=request_evidence,
     )
     run.emit_funnel(
