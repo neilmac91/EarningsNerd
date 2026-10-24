@@ -12,6 +12,13 @@ from fastapi.testclient import TestClient
 
 from main import app
 from app.routers.auth import get_current_user
+from app.services import legal_readiness_service
+
+
+@pytest.fixture(autouse=True)
+def invitation_ready(collection_ready, monkeypatch):
+    # Preserve the dormant invite lifecycle contract; new readiness tests exercise the real hold.
+    monkeypatch.setattr(legal_readiness_service, "is_marketing_available", lambda: True)
 
 
 @pytest.fixture(scope="module")

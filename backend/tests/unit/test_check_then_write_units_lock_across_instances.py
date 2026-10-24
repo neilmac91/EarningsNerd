@@ -22,6 +22,7 @@ import re
 from typing import NamedTuple
 
 import pytest
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import sessionmaker
@@ -29,6 +30,9 @@ from sqlalchemy.orm import sessionmaker
 from app import database
 from app.models import Base, Company, User, WaitlistSignup, Watchlist
 from app.services import earnings_alert_service, waitlist_service, watchlist_service
+
+# Exercise existing collection behavior with an explicitly published synthetic operator notice.
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 # Apart from the company ids, so a lock taken by a company's id in place of the account's fails.
 USER_ID = 1000

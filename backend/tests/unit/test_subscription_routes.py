@@ -39,13 +39,16 @@ from app.config import settings
 from app.database import Base, SessionLocal, engine, get_db
 from app.models import Subscription, User
 from app.routers.auth import get_current_user
+from app.services import legal_readiness_service
 from main import app
 
 PERIOD_END = datetime(2030, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
 
 
 @pytest.fixture(autouse=True)
-def _tables():
+def _tables(monkeypatch):
+    # Exercise the existing billing contracts behind the separately tested launch hold.
+    monkeypatch.setattr(legal_readiness_service, "is_checkout_available", lambda: True)
     Base.metadata.create_all(bind=engine)
 
 

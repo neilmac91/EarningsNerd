@@ -40,6 +40,7 @@ token write and the deletion's own row delete would wait on each other until Pos
 writer that waits out a deletion finds its token, or a login or change the account, gone and writes
 nothing.
 """
+import asyncio
 import os
 import threading
 import time
@@ -48,14 +49,17 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 import pytest
+from starlette.requests import Request
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 from app.database import Base, SessionLocal
-from app.models import RefreshToken, User
-from app.services import auth_account_service, user_account_service
+from app.models import OAuthState, RefreshToken, User
+from app.routers import auth as auth_module
+from app.services import auth_account_service, oauth_account_service, user_account_service
+from app.services.account_agreement_service import accept_current_agreement
 from app.services import refresh_token_service as tokens
 
 HANG_GUARD_S = 5.0  # a passing case never waits for it
@@ -109,6 +113,114 @@ def _stored_hashes(engine) -> list[str]:
     """Every account's password hash; a case's schema holds one account."""
     with _session(engine) as db:
         return [user.hashed_password for user in db.query(User)]
+
+
+@pytest.mark.parametrize("provider", ("google", "apple"))
+def test_overlapping_oauth_callbacks_consume_signup_state_once(postgres_engine, provider):
+    """The first DELETE stays uncommitted until the second callback is observed waiting on its lock.
+
+    A SELECT-then-DELETE implementation can hand both consumers the same signup assent: the
+    second reads the still-visible row before waiting to delete it. Real PostgreSQL, production's
+    session options and a confirmed lock wait distinguish that bug from two sequential calls.
+    The actual callback also refuses missing/wrong browser binding before consuming the row.
+    """
+    state = f"oauth-race-{uuid.uuid4().hex}"
+    agreement = accept_current_agreement()
+    with _session(postgres_engine) as db:
+        if provider == "google":
+            oauth_account_service.save_google_state(db, state, None, agreement)
+        else:
+            oauth_account_service.save_apple_state(db, state, "synthetic-nonce", None, agreement)
+
+    cookie_name = auth_module._OAUTH_STATE_COOKIE if provider == "google" else auth_module._APPLE_STATE_COOKIE
+    for cookie in (None, f"{cookie_name}=wrong-browser-binding"):
+        request = Request({
+            "type": "http", "method": "GET" if provider == "google" else "POST",
+            "path": f"/api/auth/{provider}/callback",
+            "headers": [(b"cookie", cookie.encode())] if cookie else [],
+        })
+        with _session(postgres_engine) as db:
+            if provider == "google":
+                callback = auth_module.google_callback(
+                    request=request, db=db, code="synthetic-code", state=state, error=None,
+                )
+            else:
+                callback = auth_module.apple_callback(
+                    request=request, db=db, code=None, state=state,
+                    id_token="synthetic-token", user=None, error=None,
+                )
+            response = asyncio.run(callback)
+            assert response.status_code == 302
+            assert "error=oauth_state_mismatch" in response.headers["location"]
+            assert db.query(OAuthState).filter_by(state=state).count() == 1
+
+    role = threading.local()
+    first_deleted = threading.Event()
+    second_done = threading.Event()
+    second_pid: list[int] = []
+    released: list[str] = []
+    hung: list[str] = []
+
+    def after_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        if getattr(role, "name", None) == "first" and statement.startswith("DELETE FROM oauth_states"):
+            first_deleted.set()
+
+    def before_commit(_conn):
+        if getattr(role, "name", None) != "first":
+            return
+        # As in the refresh races, do not raise inside engine events: leave cleanup able to
+        # release the first transaction, and assert any hang only after both workers finish.
+        deadline = time.monotonic() + HANG_GUARD_S
+        while time.monotonic() < deadline:
+            if second_done.is_set():
+                released.append("done")
+                return
+            if second_pid:
+                with postgres_engine.connect() as probe:
+                    wait = probe.execute(
+                        text("SELECT wait_event_type FROM pg_stat_activity WHERE pid = :pid"),
+                        {"pid": second_pid[0]},
+                    ).scalar()
+                if wait == "Lock":
+                    released.append("blocked")
+                    return
+            time.sleep(0.01)
+        hung.append("the second state consumer to block or finish")
+
+    def consume(name):
+        role.name = name
+        try:
+            with _session(postgres_engine) as db:
+                if name == "second":
+                    if not first_deleted.wait(HANG_GUARD_S):
+                        hung.append("the first state consumer to delete the row")
+                        return None
+                    second_pid.append(db.execute(text("SELECT pg_backend_pid()")).scalar())
+                return oauth_account_service.consume_oauth_state(db, state)
+        finally:
+            if name == "second":
+                second_done.set()
+
+    event.listen(postgres_engine, "after_cursor_execute", after_statement)
+    event.listen(postgres_engine, "commit", before_commit)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(consume, "first")
+            second = pool.submit(consume, "second")
+            first_result = first.result(timeout=3 * HANG_GUARD_S)
+            second_result = second.result(timeout=3 * HANG_GUARD_S)
+    finally:
+        event.remove(postgres_engine, "after_cursor_execute", after_statement)
+        event.remove(postgres_engine, "commit", before_commit)
+
+    assert not hung, f"waited out the {HANG_GUARD_S} s hang guard for {hung}"
+    assert released == ["blocked"], "The consumers must actually overlap before the first commit"
+    assert first_result is not None
+    assert first_result[1:] == (None, agreement)
+    assert second_result is None
+    with _session(postgres_engine) as db:
+        assert db.query(OAuthState).filter_by(state=state).count() == 0
+        assert oauth_account_service.consume_oauth_state(db, state) is None
 
 
 def _live_tokens(engine, user_id: int) -> int:

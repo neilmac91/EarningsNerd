@@ -34,6 +34,8 @@ const accountConflict = (provider: 'Google' | 'Apple') =>
   `This email already has an EarningsNerd account, and the two could not be linked. Log in the way you created that account and verify your email. Once the email is verified on EarningsNerd and ${provider}, try ${provider} again.`
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  account_agreement_required: 'To create a new account, open the signup page and confirm your eligibility and the Terms. Existing accounts can still log in.',
+  registration_unavailable: 'New account registration is currently closed. Existing accounts can still log in.',
   google_denied: 'Google login was cancelled.',
   google_invalid: 'Google login failed. Please try again.',
   oauth_state_mismatch: 'Login session expired. Please try again.',

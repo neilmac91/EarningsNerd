@@ -1,3 +1,4 @@
+import { legalReady } from './fixtures/legalReady'
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
 import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
@@ -106,13 +107,15 @@ type Route = {
   oneRow?: boolean
 }
 
-/** A guest: the session check answers 401, so the header settles on its signed-out link; nothing else is served. */
+/** A guest: the session check answers 401; collection readiness is synthetic so the original open forms are measured. */
 async function answerGuest(page: Page, baseURL: string) {
   const cors = { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' }
   await page.route((url) => url.origin === API_ORIGIN, (route) =>
     new URL(route.request().url()).pathname === '/api/auth/me'
       ? route.fulfill({ status: 401, headers: cors, json: { detail: 'Not authenticated' } })
-      : route.fulfill({ status: 404, headers: cors, json: { detail: 'Not found' } }),
+      : new URL(route.request().url()).pathname === '/api/legal/readiness'
+        ? route.fulfill({ status: 200, headers: cors, json: legalReady })
+        : route.fulfill({ status: 404, headers: cors, json: { detail: 'Not found' } }),
   )
 }
 

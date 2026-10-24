@@ -109,3 +109,9 @@ describe('ContactForm success panel', () => {
     expect(screen.getByText('Thanks for your message. The aim is to reply within 2 business days.')).toBeInTheDocument()
   })
 })
+
+// These cases exercise the form after release; legalReadiness.spec.tsx holds the closed and stale gates.
+vi.mock('@/features/legal/hooks/useLegalReadiness', async () => {
+  const { readyLegalHook } = await import('./fixtures/legalReady')
+  return { useLegalReadiness: () => readyLegalHook }
+})

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.contact import ContactSubmissionCreate, ContactSubmissionResponse
-from app.services import filing_list_service
+from app.services import filing_list_service, legal_readiness_service
 from app.services.contact_submission_service import (
     ContactPersistenceError,
     persist_contact_submission,
@@ -71,6 +71,10 @@ async def submit_contact_form(
     - Stores the message in the database
     - Sends email notifications to admin and user
     """
+    # New prospect collection stays closed before CAPTCHA, persistence or notifications. Existing
+    # user support and privacy requests remain available through the published role inboxes.
+    if not legal_readiness_service.is_collection_available():
+        raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
     # Limiter first (cheap, local), then Turnstile (network) — same order as the waitlist route.
     enforce_rate_limit(request, CONTACT_LIMITER, "contact", error_detail=CONTACT_RATE_LIMIT_DETAIL)
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
@@ -97,6 +101,8 @@ async def submit_contact_form(
 
     try:
         saved = await run_in_threadpool(persist)
+    except legal_readiness_service.CollectionUnavailable:
+        raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE) from None
     except ContactPersistenceError as failure:
         e = failure.__cause__
         logger.error(f"Database error creating contact submission: {str(e)}")

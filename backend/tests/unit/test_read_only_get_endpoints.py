@@ -114,8 +114,8 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
         "the signed SameSite=None, Secure cookie separately binds it to the initiating browser"
     ),
     ("app/routers/auth.py", "google_login"): (
-        "shares _start_google with POST /google/start, whose save_google_state stores the OAuth state "
-        "row only for a live invite; the GET passes invite=None, so the reachable write never runs here"
+        "OAuth GET start commits a single-use state row, including plain existing-user login; "
+        "the callback requires this row and the initiating browser's state cookie"
     ),
     ("app/routers/auth.py", "google_callback"): (
         "OAuth redirect callback — the provider returns the user via GET by protocol; creates or "
@@ -164,7 +164,11 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
         "app/services/oauth_account_service.py::store_oauth_state": {"add": 1, "query.delete": 1},
     },
     ("app/routers/auth.py", "google_callback"): {
-        "app/services/oauth_account_service.py::consume_oauth_state": {"commit": 1, "delete": 1},
+        # DELETE RETURNING consumes state atomically; execute replaces the former ORM delete.
+        "app/services/oauth_account_service.py::consume_oauth_state": {"commit": 1, "execute": 1},
+        # The existing OIDC GET callback persists only explicit, versioned POST-start assent,
+        # atomically with new-account creation; it never invents assent during plain login.
+        "app/services/account_agreement_service.py::stage_account_agreement": {"add": 1},
         "app/services/oauth_account_service.py::oauth_create_account": {"add": 1, "flush": 1},
         "app/services/oauth_account_service.py::resolve_google_user": {"add": 1},
         "app/services/audit_service.py::create_audit_log": {"add": 1, "commit": 1},

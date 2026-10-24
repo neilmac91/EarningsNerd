@@ -12,6 +12,11 @@ import { describe, expect, it, vi } from 'vitest'
 const api = vi.hoisted(() => ({ joinWaitlist: vi.fn(), getWaitlistStats: vi.fn(() => Promise.reject(new Error('offline'))) }))
 vi.mock('next/font/local', () => ({ default: () => ({ variable: '' }) }))
 vi.mock('@/features/waitlist/api/waitlist-api', () => api)
+// Preserve the original open/joined layout cases; legalReadiness.spec.tsx covers collection closure.
+vi.mock('@/features/legal/hooks/useLegalReadiness', async () => {
+  const { readyLegalHook } = await import('./fixtures/legalReady')
+  return { useLegalReadiness: () => readyLegalHook }
+})
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams() }))
 vi.mock('@/lib/analytics', () => ({ default: { exampleCtaClicked: vi.fn() } }))
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({

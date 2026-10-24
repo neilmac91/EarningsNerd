@@ -13,7 +13,7 @@ from app.models import User
 from app.routers.auth import get_current_user
 from app.config import settings
 from starlette.concurrency import run_in_threadpool
-from app.services import billing_account_service, filing_list_service
+from app.services import billing_account_service, filing_list_service, legal_readiness_service
 from app.services.billing_serving_prices import serving_pro_prices
 from app.services.subscription_webhook_service import process_stripe_event, SubscriptionEventBusy
 from app.services.stripe_subscription_reader import SubscriptionReconciliationUnavailable
@@ -230,6 +230,11 @@ async def create_checkout_session(
     sub in-app while Stripe keeps charging it (staff review, PR #619).
     """
     account = await run_in_threadpool(_read_checkout_account, db, current_user)
+    if not legal_readiness_service.is_checkout_available():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="New subscriptions are not available yet. You can still manage existing billing in Settings.",
+        )
     if not account.email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

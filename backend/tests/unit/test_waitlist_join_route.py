@@ -9,6 +9,7 @@ import logging
 import uuid
 
 import pytest
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -19,6 +20,9 @@ from app.database import Base, get_db
 from app.models import WaitlistSignup
 from app.routers import watchlist as watchlist_router
 from app.services import turnstile, waitlist_service
+
+# Exercise existing collection behavior with an explicitly published synthetic operator notice.
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 
 def _email() -> str:
