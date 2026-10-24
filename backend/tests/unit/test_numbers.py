@@ -12,6 +12,7 @@ import hashlib
 import itertools
 import math
 import sys
+import time
 from decimal import Decimal
 
 import pytest
@@ -169,8 +170,15 @@ def test_every_currency_a_money_label_can_carry_parses_and_names_its_code():
     comes from its XBRL units, so the display parser and the exact-delta currency reader read every
     ISO 4217 currency it can write. Before the full list, an AED, SAR or ILS figure parsed to
     nothing and its row stored no change figure. The list itself is pinned, so dropping a code fails
-    here as well as one that stops reading."""
-    from app.utils.numbers import ISO_4217_CURRENCIES, display_currency, money_prefix_for, parse_display_number
+    here as well as one that stops reading. The SEC-verified chip reads a cell scalar by scalar
+    (``display_scalars``), so each label must read the same way inside a longer cell."""
+    from app.utils.numbers import (
+        ISO_4217_CURRENCIES,
+        display_currency,
+        display_scalars,
+        money_prefix_for,
+        parse_display_number,
+    )
 
     codes = " ".join(sorted(ISO_4217_CURRENCIES))
     assert (len(ISO_4217_CURRENCIES), hashlib.sha256(codes.encode()).hexdigest()) == (
@@ -180,6 +188,8 @@ def test_every_currency_a_money_label_can_carry_parses_and_names_its_code():
         label = f"{money_prefix_for(code)}30.6B"
         assert parse_display_number(label) == (Decimal("30600000000"), False), label
         assert display_currency(label) == (True, code), label
+        assert display_scalars(label) == [(label, True, code)], label
+        assert [s[1:] for s in display_scalars(f"{label}, up 8.3%")] == [(True, code), (False, None)], label
 
     # A code reads in capitals, as money_prefix_for writes it, so a word never reads as a currency.
     # The 21 codes the parser read before the full list still read in any case.
@@ -187,6 +197,8 @@ def test_every_currency_a_money_label_can_carry_parses_and_names_its_code():
         assert parse_display_number(text) == (None, False), text
     assert parse_display_number("usd 5m") == (Decimal("5000000"), False)
     assert display_currency("top 5 segments") == (False, None)
+    for text in ["aed 30.6B", "top 5 segments"]:
+        assert [s[1:] for s in display_scalars(text)] == [(False, None)], text
 
 
 @pytest.mark.parametrize("text, named", [
@@ -334,3 +346,24 @@ def test_a_long_run_of_spaces_is_refused(hostile):
 
     assert parse_display_number(hostile) == (None, False)
     assert display_currency(hostile) == (False, None)
+
+
+@pytest.mark.parametrize("hostile, expected", [
+    ("-" + " " * 100_000 + "Q", []),
+    ("$" * 10_000, []),
+    ("1," * 5_000, [("1", False, None)] * 5_000),
+    (("US$ (" + " " * 20) * 400, []),
+    (("AED(-" + "\t" * 5) * 1_000, []),
+], ids=["sign-then-100k-spaces", "10k-dollar-signs", "10k-grouped-ones", "prefix-paren-spaces-10k", "code-paren-sign-tabs-10k"])
+def test_a_hostile_cell_is_read_scalar_by_scalar_in_linear_time(hostile, expected):
+    """``display_scalars`` searches the whole cell, so it tries the grammar at every position. It
+    collapses each whitespace run first: a possessive run refuses at once from one start, but a
+    search starting inside a long run would scan the rest of it from every position. The bound is
+    generous; a quadratic read of these cells takes far longer."""
+    from app.utils.numbers import display_scalars
+
+    started = time.perf_counter()
+    scalars = display_scalars(hostile)
+    elapsed = time.perf_counter() - started
+    assert scalars == expected
+    assert elapsed < 2.0, f"{elapsed:.2f}s"

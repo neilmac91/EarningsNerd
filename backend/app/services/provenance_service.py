@@ -25,6 +25,7 @@ from app.services import metric_delta_service
 from app.services.ai.recovery_context import clean_filing_source
 from app.services.summary_schema import RISK_SOURCE_CONTEXT_KEY, RISK_SOURCE_CONTEXT_VERSION
 from app.services.summary_sections import render_sections, render_sections_json, sections_to_markdown
+from app.utils.numbers import display_scalars
 
 # An excerpt shorter than this (after normalization) is too generic to verify reliably, so we never
 # claim it as "verified in filing".
@@ -485,6 +486,34 @@ def _value_appears_in_text(value: float, text_lower: str) -> bool:
     return any(c in text_lower for c in candidates if len(c.replace(",", "")) >= 2)
 
 
+def _fact_currency(entry: Any, xbrl_standardized: dict) -> str:
+    """The ISO code of the matched fact: its own point's currency, else the filing's
+    ``reporting_currency``, else USD, the backend's domestic default for XBRL that names none (the
+    figure ``money_prefix_for(None)`` labels "$"). Only a three-letter alphabetic code counts."""
+    current = entry.get("current") if isinstance(entry, dict) else None
+    for raw in ((current or {}).get("currency"), xbrl_standardized.get("reporting_currency")):
+        if isinstance(raw, str) and len(raw.strip()) == 3 and raw.strip().isalpha():
+            return raw.strip().upper()
+    return "USD"
+
+
+def _labelled_in(value: float, shown: str, currency: str) -> bool:
+    """Whether the cell ``shown`` labels ``value`` in ``currency``, or labels nothing against it.
+
+    The cell is read scalar by scalar with the display grammar, in its own case (``display_scalars``).
+    A scalar that renders the value and names ``currency`` agrees. When every scalar that renders it
+    names another code, or a bare "¥", which names none (the exact-delta binder refuses it too), the
+    cell disagrees. Otherwise the figure is unlabelled, and it agrees unless another scalar in the
+    cell names a different currency."""
+    scalars = display_scalars(shown)
+    rendering = [s for s in scalars if _value_appears_in_text(value, s[0].lower())]
+    if any(named and code == currency for _t, named, code in rendering):
+        return True
+    if rendering and all(named for _t, named, _c in rendering):
+        return False
+    return not any(named and code != currency for _t, named, code in scalars)
+
+
 def build_metric_source(
     metric_row: dict[str, Any],
     filing: Any,
@@ -495,10 +524,13 @@ def build_metric_source(
 
     Returns ``{source_section_ref, source_url, source_verified, source_checkable, xbrl_concept}``.
     ``source_verified`` is True only when the metric maps to a standardized XBRL concept whose
-    SEC-verified value (a large dollar figure) actually appears in the row's ``current_period``
-    rendering. ``source_checkable`` says the check could run at all (a mapped concept with a value of
-    at least ``_MIN_VERIFIABLE_XBRL_VALUE``): per-share figures, ratios, margins and segment lines are
-    never checked, so a tally of matched figures counts its denominator from these rows only.
+    SEC-verified value (a large money figure) actually appears in the row's ``current_period``
+    rendering, in the fact's currency (:func:`_fact_currency`): the figure's own label names that
+    currency, or the cell names no currency at all (:func:`_labelled_in`). ``source_checkable`` says
+    the check could run at all (a mapped concept with a value of at least
+    ``_MIN_VERIFIABLE_XBRL_VALUE``): per-share figures, ratios, margins and segment lines are never
+    checked, so a tally of matched figures counts its denominator from these rows only. A figure
+    labelled in another currency is checked and not matched.
     """
     base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
     out: dict[str, Any] = {
@@ -520,8 +552,11 @@ def build_metric_source(
         return out
 
     out["source_checkable"] = True
-    displayed = str(metric_row.get("current_period") or "").lower()
-    if _value_appears_in_text(float(value), displayed):
+    # The label is read from the cell as written: capitals-only ISO codes ("AED") read only in capitals.
+    shown = str(metric_row.get("current_period") or "")
+    if _value_appears_in_text(float(value), shown.lower()) and _labelled_in(
+        float(value), shown, _fact_currency(entry, xbrl_standardized)
+    ):
         out["source_verified"] = True
         out["xbrl_concept"] = label
     return out
@@ -651,9 +686,9 @@ def enrich_financial_highlights(
     net for summaries generated before the generation-time guard shipped, a conflated ``revenue`` row
     is dropped for a no-total bank (:func:`_is_no_total_bank`) so a wrong figure never renders.
 
-    ``build_metric_source`` verifies the row's NUMBER against SEC XBRL (the ``source_*``/``xbrl_concept``
-    chip). Distinct from that, when ``normalized_source`` is supplied (the v2 path), the row's
-    Investor-Takeaway is cited too: its model ``supporting_evidence`` excerpt is text-verified into a
+    ``build_metric_source`` verifies the row's NUMBER against SEC XBRL, in the matched fact's currency
+    (the ``source_*``/``xbrl_concept`` chip). Distinct from that, when ``normalized_source`` is
+    supplied (the v2 path), the row's Investor-Takeaway is cited too: its model ``supporting_evidence`` excerpt is text-verified into a
     separate ``commentary_evidence`` dict (T4.2 — the founder's direct ask), so the number and the
     takeaway carry independent, honestly-labeled provenance.
     """

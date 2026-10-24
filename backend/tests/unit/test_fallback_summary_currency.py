@@ -161,8 +161,8 @@ def test_the_primary_path_backfill_labels_a_blank_prior_in_the_filer_currency():
 
 
 def test_the_read_path_verifies_the_relabelled_figure():
-    """GET /api/summaries/filing/{id} matches the number only; the verified chip now sits on a figure
-    whose label is the filer's own currency."""
+    """GET /api/summaries/filing/{id} verifies the number in the matched fact's currency, so the
+    verified chip sits on the fallback's figure because its label is the filer's own currency."""
     metrics = _metrics("CNY")
     row = generate_xbrl_summary(metrics, "Example FPI Ltd", filing_type="20-F")["financial_highlights"]["table"][0]
     filing = SimpleNamespace(document_url="https://www.sec.gov/Archives/edgar/data/1/000000000025000001/",

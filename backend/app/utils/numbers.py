@@ -118,6 +118,19 @@ def display_currency(value: object) -> tuple[bool, Optional[str]]:
     return True, _PREFIX_CURRENCY.get(token.upper(), token.upper())
 
 
+def display_scalars(value: object) -> list[tuple[str, bool, Optional[str]]]:
+    """Each scalar the display grammar finds anywhere in ``value``, with :func:`display_currency`'s
+    reading of it: ``(text, names_a_currency, code)``. "RMB 941.2B (≈US$130.4B)" holds two, so a
+    reader can ask which scalar renders a figure and what that scalar names. It reads in the cell's
+    own case, as the parser does, so a capitals-only code ("AED") names its currency only in
+    capitals. Each whitespace run is collapsed to one space first: a search tries the grammar at
+    every position, and a start inside a long run would scan the rest of it each time."""
+    if not isinstance(value, str):
+        return []
+    text = " ".join(value.split())
+    return [(m.group(0), *display_currency(m.group(0))) for m in _DISPLAY_SCALAR.finditer(text)]
+
+
 def money_prefix_for(reporting_currency: object) -> str:
     """The label for a money figure in the filer's reporting currency: a bare "$" for USD (or no
     currency, the backend's domestic default), else the ISO code and a space ("EUR 30.6B", "CNY 941.2B").

@@ -361,6 +361,132 @@ class TestBuildMetricSource:
         assert out["source_checkable"] is False
 
 
+CNY_REVENUE = 941_168_000_000.0
+USD_REVENUE = 391_035_000_000.0
+BANK_NII = 95_443_000_000.0
+
+
+def _revenue_facts(value, point_currency, reporting_currency):
+    """Standardized metrics whose revenue point carries ``point_currency`` (None leaves it off, as the
+    statement path does) on a filing whose ``reporting_currency`` is ``reporting_currency``."""
+    current = {"value": value, "period": "2025-03-31"}
+    if point_currency is not None:
+        current["currency"] = point_currency
+    metrics = {"revenue": {"current": current}}
+    if reporting_currency is not None:
+        metrics["reporting_currency"] = reporting_currency
+    return metrics
+
+
+class TestBuildMetricSourceCurrency:
+    """The chip verifies a figure only in the matched fact's currency (F61 call 1).
+
+    The fact's currency is its own point's, else the filing's ``reporting_currency``, else USD, the
+    backend's domestic default (``money_prefix_for(None)`` writes "$"). The cell's label is read with
+    the display grammar, scalar by scalar and in the cell's own case. A cell that names no currency
+    still verifies on its number alone. A refused row stays checkable, so the tally counts it.
+    """
+
+    @pytest.mark.parametrize("value, point, reporting, cell", [
+        pytest.param(CNY_REVENUE, "CNY", "CNY", "$941.2B", id="cny-fact-in-dollars"),
+        pytest.param(CNY_REVENUE, "CNY", "CNY", "US$941.2B", id="cny-fact-in-us-dollars"),
+        pytest.param(CNY_REVENUE, "USD", "USD", "CNY 941.2B", id="usd-fact-in-cny"),
+        pytest.param(USD_REVENUE, "USD", "USD", "CNY 391.0B", id="usd-fact-in-cny-391"),
+        pytest.param(USD_REVENUE, "USD", "USD", "RMB 391.0B", id="usd-fact-in-rmb"),
+        # The point names no currency, so the filing's reporting currency decides.
+        pytest.param(CNY_REVENUE, None, "CNY", "$941.2B", id="filing-cny-in-dollars"),
+        # Nothing names one, so the domestic default (USD) decides.
+        pytest.param(CNY_REVENUE, None, None, "CNY 941.2B", id="unknown-in-cny"),
+        # A bare "¥" is JPY or CNY, so it names no code; the exact-delta binder refuses it the same way.
+        pytest.param(CNY_REVENUE, "CNY", "CNY", "¥941.2B", id="cny-fact-in-bare-yen"),
+        # Not one scalar, so the whole-cell reader names nothing; the scalar that renders it says "$".
+        pytest.param(CNY_REVENUE, "CNY", "CNY", "$941.2 billion, up 8.3%", id="cny-fact-in-dollar-prose"),
+        # AED reads in capitals only, so a lowercased cell would read it as unlabelled.
+        pytest.param(CNY_REVENUE, "USD", "USD", "AED 941.2B", id="usd-fact-in-capital-only-code"),
+        # The rendering figure is unlabelled, and the only label in the cell is another currency's.
+        pytest.param(CNY_REVENUE, "CNY", "CNY", "941.2B, or US$130.4B", id="unlabelled-beside-dollars"),
+    ])
+    def test_a_figure_labelled_in_another_currency_is_checked_but_never_verified(
+        self, value, point, reporting, cell
+    ):
+        row = {"metric": "Revenue", "current_period": cell}
+        out = prov.build_metric_source(row, _filing(), _revenue_facts(value, point, reporting), None)
+        assert (out["source_checkable"], out["source_verified"], out["xbrl_concept"]) == (True, False, None)
+
+    @pytest.mark.parametrize("value, point, reporting, cell", [
+        pytest.param(CNY_REVENUE, "CNY", "CNY", "CNY 941.2B", id="cny-in-cny"),
+        pytest.param(CNY_REVENUE, "CNY", "CNY", "RMB 941.2B", id="cny-in-rmb"),
+        pytest.param(CNY_REVENUE, "CNY", "CNY", "RMB 941.2B (≈US$130.4B, convenience translation)",
+                     id="cny-with-labelled-convenience"),
+        pytest.param(CNY_REVENUE, "CNY", "CNY", "941.2B", id="cny-unlabelled"),
+        pytest.param(CNY_REVENUE, None, "CNY", "CNY 941.2B", id="filing-cny-in-cny"),
+        pytest.param(USD_REVENUE, "USD", "USD", "$391.0B", id="usd-in-dollars"),
+        pytest.param(USD_REVENUE, "USD", "USD", "US$391.0B", id="usd-in-us-dollars"),
+        pytest.param(USD_REVENUE, "usd", None, "usd 391.0b", id="usd-in-lowercase-code"),
+        pytest.param(USD_REVENUE, None, None, "$391.0B", id="unknown-in-dollars"),
+        pytest.param(USD_REVENUE, None, None, "391.0B", id="unknown-unlabelled"),
+        # The statement-path bank cell (test_bank_component_coverage.py): a grouped figure and its date.
+        pytest.param(BANK_NII, None, "USD", "$95,443,000,000 (2025-12-31)", id="bank-grouped-with-date"),
+    ])
+    def test_a_figure_in_its_facts_currency_or_unlabelled_is_verified(self, value, point, reporting, cell):
+        row = {"metric": "Revenue", "current_period": cell}
+        out = prov.build_metric_source(row, _filing(), _revenue_facts(value, point, reporting), None)
+        assert (out["source_checkable"], out["source_verified"], out["xbrl_concept"]) == (True, True, "Revenue")
+
+    MATRIX = ["USD", "CNY", "EUR", "JPY", "AED"]
+
+    @pytest.mark.parametrize("label", MATRIX)
+    @pytest.mark.parametrize("fact", MATRIX)
+    def test_a_figure_is_sec_verified_only_in_its_facts_currency(self, fact, label):
+        """Rule 12 gate for "a figure is never SEC-verified in another currency": every fact currency
+        against every label ``money_prefix_for`` writes. Before the check all 25 were verified."""
+        from app.utils.numbers import money_prefix_for
+
+        cell = f"{money_prefix_for(label)}941.2B"
+        out = prov.build_metric_source(
+            {"metric": "Revenue", "current_period": cell}, _filing(), _revenue_facts(CNY_REVENUE, fact, fact), None
+        )
+        assert out["source_checkable"] is True
+        assert out["source_verified"] is (fact == label), cell
+
+
+def test_the_summary_read_verifies_a_cny_filings_figure_only_in_cny():
+    """``GET /api/summaries/filing/{id}`` builds the chip from the filing's stored XBRL, whose points
+    carry their currency: a CNY filing's "$941.2B" revenue row is checked but not verified, and its
+    "CNY 941.2B" row is verified."""
+    from fastapi.testclient import TestClient
+
+    from app.database import SessionLocal
+    from app.models import Filing, Summary
+    from main import app
+    from tests.support.summary_stream_harness import seed_company_filing
+
+    xbrl = {"reporting_currency": "CNY", "revenue": [{
+        "period": "2025-03-31", "start": "2024-04-01", "value": CNY_REVENUE, "currency": "CNY",
+        "form": "20-F", "fy": 2025, "fp": "FY", "accn": "stored",
+    }]}
+    filings = {}
+    for cell in ("$941.2B", "CNY 941.2B"):
+        filing_id = seed_company_filing(filing_type="20-F")
+        with SessionLocal() as db:
+            db.get(Filing, filing_id).xbrl_data = xbrl
+            db.add(Summary(filing_id=filing_id, business_overview="Stored analysis.", raw_summary={"sections": {}},
+                           financial_highlights={"table": [
+                               {"metric": "Revenue", "current_period": cell, "prior_period": "", "commentary": "x"}]}))
+            db.commit()
+        filings[cell] = filing_id
+
+    with TestClient(app) as client:
+        rows = {cell: client.get(f"/api/summaries/filing/{filing_id}").json()["financial_highlights"]["table"][0]
+                for cell, filing_id in filings.items()}
+
+    def chip(row):
+        return row["current_period"], row["source_checkable"], row["source_verified"], row["xbrl_concept"]
+
+    assert chip(rows["$941.2B"]) == ("$941.2B", True, False, None)
+    assert chip(rows["CNY 941.2B"]) == ("CNY 941.2B", True, True, "Revenue")
+
+
 class TestEnrichFinancialHighlights:
     XBRL = {"revenue": {"current": {"value": 391035000000.0}}}
 
