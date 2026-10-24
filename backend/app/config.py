@@ -40,9 +40,10 @@ class Settings(BaseSettings):
     # EDGAR full-text search (EFTS) — searches filing/exhibit text since 2001, keyless.
     SEC_EFTS_BASE_URL: str = "https://efts.sec.gov/LATEST/search-index"
     SEC_EFTS_TIMEOUT_SECONDS: float = 8.0
-    # Historical filings backfill (P1-6): deep 10-K/10-Q history via EFTS windowed listings. Each
-    # window is one query-less page-0 request (EFTS 500s on from>0 for query-less searches), sized
-    # to keep a company's per-window hit count under the ~100 page cap.
+    # Historical filings backfill (P1-6): deep 10-K/10-Q history, and 20-F/40-F behind
+    # ENABLE_FPI_FILINGS, via EFTS windowed listings. Each window is one query-less page-0 request
+    # (EFTS 500s on from>0 for query-less searches), sized to keep a company's per-window hit count
+    # under the ~100 page cap.
     HISTORY_BACKFILL_SINCE_YEAR: int = 2001  # EFTS full-text index begins in 2001
     HISTORY_BACKFILL_WINDOW_YEARS: int = 8   # ~3-4 windows since 2001; ~32 hits/window worst case
     HISTORY_BACKFILL_MAX_COMPANIES: int = 50  # cap per batch-job run
