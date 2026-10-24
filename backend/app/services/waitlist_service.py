@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import WaitlistSignup
+from app.services.legal_readiness_service import require_collection_available
 
 
 REFERRAL_CODE_LENGTH = 8
@@ -172,6 +173,7 @@ def create_signup(
     ``WaitlistAlreadyJoined`` like the up-front check does. Joins in one process run one at a time
     (``_join_lock``), and across instances under the waitlist's place lock (``_lock_waitlist_places``).
     """
+    require_collection_available()
     with _join_lock:
         return _create_signup(
             db, email=email, name=name, referral_code=referral_code, source=source,

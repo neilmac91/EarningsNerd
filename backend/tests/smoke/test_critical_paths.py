@@ -24,6 +24,7 @@ Note:
 """
 
 import pytest
+from tests.support.account_agreement import ACCOUNT_AGREEMENT
 import json
 import threading
 from fastapi.testclient import TestClient
@@ -209,7 +210,7 @@ class TestAuthEndpoints:
     def test_register_endpoint_exists(self, client):
         """Registration endpoint should exist and validate input."""
         # Send invalid data to test endpoint exists
-        response = client.post("/api/auth/register", json={})
+        response = client.post("/api/auth/register", json={**ACCOUNT_AGREEMENT, })
         # Should return 422 (validation error) not 404 or 500
         assert response.status_code == 422
 
@@ -337,7 +338,7 @@ class TestCORS:
 
 
 # Marker for smoke tests
-pytestmark = pytest.mark.smoke
+pytestmark = [pytest.mark.smoke, pytest.mark.usefixtures("collection_ready")]
 
 
 class TestAnalysisEndpoints:

@@ -36,6 +36,8 @@ from unittest.mock import AsyncMock
 
 import bcrypt
 import pytest
+from tests.support.account_agreement import ACCOUNT_AGREEMENT
+
 from fastapi.testclient import TestClient
 from sqlalchemy import event
 from sqlalchemy.orm.attributes import set_committed_value
@@ -48,6 +50,8 @@ from app.routers.auth import create_access_token
 from app.services import auth_account_service, password_utils, pwned_passwords
 from app.services.password_utils import get_password_hash, validate_password_strength, verify_password
 from tests.support.summary_stream_harness import reset_rate_limiters
+
+pytestmark = pytest.mark.usefixtures("collection_ready")
 
 ASCII_87 = "correct horse battery staple " * 3  # 87 chars, 87 bytes  # gitleaks:allow
 CYRILLIC_42 = "пароль" * 7  # 42 chars, 84 bytes  # gitleaks:allow
@@ -150,7 +154,7 @@ def test_a_hash_bcrypt4_made_from_a_long_password_still_verifies(password):
 @LONG_PASSWORDS
 def test_register_accepts_a_long_password_and_login_takes_it(client, password):
     email = _email()
-    resp = client.post("/api/auth/register", json={"email": email, "password": password})
+    resp = client.post("/api/auth/register", json={**ACCOUNT_AGREEMENT, "email": email, "password": password})
     assert resp.status_code == 200, resp.text
     assert _login(client, email, password).status_code == 200
 
@@ -338,7 +342,7 @@ def test_register_refuses_a_breached_bcrypt_prefix_behind_an_unlisted_tail(clien
     range_api({BREACHED_72})
     resp = client.post(
         "/api/auth/register",
-        json={"email": _email(), "password": BREACHED_72 + " and a tail nobody listed"},
+        json={**ACCOUNT_AGREEMENT, "email": _email(), "password": BREACHED_72 + " and a tail nobody listed"},
     )
     assert resp.status_code == 400, resp.text
     assert "known data breach" in resp.json()["detail"]

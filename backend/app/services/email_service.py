@@ -4,7 +4,12 @@ import html
 import re
 
 from app.config import settings
+from app.services import legal_readiness_service
 from app.services.resend_service import send_email
+
+
+class PromotionalMailUnavailable(RuntimeError):
+    """Invitation delivery remains closed until marketing permission controls are available."""
 
 # Every character str.splitlines breaks a line at: a name's run of them becomes one space (_greeting_text).
 _LINE_SEPARATORS = re.compile("[\n\v\f\r\x1c-\x1e\x85\u2028\u2029]+")
@@ -273,29 +278,19 @@ def render_welcome_email(
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">You're on the EarningsNerd waitlist.</p>
     <p style="margin:0 0 16px;">Your current position: <strong>#{position}</strong></p>
-    <p style="margin:0 0 20px;">
-      Share your referral link to move up the list. Each successful referral bumps you up <strong>5 spots</strong>.
-    </p>
-    <p style="margin:0 0 20px;{_BREAK_ANYWHERE}">
-      <a href="{referral_link}" style="color:#3C6650;">{referral_link}</a>
-    </p>
     <p style="margin:0 0 24px;">
       Please verify your email to secure your place:
       <a href="{verification_link}" style="color:#3C6650;font-weight:600;">Verify email</a>
     </p>
-    <p style="margin:0;">We'll keep you posted as we open up access.</p>
     """
     text_body = (
         f"{_greeting_text(name)}\n\n"
         "You're on the EarningsNerd waitlist.\n"
         f"Your current position: #{position}\n\n"
-        "Share your referral link to move up the list. Each successful referral bumps you up 5 spots.\n"
-        f"{referral_link}\n\n"
         "Please verify your email to secure your place:\n"
-        f"Verify email: {verification_link}\n\n"
-        "We'll keep you posted as we open up access."
+        f"Verify email: {verification_link}"
     )
-    preheader = f"You're number {position} on the list. Share your referral link to move up."
+    preheader = f"You're number {position} on the waitlist. Verify your email to secure your place."
     return _wrap_html(html_body, footer=_WAITLIST_FOOTER, preheader=preheader), _wrap_text(text_body, _WAITLIST_FOOTER)
 
 
@@ -352,6 +347,8 @@ async def send_referral_success_email(
     new_position: int,
     referral_link: str,
 ) -> None:
+    if not legal_readiness_service.is_marketing_available():
+        return None
     page, text = render_referral_success_email(
         name=name,
         new_position=new_position,
@@ -397,26 +394,28 @@ async def send_invite_email(
     magic_link: str,
     name: str | None = None,
 ) -> None:
-    """Closed-beta invite: a single-use magic link granting full Pro, no card required."""
+    """Account invitation, held until permission and suppression controls permit delivery."""
+    if not legal_readiness_service.is_marketing_available():
+        raise PromotionalMailUnavailable("Invitation email delivery is currently unavailable.")
     greeting = _greeting(name)
-    invite_footer = "You're receiving this because you were invited to the EarningsNerd private beta."
+    invite_footer = "You're receiving this because you were invited to create an EarningsNerd account."
     html_body = f"""
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
-    <p style="margin:0 0 16px;">You're invited to the EarningsNerd private beta. Full Pro access, on us.</p>
+    <p style="margin:0 0 16px;">You're invited to create an EarningsNerd account.</p>
     <p style="margin:0 0 24px;">
       <a href="{magic_link}" style="display:inline-block;background-color:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Accept your invite</a>
     </p>
-    <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">This is a single-use invite link. No credit card required.</p>
+    <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">This is a single-use invite link. Review the account requirements when you sign up.</p>
     <p style="margin:0;font-size:12px;color:#6B7280;{_BREAK_ANYWHERE}">Can&apos;t click the button? Copy this link:<br>{magic_link}</p>
     """
     text_body = (
-        f"{_greeting_text(name)}\n\nYou're invited to the EarningsNerd private beta. Full Pro access, on us.\n\n"
-        f"Accept your invite: {magic_link}\n\nThis is a single-use invite link. No credit card required."
+        f"{_greeting_text(name)}\n\nYou're invited to create an EarningsNerd account.\n\n"
+        f"Accept your invite: {magic_link}\n\nThis is a single-use invite link. Review the account requirements when you sign up."
     )
-    preheader = "The private beta, with full Pro access and no card needed. The link works once."
+    preheader = "Your account invitation. Review the requirements when you sign up. The link works once."
     await send_email(
         to=[to_email],
-        subject="Your EarningsNerd beta invite",
+        subject="Your EarningsNerd account invitation",
         html=_wrap_html(html_body, invite_footer, preheader=preheader),
         text=_wrap_text(text_body, invite_footer),
     )

@@ -1648,6 +1648,7 @@ const FIGURE_FIELDS = new Set([
   'supporting_evidence', 'text', 'title',
 ])
 const WORD_FIELDS = new Set([
+  'legal_name', 'postal_address', 'country', 'contact_email', 'terms_version', 'eligibility_version',
   // Names.
   'name', 'company', 'companyName', 'company_name', 'full_name', 'insider_name', 'insider_title', 'speaker', 'ticker',
   'metric', 'label', 'reason_label', 'concept', 'concepts', 'xbrl_concept', 'raw_tag', 'form', 'forms', 'filing_type',

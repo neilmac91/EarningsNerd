@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from app.services import email_service
+from app.services import email_service, legal_readiness_service
 from app.services.email_service import (
     _greeting,
     _greeting_text,
@@ -103,6 +103,8 @@ def sent(monkeypatch):
         return {"id": "msg_test"}
 
     monkeypatch.setattr(email_service, "send_email", _record)
+    # Render dormant promotional templates too; the readiness suite proves they cannot dispatch.
+    monkeypatch.setattr(legal_readiness_service, "is_marketing_available", lambda: True)
     return mails
 
 

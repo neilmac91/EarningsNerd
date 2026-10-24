@@ -45,7 +45,15 @@ def start_enrichment_tasks(run: GenerationRun) -> None:
     if run.filing_type and run.filing_type.upper().split("/")[0] in {"10-K", "10-Q", "20-F"} and run.company_cik:
         async def fetch_xbrl():
             try:
-                data = await pipeline.xbrl_service.get_xbrl_data(run.filing_accession_number, run.company_cik)
+                if run.refresh_xbrl:
+                    # A Pro "Regenerate": look past the persisted snapshot. The service returns that
+                    # snapshot when the fetch comes back empty, so the write below never clears it, and
+                    # a run that ends before the write (or a fetch the join cancels) leaves it in place.
+                    data = await pipeline.xbrl_service.get_xbrl_data(
+                        run.filing_accession_number, run.company_cik, refresh=True
+                    )
+                else:
+                    data = await pipeline.xbrl_service.get_xbrl_data(run.filing_accession_number, run.company_cik)
                 if data:
                     metrics = pipeline.xbrl_service.extract_standardized_metrics(data)
 

@@ -37,7 +37,7 @@ export default function DashboardError({
 
   if (isAuthError) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
         <div className="w-full max-w-md">
           <GuidanceCard
             variant="error"
@@ -48,13 +48,13 @@ export default function DashboardError({
             action={<Button onClick={() => router.push('/login')}>Log in</Button>}
           />
         </div>
-      </div>
+      </main>
     )
   }
 
   // Generic Error UI
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
       <div className="w-full max-w-md">
         <GuidanceCard
           variant="error"
@@ -77,6 +77,6 @@ export default function DashboardError({
         </p>
 
       </div>
-    </div>
+    </main>
   )
 }

@@ -22,7 +22,7 @@ export default function GlobalError({
         // data face in the development detail below among them), and Inter's class.
         <html lang="en" className={`${inter.variable} ${geistMono.variable} ${inter.className}`}>
             <body>
-                <div className="flex min-h-screen flex-col items-center justify-center bg-background-light p-4 text-center dark:bg-background-dark">
+                <main className="flex min-h-screen flex-col items-center justify-center bg-background-light p-4 text-center dark:bg-background-dark">
                     <div className="mx-auto max-w-md space-y-4">
                         <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                             Something went wrong
@@ -57,7 +57,7 @@ export default function GlobalError({
                             </div>
                         )}
                     </div>
-                </div>
+                </main>
             </body>
         </html>
     )

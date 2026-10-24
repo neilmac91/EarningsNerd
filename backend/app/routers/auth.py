@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, StrictBool, StrictStr, field_validator, model_validator
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -24,6 +24,11 @@ from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.pwned_passwords import is_password_pwned
 from app.services.turnstile import enforce_turnstile
+from app.schemas.account_agreement import AccountAgreementInput
+from app.services.account_agreement_service import AcceptedAccountAgreement, accept_current_agreement
+from app.services.legal_readiness_service import (
+    CollectionUnavailable, is_checkout_available, require_collection_available,
+)
 from app.utils.text import has_control_characters
 from app.services import (
     account_mail_service,
@@ -75,7 +80,7 @@ RESET_RESEND_IP_LIMITER = RateLimiter(limit=20, window_seconds=3600)  # 20/hr pe
 # the service's two, and a flood costs that hour's reset and verification mail instead of the whole queue.
 # The same 429 answers every address.
 ACCOUNT_MAIL_LIMITER = RateLimiter(limit=60, window_seconds=3600)
-# OAuth starts persist a state row (always for Apple, for an invited Google sign-up): bound the
+# Every OAuth start persists a single-use state row: bound the
 # unauthenticated writers per IP. Sized for a person retrying a sign-in, not a script.
 OAUTH_START_LIMITER = RateLimiter(limit=20, window_seconds=60)
 # Per-account failed-login lockout is now durable + anti-enumeration (services/login_lockout,
@@ -100,7 +105,7 @@ _APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
 
 # ─── Pydantic schemas ─────────────────────────────────────────────────────────
 
-class UserCreate(BaseModel):
+class UserCreate(AccountAgreementInput):
     email: EmailStr
     password: str
     full_name: Optional[str] = Field(None, max_length=100)
@@ -152,6 +157,29 @@ class OAuthStartRequest(BaseModel):
     """Body of ``POST /api/auth/{google,apple}/start``. The invite travels in the body, never in a
     URL: request logs record query strings, and the raw token is a live single-use credential."""
     invite: Optional[str] = Field(None, max_length=128)
+    # Omitted together means an existing-account login. A signup must confirm every field;
+    # strict booleans refuse strings/numbers, and the shared input validates current versions.
+    adult_eligible: StrictBool | None = None
+    terms_accepted: StrictBool | None = None
+    terms_version: StrictStr | None = None
+    eligibility_version: StrictStr | None = None
+
+    @model_validator(mode="after")
+    def validate_signup_agreement(self) -> "OAuthStartRequest":
+        fields = set(AccountAgreementInput.model_fields)
+        if self.model_fields_set & fields:
+            AccountAgreementInput.model_validate(self.model_dump(include=fields))
+        return self
+
+    def accepted_agreement(self) -> AcceptedAccountAgreement | None:
+        return accept_current_agreement() if self.adult_eligible is True else None
+
+
+def _require_new_collection() -> None:
+    try:
+        require_collection_available()
+    except CollectionUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 class RefreshRequest(BaseModel):
@@ -534,8 +562,8 @@ _REGISTER_OPAQUE = {
 
 class RegistrationConfig(BaseModel):
     """Public read of the signup gate. `mode` mirrors settings.REGISTRATION_MODE; `beta_promo_enabled`
-    says whether the closed-beta 100%-off promo is configured (STRIPE_BETA_PROMO_CODE_ID), i.e.
-    whether an invited beta member actually gets Pro at $0."""
+    says whether the closed-beta 100%-off promo is configured AND checkout is available. A
+    configured but unavailable offer must not produce a public promise of Pro at $0."""
 
     mode: str
     beta_promo_enabled: bool
@@ -553,7 +581,7 @@ async def get_registration_config(response: Response):
     response.headers["Cache-Control"] = "public, max-age=300"
     return RegistrationConfig(
         mode=settings.REGISTRATION_MODE,
-        beta_promo_enabled=bool(settings.STRIPE_BETA_PROMO_CODE_ID),
+        beta_promo_enabled=bool(settings.STRIPE_BETA_PROMO_CODE_ID) and is_checkout_available(),
     )
 
 
@@ -578,6 +606,7 @@ async def register(
         "register",
         error_detail="Too many registration attempts. Try again in a minute.",
     )
+    _require_new_collection()
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
 
     # Closed-beta gate. When invite-only, require a valid, unexpired, unused invite BEFORE any
@@ -612,13 +641,17 @@ async def register(
         return _REGISTER_OPAQUE
 
     # Inserts the account and, in the same transaction, redeems the validated invite (beta tag).
-    user = auth_account_service.create_password_account(
-        db,
-        email=user_data.email,
-        hashed_password=hashed_password,
-        full_name=user_data.full_name,
-        invite=invite,
-    )
+    try:
+        user = auth_account_service.create_password_account(
+            db,
+            email=user_data.email,
+            hashed_password=hashed_password,
+            full_name=user_data.full_name,
+            invite=invite,
+            agreement=accept_current_agreement(),
+        )
+    except CollectionUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     if user is None:
         # A lost invite-redemption race or a lost concurrent-create race: stay opaque (rolled back).
         return _REGISTER_OPAQUE
@@ -976,7 +1009,10 @@ def _apple_redirect(url: str) -> RedirectResponse:
 
 # ─── Google OAuth (OIDC via httpx — no extra dependency) ───────────────────────
 
-def _start_google(request: Request, db: Session, invite: Optional[str]) -> tuple[str, str]:
+async def _start_google(
+    request: Request, db: Session, invite: Optional[str],
+    agreement: AcceptedAccountAgreement | None = None,
+) -> tuple[str, str]:
     """Rate limit, save the state (with the invite's hash when the invite is live) and build
     Google's consent URL. Returns ``(url, state)``; the caller sets the state cookie."""
     if not settings.GOOGLE_CLIENT_ID:
@@ -986,8 +1022,9 @@ def _start_google(request: Request, db: Session, invite: Optional[str]) -> tuple
         error_detail="Too many login attempts. Try again shortly.",
     )
     state = secrets.token_urlsafe(32)
-    # Commits a state row only for a live invite; a plain sign-in persists nothing.
-    oauth_account_service.save_google_state(db, state, invite)
+    # Signup assent and any live invite are bound to this single-use state. Plain login also
+    # consumes state but needs no signup evidence for an existing account.
+    await run_in_threadpool(oauth_account_service.save_google_state, db, state, invite, agreement)
     params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
         "redirect_uri": settings.GOOGLE_REDIRECT_URI,
@@ -1009,12 +1046,12 @@ def _set_google_state_cookie(response: Response, state: str) -> None:
 
 @router.get("/google")
 async def google_login(request: Request, db: Session = Depends(get_db)):
-    """Redirect the browser to Google's consent screen (plain sign-in: no invite, nothing persisted).
+    """Redirect the browser to Google's consent screen (plain login: state, no signup assent).
 
     An invited sign-up starts through ``POST /api/auth/google/start`` instead, so the raw invite
     token never appears in a request URL (request logs record query strings).
     """
-    url, state = _start_google(request, db, None)
+    url, state = await _start_google(request, db, None)
     redirect = RedirectResponse(url=url, status_code=302)
     _set_google_state_cookie(redirect, state)
     return redirect
@@ -1028,7 +1065,10 @@ async def google_start(body: OAuthStartRequest, request: Request, db: Session = 
     the callback validates + redeems it when it creates the account. Only the hash is stored, and
     only for an invite that is live; the start is rate limited per IP because it writes a row.
     """
-    url, state = _start_google(request, db, body.invite)
+    agreement = body.accepted_agreement()
+    if agreement is not None:
+        _require_new_collection()
+    url, state = await _start_google(request, db, body.invite, agreement)
     response = JSONResponse({"url": url})
     _set_google_state_cookie(response, state)
     return response
@@ -1055,10 +1095,12 @@ async def google_callback(
     if not stored_state or not secrets.compare_digest(stored_state.encode(), state.encode()):
         return RedirectResponse(f"{frontend_url}/login?error=oauth_state_mismatch", status_code=302)
 
-    # An invited sign-up stored its invite hash against this state (google_login); plain sign-ins
-    # have no row. Consumed up front so the row is single-use whatever happens next.
-    consumed = oauth_account_service.consume_oauth_state(db, state)
-    invite_code_hash = consumed[1] if consumed else None
+    # Consume server state before the provider exchange: restoring a browser cookie must not
+    # replay a finished flow. Only a signup start stores assent; existing login does not need it.
+    consumed = await run_in_threadpool(oauth_account_service.consume_oauth_state, db, state)
+    if consumed is None:
+        return RedirectResponse(f"{frontend_url}/login?error=oauth_state_mismatch", status_code=302)
+    _, invite_code_hash, agreement = consumed
 
     # Exchange the authorization code for tokens, then cryptographically verify the id_token
     # (signature + audience + issuer) rather than trusting an access-token-authenticated
@@ -1102,6 +1144,7 @@ async def google_callback(
             email_verified=email_verified_by_google,
             full_name=full_name,
             invite_code_hash=invite_code_hash,
+            agreement=agreement,
         )
     except oauth_account_service.OAuthSignInRefused as refused:
         if refused.lost_create_race:
@@ -1135,7 +1178,10 @@ async def google_callback(
 
 # ─── Apple Sign In (ES256 client secret, form_post callback, JWKS verification) ──
 
-def _start_apple(request: Request, db: Session, invite: Optional[str]) -> tuple[str, str]:
+async def _start_apple(
+    request: Request, db: Session, invite: Optional[str],
+    agreement: AcceptedAccountAgreement | None = None,
+) -> tuple[str, str]:
     """Rate limit, save the nonce row (with the invite's hash when the invite is live) and build
     Apple's consent URL. Returns ``(url, state)``; the row is committed before the caller returns
     the URL and sets the browser-binding cookie."""
@@ -1148,7 +1194,7 @@ def _start_apple(request: Request, db: Session, invite: Optional[str]) -> tuple[
 
     state = secrets.token_urlsafe(32)
     raw_nonce = secrets.token_urlsafe(32)
-    oauth_account_service.save_apple_state(db, state, raw_nonce, invite)
+    await run_in_threadpool(oauth_account_service.save_apple_state, db, state, raw_nonce, invite, agreement)
 
     # Send sha256(raw_nonce) so Apple stores it in id_token; we verify on callback.
     params = {
@@ -1179,7 +1225,7 @@ def _set_apple_state_cookie(response: Response, state: str) -> None:
 async def apple_login(request: Request, db: Session = Depends(get_db)):
     """Redirect the browser to Apple's consent screen (plain sign-in: no invite). An invited
     sign-up starts through ``POST /api/auth/apple/start`` so the token never rides in a URL."""
-    url, state = _start_apple(request, db, None)
+    url, state = await _start_apple(request, db, None)
     redirect = RedirectResponse(url=url, status_code=302)
     _set_apple_state_cookie(redirect, state)
     return redirect
@@ -1189,7 +1235,10 @@ async def apple_login(request: Request, db: Session = Depends(get_db)):
 async def apple_start(body: OAuthStartRequest, request: Request, db: Session = Depends(get_db)):
     """Start Sign in with Apple for the browser to follow: ``{"url": ...}`` plus the binding cookie
     (``invite``: as for google_start)."""
-    url, state = _start_apple(request, db, body.invite)
+    agreement = body.accepted_agreement()
+    if agreement is not None:
+        _require_new_collection()
+    url, state = await _start_apple(request, db, body.invite, agreement)
     response = JSONResponse({"url": url})
     _set_apple_state_cookie(response, state)
     return response
@@ -1220,10 +1269,10 @@ async def apple_callback(
     expected = _apple_state_cookie_value(state)
     if not bound or not secrets.compare_digest(bound.encode("utf-8"), expected.encode("utf-8")):
         return _apple_redirect(f"{frontend_url}/login?error=oauth_state_mismatch")
-    consumed = oauth_account_service.consume_oauth_state(db, state)
+    consumed = await run_in_threadpool(oauth_account_service.consume_oauth_state, db, state)
     if consumed is None:
         return _apple_redirect(f"{frontend_url}/login?error=oauth_state_mismatch")
-    raw_nonce, invite_code_hash = consumed
+    raw_nonce, invite_code_hash, agreement = consumed
 
     # Verify Apple's id_token
     try:
@@ -1260,6 +1309,7 @@ async def apple_callback(
             email_verified=email_verified_by_apple,
             full_name=full_name,
             invite_code_hash=invite_code_hash,
+            agreement=agreement,
         )
     except oauth_account_service.OAuthSignInRefused as refused:
         if refused.lost_create_race:
