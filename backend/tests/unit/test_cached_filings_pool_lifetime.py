@@ -1840,14 +1840,17 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 # body binds to it: by an assignment, an annotated assignment or a walrus (``s = db``,
 # ``s: Session = db``, ``(s := db)``), pairwise through tuple or list unpacking (``s, n = db, 1``; with
 # a starred element, those before it from the front and those after it from the back), by
-# ``with db as s``, and as a nested def's or lambda's default (``def unit(s=db)``: the session inside
-# that unit only, but in the whole function for a nested ``async def``, whose body is read with the
-# function's). A value is the session when it is such a name, or when a branch of a conditional, a
-# walrus's value, an operand of an ``or`` or the last operand of an ``and`` is one
+# ``with db as s``, and as a nested def's or lambda's default (``def unit(s=db)``, the session inside
+# that def or lambda). A value is the session when it is such a name, or when a branch of a
+# conditional, a walrus's value, an operand of an ``or`` or the last operand of an ``and`` is one
 # (``db if flag else None``, ``other or db``; a Session is always true, so it is never the value of an
-# ``and`` it does not end). The walk is flow-insensitive: it repeats until the names bound to the
-# session and the units it finds stop growing, so a use counts whatever the order of the binding, the
-# def and the use in the source.
+# ``and`` it does not end).
+#
+# Each body is read in a scope of its own, the function's and each nested def's or lambda's: its
+# parameters shadow the names outside, but for one defaulting to the session or to a unit, and what
+# it binds binds nothing outside it; a class body, too, binds nothing the function's code sees. Each is
+# read flow-insensitively, again until the names bound to the session and the units in it stop
+# growing, so a use counts whatever the order of the binding, the def and the use in the source.
 #
 # It counts each use of the session in the code that runs on the loop:
 #
@@ -1857,17 +1860,18 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 #   (``service.read(db, 1)``, ``service.read(session=db)``, ``await service.aread(db)``), but a thread
 #   dispatcher's;
 # - each ``with`` it enters (``with db:``), whose exit closes it;
-# - each call, by a name bound to it, of a unit whose body uses the session: a nested sync def, or a
-#   lambda bound by any of the forms above (``unit()``, ``run = unit; run()``), since that body then
-#   runs on the loop. A unit's body is read by these same rules, with its own parameters shadowing the
-#   function's names: a call there of another such unit counts, and what it hands to the thread pool
-#   does not, so a unit that only dispatches (``def begin(): return run_in_threadpool(meter, db)``) or
-#   only builds another unit is clean.
+# - each call, by a name bound to it, of a unit whose body uses the session: a nested sync def, a
+#   lambda bound by any of the forms above, or a parameter defaulting to a unit (``unit()``,
+#   ``run = unit; run()``, ``def outer(run=unit): return run()``), since that body then runs on the
+#   loop. A unit's body is read by these same rules: a call there of another such unit counts, and what
+#   it hands to the thread pool does not, so a unit that only dispatches
+#   (``def begin(): return run_in_threadpool(meter, db)``) or only builds another unit is clean.
 #
 # The code that runs on the loop is the function's own body, with the bodies of its nested
-# ``async def``s and classes, and the decorators and defaults of its nested sync defs and lambdas,
-# which run when they are defined. The bodies of those defs and lambdas run where they are called or
-# handed, normally the thread pool, so they count only through a call of the unit on the loop; an
+# ``async def``s and classes, the decorators and defaults of its nested defs and lambdas, and the
+# decorators, bases and keywords of its nested classes, which run when they are defined. The bodies
+# of its nested sync defs and lambdas run where they are called or handed, normally the thread pool,
+# so they count only through a call of the unit on the loop (a class's methods within its body only); an
 # uncalled method, or the session itself, handed straight to the thread pool
 # (``run_in_threadpool(db.commit)``, ``run_in_threadpool(service.read, db, 1)``) counts nothing. A
 # thread dispatcher is a call whose last name is in ``_THREAD_DISPATCHERS``.
@@ -1884,10 +1888,13 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 # session, on the loop. A logged or type-checked session (``logger.info("%s", db)``,
 # ``isinstance(db, Session)``) counts too, and so do a dispatcher reached through an import alias, a
 # session inside ``functools.partial`` or a generator expression handed to the thread pool, an uncalled
-# method handed to a dispatcher by keyword, and, the walk being flow-insensitive, a name the function
-# rebinds away from the session or from a unit. The route hands its units to ``run_in_threadpool``
-# itself instead, with the session among that call's own arguments, and stops handing the session to
-# a callee that never uses it.
+# method handed to a dispatcher by keyword, a comprehension's variable named like the session
+# (comprehensions get no scope of their own here), and, the walk being flow-insensitive, a name a body
+# rebinds away from the session or from a unit. So does a session handed to
+# ``stripe_threads.run_on_stripe_threads``, deliberately: it would hold a pooled connection on a Stripe
+# thread across Stripe calls. The route hands its units to ``run_in_threadpool`` itself instead, with
+# the session among that call's own arguments, and stops handing the session to a callee that never
+# uses it.
 #
 # A function's count may not exceed its ceiling in ``ON_LOOP_CEILINGS``; an unlisted function's
 # ceiling is 0, so every new async route starts clean. The ceilings are the counts when the walk last
@@ -1903,7 +1910,8 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 #   holding one (``service.read(*args)``, ``first, *rest = 1, db``), an unpacking that cannot place
 #   it (``first, s = *rows, db, *more``), a loop over one (``for s in (db,)``) or an index
 #   (``sessions[0]``);
-# - a session reached through an attribute (``holder.db``);
+# - a session reached through an attribute (``holder.db``), or returned by a unit
+#   (``def handle(): return db``, then ``handle().query(...)``);
 # - a unit called other than by a name bound to it: a lambda called where it is written, a method of a
 #   nested class (``Unit().run()``), or a unit handed to a callee that calls it on the loop
 #   (``service.call(lambda: db.query(...))``);
@@ -2022,7 +2030,9 @@ ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
 # The walk must keep seeing the routers' async session routes; fewer means a broken walk.
 MIN_ASYNC_SESSION_FUNCTIONS = 60
 
-# Callees that run their callable argument in a worker thread.
+# Callees that run their callable argument in a worker thread of the default pool, where a unit of
+# session work belongs. ``stripe_threads.run_on_stripe_threads`` is not one: a session handed to it
+# would hold a pooled connection on a Stripe thread across Stripe calls, so it counts as a hand-off.
 _THREAD_DISPATCHERS = frozenset({"run_in_threadpool", "to_thread", "run_sync", "run_in_executor"})
 
 
@@ -2115,33 +2125,38 @@ def _on_loop_uses(fn: ast.AsyncFunctionDef, sessions: set[str]) -> list[tuple[in
     enters, or ``calls <name> on the loop`` for a unit whose body uses it, called there by a name bound
     to that unit.
 
-    The walk is flow-insensitive: it repeats until the names bound to the session and the units it
-    finds stop growing, and returns the last pass's uses."""
-    names = set(sessions)
-    units: set[str] = set()
+    Each body, the function's and each nested def's or lambda's, is read flow-insensitively: again
+    until the names bound to the session and the units in it stop growing, and its last pass counts."""
+
+    def settle(body: list[ast.AST], scope: set[str], callable_units: set[str]) -> list[tuple[int, str]]:
+        while True:
+            known = len(scope), len(callable_units)
+            uses: list[tuple[int, str]] = []
+            walk(body, scope, callable_units, uses.append)
+            if (len(scope), len(callable_units)) == known:
+                return uses
 
     def walk(
-        body: list[ast.AST], scope: set[str], callable_units: set[str],
-        record: Callable[[tuple[int, str]], None], in_class: bool = False,
+        body: list[ast.AST], scope: set[str], callable_units: set[str], record: Callable[[tuple[int, str]], None],
     ) -> None:
         """Read ``body`` as code that runs on the loop, where ``scope`` names the session and
         ``callable_units`` the units, and record each use."""
         handed_to_thread: set[int] = set()
 
-        def runs_session(args: ast.arguments, unit_body: list[ast.AST]) -> bool:
-            """Whether a nested sync def's or a lambda's body uses the session when it runs, read by these
-            same rules: its own parameters shadow the names outside, but for one defaulting to the session."""
+        def read_scoped(args: ast.arguments, scoped_body: list[ast.AST]) -> list[tuple[int, str]]:
+            """The uses in a nested def's or lambda's body when it runs, read by these same rules: its own
+            parameters shadow the names outside, but for one defaulting to the session or to a unit."""
             own = _parameters(args)
-            inner = (scope - own) | {
-                parameter for parameter, default in _defaults(args) if _is_session(default, scope)
+            defaults = _defaults(args)
+            inner = (scope - own) | {parameter for parameter, default in defaults if _is_session(default, scope)}
+            inner_units = (callable_units - own) | {
+                parameter for parameter, default in defaults if any(is_unit(value) for value in _values(default))
             }
-            found: list[tuple[int, str]] = []
-            walk(unit_body, inner, callable_units - own, found.append)
-            return bool(found)
+            return settle(scoped_body, inner, inner_units)
 
         def is_unit(value: ast.AST) -> bool:
             if isinstance(value, ast.Lambda):
-                return runs_session(value.args, [value.body])
+                return bool(read_scoped(value.args, [value.body]))
             return isinstance(value, ast.Name) and value.id in callable_units
 
         def bind(target: ast.AST, value: ast.AST | None) -> None:
@@ -2155,26 +2170,26 @@ def _on_loop_uses(fn: ast.AsyncFunctionDef, sessions: set[str]) -> list[tuple[in
                     callable_units.add(target.id)
 
         def visit(node: ast.AST) -> None:
-            if isinstance(node, ast.AsyncFunctionDef):
-                # Its body is read here, with the function's, so a parameter defaulting to the session
-                # is the session.
-                scope.update(
-                    parameter for parameter, default in _defaults(node.args) if _is_session(default, scope)
-                )
-            if isinstance(node, (ast.FunctionDef, ast.Lambda)):
-                # Its body runs where it is called or handed, normally the thread pool; its decorators
-                # and defaults run here, when it is defined.
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                # Its decorators and defaults run here, when it is defined.
                 for part in [*getattr(node, "decorator_list", []), *node.args.defaults, *node.args.kw_defaults]:
                     if part is not None:
                         visit(part)
-                if isinstance(node, ast.FunctionDef) and not in_class and runs_session(node.args, node.body):
+                if isinstance(node, ast.AsyncFunctionDef):
+                    # Its body runs on the loop, when it is awaited or iterated.
+                    for use in read_scoped(node.args, node.body):
+                        record(use)
+                elif isinstance(node, ast.FunctionDef) and read_scoped(node.args, node.body):
+                    # Its body runs where it is called or handed, normally the thread pool; called by a
+                    # name here, it runs on the loop.
                     callable_units.add(node.name)
                 return
             if isinstance(node, ast.ClassDef):
-                # Its body runs here, when it is defined; its methods are not the function's units.
+                # Its decorators, bases and keywords, and its body, run here, when it is defined. Its body
+                # binds nothing the function's code sees, so its methods are units within it only.
                 for part in [*node.decorator_list, *node.bases, *(keyword.value for keyword in node.keywords)]:
                     visit(part)
-                walk(node.body, scope, callable_units, record, in_class=True)
+                walk(node.body, set(scope), set(callable_units), record)
                 return
             if isinstance(node, ast.Call) and _tail(node.func) in _THREAD_DISPATCHERS:
                 handed_to_thread.update(id(argument) for argument in node.args)
@@ -2206,12 +2221,7 @@ def _on_loop_uses(fn: ast.AsyncFunctionDef, sessions: set[str]) -> list[tuple[in
         for statement in body:
             visit(statement)
 
-    while True:
-        known = len(names), len(units)
-        uses: list[tuple[int, str]] = []
-        walk(fn.body, names, units, uses.append)
-        if (len(names), len(units)) == known:
-            return uses
+    return settle(fn.body, set(sessions), set())
 
 
 def on_loop_session_uses(source: str) -> dict[str, list[tuple[int, str]]]:
@@ -2274,6 +2284,7 @@ _PLANTED = '''
 from typing import Annotated, Callable
 from fastapi import Depends
 from fastapi.concurrency import run_in_threadpool as threadpool
+from app.services.stripe_threads import run_on_stripe_threads
 from sqlalchemy import orm
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -2581,6 +2592,89 @@ async def flags_an_alias_bound_after_a_nested_async_def(db: Session = Depends(ge
     held = db
     return stream()
 
+async def flags_a_unit_calling_a_later_unit_inside_a_unit(db: Session = Depends(get_db)):
+    def outer():
+        def build():
+            return load()
+        def load():
+            return db.query(Row).all()
+        return build()
+    return outer()
+
+async def flags_an_alias_after_its_use_inside_a_unit(db: Session = Depends(get_db)):
+    def unit():
+        for attempt in range(2):
+            if attempt:
+                return held.query(Row).all()
+            held = db
+    return unit()
+
+async def flags_a_call_before_the_def_in_a_loop_inside_a_unit(db: Session = Depends(get_db)):
+    def unit():
+        for attempt in range(2):
+            if attempt:
+                return load()
+            def load():
+                return db.query(Row).all()
+    return unit()
+
+async def flags_a_chain_of_three_units(db: Session = Depends(get_db)):
+    def first():
+        return second()
+    def second():
+        return third()
+    def third():
+        return db.query(Row).all()
+    return first()
+
+async def flags_a_lambda_bound_as_a_units_default(db: Session = Depends(get_db)):
+    def outer(run=lambda: db.query(Row).all()):
+        return run()
+    return outer()
+
+async def flags_a_unit_bound_as_a_units_default(db: Session = Depends(get_db)):
+    def load():
+        return db.query(Row).all()
+    def outer(run=load):
+        return run()
+    return outer()
+
+async def flags_a_unit_bound_as_a_nested_async_default(db: Session = Depends(get_db)):
+    def load():
+        return db.query(Row).all()
+    async def stream(run=load):
+        yield run()
+    return stream()
+
+async def flags_a_lambda_bound_as_a_lambdas_default(db: Session = Depends(get_db)):
+    outer = lambda run=lambda: db.query(Row).all(): run()
+    return outer()
+
+async def flags_a_keyword_only_session_default_on_a_unit(db: Session = Depends(get_db)):
+    def unit(*, held=db):
+        return held.query(Row).all()
+    return unit()
+
+async def flags_a_conditional_default_on_a_unit(db: Session = Depends(get_db)):
+    def unit(held=other or db):
+        return held.query(Row).all()
+    return unit()
+
+async def flags_a_conditional_default_on_a_nested_async_def(flag: bool, db: Session = Depends(get_db)):
+    async def inner(held=db if flag else None):
+        return held.query(Row).all()
+    return await inner()
+
+async def flags_a_with_on_a_conditional(flag: bool, db: Session = Depends(get_db)):
+    with (db if flag else other):
+        pass
+
+async def flags_a_class_header(db: Session = Depends(get_db)):
+    @register(db)
+    class Payload(make_base(db), metaclass=meta(db)):
+        pass
+    return Payload
+
 async def clean_a_unit_that_hands_the_session_to_the_pool(db: Session = Depends(get_db)):
     def begin():
         return run_in_threadpool(service.charge, db, 1)
@@ -2609,6 +2703,66 @@ async def clean_a_unit_parameter_defaulting_to_the_session(request: Request, db:
         return session.query(Row).all()
     session = request.session
     return session.get("key"), await run_in_threadpool(unit)
+
+async def clean_a_positional_only_parameter_shadowing(db: Session = Depends(get_db)):
+    def unit(db, /):
+        return db.query(Row).all()
+    return unit(other)
+
+async def clean_a_keyword_only_parameter_shadowing(db: Session = Depends(get_db)):
+    def unit(*, db):
+        return db.query(Row).all()
+    return unit(db=other)
+
+async def clean_a_varargs_parameter_shadowing(db: Session = Depends(get_db)):
+    def unit(*db):
+        return db.count(None)
+    return unit()
+
+async def clean_a_kwargs_parameter_shadowing(db: Session = Depends(get_db)):
+    def unit(**db):
+        return db.get("key")
+    return unit()
+
+async def clean_a_parameter_shadowing_a_unit(db: Session = Depends(get_db)):
+    def load():
+        return db.query(Row).all()
+    def outer(load):
+        return load()
+    return outer(len), await run_in_threadpool(load)
+
+async def clean_a_lambda_parameter_shadowing(db: Session = Depends(get_db)):
+    unit = lambda db: db.query(Row).all()
+    return unit(other)
+
+async def clean_a_lambda_that_only_dispatches(db: Session = Depends(get_db)):
+    begin = lambda: run_in_threadpool(service.charge, db, 1)
+    return await begin()
+
+async def clean_a_nested_async_parameter_shadowing(db: Session = Depends(get_db)):
+    async def inner(db):
+        return db.query(Row).all()
+    return await inner(SessionLocal())
+
+async def flags_a_method_called_in_its_class_body(db: Session = Depends(get_db)):
+    class Payload:
+        def load():
+            return db.query(Row).all()
+        rows = load()
+    return Payload
+
+async def clean_a_class_body_binding(request: Request, db: Session = Depends(get_db)):
+    class Config:
+        session = db
+        load = lambda: db.query(Row).all()
+    session = request.session
+    return session.get("key"), load(), Config
+
+async def clean_a_method_call_named_like_a_unit(db: Session = Depends(get_db)):
+    def load():
+        return db.query(Row).all()
+    rows = await run_in_threadpool(load)
+    return cache.load(rows)
 
 async def flags_a_bare_db_parameter(db):
     return db.query(Row).all()
@@ -2653,6 +2807,12 @@ async def strict_a_rebound_unit_name(db: Session = Depends(get_db)):
     unit = label
     return unit()
 
+async def strict_a_comprehension_variable_named_like_the_session(sessions: list, db: Session = Depends(get_db)):
+    return [db.info for db in sessions]
+
+async def strict_a_session_handed_to_the_stripe_threads(db: Session = Depends(get_db)):
+    return await run_on_stripe_threads(service.read, db, 1)
+
 async def gap_session_in_a_container(db: Session = Depends(get_db)):
     return service.read((db, 1))
 
@@ -2691,6 +2851,19 @@ async def gap_session_between_starred_values(rows: list, more: list, db: Session
     first, held = *rows, db, *more
     return first.query(Row).all(), held.query(Row).all()
 
+async def gap_a_starred_value_before_a_starred_target(xs: list, db: Session = Depends(get_db)):
+    first, held, *rest = *xs, db, last
+    return held.query(Row).all()
+
+async def gap_a_starred_target_before_a_starred_value(zs: list, db: Session = Depends(get_db)):
+    first, *rest, held, last = one, two, db, *zs
+    return held.query(Row).all()
+
+async def gap_a_session_a_unit_returns(db: Session = Depends(get_db)):
+    def handle():
+        return db
+    return handle().query(Row).all()
+
 async def gap_a_method_of_a_nested_class(db: Session = Depends(get_db)):
     class Unit:
         def run(self):
@@ -2713,16 +2886,16 @@ async def gap_session_the_route_opens():
 class Holder:
     db: Session
 
-async def gap_session_in_an_attribute(holder: Holder):
+async def gap_session_in_an_attribute(holder: Holder, db: Session = Depends(get_db)):
+    holder.db = db
     return holder.db.query(Row).all()
 '''
 
 # Function -> how many on-loop session uses the walk must find. ``gap_`` forms break the rule but
 # are out of the walk's reach, and ``strict_`` forms keep it but are counted (the header names
 # both); they are planted so a widened or narrowed walk updates this table on purpose. The walk
-# reads no other planted function: ``clean_no_session``, ``gap_session_the_route_opens`` and
-# ``gap_session_in_an_attribute`` receive no session, and ``clean_sync_route`` is a sync route
-# (FastAPI runs it in the thread pool).
+# reads no other planted function: ``clean_no_session`` and ``gap_session_the_route_opens`` receive
+# no session, and ``clean_sync_route`` is a sync route (FastAPI runs it in the thread pool).
 _PLANTED_COUNTS = {
     "flags_a_query_chain": 1,
     "flags_each_call_in_branches": 4,
@@ -2790,11 +2963,35 @@ _PLANTED_COUNTS = {
     "flags_a_unit_calling_a_unit": 1,
     "flags_a_unit_over_an_alias_bound_after_it": 1,
     "flags_an_alias_bound_after_a_nested_async_def": 1,
+    "flags_a_unit_calling_a_later_unit_inside_a_unit": 1,
+    "flags_an_alias_after_its_use_inside_a_unit": 1,
+    "flags_a_call_before_the_def_in_a_loop_inside_a_unit": 1,
+    "flags_a_chain_of_three_units": 1,
+    "flags_a_lambda_bound_as_a_units_default": 1,
+    "flags_a_unit_bound_as_a_units_default": 1,
+    "flags_a_unit_bound_as_a_nested_async_default": 1,
+    "flags_a_lambda_bound_as_a_lambdas_default": 1,
+    "flags_a_keyword_only_session_default_on_a_unit": 1,
+    "flags_a_conditional_default_on_a_unit": 1,
+    "flags_a_conditional_default_on_a_nested_async_def": 1,
+    "flags_a_with_on_a_conditional": 1,
+    "flags_a_class_header": 3,
     "clean_a_unit_that_hands_the_session_to_the_pool": 0,
     "clean_a_unit_factory": 0,
     "clean_a_unit_shadowing_the_session": 0,
     "clean_a_method_named_like_a_free_function": 0,
     "clean_a_unit_parameter_defaulting_to_the_session": 0,
+    "clean_a_positional_only_parameter_shadowing": 0,
+    "clean_a_keyword_only_parameter_shadowing": 0,
+    "clean_a_varargs_parameter_shadowing": 0,
+    "clean_a_kwargs_parameter_shadowing": 0,
+    "clean_a_parameter_shadowing_a_unit": 0,
+    "clean_a_lambda_parameter_shadowing": 0,
+    "clean_a_lambda_that_only_dispatches": 0,
+    "clean_a_nested_async_parameter_shadowing": 0,
+    "flags_a_method_called_in_its_class_body": 1,
+    "clean_a_class_body_binding": 0,
+    "clean_a_method_call_named_like_a_unit": 0,
     "flags_a_bare_db_parameter": 1,
     "flags_a_depends_default_alone": 1,
     "clean_closure_called_in_the_pool": 0,
@@ -2806,6 +3003,8 @@ _PLANTED_COUNTS = {
     "strict_a_method_handed_to_the_pool_by_keyword": 1,
     "strict_a_rebound_alias": 1,
     "strict_a_rebound_unit_name": 1,
+    "strict_a_comprehension_variable_named_like_the_session": 1,
+    "strict_a_session_handed_to_the_stripe_threads": 1,
     "gap_session_in_a_container": 0,
     "gap_session_starred": 0,
     "gap_session_in_a_name_holding_a_container": 0,
@@ -2816,10 +3015,14 @@ _PLANTED_COUNTS = {
     "flags_an_alias_after_a_starred_value": 1,
     "gap_session_under_a_starred_target": 0,
     "gap_session_between_starred_values": 0,
+    "gap_a_starred_value_before_a_starred_target": 0,
+    "gap_a_starred_target_before_a_starred_value": 0,
+    "gap_a_session_a_unit_returns": 0,
     "gap_a_method_of_a_nested_class": 0,
     "gap_lambda_called_at_once": 0,
     "gap_lambda_handed_to_a_callee": 0,
     "gap_lazy_load_on_the_loop": 0,
+    "gap_session_in_an_attribute": 0,
 }
 
 
