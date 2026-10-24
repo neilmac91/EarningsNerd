@@ -621,10 +621,11 @@ test.describe('from lg the open menu lies over the page / 1100x800, a Pro reader
  * full-bar state the nav's left edge holds as the check settles, where it moved 109px for a guest and 35px for a reader
  * at 1152px. The wordmark shows from 40rem, 1280px with the text doubled, so a guest's compact bar keeps one line at
  * 640 and 800px under 200% text as well, where it grew 14px with "Sign up" and 88px with "Request invite"; a reader's
- * holds there as before. A build answers one access mode, so a guest's compact link then takes each mode's label in
- * turn (a copy fixture), and the header keeps the height it had while the check was held. Below about 15rem (480px
- * under 200% text) a guest's link cannot share the logo's line, so the bar still grows as it appears: chief design
- * accepts that band, since any reservation would give every reader the extra row.
+ * holds there too, as its notification bell joins the bar (E176). A build answers one access mode, so a guest's
+ * compact link then takes each mode's label in turn (a copy fixture), and the header keeps the height it had while the
+ * check was held. Below about 15rem (480px under 200% text) a guest's link cannot share the logo's line, so the bar
+ * still grows as it appears: chief design accepts that band, since any reservation would give every reader the extra
+ * row.
  */
 async function answerHeld(page: Page, baseURL: string, who: 'guest' | 'reader'): Promise<() => void> {
   const origin = new URL(baseURL).origin
@@ -669,13 +670,20 @@ const HELD_STATES = [
   { width: 2304, doubled: true, bar: 'full' },
   { width: 640, doubled: true, bar: 'compact' },
   { width: 800, doubled: true, bar: 'compact' },
+  // A signed-in reader's phone bar, where the bell joins it as the check settles (E176): one row at 320px at the default
+  // size and at 360 and 390px under 200% text. A guest's link takes a row of its own there, the band accepted on #1565,
+  // and below about 10.4rem (332px under 200% text) a reader's bell does too.
+  { width: 320, doubled: false, bar: 'compact', only: 'reader' },
+  { width: 360, doubled: true, bar: 'compact', only: 'reader' },
+  { width: 390, doubled: true, bar: 'compact', only: 'reader' },
 ] as const
 /** The compact bar's account link (ACCESS_COPY's ctaShort, for either access mode). */
 const ACCOUNT_SHORT = /^(Sign up|Request invite)$/
 
 test.describe('the site header holds one height as its auth check settles (E174, E173, E175)', () => {
-  for (const { width, doubled, bar } of HELD_STATES) {
-    for (const who of ['guest', 'reader'] as const) {
+  for (const state of HELD_STATES) {
+    const { width, doubled, bar } = state
+    for (const who of 'only' in state ? [state.only] : (['guest', 'reader'] as const)) {
       test.describe(`${width}px${doubled ? ' and 200% text' : ''}, ${who === 'guest' ? 'a guest' : 'a signed-in reader'}`, () => {
         test.use({ viewport: { width, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
         test('the header keeps its height, and a scrolled page its place, when the check settles', async ({ page, baseURL }) => {
@@ -705,18 +713,13 @@ test.describe('the site header holds one height as its auth check settles (E174,
             await expect(banner.getByRole('button', { name: 'Open menu' }), `the compact bar at ${width}px`).toBeVisible()
             await expect(nav, `the full bar's nav hidden at ${width}px`).toBeHidden()
           }
-          // The settled controls: the full bar's Log in or account menu, or the compact bar's account link for a guest and,
-          // from lg, its notification bell for a reader. Below lg a reader's compact bar shows nothing the check adds, so
-          // the full bar's account menu, rendered though hidden, marks the check settled there.
+          // The settled controls: the full bar's Log in or account menu, or the compact bar's account link for a guest and
+          // its notification bell for a reader, at every width since E176, so a reader's compact bar holds its height as
+          // the bell appears.
           const settled = bar === 'full'
             ? banner.getByRole(who === 'guest' ? 'link' : 'button', { name: who === 'guest' ? 'Log in' : 'Account menu' })
-            : who === 'guest'
-              ? banner.getByRole('link', { name: ACCOUNT_SHORT })
-              : width >= 1024
-                ? banner.getByRole('button', { name: /^Notifications/ })
-                : null
-          if (settled) await expect(settled, `the ${bar} bar shows a ${who}'s controls once the check settles`).toBeVisible()
-          else await expect(banner.getByRole('button', { name: 'Account menu', includeHidden: true }), `the check settles for a reader at ${width}px`).toHaveCount(1)
+            : banner.getByRole(who === 'guest' ? 'link' : 'button', { name: who === 'guest' ? ACCOUNT_SHORT : /^Notifications/ })
+          await expect(settled, `the ${bar} bar shows a ${who}'s controls once the check settles`).toBeVisible()
           await settle(page)
           const after = await headerAt(page)
           expect(after.height, `the header while the check ran (${pending.height}px) and after (${after.height}px)`).toBe(pending.height)
@@ -728,7 +731,7 @@ test.describe('the site header holds one height as its auth check settles (E174,
           // Each access mode's compact label in turn, as a copy fixture: the header keeps its held height with either.
           if (bar === 'compact' && who === 'guest') {
             for (const label of [ACCESS_COPY.invite.ctaShort, ACCESS_COPY.public.ctaShort]) {
-              await settled!.evaluate((link, text) => {
+              await settled.evaluate((link, text) => {
                 link.textContent = text
               }, label)
               await settle(page)
