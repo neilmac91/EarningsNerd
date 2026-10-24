@@ -87,7 +87,7 @@ describe('/waitlist', () => {
     const heading = screen.getByRole('heading', { level: 2, name: 'Before you join' })
     // The tiles follow the heading with no lead to repeat the first tile's source line.
     expect(heading.nextElementSibling?.tagName).toBe('DIV')
-    expect(screen.getByText('Source: SEC EDGAR')).toBeInTheDocument()
+    expect(screen.getByText('Filings from SEC.gov')).toBeInTheDocument()
     expect(container.textContent).not.toMatch(/sourced directly/i)
     expect(screen.getByText('Security')).toBeInTheDocument()
     expect(container.textContent).not.toMatch(/\bclarity\b|not hype|Security-first|trust and transparency/i)
