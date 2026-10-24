@@ -1185,8 +1185,9 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  of /, /pricing and /analysis with no stop wholly under the bar; /pricing's page header off the
                  screen once scrolled past; the open menu's Tab walk and the bar's own stops leaving the page where
                  it is, a Tab out of the open menu or a focus moved by script out of it closing it and landing
-                 inside the screen, below the bar, at both text sizes, and a tap on a link below the open menu at
-                 the top of the page following it, the next page opening with the menu closed).
+                 inside the screen, below the bar, at both text sizes, and, since the compact bar shows on a
+                 desktop below 72rem, at 1440x900 under 200% text for a signed-in reader, and a tap on a link below
+                 the open menu at the top of the page following it, the next page opening with the menu closed).
                  The open mobile menu scrolls inside the viewport: the header is a column no taller than it
                  (`flex max-h-dvh flex-col`), the bar keeps its own height (`w-full shrink-0`; a column's child
                  with auto side margins is not stretched) and the menu panel takes the rest

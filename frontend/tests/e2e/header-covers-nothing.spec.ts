@@ -216,6 +216,39 @@ for (const viewport of VIEWPORTS) {
   }
 }
 
+/**
+ * The open-menu walk: with the page scrolled to 2000px the menu is opened from the keyboard, its toggle focused without
+ * a scroll, as a reader who had tabbed there would have it. A Tab through it keeps the page where it is, and a Tab out
+ * of it closes the menu and lands on a control inside the screen and below the bar.
+ */
+async function walkTheOpenMenu(page: Page, name: string, screenHeight: number) {
+  await page.evaluate(() => window.scrollTo(0, 2000))
+  await settle(page)
+  await page.getByRole('button', { name: 'Open menu' }).evaluate((el: HTMLElement) => el.focus({ preventScroll: true }))
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible()
+  await settle(page)
+  const opened = await focusState(page)
+  expect(opened.scrollY, `${name}: the page is scrolled before the menu's walk`).toBeGreaterThan(1000)
+  let tabs = 0
+  for (;;) {
+    await page.keyboard.press('Tab')
+    const now = await focusState(page)
+    if (!now.inHeader) {
+      await expect(page.getByRole('navigation', { name: 'Mobile navigation' }), `${name}: a Tab out of the open menu, onto ${now.label}, closes it`).toHaveCount(0)
+      expect(
+        [now.top >= now.barBottom - 0.5, now.bottom <= screenHeight + 0.5],
+        `${name}: a Tab out of the open menu lands on ${now.label} at ${now.top.toFixed(0)} to ${now.bottom.toFixed(0)}px, inside the screen and below the bar ending at ${now.barBottom.toFixed(0)}px`,
+      ).toEqual([true, true])
+      break
+    }
+    tabs++
+    expect(now.scrollY, `${name}: Tab ${tabs}, onto ${now.label} in the open menu, moved the page from ${opened.scrollY}px`).toBe(opened.scrollY)
+    expect(tabs, `${name}: the walk through the open menu ends`).toBeLessThan(40)
+  }
+  expect(tabs, `${name}: the walk went through the menu's stops`).toBeGreaterThan(3)
+}
+
 test.describe("the site header's own stops hold the page in place", () => {
   for (const doubled of [false, true]) {
     const name = `390px${doubled ? ' under 200% text' : ''}`
@@ -225,32 +258,7 @@ test.describe("the site header's own stops hold the page in place", () => {
         await open(page, baseURL!, '/', 'light')
         if (doubled) await doubleText(page)
         await settle(page)
-        await page.evaluate(() => window.scrollTo(0, 2000))
-        await settle(page)
-        // Opened from the keyboard, its toggle focused without a scroll, as a reader who had tabbed there would have it.
-        await page.getByRole('button', { name: 'Open menu' }).evaluate((el: HTMLElement) => el.focus({ preventScroll: true }))
-        await page.keyboard.press('Enter')
-        await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible()
-        await settle(page)
-        const opened = await focusState(page)
-        expect(opened.scrollY, `${name}: the page is scrolled before the menu's walk`).toBeGreaterThan(1000)
-        let tabs = 0
-        for (;;) {
-          await page.keyboard.press('Tab')
-          const now = await focusState(page)
-          if (!now.inHeader) {
-            await expect(page.getByRole('navigation', { name: 'Mobile navigation' }), `${name}: a Tab out of the open menu, onto ${now.label}, closes it`).toHaveCount(0)
-            expect(
-              [now.top >= now.barBottom - 0.5, now.bottom <= 844.5],
-              `${name}: a Tab out of the open menu lands on ${now.label} at ${now.top.toFixed(0)} to ${now.bottom.toFixed(0)}px, inside the screen and below the bar ending at ${now.barBottom.toFixed(0)}px`,
-            ).toEqual([true, true])
-            break
-          }
-          tabs++
-          expect(now.scrollY, `${name}: Tab ${tabs}, onto ${now.label} in the open menu, moved the page from ${opened.scrollY}px`).toBe(opened.scrollY)
-          expect(tabs, `${name}: the walk through the open menu ends`).toBeLessThan(40)
-        }
-        expect(tabs, `${name}: the walk went through the menu's stops`).toBeGreaterThan(3)
+        await walkTheOpenMenu(page, name, 844)
       })
 
       // A tap or a click moves focus to what it presses on its mousedown, before its release. The header is in the
@@ -326,6 +334,28 @@ test.describe("the site header's own stops hold the page in place", () => {
         expect(now.scrollY, `a focus on ${now.label} in the bar moved the page from 2000px`).toBe(2000)
       }
     })
+  })
+})
+
+// From lg the compact bar stands where the full bar did below 72rem, so under 200% text its menu opens on a desktop too,
+// where a signed-in reader's fills the screen (chief design on #1558, comment 6377073723): the same walk at 1440x900.
+test.describe("the site header's own stops hold the page in place / 1440x900 under 200% text, a signed-in reader", () => {
+  test.use({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
+  test('a Tab through the open menu keeps the page where it is, and a Tab out of it closes the menu and lands below the bar', async ({ page, baseURL }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('theme', 'light')
+      localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+      localStorage.setItem('en_session_active', '1')
+    })
+    const release = await answerHeld(page, baseURL!, 'reader')
+    release()
+    await page.goto('/')
+    await expect(page.getByRole('status', { name: 'Checking whether you are logged in', includeHidden: true })).toHaveCount(0)
+    await doubleText(page)
+    await settle(page)
+    await expect(page.getByRole('button', { name: 'Open menu' }), 'the compact bar shows at 1440px under 200% text').toBeVisible()
+    await expect(page.getByRole('button', { name: /^Notifications/ }), "and a signed-in reader's bell in it").toBeVisible()
+    await walkTheOpenMenu(page, '1440x900 under 200% text, a signed-in reader', 900)
   })
 })
 
