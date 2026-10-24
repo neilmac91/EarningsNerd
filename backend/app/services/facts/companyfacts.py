@@ -10,9 +10,9 @@ from app.services.facts.calendar import (
 )
 from app.services.facts.concepts import (
     COMPANYFACTS_DURATION_TAGS, COMPANYFACTS_INSTANT_TAGS, NON_NEGATIVE_CONCEPTS,
-    _CONCEPT_UNITS, _FI_SKIPPED_CONCEPTS, _QUARTER_PERIODS, _VALID_FP,
+    _FI_SKIPPED_CONCEPTS, _QUARTER_PERIODS, _VALID_FP, _unit_for,
 )
-from app.services.facts.currency import admitted_items, series_unit
+from app.services.facts.currency import admitted_items, filing_currencies
 from app.services.facts.derive import derive_same_period_metrics
 from app.services.facts.fiscal_naming import reported_fiscal_year, year_ending_on
 from app.services.facts.quarterly import (
@@ -38,7 +38,7 @@ from app.services.facts.transport import logger
 # period.
 
 def _collect_companyfacts_values(
-    usgaap: dict, tags: tuple[str, ...], unit_key: str, *, instant: bool
+    usgaap: dict, tags: tuple[str, ...], unit_key: str, *, instant: bool, foreign: frozenset = frozenset()
 ) -> dict[tuple[date, str], dict[str, Any]]:
     """Winning item per (period_end, klass) for one concept, across its candidate tags.
 
@@ -48,7 +48,8 @@ def _collect_companyfacts_values(
     (priority order), so tag migrations merge into one continuous history without a stale tag
     shadowing a newer one. Each winner also carries the EARLIEST-filed item's `fp`/`fy` — the one
     case where those fields are trustworthy (the original filing that reported the period as its
-    own current period), used only as the in-progress-year quarter fallback.
+    own current period), used only as the in-progress-year quarter fallback. An item of a ``foreign``
+    accession, one whose own currency is not the series' (``filing_currencies``), is never read.
     """
     claimed: dict[tuple[date, str], dict[str, Any]] = {}
     for tag in tags:
@@ -60,6 +61,8 @@ def _collect_companyfacts_values(
         tag_best: dict[tuple[date, str], dict[str, Any]] = {}
         tag_candidates: dict[tuple[date, str], list[dict]] = {}
         for (end, klass), start, value, item in admitted_items(items, instant=instant):
+            if item.get("accn") in foreign:
+                continue  # its own filing reports in another currency: this is a convenience translation
             filed = str(item.get("filed") or "")
             record = {
                 "value": float(value),
@@ -179,26 +182,23 @@ def normalize_companyfacts(
     return kept, meta
 
 
-def _collect_companyfacts_concepts(
-    usgaap: dict, financial_sic: bool,
-) -> tuple[
-    dict[str, dict[tuple[date, str], dict[str, Any]]],
-    dict[str, dict[tuple[date, str], dict[str, Any]]],
+def _collect_companyfacts_concepts(usgaap: dict, financial_sic: bool) -> tuple[
+    dict[str, dict[tuple[date, str], dict[str, Any]]], dict[str, dict[tuple[date, str], dict[str, Any]]],
 ]:
-    """Collect each concept from its reporting-currency unit list; durations first, registry order."""
+    """Collect each concept in the series currency from the filings in it; durations first, registry order."""
+    currency, foreign = filing_currencies(usgaap, COMPANYFACTS_DURATION_TAGS, COMPANYFACTS_INSTANT_TAGS)
     duration_values: dict[str, dict[tuple[date, str], dict[str, Any]]] = {}
     for concept, tags in COMPANYFACTS_DURATION_TAGS.items():
         if financial_sic and concept in _FI_SKIPPED_CONCEPTS:
             continue
-        unit_key = series_unit(usgaap, tags, _CONCEPT_UNITS.get(concept, "USD"), instant=False)
-        values = _collect_companyfacts_values(usgaap, tags, unit_key, instant=False)
+        unit_key = _unit_for(concept, currency)  # the series currency, or its per-share unit
+        values = _collect_companyfacts_values(usgaap, tags, unit_key, instant=False, foreign=foreign)
         if values:
             duration_values[concept] = values
 
     instant_values: dict[str, dict[tuple[date, str], dict[str, Any]]] = {}
     for concept, tags in COMPANYFACTS_INSTANT_TAGS.items():
-        unit_key = series_unit(usgaap, tags, "USD", instant=True)
-        values = _collect_companyfacts_values(usgaap, tags, unit_key, instant=True)
+        values = _collect_companyfacts_values(usgaap, tags, currency, instant=True, foreign=foreign)
         if values:
             instant_values[concept] = values
     return duration_values, instant_values

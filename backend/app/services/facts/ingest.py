@@ -54,9 +54,9 @@ def _companyfacts_fresh_result(
 def _persist_companyfacts_payload(
     db: Session, company: Company, payload: dict[str, Any]
 ) -> dict[str, Any]:
-    """Normalize and persist one already-fetched payload in the caller's short transaction; each
-    native-currency row demotes its current USD twin, whatever its source or filing, and a native
-    ratio stored behind a USD-derived one takes its place (rows demoted, never deleted or rewritten)."""
+    """Normalize and persist one already-fetched payload in the caller's short transaction; the batch
+    demotes each current row of its concepts in another currency, whatever its source or filing, and
+    its ratio stored behind one from other-currency operands takes its place (demoted, never deleted)."""
     company_id = company.id  # the commit expires the row; reading it back would check out again
     facts, meta = normalize_companyfacts(
         company_id, payload, financial_sic=_is_financial_sic(company.sic)

@@ -390,27 +390,33 @@ unused since generation became account-required in #619; kept because migrations
   current companyfacts rows when their filing chronology cannot be established; the bulk writer
   uses the received normalizer ordering where local Filing chronology is unavailable. Older accession facts remain
   available for their own filing even when they are not the current company value.
-- Companyfacts reads each concept from its reporting-currency unit list (`facts/currency.py`).
-  A foreign list is read only when the USD list is its convenience translation (every USD
-  period the collector keeps, by period end and span, is also kept from the foreign list; an
-  item it drops counts on neither side); among such lists the per-filing extractor's
-  `_reporting_currency` rule picks. A foreign US-GAAP filer's history is therefore stored as
-  reported (CNY, JPY), never from its USD convenience translations. A filer with no USD list at
-  all, such as a 10-K filer that reports in CAD, is stored in its own currency too, since no USD
-  period then needs a twin; a USD-only read stored nothing for it. Any other shape keeps the USD
-  list: a stray foreign fact, whatever its date, and a currency switch in either direction. A
-  switcher's years reported in a non-USD currency are not ingested in that currency; after a
-  switch to USD, its earlier years come from the USD convenience translations, as before. Quarter
-  derivation works in any currency. Once the native row arrives, a sync demotes, never deletes,
-  any current USD row at the same concept, period end and fiscal period, whatever its source or
-  filing. The newer-accession rule above is per unit; across units the pick has already chosen
-  the series currency. A derived ratio (`pure`) keeps its unit, so where a known filing date kept
-  one computed from USD operands current, the sync demotes it and promotes the native
-  calculation. A ratio stored before operands were recorded (2026-10-10) counts as USD-derived
-  when it is derived and has no filing owner, because companyfacts was then read only in USD.
-  One stored under the native calculation's own identity (same filing) keeps its
-  USD operands, because ingestion never rewrites an identity; the journaled repair
-  (`docs/quarterly-data-repair.md`) recomputes it.
+- Companyfacts reads each filing in its own currency (`facts/currency.py::filing_currencies`).
+  A filing's (accession's) currency is the one that tags more of its kept amount items than any
+  other, each counted once per tag, period end and span on the collector's own admission; a tie
+  leaves the filing undetermined, and its items are read. The series currency is the latest
+  annual report's, preferring one that presents comparatives (its currency spans two period-ends),
+  else the latest other filing's, else USD. The collector reads every concept in that currency
+  (per-share concepts in its per-share unit) and skips every item of a filing whose own currency
+  is another: there an item in the series currency is a convenience translation. A foreign
+  US-GAAP filer's history is therefore stored as reported (CNY, JPY), never from its USD
+  convenience translations, and a filer with no USD list at all, such as a 10-K filer that
+  reports in CAD, is stored in its own currency. A filer that changed its reporting currency is
+  read in the new one: its series holds only the periods its filings in that currency present,
+  and its earlier years are no longer read. One stray item, from a one-period amendment or a
+  later quarterly report, never flips the series; a switch first reported in a 10-Q or 6-K takes
+  effect with the next annual report. Quarter derivation works in any currency. A sync then
+  demotes, never deletes, every current row of its concepts in another currency amount or
+  per-share unit, at any period with a fiscal period, whatever its source or filing, and for a
+  USD series too; rows with no fiscal period are left alone. The newer-accession rule above is per
+  unit; across units the pick has already chosen the series currency. A derived ratio (`pure`)
+  keeps its unit, so where a known filing date kept one computed from other-currency operands
+  current, the sync demotes it and promotes the batch's own calculation at that period; a ratio
+  at a period the batch does not compute is left as it is. A ratio stored before operands were
+  recorded (2026-10-10) counts as USD-derived when it is derived and has no filing owner, because
+  companyfacts was then read only in USD. One stored under the batch calculation's own identity
+  (same filing) keeps its old operands, because ingestion never rewrites an identity; the
+  journaled repair (`docs/quarterly-data-repair.md`) recomputes it. A demoted row stays readable
+  by its accession, as the Copilot's filing scope reads it.
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional
