@@ -50,13 +50,13 @@ const MAX_ALLOWLIST_SIZE = 6
 const ALLOW: Record<string, { counts: Counts; reason: string }> = {
   'components/ui/Modal.tsx': { counts: { layer: 1, role: 1 }, reason: 'the one dialog primitive' },
   'features/filings/components/copilot/AskCopilotRail.tsx': {
-    counts: { layer: 1, role: 1 },
-    reason: 'bespoke mobile sheet, trapped by useSheetFocusTrap',
+    counts: { layer: 2, role: 1 },
+    reason: 'existing mobile sheet and scrim both adopt z-modal; one dialog, trapped by useSheetFocusTrap',
   },
   'features/filings/components/copilot/FilingViewer.tsx': { counts: { layer: 1, role: 1 }, reason: 'bespoke filing-viewer sheet' },
   'features/filings/components/copilot/FilingWorkspace.tsx': {
-    counts: { layer: 1, role: 1 },
-    reason: 'bespoke workspace sheet, trapped by useSheetFocusTrap',
+    counts: { layer: 2, role: 1 },
+    reason: 'existing workspace sheet and scrim both adopt z-modal; one dialog, trapped by useSheetFocusTrap',
   },
   'features/filings/components/SourceTrace.tsx': { counts: { layer: 2, role: 1 }, reason: 'bespoke mobile source-detail sheet' },
   'features/calendar/components/DayDetailDialog.tsx': {

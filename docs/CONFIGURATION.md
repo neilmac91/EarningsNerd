@@ -57,7 +57,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `REDIS_URL` | `"redis://localhost:6379"` | Local Redis endpoint. Production uses the L1 in-memory cache (ADR-0004). |
 | `SKIP_REDIS_INIT` | `false` | Skip Redis initialization; true in hermetic tests and Redis-off deployments. |
 | `SEC_EDGAR_BASE_URL` | `"https://data.sec.gov"` | SEC submissions/companyfacts API origin; calls must use the EDGAR service layer. |
-| `SEC_USER_AGENT` | `"EarningsNerd/1.0 (contact@earningsnerd.io)"` | SEC contact identity; use a reachable operator address. |
+| `SEC_USER_AGENT` | `"EarningsNerd/1.0 (support@earningsnerd.io)"` | SEC contact identity; use a reachable operator address. |
 | `SEC_RATE_LIMIT_PER_SECOND` | `10` | Per-process rate of the app's own SEC token bucket (capacity equals rate). SEC's 10 req/s applies per user across every process, so production pins `1` on the API service, every job and the task worker (`ci.yml`); edgartools' separate limiter is `EDGAR_RATE_LIMIT_PER_SEC` (see below the table). |
 | `SEC_MAX_RETRIES` | `5` | EDGAR retry limit. |
 | `SEC_BASE_BACKOFF_SECONDS` | `1.0` | Initial EDGAR retry backoff, seconds. |
@@ -84,7 +84,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `REGISTRATION_MODE` | `"public"` | Validated public or invite_only registration, enforced on `/api/auth/register` and on the Google/Apple callbacks (an invited social sign-up sends the invite in the body of `POST /api/auth/google|apple/start`, never in a URL); CI explicitly sets invite_only on the service. |
 | `INVITE_EXPIRY_HOURS` | `168` | Invite token lifetime, hours. |
 | `INTERNAL_JOB_TOKEN` | `""` | Shared internal-job endpoint secret; unset endpoints return 503. |
-| `DURABLE_TASKS_ENABLED` | `false` | Opt-in queue handoff for on-visit work and internal jobs. Enable after authenticated worker delivery is verified; keep CPU always allocated until then. |
+| `DURABLE_TASKS_ENABLED` | `false` | Opt-in queue handoff for on-visit work, internal jobs and the account mail of forgot-password and resend-verification (F60). Enable after authenticated worker delivery is verified; keep CPU always allocated until then. |
 | `TASKS_PROJECT_ID` | `""` | Project containing the task queue; required when durable delivery is enabled. |
 | `TASKS_LOCATION` | `"us-west1"` | Queue region; co-locate with the API and worker. |
 | `TASKS_QUEUE` | `"earningsnerd-background"` | Dedicated background queue with one concurrent delivery. |
@@ -99,6 +99,9 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `RESEND_API_KEY` | `""` | Outbound email credential; required for sending. |
 | `RESEND_BASE_URL` | `"https://api.resend.com"` | Resend API origin. |
 | `RESEND_FROM_EMAIL` | `"EarningsNerd <hello@inbound.earningsnerd.io>"` | Sender on a Resend-verified domain; complete surrounding quotes are normalized away. |
+| `RESEND_REPLY_TO_EMAIL` | `"support@earningsnerd.io"` | Reply destination for direct transactional mail; defaults to the shared public role config. Durable deliveries freeze this optional value at selection; existing batches keep their stored value or header omission across retries and configuration changes. |
+| `CONTACT_NOTIFICATION_EMAIL` | `"support@earningsnerd.io"` | Workspace recipient for contact-form notifications, independent of the sending address. |
+| `FEEDBACK_NOTIFICATION_EMAIL` | `"support@earningsnerd.io"` | Workspace recipient for beta-feedback notifications, independent of the sending address. |
 | `RESEND_WEBHOOK_SECRET` | `""` | Resend/Svix webhook signature secret. |
 | `FRONTEND_URL` | `"https://www.earningsnerd.io"` | Public frontend origin: mail links, sign-in redirects and the mail header's tile (`/assets/earningsnerd-appicon.png`) are built on it. Use the origin that answers without a redirect (the apex answers 307 to www): sent mail keeps the whole address. Set it without a trailing slash: the tile and the waitlist's links strip one, the other links append their paths to it as it is. |
 | `DATA_QUALITY_REPORT_EMAIL` | `"neil@earningsnerd.io"` | Recipient of the operator-run data-quality report. |

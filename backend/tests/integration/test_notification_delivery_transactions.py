@@ -19,6 +19,7 @@ from app.database import Base, SessionLocal
 from app.models import Company, Filing, NotificationLog, NotificationPreferences, User, Watchlist
 from app.models.notification_delivery import (
     KIND_FILING_REALTIME,
+    REPLY_TO_STATUSES,
     STATUS_ACCEPTED,
     STATUS_CLAIMED,
     DeliveryBatch,
@@ -88,7 +89,7 @@ def test_postgres_competing_claims_admit_exactly_one_owner(postgres_engine):
     assert outcomes.count(True) == 1
     with _session(postgres_engine) as db:
         row = db.get(DeliveryBatch, batch_id)
-        assert row.status == STATUS_CLAIMED and row.owner_token in {f"worker-{i}" for i in range(4)}
+        assert row.status == REPLY_TO_STATUSES[STATUS_CLAIMED] and row.owner_token in {f"worker-{i}" for i in range(4)}
 
 
 def test_postgres_stale_owner_is_fenced_out_of_send_and_finalisation(postgres_engine):

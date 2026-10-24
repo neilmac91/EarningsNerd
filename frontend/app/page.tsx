@@ -46,26 +46,26 @@ export const metadata: Metadata = {
   },
 }
 
-// Foundational structured data: Organization + WebSite with a SearchAction
+// Foundational structured data: the application + WebSite with a SearchAction
 // (ticker search resolves to /company/{ticker}).
 const JSON_LD = {
   '@context': 'https://schema.org',
   '@graph': [
     {
-      '@type': 'Organization',
-      '@id': `${SITE_URL}/#organization`,
+      '@type': 'SoftwareApplication',
+      '@id': `${SITE_URL}/#application`,
       name: 'EarningsNerd',
       url: SITE_URL,
-      // Google requires a raster logo ≥112px for the Organization rich result.
-      logo: `${SITE_URL}/icons/icon-512.png`,
-      description: 'AI-powered SEC filing analysis. 10-K and 10-Q summaries sourced from SEC EDGAR.',
+      description: DESCRIPTION,
+      applicationCategory: 'FinanceApplication',
+      operatingSystem: 'Web',
     },
     {
       '@type': 'WebSite',
       '@id': `${SITE_URL}/#website`,
       name: 'EarningsNerd',
       url: SITE_URL,
-      publisher: { '@id': `${SITE_URL}/#organization` },
+      about: { '@id': `${SITE_URL}/#application` },
       potentialAction: {
         '@type': 'SearchAction',
         target: {

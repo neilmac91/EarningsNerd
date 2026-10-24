@@ -1,4 +1,5 @@
-"""Isolated task entrypoint. stdin carries identifiers, never credentials or document content."""
+"""Isolated task entrypoint. stdin carries identifiers, and for an account mail the address it is for
+(F60), never credentials, tokens or document content."""
 from __future__ import annotations
 
 import asyncio

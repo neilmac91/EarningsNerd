@@ -242,7 +242,7 @@ EXEMPT: dict[str, tuple[int, str]] = {
     "app/services/summary_stages/failure.py": (1, "founder: summary pipeline sentences"),
     "app/services/summary_stages/fetch.py": (2, "founder: summary pipeline sentences"),
 
-    "app/routers/contact.py::send_contact_notifications": (12, "backend-mail-templates"),
+    "app/routers/contact.py::send_contact_notifications": (11, "backend-mail-templates"),
     "app/routers/feedback.py::_notify_admin": (5, "backend-mail-templates"),
     "app/services/email_service.py": (
         25,

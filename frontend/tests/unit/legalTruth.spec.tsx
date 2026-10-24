@@ -235,17 +235,22 @@ const PAGES: Record<LegalPage, () => ReactElement> = {
 type LedgerRow = { date: string; sha256: string; sameDay?: string }
 
 const LEGAL_TEXT: Record<LegalPage, LedgerRow[]> = {
-  terms: [{ date: 'June 16, 2026', sha256: '82ecb15a746bee66' }],
+  terms: [
+    { date: 'June 16, 2026', sha256: '82ecb15a746bee66' },
+    { date: 'October 24, 2026', sha256: '89066f92fb69856d' },
+  ],
   privacy: [
     { date: 'June 22, 2026', sha256: '455802b5d59fad8f' },
     { date: 'October 20, 2026', sha256: 'c1bc2d9daec940d1' },
     { date: 'October 21, 2026', sha256: '865b53735c88175d' },
+    { date: 'October 24, 2026', sha256: '41094b4709f20a10' },
   ],
   security: [
     { date: 'June 22, 2026', sha256: '13d1b7070566bf07' },
     { date: 'October 21, 2026', sha256: '7e03a05b33c1cf00' },
     { date: 'October 21, 2026', sha256: '272031790b35816d', sameDay: '#1397 changed the page that day too' },
     { date: 'October 21, 2026', sha256: 'f01e686b3c5afee8', sameDay: '#1449 changed the page that day too' },
+    { date: 'October 24, 2026', sha256: '1fdda29a88473317' },
   ],
 }
 

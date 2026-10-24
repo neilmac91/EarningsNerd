@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import Link from 'next/link'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 import { openCookieSettings } from '@/lib/cookieSettings'
@@ -20,6 +21,7 @@ const FOOTER_LINKS: Record<string, FooterLink[]> = {
   ],
   Resources: [
     { label: 'Contact', href: '/contact' },
+    { label: CONTACT_ADDRESSES.support, href: contactMailto('support') },
   ],
   Legal: [
     { label: 'Privacy', href: '/privacy' },
@@ -32,7 +34,7 @@ const FOOTER_LINKS: Record<string, FooterLink[]> = {
 // and goes nowhere), each with the brand focus ring. `text-left` is for the button, which centres its text by
 // default, so a label that ever wraps lines up with the links; on an inline link it changes nothing.
 const FOOTER_LINK =
-  'text-left text-sm text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
+  'text-left text-sm [overflow-wrap:anywhere] text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
 
 export default function Footer() {
   // Read where the footer renders, on the server and again in the browser. The two can disagree for a few hours
@@ -107,15 +109,17 @@ export default function Footer() {
           </p>
         </div>
 
+        {/* Logo.dev's Community plan asks a commercial site for this link on a public page, in the form
+            its attribution page gives (the whole phrase as the link text); its dashboard loads the page
+            to find it. tests/unit/Footer.spec.tsx holds the link. */}
         <p className="mt-4 text-center text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-          Company logos by{' '}
           <a
             href="https://logo.dev"
             target="_blank"
             rel="noopener noreferrer"
             className="underline underline-offset-2 hover:text-text-secondary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
-            Logo.dev
+            Logos provided by Logo.dev
           </a>
           . Logos and trademarks are the property of their respective owners.
         </p>
