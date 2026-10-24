@@ -55,8 +55,19 @@ export interface FilingIndexProps {
 
 // One grid template for the column header, every row and the skeleton, so codes, periods and dates
 // align down the whole list. Phones: a code column + the period/filed stack (a base track is always
-// set — the responsive-grid-base-track rule). md+: form · period · filed · actions.
-const ROW_TRACKS = 'grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2 md:grid-cols-[4.5rem_minmax(0,1fr)_8.5rem_7rem] md:gap-x-0'
+// set — the responsive-grid-base-track rule). From 48rem: form · period · filed · actions.
+// The index's breakpoints are rem media queries (48rem for md's grid, 40rem for sm's rows), which follow the reader's
+// text size: 768 and 640px at the default size, as md and sm were, and 1536 and 1280px under 200% text. At md and sm,
+// px at any size, the grid's fixed tracks (20rem, 640px under 200% text) left the period column 0px in a 578px list at
+// 768px, a 526px one at 1440px and a 110px one at 1024px, and the toolbar's 637px row ran past the card (E168; the
+// company page's columns, in page-client.tsx, likewise).
+// Below 15rem of list (a phone under enlarged text: below 610px under 200% text and 458px under 150%, and never at the
+// default size from 306px up) a row is one column (the container variant): its form code beside the EDGAR square, then
+// its period and filed date at the row's whole width. Beside the 3.5rem code column and the EDGAR square's 3.5rem the
+// period had no width left at 320px under 200% text, and from 320 to 390px the square sat over its text. The list is
+// the query container (`[container-type:inline-size]`); a container query's rem is the reader's text size too.
+const ROW_TRACKS =
+  'grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2 [@container(width<15rem)]:grid-cols-1 [@media(min-width:48rem)]:grid-cols-[4.5rem_minmax(0,1fr)_8.5rem_7rem] [@media(min-width:48rem)]:gap-x-0'
 // Display is set apart from the tracks: `grid` and `hidden` in one class string would resolve by
 // stylesheet order (cx does no tailwind-merge).
 const ROW_GRID = `grid ${ROW_TRACKS}`
@@ -117,8 +128,9 @@ export function FilingIndex({
 
   return (
     <Card as="section" aria-labelledby={headingId}>
-      <div className="flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4 sm:px-cap-6 sm:pt-cap-6">
-        <div className="flex min-w-0 items-baseline gap-3">
+      <div className="flex flex-col gap-3 px-4 pt-4 [@media(min-width:40rem)]:flex-row [@media(min-width:40rem)]:flex-wrap [@media(min-width:40rem)]:items-center [@media(min-width:40rem)]:justify-between [@media(min-width:40rem)]:gap-4 [@media(min-width:40rem)]:px-cap-6 [@media(min-width:40rem)]:pt-cap-6">
+        {/* Wraps: under enlarged text on a phone the count takes a line of its own below the heading. */}
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 id={headingId} ref={headingRef} tabIndex={-1} className={cx('text-xl font-semibold outline-none', INK)}>
             SEC filings
           </h2>
@@ -127,13 +139,13 @@ export function FilingIndex({
           )}
         </div>
         {showToolbar && (
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 [@media(min-width:40rem)]:flex-row [@media(min-width:40rem)]:items-center">
             {view.forms.length > 1 &&
               (formSelect ? (
                 <Select
                   aria-label="Filter by form"
                   density="compact"
-                  className="sm:w-36"
+                  className="[@media(min-width:40rem)]:w-36"
                   value={form}
                   onChange={(e) => setForm(e.target.value)}
                 >
@@ -156,7 +168,7 @@ export function FilingIndex({
               <Select
                 aria-label="Filter by report year"
                 density="compact"
-                className="sm:w-36"
+                className="[@media(min-width:40rem)]:w-36"
                 value={year}
                 onChange={(e) => chooseYear(e.target.value)}
               >
@@ -173,7 +185,7 @@ export function FilingIndex({
       {status === 'loading' && <FilingIndexSkeleton />}
 
       {status === 'error' && (
-        <div className="px-4 pb-cap-5 pt-4 sm:px-cap-6 sm:pb-cap-6">
+        <div className="px-4 pb-cap-5 pt-4 [@media(min-width:40rem)]:px-cap-6 [@media(min-width:40rem)]:pb-cap-6">
           <Notice
             variant="error"
             title="Couldn’t load filings"
@@ -186,7 +198,7 @@ export function FilingIndex({
       )}
 
       {status === 'ready' && total === 0 && (
-        <div role="status" className="px-4 pb-cap-6 pt-4 sm:px-cap-6">
+        <div role="status" className="px-4 pb-cap-6 pt-4 [@media(min-width:40rem)]:px-cap-6">
           <p className={cx('text-sm font-semibold', INK)}>No filings to show</p>
           <p className={cx('mt-1 max-w-prose text-sm', MUTED)}>
             We haven’t found any periodic reports for this company on EDGAR yet.
@@ -195,9 +207,9 @@ export function FilingIndex({
       )}
 
       {status === 'ready' && total > 0 && (
-        <div className="px-4 pt-2 sm:px-cap-6">
+        <div className="px-4 pt-2 [container-type:inline-size] [@media(min-width:40rem)]:px-cap-6">
           {/* The visible column labels; each row's link already names its form, period and filed date. */}
-          <div aria-hidden="true" className={cx('hidden md:grid', ROW_TRACKS, 'pb-2 pt-4 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark')}>
+          <div aria-hidden="true" className={cx('hidden [@media(min-width:48rem)]:grid', ROW_TRACKS, 'pb-2 pt-4 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark')}>
             <span>Form</span>
             <span>Period</span>
             <span>Filed</span>
@@ -225,7 +237,10 @@ export function FilingIndex({
                       aria-controls={listId}
                       onClick={() => onToggleYear(y)}
                       className={cx(
-                        '-mx-3 flex h-12 w-[calc(100%+1.5rem)] items-center justify-between gap-3 rounded-lg px-3 text-left md:h-11',
+                        // Wraps where the year and its count do not share a line (a phone under enlarged text), the count
+                        // and its caret then on a line of their own at the right (ml-auto); one line keeps 48px (44px
+                        // from 48rem).
+                        '-mx-3 flex min-h-12 w-[calc(100%+1.5rem)] flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg px-3 py-2 text-left [@media(min-width:48rem)]:min-h-11',
                         'transition-colors duration-fast hover:bg-white dark:hover:bg-white/[0.03]',
                         'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
                       )}
@@ -235,7 +250,7 @@ export function FilingIndex({
                             text node's spaces but trims an element's (jsdom does; so do some readers). */}
                         <span className="sr-only">Report year</span> {y}
                       </span>{' '}
-                      <span className={cx('flex items-center gap-2.5 font-data text-xs tabular-nums', MUTED)}>
+                      <span className={cx('ml-auto flex items-center gap-2.5 font-data text-xs tabular-nums', MUTED)}>
                         {rows.length} {rows.length === 1 ? 'filing' : 'filings'}
                         <CaretDownIcon
                           aria-hidden="true"
@@ -261,7 +276,7 @@ export function FilingIndex({
       )}
 
       {status === 'ready' && total > 0 && ((view.oldest && cik) || footerAction) && (
-        <div className={cx(HAIRLINE, 'mt-1 flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-cap-6')}>
+        <div className={cx(HAIRLINE, 'mt-1 flex flex-col gap-3 px-4 py-3.5 [@media(min-width:40rem)]:flex-row [@media(min-width:40rem)]:items-center [@media(min-width:40rem)]:justify-between [@media(min-width:40rem)]:gap-6 [@media(min-width:40rem)]:px-cap-6')}>
           <FilingsHistoryNote oldestFilingDate={view.oldest} cik={cik} />
           {footerAction}
         </div>
@@ -303,14 +318,18 @@ function FilingIndexRow({ filing, filings, isLatest }: { filing: Filing; filings
         href={`/filing/${filing.id}`}
         className={cx(
           ROW_GRID,
-          '-mx-3 items-start rounded-lg py-3 pl-3 pr-14 md:min-h-12 md:items-center md:py-0 md:pr-3',
+          '-mx-3 items-start rounded-lg py-3 pl-3 pr-14 [@container(width<15rem)]:pr-3 [@media(min-width:48rem)]:min-h-12 [@media(min-width:48rem)]:items-center [@media(min-width:48rem)]:py-0 [@media(min-width:48rem)]:pr-3',
           'transition-colors duration-fast hover:bg-white active:bg-brand-weak/60',
           'focus-visible:outline-none focus-visible:shadow-ring-brand',
           'dark:hover:bg-white/[0.03] dark:active:bg-brand-weak-dark dark:focus-visible:shadow-ring-brand-dark',
         )}
       >
-        <span className={cx('font-data text-sm font-semibold', INK)}>{filing.filing_type}</span>{' '}
-        <span className="min-w-0 md:py-3 md:pr-3">
+        {/* In a narrow list the code's line is the EDGAR square's height (2.75rem) and keeps clear of it (pr-12), so the
+            period and filed date below take the row's whole width. */}
+        <span className={cx('font-data text-sm font-semibold [@container(width<15rem)]:flex [@container(width<15rem)]:min-h-11 [@container(width<15rem)]:items-center [@container(width<15rem)]:pr-12', INK)}>
+          {filing.filing_type}
+        </span>{' '}
+        <span className="min-w-0 [@media(min-width:48rem)]:py-3 [@media(min-width:48rem)]:pr-3">
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className={cx('text-sm font-medium', period ? INK : MUTED)}>{period ?? 'No period of report'}</span>{' '}
             {isLatest && <Badge variant="brand">Latest</Badge>}{' '}
@@ -322,10 +341,10 @@ function FilingIndexRow({ filing, filings, isLatest }: { filing: Filing; filings
           </span>
           {note && <span className={cx('mt-0.5 block text-xs', MUTED)}> {note}</span>}
         </span>{' '}
-        <span className={cx('col-start-2 mt-1 font-data text-xs tabular-nums md:col-start-auto md:mt-0 md:text-sm', MUTED)}>
-          <span className="md:sr-only">Filed</span> {filed}
+        <span className={cx('col-start-2 mt-1 font-data text-xs tabular-nums [@container(width<15rem)]:col-start-1 [@media(min-width:48rem)]:col-start-auto [@media(min-width:48rem)]:mt-0 [@media(min-width:48rem)]:text-sm', MUTED)}>
+          <span className="[@media(min-width:48rem)]:sr-only">Filed</span> {filed}
         </span>
-        <span aria-hidden="true" className="hidden justify-end text-text-tertiary-light dark:text-text-secondary-dark md:flex">
+        <span aria-hidden="true" className="hidden justify-end text-text-tertiary-light dark:text-text-secondary-dark [@media(min-width:48rem)]:flex">
           <CaretRightIcon className="h-4 w-4" />
         </span>
       </Link>
@@ -336,15 +355,17 @@ function FilingIndexRow({ filing, filings, isLatest }: { filing: Filing; filings
           rel="noopener noreferrer"
           aria-label={`View the ${filing.filing_type} filed ${filed} on SEC.gov (opens in a new tab)`}
           className={cx(
+            // In a narrow list the square sits beside the code, at the row's top padding, not centred on the row's text.
             'absolute right-0 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center gap-1.5 rounded-lg',
-            'md:right-7 md:h-8 md:w-auto md:px-2.5',
+            '[@container(width<15rem)]:top-3 [@container(width<15rem)]:translate-y-0',
+            '[@media(min-width:48rem)]:right-7 [@media(min-width:48rem)]:h-8 [@media(min-width:48rem)]:w-auto [@media(min-width:48rem)]:px-2.5',
             'text-text-secondary-light transition-colors duration-fast hover:bg-brand-weak hover:text-brand-strong',
             'focus-visible:outline-none focus-visible:shadow-ring-brand',
             'dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark',
           )}
         >
-          <span aria-hidden="true" className="hidden text-xs font-semibold md:inline">SEC.gov</span>
-          <ArrowSquareOutIcon aria-hidden="true" className="h-[18px] w-[18px] md:h-3.5 md:w-3.5" />
+          <span aria-hidden="true" className="hidden text-xs font-semibold [@media(min-width:48rem)]:inline">SEC.gov</span>
+          <ArrowSquareOutIcon aria-hidden="true" className="h-[18px] w-[18px] [@media(min-width:48rem)]:h-3.5 [@media(min-width:48rem)]:w-3.5" />
         </a>
       )}
     </li>
@@ -358,25 +379,25 @@ function FilingIndexSkeleton() {
   return (
     // The list's sections carry the Card's capped inset (E120); the skeleton, drawn here and not inside the Card's own
     // markup, carries it by hand so its rows do not move when the list replaces it.
-    <div role="status" aria-label="Loading filings" className="px-4 pb-4 pt-2 sm:px-cap-6">
+    <div role="status" aria-label="Loading filings" className="px-4 pb-4 pt-2 [container-type:inline-size] [@media(min-width:40rem)]:px-cap-6">
       <div aria-hidden="true">
-        <div className={cx('hidden md:grid', ROW_TRACKS, 'pb-2 pt-4')}>
+        <div className={cx('hidden [@media(min-width:48rem)]:grid', ROW_TRACKS, 'pb-2 pt-4')}>
           <Skeleton className="h-3 w-9" />
           <Skeleton className="h-3 w-12" />
           <Skeleton className="h-3 w-10" />
         </div>
         {[3, 2].map((count, group) => (
           <div key={group} className={HAIRLINE}>
-            <div className="flex h-12 items-center justify-between md:h-11">
+            <div className="flex h-12 items-center justify-between [@media(min-width:48rem)]:h-11">
               <Skeleton className="h-3.5 w-10" />
               <Skeleton className="h-3 w-16" />
             </div>
             {Array.from({ length: count }, (_, i) => (
-              <div key={i} className={cx(ROW_GRID, HAIRLINE, 'items-center py-3 md:min-h-12 md:py-0')}>
+              <div key={i} className={cx(ROW_GRID, HAIRLINE, 'items-center py-3 [@media(min-width:48rem)]:min-h-12 [@media(min-width:48rem)]:py-0')}>
                 <Skeleton className="h-3.5 w-9" />
                 <Skeleton className={cx('h-3.5', BONE_WIDTHS[i % BONE_WIDTHS.length])} />
-                <Skeleton className="col-start-2 mt-2 h-3 w-24 md:col-start-auto md:mt-0 md:h-3.5" />
-                <span className="hidden justify-end md:flex">
+                <Skeleton className="col-start-2 mt-2 h-3 w-24 [@container(width<15rem)]:col-start-1 [@media(min-width:48rem)]:col-start-auto [@media(min-width:48rem)]:mt-0 [@media(min-width:48rem)]:h-3.5" />
+                <span className="hidden justify-end [@media(min-width:48rem)]:flex">
                   <Skeleton className="h-3 w-16" />
                 </span>
               </div>
