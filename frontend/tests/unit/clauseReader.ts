@@ -1,9 +1,11 @@
 /**
  * A sentence read as clauses and noun phrases, for the gates that read what a sentence says rather than how near two of
  * its words stand (E162). legalTruth.spec.tsx's endpoint family reads each clause's subject, verb group and conditions
- * through it, and its consent and one-use families are to move onto it, so a shape one family reads the others read too
+ * through it since stage 1 and its consent family since stage 2, with the readings over the clauses below, and its
+ * one-use family is to move onto it, so a shape one family reads the others read too
  * (lessons/test-gates-must-be-as-wide-as-their-rule.md). A family keeps its own lexicon (what counts as a login, an
- * endpoint or the whole API) and matches it at the places this reading names (matchAt), not anywhere in the sentence.
+ * endpoint or the whole API, another operation than the analytics' own) and matches it at the places this reading
+ * names (matchAt), not anywhere in the sentence.
  * Under its readings the endpoint family keeps main's blanket for "all" and "every" (#1594's fourth round): a clause
  * where "all" or "every" stands before "endpoints" as main read it fails, login word or not, unless this reading finds
  * the phrase narrowed (a phrase after it that picks some out, in brackets or not, the quantifier taken back) or the
@@ -60,6 +62,29 @@
  * the verb and denies nothing ("not only requires authentication but also returns JSON", "does not merely require a
  * login"), so negates and verbGroupAt read it as no negation.
  *
+ * Readings over the clauses (E162 stage 2, for the consent family). Each reads a shape over the clauses readSentence
+ * gives and leaves them as they are, so no endpoint verdict moves with them. An operation (Operation) is a verb and
+ * what it acts on: gerunds, a determiner or a quantifier before them at most, joined by "and", "or" or a comma, sharing
+ * the object after the last ("Sharing and exporting analytics data", "any selling of usage data": gerundsAt, read
+ * across the clauses the reader opens at a gerund after "and"), an infinitive with its verbs and objects ("to share or
+ * export analytics data": infinitiveAt), and what a phrase after a noun binds it to, an infinitive, a gerund after
+ * "for" or "before", or a clause of time after "before" ("your consent before we collect analytics data":
+ * boundOperationsAt); a family's own lexicon may name verbs the lexicon lacks (knowsVerb's also: "disclose"). An
+ * ellipsis says its own subject does what the clause before says, with that clause's denial after "as", "so", "neither"
+ * or "nor" (", as does collecting it", "and so do server events") and with its own after its subject ("but collecting
+ * it does", "but server events do not": ellipsisAt). A verb group split by an aside in commas reads as one ("are not,
+ * as a rule, collected": verbGroupOf), and the group that governs a token is the clause's own where nothing between
+ * where it stops and the token opens another clause or group, a verb it stopped before or an aside right after it read
+ * past ("do not in any case require", "are not, as far as we know, consent-gated"), else the group of the last verb
+ * before the token ("analytics that never run without": governingGroup). A clause that names a subject and no verb
+ * group, joined to the next, names a subject of the next clause's predicate ("Analytics cookies and session recording
+ * stay off ...": conjunctsOf); a clause with a verb and nothing after it, carried on to the next, shares that clause's
+ * object and its negation ("We never share or collect analytics data ...": sharedVerbsOf); a condition holds a clause
+ * of its own where a noun phrase and a verb group follow its subordinating word (", while server events wait for your
+ * consent": conditionClauseAt); and "that" right after a verb group's verb, or after "true" or "the case", opens the
+ * clause the verb takes as its object, which a negation on the group governs from outside ("It is not true that ...":
+ * complementAt).
+ *
  * Out of reach: a verb the lexicon lacks reads as a noun after a noun, so a phrase runs on over it, and a noun the
  * lexicon also lists as a verb ends a phrase after another noun unless its own verb group follows ("the access logs
  * record every call" reads as "the access" and a verb); a subject named twice ("each endpoint and each page") reads as
@@ -73,7 +98,11 @@
  * to the first quantified noun phrase with a verb group after its own verb; and, as #1594's sixth round found, a noun's
  * contraction with "is" or "has" reads as a possessive ("every endpoint's not public"), quotation marks around a word
  * of a noun phrase end the phrase there, a path or a number in words before the noun is no word of the phrase ("every
- * /api endpoint", "all forty endpoints"), and an aside between dashes is not read.
+ * /api endpoint", "all forty endpoints"), and an aside between dashes is not read. The readings over the clauses read
+ * for the consent family what readSentence's clauses leave as above, a subject named twice (conjunctsOf) and a negation
+ * that governs a clause from outside it after "that" (complementAt); to them a verb the lexicon lacks is no verb ("when
+ * you visit"), and an ellipsis is read only with its auxiliary next to its subject ("as does X", "but X does"), not
+ * with a verb of its own ("and X will need it too").
  *
  */
 
@@ -639,4 +668,248 @@ export function matchAt(reading: Reading, at: number, form: RegExp): number {
   const end = token.start + match[0].length
   const next = reading.tokens.findIndex((t) => t.start >= end)
   return next < 0 ? reading.tokens.length : next
+}
+
+// The readings below came with the consent family (E162 stage 2). Each reads a shape over the clauses readSentence
+// gives and leaves them as they are, so the endpoint family's verdicts do not move with them.
+
+/** An operation a verb names (E162 stage 2): the verb (a gerund, an infinitive's or a clause of time's), what it acts on
+    as a noun phrase with what follows its head ("analytics data with another user"), null where it names nothing, and
+    where its words end, a prepositional phrase after a verb with no object among them ("sharing with another user"). */
+export type Operation = { verb: Token; object: NounPhrase | null; end: number }
+
+/** Whether the lexicon knows a word as a verb, in any of its forms (VERB_FORMS), or a family's own lexicon names it
+    (also: the consent family's "disclose", "transfer", which the lexicon lacks). */
+export const knowsVerb = (token: Token | undefined, also?: RegExp) => isWord(token) && !CLOSED.has(lower(token)) && (VERB_FORMS.has(lower(token)) || !!also?.test(lower(token)))
+/** Whether a verb group starts at a token (startsPredicate), or a verb a family's own lexicon names (also). */
+export const startsVerbGroup = (tokens: Token[], at: number, also?: RegExp) => startsPredicate(tokens, at) || knowsVerb(tokens[at], also)
+/** The verbs the lexicon knows in their base form, as an infinitive or a clause of time takes them. */
+const BASE_FORMS = words(LEMMAS)
+/** A gerund: an -ing form the lexicon knows, or one a family's own lexicon names (also: "disclosing"). */
+const isGerund = (token: Token | undefined, also?: RegExp) => knowsVerb(token, also) && /^[a-z]{2,}ing$/.test(lower(token))
+/** A verb in its base form: one the lexicon knows, or one a family's own lexicon names (also: "disclose"). */
+const isBase = (token: Token | undefined, also?: RegExp) => isWord(token) && !CLOSED.has(lower(token)) && (BASE_FORMS.has(lower(token)) || !!also?.test(lower(token)))
+/** How many tokens join two verbs at a token: "and" or "or", with a comma before it or not, or a comma alone; 0 where
+    none does. */
+const joinerAt = (tokens: Token[], at: number) => {
+  const comma = tokens[at]?.text === ',' ? 1 : 0
+  return /^(?:and|or)$/.test(lower(tokens[at + comma])) ? comma + 1 : comma
+}
+
+/** What a verb with its last word before a token acts on: the noun phrase there, unless a verb group starts there that
+    no noun phrase stands before ("records with partners requires" names its records; "requires your consent" is the
+    clause's verb), or, with none, the prepositional phrases after the verb ("sharing with another user"). */
+function objectAt(tokens: Token[], at: number): { object: NounPhrase | null; end: number } {
+  const phrase = PREPOSITIONS.has(lower(tokens[at])) ? null : nounPhraseAt(tokens, at)
+  if (phrase && (!startsPredicate(tokens, at) || startsPredicate(tokens, phrase.end))) return { object: phrase, end: phrase.end }
+  let end = at
+  while (PREPOSITIONS.has(lower(tokens[end])) && !adverbAt(tokens, end) && nounPhraseAt(tokens, end + 1)) end = nounPhraseAt(tokens, end + 1)?.end ?? end + 1
+  return { object: null, end }
+}
+
+/** A verb as verbsAndObjects reads one at a token: the verb's own token, and where what follows it starts (past an "of"
+    after a gerund, or a "to" before an infinitive's verb); null where none stands there. */
+type VerbAt = (k: number) => { verb: number; next: number } | null
+
+/** Verbs from a token, each read by `verb`, joined by "and", "or" or a comma, sharing the object after the last of them
+    ("sharing and exporting analytics data"), then another such group after "and" or "or" with an object of its own
+    ("sharing analytics data and exporting it"). */
+function verbsAndObjects(tokens: Token[], at: number, verb: VerbAt): { end: number; operations: Operation[] } {
+  const operations: Operation[] = []
+  let i = at
+  for (;;) {
+    const verbs: Token[] = []
+    for (let read = verb(i); read; ) {
+      verbs.push(tokens[read.verb])
+      i = read.next
+      const join = joinerAt(tokens, i)
+      const after = join ? verb(i + join) : null
+      if (!after) break
+      i += join
+      read = after
+    }
+    const { object, end } = objectAt(tokens, i)
+    i = end
+    for (const v of verbs) operations.push({ verb: v, object, end })
+    const join = joinerAt(tokens, i)
+    if (!join || tokens[i + join - 1]?.text === ',' || !verb(i + join)) return { end: i, operations }
+    i += join
+  }
+}
+
+/** The operations a gerund phrase names at a token (E162 stage 2): a determiner or a quantifier at most ("any selling of
+    usage data", "the sharing of analytics data"), gerunds joined by "and", "or" or a comma, which share the object after
+    the last of them ("Sharing and exporting analytics data require ..."), "of" before an object read as the gerund's
+    ("selling of usage data"), and another group after "and" or "or" ("sharing analytics data and exporting it"). The
+    reader opens a clause at a gerund after "and", so "Sharing and exporting analytics data require your consent." reads
+    as "Sharing" and a clause carried on at "exporting": a family reads the gerunds here, across those clauses. null
+    where no gerund stands at the token. */
+export function gerundsAt(tokens: Token[], at: number, also?: RegExp): { end: number; operations: Operation[] } | null {
+  const first = (QUANTIFIERS.has(lower(tokens[at])) || DETERMINERS.has(lower(tokens[at]))) && isGerund(tokens[at + 1], also) ? at + 1 : at
+  if (!isGerund(tokens[first], also)) return null
+  return verbsAndObjects(tokens, first, (k) => (isGerund(tokens[k], also) ? { verb: k, next: lower(tokens[k + 1]) === 'of' ? k + 2 : k + 1 } : null))
+}
+
+/** The operations an infinitive names at a token (E162 stage 2): "to" and a verb in its base form, then verbs joined by
+    "and", "or" or a comma, "to" again before them or not, which share the object after the last of them ("to share or
+    export analytics data"), and another group after "and" or "or" ("to share analytics data and to collect usage
+    statistics"). null where none stands at the token. */
+export function infinitiveAt(tokens: Token[], at: number, also?: RegExp): { end: number; operations: Operation[] } | null {
+  if (lower(tokens[at]) !== 'to' || !isBase(tokens[at + 1], also)) return null
+  return verbsAndObjects(tokens, at, (k) => (isBase(tokens[k], also) ? { verb: k, next: k + 1 } : lower(tokens[k]) === 'to' && isBase(tokens[k + 1], also) ? { verb: k + 1, next: k + 2 } : null))
+}
+
+/** The operations a phrase after a noun binds it to, at the phrase's first token (E162 stage 2): an infinitive ("your
+    consent to share analytics data": infinitiveAt), a gerund after "for" or "before" ("your consent for sharing analytics
+    data", "before sharing it": gerundsAt), or a clause of time after "before", read from its verb group's verb as an
+    infinitive is ("before we share analytics data"). null where none stands there. */
+export function boundOperationsAt(tokens: Token[], at: number, also?: RegExp): { end: number; operations: Operation[] } | null {
+  const word = lower(tokens[at])
+  if (word === 'to') return infinitiveAt(tokens, at, also)
+  if (word !== 'for' && word !== 'before') return null
+  const gerunds = gerundsAt(tokens, at + 1, also)
+  if (gerunds || word === 'for') return gerunds
+  const subject = nounPhraseAt(tokens, at + 1)
+  if (!subject || !startsVerbGroup(tokens, subject.end, also)) return null
+  const { verb } = verbGroupAt(tokens, subject.end)
+  return knowsVerb(tokens[verb], also) ? verbsAndObjects(tokens, verb, (k) => (knowsVerb(tokens[k], also) ? { verb: k, next: k + 1 } : null)) : null
+}
+
+/** An ellipsis (E162 stage 2): a clause that says its subject does what the clause before it says, the predicate left
+    out and read from there. After a comma, "and" or "but" at most, either "as", "so", "neither" or "nor" and an
+    auxiliary stand before its subject, which keep the denial of the clause before ("..., as does collecting it", "and
+    so do server events", "..., as is sharing them", "and neither does exporting it"), or the subject stands before an
+    auxiliary alone, which says the predicate whatever the clause before denied ("..., but collecting it does", "...,
+    and collecting it does too"), or denies it with a negation ("..., but server events do not"). The subject, a gerund
+    phrase (gerundsAt) or a noun phrase, and adverbs after it at most ("too"), end it at a mark or the sentence's end;
+    one that opens with a verb form other than a gerund is no subject ("as is required by law"). The reader keeps an
+    ellipsis inside the clause before it, or opens a clause at it that carries that clause's subject on ("and so ...")
+    or names its own ("but they do"); either way the ellipsis names its own subject. */
+export type Ellipsis = { start: number; end: number; subject: { start: number; end: number }; says: 'as before' | 'affirmed' | 'denied' }
+export function ellipsisAt(tokens: Token[], at: number, also?: RegExp): Ellipsis | null {
+  let i = tokens[at]?.text === ',' ? at + 1 : at
+  const joined = /^(?:and|but)$/.test(lower(tokens[i]))
+  if (joined) i++
+  const inverted = /^(?:as|so|neither|nor)$/.test(lower(tokens[i])) && AUXILIARIES.has(lower(tokens[i + 1]))
+  if (!inverted && !joined) return null
+  const start = inverted ? i + 2 : i
+  if (VERB_FORMS.has(lower(tokens[start])) && !isGerund(tokens[start], also)) return null
+  const end = gerundsAt(tokens, start, also)?.end ?? nounPhraseAt(tokens, start)?.end ?? -1
+  let close = end
+  let says: Ellipsis['says'] = 'as before'
+  if (!inverted) {
+    if (end < 0 || !AUXILIARIES.has(lower(tokens[end]))) return null
+    close = end + 1
+    says = negates(tokens[close], tokens[close + 1]) || /n't$/.test(lower(tokens[end])) ? 'denied' : 'affirmed'
+    if (negates(tokens[close], tokens[close + 1])) close++
+  }
+  while (close >= 0 && isAdverb(tokens[close])) close++
+  if (!inverted) while (close >= 0 && lower(tokens[close]) === 'as' && lower(tokens[close + 1]) === 'well') close += 2
+  return end > start && (!tokens[close] || isMark(tokens[close])) ? { start: at, end: close, subject: { start, end }, says } : null
+}
+
+/** A clause's verb group, read with the clause before it where an aside in commas splits one group between them (E162
+    stage 2): the group before stops at the aside's opening comma after an auxiliary or a negation ("are not, as a rule,"
+    "do not, as far as we know,"), the reader carries its subject on at the aside's closing comma, and this clause holds
+    the verb ("collected", "require"). The two read as one group, denied where either is. */
+export function verbGroupOf(reading: Reading, index: number): VerbGroup {
+  const { tokens, clauses } = reading
+  const clause = clauses[index]
+  const group = verbGroupAt(tokens, clause.predicate)
+  if (!clause.carried || clause.joinedBy !== ',' || index === 0) return group
+  const open = verbGroupOf(reading, index - 1)
+  return open.verb > open.start && tokens[open.verb]?.text === ',' && open.verb <= clauses[index - 1].end ? { start: open.start, verb: group.verb, negated: open.negated || group.negated } : group
+}
+
+/** A word that opens another clause or verb group, so a verb group before it does not govern what follows it: a verb
+    (knowsVerb), an auxiliary, a negation, a relative, subordinating or joining word, or a mark. */
+const opensAnother = (tokens: Token[], k: number, also?: RegExp) =>
+  knowsVerb(tokens[k], also) || AUXILIARIES.has(lower(tokens[k])) || negates(tokens[k], tokens[k + 1]) || RELATIVES.has(lower(tokens[k])) || SUBORDINATORS.has(lower(tokens[k])) || CONJUNCTIONS.has(lower(tokens[k])) || isMark(tokens[k])
+
+/** The verb group that governs a token (E162 stage 2), given the group a clause's predicate starts with (verbGroupOf,
+    or verbGroupAt where a family reads the predicate from elsewhere) and where the clause starts; verbs are the ones
+    knowsVerb knows, with a family's own (also). That group, own, governs a token after it where nothing between where
+    it stops and the token opens another clause or group (opensAnother), so an object, an adverb or a prepositional
+    phrase may stand between ("are not collected in practice only with", "do not collect analytics data only with"). A
+    group that stops before its verb reaches it across such words ("do not in any case require", "are not in any case
+    collected"), and across an aside in commas where it stops at the aside's opening comma ("are not, as far as we know,
+    consent-gated"). Otherwise the group of the last verb or the last auxiliary at or before the token, back to the
+    clause's start, with the auxiliaries, negations and adverbs before it, governs it ("analytics that never run
+    without", "It is not true that analytics wait"), own where it is the clause's group; null where none stands there.
+    A fronted condition is its clause's, which a family reads from the clause's conditions. */
+export function governingGroup(tokens: Token[], start: number, group: VerbGroup, at: number, also?: RegExp): { group: VerbGroup; own: boolean } | null {
+  if (at >= group.start && startsVerbGroup(tokens, group.start, also)) {
+    let reached = knowsVerb(tokens[group.verb], also)
+    let k = reached ? group.verb + 1 : group.verb
+    if (!reached && tokens[k]?.text === ',') {
+      const close = tokens.findIndex((t, j) => j > k && j < at && t.text === ',')
+      if (close > 0) k = close + 1
+    }
+    let open = false
+    for (; k < at && !open; k++) {
+      if (!reached && knowsVerb(tokens[k], also)) reached = true
+      else open = opensAnother(tokens, k, also)
+    }
+    if (!open) return { group, own: true }
+  }
+  for (let k = at; k >= start; k--) {
+    if (!knowsVerb(tokens[k], also) && !AUXILIARIES.has(lower(tokens[k]))) continue
+    let s = k
+    while (s > start && (AUXILIARIES.has(lower(tokens[s - 1])) || negates(tokens[s - 1], tokens[s]) || isAdverb(tokens[s - 1]) || (lower(tokens[s - 1]) === 'to' && CATENATIVES.has(lower(tokens[s - 2]))))) s -= lower(tokens[s - 1]) === 'to' ? 2 : 1
+    return { group: verbGroupAt(tokens, s), own: s === group.start }
+  }
+  return null
+}
+
+/** The clause a condition holds after its subordinating word (E162 stage 2): a noun phrase and a verb group after it
+    ("while server events wait for your consent", "because analytics run only after you allow them"), its subject and
+    where its predicate starts; null where the condition holds no clause of its own ("only with your consent", "when
+    accessing private records"). The reader reads a condition as its clause's; a family reads what such a clause says of
+    its own subject here. */
+export function conditionClauseAt(tokens: Token[], condition: Condition, also?: RegExp): { subject: NounPhrase; predicate: number } | null {
+  const subject = nounPhraseAt(tokens, condition.words)
+  return subject && subject.end < condition.end && startsVerbGroup(tokens, subject.end, also) ? { subject, predicate: subject.end } : null
+}
+
+/** The clause a verb group takes as its object after "that" (E162 stage 2): "that" right after the group's verb ("We do
+    not promise that analytics wait ...") or after the word that completes a "be" ("It is not true that ...", "It is not
+    the case that ..."), with that verb or word; null where no "that" follows the group there. Its clause runs to the end
+    of the clause that holds it, or is the clause the reader opens there (a quantified noun phrase with a verb group:
+    "We guarantee that each endpoint requires a login."). A negation on the group, or a subject that denies it, governs
+    that clause from outside where the verb asserts it, which a family reads with its own lexicon. */
+export function complementAt(tokens: Token[], group: VerbGroup): { verb: Token; that: number } | null {
+  const k = lower(tokens[group.verb]) === 'the' && lower(tokens[group.verb + 1]) === 'case' ? group.verb + 1 : group.verb
+  return isWord(tokens[k]) && lower(tokens[k + 1]) === 'that' ? { verb: tokens[k], that: k + 1 } : null
+}
+
+/** The clauses whose subjects a clause's predicate is said of, first to last (E162 stage 2): its own, and before it each
+    clause that names a subject, no verb group and no condition of its own, joined to the next by "and", "or" or a comma,
+    which the reader reads as a clause of its own ("Analytics cookies and session recording stay off ...": "Analytics
+    cookies", then "session recording" with the predicate). */
+export function conjunctsOf(reading: Reading, index: number): number[] {
+  const { tokens, clauses } = reading
+  const found = [index]
+  for (let k = index; k > 0; k--) {
+    const before = clauses[k - 1]
+    const own = before.conditions.some((c) => c.start >= before.predicate)
+    if (clauses[k].carried || !/^(?:and|or|,)$/.test(clauses[k].joinedBy ?? '') || !before.subject || own || startsPredicate(tokens, before.predicate)) break
+    found.unshift(k - 1)
+  }
+  return found
+}
+
+/** The clauses before a clause whose verbs share its object and what follows it, first to last (E162 stage 2): each
+    carries the subject on to the next, joined by "and", "or" or a comma, with a verb (knowsVerb) and nothing after it,
+    which the reader reads as clauses of their own ("We never share or collect analytics data without your consent.":
+    "never share", then "collect analytics data ..."). Their verb groups' auxiliaries and negations are the clause's
+    too. */
+export function sharedVerbsOf(reading: Reading, index: number, also?: RegExp): number[] {
+  const { tokens, clauses } = reading
+  const found: number[] = []
+  for (let k = index; k > 0 && clauses[k].carried && /^(?:and|or|,)$/.test(clauses[k].joinedBy ?? ''); k--) {
+    const { verb } = verbGroupAt(tokens, clauses[k - 1].predicate)
+    if (verb !== clauses[k - 1].end - 1 || !knowsVerb(tokens[verb], also)) break
+    found.unshift(k - 1)
+  }
+  return found
 }
