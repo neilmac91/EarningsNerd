@@ -227,7 +227,8 @@ def test_a_recomputed_mismatch_is_written_as_calculation_mismatch_and_unreconcil
 
 def test_latest_fy_counts_the_companys_newest_fiscal_year_alone(db):
     """Every year keeps a current annual row, so ``latest_fy`` counts only the company's newest
-    year, the year whose review notes the Multi-Period Analysis baseline counts (77 of 82)."""
+    year, the year whose review notes the Multi-Period Analysis baseline counts (77 of 82), and in
+    it only the current annual targets: a superseded annual row and a quarter are not counted."""
     company, filing = _company(db)
     _margin(db, company, filing)
     accession = "0000872589-25-000007"
@@ -242,11 +243,14 @@ def test_latest_fy_counts_the_companys_newest_fiscal_year_alone(db):
     _row(db, company, "revenue", 800, start=date(2024, 1, 1), **year)
     _row(db, company, "operating_income", 100, start=date(2024, 1, 1), **year)
     _row(db, company, "operating_margin", 12.5, **year)
+    # Each alone in its accession, so each is held for want of operands: counted, it would read as held.
+    _row(db, company, "operating_margin", 24.0, filing=filing, accession="0000872589-26-000002", is_latest=False)
+    _row(db, company, "operating_margin", 30.0, filing=filing, accession="0000872589-26-000005", fiscal_period="Q4")
     db.commit()
 
     result = repair.backfill_company(db, company.id, apply=False, run_id="dry")
 
-    assert result["outcomes"] == {"passed": 2, "needs_review": 0}
+    assert result["outcomes"] == {"passed": 2, "needs_review": 0} and result["held"]["inputs_not_found"] == 2
     assert result["latest_fy"] == {"cleared": 1, "marked": 0, "held": 0}
 
 
@@ -393,6 +397,23 @@ def test_raw_tag_equal_to_concept_and_empty_string_are_targets(db):
     assert [repair.is_target(row(raw_tag=tag)) for tag in ("custom:NetMargin", "NetMargin")] == [False] * 2
     assert repair.is_target(row(provenance={"version": 0})) and not repair.is_target(row(provenance={"version": 1}))
     assert not repair.is_target(row(filing_id=None)) and not repair.is_target(row(concept="revenue"))
+
+
+def test_a_targets_old_record_is_replaced_not_read(db):
+    """A target can carry a record from before version 1. The calculator recomputes the figure from its
+    operands and never reads that record, so a reason it lists is not carried into the new one."""
+    company, filing = _company(db)
+    target = _margin(db, company, filing, provenance={
+        "version": 0, "checks": {"local_reconciliation": {"reasons": ["calculation_mismatch"]}},
+    })
+    db.commit()
+
+    result = _apply(db, company)
+
+    db.refresh(target)
+    assert (target.provenance["version"], target.provenance["validation"]) == (1, "passed")
+    assert (target.provenance["reasons"], target.reconciled) == ([], True)
+    assert result["outcomes"] == {"passed": 1, "needs_review": 0}
 
 
 def test_rerun_is_idempotent(db):
@@ -544,6 +565,7 @@ def test_after_apply_the_dataset_point_passes(db):
 def _cohort(db):
     regn, regn_filing = _company(db)
     _margin(db, regn, regn_filing)
+    _row(db, regn, "net_margin", 10.0, filing=regn_filing)  # held: its accession stores no net income
     aapl, aapl_filing = _company(db, "AAPL", "0000320193")
     _margin(db, aapl, aapl_filing, margin=26.0)
     bare, _filing = _company(db, "BARE", "0000000999")  # no filing-owned formula row
@@ -586,11 +608,15 @@ def test_cli_dry_run_is_the_default_takes_no_lock_and_scopes_by_ticker_and_limit
     assert start == {"started": True, "run_id": summary["run_id"], "dry_run": True, "tickers": None}
     assert [(line["ticker"], line["writes"], line["run_id"]) for line in companies] == [
         ("REGN", 1, start["run_id"]), ("AAPL", 1, start["run_id"])]
+    no_holds = dict.fromkeys(repair.HOLD_REASONS, 0)
+    no_diagnostics = dict.fromkeys(repair.DIAGNOSTICS, 0)
     assert {key: summary[key] for key in ("companies", "companies_with_writes", "scanned", "writes", "revisions",
-                                          "outcomes", "reasons", "latest_fy", "failed")} == {
-        "companies": 2, "companies_with_writes": 2, "scanned": 2, "writes": 2, "revisions": 0,
+                                          "outcomes", "reasons", "held", "diagnostics", "latest_fy",
+                                          "failed")} == {
+        "companies": 2, "companies_with_writes": 2, "scanned": 3, "writes": 2, "revisions": 0,
         "outcomes": {"passed": 1, "needs_review": 1}, "reasons": {"calculation_mismatch": 1},
-        "latest_fy": {"cleared": 1, "marked": 1, "held": 0}, "failed": 0,
+        "held": {**no_holds, "inputs_not_found": 1}, "diagnostics": {**no_diagnostics, "no_operand_row": 1},
+        "latest_fy": {"cleared": 1, "marked": 1, "held": 1}, "failed": 0,
     }
     code, lines = run(["--limit", "1"])
     assert code == 0 and [line.get("ticker") for line in lines] == [None, "REGN", None]
@@ -607,7 +633,8 @@ def test_cli_dry_run_is_the_default_takes_no_lock_and_scopes_by_ticker_and_limit
     code, lines = run(["--apply", "--tickers", "REGN"])
 
     assert code == 0 and not lines[-1]["dry_run"] and lines[-1]["revisions"] == 1
-    assert locks.companies == [[regn.id]] and "FinancialFact" in locks.rows
+    assert locks.companies == [[regn.id]]
+    assert locks.rows == ["Company", "FinancialFact", "FinancialFact"], "the company, the targets, the rows read"
     with factory() as fresh:  # committed: a new session sees the record and the journal
         assert fresh.query(FinancialFactRevision).filter_by(run_id=lines[0]["run_id"], company_id=regn.id).count() == 1
         assert fresh.query(FinancialFactRevision).filter_by(company_id=aapl.id).count() == 0
@@ -631,7 +658,7 @@ def test_cli_prints_its_run_id_before_any_company(db, monkeypatch):
     """Each company commits as it goes, so the run's first line, flushed before any company, names the
     run_id an apply cut short has journaled its committed companies under."""
     _cohort(db)
-    real, seen, out = repair.backfill_company, [], _Stdout()
+    seen, out = [], _Stdout()
 
     def interrupted(session, company_id, **kwargs):
         seen.append((out.flushed, out.pending))
@@ -641,7 +668,7 @@ def test_cli_prints_its_run_id_before_any_company(db, monkeypatch):
     monkeypatch.setattr(sys, "stdout", out)
     with pytest.raises(KeyboardInterrupt):
         cli.main(["--apply"])
-    assert real is not interrupted and len(seen) == 1
+    assert len(seen) == 1
     before_any_company, buffered = seen[0]
     assert buffered == "" and before_any_company.count("\n") == 1, "one start line, flushed before any company"
     start = json.loads(before_any_company)
@@ -673,3 +700,18 @@ def test_a_failing_company_rolls_back_alone_and_fails_the_exit_code(db, factory,
             k: v for k, v in before.items() if v["company_id"] == regn.id
         }
         assert {r.company_id for r in fresh.query(FinancialFactRevision)} == {aapl.id}
+
+
+def test_one_apply_journals_every_company_under_its_run_id(db, factory, capsys):
+    """The CLI journals a whole apply under one run_id, so the reuse check refuses a run_id only where
+    this company already holds it: the founder's "then the rest in one apply" writes every company."""
+    regn, aapl, _bare = _cohort(db)
+
+    assert cli.main(["--apply"]) == 0
+
+    start, *lines, summary = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [(line["ticker"], line["revisions"]) for line in lines] == [("REGN", 1), ("AAPL", 1)]
+    assert (summary["failed"], summary["revisions"]) == (0, 2)
+    with factory() as fresh:
+        journal = fresh.query(FinancialFactRevision).filter_by(run_id=start["run_id"])
+        assert sorted(entry.company_id for entry in journal) == sorted([regn.id, aapl.id])
