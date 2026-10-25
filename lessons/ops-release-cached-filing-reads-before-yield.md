@@ -187,13 +187,34 @@ the dependency already finds spent (`require_copilot_or_taste`'s 403) and a ques
 rate limit (its 429) are refused before the unit runs, so, like a 422, each still leaves the lookup's
 transaction for the finalizer. Its burst case holds every checkout, statement and release off the loop,
 each answer and each asker's metering (2026-10-25, E171).
+The admin router's maintenance routes (the feedback list and its status update, the summary delete, the
+XBRL clear, the filing reset, the stale-XBRL audit and bulk reset, and the summaries' reset-all) handed
+their session to services on the loop, on the connection the auth lookup had checked out. Eight requests
+to each on four slots answered as they should, but every statement after the auth lookup ran on the loop
+(8 of 16 for eight feedback lists, 56 of 64 for eight status updates, 72 of 80 for eight filing resets),
+the stale-XBRL audit and bulk reset loading and decoding every filing's XBRL there, each read after a
+write's commit checked a connection out there (16 of 24 for the status updates, 8 of 16 for the XBRL
+clears, filing resets and bulk resets), and every route but the summary delete, whose commit gave its
+connection back on the loop, left its transaction for the finalizer, the 404s included. On a local
+PostgreSQL 16, another transaction holding a filing's `summaries` row for 1.0 s froze the loop for about
+that long (0.94 to 1.02 s, three runs of each) through that filing's summary delete or reset, or a
+reset-all: each waited for the row's lock on the loop, and the app's engine sets no lock or statement
+timeout. Each route is now one thread-pool unit that makes its service call and audit row and releases
+its session, its 404 raised after that release; the admin's id and email are read before it, since a
+commit expires them. With the row held the same way, the loop's longest gap between its 10 ms ticks was
+12 ms (59 ms on a process's first request, whichever route took it). Two requests on one instance no
+longer run one after the other: as two instances (the service runs up to two) already could, two resets
+of one filing at once both read its rows, both answer 200 and can both report its summary deleted, and
+the second's deletes match no row, which SQLAlchemy warns of; the rows end deleted either way (that
+PostgreSQL, ten rounds each of the summary delete and the reset). Their burst case holds every
+checkout, statement and release off the loop, each answer and each route's rows (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
 dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
 rules, uses it. Its ceilings hold the routes that still use their session on the loop at
-their counts (the rest of the auth router, E121; the admin router's 14 routes and the summaries router's
+their counts (the rest of the auth router, E121; the admin router's 6 routes and the summaries router's
 generate stream and two exports, E171; five of those hand-offs, the header's strict ones, use no
 connection on the loop), so none can add one in a
 form the ratchet counts and a new route starts at 0. Neither half

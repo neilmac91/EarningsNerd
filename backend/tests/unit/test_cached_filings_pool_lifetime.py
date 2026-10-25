@@ -16,12 +16,13 @@ One rule, two halves in this one module:
   submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
   company lookup, search and trending list (eight racers for one new company's row included), the
   saved-summary routes, the upcoming calendar, the account routes (the profile edit, the alert
-  preferences, the bell, the data export and the account deletion) and the Copilot ask stream (a Pro
-  and a Free question, a missing filing and the admission's three refusals) must answer an eight-request burst
-  with no checkout on the loop and nothing left for the finalizer; and the join, the contact form and
-  the feedback submit must send their mails, the analysis exports render, Stripe checkout and the
-  portal make their Stripe calls, and the account deletion its Stripe cancellation and PostHog flush,
-  with no connection out.
+  preferences, the bell, the data export and the account deletion), the Copilot ask stream (a Pro
+  and a Free question, a missing filing and the admission's three refusals) and the admin feedback triage and
+  filing and summary maintenance routes (their 404s, and the bulk routes' dry and real runs) must answer an
+  eight-request burst with no checkout on the loop and nothing left for the finalizer; and the join, the
+  contact form and the feedback submit must send their mails, the analysis exports render, Stripe checkout
+  and the portal make their Stripe calls, and the account deletion its Stripe cancellation and PostHog
+  flush, with no connection out.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
   fails, above that route's ceiling, a session call on the loop in the route's own body, the session
   handed to a call there, a ``with`` it enters there, or a call there of a nested unit that uses it,
@@ -2714,6 +2715,161 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
         engine.dispose()
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method,path,case", [
+    ("GET", "/api/admin/feedback", "feedback_list"),
+    ("PATCH", "/api/admin/feedback/{feedback}", "feedback_status"),
+    ("PATCH", "/api/admin/feedback/9999", "feedback_missing"),
+    ("DELETE", "/api/admin/filing/{filing}/summary", "delete_summary"),
+    ("DELETE", "/api/admin/filing/9999/summary", "filing_missing"),
+    ("DELETE", "/api/admin/filing/{filing}/xbrl", "clear_xbrl"),
+    ("DELETE", "/api/admin/filing/9999/xbrl", "xbrl_missing"),
+    ("DELETE", "/api/admin/filing/{filing}/reset", "reset_filing"),
+    ("DELETE", "/api/admin/filing/9999/reset", "reset_missing"),
+    ("GET", "/api/admin/filings/audit-xbrl", "audit_xbrl"),
+    ("POST", "/api/admin/filings/bulk-reset-stale", "bulk_reset_dry"),
+    ("POST", "/api/admin/filings/bulk-reset-stale?dry_run=false", "bulk_reset"),
+    ("POST", "/api/admin/summaries/reset-all", "reset_all_dry"),
+    ("POST", "/api/admin/summaries/reset-all?dry_run=false", "reset_all"),
+])
+async def test_admin_maintenance_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, case):
+    """The admin feedback triage and the filing and summary maintenance routes run their service call, audit row
+    and release in one thread-pool unit, their 404s included, so eight admins on four slots make no checkout,
+    statement or release on the loop and leave nothing for the finalizer. On the loop, each statement after the
+    auth lookup ran there (the stale-XBRL audit and bulk reset loading every filing's XBRL), each read after a
+    write's commit checked a connection out there, and every route but the summary delete left its transaction
+    for the finalizer."""
+    from app.models import AuditLog, User
+    from app.models.feedback import Feedback
+    from app.routers import auth
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'admin-maintenance.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    filing_ids: list[int] = []
+    feedback_ids: list[int] = []
+    with sessions() as db:
+        company = Company(cik="0000000006", ticker="ADMN", name="Admin fixture")
+        db.add(company)
+        db.flush()
+        for i in range(8):
+            db.add(User(email=f"admin-{i}@example.com", is_active=True, is_admin=True))
+            # Each filing's XBRL trails its period by ten years, so the audit and the bulk reset find all eight.
+            filing = Filing(company_id=company.id, accession_number=f"0000000006-26-00000{i}", filing_type="10-K",
+                            filing_date=utcnow(), period_end_date=utcnow(), sec_url=f"https://example.test/admin/{i}/",
+                            document_url=f"https://example.test/admin/{i}.htm",
+                            xbrl_data={"revenue": [{"period": "2015-12-31", "value": 1}]})
+            db.add(filing)
+            db.flush()
+            db.add(Summary(filing_id=filing.id, business_overview="# Summary", raw_summary={}))
+            db.add(SummaryGenerationProgress(filing_id=filing.id, stage="completed", started_at=utcnow(),
+                                             updated_at=utcnow()))
+            db.add(FilingContentCache(filing_id=filing.id, critical_excerpt="Revenue was $1.0 million."))
+            feedback = Feedback(type="bug", message=f"Report {i}", status="new")
+            db.add(feedback)
+            db.flush()
+            filing_ids.append(filing.id)
+            feedback_ids.append(feedback.id)
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    # The routes' statements ran on the loop on the connection the auth lookup had checked out in the thread pool,
+    # and a commit gave it back there: neither is a checkout.
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"admin-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            url = path.format(filing=filing_ids[i], feedback=feedback_ids[i])
+            if method == "PATCH":
+                return await client.patch(url, json={"status": "triaged"})
+            return await client.request(method, url)
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        # Every checkout, the auth lookup's included, and every statement and release ran in the thread pool:
+        # none on the loop (read before this test's own reads below).
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        missing = case in ("feedback_missing", "filing_missing", "xbrl_missing", "reset_missing")
+        assert [response.status_code for response in responses] == [404 if missing else 200] * 8
+        payloads = [response.json() for response in responses]
+        if case == "feedback_list":
+            assert [len(payload["feedback"]) for payload in payloads] == [8] * 8
+        elif case == "feedback_status":
+            assert sorted((payload["id"], payload["status"]) for payload in payloads) == [
+                (feedback_id, "triaged") for feedback_id in feedback_ids]
+        elif missing:
+            assert [payload["detail"] for payload in payloads] == [
+                "Feedback not found" if case == "feedback_missing" else "Filing not found"] * 8
+        elif case == "audit_xbrl":
+            assert [(payload["total_filings_with_xbrl"], payload["stale_filings_count"]) for payload in payloads] == [
+                (8, 8)] * 8
+        elif case == "bulk_reset_dry":
+            assert [payload["affected_count"] for payload in payloads] == [8] * 8
+        elif case == "reset_all_dry":
+            assert [payload["deleted_count"] for payload in payloads] == [8] * 8
+        with sessions() as db:
+            summaries = db.query(Summary).count()
+            # A cleared JSON column holds JSON null, which a SQL IS NOT NULL still counts.
+            xbrl = sum(1 for (data,) in db.query(Filing.xbrl_data) if data is not None)
+            caches = db.query(FilingContentCache).count()
+            statuses = sorted(status for (status,) in db.query(Feedback.status))
+            audits = sorted(action for (action,) in db.query(AuditLog.action))
+        # Each write took effect, and the reads, the dry runs and the 404s wrote nothing. Every reset-all that read
+        # a summary before another's delete committed deletes it and writes an audit row; one that read after finds
+        # none and writes none.
+        assert summaries == (0 if case in ("delete_summary", "reset_filing", "bulk_reset", "reset_all") else 8)
+        assert xbrl == (0 if case in ("clear_xbrl", "reset_filing", "bulk_reset") else 8)
+        assert caches == (0 if case == "reset_filing" else 8)
+        assert statuses == ["triaged" if case == "feedback_status" else "new"] * 8
+        if case == "feedback_status":
+            assert audits == ["feedback_status_changed"] * 8
+        elif case == "reset_all":
+            assert audits and set(audits) == {"summaries_bulk_reset"}
+        else:
+            assert audits == []
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.parametrize("error", [
     OperationalError("ROLLBACK", {}, Exception("server closed the connection unexpectedly")),
     IllegalStateChangeError("Method 'close()' can't be called here; another method is in progress"),
@@ -2851,17 +3007,7 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # each entry is a route E121 (``auth.py``) or E171 names in ``tasks/todo.md``. The blank line between
 # entries keeps in-place number edits on different entries mergeable in any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
-    ("app/routers/admin.py", "audit_stale_xbrl"): 1,
-
-    ("app/routers/admin.py", "bulk_reset_stale_xbrl"): 1,
-
-    ("app/routers/admin.py", "clear_filing_xbrl"): 1,
-
     ("app/routers/admin.py", "create_free_account"): 1,
-
-    ("app/routers/admin.py", "delete_filing_summary"): 1,
-
-    ("app/routers/admin.py", "list_feedback"): 1,
 
     ("app/routers/admin.py", "list_invites"): 1,
 
@@ -2871,13 +3017,7 @@ ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
 
     ("app/routers/admin.py", "resend_invite"): 2,
 
-    ("app/routers/admin.py", "reset_all_summaries"): 3,
-
-    ("app/routers/admin.py", "reset_filing"): 1,
-
     ("app/routers/admin.py", "revoke_invite"): 2,
-
-    ("app/routers/admin.py", "update_feedback_status"): 3,
 
     ("app/routers/auth.py", "apple_callback"): 6,
 
