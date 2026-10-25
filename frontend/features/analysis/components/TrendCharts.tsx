@@ -83,6 +83,14 @@ const CHART_MARGIN = { top: 24, right: 16, left: 8, bottom: 0 }
 /** Every quarterly period keeps this much of the plot's width on a phone, where the chart viewport scrolls instead. */
 const QUARTER_SLOT = 28
 
+/** A quarterly plot's minimum width: QUARTER_SLOT a period plus its axes and margins (never under the 144 px reserved
+ *  before the axes fitted their labels). A card within one slot of that width fits the plot instead of scrolling a
+ *  sliver, so the minimum steps down one slot once the card (100%) reaches it: the clamp climbs 1000 px for each px. */
+const quarterlyMinWidth = (periods: number, axes: number) => {
+  const full = periods * QUARTER_SLOT + Math.max(144, axes)
+  return `calc(${full}px - clamp(0px, (100% - ${full - QUARTER_SLOT}px) * 1000, ${QUARTER_SLOT}px))`
+}
+
 /** A tooltip prints the axis's own formats: amounts at the panel's 3 significant figures, percents at 1 dp. */
 const tooltipValue = (axis: EngineAxis, value: number) => (axis.format.kind === 'money' ? axis.format.value(value) : axis.format.value(value, 1))
 
@@ -540,11 +548,9 @@ function PanelCard({
       <div
         ref={plotRef}
         data-analysis-chart={panel.title}
-        // Keep every quarterly tick readable on touch screens. The minimum follows the number of periods plus the
-        // axes and margins, never under the 144 px it reserved before the axes fitted their labels; only the chart
-        // viewport scrolls, never the page.
+        // Keep every quarterly tick readable on touch screens; only the chart viewport scrolls, never the page.
         style={dataset.mode === 'quarterly'
-          ? { minWidth: dataset.periods.length * QUARTER_SLOT + Math.max(144, leftWidth + rightWidth + CHART_MARGIN.left + CHART_MARGIN.right) }
+          ? { minWidth: quarterlyMinWidth(dataset.periods.length, leftWidth + rightWidth + CHART_MARGIN.left + CHART_MARGIN.right) }
           : undefined}
         className={cx(
           'w-full transition-[height] duration-base ease-standard motion-reduce:transition-none',

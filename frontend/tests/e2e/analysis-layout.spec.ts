@@ -699,8 +699,11 @@ for (const theme of THEMES) {
     test.use({ viewport: { width: 1280, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
     // TrendCharts sizes each value axis from its tick labels. A label wider than its axis runs into the chart's margin
     // (8 px left, 16 px right) and then out of the SVG, where it is cut; one Recharts breaks at a space reads as two.
-    for (const [name, state, edit] of [['quarterly', 'captured', undefined], ['annual in CHF', 'annual', inSwissFrancs]] as const) {
-      test(`${name}: every y tick label is painted on one line inside its axis`, async ({ page, baseURL }) => {
+    // Wider axes must not make a chart at its card's full desktop width scroll.
+    for (const [name, state, edit] of [
+      ['quarterly', 'captured', undefined], ['quarterly in CHF', 'captured', inSwissFrancs], ['annual in CHF', 'annual', inSwissFrancs],
+    ] as const) {
+      test(`${name}: every y tick label is painted on one line inside its axis, and no chart scrolls`, async ({ page, baseURL }) => {
         await openAnalysis(page, baseURL!, state, theme, 1, false, edit)
         const plots = page.locator('[data-analysis-chart]')
         await expect(plots).toHaveCount(4)
@@ -708,8 +711,10 @@ for (const theme of THEMES) {
           const svg = chart.querySelector('svg.recharts-surface')!.getBoundingClientRect()
           const grid = chart.querySelector('.recharts-cartesian-grid')!.getBoundingClientRect()
           const labels = [...chart.querySelectorAll('.recharts-yAxis-tick-labels .recharts-cartesian-axis-tick-label')]
+          const viewport = chart.closest('[data-analysis-chart-scroll]')!
           return {
             name: chart.getAttribute('data-analysis-chart'),
+            scrolls: viewport.scrollWidth > viewport.clientWidth + 1,
             labels: labels.map(label => label.textContent ?? ''),
             broken: labels.filter(label => label.querySelectorAll('tspan').length !== 1).map(label => label.textContent),
             outside: labels.flatMap(label => {
@@ -723,8 +728,36 @@ for (const theme of THEMES) {
           expect(chart.labels.length, `${chart.name}: its y ticks are drawn`).toBeGreaterThan(2)
           expect(chart.outside, `${chart.name}: y tick labels outside their axis`).toEqual([])
           expect(chart.broken, `${chart.name}: y tick labels drawn on more than one line`).toEqual([])
+          expect(chart.scrolls, `${chart.name}: scrolls at its card's full width`).toBe(false)
         }
         if (edit) expect(charts.flatMap(chart => chart.labels).some(label => /^CHF\s\d{3}B$/.test(label)), 'a code-prefixed label is drawn').toBe(true)
+      })
+    }
+  })
+}
+
+for (const theme of THEMES) {
+  test.describe(`analysis chart quarters / ${theme} / 390px`, () => {
+    test.use({ viewport: { width: 390, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+    // On a phone a quarterly plot keeps 28 px a quarter past its axes, however wide they are, and scrolls inside its card.
+    for (const [name, edit] of [['dollars', undefined], ['Swiss francs', inSwissFrancs]] as const) {
+      test(`quarterly in ${name}: each quarter keeps 28 px, and the chart scrolls inside its card`, async ({ page, baseURL }) => {
+        await openAnalysis(page, baseURL!, 'captured', theme, 1, false, edit)
+        const plots = page.locator('[data-analysis-chart]')
+        await expect(plots).toHaveCount(4)
+        const charts = await plots.evaluateAll((elements, periods) => elements.map(chart => {
+          const viewport = chart.closest('[data-analysis-chart-scroll]')!
+          return {
+            name: chart.getAttribute('data-analysis-chart'),
+            quarter: chart.querySelector('.recharts-cartesian-grid')!.getBoundingClientRect().width / periods,
+            scrolls: viewport.scrollWidth > viewport.clientWidth + 1,
+          }
+        }), PERIODS.length)
+        for (const chart of charts) {
+          expect(chart.quarter, `${chart.name}: px a quarter`).toBeGreaterThanOrEqual(28 - 0.01)
+          expect(chart.scrolls, `${chart.name}: scrolls inside its card`).toBe(true)
+        }
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'the page does not scroll sideways').toBe(true)
       })
     }
   })

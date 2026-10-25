@@ -171,7 +171,8 @@ describe('the cases step 2 changes', () => {
     for (const axis of axes) for (const label of axis.labels) expect(axis.width, label).toBeGreaterThanOrEqual(labelRoom(axis, label))
   })
 
-  // A quarterly plot's minimum width is 28 px a period plus its axes and its 8 + 16 px margins (and at least 144).
+  // A quarterly plot's minimum width is 28 px a period plus its axes and its 8 + 16 px margins (and at least 144), one
+  // period less once its card is within a period of that.
   it.each(DATASETS.filter((name) => FIXTURE.datasets[name].dataset.mode === 'quarterly'))('%s in Swiss francs: every quarter keeps 28 px however wide the axes', (name) => {
     const ds = dataset(name)
     for (const series of ds.series) if (!series.percent) {
@@ -183,8 +184,10 @@ describe('the cases step 2 changes', () => {
     expect(plots.length).toBeGreaterThan(0)
     for (const plot of plots) {
       const axes = [...plot.querySelectorAll<SVGGElement>('[data-y-axis]')].reduce((sum, axis) => sum + Number(axis.dataset.width), 0)
-      const reserved = parseFloat(plot.style.minWidth) - ds.periods.length * 28
-      expect(reserved, plot.dataset.analysisChart).toBe(Math.max(144, axes + 24))
+      // As the DOM serializes it: calc(Fpx - clamp(0px, 1000 * (100% - Tpx), Spx)).
+      const [, full, threshold, slot] = plot.style.minWidth.match(/^calc\((\d+)px - clamp\(0px, 1000 \* \(100% - (\d+)px\), (\d+)px\)\)$/) ?? []
+      expect(Number(full) - ds.periods.length * 28, plot.dataset.analysisChart).toBe(Math.max(144, axes + 24))
+      expect([Number(threshold), Number(slot)], plot.dataset.analysisChart).toEqual([Number(full) - 28, 28])
     }
     unmount()
   })
