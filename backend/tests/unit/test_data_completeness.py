@@ -456,7 +456,7 @@ def test_bulk_delayed_response_preserves_known_amendment(sessions, incoming_know
             "accession": "002", "form": "10-Q/A", "value": 200}])
         result = facts_service.upsert_facts_bulk(db, [{**common, "filing_id": None,
             "accession": "001", "form": "10-Q", "value": 100}])
-        assert result == {"inserted": 1, "skipped": 0, "demoted": 0}
+        assert result == {"inserted": 1, "skipped": 0, "demoted": 0, "history": 0}
         assert [(row.accession, row.value) for row in db.query(FinancialFact).filter_by(is_latest=True)] == [("002", 200)]
         assert db.query(FinancialFact).filter_by(accession="001").one().value == 100
         # A later comparative filing still becomes current when its metadata establishes order.

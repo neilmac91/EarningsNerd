@@ -467,7 +467,8 @@ def test_f0_5_normalize_companyfacts_identity_dedup_keeps_the_first_emitted(monk
 
     facts, meta = facts_service.normalize_companyfacts(7, payload)
 
-    assert meta == {"unsupported_ifrs": False, "quarterly_exclusions": [], "quarterly_excluded_count": 0}
+    assert meta == {"unsupported_ifrs": False, "history": [], "quarterly_exclusions": [],
+                    "quarterly_excluded_count": 0}
     provenance = {"version": 1, "method": "reported", "validation": "passed", "reasons": [],
                   "formula": None, "inputs": [], "calculation_version": "quarterly-v2"}
     assert facts == [

@@ -412,6 +412,15 @@ unused since generation became account-required in #619; kept because migrations
   One stored under the native calculation's own identity (same filing) keeps its
   USD operands, because ingestion never rewrites an identity; the journaled repair
   (`docs/quarterly-data-repair.md`) recomputes it.
+- Beside each FY winner (a duration or a fiscal-year-end balance), companyfacts keeps the year's
+  own annual report's value when a later filing gave the year another one (`facts/own_reports.py`):
+  a non-current row under the own report's accession, found within the winning tag only, the
+  original preferred over an amendment, then the earliest filed. It is stored only where its
+  identity is free, so it never demotes, promotes or replaces a row, and it never enters the
+  normalizer's `facts`, which the derivations read. Nothing reads these rows yet; the restatement
+  note will. Like every stored companyfacts row, one at a filing's own identity keeps the
+  per-filing writer from storing that filing's row there, since that writer skips any stored
+  identity, so the filing-scoped fundamentals (read by `filing_id`) lack that cell.
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional

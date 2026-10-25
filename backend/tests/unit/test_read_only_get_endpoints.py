@@ -164,6 +164,8 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
         "app/routers/analysis.py::get_coverage": {"create_task": 1},
         "app/services/facts/ingest.py::_persist_companyfacts_payload": {"commit": 1},
         "app/services/facts/upsert.py::upsert_facts_bulk": {"add": 1, "commit": 1},
+        # The same ingest's own-report history rows, which the bulk upsert stores beside its winners.
+        "app/services/facts/own_reports.py::insert_history_rows": {"add": 1},
     },
     ("app/routers/auth.py", "apple_login"): {
         "app/services/oauth_account_service.py::save_apple_state": {"commit": 1},
