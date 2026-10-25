@@ -1946,19 +1946,29 @@ function anotherCredentials(sentence: string, at: number, said: Set<string>): bo
     ("Refresh tokens rotate, but are cryptographic keys."), and, on a page that names a token, in a unit whose subject
     may stand for one, or that holds a word that does (REFERS_BACK): a pronoun, a word that points back (POINTS_BACK)
     or none ("..., although they are cryptographic keys.", "They are cryptographic keys.", "These keys are
-    single-use.", "..., but we call them cryptographic keys."). In another sentence or item, it may be the token's
-    ("Each key works only once."). "Refresh tokens are reusable, while recovery
+    single-use.", "..., but we call them cryptographic keys."). A noun so said stands for the token in turn ("... Each
+    key is an access code."). In another sentence or item, it may be the token's ("Each key works only once."). "Refresh tokens are reusable, while recovery
     codes cannot be reused." and "Unlike refresh tokens, recovery codes cannot be reused." say no noun of a token. */
 function nounsSaidOfAToken(blocks: string[]): Set<string> {
   const said = new Set<string>()
   const namesAToken = blocks.some((text) => new RegExp(A_TOKEN.source, 'i').test(text))
-  for (const sentence of blocks.flatMap(sentencesOf)) {
-    const reading = readSentence(sentence)
+  const sentences = blocks.flatMap(sentencesOf).map((sentence) => ({ sentence, reading: readSentence(sentence) }))
+  // A noun said of a token stands for it in turn, and says the nouns beside it of the token too ("Refresh tokens are
+  // cryptographic keys. Each key is an access code."): the page is read again until no noun is added.
+  let before: number
+  do {
+    before = said.size
+    sentences.forEach(({ sentence, reading }) => saidIn(sentence, reading))
+  } while (said.size > before)
+  return said
+  function saidIn(sentence: string, reading: Reading) {
     const { tokens } = reading
     const units = unitsOf(reading)
     const unitOf = (k: number) => units.find((u) => inUnit(u, k))
     const tokenAt = (offset: number) => tokens.findIndex((t) => t.end > offset)
-    const mentions = [...sentence.matchAll(A_TOKEN)].map((m) => tokenAt(m.index ?? 0)).filter((j) => !afterUnlike(tokens, j))
+    const named = [...sentence.matchAll(A_TOKEN)].map((m) => tokenAt(m.index ?? 0))
+    const aliases = tokens.flatMap((t, n) => (A_CREDENTIAL.test(t.text) && said.has(lemma(t)) ? [n] : []))
+    const mentions = [...named, ...aliases].filter((j) => !afterUnlike(tokens, j))
     tokens.forEach((t, n) => {
       const unit = unitOf(n)
       const ofAToken = mentions.some((j) => {
@@ -1974,7 +1984,6 @@ function nounsSaidOfAToken(blocks: string[]): Set<string> {
       if (A_CREDENTIAL.test(t.text) && !afterUnlike(tokens, n) && (ofAToken || carriesAToken || standsForAToken)) said.add(lemma(t))
     })
   }
-  return said
 }
 /** A one-use form of the refresh or session token, in one sentence of the block (E162 stage 3): main's family as the
     floor (oneUseFormsIn), where some form is not another credential's (anotherCredentials), read with what the page
@@ -3882,6 +3891,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Refresh tokens rotate. They are cryptographic keys. Each key works only once.</li>', true],
       // ... and a pronoun that is no subject (Codex's thread 4371719132 on 65b5f67e).
       ['<li>Refresh tokens rotate, but we call them cryptographic keys. Each key works only once.</li>', true],
+      // ... and a noun said of a noun the page says of a token (Codex's thread 4371778016 on 82c7cc9e).
+      ['<li>Refresh tokens are cryptographic keys. Each key is an access code. Each code works only once.</li>', true],
       // The costs: "and" or a semicolon sets nothing apart, and "single-use" before a credential's noun outside an
       // "unlike" phrase is read as said of its clause's subject, so these fail as on main though the token is not
       // one-use.
