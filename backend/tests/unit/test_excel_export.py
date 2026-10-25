@@ -156,7 +156,7 @@ class TestOverviewSheet:
         assert "TST" in texts
         assert "FY2022–FY2024 · 3 periods" in texts  # the window key as a range; never "FY2022..FY2024"
         assert "SEC filings and calculations via EarningsNerd · earningsnerd.io" in texts
-        assert any("July 06, 2026" in t for t in texts)
+        assert "July 6, 2026, 00:00 UTC" in texts and "Exported UTC" not in texts  # the instant as words, its zone named
         assert any("earningsnerd.io/terms" in t for t in texts)
         assert any("not" in t and "investment" in t for t in texts)  # the disclaimer paragraph
         # One period reads in the singular, its window key, as the engine writes it, as that one period (E177).
@@ -164,6 +164,29 @@ class TestOverviewSheet:
         single.update(period_key="FY2024..FY2024", periods=single["periods"][2:])
         overview = load_workbook(io.BytesIO(build_analysis_workbook(single, exported_at=EXPORTED_AT)))["Overview"]
         assert overview["B12"].value == "FY2024 · 1 period"
+
+    def test_the_company_and_the_instants_read_as_the_page_prints_them(self):
+        """WP3-A: the title takes the page's display name, never EDGAR's capitals, and each instant reads as
+        words with its zone named. Display only: the dataset, whose company_name feeds its fingerprint, keeps it."""
+        from copy import deepcopy
+
+        dataset = _dataset()
+        dataset.update(company_name="REGENERON PHARMACEUTICALS, INC.", ticker="REGN",
+                       data_as_of="2026-10-24T20:21:42.435743Z")
+        before = deepcopy(dataset)
+        book = load_workbook(io.BytesIO(build_analysis_workbook(dataset, exported_at=EXPORTED_AT)))
+        overview = book["Overview"]
+        assert overview["A7"].value == "Regeneron Pharmaceuticals, Inc. · Multi-Period Analysis"
+        texts = [str(cell.value) for sheet in book.worksheets for row in sheet.iter_rows() for cell in row if cell.value]
+        assert texts and not any("REGENERON" in text for text in texts)
+        facts = {row[0].value: row[1].value for row in overview.iter_rows(min_row=10, max_row=17)}
+        assert list(facts)[:5] == ["Ticker", "Mode", "Periods", "Exported", "Source data as of"]
+        assert facts["Exported"] == "July 6, 2026, 00:00 UTC"
+        assert facts["Source data as of"] == "October 24, 2026, 20:21 UTC"
+        assert dataset == before
+        dataset.update(company_name=None, data_as_of="Legacy refresh")
+        overview = load_workbook(io.BytesIO(build_analysis_workbook(dataset, exported_at=EXPORTED_AT)))["Overview"]
+        assert overview["A7"].value == "REGN · Multi-Period Analysis" and overview["B14"].value == "Legacy refresh"
 
     def test_labels_and_headers_rest_in_the_ink(self, workbook):
         """D-041 (D-030 in the workbook): a fact label and a header row carry the ink, the header on
@@ -283,7 +306,9 @@ class TestPanelSheets:
 
         overview = wb["Overview"]
         title = overview["A7"]
-        assert title.data_type == "s" and title.value.startswith("=HYPERLINK")
+        # The display name cases the token before its slash ("=Hyperlink(\"Http://..."), as formatCompanyName does;
+        # the cell still opens with "=", so the guard still decides it.
+        assert title.data_type == "s" and title.value.startswith("=Hyperlink(")
         ticker_cell = overview["B10"]
         assert ticker_cell.data_type == "s" and ticker_cell.value == "=T"
         metrics = wb["Metrics"]
@@ -342,7 +367,7 @@ class TestPanelSheets:
         assert "Note" in texts and any(text.startswith("Data note ") for text in texts)
         overview = [cell.value for row in workbook["Overview"] for cell in row]
         assert "a" * 64 in overview and "quarterly-v2" in overview
-        assert "2026-07-01T09:00:00Z" in overview
+        assert "July 1, 2026, 09:00 UTC" in overview and "2026-07-01T09:00:00Z" not in overview
         assert any("finance-lease principal" in str(value) for value in overview)
 
 

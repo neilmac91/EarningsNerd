@@ -701,7 +701,7 @@ class TestAnalysisPdfHtml:
         assert "annual_minus_ytd" in html
         assert "2500 USD (2024-01-01 to 2024-12-31)" in html
         assert "a" * 64 in html and "quarterly-v2" in html
-        assert "2026-07-01T09:00:00Z" in html
+        assert "Source data as of July 1, 2026, 09:00 UTC · " in html and "2026-07-01T09:00:00Z" not in html
         assert "finance-lease principal" in html
         assert "do not appear in the filings" not in html
         assert "This analysis was generated" not in html
@@ -864,6 +864,38 @@ class TestAnalysisPdfHtml:
         assert period_label("FY2021..FY2021") == "FY2021" and period_label("2025Q3..2025Q3") == "Q3 2025"
         assert period_label("FY2022..FY2024") == "FY2022\u2013FY2024" and period_label("2024Q1..2025Q4") == "Q1 2024\u2013Q4 2025"
         assert period_label("held in FY2021..FY2021, then FY2022..FY2024") == "held in FY2021, then FY2022\u2013FY2024"
+
+    def test_the_company_and_the_instants_read_as_the_page_prints_them(self):
+        """WP3-A: the title takes the page's display name, never EDGAR's capitals, and each instant reads as
+        words with its zone named, never raw ISO with microseconds; the summary PDF keeps its own (§0 flag 11)."""
+        from datetime import datetime
+
+        analysis = self._analysis()
+        analysis.updated_at = datetime(2026, 10, 24, 20, 26, 7, 435743)  # naive, as SQLite returns it
+        analysis.dataset_json["data_as_of"] = "2026-10-24T20:21:42.435743Z"
+        regn = SimpleNamespace(name="REGENERON PHARMACEUTICALS, INC.", ticker="REGN")
+        html = ExportService().generate_analysis_pdf_html(analysis, regn)
+        assert "<h1>Regeneron Pharmaceuticals, Inc. · Multi-Period Analysis</h1>" in html and "REGENERON" not in html
+        assert "Generated October 24, 2026, 20:26 UTC · Exported " in html
+        assert re.search(r"Exported [A-Z][a-z]+ \d{1,2}, \d{4}, \d{2}:\d{2} UTC<br>Source data as of "
+                         r"October 24, 2026, 20:21 UTC · Dataset version", html)
+        assert ".435743" not in html and "T20:" not in html
+        # No name: the ticker titles it. No record: the meta line says so. A value that is not an instant: as stored.
+        analysis.updated_at, analysis.dataset_json["data_as_of"] = None, "Legacy refresh"
+        html = ExportService().generate_analysis_pdf_html(analysis, SimpleNamespace(name=None, ticker="REGN"))
+        assert "<h1>REGN · Multi-Period Analysis</h1>" in html
+        assert "Generated Not recorded · " in html and "Source data as of Legacy refresh · " in html
+
+    def test_display_instant_reads_an_instant_as_words_with_its_zone(self):
+        from datetime import datetime, timedelta, timezone
+
+        from app.services.analysis_export_metadata import display_instant
+
+        assert display_instant(datetime(2026, 7, 6)) == "July 6, 2026, 00:00 UTC"  # a naive value is UTC
+        assert display_instant(datetime(2026, 7, 6, 1, 30, tzinfo=timezone(timedelta(hours=2)))) == "July 5, 2026, 23:30 UTC"
+        assert display_instant("2026-10-24T20:21:42.435743Z") == "October 24, 2026, 20:21 UTC"
+        assert display_instant("2026-01-15") == "January 15, 2026, 00:00 UTC"
+        assert [display_instant(value) for value in (None, "", "not a date", "2026-13-01")] == [None] * 4
 
     def test_titles_ranges_and_note_scopes_read_in_the_voice(self):
         """F07, F12, F20, F21: the title takes a middot, the appendix heading sentence case, the

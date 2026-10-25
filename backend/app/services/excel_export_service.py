@@ -42,11 +42,12 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from app.services.pdf_branding import PALETTE
 from app.services.analysis_export_metadata import (
-    ANALYSIS_DISCLAIMER, FCF_DEFINITION, count_label, export_points, formula_text, note_index,
+    ANALYSIS_DISCLAIMER, FCF_DEFINITION, count_label, display_instant, export_points, formula_text, note_index,
     notes_summary, operand_records, period_label, point_method, point_notes,
 )
 from app.services.trend_analysis.data_notes import resolve_data_notes
-from app.utils.datetimes import iso_z, utcnow
+from app.utils.company_names import display_company_name
+from app.utils.datetimes import utcnow
 
 # 256px-wide sage mark on transparent, rasterized by frontend/scripts/generate-brand-assets.mjs
 # (openpyxl can't rasterize SVG; the PNG is committed so the backend needs no SVG toolchain).
@@ -146,6 +147,12 @@ def _write_header_row(ws: Worksheet, headers: list[str]) -> None:
         cell.alignment = Alignment(horizontal="left" if col == 1 else "right")
 
 
+def _display_name(dataset: dict[str, Any]) -> str:
+    """The company as the page prints it, never EDGAR's capitals (display only: the dataset's company_name
+    feeds its fingerprint and stays as served)."""
+    return display_company_name(dataset.get("company_name")) or str(dataset.get("ticker", ""))
+
+
 def _has_derived(dataset: dict[str, Any]) -> bool:
     return any(
         point_method(point) == "calculated"
@@ -169,7 +176,7 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
     mode_label = "Annual" if dataset.get("mode") == "annual" else "Quarterly"
     periods = dataset.get("periods", [])
 
-    title = _write_text(ws, 7, 1, f"{dataset.get('company_name', '')} · Multi-Period Analysis")
+    title = _write_text(ws, 7, 1, f"{_display_name(dataset)} · Multi-Period Analysis")
     title.font = Font(bold=True, size=15, color=PALETTE["ink"].lstrip("#"))
     subtitle = ws.cell(row=8, column=1, value="Chart & metrics data export · EarningsNerd · AI summaries of SEC filings")
     subtitle.font = _FOOTNOTE_FONT
@@ -178,9 +185,9 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
         ("Ticker", str(dataset.get("ticker", ""))),
         ("Mode", mode_label),
         ("Periods", f"{period_label(dataset.get('period_key', ''))} · {count_label(len(periods), 'period')}"),
-        ("Exported", exported_at.strftime("%B %d, %Y")),
-        ("Exported UTC", iso_z(exported_at)),
-        ("Data as of", str(dataset.get("data_as_of") or "Not recorded")),
+        # Instants read as words with their zone named; a data-as-of value that is not an instant prints as stored.
+        ("Exported", display_instant(exported_at) or "Not recorded"),
+        ("Source data as of", display_instant(dataset.get("data_as_of")) or str(dataset.get("data_as_of") or "Not recorded")),
         ("Dataset version", str(dataset.get("dataset_version") or "Legacy snapshot")),
         ("Snapshot", str(dataset.get("snapshot_id") or "Not recorded")),
         ("Source", "SEC filings and calculations via EarningsNerd · earningsnerd.io"),

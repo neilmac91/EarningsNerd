@@ -8,7 +8,7 @@ from html import escape
 from app.models import Summary, Filing
 from app.services.pdf_branding import PALETTE, render_branded_pdf
 from app.services.analysis_export_metadata import (
-    ANALYSIS_DISCLAIMER, FCF_DEFINITION, count_label, export_points, formula_text, note_index,
+    ANALYSIS_DISCLAIMER, FCF_DEFINITION, count_label, display_instant, export_points, formula_text, note_index,
     notes_summary, operand_records, period_label, point_method, raw_value_text, source_urls,
 )
 from app.services.trend_analysis.data_notes import (
@@ -17,7 +17,8 @@ from app.services.trend_analysis.data_notes import (
 from app.services.trend_analysis.narrative_display import compact_narrative_text
 from app.services.summary_sections import Block, Section, render_sections
 from app.services.provenance_service import export_raw_summary
-from app.utils.datetimes import ensure_utc, iso_z, utcnow
+from app.utils.company_names import display_company_name
+from app.utils.datetimes import utcnow
 
 # The filing-summary PDF's closing note, one paragraph each: the masthead line, then the
 # disclaimer. The CSV ends with the same paragraphs, one to a row, so a spreadsheet keeps the
@@ -457,13 +458,15 @@ class ExportService:
         narrative = self._narrative_to_html(period_label(compact_narrative_text(analysis.narrative_md or "")))
         narrative = re.sub(r"\[(\d+)\]", lambda match: match[0] + marks.get(match[1], ""), narrative)
         generated_at = getattr(analysis, "updated_at", None) or getattr(analysis, "created_at", None)
-        generated = iso_z(ensure_utc(generated_at)) if generated_at else "Not recorded"
         mode = "Annual" if analysis.mode == "annual" else "Quarterly"
+        # Instants read as words with their zone named ("October 24, 2026, 20:26 UTC"); a data-as-of value
+        # that is not an instant prints as stored. "Source data as of" is the page's words (DataNotes.tsx).
+        data_as_of = dataset.get("data_as_of")
         meta_html = (
             f'<span class="data">{escape(company.ticker or "")}</span> · {mode} · '
             f'<span class="data">{escape(period_label(analysis.period_key))}</span> · '
-            f"Generated {generated} · Exported {iso_z(utcnow())}"
-            f"<br>Data as of: {escape(str(dataset.get('data_as_of') or 'Not recorded'))} · "
+            f'Generated {display_instant(generated_at) or "Not recorded"} · Exported {display_instant(utcnow())}'
+            f"<br>Source data as of {escape(display_instant(data_as_of) or str(data_as_of or 'Not recorded'))} · "
             f"Dataset version: {escape(str(dataset.get('dataset_version') or 'Legacy snapshot'))}"
             f'<br>Snapshot: <span class="snapshot">{escape(str(dataset.get("snapshot_id") or "Not recorded"))}</span>'
         )
@@ -493,7 +496,9 @@ class ExportService:
             <p class="footnote">{escape(ANALYSIS_DISCLAIMER)}</p>
         """
         return render_branded_pdf(
-            title=f"{escape(company.name)} · Multi-Period Analysis", doc_kind="Multi-Period<br>Analysis",
+            # The page's display name, never EDGAR's capitals, wherever the shell prints the title.
+            title=f"{escape(display_company_name(company.name) or company.ticker or '')} · Multi-Period Analysis",
+            doc_kind="Multi-Period<br>Analysis",
             meta_html=meta_html, body_html=body_html,
             extra_css=("ol.sources, .data-notes, .methods { font-size: 8.5pt; } "
                        ".data-notes { list-style: none; padding-left: 0; } "
