@@ -149,6 +149,11 @@ class Settings(BaseSettings):
     # Notifications must not be routed to an outbound-only Resend sender.
     CONTACT_NOTIFICATION_EMAIL: str = SUPPORT_EMAIL
     FEEDBACK_NOTIFICATION_EMAIL: str = SUPPORT_EMAIL
+    # Uploads remain closed until the private bucket and cleanup job are verified. Turning
+    # this off stops new uploads; authorized reads and cleanup retain the bucket setting.
+    FEEDBACK_MEDIA_ENABLED: bool = False
+    FEEDBACK_MEDIA_BUCKET: str = ""
+    FEEDBACK_MEDIA_RETENTION_DAYS: int = Field(default=180, ge=1, le=180)
     RESEND_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Resend dashboard
     # The site's origin that answers without a redirect (the apex redirects to it). Mail links,
     # sign-in redirects and the mail header's tile are built on it, and sent mail keeps the whole

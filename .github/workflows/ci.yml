@@ -314,6 +314,12 @@ jobs:
         env:
           ADMIN_INVITE_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
         run: python -m pytest tests/integration/test_admin_invite_transactions.py
+      - name: Verify feedback submission concurrency on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          FEEDBACK_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_feedback_submission_transactions.py
 
   frontend-tests:
     runs-on: ubuntu-latest
@@ -982,8 +988,8 @@ jobs:
           # freshness stamp, XBRL L1, tickers) survive between requests (QW4, PR follow-up to the
           # filing-load audit). The 2026-09-27 source/session audit budgets four connections per
           # serving instance with no overflow. At the current two-instance cap, pregenerate's three
-          # sessions and one execution of each other job, configured application demand is 18,
-          # or 21 with the optional worker's three connections; preserve a database reserve.
+          # sessions and one execution of each other job, configured application demand is 19,
+          # or 22 with the optional worker's three connections; preserve a database reserve.
           # --max=2 pins the service-level limit across
           # traffic-serving revisions while --max-instances=2 pins each new revision. Cloud Run can
           # briefly exceed a configured maximum, and jobs remain outside this service limit; measure
@@ -1030,7 +1036,7 @@ jobs:
         # CI bumps the image and sets the DB pool and SEC budget keys. Skip each gracefully if it hasn't been
         # created yet so CD never fails.
         run: |
-          for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-earnings-calendar-refresh earningsnerd-earnings-day-alerts earningsnerd-notable-filings earningsnerd-retention-purge; do
+          for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-earnings-calendar-refresh earningsnerd-earnings-day-alerts earningsnerd-notable-filings earningsnerd-retention-purge earningsnerd-feedback-media-cleanup; do
             if gcloud run jobs describe "$job" --region=us-west1 >/dev/null 2>&1; then
               # Each declared job entrypoint passes one business session through its service; the
               # ledger session runs before/after it. One pooled connection is therefore sufficient

@@ -131,8 +131,10 @@ preview into batches.
 The configured sustained sums are: 4 req/s sustained with no job running (two service instances), 6
 in the hourly filing-scan window, and at most 8 req/s in any scheduled overlap — Monday 06:00 and
 07:00 UTC (pregenerate, whose first attempt can run until 07:00, with a scan), Monday 07:30–08:30 UTC
-(backfill-facts with a scan) and a daily EFTS job over a running scan — and 20 req/s if every job ran
-at once (22 with the worker, 24 in a handover second), which configuration does not prevent. A full bucket at rate R admits up to 2R−1 requests in
+(backfill-facts with a scan) and a daily EFTS job over a running scan — and 22 req/s if every job ran
+at once (24 with the worker, 26 in a handover second), which configuration does not prevent. The
+feedback-media cleanup job adds two to this conservative configured sum but performs no SEC calls.
+A full bucket at rate R admits up to 2R−1 requests in
 its first second (19 at the default 10), but at the pinned rate of 1 the bucket never holds more than
 one token, so admissions are at least 1 s apart, and edgartools' window never exceeds its rate per
 rolling second: under the pin a process's ceiling is 2 req/s in every second, the first included, so
@@ -181,7 +183,7 @@ After a deploy, Ops `describe-service` (`docs/DEPLOYMENT.md`) prints `SEC_RATE_L
 `EDGAR_RATE_LIMIT_PER_SEC` and `ENABLE_INSIDER_ACTIVITY` for the serving revision, the pregenerate
 job and the task worker's serving revision, and fails when either pin is not `1` on the service or
 the worker; admin `/metrics` shows `sec_rate_limiter.requests_per_second` for the instance that
-answers; Ops `describe-jobs` prints both pin values for each of the eight jobs and fails when either
+answers; Ops `describe-jobs` prints both pin values for each of the nine jobs and fails when either
 is missing or not `1`. Ops `capacity-readout` carries the worker's request classes and latencies and
 its error-level log counts, the only aggregate evidence of the pin's effect on the worker.
 
@@ -339,6 +341,16 @@ restored the retained monthly object into local PostgreSQL 15 with one `NOLOGIN`
 prerequisite, 33/33 application tables and 40/40 migration hashes. See
 [deployment setup and import procedure](DEPLOYMENT.md#monthly-cloud-sql-logical-export) for the
 dedicated identity, IAM, secret, bucket lifecycle and recovery limits.
+
+### Feedback screenshot cleanup alerts
+
+The hourly `feedback-media-cleanup` job is separately monitored by feature-owned Cloud Monitoring
+policies provisioned through protected Ops. Failed completed executions notify the existing verified
+channel; missing normal-cleanup success heartbeats alert after two hours. Probe and dry-run success
+cannot refresh that heartbeat. Overdue objects fail the execution after their counters are recorded.
+Inspect the counts-only job ledger and the private-storage manifests before concluding that media was
+erased. See [private feedback screenshots](DEPLOYMENT.md#private-feedback-screenshots) for provisioning,
+permission checks and the distinction between configured alert routing and verified delivery.
 
 ### Durable alert delivery: reconciling `ambiguous` batches (E11b-1)
 

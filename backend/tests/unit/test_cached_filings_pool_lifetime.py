@@ -3312,7 +3312,7 @@ MIN_ASYNC_SESSION_FUNCTIONS = 60
 # Callees that run their callable argument in a worker thread of the default pool, where a unit of
 # session work belongs. ``stripe_threads.run_on_stripe_threads`` is not one: a session handed to it
 # would hold a pooled connection on a Stripe thread across Stripe calls, so it counts as a hand-off.
-_THREAD_DISPATCHERS = frozenset({"run_in_threadpool", "to_thread", "run_sync", "run_in_executor"})
+_THREAD_DISPATCHERS = frozenset({"run_in_threadpool", "run_owned_sync", "to_thread", "run_sync", "run_in_executor"})
 
 
 def _tail(node: ast.AST) -> str | None:
@@ -3682,6 +3682,7 @@ async def flags_a_handoff_and_a_read(db: Session = Depends(get_db)):
 
 async def clean_service_to_the_pool(db: Session = Depends(get_db)):
     await run_in_threadpool(service.read, db, 1)
+    await run_owned_sync(service.read, db, 1)
     await run_in_threadpool(service.read, row_id=1, session=db)
     await anyio.to_thread.run_sync(service.read, db)
     await asyncio.get_running_loop().run_in_executor(None, service.read, db)
