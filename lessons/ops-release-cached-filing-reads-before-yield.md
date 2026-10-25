@@ -309,26 +309,29 @@ readiness and Pro checks, the force branch's progress clear and commit, and the 
 eight readers on four slots, through the real auth dependency, with the orchestrator stubbed, eight replays ran 16
 of their 24 statements on the loop, eight generations and eight regenerations of an unready row 16 of 32 each,
 eight Pro forces 33 of 41, eight Free forces 24 of 32 and eight requests for a missing filing 8 of 16; each
-replay, generation and force gave its connection back on the loop, and each Free force's 403 and each 404 left its
-transaction for the finalizer (each the same in two runs). One replay of the raw-HTML cache froze the loop for 1.3
-to 1.5 s, and on a local PostgreSQL 16 another transaction holding the filing's progress row for 1.0 s froze it
-for 0.91 to 0.95 s through a Pro force, whose progress clear waited for the row's lock at its commit (three runs).
-The admission is now one thread-pool unit (`admit`) that takes those steps in the route's order and releases the
-session in its `finally`, its 404 and 403 raised after the release; it returns the replay's response or the
-generation's inputs, the reader's id read before it, and the stream calls the one orchestrator with the same
-arguments. The same probes ran every statement, checkout and checkin off the loop; behind the held row the loop's
-longest gap was 12 to 15 ms (45 ms on a process's first request), and behind the raw-HTML replay 0.17 to 0.23 s,
-the projection's own work in its worker thread (11 to 13 ms with the projection stubbed). Two Pro forces of one
-filing on one instance can now both find its progress row, as two on different instances always could: the
-second's delete waits for the first's and matches no row, which SQLAlchemy warns of rather than raises (behind the
-held row both answered 200 in each of three runs; one SQLite burst in six met it too). A delete that came after
-the first force's run had written its own row would remove that row, as harmlessly as the clear itself: no reader
-shows the progress row while the summary exists, and `record_progress` writes it again at the run's next stage.
-The route's rate limit (its 429) answers before the unit, so, like a 422, it still leaves the lookup's transaction
-for the finalizer. Its burst case holds every checkout, statement and release off the loop, the served body built
-off the loop, each answer and each admitted request's orchestrator inputs, each reader's plan given by a
-Subscription row its `is_pro` mirror contradicts; `test_summary_provider_lifecycle.py`'s route cases hold the
-request's release off the loop (2026-10-25, E171).
+replay, generation and Pro force gave its connection back on the loop, and each Free force's 403 and each 404 left
+its transaction for the finalizer (each the same in two runs). One replay of the raw-HTML cache froze the loop for
+1.3 to 1.5 s, and on a local PostgreSQL 16 another transaction holding the filing's progress row for 1.0 s froze
+it for 0.91 to 0.95 s through a Pro force, whose progress clear waited for the row's lock at its commit (three
+runs). The admission is now one thread-pool unit (`admit`) that takes those steps in the route's order and
+releases the session in its `finally`, its 404 and 403 leaving it after the release; it returns the replay's
+response or the generation's inputs, the reader's id read before it, and the stream calls the one orchestrator
+with the same arguments. The same probes ran every statement, checkout and checkin off the loop; behind the held
+row the loop's longest gap was 12 to 33 ms (six runs, the longest on a process's first request), and behind the
+raw-HTML replay 0.17 to 0.27 s (seven runs), the projection's own work in its worker thread (11 to 17 ms in five
+runs with the projection stubbed). The progress clear was a read, then a delete at the commit, which the loop had
+run one at a time on an instance: in the thread pool two Pro forces of one filing both found the row, and the
+second's delete matched none, which SQLAlchemy only warns of (5 of 6 bursts in the review met it, and under `-W
+error` it answered 500). It is the Rule's check-then-write, so it is now one DELETE by filing with no read before
+it, which also holds between instances: no burst of six met it, and behind the held row both forces answered 200
+in three runs. A clear that lands inside another run's `record_progress`, between its read and its update, still
+fails that run's stage (`StaleDataError`), as one could on the base and from another instance. The route's rate
+limit (its 429) answers before the unit, so, like a 422, it still leaves the lookup's transaction for the
+finalizer. Its burst case holds every checkout, statement and release off the loop, the served body built off the
+loop, each answer and each admitted request's orchestrator inputs, each reader's plan given by a Subscription row
+its `is_pro` mirror contradicts; a case of its own holds the 429 before the unit (no read, no served body, no
+clear); and `test_summary_provider_lifecycle.py`'s route cases hold the request's release off the loop, before the
+response starts (2026-10-25, E171).
 A unit run with `run_in_threadpool`, as every E171 unit is, takes one of anyio's default thread tokens (40 a
 process), and an auth lookup blocked on the pool holds one while it waits; the dependency's finalizer had a
 one-token limiter of FastAPI's own (`contextmanager_in_threadpool`), and the feedback router's units run on
