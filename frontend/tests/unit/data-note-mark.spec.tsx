@@ -39,6 +39,18 @@ describe('DataNoteMark', () => {
     }
   })
 
+  it('holds the table\'s marks in one wrapper, so the flex row they sit in leaves them inline-blocks the underline skips', () => {
+    const { container, rerender } = render(<DataNoteMark calculated note={note('unknown')} compact />)
+    // The figure's line is a flex row: each child is a flex item, blockified, and the source button's dotted underline
+    // reaches every flex item. One wrapper is the item; the marks inside it keep display: inline-block.
+    const wrapper = container.querySelector('[data-marks]')!
+    expect([...container.children]).toEqual([wrapper])
+    expect(marks(wrapper as HTMLElement)).toHaveLength(2)
+    expect(wrapper).not.toHaveAttribute('aria-hidden')
+    rerender(<DataNoteMark calculated note={note('unknown')} />)
+    expect(container.querySelector('[data-marks]')).toBeNull()
+  })
+
   it('raises a mark beside a 12px line as in the table, keeping the first mark\'s 2px gap outside the table', () => {
     const { container } = render(<DataNoteMark note={note('unknown')} small />)
     const [letter] = marks(container)

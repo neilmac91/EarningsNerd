@@ -720,7 +720,7 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
       const style = getComputedStyle(cell)
       const box = cell.getBoundingClientRect()
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
-      const glyphs: Array<{ mark: string | null; left: number; right: number; top: number; bottom: number }> = []
+      const glyphs: Array<{ mark: string | null; display: string; left: number; right: number; top: number; bottom: number }> = []
       let face = ''
       const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT)
       for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -729,10 +729,12 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
         const range = document.createRange(); range.selectNodeContents(node)
         const mark = parent.closest('[data-note-letter]') ? 'letter' : node.textContent.trim() === '†' ? 'dagger' : null
         if (!mark && !face) face = `${getComputedStyle(parent).fontFamily}|${getComputedStyle(parent).fontVariantNumeric}`
-        for (const r of range.getClientRects()) if (r.width && r.height) glyphs.push({ mark, left: r.left, right: r.right, top: r.top, bottom: r.bottom })
+        const display = getComputedStyle(parent).display
+        for (const r of range.getClientRects()) if (r.width && r.height) glyphs.push({ mark, display, left: r.left, right: r.right, top: r.top, bottom: r.bottom })
       }
       return {
         name: button.getAttribute('aria-label')!, text: button.textContent!, table: cell.tagName === 'TD', face, rem,
+        underlined: getComputedStyle(button).textDecorationLine.includes('underline'),
         left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight), glyphs,
       }
     }))
@@ -752,6 +754,9 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
         if (mark.left < end - 1) problems.push(`${control.name}: a mark sits before the figure's end`)
         // A letter after † keeps 2px (0.125rem): set flush, the pair read as one glyph at 1x (the study's readout).
         if (mark.mark === 'letter' && marks[index - 1]?.mark === 'dagger' && mark.left - marks[index - 1].right < 0.125 * control.rem - 0.5) problems.push(`${control.name}: a letter touches its dagger`)
+        // The control's dotted underline skips an inline-block, but a flex item is blockified (display: block) and the
+        // underline reaches it, drawn again under the mark at its raised baseline.
+        if (control.underlined && mark.display !== 'inline-block') problems.push(`${control.name}: a ${mark.mark} is a ${mark.display} box under the control's underline`)
       }
       if (control.table) for (const glyph of control.glyphs) if (glyph.left < control.left - 1 || glyph.right > control.right + 1) problems.push(`${control.name}: ${glyph.mark ? 'a mark' : 'the figure'} leaves its cell`)
     }

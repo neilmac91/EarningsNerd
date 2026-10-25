@@ -587,7 +587,12 @@ Data note mark   <DataNoteMark> (analysis) — the footnote marks: † for a cal
                  mark keeps the gutter as an empty, aria-hidden spacer that grows from nothing up to one
                  mark into free space only (grow basis-0 max-w-[var(--mark-gutter)]; a declared width
                  counts toward the line's minimum and pushed a nine-glyph figure past its cell), so a
-                 marked and an unmarked figure share one edge. Elsewhere the first mark takes 2px
+                 marked and an unmarked figure share one edge. There the figure's line is a flex row,
+                 which blockifies its children, and the button's underline reaches every flex item, so
+                 the marks share one wrapper (data-marks) that is the flex item and they stay
+                 inline-blocks: as items of their own the underline ran again under them, raised with
+                 them (gate: “analysis phone marks” in tests/e2e/analysis-layout.spec.ts reads each
+                 mark's computed display under an underlined control). Elsewhere the first mark takes 2px
                  (ml-0.5). A letter after † keeps 2px (ml-0.5) on every surface: set flush, “†a” read as
                  one cluster at 1x in dark, and two readers dropped the letter (the metrics-table
                  study's readout).
