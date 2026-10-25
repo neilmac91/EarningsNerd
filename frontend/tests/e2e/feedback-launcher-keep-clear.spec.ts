@@ -8,9 +8,10 @@ import { answerAnalysisApi, openAnalysis, runAnalysis } from './fixtures/analysi
  * `data-launcher-keep-clear` (the KPI strip), it goes to `opacity-0 pointer-events-none`; keyboard focus brings it
  * back, and it never yields while its own dialog is open. It keeps its place and its rung (bottomChromeLadder.spec.ts).
  *
- * At 390x844 (touch), in both themes, under reduced motion (the fade is then instant), for a signed-in Pro reader
- * (`en_session_active`, set before the page opens: the analysis fixture's session cookie alone never shows the
- * launcher):
+ * At 390x844 (touch), in both themes, under reduced motion (the fade is then instant), for a signed-in Pro reader:
+ * the fixture answers /api/auth/me, and the current-user query FeedbackWidget observes mounts the launcher for the
+ * reader it confirms; the session marker a login sets (`en_session_active`) is set before the page opens, as a real
+ * reader's is:
  *   (a) each headline figure scrolled to the launcher's centre height: the launcher is transparent and, where its box
  *       covers the figure, the point takes the figure, not the launcher; a tap there opens the figure's evidence;
  *   (b) the strip 100px above the launcher's band: the launcher is opaque and takes its own centre;
