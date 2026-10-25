@@ -5,10 +5,12 @@ An unavailable or truncated half must leave the committed file untouched; runtim
 behavior cannot compensate for a plausible but partial list that hides Nasdaq-only names.
 """
 import json
+import logging
 from datetime import date
 from html import escape
 from pathlib import Path
 
+import httpx
 import pytest
 
 from scripts import refresh_index_membership as script
@@ -89,6 +91,105 @@ def test_fmp_uses_stable_endpoints_and_parses_row_shape(monkeypatch, tmp_path: P
     by_ticker = {m["ticker"]: m for m in json.loads(target.read_text(encoding="utf-8"))["members"]}
     assert by_ticker["BRK.B"]["name"] == "Berkshire"  # dash -> dot normalization survives
     assert by_ticker["AAPL"]["indices"] == ["nasdaq100", "sp500"]
+
+
+_SENTINEL_KEY = "sentinel-fmp-key-7f3a9c"  # a made-up sentinel, not a credential  # gitleaks:allow
+
+
+def _routed_get(nasdaq_reply):
+    """``httpx.get`` through a real client on a mock transport, so httpx logs each request and raises its
+    own exceptions, whose text carries the keyed URL. The S&P route answers well; the Nasdaq route
+    gives ``nasdaq_reply``."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["apikey"] == _SENTINEL_KEY
+        if request.url.path.endswith("/sp500-constituent"):
+            return httpx.Response(200, json=_stable_rows(_SP500))
+        return nasdaq_reply(request)
+
+    def get(url, params=None, timeout=None):
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            return client.get(url, params=params, timeout=timeout)
+
+    return get
+
+
+@pytest.fixture
+def open_request_log(caplog):
+    """httpx's INFO request line as a bare CLI run prints it. Importing main (any test module may) runs
+    configure_logging, which holds httpx at WARNING for the whole process, and would hide that line from these
+    tests; reopen it here, prove it is live, and restore it afterwards."""
+    caplog.set_level(logging.DEBUG)
+    http_logger = logging.getLogger("httpx")
+    previous = http_logger.level
+    try:
+        http_logger.setLevel(logging.NOTSET)
+        _routed_get(lambda request: httpx.Response(204))(f"{script._FMP_BASE}/probe", params={"apikey": _SENTINEL_KEY})
+        assert "HTTP Request: GET" in caplog.text, "the harness's request log is not live"
+        caplog.clear()
+        yield
+    finally:
+        http_logger.setLevel(previous)
+
+
+def _connect_error(request):
+    raise httpx.ConnectError(f"connection refused for {request.url}", request=request)
+
+
+def _timeout(request):
+    raise httpx.ReadTimeout(f"timed out reading {request.url}", request=request)
+
+
+@pytest.mark.parametrize(("nasdaq_reply", "expected"), [
+    (lambda request: httpx.Response(401, json={"Error Message": "Invalid API KEY."}), "HTTP 401"),
+    (lambda request: httpx.Response(403, text="Forbidden"), "HTTP 403"),
+    (lambda request: httpx.Response(500, text=f"upstream failed for {request.url}"), "HTTP 500"),
+    (lambda request: httpx.Response(503, text="unavailable"), "HTTP 503"),
+    (_connect_error, "ConnectError"),
+    (_timeout, "ReadTimeout"),
+    (lambda request: httpx.Response(200, text=f"<html>{request.url}</html>"), "JSONDecodeError"),
+    (lambda request: httpx.Response(200, json={"Error Message": str(request.url)}), "returned dict, expected list"),
+    (lambda request: httpx.Response(200, json=[str(request.url)]), "a row that is not an object"),
+])
+def test_fmp_failures_never_print_the_key_or_request_url(
+    monkeypatch, tmp_path: Path, caplog, capsys, open_request_log, nasdaq_reply, expected,
+):
+    """E17: a failed keyed refresh names the route and the status or failure class; the key, the request
+    URL and the exception text stay out of stdout, stderr and every log record, httpx's INFO line too."""
+    monkeypatch.setenv("FMP_API_KEY", _SENTINEL_KEY)
+    monkeypatch.setattr(script.httpx, "get", _routed_get(nasdaq_reply))
+    target = tmp_path / "index_membership.json"
+    target.write_bytes(b"existing reviewed file")
+
+    assert script.run("fmp", check=False, path=target) == 2
+
+    assert target.read_bytes() == b"existing reviewed file"
+    out, err = capsys.readouterr()
+    shown = "\n".join([caplog.text, out, err])
+    for leaked in (_SENTINEL_KEY, "apikey", "financialmodelingprep.com"):
+        assert leaked not in shown, leaked
+    assert "fetch failed (fmp): FMP nasdaq-constituent" in caplog.text and expected in caplog.text
+    assert logging.getLogger("httpx").level == logging.NOTSET, "the request log's level must be restored"
+
+
+def test_fmp_success_logs_no_keyed_request_url(monkeypatch, tmp_path: Path, caplog, capsys, open_request_log):
+    monkeypatch.setenv("FMP_API_KEY", _SENTINEL_KEY)
+    monkeypatch.setattr(script.httpx, "get", _routed_get(lambda request: httpx.Response(200, json=_stable_rows(_NASDAQ))))
+    target = tmp_path / "index_membership.json"
+
+    assert script.run("fmp", check=False, path=target) == 0
+
+    out, err = capsys.readouterr()
+    assert _SENTINEL_KEY not in "\n".join([caplog.text, out, err, target.read_text(encoding="utf-8")])
+
+
+def test_an_unexpected_failure_on_the_keyed_path_reports_its_class_alone(monkeypatch, tmp_path: Path, caplog):
+    def fails(api_key):
+        raise RuntimeError(f"https://financialmodelingprep.com/stable/x?apikey={api_key}")
+
+    monkeypatch.setenv("FMP_API_KEY", _SENTINEL_KEY)
+    monkeypatch.setattr(script, "fetch_fmp", fails)
+    assert script.run("fmp", check=False, path=tmp_path / "index_membership.json") == 2
+    assert "fetch failed (fmp): RuntimeError" in caplog.text and _SENTINEL_KEY not in caplog.text
 
 
 @pytest.mark.parametrize(

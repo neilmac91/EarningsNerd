@@ -12,6 +12,9 @@ Sources:
     The dedicated Nasdaq list is separate from the general "Nasdaq-100" article.
   - ``--source fmp`` explicitly selects the stable-API /sp500-constituent + /nasdaq-constituent
     routes and requires ``FMP_API_KEY``. A supplied key never changes the automatic source.
+    FMP takes the key as a query parameter, so its request URL is a credential: this path keeps
+    httpx's per-request URL log quiet and reports a failure by route, HTTP status or exception
+    class alone, never by the request or exception text.
 
 Safety: EVERY source must deliver both halves at plausible size (S&P 500 >= ``SP500_FLOOR``,
 Nasdaq-100 >= ``NASDAQ100_FLOOR``) and the union must clear ``SANITY_FLOOR``, else the run ABORTS
@@ -33,6 +36,7 @@ import json
 import logging
 import os
 import sys
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -69,6 +73,11 @@ class PartialUniverseError(RuntimeError):
     """One index half was fetched but the other is unavailable — refuse to write a partial list."""
 
 
+class FmpFetchError(RuntimeError):
+    """An FMP request failed. The message names the route and the HTTP status or exception class
+    only: the request URL, and so httpx's and JSON's exception text, carries the API key."""
+
+
 def normalize_ticker(raw: str) -> str:
     """Canonical form used on both sides of the membership comparison.
 
@@ -81,13 +90,32 @@ def normalize_ticker(raw: str) -> str:
 
 # --------------------------------------------------------------------------- FMP source
 
+@contextmanager
+def _quiet_request_log():
+    """Hold httpx's logger at WARNING: at INFO it prints each request's full URL, FMP's key included."""
+    http_logger = logging.getLogger("httpx")
+    previous = http_logger.level
+    http_logger.setLevel(logging.WARNING)
+    try:
+        yield
+    finally:
+        http_logger.setLevel(previous)
+
+
 def _fetch_fmp(path: str, api_key: str) -> List[dict]:
     url = f"{_FMP_BASE}/{path}"
-    resp = httpx.get(url, params={"apikey": api_key}, timeout=20.0)
-    resp.raise_for_status()
-    data = resp.json()
+    try:
+        resp = httpx.get(url, params={"apikey": api_key}, timeout=20.0)
+        resp.raise_for_status()
+        data = resp.json()
+    except httpx.HTTPStatusError as exc:
+        raise FmpFetchError(f"FMP {path} returned HTTP {exc.response.status_code}") from None
+    except Exception as exc:  # noqa: BLE001 - transport and decoding failures, reported by class alone
+        raise FmpFetchError(f"FMP {path} failed ({type(exc).__name__})") from None
     if not isinstance(data, list):
-        raise ValueError(f"FMP {path} returned {type(data).__name__}, expected list")
+        raise FmpFetchError(f"FMP {path} returned {type(data).__name__}, expected list")
+    if not all(isinstance(row, dict) for row in data):
+        raise FmpFetchError(f"FMP {path} returned a row that is not an object")
     return data
 
 
@@ -101,8 +129,9 @@ def fetch_fmp(api_key: str) -> Tuple[Dict[str, str], Dict[str, str]]:
                 out[sym] = str(r.get("name") or r.get("companyName") or "").strip()
         return out
 
-    sp = to_map(_fetch_fmp(_FMP_SP500_PATH, api_key))
-    nd = to_map(_fetch_fmp(_FMP_NASDAQ100_PATH, api_key))
+    with _quiet_request_log():
+        sp = to_map(_fetch_fmp(_FMP_SP500_PATH, api_key))
+        nd = to_map(_fetch_fmp(_FMP_NASDAQ100_PATH, api_key))
     return sp, nd
 
 
@@ -215,7 +244,9 @@ def run(source: str, *, check: bool, path: Path = _DATA_PATH) -> int:
         logger.error("ABORT (partial universe, nothing written): %s", exc)
         return 2
     except Exception as exc:  # noqa: BLE001 - degrade with a clear message, never half-write
-        logger.error("fetch failed (%s): %s", label, exc)
+        # Any other failure on the keyed path reports its class alone: its text could hold the URL.
+        detail = exc if not use_fmp or isinstance(exc, FmpFetchError) else type(exc).__name__
+        logger.error("fetch failed (%s): %s", label, detail)
         return 2
 
     entries = build_entries(sp500, nasdaq100)
