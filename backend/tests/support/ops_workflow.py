@@ -25,6 +25,7 @@ RESOLVE, PROXY, DEPS = ("Resolve requested operation", "Start Cloud SQL proxy an
                         "Install backend dependencies")
 RELABEL = "Run fiscal-year relabel script"
 QUARTERLY = "Run quarterly fact repair script"
+LINEAGE = "Run filing lineage backfill script"
 OPERAND = r"(?:steps\.request\.outputs|inputs)\.operation"  # a step's resolved operation, or a job's input
 NO_DATABASE = {DEPS}  # runs after the proxy for its operations, but opens no database session
 UNIT_MS = {"ms": 1, "s": 1_000, "min": 60_000, "h": 3_600_000, "d": 86_400_000}

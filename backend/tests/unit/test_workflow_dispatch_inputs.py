@@ -7,11 +7,12 @@ outputs (``${{ steps.*.outputs.* }}``, ``${{ needs.*.outputs.* }}``): an output 
 text, and a value written to ``$GITHUB_OUTPUT`` as ``name=value`` lines can redefine another output
 when it carries a line break, so an unused field must be bounded before anything is written. The ops
 workflow runs against production with the deployer identity, so it also runs only from ``main`` and
-never persists the checkout token. Its fiscal-year relabel and quarterly fact repair steps each pass
-``--apply`` only for their own apply operation, run every other operation read-only, read the session's
-settings back and stop unless they are their own before the script runs, and fail with the script. The
-quarterly repair also needs an explicit list of at most 50 tickers and writes its report where the
-next step keeps it. The workflow's approval check lets an apply through only when the run's own review
+never persists the checkout token. Its fiscal-year relabel, quarterly fact repair and lineage backfill
+steps each pass ``--apply`` only for their own apply operation, run every other operation read-only,
+read the session's settings back and stop unless they are their own before the script runs, and fail
+with the script. The quarterly repair also needs an explicit list of at most 50 tickers and writes its
+report where the next step keeps it; the relabel and the lineage backfill take an optional list of at
+most 50, and none means every company. The workflow's approval check lets an apply through only when the run's own review
 history records an approval of ``ops-apply``, and reads any other answer, an unreadable one included,
 as none.
 """
@@ -362,3 +363,64 @@ def test_an_owner_that_is_not_a_github_login_matches_no_approval(tmp_path, owner
     approvals = [_review("approved", "ops-apply"), _review("approved", "ops-apply", login="another-reviewer")]
     result, _ = _run_approval_check(tmp_path, json.dumps(approvals), owner=owner)
     assert result.returncode == 1 and "::error::no approval of ops-apply" in result.stdout, result.stdout
+
+
+LINEAGE, LINEAGE_APPLY = "Run filing lineage backfill script", "repair-lineage-apply"
+
+
+@pytest.mark.parametrize("op", ["repair-lineage-dry-run", LINEAGE_APPLY])
+@pytest.mark.parametrize("tickers", ["", "REGN,JNJ", "BRK.B", ",".join(f"T{i}" for i in range(50))])
+def test_resolve_step_accepts_a_lineage_backfill_over_every_company_or_a_ticker_list(tmp_path, op, tickers):
+    code, output = _run_resolve(tmp_path, OP=op, TICKERS=tickers)
+    assert code == 0
+    assert output.splitlines() == [f"operation={op}", f"tickers={tickers}", "revision="]
+
+
+@pytest.mark.parametrize("op", ["repair-lineage-dry-run", LINEAGE_APPLY])
+@pytest.mark.parametrize("tickers", ["REGN;JNJ", "REGN,,JNJ", ",".join(f"T{i}" for i in range(51))])
+def test_resolve_step_rejects_a_malformed_or_oversized_lineage_ticker_list(tmp_path, op, tickers):
+    code, output = _run_resolve(tmp_path, OP=op, TICKERS=tickers)
+    assert code != 0
+    assert output == ""
+
+
+def _run_lineage_step(tmp_path, op, tickers, **kwargs):
+    return _run_script_step(tmp_path, LINEAGE, "repair_filing_lineage.py", op, tickers, apply_op=LINEAGE_APPLY, **kwargs)
+
+
+@pytest.mark.parametrize("op, tickers, args", [
+    ("repair-lineage-dry-run", "", ""),
+    ("repair-lineage-dry-run", "REGN,JNJ", " --tickers REGN,JNJ"),
+    (LINEAGE_APPLY, "", " --apply"),
+    (LINEAGE_APPLY, "REGN", " --apply --tickers REGN"),
+    # Any operation but the apply runs a read-only dry run, so a widened if: can never write.
+    ("relabel-fy-apply", "", ""),
+])
+def test_only_the_lineage_apply_passes_apply_and_a_dry_run_is_read_only(tmp_path, op, tickers, args):
+    """The backfill writes production data only with --apply, so only its apply operation passes it, and
+    any other run's transactions are read-only, so Postgres refuses a write it might attempt. The
+    settings the session gets are read back through psql before the script runs."""
+    step, result, calls = _run_lineage_step(tmp_path, op, tickers)
+    assert result.returncode == 0, result.stderr
+    options = step["env"]["PGOPTIONS"] + ("" if op == LINEAGE_APPLY else " -c default_transaction_read_only=on")
+    assert [call for call in calls if call.startswith("python ")] == [f"python scripts/repair_filing_lineage.py{args}"]
+    assert [call for call in calls if call.startswith("PGOPTIONS=")] == [f"PGOPTIONS={options}"] * 2
+    assert calls[0].startswith("psql "), "the readback runs before the script"
+
+
+@pytest.mark.parametrize("kwargs, code", [
+    ({"python_exit": 3}, 3),  # a failed company fails the step
+    ({"psql_exit": 2}, 2),  # the session settings could not be read: no script
+    ({"readback": _readback(LINEAGE_APPLY, apply_op=LINEAGE_APPLY)}, 1),  # a dry run whose transactions could write
+    ({"readback": _readback("repair-lineage-dry-run", lock="0", apply_op=LINEAGE_APPLY)}, 1),  # no lock bound
+    ({"readback": _readback("repair-lineage-dry-run", statement="0", apply_op=LINEAGE_APPLY)}, 1),
+    ({"readback": ""}, 1),  # psql printed nothing
+])
+def test_a_lineage_backfill_stops_on_a_failed_company_or_a_session_that_is_not_the_steps(tmp_path, kwargs, code):
+    """The readback is a check, not only a log line: a session whose settings are not the step's stops the
+    run before the script opens one, and a failed company fails the step."""
+    _, result, calls = _run_lineage_step(tmp_path, "repair-lineage-dry-run", "", **kwargs)
+    assert result.returncode == code
+    assert ("the session's settings are not this step's" in result.stdout) == (code == 1)
+    ran = [call for call in calls if call.startswith("python ")]
+    assert bool(ran) == ("python_exit" in kwargs)
