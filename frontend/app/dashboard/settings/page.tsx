@@ -83,7 +83,7 @@ export default function SettingsPage() {
     <div className="mb-8">
       <Link
         href="/dashboard"
-        className="rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center text-sm text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark mb-4"
+        className="rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center text-sm text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-white mb-4"
       >
         <ArrowLeftIcon className="h-4 w-4 mr-1" />
         Back to dashboard

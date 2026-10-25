@@ -177,6 +177,26 @@ function crossedRungs(own: string, shared = ''): string[] {
   })
 }
 
+/**
+ * A hover the dark theme can see (DESIGN_SYSTEM.md §2). Dark primary (#D7DADC) and dark secondary (#D1D5DB) are 1.05:1
+ * apart, so a control that rests in the secondary ink and only turns primary under the pointer shows no hover in dark
+ * (light keeps a 1.69:1 step). Such a control steps to white in dark or carries another hover cue: a fill, a border, a
+ * ring, a shadow or an underline. Twelve controls had only the ink step when the dark secondary rose to gray-300.
+ */
+const HOVER_CUE = /^(?:bg|border(?:-[xytblrse])?|ring|shadow|outline|decoration)-|^underline$/
+function faintHovers(own: string, shared = ''): string[] {
+  const all = [...own.split(/\s+/), ...shared.split(/\s+/)].filter(Boolean).map((token) => ({ token, ...splitClass(token) }))
+  const at = (variants: string[], test: (utility: string) => boolean) =>
+    all.some((c) => c.variants.length === variants.length && variants.every((v) => c.variants.includes(v)) && test(c.utility.replace(/^!/, '')))
+  const restsSecondary = at(['dark'], (u) => u === 'text-text-secondary-dark')
+  const cue = all.some((c) => (c.variants.includes('hover') || c.variants.includes('group-hover')) && HOVER_CUE.test(c.utility.replace(/^!/, '')))
+  if (!restsSecondary || cue) return []
+  return own.split(/\s+/).filter(Boolean).filter((token) => {
+    const { variants, utility } = splitClass(token)
+    return variants.length === 2 && variants.includes('dark') && variants.includes('hover') && /^!?text-text-(?:primary|heading)-dark$/.test(utility)
+  })
+}
+
 const isPlus = (node: ts.Node): node is ts.BinaryExpression => ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken
 const isText = (node: ts.Node) => ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node)
 
@@ -462,6 +482,31 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
     ])
     const css = ':is(.markdown-body) a { @apply underline decoration-text-tertiary-light;\n  @apply dark:decoration-text-secondary-dark; }'
     expect(applyFindings(css, 'probe.css', crossedRungs).map((f) => `${f.line} ${f.className}`)).toEqual(['1 decoration-text-tertiary-light'])
+  })
+
+  it('gives every dark hover a visible step: secondary never turns only primary under the pointer', () => {
+    const faint = FILES.flatMap((file) => {
+      const source = readFileSync(file, 'utf8')
+      return file.endsWith('.css') ? applyFindings(source, rel(file), faintHovers) : themePairFindings(source, rel(file), faintHovers)
+    })
+    expect(faint.map((f) => `${f.rel}:${f.line} ${f.className}`), 'step to dark:hover:text-white, or add a hover fill, border or underline').toEqual([])
+  })
+
+  it('reads a faint dark hover wherever a twin is read (a self-check on a fixed source)', () => {
+    const src = [
+      "const link = 'text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark'",
+      "const split = cx('text-text-secondary-light dark:text-text-secondary-dark', 'dark:hover:!text-text-heading-dark')",
+      // A brighter step, or a hover cue that is not ink, is visible in dark.
+      "const bright = 'text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-white'",
+      "const tinted = 'text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/5 dark:hover:text-text-primary-dark'",
+      "const lined = 'text-text-secondary-light dark:text-text-secondary-dark hover:underline dark:hover:text-text-primary-dark'",
+      // A control that rests in another ink is not this rule's.
+      "const quiet = 'text-text-tertiary-light dark:text-text-tertiary-dark dark:hover:text-text-primary-dark'",
+    ].join('\n')
+    expect(themePairFindings(src, 'probe.tsx', faintHovers).map((f) => `${f.line} ${f.className}`)).toEqual([
+      '1 dark:hover:text-text-primary-dark',
+      '2 dark:hover:!text-text-heading-dark',
+    ])
   })
 
   it('every dark half outside a dark: variant is in BARE_DARK_RESIDUE, and every count is current', () => {

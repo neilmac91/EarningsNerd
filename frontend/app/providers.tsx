@@ -45,7 +45,7 @@ const TOAST_RING = 'focus-visible:outline-none focus-visible:!shadow-ring-brand 
 const TOAST_CARD =
   '!border-border-light !bg-panel-light !text-text-primary-light !shadow-e4 dark:!border-border-dark dark:!bg-panel-dark dark:!text-text-primary-dark dark:!shadow-none focus-visible:outline-none focus-visible:!shadow-ring-brand dark:focus-visible:!shadow-ring-brand-dark'
 const TOAST_CLOSE =
-  '!border-border-light !bg-panel-light !text-text-secondary-light hover:!bg-brand-weak hover:!text-text-primary-light dark:!border-border-dark dark:!bg-panel-dark dark:!text-text-secondary-dark dark:hover:!bg-panel-dark dark:hover:!text-text-primary-dark focus-visible:outline-none focus-visible:!shadow-ring-brand dark:focus-visible:!shadow-ring-brand-dark'
+  '!border-border-light !bg-panel-light !text-text-secondary-light hover:!bg-brand-weak hover:!text-text-primary-light dark:!border-border-dark dark:!bg-panel-dark dark:!text-text-secondary-dark dark:hover:!bg-brand-weak-dark dark:hover:!text-white focus-visible:outline-none focus-visible:!shadow-ring-brand dark:focus-visible:!shadow-ring-brand-dark'
 export const TOAST_OPTIONS = {
   classNames: {
     toast: TOAST_CARD,

@@ -136,6 +136,7 @@ describe('KpiStrip', () => {
     const { container } = render(<KpiStrip dataset={annualDataset} />)
     for (const card of container.querySelectorAll('[data-analysis-kpi]')) {
       expect(card.querySelector('[data-kpi-value]')).toHaveClass('font-figure', 'tabular-nums', 'lining-nums')
+      expect(card.querySelector('[data-kpi-value] button')).toHaveClass('tabular-nums', 'lining-nums')
       expect(card.querySelector('dd:last-of-type')).toHaveClass('font-figure', 'tabular-nums', 'lining-nums', 'tracking-normal')
     }
   })

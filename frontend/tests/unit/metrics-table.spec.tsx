@@ -115,8 +115,11 @@ describe('MetricsTable', () => {
 
   it('sets every figure and change line in the figure face, with tabular lining numerals and no tracking', () => {
     render(<MetricsTable dataset={dataset} />)
-    const cell = screen.getByRole('button', { name: /^Revenue, Q3 2024:/ }).closest('td')!
+    const control = screen.getByRole('button', { name: /^Revenue, Q3 2024:/ })
+    const cell = control.closest('td')!
     expect(cell.firstElementChild).toHaveClass('font-figure', 'tabular-nums', 'lining-nums', 'tracking-normal')
+    // A button's UA font shorthand resets font-variant-numeric, so the control re-declares the figure's numerals.
+    expect(control).toHaveClass('tabular-nums', 'lining-nums')
     expect(within(cell).getByText(/Change vs prior quarter/).closest('[class*="text-gain-data"]')).not.toBeNull()
   })
 
