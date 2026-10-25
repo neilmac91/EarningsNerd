@@ -55,11 +55,12 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
   })
 
   it('measures the advances in probes set like the value and its marks, and starts from the face\'s 0.6em', () => {
-    // The figure probe takes every class that sets the value's face, size, weight, numerals and tracking (KpiTile's dd).
-    const typeset = (classes: string) => classes.split(' ').filter((name) => /^(font-|text-2xl$|tabular-nums$|lining-nums$|tracking-)/.test(name)).sort()
-    const value = typeset(STRIP.match(/data-kpi-value className="([^"]*)"/)?.[1] ?? '')
-    expect(value).toEqual(['font-figure', 'font-semibold', 'lining-nums', 'tabular-nums', 'text-2xl', 'tracking-normal'])
-    expect(typeset(STRIP.match(/const FIGURE_PROBE = '([^']*)'/)?.[1] ?? '')).toEqual(value)
+    // The figure probe takes every class of KpiTile's dd but its layout and its inks, so whatever sets the value's
+    // face, size, weight, numerals or tracking (now or later) sets the probe's too.
+    const classes = (pattern: RegExp, skip: string[]) => (STRIP.match(pattern)?.[1] ?? '').split(' ').filter((name) => name && !skip.includes(name)).sort()
+    const value = classes(/data-kpi-value className="([^"]*)"/, ['min-w-0', 'text-figure-light', 'dark:text-figure-dark'])
+    expect(value).toContain('text-2xl')
+    expect(classes(/const FIGURE_PROBE = '([^']*)'/, ['block', 'w-max', 'whitespace-pre'])).toEqual(value)
     // The mark probe is DataNoteMark's own dagger, at the value's weight, hidden from every reader.
     const { container } = render(<KpiStrip dataset={dataset('USD', [5_000_000_000, 1_000_000_000])} />)
     const probes = container.querySelector('div[aria-hidden="true"].invisible')!
@@ -80,8 +81,19 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
     // "$1.7B†" and "-$1.7B" can never be the widest ("$1.7B†a" and "$60.8B" match or pass them in every term).
     expect(css.match(/calc\(/g)!.length).toBeLessThan(values.length)
     // 0.6em at 16px and 32px roots, and the whole pixels a snapping browser paints there (14px and 7px, 29px and 13px).
-    for (const [figure, mark] of [[KPI_FIGURE_ADVANCE, KPI_MARK_ADVANCE], [14 / 16, 7 / 16], [29 / 32, 13 / 32], [15 / 16, 6 / 16]]) {
+    const ADVANCES = [[KPI_FIGURE_ADVANCE, KPI_MARK_ADVANCE], [14 / 16, 7 / 16], [29 / 32, 13 / 32], [15 / 16, 6 / 16]]
+    for (const [figure, mark] of ADVANCES) {
       expect(atAdvances(css, figure, mark), `${figure}rem, ${mark}rem`).toBeCloseTo(Math.max(...values.map(([text, calculated, letter]) => kpiValueWidth(text, calculated, letter, figure, mark))), 4)
+    }
+    // Which value is widest turns on the advances: more figure glyphs win where the figure's advance is large, more marks
+    // and rest where it is small. Each value below is the widest at one of the advances, so every term must stay.
+    const turns = [{ figure: 7, mark: 0, rest: 0 }, { figure: 5, mark: 0, rest: 1.84 }, { figure: 5, mark: 4, rest: 0.125 }]
+    const widestAt = ADVANCES.map(([figure, mark]) => turns.reduce((best, value, index) => value.figure * figure + value.mark * mark + value.rest > turns[best].figure * figure + turns[best].mark * mark + turns[best].rest + 1e-9 ? index : best, 0))
+    expect(new Set(widestAt).size, `the widest at each advance: ${widestAt}`).toBe(turns.length)
+    const both = kpiWidestCss(turns)
+    expect(both.match(/calc\(/g)!.length).toBe(turns.length)
+    for (const [figure, mark] of ADVANCES) {
+      expect(atAdvances(both, figure, mark), `${figure}rem, ${mark}rem`).toBeCloseTo(Math.max(...turns.map((value) => value.figure * figure + value.mark * mark + value.rest)), 9)
     }
   })
 
@@ -161,10 +173,10 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
     expect(wrappers.filter((name) => /\[&[^\]]*dl\]|\bgrid-cols-/.test(name))).toEqual([])
   })
 
-  it('counts a glyph the figure face lacks at a full em, so the budget never undercuts what paints', () => {
-    // Geist Mono has no ₩ or ₫ (E203) and no narrow no-break space ("F CFA"), so each counts a full em, 1.5rem.
-    expect(kpiValueWidth('₩22.8B', true)).toBeCloseTo(kpiValueWidth('$22.8B', true) + (1 - 0.6) * 1.5, 9)
-    for (const glyph of ['\u202f', '₩', '₫']) expect(kpiValueWidth(glyph, false), glyph).toBeCloseTo(1.5, 9)
+  it('counts a glyph the figure face lacks at 1.25em, wider than any face found to draw one', () => {
+    // Geist Mono has no ₩ or ₫ (E203) and no narrow no-break space ("F CFA"); DejaVu Sans Bold draws ₩ at 1.103em.
+    expect(kpiValueWidth('₩22.8B', true)).toBeCloseTo(kpiValueWidth('$22.8B', true) + (1.25 - 0.6) * 1.5, 9)
+    for (const glyph of ['\u202f', '₩', '₫']) expect(kpiValueWidth(glyph, false), glyph).toBeCloseTo(1.25 * 1.5, 9)
     // Its latin-ext file has the peso, rupee and shekel signs at 0.6em, beside the dagger.
     for (const value of ['₱22.8B', '₹22.8B', '₪22.8B', '€22.8B', 'CHF\u00a01.0B']) expect(kpiValueWidth(value, false), value).toBeCloseTo([...value].length * 0.9, 9)
   })

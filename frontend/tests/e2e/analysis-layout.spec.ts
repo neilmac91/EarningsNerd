@@ -41,6 +41,11 @@ const NOTES = '[data-analysis-data-notes]'
 // the other finished every other spec in a few minutes and then idled. They share nothing (each opens
 // its own page through openAnalysis; no hooks, no mutable module state), so both workers take them.
 test.describe.configure({ mode: 'parallel' })
+// Full font hinting, headless Chrome's default (CI's) and some desktops': at 1x it snaps every glyph's advance to a
+// whole pixel (14px for Geist Mono's 14.4 at 24px), so the KPI strip's budget, measured where it paints, is checked in
+// the case where 0.6em would be wrong. The local browser's wrapper passes --font-render-hinting=none; the last flag
+// wins (charts-v2.spec.ts pins it for the same reason).
+test.use({ launchOptions: { args: ['--font-render-hinting=full'] } })
 
 for (const theme of THEMES) for (const width of [390, 1480]) {
   test.describe(`analysis evidence / ${theme} / ${width}px`, () => {
@@ -1069,6 +1074,27 @@ test.describe('analysis KPI strip, long values', () => {
       })
     })
   }
+  test.describe('a text size set after the strip mounts', () => {
+    test.use({ viewport: { width: 390, height: 900 }, isMobile: true, hasTouch: true, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+    // The probes are measured again whenever they resize (KpiStrip's ResizeObserver), so a text size changed after the
+    // strip mounts gives it advances at that size; measured once, the budget would keep the old size's pixels.
+    test('measures its advances again, and its budget stays the widest value as painted', async ({ page, baseURL }) => {
+      test.setTimeout(60_000)
+      await openAnalysis(page, baseURL!, 'legacy', theme, 1)
+      const advance = () => page.locator('[data-analysis-kpi]').first().evaluate(card => parseFloat(card.closest('dl')!.style.getPropertyValue('--kpi-figure')))
+      const before = await advance()
+      expect(before, 'the strip measured its advance').toBeGreaterThan(0)
+      await page.evaluate(async () => {
+        document.documentElement.style.fontSize = '32px'
+        await document.fonts.ready
+        await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))
+      })
+      await expect.poll(advance, { message: 'the advance at a 32px root' }).toBeGreaterThan(1.9 * before)
+      const geometry = await pageAndCardGeometry(page)
+      expect(geometry.rootFontSize).toBe(32)
+      await assertKpiStrip(page, 390, geometry)
+    })
+  })
   test.describe('the figure face', () => {
     test.use({ viewport: { width: 390, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
     // kpiValueGlyphs counts ASCII and KPI_FACE_GLYPHS at the face's one advance, which the strip measures as painted
@@ -1099,6 +1125,8 @@ test.describe('analysis KPI strip, long values', () => {
       // The strip measured its advance, within a pixel's rounding of the face's 0.6em.
       expect(Math.abs(own.advance - 0.6 * own.size), `the strip's advance (${own.advance}px) at ${own.size}px`).toBeLessThanOrEqual(0.5)
       expect(own.measured.filter(({ px }) => Math.abs(px - own.advance) > 0.01), `glyphs the width counts at the strip's advance (${own.advance}px), off it`).toEqual([])
+      // The control depends on the fallback: where glyphs snap, a serif glyph within half a pixel of the advance would
+      // round to it. Liberation Serif's ₩ (1em) and ₫ (0.51em) and Chromium's 0.3em narrow space are far from it.
       const missing = await measure(KPI_MISSING_GLYPHS)
       expect(missing.measured.filter(({ px }) => Math.abs(px - own.advance) <= 0.01), 'glyphs Geist Mono lacks, measured at its advance').toEqual([])
     })

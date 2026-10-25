@@ -15,29 +15,31 @@ export const KPI_MARK_ADVANCE = 0.6 * MARK_EM
 export const KPI_MARK_GAP = 0.125
 /** The glyphs past ASCII a value or a mark prints that Geist Mono draws at its one advance: the no-break space Intl puts
  *  after a code, the dagger, and the currency signs en-US formats print for every ISO 4217 code that Geist Mono has. Any
- *  other glyph counts a full em, so the budget never undercuts what paints: ₩ and ₫ (E203), which print in another face,
- *  and the narrow no-break space in "F CFA", which Chromium draws as a 0.3em space and another engine may take from
- *  another face. tests/e2e/analysis-layout.spec.ts measures each in Geist Mono itself. */
-export const KPI_FACE_GLYPHS = ' †€£¥₹₪₱'
+ *  other glyph prints in another face (₩ and ₫, E203; the narrow no-break space in "F CFA", which Chromium draws as a
+ *  0.3em space) and counts 1.25em, wider than any face found to draw one: DejaVu Sans Bold's ₩ is 1.103em and Inter
+ *  Black's 1.112em, ₫ peaks at 0.696em. tests/e2e/analysis-layout.spec.ts measures each in Geist Mono itself. */
+export const KPI_FACE_GLYPHS = '\u00a0†€£¥₹₪₱'
 /** The glyphs a value can print that Geist Mono lacks: the e2e's control, none of which may take the face's advance. */
-export const KPI_MISSING_GLYPHS = ' ₩₫'
+export const KPI_MISSING_GLYPHS = '\u202f₩₫'
 
-/** A value's glyphs on one line: its figure's and its marks' (the dagger, the note letters) that the face draws, the
- *  width of those it lacks at a full em each, in rem, and its marks' count. */
+/** A value's glyphs on one line: its figure's and its marks' (the dagger, the note letters) that the face draws, and the
+ *  rest in rem: those the face lacks at 1.25em each, and the 2px before each mark. */
 export interface KpiGlyphs {
   figure: number
   mark: number
   rest: number
 }
 
+/** A glyph the face lacks, in ems of its own text. */
+const MISSING_EM = 1.25
 const own = (glyph: string) => (glyph >= ' ' && glyph <= '~') || KPI_FACE_GLYPHS.includes(glyph)
 const tally = (text: string, em: number) => [...text].reduce(
   ([drawn, rest], glyph) => (own(glyph) ? [drawn + 1, rest] : [drawn, rest + em]), [0, 0])
 
 export function kpiValueGlyphs(text: string, calculated: boolean, letter?: string | null): KpiGlyphs {
   const marks = [calculated ? '†' : '', letter ?? ''].filter(Boolean)
-  const [figure, figureRest] = tally(text, FIGURE_EM)
-  const [mark, markRest] = tally(marks.join(''), MARK_EM)
+  const [figure, figureRest] = tally(text, MISSING_EM * FIGURE_EM)
+  const [mark, markRest] = tally(marks.join(''), MISSING_EM * MARK_EM)
   return { figure, mark, rest: figureRest + markRest + marks.length * KPI_MARK_GAP }
 }
 

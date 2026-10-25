@@ -72,7 +72,9 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
 
 /** The strip's columns follow its widest value, not a fixed breakpoint, so a long value never leaves its card (E197).
  *  --kpi-value is that value at the advances the strip measures (--kpi-figure, --kpi-mark: the face's 0.6em until it
- *  has), and --kpi-card adds the card's padding (p-3, sm:p-4) and its 1px border. Below lg: two cards when every
+ *  has, so a server-rendered strip, the landing demo's, lays out at 0.6em until it hydrates; where a browser snaps
+ *  glyphs that is up to half a pixel a glyph off, inside the card's padding), and --kpi-card adds the card's padding
+ *  (p-3, sm:p-4) and its 1px border. Below lg: two cards when every
  *  value fits half the strip, else one. From lg: one card per tile, four at most (--kpi-cols), when they fit; else
  *  two, else one, never three of four. The `min()` term is a step: when --kpi-card exceeds a column of --kpi-cols, its
  *  multiplied excess lifts the minimum to half the strip. Each share keeps 0.5px back, so layout rounding cannot drop
@@ -134,9 +136,10 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
   useIsomorphicLayoutEffect(() => {
     const [dl, figure, mark] = [strip.current, figureProbe.current, markProbe.current?.firstElementChild]
     if (!dl || !figure || !mark) return
+    // The used width, a layout size: a transformed ancestor would skew a client rect, and resize nothing to measure again.
     const measure = () => {
       for (const [name, probe, glyphs] of [['--kpi-figure', figure, PROBE.length], ['--kpi-mark', mark, 1]] as const) {
-        const width = probe.getBoundingClientRect().width
+        const width = parseFloat(getComputedStyle(probe).width)
         if (width > 0) dl.style.setProperty(name, `${width / glyphs}px`)
       }
     }
