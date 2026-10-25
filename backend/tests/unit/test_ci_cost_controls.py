@@ -343,7 +343,7 @@ def test_charts_v2_job_is_the_e2e_build_with_its_flag_set():
         assert "NEXT_PUBLIC_CHARTS_V2" not in step("e2e-tests", name)["env"]
     run = step("e2e-charts-v2", "Run the charts")
     assert run["env"]["NEXT_PUBLIC_CHARTS_V2"] == "true"
-    for spec in ("charts-v2", "charts-v2-gallery", "chart-export-fidelity", "analysis-teaser-window"):
+    for spec in ("charts-v2", "charts-v2-gallery", "analysis-layout", "chart-export-fidelity", "analysis-teaser-window"):
         assert f"tests/e2e/{spec}.spec.ts" in run["run"], spec
     assert "tests/e2e/text-floors.spec.ts -g 'analysis: muted ink'" in run["run"]
     # A spec that reads the flag skips without it, in e2e-tests' build: this job is the only one that runs it.
