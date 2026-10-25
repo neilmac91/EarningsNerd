@@ -72,6 +72,16 @@ def _num(numeric: list[bool], column: int) -> str:
     return ' class="num"' if column < len(numeric) and numeric[column] else ""
 
 
+def original_document_url(filing: Filing) -> str:
+    """The filing's original on SEC.gov, as the filing page's "Original on SEC.gov" opens it
+    (frontend/features/filings/lib/originalDocumentUrl.ts, EN-01): the primary document when it is an
+    http(s) URL, else the archive folder (sec_url)."""
+    for url in (filing.document_url, filing.sec_url):
+        if url and url.startswith(("https://", "http://")):
+            return url
+    return ""
+
+
 class ExportService:
     def __init__(self):
         pass
@@ -84,9 +94,10 @@ class ExportService:
             f"Filing Date: {filing.filing_date.strftime('%B %d, %Y') if filing.filing_date else 'N/A'} · "
             f"Period End: {filing.period_end_date.strftime('%B %d, %Y') if filing.period_end_date else 'N/A'} · "
             f"Generated {utcnow().strftime('%B %d, %Y')}"
+            # The filing page's words for its link to the primary document, with the address it opens (E190).
             # backend/evals/acceptance_readiness.py anchors its blinding of the generation date on
-            # "<br>Source: SEC EDGAR"; test_acceptance_readiness.py runs that blinding on this output.
-            f"<br>Source: SEC EDGAR · <span class=\"data\">{escape(filing.sec_url or '')}</span>"
+            # "<br>Original on SEC.gov"; test_acceptance_readiness.py runs that blinding on this output.
+            f"<br>Original on SEC.gov · <span class=\"data\">{escape(original_document_url(filing))}</span>"
         )
 
         # Render every structured section through the shared renderer so the PDF stays in
@@ -184,7 +195,7 @@ class ExportService:
         writer.writerow([f"{filing.company.name} · {filing.filing_type} summary"])
         writer.writerow([f"Filing Date: {filing.filing_date.strftime('%Y-%m-%d') if filing.filing_date else 'N/A'}"])
         writer.writerow([f"Generated: {utcnow().strftime('%Y-%m-%d %H:%M:%S')}"])
-        writer.writerow([f"Source: SEC EDGAR · {filing.sec_url or ''}"])
+        writer.writerow([f"Original on SEC.gov · {original_document_url(filing)}"])
         writer.writerow([])
 
         # Render every structured section through the shared renderer (single source of truth)

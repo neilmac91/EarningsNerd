@@ -14,7 +14,14 @@ that reach every fixed line the four export modules write, and fails on:
    section headings (its narrative carries none here, so every <h2> is the builder's), the CSV's title
    row, and the workbook's title, sheet names, header rows and fact labels. A proper noun passes (the
    company's name, "Multi-Period Analysis", "EarningsNerd", "YoY") and so does any word with no
-   lowercase letter (SEC, EDGAR, UTC, 10-K, FY2024).
+   lowercase letter (SEC, UTC, 10-K, FY2024);
+5. EDGAR, in any case and inside a word too ("SEC_EDGAR", "EDGARs"), anywhere they print outside an
+   address: the exports name their source SEC.gov, as the sign-in page and the filing page do ("Original on
+   SEC.gov · {url}", the filing page's words for its link to the primary document, with the address that
+   link opens; E190), since no acronym stands in a label (voice rule 2). An address (http or https, up to
+   the first character outside printable ASCII, such as a space or the middot) is not copy, so a filing's
+   /edgar/ path passes, and the fixtures quote nothing that names EDGAR, so every text this reads is the
+   exports' own.
 
 Out of reach (review): the summary's section titles and table headings, which summary_sections.py
 writes in the schema's casing (the voice guide keeps it); and lines that only other data reaches.
@@ -37,6 +44,8 @@ from app.services.export_service import ExportService
 from app.services.trend_analysis.data_notes import data_notes
 
 EM_DASH = "—"
+EDGAR = re.compile(r"edgar", re.IGNORECASE)
+ADDRESS = re.compile(r"https?://[!-~]+")
 WINDOW_KEY = re.compile(r"(?:FY)?\d{4}(?:Q[1-4])?\.\.(?:FY)?\d{4}|Q[1-4] \d{4}\.\.Q[1-4] \d{4}")
 EMOJI = re.compile("[\u2600-\u27bf\u2b00-\u2bff\ufe0f\U0001f000-\U0001faff]")
 PROPER = ("BIOGEN INC.", "Test & Co", "Multi-Period Analysis", "EarningsNerd")
@@ -91,6 +100,11 @@ def breaks(texts: list[str]) -> list[str]:
     return [text for text in texts
             if (EM_DASH in text and text.strip() != EM_DASH) or "!" in text or EMOJI.search(text)
             or WINDOW_KEY.search(text)]
+
+
+def names_edgar(texts: list[str]) -> list[str]:
+    """Texts that name EDGAR in any case outside an address (check 5)."""
+    return [text for text in texts if EDGAR.search(ADDRESS.sub(" ", text))]
 
 
 def not_sentence_case(text: str) -> str | None:
@@ -166,6 +180,24 @@ def test_no_em_dash_exclamation_emoji_or_window_key_in_what_the_exports_print():
             workbook_fixtures._dataset(), exported_at=workbook_fixtures.EXPORTED_AT))),
     }
     assert found == {name: [] for name in found}
+
+
+def test_the_exports_name_their_source_sec_gov_not_edgar():
+    service = ExportService()
+    summary, filing = _summary()
+    found = {
+        "filing PDF": names_edgar(read_html(service.generate_pdf_html(summary, filing)).runs),
+        "analysis PDF": names_edgar(read_html(service.generate_analysis_pdf_html(
+            _analysis(), export_fixtures.TestAnalysisPdfHtml()._company())).runs),
+        "CSV": names_edgar([cell for row in csv.reader(io.StringIO(service.generate_csv(summary, filing))) for cell in row]),
+        "workbook": names_edgar(_workbook_texts(build_analysis_workbook(
+            workbook_fixtures._dataset(), exported_at=workbook_fixtures.EXPORTED_AT))),
+    }
+    assert found == {name: [] for name in found}
+    url = "https://www.sec.gov/Archives/edgar/data/875045/x.htm"
+    named = [f"Source: SEC EDGAR · {url}", "SEC-EDGAR", f"Source: SEC Edgar · {url}", "Open on edgar",
+             f"Source: SEC_EDGAR · {url}", "EDGARs", f"{url} · SEC EDGAR", f"{url}·EDGAR"]
+    assert names_edgar([*named, f"Original on SEC.gov · {url}", url]) == named
 
 
 def test_the_headings_the_exports_own_are_in_sentence_case():
