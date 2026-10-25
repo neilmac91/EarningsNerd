@@ -2,9 +2,11 @@
    designTokenParity.spec.ts — guardrail (v3, DS-15)
    -----------------------------------------------------------------------------
    The sanctioned JS color mirrors (ui/Chart.tsx, lib/financialTone.directionHex,
-   features/analysis/lib/chartExport.ts) and the motion mirror (lib/motion.ts)
-   must stay value-identical to the token sources (tailwind.config.js +
-   globals.css :root). Nothing fails visibly when one drifts — this spec does.
+   features/analysis/lib/chartExport.ts, features/analysis/lib/charts/theme.ts)
+   and the motion mirror (lib/motion.ts) must stay value-identical to the token
+   sources (tailwind.config.js + globals.css :root). Nothing fails visibly when
+   one drifts — this spec does. chart-theme.spec.ts ties each charts/theme.ts
+   field to its own named token as well.
 ============================================================================= */
 
 import { describe, expect, it } from 'vitest'
@@ -33,6 +35,7 @@ const MIRRORS = [
   'components/ui/Chart.tsx',
   'lib/financialTone.ts',
   'features/analysis/lib/chartExport.ts',
+  'features/analysis/lib/charts/theme.ts',
   // OS-facing theme colors (PWA manifest, <meta theme-color>): hex-exempt in eslint, so checked here.
   'app/manifest.ts',
   'app/layout.tsx',

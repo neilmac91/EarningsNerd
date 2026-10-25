@@ -28,7 +28,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 | **Status** | success `#15803D` · warning `#92400E` · error `#B91C1C` (+ `error.emphasis #991B1B` destructive hover) · info `#2563EB` (in-tint label: `info.text #1D4ED8`) | success `#22C55E` · warning `#F59E0B` · error `#F87171` · info `#60A5FA` | Genuine state messages only |
 | **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy) | Money/% direction only — never brand |
 | **Overlay** | `overlay` rgba(11,17,32,0.55) | same | The ONE modal/sheet scrim (`bg-overlay`, v3) — replaces every `bg-slate-950/60` / `bg-black/50` hand-roll |
-| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | same hexes (≥3:1 vs both cream and navy) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
+| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | same hexes (≥3:1 vs both cream and navy); the trend charts' spec renderer, behind a flag until F66, pairs them with lighter dark halves of its own (`chart.s1…s6`, APCA Lc ≥ 45 on the dark card; §10) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
 
 **Legacy / banned as brand:** `mint-*`, `emerald-*`, `primary-*` (back-compat **alias for mint**),
 `green/blue/sky/teal/cyan/indigo-*` as a primary color, and `shadow-glow-mint*`. The old chart hexes
@@ -2154,9 +2154,14 @@ axes", and the export gate's Swiss-franc case).
 **The analysis trend charts' spec renderer** (`NEXT_PUBLIC_CHARTS_V2`, off in production until F66;
 `docs/design/analysis-trend-charts-spec-2026-10.md`) replaces Recharts on those four charts only. It paints the
 engine's plan in literal SVG attributes from `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for
-both themes; the raw-colour lint rule exempts that file, and `tests/unit/chart-theme.spec.ts` holds it to the spec's
-table and its light values to the Tailwind tokens they share. Until step 6 (E194) moves the dark tokens into
-Tailwind, the card's subtitle, legend and footnotes take those inks inline. Its text renders with geometric
+both themes. They mirror Tailwind's `chart.s1…s6`, `chart.tick`, `chart.gridline` and `chart.review` pairs and the
+text and surface tokens: pairs of their own, whose light halves equal `chart-1…6`, `text-tertiary` and `warning`, so
+no production chart takes the new dark values before F66. The raw-colour lint rule exempts that file;
+`tests/unit/designTokenParity.spec.ts` holds its hexes to the config, `tests/unit/chart-theme.spec.ts` each field to
+the spec's table and its own token, and `tests/unit/chart-apca.spec.ts` each ink to the spec's APCA floor (marks and
+the zero rule 45, text 60, printed values 75, gridlines 10–25) on the card and under the column wash. The card's
+subtitle, legend and footnotes take the same inks inline, and its PNG's header and notes take the legend's, so the
+plot, the card and the image read one source. Its text renders with geometric
 precision, so full font hinting cannot snap Geist Mono's 6.6 px advance to 7 px. Every chart keeps its 320 px card,
 and one that does not apply says why in it; a grid row's cards share its rows (subgrid: header, plot, notes), so its
 plots start at one height whatever its legends wrap to. Its keyboard contract (E193) keeps the shape of the one

@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest'
 import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/theme'
 
 /**
- * features/analysis/lib/charts/theme.ts is a colour mirror the raw-colour lint rule exempts, like components/ui/Chart.tsx,
- * but its dark tokens are new (spec §3.8, owner decision 3) and reach Tailwind only with the step-6 switch (E194), so
- * designTokenParity cannot hold it yet. This spec does: every token equals the spec's table, both themes, and every
- * value the design system already has equals its Tailwind token.
+ * features/analysis/lib/charts/theme.ts is a colour mirror the raw-colour lint rule exempts, like components/ui/Chart.tsx.
+ * Its dark tokens are new (spec §3.8, owner decision 3) and live in Tailwind as the spec renderer's own pairs
+ * (`chart.s1…s6`, `chart.tick`, `chart.gridline`, `chart.review`; E194), so no production chart takes them before F66.
+ * designTokenParity holds every hex the file holds to a token; this spec holds each field to the spec's table and to its
+ * own named token in both themes, which a hex found anywhere in the config cannot. tests/unit/chart-apca.spec.ts holds
+ * each to its contrast floor.
  */
 const SPEC = readFileSync('../docs/design/analysis-trend-charts-spec-2026-10.md', 'utf8')
 const section = SPEC.slice(SPEC.indexOf('### 3.8 Theme tokens'), SPEC.indexOf('### 3.9'))
@@ -58,18 +60,36 @@ describe('the trend charts’ tokens are the spec’s (§3.8)', () => {
   })
 })
 
-describe('the values the design system already has are its tokens', () => {
-  it('the surface is the card’s panel colour, and the zero rule the chart reference line', () => {
-    expect(both((tokens) => tokens.surface)).toEqual([colors.panel.light, colors.panel.dark])
-    expect(both((tokens) => tokens.zero)).toEqual([colors.chart.ref.light, colors.chart.ref.dark])
+describe('every token is a named Tailwind token, both themes (E194)', () => {
+  const pair = (token: { light: string; dark: string }) => [token.light, token.dark]
+
+  it('the surface is the card’s panel, the zero rule the chart reference line, the grid its own gridline', () => {
+    expect(both((tokens) => tokens.surface)).toEqual(pair(colors.panel))
+    expect(both((tokens) => tokens.zero)).toEqual(pair(colors.chart.ref))
+    expect(both((tokens) => tokens.grid)).toEqual(pair(colors.chart.gridline))
   })
 
-  it('light series are chart-1…6, and the light inks the text tokens', () => {
-    expect(CHART_TOKENS.light.series).toEqual([1, 2, 3, 4, 5, 6].map((n) => colors.chart[n]))
-    expect([CHART_TOKENS.light.tick, CHART_TOKENS.light.value, CHART_TOKENS.light.figure])
-      .toEqual([colors.text.tertiary.light, colors.text.secondary.light, colors.text.primary.light])
-    expect([CHART_TOKENS.light.review, CHART_TOKENS.dark.figure]).toEqual([colors.warning.light, colors.text.primary.dark])
-    // The card's HTML inks: subtitle and footnotes in tertiary, legend names in secondary.
-    expect([CHART_TOKENS.light.note, CHART_TOKENS.light.name]).toEqual([colors.text.tertiary.light, colors.text.secondary.light])
+  it('the series are chart.s1…s6, whose light halves are today’s chart-1…6', () => {
+    for (let i = 0; i < 6; i++) {
+      expect(both((tokens) => tokens.series[i]), `s${i + 1}`).toEqual(pair(colors.chart[`s${i + 1}`]))
+      expect(colors.chart[`s${i + 1}`].light, `s${i + 1} light`).toBe(colors.chart[i + 1])
+    }
+  })
+
+  it('the inks: tick and the card’s subtitle in chart.tick, values in the text inks, review letters in chart.review', () => {
+    expect(both((tokens) => tokens.tick)).toEqual(pair(colors.chart.tick))
+    expect(both((tokens) => tokens.note)).toEqual(pair(colors.chart.tick))
+    expect(colors.chart.tick.light, 'the light tick ink is the tertiary text ink').toBe(colors.text.tertiary.light)
+    expect(both((tokens) => tokens.value)).toEqual([colors.text.secondary.light, colors.text.primary.dark])
+    expect(both((tokens) => tokens.review)).toEqual(pair(colors.chart.review))
+    expect(colors.chart.review.light, 'the light review ink is the warning ink').toBe(colors.warning.light)
+    // The card's legend: names in the secondary ink on light and chart.tick on dark (§3.8), values in the primary ink.
+    expect(both((tokens) => tokens.name)).toEqual([colors.text.secondary.light, colors.chart.tick.dark])
+    expect(both((tokens) => tokens.figure)).toEqual(pair(colors.text.primary))
+  })
+
+  it('the column wash is chart-1’s teal at 8% and 16%, as Chart.tsx’s bar cursor', () => {
+    const teal = [1, 3, 5].map((at) => parseInt(colors.chart[1].slice(at, at + 2), 16)).join(',')
+    expect(both((tokens) => tokens.cursor)).toEqual([`rgba(${teal},.08)`, `rgba(${teal},.16)`])
   })
 })

@@ -420,9 +420,26 @@ describe('the PNG export', () => {
       legend: model.legend.filter((item) => item.color != null).map((item) => ({ label: item.label, color: CHART_TOKENS.light.series[item.color!] })),
       notes: [...model.footnotes.map((footnote) => (footnote.mark ? `${footnote.mark}  ${footnote.text}` : footnote.text)), FCF_DEFINITION],
     })
+    expect(options?.ink, 'the card’s own inks').toEqual({ primary: CHART_TOKENS.light.figure, secondary: CHART_TOKENS.light.name })
     expect(options?.header?.sourceNote).toMatch(/^Source: SEC filings via EarningsNerd · /)
     expect(options?.header?.disclosure).toContain('Not investment advice')
     expect(analytics.exportGenerated).toHaveBeenCalledWith(expect.objectContaining({ surface: 'analysis', format: 'png', panel: model.title }))
+  })
+
+  it('a dark card’s PNG takes the dark theme’s inks and series', async () => {
+    const ds = dataset('REGN_annual')
+    const { container } = render(
+      <ThemeContext.Provider value={{ theme: 'dark', toggleTheme: () => {} }}>
+        <TrendChartsV2 dataset={ds} exportEnabled />
+      </ThemeContext.Provider>
+    )
+    const model = buildChartModel('cash', ds)
+    await act(async () => fireEvent.click(within(cards(container)[CHART_IDS.indexOf('cash')]).getByRole('button', { name: 'Download chart as PNG' })))
+    const options = vi.mocked(exportPanelPng).mock.calls[0][2]
+    expect(options?.dark).toBe(true)
+    // The secondary ink is chart.tick's on dark: the export's own (#9CA3AF) is under §3.8's floor of 60 there.
+    expect(options?.ink).toEqual({ primary: CHART_TOKENS.dark.figure, secondary: CHART_TOKENS.dark.name })
+    expect(options?.header?.legend).toEqual(model.legend.filter((item) => item.color != null).map((item) => ({ label: item.label, color: CHART_TOKENS.dark.series[item.color!] })))
   })
 
   it('a chart without free cash flow leaves its definition out, and a failed export says so', async () => {

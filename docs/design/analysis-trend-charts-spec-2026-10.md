@@ -219,7 +219,7 @@ says so; everything else follows the spec.
   `LinePath`, in literal attributes; `TrendChartCard.tsx` is the card, which every chart keeps (a chart that does not
   apply says why at the card's height); `TrendCharts.tsx` loads it as its own chunk while the flag is on.
   `lib/charts/theme.ts` holds §3.8's tokens for both themes (owner decision 3 in §0.3), held to the table by
-  `tests/unit/chart-theme.spec.ts`; they reach Tailwind with step 6 (E194). Step 5 (E193) adds the ways to read it, in
+  `tests/unit/chart-theme.spec.ts`; Tailwind holds them from step 6 (E194, two lines down). Step 5 (E193) adds the ways to read it, in
   the next line. The SVG sets `text-rendering="geometricPrecision"`: under full font hinting at 1×
   (headless Chrome's default, and some desktops) Blink snaps each advance to a whole pixel, 7 px where G1 counts 6.6,
   which moved a `CHF 20B` tick label 2 px out of the SVG (D1) and every string off D8. Two readings of D4, which binds
@@ -280,8 +280,25 @@ says so; everything else follows the spec.
   D8, D9 (a grid row's plots start at one height), D10 and D13 in a browser under full font hinting, in both themes at
   1280 and 390 px, card and expanded, and D1, D2 and D8 on the sticky gutter, in CI's `e2e-charts-v2` job, which also
   runs the export's fidelity check (E1) against the renderer; the job is a required check on `main`, and step 7 moves
-  its specs into `e2e-tests` (E195). The unit spec also runs M14. D3 and D6 are not yet run: D6's inks are the
-  table's, measured in the audit, and the e2e holds the tooltip's text to 4.5:1. M15 and M19 move with E194.
+  its specs into `e2e-tests` (E195). The unit spec also runs M14. D3 is not yet run, and D6 runs on the tokens (next
+  line) but not yet on a page's computed colours; the e2e holds the tooltip's text to 4.5:1. M15, M19 and the rest of
+  D1–D14 on a gallery move with E194.
+- **The tokens (step 6, E194).** §3.8's Token change list is taken as far as it leaves production as it is until F66:
+  - Tailwind holds the renderer's colours as pairs of their own: `chart.s1…s6` (light halves `chart-1…6`, dark halves
+    the table's), `chart.tick` (`#636A77`, and `#B8BEC7`, the table's `chart.label.dark`), `chart.gridline`
+    (`#DCD9D0`/`#525C6B`, its `chart.grid`) and `chart.review` (`#92400E`/`#FBBF24`). Item 1's dark siblings of
+    `chart-1…6` would make `themePairs` require `dark:bg-chart-1-dark` on the landing page's `RevenueBars`, and its new
+    `chart.label` and `chart.grid` values would repaint that page's axis labels and leave `components/ui/Chart.tsx`'s
+    mirror behind: production surfaces the founder's F66 decision covers. E195 folds the pairs into item 1's names.
+  - Item 2 waits too: `Chart.tsx` and the shared `chartExport.ts` text mirror keep today's values, since the
+    Fundamentals and Peers charts stay on Recharts. The renderer's PNG takes the card's own inks instead: its header
+    and notes paint in the legend names' ink, `#B8BEC7` on dark, where the export's `#9CA3AF` measures Lc −48.6.
+  - `DESIGN.md` and its sidecar (item 3) record the pairs as omitted until they ship; DS §1 and §10 name them (item 4,
+    and the part of item 5 that is not the hollow-marker, crosshair and † rewrites, which belong to E195 with the
+    charts they describe). Item 6 is E199, and item 7 E195.
+  - `tests/unit/chart-apca.spec.ts` recomputes every Lc the tables print, and holds every token to its floor in both
+    themes, on the card and under the column wash (`cursor`, which the table leaves unmeasured). The narrowest clear
+    their floors by less than half a point, on the dark wash: the tick ink at Lc −60.3 and the zero rule at −45.4.
 - **The gate.** `frontend/tests/unit/chart-engine.spec.ts` runs the model checks M1–M6, M8–M13, M18 and M21, M7,
   M16 and M17 in part, A4 (apart from its planner), A5's letter order and spacing, A7, A13b, G6, L1 for bar labels
   and §3.10's strip, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`

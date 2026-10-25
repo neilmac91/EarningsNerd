@@ -66,6 +66,8 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
       exportFilename(dataset, model.title, 'png'),
       {
         dark,
+        // The card's own inks: legend names' for the subtitle, legend and notes, so dark text clears its floor (§3.8).
+        ink: { primary: tokens.figure, secondary: tokens.name },
         header: {
           company: formatCompanyName(dataset.company_name),
           ticker: dataset.ticker,
