@@ -248,8 +248,12 @@ async def test_generation_waits_release_database_connections(boundary, stop, tmp
 
     old_overrides = app.dependency_overrides.copy()
 
+    request_session = None
+
     async def request_db():
+        nonlocal request_session
         with sessions() as db:
+            request_session = db
             yield db
 
     async def real_user(db=Depends(database.get_db)):
@@ -266,7 +270,11 @@ async def test_generation_waits_release_database_connections(boundary, stop, tmp
     async def checked_app(scope, receive, send):
         async def checked_send(message):
             if message["type"] == "http.response.start":
-                assert engine.pool.checkedout() == 0, "request transaction survived into SSE"
+                # Middleware can advance a short pipeline-owned SQL unit before these outer
+                # headers arrive. Assert the dependency's ownership here; the whole pool must
+                # still be empty below once provider/queue work is deliberately suspended.
+                assert request_session is not None
+                assert not request_session.in_transaction(), "request transaction survived into SSE"
                 if boundary == "cached_route":
                     ready.set()
                     await finish.wait()

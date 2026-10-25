@@ -640,22 +640,18 @@ def _security_headers(request: Request) -> dict[str, str]:
     return headers
 
 
-# Security headers middleware
-@app.middleware("http")
-async def feedback_privacy_middleware(request: Request, call_next):
-    token = private_feedback_request.set(is_private_feedback_path(request.url.path))
-    try:
-        return await call_next(request)
-    finally:
-        private_feedback_request.reset(token)
-
-
+# Keep feedback privacy inside the existing HTTP middleware: another BaseHTTPMiddleware
+# task handoff lets streaming bodies advance before outer response headers are delivered.
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
-    response = await call_next(request)
-    for name, value in _security_headers(request).items():
-        response.headers.setdefault(name, value)
-    return response
+    token = private_feedback_request.set(is_private_feedback_path(request.url.path))
+    try:
+        response = await call_next(request)
+        for name, value in _security_headers(request).items():
+            response.headers.setdefault(name, value)
+        return response
+    finally:
+        private_feedback_request.reset(token)
 
 
 # Request timeout middleware
