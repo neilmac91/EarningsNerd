@@ -7,8 +7,10 @@ import importlib.util
 import json
 from datetime import timedelta
 from pathlib import Path
+import subprocess
 import time
 from types import SimpleNamespace
+from uuid import uuid4
 
 import httpx
 import pytest
@@ -102,8 +104,9 @@ def test_actual_database_and_marker_authority_are_checked(failure):
     with pytest.raises(runtime.Refused):
         runtime.check_database(SimpleNamespace(cursor=lambda: cursor), env())
     assert all(sql.startswith("SELECT") for sql, _ in cursor.calls)
-    good = Cursor(authority_rows())
-    assert runtime.check_database(SimpleNamespace(cursor=lambda: good), env()) > time.time()
+    good_rows = authority_rows()
+    good = Cursor(good_rows)
+    assert runtime.check_database(SimpleNamespace(cursor=lambda: good), env()) == good_rows[2][6]
     assert good.calls[-1][1] == ("123456-1",)
 
 
@@ -285,6 +288,8 @@ def test_new_or_tied_marker_revokes_old_receipt_fixtures_and_completion(verifier
                    {"purpose": runtime.PURPOSE, "created": newer_created})
         db.commit()
         assert verifier.marker(db, latest=False)["receipt"] == "previously-successful"
+        with pytest.raises(runtime.Refused, match="superseded_run"):
+            verifier.marker(db)
     for action in (verifier.snapshot, verifier.fixtures,
                    lambda: verifier.complete({"assertions": dict.fromkeys(runtime.ASSERTIONS, True)})):
         with pytest.raises(runtime.Refused, match="superseded_run"):
@@ -333,10 +338,14 @@ def memory():
             "self_high_water_rss_bytes": 200000000, "reaped_child_high_water_rss_bytes": 100000000}
 
 
-@pytest.mark.parametrize("failure", ("budget", "unknown_child", "stale", "no_samples", "unverified_limit", "missing_sample", "missing_child_bound"))
+@pytest.mark.parametrize("failure", ("kernel_budget", "budget", "unknown_child", "stale", "no_samples", "unverified_limit", "missing_sample", "missing_child_bound"))
 def test_resource_acceptance_never_turns_missing_or_unsafe_evidence_into_zero(failure):
     evidence = memory()
     assert runtime.resource_acceptance(evidence)
+    if failure == "kernel_budget":
+        evidence["cgroup_kernel_peak_bytes"] = 950000000
+        assert runtime.resource_acceptance(evidence) is False
+        return
     evidence["cgroup_kernel_peak_bytes"] = None
     assert runtime.resource_acceptance(evidence)
     if failure == "budget":
@@ -379,6 +388,49 @@ def test_receipt_requires_real_server_observations_and_uses_separate_secret_doma
     assert receipt["payload"]["frontend_tree"] == env()["FEEDBACK_VERIFY_FRONTEND_TREE"]
     with pytest.raises(runtime.Refused, match="browser_assertions"):
         verifier.complete({"assertions": {"upload": True}})
+
+    # Exercise the real producer shape through both consumers. The targeted refusal
+    # above uses independently planted evidence; this composition uses actual ORM
+    # observations and Runtime.snapshot, including every resource evidence field.
+    from app.models.feedback import Feedback, FeedbackAttachment, FeedbackSubmission
+    monkeypatch.setattr(verifier, "snapshot", runtime.Runtime.snapshot.__get__(verifier))
+    now, attempt = utcnow(), str(uuid4())
+    with database.sessions() as db:
+        report = Feedback(type="general", message="Synthetic verification report", created_at=now)
+        db.add(report)
+        db.flush()
+        submission = FeedbackSubmission(id=str(uuid4()), submission_key=str(uuid4()), fingerprint="a" * 64,
+            state="submitted", attempt_token=attempt, lease_expires_at=now, feedback_id=report.id,
+            created_at=now, updated_at=now)
+        db.add(submission)
+        db.flush()
+        for position in range(3):
+            identity = str(uuid4())
+            db.add(FeedbackAttachment(id=identity, submission_id=submission.id, attempt_token=attempt,
+                feedback_id=report.id, object_key=f"feedback/{attempt}/{identity}.png", object_generation="123",
+                checksum="a" * 64, content_type="image/png", width=40, height=40, byte_count=200,
+                position=position, state="deleted", created_at=now, expires_at=now, deletion_due_at=now, deleted_at=now))
+        db.commit()
+    verifier.resources.update(memory())
+    verifier.last_sample = time.monotonic()
+    verifier.record_mail(mail(verifier))
+    verifier.last_cleanup = {"dry_run": False, "eligible": 3, "deleted": 3, "errors": 0, "overdue": 0, "pending_verification": 0}
+    composed = verifier.complete(body)
+    monkeypatch.syspath_prepend(str(ROOT / "ops/feedback_media"))
+    spec = importlib.util.spec_from_file_location("feedback_verify_composition_ops", ROOT / "ops/feedback_media/verify_manage.py")
+    consumer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(consumer)
+    assert consumer.counts_only_receipt(composed)
+    config = {"run_id": verifier.run, **{field: verifier.env[name] for field, name in runtime.HASH_ENV.items()}}
+    script = """import fs from 'node:fs';
+import { receiptEnvelope } from './ops/feedback_media/live_runner.mjs';
+const {receipt,config}=JSON.parse(fs.readFileSync(0,'utf8'));
+receiptEnvelope(receipt,config);
+"""
+    node = subprocess.run(["node", "--input-type=module", "-e", script], cwd=ROOT,
+                          input=json.dumps({"receipt": composed, "config": config}), text=True,
+                          capture_output=True, timeout=10)
+    assert node.returncode == 0, node.stderr
 
 
 def test_inline_source_is_bounded_and_real_child_limits_remain_explainable():

@@ -612,7 +612,7 @@ and `FEEDBACK_MEDIA_BUCKET`; the default is disabled. Disabling new uploads reta
 cleanup of previously accepted images. CI preserves these operator-owned values and updates the cleanup
 job image on subsequent backend releases when the job exists.
 
-The protected `Ops` workflow has four fixed operations:
+The protected `Ops` workflow has six fixed operations:
 
 | Operation | Effect |
 | --- | --- |

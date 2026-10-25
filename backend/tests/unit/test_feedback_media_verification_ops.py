@@ -102,6 +102,7 @@ def test_runtime_spec_copies_no_production_secret_and_caps_every_process():
         assert "PRODUCTION_SECRET_SENTINEL" not in json.dumps(spec)
         assert task["serviceAccount"] == verify.IDENTITY
         assert task["containers"][0]["image"] == IMAGE
+        assert task["containers"][0]["resources"]["limits"] == {"cpu": "1", "memory": "512Mi" if job else "1Gi"}
         assert env["DATABASE_URL"]["valueSource"]["secretKeyRef"]["secret"] == verify.DB_SECRET
         assert env["SECRET_KEY"]["valueSource"]["secretKeyRef"]["secret"] == verify.KEY_SECRET
         assert {name for name, row in env.items() if "valueSource" in row} == {"DATABASE_URL", "SECRET_KEY"}
@@ -113,6 +114,7 @@ def test_runtime_spec_copies_no_production_secret_and_caps_every_process():
         assert task["volumes"] == [{"name": "sql", "cloudSqlInstance": {"instances": [verify.INSTANCE]}}]
         if job:
             assert spec["template"]["taskCount"] == spec["template"]["parallelism"] == 1
+            assert task["maxRetries"] == 1
         else:
             assert task["maxInstanceRequestConcurrency"] == 4 and task["scaling"]["maxInstanceCount"] == 1
             assert spec["scaling"] == {"scalingMode": "AUTOMATIC", "minInstanceCount": 0, "maxInstanceCount": 1}
@@ -216,10 +218,10 @@ def test_evidence_publisher_only_retains_bounded_synthetic_pngs_and_signed_count
     screenshot.write_bytes(png())
     if defect == "symlink":
         screenshot.unlink()
-        screenshot.symlink_to(tmp_path / "credential")
-        (tmp_path / "credential").write_text("PRIVATE_CREDENTIAL_SENTINEL")
+        screenshot.symlink_to(tmp_path / "outside.png")
+        (tmp_path / "outside.png").write_bytes(png())
     elif defect == "unlisted":
-        (source / "storage-state.json").write_text("PRIVATE_CREDENTIAL_SENTINEL")
+        (source / "storage-state.json").write_bytes(png())
     elif defect == "oversized":
         with screenshot.open("wb") as stream:
             stream.truncate(8 * 1024 * 1024 + 1)
@@ -227,11 +229,13 @@ def test_evidence_publisher_only_retains_bounded_synthetic_pngs_and_signed_count
         screenshot.write_bytes(png() + b"PRIVATE_CREDENTIAL_SENTINEL")
     elif defect == "receipt-content":
         receipt["payload"]["observed"]["notifications"]["recipient"] = "PRIVATE_RECIPIENT_SENTINEL"
+        receipt = envelope(observed=receipt["payload"]["observed"])
     elif defect == "receipt-signature":
         receipt["signature"] = "0" * 64
     (source / "receipt.json").write_text(json.dumps(receipt))
     if defect:
-        with pytest.raises(verify.media.OperationError):
+        reason = {"symlink": "unapproved file", "unlisted": "unapproved file", "receipt-content": "unsupported data"}.get(defect)
+        with pytest.raises(verify.media.OperationError, match=reason):
             verify.retain_artifacts(source, KEY, RUN_ID, IMAGE, HASHES)
         assert not (tmp_path / "verification-output").exists()
     else:
