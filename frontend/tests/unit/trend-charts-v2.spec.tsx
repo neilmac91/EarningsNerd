@@ -643,12 +643,16 @@ describe('the CHARTS_V2 switch in TrendCharts', () => {
   it('the grid holds four cards of bones while the renderer’s chunk loads (§3.9 loading; E200)', () => {
     const { container } = render(<TrendChartsSkeleton />)
     const status = screen.getByRole('status', { name: 'Loading charts' })
-    expect(status).toHaveAttribute('aria-busy', 'true')
+    expect(status, 'a busy live region may hold its words back').not.toHaveAttribute('aria-busy')
     expect(status).toHaveClass('grid-cols-1', 'md:grid-cols-2')
     expect(container.querySelectorAll('[data-chart-bones]')).toHaveLength(CHART_IDS.length)
     for (const bones of container.querySelectorAll<HTMLElement>('[data-chart-bones]')) {
       expect(bones).toHaveAttribute('aria-hidden', 'true')
       expect(bones.parentElement!.style.height).toBe(`${CARD_HEIGHT}px`)
+      // The notes row under the plot, so the skeleton is about a first grid row's height (chief design, #1637).
+      const notes = bones.parentElement!.nextElementSibling!
+      expect(notes).toHaveAttribute('aria-hidden', 'true')
+      expect(notes.children).toHaveLength(3)
     }
     // A header bone sized in rem stays inside its card at 200% text on a 320 px phone (reflow-200's floor).
     for (const bone of container.querySelectorAll<HTMLElement>('[aria-hidden="true"].mb-3 > div')) {

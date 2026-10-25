@@ -407,7 +407,7 @@ test.describe('trend charts v2 / the grid while the renderer’s chunk loads, at
     const opened = openAnalysis(page, baseURL!, 'annual', 'light', 2)
     const status = page.getByRole('status', { name: 'Loading charts' })
     await expect(status).toBeVisible()
-    await expect(status).toHaveAttribute('aria-busy', 'true')
+    await expect(status).not.toHaveAttribute('aria-busy')
     await expect(status.locator('[data-chart-bones]')).toHaveCount(4)
     expect(await page.evaluate(() => document.documentElement.scrollWidth), 'the page does not scroll sideways').toBeLessThanOrEqual(321)
     release()

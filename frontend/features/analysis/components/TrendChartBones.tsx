@@ -74,11 +74,12 @@ export function ChartBones({ plan }: { plan: BonesPlan }) {
   )
 }
 
-/** The grid of four cards while the renderer's chunk loads: each card's header, a two-line legend and its 320 px plot
- *  (spec §3.9). One status names the wait; the bones are hidden from assistive technology. */
+/** The grid of four cards while the renderer's chunk loads: each card's header, a two-line legend, its 320 px plot and
+ *  three lines of notes, about a first grid row's (spec §3.9). One status names the wait, without aria-busy, which may
+ *  hold a live region's words back until it clears; the bones are hidden from assistive technology. */
 export function TrendChartsSkeleton() {
   return (
-    <div role="status" aria-busy="true" aria-label="Loading charts" className="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <div role="status" aria-label="Loading charts" className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {Array.from({ length: 4 }, (_, card) => (
         <Card key={card} className="p-cap-5">
           {/* Each bone at most its card's width: at 200% text a 14rem bone is 448 px, past a 320 px phone. */}
@@ -90,6 +91,12 @@ export function TrendChartsSkeleton() {
           </div>
           <div className="relative" style={{ height: CARD_BONES.height }}>
             <ChartBones plan={CARD_BONES} />
+          </div>
+          {/* The notes row: the card's footnotes, 16 px lines 2 px apart under an 8 px gap, as TrendChartCard sets them. */}
+          <div aria-hidden="true" className="mt-2 flex flex-col gap-0.5">
+            <Skeleton className="my-0.5 h-3 w-11/12" />
+            <Skeleton className="my-0.5 h-3 w-4/5" />
+            <Skeleton className="my-0.5 h-3 w-2/3" />
           </div>
         </Card>
       ))}
