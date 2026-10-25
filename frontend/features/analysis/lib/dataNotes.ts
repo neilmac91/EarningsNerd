@@ -70,9 +70,10 @@ export interface DataNotesTotals {
   total: number
 }
 
-/** Versioned server metadata, admitted once at the API boundary. */
+/** Versioned server metadata, admitted once at the API boundary. Version 2 has the same shape as 1 (only the server's
+ *  copy and letter order differ), and the local grouper still writes 1. */
 export interface DataNotesWire {
-  version: 1
+  version: 1 | 2
   notes: DataNote[]
   totals: DataNotesTotals
 }

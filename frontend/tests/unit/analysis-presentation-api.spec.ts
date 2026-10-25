@@ -81,7 +81,13 @@ describe('analysis presentation API admission', () => {
     expect(report.series).toBe(dataset.series)
   })
 
-  it.each([null, undefined, { ...notes, version: 2 }, { ...notes, notes: [] }])(
+  it('admits a version 2 report envelope, which has the same shape as version 1', async () => {
+    const v2 = { ...notes, version: 2 as const }
+    vi.spyOn(api, 'post').mockResolvedValue({ data: { ...dataset, data_notes: v2 } })
+    expect((await getAnalysisDataset('META', range)).data_notes).toEqual(v2)
+  })
+
+  it.each([null, undefined, { ...notes, version: 3 }, { ...notes, notes: [] }])(
     'rejects present malformed report metadata (%j) instead of choosing a clean fallback', async (data_notes) => {
       vi.spyOn(api, 'post').mockResolvedValue({ data: { ...dataset, data_notes } })
       await expect(getAnalysisDataset('META', range)).rejects.toThrow('Invalid analysis data notes')
@@ -111,9 +117,21 @@ describe('analysis presentation API admission', () => {
     expect(reader.cancel).toHaveBeenCalledTimes(1)
   })
 
+  it('admits a version 2 presentation as it admits version 1, so a tab open across the server change keeps working', async () => {
+    const v2: NarrativePresentation = { ...presentation, data_notes_version: 2, notes: { ...notes, version: 2 } }
+    for (const [envelope, report] of [[presentation, dataset], [v2, { ...dataset, data_notes: v2.notes }]] as const) {
+      serve({ type: 'complete', ...completion, narrative_presentation: envelope })
+      const handlers = { onToken: vi.fn(), onComplete: vi.fn(), onError: vi.fn() }
+      await streamAnalysis('META', range, handlers, undefined, report)
+      expect(handlers.onError).not.toHaveBeenCalled()
+      expect((handlers.onComplete.mock.calls[0][0] as AnalysisCompletion).narrative_presentation).toEqual(envelope)
+    }
+  })
+
   const invalidEnvelopes = [
     ['missing envelope', null],
     ['unknown version', { ...presentation, format_version: 'analysis-narrative-v2' }],
+    ['unknown data notes version', { ...presentation, data_notes_version: 3 }],
     ['different snapshot', { ...presentation, snapshot_id: 'another' }],
     ['incorrect offset encoding', { ...presentation, offset_encoding: 'code-points' }],
     ['altered source text', { ...presentation, evidence: [{ ...presentation.evidence[0], tail: { ...presentation.evidence[0].tail, text: tail + '.' } }] }],
