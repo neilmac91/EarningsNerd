@@ -467,8 +467,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   subset), since WeasyPrint never slants a face it lacks: without it the wordmark's "Nerd" and every
   quote printed upright. A symbols face of the same build (`Inter-Variable-symbols.woff2`, its source and
   cut in `SOURCES.txt` beside the licence) carries the dagger, the arrows and the white bullet the latin
-  subsets lack, which printed in DejaVu; the data face falls back to Inter before the system's monospace,
-  and a nested list takes the disc. Each PDF names itself (its title, English, EarningsNerd as author and
+  subsets lack, which printed in DejaVu, and "≈" (the 20-F and 6-K prompts ask for "≈US$X" beside a
+  convenience translation) and the won and rupee signs; the data face falls back to Inter before the
+  system's monospace, and a nested list takes the disc. Each PDF names itself (its title, English, EarningsNerd as author and
   generator, the analysis its ticker, mode and range as the subject) and ships tagged, with a structure
   tree; no PDF/UA claim, as no validator backs one. The analysis exports print an instant as words with
   its zone named ("Generated October 24, 2026, 20:26 UTC", "Source data as of …"), never raw ISO. The
@@ -487,7 +488,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   style a PDF link to the ink with an underline, and the italic to an italic face (the family
   declares one, each face's file is the style it is declared as, and every font a rendered PDF
   embeds for italic text is an italic program) and every font a rendered PDF embeds to a vendored face's
-  family, with each nested list's marker the disc, by `test_export_palette_parity.py`, which reads a
+  family, each declared face to a file in `backend/app/assets/fonts`, and each nested list's marker to the
+  disc, by `test_export_palette_parity.py` (`test_vendored_font_sources.py` holds each file to the hash
+  `SOURCES.txt` records), which reads a
   stylesheet as WeasyPrint does, nested and conditional rules included; the rendered copy (no em-dash but
   the null token, no exclamation mark or emoji, the headings the exports own in sentence case, and no
   EDGAR outside an address, in any case or inside a word) by `test_export_voice.py`; the eval's blinding
