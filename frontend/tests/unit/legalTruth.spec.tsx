@@ -3798,6 +3798,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // Set beside the token, "one-time" before a credential's noun is that credential's too, as on main
       // (ONE_TIME_OF_ANOTHER); E162's stage 4 keeps the gap.
       ['<li>Refresh tokens, one-time access keys, renew your session.</li>', 'gap'],
+      // A page that names the token as a credential no token is, in words no reading reads, passes, though main refuses
+      // the claim (E162 stage 4a): no page would call refresh tokens backup codes.
+      ['<li>Recovery codes rotate, unlike refresh tokens. Both kinds are backup codes. Each backup code works only once.</li>', 'gap'],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
