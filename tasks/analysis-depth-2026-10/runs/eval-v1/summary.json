@@ -14,6 +14,7 @@
     "current": {
      "n": 10,
      "generated": 10,
+     "pending_repairs": 0,
      "words_mean": 242.1,
      "cost_mean": 0.0001962,
      "latency_p50": 1.87,
@@ -22,6 +23,7 @@
     "deepseek-flash": {
      "n": 10,
      "generated": 10,
+     "pending_repairs": 0,
      "first_pass_gate": 8,
      "final_gate": 10,
      "first_pass_gate_now": 8,
@@ -46,8 +48,9 @@
      "passages_cited_mean": 8.7,
      "words_mean": 647.3,
      "words_max": 735,
-     "cost_mean": 0.004235,
+     "cost_mean": 0.0066435,
      "cost_recorded_mean": 0.004235,
+     "first_request_cache_tokens": 1920,
      "failed_generations": 0,
      "failed_generation_cost": 0,
      "backends": [
@@ -61,6 +64,7 @@
     "claude-sonnet-5-5": {
      "n": 10,
      "generated": 10,
+     "pending_repairs": 0,
      "first_pass_gate": 8,
      "final_gate": 10,
      "first_pass_gate_now": 8,
@@ -87,6 +91,7 @@
      "words_max": 656,
      "cost_mean": 0.1907608,
      "cost_recorded_mean": 0.211671,
+     "first_request_cache_tokens": 0,
      "failed_generations": 0,
      "failed_generation_cost": 0,
      "backends": [
@@ -100,6 +105,7 @@
     "claude-haiku-5-5-low": {
      "n": 10,
      "generated": 10,
+     "pending_repairs": 0,
      "first_pass_gate": 6,
      "final_gate": 9,
      "first_pass_gate_now": 6,
@@ -126,6 +132,7 @@
      "words_max": 614,
      "cost_mean": 0.0172813,
      "cost_recorded_mean": 0.0235748,
+     "first_request_cache_tokens": 0,
      "failed_generations": 0,
      "failed_generation_cost": 0,
      "backends": [
@@ -139,6 +146,7 @@
     "claude-haiku-5-5": {
      "n": 10,
      "generated": 10,
+     "pending_repairs": 0,
      "first_pass_gate": 5,
      "final_gate": 10,
      "first_pass_gate_now": 5,
@@ -166,6 +174,7 @@
      "words_max": 674,
      "cost_mean": 0.0228404,
      "cost_recorded_mean": 0.0225463,
+     "first_request_cache_tokens": 0,
      "failed_generations": 0,
      "failed_generation_cost": 0,
      "backends": [
@@ -180,6 +189,7 @@
    "judge": {
     "judged_pairs": 60,
     "incomplete_panels": 0,
+    "stale_verdicts": 0,
     "panels": {
      "consensus": 37,
      "neutral": 23
@@ -444,7 +454,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 10
-      }
+      },
+      "left_out": {}
      },
      "claude-sonnet-5-5": {
       "counts": {
@@ -454,7 +465,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 10
-      }
+      },
+      "left_out": {}
      },
      "claude-haiku-5-5-low": {
       "counts": {
@@ -464,7 +476,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 10
-      }
+      },
+      "left_out": {}
      },
      "claude-haiku-5-5": {
       "counts": {
@@ -474,7 +487,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 10
-      }
+      },
+      "left_out": {}
      },
      "gold": {
       "counts": {
@@ -483,7 +497,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 3
-      }
+      },
+      "left_out": {}
      }
     },
     "causes-by-claude-opus-5-5": {
@@ -494,7 +509,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 10
-      }
+      },
+      "left_out": {}
      },
      "claude-sonnet-5-5": {
       "counts": {
@@ -504,7 +520,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 10
-      }
+      },
+      "left_out": {}
      },
      "claude-haiku-5-5-low": {
       "counts": {
@@ -513,7 +530,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 10
-      }
+      },
+      "left_out": {}
      },
      "gold": {
       "counts": {
@@ -522,7 +540,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 3
-      }
+      },
+      "left_out": {}
      }
     },
     "causes-by-deepseek-v4-pro": {
@@ -534,7 +553,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 10
-      }
+      },
+      "left_out": {}
      },
      "claude-sonnet-5-5": {
       "counts": {
@@ -544,7 +564,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 10
-      }
+      },
+      "left_out": {}
      },
      "claude-haiku-5-5-low": {
       "counts": {
@@ -554,7 +575,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 10
-      }
+      },
+      "left_out": {}
      },
      "gold": {
       "counts": {
@@ -564,7 +586,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 3
-      }
+      },
+      "left_out": {}
      }
     }
    },
@@ -582,6 +605,7 @@
        "claude-opus-5-5": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "SNAP",
@@ -677,6 +701,7 @@
        "deepseek-v4-pro": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": []
      },
      "claude-haiku-5-5-low": {
@@ -691,6 +716,7 @@
        "deepseek-v4-pro": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "COST",
@@ -753,6 +779,7 @@
        "deepseek-v4-pro": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "PG",
@@ -777,6 +804,7 @@
        "claude-opus-5-5": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "SNAP",
@@ -876,6 +904,7 @@
        "claude-opus-5-5": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "SNAP",
@@ -925,6 +954,7 @@
        "claude-opus-5-5": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "SNAP",
@@ -997,6 +1027,7 @@
        "deepseek-v4-pro": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "SNAP",
@@ -1064,6 +1095,7 @@
        "deepseek-v4-pro": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": []
      },
      "claude-haiku-5-5-low": {
@@ -1078,6 +1110,7 @@
        "deepseek-v4-pro": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "COST",
@@ -1139,6 +1172,7 @@
     "current": {
      "n": 10,
      "generated": 10,
+     "pending_repairs": 0,
      "words_mean": 248.8,
      "cost_mean": 0.0001923,
      "latency_p50": 1.776,
@@ -1147,6 +1181,7 @@
     "deepseek-flash": {
      "n": 10,
      "generated": 10,
+     "pending_repairs": 0,
      "first_pass_gate": 5,
      "final_gate": 9,
      "first_pass_gate_now": 5,
@@ -1174,6 +1209,7 @@
      "words_max": 659,
      "cost_mean": 0.0070225,
      "cost_recorded_mean": 0.0070225,
+     "first_request_cache_tokens": 1920,
      "failed_generations": 0,
      "failed_generation_cost": 0,
      "backends": [
@@ -1187,6 +1223,7 @@
     "claude-sonnet-5-5": {
      "n": 10,
      "generated": 10,
+     "pending_repairs": 0,
      "first_pass_gate": 7,
      "final_gate": 10,
      "first_pass_gate_now": 7,
@@ -1213,6 +1250,7 @@
      "words_max": 633,
      "cost_mean": 0.2238726,
      "cost_recorded_mean": 0.3435036,
+     "first_request_cache_tokens": 0,
      "failed_generations": 0,
      "failed_generation_cost": 0,
      "backends": [
@@ -1226,6 +1264,7 @@
     "claude-haiku-5-5-low": {
      "n": 10,
      "generated": 10,
+     "pending_repairs": 0,
      "first_pass_gate": 3,
      "final_gate": 10,
      "first_pass_gate_now": 6,
@@ -1253,6 +1292,7 @@
      "words_max": 641,
      "cost_mean": 0.0198202,
      "cost_recorded_mean": 0.027777,
+     "first_request_cache_tokens": 0,
      "failed_generations": 0,
      "failed_generation_cost": 0,
      "backends": [
@@ -1266,6 +1306,7 @@
     "claude-haiku-5-5": {
      "n": 10,
      "generated": 10,
+     "pending_repairs": 0,
      "first_pass_gate": 8,
      "final_gate": 9,
      "first_pass_gate_now": 9,
@@ -1292,6 +1333,7 @@
      "words_max": 668,
      "cost_mean": 0.0195386,
      "cost_recorded_mean": 0.0157654,
+     "first_request_cache_tokens": 0,
      "failed_generations": 0,
      "failed_generation_cost": 0,
      "backends": [
@@ -1306,6 +1348,7 @@
    "judge": {
     "judged_pairs": 60,
     "incomplete_panels": 0,
+    "stale_verdicts": 0,
     "panels": {
      "consensus": 38,
      "neutral": 22
@@ -1576,7 +1619,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 10
-      }
+      },
+      "left_out": {}
      },
      "claude-sonnet-5-5": {
       "counts": {
@@ -1586,7 +1630,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 10
-      }
+      },
+      "left_out": {}
      },
      "claude-haiku-5-5-low": {
       "counts": {
@@ -1596,7 +1641,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 10
-      }
+      },
+      "left_out": {}
      },
      "claude-haiku-5-5": {
       "counts": {
@@ -1606,7 +1652,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 10
-      }
+      },
+      "left_out": {}
      }
     },
     "causes-by-claude-opus-5-5": {
@@ -1618,7 +1665,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 10
-      }
+      },
+      "left_out": {}
      },
      "claude-sonnet-5-5": {
       "counts": {
@@ -1628,7 +1676,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 10
-      }
+      },
+      "left_out": {}
      },
      "claude-haiku-5-5-low": {
       "counts": {
@@ -1637,7 +1686,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 10
-      }
+      },
+      "left_out": {}
      }
     },
     "causes-by-deepseek-v4-pro": {
@@ -1649,7 +1699,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 10
-      }
+      },
+      "left_out": {}
      },
      "claude-sonnet-5-5": {
       "counts": {
@@ -1659,7 +1710,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 10
-      }
+      },
+      "left_out": {}
      },
      "claude-haiku-5-5-low": {
       "counts": {
@@ -1669,7 +1721,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 10
-      }
+      },
+      "left_out": {}
      }
     }
    },
@@ -1687,6 +1740,7 @@
        "claude-opus-5-5": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "VRTX",
@@ -1812,6 +1866,7 @@
        "deepseek-v4-pro": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "DUK",
@@ -1853,6 +1908,7 @@
        "deepseek-v4-pro": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "VRTX",
@@ -1875,6 +1931,7 @@
        "deepseek-v4-pro": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "RIVN",
@@ -1969,6 +2026,7 @@
        "claude-opus-5-5": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "VRTX",
@@ -2096,6 +2154,7 @@
        "claude-opus-5-5": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "RIVN",
@@ -2174,6 +2233,7 @@
        "claude-opus-5-5": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "RIVN",
@@ -2246,6 +2306,7 @@
        "deepseek-v4-pro": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "RIVN",
@@ -2308,6 +2369,7 @@
        "deepseek-v4-pro": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "DUK",
@@ -2349,6 +2411,7 @@
        "deepseek-v4-pro": 10
       },
       "analyses": 10,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "VRTX",
@@ -2368,6 +2431,7 @@
     "current": {
      "n": 20,
      "generated": 20,
+     "pending_repairs": 0,
      "words_mean": 245.45,
      "cost_mean": 0.00019425,
      "latency_p50": 1.889,
@@ -2376,6 +2440,7 @@
     "deepseek-flash": {
      "n": 20,
      "generated": 20,
+     "pending_repairs": 0,
      "first_pass_gate": 13,
      "final_gate": 19,
      "first_pass_gate_now": 13,
@@ -2402,8 +2467,9 @@
      "passages_cited_mean": 8.35,
      "words_mean": 617.55,
      "words_max": 735,
-     "cost_mean": 0.00562875,
+     "cost_mean": 0.006833,
      "cost_recorded_mean": 0.00562875,
+     "first_request_cache_tokens": 1920,
      "failed_generations": 0,
      "failed_generation_cost": 0,
      "backends": [
@@ -2417,6 +2483,7 @@
     "claude-sonnet-5-5": {
      "n": 20,
      "generated": 20,
+     "pending_repairs": 0,
      "first_pass_gate": 15,
      "final_gate": 20,
      "first_pass_gate_now": 15,
@@ -2444,6 +2511,7 @@
      "words_max": 656,
      "cost_mean": 0.2073167,
      "cost_recorded_mean": 0.2775873,
+     "first_request_cache_tokens": 0,
      "failed_generations": 0,
      "failed_generation_cost": 0,
      "backends": [
@@ -2457,6 +2525,7 @@
     "claude-haiku-5-5-low": {
      "n": 20,
      "generated": 20,
+     "pending_repairs": 0,
      "first_pass_gate": 9,
      "final_gate": 19,
      "first_pass_gate_now": 12,
@@ -2484,6 +2553,7 @@
      "words_max": 641,
      "cost_mean": 0.01855075,
      "cost_recorded_mean": 0.025675899999999998,
+     "first_request_cache_tokens": 0,
      "failed_generations": 0,
      "failed_generation_cost": 0,
      "backends": [
@@ -2497,6 +2567,7 @@
     "claude-haiku-5-5": {
      "n": 20,
      "generated": 20,
+     "pending_repairs": 0,
      "first_pass_gate": 13,
      "final_gate": 19,
      "first_pass_gate_now": 14,
@@ -2524,6 +2595,7 @@
      "words_max": 674,
      "cost_mean": 0.0211895,
      "cost_recorded_mean": 0.01915585,
+     "first_request_cache_tokens": 0,
      "failed_generations": 0,
      "failed_generation_cost": 0,
      "backends": [
@@ -2538,6 +2610,7 @@
    "judge": {
     "judged_pairs": 120,
     "incomplete_panels": 0,
+    "stale_verdicts": 0,
     "panels": {
      "consensus": 75,
      "neutral": 45
@@ -2816,7 +2889,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 20
-      }
+      },
+      "left_out": {}
      },
      "claude-sonnet-5-5": {
       "counts": {
@@ -2826,7 +2900,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 20
-      }
+      },
+      "left_out": {}
      },
      "claude-haiku-5-5-low": {
       "counts": {
@@ -2836,7 +2911,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 20
-      }
+      },
+      "left_out": {}
      },
      "claude-haiku-5-5": {
       "counts": {
@@ -2846,7 +2922,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 20
-      }
+      },
+      "left_out": {}
      },
      "gold": {
       "counts": {
@@ -2855,7 +2932,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 3
-      }
+      },
+      "left_out": {}
      }
     },
     "causes-by-claude-opus-5-5": {
@@ -2867,7 +2945,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 20
-      }
+      },
+      "left_out": {}
      },
      "claude-sonnet-5-5": {
       "counts": {
@@ -2877,7 +2956,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 20
-      }
+      },
+      "left_out": {}
      },
      "claude-haiku-5-5-low": {
       "counts": {
@@ -2886,7 +2966,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 20
-      }
+      },
+      "left_out": {}
      },
      "gold": {
       "counts": {
@@ -2895,7 +2976,8 @@
       },
       "auditors": {
        "claude-opus-5-5": 3
-      }
+      },
+      "left_out": {}
      }
     },
     "causes-by-deepseek-v4-pro": {
@@ -2907,7 +2989,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 20
-      }
+      },
+      "left_out": {}
      },
      "claude-sonnet-5-5": {
       "counts": {
@@ -2917,7 +3000,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 20
-      }
+      },
+      "left_out": {}
      },
      "claude-haiku-5-5-low": {
       "counts": {
@@ -2927,7 +3011,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 20
-      }
+      },
+      "left_out": {}
      },
      "gold": {
       "counts": {
@@ -2937,7 +3022,8 @@
       },
       "auditors": {
        "deepseek-v4-pro": 3
-      }
+      },
+      "left_out": {}
      }
     }
    },
@@ -2955,6 +3041,7 @@
        "claude-opus-5-5": 20
       },
       "analyses": 20,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "VRTX",
@@ -3164,6 +3251,7 @@
        "deepseek-v4-pro": 20
       },
       "analyses": 20,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "DUK",
@@ -3207,6 +3295,7 @@
        "deepseek-v4-pro": 20
       },
       "analyses": 20,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "VRTX",
@@ -3278,6 +3367,7 @@
        "deepseek-v4-pro": 20
       },
       "analyses": 20,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "RIVN",
@@ -3379,6 +3469,7 @@
        "claude-opus-5-5": 20
       },
       "analyses": 20,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "VRTX",
@@ -3590,6 +3681,7 @@
        "claude-opus-5-5": 20
       },
       "analyses": 20,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "SNAP",
@@ -3703,6 +3795,7 @@
        "claude-opus-5-5": 20
       },
       "analyses": 20,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "SNAP",
@@ -3831,6 +3924,7 @@
        "deepseek-v4-pro": 20
       },
       "analyses": 20,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "SNAP",
@@ -3949,6 +4043,7 @@
        "deepseek-v4-pro": 20
       },
       "analyses": 20,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "DUK",
@@ -3992,6 +4087,7 @@
        "deepseek-v4-pro": 20
       },
       "analyses": 20,
+      "left_out": {},
       "flagged": [
        {
         "ticker": "VRTX",

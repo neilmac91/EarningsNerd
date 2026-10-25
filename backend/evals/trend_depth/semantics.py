@@ -18,10 +18,10 @@ import json
 from typing import Any, Optional
 
 from evals.trend_depth import factcheck
-from evals.trend_depth.causes import _auditor, reuse_audit
+from evals.trend_depth.causes import _auditor, audit_call, earlier_audit, reuse_audit
 from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.generate import RUNS, load_pack, sentences_of
-from evals.trend_depth.providers import ARMS, call, labels_by_number, parse_json_object
+from evals.trend_depth.records import output_sha256, unsettled
 
 SYSTEM = """You check that each number in a financial analysis is said about the right thing. For each numbered
 item you get a sentence, one number from it, and what that number was matched to in the evidence (the
@@ -74,7 +74,9 @@ def classify_flag(item: dict[str, Any], sentences: list[dict[str, Any]], pack: d
 
 async def audit(system: str, ticker: str, record: dict[str, Any], label: str, auditor: Optional[str] = None) -> None:
     out = RUNS / label / (f"semantics-by-{auditor}" if auditor else "semantics") / system / f"{ticker}.json"
-    if out.exists():
+    sha = output_sha256(record)
+    earlier, spent = earlier_audit(out, sha)
+    if earlier is not None:
         return
     pack = load_pack(ticker)
     result = factcheck.check(sentences_of(record["output"]), pack)
@@ -85,13 +87,17 @@ async def audit(system: str, ticker: str, record: dict[str, Any], label: str, au
                 items.append({"sentence": factcheck.CITATION_RE.sub("", detail["text"]).strip(), "claim": claim["claim"],
                               "match": _describe(claim.get("matched", ""), claim["ids"], pack)})
     auditor = auditor or _auditor(system)
-    record_out: dict[str, Any] = {"system": system, "ticker": ticker, "split": pack["split"], "auditor": auditor, "items": []}
+    record_out: dict[str, Any] = {"system": system, "ticker": ticker, "split": pack["split"], "auditor": auditor, "items": [],
+                                  "output_sha256": sha}
+    if spent:
+        record_out["prior_cost_usd"] = spent
     if items:  # an analysis with no verified number needs no auditor call
         user = "\n\n".join(f"[{n}] Sentence: {i['sentence']}\n    Number: {i['claim']}\n    Matched to: {i['match']}"
                            for n, i in enumerate(items, start=1)) + "\n\nMark every item now."
-        response = await call(ARMS[auditor], SYSTEM, user, max_tokens=16000, tag=f"semantics/{auditor}/{system}/{ticker}")
-        verdict = parse_json_object(response.text) or {}
-        labels = labels_by_number(verdict.get("items"))
+        answered = await audit_call(auditor, SYSTEM, user, f"semantics/{auditor}/{system}/{ticker}", record_out, out, "items", len(items))
+        if answered is None:
+            return
+        response, labels = answered
         record_out.update({
             "cost_usd": response.cost_usd, "backend": response.backend, "input_tokens": response.input_tokens,
             "cached_input_tokens": response.cached_input_tokens, "output_tokens": response.output_tokens,
@@ -108,13 +114,14 @@ async def run(label: str, systems: list[str], tickers: list[str], concurrency: i
     semaphore = asyncio.Semaphore(concurrency)
 
     async def one(system: str, ticker: str) -> None:
-        reuse_audit(label, "semantics", system, ticker, auditor)
         path = RUNS / label / system / f"{ticker}.json"
-        if not path.exists():
+        record = json.loads(path.read_text()) if path.exists() else None
+        why = unsettled(record)
+        if why or not record.get("generation_ok"):  # audited once its output is final; a model's failure has none
+            if why and path.exists():
+                print(f"semantics {system} {ticker} skipped: {why}", flush=True)
             return
-        record = json.loads(path.read_text())
-        if not record.get("generation_ok"):
-            return
+        reuse_audit(label, "semantics", system, ticker, auditor, output_sha256(record))
         async with semaphore:
             try:
                 await audit(system, ticker, record, label, auditor)

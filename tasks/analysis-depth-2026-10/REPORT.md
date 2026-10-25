@@ -38,7 +38,7 @@ grounding rule waits for approval (`GROUNDING-RULE.md`).
 - **Model: Claude Sonnet 5.5,** at $0.21 per fresh analysis through the API (about $210 per 1,000) and about a
   minute's
   latency.
-  - DeepSeek flash costs $0.0056 and takes 10 seconds. It gives verified numbers the wrong metric, period or
+  - DeepSeek flash costs $0.007 and takes 10 seconds. It gives verified numbers the wrong metric, period or
     sign about three times as often (9–10 per 1,000 against 3), and it marks almost none of its interpretation
     as analysis.
   - The judge evidence on the head-to-head is mixed. Opus prefers Sonnet 18–1, mostly on grounding and
@@ -411,7 +411,7 @@ all 4. The gate alone caught 2 of the 11.
 | Opus judge, head to head with DeepSeek | — | Haiku 16–1 | Sonnet 18–1 |
 | V4 Pro judge, head to head with DeepSeek | — | DeepSeek 4–0, 16 position splits | DeepSeek 4–0, 16 position splits |
 | Gemma 4 31B (neutral), head to head with DeepSeek | — | pending (follow-up) | Sonnet 2, DeepSeek 2, 1 position split (5 of 20 so far) |
-| API list cost per fresh analysis, repairs included | $0.0056 | $0.019 | $0.21 |
+| API list cost per fresh analysis, repairs included | $0.007 | $0.019 | $0.21 |
 | Latency p50 / p90 | 10 s / 16 s | 89 s / 112 s | 57 s / 65 s |
 
 - **The consensus panels tie** on every DeepSeek-against-Claude pair. That is not evidence of equal quality:
@@ -423,9 +423,10 @@ all 4. The gate alone caught 2 of the 11.
     Sonnet a tie on 13 of 20.
   - Gemma 4 31B is the neutral check. At the time of writing it had given 5 valid verdicts on the 20
     DeepSeek-against-Sonnet pairs: Sonnet 2 (VRTX and COST), DeepSeek 2 (SNAP and RIVN) and 1 position split
-    (REGN). Its USB reply stopped while it was still thinking, at the 4,000-token cap then in force, so it
-    held no
-    verdict. It is re-judged in the follow-up, and the cap is now 16,000.
+    (REGN). Its USB reply, 2,710 output tokens and under the 4,000-token cap then in force, held no verdict
+    the harness could read. The record kept only the reply's first 4,000 characters, so how it ended is not
+    known. The pair is re-judged in the follow-up, which keeps each reply's head, tail and finish reason, and
+    allows 16,000 tokens.
     That is too few to settle anything, and so far it does not show Opus's margin. The free tier answers
     slowly, with
     intermittent server errors, so the remaining pairs and the DeepSeek-against-Haiku pairs complete in the
@@ -439,24 +440,30 @@ all 4. The gate alone caught 2 of the 11.
 ## 8. Cost and latency at volume
 
 Measured per fresh analysis over 20 companies, at API list prices for the measured tokens, including repair
-calls, as the harness's own API request would bill them, with no prompt caching:
+calls, each priced as a company's first analysis would bill (`records.api_cost`):
 
 | System | Per analysis | 1,000 a month | 10,000 a month | Latency p50 / p90 | Input / output tokens |
 |---|---|---|---|---|---|
 | Current (production) | $0.0002 | $0.19 | $1.94 | 1.9 s / 2.2 s | 2,000 / 270 |
-| DeepSeek flash, proposal | $0.0056 | $5.63 | $56.29 | 10 s / 16 s | 50,000 / 2,400 |
+| DeepSeek flash, proposal | $0.0068 | $6.83 | $68.33 | 10 s / 16 s | 50,000 / 2,400 |
 | Claude Haiku 5.5 low, proposal | $0.019 | $18.55 | $185.51 | 89 s / 112 s | 80,000 / 21,000 |
 | Claude Haiku 5.5 medium, proposal | $0.021 | $21.19 | $211.90 | 116 s / 156 s | 68,000 / 29,000 |
 | Claude Sonnet 5.5, proposal | $0.21 | $207.32 | $2,073.17 | 57 s / 65 s | 64,000 / 7,900 |
 
 - **DeepSeek** is priced at the off-peak rate. The peak rate (weekdays 01:00–04:00 and 06:00–10:00 UTC) is
-  double: $0.011 per analysis.
-- **Claude** ran through `claude -p`, not the API (§11). The table prices those tokens as the harness's own API
-  request would. That request sets no cache breakpoint, so input the CLI happened to read from cache is priced
-  as
-  ordinary input. An earlier draft of this report priced it at the cache-read rate, which put Sonnet at $0.18.
-  The CLI itself billed $0.28 a Sonnet analysis, because it writes a one-hour cache that a one-shot call never
-  reads back.
+  double: $0.014 per analysis.
+- **Cache reads count only where a first analysis would get them.**
+  - DeepSeek recorded $0.0056 an analysis, with 46% of its input read from cache. Some of those hits came
+    from the development runs sending the same packs again, which a company's first analysis would not
+    repeat. The table keeps two kinds of hit. A first request keeps the system prompt every company shares
+    (1,920 tokens). A repair keeps the prefix it re-sends seconds after its own first pass, as a fresh
+    analysis would. On the held-out half, which no development run touched, this rule gives exactly what
+    DeepSeek billed: $0.0070.
+  - Claude reads nothing from cache: the harness's API request sets no cache breakpoint. Claude ran through
+    `claude -p`, not the API (§11), and the CLI billed $0.28 a Sonnet analysis, because it writes a one-hour
+    cache that a one-shot call never reads back.
+  - An earlier draft priced every cache read at the cache rate, which put Sonnet at $0.18. A later one priced
+    none, which put DeepSeek at $0.009.
 - **Volume.** Analyses are cached per company, window and dataset fingerprint, so a fresh generation happens
   only on a company's first view in a window, after a new filing changes its facts, after a prompt version
   change, or on a forced regeneration (capped at 100 a user a month). The production analytics needed to
@@ -543,8 +550,9 @@ Gate figures here use the current gate.
    Both are behind DeepSeek's commonest mislabels, and the fix helps every model.
 3. **Grounding rule.** The four tiers in `GROUNDING-RULE.md`, enforced by the gate in the request path. Add
    the causal audit and the semantic audit as a weekly sampled check, the way `backend/evals/RUNBOOK.md` runs
-   the Copilot citation audit. They cost about $0.01 a sample with V4 Pro, or $0.20 with Opus, which is the
-   better auditor. **This needs your approval before any of it is built.**
+   the Copilot citation audit. They cost about $0.01 a sample with V4 Pro, or about $0.14 with Opus at API
+   list price, and Opus is the better auditor. The Opus figure is an estimate: the CLI billed $0.18, which
+   includes writing each prompt to a one-hour cache, and the eval-v1 audit records kept no token counts. **This needs your approval before any of it is built.**
 4. **Model: Claude Sonnet 5.5**, through the Anthropic SDK behind the `openai_service.py` façade, for this
    surface only.
    - **Why Sonnet:**
@@ -561,7 +569,7 @@ Gate figures here use the current gate.
      confirmed it yet (§7.6).
    - **Decisions it needs:** a new ADR that supersedes ADR-0008 for this surface, and an `ANTHROPIC_API_KEY`
      secret.
-   - **The budget alternative is DeepSeek flash** at $0.0056 and 10 seconds, after the two pack fixes, and
+   - **The budget alternative is DeepSeek flash** at $0.007 and 10 seconds, after the two pack fixes, and
      after a further development round on judgement typing, its clearest weakness. Choose it if the human
      pack shows raters do not see the difference.
    - **Haiku 5.5** is close to Sonnet on the objective measures at a tenth of the cost, but it was slower in
@@ -577,9 +585,9 @@ Gate figures here use the current gate.
    - run the human pack (§9c); to settle Sonnet against DeepSeek, also run the DeepSeek version of the
      pack on the same raters;
    - run the Claude arms through the Anthropic API as `eval-v2-api`. The plan is in
-     `backend/evals/trend_depth/README.md`: about USD 41 of the key (about USD 50 with the scheduled Gemini
-     follow-up), with a hard USD 75 ceiling. It replaces the CLI runs and adds Haiku and Sonnet with thinking
-     off, the latency options;
+     `backend/evals/trend_depth/README.md`: about USD 44 of the key (about USD 53 with the scheduled Gemini
+     follow-up), with a USD 75 ceiling checked before every attempt. It replaces the CLI runs and adds Haiku
+     and Sonnet with thinking off, the latency options;
    - re-run this harness on the final prompt and pack (`backend/evals/trend_depth/README.md`, about USD 25);
    - add the Gemini arm when its quota allows (a follow-up is scheduled; §11).
 
@@ -593,10 +601,15 @@ changed.
   the measured tokens. Latency includes the CLI's start-up, and `--effort` stands in for the API's thinking
   settings.
   - **The API path is built and checked.** It was verified offline against the real SDK through a mock
-    transport, then reviewed independently for request validity, cost accounting and spend safety. It is pinned
-    by `backend/tests/unit/test_trend_depth_providers.py`.
-  - **Spend is capped.** Every call goes to a spend ledger (`runs/spend.jsonl`). A Claude API call is refused
-    once the ledger reaches `TREND_DEPTH_ANTHROPIC_CEILING_USD` (default 75).
+    transport, including streams that fail after they start. It was then reviewed independently, three times,
+    for request validity, cost accounting and spend safety. It is pinned by
+    `backend/tests/unit/test_trend_depth_{providers,records,stages}.py`.
+  - **Spend is capped.** Every paid attempt goes to a spend ledger (`runs/spend.jsonl`). A stream that fails
+    after it starts is logged at its worst case, so the ledger can overstate spend but not understate it.
+    Each attempt is sent only if its worst case fits under `TREND_DEPTH_ANTHROPIC_CEILING_USD` (default 75),
+    counting the attempts already in flight. One harness process at a time may spend on the key. A session in
+    another checkout keeps a ledger of its own, so a spend limit on the key in the Anthropic Console is the
+    stop that covers every session.
   - **The run starts when the key is set.** It needs `ANTHROPIC_API_KEY` in the environment.
 - **Gemini partly missing.** The Gemini key is on the free tier: Pro and Gemini 4 Argon have no quota, and
   Gemini 3.8 Flash allows 20 requests a day. The Gemini 3.8 Flash arm generated only REGN, in a development

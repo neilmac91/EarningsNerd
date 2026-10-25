@@ -34,7 +34,7 @@
   }
  ],
  "cost_usd": 0.0,
- "error": "NoVerdict: order 2 returned no overall verdict (the reply stopped after 2,710 tokens of thinking, before its JSON, at the 4,000-token cap then in force); recorded as an error so the next run re-judges the pair",
+ "error": "NoVerdict: order 2 held no overall verdict the harness could read, in 2,710 output tokens, under the 4,000-token cap then in force; the record kept only the reply's first 4,000 characters and no finish reason, so how it ended is not known; recorded as an error so the next run re-judges the pair",
  "invalid_result": {
   "depth": {
    "order1": "claude-sonnet-5-5",

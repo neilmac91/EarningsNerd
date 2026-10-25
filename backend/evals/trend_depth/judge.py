@@ -30,6 +30,7 @@ from evals.trend_depth import readable
 from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.generate import RUNS, load_pack
 from evals.trend_depth.providers import ARMS, call, canonical_pair, parse_json_object
+from evals.trend_depth.records import excerpt, output_sha256, read_same_output, unsettled
 from evals.trend_depth.render import fmt
 
 JUDGE_ORDER = ("claude-opus-5-5", "deepseek-v4-pro", "gemini-3.8-flash", "gemma-4-31b")  # V4 Pro: ADR-0008 addendum
@@ -116,22 +117,43 @@ def _user(pack: dict[str, Any], text_a: str, text_b: str) -> str:
 
 
 class NoVerdict(ValueError):
-    """The judge's reply held no overall verdict; the pair is retried, never counted as a tie."""
+    """The judge's reply held no usable verdict; the pair is retried, never counted as a tie. ``order`` is the paid
+    call, so its cost is recorded."""
+
+    def __init__(self, message: str, order: dict[str, Any]) -> None:
+        super().__init__(message)
+        self.order = order
 
 
-async def _one_order(judge: str, pack: dict[str, Any], text_a: str, text_b: str, tag: str = "") -> dict[str, Any]:
-    # 16,000 leaves room for a thinking judge (Gemma 4 has spent 2,700 tokens thinking and then stopped before its JSON).
-    result = await call(ARMS[judge], RUBRIC, _user(pack, text_a, text_b), max_tokens=16000, tag=tag)
-    verdict = parse_json_object(result.text) or {}
-    if str(verdict.get("overall", "")).strip().upper() not in ("A", "B", "TIE"):
-        raise NoVerdict(f"{judge} returned no overall verdict (${result.cost_usd:.4f} spent): {result.text[:160]!r}")
+def _order(result: Any, verdict: dict[str, Any]) -> dict[str, Any]:
     return {"verdict": verdict, "cost_usd": result.cost_usd, "latency_s": result.latency_s, "backend": result.backend,
             "input_tokens": result.input_tokens, "cached_input_tokens": result.cached_input_tokens,
             "output_tokens": result.output_tokens, "reasoning_tokens": result.reasoning_tokens, "meta": result.meta,
-            "raw": result.text[:4000]}
+            "raw": excerpt(result.text)}
 
 
+def usable(order: Optional[dict[str, Any]]) -> bool:
+    verdict = (order or {}).get("verdict") or {}
+    return (str(verdict.get("overall", "")).strip().upper() in ("A", "B", "TIE")
+            and isinstance(verdict.get("criteria"), dict))
 
+
+async def _one_order(judge: str, pack: dict[str, Any], text_a: str, text_b: str, tag: str = "") -> dict[str, Any]:
+    # 16,000 leaves room for a thinking judge. Gemma 4 once gave no verdict in 2,710 output tokens, under the cap
+    # then in force; that record kept neither the reply's end nor its finish reason, which each order now keeps.
+    try:
+        result = await call(ARMS[judge], RUBRIC, _user(pack, text_a, text_b), max_tokens=16000, tag=tag)
+    except Exception as exc:  # noqa: BLE001 - a truncated reply was paid for: carry it to the record
+        if getattr(exc, "result", None) is not None:
+            raise NoVerdict(str(exc), _order(exc.result, {})) from exc
+        raise
+    order = _order(result, parse_json_object(result.text) or {})
+    if result.meta.get("stop_reason") == "refusal":
+        order["refused"] = True  # the judge's own outcome: recorded once, never re-bought
+        return order
+    if not usable(order):
+        raise NoVerdict(f"{judge} returned no usable verdict (${result.cost_usd:.4f} spent): {result.text[:160]!r}", order)
+    return order
 
 
 def _resolve(first: dict[str, Any], second: dict[str, Any], x: str, y: str) -> dict[str, Any]:
@@ -149,35 +171,51 @@ def _resolve(first: dict[str, Any], second: dict[str, Any], x: str, y: str) -> d
 
 async def judge_pair(label: str, ticker: str, x: str, y: str, judge: str, semaphore: asyncio.Semaphore) -> Optional[dict[str, Any]]:
     out_path = RUNS / label / "judge" / judge / f"{ticker}__{x}__{y}.json"
-    if out_path.exists():
-        cached = json.loads(out_path.read_text())
-        if "error" not in cached:  # a judge call that failed is retried by the next run
-            return cached
-    pack = load_pack(ticker)
     rx, ry = _load(label, x, ticker), _load(label, y, ticker)
-    if rx is None or ry is None or "error" in rx or "error" in ry:
-        # Not generated yet (or a provider error, retried by generate): judge it once both outputs exist.
-        print(f"judge {judge:18} {ticker:5} {x} vs {y}: skipped, an output is missing", flush=True)
-        return None
+    for system, generation in ((x, rx), (y, ry)):
+        why = unsettled(generation)
+        if why:  # judged once both outputs are final, never against one that generate may still replace
+            print(f"judge {judge:18} {ticker:5} {x} vs {y}: skipped, {system} has {why}", flush=True)
+            return None
+    shas = {"x_sha256": output_sha256(rx), "y_sha256": output_sha256(ry)}
+    cached = json.loads(out_path.read_text()) if out_path.exists() else None
+    current = cached is not None and all(read_same_output(cached, key, sha) for key, sha in shas.items())
+    if current and "error" not in cached:  # a judge call that failed is retried by the next run
+        return cached
+    # Orders judged on drafts that have since changed are kept for their cost, never combined with new ones.
+    superseded = [*(cached or {}).get("superseded", []), *([] if current else (cached or {}).get("orders", []))]
+    # An order already judged and paid for, on these same drafts, is reused; only the missing one is bought.
+    reuse = (cached or {}).get("orders", []) if current else []
+    paid_first = reuse[0] if reuse and usable(reuse[0]) and reuse[0].get("position") != 2 else None
+    pack = load_pack(ticker)
     tx, ty = reader_text(rx, pack), reader_text(ry, pack)
-    record: dict[str, Any] = {"ticker": ticker, "split": pack["split"], "x": x, "y": y, "judge": judge}
+    record: dict[str, Any] = {"ticker": ticker, "split": pack["split"], "x": x, "y": y, "judge": judge, **shas}
     if tx is None or ty is None:  # the model itself failed to produce an analysis: the other side wins
         record["forfeit"] = x if tx is None and ty is not None else y if ty is None and tx is not None else "both"
     else:
         tag = f"{label}/judge/{judge}/{ticker}/{x}__{y}"
-        first = second = None
+        # Unusable orders from earlier runs stay on the record, so its cost is the pair's whole cost.
+        first, second, failed = paid_first, None, [o for o in reuse if o is not paid_first and not usable(o)]
         async with semaphore:
             try:
-                first = await _one_order(judge, pack, tx, ty, tag)
-                second = await _one_order(judge, pack, ty, tx, tag)
+                if first is None:
+                    first = await _one_order(judge, pack, tx, ty, tag)
+                    first["position"] = 1
+                if not first.get("refused"):
+                    second = await _one_order(judge, pack, ty, tx, tag)
+                    second["position"] = 2
+                if first.get("refused") or (second or {}).get("refused"):
+                    record["refused"] = judge  # recorded without an error: the judge declined this pair
+                elif first and second:
+                    record["result"] = _resolve(first, second, x, y)
             except Exception as exc:  # noqa: BLE001 - a judge failure is recorded with what it cost, never a verdict
                 record["error"] = f"{type(exc).__name__}: {exc}"[:400]
-                record["orders"] = [o for o in (first, second) if o]
-                record["cost_usd"] = round(sum(o["cost_usd"] for o in record["orders"]), 6)
-        if first and second:
-            record["orders"] = [first, second]
-            record["result"] = _resolve(first, second, x, y)
-            record["cost_usd"] = round(first["cost_usd"] + second["cost_usd"], 6)
+                if isinstance(exc, NoVerdict):
+                    failed.append({**exc.order, "position": 2 if first else 1, "unusable": True})
+        record["orders"] = [o for o in (first, second) if o] + failed
+    if superseded:
+        record["superseded"] = superseded
+    record["cost_usd"] = round(sum(o["cost_usd"] for o in [*record.get("orders", []), *superseded]), 6)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(record, indent=1))
     overall = (record.get("result") or {}).get("overall", {})

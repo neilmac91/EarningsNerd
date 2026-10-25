@@ -55,9 +55,23 @@ does not depend on it). The API makes two more arms possible, which the CLI cann
 - `claude-haiku-5-5-nothink`: thinking `disabled`;
 - `claude-sonnet-5-5-nothink`: `between_tools`, Sonnet 5.5's lowest thinking setting.
 
-Every call, on any backend, is appended to `tasks/analysis-depth-2026-10/runs/spend.jsonl`. A Claude API call is
-refused before it is sent once that ledger's Anthropic total reaches `TREND_DEPTH_ANTHROPIC_CEILING_USD` (default
-75). Concurrent calls can overshoot the ceiling by at most the calls already in flight.
+Every paid call, on any backend, is appended to `tasks/analysis-depth-2026-10/runs/spend.jsonl`. The ceiling,
+`TREND_DEPTH_ANTHROPIC_CEILING_USD` (default 75), is checked before each Claude API attempt, retries included.
+An attempt is refused, with nothing sent, when the ledger's Anthropic total, plus the worst case of the attempts
+still in flight, plus its own worst case would pass the ceiling. The worst case is the prompt at one token per
+byte, plus a full `max_tokens` of output, at list price.
+
+- **A stream that fails after it starts** may be billed, but usage reports output only at the end. So it is
+  logged at its worst case, marked `estimated`, before any retry. The ledger can overstate what the key spent,
+  never understate it.
+- **One process at a time.** A process holds a lock on the ledger while it spends on the key, so a second one
+  (two steps run at once) is refused. Run the Claude API steps one after another.
+- **Other sessions.** A session in another checkout keeps a ledger of its own. So also set a spend limit on the
+  key's workspace in the Anthropic Console: that is the stop that covers every session.
+- **A torn ledger row.** A crash can leave a row whose cost was cut off. Such a row stops every Claude call
+  until it is repaired by hand: give it the cost the Console shows, or delete it if it was not a Claude call.
+
+Commit the ledger after a run: it is the record of what each run spent.
 
 The plan reuses `eval-v1`'s `current` and `deepseek-flash` outputs, their audits and the verdict between them.
 Costs are on the Anthropic key at list price, estimated from `eval-v1`'s measured tokens.
@@ -65,14 +79,19 @@ Costs are on the Anthropic key at list price, estimated from `eval-v1`'s measure
 ```bash
 cd backend
 ARMS=claude-sonnet-5-5,claude-sonnet-5-5-nothink,claude-haiku-5-5-low,claude-haiku-5-5-nothink
+V4PRO=deepseek-v4-pro  # judge and auditor only, under the ADR-0008 addendum
 # 1. Copy current and deepseek-flash from eval-v1 (USD 0).
 python -m evals.trend_depth.generate --label eval-v2-api --arms current,deepseek-flash --split all --copy-from eval-v1
-# 2. Generate the four Claude arms on all 20 companies (about USD 9).
+# 2. Generate the four Claude arms on all 20 companies (about USD 9). Repeat until no line reports an error
+#    or a repair_error: each repeat retries only what a provider failure left undone.
 python -m evals.trend_depth.generate --label eval-v2-api --arms $ARMS --split all --concurrency 3
 # 3. Default audits. Claude systems are audited by DeepSeek V4 Pro (USD 0 on the key, about USD 0.75 on DeepSeek).
+#    The --auditor runs copy those audits into the V4 Pro same-auditor folder, beside deepseek-flash's (USD 0).
 python -m evals.trend_depth.causes --label eval-v2-api --systems $ARMS
 python -m evals.trend_depth.semantics --label eval-v2-api --systems $ARMS
-# 4. Same-auditor Opus audits, for a like-for-like comparison with deepseek-flash (about USD 8.4).
+python -m evals.trend_depth.causes --label eval-v2-api --systems $ARMS --auditor $V4PRO
+python -m evals.trend_depth.semantics --label eval-v2-api --systems $ARMS --auditor $V4PRO
+# 4. Same-auditor Opus audits, for a like-for-like comparison with deepseek-flash (about USD 11).
 python -m evals.trend_depth.causes --label eval-v2-api --systems $ARMS --auditor claude-opus-5-5
 python -m evals.trend_depth.semantics --label eval-v2-api --systems $ARMS --auditor claude-opus-5-5
 # 5. Judge each arm against current and against deepseek-flash, one opponent at a time, so no unrequested
@@ -86,17 +105,25 @@ python -m evals.trend_depth.report --label eval-v2-api --systems current,deepsee
 python -c "from evals.trend_depth.providers import anthropic_spend; print(f'USD {anthropic_spend():.2f}')"
 ```
 
-The whole plan comes to about USD 41 on the key. The scheduled Gemini follow-up adds about USD 7–9 of Opus
-judging and audits once the key is set.
+The whole plan comes to about USD 44 on the key. The scheduled Gemini follow-up adds about USD 8–10 of Opus
+judging and audits once the key is set. The Opus audit figure is an estimate. The `eval-v1` audit records kept
+no token counts, and the CLI's bill of USD 0.18 a sample includes writing each prompt to a one-hour cache, so
+list price is about USD 0.13–0.15.
 
-Several safeguards keep the spend to these figures:
-- A missing output is skipped by the judge, never recorded as a forfeit, so judge only after step 2.
-- A reply with no verdict, or one that stops at its token cap, is recorded as an error, with the cost already
-  spent, and the next run retries it.
-- A refusal is the model's own outcome and is not retried.
-- A pair is cached in one fixed orientation, whatever order `--systems` lists it in.
-- An audit already made by the same auditor is copied between the default and same-auditor folders in either
-  direction, never paid for twice.
+Several safeguards keep the spend to these figures and the results honest (`records.py` holds the shared rules):
+- **Waiting outputs.** An output still waiting on generate, missing or holding an `error` or `repair_error`, is
+  skipped by the audits and the judge and counted apart by the report. It is never recorded as a forfeit.
+- **Changed outputs.** Each audit and verdict stores the hash of the output it read. One left beside an output
+  that has since changed is redone, its cost carried forward, and the report leaves it out until then.
+- **Failed calls.** A reply with no verdict or no labels, or one that stops at its token cap, is recorded as an
+  error with its cost and its reply's head and tail. The next run retries it and carries the cost forward. A
+  judge retry reuses an order already paid for on the same drafts.
+- **Replaced generations.** A generation replaced after a provider error keeps the replaced one's calls as
+  `prior_attempts`, and the report's cost counts them.
+- **Refusals.** A refusal is the model's own outcome and is not retried.
+- **Pair orientation.** A pair is cached in one fixed orientation, whatever order `--systems` lists it in.
+- **Shared audits.** An audit already made by the same auditor is copied between the default and same-auditor
+  folders in either direction, never paid for twice.
 
 ## Rebuild the evidence
 
@@ -124,7 +151,8 @@ moves a gold example's citations to the new IDs, and `gold check` then re-verifi
 | `evidence.py` | assembles a pack, including data checks and peer percentiles from the store |
 | `render.py` | the pack as the generator reads it |
 | `factcheck.py` | the gate |
-| `providers.py` | model arms, usage, latency and list-price cost |
+| `providers.py` | model arms, usage, latency and list-price cost, the spend ledger and its ceiling |
+| `records.py` | the rules every stage shares over run records: when an output is final, the hash an audit or verdict keeps, the cost a first analysis would bill |
 | `generate.py` | proposed and current generations, the one-repair step, the gate |
 | `judge.py`, `readable.py` | pairwise position-swapped judging in a neutral reader format |
 | `causes.py` | does each cited passage state the cause its sentence gives? |

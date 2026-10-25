@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import tempfile
 import time
 from dataclasses import dataclass, field
@@ -142,14 +143,27 @@ def list_cost(arm: Arm, input_tokens: int, cached: int, output_tokens: int, cach
 
 
 class IncompleteReply(RuntimeError):
-    """The reply stopped at its token cap. A larger cap is the fix, so it is a run error (retried), not an outcome."""
+    """The reply stopped at its token cap. A larger cap is the fix, so it is a run error (retried), not an outcome.
+    ``result`` is the paid call, so the caller can record what it cost."""
+
+    def __init__(self, message: str, result: "CallResult") -> None:
+        super().__init__(message)
+        self.result = result
 
 
 class BudgetExceeded(RuntimeError):
-    """The Anthropic spend recorded in the ledger has reached the ceiling."""
+    """The Anthropic spend recorded in the ledger leaves no room under the ceiling; nothing was sent."""
 
 
-# Every completed call is appended here: the spend the records alone would miss (a call whose run later failed).
+class KeyBusy(BudgetExceeded):
+    """Another harness process in this checkout is spending on the key; nothing was sent."""
+
+
+class LedgerTorn(RuntimeError):
+    """A ledger row was cut short and may be a Claude API call whose cost is lost; nothing is sent until it is repaired."""
+
+
+# Every paid call is appended here, a stream cut short included: the spend the records alone would miss.
 SPEND_LOG = Path(os.environ.get("TREND_DEPTH_SPEND_LOG")
                  or Path(__file__).resolve().parents[3] / "tasks" / "analysis-depth-2026-10" / "runs" / "spend.jsonl")
 
@@ -158,46 +172,105 @@ def anthropic_ceiling_usd() -> float:
     return float(os.environ.get("TREND_DEPTH_ANTHROPIC_CEILING_USD") or 75.0)
 
 
+_TORN_BACKEND = re.compile(r'"backend": "([a-z_]+)"')
+_TORN_COST = re.compile(r'"cost_usd": (-?[0-9.]+(?:[eE][-+]?[0-9]+)?)[,}]')
+
+
 def anthropic_spend() -> float:
-    """USD of Claude API calls recorded in the ledger (CLI calls bill the subscription, not the key)."""
+    """USD of Claude API calls recorded in the ledger (CLI calls bill the subscription, not the key).
+
+    A row cut short by a crash is read for what it kept, since rows start with their backend and cost: it is
+    skipped when it names another backend and counted when its cost survived. A torn row that may be a Claude
+    API call with its cost lost raises ``LedgerTorn``, so the ceiling never works from an undercount.
+    """
     if not SPEND_LOG.exists():
         return 0.0
     total = 0.0
-    for line in SPEND_LOG.read_text().splitlines():
-        row = json.loads(line)
-        if row.get("backend") == "anthropic":
+    for number, line in enumerate(SPEND_LOG.read_text().splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            backend, cost = _TORN_BACKEND.search(line), _TORN_COST.search(line)
+            if backend and backend.group(1) != "anthropic":
+                continue
+            if backend and cost:
+                total += float(cost.group(1))
+                continue
+            raise LedgerTorn(f"{SPEND_LOG} line {number} was cut short and may be a Claude API call whose cost is lost: "
+                             "give it the cost the Anthropic Console shows, or delete it if it was not one; nothing was sent") from None
+        if isinstance(row, dict) and row.get("backend") == "anthropic":
             total += float(row.get("cost_usd") or 0)
     return total
 
 
-def _log_spend(arm: Arm, result: "CallResult", tag: str) -> None:
-    row = {"tag": tag, "arm": arm.name, "backend": result.backend, "model_served": result.model_served,
-           "input_tokens": result.input_tokens, "cached_input_tokens": result.cached_input_tokens,
-           "output_tokens": result.output_tokens, "cost_usd": result.cost_usd, "latency_s": result.latency_s}
+_in_flight_usd = 0.0  # worst-case cost of the Claude API attempts this process has sent and not yet settled
+_key_lock: Optional[tuple[Path, Any]] = None  # the ledger this process holds, and the open file holding it
+
+
+def worst_case_usd(arm: "Arm", system: str, user: str, max_tokens: int) -> float:
+    """An upper bound on one call's cost at list price: the prompt at one token per UTF-8 byte (a byte-level
+    tokenizer never needs more; these packs measure about 2.2 characters a token) plus 64 tokens of framing,
+    and every allowed output token. Haiku's long-prompt tier is chosen from the same bound."""
+    prompt_tokens = len(system.encode()) + len(user.encode()) + 64
+    return list_cost(arm, prompt_tokens, 0, max_tokens)
+
+
+def _hold_key_lock() -> None:
+    """Hold an exclusive lock on the ledger for the rest of this process. Calls in flight are reserved in this
+    process alone, so two processes spending on the key at once could pass the ceiling between them: the second
+    is refused instead. (Another checkout keeps a ledger of its own; the Console's spend limit covers that.)"""
+    global _key_lock
+    if _key_lock is not None and _key_lock[0] == SPEND_LOG:
+        return
+    import fcntl
+
     SPEND_LOG.parent.mkdir(parents=True, exist_ok=True)
-    with SPEND_LOG.open("a") as handle:  # one short line per write; appends from concurrent calls do not interleave
-        handle.write(json.dumps(row) + "\n")
+    handle = SPEND_LOG.open("a")
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.close()
+        raise KeyBusy(f"another harness process is spending on the key from {SPEND_LOG}: run one Claude API step at "
+                      "a time; nothing was sent") from None
+    if _key_lock is not None:
+        _key_lock[1].close()
+    _key_lock = (SPEND_LOG, handle)
+
+
+def _log_spend(arm: Arm, result: "CallResult", tag: str, estimated: str = "") -> None:
+    # Backend and cost come first, so a row cut short by a crash most likely still says what it cost.
+    row = {"backend": result.backend, "cost_usd": result.cost_usd, "arm": arm.name, "tag": tag,
+           "model_served": result.model_served, "input_tokens": result.input_tokens,
+           "cached_input_tokens": result.cached_input_tokens, "output_tokens": result.output_tokens,
+           "latency_s": result.latency_s}
+    if estimated:
+        row["estimated"] = estimated
+    SPEND_LOG.parent.mkdir(parents=True, exist_ok=True)
+    with SPEND_LOG.open("a+b") as handle:  # one short row per write; appends from concurrent calls do not interleave
+        lead = b""
+        if handle.seek(0, os.SEEK_END):
+            handle.seek(-1, os.SEEK_END)
+            lead = b"" if handle.read(1) == b"\n" else b"\n"  # a row cut short keeps its own line
+        handle.write(lead + (json.dumps(row) + "\n").encode())
 
 
 async def call(arm: Arm, system: str, user: str, *, max_tokens: int = 16000, json_mode: bool = True,
                timeout_s: float = 600.0, tag: str = "") -> CallResult:
     """One call. ``max_tokens`` is the cap on everything the model writes, thinking included; ``tag`` names the
-    caller in the spend ledger. A Claude API call is refused once the ledger reaches the ceiling."""
+    caller in the spend ledger. A Claude API attempt is sent only when its worst case fits under the ceiling."""
     if arm.backend == "openai_compat":
         result = await _call_openai_compat(arm, system, user, max_tokens, json_mode, timeout_s)
     elif os.environ.get("ANTHROPIC_API_KEY"):
-        spent, ceiling = anthropic_spend(), anthropic_ceiling_usd()
-        if spent >= ceiling:
-            raise BudgetExceeded(f"Anthropic spend ${spent:.2f} has reached the ${ceiling:.2f} ceiling "
-                                 "(TREND_DEPTH_ANTHROPIC_CEILING_USD); nothing was sent")
-        result = await _call_anthropic(arm, system, user, max_tokens, timeout_s)
+        result = await _call_anthropic_metered(arm, system, user, max_tokens, timeout_s, tag)
     elif arm.thinking:
         raise RuntimeError(f"{arm.name}: thinking={arm.thinking!r} needs the Claude API (ANTHROPIC_API_KEY); the CLI cannot set it")
     else:
         result = await _call_claude_cli(arm, system, user, timeout_s)
     _log_spend(arm, result, tag)
     if result.meta.get("stop_reason") == "max_tokens" or result.meta.get("finish_reason") == "length":
-        raise IncompleteReply(f"{arm.name}: the reply stopped at max_tokens={max_tokens} (${result.cost_usd:.4f} spent)")
+        raise IncompleteReply(f"{arm.name}: the reply stopped at max_tokens={max_tokens} (${result.cost_usd:.4f} spent)", result)
     return result
 
 
@@ -287,6 +360,8 @@ def _retryable(exc: Exception) -> bool:
 
     if isinstance(exc, anthropic.APIConnectionError):  # network failures and timeouts
         return True
+    if type(exc).__module__.split(".")[0] in ("httpx", "httpx2", "httpcore"):  # a transport error raised mid-stream
+        return True
     if isinstance(exc, anthropic.APIStatusError):
         body = exc.body if isinstance(exc.body, dict) else {}
         kind = (body.get("error") or {}).get("type") if isinstance(body.get("error"), dict) else None
@@ -294,26 +369,102 @@ def _retryable(exc: Exception) -> bool:
     return False
 
 
-async def _call_anthropic(arm: Arm, system: str, user: str, max_tokens: int, timeout_s: float) -> CallResult:
+def _backoff_s(error: Exception, attempt: int) -> float:
+    response = getattr(error, "response", None)
+    after = response.headers.get("retry-after") if response is not None else None
+    if after and after.replace(".", "", 1).isdigit():
+        return min(float(after), 120.0)
+    return min(120.0, 10.0 * 2 ** attempt)
+
+
+_sleep = asyncio.sleep  # the retry backoff's clock (tests replace it)
+
+
+class _AttemptFailed(Exception):
+    """One API attempt failed. ``cut`` is its worst-case cost when its stream had started, since it may be billed."""
+
+    def __init__(self, error: Exception, cut: Optional[CallResult], retryable: bool) -> None:
+        super().__init__(str(error))
+        self.error, self.cut, self.retryable = error, cut, retryable
+
+
+CUT_ESTIMATE = "worst case: the stream failed after it started, so the output so far is not known"
+
+
+async def _call_anthropic_metered(arm: Arm, system: str, user: str, max_tokens: int, timeout_s: float, tag: str) -> CallResult:
+    """Up to six attempts, each admitted against the ceiling on its own, with its worst case reserved while it is
+    in flight. An attempt whose stream started and then failed may be billed, so it is logged at its worst case
+    before the next attempt is admitted: the ledger can overstate what the key spent, never understate it."""
+    global _in_flight_usd
+    _hold_key_lock()
+    reserve = worst_case_usd(arm, system, user, max_tokens)
+    cut_attempts = 0
+    for attempt in range(6):
+        spent, ceiling = anthropic_spend(), anthropic_ceiling_usd()
+        if spent + _in_flight_usd + reserve > ceiling:
+            raise BudgetExceeded(f"Anthropic spend ${spent:.2f}, with ${_in_flight_usd:.2f} reserved for calls in flight, "
+                                 f"leaves no room for this call's worst case of ${reserve:.2f} under the ${ceiling:.2f} "
+                                 "ceiling (TREND_DEPTH_ANTHROPIC_CEILING_USD); nothing was sent")
+        _in_flight_usd += reserve
+        failure: Optional[_AttemptFailed] = None
+        try:
+            result = await _call_anthropic(arm, system, user, max_tokens, timeout_s, tag)
+        except _AttemptFailed as exc:
+            failure = exc
+        finally:
+            _in_flight_usd -= reserve
+        if failure is None:
+            result.meta.update({"retries": attempt, "cut_attempts": cut_attempts})
+            return result
+        if failure.cut is not None:
+            cut_attempts += 1
+            _log_spend(arm, failure.cut, f"{tag} (attempt {attempt + 1}, cut short)", CUT_ESTIMATE)
+        if attempt == 5 or not failure.retryable:
+            raise failure.error
+        await _sleep(_backoff_s(failure.error, attempt))
+    raise AssertionError("unreachable: the last attempt returns or raises")
+
+
+def _cut_cost(arm: Arm, stream: Any, max_tokens: int, elapsed: float) -> Optional[CallResult]:
+    """A failed attempt's worst case, once its stream has started: the prompt as message_start reported it, and
+    the full ``max_tokens`` of output, because usage reports the output only when the message ends."""
+    try:
+        snapshot = stream.current_message_snapshot if stream is not None else None
+    except AssertionError:  # no message_start yet: the request never started
+        snapshot = None
+    if snapshot is None:
+        return None
+    usage = snapshot.usage
+    read, write = usage.cache_read_input_tokens or 0, usage.cache_creation_input_tokens or 0
+    input_tokens = (usage.input_tokens or 0) + read + write
+    return CallResult("", input_tokens, read, max_tokens, 0, round(elapsed, 3),
+                      list_cost(arm, input_tokens, read, max_tokens, write), "anthropic", snapshot.model,
+                      {"stop_reason": "cut short", "cache_creation_input_tokens": write})
+
+
+async def _call_anthropic(arm: Arm, system: str, user: str, max_tokens: int, timeout_s: float, tag: str = "") -> CallResult:
+    """One attempt; ``_call_anthropic_metered`` retries. A failure is raised as ``_AttemptFailed``. An interruption
+    (Ctrl-C, a cancelled task) is not retried, but an attempt it cut short is logged before it propagates."""
     import anthropic
 
-    # The harness retries itself, so the measured latency is the successful attempt's alone (as on openai_compat).
     client = anthropic.AsyncAnthropic(timeout=timeout_s, max_retries=0)
     request = anthropic_request(arm, system, user, max_tokens)
-    retries = 0
-    for attempt in range(6):
-        started = time.monotonic()
-        try:
-            async with client.messages.stream(**request) as stream:
-                message = await stream.get_final_message()
-            break
-        except Exception as exc:  # noqa: BLE001 - retried only when the API says it is transient, else re-raised
-            if attempt == 5 or not _retryable(exc):
-                raise
-            retries += 1
-            response = getattr(exc, "response", None)
-            after = response.headers.get("retry-after") if response is not None else None
-            await asyncio.sleep(min(float(after), 120.0) if after and after.replace(".", "", 1).isdigit() else min(120.0, 10.0 * 2 ** attempt))
+    started = time.monotonic()
+    stream = None
+    try:
+        async with client.messages.stream(**request) as stream:
+            message = await stream.get_final_message()
+    except Exception as exc:  # noqa: BLE001 - re-raised with what the attempt may have cost
+        raise _AttemptFailed(exc, _cut_cost(arm, stream, max_tokens, time.monotonic() - started), _retryable(exc)) from exc
+    except BaseException:
+        cut = _cut_cost(arm, stream, max_tokens, time.monotonic() - started)
+        if cut is not None:
+            _log_spend(arm, cut, f"{tag} (interrupted)", CUT_ESTIMATE)
+        raise
+    if message.stop_reason is None:  # the stream ended before message_stop: a partial reply, its output uncounted
+        raise _AttemptFailed(RuntimeError("the stream ended before the message did"),
+                             _cut_cost(arm, stream, max_tokens, time.monotonic() - started), True)
+    # The measured latency is this attempt's alone (as on openai_compat).
     latency = time.monotonic() - started
     text = "".join(block.text for block in message.content if block.type == "text")
     usage = message.usage
@@ -325,7 +476,7 @@ async def _call_anthropic(arm: Arm, system: str, user: str, max_tokens: int, tim
     thinking = getattr(details, "thinking_tokens", 0) or 0
     return CallResult(text, input_tokens, cache_read, output_tokens, thinking, round(latency, 3),
                       list_cost(arm, input_tokens, cache_read, output_tokens, cache_write), "anthropic", message.model,
-                      {"stop_reason": message.stop_reason, "cache_creation_input_tokens": cache_write, "retries": retries,
+                      {"stop_reason": message.stop_reason, "cache_creation_input_tokens": cache_write,
                        "thinking_blocks": sum(1 for block in message.content if block.type == "thinking"),
                        # premiums list_cost cannot see (inference region, speed) are recorded for the reader
                        **{key: getattr(usage, key) for key in ("service_tier", "inference_geo", "speed")

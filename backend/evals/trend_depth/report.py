@@ -7,10 +7,15 @@ reported side by side; the held-out half is the result, the development half is 
 
 Cost is the list-price cost of the measured tokens (``providers.list_cost``: uncached input, cached input,
 cache writes and output at each provider's published rate), including every attempt of every generation,
-failed ones too. A Claude arm run through the CLI is costed as the harness's own API request would bill
-the same tokens: that request sets no cache breakpoint, so the cache reads the CLI made are priced as
-ordinary input. The CLI's own billed figure is in ``summary.json`` as ``cost_recorded_mean``. Extrapolation
-multiplies the mean cost of a fresh generation, including any repair call, by the monthly run count.
+failed ones too, priced as a company's first analysis would bill (``records.api_cost``). A first request
+reads from cache only the prefix every company shares, the system prompt. A repair re-sends its first pass's
+prefix seconds later and keeps the hits DeepSeek recorded. The harness's Claude API request sets no cache
+breakpoint, so a Claude call reads nothing from cache. The cost each provider recorded is in ``summary.json``
+as ``cost_recorded_mean``. Extrapolation multiplies the mean cost of a fresh generation, including any repair
+call, by the monthly run count.
+
+A record still waiting on a provider error (``records.unsettled``) is counted apart, as is an audit or verdict
+that failed, was refused, or read an output that has since changed: none of them is reported as a result.
 """
 from __future__ import annotations
 
@@ -24,7 +29,8 @@ from evals.trend_depth import factcheck
 from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.generate import RUNS, load_pack, sentences_of
 from evals.trend_depth.judge import CRITERIA, _family
-from evals.trend_depth.providers import ARMS, list_cost
+from evals.trend_depth.providers import ARMS
+from evals.trend_depth.records import api_cost, first_request_cache, output_sha256, read_same_output, text_sha256, unsettled
 from evals.trend_depth.semantics import classify_flag
 
 FAILURE_CLASSES = (
@@ -49,22 +55,6 @@ def _quantile(values: list[float], q: float) -> Optional[float]:
     return ordered[min(len(ordered) - 1, int(round(q * (len(ordered) - 1))))]
 
 
-def _api_cost(record: dict[str, Any]) -> Optional[float]:
-    arm = ARMS.get(record.get("arm", ""))
-    if arm is None:
-        return record.get("cost_usd")
-    total = 0.0
-    for attempt in record.get("attempts", []):
-        if attempt.get("backend") == "claude_cli":
-            # The harness's API request sets no cache_control, so it would read nothing from cache.
-            total += list_cost(arm, attempt["input_tokens"], 0, attempt["output_tokens"])
-        else:
-            total += list_cost(arm, attempt["input_tokens"], attempt["cached_input_tokens"], attempt["output_tokens"],
-                               int((attempt.get("meta") or {}).get("cache_creation_input_tokens") or 0)
-                               if attempt.get("backend") == "anthropic" else 0)
-    return total
-
-
 def load(label: str, system: str, tickers: list[str]) -> list[dict[str, Any]]:
     out = []
     for ticker in tickers:
@@ -76,8 +66,9 @@ def load(label: str, system: str, tickers: list[str]) -> list[dict[str, Any]]:
 
 def arm_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
     n = len(records)
-    ok = [r for r in records if r.get("generation_ok")]
-    stats: dict[str, Any] = {"n": n, "generated": len(ok)}
+    pending = [r for r in records if "repair_error" in r]  # a first pass whose repair generate still owes
+    ok = [r for r in records if r.get("generation_ok") and not unsettled(r)]
+    stats: dict[str, Any] = {"n": n, "generated": len(ok), "pending_repairs": len(pending)}
     if not ok:
         return stats
     if ok[0]["arm"] == "current":
@@ -107,8 +98,9 @@ def arm_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
         passages_cited.append(len(cited))
     total_sentences = sum(types.values())
     # Every paid generation counts toward cost, a failed one included; latency is the successful ones'.
-    paid = [r for r in records if r.get("attempts")]
-    costs = [c for c in (_api_cost(r) for r in paid) if c is not None]
+    paid = [r for r in records if r.get("attempts") or r.get("prior_attempts")]
+    shared = first_request_cache(paid)
+    costs = [c for c in (api_cost(r, shared) for r in paid) if c is not None]
     stats.update({
         "first_pass_gate": sum(1 for g in first if g["passed"]),
         "final_gate": sum(1 for g in gates if g["passed"]),
@@ -127,9 +119,13 @@ def arm_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
         "words_mean": statistics.mean(r["words"] for r in ok),
         "words_max": max(r["words"] for r in ok),
         "cost_mean": statistics.mean(costs) if costs else None,
-        "cost_recorded_mean": statistics.mean(r.get("cost_usd") or 0 for r in paid) if paid else None,
-        "failed_generations": n - len(ok),
-        "failed_generation_cost": round(sum(_api_cost(r) or 0 for r in paid if not r.get("generation_ok")), 6),
+        "cost_recorded_mean": statistics.mean((r.get("cost_usd") or 0) + (r.get("prior_cost_usd") or 0) for r in paid) if paid else None,
+        "first_request_cache_tokens": shared,
+        "failed_generations": n - len(ok) - len(pending),
+        # A failed generation's calls, and those of the failed generations a record replaced.
+        "failed_generation_cost": round(sum((api_cost(r, shared) or 0) if not r.get("generation_ok")
+                                            else (api_cost({"arm": r["arm"], "attempts": r.get("prior_attempts", [])}, shared) or 0)
+                                            for r in paid), 6),
         "backends": sorted({a.get("backend", "?") for r in paid for a in r.get("attempts", [])}),
         "input_tokens_mean": statistics.mean(r["usage"]["input_tokens"] for r in ok),
         "output_tokens_mean": statistics.mean(r["usage"]["output_tokens"] for r in ok),
@@ -146,20 +142,47 @@ def audit_folders(label: str, kind: str) -> list[str]:
     return ([kind] if (root / kind).exists() else []) + extra
 
 
+def _generation(label: str, system: str, ticker: str) -> Optional[dict[str, Any]]:
+    path = RUNS / label / system / f"{ticker}.json"
+    return json.loads(path.read_text()) if path.exists() else None
+
+
+def _audit_state(label: str, audit: dict[str, Any], system: str, ticker: str) -> str:
+    """``ok``, ``refused``, or ``pending``: the audit failed, its output is not final, or it read an earlier one."""
+    if "error" in audit:
+        return "pending"
+    if system == "gold":
+        from evals.trend_depth.gold import GOLD
+        sha = text_sha256((GOLD / f"{ticker}.md").read_text()) if (GOLD / f"{ticker}.md").exists() else ""
+    else:
+        generation = _generation(label, system, ticker)
+        if unsettled(generation):
+            return "pending"
+        sha = output_sha256(generation)
+    if not read_same_output(audit, "output_sha256", sha):
+        return "pending"
+    return "refused" if audit.get("refused") else "ok"
+
+
 def cause_support(label: str, systems: list[str], tickers: list[str], folder: str = "causes") -> dict[str, Any]:
     out: dict[str, Any] = {}
     for system in systems:
         counts: Counter[str] = Counter()
         auditors: Counter[str] = Counter()
+        left_out: Counter[str] = Counter()
         for ticker in tickers:
             path = RUNS / label / folder / system / f"{ticker}.json"
             if not path.exists():
                 continue
             record = json.loads(path.read_text())
+            state = _audit_state(label, record, system, ticker)
+            if state != "ok":
+                left_out[state] += 1
+                continue
             auditors[record.get("auditor") or "none"] += 1
             counts.update(item["label"] for item in record.get("items", []))
-        if counts:
-            out[system] = {"counts": dict(counts), "auditors": dict(auditors)}
+        if counts or left_out:
+            out[system] = {"counts": dict(counts), "auditors": dict(auditors), "left_out": dict(left_out)}
     return out
 
 
@@ -168,14 +191,19 @@ def semantic_support(label: str, systems: list[str], tickers: list[str], folder:
     for system in systems:
         counts: Counter[str] = Counter()
         auditors: Counter[str] = Counter()
+        left_out: Counter[str] = Counter()
         flagged: list[dict[str, str]] = []
         for ticker in tickers:
             path = RUNS / label / folder / system / f"{ticker}.json"
             if not path.exists():
                 continue
             record = json.loads(path.read_text())
+            state = _audit_state(label, record, system, ticker)
+            if state != "ok":
+                left_out[state] += 1
+                continue
             auditors[record.get("auditor") or "none"] += 1
-            output = json.loads((RUNS / label / system / f"{ticker}.json").read_text())["output"]
+            output = _generation(label, system, ticker)["output"]
             for item in record.get("items", []):
                 counts[item["label"]] += 1
                 if item["label"] == "mismatch":
@@ -183,9 +211,17 @@ def semantic_support(label: str, systems: list[str], tickers: list[str], folder:
                     counts[f"mismatch_{kind}"] += 1
                     flagged.append({"ticker": ticker, "kind": kind, "claim": item["claim"], "sentence": item["sentence"],
                                     "reason": item["reason"]})
-        if counts:
-            out[system] = {"counts": dict(counts), "auditors": dict(auditors), "analyses": sum(auditors.values()), "flagged": flagged}
+        if counts or left_out:
+            out[system] = {"counts": dict(counts), "auditors": dict(auditors), "analyses": sum(auditors.values()),
+                           "left_out": dict(left_out), "flagged": flagged}
     return out
+
+
+def _left_out_lines(table: dict[str, Any]) -> list[str]:
+    notes = [f"{system}: {', '.join(f'{n} {state}' for state, n in sorted(data['left_out'].items()))}"
+             for system, data in table.items() if data.get("left_out")]
+    return [f"Left out (refused by the auditor, or pending: a failed audit, or one of an output that has since "
+            f"changed or is not final): {'; '.join(notes)}.", ""] if notes else []
 
 
 def _panel_verdict(results: list[dict[str, Any]], criterion: str) -> str:
@@ -199,9 +235,19 @@ def judge_matrix(label: str, systems: list[str], tickers: list[str]) -> dict[str
     consensus panel's (one judge from each family, both agreeing), counted only when the panel is complete.
     ``consensus`` keeps the consensus panel's verdicts separately wherever one ran, for comparison."""
     panels: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    generations: dict[tuple[str, str], Optional[dict[str, Any]]] = {}
+    stale = 0
     for path in (RUNS / label / "judge").glob("*/*.json"):
         record = json.loads(path.read_text())
         if record["ticker"] in tickers and record["x"] in systems and record["y"] in systems:
+            sides = []
+            for side, key in ((record["x"], "x_sha256"), (record["y"], "y_sha256")):
+                if (side, record["ticker"]) not in generations:
+                    generations[(side, record["ticker"])] = _generation(label, side, record["ticker"])
+                sides.append((generations[(side, record["ticker"])], key))
+            if any(unsettled(g) or not read_same_output(record, key, output_sha256(g)) for g, key in sides):
+                stale += 1  # a verdict on an output that is not final, or that has since changed
+                continue
             panels[(record["ticker"], record["x"], record["y"])].append(record)
     wins: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
     consensus: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
@@ -241,6 +287,7 @@ def judge_matrix(label: str, systems: list[str], tickers: list[str]) -> dict[str
     return {
         "judged_pairs": judged,
         "incomplete_panels": incomplete,
+        "stale_verdicts": stale,
         "panels": dict(panel_kinds),
         "wins": {f"{x}|{y}": dict(c) for (x, y), c in wins.items()},
         "consensus": {f"{x}|{y}": dict(c) for (x, y), c in consensus.items()},
@@ -267,8 +314,9 @@ def render(label: str, systems: list[str], summary: dict[str, Any]) -> str:
                 lines.append(f"| current (production) | production code | {s.get('generated')}/{s['n']} | by construction | — | — | — | 0 | 0 | "
                              f"{s.get('words_mean', 0):.0f} | ${s.get('cost_mean') or 0:.5f} | {s.get('latency_p50', 0):.1f} / {s.get('latency_p90', 0):.1f} |")
                 continue
+            generated = f"{s.get('generated')}/{s['n']}" + (f", {s['pending_repairs']} awaiting a repair" if s.get("pending_repairs") else "")
             lines.append(
-                f"| {system} | {', '.join(s.get('backends', []))} | {s.get('generated')}/{s['n']} | {s.get('first_pass_gate', 0)} · {s.get('first_pass_gate_now', 0)} of {s.get('generated', 0)} | "
+                f"| {system} | {', '.join(s.get('backends', []))} | {generated} | {s.get('first_pass_gate', 0)} · {s.get('first_pass_gate_now', 0)} of {s.get('generated', 0)} | "
                 f"{s.get('final_gate', 0)} · {s.get('final_gate_now', 0)} of {s.get('generated', 0)} | {s.get('first_pass_failed_claims', 0)} of {s.get('first_pass_claims', 0)} | "
                 f"{s.get('claims_mean', 0):.0f} | {s.get('causes_mean', 0):.1f} | {s.get('passages_cited_mean', 0):.1f} | "
                 f"{s.get('words_mean', 0):.0f} (max {s.get('words_max', 0)}) | ${s.get('cost_mean') or 0:.4f} | "
@@ -305,6 +353,7 @@ def render(label: str, systems: list[str], summary: dict[str, Any]) -> str:
                              f"{c.get('unsupported', 0)} ({c.get('unsupported', 0) / total * 100:.0f}%) | "
                              f"{', '.join(data['auditors'])} |")
             lines.append("")
+            lines += _left_out_lines(causes)
         for folder, semantics in (block.get("semantics") or {}).items():
             if not semantics:
                 continue
@@ -321,6 +370,7 @@ def render(label: str, systems: list[str], summary: dict[str, Any]) -> str:
                              f"{c.get('mismatch_substantive', 0)} | {c.get('mismatch_bound', 0)} | {c.get('mismatch_ambiguous', 0)} | "
                              f"{c.get('missing', 0)} | {', '.join(data['auditors'])} |")
             lines.append("")
+            lines += _left_out_lines(semantics)
         matrix = block["judge"]
         if matrix["judged_pairs"]:
             lines += [f"Pairwise preference (judged pairs: {matrix['judged_pairs']}; a verdict counts only when both orders agree; "
@@ -350,6 +400,8 @@ def render(label: str, systems: list[str], summary: dict[str, Any]) -> str:
                 lines.append(f"- between the judges of a two-judge panel: {rate * 100:.0f}% of {n} pairs")
             if matrix["incomplete_panels"]:
                 lines.append(f"- incomplete consensus panels left out: {matrix['incomplete_panels']}")
+            if matrix["stale_verdicts"]:
+                lines.append(f"- verdicts left out because an output is not final or has changed since: {matrix['stale_verdicts']}")
             lines.append("")
     lines += ["## Cost at volume (fresh generations per month, API list prices)", "",
               "| System | Per run | 1,000 runs | 10,000 runs |", "|---|---|---|---|"]
