@@ -417,6 +417,7 @@ describe('the PNG export', () => {
     expect(options?.header).toMatchObject({
       ticker: ds.ticker,
       title: model.title,
+      period: 'FY2016–FY2025',
       legend: model.legend.filter((item) => item.color != null).map((item) => ({ label: item.label, color: CHART_TOKENS.light.series[item.color!] })),
       notes: [...model.footnotes.map((footnote) => (footnote.mark ? `${footnote.mark}  ${footnote.text}` : footnote.text)), FCF_DEFINITION],
     })

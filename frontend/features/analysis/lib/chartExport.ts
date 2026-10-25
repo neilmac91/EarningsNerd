@@ -6,11 +6,14 @@ import type { DataNotesModel } from './dataNotes'
 import { formatAnalysisPeriod } from './periodLabels'
 import { FCF_DEFINITION } from './provenance'
 
-/** The PNG header's source line and disclosure, the same under every chart renderer. The source data's sync time, an
- *  instant, prints as the day it falls on in the reader's zone (DataNotes prints the long form). */
-export function exportSourceText(dataset: AnalysisDataset): { sourceNote: string; disclosure: string } {
+/** The PNG header's period range, source line and disclosure, the same under every chart renderer. The range is the
+ *  run's window as the file name, the PDF and the workbook name it ("FY2016–FY2025", "Q3 2024–Q4 2024", a one-period
+ *  run's "FY2024"). The source data's sync time, an instant, prints as the day it falls on in the reader's zone
+ *  (DataNotes prints the long form). */
+export function exportSourceText(dataset: AnalysisDataset): { period: string; sourceNote: string; disclosure: string } {
   const sourceDate = formatInstant(dataset.data_as_of, 'MMM d, yyyy')
   return {
+    period: formatAnalysisPeriod(dataset.period_key),
     sourceNote: `Source: SEC filings via EarningsNerd · ${sourceDate ? `data as of ${sourceDate}` : 'source refresh time unavailable'}`,
     disclosure: 'Research only. Not investment advice. Data may contain errors or omissions. earningsnerd.io/terms',
   }
@@ -329,6 +332,8 @@ export interface ChartExportHeader {
   ticker: string
   /** The panel/metric title (e.g. "Cash generation"). */
   title: string
+  /** The run's period range (e.g. "FY2016–FY2025"), last in the subtitle; exportSourceText supplies it. */
+  period?: string
   legend: ChartLegendItem[]
   sourceNote?: string
   disclosure?: string
@@ -449,7 +454,7 @@ function fillSwatch(
   }
 }
 
-/** Draw the company + "ticker · metric" subtitle + pre-laid-out legend rows into the top strip.
+/** Draw the company + "ticker · metric · period" subtitle + pre-laid-out legend rows into the top strip.
  *  Colors mirror the on-screen tokens: company = text.primary, subtitle/legend = text.secondary.
  *  `maxWidth` on each fillText condenses (never clips) a pathologically long string — a no-op for
  *  real company/metric names. */
@@ -473,8 +478,8 @@ function drawHeader(
   ctx.fillText(header.company, HEADER_STAMP.padX, top + HEADER_STAMP.companySize, maxW)
   top += HEADER_STAMP.companySize + HEADER_STAMP.lineGap
 
-  // Subtitle — "{ticker} · {metric}".
-  const subtitle = header.ticker ? `${header.ticker} · ${header.title}` : header.title
+  // Subtitle — "{ticker} · {metric} · {period}" ("REGN · Margins · FY2016–FY2025"); a part not given is left out.
+  const subtitle = [header.ticker, header.title, header.period].filter(Boolean).join(' · ')
   ctx.font = font(500, HEADER_STAMP.subtitleSize)
   ctx.fillStyle = secondary
   ctx.fillText(subtitle, HEADER_STAMP.padX, top + HEADER_STAMP.subtitleSize, maxW)
@@ -503,9 +508,73 @@ function drawHeader(
   }
 }
 
+/** The export's raster scale, device px per CSS px: retina-crisp. tests/e2e/chart-export-fidelity.spec.ts compares
+ *  the plot with a screenshot at this scale, so a change here is a change there. */
+export const EXPORT_SCALE = 2
+/** The resolution the PNG declares in its pHYs chunk, 72 dpi for each device px per CSS px: the 2× raster then prints
+ *  1 CSS px as 1 pt, so the 12px notes print at 12 pt. A PNG that declares none prints at a size the application
+ *  guesses. */
+export const EXPORT_DPI = EXPORT_SCALE * 72
+
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+
+const CRC_TABLE = Uint32Array.from({ length: 256 }, (_, index) => {
+  let c = index
+  for (let bit = 0; bit < 8; bit++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+  return c
+})
+
+/** CRC-32 as PNG computes it over a chunk's type and data (ISO 3309, the reflected 0xEDB88320 polynomial). */
+function crc32(bytes: Uint8Array): number {
+  let crc = 0xffffffff
+  for (const byte of bytes) crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8)
+  return (crc ^ 0xffffffff) >>> 0
+}
+
 /**
- * Rasterize the panel's rendered SVG to a 2× PNG and download it: a company/metric/legend header,
- * the plot, then a branded footer — so the shared image is self-describing and sourced. Pass
+ * The PNG with its resolution declared: a pHYs chunk right after IHDR giving `dpi` on both axes, in pixels a metre
+ * (unit 1, the metre), with any pHYs the encoder wrote dropped and every other chunk kept in order. Bytes that are
+ * not a PNG, or whose chunks do not run whole to its end, come back unchanged. Pure; exported for tests.
+ */
+export function withPngResolution(bytes: Uint8Array<ArrayBuffer>, dpi: number): Uint8Array<ArrayBuffer> {
+  if (bytes.length < PNG_SIGNATURE.length || PNG_SIGNATURE.some((byte, index) => bytes[index] !== byte)) return bytes
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const chunks: Uint8Array[] = []
+  for (let offset = PNG_SIGNATURE.length; offset < bytes.length;) {
+    // Each chunk: a 4-byte length, its 4-byte type, the data, then a 4-byte CRC.
+    if (offset + 12 > bytes.length) return bytes
+    const end = offset + 12 + view.getUint32(offset)
+    if (end > bytes.length) return bytes
+    const type = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8))
+    if (chunks.length === 0 && type !== 'IHDR') return bytes
+    if (type !== 'pHYs') chunks.push(bytes.subarray(offset, end))
+    offset = end
+  }
+  if (chunks.length === 0) return bytes
+
+  const pixelsPerMetre = Math.round(dpi / 0.0254)
+  const pHYs = new Uint8Array(21)
+  const fields = new DataView(pHYs.buffer)
+  fields.setUint32(0, 9) // data length
+  pHYs.set([0x70, 0x48, 0x59, 0x73], 4) // "pHYs"
+  fields.setUint32(8, pixelsPerMetre)
+  fields.setUint32(12, pixelsPerMetre)
+  pHYs[16] = 1 // unit: the metre
+  fields.setUint32(17, crc32(pHYs.subarray(4, 17)))
+
+  const parts = [bytes.subarray(0, PNG_SIGNATURE.length), chunks[0], pHYs, ...chunks.slice(1)]
+  const tagged = new Uint8Array(parts.reduce((total, part) => total + part.length, 0))
+  let at = 0
+  for (const part of parts) {
+    tagged.set(part, at)
+    at += part.length
+  }
+  return tagged
+}
+
+/**
+ * Rasterize the panel's rendered SVG to a 2× PNG and download it, declaring EXPORT_DPI: a company/metric/period/legend
+ * header, the plot, then a branded footer — so the shared image is self-describing and sourced. Pass
  * `header` (company + ticker + metric title + the panel's shared `legendItems`) to draw the frame;
  * omit it and the export degrades to the bare plot + footer.
  *
@@ -553,7 +622,7 @@ export async function exportPanelPng(
   const image = await loadSvgImage(new XMLSerializer().serializeToString(clone))
   if (!image) return false
 
-  const scale = 2 // retina-crisp output
+  const scale = EXPORT_SCALE
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
   if (!ctx) return false
@@ -593,6 +662,8 @@ export async function exportPanelPng(
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
   if (!blob) return false
-  downloadBlob(blob, filename)
+  // Chromium's canvas writes no pHYs, so a document would guess the print size; the file declares its own.
+  const png = withPngResolution(new Uint8Array(await blob.arrayBuffer()), EXPORT_DPI)
+  downloadBlob(new Blob([png], { type: 'image/png' }), filename)
   return true
 }

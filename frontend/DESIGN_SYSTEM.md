@@ -2121,7 +2121,11 @@ when the SVG remains focused, and does not scroll the chart. The next keyboard a
 the retained hover through the chart’s normal mouse-leave event and resumes its keyboard period.
 Outer arrow keys keep native scrolling. Tooltip changes use a live status; Tab leaves and Shift+Tab
 returns without a trap. The viewport carries the brand focus ring for either keyboard stop. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
-source dates, material gaps and a concise disclosure. The PNG's plot paints the screen's Geist Mono:
+source dates, material gaps and a concise disclosure. The PNG's header names the company, then the ticker, chart
+and period range ("REGN · Margins · FY2016–FY2025", the range from `exportSourceText` through `periodLabels.ts`),
+and the file declares 144 dpi in a pHYs chunk, so a document prints its 2× raster at 1 CSS px a point instead
+of guessing (gates: `tests/unit/chart-export.spec.ts`; the fidelity e2e below reads the downloaded file's chunk).
+The PNG's plot paints the screen's Geist Mono:
 the export carries the page's faces into the isolated SVG image, and when it cannot embed a face the
 plot needs it stops with an error toast rather than paint a fallback (gate, in Chromium:
 `tests/e2e/chart-export-fidelity.spec.ts`, at most 0.1% of plot pixels unlike the screen; Safari and

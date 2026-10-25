@@ -1,17 +1,22 @@
+import { crc32, deflateSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   chartDataNotes,
   embeddedFontFaces,
+  EXPORT_DPI,
+  EXPORT_SCALE,
   EXPORT_TEXT,
   HEADER_STAMP,
   exportFilename,
   exportPanelPng,
+  exportSourceText,
   headerHeight,
   layoutLegend,
   layoutExportNotes,
   MARK_STAMP,
   parseUnicodeRange,
+  withPngResolution,
 } from '@/features/analysis/lib/chartExport'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
@@ -64,6 +69,94 @@ describe('exportFilename', () => {
     expect(exportFilename(quarterly, `${quarterly.mode}-metrics`, 'xlsx')).toBe(
       'TST_2024Q3-2024Q4_quarterly-metrics.xlsx'
     )
+  })
+})
+
+describe('exportSourceText', () => {
+  // The PNG's subtitle names the run's window as the file name, the PDF and the workbook do (periodLabels.ts).
+  it.each([
+    { run: 'an annual run', period_key: 'FY2016..FY2025', period: 'FY2016–FY2025' },
+    { run: 'a quarterly run', period_key: '2024Q3..2024Q4', period: 'Q3 2024–Q4 2024' },
+    { run: 'a one-period run', period_key: 'FY2024..FY2024', period: 'FY2024' },
+  ])('names the period range of $run: $period', ({ period_key, period }) => {
+    expect(exportSourceText({ ...quarterly, period_key }).period).toBe(period)
+  })
+})
+
+/* -------------------------------------------------------------------------
+   The PNG's declared resolution. Chunks are built and read here with node:zlib's CRC-32, so the module's own CRC
+   is checked against another implementation.
+------------------------------------------------------------------------- */
+const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+function chunk(type: string, data: Uint8Array = new Uint8Array()): Buffer {
+  const body = Buffer.concat([Buffer.from(type, 'latin1'), data])
+  const bytes = Buffer.alloc(body.length + 8)
+  bytes.writeUInt32BE(data.length, 0)
+  body.copy(bytes, 4)
+  bytes.writeUInt32BE(crc32(body), body.length + 4)
+  return bytes
+}
+/** A whole PNG of one RGBA pixel, in the brand sage. */
+const IHDR = chunk('IHDR', Buffer.from([0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0]))
+const IDAT = chunk('IDAT', deflateSync(Buffer.from([0, 0x3c, 0x66, 0x50, 0xff])))
+const IEND = chunk('IEND')
+const png = (...chunks: Buffer[]) => new Uint8Array(Buffer.concat([SIGNATURE, ...chunks]))
+/** Each chunk in file order: its type, its data and whether its CRC is node:zlib's. */
+function readChunks(bytes: Uint8Array) {
+  const buffer = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  expect(buffer.subarray(0, 8)).toEqual(SIGNATURE)
+  const chunks: { type: string; data: Buffer; crcMatches: boolean }[] = []
+  for (let offset = 8; offset < buffer.length;) {
+    const length = buffer.readUInt32BE(offset)
+    chunks.push({
+      type: buffer.toString('latin1', offset + 4, offset + 8),
+      data: buffer.subarray(offset + 8, offset + 8 + length),
+      crcMatches: buffer.readUInt32BE(offset + 8 + length) === crc32(buffer.subarray(offset + 4, offset + 8 + length)),
+    })
+    offset += 12 + length
+  }
+  return chunks
+}
+const physOf = (data: Buffer) => ({ x: data.readUInt32BE(0), y: data.readUInt32BE(4), unit: data[8] })
+
+describe('withPngResolution', () => {
+  it('declares 144 dpi in a pHYs chunk right after IHDR, in pixels a metre, and keeps every other byte', () => {
+    const input = png(IHDR, IDAT, IEND)
+    const tagged = withPngResolution(input, EXPORT_DPI)
+    expect(EXPORT_DPI).toBe(144)
+    const chunks = readChunks(tagged)
+    expect(chunks.map((entry) => entry.type)).toEqual(['IHDR', 'pHYs', 'IDAT', 'IEND'])
+    expect(chunks.every((entry) => entry.crcMatches)).toBe(true)
+    expect(physOf(chunks[1].data)).toEqual({ x: 5669, y: 5669, unit: 1 })
+    // The chunk's exact bytes after the signature and IHDR (8 + 25): length 9, "pHYs", 5669 twice, the metre, the CRC.
+    expect(Buffer.from(tagged.subarray(33, 54)).toString('hex')).toBe('0000000970485973000016250000162501495224f0')
+    expect(Buffer.concat([tagged.subarray(0, 33), tagged.subarray(54)])).toEqual(Buffer.from(input))
+  })
+
+  it('rounds the resolution to the nearest pixel a metre', () => {
+    const resolution = (dpi: number) => physOf(readChunks(withPngResolution(png(IHDR, IDAT, IEND), dpi))[1].data)
+    expect(resolution(72)).toEqual({ x: 2835, y: 2835, unit: 1 }) // 2834.6
+    expect(resolution(96)).toEqual({ x: 3780, y: 3780, unit: 1 }) // 3779.5
+  })
+
+  it('replaces any pHYs the encoder wrote, wherever it stood, with its own', () => {
+    const encoders = chunk('pHYs', Buffer.from([0, 0, 0x0b, 0x13, 0, 0, 0x0b, 0x13, 1])) // 2835, 72 dpi
+    const chunks = readChunks(withPngResolution(png(IHDR, encoders, IDAT, encoders, IEND), EXPORT_DPI))
+    expect(chunks.map((entry) => entry.type)).toEqual(['IHDR', 'pHYs', 'IDAT', 'IEND'])
+    expect(chunks.every((entry) => entry.crcMatches)).toBe(true)
+    expect(physOf(chunks[1].data)).toEqual({ x: 5669, y: 5669, unit: 1 })
+  })
+
+  it('passes bytes that are not a PNG through unchanged', () => {
+    const whole = png(IHDR, IDAT, IEND)
+    for (const [name, bytes] of [
+      ['text', new TextEncoder().encode('png')],
+      ['nothing', new Uint8Array()],
+      ['the signature alone', png()],
+      ['a first chunk that is not IHDR', png(IDAT, IEND)],
+      ['a chunk cut short', whole.subarray(0, whole.length - 3)],
+      ['a chunk header cut short', whole.subarray(0, 8 + IHDR.length + 5)],
+    ] as const) expect(withPngResolution(bytes, EXPORT_DPI), name).toBe(bytes)
   })
 })
 
@@ -439,6 +532,32 @@ describe('exportPanelPng header', () => {
     expect(fillTexts).toContain('Free cash flow')
     expect(fillTexts).toContain('Net income (right)')
     expect(downloadBlob).toHaveBeenCalledOnce()
+  })
+
+  it('names the period range last in the subtitle, from the header both renderers spread', async () => {
+    const header = { ...HEADER, ...exportSourceText({ ...quarterly, period_key: 'FY2022..FY2024' }) }
+    await exportPanelPng(makeContainer(), 'x.png', { dark: false, header })
+    expect(fillTexts).toContain('TSLA · Cash generation · FY2022–FY2024')
+    expect(fillTexts).not.toContain('TSLA · Cash generation')
+  })
+
+  it('downloads the canvas PNG at the export scale, declaring the export resolution', async () => {
+    let canvasWidth = 0
+    vi.mocked(HTMLCanvasElement.prototype.toBlob).mockImplementation(function (this: HTMLCanvasElement, cb: BlobCallback) {
+      canvasWidth = this.width
+      cb(new Blob([png(IHDR, IDAT, IEND)], { type: 'image/png' }))
+    } as never)
+    expect(await exportPanelPng(makeContainer(), 'x.png', { header: HEADER })).toBe(true)
+    // tests/e2e/chart-export-fidelity.spec.ts compares the plot with a screenshot at 2×: tag the file, never rescale it.
+    expect(EXPORT_SCALE).toBe(2)
+    expect(canvasWidth).toBe(PLOT_W * EXPORT_SCALE)
+    expect(downloadBlob).toHaveBeenCalledOnce()
+    const [blob, filename] = vi.mocked(downloadBlob).mock.calls[0]
+    expect(filename).toBe('x.png')
+    expect(blob.type).toBe('image/png')
+    const chunks = readChunks(new Uint8Array(await blob.arrayBuffer()))
+    expect(chunks.map((entry) => entry.type)).toEqual(['IHDR', 'pHYs', 'IDAT', 'IEND'])
+    expect(physOf(chunks[1].data)).toEqual({ x: 5669, y: 5669, unit: 1 })
   })
 
   it('stamps the EarningsNerd wordmark in the footer', async () => {
