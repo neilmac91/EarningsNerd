@@ -2564,6 +2564,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Sharing analytics data is opt-in and so is collection.</p>', true],
       ['<p>Account events are exported into PostHog only after you allow it.</p>', true],
       ['<p>Server events require your consent before we display them in PostHog.</p>', true],
+      ['<p>Account events require your consent to show up in PostHog.</p>', true],
+      // The floor's cost: a wait the reader reads in no predication (here a condition after an ellipsis) fails as on
+      // main, whatever it binds the consent to.
+      ['<p>Sharing analytics data requires your consent, and so does exporting it, until you allow it.</p>', true],
       // Every endpoint with other words before "endpoints" (#1397's last review), each and any with a login said, and
       // the claim the other way round.
       ["<p>All of the API's endpoints require authentication.</p>", true],
