@@ -773,9 +773,9 @@ async def reset_all_summaries(
     }
 
 
-# Hard ceiling on rows regenerated per refresh-stale call. Each generation can take up to ~120s and
-# runs synchronously in the request, so the batch is capped to stay well within the Cloud Run request
-# timeout and avoid holding a DB connection for a long op. Large backlogs = repeated calls / a job.
+# Hard ceiling on rows regenerated per refresh-stale call. Each generation runs in the request and can
+# take up to the pipeline's 120 s (PIPELINE_TIMEOUT_SECONDS), past the 30 s the request-timeout
+# middleware gives this path (the route's docstring). Large backlogs = repeated calls / a job.
 _REFRESH_STALE_MAX_BATCH = 10
 
 
@@ -796,15 +796,23 @@ async def refresh_stale_summaries(
     a keep-better quality gate prevents a 75s AI-timeout fallback from downgrading a stored ``full``.
 
     **Bounded, synchronous small batch.** Each generation can take up to ~120s, so a real run is
-    hard-capped at ``_REFRESH_STALE_MAX_BATCH`` rows and generates sequentially while the request is
-    in flight (keeping the Cloud Run request's CPU allocated — FastAPI ``BackgroundTasks`` would run
-    under post-response CPU throttling and could be cut short). This deliberately keeps one call well
-    within the request timeout; it is NOT a whole-corpus backfill. Drain a large backlog by calling
-    repeatedly (the op is idempotent + keep-better-gated) or via a precompute-style Cloud Run job.
+    hard-capped at ``_REFRESH_STALE_MAX_BATCH`` rows and generates sequentially in the request, meant
+    to keep the Cloud Run request's CPU allocated (FastAPI ``BackgroundTasks`` would run under
+    post-response CPU throttling and could be cut short). The request is not held that long today:
+    ``main.py``'s request-timeout middleware gives this path its 30 s default, so a longer run answers
+    504, and its remaining generations and audit row run after the response, under that same
+    throttling (the deploy sets ``--cpu-throttling`` while durable tasks are on), where they can be
+    slowed or cut short; the per-filing outcomes go with the response, and the audit row keeps only
+    counts. It is NOT a whole-corpus backfill. Drain a large backlog by calling repeatedly (the op is
+    idempotent + keep-better-gated) or via a precompute-style Cloud Run job.
 
     ``dry_run`` (default) reports the full ``stale_total`` without regenerating — the admin staleness
-    count — while ``batch_limit`` reflects the clamped per-call ceiling. Candidates are ordered
-    most-recent-filing first (a traffic proxy — the DB has no per-summary hit count).
+    count — while ``batch_limit`` reflects the clamped per-call ceiling. Candidates are sampled at
+    random (``admin_summary_service.select_stale_candidates``).
+
+    No pooled connection is held while a generation runs (E171): the candidates are read and the
+    request's session released in one thread-pool unit, and the service re-reads each stamp and writes
+    the audit row in short sessions of its own.
 
     Args:
         schema_version_lt: Refresh rows whose ``schema_version`` is NULL or below this. Omit to
@@ -815,10 +823,18 @@ async def refresh_stale_summaries(
     """
     _require_admin(current_user)
     limit = max(1, min(limit, _REFRESH_STALE_MAX_BATCH))
+    # After the release the admin is detached: read what the later work needs first.
+    admin_id, admin_email = current_user.id, getattr(current_user, "email", None)
 
-    stale_total, candidate_filing_ids = admin_summary_service.select_stale_candidates(
-        db, schema_version_lt=schema_version_lt, filing_type=filing_type, limit=limit
-    )
+    def candidates() -> tuple[int, list[int]]:
+        try:
+            return admin_summary_service.select_stale_candidates(
+                db, schema_version_lt=schema_version_lt, filing_type=filing_type, limit=limit
+            )
+        finally:
+            filing_list_service.release_request_session(db)
+
+    stale_total, candidate_filing_ids = await run_in_threadpool(candidates)
 
     # Per-filing outcomes (see admin_summary_service.regenerate_in_place); a dry run regenerates nothing.
     updated: list[int] = []
@@ -826,16 +842,16 @@ async def refresh_stale_summaries(
     failed: list[int] = []
     if not dry_run and candidate_filing_ids:
         updated, kept_by_gate, failed = await admin_summary_service.regenerate_in_place(
-            db,
             candidate_filing_ids,
-            actor=current_user,
+            actor_id=admin_id,
+            actor_email=admin_email,
             filing_type=filing_type,
             schema_version_lt=schema_version_lt,
             stale_total=stale_total,
         )
         logger.info(
             "Admin %s refresh-stale: updated %d, kept-by-gate %d, failed %d of %d stale (filing_type=%s)",
-            current_user.id, len(updated), len(kept_by_gate), len(failed), stale_total, filing_type,
+            admin_id, len(updated), len(kept_by_gate), len(failed), stale_total, filing_type,
         )
 
     return {
