@@ -9,36 +9,115 @@ the claim, and the label and period of the value (or derivation) it matched, and
 ``consistent`` or ``mismatch`` (the sentence attributes the number to a different metric, period or
 basis). Results land in ``runs/<label>/semantics/<system>/<TICKER>.json``; ``--auditor <arm>`` audits every
 system with that one model instead, in ``runs/<label>/semantics-by-<arm>/``.
+
+The auditor's view of each match is versioned (``VIEW``, stored as ``view`` on each audit; an audit without one,
+eval-v1's for example, saw view 1). View 2 (DEEPSEEK-ERRORS.md fix 14) adds what view 1 left the auditor to guess,
+so that correct statements stop drawing flags: each matched value's signed value (view 1 showed only "ID = label,
+period", so a correct "net debt of $26.2 billion" for a net cash of -26.2 billion looked like a sign error), the
+value of a calculation, whether the claim is a bound the value satisfies ("below 1.0x"), and the IDs whose value is
+identical to a matched value or to one of its inputs (VRTX's "buybacks plus dividends" is its buybacks, as it pays
+no dividend). The record format is unchanged: the view is in each item's ``match`` text. An audit made under an
+earlier view is redone, its cost carried forward, unless the same auditor's other folder already holds one of this
+output under the current view, which is copied.
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
 import json
+from pathlib import Path
 from typing import Any, Optional
 
 from evals.trend_depth import factcheck
 from evals.trend_depth.causes import _auditor, audit_call, earlier_audit, reuse_audit
 from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.generate import RUNS, load_pack, sentences_of
-from evals.trend_depth.records import output_sha256, unsettled, write_json
+from evals.trend_depth.records import output_sha256, own_spend, read_same_output, unsettled, write_json
 
+VIEW = 2
 SYSTEM = """You check that each number in a financial analysis is said about the right thing. For each numbered
 item you get a sentence, one number from it, and what that number was matched to in the evidence (the
-metric label and period of a cited value, or a calculation from cited values). Mark the item:
+metric label, period and signed value of a cited value, or a calculation from cited values and its result). Mark
+the item:
 - "consistent": the sentence says the number is that metric for that period (or that calculation), allowing
   ordinary paraphrase ("sales" for revenue, "fell 10.3%" for a growth of -10.3%);
 - "mismatch": the sentence attributes the number to a different metric, period, segment or basis than the
   match (for example it calls a cash-flow growth "revenue growth", or a FY2024 value "FY2025").
+How to read a match:
+- Values are signed as the evidence stores them. Net cash below zero is net debt: "net debt of $26.2 billion" is
+  consistent with a net cash of -$26.2 billion; a minus sign printed under "net debt" is a mismatch, as is "better"
+  or "worse" that the signed values contradict.
+- "A bound" means the sentence states an inequality ("below 1.0x", "at least 10%") that the matched value satisfies:
+  it is consistent when the sentence applies the bound to that metric and period.
+- "Same value as" lists other evidence values identical to a matched value (or to one of its inputs) in that period:
+  the number is consistent if the sentence names any of them.
 Return one JSON object only: {"items": [{"n": 1, "label": "consistent", "reason": "<= 20 words"}]}"""
+_NO_TWINS = ("pctile",)  # percentile ranks share values by coincidence, not by construction
+_MAX_TWINS = 3
+
+
+def _signed(value: float, unit: str) -> str:
+    """A value as the evidence stores it, sign included, in its unit."""
+    sign = "-" if value < 0 else ""
+    if unit == "usd":
+        size = abs(value)
+        for scale, word in ((1e12, "trillion"), (1e9, "billion"), (1e6, "million")):
+            if size >= scale:
+                return f"{sign}${size / scale:,.2f} {word}"
+        return f"{sign}${size:,.2f}"
+    if unit == "usd_per_share":
+        return f"{sign}${abs(value):,.2f} per share"
+    if unit == "pp":
+        return f"{value:+.2f}pp"
+    suffix = {"pct": "%", "x": "x", "multiple": "x", "days": " days", "years": " years", "pctile": " (percentile)",
+              "shares": " shares"}.get(unit, "")
+    return f"{value:,.2f}{suffix}"
+
+
+def _twins(vid: str, pack: dict[str, Any], shown: tuple[str, ...] = ()) -> list[str]:
+    """Other IDs whose value is identical to ``vid``'s, in the same unit and period: one quantity under two names.
+    Zeros and percentile ranks are left out, as they coincide by chance, and so are the IDs in ``shown``."""
+    value = pack["values"][vid]
+    if not value["value"] or value["unit"] in _NO_TWINS:
+        return []
+    tolerance = 1e-9 * max(1.0, abs(value["value"]))
+    return [other for other, v in pack["values"].items() if other != vid and other not in shown and v["unit"] == value["unit"]
+            and v["period"] == value["period"] and abs(v["value"] - value["value"]) <= tolerance][:_MAX_TWINS]
+
+
+def _twin_text(twins: list[str], pack: dict[str, Any]) -> str:
+    return "same value as " + ", ".join(f"{t} = {pack['values'][t]['label']}" for t in twins)
+
+
+def _computed(match: str, ids: list[str], pack: dict[str, Any]) -> Optional[str]:
+    """The signed result of the calculation a claim matched, or None for a cited value or a passage's figure."""
+    if match.startswith("reversed ") and ids and ids[0] in pack["values"]:  # "revenue growth minus cost growth" read the other way
+        value = pack["values"][ids[0]]
+        return _signed(-value["value"], value["unit"])
+    if match == "cited" or match.startswith("passage ") or not ids:
+        return None
+    found = next((c for c in factcheck.candidates(ids, pack) if c.how == match), None)
+    return _signed(found.value, found.unit) if found else None
 
 
 def _describe(match: str, ids: list[str], pack: dict[str, Any]) -> str:
+    """The auditor's view of a match (view 2): each matched value's label, period and signed value and the IDs it is
+    identical to (for a cited value, those of its inputs too: "buybacks plus dividends % of free cash flow" built on
+    a "buybacks plus dividends" that is the buybacks line); a calculation's result; a passage's year; a red flag's
+    text."""
     parts = []
     for vid in ids:
         value = pack["values"].get(vid)
         if value:
-            parts.append(f"{vid} = {value['label']}, {value['period']}")
+            text = [f"{vid} = {value['label']}, {value['period']}, {_signed(value['value'], value['unit'])}"]
+            twins = _twins(vid, pack)
+            if twins:
+                text.append(_twin_text(twins, pack))
+            for i in value.get("inputs", []) if match == "cited" or match.startswith("reversed ") else []:
+                inner = _twins(i, pack, (vid, *twins)) if i in pack["values"] else []
+                if inner:
+                    text.append(f"its input {i} = {pack['values'][i]['label']} has the {_twin_text(inner, pack)}")
+            parts.append("; ".join(text))
         else:
             passage = next((p for p in pack["passages"] if p["id"] == vid), None)
             if passage:
@@ -46,14 +125,40 @@ def _describe(match: str, ids: list[str], pack: dict[str, Any]) -> str:
             else:
                 flag = next((f for f in pack.get("red_flags", []) if f["id"] == vid), None)
                 parts.append(f"{vid} = red-flag text: {flag['detail'][:120]}" if flag else vid)
-    return f"{match}: " + "; ".join(parts)
+    result = _computed(match, ids, pack)
+    return f"{match}{f' = {result}' if result else ''}: " + " | ".join(parts)
+
+
+def _bound(claim: dict[str, Any]) -> str:
+    """The view's note on a claim the gate read as an inequality, which the matched value satisfies."""
+    side = {"at_least": "at least", "at_most": "at most"}.get(claim.get("qualifier") or "")
+    return f" (a bound: the sentence says the value is {side} this number, and the matched value is)" if side else ""
+
+
+def _current_view_copy(out: Path, label: str, system: str, ticker: str, auditor: Optional[str], sha: str,
+                       spent: float) -> bool:
+    """Copy the same auditor's audit of this output under the current view from its other folder (default or
+    same-auditor), as ``causes.reuse_audit`` does for a missing one; True if one was copied."""
+    default_auditor = _auditor(system)
+    if (auditor or default_auditor) != default_auditor:
+        return False
+    default = RUNS / label / "semantics" / system / f"{ticker}.json"
+    other = RUNS / label / f"semantics-by-{default_auditor}" / system / f"{ticker}.json" if out == default else default
+    if not other.exists():
+        return False
+    record = json.loads(other.read_text())
+    if ("error" in record or record.get("view", 1) < VIEW or not read_same_output(record, "output_sha256", sha)
+            or record.get("auditor") != default_auditor):
+        return False
+    write_json(out, {**record, "copied_from": other.parent.parent.name, "prior_cost_usd": spent})
+    return True
 
 
 def classify_flag(item: dict[str, Any], sentences: list[dict[str, Any]], pack: dict[str, Any]) -> str:
     """Why the auditor's ``mismatch`` may not be an error, read deterministically from the gate:
 
-    - ``bound``: the number is a bound ("below 1.0x", "at least 10%") that the cited value satisfies; the
-      auditor sees only the value it was checked against, not that the claim is an inequality;
+    - ``bound``: the number is a bound ("below 1.0x", "at least 10%") that the cited value satisfies; under view 1
+      the auditor saw only the value it was checked against, not that the claim is an inequality;
     - ``ambiguous``: two or more cited values with different labels match the number, so the one the gate
       reported may not be the one the sentence means;
     - ``substantive``: neither, so the sentence most likely gives the number the wrong metric, period or sign.
@@ -77,7 +182,11 @@ async def audit(system: str, ticker: str, record: dict[str, Any], label: str, au
     sha = output_sha256(record)
     earlier, spent = earlier_audit(out, sha)
     if earlier is not None:
-        return
+        if earlier.get("view", 1) >= VIEW or earlier.get("refused"):  # a refusal is the auditor's outcome, never retried
+            return
+        spent = own_spend(earlier)  # an audit under an earlier view is not a measurement under this one: redone
+        if _current_view_copy(out, label, system, ticker, auditor, sha, spent):
+            return
     pack = load_pack(ticker, system)
     result = factcheck.check(sentences_of(record["output"]), pack)
     items = []
@@ -85,10 +194,10 @@ async def audit(system: str, ticker: str, record: dict[str, Any], label: str, au
         for claim in detail["claims"]:
             if claim["status"] == "verified" and claim.get("ids"):
                 items.append({"sentence": factcheck.CITATION_RE.sub("", detail["text"]).strip(), "claim": claim["claim"],
-                              "match": _describe(claim.get("matched", ""), claim["ids"], pack)})
+                              "match": _describe(claim.get("matched", ""), claim["ids"], pack) + _bound(claim)})
     auditor = auditor or _auditor(system)
     record_out: dict[str, Any] = {"system": system, "ticker": ticker, "split": pack["split"], "auditor": auditor, "items": [],
-                                  "output_sha256": sha}
+                                  "output_sha256": sha, "view": VIEW}
     if spent:
         record_out["prior_cost_usd"] = spent
     if items:  # an analysis with no verified number needs no auditor call
