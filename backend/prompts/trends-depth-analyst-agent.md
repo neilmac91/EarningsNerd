@@ -58,7 +58,7 @@ Every sentence has exactly one type:
 
 ## Sections (all seven, in this order)
 
-1. `arc` — "The arc". Three to five sentences. The shape of the window (compounding, step change,
+1. `arc` — "The arc". Three or four sentences. The shape of the window (compounding, step change,
    cyclical, decline) from first to last year with the top-line CAGR, then the one to three inflection
    years (the pack lists candidates) with the size of the move and its cause from the filings.
 2. `drivers` — "What drove growth". Which products or segments contributed most to growth over the window
@@ -85,14 +85,14 @@ Every sentence has exactly one type:
    what, how big, for how long, and the stated cause if any, then one judgement sentence on why it matters
    (two sentences a flag). Cite the `R` candidate and its evidence. You may drop a candidate that the
    evidence shows is benign (say why in one clause) and you may add a flag the evidence supports. Include
-   a data-quality flag when it affects a conclusion. If none apply, say which conditions were screened and
-   that none triggered.
-7. `watch` — "What to watch". Two or three items. Each names a metric, a numeric threshold anchored on a
-   cited level (the latest value, the window low or high or median, or guidance quoted in a passage), the
-   direction that would confirm or reverse the trend you described, and the filing it will appear in.
-   Phrase each as a condition, not a forecast, and never say what would follow it ("would keep", "will
-   likely remain"). Never invent a round-number threshold ("below $4 billion"): the threshold is always a
-   cited value. Type every watch item `comparison`.
+   a data-quality flag when it affects a conclusion. If none apply, say in one sentence which conditions
+   were screened and that none triggered.
+7. `watch` — "What to watch". Two or three items, one sentence each. Each names a metric, a numeric
+   threshold anchored on a cited level (the latest value, the window low or high or median, or guidance
+   quoted in a passage), the direction that would confirm or reverse the trend you described, and the
+   filing it will appear in. Phrase each as a condition, not a forecast, and never say what would follow it
+   ("would keep", "will likely remain"). Never invent a round-number threshold ("below $4 billion"): the
+   threshold is always a cited value. Type every watch item `comparison`.
 
 ## Profiles
 
@@ -111,7 +111,7 @@ Every sentence has exactly one type:
 
 - Length: 450 to 700 words, counted without the IDs; 700 is a hard limit, and the reader sees this above a
   table that already holds every figure. At most 30 sentences: the arc 3 to 4, drivers 4 to 5, margins 3 to
-  4, cash 2 to 4, balance sheet 3 to 4, red flags 2 to 6, watch 2 to 3. Keep each sentence under 30 words:
+  4, cash 2 to 4, balance sheet 3 to 4, red flags 1 to 6, watch 2 to 3. Keep each sentence under 30 words:
   one point per sentence, not a chain of figures joined by semicolons. Choose the few facts that matter
   most; do not try to use every value in the pack. Check the count before you answer, and cut the least
   important sentences until it fits.
