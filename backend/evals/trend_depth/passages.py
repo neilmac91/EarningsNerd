@@ -10,8 +10,9 @@ Many filers state causes without figures (the figures sit in the MD&A tables), s
 not a requirement.
 
 Some filers write table-scale dollars in prose ("increased SG&A expenses by $126", in millions; Costco). A
-passage records the scale its section declares (``table_scale``) and keeps its text as filed; the render
-shows it through ``with_units`` ("$126 million"), so a sentence does not repeat a bare "$126".
+passage records the scale its section declares, else the one its document declares (``table_scale``), and keeps
+its text as filed; the render shows it through ``with_units`` ("$126 million"), so a sentence does not repeat a
+bare "$126".
 """
 from __future__ import annotations
 
