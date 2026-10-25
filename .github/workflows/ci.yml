@@ -308,6 +308,12 @@ jobs:
         env:
           ADMIN_MAINTENANCE_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
         run: python -m pytest tests/integration/test_admin_maintenance_transactions.py
+      - name: Verify admin invite concurrency on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          ADMIN_INVITE_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_admin_invite_transactions.py
 
   frontend-tests:
     runs-on: ubuntu-latest

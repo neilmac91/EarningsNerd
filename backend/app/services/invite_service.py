@@ -147,14 +147,34 @@ def list_recent_invites(db: Session) -> list[InviteCode]:
     return db.query(InviteCode).order_by(InviteCode.created_at.desc()).limit(200).all()
 
 
-def revoke_invite(db: Session, invite_id: int) -> InviteCode:
-    """Revoke an unused invite so its link can no longer be redeemed, and commit."""
-    invite = db.query(InviteCode).filter(InviteCode.id == invite_id).first()
+def _unused_invite_locked(db: Session, invite_id: int) -> InviteCode:
+    """The unused invite ``invite_id``, read under its row lock until the caller's commit (E171).
+
+    The admin router runs a revoke or re-issue in the thread pool, where a registration on the same
+    instance, as on the other, can redeem the invite between the check and the write. Under the lock
+    (PostgreSQL; SQLite has none and runs one writer at a time) a redemption that wrote first is waited
+    for and seen, so the check refuses the redeemed invite instead of revoking it or minting its
+    replacement. An entity query hands back an invite the session still holds unchanged, so
+    ``populate_existing`` re-reads it: a caller that kept an invite it read before the lock sees the
+    redemption too."""
+    invite = (
+        db.query(InviteCode)
+        .filter(InviteCode.id == invite_id)
+        .with_for_update()
+        .populate_existing()
+        .first()
+    )
     if not invite:
         raise InviteNotFoundError(invite_id)
     if invite.used_at is not None:
         # A redeemed invite can't be "un-redeemed"; revoking it would only corrupt its status.
         raise InviteAlreadyRedeemedError(invite_id)
+    return invite
+
+
+def revoke_invite(db: Session, invite_id: int) -> InviteCode:
+    """Revoke an unused invite so its link can no longer be redeemed, and commit."""
+    invite = _unused_invite_locked(db, invite_id)
     invite.is_revoked = True
     db.commit()
     return invite
@@ -169,11 +189,7 @@ def reissue_invite(
 ) -> tuple[InviteCode, str, str]:
     """Revoke an unused invite and mint its replacement (same email + cohort); returns ``mint_invite``'s
     (row, raw_token, magic_link)."""
-    old = db.query(InviteCode).filter(InviteCode.id == invite_id).first()
-    if not old:
-        raise InviteNotFoundError(invite_id)
-    if old.used_at is not None:
-        raise InviteAlreadyRedeemedError(invite_id)
+    old = _unused_invite_locked(db, invite_id)
 
     # Revoke the old invite BEFORE minting the replacement so there is never a window in which two
     # links for the same invitee are simultaneously redeemable. mint_invite's commit persists the
