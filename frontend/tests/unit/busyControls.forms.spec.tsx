@@ -203,6 +203,8 @@ describe('FeedbackWidget', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Send feedback' }))
     const message = await screen.findByLabelText('Feedback message')
+    expect(message).toHaveAccessibleDescription('Describe what happened. You can paste a web link here too.')
+    expect(message.closest('[role="dialog"]')).toHaveClass('ph-no-capture')
     const send = screen.getByRole('button', { name: 'Send feedback' })
     // Too short is a kept availability state: set by the textarea, never by Send's own activation.
     expect(send).toBeDisabled()
