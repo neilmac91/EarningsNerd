@@ -13,9 +13,10 @@ Claude Code's own semantics (code.claude.com/docs/en/permissions.md): ``prefix:*
 covers the prefix alone or followed by a space and anything; any other ``*`` matches any text, so
 ``Bash(*)`` is the blanket rule; a pattern without ``*`` matches only itself. The gate fails when:
 
-- the allow set is not exactly the seven pinned narrow rules (so a blanket ``Bash(*)`` or any
-  wildcard beyond a trailing ``:*`` fails), an allow rule contains a shell variable, or an allow
-  rule names a repository script that does not exist;
+- the allow set is not exactly the seven pinned narrow rules plus the three exact Ops readback rules
+  that ``test_ops_readback_allow_rules.py`` pins (F51) (so a blanket ``Bash(*)`` or any wildcard beyond
+  a trailing ``:*`` fails), an allow rule contains a shell variable, or an allow rule names a
+  repository script that does not exist;
 - any command in one of the kit's ``sh`` blocks is not covered by an allow rule, is covered by a
   deny or ask rule, or carries a variable, a command separator (``&``, ``;``, ``|``), a
   redirection (``<``, ``>``) or a backtick, any of which takes it outside its rule
@@ -64,6 +65,8 @@ import re
 from pathlib import Path
 
 import pytest
+
+from tests.unit.test_ops_readback_allow_rules import OPS_READBACK_ALLOW_RULES
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SETTINGS = REPO_ROOT / ".claude" / "settings.json"
@@ -254,7 +257,8 @@ def _sh_commands(lines: list[str]) -> list[str]:
 def rule_problems(settings: dict) -> list[str]:
     """Every way the allow rules are unfit: not the pinned set, variables, wildcards, or missing scripts."""
     allow = settings.get("permissions", {}).get("allow", [])
-    problems = [f"allow entry is not one of the pinned launch-kit rules: {entry}" for entry in allow if entry not in EXPECTED_ALLOW_RULES]
+    pinned = EXPECTED_ALLOW_RULES + OPS_READBACK_ALLOW_RULES  # the F51 rules are exact and pinned by their own gate
+    problems = [f"allow entry is not one of the pinned launch-kit or Ops readback rules: {entry}" for entry in allow if entry not in pinned]
     problems += [f"pinned launch-kit allow rule is missing: {entry}" for entry in EXPECTED_ALLOW_RULES if entry not in allow]
     for pattern, _ in _bash_rules(allow):
         if "$" in pattern:

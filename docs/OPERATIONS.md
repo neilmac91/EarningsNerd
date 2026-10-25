@@ -679,6 +679,47 @@ GitHub configures in an organization's or an enterprise's rulesets (a personal a
 repository). Neither is in place, and the gap is accepted (the founder left this call to the agent on
 2026-10-16); closing it starts with that App.
 
+### Agent production readbacks (F51)
+
+After a backend deploy has concluded, a Claude Code session may read production through two read-only
+Ops operations without a prompt or the auto-mode classifier. `.claude/settings.json` allows exactly
+these three commands, each as an exact-match rule:
+
+```sh
+gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=describe-service
+gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=logs-probe
+gh run list -R neilmac91/EarningsNerd --workflow ops.yml --branch main --event workflow_dispatch -L 5 --json databaseId,status,conclusion,createdAt,headSha
+```
+
+A rule without `*` matches only its own text, so a command with another operation, input, ref or
+repository, a wrapper the docs do not strip, a variable or a chained command is outside it and goes to
+the prompt or the classifier as before. Issue each command alone, in exactly this text, never chained or
+piped, and only after the list shows no Ops run `queued`, `waiting`, `pending` or `in_progress`: the
+`ops` group keeps one pending run, so a second dispatch replaces a queued one, an approved apply's
+included ([Read-only release configuration audit](DEPLOYMENT.md#read-only-release-configuration-audit)).
+Dispatch one operation, wait until the list shows it `completed`, then dispatch the next.
+
+What the runs print is the projection their steps already make: `describe-service` the traffic and
+revision names, `SENTRY_RELEASE`, the allow-listed flags and SEC pins, the sizing lines and the worker's
+invoker verdict; `logs-probe` whether `logging.read` is permitted and the Sentry start lines per
+revision. Neither prints an environment value outside its allow-list, a URL or gcloud's error text; a
+read that is denied or fails prints `UNVERIFIED (<class>)` with a closed class
+(`lessons/ops-denied-reads-report-unverified.md`; gates `test_prod_flag_visibility.py`,
+`test_ops_stderr_withheld.py`, `test_capacity_projection_privacy.py`). The run log itself is read with
+`gh run view <run id> -R neilmac91/EarningsNerd --log`, which stays outside the allow list: an exact rule
+cannot carry a run id, and the whole job log also holds the authentication step's identity lines. A
+record keeps only the operation step's verdict, revision, flag and Sentry lines.
+
+Nothing here allows an apply. Every other operation, a dispatch through the REST API, a re-run, the
+deployment-review and environment calls and any `gcloud` command stay outside the allow list; an
+`-apply` still waits for the founder's approval of `ops-apply` and the workflow's owner-approval check,
+and `.claude/hooks/ops_approval_guard.py` refuses a session the approval and rejection calls whatever
+the allow list says ([DEPLOYMENT.md](DEPLOYMENT.md)). The rules take effect only in a checkout that
+carries them and a session that applies project settings; a classifier denial of one of these exact
+commands means they did not apply, so record it verbatim and stop rather than reshape the command
+(`lessons/ops-prove-the-permission-route-before-a-gated-session.md`). Gate:
+`backend/tests/unit/test_ops_readback_allow_rules.py`.
+
 ### Persisted audits and weekly judged readout (WS-6 measurement)
 
 The data-quality report keeps two populations separate. Persisted audit counters describe the
