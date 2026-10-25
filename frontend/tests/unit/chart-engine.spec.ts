@@ -25,7 +25,7 @@ const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json
 }
 const DATASETS = Object.entries(FIXTURE.datasets)
 const dataset = (name: string) => structuredClone(FIXTURE.datasets[name].dataset)
-const WIDTHS: Record<ChartView, number[]> = { card: [342, 502], expanded: [1030] }
+const WIDTHS: Record<ChartView, number[]> = { card: [342, 502], expanded: [390, 1030] }
 /** The SVG glyph set (spec G2): printable ASCII plus ’ − — ↑ ↓ † ·. Geist Mono's subsets carry each at
  *  0.6 em; ▲ ▼ and the thin space exist in neither, so they are never planned. */
 const SVG_GLYPHS = /^[\x20-\x7e’−—↑↓†·]*$/
@@ -156,10 +156,11 @@ describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source })
         }))
         expect(layout.valuesDontFit, 'A4: the card says so exactly when a labelled panel prints no labels')
           .toBe(layout.panels.some((box) => box.panel.marks.some((mark) => mark.labelled) && box.labels.decimals == null))
-        // L1: a label below a negative bar keeps inside its panel's band: its baseline, plus a descent, before the
-        // next panel's region or the period axis.
+        // L1: a label below a negative bar keeps inside its panel's band: its baseline, plus a descent, above the end
+        // of the panel's bottom pad (the gap before the next panel, or the period axis).
         layout.panels.forEach((box, i) => {
-          const bandEnd = layout.panels[i + 1]?.regionTop ?? layout.xTickY - 13
+          const next = layout.panels[i + 1]
+          const bandEnd = next ? next.regionTop - (layout.view === 'expanded' ? 16 : 10) : layout.xTickY - 13
           for (const bar of box.bars) if (bar.label && bar.value < 0) expect(bar.label.y + 2, `L1: ${bar.label.text}`).toBeLessThanOrEqual(bandEnd + 1e-9)
         })
         // §3.10: the value strip is collision-free by construction: each cell inside its slot, the first clear of
@@ -363,7 +364,8 @@ describe('the cases the step-1 data required', () => {
     const layout = layoutChart(m, 502, 'card')
     expect(layout.panels[0].bars.every((bar) => bar.label), 'the labels print').toBe(true)
     const lowest = Math.max(...layout.panels[0].bars.map((bar) => bar.label!.y))
-    expect(lowest + 2).toBeLessThanOrEqual(layout.panels[1].regionTop)
+    // Panel A's band ends at its bottom pad, the 10 px gap before panel B's region.
+    expect(lowest + 2).toBeLessThanOrEqual(layout.panels[1].regionTop - 10)
   })
 
   it('more than 26 notes: band cells keep letter order, and two-letter glyphs do not overlap', () => {
