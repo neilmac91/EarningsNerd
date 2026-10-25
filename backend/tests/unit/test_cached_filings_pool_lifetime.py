@@ -2733,12 +2733,12 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
     ("POST", "/api/admin/summaries/reset-all?dry_run=false", "reset_all"),
 ])
 async def test_admin_maintenance_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, case):
-    """The admin feedback triage and the filing and summary maintenance routes run their service call, audit row
-    and release in one thread-pool unit, their 404s included, so eight admins on four slots make no checkout,
-    statement or release on the loop and leave nothing for the finalizer. On the loop, each statement after the
-    auth lookup ran there (the stale-XBRL audit and bulk reset loading every filing's XBRL), each read after a
-    write's commit checked a connection out there, and every case but a summary delete that found its filing left
-    its transaction for the finalizer, the 404s included."""
+    """The admin feedback triage and the filing and summary maintenance routes run their service call (with the
+    status update's or the reset-all's audit row) and release in one thread-pool unit, their 404s included, so eight
+    admins on four slots make no checkout, statement or release on the loop and leave nothing for the finalizer. On
+    the loop, each statement after the auth lookup ran there (the stale-XBRL audit and bulk reset loading every
+    filing's XBRL), each read after a write's commit checked a connection out there, and every case but a summary
+    delete that found its filing left its transaction for the finalizer, the 404s included."""
     from app.models import AuditLog, User
     from app.models.feedback import Feedback
     from app.routers import auth
@@ -2778,8 +2778,9 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
             filing_ids.append(filing.id)
             feedback_ids.append(feedback.id)
         db.commit()
-        # The audit log stores the admin's id as text.
-        admins = {(str(user_id), email) for user_id, email in db.query(User.id, User.email)}
+        # Admin i sends request i; the audit log stores the admin's id as text.
+        admin_ids = {email: str(user_id) for user_id, email in db.query(User.id, User.email)}
+    emails = [f"admin-{i}@example.com" for i in range(8)]
 
     request_sessions: list[Session] = []
 
@@ -2865,22 +2866,31 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
             xbrl = sum(1 for (data,) in db.query(Filing.xbrl_data) if data is not None)
             caches = db.query(FilingContentCache).count()
             statuses = sorted(status for (status,) in db.query(Feedback.status))
-            audits = sorted(db.query(AuditLog.action, AuditLog.user_id, AuditLog.user_email))
+            audits = sorted(
+                (action, user_id, user_email, entity_id or "", tuple(sorted((details or {}).items())))
+                for action, user_id, user_email, entity_id, details in db.query(
+                    AuditLog.action, AuditLog.user_id, AuditLog.user_email, AuditLog.entity_id, AuditLog.details)
+            )
         # Each write took effect, and the reads, the dry runs and the 404s wrote nothing. SQLite has no advisory
         # locks, so here a bulk reset or reset-all can read before another's delete commits, then report, and a
         # reset-all audit, rows the other deleted; on PostgreSQL the maintenance lock runs them one at a time, and
         # each after the first finds nothing (tests/integration/test_admin_maintenance_transactions.py). Each audit
-        # row names the admin whose request wrote it.
+        # row names the admin whose request wrote it, and what that request changed.
         assert summaries == (0 if case in ("delete_summary", "reset_filing", "bulk_reset", "reset_all") else 8)
         assert xbrl == (0 if case in ("clear_xbrl", "reset_filing", "bulk_reset") else 8)
         assert caches == (0 if case == "reset_filing" else 8)
         assert statuses == ["triaged" if case == "feedback_status" else "new"] * 8
         if case == "feedback_status":
-            assert audits == sorted(("feedback_status_changed", *admin) for admin in admins)
+            assert audits == sorted(
+                ("feedback_status_changed", admin_ids[email], email, str(feedback_ids[i]), (("status", "triaged"),))
+                for i, email in enumerate(emails))
         elif case == "reset_all":
-            # One row for each reset-all that found the summaries to delete, and none for one that found none.
-            assert [action for action, _, _ in audits] == ["summaries_bulk_reset"] * counted.count(8)
-            assert {(user_id, user_email) for _, user_id, user_email in audits} <= admins
+            # One row for each reset-all that found the eight summaries to delete, counting them, and none for one
+            # that found none.
+            deleted = (("deleted_count", 8), ("filing_type", None), ("include_saved", False), ("skipped_saved_count", 0))
+            assert audits == sorted(
+                ("summaries_bulk_reset", admin_ids[emails[i]], emails[i], "", deleted)
+                for i, count in enumerate(counted) if count == 8)
         else:
             assert audits == []
     finally:

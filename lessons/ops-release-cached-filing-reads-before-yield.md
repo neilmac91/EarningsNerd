@@ -214,10 +214,11 @@ each audited, rows one of them had deleted. So the summary delete, the XBRL clea
 the real bulk reset and reset-all take one transaction-level advisory lock before their first read of
 those rows (`admin_filing_service.lock_maintenance`): they run one at a time across both instances, each
 read sees the commit of the one before it, and a waiter holds only the connection the auth lookup checked
-out. `test_admin_maintenance_transactions.py` races them on PostgreSQL in CI: no deadlock, each deletion
-reported and audited once, each write waiting for the lock, and, without it, the deadlock. Their burst
-case holds every checkout, statement and release off the loop, each answer, each route's rows and each
-audit row's admin (2026-10-25, E171).
+out. `test_admin_maintenance_transactions.py` races them on PostgreSQL in CI: no deadlock; two of one
+write at once, for each of the five, report what they found once, the second reading after the first's
+commit; each write waits for the lock; and, without it, the deadlock. Their burst case holds every
+checkout, statement and release off the loop, each answer, each route's rows, and each audit row's admin
+and what its request changed (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the

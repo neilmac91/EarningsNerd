@@ -14,7 +14,9 @@ lock before each write's first read. The cases:
   only read, do not;
 - with the lock, the control's summary delete and reset-all both succeed, the reset-all after the delete;
 - two reset-alls at once: one deletes every summary and its plan counts them, and the other's plan is empty;
-- two summary deletes of one filing at once: one reports the summary deleted, and the other finds none.
+- two of one write at once, for the summary delete, the XBRL clear, the filing reset and the bulk reset: one reports
+  what it deleted or cleared, and the other finds nothing. A write that read before it took the lock would read what
+  the first then deleted, and both would report it.
 
 The cases that race two writers start both while another transaction holds the lock, and assert that both waited for
 it, so a case whose writers never met there fails rather than passes. Every case takes the same lock key in one
@@ -43,6 +45,9 @@ from app.services import admin_filing_service, admin_summary_service
 from app.utils.datetimes import utcnow
 
 ACTOR = SimpleNamespace(id=0)  # the admin a write logs; nothing reads the account
+# "MAINTAIN" in ASCII, pinned here rather than read from the module under test, so a changed key fails: a write that
+# took another key, another lock's among them, would not wait for this one.
+MAINTENANCE_LOCK_KEY = int.from_bytes(b"MAINTAIN", "big")
 # The case's other sessions waiting for a heavyweight lock of one kind: "advisory" for the maintenance lock, a row's
 # "transactionid" or "tuple" for a row another transaction holds. The checking connection is the case's own, so its
 # application_name is the case's schema.
@@ -159,7 +164,7 @@ class _Holder:
         with self.engine.connect() as conn:
             with conn.begin():
                 if self.summary_of_filing is None:
-                    conn.execute(select(func.pg_advisory_xact_lock(admin_filing_service.MAINTENANCE_LOCK_KEY)))
+                    conn.execute(select(func.pg_advisory_xact_lock(MAINTENANCE_LOCK_KEY)))
                 else:
                     conn.execute(text("SELECT id FROM summaries WHERE filing_id = :filing FOR UPDATE"),
                                  {"filing": self.summary_of_filing})
@@ -278,10 +283,22 @@ def test_two_reset_alls_count_their_deletes_once(postgres_engine):
     assert _summaries(postgres_engine) == 0
 
 
-def test_two_summary_deletes_of_one_filing_report_one_deletion(postgres_engine):
-    """The second summary delete reads after the first's commit and finds no summary to delete."""
-    first = _filing_ids(postgres_engine)[0]
-    results, errors = _two_writes_behind_the_lock(postgres_engine, _summary_delete(first), _summary_delete(first))
+# Each write that reports what it found, and how its report says it found something.
+REPORTED = {
+    "summary delete": (lambda ids: _summary_delete(ids[0]), lambda deleted: deleted),
+    "XBRL clear": (lambda ids: lambda db: admin_filing_service.clear_filing_xbrl(db, ids[0]), lambda had: had),
+    "filing reset": (lambda ids: lambda db: admin_filing_service.reset_filing(db, ids[0]),
+                     lambda deleted: deleted["summary"]),
+    "bulk reset": (lambda ids: lambda db: admin_filing_service.bulk_reset_stale_xbrl(
+        db, year_threshold=1, dry_run=False, actor=ACTOR), lambda affected: affected),
+}
+
+
+@pytest.mark.parametrize("write", sorted(REPORTED))
+def test_two_of_one_write_at_once_report_what_they_found_once(postgres_engine, write):
+    """The second reads after the first's commit and finds nothing to delete or clear, so only one reports it."""
+    make, found = REPORTED[write]
+    run = make(_filing_ids(postgres_engine))
+    results, errors = _two_writes_behind_the_lock(postgres_engine, run, run)
     assert errors == [None, None], errors
-    assert sorted(results) == [False, True], results
-    assert _summaries(postgres_engine) == 2
+    assert sorted(bool(found(result)) for result in results) == [False, True], results
