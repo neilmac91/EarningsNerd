@@ -22,7 +22,7 @@ export interface ChartTokens {
   review: string
   /** chart-1…6, taken in order over the series present (A8). */
   series: readonly [string, string, string, string, string, string]
-  /** The hover and focus column wash (step 5, E193). */
+  /** The hover and focus column wash (TrendChartPlot, E193). */
   cursor: string
   /** The card's HTML text: subtitle and footnotes, legend names, legend values. */
   note: string

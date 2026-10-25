@@ -14,7 +14,8 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('next/navigation', () => ({ notFound: h.notFound, useRouter: () => ({ push: vi.fn() }) }))
-vi.mock('@/lib/featureFlags', () => ({
+vi.mock('@/lib/featureFlags', async (original) => ({
+  ...(await original<typeof import('@/lib/featureFlags')>()),
   get ENABLE_ANALYSIS() {
     return h.enableAnalysis
   },

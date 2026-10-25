@@ -1934,7 +1934,9 @@ has none; it fits a 390px phone at the default size and, wider than its box (a p
 scrolls inside a box that `useOverflowRegion` names and puts in the Tab order, never the page.
 `/pricing` does not share it and keeps its two plan cards. The page closes with one line
 (`ClosingLine.tsx`): the live example as a text link and the access mode's call to action as a button
-at the end of one sentence, under the last row's rule. Gates: `earningsnerd/no-four-up-grid`
+at the end of one sentence while collection is available, under the last row's rule. Otherwise the
+sentence's example link is the sole action; a focused account action that leaves hands focus to it.
+Gates: `earningsnerd/no-four-up-grid`
 (`eslint.designRules.mjs`, run on `LANDING_GRID_FILES`: the route, every marketing module and the
 sections the route mounts from other features) fails a class that sets four column tracks or more under
 any variant (a template, a grid shorthand, a column flow, or multi-column by its count or column width);
@@ -2156,10 +2158,24 @@ both themes; the raw-colour lint rule exempts that file, and `tests/unit/chart-t
 table and its light values to the Tailwind tokens they share. Until step 6 (E194) moves the dark tokens into
 Tailwind, the card's subtitle, legend and footnotes take those inks inline. Its text renders with geometric
 precision, so full font hinting cannot snap Geist Mono's 6.6 px advance to 7 px. Every chart keeps its 320 px card,
-and one that does not apply says why in it. It has none of the keyboard contract above until step 5 (E193): no
-chart-values stop, no tooltip, and a plot is a keyboard stop only while it scrolls. Gates:
-`tests/unit/trend-charts-v2.spec.tsx`, `tests/e2e/charts-v2.spec.ts` and CI's `e2e-charts-v2` job, a required check
-on `main`.
+and one that does not apply says why in it; a grid row's cards share its rows (subgrid: header, plot, notes), so its
+plots start at one height whatever its legends wrap to. Its keyboard contract (E193) keeps the shape of the one
+above, on the engine's slots, with these differences. The values stop is a slider over the periods, a transparent
+layer over the viewport after it in the Tab order, ringing the viewport whatever the scroll, whose value text is the
+period's readout (`lib/charts/readout.ts`): the period and its end date, then each series' value at 4
+significant figures or 1 dp, its state, "calculated" and its data note, in words a screen reader says, with no ·, —,
+n/m, unit letter or U+2212. So the reading is spoken on focus and on every move, and no live status repeats it; a
+pointer's tooltip says nothing. It starts at the newest period, the one the legend and the table quote. Left/Right
+and Down/Up step a period, Home/End jump, and a step past either end says "Oldest period." or "Newest period." in a
+status line. A plot opens scrolled to its newest period whenever its view or window starts to overflow, never on a
+resize, behind A7's sticky gutter (`aria-hidden`, outside the exported node), which repeats the y axis, the captions
+and "Notes" and covers any column or value the edge would cut, so no value shows in part beside the axis. Hover, a tap or the keyboard paints the
+period's column wash (`cursor`, full SVG height) and shows the tooltip, `aria-hidden`, on the Card recipe's surface,
+flush beside its column, inside the viewport's sides and outside its clip, so 200% text never clips it. The tooltip
+is hoverable; a tap pins it until a second tap or a press outside, and a swipe pins nothing. Escape dismisses a
+tooltip first, wherever focus is when a pointer raised it, then collapses an expanded card and returns focus to its
+toggle. Gates: `tests/unit/trend-charts-v2.spec.tsx`, `tests/unit/chart-readout.spec.ts`,
+`tests/e2e/charts-v2.spec.ts` and CI's `e2e-charts-v2` job, a required check on `main`.
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.
