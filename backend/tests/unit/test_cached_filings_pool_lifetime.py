@@ -2778,6 +2778,8 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
             filing_ids.append(filing.id)
             feedback_ids.append(feedback.id)
         db.commit()
+        # The audit log stores the admin's id as text.
+        admins = {(str(user_id), email) for user_id, email in db.query(User.id, User.email)}
 
     request_sessions: list[Session] = []
 
@@ -2846,25 +2848,39 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
             assert [payload["affected_count"] for payload in payloads] == [8] * 8
         elif case == "reset_all_dry":
             assert [payload["deleted_count"] for payload in payloads] == [8] * 8
+        elif case == "delete_summary":
+            assert [payload["summary_deleted"] for payload in payloads] == [True] * 8
+        elif case == "clear_xbrl":
+            assert [payload["had_xbrl_data"] for payload in payloads] == [True] * 8
+        elif case == "reset_filing":
+            assert [payload["deleted"] for payload in payloads] == [
+                {"summary": True, "xbrl_data": True, "content_cache": True, "progress": True}] * 8
+        elif case in ("bulk_reset", "reset_all"):
+            # Each reads all eight filings or summaries before any of the others commits, or none after (below).
+            counted = [payload["affected_count" if case == "bulk_reset" else "deleted_count"] for payload in payloads]
+            assert set(counted) <= {0, 8} and 8 in counted, counted
         with sessions() as db:
             summaries = db.query(Summary).count()
             # A cleared JSON column holds JSON null, which a SQL IS NOT NULL still counts.
             xbrl = sum(1 for (data,) in db.query(Filing.xbrl_data) if data is not None)
             caches = db.query(FilingContentCache).count()
             statuses = sorted(status for (status,) in db.query(Feedback.status))
-            audits = sorted(action for (action,) in db.query(AuditLog.action))
+            audits = sorted(db.query(AuditLog.action, AuditLog.user_id, AuditLog.user_email))
         # Each write took effect, and the reads, the dry runs and the 404s wrote nothing. SQLite has no advisory
-        # locks, so here a reset-all can read its plan before another's delete commits and then audit rows the other
-        # deleted; on PostgreSQL the maintenance lock runs them one at a time, and the second finds nothing and
-        # writes no audit row (tests/integration/test_admin_maintenance_transactions.py).
+        # locks, so here a bulk reset or reset-all can read before another's delete commits, then report, and a
+        # reset-all audit, rows the other deleted; on PostgreSQL the maintenance lock runs them one at a time, and
+        # each after the first finds nothing (tests/integration/test_admin_maintenance_transactions.py). Each audit
+        # row names the admin whose request wrote it.
         assert summaries == (0 if case in ("delete_summary", "reset_filing", "bulk_reset", "reset_all") else 8)
         assert xbrl == (0 if case in ("clear_xbrl", "reset_filing", "bulk_reset") else 8)
         assert caches == (0 if case == "reset_filing" else 8)
         assert statuses == ["triaged" if case == "feedback_status" else "new"] * 8
         if case == "feedback_status":
-            assert audits == ["feedback_status_changed"] * 8
+            assert audits == sorted(("feedback_status_changed", *admin) for admin in admins)
         elif case == "reset_all":
-            assert audits and set(audits) == {"summaries_bulk_reset"}
+            # One row for each reset-all that found the summaries to delete, and none for one that found none.
+            assert [action for action, _, _ in audits] == ["summaries_bulk_reset"] * counted.count(8)
+            assert {(user_id, user_email) for _, user_id, user_email in audits} <= admins
         else:
             assert audits == []
     finally:

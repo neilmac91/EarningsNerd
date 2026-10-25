@@ -194,28 +194,30 @@ to each on four slots answered as they should, but every statement after the aut
 (8 of 16 for eight feedback lists, 56 of 64 for eight status updates, 72 of 80 for eight filing resets),
 the stale-XBRL audit and bulk reset loading and decoding every filing's XBRL there, each read after a
 write's commit checked a connection out there (16 of 24 for the status updates, 8 of 16 for the XBRL
-clears, filing resets and bulk resets), and every case but a summary delete that found its filing,
-whose commit gave its connection back on the loop, left its transaction for the finalizer, the 404s
-included. On a local PostgreSQL 16, another transaction holding a filing's `summaries` row for 1.0 s
-froze the loop for about that long (0.94 to 1.02 s, three runs of each) through that filing's summary
-delete or reset, or a reset-all: each waited for the row's lock on the loop, and the app's engine sets no
-lock or statement timeout. Each route is now one thread-pool unit that makes its service call (with the
-status update's or the reset-all's audit row) and releases its session; a 404 leaves the unit after that
-release, and the admin's id and email are read before it, since a commit expires them. With the row held
-the same way, the loop's longest gap between its 10 ms ticks was 12 ms (59 ms on a process's first
-request, whichever route took it). In the thread pool the maintenance writes overlapped on one instance,
-as they always could across the service's two, and they are the Rule's check-then-write units. A
-reset-all, which deletes progress rows before summaries, and a summary delete or filing reset, whose
-flush deletes the summary first, deadlocked on that PostgreSQL (the review's probes: 9 of 9 rounds with
-the summary row held, 5 of 12 without; one request answered 500 and rolled back), and two resets each
-reported, and two reset-alls each audited, rows one of them had deleted. So the summary delete, the XBRL
-clear, the filing reset and the real bulk reset and reset-all take one transaction-level advisory lock
-before their first read of those rows (`admin_filing_service.lock_maintenance`): they run one at a time
-across both instances, each read sees the commit of the one before it, and a waiter holds only the
-connection the auth lookup checked out. `test_admin_maintenance_transactions.py` races them on PostgreSQL
-in CI: no deadlock, each deletion reported and audited once, each write waiting for the lock, and,
-without it, the deadlock. Their burst case holds every checkout, statement and release off the loop,
-each answer and each route's rows (2026-10-25, E171).
+clears, filing resets and bulk resets), and every case but a summary delete that found its filing, whose
+commit gave its connection back on the loop, left its transaction for the finalizer, the 404s included.
+On a local PostgreSQL 16, another transaction holding a filing's `summaries` row for 1.0 s froze the loop
+for about that long (0.94 to 1.02 s, three runs of each) through that filing's summary delete or reset,
+or a reset-all: each waited for the row's lock on the loop, and the app's engine sets no lock or
+statement timeout. Each route is now one thread-pool unit that makes its service call (with the status
+update's or the reset-all's audit row) and releases its session; a 404 leaves the unit after that
+release, and the admin's id and email are read before it, since a commit expires them. A non-admin's 403
+(`_require_admin`) and a 422 answer before the unit runs, so, like the ask stream's refusals before its
+unit, each still leaves the lookup's transaction for the finalizer. With the row held the same way, the
+loop's longest gap between its 10 ms ticks was 12 ms (59 ms on a process's first request, whichever route
+took it). In the thread pool the maintenance writes overlapped on one instance, as they always could
+across the service's two, and they are the Rule's check-then-write units. A reset-all, which deletes
+progress rows before summaries, and a summary delete or filing reset, whose flush deletes the summary
+first, deadlocked on that PostgreSQL (the review's probes: 9 of 9 rounds with the summary row held, 5 of
+12 without; one request answered 500 and rolled back), and two resets each reported, and two reset-alls
+each audited, rows one of them had deleted. So the summary delete, the XBRL clear, the filing reset and
+the real bulk reset and reset-all take one transaction-level advisory lock before their first read of
+those rows (`admin_filing_service.lock_maintenance`): they run one at a time across both instances, each
+read sees the commit of the one before it, and a waiter holds only the connection the auth lookup checked
+out. `test_admin_maintenance_transactions.py` races them on PostgreSQL in CI: no deadlock, each deletion
+reported and audited once, each write waiting for the lock, and, without it, the deadlock. Their burst
+case holds every checkout, statement and release off the loop, each answer, each route's rows and each
+audit row's admin (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
