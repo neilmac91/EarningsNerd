@@ -163,3 +163,21 @@ describe('reading a printed number', () => {
     expect(both('−$3.6M', '$3.6M')).toBe(false)
   })
 })
+
+describe('the table this check reads is the one MetricsTable prints (M15; review of #1644)', () => {
+  // tableCell reads the helpers, so the check holds only while MetricsTable prints through them: a figure cell
+  // formatted in the component again would drift from this check unseen. Comments are read out first.
+  const source = readFileSync('features/analysis/components/MetricsTable.tsx', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+  const calls = (name: string) => source.match(new RegExp(`\\b${name}\\(`, 'g'))?.length ?? 0
+
+  it('prints each figure and its change line through tableFigureText and tableComparisonText', () => {
+    expect(calls('tableFigureText')).toBe(1)
+    expect(calls('tableComparisonText')).toBe(1)
+  })
+
+  it('formats no figure itself, and a growth only for the window column, which no chart prints', () => {
+    expect(calls('formatTableValue')).toBe(0)
+    expect(calls('formatTableGrowth')).toBe(1)
+    expect(source).toMatch(/\bformatTableGrowth\(win\.value, win\.isPercent,/)
+  })
+})
