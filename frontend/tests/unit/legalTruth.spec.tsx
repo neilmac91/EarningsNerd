@@ -154,8 +154,11 @@ import {
  *    verification lens on #1618). A negation on the verb or the subject makes "without your consent" the promise ("No
  *    usage data is sent without your permission."), and so does one on a verb before it that shares its object, which
  *    "and" does not distribute ("We never sell and collect analytics data ... without your consent.", beyond main's 60
- *    characters too), and "until you allow" promises whatever its own negation ("No analytics run until you allow
- *    them.", "We do not collect analytics until you allow them.").
+ *    characters too); a negation from outside over a clause with none of its own is the promise's own too ("It is not
+ *    true that analytics are collected without your consent." fails: Codex on #1618), and denies the promise only over
+ *    a clause that makes it ("It is not true that analytics are never collected without your consent." passes). "until
+ *    you allow" promises whatever its own negation ("No analytics run until you allow them.", "We do not collect
+ *    analytics until you allow them.").
  *    The consent is bound to the analytics' own operation: another (ANOTHER_OPERATION: sharing, selling, exporting,
  *    deleting, erasing, disclosing, transferring, publishing, showing, displaying, revealing, renting, licensing,
  *    downloading), as a gerund subject in every form ("Sharing analytics data with another user requires your
@@ -990,7 +993,10 @@ function analyticsIn(reading: Reading, p: Said, subject: number, wait: Wait, ope
 type WaitReading = 'denied' | 'another operation' | 'claim' | 'unread'
 function readWait(reading: Reading, said: Said[], index: number, wait: Wait): WaitReading {
   const p = said[index]
-  if (deniedFromOutside(reading, said, index, wait)) return 'denied'
+  // A negation from outside denies "without your consent" only where the clause makes the promise itself; over one that
+  // makes none, it is the promise's own negation ("It is not true that analytics are collected without your consent.":
+  // Codex on #1618).
+  if (deniedFromOutside(reading, said, index, wait)) return wait.kind !== 'without' || withoutPromises(reading, p, wait) ? 'denied' : 'unread'
   if (wait.kind === 'without' && !withoutPromises(reading, p, wait)) return 'unread'
   if (wait.kind !== 'without' && wait.kind !== 'until' && denied(reading, p, wait)) return 'denied'
   const operations = operationsOf(reading, p, wait)
@@ -2612,6 +2618,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Server events are not recorded or recorded only after you consent.</p>', true],
       // Codex on #1618: every join after the denial counts, not only the last.
       ['<p>Server events never run, or collect or require your consent.</p>', true],
+      // Codex on #1618: a negation from outside over "without your consent" with no negation of its own is the
+      // promise's own; over a clause that promises, it denies the promise.
+      ['<p>It is not true that analytics are collected without your consent.</p>', true],
+      ['<p>It is not true that analytics are never collected without your consent.</p>', false],
       ['<p>We require your consent to share account events with advertisers or PostHog.</p>', true],
       ['<p>We require your consent to share account events with anyone, including PostHog.</p>', true],
       ['<p>Account events require your consent before we share them with partners like PostHog.</p>', true],
