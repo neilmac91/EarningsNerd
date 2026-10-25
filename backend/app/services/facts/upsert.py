@@ -239,7 +239,7 @@ def upsert_facts_bulk(
     NULL-``fiscal_period`` twin for the same period so a quarter never has two current rows. Facts
     must already carry ``reconciled`` (no gate runs here — see ``normalize_companyfacts``). Known
     Filing dates protect an already-stored newer accession from a delayed SEC response, and so does
-    ``protected`` (stored row ids from a filing newer than the payload: ``currency.protected_rows``);
+    ``protected`` (stored row ids of a newer filing, empty for a sync in USD alone: ``currency.Guard.kept``);
     other rows retain the normalizer's latest-filed ordering within that response.
     """
     if not facts:

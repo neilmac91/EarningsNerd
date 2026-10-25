@@ -15,20 +15,25 @@ this module load no Settings, ORM or EDGAR code, at import or at call time. Only
 payload's own view of itself (``payload_view``), import the ORM. The collector's item admission
 (``admitted_items``) and its pick over the companyfacts registries (``companyfacts_currencies``)
 live here too, so the per-filing pick counts exactly the periods ``companyfacts`` keeps and the
-demotion reads the very pick the collector read. Where a newer annual report the payload does not
-show yet, reporting a period at least as late as the payload's own deciding report, proves the
-series switched currency (``_proven_switch``), the sync writes nothing from the payload and leaves
-only that currency current, outside the filings whose own currency is another (as the payload reads
-them, or, for a filing it does not name, as that filing's stored rows vote): a wrong number is
-worse than a gap, and the payload's own rows, current at the periods only it presents, would mix
-the old currency into the new one's series across years. Otherwise (``_promote_batch_rows``) a key
-where a protected row of a newer filing sits, current or not, holds the newest protected row there,
-and every other key the batch presents holds the batch's own row, except a key where a current row
-is of a filing filed strictly after the batch row's own (the upsert's filing-date rule: companyfacts'
-first tag with data, not the latest filing, picks the batch's winner), and one whose row to make
-current is quarantined or whose quarter has a current unlabelled twin in that unit: those are left
-as found. So the sync that names every stored filing leaves each key it presents to its batch's row
-or to a newer filing's current row there, whatever earlier syncs left.
+demotion reads the very pick the collector read.
+
+A sync that involves no currency but USD (``_another_currency``: neither the payload's pick nor a
+stored row of the batch's concepts names another) is main's: nothing is protected and the currency
+step returns before touching a row (``Guard.usd_only``). Only where another currency is involved
+does the rest run. Where a newer annual report the payload does not show yet, reporting a period at
+least as late as the payload's own deciding report, proves the series switched currency
+(``_proven_switch``), the sync writes nothing from the payload and leaves only that currency
+current, outside the filings whose own currency is another (as the payload reads them, or, for a
+filing it does not name, as that filing's stored rows vote): a wrong number is worse than a gap, and
+the payload's own rows, current at the periods only it presents, would mix the old currency into
+the new one's series across years. Otherwise (``_promote_batch_rows``) a key where a protected row
+of a newer filing sits, current or not, holds the newest protected row there, and every other key
+the batch presents holds the batch's own row, except a key where a row of a filing filed strictly
+after the batch row's own filing was current (a newer-filing rule by date alone: companyfacts' first
+tag with data, not the latest filing, picks the batch's winner), and one whose row to make current
+is quarantined or whose quarter has a current unlabelled twin in that unit: those are left as found.
+So the sync that names every stored filing leaves each key it presents to its batch's row or to a
+newer filing's current row there, whatever earlier syncs left, outside those it leaves as found.
 """
 from __future__ import annotations
 
@@ -196,6 +201,7 @@ class PayloadView(NamedTuple):
     newest_filed: str  # its newest ``filed`` date (ISO), "" when no item carries one
     own: Mapping[Any, str]  # each determined filing's own currency (a tie is absent)
     decider: tuple[Any, ...] | None  # the deciding filing's rank (``_filing_pick``), None when none decides
+    filed: Mapping[Any, str]  # each named filing's own ``filed`` date (ISO), the latest its items carry
 
 
 def payload_view(companyfacts: Any) -> PayloadView:
@@ -211,15 +217,13 @@ def payload_view(companyfacts: Any) -> PayloadView:
              for node in taxonomy.values() if isinstance(node, dict) and isinstance(node.get("units"), dict)
              for listed in node["units"].values() if isinstance(listed, list)
              for item in listed if isinstance(item, dict))
-    known: set[Any] = set()
-    newest = ""
+    filed: dict[Any, str] = {}
     for item in items:
-        known.add(item.get("accn"))
-        newest = max(newest, str(item.get("filed") or "")[:10])
+        filed[item.get("accn")] = max(filed.get(item.get("accn"), ""), str(item.get("filed") or "")[:10])
     usgaap = facts_root.get("us-gaap")
     series, foreign, own, decider = _filing_pick(
         usgaap if isinstance(usgaap, dict) else {}, COMPANYFACTS_DURATION_TAGS, COMPANYFACTS_INSTANT_TAGS)
-    return PayloadView(series, foreign, frozenset(known), newest, own, decider)
+    return PayloadView(series, foreign, frozenset(filed), max(filed.values(), default=""), own, decider, filed)
 
 
 def _operand_unit(provenance: Any) -> Any:
@@ -229,12 +233,14 @@ def _operand_unit(provenance: Any) -> Any:
     return units.pop() if len(units) == 1 else None
 
 
-def _filed(accession: Any, provenance: Any, dates: Mapping[Any, str]) -> str:
-    """A filing's date (ISO) as the sync reads it: its Filing row's (``dates``), else the row's or fact's
-    provenance ``filed_at``, else "" (not known)."""
+def _filed(accession: Any, provenance: Any, dates: Mapping[Any, str], view: PayloadView) -> str:
+    """A row's filing date (ISO) as the sync reads it: its Filing row's (``dates``), else its filing's ``filed``
+    in the payload (``view.filed``), else the row's provenance ``filed_at``, else "" (not known). So a calculation
+    is dated by its own filing, never by its latest operand's date, which its provenance ``filed_at`` records."""
     if accession in dates:
         return dates[accession]
-    return str((provenance if isinstance(provenance, dict) else {}).get("filed_at") or "")[:10]
+    named = view.filed.get(accession)
+    return named or str((provenance if isinstance(provenance, dict) else {}).get("filed_at") or "")[:10]
 
 
 def _filing_dates(db: Session, accessions: set[Any]) -> dict[Any, str]:
@@ -262,35 +268,56 @@ def _other_derived(row: Any, currency: str) -> bool:
 
 
 class Guard(NamedTuple):
-    """What the stored rows of filings a payload does not name decide for its sync (``protected_rows``)."""
+    """What the stored rows decide for a payload's sync (``protected_rows``)."""
 
     ids: frozenset[int]  # the rows neither of the sync's paths may demote, all in the series currency; none on a switch
     switch: str | None  # the currency a newer annual report proves the series switched to, else None
-    own: Mapping[Any, str]  # each such filing's own currency, newer or not, as its stored rows vote; a tie is absent
+    own: Mapping[Any, str]  # each unnamed filing's own currency, newer or not, as its stored rows vote; a tie is absent
+    later: frozenset[int] = frozenset()  # current rows of a filing filed strictly after the batch row's own, at its key
+    usd_only: bool = False  # no currency but USD is involved (``_another_currency``): the currency step is main's
+
+    @property
+    def kept(self) -> frozenset[int]:
+        """The rows the upsert keeps current over a batch row (its ``protected``): ``ids`` and ``later``."""
+        return self.ids | self.later
+
+
+def _another_currency(db: Session, facts: list[dict[str, Any]], view: PayloadView) -> bool:
+    """Whether a sync involves a currency other than USD: the payload's series currency, or the own currency
+    it reads for a filing (``view.own``, which holds the deciding filing and every ``view.foreign`` one), or
+    the unit of a stored amount or per-share row of the batch's concepts, current or not. Otherwise the
+    currency step is main's (``Guard.usd_only``). Rows that are not current count too: the vote reads
+    them (``_proven_switch``), and a row the step demoted keeps it running until a sync converges the key."""
+    from app.models import FinancialFact  # lazy: the pure normalizers import this module
+
+    if view.currency != "USD" or any(currency != "USD" for currency in view.own.values()):
+        return True
+    units = db.query(FinancialFact.unit).filter(  # one read over the identity index's (company, concept) prefix
+        FinancialFact.company_id == facts[0]["company_id"],
+        FinancialFact.concept.in_({fact["concept"] for fact in facts})).distinct()
+    return any(_kind(unit) == "amount" and unit.partition("/")[0] != "USD" for (unit,) in units)
 
 
 def protected_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView) -> Guard:
     """The stored rows of the batch's concepts that no sync of this payload may demote, the switch of
-    the reporting currency they prove, if any, and each unnamed filing's own currency as its stored
-    rows vote (``_proven_switch``).
+    the reporting currency they prove, if any, each unnamed filing's own currency as its stored rows
+    vote (``_proven_switch``), and the rows the upsert keeps current (``Guard.kept``). A sync in USD
+    alone (``_another_currency``) gets none of these: main's upsert and a currency step that returns.
 
-    Such a row is from a filing the payload does not name, filed after the payload's newest: a newer
-    filing that SEC's companyfacts does not show yet (a delayed response, or the sync a new filing
-    triggers before companyfacts includes it). A row's filing date is its Filing row's, as
-    ``upsert_facts_bulk`` reads them, else its provenance's ``filed_at``; a row with neither, or one
-    filed on the payload's newest date, is not protected. The read takes the fact writers' company
-    lock first, so no writer adds a row between it and the upsert, which stores the batch's row
-    behind a protected current one as it does behind a known newer filing; at a key where one sits,
-    current or not, the currency step makes the newest one current (``_promote_batch_rows``).
-
-    Where those rows prove a switch, no row is protected: the sync stores nothing and demotes by
-    currency (``demote_convenience_rows``). Otherwise a row keeps its protection only in the payload's
-    view (``_in_view``): an amount or per-share row in the series currency under a filing whose own
-    currency, as its stored rows vote (``Guard.own``), is not another, a ratio not computed from
-    another currency's operands, or a row of any other unit (a share count). Outside the view are a
-    stray, a quarterly report's rows ahead of the annual report that switches, and a convenience
-    translation (``_foreign``): the sync that names the filing demotes each where the vote reads the
-    filing as its payload items do, and makes its own row current at each key its batch presents.
+    A protected row is from a filing the payload does not name, filed after the payload's newest (by
+    ``_filed``; undated, or filed that day, is not): a newer filing that SEC's companyfacts does not
+    show yet (a delayed response, or the sync a new filing triggers before companyfacts includes it).
+    The read takes the fact writers' company lock first, so no writer adds a row between it and the
+    upsert, which stores the batch's row behind a protected current one as behind a known newer filing,
+    and behind each current row in its unit of a filing filed strictly after the batch row's own
+    (``Guard.later``: the upsert's own rule reads Filing rows only). Where those rows prove a switch,
+    none is protected: the sync stores nothing and demotes by currency. Otherwise a row keeps its
+    protection only in the payload's view (``_in_view``): an amount or per-share row in the series
+    currency under a filing whose own currency, as its stored rows vote (``Guard.own``), is not
+    another, a ratio not computed from another currency's operands, or a row of any other unit. Outside
+    it are a stray, a quarterly report's rows ahead of the annual report that switches, and a
+    convenience translation (``_foreign``), each demoted by the sync that names the filing where the
+    vote reads it as its payload items do.
     """
     from app.models import Filing, FinancialFact  # lazy: the pure normalizers import this module
     from app.services.facts.upsert import _lock_fact_companies
@@ -298,24 +325,33 @@ def protected_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView) 
     if not facts:
         return Guard(frozenset(), None, {})
     _lock_fact_companies(db, facts)
+    if not _another_currency(db, facts, view):
+        return Guard(frozenset(), None, {}, usd_only=True)
     columns = (FinancialFact.id, FinancialFact.accession, FinancialFact.unit, FinancialFact.is_latest,
                FinancialFact.form, FinancialFact.concept, FinancialFact.period_end, FinancialFact.fiscal_period,
                FinancialFact.provenance, FinancialFact.source, FinancialFact.filing_id)
-    rows = [row for row in db.query(*columns).filter(
-        FinancialFact.company_id == facts[0]["company_id"],
-        FinancialFact.concept.in_({fact["concept"] for fact in facts}),
-    ) if row.accession not in view.known]
+    stored = db.query(*columns).filter(FinancialFact.company_id == facts[0]["company_id"],
+                                       FinancialFact.concept.in_({fact["concept"] for fact in facts})).all()
+    rows = [row for row in stored if row.accession not in view.known]
+    batch = {(f["concept"], f["period_end"], f["fiscal_period"], f["unit"]): f["accession"] for f in facts
+             if f["fiscal_period"] is not None and _kind(f["unit"]) == "amount"}
+    others = [row for row in stored if row.is_latest and batch.get(
+        (row.concept, row.period_end, row.fiscal_period, row.unit), row.accession) != row.accession]
     filings = {accession: (stamp, form) for accession, stamp, form in db.query(
-        Filing.accession_number, Filing.filing_date, Filing.filing_type).filter(
-        Filing.accession_number.in_({row.accession for row in rows}))} if rows else {}
+        Filing.accession_number, Filing.filing_date, Filing.filing_type).filter(Filing.accession_number.in_(
+            {row.accession for row in (*rows, *others)} | set(batch.values())))}
     dates = {accession: stamp.isoformat()[:10] for accession, (stamp, _form) in filings.items() if stamp is not None}
 
     def filed(row: Any) -> str:
-        return _filed(row.accession, row.provenance, dates)
+        return _filed(row.accession, row.provenance, dates, view)
 
     newer = [row for row in rows if filed(row) > view.newest_filed]
     switch, own = _proven_switch(rows, filed, {accession: form for accession, (_stamp, form) in filings.items()}, view)
-    return Guard(frozenset() if switch else frozenset(row.id for row in newer if _in_view(row, view, own)), switch, own)
+    if switch:
+        return Guard(frozenset(), switch, own)
+    later = frozenset(row.id for row in others if filed(row) > _filed(
+        batch[(row.concept, row.period_end, row.fiscal_period, row.unit)], None, dates, view))
+    return Guard(frozenset(row.id for row in newer if _in_view(row, view, own)), None, own, later)
 
 
 def _proven_switch(unnamed: list[Any], filed: Callable[[Any], str], forms: Mapping[Any, Any],
@@ -337,10 +373,9 @@ def _proven_switch(unnamed: list[Any], filed: Callable[[Any], str], forms: Mappi
     (one concept read in another currency), a quarterly report, an annual report tagging one period, or
     a 10-K/A or 20-F/A restating a year before the payload's latest annual report never proves one:
     none would decide ``filing_currencies`` over the payload and it. A misjudged proof only picks
-    between two views that each read one currency: a gap, never a wrong number. The stored units are
-    the per-filing writer's per-concept picks, so a newer 10-K most of whose concepts that pick read in
-    another currency proves a switch the payload's own items would not (a gap in that currency until
-    the sync that names it); for the vote's misjudgements outside a switch, see ``_foreign``.
+    between two views that each read one currency: a gap, never a wrong number (the stored units are
+    the per-filing writer's per-concept picks, so a newer 10-K can prove a switch its payload items
+    would not); for the vote's misjudgements outside a switch, see ``_foreign``.
     """
     votes: dict[Any, dict[str, set[tuple[Any, ...]]]] = {}
     stamps: dict[Any, tuple[bool, bool, str]] = {}  # accession -> (an annual report, a current row, filed)
@@ -374,18 +409,16 @@ def _foreign(accession: Any, currency: str, view: PayloadView, own: Mapping[Any,
     protection, and each is demoted. A tie is not.
 
     Reading the stored rows leaves two windows, each closed by the sync that names the filing, which
-    reads it from its payload items and makes its own row current at every key its batch presents. A
-    row in ``currency`` under the filing that the payload items read in another currency stays current
-    (a wrong number) where the vote names no other currency: the filing's amount rows, each counted
-    once per concept and period, current or not (per-share rows do not vote), tie for the most, or more
-    of them are in ``currency`` than in any other (all of them, where an earlier sync stored only its
-    convenience items), or it holds no amount row; where it is protected (a filing filed after the
-    payload's newest) and the newest protected row at its key, the sync makes it current there. At a key
-    the batch presents, any other yields to the batch's own row unless filed after the batch row's filing
-    (``_promote_batch_rows``). And the vote reads the per-filing writer's per-concept picks, which break
-    a tie toward a non-USD code, so where it names a currency the payload items do not read the filing
-    in, the filing's rows in ``currency`` are demoted: a gap at a key the batch does not present, and
-    at one it presents from an older filing, that older figure (a wrong number).
+    reads it from its payload items and converges each key its batch presents (``_promote_batch_rows``).
+    A row in ``currency`` under the filing that the payload items read in another currency stays current
+    (a wrong number) where the vote names no other currency: its amount rows, each counted once per
+    concept and period, current or not (per-share rows do not vote), tie for the most, or more are in
+    ``currency`` (all, where an earlier sync stored only its convenience items), or it holds none; where
+    it is protected and the newest protected row at its key, the sync makes it current there. And the
+    vote reads the per-filing writer's per-concept picks, which break a tie toward a non-USD code, so
+    where it names a currency the payload items do not read the filing in, its rows in ``currency`` are
+    demoted: a gap at a key the batch does not present, and at one it presents from an older filing,
+    that older figure (a wrong number).
     """
     return view.own.get(accession, own.get(accession, currency)) != currency
 
@@ -410,7 +443,8 @@ def _kind(unit: str) -> str | None:
 
 def demote_convenience_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView, guard: Guard) -> int:
     """Demote the current rows a companyfacts batch supersedes, make its own row current at the keys it
-    presents, and return how many rows were demoted; never delete or rewrite one.
+    presents, and return how many rows were demoted; never delete or rewrite one. A sync in USD alone
+    (``guard.usd_only``) returns 0 here before touching a row, as main's step does for a batch in USD.
 
     The batch is read in one series currency (``filing_currencies``), which its amount units carry,
     and ``view`` is its payload's own (``payload_view``). ``is_latest`` is kept per unit, so at every
@@ -422,13 +456,11 @@ def demote_convenience_rows(db: Session, facts: list[dict[str, Any]], view: Payl
     else, for a filing it does not name, as that filing's stored rows vote): there a figure in the
     series currency is that filing's convenience translation, as earlier syncs or the per-filing pick
     stored it; and when a protected row (``guard.ids``) of its kind, amount or ratio, is current at its
-    key: a newer filing holds its key, so the batch never leaves its own row current beside it. A
-    protected row is in the view and is demoted only for a newer protected row at its key. Then
-    ``_promote_batch_rows`` makes the newest protected row current at each key one holds and the batch's
-    own row at each other key it presents, outside the keys it leaves as found, and
-    ``_replace_stale_ratios`` replaces the ratios computed from other-currency operands. Rows with no
-    fiscal period and other concepts are left alone. The count is of rows demoted; a promotion is not
-    counted, as the upsert's insert is not, nor is the demotion of this sync's own insert.
+    key, which is demoted only for a newer protected row there. Then ``_promote_batch_rows`` converges
+    each key a protected row holds or the batch presents, and ``_replace_stale_ratios`` replaces the
+    ratios computed from other-currency operands. Rows with no fiscal period and other concepts are
+    left alone. The count is of rows demoted; a promotion is not counted, as the upsert's insert is
+    not, nor is the demotion of this sync's own insert.
 
     Where a newer annual report proves the series switched (``guard.switch``), the ingest stores nothing
     from the batch, and this only demotes, at every key with a fiscal period over the batch's concepts,
@@ -436,13 +468,11 @@ def demote_convenience_rows(db: Session, facts: list[dict[str, Any]], view: Payl
     each in the switch's currency under a filing ``_foreign`` to it: the convenience translations the
     sync that names every stored filing demotes too. Nothing is promoted and no ratio is replaced, so the
     current amount and per-share rows are those that sync converges to (gaps before the switch), or more
-    in ``_foreign``'s first window, or fewer wherever that sync would make current a row not current now.
-    The tests show four shapes of fewer: rows in the switch's currency that no writer has stored yet (the
-    switching report's derived or unextracted amounts; on a switch back, the older filings' rows), the
-    report's rows the per-filing writer stored behind older ones, a quarterly report's rows in that
-    currency an earlier sync demoted, and the report's rows a later filing's row in that currency
-    demoted, when this sync demotes that row as a convenience translation.
+    in ``_foreign``'s first window, or fewer wherever that sync would make current a row not current now
+    (rows no writer stored yet, stored behind older ones, or demoted by an earlier sync or a later row).
     """
+    if guard.usd_only:
+        return 0
     from app.models import FinancialFact  # lazy: the pure normalizers import this module
 
     currencies = (fact["unit"].partition("/")[0] for fact in facts)
@@ -474,16 +504,16 @@ def demote_convenience_rows(db: Session, facts: list[dict[str, Any]], view: Payl
             row.is_latest = False
             demoted += 1
     dates = _filing_dates(db, {row.accession for row in rows} | {fact["accession"] for fact in facts})
-    held: dict[tuple[Any, ...], Any] = {}  # each key a protected row sits at: the newest there (filed, then id)
+    held: dict[tuple[Any, ...], Any] = {}  # each key a protected row sits at: the newest (filed, accession, id)
     for row in sorted((row for row in labelled if row.id in guard.ids and _kind(row.unit)),
-                      key=lambda row: (_filed(row.accession, row.provenance, dates), row.id)):
+                      key=lambda row: (_filed(row.accession, row.provenance, dates, view), row.accession, row.id)):
         held[(row.concept, row.period_end, row.fiscal_period)] = row
-    return (demoted + _promote_batch_rows(facts, rows, held, dates)
+    return (demoted + _promote_batch_rows(facts, rows, held, dates, view)
             + _replace_stale_ratios(facts, labelled, currency, held))
 
 
 def _promote_batch_rows(facts: list[dict[str, Any]], rows: list[Any], held: Mapping[tuple[Any, ...], Any],
-                        dates: Mapping[Any, str]) -> int:
+                        dates: Mapping[Any, str], view: PayloadView) -> int:
     """Make one row the one current row of its kind (an amount or per-share row in any currency, or a
     ratio) at each key it decides, demoting every other current row of that kind there whichever sync or
     writer left it, and return how many were demoted (not counting this sync's own insert, as the
@@ -492,18 +522,21 @@ def _promote_batch_rows(facts: list[dict[str, Any]], rows: list[Any], held: Mapp
     demotion, a switch and back, an amendment the per-filing writer stored behind its original's row.
 
     At a key ``held`` by a protected row of the sync's view (``guard.ids``), current or not, presented
-    or not, the row is the newest protected row there (latest filed, then by id): the newest filing's
-    own figure. At every other key with a fiscal period the batch presents in an amount or per-share
-    unit, it is the batch's own row (same concept, key, unit and accession), unless a current row there
-    is of a filing filed strictly after the batch row's own (each by its Filing row's date, else its
-    provenance ``filed_at``, the batch row's from the payload): that key is left as found, the upsert's
-    filing-date rule, since companyfacts' first tag with data, not the latest filing, picks the batch's
-    winner across tags. A quarantined row (``_promotable``), or a quarter whose unlabelled twin in its
-    unit is current (the upsert's D1 rule), is never made current and its key is left as found, except
-    that this sync's own insert there is demoted, so a lagging sync never leaves the batch's older
-    figure current at a key a newer filing's row holds. A proven switch never calls this."""
+    or not, the row is the newest protected row there (latest filed, then the higher accession, as the
+    writers break a same-day tie, then by id): the newest filing's own figure. At every other key with
+    a fiscal period the batch presents in an amount or per-share unit, it is the batch's own row (same
+    concept, key, unit and accession), unless a current row there is of a filing filed strictly after
+    the batch row's own filing (each dated by ``_filed``: a Filing row, else its filing's date in the
+    payload, never a calculation's latest operand's): that key is left as found, a newer-filing rule by
+    date alone, since companyfacts' first tag with data, not the latest filing, picks the batch's winner
+    across tags. The upsert stored the batch's row behind such a row in its unit (``Guard.later``), so
+    the rule holds on its insert path too. A quarantined row (``_promotable``), or a quarter whose
+    unlabelled twin in its unit is current (the upsert's D1 rule), is never made current and its key is
+    left as found, except that this sync's own insert there is demoted: a lagging sync never makes the
+    batch's older figure current at a key a newer filing's row holds, and a row current there before
+    stays (a gap only where none was). A proven switch, or a sync in USD alone, never calls this."""
     own = {(f["concept"], f["period_end"], f["fiscal_period"]): (f["unit"], f["accession"], _filed(
-        f["accession"], f.get("provenance"), dates)) for f in facts
+        f["accession"], None, dates, view)) for f in facts
         if f["fiscal_period"] is not None and _kind(f["unit"]) == "amount"}
     current: dict[tuple[Any, ...], list[Any]] = {}
     for row in rows:
@@ -514,7 +547,7 @@ def _promote_batch_rows(facts: list[dict[str, Any]], rows: list[Any], held: Mapp
     for row in rows:
         key = (row.concept, row.period_end, row.fiscal_period)
         if key not in held and (row.unit, row.accession) == own.get(key, ())[:2] and not any(
-                other.is_latest and _filed(other.accession, other.provenance, dates) > own[key][2]
+                other.is_latest and _filed(other.accession, other.provenance, dates, view) > own[key][2]
                 for other in current.get(key, ())):
             picks[key] = row
     demoted = 0

@@ -34,8 +34,10 @@ currency, normalizes through the same per-filing pick as the sync
 and filings in another currency are not read, so its repair plans identities in that currency only.
 The repair does not demote the rows an older sync stored in another currency, or under a filing that
 reports in another currency (USD convenience rows, a switcher's years before the switch); only the
-companyfacts sync does that. Sync such a company first (`POST /internal/jobs/sync-companyfacts` with
-`"force": true`), then preview its repair. Otherwise, after the apply, both currencies are current
+companyfacts sync does that, and only where another currency than USD is involved (the response's
+pick or a stored row of its concepts; a sync in USD alone is main's and its currency step touches no
+row), as it is for every company this section concerns. Sync such a company first
+(`POST /internal/jobs/sync-companyfacts` with `"force": true`), then preview its repair. Otherwise, after the apply, both currencies are current
 for the same periods. Unless a newer filing proves a switch (below), the sync never demotes a row in
 the currency it reads from a filing that SEC's companyfacts response does not name and that was
 filed strictly after the response's newest filing, where that filing's date is known (its Filing
@@ -54,10 +56,10 @@ annual report) is demoted, and an older response still demotes the rows of a new
 currency that it names or cannot protect. So run the sync once companyfacts shows the company's
 latest filing: a sync whose response names every stored filing makes its own row the one current row
 at every period it presents, whatever earlier syncs or the per-filing writer left there, except a
-period where a current row is of a filing filed after its own (the writers' filing-date rule) and a
-quarter whose unlabelled twin in that unit is current, both left as found, and never a row this
-repair quarantined, for any reason (a rolled-back insert among them): such a period is left as the
-sync found it, a gap where it demoted what was current there. The sync leaves one thing for this
+period where a row of a filing filed strictly after its own was current (a newer-filing rule by date,
+each row dated by its own filing) and a quarter whose unlabelled twin in that unit is current, both
+left as found, and never a row this repair quarantined, for any reason (a rolled-back insert among
+them): such a period is left as the sync found it, a gap only where nothing else was current. The sync leaves one thing for this
 repair: an annual ratio (a margin or the current ratio) that an older sync computed from
 other-currency operands under the same filing as the series-currency calculation. That identity is
 occupied, so the sync keeps its old operands; the repair's computed-metric correction recomputes it

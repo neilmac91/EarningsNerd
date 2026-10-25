@@ -1,6 +1,6 @@
 # Read each companyfacts filing in its own currency and the series in its latest annual report's; a USD figure beside a filing's own currency is a convenience translation
 
-Date: 2026-10-16, per-filing pick, stale-payload guard, convergence and the filing-currency switch rule 2026-10-24   Area: sec (financial facts)
+Date: 2026-10-16, per-filing pick, stale-payload guard, convergence and the filing-currency switch rule 2026-10-24, gated to syncs involving another currency 2026-10-25   Area: sec (financial facts)
 
 **Context**: The companyfacts ingest read only `units["USD"]` (and `USD/shares`) for every concept.
 A US-GAAP filer that reports in CNY (the Alibaba shape) also tags each 20-F's own year again as a
@@ -40,6 +40,17 @@ loads no Settings, ORM or EDGAR code when it runs. Carry the picked unit on ever
 calculation built from it, and treat "additive" as "a currency amount" (`is_amount_unit`), not as
 "USD".
 
+Run the stored-row correction below only where a sync involves a currency other than USD
+(`_another_currency`: the payload's series, or the own currency it reads for a filing, or a stored
+amount or per-share row of the batch's concepts, current or not, is in another). A sync in USD alone
+is main's: the upsert protects nothing and the currency step returns before touching a row. Run on
+every sync, its edge cases reached every USD filer to fix one non-USD filer's, and showed wrong numbers
+where main was right (a free cash flow under the older filing's accession, dated by its newer
+operand, went current over the newer filing's own, which main kept).
+Count rows that are not current too: the vote reads them, and a row the step demoted keeps it
+running until a sync converges the key; reading current rows only left a misvoted filing's demoted
+restatement behind for good once its convenience rows were demoted.
+
 `is_latest` is kept per unit, so the companyfacts writer corrects stored rows itself
 (`demote_convenience_rows`), at any key with a fiscal period, whatever a row's source or filing,
 for a USD series too, and never deletes one. It reads the payload's own view (`payload_view`): the
@@ -66,22 +77,27 @@ each superseded figure the reviews found current after a fresh sync. So at every
 presents in an amount or per-share unit, the writer makes the batch's own row there (same unit and
 accession) the one current row and demotes every other there (`_promote_batch_rows`), whichever sync
 or writer left the key so, outside four cases: a key where a protected row of the sync's view sits,
-current or not (below), which holds the newest protected row instead; a key where a current row is of
-a filing filed strictly after the batch row's own (its Filing row's date, else its provenance
-`filed_at`; the batch row's from the payload), left as found; a quarantined row (provenance
+current or not (below), which holds the newest protected row instead; a key where a row of a filing
+filed strictly after the batch row's own filing was current, left as found; a quarantined row (provenance
 `unavailable`, any reason), never made current, and a quarter whose unlabelled twin in that unit is
 current (the bulk writer's NULL-period rule), both left as found; and a proven switch, which promotes
-nothing. Never let the convergence override the upsert's filing-date rule: the collector takes a
+nothing. Date every row by its own filing (`_filed`: its Filing row, else its filing's `filed` in the
+payload, else its provenance `filed_at`), never a calculation by its latest operand: a free cash flow
+under K23's accession whose capex was K24's carried K24's date and went current over K24's own. Hold
+the rule where the upsert inserts too: its own rule reads Filing rows only and demoted a newer
+companyfacts row, so the sync passes it such rows to keep (`Guard.later`). Never let the convergence
+override that newer-filing rule: the collector takes a
 period from the first registry tag with data, not from the latest filing, so where a newer filing
 restates a period only under a lower-priority tag (revenue moving from the ASC 606 element to
 `Revenues`, diluted EPS to `EarningsPerShareBasicAndDiluted` across a split), the batch's winner is
-the older filing's figure. Making it current over the newer filing's per-filing row read a USD
-filer's FY2024 revenue growth +20.0% where the filer's restatement gives +14.3%, and EPS growth -40%
+the older filing's figure. Making it current over the newer filing's per-filing row read a filer's
+FY2024 revenue growth +20.0% where the filer's restatement gives +14.3%, and EPS growth -40%
 where it gives +20%, at every later sync, with the newer filing's margin beside the older revenue. A
 sync whose payload names every stored filing then leaves each key it presents to its payload's
 winner or to a newer filing's current row, whatever came before; check that by row, not by currency
-or count (the tests' `_checked_sync` asserts which row in every sync outside a switch, and that no
-presented key yields a current row with a later Filing date). Before widening or narrowing a
+or count (the tests' `_checked_sync` asserts which row in every sync outside a switch, that no
+presented key yields a row of a later filing current before the sync, and main's contract for a sync
+in USD alone; `test_a_usd_only_sync_is_mains` runs the USD shapes). Before widening or narrowing a
 promotion, read every writer that sets `is_latest=False` and check that none leaves such a key empty
 on purpose.
 
@@ -99,11 +115,13 @@ currency, a ratio not computed from another currency's operands, a share count) 
 no switch (below). The ids go into the upsert, which stores the batch's row behind one as behind a
 known newer filing, and into the currency step, which demotes one only for a newer one, demotes any
 other amount, per-share or ratio row current beside it, and at a key where one sits, current or not,
-presented or not, makes the newest one (latest filed, then by id) the one current row of its kind:
+presented or not, makes the newest one (latest filed, then the higher accession, as the writers
+break a same-day tie, then by id) the one current row of its kind:
 behind a later convenience translation this sync demotes, behind the original's row the per-filing
 writer stored it behind, or behind the batch's own new row the upsert stored current, the newest
 filing's own figure is shown. Where that newest row is quarantined, or a current unlabelled twin
-holds the quarter, the key is left as found and the sync's own insert there is demoted (a gap). A
+holds the quarter, the key is left as found and only the sync's own insert there is demoted: a gap
+where nothing was current, and a row current there before stays. A
 guard on the currency step alone is not enough: the upsert's own demotion is per (concept, period,
 unit), a ratio's unit is the same in every currency, and the upsert counts a protected row as newer
 only while it is current. Leaving a held key as found showed the original's superseded 1200 until
@@ -194,7 +212,7 @@ filing's stored amount rows, each counted once per concept and period, current o
 most, or more of them are in the sync's currency than in any other (all of them, where an earlier
 sync stored only its convenience rows), or it holds no amount row (per-share rows do not vote); at a
 key the batch presents it stays so only as the newest protected row there, which the sync makes
-current, or as a row of a filing filed after the batch row's. Where it names another currency than
+current, or as a row of a filing filed strictly after the batch row's. Where it names another currency than
 those items, the filing's rows in the sync's currency are demoted: a gap at a key the batch does not
 present, and at one it presents from an older filing that older figure, a wrong number (a probe's
 USD 10-Q whose picks read net income and cash flow in EUR left Q1 2024 revenue at the original 250
@@ -204,18 +222,24 @@ closed: nothing stored tells them from the common case they share a key with, an
 report's convenience translation demoted beside a newer filing's own row, where a gap would lose a
 right figure.
 
-After a sync whose payload names every stored filing, an older figure remains in two places. Where a
-newer named filing's row is not current at a key whose batch winner is an older filing's under the
+After a sync whose payload names every stored filing, an older figure remains in three places. Where
+a newer named filing's row is not current at a key whose batch winner is an older filing's under the
 first-tag priority (the per-filing writer's own rule stores it behind an undated companyfacts row,
-where the older filings have no Filing rows), the older figure stays current, as on main. And ratios
-do not converge: a margin at a period whose amounts moved to another filing's rows keeps its
-calculation, so in that shape the newer filing's margin sits beside the older filing's revenue.
+where the older filings have no Filing rows), the older figure stays current, as on main. Where a
+quarantined row or a current unlabelled twin leaves a key as found, the row current there stays. And
+ratios do not converge: a margin at a period whose amounts moved to another filing's rows keeps its
+calculation, so in that shape the newer filing's margin sits beside the older filing's revenue. A
+filer in USD alone keeps main's convergence gaps (E197): an amendment the per-filing writer stored
+behind its original's companyfacts row stays behind, a newer filing's restatement under a
+lower-priority tag stays behind where the older filings have no Filing rows, and a lagging payload's
+insert replaces a newer row dated by its provenance alone, each for good.
 
 **Evidence**: `backend/app/services/facts/currency.py`;
 `backend/app/services/facts/companyfacts.py::_collect_companyfacts_concepts`;
 `backend/app/services/facts/quarterly.py`; `backend/app/services/facts/derive.py`;
 `backend/app/services/facts/ingest.py::_persist_companyfacts_payload`;
 `backend/tests/unit/test_companyfacts_ingest.py` (`TestNativeReportingCurrency`,
-`TestFilingCurrencies`, `TestNativeReportingCurrencySync`); the peer panel's currency guard in
+`TestFilingCurrencies`, `TestNativeReportingCurrencySync`, whose `test_a_usd_only_sync_is_mains` and
+currency-parametrized tests hold the USD-only gate); the peer panel's currency guard in
 `backend/app/services/peers_service.py`; #1365 (the list-level pick); F61 call 3 (the per-filing
 pick).
