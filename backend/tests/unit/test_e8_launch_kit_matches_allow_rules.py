@@ -14,11 +14,14 @@ covers the prefix alone or followed by a space and anything; any other ``*`` mat
 ``Bash(*)`` is the blanket rule; a pattern without ``*`` matches only itself. The gate fails when:
 
 - an allow entry is not one of the seven pinned narrow rules or the three exact Ops readback rules (whose
-  exact presence ``test_ops_readback_allow_rules.py`` pins, F51), or one of the seven is missing (so a
-  blanket ``Bash(*)`` or any wildcard beyond a trailing ``:*`` fails), an allow rule contains a shell
-  variable, or an allow rule names a repository script that does not exist;
-- any command in one of the kit's ``sh`` blocks is not covered by an allow rule, is covered by a
-  deny or ask rule, or carries a variable, a command separator (``&``, ``;``, ``|``), a
+  exact presence ``test_ops_readback_allow_rules.py`` pins, F51), so a blanket ``Bash(*)`` or any wildcard
+  beyond a trailing ``:*`` fails; while the kit is parked (its ``> **Parked.**`` banner), one of the seven is in
+  the allow list, since a session must not hold a parked programme's rules (they run Python the approval guard
+  cannot read; retired on 2026-10-25); once the banner is gone, one of the seven is missing, so resuming E8
+  restores all seven in the change that lifts the banner; an allow rule contains a shell variable, or an allow
+  rule names a repository script that does not exist;
+- any command in one of the kit's ``sh`` blocks is not covered by an allow rule (once the kit is resumed), is
+  covered by a deny or ask rule, or carries a variable, a command separator (``&``, ``;``, ``|``), a
   redirection (``<``, ``>``) or a backtick, any of which takes it outside its rule
   (separators per the same docs page);
 - a fenced block uses an info string other than ``sh``, ``text`` or ``json``, or an interpreter
@@ -76,6 +79,15 @@ KIT = REPO_ROOT / "tasks" / "fable-e8-launch-kit.md"
 CONTAINER_REPO = "/home/user/EarningsNerd"
 # The permission route is these seven narrow rules and nothing else (handover section 4). A wider
 # allow set, such as a blanket Bash(*), would let the gate certify unrestricted shell execution.
+# The kit's banner while E8 is parked: its seven rules then stay out of the allow list (the resumed state is checked
+# whole in memory, so lifting the banner and restoring the rules is one change the gate already knows).
+PARKED_BANNER = re.compile(r"^> \*\*Parked\.\*\*", re.MULTILINE)
+
+
+def parked(markdown: str) -> bool:
+    return bool(PARKED_BANNER.search("\n".join(markdown.splitlines()[:10])))
+
+
 EXPECTED_ALLOW_RULES = (
     "Bash(python3 tasks/fable-e8-repin-2026-09-22/build_repin.py:*)",
     "Bash(python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py:*)",
@@ -254,12 +266,19 @@ def _sh_commands(lines: list[str]) -> list[str]:
     return commands
 
 
-def rule_problems(settings: dict) -> list[str]:
-    """Every way the allow rules are unfit: not the pinned set, variables, wildcards, or missing scripts."""
+def rule_problems(settings: dict, is_parked: bool | None = None) -> list[str]:
+    """Every way the allow rules are unfit: not the pinned set, a parked kit's rule present or a resumed kit's
+    missing, variables, wildcards, or missing scripts. The kit's banner says which state applies by default."""
+    if is_parked is None:
+        is_parked = parked(KIT.read_text())
     allow = settings.get("permissions", {}).get("allow", [])
     pinned = EXPECTED_ALLOW_RULES + OPS_READBACK_ALLOW_RULES  # the F51 rules are exact and pinned by their own gate
     problems = [f"allow entry is not one of the pinned launch-kit or Ops readback rules: {entry}" for entry in allow if entry not in pinned]
-    problems += [f"pinned launch-kit allow rule is missing: {entry}" for entry in EXPECTED_ALLOW_RULES if entry not in allow]
+    if is_parked:
+        problems += [f"E8 is parked, so its allow rule stays out until it resumes: {entry}" for entry in EXPECTED_ALLOW_RULES
+                     if entry in allow]
+    else:
+        problems += [f"pinned launch-kit allow rule is missing: {entry}" for entry in EXPECTED_ALLOW_RULES if entry not in allow]
     for pattern, _ in _bash_rules(allow):
         if "$" in pattern:
             problems.append(f"allow rule carries a shell variable, which can never match: {pattern}")
@@ -295,8 +314,9 @@ def kit_problems(markdown: str, settings: dict) -> list[str]:
                 problems.append(f"command outside an sh block at kit line {first_line + offset}: {raw.strip()}")
     if not commands:
         problems.append("the kit has no commands in sh blocks")
+    resting = parked(markdown)  # a parked kit's rules are retired; a resumed kit needs each command covered
     for command in commands:
-        if not _covered(command, allowed):
+        if not resting and not _covered(command, allowed):
             problems.append(f"no allow rule covers: {command}")
         if _covered(command, blocked):
             problems.append(f"a deny or ask rule covers: {command}")
@@ -398,6 +418,35 @@ def test_script_path_resolves_repository_paths_in_every_rule_form() -> None:
     assert not absent.exists()
 
 
+def _resumed(markdown: str) -> str:
+    """The kit as resuming E8 would leave it: the parked banner lifted."""
+    lines = markdown.splitlines(keepends=True)
+    return "".join(line for index, line in enumerate(lines) if not (index < 10 and PARKED_BANNER.match(line)))
+
+
+def _resumed_settings() -> dict:
+    """The settings as resuming E8 would leave them: the seven kit rules restored beside the Ops readback rules."""
+    settings = _settings()
+    settings["permissions"]["allow"] = list(EXPECTED_ALLOW_RULES) + [
+        entry for entry in settings["permissions"]["allow"] if entry not in EXPECTED_ALLOW_RULES]
+    return settings
+
+
+def test_e8_is_parked_and_its_allow_rules_are_retired() -> None:
+    assert parked(KIT.read_text()), "the kit lost its Parked banner: restore the seven allow rules in the same change"
+    allow = _settings()["permissions"]["allow"]
+    assert not set(EXPECTED_ALLOW_RULES) & set(allow)
+
+
+def test_resuming_e8_restores_its_seven_rules_with_the_banner() -> None:
+    kit, settings = _resumed(KIT.read_text()), _resumed_settings()
+    assert not parked(kit) and kit != KIT.read_text()
+    assert rule_problems(settings, is_parked=False) == [] and all_problems(kit, settings) == []
+    assert rule_problems(_settings(), is_parked=False), "a resumed kit without its rules was accepted"
+    assert kit_problems(kit, _settings()), "a resumed kit whose commands no rule covers was accepted"
+    assert rule_problems(settings, is_parked=True), "a parked kit with its rules still allowed was accepted"
+
+
 def test_every_kit_command_is_covered_by_an_allow_rule_and_the_probe_comes_first() -> None:
     problems = all_problems(KIT.read_text(), _settings())
     assert problems == [], (
@@ -496,6 +545,7 @@ def test_gate_rejects_kit_evasion(name: str, mutate) -> None:
     mutated = mutate(original)
     assert mutated != original, f"evasion {name!r} did not change the kit text"
     assert all_problems(mutated, _settings()), f"the gate accepted the {name!r} evasion"
+    assert all_problems(_resumed(mutated), _resumed_settings()), f"the gate accepted the {name!r} evasion once resumed"
 
 
 RULE_EVASIONS = [
@@ -525,14 +575,18 @@ RULE_EVASIONS = [
 
 @pytest.mark.parametrize(("name", "key", "entry"), RULE_EVASIONS, ids=[name for name, _, _ in RULE_EVASIONS])
 def test_gate_rejects_rule_evasion(name: str, key: str, entry: str) -> None:
-    settings = _settings()
-    settings["permissions"].setdefault(key, []).append(entry)
-    assert rule_problems(settings) or kit_problems(KIT.read_text(), settings), f"the gate accepted {name!r}"
+    for kit, settings, is_parked in ((KIT.read_text(), _settings(), True), (_resumed(KIT.read_text()), _resumed_settings(), False)):
+        settings["permissions"].setdefault(key, []).append(entry)
+        assert rule_problems(settings, is_parked) or kit_problems(kit, settings), f"the gate accepted {name!r}"
 
 
 def test_gate_rejects_a_missing_pinned_allow_rule_and_a_blanket_replacement() -> None:
-    settings = _settings()
+    settings = _resumed_settings()
     settings["permissions"]["allow"].remove(EXPECTED_ALLOW_RULES[2])
-    assert rule_problems(settings) and kit_problems(KIT.read_text(), settings)
+    assert rule_problems(settings, is_parked=False) and kit_problems(_resumed(KIT.read_text()), settings)
     settings["permissions"]["allow"] = ["Bash(*)"]
-    assert rule_problems(settings), "a blanket allow set covering every command was accepted"
+    assert rule_problems(settings, is_parked=False), "a blanket allow set covering every command was accepted"
+    assert rule_problems({"permissions": {"allow": ["Bash(*)"]}}, is_parked=True), "a blanket allow set was accepted while parked"
+    parked_with_one = _settings()
+    parked_with_one["permissions"]["allow"].append(EXPECTED_ALLOW_RULES[2])
+    assert rule_problems(parked_with_one, is_parked=True), "a parked kit's rule left in the allow list was accepted"

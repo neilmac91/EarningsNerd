@@ -1,6 +1,6 @@
 # E8 judging session — launch kit, revision 3 (2026-09-23, after the readiness review)
 
-> **Parked.** E8 judging is parked while E7 progresses ([continuation plan of 26 September](continuation-plan-2026-09-26.md)). This kit applies only if the founder resumes E8; until then it is not a launch instruction.
+> **Parked.** E8 judging is parked while E7 progresses ([continuation plan of 26 September](continuation-plan-2026-09-26.md)). This kit applies only if the founder resumes E8; until then it is not a launch instruction. Its seven allow rules are retired from `.claude/settings.json` while it is parked (founder decision, 2026-10-25); resuming E8 restores them in the change that removes this banner, as `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py` requires.
 
 Supersedes the 22 September upload `E8-SESSION-PROMPT.md` (SHA-256 `600d012b…6cf4e`), whose
 eight steps it keeps in substance, and revision 2, whose nine attachments, fixed values, hashes
