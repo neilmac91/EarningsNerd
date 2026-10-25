@@ -40,8 +40,11 @@ import {
 import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, ImageSquareIcon } from '@/lib/icons'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import analytics from '@/lib/analytics'
-import { fmtCurrency, fmtPercent, formatInstant } from '@/lib/format'
+import { formatInstant } from '@/lib/format'
 import { chartDataNotes, exportFilename, exportPanelPng } from '@/features/analysis/lib/chartExport'
+import { textWidth } from '@/features/analysis/lib/charts/layout'
+import { AXIS_CAPS, chartCurrency, MIXED_CURRENCY } from '@/features/analysis/lib/charts/model'
+import { valueAxis } from '@/features/analysis/lib/charts/scale'
 import {
   ANNUAL_AXIS_HEIGHT,
   PeriodAxisTick,
@@ -60,8 +63,20 @@ import { topLineConcept } from '@/features/analysis/lib/reportPresentation'
 const bySeries = (dataset: AnalysisDataset): Record<string, AnalysisSeries> =>
   Object.fromEntries(dataset.series.map((s) => [s.concept, s]))
 
-const compactUsd = (v: number) => fmtCurrency(v, { compact: true })
-const pct = (v: number) => fmtPercent(v, { digits: 1 })
+/** A y-axis from the chart engine (A1, A2): zero-anchored ticks on the densest legal grid under the panel's cap, one
+ *  unit, the filer's currency. Percent axes take every value: Recharts cannot print a clipped value at the plot edge,
+ *  so none is clipped (A3 waits for the engine's own renderer). */
+type EngineAxis = ReturnType<typeof valueAxis>
+
+/** Wide enough for the axis's longest tick label (11 px data face, 0.6 em a glyph) and its 8 px margin. */
+const axisWidth = (axis: EngineAxis, min: number) =>
+  Math.max(min, Math.ceil(Math.max(0, ...axis.ticks.map((tick) => textWidth(axis.format.tick(tick))))) + 12)
+
+/** A tooltip prints the axis's own formats: amounts at the panel's 3 significant figures, percents at 1 dp. */
+const tooltipValue = (axis: EngineAxis, value: number) => (axis.format.kind === 'money' ? axis.format.value(value) : axis.format.value(value, 1))
+
+const numbersIn = (rows: Record<string, string | number | null>[], keys: string[]) =>
+  rows.flatMap((row) => keys.map((key) => row[key]).filter((value): value is number => typeof value === 'number'))
 
 // The bar panel's series→(label, color) pairing — ONE definition referenced by both the legend
 // and the plotted Bar/Line JSX, so the swatches can never drift from what's actually drawn.
@@ -69,15 +84,6 @@ const BAR_COLOR = seriesColor(0)
 const GROWTH_LINE_COLOR = seriesColor(1)
 const GROWTH_LINE_LABEL = 'YoY growth'
 const MAX_BAR_SIZE = 44
-
-// Dual-axis sanity (P1-8): anchor BOTH value axes to zero so the two independent scales share a
-// baseline — a right-axis series sitting near its own min can't read as "at the bottom" when it is
-// really a large positive number, and a sign change stays visible. Recharts calls these with the
-// series' own dataMin/dataMax, so each axis still auto-scales the far end.
-const ZERO_ANCHORED_DOMAIN: [(min: number) => number, (max: number) => number] = [
-  (dataMin) => Math.min(0, dataMin),
-  (dataMax) => Math.max(0, dataMax),
-]
 
 /** A panel's series legend: swatch + label per line, mirroring ChartTooltip's own swatch recipe
  *  (8×8 square, 2px radius) so a multi-line panel's series are identifiable without hovering.
@@ -265,7 +271,9 @@ interface PanelSpec {
   bar?: [string, string]
   /** Right-axis growth line derived from the bar concept's yoy. */
   growthLine?: boolean
-  format: (v: number) => string
+  /** Amounts or percents, and A1's interval caps: the left (or only) axis's, and the right axis's. */
+  kind: 'money' | 'percent'
+  caps: { left: number; right?: number }
 }
 
 /** Icon-only panel-header control. `secondary` (hairline border + resting surface), 32px hit
@@ -370,6 +378,25 @@ function PanelCard({
     }
     return row
   })
+  // The axes, from the engine. A panel's amounts share one currency, or the chart says so instead of drawing.
+  const currency = panel.kind === 'money' ? chartCurrency(dataset, plottedSeries.map((s) => s.concept)) : { currency: null, mixed: false }
+  const leftEntries = lineEntries.filter((entry) => !(dualAxis && entry.right))
+  // A lone right-axis series (equity without debt or cash) sits on the left axis with its own cap.
+  const leftCap = !barSeries && leftEntries.every((entry) => entry.right) ? panel.caps.right ?? panel.caps.left : panel.caps.left
+  const leftAxis = valueAxis(numbersIn(data, barSeries ? [barSeries.concept] : leftEntries.map((entry) => entry.concept)), leftCap, panel.kind, currency.currency)
+  const growthAxis = valueAxis(numbersIn(data, ['growth']), panel.caps.right ?? AXIS_CAPS.growth, 'growth')
+  const rightAxis = dualAxis && rightEntry ? valueAxis(numbersIn(data, [rightEntry.concept]), panel.caps.right ?? panel.caps.left, panel.kind, currency.currency) : null
+  const axisOf = (dataKey: string) => (dataKey === 'growth' ? growthAxis : rightAxis && dataKey === rightEntry?.concept ? rightAxis : leftAxis)
+  if (currency.mixed) {
+    // No one scale can carry two currencies, and no amount is ever printed as dollars by default.
+    return (
+      <Card as="section" className="min-w-0 p-cap-5">
+        <h2 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{panel.title}</h2>
+        <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">{MIXED_CURRENCY}</p>
+      </Card>
+    )
+  }
+
   const chartNotes: ChartNoteDatum[] = data.flatMap((row): ChartNoteDatum[] => {
     const period = String(row.period)
     if (barSeries) {
@@ -385,14 +412,11 @@ function PanelCard({
     })
   })
 
-  // Route by SERIES, not by value magnitude: the growth line always formats as a percent and
-  // everything else with the panel's formatter — a micro-cap's $850 bar or a +1,400% growth
-  // spike must never fall through a magnitude heuristic to the wrong formatter.
-  const formatTooltip = (v: number | string | undefined, growth: boolean) => {
+  // Route by SERIES, not by value magnitude: each value prints in its own axis's format, so a micro-cap's
+  // $850 bar or a +1,400% growth spike never falls through a magnitude heuristic to the wrong one.
+  const formatTooltip = (v: number | string | undefined, dataKey: string) => {
     const num = Number(v)
-    if (!Number.isFinite(num)) return String(v ?? '')
-    if (growth) return pct(num)
-    return panel.format(num)
+    return Number.isFinite(num) ? tooltipValue(axisOf(dataKey), num) : String(v ?? '')
   }
 
   const renderTooltip = ({ active, label, payload, coordinate }: TooltipContentProps) => (
@@ -408,7 +432,7 @@ function PanelCard({
           return {
             name: `${entry.name ?? ''}${note ? ` · note ${note.letter}` : ''}`,
             // Format by the original data key before the display name gains a note letter.
-            value: formatTooltip(typeof entry.value === 'number' ? entry.value : String(entry.value ?? ''), growth),
+            value: formatTooltip(typeof entry.value === 'number' ? entry.value : String(entry.value ?? ''), String(entry.dataKey ?? '')),
             color: entry.color,
           }
         })}
@@ -526,13 +550,17 @@ function PanelCard({
                 tick={<PeriodAxisTick mode={dataset.mode} dark={dark} />}
                 label={periodAxisLabel(dataset.mode, dark)}
               />
-              <YAxis yAxisId="value" {...yAxisProps(dark)} width={64} tickFormatter={panel.format} />
+              <YAxis yAxisId="value" {...yAxisProps(dark)} width={axisWidth(leftAxis, 64)}
+                domain={leftAxis.domain} ticks={leftAxis.ticks} interval={0} tickFormatter={leftAxis.format.tick} />
               <YAxis
                 yAxisId="growth"
                 orientation="right"
                 {...yAxisProps(dark)}
-                width={48}
-                tickFormatter={(v: number) => pct(v)}
+                width={axisWidth(growthAxis, 48)}
+                domain={growthAxis.domain}
+                ticks={growthAxis.ticks}
+                interval={0}
+                tickFormatter={growthAxis.format.tick}
               />
               <Tooltip
                 cursor={barCursorProps(dark)}
@@ -587,18 +615,22 @@ function PanelCard({
               <YAxis
                 yAxisId="left"
                 {...yAxisProps(dark)}
-                width={64}
-                tickFormatter={panel.format}
-                {...(dualAxis ? { domain: ZERO_ANCHORED_DOMAIN } : {})}
+                width={axisWidth(leftAxis, 64)}
+                domain={leftAxis.domain}
+                ticks={leftAxis.ticks}
+                interval={0}
+                tickFormatter={leftAxis.format.tick}
               />
-              {dualAxis && rightEntry && (
+              {rightEntry && rightAxis && (
                 <YAxis
                   yAxisId="right"
                   orientation="right"
                   {...yAxisProps(dark)}
-                  width={64}
-                  tickFormatter={panel.format}
-                  domain={ZERO_ANCHORED_DOMAIN}
+                  width={axisWidth(rightAxis, 64)}
+                  domain={rightAxis.domain}
+                  ticks={rightAxis.ticks}
+                  interval={0}
+                  tickFormatter={rightAxis.format.tick}
                   // The right axis is the ONE colored scale: a 2px spine + tick nibs in its single
                   // series' hue bind that line to this scale by color, and the head-tag names it.
                   // Tick NUMBERS stay neutral (yAxisProps' tick fill, spread first) — no top-level
@@ -661,7 +693,8 @@ export default function TrendCharts({
       lines: [],
       bar: [topLine, series[topLine]?.label ?? 'Top line'],
       growthLine: true,
-      format: compactUsd,
+      kind: 'money',
+      caps: { left: AXIS_CAPS.topline, right: AXIS_CAPS.growth },
     },
     {
       title: 'Margins',
@@ -670,20 +703,21 @@ export default function TrendCharts({
         ['operating_margin', 'Operating'],
         ['net_margin', 'Net'],
       ],
-      format: pct,
+      kind: 'percent',
+      caps: { left: AXIS_CAPS.margins },
     },
     {
-      // Net income and the cash flows can diverge by an order of magnitude (a bank's operating CF
-      // swings on trading/deposit flows while net income stays comparatively small), so net income
-      // gets its own right axis to stay readable — same rationale as equity on the balance sheet.
+      // One axis (spec D1, D4): operating cash flow and net income are a median 1.5× apart, and a
+      // second scale drew 29% of the pairs in the wrong order (REGN's FY2025 free cash flow, $4.08B,
+      // above its $4.50B net income). Only JPM's quarterly window passes 10×.
       title: 'Cash generation',
       lines: [
         ['operating_cash_flow', 'Operating CF'],
         ['free_cash_flow', 'Free cash flow'],
         ['net_income', 'Net income'],
       ],
-      rightAxis: 'net_income',
-      format: compactUsd,
+      kind: 'money',
+      caps: { left: AXIS_CAPS.cash },
     },
     {
       // Equity routinely dwarfs debt/cash — a right axis keeps the smaller series readable
@@ -696,7 +730,8 @@ export default function TrendCharts({
         ['cash_and_equivalents', 'Cash'],
       ],
       rightAxis: 'shareholders_equity',
-      format: compactUsd,
+      kind: 'money',
+      caps: { left: AXIS_CAPS.debtcash, right: AXIS_CAPS.equity },
     },
   ]
 

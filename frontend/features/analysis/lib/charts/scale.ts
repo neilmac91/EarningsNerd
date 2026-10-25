@@ -160,6 +160,14 @@ export function moneyFormat(values: number[], step: number, ticks: number[], cur
   }
 }
 
+/** A1 and A2 over the values given: an axis's domain, ticks and formats. The engine's own percent panels clip their
+ *  outliers first (A3); a renderer that cannot print a clipped value at the plot edge (A3b) passes every value, so
+ *  nothing is hidden. Today's Recharts charts do. */
+export function valueAxis(values: number[], cap: number, kind: AxisFormat['kind'], currency: string | null = null): NiceAxis & { format: AxisFormat } {
+  const axis = niceAxis(values, cap)
+  return { ...axis, format: kind === 'money' ? moneyFormat(values, axis.step, axis.ticks, currency) : percentFormat(axis.step, kind === 'growth') }
+}
+
 /** Two significant figures in the value's own unit, for a near-zero bar's label (A13b): "−$3.6M",
  *  "$85M", "$997K". */
 export function compactMoney(value: number, currency: string | null): string {
