@@ -206,7 +206,7 @@ def _stub_generate(harness: Any, monkeypatch: pytest.MonkeyPatch, snapshot: str)
     monkeypatch.setattr(generate, "system_prompt", lambda arm_name: "the prompt")
     monkeypatch.setattr(generate, "user_message", lambda pack: "the pack")
 
-    async def repair(arm: Any, system: str, user: str, record: dict[str, Any], pack: Any, tag: str) -> None:
+    async def repair(arm: Any, system: str, user: str, record: dict[str, Any], pack: Any, tag: str, checkpoint: Any = None) -> None:
         events.append("repair")
         record.pop("repair_error")
 
@@ -228,8 +228,7 @@ def test_generate_retries_only_a_failed_repair_on_the_same_prompt_and_pack(harne
     assert events == ["repair"] and "repair_error" not in record and record["attempts"] == [{"attempt": 0, "cost_usd": 0.2}]
 
 
-@pytest.mark.parametrize("failed", [{"repair_error": "APIConnectionError", "snapshot_id": "s0"},  # the pack was rebuilt
-                                    {"error": "RateLimitError", "generation_ok": False}])
+@pytest.mark.parametrize("failed", [{"error": "RateLimitError", "generation_ok": False}])  # a rebuilt pack: label_conflicts
 def test_a_regenerated_record_keeps_the_calls_of_the_one_it_replaced(harness: Any, monkeypatch: pytest.MonkeyPatch,
                                                                      failed: dict[str, Any]) -> None:
     events = _stub_generate(harness, monkeypatch, "s1")
@@ -485,14 +484,15 @@ def test_the_report_shows_unjudged_pairs_when_none_was_judged(harness: Any) -> N
     assert "has changed since: 1" in text
 
 
-def test_a_first_pass_from_another_prompt_is_regenerated_not_repaired(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_first_pass_from_another_prompt_is_refused_not_repaired(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     sent = _real_generate(harness, monkeypatch, [_result('{"sections": []}', 0.1)], [True])
     _first_pass(harness)
-    record = json.loads((harness.generate.RUNS / LABEL / "deepseek-flash" / f"{TICKER}.json").read_text())
-    _write(harness.generate.RUNS / LABEL / "deepseek-flash" / f"{TICKER}.json", {**record, "prompt_sha256": "another prompt"})
-    asyncio.run(harness.generate.run(LABEL, ["deepseek-flash"], [TICKER], 1))
-    record = json.loads((harness.generate.RUNS / LABEL / "deepseek-flash" / f"{TICKER}.json").read_text())
-    assert sent == ["the pack"] and record["prior_attempts"] == [{"attempt": 0, "cost_usd": 0.2}] and "repair_error" not in record
+    path = harness.generate.RUNS / LABEL / "deepseek-flash" / f"{TICKER}.json"
+    _write(path, {**json.loads(path.read_text()), "prompt_sha256": "another prompt"})
+    before = path.read_text()
+    with pytest.raises(SystemExit, match="test/deepseek-flash/T was made with prompt sha256 another prom"):
+        asyncio.run(harness.generate.run(LABEL, ["deepseek-flash"], [TICKER], 1))  # a label holds one build of an arm
+    assert sent == [] and path.read_text() == before
 
 
 def test_a_models_own_failure_is_kept_not_bought_again(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -625,7 +625,7 @@ def test_each_arm_generates_from_its_own_prompt_and_pack(harness: Any, monkeypat
     assert (record["packs"], record["pack_sha256"], record["snapshot_id"]) == (folder, pack_sha256(packs[folder]), "s1")
 
 
-@pytest.mark.parametrize("built, expected", [("now", ["repair"]), ("before a rebuild", ["generate"])])
+@pytest.mark.parametrize("built, expected", [("now", ["repair"]), ("before a rebuild", [])])
 def test_a_repair_is_retried_only_on_the_pack_build_its_first_pass_read(harness: Any, monkeypatch: pytest.MonkeyPatch,
                                                                          built: str, expected: list) -> None:
     events = _stub_generate(harness, monkeypatch, "s1")  # packs-v2 rebuilt in place keeps its snapshot_id
@@ -633,7 +633,11 @@ def test_a_repair_is_retried_only_on_the_pack_build_its_first_pass_read(harness:
     _generation(harness, "deepseek-flash-c", repair_error="APIConnectionError", snapshot_id="s1",
                 prompt_sha256=hashlib.sha256(b"the prompt").hexdigest(), attempts=[{"attempt": 0, "cost_usd": 0.2}],
                 pack_sha256=pack_sha256(pack) if built == "now" else "an earlier build of packs-v2")
-    asyncio.run(harness.generate.run(LABEL, ["deepseek-flash-c"], [TICKER], 1))
+    if expected:
+        asyncio.run(harness.generate.run(LABEL, ["deepseek-flash-c"], [TICKER], 1))
+    else:  # neither repaired nor regenerated: the label refuses a second build of the arm
+        with pytest.raises(SystemExit, match="was made from evidence pack sha256 an earlier b"):
+            asyncio.run(harness.generate.run(LABEL, ["deepseek-flash-c"], [TICKER], 1))
     assert events == expected
 
 
