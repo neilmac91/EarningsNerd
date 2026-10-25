@@ -346,6 +346,10 @@ def test_charts_v2_job_is_the_e2e_build_with_its_flag_set():
     for spec in ("charts-v2", "charts-v2-gallery", "chart-export-fidelity", "analysis-teaser-window"):
         assert f"tests/e2e/{spec}.spec.ts" in run["run"], spec
     assert "tests/e2e/text-floors.spec.ts -g 'analysis: muted ink'" in run["run"]
+    # A spec that reads the flag skips without it, in e2e-tests' build: this job is the only one that runs it.
+    flagged = sorted(path.name for path in (ROOT / "frontend/tests/e2e").glob("*.spec.ts") if "CHARTS_V2" in path.read_text())
+    assert flagged, "no spec reads the flag"
+    assert [name for name in flagged if f"tests/e2e/{name}" not in run["run"]] == []
     # A failing first run never hides the second: each records its status, and the step exits with either's failure.
     lines = [line.strip() for line in run["run"].strip().splitlines()]
     assert lines[0] == "status=0" and lines[-1] == "exit $status"

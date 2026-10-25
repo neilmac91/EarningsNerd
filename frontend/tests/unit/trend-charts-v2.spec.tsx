@@ -2,13 +2,14 @@
    trend-charts-v2.spec.tsx — the spec renderer (CHARTS_V2, E192) draws the engine's plan
    -----------------------------------------------------------------------------
    TrendChartSvg only paints what features/analysis/lib/charts plans, so these checks hold the DOM to the plan on every
-   fixture dataset and chart: the spec's DOM checks that need no layout engine (docs/design/analysis-trend-charts-spec-
-   2026-10.md §6: D4, D5, D7, D11, D12, D14), every printed string, and literal paint the PNG export can serialise. The
+   fixture dataset and chart, in both themes: the spec's DOM checks that need no layout engine (docs/design/analysis-
+   trend-charts-spec-2026-10.md §6: D3 on the plan's geometry, D4, D5, D7, D11, D12, D14), every printed string by its
+   role and ink (D6 on the plan; ./chartPlan.ts), and literal paint the PNG export can serialise. The
    card around it: the legend, footnotes, a chart that does not apply, the residual sentence, the export's header, the
    dark tokens, the expanded view, and the flag switch in TrendCharts. Reading a chart (E193): the values stop, its keys
    and edges, the tooltip and wash, Escape, the pointer and a tap, a new window, the sticky gutter and the subgrid. Text
-   boxes, collisions, the font (D1, D2, D8) and the reading contract's geometry need a browser:
-   tests/e2e/charts-v2.spec.ts.
+   boxes, collisions, the font and computed colours (D1, D2, D3, D5, D6, D8 on real metrics) need a browser:
+   tests/e2e/charts-v2-gallery.spec.ts, and the reading contract's geometry tests/e2e/charts-v2.spec.ts.
 ============================================================================= */
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
