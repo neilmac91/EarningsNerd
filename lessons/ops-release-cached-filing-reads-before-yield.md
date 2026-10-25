@@ -248,6 +248,20 @@ checks `is_revoked` as well as `used_at`, and one that waits behind the lock re-
 write commits; the same gate races it, its control redeeming the revoked invite without the check.
 `create_free_account`, a refusal, no longer takes a session of its own; its auth lookup's transaction is
 still left for the finalizer, as a 403's is (2026-10-25, E171).
+The summaries router's two exports (`export_summary_pdf`, `export_summary_csv`) ran their plan check (the
+reader's subscription read) and their summary and filing reads on the loop, on the connection the auth lookup
+had checked out, the PDF reading its company there too, and every export, refusal and 404 left its transaction
+for the finalizer: an export kept its connection through its build and render. Under eight readers on four
+slots, through the real auth dependency, eight exports ran 32 of their 40 statements on the loop, eight Free
+readers' refusals (403) 8 of 16, and eight 404s for a missing summary or a missing filing 16 of 24 and 24 of
+32. With the real WeasyPrint, one PDF export of a full summary held its connection 649 to 1,035 ms (ten
+exports), the length of its render, so four at once held each of an instance's four pooled connections that
+long. The plan check, both reads and the release are now one thread-pool unit the two routes share
+(`_summary_and_filing_for_export`); its rows come back detached with the filing's content cache and company
+loaded, and its 403 and 404s leave it after the release. The same PDF export holds its connection 2.5 to 6.4
+ms. The CSV's build (about 1 ms for that summary) and the PDF's HTML stay on the loop, with no connection out.
+Its burst case holds every checkout, statement and release off the loop and each answer, and its render case
+holds no connection while the PDF renders or the CSV builds (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
@@ -255,7 +269,7 @@ dashboard feed's unit composed on the loop, a route no burst lists, it fails whi
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
 rules, uses it. Its ceilings hold the routes that still use their session on the loop at
 their counts (the rest of the auth router, E121; the admin router's `refresh_stale_summaries` and the
-summaries router's generate stream and two exports, E171; four of those hand-offs, the header's strict
+summaries router's generate stream, E171; four of those hand-offs, the header's strict
 ones, use no connection on the loop), so none can add one in a
 form the ratchet counts and a new route starts at 0. Neither half
 sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called

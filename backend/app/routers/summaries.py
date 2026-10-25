@@ -738,6 +738,35 @@ async def get_what_changed(
     return report
 
 
+def _summary_and_filing_for_export(
+    db: Session, current_user: User, filing_id: int, refusal: str
+) -> tuple[Summary, Filing]:
+    """An export's unit: the plan check (its subscription read), the summary and filing lookups and the
+    release, in the thread pool, so no connection waits through the render after it (E171). The rows come
+    back detached with what an export reads loaded: their columns, and the filing's content cache and
+    company. ``refusal`` is the 403's detail for a plan without exports."""
+    try:
+        # Gate on the centralised entitlement (Subscription-derived, is_pro mirror as fallback).
+        if not get_entitlements(current_user).can_export:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=refusal)
+
+        summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
+        if not summary:
+            raise HTTPException(status_code=404, detail="Summary not found")
+
+        filing = (
+            db.query(Filing)
+            .options(joinedload(Filing.content_cache), joinedload(Filing.company))
+            .filter(Filing.id == filing_id)
+            .first()
+        )
+        if not filing:
+            raise HTTPException(status_code=404, detail="Filing not found")
+        return summary, filing
+    finally:
+        filing_list_service.release_request_session(db)
+
+
 @router.get("/filing/{filing_id}/export/pdf")
 async def export_summary_pdf(
     filing_id: int,
@@ -753,20 +782,10 @@ async def export_summary_pdf(
             detail="Authentication required"
         )
 
-    # Gate on the centralised entitlement (Subscription-derived, is_pro mirror as fallback).
-    if not get_entitlements(current_user).can_export:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="PDF export is a Pro feature. Upgrade to Pro to access this feature."
-        )
-
-    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-    if not summary:
-        raise HTTPException(status_code=404, detail="Summary not found")
-
-    filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
-    if not filing:
-        raise HTTPException(status_code=404, detail="Filing not found")
+    summary, filing = await run_in_threadpool(
+        _summary_and_filing_for_export, db, current_user, filing_id,
+        "PDF export is a Pro feature. Upgrade to Pro to access this feature.",
+    )
 
     try:
         pdf_bytes = await export_service.export_pdf(summary, filing)
@@ -799,20 +818,10 @@ async def export_summary_csv(
             detail="Authentication required"
         )
 
-    # Gate on the centralised entitlement (Subscription-derived, is_pro mirror as fallback).
-    if not get_entitlements(current_user).can_export:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="CSV export is a Pro feature. Upgrade to Pro to access this feature."
-        )
-
-    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-    if not summary:
-        raise HTTPException(status_code=404, detail="Summary not found")
-
-    filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
-    if not filing:
-        raise HTTPException(status_code=404, detail="Filing not found")
+    summary, filing = await run_in_threadpool(
+        _summary_and_filing_for_export, db, current_user, filing_id,
+        "CSV export is a Pro feature. Upgrade to Pro to access this feature.",
+    )
 
     try:
         csv_content = export_service.generate_csv(summary, filing)
