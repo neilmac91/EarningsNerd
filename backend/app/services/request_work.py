@@ -61,13 +61,25 @@ class RequestWork:
         futures = tuple(self._futures)
         for future in futures:
             future.cancel()  # succeeds only when the callable has not started
+        cancelled = False
         if futures:
-            with anyio.CancelScope(shield=True):
-                await asyncio.gather(
-                    *(asyncio.wrap_future(future) for future in futures),
-                    return_exceptions=True,
-                )
+            settled = asyncio.gather(
+                *(asyncio.wrap_future(future) for future in futures),
+                return_exceptions=True,
+            )
+            while True:
+                try:
+                    with anyio.CancelScope(shield=True):
+                        # AnyIO's shield alone does not intercept Task.cancel(). A second
+                        # asyncio cancellation must not cancel the gather and let the caller
+                        # reuse its Session while the actual SQL thread still owns it.
+                        await asyncio.shield(settled)
+                    break
+                except asyncio.CancelledError:
+                    cancelled = True
         self._futures.clear()
+        if cancelled:
+            raise asyncio.CancelledError
 
 
 @asynccontextmanager

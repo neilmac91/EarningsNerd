@@ -209,6 +209,8 @@ const DATE_HELPER_RULES = [
 //   - the sanctioned JS color mirrors (lib/motion.ts, lib/financialTone.ts, ui/Chart.tsx,
 //     features/analysis/lib/chartExport.ts) and the brand-mandated GoogleSignInButton skip the two
 //     color rules (tests/unit/designTokenParity.spec.ts checks the mirrors use only token hexes);
+//     so does features/analysis/lib/charts/theme.ts, the trend-chart spec renderer's mirror, which the
+//     parity spec checks too and tests/unit/chart-theme.spec.ts ties field by field to its tokens;
 //   - app/manifest.ts + app/layout.tsx declare the OS-facing theme colors (PWA manifest, <meta
 //     theme-color>), which have no Tailwind form, so they skip the hex rule only (the parity spec
 //     checks those hexes too) — added beyond §c's list, recorded in the PR;
@@ -226,7 +228,7 @@ const DATE_HELPER_RULES = [
 // ("PR #619") it is not. The mirrors above keep their exemption.
 const DESIGN_HEX_RULE = {
   selector: 'Literal[value=/#[0-9a-f]{6}|(?:rgba?|hsla?)\\(|\\[(?:[^\\]\\s]*[:_(,])?#[0-9a-f]{3,4}(?![0-9a-f])[^\\]\\s]*\\]|^#[0-9a-f]{3,4}$/i]',
-  message: 'Raw colour (hex, rgb[a]() or hsl[a]()): use a token (mirrors: motion.ts, financialTone, Chart, chartExport).',
+  message: 'Raw colour (hex, rgb[a]() or hsl[a]()): use a token (mirrors: motion.ts, financialTone, Chart, chartExport, charts/theme).',
 }
 // Every Tailwind palette name and every colour-bearing utility prefix, a side border (`border-l-`) and a ring
 // offset included (2026-10-24, the generating card's callout review: the rule had read six prefixes and
@@ -272,6 +274,8 @@ const DESIGN_COLOR_EXEMPT = [
   'lib/financialTone.ts',
   'components/ui/Chart.tsx',
   'features/analysis/lib/chartExport.ts',
+  // The trend charts' spec tokens (§3.8), held to the spec's table by tests/unit/chart-theme.spec.ts.
+  'features/analysis/lib/charts/theme.ts',
   'features/auth/components/GoogleSignInButton.tsx',
 ]
 const DESIGN_HEX_EXEMPT = ['app/manifest.ts', 'app/layout.tsx']

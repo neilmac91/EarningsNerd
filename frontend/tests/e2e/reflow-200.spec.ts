@@ -1,8 +1,8 @@
-import { legalReady } from './fixtures/legalReady'
+import { answerLegalReadiness, legalReady } from './fixtures/legalReady'
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
 import { settled } from './fixtures/contrast'
-import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
+import { answerApi, API_ORIGIN, SUMMARY } from './fixtures/filing3Api'
 import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
 import { ACCESS_COPY } from '../../features/marketing/lib/access'
 
@@ -157,7 +157,10 @@ const ROUTES: Route[] = [
   {
     name: 'filing',
     path: '/filing/3',
-    open: (p, b) => answerApi(p, b, 'anon'),
+    open: async (p, b) => {
+      await answerApi(p, b, 'anon')
+      await answerLegalReadiness(p, b)
+    },
     // Only a rendered summary has sections to jump to.
     ready: (p) => expect(p.getByRole('navigation', { name: 'Jump to section' })).toBeVisible(),
     ...siteHeader,
@@ -1120,6 +1123,7 @@ test('filing (/filing/3) keeps the stuck section nav below the header at 200% te
     } catch {}
   })
   await answerApi(page, baseURL!, 'anon')
+  await answerLegalReadiness(page, baseURL!)
   await page.goto('/filing/3')
   const nav = page.getByRole('navigation', { name: 'Jump to section' })
   await expect(nav).toBeVisible()
@@ -2237,15 +2241,16 @@ for (const viewport of [{ width: 1024, height: 768 }, { width: 1440, height: 900
             return { top, bottom, left, right }
           }
           const list = el.querySelector('ul')!
+          const viewport = list.parentElement!
           return {
             screen: { top: 0, left: 0, bottom: document.documentElement.clientHeight, right: document.documentElement.clientWidth },
             rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
             panel: box(el),
             title: box([...el.querySelectorAll('p')].find((p) => p.textContent === 'Notifications')!),
             settings: box([...el.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'Manage alert settings')!),
-            list: box(list),
+            list: box(viewport),
             last: box(list.querySelector('li:last-child a')!),
-            overflow: list.scrollHeight - list.clientHeight,
+            overflow: viewport.scrollHeight - viewport.clientHeight,
           }
         })
       const within = (what: string, inner: Box, outer: Box, where: string) => {
@@ -2264,7 +2269,8 @@ for (const viewport of [{ width: 1024, height: 768 }, { width: 1440, height: 900
       const lines = await headerMenuFit(page, 'Notifications')
       expect(lines.problems, `${at}: no line of the panel's text paints past the screen's sides`).toEqual([])
       await panel.getByRole('list').evaluate((list) => {
-        list.scrollTop = list.scrollHeight
+        const viewport = list.parentElement!
+        viewport.scrollTop = viewport.scrollHeight
       })
       const end = await read()
       within('the last alert, the list scrolled to its end,', end.last, end.list, 'the list')
@@ -2383,15 +2389,16 @@ for (const state of [
           const barStyle = getComputedStyle(bar)
           const barBox = bar.getBoundingClientRect()
           const list = el.querySelector('ul')!
+          const viewport = list.parentElement!
           return {
             screen: { top: 0, left: 0, bottom: document.documentElement.clientHeight, right: document.documentElement.clientWidth },
             content: { left: barBox.left + parseFloat(barStyle.paddingLeft), right: barBox.right - parseFloat(barStyle.paddingRight) },
             panel: box(el),
             title: box([...el.querySelectorAll('p')].find((p) => p.textContent === 'Notifications')!),
             settings: box([...el.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'Manage alert settings')!),
-            list: box(list),
+            list: box(viewport),
             last: box(list.querySelector('li:last-child a')!),
-            overflow: list.scrollHeight - list.clientHeight,
+            overflow: viewport.scrollHeight - viewport.clientHeight,
             cut: [...list.querySelectorAll('a > span:last-child > span')].filter((line) => line.scrollWidth > line.clientWidth + 1).map((line) => line.textContent),
             // An alert's date, the text after its " · ", read as a range over the line's text, so it is found however
             // the line is marked up: its fragments' tops more than 2px apart put it on two lines.
@@ -2441,7 +2448,8 @@ for (const state of [
       const lines = await headerMenuFit(page, 'Notifications')
       expect(lines.problems, `${at}: no line of the panel's text paints past the screen's sides`).toEqual([])
       await panel.getByRole('list').evaluate((list) => {
-        list.scrollTop = list.scrollHeight
+        const viewport = list.parentElement!
+        viewport.scrollTop = viewport.scrollHeight
       })
       const end = await read()
       within('the last alert, the list scrolled to its end,', end.last, end.list, 'the list')
@@ -2728,3 +2736,84 @@ for (const width of [390, 360, 320]) {
     }
   })
 }
+
+
+// UX07 / E181: run against a server built with NEXT_PUBLIC_ENABLE_QUALITY_BADGE=true,
+// and pass the same variable to Playwright. CI's default build leaves this existing flag off;
+// the rendered-state contract is always covered by summary-quality-badge.spec.tsx.
+test.describe('summary coverage disclosure', () => {
+  test.skip(process.env.NEXT_PUBLIC_ENABLE_QUALITY_BADGE !== 'true', 'Requires the quality-enabled build used in production')
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+  for (const theme of ['light', 'dark'] as const) {
+    for (const demo of [false, true]) {
+      for (const tier of ['partial', 'full', 'unknown'] as const) {
+        test(`${tier} coverage in the ${demo ? 'example' : 'ordinary'} view, ${theme}, stays readable and opens by keyboard and touch at 200%`, async ({ page, baseURL }, testInfo) => {
+          await page.addInitScript(chosen => {
+            localStorage.setItem('theme', chosen)
+            // The independent first-use coachmark must not cover the disclosure capture.
+            localStorage.setItem('en:copilot-coachmark-v1', '1')
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+            localStorage.setItem('en_session_active', '1')
+          }, theme)
+          await answerApi(page, baseURL!, 'pro')
+          const quality = tier === 'unknown' ? undefined : {
+            tier, covered_count: tier === 'partial' ? 3 : 4, total_count: 9,
+            reasons: tier === 'partial' ? [
+              'financial figures not grounded in SEC XBRL data',
+              'filing grounding unavailable: no usable excerpt or numeric XBRL data',
+              'only 3/9 sections populated',
+              '123 summary figure(s) not traceable to filing data',
+            ] : [],
+          }
+          await page.route(`${API_ORIGIN}/api/summaries/filing/3`, route => route.fulfill({
+            status: 200,
+            headers: { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' },
+            json: { ...SUMMARY, raw_summary: { ...(SUMMARY.raw_summary as object), quality } },
+          }))
+          await page.goto(`/filing/3${demo ? '?demo=1' : ''}`, { waitUntil: 'domcontentloaded' })
+          const coverage = page.getByRole('group', { name: 'Summary coverage' })
+          await expect(coverage.getByText(tier === 'partial' ? 'Partial coverage' : tier === 'full' ? 'Full summary' : 'Coverage unknown', { exact: true })).toBeVisible()
+          expect(await page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(theme === 'dark')
+          await doubleText(page)
+          const disclosure = coverage.locator('details')
+          const trigger = disclosure.locator('summary')
+          await trigger.focus()
+          await expect(trigger).toBeFocused()
+          expect(await trigger.evaluate(el => el.tabIndex)).toBe(0)
+          await page.keyboard.press('Enter')
+          await expect(disclosure).toHaveAttribute('open', '')
+          await expect(disclosure.getByText('Coverage does not verify every claim. Check the cited sources and the original filing.')).toBeVisible()
+          if (tier === 'partial') await expect(disclosure.getByRole('listitem')).toHaveCount(4)
+          await trigger.tap()
+          await expect(disclosure).not.toHaveAttribute('open')
+          await trigger.tap()
+          await expect(disclosure).toHaveAttribute('open', '')
+          // Read actual painted characters as well as scroll width: nowrap text can escape
+          // a shrinking flex child's box without widening the document.
+          const escaped = await coverage.evaluate(group => {
+            const box = group.getBoundingClientRect()
+            const failures: string[] = []
+            const walker = document.createTreeWalker(group, NodeFilter.SHOW_TEXT)
+            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+              for (let i = 0; i < (node.textContent ?? '').length; i++) {
+                const range = document.createRange()
+                range.setStart(node, i)
+                range.setEnd(node, i + 1)
+                const rect = range.getBoundingClientRect()
+                if (rect.width && (rect.left < box.left - 1 || rect.right > box.right + 1 || rect.right > innerWidth + 1)) failures.push(node.textContent ?? '')
+              }
+            }
+            return [...new Set(failures)]
+          })
+          expect(escaped, 'every painted coverage label and reason stays in its own column').toEqual([])
+          const widths = await measure(page)
+          expect(widths.scrollWidth, why(widths)).toBeLessThanOrEqual(widths.clientWidth)
+          if (tier === 'partial') {
+            await coverage.evaluate(el => window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - 180, behavior: 'instant' }))
+            await page.screenshot({ path: testInfo.outputPath('coverage-200.png') })
+          }
+        })
+      }
+    }
+  }
+})

@@ -1,7 +1,6 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
-import { useState } from 'react'
 import { format } from 'date-fns'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -30,12 +29,13 @@ function fmtDate(value: string | null): string | null {
 
 interface FeedbackRowProps {
   feedback: FeedbackRecord
+  detailsOpen: boolean
+  onViewDetails: (feedback: FeedbackRecord, opener: HTMLButtonElement) => void
 }
 
-export default function FeedbackRow({ feedback }: FeedbackRowProps) {
+export default function FeedbackRow({ feedback, detailsOpen, onViewDetails }: FeedbackRowProps) {
   const queryClient = useQueryClient()
-  // Long messages collapse to one line by default; admins can expand to read the full text.
-  const [expanded, setExpanded] = useState(false)
+  const messageId = `feedback-message-${feedback.id}`
 
   const statusMutation = useMutation({
     mutationFn: (status: FeedbackStatus) => updateFeedbackStatus(feedback.id, status),
@@ -52,7 +52,7 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
   })
 
   return (
-    <tr className="hover:bg-background-light dark:hover:bg-white/5">
+    <tr className="ph-no-capture hover:bg-background-light dark:hover:bg-white/5">
       <td className="whitespace-nowrap px-4 py-3 align-top text-sm">
         <FeedbackTypeBadge type={feedback.type} />
       </td>
@@ -63,24 +63,30 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
       <td className="w-full px-4 py-3 align-top text-sm text-text-primary-light dark:text-text-primary-dark">
         <button
           type="button"
-          onClick={() => setExpanded((e) => !e)}
-          title={feedback.message}
-          aria-expanded={expanded}
-          className={`block w-full min-w-64 rounded text-left [contain:inline-size] transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark ${
-            expanded ? 'whitespace-pre-wrap break-words' : 'truncate'
-          }`}
+          onClick={(event) => onViewDetails(feedback, event.currentTarget)}
+          aria-label={`View details for feedback ${feedback.id}`}
+          aria-describedby={messageId}
+          aria-haspopup="dialog"
+          aria-expanded={detailsOpen}
+          className="block min-h-11 w-full min-w-64 rounded text-left [contain:inline-size] transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
         >
-          {feedback.message}
+          <span id={messageId} className="block truncate">{feedback.message}</span>
+          <span className="mt-1 block text-xs underline underline-offset-2">View details</span>
         </button>
+        {!!feedback.attachment_count && (
+          <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+            {feedback.attachment_count} {feedback.attachment_count === 1 ? 'screenshot' : 'screenshots'}
+          </p>
+        )}
       </td>
       <td className="px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
         {feedback.page_url ? (
-          <span className="block max-w-[14rem] truncate" title={feedback.page_url}>
+          <span className="block max-w-[14rem] truncate">
             {feedback.page_url}
           </span>
         ) : (
           // Feedback sent from no page carries none: the words say so rather than "unavailable".
-          <MissingValue label="no page" className="text-text-tertiary-light dark:text-text-secondary-dark" />
+          <MissingValue label="no page" className="text-text-tertiary-light dark:text-text-tertiary-dark" />
         )}
       </td>
       {/* The reporter's address is never cut: it keeps its own width up to 14rem and wraps inside that beyond it, so
@@ -90,7 +96,7 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
       <td className="px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
         <span className="block w-max max-w-[14rem] [overflow-wrap:anywhere]">
           {feedback.user_email ?? (
-            <span className="text-text-tertiary-light dark:text-text-secondary-dark">Anonymous</span>
+            <span className="text-text-tertiary-light dark:text-text-tertiary-dark">Anonymous</span>
           )}
         </span>
       </td>

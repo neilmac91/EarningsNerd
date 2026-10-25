@@ -26,6 +26,7 @@ jobs=(
   earningsnerd-earnings-day-alerts
   earningsnerd-notable-filings
   earningsnerd-retention-purge
+  earningsnerd-feedback-media-cleanup
 )
 for job in "${jobs[@]}"; do
   if ! gcloud run jobs describe "$job" --region="$REGION" --format=json > "$JOB_DIR/$job.json" 2>/dev/null; then
@@ -135,13 +136,13 @@ def test_describe_jobs_shell_reads_each_job_into_job_dir():
 def test_describe_jobs_prints_both_pins_and_withholds_command_values(tmp_path, monkeypatch, capfd, fixtures):
     output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
     assert exit_ is None
-    assert output.count("== earningsnerd-") == 8
-    assert output.count("  SEC_RATE_LIMIT_PER_SECOND: '1'") == 8 and output.count("  EDGAR_RATE_LIMIT_PER_SEC: '1'") == 8
+    assert output.count("== earningsnerd-") == 9
+    assert output.count("  SEC_RATE_LIMIT_PER_SECOND: '1'") == 9 and output.count("  EDGAR_RATE_LIMIT_PER_SEC: '1'") == 9
     assert ("== earningsnerd-backfill-facts\n  image: release-image\n  taskCount: 1\n  DB_POOL_SIZE: 1\n"
             "  DB_MAX_OVERFLOW: 0\n  SEC_RATE_LIMIT_PER_SECOND: '1'\n  EDGAR_RATE_LIMIT_PER_SEC: '1'\n"
             "  command/args: matches the committed entrypoint\n") in output
     assert "== earningsnerd-pregenerate\n  image: release-image\n  taskCount: 1\n  DB_POOL_SIZE: 3\n" in output
-    assert output.count("  command/args: image default") == 6
+    assert output.count("  command/args: image default") == 7
     assert output.count("  command/args: override present (values withheld)") == 1
     assert ("  env: DB_POOL_SIZE(plain), DB_MAX_OVERFLOW(plain), SEC_RATE_LIMIT_PER_SECOND(plain), "
             "EDGAR_RATE_LIMIT_PER_SEC(plain), UNRELATED(plain), OPENAI_API_KEY(secret-ref)") in output
@@ -161,7 +162,7 @@ def test_describe_jobs_collects_pin_defects_across_all_jobs(tmp_path, monkeypatc
     output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
     assert exit_ is not None
     assert f"earningsnerd-filing-digest must pin {pin}=1 as a plain value, got " in str(exit_)
-    assert output.count("== earningsnerd-") == 8  # every later block still prints
+    assert output.count("== earningsnerd-") == 9  # every later block still prints
     assert "describe-jobs: FAIL (1 invariant failure(s))" in output and "describe-jobs: PASS" not in output
 
 
@@ -173,7 +174,7 @@ def test_describe_jobs_lists_every_value_defect_once(tmp_path, monkeypatch, capf
     assert "earningsnerd-filing-scan pool must be 1+0, got 2+0." in str(exit_)
     assert "earningsnerd-retention-purge taskCount must be 1." in str(exit_)
     assert output.count("::error::") == 2 and "describe-jobs: FAIL (2 invariant failure(s))" in output
-    assert output.count("== earningsnerd-") == 8
+    assert output.count("== earningsnerd-") == 9
 
 
 @pytest.mark.parametrize("defect,expected", [
@@ -222,7 +223,7 @@ def test_describe_jobs_fails_on_image_parity_after_printing_all_blocks(tmp_path,
     _container(fixtures["earningsnerd-filing-scan"])["image"] = "other-image"
     output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
     assert exit_ is not None and "do not share one release image" in str(exit_)
-    assert output.count("== earningsnerd-") == 8 and "describe-jobs: FAIL (1 invariant failure(s))" in output
+    assert output.count("== earningsnerd-") == 9 and "describe-jobs: FAIL (1 invariant failure(s))" in output
 
 
 def test_describe_jobs_literals_match_ci_and_the_other_gates():

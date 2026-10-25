@@ -1,12 +1,16 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { useQuery } from '@tanstack/react-query'
 import { ChatCircleDotsIcon, PaperPlaneTiltIcon } from '@/lib/icons'
-import { Button, Modal, ModalBody, ModalHeader, SegmentedControl, inputClasses, type SegmentedOption } from '@/components/ui'
-import { submitFeedback, type FeedbackType } from '@/features/feedback/api/feedback-api'
-import { hasActiveSession } from '@/lib/api/session'
-import { isApiError, getErrorMessage } from '@/lib/api/types'
+import { Button, Modal, ModalBody, ModalHeader, SegmentedControl, inputClasses, primaryUnavailableClass, type SegmentedOption } from '@/components/ui'
+import { getFeedbackCapabilities, type FeedbackType } from '@/features/feedback/api/feedback-api'
+import { useFeedbackDraft } from '@/features/feedback/hooks/useFeedbackDraft'
+import FeedbackFilePicker from '@/features/feedback/components/FeedbackFilePicker'
+import { clearPendingFeedback, readPendingFeedback } from '@/features/feedback/lib/feedbackFiles'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { queryKeys } from '@/lib/queryKeys'
 import { ENABLE_FEEDBACK_WIDGET } from '@/lib/featureFlags'
 import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
 
@@ -32,71 +36,86 @@ const LAUNCHER_OFFSET: React.CSSProperties = {
 
 /**
  * Always-available beta feedback launcher. Renders a floating button for logged-in users only
- * (gated on the client-readable session marker), opening a small bug/idea/general report panel that
+ * (observing the shared current-user query), opening a small bug/idea/general report panel that
  * posts to /api/feedback. Mounted once in Providers so it's available across the authenticated app.
  *
  * v3 (DS-04): the report panel is a ui/Modal dialog (focus trap, Escape, focus return to the
  * launcher, overlay + z-modal tokens) instead of an anchored popover with no keyboard handling.
  */
 export default function FeedbackWidget() {
-  // Avoid a hydration mismatch: the session marker lives in localStorage (client-only), so we render
-  // nothing on the server / first paint and decide after mount.
-  const [mounted, setMounted] = useState(false)
-  const [authed, setAuthed] = useState(false)
-  const [open, setOpen] = useState(false)
-  const [type, setType] = useState<FeedbackType>('general')
-  const [message, setMessage] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const messageRef = useRef<HTMLTextAreaElement>(null)
-  const close = () => setOpen(false)
+  const { data: user } = useQuery({
+    queryKey: queryKeys.currentUser(),
+    queryFn: getCurrentUserSafe,
+    enabled: ENABLE_FEEDBACK_WIDGET,
+    staleTime: 60_000,
+  })
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time hydration latch: session marker lives in localStorage, so we resolve client-only state after mount
-    setMounted(true)
-    setAuthed(hasActiveSession())
-  }, [])
+    if (user === null) clearPendingFeedback()
+    else if (user) readPendingFeedback(user.id)
+  }, [user])
 
-  if (!ENABLE_FEEDBACK_WIDGET || !mounted || !authed) return null
+  // Undefined is an unresolved identity, not a guest. Retained identity survives a failed
+  // background read; confirmed logout or a different reader unmounts the private draft.
+  if (!ENABLE_FEEDBACK_WIDGET || !user) return null
+  return <AccountFeedback key={user.id} readerId={user.id} />
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    // Send uses `loading` (aria-disabled + click guard, not native disabled) so it keeps focus while
-    // the request is in flight; a submit that bypasses its click must not send a second report.
-    if (submitting) return
-    if (message.trim().length < 5) return
-    setSubmitting(true)
-    try {
-      await submitFeedback({
-        type,
-        message: message.trim(),
-        pageUrl: typeof window !== 'undefined' ? window.location.pathname : undefined,
-      })
-      toast.success('Thanks for the feedback', { description: 'We read every note. It really helps.' })
-      setMessage('')
-      setType('general')
-      setOpen(false)
-    } catch (err: unknown) {
-      toast.error(isApiError(err) ? getErrorMessage(err) : 'Could not send feedback. Please try again.')
-    } finally {
-      setSubmitting(false)
-    }
+function AccountFeedback({ readerId }: { readerId: number }) {
+  const [open, setOpen] = useState(false)
+  const messageRef = useRef<HTMLTextAreaElement>(null)
+  const close = () => setOpen(false)
+  const {
+    type, setType, message, setMessage, files, addFiles, removeFile, submit,
+    locked, busy, phase, progress, notice, statusFailure, editableFailure, edit,
+  } = useFeedbackDraft(readerId, close)
+  const capabilityKey = queryKeys.feedback.capabilities(readerId)
+  const capabilities = useQuery({
+    queryKey: capabilityKey,
+    queryFn: ({ signal }) => getFeedbackCapabilities(signal),
+    enabled: open,
+    staleTime: 60_000,
+    retry: false,
+  })
+  const capabilityFailure = useRetainedFailure(capabilities, capabilityKey)
+  const attachmentsEnabled = capabilities.data?.attachments_enabled === true
+  const mediaUnavailable = phase === 'editing' && files.length > 0 && !attachmentsEnabled
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    if (mediaUnavailable) return
+    void submit()
+  }
+
+  function handlePaste(event: React.ClipboardEvent) {
+    if (!attachmentsEnabled || locked) return
+    const pasted = Array.from(event.clipboardData.items)
+      .filter((item) => item.kind === 'file')
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null)
+    if (pasted.length) addFiles(pasted)
+    // Native text paste remains intact, including mixed text/image clipboard data.
+  }
+  function handleAddFiles(incoming: readonly File[]) {
+    if (attachmentsEnabled) addFiles(incoming)
   }
 
   return (
     <>
-      <Modal open={open} onClose={close} labelledBy="feedback-dialog-title" size="sm" initialFocusRef={messageRef}>
+      <Modal open={open} onClose={close} labelledBy="feedback-dialog-title" size="sm" initialFocusRef={messageRef} className="ph-no-capture">
         <ModalHeader id="feedback-dialog-title" onClose={close}>
           Send feedback
         </ModalHeader>
         <ModalBody>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <SegmentedControl label="Feedback type" options={TYPES} value={type} onChange={setType} size="md" fullWidth />
+          <form onSubmit={handleSubmit} className="space-y-3" onPaste={handlePaste}>
+            <SegmentedControl label="Feedback type" options={TYPES.map((option) => ({ ...option, disabled: locked }))} value={type} onChange={setType} size="md" fullWidth focusableDisabled />
 
             <textarea
               ref={messageRef}
               aria-label="Feedback message"
+              aria-describedby="feedback-message-help"
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={(e) => { if (!locked) setMessage(e.target.value) }}
+              readOnly={locked}
               required
               rows={4}
               maxLength={4000}
@@ -104,6 +123,40 @@ export default function FeedbackWidget() {
               // The field recipe (E154): its fill, border, padding, focus ring and 44px floor; it stays a fixed four rows.
               className={inputClasses({ className: 'resize-none' })}
             />
+            <p id="feedback-message-help" className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+              Describe what happened. You can paste a web link here too.
+            </p>
+
+            {(attachmentsEnabled || files.length > 0) && (
+              <FeedbackFilePicker files={files} locked={locked} canAdd={attachmentsEnabled} onAdd={handleAddFiles} onRemove={removeFile} messageRef={messageRef} />
+            )}
+            {!attachmentsEnabled && files.length > 0 && phase === 'editing' && (
+              <p role="status" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                Screenshot uploads are unavailable right now. Remove the screenshots to send just your note, or keep this draft for later.
+              </p>
+            )}
+            {capabilityFailure.failed && !files.length && (
+              <div className="space-y-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                <p>Screenshots are unavailable right now. You can still send a note or link.</p>
+                <RetryButton failures={[capabilityFailure]} focusTarget={messageRef} textField />
+              </div>
+            )}
+            {notice && <p role="status" className="break-words text-sm text-text-secondary-light dark:text-text-secondary-dark">{notice}</p>}
+            {phase === 'sending' && files.length > 0 && (
+              <div className="space-y-1">
+                <progress aria-label="Screenshot upload" value={progress} max={100} className="w-full accent-brand dark:accent-brand-dark" />
+                <p role="status" className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                  {progress < 100 ? `Uploading screenshots: ${progress}%` : 'Upload complete. Saving your feedback…'}
+                </p>
+              </div>
+            )}
+            {statusFailure.failed && (
+              <div role="alert" className="space-y-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                <p>We could not check whether your feedback was saved. Keep this draft while we check again.</p>
+                <RetryButton failures={[statusFailure]} focusTarget={messageRef} textField />
+              </div>
+            )}
+            {editableFailure && <Button type="button" variant="secondary" wrap onClick={() => { edit(); messageRef.current?.focus() }}>Edit feedback</Button>}
 
             {/* `loading`, never native `disabled`, while sending: Chromium blurs a focused button
                 that turns disabled (focus → <body>). Native `disabled` stays only for the too-short
@@ -111,10 +164,11 @@ export default function FeedbackWidget() {
                 closes this panel in the same render, so it never flips under focus. */}
             <Button
               type="submit"
-              loading={submitting}
-              loadingText="Sending…"
+              loading={busy}
+              loadingText={phase === 'checking' ? 'Checking…' : files.length ? progress < 100 ? 'Uploading…' : 'Saving…' : 'Sending…'}
               disabled={message.trim().length < 5}
-              className="w-full py-2 font-semibold active:scale-[0.99]"
+              aria-disabled={busy || mediaUnavailable || undefined}
+              className={`w-full py-2 font-semibold active:scale-[0.99] ${mediaUnavailable ? primaryUnavailableClass : ''}`}
             >
               <span className="flex items-center justify-center gap-2">
                 <PaperPlaneTiltIcon className="h-4 w-4" />

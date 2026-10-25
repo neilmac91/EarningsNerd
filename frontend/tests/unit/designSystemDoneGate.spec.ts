@@ -7,7 +7,7 @@ import postcss from 'postcss'
 import tailwindcss, { type Config } from 'tailwindcss'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { directionChip, directionText } from '@/lib/financialTone'
+import { dataDirectionText, directionChip, directionText } from '@/lib/financialTone'
 
 /**
  * Structural gate for DESIGN_SYSTEM.md §12, the definition-of-done for any theme/token change.
@@ -42,7 +42,7 @@ import { directionChip, directionText } from '@/lib/financialTone'
  *     pretend otherwise.
  *
  * The font-var half is an explicit, BIDIRECTIONAL allowlist, not a blanket "must lead with a
- * next/font var" rule — that naive form fails on four sanctioned sites today. Per
+ * next/font var" rule — that naive form fails on five sanctioned sites today. Per
  * lessons/arch-structural-gates-over-prose-rules.md, "fixing" a sanctioned exception must fail
  * here too, so each exception is pinned to its exact shape rather than merely skipped.
  */
@@ -142,6 +142,8 @@ describe('DESIGN_SYSTEM §12 item 2 — legacy colors and type roles are gone', 
     expect(pattern.test('text-emerald-500')).toBe(true)
     expect(pattern.test('font-grotesque')).toBe(true)
     expect(pattern.test('text-text-primary-light')).toBe(false)
+    // tertiary-dark is tertiary-light's text-safe twin (gray-400), no longer the banned gray-600 it was.
+    expect(pattern.test('text-text-tertiary-dark')).toBe(false)
   })
 
   it('returns zero hits across app, components and features', () => {
@@ -173,8 +175,8 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
     '--font-editorial': '--font-newsreader',
     '--font-data': '--font-geist-mono',
   }
-  /** The four sanctioned exceptions, each pinned to its exact shape at the end of this block. */
-  const SANCTIONED_STACKS = ['body', 'sans']
+  /** The five sanctioned exceptions, each pinned to its exact shape at the end of this block. */
+  const SANCTIONED_STACKS = ['body', 'figure', 'sans']
   const SANCTIONED_CSS_VARS = ['--font-body', '--font-active']
 
   /** The fontFamily object Tailwind itself will consume, obtained by EVALUATING the config rather
@@ -242,6 +244,15 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
     expect(emittedFontVars().sort()).toEqual([...NEXT_FONT_VARS].sort())
   })
 
+  it("loads Geist Mono with a monospace fallback, never next/font's metric-matched Arial (E199)", () => {
+    // Both options: webpack's loader keeps the size-adjusted Arial face beside a `fallback` list unless
+    // adjustFontFallback is false, and the list is what ends --font-geist-mono in a monospace face.
+    const call = fonts.match(/\bGeist_Mono\(\{([^{}]*)\}\)/)?.[1]
+    if (!call) throw new Error('app/fonts.ts no longer calls Geist_Mono({ … })')
+    expect(call).toMatch(/\badjustFontFallback:\s*false\b/)
+    expect(call).toMatch(/\bfallback:\s*\[\s*'ui-monospace',\s*'SFMono-Regular',\s*'Menlo',\s*'monospace',?\s*\]/)
+  })
+
   it.each(Object.entries(VAR_LED_STACKS))(
     'tailwind fontFamily.%s leads with var(%s)',
     (key, expected) => {
@@ -253,10 +264,11 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
     expect(cssVar(name).split(',')[0].trim()).toBe(`var(${expected})`)
   })
 
-  // The four sanctioned exceptions, each pinned to its exact shape. DESIGN_SYSTEM §12 item 3
+  // The five sanctioned exceptions, each pinned to its exact shape. DESIGN_SYSTEM §12 item 3
   // spells out the `body` one; `sans` and `--font-active` are role indirections that reach a
-  // next/font var one hop later. Pinning them means neither "fixing" them to lead with a
-  // next/font var nor breaking the indirection can pass.
+  // next/font var one hop later; `figure` leads with the one-glyph minus face (app/globals.css),
+  // then the data stack. Pinning them means neither "fixing" them to lead with a next/font var
+  // nor breaking the indirection can pass.
   it('tailwind fontFamily.body stays system-first with the var ahead of the webfont', () => {
     const parts = stack('body')
     expect(parts[0]).toBe('-apple-system')
@@ -277,6 +289,13 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
 
   it('tailwind fontFamily.sans stays the --font-body role indirection', () => {
     expect(stack('sans')[0]).toBe('var(--font-body)')
+  })
+
+  // `figure` leads with the one-glyph minus face (globals.css @font-face, unicode-range U+002D), then is the data stack
+  // exactly, so every glyph but the hyphen-minus is the data role's.
+  it('tailwind fontFamily.figure is the minus face, then exactly the data stack', () => {
+    expect(stack('figure')).toEqual(['"EN Figure Minus"', ...stack('data')])
+    expect(globalsCss).toMatch(/@font-face \{\s*font-family: 'EN Figure Minus';[^}]*unicode-range: U\+002D;/)
   })
 
   it('globals.css --font-active stays the --font-body back-compat alias', () => {
@@ -388,7 +407,7 @@ describe('tailwind content scans every module that composes classes', () => {
     // config file, so a run from another directory would otherwise scan nothing.
     const globs = (config.content as string[]).map((glob) => path.join(frontendDir, glob))
     const built = await generatedClasses(globs, { stylesheet: 'app/globals.css' })
-    const composed = [directionText, directionChip].flatMap((tones) =>
+    const composed = [directionText, directionChip, dataDirectionText].flatMap((tones) =>
       Object.values(tones).flatMap((tone) => tone.split(/\s+/)),
     )
     expect(composed.filter((c) => !built.has(c)), 'purged from production CSS').toEqual([])

@@ -187,15 +187,76 @@ the dependency already finds spent (`require_copilot_or_taste`'s 403) and a ques
 rate limit (its 429) are refused before the unit runs, so, like a 422, each still leaves the lookup's
 transaction for the finalizer. Its burst case holds every checkout, statement and release off the loop,
 each answer and each asker's metering (2026-10-25, E171).
+The admin router's maintenance routes (the feedback list and its status update, the summary delete, the
+XBRL clear, the filing reset, the stale-XBRL audit and bulk reset, and the summaries' reset-all) handed
+their session to services on the loop, on the connection the auth lookup had checked out. Eight requests
+to each on four slots answered as they should, but every statement after the auth lookup ran on the loop
+(8 of 16 for eight feedback lists, 56 of 64 for eight status updates, 72 of 80 for eight filing resets),
+the stale-XBRL audit and bulk reset loading and decoding every filing's XBRL there, each read after a
+write's commit checked a connection out there (16 of 24 for the status updates, 8 of 16 for the XBRL
+clears, filing resets and bulk resets), and every case but a summary delete that found its filing, whose
+commit gave its connection back on the loop, left its transaction for the finalizer, the 404s included.
+On a local PostgreSQL 16, another transaction holding a filing's `summaries` row for 1.0 s froze the loop
+for about that long (0.94 to 1.02 s, three runs of each) through that filing's summary delete or reset,
+or a reset-all: each waited for the row's lock on the loop, and the app's engine sets no lock or
+statement timeout. Each route is now one thread-pool unit that makes its service call (with the status
+update's or the reset-all's audit row) and releases its session; a 404 leaves the unit after that
+release, and the admin's id and email are read before it, since a commit expires them. A non-admin's 403
+(`_require_admin`) and a 422 answer before the unit runs, so, like the ask stream's refusals before its
+unit, each still leaves the lookup's transaction for the finalizer. With the row held the same way, the
+loop's longest gap between its 10 ms ticks was 12 ms (59 ms on a process's first request, whichever route
+took it). In the thread pool the maintenance writes overlapped on one instance, as they always could
+across the service's two, and they are the Rule's check-then-write units. A reset-all, which deletes
+progress rows before summaries, and a summary delete or filing reset, whose flush deletes the summary
+first, deadlocked on that PostgreSQL (the review's probes: 9 of 9 rounds with the summary row held, 5 of
+12 without; one request answered 500 and rolled back), and two resets each reported, and two reset-alls
+each audited, rows one of them had deleted. So the summary delete, the XBRL clear, the filing reset and
+the real bulk reset and reset-all take one transaction-level advisory lock before their first read of
+those rows (`admin_filing_service.lock_maintenance`): they run one at a time across both instances, each
+read sees the commit of the one before it, and a waiter holds only the connection the auth lookup checked
+out. `test_admin_maintenance_transactions.py` races them on PostgreSQL in CI: no deadlock; two of one
+write at once, for each of the five, report what they found once, the second reading after the first's
+commit; each write waits for the lock; and, without it, the deadlock. Their burst case holds every
+checkout, statement and release off the loop, each answer, each route's rows, and each audit row's admin
+and the count its request answered (2026-10-25, E171).
+The admin invite routes did the same (`admin.py`: the invite list, mint, revoke and re-send). Under eight
+admins on four slots, through the real auth dependency, the list, revoke, mint and re-send ran 8 of 16,
+48 of 56, 48 of 56 and 64 of 80 statements on the loop, the writes checked out 16 of 24 connections
+there, and every case left its transaction for the finalizer, the 404s and 409s included; the mint and
+re-send held a connection through their invite mail (each the same in three runs; the mail runs only with
+marketing readiness open, and `is_marketing_available()` keeps it closed, so a mint asking for it answers
+503 before any unit and a re-send of a bound invite answers 503 from its unit). The list and the revoke
+(with its audit row) are now one unit each, and the mint and the re-send mint in one unit and write their
+audit row in another after the mail, so no pool slot waits on the mail provider; that row now takes a
+checkout of its own, so a pool still full at its timeout loses it, logged, where the base's held
+connection kept it. The revoke and the re-issue are the Rule's check-then-write units: in the thread pool
+a registration on the same instance can redeem the invite between their check and their write, as one on
+the other instance always could. On a local PostgreSQL 16, with a registration's redemption of the invite
+uncommitted for 1.0 s, the base's revoke and re-send froze the loop for 0.945 to 1.019 s at their write,
+then revoked the redeemed invite, and the re-send minted a replacement for it. They now read the invite
+under its row lock until their commit (`invite_service._unused_invite_locked`, with `populate_existing`,
+so a caller that kept an invite it read before the lock sees the redemption too): each waits in the
+thread pool, sees the redemption's commit and answers 409, and the loop's longest gap was 11 to 14 ms
+(88 ms on a process's first request). A registration on the same instance, whose session work still runs
+on the loop (E121), can now wait there for that lock, from the revoke's or re-send's read to its commit
+(a median of about 4 ms in the review's stress run, and up to 205 ms when a garbage collection paused
+inside it), which the base's loop never overlapped. `test_admin_invite_transactions.py` races both
+against a redemption on PostgreSQL in CI, its control shows each acting on the redeemed invite without
+the lock, and two admins' writes of one invite take turns at the lock: a shared one (FOR SHARE) would let
+both read, then deadlock at their writes. A redemption that comes second is refused (E201): `redeem_invite`
+checks `is_revoked` as well as `used_at`, and one that waits behind the lock re-checks the row when the
+write commits; the same gate races it, its control redeeming the revoked invite without the check.
+`create_free_account`, a refusal, no longer takes a session of its own; its auth lookup's transaction is
+still left for the finalizer, as a 403's is (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
 dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
 rules, uses it. Its ceilings hold the routes that still use their session on the loop at
-their counts (the rest of the auth router, E121; the admin router's 14 routes and the summaries router's
-generate stream and two exports, E171; five of those hand-offs, the header's strict ones, use no
-connection on the loop), so none can add one in a
+their counts (the rest of the auth router, E121; the admin router's `refresh_stale_summaries` and the
+summaries router's generate stream and two exports, E171; four of those hand-offs, the header's strict
+ones, use no connection on the loop), so none can add one in a
 form the ratchet counts and a new route starts at 0. Neither half
 sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called
 where it is written) where the burst does not list the route, or a background task's own session worked on the loop

@@ -16,7 +16,7 @@ import { ThemedToaster } from '@/app/providers'
  *
  * Holds: the Toaster takes the ThemeProvider theme in both themes and never 'system'; richColors is off;
  * every colour, border and shadow class in toastOptions.classNames names a token in tailwind.config.js
- * (no palette step, no hex, no arbitrary value), and the card slot sets the panel surface in both themes
+ * or white (no palette step, no hex, no arbitrary value), and the card slot sets the panel surface in both themes
  * and the overlay step of the elevation ladder (e4 in light, no shadow in dark). The close button keeps a
  * hover in both themes: its forced rest outranks Sonner's own hover, so its hover is forced too (no slot
  * holds a hover its own rest outranks), and its fills are opaque, since it overhangs the card's corner.
@@ -37,7 +37,9 @@ vi.mock('sonner', () => ({
 const config = createRequire(import.meta.url)('../../tailwind.config.js') as {
   theme: { extend: { colors: Record<string, unknown>; boxShadow: Record<string, string> } }
 }
-const COLORS = config.theme.extend.colors
+// White is the one Tailwind default the design system names as a token (DESIGN.md's snapshot; designSnapshotParity.spec.ts
+// reads it the same way): the dark hover ink of a control that rests in the secondary ink (DESIGN_SYSTEM.md §2).
+const COLORS = { ...config.theme.extend.colors, white: (createRequire(import.meta.url)('tailwindcss/colors') as { white: string }).white }
 const SHADOWS = config.theme.extend.boxShadow
 
 /** A colour path such as `text-primary-light` resolved through the token tree, or undefined. */
@@ -164,9 +166,10 @@ describe('the Toaster on tokens (chrome/F4)', () => {
     const classNames = (props.toastOptions?.classNames ?? {}) as Record<string, string>
     const close = classNames.closeButton.split(/\s+/)
     // The forced rest outranks Sonner's own hover, so the slot states one: the quiet controls' tint and the
-    // primary ink in light; in dark the primary ink over the panel it keeps.
+    // primary ink in light; in dark white over the panel it keeps, since dark primary sits 1.24:1 from the
+    // dark secondary rest, a hover dark barely shows (themePairs.spec.ts, faint hovers).
     expect(close).toEqual(
-      expect.arrayContaining(['hover:!bg-brand-weak', 'hover:!text-text-primary-light', 'dark:hover:!bg-panel-dark', 'dark:hover:!text-text-primary-dark']),
+      expect.arrayContaining(['hover:!bg-brand-weak', 'hover:!text-text-primary-light', 'dark:hover:!bg-panel-dark', 'dark:hover:!text-white']),
     )
     expect(Object.entries(classNames).flatMap(([slot, value]) => deadHovers(value).map((cls) => `${slot}: ${cls}`))).toEqual([])
     // Sonner translates the button -35% over the card's corner, so a translucent fill (the dark tint

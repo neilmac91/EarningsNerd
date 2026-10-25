@@ -274,7 +274,7 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
                 htmlFor="fullName"
                 className="mb-1 block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark"
               >
-                Full name <span className="text-text-tertiary-light dark:text-text-secondary-dark">(optional)</span>
+                Full name <span className="text-text-tertiary-light dark:text-text-tertiary-dark">(optional)</span>
               </label>
               <Input
                 type="text"

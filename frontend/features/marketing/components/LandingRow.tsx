@@ -49,7 +49,7 @@ export default function LandingRow({
             <span
               aria-hidden="true"
               data-landing-row-number=""
-              className="block font-data text-xs leading-5 tabular-nums text-text-tertiary-light before:content-[counter(landing-row,decimal-leading-zero)] dark:text-text-secondary-dark"
+              className="block font-data text-xs leading-5 tabular-nums text-text-tertiary-light before:content-[counter(landing-row,decimal-leading-zero)] dark:text-text-tertiary-dark"
             />
             <h2 id={`${id}-h`} className="mt-1 text-2xl">
               {title}

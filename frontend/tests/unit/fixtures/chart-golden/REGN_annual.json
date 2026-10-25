@@ -277,7 +277,19 @@
         ["—", "YoY growth needs the same period a year earlier; none for FY2016."]
       ],
       "strip": []
-    }
+    },
+    "readout": [
+      ["FY2016 · year ended Dec 31, 2016", "Revenue: $4.860B", "YoY growth: No prior-year period in this window", "FY2016, year ended December 31, 2016. Revenue: $4.860 billion. Year-over-year growth: not available, no prior-year period in this window."],
+      ["FY2017 · year ended Dec 31, 2017", "Revenue: $5.872B", "YoY growth: +20.8%", "FY2017, year ended December 31, 2017. Revenue: $5.872 billion. Year-over-year growth: plus 20.8%."],
+      ["FY2018 · year ended Dec 31, 2018", "Revenue: $5.146B", "YoY growth: −12.4%", "FY2018, year ended December 31, 2018. Revenue: $5.146 billion. Year-over-year growth: minus 12.4%."],
+      ["FY2019 · year ended Dec 31, 2019", "Revenue: $6.558B", "YoY growth: +27.4%", "FY2019, year ended December 31, 2019. Revenue: $6.558 billion. Year-over-year growth: plus 27.4%."],
+      ["FY2020 · year ended Dec 31, 2020", "Revenue: $8.497B", "YoY growth: +29.6%", "FY2020, year ended December 31, 2020. Revenue: $8.497 billion. Year-over-year growth: plus 29.6%."],
+      ["FY2021 · year ended Dec 31, 2021", "Revenue: $16.07B", "YoY growth: +89.1%", "FY2021, year ended December 31, 2021. Revenue: $16.07 billion. Year-over-year growth: plus 89.1%."],
+      ["FY2022 · year ended Dec 31, 2022", "Revenue: $12.17B", "YoY growth: −24.3%", "FY2022, year ended December 31, 2022. Revenue: $12.17 billion. Year-over-year growth: minus 24.3%."],
+      ["FY2023 · year ended Dec 31, 2023", "Revenue: $13.12B", "YoY growth: +7.8%", "FY2023, year ended December 31, 2023. Revenue: $13.12 billion. Year-over-year growth: plus 7.8%."],
+      ["FY2024 · year ended Dec 31, 2024", "Revenue: $14.20B", "YoY growth: +8.3%", "FY2024, year ended December 31, 2024. Revenue: $14.20 billion. Year-over-year growth: plus 8.3%."],
+      ["FY2025 · year ended Dec 31, 2025", "Revenue: $14.34B", "YoY growth: +1.0%", "FY2025, year ended December 31, 2025. Revenue: $14.34 billion. Year-over-year growth: plus 1.0%."]
+    ]
   },
   "margins": {
     "card": {
@@ -520,7 +532,19 @@
           }
         ]
       ]
-    }
+    },
+    "readout": [
+      ["FY2016 · year ended Dec 31, 2016", "Operating: 27.4% · Calculated", "Net: 18.4% · Calculated", "FY2016, year ended December 31, 2016. Operating margin: 27.4%, calculated. Net margin: 18.4%, calculated."],
+      ["FY2017 · year ended Dec 31, 2017", "Operating: 35.4% · Calculated", "Net: 20.4% · Calculated", "FY2017, year ended December 31, 2017. Operating margin: 35.4%, calculated. Net margin: 20.4%, calculated."],
+      ["FY2018 · year ended Dec 31, 2018", "Operating: 49.3% · Calculated", "Net: 47.5% · Calculated", "FY2018, year ended December 31, 2018. Operating margin: 49.3%, calculated. Net margin: 47.5%, calculated."],
+      ["FY2019 · year ended Dec 31, 2019", "Operating: 33.7% · Calculated", "Net: 32.3% · Calculated", "FY2019, year ended December 31, 2019. Operating margin: 33.7%, calculated. Net margin: 32.3%, calculated."],
+      ["FY2020 · year ended Dec 31, 2020", "Operating: 42.1% · Calculated", "Net: 41.3% · Calculated", "FY2020, year ended December 31, 2020. Operating margin: 42.1%, calculated. Net margin: 41.3%, calculated."],
+      ["FY2021 · year ended Dec 31, 2021", "Operating: 55.7% · Calculated", "Net: 50.2% · Calculated", "FY2021, year ended December 31, 2021. Operating margin: 55.7%, calculated. Net margin: 50.2%, calculated."],
+      ["FY2022 · year ended Dec 31, 2022", "Operating: 38.9% · Calculated", "Net: 35.6% · Calculated", "FY2022, year ended December 31, 2022. Operating margin: 38.9%, calculated. Net margin: 35.6%, calculated."],
+      ["FY2023 · year ended Dec 31, 2023", "Operating: 30.9% · Calculated", "Net: 30.1% · Calculated", "FY2023, year ended December 31, 2023. Operating margin: 30.9%, calculated. Net margin: 30.1%, calculated."],
+      ["FY2024 · year ended Dec 31, 2024", "Operating: 28.1% · Calculated", "Net: 31.1% · Calculated", "FY2024, year ended December 31, 2024. Operating margin: 28.1%, calculated. Net margin: 31.1%, calculated."],
+      ["FY2025 · year ended Dec 31, 2025", "Operating: 24.9% · Calculated", "Net: 31.4% · Calculated", "FY2025, year ended December 31, 2025. Operating margin: 24.9%, calculated. Net margin: 31.4%, calculated."]
+    ]
   },
   "cash": {
     "card": {
@@ -821,7 +845,19 @@
           }
         ]
       ]
-    }
+    },
+    "readout": [
+      ["FY2016 · year ended Dec 31, 2016", "Operating CF: $1.486B", "Free cash flow: $974.0M · Calculated", "Net income: $895.5M", "FY2016, year ended December 31, 2016. Operating cash flow: $1.486 billion. Free cash flow: $974.0 million, calculated. Net income: $895.5 million."],
+      ["FY2017 · year ended Dec 31, 2017", "Operating CF: $1.307B", "Free cash flow: $1.035B · Calculated", "Net income: $1.199B", "FY2017, year ended December 31, 2017. Operating cash flow: $1.307 billion. Free cash flow: $1.035 billion, calculated. Net income: $1.199 billion."],
+      ["FY2018 · year ended Dec 31, 2018", "Operating CF: $2.195B", "Free cash flow: $1.812B · Calculated", "Net income: $2.444B", "FY2018, year ended December 31, 2018. Operating cash flow: $2.195 billion. Free cash flow: $1.812 billion, calculated. Net income: $2.444 billion."],
+      ["FY2019 · year ended Dec 31, 2019", "Operating CF: $2.430B", "Free cash flow: $2.000B · Calculated", "Net income: $2.116B", "FY2019, year ended December 31, 2019. Operating cash flow: $2.430 billion. Free cash flow: $2.000 billion, calculated. Net income: $2.116 billion."],
+      ["FY2020 · year ended Dec 31, 2020", "Operating CF: $2.618B", "Free cash flow: $2.004B · Calculated", "Net income: $3.513B", "FY2020, year ended December 31, 2020. Operating cash flow: $2.618 billion. Free cash flow: $2.004 billion, calculated. Net income: $3.513 billion."],
+      ["FY2021 · year ended Dec 31, 2021", "Operating CF: $7.081B", "Free cash flow: $6.529B · Calculated", "Net income: $8.075B", "FY2021, year ended December 31, 2021. Operating cash flow: $7.081 billion. Free cash flow: $6.529 billion, calculated. Net income: $8.075 billion."],
+      ["FY2022 · year ended Dec 31, 2022", "Operating CF: $5.015B", "Free cash flow: $4.425B · Calculated", "Net income: $4.338B", "FY2022, year ended December 31, 2022. Operating cash flow: $5.015 billion. Free cash flow: $4.425 billion, calculated. Net income: $4.338 billion."],
+      ["FY2023 · year ended Dec 31, 2023", "Operating CF: $4.594B", "Free cash flow: $3.875B · Calculated", "Net income: $3.954B", "FY2023, year ended December 31, 2023. Operating cash flow: $4.594 billion. Free cash flow: $3.875 billion, calculated. Net income: $3.954 billion."],
+      ["FY2024 · year ended Dec 31, 2024", "Operating CF: $4.421B", "Free cash flow: $3.665B · Calculated", "Net income: $4.413B", "FY2024, year ended December 31, 2024. Operating cash flow: $4.421 billion. Free cash flow: $3.665 billion, calculated. Net income: $4.413 billion."],
+      ["FY2025 · year ended Dec 31, 2025", "Operating CF: $4.979B", "Free cash flow: $4.081B · Calculated", "Net income: $4.505B", "FY2025, year ended December 31, 2025. Operating cash flow: $4.979 billion. Free cash flow: $4.081 billion, calculated. Net income: $4.505 billion."]
+    ]
   },
   "balance": {
     "card": {
@@ -1188,6 +1224,18 @@
           }
         ]
       ]
-    }
+    },
+    "readout": [
+      ["FY2016 · year ended Dec 31, 2016", "Long-term debt: Unavailable (a)", "Cash: $535.2M", "Equity: $4.449B", "FY2016, year ended December 31, 2016. Long-term debt: unavailable, data note a. Cash: $535.2 million. Equity: $4.449 billion."],
+      ["FY2017 · year ended Dec 31, 2017", "Long-term debt: Unavailable (a)", "Cash: $812.7M", "Equity: $6.144B", "FY2017, year ended December 31, 2017. Long-term debt: unavailable, data note a. Cash: $812.7 million. Equity: $6.144 billion."],
+      ["FY2018 · year ended Dec 31, 2018", "Long-term debt: Unavailable (a)", "Cash: $1.468B", "Equity: $8.757B", "FY2018, year ended December 31, 2018. Long-term debt: unavailable, data note a. Cash: $1.468 billion. Equity: $8.757 billion."],
+      ["FY2019 · year ended Dec 31, 2019", "Long-term debt: $0", "Cash: $1.618B", "Equity: $11.09B", "FY2019, year ended December 31, 2019. Long-term debt: $0. Cash: $1.618 billion. Equity: $11.09 billion."],
+      ["FY2020 · year ended Dec 31, 2020", "Long-term debt: $1.979B", "Cash: $2.194B", "Equity: $11.03B", "FY2020, year ended December 31, 2020. Long-term debt: $1.979 billion. Cash: $2.194 billion. Equity: $11.03 billion."],
+      ["FY2021 · year ended Dec 31, 2021", "Long-term debt: $1.980B", "Cash: $2.886B", "Equity: $18.77B", "FY2021, year ended December 31, 2021. Long-term debt: $1.980 billion. Cash: $2.886 billion. Equity: $18.77 billion."],
+      ["FY2022 · year ended Dec 31, 2022", "Long-term debt: $1.981B", "Cash: $3.106B", "Equity: $22.66B", "FY2022, year ended December 31, 2022. Long-term debt: $1.981 billion. Cash: $3.106 billion. Equity: $22.66 billion."],
+      ["FY2023 · year ended Dec 31, 2023", "Long-term debt: $1.983B", "Cash: $2.730B", "Equity: $25.97B", "FY2023, year ended December 31, 2023. Long-term debt: $1.983 billion. Cash: $2.730 billion. Equity: $25.97 billion."],
+      ["FY2024 · year ended Dec 31, 2024", "Long-term debt: $1.984B", "Cash: $2.488B", "Equity: $29.35B", "FY2024, year ended December 31, 2024. Long-term debt: $1.984 billion. Cash: $2.488 billion. Equity: $29.35 billion."],
+      ["FY2025 · year ended Dec 31, 2025", "Long-term debt: $1.986B", "Cash: $3.118B", "Equity: $31.26B", "FY2025, year ended December 31, 2025. Long-term debt: $1.986 billion. Cash: $3.118 billion. Equity: $31.26 billion."]
+    ]
   }
 }

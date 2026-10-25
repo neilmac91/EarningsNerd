@@ -39,7 +39,7 @@ export default function ComparisonReview({ pair, comparison }: { pair: RedlinePa
           <Button variant="secondary" aria-disabled={!query || undefined} className={!query ? secondaryUnavailableClass : undefined} onClick={() => { if (query) setQuery('') }}>Clear search</Button>
           <Button variant="secondary" onClick={exportReceipt}>Download all changes (JSON)</Button>
         </div>
-        <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">The receipt includes every change and its review label, even when search hides it.</p>
+        <p className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">The receipt includes every change and its review label, even when search hides it.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">

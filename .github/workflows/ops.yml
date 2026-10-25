@@ -59,6 +59,12 @@ on:
         type: choice
         options:
           - describe-service
+          - feedback-media-inspect
+          - feedback-media-verify-inspect
+          - feedback-media-verify-apply
+          - feedback-media-provision-apply
+          - feedback-media-enable-apply
+          - feedback-media-disable-apply
           - describe-jobs
           - detection-sql
           - logs-probe
@@ -110,7 +116,7 @@ jobs:
   approve-apply:
     # An -apply operation waits here until the founder approves it in GitHub: the `ops-apply`
     # environment names the founder as its required reviewer. Every other operation skips this job.
-    if: github.ref == 'refs/heads/main' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply repair-quarterly-apply', inputs.operation)
+    if: github.ref == 'refs/heads/main' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply repair-quarterly-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply', inputs.operation)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: ops-apply
@@ -127,7 +133,7 @@ jobs:
     # after approve-apply passes, and only in the run's first attempt (refuse-rerun fails a later
     # one); any other operation runs when approve-apply is skipped.
     needs: approve-apply
-    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' && !contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply repair-quarterly-apply', inputs.operation)) || (needs.approve-apply.result == 'success' && github.run_attempt == '1')) }}
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' && !contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply repair-quarterly-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply', inputs.operation)) || (needs.approve-apply.result == 'success' && github.run_attempt == '1')) }}
     concurrency:
       group: ops
       cancel-in-progress: false
@@ -157,7 +163,7 @@ jobs:
           [[ "$REVISION" =~ ^[a-z0-9-]*$ ]] \
             || { echo "::error::revision may contain only lowercase letters, digits and '-'"; exit 1; }
           case "$OP" in
-            describe-service|describe-jobs|detection-sql|logs-probe|capacity-readout|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-dry-run|repair-quarterly-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
+            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|capacity-readout|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-dry-run|repair-quarterly-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -203,7 +209,7 @@ jobs:
         # while this job queued behind another dispatch would satisfy with no one having approved. Only the
         # repository owner's approval counts, the founder's, so a reviewer added to ops-apply later cannot
         # approve a production write. The owner's login goes into the filter after a check that it is one.
-        if: contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply repair-quarterly-apply', steps.request.outputs.operation)
+        if: contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply repair-quarterly-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply', steps.request.outputs.operation)
         env:
           GH_TOKEN: ${{ github.token }}
           OWNER: ${{ github.repository_owner }}
@@ -224,7 +230,7 @@ jobs:
         # workflow queries and executes. See the header for why this is a check, not a shared
         # concurrency group. A main push whose CI run has not yet decided whether it deploys still
         # counts — waiting ~10 min beats racing a migration.
-        if: ${{ !contains('describe-service describe-jobs logs-probe rollback-traffic', steps.request.outputs.operation) }}
+        if: ${{ !contains('describe-service describe-jobs logs-probe rollback-traffic feedback-media-inspect feedback-media-verify-inspect', steps.request.outputs.operation) }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -256,6 +262,58 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v3
 
+      - name: Manage private feedback media resources
+        if: contains('feedback-media-inspect feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply', steps.request.outputs.operation)
+        timeout-minutes: 15
+        env:
+          OP: ${{ steps.request.outputs.operation }}
+        run: python3 ops/feedback_media/manage.py "$OP"
+
+      - name: Set up Node for isolated feedback verification
+        if: steps.request.outputs.operation == 'feedback-media-verify-apply'
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.23.2'
+
+      - name: Build the committed feedback verification frontend
+        if: steps.request.outputs.operation == 'feedback-media-verify-apply'
+        timeout-minutes: 15
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: https://localhost:8443
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run build
+
+      - name: Install the fixed isolated verification SQL proxy
+        if: steps.request.outputs.operation == 'feedback-media-verify-apply'
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          curl -fsSL -o cloud-sql-proxy \
+            "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/${CLOUD_SQL_PROXY_VERSION}/cloud-sql-proxy.linux.amd64"
+          echo "${CLOUD_SQL_PROXY_SHA256}  cloud-sql-proxy" | sha256sum -c -
+          chmod +x cloud-sql-proxy
+
+      - name: Verify feedback against isolated private storage
+        if: contains('feedback-media-verify-inspect feedback-media-verify-apply', steps.request.outputs.operation)
+        timeout-minutes: 40
+        env:
+          OP: ${{ steps.request.outputs.operation }}
+          FEEDBACK_VERIFY_DEPLOYER: ${{ vars.GCP_DEPLOYER_SA }}
+        run: python3 ops/feedback_media/verify_manage.py "$OP"
+
+      - name: Retain validated synthetic feedback verification evidence
+        if: ${{ always() && steps.request.outputs.operation == 'feedback-media-verify-apply' && hashFiles('verification-output/*') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: feedback-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: verification-output/
+          if-no-files-found: error
+          retention-days: 7
+
       # ------------------------------------------------------------------ read-only inspection
       - name: Describe service env (values only for known feature flags)
         if: steps.request.outputs.operation == 'describe-service'
@@ -278,6 +336,7 @@ jobs:
             earningsnerd-earnings-day-alerts
             earningsnerd-notable-filings
             earningsnerd-retention-purge
+            earningsnerd-feedback-media-cleanup
           )
           for job in "${jobs[@]}"; do
             if ! gcloud run jobs describe "$job" --region="$REGION" --format=json > "$JOB_DIR/$job.json" 2>/dev/null; then
@@ -685,7 +744,7 @@ jobs:
     # job's dependents with it, so "Re-run failed jobs" re-runs this job with ops; a first attempt,
     # and every other operation, skips it.
     needs: ops
-    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.run_attempt != '1' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply repair-quarterly-apply', inputs.operation) }}
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.run_attempt != '1' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply repair-quarterly-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply', inputs.operation) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}

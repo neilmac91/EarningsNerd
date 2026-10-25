@@ -14,10 +14,11 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, OFF_ROW, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
-import { compactMoney, moneyFormat, MINUS, niceAxis, percentFormat } from '@/features/analysis/lib/charts/scale'
-import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
+import { chartReadouts } from '@/features/analysis/lib/charts/readout'
+import { compactMoney, fixed, moneyFormat, MINUS, niceAxis, percentFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
+import { groupDataNotes, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { currencySymbol } from '@/lib/format'
 
 const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
@@ -451,6 +452,92 @@ describe('the cases the step-1 data required', () => {
   })
 })
 
+describe('reading a chart: the slot under a pointer, a period’s column and the sticky gutter (§3.9, A7)', () => {
+  it.each(DATASETS.map(([name]) => name))('%s', (name) => {
+    for (const chart of CHART_IDS) {
+      const model = buildChartModel(chart, dataset(name))
+      if (model.unavailable) continue
+      for (const width of [342, 502]) {
+        const layout = layoutChart(model, width, 'card')
+        // §3.9's hit target: every x of a slot's full width reads its period, and nothing in the gutter or right pad.
+        model.periods.forEach((period, i) => {
+          const column = columnOf(layout, period.key)
+          expect(column.width).toBe(layout.slot)
+          expect(column.left + column.width / 2).toBeCloseTo(layout.x(period.key), 9)
+          for (const x of [column.left + 0.001, layout.x(period.key), column.left + column.width - 0.001]) expect(slotAt(layout, x)).toBe(i)
+        })
+        expect(slotAt(layout, layout.plotLeft - 0.001)).toBeNull()
+        expect(slotAt(layout, layout.plotRight)).toBeNull()
+        // A7's gutter covers the plot's own at rest; scrolled, out to the next slot boundary, so no column shows cut.
+        expect(gutterCover(layout, 0)).toBe(layout.plotLeft)
+        for (const scroll of [1, layout.slot / 2, layout.slot, layout.slot * 2.25, layout.width - width]) {
+          const cover = gutterCover(layout, scroll)
+          expect(cover).toBeGreaterThanOrEqual(layout.plotLeft - 1e-9)
+          expect(cover).toBeLessThan(layout.plotLeft + layout.slot)
+          const boundary = (scroll + cover - layout.plotLeft) / layout.slot
+          expect(Math.abs(boundary - Math.round(boundary)), 'the cover ends on a slot boundary').toBeLessThan(1e-6)
+        }
+        expect(gutterOverlayWidth(layout)).toBe(Math.max(layout.plotLeft, ...layout.panels.map(captionBacking)))
+        for (const box of layout.panels) {
+          if (box.captionY != null && box.panel.caption) expect(captionBacking(box)).toBeGreaterThanOrEqual(textWidth(box.panel.caption) + 4)
+        }
+      }
+    }
+  })
+})
+
+describe('A7’s sticky gutter never shows a printed value in part, at any scroll', () => {
+  /** Every text the plan prints, by kind, as its box: x from its planned centre or left, y the band it sits in. */
+  function texts(model: ChartModel, layout: ChartLayout) {
+    const boxes: { kind: string; period: string; x0: number; x1: number; y0: number; y1: number }[] = []
+    const centred = (kind: string, period: string, x: number, text: string, baseline: number) =>
+      boxes.push({ kind, period, x0: x - textWidth(text) / 2, x1: x + textWidth(text) / 2, y0: baseline - 10, y1: baseline + 3 })
+    for (const box of layout.panels) {
+      for (const bar of box.bars) if (bar.label) centred('bar label', bar.period, bar.x + bar.width / 2, bar.label.text, bar.label.y)
+      for (const gap of box.gaps) centred('gap', gap.period, gap.x, gap.text, gap.y)
+      for (const label of box.nearZero) centred('near zero', label.period, label.x, label.text, label.y)
+      for (const band of [box.offAbove, box.offBelow]) for (const item of band?.items ?? []) {
+        const y0 = band!.top + OFF_ROW * item.row
+        boxes.push({ kind: 'off-scale', period: item.period, x0: item.left, x1: item.left + OFF_GLYPH + textWidth(item.text), y0, y1: y0 + OFF_ROW })
+      }
+    }
+    for (const period of model.periods) for (const line of period.tick) centred('x tick', period.key, layout.x(period.key), line, layout.xTickY)
+    if (layout.stripTop != null) model.strip.forEach((row, i) => {
+      for (const period of model.periods) centred('strip cell', period.key, layout.x(period.key), row.cells[period.key], layout.stripRowY[i])
+    })
+    for (const glyph of noteGlyphs(model, layout)) centred('note glyph', glyph.period, glyph.x, glyph.text, layout.notesY)
+    return boxes
+  }
+
+  it.each(DATASETS.map(([name]) => name))('%s', (name) => {
+    for (const chart of CHART_IDS) {
+      const model = buildChartModel(chart, dataset(name))
+      if (model.unavailable) continue
+      for (const view of ['card', 'expanded'] as const) for (const viewport of [300, 342]) {
+        const layout = layoutChart(model, viewport, view)
+        const boxes = texts(model, layout)
+        // Only a bar label and an off-scale value run past their column; the cover takes every other text with its column.
+        for (const box of boxes) if (box.kind !== 'bar label' && box.kind !== 'off-scale') {
+          const column = columnOf(layout, box.period)
+          expect(box.x0, `${chart} ${view}: ${box.kind} inside its column`).toBeGreaterThanOrEqual(column.left - 1e-9)
+          expect(box.x1, `${chart} ${view}: ${box.kind} inside its column`).toBeLessThanOrEqual(column.left + column.width + 1e-9)
+        }
+        for (let scroll = 1; scroll <= layout.width - viewport; scroll += 1.5) {
+          const cover = gutterCover(layout, scroll)
+          const edge = scroll + cover
+          const cuts = gutterCuts(layout, scroll, cover)
+          for (const box of boxes) {
+            if (box.x0 >= edge || box.x1 <= edge) continue
+            // Cut by the edge: the rest of its box lies under a cut the gutter draws.
+            const hidden = cuts.some((cut) => cut.x <= cover + 1e-9 && cut.x + cut.width >= box.x1 - scroll - 1e-9 && cut.y <= box.y0 + 1e-9 && cut.y + cut.height >= box.y1 - 1e-9)
+            expect(hidden, `${chart} ${view} at ${scroll}: a ${box.kind} shows in part`).toBe(true)
+          }
+        }
+      }
+    }
+  })
+})
+
 describe('amounts carry their filer’s currency, never a default dollar sign', () => {
   const inUnit = (unit: string) => (ds: AnalysisDataset) => {
     for (const series of ds.series) if (!series.percent) {
@@ -521,6 +608,15 @@ describe('A1 and A2: ticks and printed values', () => {
     expect([format.d0, format.value(999.7e6), format.value(400e6)]).toEqual([2, '$1.00B', '$0.40B'])
   })
 
+  it('M15: every printed value rounds as the metrics table rounds, half away from zero on the decimal', () => {
+    // Each half is a hair under it as a double (143.35 is 143.3499…), where toFixed rounds down: "143.3", "30.1".
+    expect([fixed(143.35, 1), fixed(30.15, 1), fixed(0.35, 1), fixed(46.995, 2), fixed(4.0805, 3)]).toEqual(['143.4', '30.2', '0.4', '47.00', '4.081'])
+    // At each call site: a percent panel's values, an amount at its axis's precision, and in its own unit.
+    expect([percentFormat(10, false).value(30.15), percentFormat(10, true).value(-0.35)]).toEqual(['30.2%', `${MINUS}0.4%`])
+    const format = moneyFormat([200e6], 50e6, [0, 50e6, 100e6, 150e6, 200e6], 'USD')
+    expect([format.value(143.35e6, 1), tooltipMoney(-46.995e6, 'USD'), compactMoney(3.55e6, 'USD')]).toEqual(['$143.4M', `${MINUS}$47.00M`, '$3.6M'])
+  })
+
   it('A1 at any magnitude: a ₩120,000T axis still steps uniformly', () => {
     expect(niceAxis([3e16, 1.2e17], 5)).toMatchObject({ step: 2.5e16, ticks: [0, 2.5e16, 5e16, 7.5e16, 1e17, 1.25e17] })
   })
@@ -581,8 +677,13 @@ const golden = (value: unknown) => `${JSON.stringify(value, null, 2).replace(/\[
 describe.each(GOLDEN)('%s: the golden plan', (name) => {
   it('matches its committed plan in every chart and view', async () => {
     const plans = Object.fromEntries(CHART_IDS.map((chart) => {
-      const m = buildChartModel(chart, dataset(name))
-      return [chart, { card: plan(m, layoutChart(m, 502, 'card')), expanded: plan(m, layoutChart(m, 1030, 'expanded')) }]
+      const ds = dataset(name)
+      const notes = resolveDataNotes(ds)
+      const m = buildChartModel(chart, ds, notes)
+      // The tooltip's header and rows, then the values stop's spoken sentence, one line a period (readout.ts): view-independent,
+      // so once a chart.
+      const readout = chartReadouts(m, ds, notes).map((period) => [period.header, ...period.rows.map((row) => `${row.label}: ${row.text}`), period.announcement])
+      return [chart, { card: plan(m, layoutChart(m, 502, 'card')), expanded: plan(m, layoutChart(m, 1030, 'expanded')), readout }]
     }))
     await expect(golden(plans)).toMatchFileSnapshot(`fixtures/chart-golden/${name}.json`)
   })

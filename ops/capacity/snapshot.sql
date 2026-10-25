@@ -25,7 +25,7 @@ SELECT json_build_object(
 WITH matched AS MATERIALIZED (
   SELECT * FROM earningsnerd_job_runs
   WHERE job_name IN ('pregenerate', 'filing-scan', 'filing-digest', 'backfill-facts',
-                     'earnings-calendar-refresh', 'earnings-day-alerts', 'notable-filings', 'retention-purge')
+                     'earnings-calendar-refresh', 'earnings-day-alerts', 'notable-filings', 'retention-purge', 'feedback-media-cleanup')
     AND started_at < :'readout_end'::timestamptz
     AND (finished_at IS NULL OR finished_at >= :'readout_start'::timestamptz)
   ORDER BY started_at

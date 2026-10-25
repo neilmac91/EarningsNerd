@@ -315,7 +315,21 @@
         ["—", "YoY growth needs the same period a year earlier; none for Q3 ’23–Q4 ’24."]
       ],
       "strip": []
-    }
+    },
+    "readout": [
+      ["Q3 2023 · quarter ended Sep 30, 2023", "Premiums earned: Unavailable (a)", "YoY growth: Unavailable", "Q3 2023, quarter ended September 30, 2023. Premiums earned: unavailable, data note a. Year-over-year growth: unavailable."],
+      ["Q4 2023 · quarter ended Dec 31, 2023", "Premiums earned: Unavailable (a)", "YoY growth: Unavailable", "Q4 2023, quarter ended December 31, 2023. Premiums earned: unavailable, data note a. Year-over-year growth: unavailable."],
+      ["Q1 2024 · quarter ended Mar 31, 2024", "Premiums earned: $16.15B", "YoY growth: No prior-year period in this window", "Q1 2024, quarter ended March 31, 2024. Premiums earned: $16.15 billion. Year-over-year growth: not available, no prior-year period in this window."],
+      ["Q2 2024 · quarter ended Jun 30, 2024", "Premiums earned: $17.21B", "YoY growth: No prior-year period in this window", "Q2 2024, quarter ended June 30, 2024. Premiums earned: $17.21 billion. Year-over-year growth: not available, no prior-year period in this window."],
+      ["Q3 2024 · quarter ended Sep 30, 2024", "Premiums earned: $18.30B", "YoY growth: Unavailable", "Q3 2024, quarter ended September 30, 2024. Premiums earned: $18.30 billion. Year-over-year growth: unavailable."],
+      ["Q4 2024 · quarter ended Dec 31, 2024", "Premiums earned: $19.14B · Calculated", "YoY growth: Unavailable", "Q4 2024, quarter ended December 31, 2024. Premiums earned: $19.14 billion, calculated. Year-over-year growth: unavailable."],
+      ["Q1 2025 · quarter ended Mar 31, 2025", "Premiums earned: $19.41B", "YoY growth: +20.2%", "Q1 2025, quarter ended March 31, 2025. Premiums earned: $19.41 billion. Year-over-year growth: plus 20.2%."],
+      ["Q2 2025 · quarter ended Jun 30, 2025", "Premiums earned: $20.31B", "YoY growth: +18.0%", "Q2 2025, quarter ended June 30, 2025. Premiums earned: $20.31 billion. Year-over-year growth: plus 18.0%."],
+      ["Q3 2025 · quarter ended Sep 30, 2025", "Premiums earned: $20.85B", "YoY growth: +13.9%", "Q3 2025, quarter ended September 30, 2025. Premiums earned: $20.85 billion. Year-over-year growth: plus 13.9%."],
+      ["Q4 2025 · quarter ended Dec 31, 2025", "Premiums earned: $21.09B · Calculated", "YoY growth: +10.2%", "Q4 2025, quarter ended December 31, 2025. Premiums earned: $21.09 billion, calculated. Year-over-year growth: plus 10.2%."],
+      ["Q1 2026 · quarter ended Mar 31, 2026", "Premiums earned: $20.97B", "YoY growth: +8.0%", "Q1 2026, quarter ended March 31, 2026. Premiums earned: $20.97 billion. Year-over-year growth: plus 8.0%."],
+      ["Q2 2026 · quarter ended Jun 30, 2026", "Premiums earned: $21.57B", "YoY growth: +6.2%", "Q2 2026, quarter ended June 30, 2026. Premiums earned: $21.57 billion. Year-over-year growth: plus 6.2%."]
+    ]
   },
   "margins": {
     "card": {
@@ -391,7 +405,8 @@
       "notes": [],
       "footnotes": [],
       "strip": []
-    }
+    },
+    "readout": []
   },
   "cash": {
     "card": {
@@ -473,7 +488,7 @@
               "points": [
                 ["2023Q3", "$3.38B", 122.4],
                 ["2023Q4", "—"],
-                ["2024Q1", "$4.18B", 89.8],
+                ["2024Q1", "$4.19B", 89.8],
                 ["2024Q2", "—"],
                 ["2024Q3", "—"],
                 ["2024Q4", "—"],
@@ -500,7 +515,7 @@
                 ["2024Q3", "$2.33B", 165.1],
                 ["2024Q4", "—"],
                 ["2025Q1", "$2.57B", 155.6],
-                ["2025Q2", "$3.17B", 130.9],
+                ["2025Q2", "$3.18B", 130.9],
                 ["2025Q3", "$2.62B", 153.7],
                 ["2025Q4", "$2.95B", 140],
                 ["2026Q1", "$2.82B", 145.4],
@@ -616,7 +631,7 @@
               "points": [
                 ["2023Q3", "$3.38B", 209.6],
                 ["2023Q4", "—"],
-                ["2024Q1", "$4.18B", 150.3],
+                ["2024Q1", "$4.19B", 150.3],
                 ["2024Q2", "—"],
                 ["2024Q3", "—"],
                 ["2024Q4", "—"],
@@ -643,7 +658,7 @@
                 ["2024Q3", "$2.33B", 287.3],
                 ["2024Q4", "—"],
                 ["2025Q1", "$2.57B", 270],
-                ["2025Q2", "$3.17B", 225.1],
+                ["2025Q2", "$3.18B", 225.1],
                 ["2025Q3", "$2.62B", 266.5],
                 ["2025Q4", "$2.95B", 241.6],
                 ["2026Q1", "$2.82B", 251.5],
@@ -707,7 +722,7 @@
           {
             "2023Q3": "$3.38B",
             "2023Q4": "—",
-            "2024Q1": "$4.18B",
+            "2024Q1": "$4.19B",
             "2024Q2": "—",
             "2024Q3": "—",
             "2024Q4": "—",
@@ -732,7 +747,7 @@
             "2024Q3": "$2.33B",
             "2024Q4": "—",
             "2025Q1": "$2.57B",
-            "2025Q2": "$3.17B",
+            "2025Q2": "$3.18B",
             "2025Q3": "$2.62B",
             "2025Q4": "$2.95B",
             "2026Q1": "$2.82B",
@@ -740,7 +755,21 @@
           }
         ]
       ]
-    }
+    },
+    "readout": [
+      ["Q3 2023 · quarter ended Sep 30, 2023", "Operating CF: $3.420B · Calculated", "Free cash flow: $3.383B · Calculated", "Net income: $1.121B", "Q3 2023, quarter ended September 30, 2023. Operating cash flow: $3.420 billion, calculated. Free cash flow: $3.383 billion, calculated. Net income: $1.121 billion."],
+      ["Q4 2023 · quarter ended Dec 31, 2023", "Operating CF: Unavailable (a)", "Free cash flow: Unavailable (a)", "Net income: Unavailable (a)", "Q4 2023, quarter ended December 31, 2023. Operating cash flow: unavailable, data note a. Free cash flow: unavailable, data note a. Net income: unavailable, data note a."],
+      ["Q1 2024 · quarter ended Mar 31, 2024", "Operating CF: $4.235B", "Free cash flow: $4.185B · Calculated", "Net income: $2.331B", "Q1 2024, quarter ended March 31, 2024. Operating cash flow: $4.235 billion. Free cash flow: $4.185 billion, calculated. Net income: $2.331 billion."],
+      ["Q2 2024 · quarter ended Jun 30, 2024", "Operating CF: Unavailable (a)", "Free cash flow: Unavailable (a)", "Net income: $1.459B", "Q2 2024, quarter ended June 30, 2024. Operating cash flow: unavailable, data note a. Free cash flow: unavailable, data note a. Net income: $1.459 billion."],
+      ["Q3 2024 · quarter ended Sep 30, 2024", "Operating CF: Unavailable (a)", "Free cash flow: Unavailable (a)", "Net income: $2.334B", "Q3 2024, quarter ended September 30, 2024. Operating cash flow: unavailable, data note a. Free cash flow: unavailable, data note a. Net income: $2.334 billion."],
+      ["Q4 2024 · quarter ended Dec 31, 2024", "Operating CF: Unavailable (a)", "Free cash flow: Unavailable (a)", "Net income: Unavailable (a)", "Q4 2024, quarter ended December 31, 2024. Operating cash flow: unavailable, data note a. Free cash flow: unavailable, data note a. Net income: unavailable, data note a."],
+      ["Q1 2025 · quarter ended Mar 31, 2025", "Operating CF: $5.143B", "Free cash flow: $5.084B · Calculated", "Net income: $2.567B", "Q1 2025, quarter ended March 31, 2025. Operating cash flow: $5.143 billion. Free cash flow: $5.084 billion, calculated. Net income: $2.567 billion."],
+      ["Q2 2025 · quarter ended Jun 30, 2025", "Operating CF: $4.040B · Calculated", "Free cash flow: $3.938B · Calculated", "Net income: $3.175B", "Q2 2025, quarter ended June 30, 2025. Operating cash flow: $4.040 billion, calculated. Free cash flow: $3.938 billion, calculated. Net income: $3.175 billion."],
+      ["Q3 2025 · quarter ended Sep 30, 2025", "Operating CF: $5.195B · Calculated", "Free cash flow: $5.129B · Calculated", "Net income: $2.615B", "Q3 2025, quarter ended September 30, 2025. Operating cash flow: $5.195 billion, calculated. Free cash flow: $5.129 billion, calculated. Net income: $2.615 billion."],
+      ["Q4 2025 · quarter ended Dec 31, 2025", "Operating CF: $3.170B · Calculated", "Free cash flow: $3.049B · Calculated", "Net income: $2.951B · Calculated", "Q4 2025, quarter ended December 31, 2025. Operating cash flow: $3.170 billion, calculated. Free cash flow: $3.049 billion, calculated. Net income: $2.951 billion, calculated."],
+      ["Q1 2026 · quarter ended Mar 31, 2026", "Operating CF: $4.367B", "Free cash flow: $4.304B · Calculated", "Net income: $2.818B", "Q1 2026, quarter ended March 31, 2026. Operating cash flow: $4.367 billion. Free cash flow: $4.304 billion, calculated. Net income: $2.818 billion."],
+      ["Q2 2026 · quarter ended Jun 30, 2026", "Operating CF: $3.607B · Calculated", "Free cash flow: $3.469B · Calculated", "Net income: $3.311B", "Q2 2026, quarter ended June 30, 2026. Operating cash flow: $3.607 billion, calculated. Free cash flow: $3.469 billion, calculated. Net income: $3.311 billion."]
+    ]
   },
   "balance": {
     "card": {
@@ -1061,6 +1090,20 @@
           }
         ]
       ]
-    }
+    },
+    "readout": [
+      ["Q3 2023 · quarter ended Sep 30, 2023", "Cash: $123.5M", "Equity: $17.40B", "Q3 2023, quarter ended September 30, 2023. Cash: $123.5 million. Equity: $17.40 billion."],
+      ["Q4 2023 · quarter ended Dec 31, 2023", "Cash: $85.00M", "Equity: $20.28B", "Q4 2023, quarter ended December 31, 2023. Cash: $85.00 million. Equity: $20.28 billion."],
+      ["Q1 2024 · quarter ended Mar 31, 2024", "Cash: $155.0M", "Equity: $21.81B", "Q1 2024, quarter ended March 31, 2024. Cash: $155.0 million. Equity: $21.81 billion."],
+      ["Q2 2024 · quarter ended Jun 30, 2024", "Cash: $90.00M", "Equity: $23.34B", "Q2 2024, quarter ended June 30, 2024. Cash: $90.00 million. Equity: $23.34 billion."],
+      ["Q3 2024 · quarter ended Sep 30, 2024", "Cash: $136.0M", "Equity: $27.16B", "Q3 2024, quarter ended September 30, 2024. Cash: $136.0 million. Equity: $27.16 billion."],
+      ["Q4 2024 · quarter ended Dec 31, 2024", "Cash: $143.0M", "Equity: $25.59B", "Q4 2024, quarter ended December 31, 2024. Cash: $143.0 million. Equity: $25.59 billion."],
+      ["Q1 2025 · quarter ended Mar 31, 2025", "Cash: $195.0M", "Equity: $28.95B", "Q1 2025, quarter ended March 31, 2025. Cash: $195.0 million. Equity: $28.95 billion."],
+      ["Q2 2025 · quarter ended Jun 30, 2025", "Cash: $125.0M", "Equity: $32.60B", "Q2 2025, quarter ended June 30, 2025. Cash: $125.0 million. Equity: $32.60 billion."],
+      ["Q3 2025 · quarter ended Sep 30, 2025", "Cash: $173.0M", "Equity: $35.45B", "Q3 2025, quarter ended September 30, 2025. Cash: $173.0 million. Equity: $35.45 billion."],
+      ["Q4 2025 · quarter ended Dec 31, 2025", "Cash: $125.0M", "Equity: $30.32B", "Q4 2025, quarter ended December 31, 2025. Cash: $125.0 million. Equity: $30.32 billion."],
+      ["Q1 2026 · quarter ended Mar 31, 2026", "Cash: $162.0M", "Equity: $32.04B", "Q1 2026, quarter ended March 31, 2026. Cash: $162.0 million. Equity: $32.04 billion."],
+      ["Q2 2026 · quarter ended Jun 30, 2026", "Cash: $178.0M", "Equity: $34.33B", "Q2 2026, quarter ended June 30, 2026. Cash: $178.0 million. Equity: $34.33 billion."]
+    ]
   }
 }

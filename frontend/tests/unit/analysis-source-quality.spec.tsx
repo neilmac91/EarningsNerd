@@ -72,18 +72,12 @@ describe('Financial origin and source checks', () => {
     const originalSummary = summary.textContent
     expect(summary).toHaveTextContent('14 comparisons carry note a')
     expect(screen.getByRole('button', { name: 'Review data notes a, b' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Newest 6' }))
-    expect(locator()).toHaveTextContent('The table shows 3 as its labelled fallback (2 in the 6 quarters shown).')
-    expect(summary.textContent).toBe(originalSummary)
-    await userEvent.click(screen.getByRole('button', { name: 'Earliest 6' }))
-    expect(screen.getByRole('button', { name: 'Review data notes a' })).toBeInTheDocument()
-    expect(locator()).toHaveTextContent('The table shows 3 as its labelled fallback (1 in the 6 quarters shown).')
-    expect(within(note).getByText(/^1 quarter-over-quarter comparison carries/)).toHaveTextContent('The table shows 1 (0 in the 6 quarters shown).')
-    expect(summary.textContent).toBe(originalSummary)
-    rerender(view({ ...report, snapshot_id: 'locator-two' }))
-    expect(screen.getByRole('status')).toHaveTextContent('Showing 8 of 8 quarters')
+    // The table shows every period (the 6-of-N window is retired), so a locator never counts a subset of it.
+    expect(screen.queryByRole('group', { name: 'Table window' })).not.toBeInTheDocument()
     expect(locator()).not.toHaveTextContent('quarters shown')
-    expect(screen.getByRole('button', { name: 'All 8' })).toHaveAttribute('aria-pressed', 'true')
+    rerender(view({ ...report, snapshot_id: 'locator-two' }))
+    expect(locator()).toHaveTextContent('The table shows 3 as its labelled fallback. Exports carry all 13.')
+    expect(container.querySelector('[data-analysis-data-notes] > details > summary')?.textContent).toBe(originalSummary)
   })
 
   it('keeps citation-only and illustrative note lists free of invented report surface claims', () => {
@@ -110,18 +104,16 @@ describe('Financial origin and source checks', () => {
     expect(container.textContent).not.toContain('2026-10-20T')
   })
 
-  it('lists visible table note letters in admitted report order, including unavailable cells', async () => {
+  it('lists visible table note letters in admitted report order, including unavailable cells', () => {
     const report = locatorDataset()
     const grouped = groupDataNotes(report)
     grouped.notes = grouped.notes.map((note, index) => ({ ...note, letter: ['z', 'a'][index], id: `analysis-data-note-${['z', 'a'][index]}` }))
     report.data_notes = decodeDataNotes({ version: 1, notes: grouped.notes, totals: grouped.totals }, report)
     render(<MetricsTable dataset={report} />)
     expect(screen.getByRole('button', { name: 'Review data notes z, a' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Earliest 6' }))
-    expect(screen.getByRole('button', { name: 'Review data notes z' })).toBeInTheDocument()
   })
 
-  it('counts annual CAGR and percentage-point windows independently of the table period window', async () => {
+  it('counts annual CAGR and percentage-point windows once each, beside every period of the table', () => {
     const report = locatorDataset()
     report.mode = 'annual'
     report.period_key = 'FY2018..FY2025'
@@ -137,8 +129,8 @@ describe('Financial origin and source checks', () => {
     for (const basis of ['CAGR', 'window percentage-point']) {
       expect(within(note).getByText(`1 ${basis} comparison carries this note. The headline cards show 1. The table shows 1. Exports carry all 1.`)).toBeInTheDocument()
     }
-    await userEvent.click(screen.getByRole('button', { name: 'Newest 6' }))
     expect(note).not.toHaveTextContent('years shown')
+    expect(screen.getAllByRole('columnheader')).toHaveLength(report.periods.length + 2)
     expect(screen.getByRole('columnheader', { name: 'FY2018–FY2025 CAGR' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Review data notes a' })).toBeInTheDocument()
   })

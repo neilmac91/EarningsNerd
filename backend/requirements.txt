@@ -42,7 +42,9 @@ charset-normalizer==3.4.7
 click==8.4.1
     # via uvicorn
 cryptography==50.0.0
-    # via pyjwt
+    # via
+    #   google-auth
+    #   pyjwt
 cssselect2==0.9.0
     # via weasyprint
 distro==1.9.0
@@ -63,6 +65,27 @@ filelock==4.2.1
     # via httpxthrottlecache
 fonttools==4.63.0
     # via weasyprint
+google-api-core==2.43.0
+    # via
+    #   google-cloud-core
+    #   google-cloud-storage
+google-auth==2.62.0
+    # via
+    #   google-api-core
+    #   google-cloud-core
+    #   google-cloud-storage
+google-cloud-core==2.8.0
+    # via google-cloud-storage
+google-cloud-storage==3.17.1
+    # via -r requirements.in
+google-crc32c==1.9.0
+    # via
+    #   google-cloud-storage
+    #   google-resumable-media
+google-resumable-media==2.11.0
+    # via google-cloud-storage
+googleapis-common-protos==1.76.0
+    # via google-api-core
 greenlet==3.5.6
     # via
     #   -r requirements.in
@@ -127,7 +150,9 @@ openai==3.33.0
 openpyxl==3.1.5
     # via -r requirements.in
 opentelemetry-api==1.45.1
-    # via fastapi
+    # via
+    #   fastapi
+    #   google-api-core
 orjson==3.11.9
     # via edgartools
 packaging==26.2
@@ -139,15 +164,28 @@ pandas==3.0.6
 passlib==1.7.4
     # via -r requirements.in
 pillow==13.0.0
-    # via weasyprint
+    # via
+    #   -r requirements.in
+    #   weasyprint
 pluggy==1.6.0
     # via pytest
 posthog==7.71.0
     # via -r requirements.in
+proto-plus==1.29.0
+    # via google-api-core
+protobuf==7.36.2
+    # via
+    #   google-api-core
+    #   googleapis-common-protos
+    #   proto-plus
 psycopg2-binary==2.9.13
     # via -r requirements.in
 pyarrow==24.0.0
     # via edgartools
+pyasn1==0.6.4
+    # via pyasn1-modules
+pyasn1-modules==0.4.2
+    # via google-auth
 pycparser==3.0
     # via cffi
 pydantic==2.14.1
@@ -204,6 +242,8 @@ redis==8.1.0
     # via -r requirements.in
 requests==2.34.2
     # via
+    #   google-api-core
+    #   google-cloud-storage
     #   posthog
     #   stripe
 rich==15.0.0

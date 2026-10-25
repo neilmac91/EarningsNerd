@@ -271,7 +271,7 @@ export function ModalHeader({ id, icon, tone = 'brand', onClose, className, chil
           aria-label="Close"
           className={cx(
             '-m-2 flex-none rounded-lg p-2 text-text-tertiary-light transition-colors duration-fast',
-            'hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark',
+            'hover:text-text-primary-light dark:text-text-tertiary-dark dark:hover:text-text-primary-dark',
             'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
           )}
         >

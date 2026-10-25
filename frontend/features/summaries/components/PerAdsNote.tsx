@@ -35,7 +35,7 @@ export function PerAdsNote({ perAds }: { perAds: PerAdsValue }) {
     // whitespace-normal: the metrics-table cell sets whitespace-nowrap (to keep the headline figure
     // on one line), and `white-space` inherits — without this the arithmetic caption can't wrap and
     // would overflow the column.
-    <span className="mt-0.5 block whitespace-normal text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+    <span className="mt-0.5 block whitespace-normal text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
       {hasValue && (
         <span className="font-medium text-text-secondary-light dark:text-text-secondary-dark">
           ≈ {formatPerAds(perAds.value, perAds.currency)} per ADS

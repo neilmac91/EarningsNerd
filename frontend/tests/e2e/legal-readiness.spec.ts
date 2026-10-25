@@ -56,7 +56,9 @@ async function harness(page: Page, baseURL: string, theme: 'light' | 'dark' = 'l
     captchaRequests: 0,
     mutations: [] as Array<{ path: string; body: unknown }>,
     blockedExternal: [] as string[],
+    pageErrors: [] as string[],
   }
+  page.on('pageerror', (error) => state.pageErrors.push(error.message))
   await page.setViewportSize({ width: 390, height: 844 })
   await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' })
   await page.addInitScript((selectedTheme) => {
@@ -147,14 +149,14 @@ async function noCollectionControls(page: Page) {
   await expect(page.locator('script[src*="challenges.cloudflare.com"]')).toHaveCount(0)
 }
 
-async function screenshot(page: Page, info: TestInfo, name: string) {
+async function screenshot(page: Page, info: TestInfo, name: string, fullPage = true) {
   const directory = process.env.LEGAL_READINESS_SCREENSHOTS
   const file = directory ? path.join(directory, `${name}.png`) : info.outputPath(`${name}.png`)
   if (directory) await mkdir(directory, { recursive: true })
   // Full-page capture otherwise paints sticky chrome at the scroll offset left by a focused
   // below-fold button, making it look as though the page header sits midway through the page.
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
-  await page.screenshot({ path: file, fullPage: true, animations: 'disabled' })
+  await page.screenshot({ path: file, fullPage, animations: 'disabled' })
   await info.attach(name, { path: file, contentType: 'image/png' })
 }
 
@@ -175,6 +177,50 @@ async function fillReadyForm(page: Page, surface: Surface) {
   await page.getByLabel('Message *', { exact: true }).fill('A synthetic account support question for browser verification.')
   return page.getByRole('button', { name: 'Send message', exact: true })
 }
+
+test.describe('Public access promises', () => {
+  for (const theme of ['light', 'dark'] as const) {
+    for (const [width, textSize] of [[390, 16], [390, 32], [1440, 16]]) {
+      test(`examples remain available during intake hold in ${theme} at ${width}px and ${textSize}px text`, async ({ page, baseURL }, info) => {
+        const state = await harness(page, baseURL!, theme)
+        await page.setViewportSize({ width, height: 900 })
+        const cdp = await page.context().newCDPSession(page)
+        await cdp.send('Page.setFontSizes', { fontSizes: { standard: textSize, fixed: textSize === 32 ? 26 : 13 } })
+        const pending = deferred<Answer>()
+        state.respond = () => pending.promise
+        await page.goto('/')
+        await expect(page.getByText('Checking registration availability. You can explore a live example.')).toBeVisible()
+        await expect(page.getByRole('link', { name: /Request.*invite|Create a free account|Sign up|Join the waitlist/i })).toHaveCount(0)
+        pending.resolve(answer(CLOSED))
+        await expect(page.getByText('New registrations are currently closed. Existing members can log in.')).toBeVisible()
+        await expect(page.getByRole('link', { name: 'View plans' })).toHaveCount(1)
+        await expect(page.getByRole('link', { name: /Upgrade to Pro|Start .*free trial/ })).toHaveCount(0)
+        await expect(page.getByText('Free for beta members')).toHaveCount(0)
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+        await screenshot(page, info, `public-home-${theme}-${width}-${textSize}`, false)
+
+        state.respond = async () => answer(CLOSED)
+        await page.goto('/waitlist')
+        await expect(page.getByText('New registrations are currently closed. Existing members can log in.')).toBeVisible()
+        await noCollectionControls(page)
+        await expect(page.getByText(/You can (still )?join the waitlist/)).toHaveCount(0)
+        await expect(page.getByRole('link', { name: 'Join the waitlist', exact: true })).toHaveCount(0)
+        const example = page.locator('#main').getByRole('link', { name: 'See a live example', exact: true })
+        await expect(example).toHaveAttribute('href', /(?:\/filing\/.*demo=1|\/company\/AAPL)/)
+        await example.focus()
+        await expect(example).toBeFocused()
+        await expect(page.locator('#main').getByRole('link', { name: /^log in$/i })).toBeVisible()
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+        await screenshot(page, info, `public-waitlist-${theme}-${width}-${textSize}`, false)
+        expect(state.captchaRequests).toBe(0)
+        expect(state.mutations).toEqual([])
+        expect(state.blockedExternal).toEqual([])
+        expect(state.pageErrors).toEqual([])
+        await cdp.detach()
+      })
+    }
+  }
+})
 
 test.describe('Public collection readiness', () => {
   for (const theme of ['light', 'dark'] as const) {
