@@ -26,14 +26,21 @@ const BOTTOM = 4
 const RIGHT_PAD = 8
 /** The narrowest period slot: below it the chart scrolls inside its own viewport, never the page. */
 export const MIN_SLOT = 36
+/** A labelled chart (the top line's) widens its slot past MIN_SLOT until A4 finds a label tier, up to this. On the
+ *  audit's 72 top lines, 66 fit at 36 px and the other six (LCID, NVDA, PLUG, REGN, REGNPN and RIVN, all annual)
+ *  needed at most 41.7 px: six-glyph labels such as "$4.86B" cannot keep 2 px apart at a 36 px pitch. Past it, as
+ *  a code-prefixed currency's labels ("CHF 4.9B") can be, the card says VALUES_DONT_FIT instead. */
+export const LABELLED_MAX_SLOT = 42
 /** The value strip's row: its series' swatch centred at STRIP_MARKER_X, then its short name from STRIP_LABEL_X. */
 export const STRIP_MARKER_X = 6
 export const STRIP_LABEL_X = 14
-/** What the card says under the SVG when A4 finds no label tier for a panel (spec §3.7). */
-export const VALUES_DONT_FIT = 'Values don’t fit at this width: expand the chart or see the metrics table.'
+/** What the card says under the SVG when A4 finds no label tier for a panel, even at LABELLED_MAX_SLOT (spec §3.7).
+ *  It does not offer the expanded view: on a phone that view is no wider. */
+export const VALUES_DONT_FIT = 'Values don’t fit at this width. The metrics table lists them.'
 
 export interface LabelPlan {
-  /** One decimal tier for the whole panel, or null when no tier fits (no labels; the strip has them). */
+  /** One decimal tier for the whole panel, or null when no tier fits: the panel prints no labels and the card says
+   *  VALUES_DONT_FIT. */
   decimals: number | null
 }
 
@@ -148,10 +155,22 @@ function frameOf(model: ChartModel, view: ChartView): { gutter: number; minSlot:
   return { gutter: Math.max(gutter, Math.ceil(STRIP_LABEL_X + label)), minSlot: Math.max(MIN_SLOT, Math.ceil(cell + 4)) }
 }
 
-/** A7: the narrowest width at which every slot keeps its minimum; below it the SVG scrolls in its card. */
+/** A7: the narrowest width at which every slot keeps its minimum; below it the SVG scrolls in its card. A labelled
+ *  chart takes the narrowest whole-pixel width, at most LABELLED_MAX_SLOT a period, at which A4 finds a tier for every
+ *  labelled panel, so a phone scrolls a little further rather than print no values; when none does, it keeps its
+ *  minimum. The search steps a slot pixel at a time, then the pixel within the last step. */
 export function minChartWidth(model: ChartModel, view: ChartView = 'card'): number {
   const { gutter, minSlot } = frameOf(model, view)
-  return gutter + RIGHT_PAD + minSlot * model.periods.length
+  const at = (slot: number) => gutter + RIGHT_PAD + slot * model.periods.length
+  const fits = (width: number) => !plan(model, width, view).valuesDontFit
+  if (!model.panels.some((panel) => panel.marks.some((mark) => mark.labelled)) || fits(at(minSlot))) return at(minSlot)
+  for (let slot = minSlot + 1; slot <= LABELLED_MAX_SLOT; slot++) {
+    if (!fits(at(slot))) continue
+    let width = at(slot - 1) + 1
+    while (!fits(width)) width++
+    return width
+  }
+  return at(minSlot)
 }
 
 /** Off-scale rows: entries sorted by x take the lowest row where their box (glyph and value, padded 4 px
@@ -254,7 +273,11 @@ function planNearZero(box: PanelFrame, bars: Bar[], slot: number): Pick<PanelBox
 }
 
 export function layoutChart(model: ChartModel, containerWidth: number, view: ChartView): ChartLayout {
-  const width = Math.max(containerWidth, minChartWidth(model, view))
+  return plan(model, Math.max(containerWidth, minChartWidth(model, view)), view)
+}
+
+/** The whole plan at a given SVG width. */
+function plan(model: ChartModel, width: number, view: ChartView): ChartLayout {
   const { gutter } = frameOf(model, view)
   const plotLeft = gutter
   const plotRight = width - RIGHT_PAD

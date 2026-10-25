@@ -497,6 +497,10 @@ async def ask_filing_stream(
     name rule. Metering: Pro counts against the monthly fair-use cap; Free decrements the lifetime
     free-taste counter — both when the provider stream starts, refunded on a provider-side failure
     and never on a client disconnect (see ``event_stream``).
+
+    The filing read, its snapshot and the admission are one unit in the thread pool, which releases
+    the request session before the stream starts: the dependency's finalizer runs only once the
+    stream ends (``lessons/ops-release-cached-filing-reads-before-yield.md``).
     """
     enforce_rate_limit(
         request,
@@ -505,44 +509,56 @@ async def ask_filing_stream(
         error_detail="Too many questions. Try again shortly.",
         include_client_ip=False,
     )
-
-    filing = db.query(Filing).options(
-        joinedload(Filing.content_cache),
-        joinedload(Filing.company),
-    ).filter(Filing.id == filing_id).first()
-    if not filing:
-        raise HTTPException(status_code=404, detail="Filing not found")
-
-    # Snapshot the filing into detached plain objects up front. The SSE generator below runs after
-    # this request's session may be gone, so it must never touch the ORM (mirrors
-    # generate_summary_stream's eager value capture). Done before the admission below commits,
-    # so nothing is re-selected from expired instances while a lease is already held.
-    filing_ctx = snapshot_filing(filing)
     user_id = current_user.id
 
-    # Free users reach here on their lifetime free-taste allowance (gated upstream by
-    # require_copilot_or_taste); they meter the lifetime counter, not the monthly cap. The monthly
-    # fair-use cap is a Pro-only protection against runaway volume.
-    is_free_taste = not get_entitlements(current_user).copilot
-    if is_free_taste:
-        # The gate above is a plain read; concurrent questions could all pass it. The serialized
-        # admission holds one unit of the LIFETIME allowance under a lease until the answer
-        # completes (converted) or fails (released).
-        admitted, _used, allowance, token = reserve_qa_taste_use(current_user, db)
-        if not admitted:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=copilot_taste_exhausted_detail(allowance))
-    else:
-        allowed, count, cap = check_qa_limit(current_user, db)
-        if allowed:
-            allowed, count, cap, token = reserve_qa_use(current_user, db)  # serialized decision
-        if not allowed:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(
-                    f"You've reached this month's fair-use limit of {cap} Copilot questions. "
-                    "It resets at the start of next month."
-                ),
-            )
+    def admit() -> tuple[Any, bool, Optional[str]]:
+        """The filing's snapshot, the plan and the admission's lease, with the release in its ``finally``.
+        The admission waits for the account's ``users`` row lock (up to ``USAGE_COUNTER_LOCK_TIMEOUT_MS``)
+        in this thread, not on the event loop; a refusal raises after the release."""
+        try:
+            filing = db.query(Filing).options(
+                joinedload(Filing.content_cache),
+                joinedload(Filing.company),
+            ).filter(Filing.id == filing_id).first()
+            if not filing:
+                raise HTTPException(status_code=404, detail="Filing not found")
+
+            # Snapshot the filing into detached plain objects up front. The SSE generator below runs after
+            # this request's session is released, so it must never touch the ORM (mirrors
+            # generate_summary_stream's eager value capture). Done before the admission below commits,
+            # so nothing is re-selected from expired instances while a lease is already held.
+            filing_ctx = snapshot_filing(filing)
+
+            # Free users reach here on their lifetime free-taste allowance (gated upstream by
+            # require_copilot_or_taste); they meter the lifetime counter, not the monthly cap. The monthly
+            # fair-use cap is a Pro-only protection against runaway volume.
+            is_free_taste = not get_entitlements(current_user).copilot
+            if is_free_taste:
+                # The gate above is a plain read; concurrent questions could all pass it. The serialized
+                # admission holds one unit of the LIFETIME allowance under a lease until the answer
+                # completes (converted) or fails (released).
+                admitted, _used, allowance, token = reserve_qa_taste_use(current_user, db)
+                if not admitted:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN, detail=copilot_taste_exhausted_detail(allowance),
+                    )
+            else:
+                allowed, count, cap = check_qa_limit(current_user, db)
+                if allowed:
+                    allowed, count, cap, token = reserve_qa_use(current_user, db)  # serialized decision
+                if not allowed:
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail=(
+                            f"You've reached this month's fair-use limit of {cap} Copilot questions. "
+                            "It resets at the start of next month."
+                        ),
+                    )
+            return filing_ctx, is_free_taste, token
+        finally:
+            filing_list_service.release_request_session(db)
+
+    filing_ctx, is_free_taste, token = await run_in_threadpool(admit)
     held = {"token": token}  # the admission lease, until converted by metering or released
 
     async def event_stream():
