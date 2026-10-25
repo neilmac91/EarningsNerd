@@ -565,6 +565,8 @@ describe('amounts carry their filer’s currency, never a default dollar sign', 
   it('a won or dong filer reads by its code, since Geist Mono draws neither sign (E203)', () => {
     expect(ticks(model('REGN_annual', 'cash', inUnit('KRW')))[1]).toBe('KRW 2B')
     expect([moneyPrefix('KRW'), moneyPrefix('VND'), moneyPrefix('INR'), moneyPrefix('ILS'), moneyPrefix('PHP')]).toEqual(['KRW ', 'VND ', '₹', '₪', '₱'])
+    // XOF's "F CFA" holds a narrow no-break space (U+202F), which no Geist Mono face draws, so it prints its code too.
+    expect(moneyPrefix('XOF')).toBe('XOF ')
     // Over the ISO 4217 list, every glyph past ASCII that a prefix prints is a sign the data face draws (G2).
     const printed = Intl.supportedValuesOf('currency').flatMap((code) => [...moneyPrefix(code)])
     expect([...new Set(printed)].filter((glyph) => glyph > '\u007f' && !DATA_FACE_SIGNS.includes(glyph))).toEqual([])

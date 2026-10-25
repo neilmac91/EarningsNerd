@@ -387,8 +387,9 @@ says so; everything else follows the spec.
   - Outside the plots, a † or a foreign sign set in the data face (the KPI strip, the metrics table, the card's
     footnotes) can still swap once on a cold cache, now between two monospace faces.
   - ₩ (KRW) and ₫ (VND) are in no Geist Mono subset, so the engine prints their codes ("KRW 120,000T"), as it does a
-    code-like symbol (E203). `moneyPrefix` prints a sign only where the face draws it (`DATA_FACE_SIGNS` in
-    `scale.ts`, read from the faces' cmaps). `chart-engine.spec.ts` holds every prefix over the ISO 4217 list to that
+    code-like symbol (E203); so does XOF, whose "F CFA" holds a narrow no-break space no face draws. `moneyPrefix`
+    prints a symbol only where the face draws every glyph past ASCII in it (`DATA_FACE_SIGNS` in `scale.ts`, read by
+    hand from the faces' cmaps in a 2026-10-25 build; next/font fetches the faces at build). `chart-engine.spec.ts` holds every prefix over the ISO 4217 list to that
     list, and the wait's sample test holds it to the sample, so a sign the face lacks paints in no plot (G2).
   - Outside the charts, a `lib/format.ts` figure set in the data face (the KPI strip) still prints ₩ and ₫ in the
     fallback. A code there is wider than the sign, so it waits on the KPI strip's narrow cards (E197; E203).
