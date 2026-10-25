@@ -616,7 +616,8 @@ Data note mark   <DataNoteMark> (analysis) — the footnote marks: † for a cal
                  comparison-only concerns. Full-width status Badges and nowrap labels do not belong in
                  an analysis KPI or metrics cell.
                  Gates: tests/unit/data-note-mark.spec.tsx (the one type, the inks, 2px between † and a
-                 letter, the spacer with no declared width, the small raise with its 2px gap);
+                 letter, the spacer with no declared width, the staircase raises and large asked for only
+                 at the two 24px figures);
                  tests/e2e/analysis-layout.spec.ts “analysis phone marks” (390px, both themes, the
                  legacy and edge states, the edge fixture planting “$92.2M” and “-$922M”, each with † and
                  a two-letter note, its column's whole nine-glyph budget: every mark on its figure's line
@@ -720,21 +721,27 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  passed under the header and the table is still below it, and following the table's
                  scrollLeft. Under an ancestor that clips overflow (the landing demo's mockup frame, a
                  locked preview) that box is the rail's scroll container, so the rail never sticks to the
-                 page and never shows. The real thead stays the one screen readers read. The bar takes
-                 the pointer, so a click on a heading the reader sees cannot open the figure hidden under
-                 it; a horizontal wheel over it moves the table. While it shows, the rail publishes its
-                 measured height as --table-rail-h on <html> (TABLE_RAIL_HEIGHT_PROPERTY, kept current
-                 by a ResizeObserver and removed when the rail goes), and the document's
-                 scroll-padding-top adds it to the header's and the section nav's (app/globals.css), so
-                 a figure reached by Tab or Shift+Tab, or scrolled into view, lands below the rail,
-                 never under it (WCAG 2.2 SC 2.4.11); a focused figure the rail appears over after its
-                 focus scroll (a row taller than the heading row, aligned under the header alone) is
-                 scrolled out from under it as the rail mounts. Gates:
-                 tests/unit/headerOffsetReadsTheVariable.spec.ts (the padding's calc; the rail's offset
-                 reads --site-header-h); tests/e2e/analysis-layout.spec.ts “analysis heading rail”
-                 (1440px, both themes: a figure reached by Shift+Tab lands below the rail and a click on
-                 the rail stays on it; a focused figure the rail appears over is brought out; the landing
-                 demo's table never shows the rail nor reserves its padding).
+                 page and never shows. The real thead stays the one screen readers read. The rail lets
+                 the pointer through, so a wheel or a swipe over it still moves the table under it; the
+                 table drops a pointer press or click in the rail's band (a capture listener on the
+                 scroll box), so a click on a heading the reader sees never opens or focuses the figure
+                 hidden under it, while a key's click, which has no pointer, passes. While any of the
+                 table is under the header's line and the rail can stick, shown or not, the page
+                 reserves the heading row's measured height as --table-rail-h on <html>
+                 (TABLE_RAIL_HEIGHT_PROPERTY, re-measured on every reflow and removed when no part of the
+                 table is under the line), and the document's scroll-padding-top adds it to the header's
+                 and the section nav's (app/globals.css). So a figure reached by Tab or Shift+Tab, or
+                 scrolled into view, lands below the rail, never under it (WCAG 2.2 SC 2.4.11), even
+                 when the rail only appears after the scroll (a row taller than the heading row, focused
+                 while the rail is hidden and scrolled to the nearest edge), and nothing scrolls the page
+                 afterwards. Gates: tests/unit/headerOffsetReadsTheVariable.spec.ts (the padding's calc;
+                 the rail's offset reads --site-header-h); tests/e2e/analysis-layout.spec.ts “analysis
+                 heading rail” (1440px, both themes: a figure reached by Shift+Tab lands below the rail,
+                 and a click on the rail over a covered figure opens and focuses nothing; a figure
+                 focused while the rail is hidden lands below its band; a figure focused earlier stays
+                 put as the reader scrolls the rail over it; the landing demo's table never shows the
+                 rail nor reserves its padding; at 1024px a horizontal wheel over the rail moves the
+                 table).
                  The table's figure controls carry no underline (the KPI value keeps its dotted one): in
                  the readout a rule under every value parted values from their change lines, and dark
                  1x readers gave a period with no change the next column's (four of seven with it, none

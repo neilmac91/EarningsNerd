@@ -693,14 +693,20 @@ for (const theme of THEMES) test.describe(`analysis heading rail / ${theme}`, ()
       return row.top < rail.bottom
     })
     expect(covered, 'the planted row starts under the rail').toBe(true)
-    // The rail takes the pointer: a click on a heading the reader sees lands on the rail, not on the figure under it.
-    const hit = await page.evaluate(() => {
-      const bar = document.querySelector('[data-table-header-rail] > div')?.getBoundingClientRect()
-      if (!bar) return { onRail: false, onFigure: false }
-      const target = document.elementFromPoint(bar.left + bar.width * 0.75, bar.top + bar.height / 2)
-      return { onRail: !!target?.closest('[data-table-header-rail]'), onFigure: !!target?.closest('tbody button') }
+    // A click on the rail, over a figure it covers, opens nothing: the rail lets the pointer through (for wheels and
+    // swipes), and the table drops a press or click in the rail's band.
+    const point = await page.evaluate(() => {
+      const band = document.querySelector('[data-table-header-rail] > div')!.getBoundingClientRect()
+      const covered = [...document.querySelectorAll<HTMLElement>('[data-analysis-metrics] tbody button')].map((button) => button.getBoundingClientRect())
+        .find((box) => box.top < band.bottom - 2 && box.bottom > band.top + 2 && box.width > 4)!
+      const x = covered.left + covered.width / 2
+      const y = Math.max(covered.top, band.top) + 1
+      return { x, y, under: !!document.elementFromPoint(x, y)?.closest('tbody button') }
     })
-    expect(hit, 'a click on the rail stays on the rail').toEqual({ onRail: true, onFigure: false })
+    expect(point.under, 'the point lies over a figure the rail covers').toBe(true)
+    await page.mouse.click(point.x, point.y)
+    await expect(page.getByRole('dialog'), 'a click on the rail opens no hidden figure').toHaveCount(0)
+    expect(await page.evaluate(() => !!document.activeElement?.closest('[data-analysis-metrics] tbody')), 'nor focuses it').toBe(false)
     // Tab into the row below, then back up: focus lands on row 8's last figure, which the page must scroll clear.
     await rows.nth(9).locator('button[aria-label$="View source and calculation"]').first().focus()
     await page.keyboard.press('Shift+Tab')
@@ -715,12 +721,12 @@ for (const theme of THEMES) test.describe(`analysis heading rail / ${theme}`, ()
     expect(place.top, 'the focused figure clears the site header and the rail').toBeGreaterThanOrEqual(place.clear - 1)
   })
 
-  test('a figure the rail appears over after its focus scroll is brought out from under it', async ({ page, baseURL }) => {
+  test('a figure focused while the rail is hidden lands below the band the rail then takes', async ({ page, baseURL }) => {
     test.setTimeout(60_000)
     await openAnalysis(page, baseURL!, 'legacy', theme, 1)
     // A last row taller than the heading row, its figure under the site header while the rail is hidden. Chromium
     // centres an obscured focus target, but an engine (or a script) that scrolls it to the nearest edge aligns it to
-    // the header's line, the padding without the rail; the rest of the row then brings the rail back over it.
+    // the scroll padding; the rest of the row then brings the rail back, so the padding must already hold the rail.
     const placed = await page.evaluate(() => {
       const table = document.querySelector('[data-analysis-metrics] table')!
       const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
@@ -784,6 +790,27 @@ for (const theme of THEMES) test.describe(`analysis heading rail / ${theme}`, ()
     await page.waitForTimeout(200)
     await expect(demo.locator('[data-table-header-rail] > div')).toHaveCount(0)
     expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--table-rail-h'))).toBe('')
+  })
+})
+
+test.describe('analysis heading rail / 1024px', () => {
+  test.use({ viewport: { width: 1024, height: 800 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  test('a horizontal wheel over the rail still moves the table under it', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', 'light', 1)
+    const scroller = page.locator(`${TABLE}`).locator('xpath=ancestor::*[@role="region"][1]')
+    expect(await scroller.evaluate(el => el.scrollWidth > el.clientWidth + 1), 'the table overflows at 1024px').toBe(true)
+    await page.locator(`${TABLE} tbody tr`).nth(8).evaluate(row => {
+      const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+      window.scrollTo(0, row.getBoundingClientRect().top + window.scrollY - header - 8)
+    })
+    const rail = page.locator('[data-table-header-rail] > div')
+    await expect(rail).toBeVisible()
+    const band = (await rail.boundingBox())!
+    const before = await scroller.evaluate(el => el.scrollLeft)
+    await page.mouse.move(band.x + band.width * 0.6, band.y + band.height / 2)
+    await page.mouse.wheel(before > 0 ? -400 : 400, 0)
+    await expect.poll(() => scroller.evaluate(el => el.scrollLeft), 'the wheel reached the table through the rail').not.toBe(before)
   })
 })
 

@@ -302,8 +302,8 @@ export function DataTable<T extends Record<string, unknown>>({
   const frameRef = useRef<HTMLDivElement>(null)
   const [railWidths, setRailWidths] = useState<number[]>([])
   const [railShown, setRailShown] = useState(false)
-  // When focus last moved into the table: the rail moves a figure out from under itself only right after a focus move.
-  const focusAt = useRef(-Infinity)
+  // The heading row's height, reserved in the page's scroll padding while the rail can cover part of the table.
+  const [railReserve, setRailReserve] = useState(0)
   const railOn = pageHeader && layout === 'fixed'
   const followRail = () => {
     const scroll = scrollRef.current
@@ -328,6 +328,10 @@ export function DataTable<T extends Record<string, unknown>>({
       // that box is the rail's scroll container, so it never sticks to the page and must not show or reserve padding.
       const stuck = Math.abs(rail.getBoundingClientRect().top - line) < 1
       setRailShown(!!head && stuck && head.top < line - 0.5 && whole.bottom > line + head.height)
+      // Reserved whenever some of the table is under the line, shown rail or not: a figure focused while the rail is
+      // hidden (a row taller than the heading row, its table's end just under the header) and scrolled to the nearest
+      // edge would otherwise sit under the rail that its own row then brings back.
+      setRailReserve(head && stuck && whole.top < line && whole.bottom > line ? Math.ceil(head.height) : 0)
     }
     const queue = () => { if (!frame) frame = requestAnimationFrame(show) }
     const measure = () => {
@@ -340,15 +344,27 @@ export function DataTable<T extends Record<string, unknown>>({
     const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
     observer?.observe(scroll)
     observer?.observe(table)
-    const noteFocus = () => { focusAt.current = performance.now() }
+    // The rail lets the pointer through, so a wheel or a swipe over it still moves the table under it; a pointer press
+    // or click in its band would land on a figure the reader cannot see, so it stops there. A key's click has no
+    // pointer (detail 0) and passes.
+    const guard = (event: MouseEvent) => {
+      const band = railBarRef.current?.getBoundingClientRect()
+      if (!band || event.detail === 0) return
+      if (event.clientY >= band.top && event.clientY < band.bottom && event.clientX >= band.left && event.clientX < band.right) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+    }
     scroll.addEventListener('scroll', followRail, { passive: true })
-    scroll.addEventListener('focusin', noteFocus)
+    scroll.addEventListener('mousedown', guard, true)
+    scroll.addEventListener('click', guard, true)
     window.addEventListener('scroll', queue, { passive: true })
     window.addEventListener('resize', queue)
     return () => {
       observer?.disconnect()
       scroll.removeEventListener('scroll', followRail)
-      scroll.removeEventListener('focusin', noteFocus)
+      scroll.removeEventListener('mousedown', guard, true)
+      scroll.removeEventListener('click', guard, true)
       window.removeEventListener('scroll', queue)
       window.removeEventListener('resize', queue)
       if (frame) cancelAnimationFrame(frame)
@@ -356,32 +372,16 @@ export function DataTable<T extends Record<string, unknown>>({
   }, [railOn])
   // The rail's copy has just mounted (or its widths changed): place it before paint.
   useLayoutEffect(() => { if (railShown) followRail() }, [railShown, railWidths])
-  // While the rail shows it covers the strip under the site header, so it publishes its height on <html>
-  // (TABLE_RAIL_HEIGHT_PROPERTY) for the page's scroll padding: a figure reached by Tab or Shift+Tab, or scrolled into
-  // view, lands below the rail, never under it (WCAG 2.2 SC 2.4.11). Measured on every reflow; cleared when it goes.
+  // While the rail can cover the strip under the site header, the page reserves its height on <html>
+  // (TABLE_RAIL_HEIGHT_PROPERTY) in its scroll padding: a figure reached by Tab or Shift+Tab, or scrolled into view,
+  // lands below the rail, never under it (WCAG 2.2 SC 2.4.11), the page scrolling itself and nothing scrolled after.
+  // Measured with the heading row on every reflow; cleared when no part of the table is under the line.
   useLayoutEffect(() => {
-    const bar = railBarRef.current
-    if (!railShown || !bar) return
+    if (!railReserve) return
     const root = document.documentElement
-    const measure = () => root.style.setProperty(TABLE_RAIL_HEIGHT_PROPERTY, `${Math.ceil(bar.getBoundingClientRect().height)}px`)
-    measure()
-    // The rail can appear after a focus scroll that aligned a figure under the header alone (a row taller than the
-    // heading row, reached while the rail was hidden): bring that figure out from under it, now the padding counts it.
-    // Only right after a focus move, and only a figure the rail covers: a figure focused earlier, under the rail
-    // because the reader scrolled, must not pull the page back.
-    const focused = document.activeElement
-    if (focused instanceof HTMLElement && scrollRef.current?.contains(focused) && performance.now() - focusAt.current < 1000) {
-      const box = focused.getBoundingClientRect()
-      const band = bar.getBoundingClientRect()
-      if (box.top < band.bottom && box.bottom > band.top) focused.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-    }
-    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
-    observer?.observe(bar)
-    return () => {
-      observer?.disconnect()
-      root.style.removeProperty(TABLE_RAIL_HEIGHT_PROPERTY)
-    }
-  }, [railShown])
+    root.style.setProperty(TABLE_RAIL_HEIGHT_PROPERTY, `${railReserve}px`)
+    return () => { root.style.removeProperty(TABLE_RAIL_HEIGHT_PROPERTY) }
+  }, [railReserve])
   const frame = (node: ReactNode) => (well ? <div ref={frameRef} className={WELL.frame}>{node}</div> : node)
   const headClass = well ? WELL.head : 'text-left text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark'
   const railCell = (c: Column<T>, index: number, corner: boolean) => (
@@ -417,11 +417,8 @@ export function DataTable<T extends Record<string, unknown>>({
       <div ref={railRef} aria-hidden="true" data-table-header-rail className="pointer-events-none sticky top-[var(--site-header-h,4rem)] z-sticky h-0 print:hidden">
         {railShown && <div
           ref={railBarRef}
-          // The bar takes the pointer: passed through, a click on a heading the reader sees would open the figure
-          // hidden under it. A horizontal wheel over it still moves the table it copies.
-          onWheel={(event) => { if (event.deltaX && scrollRef.current) scrollRef.current.scrollLeft += event.deltaX }}
           className={cx(
-            'pointer-events-auto flex overflow-hidden', headClass, d.text,
+            'flex overflow-hidden', headClass, d.text,
             well ? cx('outline outline-1 outline-rule-light dark:outline-rule-dark', WELL.edge) : 'border-b border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark',
           )}
         >

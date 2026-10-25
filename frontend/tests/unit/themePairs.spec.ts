@@ -188,8 +188,18 @@ function crossedRungs(own: string, shared = ''): string[] {
  * property: the toast close button's light tint (`hover:!bg-brand-weak`) lost to its forced `dark:!bg-panel-dark`, and
  * its `dark:hover:!bg-panel-dark` repeated the rest, so dark showed no hover while this gate passed it.
  */
-const cueProperty = (utility: string) =>
-  utility === 'underline' ? 'underline' : /^(bg|border(?:-[xytblrse])?|ring|shadow|outline|decoration)-/.exec(utility)?.[1]
+/**
+ * The property a hover cue sets, so a dark rest of the same property can be read against it: a colour apart from the
+ * family's other properties (`dark:decoration-dotted` does not overrule `hover:decoration-brand`), and `no-underline`
+ * the same property as `underline` (`dark:no-underline` overrules `hover:underline`).
+ */
+const cueProperty = (utility: string) => {
+  if (utility === 'underline' || utility === 'no-underline') return 'underline'
+  const match = /^(bg|border(?:-[xytblrse])?|ring|shadow|outline|decoration)(?:-(.+))?$/.exec(utility)
+  if (!match) return undefined
+  // A colour is one property of its family; a width, a style or an image is another (`border-2`, `decoration-dotted`).
+  return `${match[1]}:${match[2] !== undefined && isColour(match[2]) ? 'colour' : 'other'}`
+}
 function faintHovers(own: string, shared = ''): string[] {
   const all = [...own.split(/\s+/), ...shared.split(/\s+/)].filter(Boolean).map((token) => ({ token, ...splitClass(token), bare: splitClass(token).utility.replace(/^!/, '') }))
   const at = (variants: string[], test: (utility: string) => boolean) =>
@@ -543,6 +553,9 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
       "const nav = `rounded hover:text-text-primary-light dark:hover:text-text-primary-dark ${MUTED}`",
       // A plain hover fill shows in dark when no dark rest or dark hover of that property overrules it.
       "const plainTint = 'text-text-secondary-light dark:text-text-secondary-dark hover:bg-white/5 dark:hover:text-text-primary-dark'",
+      // A rest overrules only its own property: a dotted style leaves a hover colour standing, no-underline an underline not.
+      "const styled = 'text-text-secondary-light dark:text-text-secondary-dark dark:decoration-dotted hover:decoration-brand dark:hover:text-text-primary-dark'",
+      "const unlined = 'text-text-secondary-light dark:text-text-secondary-dark dark:no-underline hover:underline dark:hover:text-text-primary-dark'",
     ].join('\n')
     expect(themePairFindings(src, 'probe.tsx', faintHovers).map((f) => `${f.line} ${f.className}`)).toEqual([
       '1 dark:hover:text-text-primary-dark',
@@ -550,6 +563,7 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
       '7 dark:hover:!text-text-primary-dark',
       '8 dark:hover:text-text-primary-dark',
       '10 dark:hover:text-text-primary-dark',
+      '13 dark:hover:text-text-primary-dark',
     ])
   })
 
