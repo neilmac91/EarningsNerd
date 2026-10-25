@@ -2565,14 +2565,17 @@ async def test_account_deletion_holds_no_connection_while_stripe_and_posthog_ans
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("case", ["pro", "free", "missing", "taste_refused", "cap_refused", "cap_lease_refused"])
+@pytest.mark.parametrize("case", [
+    "pro", "free", "missing", "taste_refused", "cap_refused", "cap_lease_refused",
+])
 async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_streams(monkeypatch, tmp_path, case):
     """The Copilot ask stream's filing read, its snapshot and the admission (the cap read and the lease, or the
     free taste's lease) run in one thread-pool unit that releases the request session before the stream
     starts, its refusals included (the taste's at its lease, the cap's at its read and at its lease), so eight
-    askers on four slots make no checkout, statement or release on the loop and leave nothing for the finalizer. On the loop, the admission's wait for the account's ``users`` row
-    lock froze every request on the instance, and a missing filing or a reached cap left its transaction for
-    the finalizer. Each admitted question is metered once, its lease converted; a refusal writes nothing."""
+    askers on four slots make no checkout, statement or release on the loop and leave nothing for the
+    finalizer. On the loop, the admission's wait for the account's ``users`` row lock froze every request on
+    the instance, and a missing filing or a cap reached at its read left its transaction for the finalizer.
+    Each admitted question is metered once, its lease converted; a refusal writes nothing."""
     from datetime import timedelta
     from uuid import uuid4
 
@@ -2845,8 +2848,8 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # (router file relative to backend/, function name) -> its ceiling. Counted by this file's own walk
 # when the ratchet landed (2026-10-16), after its PR took the summary read and its progress poll off
 # the loop, and recounted when the walk began counting the session handed to a call (2026-10-24):
-# each entry is a route E121 (``auth.py``) or E171 names in ``tasks/todo.md``. The blank line between entries keeps in-place number edits on different
-# entries mergeable in any order.
+# each entry is a route E121 (``auth.py``) or E171 names in ``tasks/todo.md``. The blank line between
+# entries keeps in-place number edits on different entries mergeable in any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/admin.py", "audit_stale_xbrl"): 1,
 

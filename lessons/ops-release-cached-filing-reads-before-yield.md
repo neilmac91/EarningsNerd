@@ -183,15 +183,16 @@ with the row held the same way, the loop's longest gap between its 10 ms ticks w
 each). The admission is a check-then-write that the loop no longer runs one at a time, and it needs
 nothing new: `subscription_service._reserve_use` takes the account's `users` row lock before it
 counts, and `test_usage_counter_transactions.py` races both Copilot leases on PostgreSQL in CI. A taste
-the dependency already finds spent (`require_copilot_or_taste`'s 403) is refused before the route runs,
-so, like a 422, it still leaves the lookup's transaction for the finalizer. Its burst case holds every
-checkout, statement and release off the loop, each answer and each asker's metering (2026-10-25, E171).
+the dependency already finds spent (`require_copilot_or_taste`'s 403) and a question over the route's own
+rate limit (its 429) are refused before the unit runs, so, like a 422, each still leaves the lookup's
+transaction for the finalizer. Its burst case holds every checkout, statement and release off the loop,
+each answer and each asker's metering (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
 dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
-rules, uses it. Its ceilings hold the routes that still hand their session to a call on the loop at
+rules, uses it. Its ceilings hold the routes that still use their session on the loop at
 their counts (the rest of the auth router, E121; the admin router's 14 routes and the summaries router's
 generate stream and two exports, E171; five of those hand-offs, the header's strict ones, use no
 connection on the loop), so none can add one in a
