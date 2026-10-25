@@ -17,7 +17,7 @@ import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, OFF_ROW, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
-import { compactMoney, moneyFormat, MINUS, niceAxis, percentFormat } from '@/features/analysis/lib/charts/scale'
+import { compactMoney, fixed, moneyFormat, MINUS, niceAxis, percentFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
 import { groupDataNotes, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { currencySymbol } from '@/lib/format'
 
@@ -606,6 +606,15 @@ describe('A1 and A2: ticks and printed values', () => {
     expect([percentFormat(10, false).value(999.96), percentFormat(10, true).value(-999.97, 1)]).toEqual(['1,000%', `${MINUS}1,000%`])
     const format = moneyFormat([999.7e6, 400e6], 0.25e9, [0, 0.25e9, 0.5e9, 0.75e9, 1e9], 'USD')
     expect([format.d0, format.value(999.7e6), format.value(400e6)]).toEqual([2, '$1.00B', '$0.40B'])
+  })
+
+  it('M15: every printed value rounds as the metrics table rounds, half away from zero on the decimal', () => {
+    // Each half is a hair under it as a double (143.35 is 143.3499…), where toFixed rounds down: "143.3", "30.1".
+    expect([fixed(143.35, 1), fixed(30.15, 1), fixed(0.35, 1), fixed(46.995, 2), fixed(4.0805, 3)]).toEqual(['143.4', '30.2', '0.4', '47.00', '4.081'])
+    // At each call site: a percent panel's values, an amount at its axis's precision, and in its own unit.
+    expect([percentFormat(10, false).value(30.15), percentFormat(10, true).value(-0.35)]).toEqual(['30.2%', `${MINUS}0.4%`])
+    const format = moneyFormat([200e6], 50e6, [0, 50e6, 100e6, 150e6, 200e6], 'USD')
+    expect([format.value(143.35e6, 1), tooltipMoney(-46.995e6, 'USD'), compactMoney(3.55e6, 'USD')]).toEqual(['$143.4M', `${MINUS}$47.00M`, '$3.6M'])
   })
 
   it('A1 at any magnitude: a ₩120,000T axis still steps uniformly', () => {
