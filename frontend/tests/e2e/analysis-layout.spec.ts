@@ -117,8 +117,7 @@ async function assertPageAndCards(page: Page, width: number, textScale: number, 
     const card = page.locator('[data-analysis-kpi]').nth(index)
     await expect(card.locator('dt')).toHaveText(expected.label)
     const source = card.locator('button[aria-label$="View source and calculation"]')
-    // The table's marks share a data-marks wrapper whose text can also be a lone †; count the marks, not it.
-    await expect(source.locator('span:not([data-marks])').filter({ hasText: /^†$/ })).toHaveCount(expected.daggers)
+    await expect(source.locator('span').filter({ hasText: /^†$/ })).toHaveCount(expected.daggers)
     const letters = EXPECTED_KPI_LETTERS[state][index]
     for (const { scope, expectedLetters } of [
       { scope: source, expectedLetters: letters.value },
@@ -172,7 +171,7 @@ async function assertPaintedMarks(page: Page, selector: string) {
       return context.getImageData(0, 0, 1, 1).data[3]
     }
     return containers.flatMap(container =>
-      [...container.querySelectorAll('[data-note-letter], span:not([data-marks])')]
+      [...container.querySelectorAll('[data-note-letter], span')]
         .filter(mark => mark.hasAttribute('data-note-letter') || mark.textContent?.trim() === '†')
         .map(mark => {
           const visible = mark.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && !mark.closest('.sr-only,[hidden]')
@@ -361,7 +360,7 @@ async function assertTable(page: Page, state: AnalysisState) {
   // Count value marks inside source controls separately from comparison marks below them.
   await expect(sourceControls.locator('[data-note-kind="review"]')).toHaveCount(EXPECTED_TABLE_REVIEWS[state])
   // Q4 header daggers cannot satisfy value-mark presence; count inside source buttons.
-  await expect(sourceControls.locator('span:not([data-marks])').filter({ hasText: /^†$/ })).toHaveCount(EXPECTED_TABLE_VALUE_DAGGERS)
+  await expect(sourceControls.locator('span').filter({ hasText: /^†$/ })).toHaveCount(EXPECTED_TABLE_VALUE_DAGGERS)
   await expect(table.locator('tbody [data-note-kind="review"]:not(button *)')).toHaveCount(EXPECTED_TABLE_COMPARISON_REVIEWS[state])
   const expectedNotes = EXPECTED_TABLE_CELL_NOTES[state]
   const expectedCells = Array.from({ length: METRICS }, (_, row) => expectedPeriods.map(period => {
@@ -706,6 +705,66 @@ for (const theme of THEMES) test.describe(`analysis heading rail / ${theme}`, ()
       return { top, clear: Math.max(header, rail) }
     })
     expect(place.top, 'the focused figure clears the site header and the rail').toBeGreaterThanOrEqual(place.clear - 1)
+    // The rail takes the pointer: a click on a heading the reader sees lands on the rail, not on the figure under it.
+    const hit = await page.evaluate(() => {
+      const bar = document.querySelector('[data-table-header-rail] > div')?.getBoundingClientRect()
+      if (!bar) return { onRail: false, onFigure: false }
+      const target = document.elementFromPoint(bar.left + bar.width * 0.75, bar.top + bar.height / 2)
+      return { onRail: !!target?.closest('[data-table-header-rail]'), onFigure: !!target?.closest('tbody button') }
+    })
+    expect(hit, 'a click on the rail stays on the rail').toEqual({ onRail: true, onFigure: false })
+  })
+
+  test('a figure the rail appears over after its focus scroll is brought out from under it', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', theme, 1)
+    // A last row taller than the heading row, its figure under the site header while the rail is hidden. Chromium
+    // centres an obscured focus target, but an engine (or a script) that scrolls it to the nearest edge aligns it to
+    // the header's line, the padding without the rail; the rest of the row then brings the rail back over it.
+    const placed = await page.evaluate(() => {
+      const table = document.querySelector('[data-analysis-metrics] table')!
+      const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+      const head = table.querySelector('thead')!.getBoundingClientRect().height
+      const row = table.querySelector<HTMLTableRowElement>('tbody tr:last-child')!
+      for (const cell of row.cells) cell.style.height = `${header / 2 + head - 4}px`
+      // Room below the table to place it, and its bottom 4px inside the heading row's height under the header.
+      document.body.style.paddingBottom = '150vh'
+      window.scrollTo(0, table.getBoundingClientRect().bottom + window.scrollY - header - head + 4)
+      return { rail: !!document.querySelector('[data-table-header-rail] > div'), bottom: table.getBoundingClientRect().bottom - header - head }
+    })
+    expect(placed.rail, 'the rail is hidden before the focus moves').toBe(false)
+    const figure = page.locator(`${TABLE} tbody tr:last-child button[aria-label$="View source and calculation"]`).last()
+    await figure.evaluate((button: HTMLElement) => {
+      button.focus({ preventScroll: true })
+      button.scrollIntoView({ block: 'nearest' })
+    })
+    await expect(page.locator('[data-table-header-rail] > div'), 'the tall row brings the rail back').toBeVisible()
+    await expect.poll(() => figure.evaluate(button => {
+      const rail = document.querySelector('[data-table-header-rail] > div')!.getBoundingClientRect().bottom
+      return button.getBoundingClientRect().top >= rail - 1
+    }), 'the focused figure clears the rail').toBe(true)
+  })
+
+  test('the landing demo, in a frame that clips overflow, never shows the rail nor reserves its padding', async ({ page }) => {
+    test.setTimeout(60_000)
+    await page.addInitScript((theme) => {
+      localStorage.setItem('theme', theme)
+      localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z' }))
+    }, theme)
+    await page.goto('/')
+    const demo = page.locator('[data-capture="multi-period-analysis"]')
+    await demo.locator('table').scrollIntoViewIfNeeded()
+    // Its heading row just past the header line, the rest of the table below: where the analysis page shows the rail.
+    const passed = await demo.locator('table').evaluate(table => {
+      const line = parseFloat(getComputedStyle(table.closest('[data-capture]')!.querySelector('[data-table-header-rail]')!).top)
+      window.scrollTo(0, table.querySelector('thead')!.getBoundingClientRect().top + window.scrollY - line + 12)
+      const head = table.querySelector('thead')!.getBoundingClientRect()
+      return head.top < line && table.getBoundingClientRect().bottom > line + head.height
+    })
+    expect(passed, 'the demo table sits where a page rail would show').toBe(true)
+    await page.waitForTimeout(200)
+    await expect(demo.locator('[data-table-header-rail] > div')).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--table-rail-h'))).toBe('')
   })
 })
 
@@ -755,10 +814,15 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
         if (mark.left < end - 1) problems.push(`${control.name}: a mark sits before the figure's end`)
         // A letter after † keeps 2px (0.125rem): set flush, the pair read as one glyph at 1x (the study's readout).
         if (mark.mark === 'letter' && marks[index - 1]?.mark === 'dagger' && mark.left - marks[index - 1].right < 0.125 * control.rem - 0.5) problems.push(`${control.name}: a letter touches its dagger`)
+        // A staircase: a letter after † stands above it. Level, "†a" read as one mark at 1x in dark (the readout).
+        if (mark.mark === 'letter' && marks[index - 1]?.mark === 'dagger' && mark.top > marks[index - 1].top - 1) problems.push(`${control.name}: a letter is not above its dagger`)
         // The control's dotted underline skips an inline-block, but a flex item is blockified (display: block) and the
         // underline reaches it, drawn again under the mark at its raised baseline.
         if (control.underlined && mark.display !== 'inline-block') problems.push(`${control.name}: a ${mark.mark} is a ${mark.display} box under the control's underline`)
       }
+      // The table's figures carry no underline: under every value it parted values from their change lines, and readers
+      // gave a period with no change the next column's (the readout, dark at 1x). The KPI value keeps its.
+      if (control.table === control.underlined) problems.push(`${control.name}: ${control.table ? 'a table figure is underlined' : 'the KPI value lost its underline'}`)
       if (control.table) for (const glyph of control.glyphs) if (glyph.left < control.left - 1 || glyph.right > control.right + 1) problems.push(`${control.name}: ${glyph.mark ? 'a mark' : 'the figure'} leaves its cell`)
     }
     expect(problems).toEqual([])

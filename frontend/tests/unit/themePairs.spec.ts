@@ -181,15 +181,29 @@ function crossedRungs(own: string, shared = ''): string[] {
  * A hover the dark theme can see (DESIGN_SYSTEM.md §2). Dark primary (#D7DADC) and dark secondary (#D1D5DB) are 1.05:1
  * apart, so a control that rests in the secondary ink and only turns primary under the pointer shows no hover in dark
  * (light keeps a 1.69:1 step). Such a control steps to white in dark or carries another hover cue: a fill, a border, a
- * ring, a shadow or an underline. Twelve controls had only the ink step when the dark secondary rose to gray-300.
+ * ring, a shadow or an underline. Thirteen controls had only the ink step when the dark secondary rose to gray-300.
+ *
+ * The cue must change something in dark. A `dark:` variant compiles to `:is(.dark *)`, as specific as `:hover` and later
+ * in the stylesheet, so a `hover:` cue without `dark:` is overruled in dark by a `dark:` rest or `dark:` hover of the same
+ * property: the toast close button's light tint (`hover:!bg-brand-weak`) lost to its forced `dark:!bg-panel-dark`, and
+ * its `dark:hover:!bg-panel-dark` repeated the rest, so dark showed no hover while this gate passed it.
  */
-const HOVER_CUE = /^(?:bg|border(?:-[xytblrse])?|ring|shadow|outline|decoration)-|^underline$/
+const cueProperty = (utility: string) =>
+  utility === 'underline' ? 'underline' : /^(bg|border(?:-[xytblrse])?|ring|shadow|outline|decoration)-/.exec(utility)?.[1]
 function faintHovers(own: string, shared = ''): string[] {
-  const all = [...own.split(/\s+/), ...shared.split(/\s+/)].filter(Boolean).map((token) => ({ token, ...splitClass(token) }))
+  const all = [...own.split(/\s+/), ...shared.split(/\s+/)].filter(Boolean).map((token) => ({ token, ...splitClass(token), bare: splitClass(token).utility.replace(/^!/, '') }))
   const at = (variants: string[], test: (utility: string) => boolean) =>
-    all.some((c) => c.variants.length === variants.length && variants.every((v) => c.variants.includes(v)) && test(c.utility.replace(/^!/, '')))
+    all.some((c) => c.variants.length === variants.length && variants.every((v) => c.variants.includes(v)) && test(c.bare))
   const restsSecondary = at(['dark'], (u) => u === 'text-text-secondary-dark')
-  const cue = all.some((c) => (c.variants.includes('hover') || c.variants.includes('group-hover')) && HOVER_CUE.test(c.utility.replace(/^!/, '')))
+  const hovered = (c: { variants: string[] }) => c.variants.includes('hover') || c.variants.includes('group-hover')
+  const darkRest = (property: string) => all.filter((c) => c.variants.length === 1 && c.variants[0] === 'dark' && cueProperty(c.bare) === property).map((c) => c.bare)
+  const darkHover = (property: string) => all.some((c) => hovered(c) && c.variants.includes('dark') && cueProperty(c.bare) === property)
+  const cue = all.some((c) => {
+    const property = hovered(c) ? cueProperty(c.bare) : undefined
+    if (!property) return false
+    // A dark hover is a cue when it differs from the dark rest; a plain hover only when nothing dark overrules it.
+    return c.variants.includes('dark') ? !darkRest(property).includes(c.bare) : !darkRest(property).length && !darkHover(property)
+  })
   if (!restsSecondary || cue) return []
   return own.split(/\s+/).filter(Boolean).filter((token) => {
     const { variants, utility } = splitClass(token)
@@ -223,15 +237,33 @@ function joinedParts(node: ts.Node): readonly ts.Expression[] | undefined {
   return parts.some(isText) ? parts : undefined
 }
 
-/** A string's text, or the static text of a template (its slots apart). */
-function staticText(node: ts.Node): string | undefined {
+/**
+ * A string's text, or the static text of a template: its literal parts, and each slot that names a string constant of
+ * the same file (`${MUTED}`), which renders every time. Other slots are read apart.
+ */
+function staticText(node: ts.Node, consts: ReadonlyMap<string, string> = new Map()): string | undefined {
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text
-  if (ts.isTemplateExpression(node)) return [node.head.text, ...node.templateSpans.map((span) => span.literal.text)].join(' ')
+  if (ts.isTemplateExpression(node)) {
+    return [node.head.text, ...node.templateSpans.flatMap((span) => [ts.isIdentifier(span.expression) ? consts.get(span.expression.text) ?? '' : '', span.literal.text])].join(' ')
+  }
   return undefined
+}
+
+/** A file's `const NAME = '…'` strings, which a template slot naming one renders whole. */
+function stringConsts(sf: ts.SourceFile): Map<string, string> {
+  const consts = new Map<string, string>()
+  const collect = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && (node.parent.flags & ts.NodeFlags.Const)
+      && (ts.isStringLiteral(node.initializer) || ts.isNoSubstitutionTemplateLiteral(node.initializer))) consts.set(node.name.text, node.initializer.text)
+    ts.forEachChild(node, collect)
+  }
+  collect(sf)
+  return consts
 }
 
 function themePairFindings(source: string, rel: string, check: (own: string, shared?: string) => string[] = unpaired): Finding[] {
   const sf = ts.createSourceFile(rel, source, ts.ScriptTarget.Latest, true, scriptKind(rel))
+  const consts = stringConsts(sf)
   const findings: Finding[] = []
   const report = (node: ts.Node, own: string, shared: string) => {
     const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
@@ -239,7 +271,7 @@ function themePairFindings(source: string, rel: string, check: (own: string, sha
   }
   /** One built className: its unconditional strings are one list, and each conditional string sits beside them. */
   const built = (node: ts.Node, parts: readonly ts.Node[], context: string) => {
-    const always = parts.map(staticText).filter((text): text is string => text !== undefined)
+    const always = parts.map((part) => staticText(part, consts)).filter((text): text is string => text !== undefined)
     report(node, always.join(' '), context)
     const shared = [context, ...always].join(' ')
     for (const part of parts) {
@@ -252,7 +284,7 @@ function themePairFindings(source: string, rel: string, check: (own: string, sha
     const parts = joinedParts(node)
     if (parts) return built(node, parts, shared)
     if (ts.isTemplateExpression(node)) return built(node, [node], shared)
-    const text = staticText(node)
+    const text = staticText(node, consts)
     if (text !== undefined) return report(node, text, shared)
     // A call that is not a joiner (a helper building its own list) is read on its own.
     if (ts.isCallExpression(node)) return visit(node)
@@ -502,10 +534,22 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
       "const lined = 'text-text-secondary-light dark:text-text-secondary-dark hover:underline dark:hover:text-text-primary-dark'",
       // A control that rests in another ink is not this rule's.
       "const quiet = 'text-text-tertiary-light dark:text-text-tertiary-dark dark:hover:text-text-primary-dark'",
+      // A cue dark never shows: the toast close's light tint lost to its forced dark rest, and its dark hover fill
+      // repeated that rest; a plain hover fill loses to any dark rest fill.
+      "const toast = '!bg-panel-light !text-text-secondary-light hover:!bg-brand-weak hover:!text-text-primary-light dark:!bg-panel-dark dark:!text-text-secondary-dark dark:hover:!bg-panel-dark dark:hover:!text-text-primary-dark'",
+      "const lightTint = 'bg-panel-light dark:bg-panel-dark text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:text-text-primary-dark'",
+      // The resting ink through a string constant's slot is read too.
+      "const MUTED = 'text-text-secondary-light dark:text-text-secondary-dark'",
+      "const nav = `rounded hover:text-text-primary-light dark:hover:text-text-primary-dark ${MUTED}`",
+      // A plain hover fill shows in dark when no dark rest or dark hover of that property overrules it.
+      "const plainTint = 'text-text-secondary-light dark:text-text-secondary-dark hover:bg-white/5 dark:hover:text-text-primary-dark'",
     ].join('\n')
     expect(themePairFindings(src, 'probe.tsx', faintHovers).map((f) => `${f.line} ${f.className}`)).toEqual([
       '1 dark:hover:text-text-primary-dark',
       '2 dark:hover:!text-text-heading-dark',
+      '7 dark:hover:!text-text-primary-dark',
+      '8 dark:hover:text-text-primary-dark',
+      '10 dark:hover:text-text-primary-dark',
     ])
   })
 

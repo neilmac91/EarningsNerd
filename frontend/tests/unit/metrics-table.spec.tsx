@@ -268,6 +268,14 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     expect(screen.getByText(/n\/m means not meaningful/)).toHaveTextContent('The final column shows CAGR, or percentage-point change for percent-unit rows. Each value’s source detail states its calculation range.')
   })
 
+  it('says in the caption what the legend says of the final column, with no window left to select', () => {
+    const { container } = render(<MetricsTable dataset={annualDataset} />)
+    const caption = container.querySelector('caption')!.textContent!
+    expect(caption).toMatch(/: value and change versus prior year\. The final column shows CAGR, or percentage-point change for percent-unit rows\.$/)
+    expect(screen.getByText(/n\/m means not meaningful/).textContent).toContain('The final column shows CAGR, or percentage-point change for percent-unit rows.')
+    expect(caption).not.toMatch(/select/)
+  })
+
   it('drops the final column, its legend and its caption on a one-year run, whose count reads in the singular (E185)', () => {
     // A run of one year has no window: the engine's CAGR and window change need two years, so the column
     // would show the missing-value mark in every row (chief design on #1586, comment 6384261233).

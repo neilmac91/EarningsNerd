@@ -84,7 +84,7 @@ function inheritedComparisonNote(comparison: SourceComparison) {
   return `Carries note ${note.letter}: it uses ${inputs.join('; ')}.`
 }
 
-export default function SourceValue({ point, label, concept, children, note, comparison, compactMarks = false }: {
+export default function SourceValue({ point, label, concept, children, note, comparison, compactMarks = false, largeMarks = false }: {
   point: Pick<AnalysisPoint, 'provenance' | 'reconciled' | 'source_url' | 'derived' | 'period' | 'period_end' | 'accession' | 'raw_tag' | 'unit' | 'value'>
   label: string
   concept?: string
@@ -92,6 +92,8 @@ export default function SourceValue({ point, label, concept, children, note, com
   note?: DataNote | null
   comparison?: SourceComparison
   compactMarks?: boolean
+  /** The KPI card's 24px value: its marks take the large raise (DataNoteMark large). */
+  largeMarks?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const id = useId()
@@ -114,9 +116,12 @@ export default function SourceValue({ point, label, concept, children, note, com
         // to its right edge, so the gutter (DataNoteMark compact) fills only free space and gives way to a full figure.
         // The figure re-declares its numerals here: a button's UA `font` shorthand resets font-variant-numeric, and
         // preflight restores only the family, size and weight, so tabular lining figures set on the cell stop at it.
-        className={`${compactMarks ? 'flex w-full items-baseline justify-end ' : ''}tabular-nums lining-nums rounded text-inherit underline decoration-border-light decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:decoration-border-dark dark:focus-visible:shadow-ring-brand-dark`}
+        // The table's figures carry no underline: a dotted rule under every value parted it from its change line, and
+        // readers gave a period with no change the next column's (the metrics-table readout, dark at 1x). The KPI
+        // value keeps it.
+        className={`${compactMarks ? 'flex w-full items-baseline justify-end' : 'underline decoration-border-light decoration-dotted underline-offset-4 dark:decoration-border-dark'} tabular-nums lining-nums rounded text-inherit focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark`}
       >
-        {children}<DataNoteMark calculated={calculated} note={note} compact={compactMarks} />
+        {children}<DataNoteMark calculated={calculated} note={note} compact={compactMarks} large={largeMarks} />
       </button>
       <Modal open={open} onClose={() => setOpen(false)} labelledBy={id} size="lg">
         <ModalHeader id={id} onClose={() => setOpen(false)}>{label} · {period}</ModalHeader>
@@ -125,7 +130,7 @@ export default function SourceValue({ point, label, concept, children, note, com
           <div className="space-y-1">
             {/* Figures take the figure face, as in the table and the cards: a minus is drawn, the text stays U+002D. An
                 accession or a raw tag keeps the data face, since its hyphens are not minus signs. */}
-            <p className="font-figure tabular-nums lining-nums text-2xl text-text-primary-light dark:text-text-primary-dark">{display}<DataNoteMark calculated={calculated} note={note} /></p>
+            <p className="font-figure tabular-nums lining-nums text-2xl text-text-primary-light dark:text-text-primary-dark">{display}<DataNoteMark calculated={calculated} note={note} large /></p>
             {point.value != null && <p className="font-figure tabular-nums lining-nums text-xs">As stored: {exactFigure(point.value, figure)}</p>}
           </div>
           <section className="space-y-1">

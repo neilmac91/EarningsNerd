@@ -162,7 +162,7 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
               <li key={section.id}>
                 <a
                   href={`#${section.id}`}
-                  className={`flex gap-2.5 rounded py-1 text-sm transition-colors duration-fast hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark ${MUTED}`}
+                  className={`flex gap-2.5 rounded py-1 text-sm transition-colors duration-fast hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-white dark:focus-visible:shadow-ring-brand-dark ${MUTED}`}
                 >
                   <span aria-hidden="true" className="font-data text-xs leading-5 text-text-tertiary-light dark:text-text-tertiary-dark">
                     {sectionIndex(i)}

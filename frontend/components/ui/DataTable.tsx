@@ -322,7 +322,10 @@ export function DataTable<T extends Record<string, unknown>>({
       const head = table.tHead?.getBoundingClientRect()
       const whole = table.getBoundingClientRect()
       const line = parseFloat(getComputedStyle(rail).top) || 0
-      setRailShown(!!head && head.top < line - 0.5 && whole.bottom > line + head.height)
+      // Stuck at the line: under an ancestor that clips overflow (the landing demo's mockup frame, a locked preview)
+      // that box is the rail's scroll container, so it never sticks to the page and must not show or reserve padding.
+      const stuck = Math.abs(rail.getBoundingClientRect().top - line) < 1
+      setRailShown(!!head && stuck && head.top < line - 0.5 && whole.bottom > line + head.height)
     }
     const queue = () => { if (!frame) frame = requestAnimationFrame(show) }
     const measure = () => {
@@ -357,6 +360,12 @@ export function DataTable<T extends Record<string, unknown>>({
     const root = document.documentElement
     const measure = () => root.style.setProperty(TABLE_RAIL_HEIGHT_PROPERTY, `${Math.ceil(bar.getBoundingClientRect().height)}px`)
     measure()
+    // The rail can appear after a focus scroll that aligned a figure under the header alone (a row taller than the
+    // heading row, reached while the rail was hidden): bring that figure out from under it, now the padding counts it.
+    const focused = document.activeElement
+    if (focused instanceof HTMLElement && scrollRef.current?.contains(focused) && focused.getBoundingClientRect().top < bar.getBoundingClientRect().bottom) {
+      focused.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    }
     const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
     observer?.observe(bar)
     return () => {
@@ -399,8 +408,11 @@ export function DataTable<T extends Record<string, unknown>>({
       <div ref={railRef} aria-hidden="true" data-table-header-rail className="pointer-events-none sticky top-[var(--site-header-h,4rem)] z-sticky h-0 print:hidden">
         {railShown && <div
           ref={railBarRef}
+          // The bar takes the pointer: passed through, a click on a heading the reader sees would open the figure
+          // hidden under it. A horizontal wheel over it still moves the table it copies.
+          onWheel={(event) => { if (event.deltaX && scrollRef.current) scrollRef.current.scrollLeft += event.deltaX }}
           className={cx(
-            'flex overflow-hidden', headClass, d.text,
+            'pointer-events-auto flex overflow-hidden', headClass, d.text,
             well ? cx('outline outline-1 outline-rule-light dark:outline-rule-dark', WELL.edge) : 'border-b border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark',
           )}
         >
@@ -510,7 +522,8 @@ export function DataTable<T extends Record<string, unknown>>({
                       onClick={() => onSort(c.key)}
                       className={cx(
                         'inline-flex items-center gap-1 rounded uppercase tracking-eyebrow',
-                        'hover:text-text-primary-light dark:hover:text-text-primary-dark',
+                        // On the sheet the heading rests in secondary, which dark primary all but meets (1.05:1).
+                        well ? 'hover:text-text-primary-light dark:hover:text-white' : 'hover:text-text-primary-light dark:hover:text-text-primary-dark',
                         'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
                         c.align === 'right' && 'flex-row-reverse',
                       )}

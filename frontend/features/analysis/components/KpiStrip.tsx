@@ -53,14 +53,14 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
         {kpi.label}
       </dt>
       <dd data-kpi-value className="min-w-0 font-figure text-2xl font-semibold tabular-nums lining-nums tracking-normal text-figure-light dark:text-figure-dark">
-        <SourceValue point={kpi.point} label={kpi.label} concept={kpi.concept} note={kpi.note} comparison={text ? { label: kpi.growthLabel, display: text, provenance: kpi.growthProvenance, reconciled: kpi.growthReconciled, note: kpi.growthNote } : undefined}>{animated}</SourceValue>
+        <SourceValue largeMarks point={kpi.point} label={kpi.label} concept={kpi.concept} note={kpi.note} comparison={text ? { label: kpi.growthLabel, display: text, provenance: kpi.growthProvenance, reconciled: kpi.growthReconciled, note: kpi.growthNote } : undefined}>{animated}</SourceValue>
       </dd>
       <dd className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 self-start font-figure text-xs tabular-nums lining-nums tracking-normal">
         <span className="text-text-secondary-light dark:text-text-secondary-dark">
           {formatAnalysisPeriod(kpi.point.period)}{kpi.latestAvailable && <span> · latest available</span>}
         </span>
         {text && <span className={`${dataDirectionText[tone]}${kpi.growthTitle ? ' cursor-help' : ''}`} title={kpi.growthTitle}>
-          {kpi.growthLabel} <GrowthText text={text} /><DataNoteMark note={kpi.growthNote} small />
+          {kpi.growthLabel} <GrowthText text={text} /><DataNoteMark note={kpi.growthNote} />
         </span>}
       </dd>
     </Card>

@@ -224,7 +224,7 @@ export default function MetricsTable({
           hint: periods.length === 1 ? '← Metric names' : `← Earlier ${periodUnit}`,
           startAtEndOnMobile: true,
         }}
-        caption={`Metrics by period, ${periods.length} ${periodUnit}: value and change versus ${basis}.${dataset.mode === 'quarterly' ? ' Fiscal quarters follow the company’s reporting calendar. YoY labels identify comparisons versus the prior year when a quarterly comparison is unavailable.' : showsCagr ? ' The final column shows the full selected window CAGR, or percentage-point change for margins.' : ''}`}
+        caption={`Metrics by period, ${periods.length} ${periodUnit}: value and change versus ${basis}.${dataset.mode === 'quarterly' ? ' Fiscal quarters follow the company’s reporting calendar. YoY labels identify comparisons versus the prior year when a quarterly comparison is unavailable.' : showsCagr ? ' The final column shows CAGR, or percentage-point change for percent-unit rows.' : ''}`}
         stickyFirstColumn
         surface="well"
         pageHeader
