@@ -245,7 +245,13 @@ describe('where a window is read and joined', () => {
    *  it the name is any one period's (RevenueBars' bars), so it is not. */
   const SCOPE_FIELDS = new Set([...WINDOW_FIELDS, 'period'])
   /** A window field read into text no reader meets (a URL, a storage key), by file and text, with its reason. */
-  const NOT_PAGE_TEXT: Array<{ file: string; text: string; reason: string }> = []
+  const NOT_PAGE_TEXT: Array<{ file: string; text: string; reason: string }> = [
+    ...['data-period={bar.period}', 'period={point.period}', 'data-period={item.period}'].map((text) => ({
+      file: 'features/analysis/components/TrendChartSvg.tsx',
+      text,
+      reason: 'a mark\'s data-period attribute, which the spec\'s DOM checks read (D4); the plot prints no period key',
+    })),
+  ]
   /** The lines where a window key the API carries is read straight into page text: JSX text, an element's or a
    *  component's prop or a template, through `??`, `||`, `+`, the right of `&&` and a conditional's arms. A field
    *  counts read off its object or by its own name (`const { cagr_window } = series`). Any call takes the key out of
