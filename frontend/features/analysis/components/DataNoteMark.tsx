@@ -14,10 +14,10 @@ export default function DataNoteMark({ note, calculated = false, announce = fals
   note?: DataNote | null
   calculated?: boolean
   announce?: boolean
-  /** The metrics table: marks hang in a gutter one mark wide (--mark-gutter, set by the table) that every figure in a
-   *  column keeps, so a marked and an unmarked figure share one right edge. With no mark the gutter is an empty spacer
-   *  that grows from nothing up to one mark into free space only (a declared width would count toward the line's
-   *  minimum width and push a full nine-glyph figure past its cell). Other surfaces set the marks after a gap. */
+  /** The metrics table: marks hang in a gutter one mark and its gap wide (--mark-gutter, set by the table) that every
+   *  figure in a column keeps, so a marked and an unmarked figure share one right edge. With no mark the gutter is an
+   *  empty spacer that grows from nothing up to its width into free space only (a declared width would count toward the
+   *  line's minimum width and push a full nine-glyph figure past its cell). */
   compact?: boolean
   /** Beside a 24px figure (the KPI value, the evidence dialog's figure). Every other mark sits beside 12-14px text. */
   large?: boolean
@@ -26,15 +26,15 @@ export default function DataNoteMark({ note, calculated = false, announce = fals
   // A staircase: the dagger low, near the figure's x-height, and the letter above it, near its cap height (Geist Mono
   // caps are 0.71em). Raised level with each other, "†a" read as one mark at 1x in dark: five of six readers dropped the
   // letter; stepped, six of six read both (the metrics-table readout). Beside 12-14px text the dagger rises 0.2em and the
-  // letter 0.5em; beside a 24px figure, 0.55em and 0.85em. Outside the table the first mark keeps a gap; in the table
-  // the gutter is the gap. A letter after † keeps 2px everywhere: set flush, two readers dropped it.
+  // letter 0.5em; beside a 24px figure, 0.55em and 0.85em. Every mark keeps 2px from what precedes it, in the table too:
+  // set flush, a letter after † was dropped by two readers, and a † after "$4.1B" by ten of eighteen once the dark gain
+  // ink went pale (the readout, dark at 1x; with 2px, six of six read it).
   const dagger = large ? '-top-[0.55em]' : '-top-[0.2em]'
   const letter = large ? '-top-[0.85em]' : '-top-[0.5em]'
-  const gap = compact ? '' : 'ml-0.5'
   return (
     <>
-      {calculated && <span aria-hidden="true" className={`${MARK} ${dagger} ${gap} text-note-light dark:text-note-dark`}>†</span>}
-      {note && <sup aria-hidden="true" data-note-letter={note.letter} data-note-kind={note.kind} className={`${MARK} ${letter} ${calculated ? 'ml-0.5' : gap} ${note.kind === 'review' ? 'text-warning-light dark:text-warning-data-dark' : 'text-note-light dark:text-note-dark'}`}>{note.letter}</sup>}
+      {calculated && <span aria-hidden="true" className={`${MARK} ${dagger} ml-0.5 text-note-light dark:text-note-dark`}>†</span>}
+      {note && <sup aria-hidden="true" data-note-letter={note.letter} data-note-kind={note.kind} className={`${MARK} ${letter} ml-0.5 ${note.kind === 'review' ? 'text-warning-light dark:text-warning-data-dark' : 'text-note-light dark:text-note-dark'}`}>{note.letter}</sup>}
       {/* Anchor the absolute sr-only box inside the table's scroll boundary. Without this
           containing block, an off-screen comparison can extend the document's scroll width. */}
       {announce && <span className="relative"><span className="sr-only">{`, ${[calculated ? 'calculated' : '', dataNoteDescription(note)].filter(Boolean).join(', ')}`}</span></span>}

@@ -23,8 +23,9 @@ const sources = (dir: string): string[] => readdirSync(dir, { withFileTypes: tru
  * at zero line-height, raised in their own ink, hidden from the accessibility tree (the figure's control names them in
  * words). They stand as a staircase, the dagger low and the letter above it: raised level, "†a" read as one mark at 1x
  * in dark and five of six readers dropped the letter, where stepped, six of six read both (the metrics-table readout).
- * A letter after † keeps a 2px gap: set flush, two readers dropped it. In the table the marks hang in a gutter one mark
- * wide that a figure with no mark keeps as a spacer with no declared width. The large raise belongs to the 24px figures
+ * Every mark keeps 2px from what precedes it, in the table too: set flush, two readers dropped a letter after †, and ten
+ * of eighteen a † after its figure once the dark gain ink went pale. In the table the marks hang in a gutter one mark
+ * and its gap wide that a figure with no mark keeps as a spacer with no declared width. The large raise belongs to the 24px figures
  * alone: as the default it lifted the narrative's marks a full mark above their 12px line.
  */
 describe('DataNoteMark', () => {
@@ -53,15 +54,17 @@ describe('DataNoteMark', () => {
     }
   })
 
-  it('keeps 2px between † and a following letter, and 2px before the first mark outside the table', () => {
+  it('keeps 2px before every mark, the first included, on every surface', () => {
     for (const props of [{ compact: true }, {}, { large: true }]) {
       const { container, unmount } = render(<DataNoteMark calculated note={note('unknown')} {...props} />)
       const [dagger, letter] = marks(container)
+      expect(dagger, JSON.stringify(props)).toHaveClass('ml-0.5')
       expect(letter, JSON.stringify(props)).toHaveClass('ml-0.5', 'text-note-light', 'dark:text-note-dark')
-      // In the table the gutter is the first mark's gap; elsewhere the first mark takes 2px.
-      if ('compact' in props) expect(dagger).not.toHaveClass('ml-0.5')
-      else expect(dagger, JSON.stringify(props)).toHaveClass('ml-0.5')
       unmount()
+      // A letter alone is the first mark.
+      const alone = render(<DataNoteMark note={note('review')} {...props} />)
+      expect(marks(alone.container)[0], JSON.stringify(props)).toHaveClass('ml-0.5')
+      alone.unmount()
     }
   })
 

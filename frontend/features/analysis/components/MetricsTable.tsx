@@ -20,8 +20,10 @@ import SourceValue from './SourceValue'
 type Row = { series: AnalysisSeries } & Record<string, unknown>
 
 // A figure cell: value over change, each line the cell's full width and right-justified onto one figure edge (the mark
-// gutter to its right, DataNoteMark compact), in the figure face (Geist Mono with a drawn minus), whose fixed 600-unit
-// advance gives tabular lining figures; no tracking, as the data annotation size has none.
+// gutter to its right, DataNoteMark compact: --mark-gutter is one 11px mark, 0.4125rem, and its 2px gap), in the figure
+// face (Geist Mono with a drawn minus), whose fixed 600-unit advance gives tabular lining figures; no tracking, as the
+// data annotation size has none. A period column holds nine glyphs and their gaps inside its 1px phone inset: a figure, a
+// dagger and a two-letter note, 6 × 7.2 + 2 + 6.6 + 2 + 13.2 = 67px, so 4.375rem (70px) on a phone; 4.75rem from md.
 const FIGURE_CELL = 'relative flex flex-col gap-0.5 font-figure tabular-nums lining-nums tracking-normal'
 const FIGURE_LINE = 'flex w-full items-baseline justify-end'
 
@@ -175,7 +177,7 @@ export default function MetricsTable({
   const hasDerived = dataset.series.some((s) => s.points.some((p) => p.provenance?.method === 'calculated' || (!p.provenance && p.derived)) || s.cagr_provenance?.method === 'calculated' || s.window_pp_provenance?.method === 'calculated')
 
   return (
-    <Card as="section" className="[--mark-gutter:0.4125rem] [container-type:inline-size] min-w-0 p-4 sm:p-cap-6" data-analysis-metrics>
+    <Card as="section" className="[--mark-gutter:0.5375rem] [container-type:inline-size] min-w-0 p-4 sm:p-cap-6" data-analysis-metrics>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Heading className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -216,7 +218,7 @@ export default function MetricsTable({
         cellPadding="compact"
         layout="fixed"
         colWidths={columns.map((column) => column.key === 'metric' ? 'var(--metric-col)' : 'var(--period-col)')}
-        className="[--metric-col:min(6.5rem,100cqi)] [--period-col:4.25rem] md:[--metric-col:min(8.25rem,100cqi)] md:[--period-col:4.75rem]"
+        className="[--metric-col:min(6.5rem,100cqi)] [--period-col:4.375rem] md:[--metric-col:min(8.25rem,100cqi)] md:[--period-col:4.75rem]"
         snapColumns
         scrollRegion={{
           label: `Metrics by period, scrollable table of ${periods.length} ${periodUnit}`,

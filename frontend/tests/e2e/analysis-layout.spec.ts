@@ -870,6 +870,8 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
       for (const [index, mark] of marks.entries()) {
         if (line && (mark.top > line.bottom || mark.bottom < line.top)) problems.push(`${control.name}: a mark left the figure's line`)
         if (mark.left < end - 1) problems.push(`${control.name}: a mark sits before the figure's end`)
+        // The first mark keeps 2px from its figure: set flush, readers dropped "$4.1B†a"'s dagger at 1x in dark.
+        if (index === 0 && figure.length && mark.left - end < 0.125 * control.rem - 0.5) problems.push(`${control.name}: a mark touches its figure`)
         // A letter after † keeps 2px (0.125rem): set flush, the pair read as one glyph at 1x (the study's readout).
         if (mark.mark === 'letter' && marks[index - 1]?.mark === 'dagger' && mark.left - marks[index - 1].right < 0.125 * control.rem - 0.5) problems.push(`${control.name}: a letter touches its dagger`)
         // A staircase: a letter after † stands above it. Level, "†a" read as one mark at 1x in dark (the readout).

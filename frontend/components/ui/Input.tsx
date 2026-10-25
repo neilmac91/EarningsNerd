@@ -75,7 +75,7 @@ const FIELD_BASE = cx(
   // over the DS ring. ring-0 zeroes its spread and ring-offset-0 its offset; `focus:`, since the plugin's rule is too.
   'focus:outline-none focus:ring-0 focus:ring-offset-0',
   'disabled:cursor-not-allowed disabled:bg-background-light disabled:opacity-60',
-  // dark: the placeholder takes tertiary's dark twin, so it stays apart from the typed value (secondary is all but primary)
+  // dark: the placeholder takes tertiary's dark twin, so it stays apart from the typed value (secondary sits only 1.24:1 under primary)
   'dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark',
   'dark:disabled:bg-white/5',
 )

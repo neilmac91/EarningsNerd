@@ -47,7 +47,7 @@ missing-value dash ≥ 60; rules ≥ 15, and a hovered row's rules ≥ 30. Gate:
 
 **The device's tint is a ground like any other** (`brand-weak` light, `brand-weak-dark` mixed over what
 is behind it). The words on it are the primary ink pair: a marked block's excerpt is 15.4:1 on the light
-tint and 10.7:1 on the dark tint over navy, and the Source pane's located passage takes the primary ink
+tint and 12.7:1 on the dark tint over navy, and the Source pane's located passage takes the primary ink
 too (D-044, set when the reader's secondary ink, then `#9CA3AF`, measured 4.49:1 on the dark tint over
 the slate panel). The marker and its twin sit beside the tint, not on it, in `brand-strong` (5.9:1 on
 cream, 9.8:1 on navy).
@@ -574,8 +574,11 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  holds 82.6 / 81.3 and rose-200 -83.1 / -80.1. The dark gain matches rose-200 in
                  lightness and chroma (OKLCH chroma 0.056 each), -83.5 / -80.5, so neither direction
                  reads louder: emerald-300 #6EE7B7 (-78.5 / -75.5, chroma 0.130) outshouted the loss
-                 beside it. The light loss ink holds: red-700 #B91C1C is 78.4 / 77.2, so loss.data is
-                 red-700 too, a role of its own that can move alone. The sign still carries the direction. Every other delta keeps
+                 beside it. Level inks give colour-blind readers no lightness cue: under deuteranopia
+                 (Machado 2009, full severity) the pair is ΔE76 2.1 (emerald-300's was 7.2), protanopia
+                 8.8, so the sign carries the direction, as it does for every reader (the drawn minus is
+                 as wide as the plus). The light loss ink holds: red-700 #B91C1C is 78.4 / 77.2, so
+                 loss.data is red-700 too, a role of its own that can move alone. Every other delta keeps
                  directionText and the 700 level. Gates: tests/unit/figureSurfaceInks.spec.ts (the data
                  inks are written only in financialTone, dataDirectionText is read only by MetricsTable
                  and KpiStrip, every pair meets its tier, and the dark gain and loss stay within 1 Lc and
@@ -598,18 +601,23 @@ Data note mark   <DataNoteMark> (analysis) — the footnote marks: † for a cal
                  ink belongs only to unresolved review concerns; unavailable values and missing
                  validation take the note ink. Smaller, raised and inked apart, a mark no longer reads
                  as the figure's last glyph (“$4.1B†a”).
-                 In the table (compact) the marks hang in a gutter one mark wide (--mark-gutter,
-                 0.4125rem, one 11px Geist Mono advance, set on MetricsTable's Card). A figure with no
-                 mark keeps the gutter as an empty, aria-hidden spacer that grows from nothing up to one
-                 mark into free space only (grow basis-0 max-w-[var(--mark-gutter)]; a declared width
-                 counts toward the line's minimum and pushed a nine-glyph figure past its cell), so a
-                 marked and an unmarked figure share one edge. Elsewhere the first mark takes 2px
-                 (ml-0.5). A letter after † keeps 2px (ml-0.5) on every surface: set flush, “†a” read as
-                 one cluster at 1x in dark, and two readers dropped the letter (the metrics-table
-                 study's readout). Gates: tests/unit/data-note-mark.spec.tsx (the raises, the gaps, the
-                 spacer, and large only at the two 24px figures); “analysis phone marks” in
-                 tests/e2e/analysis-layout.spec.ts (each mark on its figure's line and in its cell, a
-                 letter above its dagger and 2px after it, and a mark under an underlined control an
+                 Every mark keeps 2px (ml-0.5) from what precedes it, the first included, on every
+                 surface: set flush, “†a” read as one cluster at 1x in dark and two readers dropped the
+                 letter, and once the dark gain ink went pale ten of eighteen readers dropped the dagger
+                 of “$4.1B†a”, whose top line had not changed by a pixel (with 2px, six of six read it;
+                 the metrics-table readouts). In the table (compact) the marks hang in a gutter one mark
+                 and its gap wide (--mark-gutter, 0.5375rem: one 11px Geist Mono advance and 2px, set on
+                 MetricsTable's Card). A figure with no mark keeps the gutter as an empty, aria-hidden
+                 spacer that grows from nothing up to the gutter into free space only (grow basis-0
+                 max-w-[var(--mark-gutter)]; a declared width counts toward the line's minimum and
+                 pushed a nine-glyph figure past its cell), so a marked and an unmarked figure share one
+                 edge. A period column holds nine glyphs and their gaps (a figure, a dagger and a
+                 two-letter note, 67px): 4.375rem on a phone inside its 1px inset, 4.75rem from md.
+                 Gates: tests/unit/data-note-mark.spec.tsx (the raises, the gaps, the spacer, and large
+                 only at the two 24px figures); “analysis phone marks” in
+                 tests/e2e/analysis-layout.spec.ts (each mark on its figure's line and in its cell, 2px
+                 after its figure, a letter above its dagger and 2px after it, and a mark under an
+                 underlined control an
                  inline-block: a flex row blockifies its children, and an underline reaches every flex
                  item).
                  The marks are aria-hidden inside the figure's source button, whose accessible name
@@ -620,14 +628,14 @@ Data note mark   <DataNoteMark> (analysis) — the footnote marks: † for a cal
                  validation record is never counted as a passed check. Preserve every reason, including
                  comparison-only concerns. Full-width status Badges and nowrap labels do not belong in
                  an analysis KPI or metrics cell.
-                 Gates: tests/unit/data-note-mark.spec.tsx (the one type, the inks, 2px between † and a
-                 letter, the spacer with no declared width, the staircase raises and large asked for only
+                 Gates: tests/unit/data-note-mark.spec.tsx (the one type, the inks, 2px before every
+                 mark, the spacer with no declared width, the staircase raises and large asked for only
                  at the two 24px figures);
                  tests/e2e/analysis-layout.spec.ts “analysis phone marks” (390px, both themes, the
                  legacy and edge states, the edge fixture planting “$92.2M” and “-$922M”, each with † and
                  a two-letter note, its column's whole nine-glyph budget: every mark on its figure's line
-                 and inside its cell, after the figure's end, 2px between † and a letter, the figure face
-                 computed); tests/unit/figureSurfaceInks.spec.ts (the marks' tiers).
+                 and inside its cell, 2px after the figure's end, 2px between † and a letter, the figure
+                 face computed); tests/unit/figureSurfaceInks.spec.ts (the marks' tiers).
 
 Data table hover <DataTable> — ordinary rows use hover:bg-white dark:hover:bg-white/[0.03].
                  With stickyFirstColumn, first-column body cells stay opaque: light hover uses

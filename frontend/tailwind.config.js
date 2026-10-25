@@ -29,7 +29,9 @@ const gain = {
   // |Lc| >= 75: green-800 is Lc 82.6 on the light well and 81.3 on panel (the 700 is 72.4 / 71.1). Dark matches
   // loss.dataDark (rose-200, Lc -83.1 / -80.1) in lightness and chroma, so neither direction reads louder: Lc -83.5 on
   // the dark well and -80.5 on panel, OKLCH chroma 0.056 against rose-200's 0.056 (emerald-300 #6EE7B7, at 0.130 and
-  // -78.5 / -75.5, outshouted the loss beside it; emerald-400 is -65.6 / -62.6).
+  // -78.5 / -75.5, outshouted the loss beside it; emerald-400 is -65.6 / -62.6). Level inks give colour-blind readers
+  // no lightness cue: under deuteranopia (Machado 2009, full severity) the pair is ΔE76 2.1 (emerald-300's was 7.2),
+  // protanopia 8.8. The sign carries direction for every reader (the drawn minus is as wide as the plus).
   data: '#166534',
   dataDark: '#B6E4CE',
 }

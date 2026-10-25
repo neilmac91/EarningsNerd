@@ -18,5 +18,11 @@ finding, whatever one earlier round said. To find the cause, vary one property a
 (CSS overrides on the captured page are enough) with fresh readers per variant, then fix in code and
 re-read every image.
 
+It happened again when the founder's level dark gain ink landed: three of nine dark 1x readers dropped the
+dagger of "$4.1B†a", whose top line had not changed by a pixel; only the change line below it had a new ink.
+The blind arm read the previous build 9 of 9 and the new one 2 of 9, so a pixel-identical cell is no proof
+that a miss is noise: its neighbours are part of what a reader sees. One property at a time found the fix
+(2px before the dagger, six of six), and the founder's ink stayed.
+
 **Evidence**: the metrics-table number system's pull request, #1606 (its Verification section: the A/B,
-the two variant rounds and the final read). Review-checked; a readout spends model calls and runs outside CI.
+the variant rounds and the final reads). Review-checked; a readout spends model calls and runs outside CI.

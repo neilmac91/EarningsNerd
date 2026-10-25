@@ -38,7 +38,7 @@ const TOAST_RING = 'focus-visible:outline-none focus-visible:!shadow-ring-brand 
 // no shadow in dark like every other overlay.
 // The close button's forced rest outranks Sonner's own hover too, so the slot states its hover, forced
 // as well: the quiet controls' tint (brand-weak) and the primary ink in light; in dark white over the
-// panel it keeps, since dark primary all but meets dark secondary (1.05:1, DESIGN_SYSTEM.md §2) and the
+// panel it keeps, since dark primary sits only 1.24:1 over dark secondary (DESIGN_SYSTEM.md §2) and the
 // button overhangs the card's corner, where a translucent tint would show the page through it.
 // toastTokens.spec.tsx holds these slots to token classes. Each slot is one literal, written whole,
 // so the ring gate and the token gate read it as it ships.

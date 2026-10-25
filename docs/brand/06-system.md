@@ -163,7 +163,7 @@ Rules:
   tint 1.02:1, which is the point: the device is quiet, and the ink on it (15.4:1 light, 12.7:1
   dark) carries the words. The words on the tint are the primary ink: in the Source pane the
   reader's secondary ink was 4.49:1 on the dark tint over the slate panel while it was gray-400, so
-  the located passage takes the primary ink there (9.7:1); the secondary ink is gray-300 since
+  the located passage takes the primary ink there (9.6:1); the secondary ink is gray-300 since
   2026-10-25 (7.7:1 there), and the passage keeps the primary ink, the device's words.
 - **Promotional emphasis (C5).** Every homepage headline variant, the auth-shell promise and the
   waitlist headline use `BrandEmphasis`: a full Bright Sage (`brand-strong-dark`, `#98C5AD`) fill

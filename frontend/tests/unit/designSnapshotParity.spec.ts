@@ -411,6 +411,8 @@ describe('sidecar specimens fit the Impeccable panel and trace to the snapshot',
   it('size to their panel stage and key dark mode to the app theme signal', () => {
     // Turbopack (lightningcss) serves hex lowercased, so the query lists the source and served spellings.
     const value = darkVars['--heading-color']
+    // The signal is the heading ink itself: globals.css's pair mirrors tailwind's text.heading, both themes.
+    expect({ light: rootVars['--heading-color'], dark: value }).toEqual(config.theme.extend.colors.text.heading)
     const spellings = [...new Set([value, value.toLowerCase()])]
     const signal = `@container ${spellings.map((v) => `style(--heading-color: ${v})`).join(' or ')}{`
     for (const c of components) {

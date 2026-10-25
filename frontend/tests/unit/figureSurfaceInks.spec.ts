@@ -174,15 +174,17 @@ describe('the analysis figure surfaces keep their own inks', () => {
     for (const ground of ['panel.dark', 'background.dark']) expect(Math.abs(apca(token('text.primary.dark'), token(ground))), ground).toBeGreaterThanOrEqual(90)
   })
 
-  it('computes APCA as apca-w3 does (its published values)', () => {
+  it('computes APCA and OKLCH chroma as their references do', () => {
     // Reference values from apca-w3 0.1.9: APCAcontrast(sRGBtoY(fg), sRGBtoY(bg)).
     expect(apca('#000000', '#FFFFFF')).toBeCloseTo(106.04, 1)
     expect(apca('#FFFFFF', '#000000')).toBeCloseTo(-107.88, 1)
     expect(apca('#1A1A17', '#FBFAF6')).toBeCloseTo(101.3, 1)
     expect(apca('#9CA3AF', '#1F2937')).toBeCloseTo(-48.6, 1)
     expect(apca('#888888', '#888888')).toBe(0)
-    // OKLCH chroma against its published values: pure red is oklch(0.628 0.2577 29.2), a neutral grey 0.
-    expect(chroma('#FF0000')).toBeCloseTo(0.258, 3)
+    // OKLCH chroma against its published values: pure red is oklch(0.628 0.2577 29.2), pure blue oklch(0.452 0.3132
+    // 264.1) (between them every column of OKLab's first matrix), a neutral grey 0.
+    expect(chroma('#FF0000')).toBeCloseTo(0.2577, 4)
+    expect(chroma('#0000FF')).toBeCloseTo(0.3132, 4)
     expect(chroma('#888888')).toBeCloseTo(0, 4)
   })
 })
