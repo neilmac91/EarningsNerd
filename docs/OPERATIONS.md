@@ -183,7 +183,7 @@ After a deploy, Ops `describe-service` (`docs/DEPLOYMENT.md`) prints `SEC_RATE_L
 `EDGAR_RATE_LIMIT_PER_SEC` and `ENABLE_INSIDER_ACTIVITY` for the serving revision, the pregenerate
 job and the task worker's serving revision, and fails when either pin is not `1` on the service or
 the worker; admin `/metrics` shows `sec_rate_limiter.requests_per_second` for the instance that
-answers; Ops `describe-jobs` prints both pin values for each of the eight jobs and fails when either
+answers; Ops `describe-jobs` prints both pin values for each of the nine jobs and fails when either
 is missing or not `1`. Ops `capacity-readout` carries the worker's request classes and latencies and
 its error-level log counts, the only aggregate evidence of the pin's effect on the worker.
 
@@ -341,6 +341,16 @@ restored the retained monthly object into local PostgreSQL 15 with one `NOLOGIN`
 prerequisite, 33/33 application tables and 40/40 migration hashes. See
 [deployment setup and import procedure](DEPLOYMENT.md#monthly-cloud-sql-logical-export) for the
 dedicated identity, IAM, secret, bucket lifecycle and recovery limits.
+
+### Feedback screenshot cleanup alerts
+
+The hourly `feedback-media-cleanup` job is separately monitored by feature-owned Cloud Monitoring
+policies provisioned through protected Ops. Failed completed executions notify the existing verified
+channel; missing normal-cleanup success heartbeats alert after two hours. Probe and dry-run success
+cannot refresh that heartbeat. Overdue objects fail the execution after their counters are recorded.
+Inspect the counts-only job ledger and the private-storage manifests before concluding that media was
+erased. See [private feedback screenshots](DEPLOYMENT.md#private-feedback-screenshots) for provisioning,
+permission checks and the distinction between configured alert routing and verified delivery.
 
 ### Durable alert delivery: reconciling `ambiguous` batches (E11b-1)
 

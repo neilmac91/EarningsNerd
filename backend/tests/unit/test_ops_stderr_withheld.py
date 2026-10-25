@@ -296,7 +296,7 @@ def test_describe_jobs_step_never_prints_gcloud_stderr(tmp_path, failing):
     assert not [token for token in WITHHELD_TOKENS if token in result.stdout]  # command values stay withheld
     if failing is None:
         assert result.returncode == 0 and calls == reads
-        assert result.stdout.count("== earningsnerd-") == 8 and result.stdout.endswith("describe-jobs: PASS\n")
+        assert result.stdout.count("== earningsnerd-") == 9 and result.stdout.endswith("describe-jobs: PASS\n")
     else:
         assert result.returncode == 1 and calls == reads[:failing + 1]
         assert result.stdout == f"::error::expected Cloud Run job '{jobs[failing]}' is missing or unreadable\n"

@@ -642,20 +642,20 @@ def _security_headers(request: Request) -> dict[str, str]:
 
 # Security headers middleware
 @app.middleware("http")
-async def add_security_headers(request: Request, call_next):
-    response = await call_next(request)
-    for name, value in _security_headers(request).items():
-        response.headers.setdefault(name, value)
-    return response
-
-
-@app.middleware("http")
 async def feedback_privacy_middleware(request: Request, call_next):
     token = private_feedback_request.set(is_private_feedback_path(request.url.path))
     try:
         return await call_next(request)
     finally:
         private_feedback_request.reset(token)
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    for name, value in _security_headers(request).items():
+        response.headers.setdefault(name, value)
+    return response
 
 
 # Request timeout middleware

@@ -28,11 +28,12 @@ from app.services.feedback_storage_service import (  # noqa: E402
 MAX_HEADER_BYTES = 1024
 STORAGE_TIMEOUT_SECONDS = 15.0
 _execution_slots = asyncio.Semaphore(2)
-_OPERATIONS = {"upload", "download", "delete"}
+_OPERATIONS = {"upload", "download", "delete", "verify_permissions"}
 _ERROR_CODES = {
     "storage_unavailable", "storage_not_configured", "storage_busy", "storage_timeout",
     "invalid_image_size", "invalid_object_key", "invalid_generation", "object_missing",
     "generation_conflict", "invalid_storage_operation", "invalid_storage_protocol",
+    "storage_permissions_missing", "storage_permissions_excess",
 }
 
 
@@ -50,7 +51,10 @@ def _request_header(
         raise FeedbackStorageError("storage_not_configured")
     if operation not in _OPERATIONS:
         raise FeedbackStorageError("invalid_storage_operation")
-    if not isinstance(object_key, str) or not 1 <= len(object_key) <= 200:
+    if operation == "verify_permissions":
+        if object_key != "" or data is not None or generation is not None:
+            raise FeedbackStorageError("invalid_storage_operation")
+    elif not isinstance(object_key, str) or not 1 <= len(object_key) <= 200:
         raise FeedbackStorageError("invalid_object_key")
     if generation is not None and (not isinstance(generation, str) or len(generation) > 20):
         raise FeedbackStorageError("invalid_generation")
@@ -148,6 +152,10 @@ def _read_response(output: bytes, operation: str) -> str | bytes | None:
         if set(header) != {"error", "body_bytes"} or body or not isinstance(code, str):
             raise FeedbackStorageError("invalid_storage_protocol")
         raise FeedbackStorageError(code if code in _ERROR_CODES else "storage_unavailable")
+    if operation == "verify_permissions":
+        if header != {"result": "permissions_verified", "body_bytes": 0} or body:
+            raise FeedbackStorageError("invalid_storage_protocol")
+        return None
     if operation == "download":
         if set(header) != {"result", "body_bytes"} or header["result"] != "image" or not body:
             raise FeedbackStorageError("invalid_storage_protocol")
@@ -225,6 +233,10 @@ class BoundedFeedbackStorage:
             raise FeedbackStorageError("invalid_storage_protocol")
         return result
 
+    def verify_permissions(self) -> None:
+        if self._run("verify_permissions", "") is not None:
+            raise FeedbackStorageError("invalid_storage_protocol")
+
     def download(self, object_key: str, generation: str) -> bytes:
         result = self._run("download", object_key, generation=generation)
         if not isinstance(result, bytes):
@@ -266,7 +278,11 @@ def _main() -> int:
         header, data = _read_request(sys.stdin.buffer)
         adapter = GCSFeedbackStorage(header["bucket"])
         operation = header["operation"]
-        if operation == "upload":
+        if operation == "verify_permissions":
+            adapter.verify_permissions()
+            output = _json_header({"result": "permissions_verified", "body_bytes": 0})
+            body = b""
+        elif operation == "upload":
             generation = adapter.upload(header["object_key"], data)
             output = _json_header({"result": "generation", "generation": generation, "body_bytes": 0})
             body = b""

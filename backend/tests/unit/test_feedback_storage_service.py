@@ -71,6 +71,29 @@ def test_provider_errors_never_expose_provider_payload(boundary):
         boundary.adapter.upload(boundary.key, b"normalized png")
 
 
+@pytest.mark.parametrize("grant_change,expected", [(None, None), ("missing", "storage_permissions_missing"),
+                                                  ("inherited", "storage_permissions_excess")])
+def test_effective_runtime_permissions_require_narrow_grants_and_reject_inherited_excess(boundary, grant_change, expected):
+    grants = set(storage.REQUIRED_STORAGE_PERMISSIONS)
+    if grant_change == "missing":
+        grants.remove("storage.objects.delete")
+    if grant_change == "inherited":
+        grants.add("storage.buckets.setIamPolicy")
+    bucket = boundary.client.bucket.return_value
+    bucket.test_iam_permissions.return_value = sorted(grants)
+    if expected:
+        with pytest.raises(storage.FeedbackStorageError, match=f"^{expected}$"):
+            boundary.adapter.verify_permissions()
+    else:
+        assert boundary.adapter.verify_permissions() is None
+    args, kwargs = bucket.test_iam_permissions.call_args
+    assert set(args[0]) == storage.REQUIRED_STORAGE_PERMISSIONS | storage.EXCESS_STORAGE_PERMISSIONS
+    assert not {"storage.buckets.list", "storage.buckets.create"} & set(args[0])
+    assert not any(permission.startswith("storage.multipartUploads.") for permission in args[0])
+    assert kwargs["retry"] is None and kwargs["timeout"] == (2.0, 8.0)
+    bucket.blob.assert_not_called()
+
+
 @pytest.mark.parametrize("key", ["../../other-object", "other/private.png", "feedback/filename.png"])
 def test_rejects_keys_outside_server_owned_uuid_namespace_before_provider_call(boundary, key):
     with pytest.raises(storage.FeedbackStorageError, match="invalid_object_key"):

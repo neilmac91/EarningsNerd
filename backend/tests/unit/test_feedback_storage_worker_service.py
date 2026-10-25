@@ -44,9 +44,11 @@ def test_sync_job_facade_uses_bounded_operations_and_checks_result_types(monkeyp
     response = None
     assert adapter.delete(KEY, None) is None
     assert calls[-1] == ((BUCKET, "delete", KEY), {"data": None, "generation": None})
+    assert adapter.verify_permissions() is None
+    assert calls[-1] == ((BUCKET, "verify_permissions", ""), {"data": None, "generation": None})
     response = 17
     for call in (lambda: adapter.upload(KEY, PNG), lambda: adapter.download(KEY, "17"),
-                 lambda: adapter.delete(KEY, "17")):
+                 lambda: adapter.delete(KEY, "17"), adapter.verify_permissions):
         with pytest.raises(service.FeedbackStorageError, match="^invalid_storage_protocol$"):
             call()
 
@@ -84,6 +86,8 @@ def fake_adapter_worker(tmp_path, monkeypatch):
         "    def delete(self, key, generation):\n"
         f"        assert key == {KEY!r}\n"
         "        return generation\n"
+        "    def verify_permissions(self):\n"
+        "        return None\n"
         "worker.GCSFeedbackStorage = FakeStorage\n"
         "raise SystemExit(worker._main())\n"
     )
@@ -97,6 +101,7 @@ def fake_adapter_worker(tmp_path, monkeypatch):
     ("download", {"generation": "17"}, PNG),
     ("delete", {"generation": "17"}, "17"),
     ("delete", {}, None),
+    ("verify_permissions", {}, None),
 ])
 async def test_real_worker_protocol_and_known_or_unknown_delete_receipts(fake_adapter_worker, monkeypatch, operation, kwargs, expected):
     create = asyncio.create_subprocess_exec
@@ -111,7 +116,9 @@ async def test_real_worker_protocol_and_known_or_unknown_delete_receipts(fake_ad
 
     monkeypatch.setattr(service.asyncio, "create_subprocess_exec", record)
     try:
-        result = await service.run_feedback_storage_operation(BUCKET, operation, KEY, **kwargs)
+        result = await service.run_feedback_storage_operation(
+            BUCKET, operation, "" if operation == "verify_permissions" else KEY, **kwargs,
+        )
         assert result == expected
         assert len(children) == 1 and children[0].returncode == 0
     finally:

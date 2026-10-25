@@ -32,6 +32,10 @@ def _main(*, dry_run: bool, batch_size: int, verify_storage: bool = False) -> No
         logger.info("Feedback media cleanup complete: %s", stats)
         if not dry_run and stats.get("overdue"):
             raise JobRunFailed("feedback-media-cleanup: overdue objects; see persisted counters")
+    # Emitted only after track_job has committed a successful scheduled cleanup. The log metric
+    # deliberately excludes probes and dry runs, which must not conceal a stopped hourly schedule.
+    if not dry_run and not verify_storage:
+        logger.info("Feedback media scheduled cleanup succeeded")
 
 
 if __name__ == "__main__":

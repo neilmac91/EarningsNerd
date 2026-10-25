@@ -14,6 +14,20 @@ from uuid import UUID
 MAX_STORED_IMAGE_BYTES = 8 * 1024 * 1024
 _OBJECT_KEY = re.compile(r"feedback/[0-9a-f]{32}/[0-9a-f]{32}\.png\Z")
 _TIMEOUT = (2.0, 8.0)
+REQUIRED_STORAGE_PERMISSIONS = frozenset({
+    "storage.objects.create", "storage.objects.get", "storage.objects.delete",
+})
+# Enumerated effective-permission audit, including inherited grants. This is not a claim
+# about every permission a future Google release may add. Bucket testIamPermissions rejects
+# project-only buckets.list/create and documents buckets/objects/managedFolders resources;
+# project-only and multipartUploads permissions are deliberately outside this bucket audit.
+EXCESS_STORAGE_PERMISSIONS = frozenset({
+    "storage.buckets.get", "storage.buckets.update", "storage.buckets.delete",
+    "storage.buckets.getIamPolicy", "storage.buckets.setIamPolicy", "storage.objects.list",
+    "storage.objects.update", "storage.objects.getIamPolicy", "storage.objects.setIamPolicy",
+    "storage.objects.restore", "storage.objects.move", "storage.objects.setRetention",
+    "storage.objects.overrideUnlockedRetention",
+})
 
 
 class FeedbackStorageError(RuntimeError):
@@ -25,6 +39,8 @@ class FeedbackStorageError(RuntimeError):
 
 
 class FeedbackStorage(Protocol):
+    def verify_permissions(self) -> None: ...
+
     def upload(self, object_key: str, data: bytes) -> str: ...
 
     def download(self, object_key: str, generation: str) -> bytes: ...
@@ -64,9 +80,7 @@ class GCSFeedbackStorage:
         self._bucket_name = bucket_name
         self._client = client
 
-    def _blob(self, object_key: str) -> Any:
-        if not _OBJECT_KEY.fullmatch(object_key):
-            raise FeedbackStorageError("invalid_object_key")
+    def _bucket(self) -> Any:
         if self._client is None:
             try:
                 from google.cloud import storage
@@ -74,7 +88,27 @@ class GCSFeedbackStorage:
                 self._client = storage.Client()
             except Exception:
                 raise FeedbackStorageError("storage_not_configured") from None
-        return self._client.bucket(self._bucket_name).blob(object_key)
+        return self._client.bucket(self._bucket_name)
+
+    def _blob(self, object_key: str) -> Any:
+        if not _OBJECT_KEY.fullmatch(object_key):
+            raise FeedbackStorageError("invalid_object_key")
+        return self._bucket().blob(object_key)
+
+    def verify_permissions(self) -> None:
+        """Test the serving identity's enumerated effective grants, never the deployer's."""
+        try:
+            granted = set(self._bucket().test_iam_permissions(
+                sorted(REQUIRED_STORAGE_PERMISSIONS | EXCESS_STORAGE_PERMISSIONS), timeout=_TIMEOUT, retry=None,
+            ))
+        except FeedbackStorageError:
+            raise
+        except Exception as exc:
+            raise _translate(exc) from None
+        if not REQUIRED_STORAGE_PERMISSIONS <= granted:
+            raise FeedbackStorageError("storage_permissions_missing")
+        if granted & EXCESS_STORAGE_PERMISSIONS:
+            raise FeedbackStorageError("storage_permissions_excess")
 
     def upload(self, object_key: str, data: bytes) -> str:
         """Create exactly once; an uncertain result remains discoverable by its SQL manifest."""

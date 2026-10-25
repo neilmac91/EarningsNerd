@@ -10,7 +10,6 @@ from uuid import UUID
 
 import anyio
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -73,15 +72,15 @@ def _key(raw: str | None) -> str | None:
         raise HTTPException(422, "Use a valid submission identifier.") from None
 
 
-def _check_reader(request: Request, owner_id: int, *, required: bool = False) -> None:
+def _check_reader(request: Request, user_id: int, *, required: bool = False) -> None:
     expected = request.headers.get("x-feedback-user-id")
-    if (required or expected is not None) and expected != str(owner_id):
+    if (required or expected is not None) and expected != str(user_id):
         raise HTTPException(409, "Your account changed. Reopen feedback before sending.")
 
 
 def _error(exc: submissions.FeedbackSubmissionError) -> HTTPException:
     outcomes = {
-        "owner_missing": (401, "Your session has ended. Sign in again before sending feedback."),
+        "owner_missing": (401, "Your session has ended. Log in again before sending feedback."),
         "not_found": (404, "Feedback submission not found."),
         "gone": (410, "This screenshot is no longer available."),
         "key_conflict": (409, "This submission identifier belongs to a different draft."),
@@ -116,7 +115,8 @@ async def _after_saved(user_id: int, user_email: str | None, saved: FeedbackResp
 
 @router.get("/capabilities")
 async def feedback_capabilities(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    await run_in_threadpool(filing_list_service.release_request_session, db)
+    async with request_work_scope():
+        await run_owned_sync(filing_list_service.release_request_session, db)
     return JSONResponse({
         "attachments_enabled": bool(settings.FEEDBACK_MEDIA_ENABLED and settings.FEEDBACK_MEDIA_BUCKET),
         "max_files": MAX_FILES, "max_file_bytes": MAX_FILE_BYTES, "max_total_bytes": MAX_BODY_BYTES,
@@ -127,35 +127,37 @@ async def feedback_capabilities(current_user: User = Depends(get_current_user), 
 @router.post("/", response_model=FeedbackResponse | FeedbackSubmissionStatus, status_code=201)
 async def submit_feedback(payload: FeedbackCreate, request: Request, response: Response,
                           current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    owner_id, email = current_user.id, current_user.email
-    _check_reader(request, owner_id)
+    user_id, email = current_user.id, current_user.email
+    _check_reader(request, user_id)
     submission_key = _key(request.headers.get("idempotency-key"))
     ip_hash = _hash_ip(_client_ip(request))
     claim = None
     try:
         async with request_work_scope():
             if submission_key:
-                claim = await run_owned_sync(_db_unit, db, submissions.claim_submission, owner_id,
+                claim = await run_owned_sync(_db_unit, db, submissions.claim_submission, user_id,
                                              submission_key, submissions.payload_fingerprint(payload, []))
                 if claim.attempt_token is None:
                     return _claim_response(claim)
-                saved = await run_owned_sync(_db_unit, db, submissions.publish_submission, owner_id,
+                saved = await run_owned_sync(_db_unit, db, submissions.publish_submission, user_id,
                                              claim, payload, ip_hash, {}, settings.FEEDBACK_MEDIA_RETENTION_DAYS)
             else:
-                enforce_rate_limit(request, FEEDBACK_LIMITER, f"feedback:{owner_id}",
+                enforce_rate_limit(request, FEEDBACK_LIMITER, f"feedback:{user_id}",
                                    include_client_ip=False, error_detail=FEEDBACK_RATE_LIMIT_DETAIL)
                 saved = await run_owned_sync(_db_unit, db, submissions.persist_legacy_feedback,
-                                             owner_id, payload, ip_hash)
+                                             user_id, payload, ip_hash)
         response.headers.update(_PRIVATE_HEADERS)
-        await _after_saved(owner_id, email, saved, payload)
+        await _after_saved(user_id, email, saved, payload)
         return saved
     except submissions.FeedbackSubmissionError as exc:
         raise _error(exc) from None
     finally:
         if claim is not None and claim.attempt_token is not None:
             # Published attempts are untouched; an exception before commit becomes retryable.
+            # Compensation owns its SQL worker too, including further cancellation.
             with anyio.CancelScope(shield=True):
-                await run_in_threadpool(_db_unit, db, submissions.fail_attempt, owner_id, claim)
+                async with request_work_scope():
+                    await run_owned_sync(_db_unit, db, submissions.fail_attempt, user_id, claim)
 
 
 class _FeedbackMultipartParser(MultiPartParser):
@@ -249,8 +251,8 @@ async def submit_feedback_with_attachments(request: Request, response: Response,
                                            current_user: User = Depends(get_current_user),
                                            db: Session = Depends(get_db)):
     # No File/UploadFile dependency: all of these checks precede the first receive/parse.
-    owner_id, email = current_user.id, current_user.email
-    _check_reader(request, owner_id, required=True)
+    user_id, email = current_user.id, current_user.email
+    _check_reader(request, user_id, required=True)
     if (request.headers.get("origin") not in settings.CORS_ORIGINS
             or request.headers.get("x-requested-with") != "XMLHttpRequest"):
         raise HTTPException(403, "Open feedback on EarningsNerd before attaching screenshots.")
@@ -259,36 +261,36 @@ async def submit_feedback_with_attachments(request: Request, response: Response,
         raise HTTPException(422, "A submission identifier is required.")
     if not settings.FEEDBACK_MEDIA_ENABLED or not settings.FEEDBACK_MEDIA_BUCKET:
         raise HTTPException(503, "Screenshots are temporarily unavailable. Your draft has been kept.")
-    enforce_rate_limit(request, MEDIA_INGRESS_LIMITER, f"feedback-media:{owner_id}", include_client_ip=False,
+    enforce_rate_limit(request, MEDIA_INGRESS_LIMITER, f"feedback-media:{user_id}", include_client_ip=False,
                        error_detail="Screenshot uploads are temporarily limited. Please retry later.")
     if not _UPLOAD_SLOTS.acquire(blocking=False):
         raise HTTPException(503, "Screenshot uploads are busy. Please retry shortly.", headers={"Retry-After": "5"})
     claim = None
     try:
-        await run_in_threadpool(filing_list_service.release_request_session, db)
         async with request_work_scope():
+            await run_owned_sync(filing_list_service.release_request_session, db)
             # This inner deadline owns body receipt and native/provider work, whereas the outer
             # middleware deadline alone can abandon the ASGI task after returning its 504.
             async with asyncio.timeout(55):
                 payload, images = await _read_upload(request)
                 fingerprint = await run_owned_sync(submissions.payload_fingerprint, payload, images)
                 claim = await run_owned_sync(_db_unit, db, submissions.claim_submission,
-                                             owner_id, submission_key, fingerprint)
+                                             user_id, submission_key, fingerprint)
                 if claim.attempt_token is None:
                     return _claim_response(claim)
                 normalized = [await normalize_feedback_image(image) for image in images]
                 manifests = await run_owned_sync(_db_unit, db, submissions.reserve_attachments,
-                                                 owner_id, claim, normalized)
+                                                 user_id, claim, normalized)
                 generations = {}
                 for manifest, image in zip(manifests, normalized, strict=True):
                     generations[manifest.id] = await run_feedback_storage_operation(
                         settings.FEEDBACK_MEDIA_BUCKET, "upload", manifest.object_key, data=image.data,
                     )
-                saved = await run_owned_sync(_db_unit, db, submissions.publish_submission, owner_id, claim,
+                saved = await run_owned_sync(_db_unit, db, submissions.publish_submission, user_id, claim,
                                              payload, _hash_ip(_client_ip(request)), generations,
                                              settings.FEEDBACK_MEDIA_RETENTION_DAYS)
         response.headers.update(_PRIVATE_HEADERS)
-        await _after_saved(owner_id, email, saved, payload, len(images))
+        await _after_saved(user_id, email, saved, payload, len(images))
         return saved
     except submissions.FeedbackSubmissionError as exc:
         raise _error(exc) from None
@@ -305,7 +307,8 @@ async def submit_feedback_with_attachments(request: Request, response: Response,
         try:
             if claim is not None and claim.attempt_token is not None:
                 with anyio.CancelScope(shield=True):
-                    await run_in_threadpool(_db_unit, db, submissions.fail_attempt, owner_id, claim)
+                    async with request_work_scope():
+                        await run_owned_sync(_db_unit, db, submissions.fail_attempt, user_id, claim)
         finally:
             _UPLOAD_SLOTS.release()
 
@@ -313,11 +316,12 @@ async def submit_feedback_with_attachments(request: Request, response: Response,
 @router.get("/submissions/{submission_id}", response_model=FeedbackSubmissionStatus)
 async def feedback_submission_status(submission_id: str, request: Request, response: Response,
                                      current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    owner_id = current_user.id
-    _check_reader(request, owner_id)
+    user_id = current_user.id
+    _check_reader(request, user_id)
     key = _key(submission_id)
     try:
-        result = await run_in_threadpool(_db_unit, db, submissions.read_receipt, owner_id, key)
+        async with request_work_scope():
+            result = await run_owned_sync(_db_unit, db, submissions.read_receipt, user_id, key)
     except submissions.FeedbackSubmissionError as exc:
         raise _error(exc) from None
     response.headers.update(_PRIVATE_HEADERS)
@@ -327,16 +331,16 @@ async def feedback_submission_status(submission_id: str, request: Request, respo
 @router.get("/attachments/{attachment_id}")
 async def feedback_attachment(attachment_id: str, request: Request, current_user: User = Depends(get_current_user),
                               db: Session = Depends(get_db)):
-    owner_id = current_user.id
-    _check_reader(request, owner_id)
+    user_id = current_user.id
+    _check_reader(request, user_id)
     try:
         async with request_work_scope():
             media = await run_owned_sync(_db_unit, db, submissions.read_private_media,
-                                         attachment_id, owner_id)
+                                         attachment_id, user_id)
             data = await run_feedback_storage_operation(settings.FEEDBACK_MEDIA_BUCKET, "download", media.object_key,
                                                         generation=media.object_generation)
             # Deletion/expiry may have occurred during storage I/O. Recheck before releasing bytes.
-            await run_owned_sync(_db_unit, db, submissions.read_private_media, attachment_id, owner_id)
+            await run_owned_sync(_db_unit, db, submissions.read_private_media, attachment_id, user_id)
         if len(data) != media.byte_count or hashlib.sha256(data).hexdigest() != media.checksum:
             raise HTTPException(503, "This screenshot could not be loaded. Please retry.")
         return Response(data, media_type="image/png", headers={

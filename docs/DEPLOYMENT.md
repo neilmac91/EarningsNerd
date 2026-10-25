@@ -205,7 +205,7 @@ binding is a founder IAM item. When every block printed, the final line is `desc
 `describe-service: PASS; UNVERIFIED: worker invoker policy (<class>)`, or
 `describe-service: FAIL (N invariant failure(s))`; an immediate exit prints no verdict line.
 
-`describe-jobs` reports image, task count, pool values and both SEC pin values for all eight
+`describe-jobs` reports image, task count, pool values and both SEC pin values for all nine
 expected jobs, states whether `earningsnerd-backfill-facts` carries the committed
 `python scripts/backfill_facts.py --only-new` entrypoint (other jobs: override present or image
 default; values are never printed), prints every block before exiting when a value defect (pool,
@@ -616,9 +616,9 @@ The protected `Ops` workflow has four fixed operations:
 
 | Operation | Effect |
 | --- | --- |
-| `feedback-media-inspect` | Read bucket security, runtime grants, job image/entrypoint, latest execution and hourly schedule. |
-| `feedback-media-provision-apply` | Create the dedicated production and preview buckets, narrow object role/grants, cleanup job and schedule; run cleanup and a manifest-backed storage probe. |
-| `feedback-media-enable-apply` | Require matching private resources and successful cleanup and storage-probe executions within two hours, then enable API uploads. |
+| `feedback-media-inspect` | Read bucket security, runtime grants, job image/entrypoint, cleanup/probe executions, hourly schedule and alert routing/heartbeat. |
+| `feedback-media-provision-apply` | Create the dedicated buckets, narrow grants, cleanup job/schedule and feature alert policies; run cleanup and a manifest-backed storage probe. |
+| `feedback-media-enable-apply` | Require matching private resources, successful cleanup and audited storage-probe executions within two hours, and verified alert routing/heartbeat, then enable API uploads. |
 | `feedback-media-disable-apply` | Disable new uploads while retaining the configured bucket, reads and cleanup. |
 
 Each `-apply` requires the repository owner's approval of that exact run in `ops-apply`; agents never
@@ -631,9 +631,16 @@ The new buckets are `earnings-nerd-feedback-media-prod` and `earnings-nerd-feedb
 Both enforce uniform bucket access and public-access prevention, with versioning and soft delete off.
 The SQL-backup bucket is untouched. Objects are not public and no bearer download URLs are issued.
 The custom `earningsnerdFeedbackObjects` role contains only object create/get/delete, bound on these
-buckets to the runtime identity. The provisioning identity needs permissions to create those buckets,
+buckets to the runtime identity. Inspection rejects any additional direct runtime bucket grant,
+including objectAdmin or a conditional grant. The storage probe also queries the actual runtime
+identity's effective permissions on the production bucket, so an inherited broad role cannot be
+assumed away. It requires object create/get/delete and rejects the other thirteen enumerated bucket/
+object permissions. This is a point-in-time audit of sixteen supported permissions, not proof about
+every future permission or project-level bucket listing. Broader inherited access blocks rollout;
+adding the narrow binding does not remove it. The provisioning identity needs permissions to create those buckets,
 create/read the custom role, set bucket IAM, create/update and run the cleanup job (including execution overrides) and its IAM, and create/update
-its Cloud Scheduler trigger; absent grants fail the apply rather than being worked around.
+its Cloud Scheduler trigger, create/read log-based metrics, and create/list/read alert policies and the
+existing notification channel; absent grants fail the apply rather than being worked around.
 
 `earningsnerd-feedback-media-cleanup` runs `python scripts/feedback_media_cleanup.py`, with one task,
 one CPU, 512 MiB, a 600-second attempt timeout, one retry and one database connection without overflow.
@@ -646,15 +653,31 @@ Screenshots expire after 180 days; account deletion revokes access immediately a
 Cleanup retains object manifests until a conditional delete or confirmed absence succeeds. Inspect the
 `feedback-media-cleanup` job ledger for failed/stale runs and overdue/error counters; a failed or stale
 job is an operational incident, not evidence of erasure. Target active-object removal within 24 hours.
-No external notification channel is provisioned by this operation.
+The operation reuses the existing channel
+`projects/earnings-nerd/notificationChannels/2698479126467110226` only after its enabled, verified email
+metadata is read back; its recipient is never printed. It creates no channel or new destination.
 
 The storage probe runs the cleanup job with execution-scoped `--verify-storage` arguments. It first
 commits an ownerless synthetic manifest, writes a tiny PNG, reads its exact bytes and conditionally
 deletes its generation. Failure leaves durable cleanup evidence. It creates no user or feedback
 report and uses the production bucket; the separate preview bucket is not thereby tested. The probe
 uses its own `feedback-media-storage-probe` ledger name and cannot refresh the scheduled cleanup
-heartbeat. Inspection requires the latest attempt of each mode to have succeeded on the serving
+heartbeat. Its enumerated permission audit runs before writing the synthetic object. Inspection requires the latest attempt of each mode to have succeeded on the serving
 image; an older success cannot conceal a recent failure.
+
+Two feature-owned Cloud Monitoring policies route to that existing channel. One observes failed
+completed executions of `earningsnerd-feedback-media-cleanup`, including overdue-object failures.
+The other alerts after two hours without the `earningsnerd_feedback_cleanup_success` log counter.
+Only a successful normal cleanup, after its ledger commit, emits that heartbeat; a probe, dry run,
+failed deletion, overdue backlog or failed ledger commit cannot refresh it. Provisioning creates the
+metric before running cleanup and waits up to five minutes for an observed point. Inspection requires
+the exact enabled policy filters, ownership labels and channel, and an observed recent heartbeat;
+configuration drift is refused rather than silently overwritten. The operation does not apply the
+historical general-alert readiness package or release its unrelated holds.
+
+Policy readback proves configured routing, not email delivery. Retain live policy, channel and
+heartbeat receipts, then confirm delivery on an authorized test or a natural incident before claiming
+end-to-end alert delivery. Metric publication and alert delivery can lag the underlying execution.
 
 Before enabling, verify synthetic upload/read/retry/export/deletion against private storage, browser
 behavior in both themes and the decoder's memory budget. Provisioning alone is not that verification.

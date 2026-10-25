@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import logging
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -58,6 +60,11 @@ class CloudFixture:
                              "uri": f"https://run.googleapis.com/v2/{ops.JOB}:run", "httpMethod": "POST", "body": "e30=",
                              "oauthToken": {"serviceAccountEmail": "runtime@example.invalid"}}}
         self.executions = [self.execution(ops.PROBE_ARGS), self.execution(ops.CLEANUP_ARGS)]
+        self.channel = {"name": ops.CHANNEL, "type": "email", "enabled": True, "verificationStatus": "VERIFIED",
+                        "labels": {"email_address": "PRIVATE_RECIPIENT_SENTINEL@example.invalid"}}
+        self.metric = ops.heartbeat_spec()
+        self.policies = ops.policy_specs()
+        self.heartbeat_seen = True
 
     def execution(self, args):
         task = copy.deepcopy(self.job["template"]["template"])
@@ -72,6 +79,12 @@ class CloudFixture:
     def call(self, api, path, *, method="GET", body=None, missing_ok=False):
         self.calls.append((api, path, method, copy.deepcopy(body)))
         if method != "GET":
+            if api == "logging" and method == "POST":
+                self.metric = copy.deepcopy(body)
+                return copy.deepcopy(body)
+            if api == "monitoring" and method == "POST":
+                self.policies.append(copy.deepcopy(body))
+                return copy.deepcopy(body)
             if api == "run" and path == "v2/" + ops.JOB + ":run":
                 args = body.get("overrides", {}).get("containerOverrides", [{}])[0].get("args", ops.CLEANUP_ARGS)
                 execution = self.execution(args)
@@ -96,6 +109,16 @@ class CloudFixture:
             return copy.deepcopy(self.buckets[path.rsplit("/", 1)[-1]])
         if api == "cloudscheduler":
             return copy.deepcopy(self.schedule)
+        if api == "logging":
+            return copy.deepcopy(self.metric)
+        if api == "monitoring":
+            if "/notificationChannels/" in path:
+                return copy.deepcopy(self.channel)
+            if "/alertPolicies?" in path:
+                return {"alertPolicies": copy.deepcopy(self.policies)}
+            if "/timeSeries?" in path:
+                return {"timeSeries": [{"points": [{"value": {"int64Value": "1"}}]}]} if self.heartbeat_seen else {}
+            raise AssertionError(path)
         if path == "v2/" + ops.SERVICE:
             return copy.deepcopy(self.service)
         if path == "v2/" + ops.JOB:
@@ -139,7 +162,8 @@ def test_inspection_is_read_only_and_requires_both_current_successful_execution_
 
 
 @pytest.mark.parametrize("defect", ["wrong-owner", "public", "soft-delete", "versioning", "retention",
-                                  "broader-role", "disabled-role", "missing-invoker", "schedule-overrides"])
+                                  "broader-role", "disabled-role", "extra-runtime-grant", "conditional-runtime-grant",
+                                  "missing-invoker", "schedule-overrides"])
 def test_upload_enable_refuses_drift_without_repairing_or_weakening_it(defect):
     cloud = CloudFixture()
     actual = cloud.buckets[ops.BUCKETS["production"]]
@@ -157,6 +181,10 @@ def test_upload_enable_refuses_drift_without_repairing_or_weakening_it(defect):
         cloud.role["includedPermissions"].append("storage.objects.list")
     elif defect == "disabled-role":
         cloud.role["stage"] = "DISABLED"
+    elif defect == "extra-runtime-grant":
+        cloud.bucket_policy["bindings"].append({"role": "roles/storage.objectAdmin", "members": ["serviceAccount:runtime@example.invalid"]})
+    elif defect == "conditional-runtime-grant":
+        cloud.bucket_policy["bindings"][0]["condition"] = {"expression": "true"}
     elif defect == "missing-invoker":
         cloud.job_policy["bindings"] = []
     else:
@@ -225,3 +253,98 @@ def test_enable_changes_only_media_configuration_and_disable_does_not_need_stora
     assert len(cloud.writes) == 1
     assert all(call[0] == "run" for call in cloud.calls)
     assert cloud.writes[0][3]["template"]["containers"][0]["env"][-1]["value"] == "false"
+
+
+@pytest.mark.parametrize("defect", ["disabled-channel", "unverified-channel", "wrong-channel-type", "missing-policy",
+                                  "wrong-policy-channel", "disabled-policy", "wrong-policy-filter", "foreign-policy",
+                                  "metric-filter-drift", "missing-heartbeat"])
+def test_enable_requires_live_alert_routing_and_the_normal_cleanup_heartbeat(defect, capsys):
+    cloud = CloudFixture()
+    if defect == "disabled-channel":
+        cloud.channel["enabled"] = False
+    elif defect == "unverified-channel":
+        cloud.channel["verificationStatus"] = "UNVERIFIED"
+    elif defect == "wrong-channel-type":
+        cloud.channel["type"] = "webhook_tokenauth"
+    elif defect == "missing-policy":
+        cloud.policies.pop()
+    elif defect == "wrong-policy-channel":
+        cloud.policies[0]["notificationChannels"] = ["projects/example/notificationChannels/unrelated"]
+    elif defect == "disabled-policy":
+        cloud.policies[0]["enabled"] = False
+    elif defect == "wrong-policy-filter":
+        cloud.policies[0]["conditions"][0]["conditionThreshold"]["filter"] = 'resource.type = "cloud_run_revision"'
+    elif defect == "foreign-policy":
+        cloud.policies[0]["userLabels"] = {"component": "unrelated"}
+    elif defect == "metric-filter-drift":
+        cloud.metric["filter"] = 'resource.type = "cloud_run_job"'
+    else:
+        cloud.heartbeat_seen = False
+    with pytest.raises(ops.OperationError):
+        ops.set_enabled(cloud, cloud.service, True)
+    assert cloud.writes == []
+    assert "PRIVATE_RECIPIENT_SENTINEL" not in capsys.readouterr().out
+
+
+def test_monitoring_creation_is_feature_scoped_and_reuses_the_verified_channel():
+    cloud = CloudFixture()
+    cloud.metric, cloud.policies = None, []
+    ops.ensure_monitoring(cloud)
+    assert len(cloud.writes) == 3
+    assert all("notificationChannels" not in path for _api, path, _method, _body in cloud.writes)
+    assert cloud.metric["metricDescriptor"] == {"metricKind": "DELTA", "valueType": "INT64", "unit": "1"}
+    assert 'resource.labels.job_name="earningsnerd-feedback-media-cleanup"' in cloud.metric["filter"]
+    assert 'resource.labels.location="us-west1"' in cloud.metric["filter"]
+    assert ops.HEARTBEAT_MESSAGE in cloud.metric["filter"]
+    assert len(cloud.policies) == 2
+    for policy in cloud.policies:
+        assert policy["notificationChannels"] == [ops.CHANNEL]
+        assert policy["userLabels"] == {"component": "feedback-media"}
+        condition = policy["conditions"][0]
+        actual = condition.get("conditionThreshold") or condition["conditionAbsent"]
+        assert 'resource.type = "cloud_run_job"' in actual["filter"]
+        assert 'resource.labels.job_name = "earningsnerd-feedback-media-cleanup"' in actual["filter"]
+        assert 'resource.labels.location = "us-west1"' in actual["filter"]
+        if "conditionThreshold" in condition:
+            assert 'metric.label.result = "failed"' in actual["filter"]
+            assert actual["comparison"] == "COMPARISON_GT" and actual["thresholdValue"] == 0
+        else:
+            assert actual["duration"] == "7200s"
+            assert "logging.googleapis.com/user/earningsnerd_feedback_cleanup_success" in actual["filter"]
+
+
+@pytest.mark.parametrize("mode", ["normal", "probe", "dry-run", "overdue", "ledger-failure"])
+def test_only_committed_successful_normal_cleanup_emits_the_monitoring_heartbeat(monkeypatch, caplog, mode):
+    from app import database
+    from app.services import feedback_media_cleanup_service as cleanup
+    from app.services import feedback_storage_worker_service as storage
+    from app.services import job_run_service as jobs
+
+    spec = importlib.util.spec_from_file_location("feedback_cleanup_cli", ROOT / "backend/scripts/feedback_media_cleanup.py")
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+    stats = {"overdue": int(mode == "overdue"), "errors": 0}
+
+    class Attempt:
+        def record(self, _stats):
+            pass
+
+    @contextmanager
+    def track(_name, *, dry_run):
+        yield Attempt()
+        if mode == "ledger-failure":
+            raise jobs.JobRunFailed("ledger failure")
+
+    monkeypatch.setattr(jobs, "track_job", track)
+    monkeypatch.setattr(database, "SessionLocal", object())
+    monkeypatch.setattr(storage, "BoundedFeedbackStorage", lambda _bucket: object())
+    monkeypatch.setattr(cleanup, "run_feedback_media_cleanup", lambda *_args, **_kwargs: stats)
+    monkeypatch.setattr(cleanup, "verify_feedback_media_storage", lambda *_args: stats)
+    with caplog.at_level(logging.INFO):
+        if mode in {"overdue", "ledger-failure"}:
+            with pytest.raises(jobs.JobRunFailed):
+                cli._main(dry_run=False, batch_size=1)
+        else:
+            cli._main(dry_run=mode == "dry-run", batch_size=1, verify_storage=mode == "probe")
+    messages = [record.getMessage() for record in caplog.records]
+    assert (ops.HEARTBEAT_MESSAGE in messages) is (mode == "normal")

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from uuid import uuid4
 
-from sqlalchemy import text
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import User
@@ -64,8 +64,8 @@ def payload_fingerprint(payload: FeedbackCreate, images: list[bytes]) -> str:
 def _bound_transaction(db: Session) -> None:
     """Bound lock/statement waits locally; never change pooled connection defaults."""
     if db.get_bind().dialect.name == "postgresql":
-        db.execute(text("SET LOCAL lock_timeout = '3s'"))
-        db.execute(text("SET LOCAL statement_timeout = '10s'"))
+        db.scalar(select(func.set_config("lock_timeout", "3s", True)))
+        db.scalar(select(func.set_config("statement_timeout", "10s", True)))
 
 
 def _lock_owner(db: Session, owner_id: int) -> None:

@@ -178,7 +178,7 @@ def run_feedback_media_cleanup(
                 stats["deleted"] += 1
     with session_factory() as db:
         stats["overdue"] = _due(db, now).filter(
-            FeedbackAttachment.object_generation.is_not(None),
+            FeedbackAttachment.state != "absent_unknown",
             FeedbackAttachment.deletion_due_at <= now - REMOVAL_TARGET,
         ).count()
         stats["pending_verification"] = db.query(FeedbackAttachment).filter(
@@ -196,6 +196,13 @@ def verify_feedback_media_storage(
     and no screenshot is readable through the user/admin API because it has no owner.
     """
     now = ensure_utc(now or utcnow())
+    stats = {"permissions_verified": 0, "storage_verified": 0, "deleted": 0, "errors": 0, "pending_verification": 0}
+    try:
+        storage.verify_permissions()
+        stats["permissions_verified"] = 1
+    except Exception:
+        stats["errors"] = 1
+        return stats
     data = _probe_png()
     submission_id, attempt_token, attachment_id = (str(uuid4()) for _ in range(3))
     object_key = make_feedback_object_key(attempt_token, attachment_id)
@@ -214,7 +221,6 @@ def verify_feedback_media_storage(
         ))
         db.commit()
     claim = _CleanupClaim(attachment_id, object_key, None, 1)
-    stats = {"storage_verified": 0, "deleted": 0, "errors": 0, "pending_verification": 0}
     generation = None
     try:
         generation = storage.upload(object_key, data)

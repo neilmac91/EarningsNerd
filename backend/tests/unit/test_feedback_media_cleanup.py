@@ -104,11 +104,22 @@ def test_cleanup_retries_failure_without_losing_keys_and_never_holds_sql_during_
 
 def test_dry_run_does_not_claim_or_contact_storage_and_reports_overdue(database):
     old = _seed(database, due=NOW - timedelta(hours=25))
+    unknown = _seed(database, due=NOW - timedelta(hours=25), state="pending")
+    absent = _seed(database, due=NOW - timedelta(hours=25), state="pending")
+    with database.factory() as db:
+        db.get(FeedbackAttachment, unknown.id).object_generation = None
+        checked = db.get(FeedbackAttachment, absent.id)
+        checked.object_generation = None
+        checked.state = "absent_unknown"
+        checked.last_cleanup_attempt_at = NOW - timedelta(hours=50)
+        db.commit()
     class NoStorage:
         def delete(self, *_):
             pytest.fail("dry run contacted object storage")
     stats = cleanup.run_feedback_media_cleanup(database.factory, NoStorage(), now=NOW, dry_run=True)
-    assert stats == {"dry_run": True, "eligible": 1, "deleted": 0, "errors": 0, "overdue": 1, "pending_verification": 0}
+    # A lost upload receipt can still hide a live object. Only a checked-absent tombstone
+    # is pending verification rather than overdue work; a missing generation alone is not.
+    assert stats == {"dry_run": True, "eligible": 3, "deleted": 0, "errors": 0, "overdue": 2, "pending_verification": 1}
     with database.factory() as db:
         row = db.get(FeedbackAttachment, old.id)
         assert row.cleanup_attempts == 0 and row.last_cleanup_attempt_at is None and row.state == "available"
@@ -159,6 +170,7 @@ def test_export_is_owner_scoped_media_manifest_without_private_storage_identifie
     monkeypatch.setattr("app.services.user_data_export_service.utcnow", lambda: NOW)
     with database.factory() as db:
         result = build_user_data_export(db, db.get(User, live.owner_id))["feedback"]
+    assert len(result) == 2  # Another account's text report must not escape, even with no images.
     manifests = [attachment for report in result for attachment in report["attachments"]]
     assert {attachment["id"] for attachment in manifests} == {live.id, expired.id}
     assert all(attachment["id"] != other.id for attachment in manifests)
@@ -172,6 +184,9 @@ def test_export_is_owner_scoped_media_manifest_without_private_storage_identifie
 def test_storage_probe_persists_ownerless_manifest_before_io_and_keeps_failed_cleanup(database, fail_delete):
     class Storage:
         data = None
+        def verify_permissions(self):
+            with database.factory() as db:
+                assert db.query(FeedbackAttachment).count() == 0
         def upload(self, key, data):
             assert database.active["connections"] == 0
             with database.factory() as db:
@@ -192,7 +207,8 @@ def test_storage_probe_persists_ownerless_manifest_before_io_and_keeps_failed_cl
             if fail_delete:
                 raise FeedbackStorageError()
     stats = cleanup.verify_feedback_media_storage(database.factory, Storage(), now=NOW)
-    assert stats == {"storage_verified": 1, "deleted": int(not fail_delete), "errors": int(fail_delete), "pending_verification": 0}
+    assert stats == {"permissions_verified": 1, "storage_verified": 1, "deleted": int(not fail_delete),
+                     "errors": int(fail_delete), "pending_verification": 0}
     with database.factory() as db:
         row = db.query(FeedbackAttachment).one()
         assert row.object_key and row.object_generation == "23"
@@ -202,17 +218,33 @@ def test_storage_probe_persists_ownerless_manifest_before_io_and_keeps_failed_cl
 
 def test_uncertain_probe_upload_retains_known_key_for_generation_lookup_cleanup(database):
     class Storage:
+        def verify_permissions(self):
+            pass
         def upload(self, key, data):
             raise FeedbackStorageError()
         def delete(self, key, generation):
             assert generation is None
             raise FeedbackStorageError()
     assert cleanup.verify_feedback_media_storage(database.factory, Storage(), now=NOW) == {
-        "storage_verified": 0, "deleted": 0, "errors": 2, "pending_verification": 0,
+        "permissions_verified": 1, "storage_verified": 0, "deleted": 0, "errors": 2, "pending_verification": 0,
     }
     with database.factory() as db:
         row = db.query(FeedbackAttachment).one()
         assert row.object_key and row.object_generation is None and row.state == "purge_pending"
+
+
+def test_permission_audit_failure_stops_probe_before_object_or_database_writes(database):
+    class Storage:
+        def verify_permissions(self):
+            raise FeedbackStorageError("storage_permissions_excess")
+        def upload(self, *_):
+            pytest.fail("probe uploaded under excess runtime permissions")
+    assert cleanup.verify_feedback_media_storage(database.factory, Storage(), now=NOW) == {
+        "permissions_verified": 0, "storage_verified": 0, "deleted": 0, "errors": 1, "pending_verification": 0,
+    }
+    with database.factory() as db:
+        assert db.query(FeedbackAttachment).count() == 0
+        assert db.query(FeedbackSubmission).count() == 0
 
 
 def test_unknown_absence_is_rechecked_without_starving_new_deletions_then_catches_late_commit(database):

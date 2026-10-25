@@ -13,6 +13,7 @@ import subprocess
 import time
 from datetime import datetime, timedelta, timezone
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 PROJECT = "earnings-nerd"
@@ -26,6 +27,10 @@ ROLE = f"projects/{PROJECT}/roles/earningsnerdFeedbackObjects"
 PERMISSIONS = ["storage.objects.create", "storage.objects.get", "storage.objects.delete"]
 CLEANUP_ARGS = ["scripts/feedback_media_cleanup.py"]
 PROBE_ARGS = [*CLEANUP_ARGS, "--verify-storage"]
+CHANNEL = f"projects/{PROJECT}/notificationChannels/2698479126467110226"
+HEARTBEAT_METRIC = "earningsnerd_feedback_cleanup_success"
+HEARTBEAT_MESSAGE = "Feedback media scheduled cleanup succeeded"
+MONITORING_OWNER = {"component": "feedback-media"}
 OPERATIONS = (
     "feedback-media-inspect", "feedback-media-provision-apply",
     "feedback-media-enable-apply", "feedback-media-disable-apply",
@@ -102,6 +107,14 @@ def check_private_policy(policy: dict) -> None:
         raise OperationError("Resource policy includes a public principal")
 
 
+def check_runtime_bucket_policy(policy: dict, runtime: str) -> None:
+    check_private_policy(policy)
+    member = "serviceAccount:" + runtime
+    grants = [binding for binding in policy.get("bindings", []) if member in binding.get("members", [])]
+    if not grants or any(binding.get("role") != ROLE or binding.get("condition") for binding in grants):
+        raise OperationError("Runtime bucket grants differ from the approved unconditional object role")
+
+
 def policy_path(path: str, *, storage: bool = False) -> str:
     # Request policy v3 so read/modify/write preserves conditional grants and their etag.
     return path + ("/iam?optionsRequestedPolicyVersion=3" if storage
@@ -151,7 +164,125 @@ def ensure_buckets(cloud: Cloud, runtime: str) -> None:
         # Never weaken or adopt an unrelated pre-existing bucket with this name.
         check_bucket(bucket, environment)
         bind(cloud, "storage", "storage/v1/b/" + name, ROLE, "serviceAccount:" + runtime, storage=True)
+        check_runtime_bucket_policy(cloud.call("storage", policy_path("storage/v1/b/" + name, storage=True)), runtime)
         print(f"{environment} bucket: private, uniform access, no versioning or soft delete")
+
+
+def heartbeat_spec() -> dict:
+    return {
+        "name": HEARTBEAT_METRIC,
+        "description": "Successful normal feedback media cleanup; excludes storage probes and dry runs.",
+        "filter": (f'resource.type="cloud_run_job" AND resource.labels.job_name="{JOB.rsplit("/", 1)[-1]}" '
+                   f'AND resource.labels.location="{REGION}" '
+                   f'AND (textPayload:"{HEARTBEAT_MESSAGE}" OR jsonPayload.message="{HEARTBEAT_MESSAGE}")'),
+        "metricDescriptor": {"metricKind": "DELTA", "valueType": "INT64", "unit": "1"},
+    }
+
+
+def policy_specs() -> list[dict]:
+    resource = (f'resource.type = "cloud_run_job" AND resource.labels.job_name = "{JOB.rsplit("/", 1)[-1]}" '
+                f'AND resource.labels.location = "{REGION}"')
+    common = {"combiner": "OR", "enabled": True, "notificationChannels": [CHANNEL], "userLabels": MONITORING_OWNER}
+    return [
+        {**common, "displayName": "EarningsNerd feedback media cleanup failed", "documentation": {
+            "mimeType": "text/markdown",
+            "content": "The private screenshot cleanup job failed. Inspect its counts-only ledger and execution; overdue objects also fail the job. Do not assume screenshots were erased.",
+        }, "conditions": [{"displayName": "Feedback cleanup execution failed", "conditionThreshold": {
+            "filter": resource + ' AND metric.type = "run.googleapis.com/job/completed_execution_count" AND metric.label.result = "failed"',
+            "comparison": "COMPARISON_GT", "thresholdValue": 0, "duration": "0s", "trigger": {"count": 1},
+            "aggregations": [{"alignmentPeriod": "60s", "perSeriesAligner": "ALIGN_SUM"}],
+        }}]},
+        {**common, "displayName": "EarningsNerd feedback media cleanup stale", "documentation": {
+            "mimeType": "text/markdown",
+            "content": "No successful normal private screenshot cleanup heartbeat has arrived for two hours. Check the hourly schedule, runtime and job ledger. Storage probes and dry runs do not refresh this heartbeat.",
+        }, "conditions": [{"displayName": "Feedback cleanup success absent for two hours", "conditionAbsent": {
+            "filter": resource + f' AND metric.type = "logging.googleapis.com/user/{HEARTBEAT_METRIC}"',
+            "duration": "7200s", "trigger": {"count": 1},
+            "aggregations": [{"alignmentPeriod": "60s", "perSeriesAligner": "ALIGN_SUM"}],
+        }}]},
+    ]
+
+
+def check_channel(cloud: Cloud) -> None:
+    channel = cloud.call("monitoring", "v3/" + CHANNEL)
+    if (channel.get("name") != CHANNEL or channel.get("type") != "email" or channel.get("enabled") is not True
+            or channel.get("verificationStatus") != "VERIFIED"):
+        raise OperationError("Existing monitoring channel must be enabled, verified and of the expected email type")
+    # Channel labels contain its recipient. Neither labels nor any provider payload is printed.
+
+
+def check_heartbeat_metric(metric: dict | None) -> None:
+    expected = heartbeat_spec()
+    if (metric is None or metric.get("name") != HEARTBEAT_METRIC or metric.get("disabled", False)
+            or metric.get("filter") != expected["filter"]
+            or metric.get("description") != expected["description"]
+            or any(metric.get("metricDescriptor", {}).get(key) != value
+                   for key, value in expected["metricDescriptor"].items())):
+        raise OperationError("Feedback cleanup heartbeat metric is missing, disabled or differs from the approved filter")
+
+
+def policy_matches(policy: dict, expected: dict) -> bool:
+    if any(policy.get(key) != expected[key] for key in ("displayName", "combiner", "enabled", "notificationChannels", "userLabels")):
+        return False
+    if policy.get("documentation", {}).get("content") != expected["documentation"]["content"]:
+        return False
+    conditions = policy.get("conditions", [])
+    if len(conditions) != 1:
+        return False
+    condition = {key: value for key, value in conditions[0].items() if key != "name"}
+    return condition == expected["conditions"][0]
+
+
+def monitoring_policies(cloud: Cloud) -> list[dict]:
+    policies, page_token = [], None
+    for _ in range(10):
+        query = urlencode({"pageSize": 100, **({"pageToken": page_token} if page_token else {})})
+        page = cloud.call("monitoring", f"v3/projects/{PROJECT}/alertPolicies?{query}")
+        policies.extend(page.get("alertPolicies", []))
+        page_token = page.get("nextPageToken")
+        if not page_token:
+            return policies
+    raise OperationError("Monitoring policy inventory exceeds the bounded inspection size")
+
+
+def ensure_monitoring(cloud: Cloud) -> None:
+    check_channel(cloud)
+    metric_path = f"v2/projects/{PROJECT}/metrics/{HEARTBEAT_METRIC}"
+    metric = cloud.call("logging", metric_path, missing_ok=True)
+    if metric is None:
+        metric = cloud.call("logging", f"v2/projects/{PROJECT}/metrics", method="POST", body=heartbeat_spec())
+    check_heartbeat_metric(metric)
+    policies = monitoring_policies(cloud)
+    for expected in policy_specs():
+        matching = [policy for policy in policies if policy.get("displayName") == expected["displayName"]]
+        if not matching:
+            created = cloud.call("monitoring", f"v3/projects/{PROJECT}/alertPolicies", method="POST", body=expected)
+            matching = [created]
+        if len(matching) != 1 or not policy_matches(matching[0], expected):
+            raise OperationError("Existing feedback monitoring policy differs from the approved owned definition")
+    print("Feedback cleanup failure and stale-heartbeat alert routing configured; delivery not exercised")
+
+
+def inspect_monitoring(cloud: Cloud) -> bool:
+    check_channel(cloud)
+    check_heartbeat_metric(cloud.call("logging", f"v2/projects/{PROJECT}/metrics/{HEARTBEAT_METRIC}", missing_ok=True))
+    policies = monitoring_policies(cloud)
+    for expected in policy_specs():
+        matching = [policy for policy in policies if policy.get("displayName") == expected["displayName"]]
+        if len(matching) != 1 or not policy_matches(matching[0], expected):
+            raise OperationError("Feedback cleanup alert policies must exactly match the enabled, owned definitions")
+    now = datetime.now(timezone.utc)
+    query = urlencode({
+        "filter": policy_specs()[1]["conditions"][0]["conditionAbsent"]["filter"],
+        "interval.startTime": (now - timedelta(hours=2)).isoformat(), "interval.endTime": now.isoformat(), "pageSize": 100,
+    })
+    series = cloud.call("monitoring", f"v3/projects/{PROJECT}/timeSeries?{query}").get("timeSeries", [])
+    values = [point.get("value", {}).get("int64Value") for row in series for point in row.get("points", [])]
+    heartbeat_seen = any(isinstance(value, str) and 1 <= len(value) <= 20 and value.isascii()
+                         and value.isdecimal() and int(value) > 0 for value in values)
+    print("Normal-cleanup monitoring heartbeat: " + ("observed" if heartbeat_seen else "not yet observed"))
+    print("Feature alert channel: enabled and verified; end-to-end delivery unverified")
+    return heartbeat_seen
 
 
 def job_spec(service: dict) -> dict:
@@ -185,6 +316,7 @@ def job_spec(service: dict) -> dict:
 def provision(cloud: Cloud, service: dict) -> None:
     spec = job_spec(service)  # validate required identity/secret references before any mutation
     runtime = spec["template"]["template"]["serviceAccount"]
+    ensure_monitoring(cloud)  # create the success metric before the first genuine cleanup heartbeat
     ensure_buckets(cloud, runtime)
     current = cloud.call("run", "v2/" + JOB, missing_ok=True)
     if current is not None and current.get("labels", {}).get("purpose") != "feedback-media":
@@ -216,8 +348,13 @@ def provision(cloud: Cloud, service: dict) -> None:
     cloud.wait(cloud.call("run", "v2/" + JOB + ":run", method="POST", body={
         "overrides": {"containerOverrides": [{"name": "cleanup", "args": PROBE_ARGS}]},
     }))
-    if not inspect(cloud):
-        raise OperationError("Resources provisioned; cleanup or storage verification is incomplete")
+    # A new log metric may take several minutes to publish its first time series. No new writes
+    # occur while waiting, and a timeout leaves the rollout disabled rather than claiming monitoring.
+    deadline = time.monotonic() + 300
+    while not inspect(cloud):
+        if time.monotonic() >= deadline:
+            raise OperationError("Resources provisioned; monitoring heartbeat is not yet observable")
+        time.sleep(10)
     print("Private storage probe and cleanup succeeded; uploads remain unchanged")
 
 
@@ -268,10 +405,7 @@ def inspect(cloud: Cloud) -> bool:
             continue
         check_bucket(bucket, environment)
         policy = cloud.call("storage", policy_path("storage/v1/b/" + name, storage=True))
-        check_private_policy(policy)
-        if not any(b.get("role") == ROLE and not b.get("condition")
-                   and "serviceAccount:" + runtime in b.get("members", []) for b in policy.get("bindings", [])):
-            raise OperationError(f"{environment} bucket runtime object grant is missing")
+        check_runtime_bucket_policy(policy, runtime)
         print(f"{environment} bucket: private retention settings verified")
     job = cloud.call("run", "v2/" + JOB, missing_ok=True)
     schedule = cloud.call("cloudscheduler", "v1/" + SCHEDULE, missing_ok=True)
@@ -311,8 +445,10 @@ def inspect(cloud: Cloud) -> bool:
                       and schedule.get("httpTarget", {}).get("oauthToken", {}).get("serviceAccountEmail") == runtime)
     print("Cleanup last execution: " + ("succeeded" if succeeded else "unverified"))
     print("Private storage probe: " + ("succeeded" if probe_succeeded else "unverified"))
+    print("Runtime enumerated storage permission audit: " + ("verified by the successful probe" if probe_succeeded else "unverified"))
     print("Cleanup hourly schedule: " + ("verified" if schedule_ready else "unverified"))
-    return ready and succeeded and probe_succeeded and schedule_ready
+    monitoring_ready = inspect_monitoring(cloud)
+    return ready and succeeded and probe_succeeded and schedule_ready and monitoring_ready
 
 
 def set_enabled(cloud: Cloud, service: dict, enabled: bool) -> None:

@@ -69,7 +69,7 @@ def test_capacity_readout_keeps_coverage_and_sanitizes_evidence(monkeypatch):
     assert executions["outside_scope_count"] == 1
     assert result["error_logs"]["outside_scope_count"] == 1
     assert len(result["error_logs"]["items"]) == 1
-    assert len(result["executions"]) == 8
+    assert len(result["executions"]) == 9
     assert executions["state"] == "complete"
     assert executions["pages"] == 2
     assert len(executions["items"]) == 1

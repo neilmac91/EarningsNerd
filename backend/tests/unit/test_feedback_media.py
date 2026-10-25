@@ -237,6 +237,25 @@ def test_malformed_multipart_is_validation_failure(media):
     assert response.status_code == 413 and media.uploads == []
 
 
+@pytest.mark.parametrize("excess", ("headers", "field_bytes", "field_count"))
+def test_multipart_metadata_is_bounded_before_publication(media, excess):
+    request_headers = {**headers(), "Content-Type": "multipart/form-data; boundary=limited"}
+    if excess == "headers":
+        body = (b'--limited\r\nContent-Disposition: form-data; name="files"; filename="'
+                + b"x" * 4096 + b'.png"\r\nContent-Type: image/png\r\n\r\nx\r\n--limited--\r\n')
+    elif excess == "field_bytes":
+        body = (b'--limited\r\nContent-Disposition: form-data; name="message"\r\n\r\n'
+                + b"x" * 16001 + b'\r\n--limited--\r\n')
+    else:
+        body = b"".join(b'--limited\r\nContent-Disposition: form-data; name="' + name
+                        + b'"\r\n\r\nvalue\r\n' for name in (b"type", b"message", b"page_url", b"extra"))
+        body += b"--limited--\r\n"
+    response = media.client.post("/api/feedback/with-attachments", headers=request_headers, content=body)
+    assert response.status_code == 413 and media.uploads == []
+    with media.sessions() as db:
+        assert db.query(FeedbackSubmission).count() == 0
+
+
 @pytest.mark.asyncio
 async def test_actual_body_budget_applies_without_content_length(media):
     request_headers = headers()
@@ -332,3 +351,200 @@ def test_disable_uploads_preserves_private_reads_and_capabilities(media, monkeyp
     assert media.client.get("/api/feedback/capabilities").json()["attachments_enabled"] is False
     assert send(media).status_code == 503
     assert media.client.get(f"/api/feedback/attachments/{attachment_id}").status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_request_deadline_closes_partial_multipart_files(media, monkeypatch):
+    import asyncio
+    import starlette.formparsers
+
+    from contextlib import asynccontextmanager
+
+    real_timeout = asyncio.timeout
+    real_file = starlette.formparsers.SpooledTemporaryFile
+    temporary_files = []
+    body_waiting = asyncio.Event()
+
+    def track_file(*args, **kwargs):
+        result = real_file(*args, **kwargs)
+        temporary_files.append(result)
+        return result
+
+    monkeypatch.setattr(starlette.formparsers, 'SpooledTemporaryFile', track_file)
+    @asynccontextmanager
+    async def expire_when_body_is_waiting(seconds):
+        assert seconds == 55
+        async with real_timeout(None) as deadline:
+            async def expire():
+                await body_waiting.wait()
+                deadline.reschedule(asyncio.get_running_loop().time())
+            expiry = asyncio.create_task(expire())
+            try:
+                yield
+            finally:
+                expiry.cancel()
+                await asyncio.gather(expiry, return_exceptions=True)
+
+    monkeypatch.setattr(router.asyncio, 'timeout', expire_when_body_is_waiting)
+    request_headers = {**headers(), 'Content-Type': 'multipart/form-data; boundary=feedback'}
+
+    async def body():
+        yield (b'--feedback\r\nContent-Disposition: form-data; name="files"; filename="private.png"\r\n'
+               b'Content-Type: image/png\r\n\r\npartial-image-bytes')
+        body_waiting.set()
+        await asyncio.Event().wait()
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+        async with real_timeout(5):
+            response = await client.post('/api/feedback/with-attachments', headers=request_headers, content=body())
+    assert body_waiting.is_set() and temporary_files
+    assert response.status_code == 504, response.text
+    assert all(file.closed for file in temporary_files)
+    assert media.uploads == []
+    # Both permits are available for subsequent requests after an interrupted upload.
+    assert router._UPLOAD_SLOTS.acquire(blocking=False)
+    assert router._UPLOAD_SLOTS.acquire(blocking=False)
+    router._UPLOAD_SLOTS.release()
+    router._UPLOAD_SLOTS.release()
+    with media.sessions() as db:
+        assert db.query(FeedbackSubmission).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_cancelled_provider_is_settled_before_attempt_becomes_retryable(media, monkeypatch):
+    import asyncio
+
+    entered = asyncio.Event()
+    settled = asyncio.Event()
+    key = str(uuid4())
+    real_fail_attempt = service.fail_attempt
+    failures = []
+
+    async def provider(bucket, operation, object_key, **kwargs):
+        await media.store(bucket, operation, object_key, **kwargs)
+        entered.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            settled.set()
+
+    def fail_attempt(*args):
+        assert settled.is_set(), 'Cleanup must not race a still-owned write'
+        failures.append(True)
+        return real_fail_attempt(*args)
+
+    monkeypatch.setattr(router, 'run_feedback_storage_operation', provider)
+    monkeypatch.setattr(service, 'fail_attempt', fail_attempt)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+        sending = asyncio.create_task(client.post('/api/feedback/with-attachments', headers=headers(key),
+                                                   data={'message': 'A useful note'},
+                                                   files=[('files', ('private.png', b'image', 'image/png'))]))
+        await asyncio.wait_for(entered.wait(), timeout=5)
+        sending.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await sending
+    assert settled.is_set() and failures
+    with media.sessions() as db:
+        assert db.query(Feedback).count() == 0
+        assert db.query(FeedbackSubmission).one().state == 'retryable'
+        manifest = db.query(FeedbackAttachment).one()
+        assert manifest.state == 'purge_pending' and manifest.object_key in media.storage
+
+
+def test_lost_commit_response_recovers_original_receipt_without_duplicate(media, monkeypatch):
+    real_publish = service.publish_submission
+    key = str(uuid4())
+
+    def publish_then_disconnect(*args):
+        real_publish(*args)
+        raise RuntimeError('Synthetic response loss after commit')
+
+    monkeypatch.setattr(service, 'publish_submission', publish_then_disconnect)
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post('/api/feedback/with-attachments', headers=headers(key),
+                               data={'message': 'A useful note'},
+                               files=[('files', ('private.png', b'image', 'image/png'))])
+    assert response.status_code == 500
+    receipt = media.client.get(f'/api/feedback/submissions/{key}')
+    assert receipt.status_code == 200 and receipt.json()['state'] == 'submitted'
+    monkeypatch.setattr(service, 'publish_submission', real_publish)
+    replay = media.client.post('/api/feedback/with-attachments', headers=headers(key),
+                               data={'message': 'A useful note'},
+                               files=[('files', ('private.png', b'image', 'image/png'))])
+    assert replay.status_code == 200 and replay.json() == receipt.json()['feedback']
+    assert len(media.uploads) == 1
+    with media.sessions() as db:
+        assert db.query(Feedback).count() == 1
+
+
+@pytest.mark.asyncio
+async def test_repeated_cancellation_does_not_reuse_a_session_while_publication_runs(media, monkeypatch):
+    import asyncio
+    import threading
+    from starlette.requests import Request
+    from starlette.responses import Response
+    from app.services.request_work import RequestWork
+
+    loop = asyncio.get_running_loop()
+    started = asyncio.Event()
+    draining = asyncio.Event()
+    drain_returned = asyncio.Event()
+    release = threading.Event()
+    finished = threading.Event()
+    original_publish = service.publish_submission
+    original_drain = RequestWork.drain
+    original_fail = service.fail_attempt
+    cleanup_after_worker = []
+
+    def held_publication(db, *args):
+        db.query(User.id).filter(User.id == 1).one()
+        loop.call_soon_threadsafe(started.set)
+        try:
+            assert release.wait(5)
+            return original_publish(db, *args)
+        finally:
+            finished.set()
+
+    async def observed_drain(work):
+        draining.set()
+        try:
+            await original_drain(work)
+        finally:
+            drain_returned.set()
+
+    def observed_failure(*args):
+        cleanup_after_worker.append(finished.is_set())
+        return original_fail(*args)
+
+    monkeypatch.setattr(service, 'publish_submission', held_publication)
+    monkeypatch.setattr(service, 'fail_attempt', observed_failure)
+    monkeypatch.setattr(RequestWork, 'drain', observed_drain)
+    outgoing = httpx.Request('POST', 'http://test/api/feedback/with-attachments', headers=headers(),
+                             data={'message': 'A useful note'},
+                             files=[('files', ('private.png', b'image', 'image/png'))])
+    body = outgoing.read()
+
+    async def receive():
+        return {'type': 'http.request', 'body': body, 'more_body': False}
+
+    request = Request({'type': 'http', 'method': 'POST', 'path': '/api/feedback/with-attachments',
+                       'headers': [(name.lower(), value) for name, value in outgoing.headers.raw], 'scheme': 'http', 'client': ('127.0.0.1', 1),
+                       'server': ('test', 80), 'query_string': b''}, receive)
+    db = media.sessions()
+    sending = asyncio.create_task(router.submit_feedback_with_attachments(request, Response(), media.actor, db))
+    try:
+        await asyncio.wait_for(started.wait(), timeout=5)
+        sending.cancel()
+        await asyncio.wait_for(draining.wait(), timeout=5)
+        sending.cancel()
+        # Drain's gather cancellation runs through a few event-loop callbacks. No worker
+        # release or elapsed-time assertion is used to make the race pass.
+        for _ in range(5):
+            await asyncio.sleep(0)
+        assert not drain_returned.is_set(), 'The SQL owner was abandoned while its thread still ran'
+    finally:
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await sending
+        db.close()
+    assert finished.is_set() and cleanup_after_worker == [True]
