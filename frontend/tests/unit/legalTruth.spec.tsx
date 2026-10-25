@@ -1849,20 +1849,20 @@ function anotherCredentials(sentence: string, at: number): boolean {
   const k = tokenAt(at)
   const own = units.find((u) => inUnit(u, k))
   const subject = own?.subject
-  // The form stands in its subject or its predicate, not in a phrase fronted before them.
-  if (!own || !subject || k < subject.start || !A_CREDENTIAL.test(subject.head.text) || TOKEN_CONTEXT.test(spanText(reading, subject.start, subject.end)))
-    return false
+  // A token in the subject itself is never set apart below: it stands in the unit, outside any "unlike" phrase.
+  if (!own || !subject || !A_CREDENTIAL.test(subject.head.text)) return false
   return [...sentence.matchAll(new RegExp(TOKEN_CONTEXT.source, 'gi'))].every((m) => {
     const j = tokenAt(m.index ?? 0)
     const named = tokenAt((m.index ?? 0) + m[0].length - 1)
     if (inUnit(own, j)) {
-      // "unlike" before the token, in a phrase fronted before the subject or ending the unit, that holds no verb or
-      // clause of its own and not the form.
+      // "unlike" before the token, in a phrase fronted before the subject or ending the unit, that holds the token, no
+      // verb or clause of its own and not the form.
       const unlike = own.start + tokens.slice(own.start, j).map((t) => t.lower).lastIndexOf('unlike')
       const end = unlike < subject.start ? subject.start : own.end
       const phrase = tokens.slice(unlike + 1, end).filter((_, n) => unlike + 1 + n < j || unlike + 1 + n > named)
       return (
         unlike >= own.start &&
+        j < end &&
         (k < unlike || k >= end) &&
         !phrase.some((t) => knowsVerb(t) || NO_PREDICATE.test(t.text) || RELATIVE_WORD.test(t.text) || DENIES.test(t.text))
       )
@@ -3716,6 +3716,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Recovery codes are single-use, whereas refresh tokens share that rule.</li>', true],
       ['<li>Unlike refresh tokens, which are single-use, recovery codes expire.</li>', true],
       ['<li>Recovery codes cannot be reused, unlike refresh tokens, which also cannot be reused.</li>', true],
+      ['<li>Recovery codes cannot be reused, unlike refresh tokens, which are not reusable either.</li>', true],
+      ['<li>Recovery codes expire, unlike single-use refresh tokens.</li>', true],
+      ['<li>Unlike session cookies, recovery codes for refresh tokens are single-use.</li>', true],
       ['<li>Recovery codes are not single-use, but refresh tokens are.</li>', true],
       ['<li>Recovery codes cannot be reused, but refresh tokens expire after use.</li>', true],
       // The cost: "and" or a semicolon sets nothing apart, so these fail as on main though the token is not one-use.
