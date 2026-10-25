@@ -696,8 +696,9 @@ cloud session with several repositories in an Anthropic-hosted environment), in 
 is recorded (a `-p` or SDK run uses project allow rules only when `~/.claude.json` records
 `hasTrustDialogAccepted` for the repository's main checkout root, where a worktree's trust is keyed),
 with no managed `allowManagedPermissionRulesOnly` and no `autoMode.classifyAllShell` (which suspends
-every Bash allow rule in Auto mode). There, in Auto mode, a matching command runs without a prompt and
-without the auto-mode classifier. Anywhere else it goes to the prompt, the classifier or the session's
+every Bash allow rule in Auto mode), and, under the Bash sandbox, with GitHub's API on the sandbox's
+allowlist (a command that carries hosts of its own goes to the classifier). There, in Auto mode, a
+matching command runs without a prompt and without the auto-mode classifier. Anywhere else it goes to the prompt, the classifier or the session's
 own tool allowance, as before.
 
 **No command proves the route on its own.** In Auto mode a silent run shows only that the command was
@@ -706,9 +707,8 @@ dispatch, by itself; in Accept edits, or under a harness that allows every Bash 
 that runs proves nothing about these rules
 (`lessons/ops-prove-the-permission-route-before-a-gated-session.md`). The conclusive result is the
 other one: a prompt or a classifier denial of one of the three exact commands means the rules did not
-apply, so record it verbatim and stop, never reshape a command. Whether a session applies them is read
-from the session's own permission settings (`/permissions` shows the rules in effect and where each
-comes from), which the operator checks.
+apply, so record it verbatim and stop, never reshape a command. `/permissions` lists each rule and the
+file it comes from; the operator checks the conditions above beside it.
 
 **What a rule admits.** A rule without `*` matches only its own text, so another operation, input, ref
 or repository, a variable, or a wrapper or assignment the matcher does not strip falls outside it.
@@ -716,8 +716,9 @@ Two of the allowed commands chained together (`&&`, `;`, a newline) are each all
 anyway. A read cannot replace a queued run: `ops.yml` runs `describe-service` and `logs-probe` each in
 a concurrency group of its own run, so neither queues behind, nor replaces, a pending operation, an
 approved apply's included. A read can overlap an Ops run that is in progress, though: a
-`describe-service` that overlaps `rollback-traffic` or a `feedback-media` enable or disable apply can stop
-on a revision that is not ready yet, as a describe during a deploy does. So dispatch a read when the list
+`describe-service` that overlaps a `feedback-media` enable or disable apply can stop on a revision that
+is not ready yet, as a describe during a deploy does, and one during or after `rollback-traffic` stops on
+the traffic check until traffic is moved back to the latest revision. So dispatch a read when the list
 shows no Ops run in progress, one read at a time, and wait until the list shows it `completed` before
 the next. The list covers the newest five Ops dispatches.
 

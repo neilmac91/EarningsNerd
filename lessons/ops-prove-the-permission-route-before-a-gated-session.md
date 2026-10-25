@@ -76,10 +76,11 @@ restore's pins, and the mode sentence. Evidence:
 In Auto mode a silent run of a command the classifier would approve by itself, such as a read of
 GitHub's run metadata, cannot tell an applied project rule from the classifier's own approval: both are
 silent. A zero-effect probe proves the route only when the classifier would deny it, as it denied the E8
-kit's step 0, or when the session's permission settings are read directly (`/permissions` shows the
-rules in effect and where each comes from). For a rule whose command the classifier may allow, the
-conclusive result is a prompt or a denial, which says the rules did not apply. `docs/OPERATIONS.md`,
-"Agent production readbacks (F51)", applies this to the three Ops readback rules.
+kit's step 0. `/permissions` lists each rule and the file it comes from, not whether a condition
+(workspace trust, `autoMode.classifyAllShell`, the sandbox's per-command hosts) suspends it. For a rule
+whose command the classifier may allow, the conclusive result is a prompt or a denial, which says the
+rules did not apply. `docs/OPERATIONS.md`, "Agent production readbacks (F51)", applies this to the three
+Ops readback rules.
 
 ## Evidence
 

@@ -67,7 +67,8 @@ JOBS = {"approve-apply", "ops", "refuse-rerun"}
 # Each read dispatch runs in a group of its own run, so it never replaces, nor waits behind, a pending run.
 READ_GROUP = ("${{ (" + " || ".join(f"inputs.operation == '{operation}'" for operation in READ_OPERATIONS)
               + ") && format('ops-read-{0}', github.run_id) || 'ops' }}")
-# FR-3: what each shared read step is, whole, so a write cannot ride inside one under its name.
+# What each shared step a read runs is, whole, so a write cannot ride inside one under its name. A new version of
+# one of these actions (a Dependabot bump) fails here until someone checks it still only reads and updates this.
 SHARED_SHAPES = {
     "actions/checkout@v7": {"uses": "actions/checkout@v7", "with": {"persist-credentials": "false"}},
     "Authenticate to Google Cloud": {
@@ -75,8 +76,18 @@ SHARED_SHAPES = {
         "with": {"workload_identity_provider": "${{ vars.GCP_WIF_PROVIDER }}", "service_account": "${{ vars.GCP_DEPLOYER_SA }}"}},
     "Set up gcloud": {"name": "Set up gcloud", "uses": "google-github-actions/setup-gcloud@v3"},
 }
-# The resolve step validates the inputs before any credential exists; it reaches no cloud and mints no token.
+# Direct cloud and GitHub callers and token names, refused in the resolve step, which validates the inputs before
+# any credential exists (a denylist: it names the plain routes, and the checks below close the indirect ones).
 RESOLVE_REACH = re.compile(r"\bgcloud\b|\bcurl\b|\bwget\b|\bgh\s|ACTIONS_ID_TOKEN|GITHUB_TOKEN|github\.token")
+# What the workflow and the ops job carry, whole: a new key (an env, `defaults`, a `container`) changes every step.
+WORKFLOW_KEYS = {"name", "on", "permissions", "env", "jobs"}
+OPS_JOB_KEYS = {"needs", "if", "concurrency", "runs-on", "steps"}
+LAST_STEP_KEYS = {"describe-service": {"name", "if", "timeout-minutes", "run"}, "logs-probe": {"name", "if", "run"}}
+# Environment names that change what a later shell, interpreter or gcloud runs, wherever they are set.
+LOADER_NAMES = re.compile(r"BASH_ENV|ENV|PATH|SHELLOPTS|BASHOPTS|PROMPT_COMMAND|LD_\w+|PYTHON\w*|CLOUDSDK_\w+|GITHUB_\w+",
+                          re.IGNORECASE)
+# A step a read runs may not change the environment of the steps after it (only the proxy step does, for writes).
+ENV_WRITES = re.compile(r"GITHUB_ENV|GITHUB_PATH|BASH_ENV")
 # A condition on an earlier step's result that is false when that step was skipped.
 UNRUN_OUTCOME = re.compile(r"steps\.([\w-]+)\.(?:outcome|conclusion) (?:!= 'skipped'|== '(?:success|failure|cancelled)')")
 
@@ -182,17 +193,25 @@ def _never_runs_for_a_read(condition: str, unrun: set[str], operand: str) -> boo
 
 
 def read_dispatch_problems(workflow: dict) -> list[str]:
-    """Every way a read dispatch could run more than the pinned read-only steps: another job, another step, or a
-    condition this gate cannot read (counted as one that runs); and the reads' own concurrency group."""
+    """Every way a read dispatch could run more than the pinned read-only steps: another job, another step, a
+    condition this gate cannot read (counted as one that runs), a shared step that is not its pinned shape, an
+    environment a step inherits or hands on; and the reads' own concurrency group."""
     jobs, problems = workflow["jobs"], []
+    if set(workflow) != WORKFLOW_KEYS:
+        problems.append(f"ops.yml's top-level keys changed: {sorted(set(workflow) ^ WORKFLOW_KEYS)}")
+    problems += [f"ops.yml's env sets {name}, which changes what every step runs"
+                 for name in workflow.get("env", {}) if LOADER_NAMES.fullmatch(name)]
     if set(jobs) != JOBS:
         problems.append(f"ops.yml's jobs changed ({sorted(set(jobs) ^ JOBS)}): pin what a read dispatch runs in them")
     for name, job in jobs.items():
         if name != "ops" and not _never_runs_for_a_read(job.get("if", ""), set(), r"inputs\.operation"):
             problems.append(f"job {name!r} may run for a read dispatch")
     ops = jobs.get("ops", {})
+    if set(ops) != OPS_JOB_KEYS:
+        problems.append(f"the ops job's keys changed: {sorted(set(ops) ^ OPS_JOB_KEYS)}")
     if ops.get("concurrency") != {"group": READ_GROUP, "cancel-in-progress": "false"}:
         problems.append("the ops job no longer gives each read dispatch a concurrency group of its own run")
+    read_steps = {}  # id() of each step a read runs -> the step, in order
     for operation in READ_OPERATIONS:
         runs, unrun = [], set()
         for step in ops.get("steps", []):
@@ -206,17 +225,28 @@ def read_dispatch_problems(workflow: dict) -> list[str]:
                     continue
             if runs_here:
                 runs.append(label)
+                read_steps[id(step)] = step
             elif step.get("id"):
                 unrun.add(step["id"])
         if runs != READ_STEPS[operation]:
             problems.append(f"{operation} runs {runs}, not the pinned read-only steps {READ_STEPS[operation]}")
-    for step in ops.get("steps", []):
+        last = next((step for step in ops.get("steps", []) if step.get("name") == READ_STEPS[operation][-1]), {})
+        if set(last) != LAST_STEP_KEYS[operation]:
+            problems.append(f"{operation}'s own step's keys changed: {sorted(set(last) ^ LAST_STEP_KEYS[operation])}")
+    for step in read_steps.values():
         label = step.get("name") or step.get("uses")
         if label in SHARED_SHAPES and step != SHARED_SHAPES[label]:
-            problems.append(f"{label!r} is no longer the pinned read-only step: {step}")
-        if label == "Resolve requested operation" and (set(step) != {"name", "id", "env", "run"}
-                                                        or RESOLVE_REACH.search(step.get("run", ""))):
-            problems.append("the resolve step reaches beyond validating the inputs")
+            problems.append(f"{label!r} is not its pinned shape; after checking the new form only reads, update "
+                            f"SHARED_SHAPES: {step}")
+        if label == "Resolve requested operation":
+            if set(step) != {"name", "id", "env", "run"}:
+                problems.append(f"the resolve step's keys changed: {sorted(set(step) ^ {'name', 'id', 'env', 'run'})}")
+            if reach := RESOLVE_REACH.search(step.get("run", "")):
+                problems.append(f"the resolve step names {reach.group()!r}, a cloud or GitHub caller or a token")
+        if writes := ENV_WRITES.search(step.get("run", "")):
+            problems.append(f"{label!r} writes {writes.group()}, which reaches the steps after it")
+        problems += [f"{label!r} sets {name}, which changes what it runs"
+                     for name in step.get("env", {}) if LOADER_NAMES.fullmatch(name)]
     return problems
 
 
@@ -244,6 +274,15 @@ def _step_before_the_read(condition: str | None):
     return mutate
 
 
+def _step_named(workflow: dict, name: str) -> dict:
+    return next(step for step in workflow["jobs"]["ops"]["steps"] if step.get("name") == name)
+
+
+def _append_to_resolve(workflow: dict, line: str) -> None:
+    step = _step_named(workflow, "Resolve requested operation")
+    step["run"] = step["run"].rstrip("\n") + "\n" + line + "\n"
+
+
 EVASIONS = {  # each change would put a production write, or a replacement, into every allowed read dispatch
     "a step with no condition": _step_before_the_read(None),
     "a step that always runs": _step_before_the_read("always()"),
@@ -263,6 +302,17 @@ EVASIONS = {  # each change would put a production write, or a replacement, into
         step for step in workflow["jobs"]["ops"]["steps"] if step.get("name") == "Resolve requested operation"
     ).update(run="gcloud auth print-access-token >/dev/null 2>&1\n" + next(
         step for step in workflow["jobs"]["ops"]["steps"] if step.get("name") == "Resolve requested operation")["run"]),
+    "BASH_ENV handed on from the resolve step": lambda workflow: _append_to_resolve(
+        workflow, "printf 'BASH_ENV=%s\\n' \"${GITHUB_WORKSPACE:-.}/ops/describe/env.sh\" >> \"${GITHUB_ENV:-/dev/null}\""),
+    "a PATH handed on from the resolve step": lambda workflow: _append_to_resolve(
+        workflow, 'echo "$GITHUB_WORKSPACE/ops/bin" >> "$GITHUB_PATH"'),
+    "BASH_ENV on the describe step": lambda workflow: _step_named(workflow, READ_STEPS["describe-service"][-1]).update(
+        env={"BASH_ENV": "ops/describe/env.sh"}),
+    "an env on the ops job": lambda workflow: workflow["jobs"]["ops"].update(env={"BASH_ENV": "ops/describe/env.sh"}),
+    "a default shell on the ops job": lambda workflow: workflow["jobs"]["ops"].update(
+        defaults={"run": {"shell": "bash --rcfile ops/describe/env.sh {0}"}}),
+    "a loader in the workflow's env": lambda workflow: workflow["env"].update(BASH_ENV="ops/describe/env.sh"),
+    "a container for the ops job": lambda workflow: workflow["jobs"]["ops"].update(container="ghcr.io/example/ops:1"),
     "an apply added to the reads' group": lambda workflow: workflow["jobs"]["ops"]["concurrency"].update(
         {"group": READ_GROUP.replace("inputs.operation == 'logs-probe')",
                                      "inputs.operation == 'logs-probe' || inputs.operation == 'relabel-fy-apply')")}),
