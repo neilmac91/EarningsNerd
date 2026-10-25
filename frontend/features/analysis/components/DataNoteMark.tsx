@@ -10,7 +10,7 @@ export function dataNoteDescription(note?: DataNote | null) {
 const MARK = 'relative inline-block font-figure text-data-xs leading-[0] tracking-normal'
 
 /** The enclosing figure/control owns the accessible name; marks never add a Tab stop. */
-export default function DataNoteMark({ note, calculated = false, announce = false, compact = false }: {
+export default function DataNoteMark({ note, calculated = false, announce = false, compact = false, small = false }: {
   note?: DataNote | null
   calculated?: boolean
   announce?: boolean
@@ -19,13 +19,16 @@ export default function DataNoteMark({ note, calculated = false, announce = fals
    *  that grows from nothing up to one mark into free space only (a declared width would count toward the line's
    *  minimum width and push a full nine-glyph figure past its cell). Other surfaces set the marks after a gap. */
   compact?: boolean
+  /** Beside a 12px line outside the table (the KPI change line): the table's raise, with the first mark's 2px gap. */
+  small?: boolean
 }) {
   if (!note && !calculated) return compact ? <span aria-hidden="true" data-mark-gutter className="max-w-[var(--mark-gutter)] grow basis-0" /> : null
-  // Superscript height: a mark's top at about the figure's cap height (Geist Mono caps are 0.71em), so the table's 12px
-  // figure raises it 0.35em and the 24px KPI and dialog figures 0.85em. Outside the table the first mark keeps a gap;
+  // Superscript height: a mark's top at about the figure's cap height (Geist Mono caps are 0.71em), so a 12px figure or
+  // line (the table's, the KPI change line) raises it 0.35em and the 24px KPI and dialog figures 0.85em. Outside the
+  // table the first mark keeps a gap;
   // in the table the gutter is the gap. A letter after † keeps a 2px gap everywhere: set flush, "†a" read as one
   // cluster at 1x in dark, and two independent readers dropped the letter (the study's 1x readout).
-  const raise = compact ? '-top-[0.35em]' : '-top-[0.85em]'
+  const raise = compact || small ? '-top-[0.35em]' : '-top-[0.85em]'
   const gap = compact ? '' : 'ml-0.5'
   return (
     <>

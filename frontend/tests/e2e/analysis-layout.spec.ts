@@ -673,6 +673,41 @@ for (const theme of THEMES) for (const state of ['captured', 'edge', 'annual'] a
   })
 }
 
+for (const theme of THEMES) test.describe(`analysis heading rail / ${theme}`, () => {
+  test.use({ viewport: { width: 1440, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  test('a figure reached by Shift+Tab lands below the heading rail, never under it', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', theme, 1)
+    const rows = page.locator(`${TABLE} tbody tr`)
+    // Put row 8's top just under the site header, past the table's own heading row, so the rail shows over it.
+    await rows.nth(8).evaluate(row => {
+      const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+      window.scrollTo(0, row.getBoundingClientRect().top + window.scrollY - header - 8)
+    })
+    const rail = page.locator('[data-table-header-rail] > div')
+    await expect(rail).toBeVisible()
+    await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--table-rail-h'))).toMatch(/^\d+px$/)
+    const covered = await page.evaluate(() => {
+      const rail = document.querySelector('[data-table-header-rail] > div')!.getBoundingClientRect()
+      const row = document.querySelectorAll('[data-analysis-metrics] table tbody tr')[8].getBoundingClientRect()
+      return row.top < rail.bottom
+    })
+    expect(covered, 'the planted row starts under the rail').toBe(true)
+    // Tab into the row below, then back up: focus lands on row 8's last figure, which the page must scroll clear.
+    await rows.nth(9).locator('button[aria-label$="View source and calculation"]').first().focus()
+    await page.keyboard.press('Shift+Tab')
+    const focused = page.locator(':focus')
+    await expect(focused).toHaveAttribute('aria-label', /View source and calculation$/)
+    const place = await focused.evaluate(button => {
+      const top = button.getBoundingClientRect().top
+      const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+      const rail = document.querySelector('[data-table-header-rail] > div')?.getBoundingClientRect().bottom ?? 0
+      return { top, clear: Math.max(header, rail) }
+    })
+    expect(place.top, 'the focused figure clears the site header and the rail').toBeGreaterThanOrEqual(place.clear - 1)
+  })
+})
+
 for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
   for (const state of ['legacy', 'edge'] as const) test(`${state}: a figure's marks share its line and its cell at 390px, in the figure face`, async ({ page, baseURL }) => {
@@ -723,10 +758,11 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
     expect(problems).toEqual([])
     expect(controls.some(control => control.glyphs.some((glyph, index, all) => glyph.mark === 'letter' && all[index - 1]?.mark === 'dagger')), 'a dagger and a letter are measured together').toBe(true)
     if (state === 'edge') {
-      // The planted figures render at full length, each with its dagger and a letter, the sign the ASCII hyphen-minus.
-      for (const [name, figure] of [[/^Working capital, Q4 2023: /, '$922.0M'], [/^Financing cash flow, Q4 2025: /, '-$92.2M']] as const) {
+      // The planted figures fill their column's whole budget with their marks (nine glyphs: the figure, the dagger and
+      // a two-letter note), the sign the ASCII hyphen-minus.
+      for (const [name, figure] of [[/^Working capital, Q4 2023: /, '$92.2M'], [/^Financing cash flow, Q4 2025: /, '-$922M']] as const) {
         const control = controls.find(item => name.test(item.name))
-        expect(control?.text, `${name}`).toMatch(new RegExp(`^${figure.replace(/[$.]/g, '\\$&')}†[a-z]+$`))
+        expect(control?.text, `${name}`).toMatch(new RegExp(`^${figure.replace(/[$.]/g, '\\$&')}†[a-z]{2}$`))
       }
       expect(controls.map(control => control.text).join('')).not.toContain('−')
       // n/m stays visible and is read as words.

@@ -33,7 +33,8 @@ const SCOPE: { what: string; pattern: RegExp; files: string[] }[] = [
   { what: 'the data-dark warning ink', pattern: /(?<!\w)warning-data-dark(?![\w-])/, files: ['features/analysis/components/DataNoteMark.tsx'] },
   { what: 'the figure and note inks', pattern: /(?<!\w)(?:figure|note)-(?:light|dark)(?![\w-])/, files: [...FIGURE_SURFACES, 'lib/financialTone.ts'] },
   { what: 'the sheet and its rules', pattern: /(?<!\w)(?:well|rule|rule-strong)-(?:light|dark)(?![\w-])/, files: ['components/ui/DataTable.tsx'] },
-  { what: 'the figure face', pattern: /(?<![\w-])font-figure(?![\w-])/, files: FIGURE_SURFACES },
+  // The figure face also sets the evidence dialog's figures (SourceValue), where the minus must draw as it does in the cell.
+  { what: 'the figure face', pattern: /(?<![\w-])font-figure(?![\w-])/, files: [...FIGURE_SURFACES, 'features/analysis/components/SourceValue.tsx'] },
 ]
 
 function walk(dir: string): string[] {

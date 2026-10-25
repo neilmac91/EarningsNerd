@@ -120,7 +120,8 @@ describe('MetricsTable', () => {
     expect(cell.firstElementChild).toHaveClass('font-figure', 'tabular-nums', 'lining-nums', 'tracking-normal')
     // A button's UA font shorthand resets font-variant-numeric, so the control re-declares the figure's numerals.
     expect(control).toHaveClass('tabular-nums', 'lining-nums')
-    expect(within(cell).getByText(/Change vs prior quarter/).closest('[class*="text-gain-data"]')).not.toBeNull()
+    // The change line is 12px too, and its own size class would bring caption tracking back: it zeroes it again.
+    expect(within(cell).getByText(/Change vs prior quarter/).closest('[class*="text-gain-data"]')).toHaveClass('tracking-normal')
   })
 
   it('rounds unusually long table figures while source detail preserves value and full comparison', async () => {

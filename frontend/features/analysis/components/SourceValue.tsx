@@ -41,7 +41,7 @@ function SourceInput({ input, nested = false }: { input: FactInput; nested?: boo
   return (
     <li className="min-w-0 space-y-1 border-t border-border-light pt-2 [overflow-wrap:anywhere] dark:border-white/10">
       <p className="font-medium capitalize">{input.concept.replaceAll('_', ' ')}</p>
-      <p className="font-data">{input.value == null ? 'Unavailable' : exactFigure(input.value, input)}</p>
+      <p className="font-figure tabular-nums lining-nums">{input.value == null ? 'Unavailable' : exactFigure(input.value, input)}</p>
       <p>{[input.period_start, input.period_end].filter(Boolean).join(' to ')}</p>
       <p>{calculated ? (provenance?.inputs.length ? 'Calculated from recorded inputs.' : 'Calculated figure.') : provenance?.method === 'reported' ? 'Reported in the source filing.' : 'Source method is not recorded.'}</p>
       {provenance?.formula && <p>{formulaWords(provenance.formula)}</p>}
@@ -123,8 +123,10 @@ export default function SourceValue({ point, label, concept, children, note, com
         <ModalBody className="space-y-4 text-sm text-text-secondary-light [overflow-wrap:anywhere] dark:text-text-secondary-dark">
           {point.period_end && <p>{/^\d{4}Q[1-4]$/.test(point.period) ? 'Quarter' : /^FY\d{4}$/.test(point.period) ? 'Fiscal year' : 'Period'} ended {formatLocalDate(point.period_end, 'd MMM yyyy')}.</p>}
           <div className="space-y-1">
-            <p className="font-data text-2xl text-text-primary-light dark:text-text-primary-dark">{display}<DataNoteMark calculated={calculated} note={note} /></p>
-            {point.value != null && <p className="font-data text-xs">As stored: {exactFigure(point.value, figure)}</p>}
+            {/* Figures take the figure face, as in the table and the cards: a minus is drawn, the text stays U+002D. An
+                accession or a raw tag keeps the data face, since its hyphens are not minus signs. */}
+            <p className="font-figure tabular-nums lining-nums text-2xl text-text-primary-light dark:text-text-primary-dark">{display}<DataNoteMark calculated={calculated} note={note} /></p>
+            {point.value != null && <p className="font-figure tabular-nums lining-nums text-xs">As stored: {exactFigure(point.value, figure)}</p>}
           </div>
           <section className="space-y-1">
             <h3 className="font-semibold">Checks</h3>
@@ -135,7 +137,7 @@ export default function SourceValue({ point, label, concept, children, note, com
             <h3 className="font-semibold">Method</h3>
             <p>{provenance?.method === 'reported' ? 'Reported in the source filing.' : calculated ? (provenance?.inputs.length ? 'Calculated by EarningsNerd from recorded inputs.' : 'Calculated figure.') : 'Source method is not recorded for this saved figure.'}</p>
             {provenance?.formula && <p>{formulaWords(provenance.formula)}</p>}
-            {arithmetic && point.value != null && <p className="font-data text-xs">{provenance?.validation !== 'passed' && 'Recorded inputs: '}{arithmetic}{provenance?.validation === 'passed' && <> = {exactFigure(point.value, figure)}</>}</p>}
+            {arithmetic && point.value != null && <p className="font-figure tabular-nums lining-nums text-xs">{provenance?.validation !== 'passed' && 'Recorded inputs: '}{arithmetic}{provenance?.validation === 'passed' && <> = {exactFigure(point.value, figure)}</>}</p>}
           </section>
           <section className="space-y-2">
             <h3 className="font-semibold">{calculated ? 'Inputs and source filings' : 'Source filing'}</h3>
@@ -147,7 +149,7 @@ export default function SourceValue({ point, label, concept, children, note, com
           </section>
           {comparison && <section className="space-y-2 border-t border-border-light pt-3 dark:border-white/10">
             <h3 className="font-semibold">{comparison.label} comparison</h3>
-            <p className="relative font-data"><GrowthText text={comparison.display} /></p>
+            <p className="relative font-figure tabular-nums lining-nums"><GrowthText text={comparison.display} /></p>
             <Checks value={comparison} note={comparison.note} />
             {comparison.note && <p>{inheritedComparisonNote(comparison)}</p>}
             {comparison.provenance?.formula && <p>Calculation: {formulaWords(comparison.provenance.formula)}</p>}

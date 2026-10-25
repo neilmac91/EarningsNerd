@@ -98,12 +98,13 @@ function geometryFixture(state: AnalysisGeometryState): Fixture {
     delete eps.points[5].reconciled
     delete eps.points[6].provenance
     eps.points[6].reconciled = false
-    // The shipped phone bug: at 390px a seven-glyph figure with a dagger and a letter ("$922.0M†a"), the widest a
-    // column's budget allows, wrapped its marks onto a line of their own below the figure. Both signs are planted.
+    // The shipped phone bug: at 390px a figure that fills its column's nine-glyph budget with its marks ("$922.0M†a")
+    // wrapped them onto a line of their own below it. This state's notes run past z, so the full budget here is six
+    // glyphs, a dagger and a two-letter note: "$92.2M" and "-$922M", each with both. Both signs are planted.
     const tight = (concept: string, index: number, value: number) =>
       Object.assign(dataset.series.find(series => series.concept === concept)!.points[index], { value, provenance: review(['source_check_needed']) })
-    tight('working_capital', 1, 922_000_000)
-    tight('financing_cash_flow', 9, -92_200_000)
+    tight('working_capital', 1, 92_200_000)
+    tight('financing_cash_flow', 9, -922_000_000)
   }
   if (state === 'annual') {
     dataset.mode = 'annual'

@@ -42,7 +42,7 @@ import { dataDirectionText, directionChip, directionText } from '@/lib/financial
  *     pretend otherwise.
  *
  * The font-var half is an explicit, BIDIRECTIONAL allowlist, not a blanket "must lead with a
- * next/font var" rule — that naive form fails on four sanctioned sites today. Per
+ * next/font var" rule — that naive form fails on five sanctioned sites today. Per
  * lessons/arch-structural-gates-over-prose-rules.md, "fixing" a sanctioned exception must fail
  * here too, so each exception is pinned to its exact shape rather than merely skipped.
  */
@@ -255,10 +255,11 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
     expect(cssVar(name).split(',')[0].trim()).toBe(`var(${expected})`)
   })
 
-  // The four sanctioned exceptions, each pinned to its exact shape. DESIGN_SYSTEM §12 item 3
+  // The five sanctioned exceptions, each pinned to its exact shape. DESIGN_SYSTEM §12 item 3
   // spells out the `body` one; `sans` and `--font-active` are role indirections that reach a
-  // next/font var one hop later. Pinning them means neither "fixing" them to lead with a
-  // next/font var nor breaking the indirection can pass.
+  // next/font var one hop later; `figure` leads with the one-glyph minus face (app/globals.css),
+  // then the data stack. Pinning them means neither "fixing" them to lead with a next/font var
+  // nor breaking the indirection can pass.
   it('tailwind fontFamily.body stays system-first with the var ahead of the webfont', () => {
     const parts = stack('body')
     expect(parts[0]).toBe('-apple-system')

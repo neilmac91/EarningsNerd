@@ -127,6 +127,9 @@ export interface DataTableProps<T> {
 
 const ROW_BORDER = 'border-t border-border-light dark:border-border-dark'
 
+/** The page heading rail's height on <html> while it shows (pageHeader); app/globals.css adds it to scroll-padding-top. */
+export const TABLE_RAIL_HEIGHT_PROPERTY = '--table-rail-h'
+
 // The figure sheet (surface="well"): the figures sit on the sheet; the heading row and the row-label column keep the
 // panel surface and the panel's own inks, so the frame of labels reads slightly apart from the data it labels.
 const WELL = {
@@ -345,6 +348,22 @@ export function DataTable<T extends Record<string, unknown>>({
   }, [railOn])
   // The rail's copy has just mounted (or its widths changed): place it before paint.
   useLayoutEffect(() => { if (railShown) followRail() }, [railShown, railWidths])
+  // While the rail shows it covers the strip under the site header, so it publishes its height on <html>
+  // (TABLE_RAIL_HEIGHT_PROPERTY) for the page's scroll padding: a figure reached by Tab or Shift+Tab, or scrolled into
+  // view, lands below the rail, never under it (WCAG 2.2 SC 2.4.11). Measured on every reflow; cleared when it goes.
+  useLayoutEffect(() => {
+    const bar = railBarRef.current
+    if (!railShown || !bar) return
+    const root = document.documentElement
+    const measure = () => root.style.setProperty(TABLE_RAIL_HEIGHT_PROPERTY, `${Math.ceil(bar.getBoundingClientRect().height)}px`)
+    measure()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
+    observer?.observe(bar)
+    return () => {
+      observer?.disconnect()
+      root.style.removeProperty(TABLE_RAIL_HEIGHT_PROPERTY)
+    }
+  }, [railShown])
   const frame = (node: ReactNode) => (well ? <div ref={frameRef} className={WELL.frame}>{node}</div> : node)
   const headClass = well ? WELL.head : 'text-left text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark'
   const railCell = (c: Column<T>, index: number, corner: boolean) => (

@@ -39,6 +39,13 @@ describe('DataNoteMark', () => {
     }
   })
 
+  it('raises a mark beside a 12px line as in the table, keeping the first mark\'s 2px gap outside the table', () => {
+    const { container } = render(<DataNoteMark note={note('unknown')} small />)
+    const [letter] = marks(container)
+    expect(letter).toHaveClass('-top-[0.35em]', 'ml-0.5')
+    expect(letter).not.toHaveClass('-top-[0.85em]')
+  })
+
   it('leaves a figure with no mark a gutter spacer in the table that only fills free space, and nothing elsewhere', () => {
     const { container, rerender } = render(<DataNoteMark compact />)
     const spacer = container.querySelector('[data-mark-gutter]')!
