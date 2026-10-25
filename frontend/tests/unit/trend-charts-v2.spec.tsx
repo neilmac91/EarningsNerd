@@ -650,6 +650,10 @@ describe('the CHARTS_V2 switch in TrendCharts', () => {
       expect(bones).toHaveAttribute('aria-hidden', 'true')
       expect(bones.parentElement!.style.height).toBe(`${CARD_HEIGHT}px`)
     }
+    // A header bone sized in rem stays inside its card at 200% text on a 320 px phone (reflow-200's floor).
+    for (const bone of container.querySelectorAll<HTMLElement>('[aria-hidden="true"].mb-3 > div')) {
+      if (/(^|\s)w-\d+(\s|$)/.test(bone.className)) expect(bone, bone.className).toHaveClass('max-w-full')
+    }
     // TrendChartBones keeps layout.ts out of the route's chunk, so its card plan names the height itself.
     expect(CARD_BONES.height).toBe(CARD_HEIGHT)
   })

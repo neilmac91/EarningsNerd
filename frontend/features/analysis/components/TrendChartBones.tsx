@@ -81,9 +81,10 @@ export function TrendChartsSkeleton() {
     <div role="status" aria-busy="true" aria-label="Loading charts" className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {Array.from({ length: 4 }, (_, card) => (
         <Card key={card} className="p-cap-5">
+          {/* Each bone at most its card's width: at 200% text a 14rem bone is 448 px, past a 320 px phone. */}
           <div aria-hidden="true" className="mb-3 flex flex-col">
-            <Skeleton className="my-0.5 h-4 w-40" />
-            <Skeleton className="mt-1.5 h-3 w-56" />
+            <Skeleton className="my-0.5 h-4 w-40 max-w-full" />
+            <Skeleton className="mt-1.5 h-3 w-56 max-w-full" />
             <Skeleton className="mt-2.5 h-3 w-3/4" />
             <Skeleton className="mt-2 h-3 w-1/2" />
           </div>
