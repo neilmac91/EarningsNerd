@@ -20,8 +20,8 @@ On 2026-10-24 the founder checked the Vercel preview in both themes, kept "Match
 (not chief design's "Corrected from filing"), and confirmed "Quote not found", "Calculated from filing" and the
 sign-in page's "Filings from SEC.gov". The principal review that day found no blocker or should-fix, and its three
 follow-ups waited for the merge (E184): a read-only count of what the strict check changes for stored summaries, the
-waitlist tile's "Source: SEC EDGAR" following the sign-in page to SEC.gov (#1600; the exports' source line is E190),
-and a balance-sheet prior held to the filing's own facts. Still pending: E172, E184, E190, the comprehension rounds
+waitlist tile's "Source: SEC EDGAR" following the sign-in page to SEC.gov (#1600; the exports' source line followed in
+#1601, E190), and a balance-sheet prior held to the filing's own facts. Still pending: E172, E184, the comprehension rounds
 (§4.3), and the screen-reader, touch and cross-browser checks (§4.4).
 
 **Scope.** The landing page's second row (`#evidence`): [`EvidenceSection`](../frontend/features/marketing/components/EvidenceSection.tsx),
