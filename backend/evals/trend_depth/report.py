@@ -78,11 +78,11 @@ OPUS = "claude-opus-5-5"  # the auditor §3 counts mislabels and cause support w
 OLD_GATE = "b3ed8ef"  # the gate before wave 1 narrowed it (DEEPSEEK-ERRORS.md was measured on it): continuity, as in replay.py
 REFERENCE_PACKS = "packs-v2"  # the breaks it records (data checks, withheld IDs) say which figures rest on a broken line
 QUANTILE = "linear between the two nearest ranks, as §3's baselines"  # the latency rows' note (``records.quantile``)
-# DEEPSEEK-ERRORS.md §3's judge target: "C wins or ties grounding and calibration on at least 12 of 20 per split; loses
-# depth on no more than 5". Each criterion is shown, and the two read jointly (``judge_matrix``), as the target can be.
+# DEEPSEEK-ERRORS.md §3's judge target, read jointly: C wins or ties both grounding and calibration in the same pair.
+# Each criterion is shown apart beside the joint count (``judge_matrix``).
 BOTH_CRITERIA = ("grounding", "calibration")
-JUDGE_TARGET = ("C wins or ties grounding and calibration on at least 12 of 20 per split (two runs of 10); loses depth on "
-                "no more than 5")
+JUDGE_TARGET = ("C wins or ties both grounding and calibration in the same pair on at least 12 of 20 per split (two runs "
+                "of 10); loses depth on no more than 5")
 # The probes' gate kinds, each counted once: a number said about another ratio, basis or year is a mislabel (§1.2's
 # root causes); an unsigned fall, a unitless dollar figure and a margin gap's direction each have a row of their own
 # (§1.4's logic slips, fix 11, fix 9); broken_debt is the broken-net-cash measure.
