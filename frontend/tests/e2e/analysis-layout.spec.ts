@@ -745,6 +745,25 @@ for (const theme of THEMES) test.describe(`analysis heading rail / ${theme}`, ()
     }), 'the focused figure clears the rail').toBe(true)
   })
 
+  test('a figure focused earlier stays put when the reader scrolls the rail over it', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', theme, 1)
+    const rows = page.locator(`${TABLE} tbody tr`)
+    // Focus a figure while the table's own heading row is in view, then scroll with no focus move until the rail
+    // covers that figure's row: the page stays where the reader put it.
+    await rows.nth(8).locator('button[aria-label$="View source and calculation"]').first().evaluate((button: HTMLElement) => button.focus({ preventScroll: true }))
+    await page.waitForTimeout(1200)
+    const target = await rows.nth(8).evaluate(row => {
+      const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+      const y = Math.round(row.getBoundingClientRect().top + window.scrollY - header - 8)
+      window.scrollTo(0, y)
+      return y
+    })
+    await expect(page.locator('[data-table-header-rail] > div')).toBeVisible()
+    await page.waitForTimeout(300)
+    expect(await page.evaluate(() => Math.round(window.scrollY)), 'the page did not jump back to the focused figure').toBe(target)
+  })
+
   test('the landing demo, in a frame that clips overflow, never shows the rail nor reserves its padding', async ({ page }) => {
     test.setTimeout(60_000)
     await page.addInitScript((theme) => {

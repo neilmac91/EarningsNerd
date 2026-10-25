@@ -302,6 +302,8 @@ export function DataTable<T extends Record<string, unknown>>({
   const frameRef = useRef<HTMLDivElement>(null)
   const [railWidths, setRailWidths] = useState<number[]>([])
   const [railShown, setRailShown] = useState(false)
+  // When focus last moved into the table: the rail moves a figure out from under itself only right after a focus move.
+  const focusAt = useRef(-Infinity)
   const railOn = pageHeader && layout === 'fixed'
   const followRail = () => {
     const scroll = scrollRef.current
@@ -338,12 +340,15 @@ export function DataTable<T extends Record<string, unknown>>({
     const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
     observer?.observe(scroll)
     observer?.observe(table)
+    const noteFocus = () => { focusAt.current = performance.now() }
     scroll.addEventListener('scroll', followRail, { passive: true })
+    scroll.addEventListener('focusin', noteFocus)
     window.addEventListener('scroll', queue, { passive: true })
     window.addEventListener('resize', queue)
     return () => {
       observer?.disconnect()
       scroll.removeEventListener('scroll', followRail)
+      scroll.removeEventListener('focusin', noteFocus)
       window.removeEventListener('scroll', queue)
       window.removeEventListener('resize', queue)
       if (frame) cancelAnimationFrame(frame)
@@ -362,9 +367,13 @@ export function DataTable<T extends Record<string, unknown>>({
     measure()
     // The rail can appear after a focus scroll that aligned a figure under the header alone (a row taller than the
     // heading row, reached while the rail was hidden): bring that figure out from under it, now the padding counts it.
+    // Only right after a focus move, and only a figure the rail covers: a figure focused earlier, under the rail
+    // because the reader scrolled, must not pull the page back.
     const focused = document.activeElement
-    if (focused instanceof HTMLElement && scrollRef.current?.contains(focused) && focused.getBoundingClientRect().top < bar.getBoundingClientRect().bottom) {
-      focused.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    if (focused instanceof HTMLElement && scrollRef.current?.contains(focused) && performance.now() - focusAt.current < 1000) {
+      const box = focused.getBoundingClientRect()
+      const band = bar.getBoundingClientRect()
+      if (box.top < band.bottom && box.bottom > band.top) focused.scrollIntoView({ block: 'nearest', inline: 'nearest' })
     }
     const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
     observer?.observe(bar)
