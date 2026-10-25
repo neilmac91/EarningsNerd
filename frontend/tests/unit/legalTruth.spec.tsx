@@ -1862,9 +1862,6 @@ function unitsOf(reading: Reading): Unit[] {
   })
 }
 const inUnit = (unit: Unit, k: number) => k >= unit.start && k < unit.end && !unit.holes.some(([from, to]) => k >= from && k < to)
-/** What a page says of its tokens, for the one-use family (E162 stage 3): whether it names one, and the credential
-    nouns it says of one (nounsSaidOfAToken). */
-type OneUsePage = { namesAToken: boolean; said: Set<string> }
 /** A word's noun without its plural "s". */
 const lemma = (t: Token) => t.lower.replace(/s$/, '')
 /** A word a noun may take between "unlike" and itself: a determiner, a name of a credential or a token, or a one-use
@@ -1888,11 +1885,11 @@ const afterUnlike = (tokens: Token[], j: number) => {
     unit, with a contrast opening one of the two and a predicate of its own ("Refresh tokens are reusable, while
     recovery codes cannot be reused.", "Recovery codes cannot be reused, whereas refresh tokens rotate."). Otherwise the
     form is read as main reads it ("Refresh tokens, single-use access keys, renew your session.", "..., and neither can
-    refresh tokens.", "..., but refresh tokens can."). A credential's noun the page says of a token (`page.said`,
-    nounsSaidOfAToken) may be the token's, and so may a credential a word points back to on a page that names a token
-    (POINTS_BACK): "Refresh tokens are cryptographic keys. Each key works only once." and "... These keys are
-    single-use." are read as main reads them, in one item or across two. */
-function anotherCredentials(sentence: string, at: number, page: OneUsePage): boolean {
+    refresh tokens.", "..., but refresh tokens can."). A credential's noun the page says of a token (`said`,
+    nounsSaidOfAToken) may be the token's: "Refresh tokens are cryptographic keys. Each key works only once." and
+    "Each renewal issues a new refresh token. These keys are single-use." are read as main reads them, in one item or
+    across two. */
+function anotherCredentials(sentence: string, at: number, said: Set<string>): boolean {
   const reading = readSentence(sentence)
   const { tokens } = reading
   const tokenAt = (offset: number) => tokens.findIndex((t) => t.end > offset)
@@ -1917,14 +1914,13 @@ function anotherCredentials(sentence: string, at: number, page: OneUsePage): boo
   const attributive = [...sentence.matchAll(ONCE_OF_ANOTHER)].find((m) => m.index === at)
   if (attributive) {
     const noun = tokenAt(at + attributive[0].length - 1)
-    if (page.said.has(lemma(tokens[noun]))) return false
+    if (said.has(lemma(tokens[noun]))) return false
     const phrase = unlikePhrase(k, noun)
     if (phrase && mentions.every(([j]) => j < phrase.unlike || j >= phrase.end)) return true
     // Outside an "unlike" phrase, it is read as a form said of its unit's subject only where it stands in that subject.
     if (!subject || k < subject.start || k >= subject.end) return false
   }
-  if (!subject || !A_CREDENTIAL.test(subject.head.text) || page.said.has(lemma(subject.head))) return false
-  if (page.namesAToken && [...subject.determiners, ...subject.premodifiers.map((t) => t.text)].some((word) => POINTS_BACK.test(word))) return false
+  if (!subject || !A_CREDENTIAL.test(subject.head.text) || said.has(lemma(subject.head))) return false
   return mentions.every(([j, named]) => {
     if (inUnit(own, j)) {
       const apart = unlikePhrase(j, named)
@@ -1946,8 +1942,9 @@ function anotherCredentials(sentence: string, at: number, page: OneUsePage): boo
     phrase, in the token's unit or in one that no contrast sets apart from it ("Refresh tokens are cryptographic
     keys.", "Refresh tokens: keys that renew your session."), or in a unit that carries a token on as its subject
     ("Refresh tokens rotate, but are cryptographic keys."), and, on a page that names a token, in a unit whose subject
-    may stand for one ("..., although they are cryptographic keys.", "They are cryptographic keys."): in another
-    sentence or item, it may be the token's ("Each key works only once."). "Refresh tokens are reusable, while recovery
+    may stand for one: a pronoun, a word that points back (POINTS_BACK) or none ("..., although they are cryptographic
+    keys.", "They are cryptographic keys.", "These keys are single-use."). In another sentence or item, it may be the
+    token's ("Each key works only once."). "Refresh tokens are reusable, while recovery
     codes cannot be reused." and "Unlike refresh tokens, recovery codes cannot be reused." say no noun of a token. */
 function nounsSaidOfAToken(blocks: string[]): Set<string> {
   const said = new Set<string>()
@@ -1968,7 +1965,8 @@ function nounsSaidOfAToken(blocks: string[]): Set<string> {
       const carried = unit?.carried
       const carriesAToken = !!carried && mentions.some((j) => j >= carried.start && j < carried.end)
       const subject = unit ? (unit.subject ?? carried) : null
-      const standsForAToken = namesAToken && (!subject || STANDS_FOR.test(subject.head.text) || subject.determiners.some((word) => POINTS_BACK.test(word)))
+      const pointsBack = !!subject && [...subject.determiners, ...subject.premodifiers.map((word) => word.text)].some((word) => POINTS_BACK.test(word))
+      const standsForAToken = namesAToken && (!subject || STANDS_FOR.test(subject.head.text) || pointsBack)
       if (A_CREDENTIAL.test(t.text) && !afterUnlike(tokens, n) && (ofAToken || carriesAToken || standsForAToken)) said.add(lemma(t))
     })
   }
@@ -1978,10 +1976,10 @@ function nounsSaidOfAToken(blocks: string[]): Set<string> {
     floor (oneUseFormsIn), where some form is not another credential's (anotherCredentials), read with what the page
     around the block (its blocks) says of its tokens. */
 const oneUseOfARefreshToken = (block: string, blocks: string[]) => {
-  const page = { namesAToken: blocks.some((text) => new RegExp(A_TOKEN.source, 'i').test(text)), said: nounsSaidOfAToken(blocks) }
+  const said = nounsSaidOfAToken(blocks)
   return sentencesOf(block).some((sentence) => {
     const forms = oneUseFormsIn(block, sentence)
-    return forms.length > 0 && !forms.every((at) => anotherCredentials(sentence, at, page))
+    return forms.length > 0 && !forms.every((at) => anotherCredentials(sentence, at, said))
   })
 }
 /** Main's reuse reading, as main reads it, in any sentence: a revocation beside main's reuse words. */
