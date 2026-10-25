@@ -1814,6 +1814,8 @@ const DETERMINER = new RegExp(String.raw`^(?:${DETERMINER_WORDS})$`, 'i')
 /** A word that points back to something named before, which may be the token ("Each renewal issues a new refresh
     token. These keys are single-use."). */
 const POINTS_BACK = /^(?:this|that|these|those|such|said)$/i
+/** A subject's head that stands for something named before ("They are cryptographic keys.", "Each one is a key."). */
+const STANDS_FOR = /^(?:it|they|them|these|those|this|that|one|ones|both|each|either|neither)$/i
 /** A word that sets one clause apart from another. */
 const CONTRAST = /^(?:while|whereas|but|although|though|however|yet)$/i
 /** A word with which a clause says again what another said, or points back to it ("and neither can refresh tokens",
@@ -1842,17 +1844,21 @@ const RELATIVE_WORD = /^(?:which|that|who|whom|whose)$/i
 const NO_PREDICATE = /^(?:am|is|are|was|were|be|been|being|has|have|had|having|do|does|did|can|could|may|might|must|shall|should|will|would|not|never|n['’]t|cannot|can['’]t)$/i
 /** A sentence's units for the one-use family (E162 stage 3): each clause's own words, without the conditions that hold
     clauses of their own, and each such condition (conditionClauseAt: ", while recovery codes cannot be reused"), with
-    its own subject (none where a clause carries one on), where its predicate starts and the word that opens it. */
-type Unit = { start: number; end: number; holes: Array<[number, number]>; subject: NounPhrase | null; predicate: number; by: string | null }
+    its own subject (none where a clause carries one on, which `carried` holds), where its predicate starts and the word
+    that opens it. */
+type Unit = { start: number; end: number; holes: Array<[number, number]>; subject: NounPhrase | null; carried: NounPhrase | null; predicate: number; by: string | null }
 function unitsOf(reading: Reading): Unit[] {
   const { tokens, clauses } = reading
   return clauses.flatMap((clause) => {
     const held = clause.conditions.flatMap((c): Unit[] => {
       const inner = conditionClauseAt(tokens, c)
-      return inner ? [{ start: c.start, end: c.end, holes: [], subject: inner.subject, predicate: inner.predicate, by: c.subordinator }] : []
+      return inner ? [{ start: c.start, end: c.end, holes: [], subject: inner.subject, carried: null, predicate: inner.predicate, by: c.subordinator }] : []
     })
     const holes = held.map((u): [number, number] => [u.start, u.end])
-    return [{ start: clause.start, end: clause.end, holes, subject: clause.carried ? null : clause.subject, predicate: clause.predicate, by: clause.joinedBy }, ...held]
+    return [
+      { start: clause.start, end: clause.end, holes, subject: clause.carried ? null : clause.subject, carried: clause.carried ? clause.subject : null, predicate: clause.predicate, by: clause.joinedBy },
+      ...held,
+    ]
   })
 }
 const inUnit = (unit: Unit, k: number) => k >= unit.start && k < unit.end && !unit.holes.some(([from, to]) => k >= from && k < to)
@@ -1938,11 +1944,14 @@ function anotherCredentials(sentence: string, at: number, page: OneUsePage): boo
 }
 /** The credential nouns a page says of a token (E162 stage 3): one in a sentence that names a token outside an "unlike"
     phrase, in the token's unit or in one that no contrast sets apart from it ("Refresh tokens are cryptographic
-    keys.", "Refresh tokens: keys that renew your session."), which in another sentence or item may be the token's
-    ("Each key works only once."). "Refresh tokens are reusable, while recovery codes cannot be reused." and "Unlike
-    refresh tokens, recovery codes cannot be reused." say no noun of a token. */
+    keys.", "Refresh tokens: keys that renew your session."), or in a unit that carries a token on as its subject
+    ("Refresh tokens rotate, but are cryptographic keys."), and, on a page that names a token, in a unit whose subject
+    may stand for one ("..., although they are cryptographic keys.", "They are cryptographic keys."): in another
+    sentence or item, it may be the token's ("Each key works only once."). "Refresh tokens are reusable, while recovery
+    codes cannot be reused." and "Unlike refresh tokens, recovery codes cannot be reused." say no noun of a token. */
 function nounsSaidOfAToken(blocks: string[]): Set<string> {
   const said = new Set<string>()
+  const namesAToken = blocks.some((text) => new RegExp(A_TOKEN.source, 'i').test(text))
   for (const sentence of blocks.flatMap(sentencesOf)) {
     const reading = readSentence(sentence)
     const { tokens } = reading
@@ -1956,7 +1965,11 @@ function nounsSaidOfAToken(blocks: string[]): Set<string> {
         const other = unitOf(j)
         return !unit || !other || unit === other || !(CONTRAST.test(unit.by ?? '') || CONTRAST.test(other.by ?? ''))
       })
-      if (A_CREDENTIAL.test(t.text) && !afterUnlike(tokens, n) && ofAToken) said.add(lemma(t))
+      const carried = unit?.carried
+      const carriesAToken = !!carried && mentions.some((j) => j >= carried.start && j < carried.end)
+      const subject = unit ? (unit.subject ?? carried) : null
+      const standsForAToken = namesAToken && (!subject || STANDS_FOR.test(subject.head.text) || subject.determiners.some((word) => POINTS_BACK.test(word)))
+      if (A_CREDENTIAL.test(t.text) && !afterUnlike(tokens, n) && (ofAToken || carriesAToken || standsForAToken)) said.add(lemma(t))
     })
   }
   return said
@@ -3802,6 +3815,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<ul><li>Refresh tokens rotate.</li><li>Each recovery code works only once.</li></ul>', false],
       ['<li>Unlike refresh tokens, recovery codes cannot be reused. Each recovery code works only once.</li>', false],
       ['<li>Refresh tokens rotate, while recovery codes are single-use. Each recovery code works only once.</li>', false],
+      ['<li>Recovery codes are stored hashed. They are one-time codes. Each recovery code works only once.</li>', false],
       // ... where nothing sets the token apart, or its clause says the form again, the form is read as main reads it.
       ['<li>Recovery codes cannot be reused, and neither can refresh tokens.</li>', true],
       ['<li>A recovery code is single-use, and so is a refresh token.</li>', true],
@@ -3858,6 +3872,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Each renewal issues a new refresh token. Recovery codes stand in for the single-use keys.</li>', true],
       ['<ul><li>Refresh tokens are cryptographic keys.</li><li>Each key works only once.</li></ul>', true],
       ['<ul><li>Each renewal issues a new refresh token.</li><li>These keys are single-use.</li></ul>', true],
+      // ... and where a clause that carries the token on as its subject says the noun of it past a contrast (Codex's
+      // thread 4371545608 on c4d147ef), or a subject that may stand for the token does, on a page that names one.
+      ['<li>Refresh tokens rotate, but are cryptographic keys. Each key works only once.</li>', true],
+      ['<li>Refresh tokens rotate, although they are cryptographic keys. Each key works only once.</li>', true],
+      ['<li>Refresh tokens rotate. They are cryptographic keys. Each key works only once.</li>', true],
       // The costs: "and" or a semicolon sets nothing apart, and "single-use" before a credential's noun outside an
       // "unlike" phrase is read as said of its clause's subject, so these fail as on main though the token is not
       // one-use.
