@@ -164,12 +164,14 @@ import {
  *    from outside denies the promise only over a clause that makes it ("It is not true that analytics are never
  *    collected without your consent." passes), and only where its own negations do not cancel, two in its group or a
  *    denied subject on a denied verb ("It is never not true that analytics are collected only with your consent." and
- *    "Nobody does not promise that analytics are collected only with your consent." fail: Codex on #1618); over a
- *    clause that denies it, or "without your consent" with no negation of its own, it says the promise again, and
- *    main's floor decides ("It is not true that analytics are collected without your consent." and "It is not true that
- *    analytics are not collected only with your consent." fail: Codex on #1618; "It is not true that server events do
- *    not require your consent." passes, as on main). "until you allow" promises whatever its own negation ("No
- *    analytics run until you allow them.", "We do not collect analytics until you allow them.").
+ *    "Nobody does not promise that analytics are collected only with your consent." fail: Codex on #1618), and not past
+ *    a second "that" before the wait ("It is not true that it is not true that analytics are collected only with your
+ *    consent." fails: Codex on #1618); over a clause that denies it, or "without your consent" with no negation of its
+ *    own, it says the promise again, and main's floor decides ("It is not true that analytics are collected without
+ *    your consent." and "It is not true that analytics are not collected only with your consent." fail: Codex on #1618;
+ *    "It is not true that server events do not require your consent." passes, as on main). "until you allow" promises
+ *    whatever its own negation ("No analytics run until you allow them.", "We do not collect analytics until you allow
+ *    them.").
  *    The consent is bound to the analytics' own operation: another (ANOTHER_OPERATION: sharing, selling, exporting,
  *    deleting, erasing, disclosing, transferring, publishing, showing, displaying, revealing, renting, licensing,
  *    downloading), as a gerund subject in every form ("Sharing analytics data with another user requires your
@@ -906,12 +908,16 @@ const ASSERTS = /^(?:promise[sd]?|promising|say|says|said|claim(?:s|ed)?|guarant
     it, as denied() composes them: two negations in the group, or a denied subject on a denied verb, cancel ("It is
     never not true that ..." and "Nobody does not promise that ..." assert the clause: Codex on #1618). A promise whose
     negation is its own shape stays one: "We do not collect analytics until you allow them." takes no clause after
-    "that". */
+    "that". A second "that" between the first and the wait ends the reading from outside, and main's floor decides
+    ("It is not true that it is not true that ...": Codex on #1618). */
 function deniedFromOutside(reading: Reading, said: Said[], index: number, wait: Wait): boolean {
   const { tokens } = reading
   const holds = (q: Said, inside: (that: number) => boolean) => {
     const complement = complementAt(tokens, q.group)
-    return !!complement && inside(complement.that) && ASSERTS.test(complement.verb.text) && deniedPlainly(reading, q.group) !== deniesItsClause(q.subject)
+    // A second "that" before the wait may open a clause the negation does not reach as one, so main's floor decides
+    // there ("It is not true that it is not true that ...", "It is not true that we doubt that ...": Codex on #1618).
+    const nested = !!complement && tokens.slice(complement.that + 1, wait.at).some((t) => t.lower === 'that')
+    return !!complement && !nested && inside(complement.that) && ASSERTS.test(complement.verb.text) && deniedPlainly(reading, q.group) !== deniesItsClause(q.subject)
   }
   const p = said[index]
   const before = said[index - 1]
@@ -2676,6 +2682,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Server events never run, or collect or require your consent.</p>', true],
       // Codex on #1618: the verb a denial distributes from denies only as its negations compose.
       ['<p>Analytics are never not sold or collected only with your consent.</p>', true],
+      // Codex on #1618: a negation from outside does not reach past a second "that" before the wait, and main's floor
+      // decides.
+      ['<p>It is not true that it is not true that analytics are collected only with your consent.</p>', true],
+      ['<p>It is not true that we doubt that analytics wait for your consent.</p>', true],
       // Codex on #1618: a negation from outside over "without your consent" with no negation of its own is the
       // promise's own; over a clause that promises, it denies the promise.
       ['<p>It is not true that analytics are collected without your consent.</p>', true],
