@@ -1810,7 +1810,8 @@ const A_CREDENTIAL = new RegExp(String.raw`^${CREDENTIAL}$`, 'i')
 /** A credential's noun that names a credential no token is: a password, a passphrase, an OTP, a PIN, an invite. */
 const SELF_NAMED = /^(?:passwords?|passphrases?|OTPs?|PINs?|invit\w*)$/i
 /** A word of a credential's name that no token answers to: "recovery codes", "password reset links", "magic links".
-    Not "access", "security", "auth", "API" or "sign-in", whose keys and codes may be the token ("access keys"). */
+    Not the rest of CREDENTIAL_NAME ("access", "security", "auth", "authentication", "API", "login", "log-in",
+    "sign-in", "signin"), whose keys, codes and links may be the token ("access keys"). */
 const DISTINCT_NAME = /^(?:recovery|verification|backup|magic|reset|password|invite|invitation|confirmation|email|e-mail|SMS|text)$/i
 /** Whether a credential's words, its noun last, name a credential no token is (E162 stage 4a): a noun that names one
     (SELF_NAMED), or a word of such a name before it (DISTINCT_NAME). A bare key, code or link, or an access key, may
@@ -3799,7 +3800,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // (ONE_TIME_OF_ANOTHER); E162's stage 4 keeps the gap.
       ['<li>Refresh tokens, one-time access keys, renew your session.</li>', 'gap'],
       // A page that names the token as a credential no token is, in words no reading reads, passes, though main refuses
-      // the claim (E162 stage 4a): no page would call refresh tokens backup codes.
+      // the claim (E162 stage 4a). No page would call refresh tokens backup codes, so E162's row records the gap as
+      // accepted.
       ['<li>Recovery codes rotate, unlike refresh tokens. Both kinds are backup codes. Each backup code works only once.</li>', 'gap'],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
