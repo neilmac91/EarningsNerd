@@ -473,13 +473,18 @@ jobs:
   # filtered so it only runs when AI-relevant code changes, and evals.runner parallelizes across
   # filings with an explicit CI cap of 2 (runner default stays 5). This unmeasured starting
   # assumption may lengthen CI; recovery fan-out and other PRs can still add provider calls.
-  # A pull request draws only while it is ready (the ready mark and each push after it, as
-  # copilot-eval does) or on a dispatch; a draft's run says whether its head would draw and
-  # spends nothing (F55).
+  # A pull request draws only while it is ready (the ready mark and each push after it) or on a
+  # dispatch; a draft's run says whether its head would draw and spends nothing (F55). Unlike
+  # copilot-eval, nothing limits a head to one draw: a second ready mark, a reopen or a re-run
+  # while ready draws again.
   eval-baseline:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     continue-on-error: true
+    # The scope step reads the pull request's live draft flag; nothing in this job writes to GitHub.
+    permissions:
+      contents: read
+      pull-requests: read
     # Each run is a real DeepSeek measurement (see step below). Without this, every new
     # push to an open PR queues another full run on top of the still-running one from the last
     # push — only the latest push's result matters, so cancel superseded runs to stop paying for
@@ -493,12 +498,15 @@ jobs:
           fetch-depth: 2
       - name: Detect AI-relevant changes
         id: scope
-        # Classify this checked PR merge, not upstream changes since a stale event base. A draft
-        # never draws: only an exact "false" draft state lets a pull request's run spend.
+        # Classify this checked PR merge, not upstream changes since a stale event base. Only a pull
+        # request that is ready now draws. An event's payload can still say draft after the ready
+        # mark, and a re-run keeps its payload (#1315, backend/scripts/review_gate.py), so an
+        # AI-relevant head reads the live draft flag; anything but an exact "false" fails closed.
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
@@ -508,10 +516,6 @@ jobs:
             echo "::error::Cannot determine evaluation scope for this event."
             exit 1
           fi
-          case "$PR_DRAFT" in
-            true|false) ;;
-            *) echo "::error::Cannot determine whether this pull request is a draft."; exit 1 ;;
-          esac
           CHECKED_SHA=$(git rev-parse --verify 'HEAD^{commit}')
           if [ "$CHECKED_SHA" != "$GITHUB_SHA" ]; then
             echo "::error::Checked source does not match the workflow commit."
@@ -536,9 +540,19 @@ jobs:
           done < "$CHANGED_PATHS"
           if [ "$RUN" = "false" ]; then
             echo "No AI-relevant backend changes — skipping eval-baseline."
-          elif [ "$PR_DRAFT" = "true" ]; then
-            RUN=false
-            echo "::notice::Draft pull request: eval-baseline draws nothing. This head changes AI-relevant paths, so marking it ready for review starts the paid run; reserve first (lessons/ops-reserve-eval-baseline-before-each-push.md)."
+          else
+            DRAFT=unreadable
+            if [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+              DRAFT=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .draft) || DRAFT=unreadable
+            fi
+            case "$DRAFT" in
+              false) ;;
+              true)
+                RUN=false
+                echo "::notice::Draft pull request: eval-baseline draws nothing. This head changes AI-relevant paths, so marking it ready for review starts the paid run; reserve first (lessons/ops-reserve-eval-baseline-before-each-push.md)."
+                ;;
+              *) echo "::error::Cannot read whether this pull request is a draft."; exit 1 ;;
+            esac
           fi
           echo "run=$RUN" >> "$GITHUB_OUTPUT"
       - name: Check for eval API key

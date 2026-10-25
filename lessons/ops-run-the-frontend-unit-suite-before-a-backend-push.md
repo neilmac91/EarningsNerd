@@ -43,8 +43,9 @@ merge, since main's ruleset requires the check (`docs/OPERATIONS.md`). The rule 
 its paid draw. A pre-push hook could run the suite, but it would add about four minutes to every push and
 needs `node_modules` in every clone. A machine gate on the cost alone would make `eval-baseline` wait for
 `backend-tests` and `frontend-tests` (`needs:` in `.github/workflows/ci.yml`), so that a red unit test
-skips the paid run. That is a high-tier CI change. Founder row F55 holds the forms for gating
-`eval-baseline`'s spend, and this one is not among them.
+skips the paid run. That is a high-tier CI change. F55 gated `eval-baseline`'s spend another way: a
+draft no longer draws, so a red push to a draft costs a CI cycle alone, while a red push to a ready pull
+request still draws. The `needs:` form was not adopted.
 
 **Evidence.**
 - #1529: `405abe0b`, then `5eaa0797`.

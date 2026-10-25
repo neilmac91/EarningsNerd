@@ -377,7 +377,8 @@ def test_documented_required_checks_are_jobs_a_workflow_runs():
 def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():
     ci = workflow()
     # Unique run_id fallbacks prevent queued main/manual runs replacing each other,
-    # which cancel-in-progress:false alone would NOT prevent.
+    # which cancel-in-progress:false alone would NOT prevent. Neither this group nor eval-baseline's reads the
+    # event's action or draft state, so a pull request's ready-mark run and its draft runs supersede one another (F55).
     assert ci["concurrency"] == {
         "group": "ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}",
         "cancel-in-progress": "${{ github.event_name == 'pull_request' }}",
@@ -393,54 +394,14 @@ def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():
     }
 
 
-def render(template, github):
-    """Evaluate the `${{ }}` forms CI's concurrency keys use: a context path, `a || b` and `a == 'b'`."""
-    def value(expression):
-        expression = expression.strip()
-        assert not set("&!()") & set(expression), f"render() does not evaluate {expression!r}"
-        if "||" in expression:
-            operands = [value(part) for part in expression.split("||")]
-            return next((operand for operand in operands if operand), operands[-1])
-        if "==" in expression:
-            left, right = (value(part) for part in expression.split("=="))
-            return str(left == right).lower()
-        if expression.startswith("'"):
-            return expression.strip("'")
-        node = {"github": github}
-        for key in expression.split("."):
-            node = node.get(key, "") if isinstance(node, dict) else ""
-        return node
-
-    return re.sub(r"\$\{\{(.*?)\}\}", lambda match: str(value(match.group(1))), template)
-
-
-def test_each_head_reports_required_checks_and_the_ready_mark_supersedes_a_draft_run():
-    # F55: drafts draw no eval-baseline (test_eval_parity.py runs its scope shell), so the ready mark must start a run
-    # of its own; the three default types keep every required check reporting on each head, drafts included.
+def test_each_head_reports_required_checks_and_the_ready_mark_starts_the_paid_eval():
+    # F55: drafts draw no eval-baseline (test_eval_parity.py runs its scope shell against the live draft flag), so the
+    # ready mark must start a run of its own; the three default types keep every required check reporting on each
+    # head, drafts included. The job still runs on a pull request or a dispatch, never on a push.
     ci = workflow()
     assert ci["on"]["pull_request"]["types"] == ["opened", "synchronize", "reopened", "ready_for_review"]
     assert ci["jobs"]["eval-baseline"]["if"] == (
         "github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'")
-
-    def run(event_name, run_id, action=None, number=None, draft=None):
-        github = {"event_name": event_name, "run_id": str(run_id), "ref": "refs/heads/main"}
-        if number:
-            github.update(ref=f"refs/pull/{number}/merge",
-                          event={"action": action, "pull_request": {"number": str(number), "draft": draft}})
-        return tuple(render(template, github) for template in (
-            ci["concurrency"]["group"], ci["concurrency"]["cancel-in-progress"],
-            ci["jobs"]["eval-baseline"]["concurrency"]["group"]))
-
-    # One pull request's runs share both groups across the ready mark and a return to draft, so each cancels the
-    # run before it: a ready draw stops once a newer head arrives, whichever state that head was pushed in.
-    sequence = [run("pull_request", 1, "opened", 7, "true"), run("pull_request", 2, "ready_for_review", 7, "false"),
-                run("pull_request", 3, "synchronize", 7, "false"), run("pull_request", 4, "synchronize", 7, "true")]
-    assert len(set(sequence)) == 1 and sequence[0][1] == "true"
-    other = run("pull_request", 5, "synchronize", 8, "false")
-    assert other[0] != sequence[0][0] and other[2] != sequence[0][2]
-    for event_name in ("push", "workflow_dispatch"):
-        first, second = run(event_name, 6), run(event_name, 7)
-        assert first[0] != second[0] and first[1] == second[1] == "false"
 
 
 def test_pip_caches_downloads_keyed_by_the_installed_pins_not_environments():
