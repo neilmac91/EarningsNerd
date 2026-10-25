@@ -1918,8 +1918,8 @@ function anotherCredentials(sentence: string, at: number, said: Set<string>): bo
   if (attributive) {
     const noun = tokenAt(at + attributive[0].length - 1)
     if (said.has(lemma(tokens[noun]))) return false
-    const phrase = unlikePhrase(k, noun)
-    if (phrase && mentions.every(([j]) => j < phrase.unlike || j >= phrase.end)) return true
+    // A phrase that names a token says the noun beside it of the token, refused above (nounsSaidOfAToken).
+    if (unlikePhrase(k, noun)) return true
     // Outside an "unlike" phrase, it is read as a form said of its unit's subject only where it stands in that subject.
     if (!subject || k < subject.start || k >= subject.end) return false
   }
