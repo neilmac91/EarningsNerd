@@ -286,9 +286,9 @@ which outside a `request_work` scope runs on anyio's tokens, as `run_in_threadpo
 while a generation runs. That session's close, like the release, logs a failure rather than raising it. On
 PostgreSQL, with the connection dropped after a unit's last statement, an unguarded close answered 500 after the
 paid generations wherever the drop came; the guarded one answers 200 with the audit row. The base answered 500 at
-its next commit, 200 without its audit row after the last re-read, or, after the audit row, 200 with the
-dependency's close failing after the response, which FastAPI runs once the answer has gone (the review's
-probes). The job-side drain
+its next commit, 200 without its audit row after the last re-read, or, after the audit row's read-back, 200 with
+its audit row, its request-scoped `get_db` then failing to close once the answer had gone (the review's probes).
+The job-side drain
 (`summary_refresh.drain_stale`) re-reads in a session of its own too, on its job's loop, where no request
 waits. `lessons/ops-one-connection-per-request-unit.md` keeps a session of its own for background work, since one
 opened while the request's session holds a connection needs a second; the refresh's open only after the release,
