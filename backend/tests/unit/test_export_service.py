@@ -15,6 +15,7 @@ import csv
 import io
 import re
 import xml.etree.ElementTree as ET
+import zlib
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
@@ -49,6 +50,12 @@ def _closing_note(html: str) -> list[str]:
 
 def _csv_rows(csv_text: str) -> list[list[str]]:
     return list(csv.reader(io.StringIO(csv_text.removeprefix("\ufeff"))))
+
+
+def _inflated(pdf: bytes) -> bytes:
+    """A compressed PDF's streams, inflated: WeasyPrint packs the catalog into a Flate object stream."""
+    return b"".join(zlib.decompress(stream) for stream in re.findall(rb"stream\n(.*?)\nendstream", pdf, re.S)
+                    if stream[:1] == b"\x78")
 
 
 def _full_sections():
@@ -159,7 +166,7 @@ class TestPdfHtml:
         summary, filing = _make_summary_and_filing(_full_sections())
         html = service.generate_pdf_html(summary, filing)  # would raise AttributeError pre-fix
         assert isinstance(html, str)
-        assert "<html>" in html
+        assert '<html lang="en">' in html
 
     def test_includes_every_section(self, service):
         summary, filing = _make_summary_and_filing(_full_sections())
@@ -1018,6 +1025,39 @@ class TestBrandedShell:
             assert "GeistMono-latin.woff2" in html
             assert '"Page " counter(page) " of " counter(pages)' in html
             assert "EarningsNerd · earningsnerd.io" in html
+
+    @pytest.mark.asyncio
+    async def test_both_pdfs_carry_their_metadata_and_a_structure_tree(self, service):
+        """WP3-A: the inspection read a metadata of {'Producer'} alone and an untagged file. The shell names
+        the document (title, language, author, generator; the analysis its subject) and every export asks
+        WeasyPrint for a tagged PDF, which the bytes each export method ships carry."""
+        weasyprint = pytest.importorskip("weasyprint")
+        from app.services.pdf_branding import PDF_OPTIONS
+
+        assert PDF_OPTIONS["pdf_tags"] is True
+        expected = {
+            "analysis": ("Test & Co · Multi-Period Analysis", "TST · Annual · FY2022–FY2024"),
+            "summary": ("BIOGEN INC. · 10-K summary", None),
+        }
+        for name, html in (("analysis", self._analysis_html()), ("summary", self._summary_html(service))):
+            assert html.startswith('<!DOCTYPE html>\n<html lang="en">'), name
+            try:
+                document = weasyprint.HTML(string=html).render()
+            except Exception as exc:  # missing system libs in odd envs: not what this test reads
+                pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
+            metadata = document.metadata
+            assert (metadata.title, metadata.description) == expected[name], name
+            assert (metadata.lang, metadata.authors, metadata.generator) == ("en", ["EarningsNerd"], "EarningsNerd"), name
+            assert b"/StructTreeRoot" in document.write_pdf(uncompressed_pdf=True, **PDF_OPTIONS), name
+        analysis = TestAnalysisPdfHtml()
+        shipped = {
+            "analysis": await service.export_analysis_pdf(analysis._analysis(), analysis._company()),
+            "summary": await service.export_pdf(*_make_summary_and_filing(_full_sections())),
+        }
+        for name, pdf in shipped.items():
+            assert b"/StructTreeRoot" in _inflated(pdf) and b"/Lang (en)" in _inflated(pdf), name
+        untagged = weasyprint.HTML(string=self._analysis_html()).write_pdf()
+        assert b"/StructTreeRoot" not in _inflated(untagged), "the reader must tell an untagged PDF apart"
 
     def test_metrics_section_gets_the_landscape_named_page(self):
         html = self._analysis_html()

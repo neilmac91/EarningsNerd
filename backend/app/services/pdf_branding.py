@@ -20,13 +20,24 @@ apart (owner decision D4, export-overhaul plan). The shell owns:
   underline, as the page's prose links do at rest: print has no pointer to turn it sage, and its
   text can carry an index ("Source filing 1"). Sage colours only the wordmark's "Nerd".
 
+- The document's own metadata: ``<html lang="en">``, the title as ``<title>``, EarningsNerd as author
+  and generator and an optional subject as the description, which WeasyPrint writes as the PDF's
+  /Title, /Author, /Creator, /Subject and /Lang; and ``PDF_OPTIONS``, the ``write_pdf`` options every
+  export passes (a tagged PDF, with a structure tree a screen reader can follow).
+
 The visual contract is pinned by tests/unit/test_export_service.py (shell assertions + a real
 WeasyPrint render checking page orientation), the mark by tests/unit/test_pdf_mark_geometry.py
 and every colour, its token and its contrast by tests/unit/test_export_palette_parity.py.
 """
+from html import escape
 from pathlib import Path
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
+
+# The options every export hands WeasyPrint's write_pdf: a tagged PDF (/StructTreeRoot, /MarkInfo), so a
+# screen reader reads the headings, lists and tables in order. Not PDF/UA (pdf_variant="pdf/ua-1"): no
+# validator runs in CI to back that claim.
+PDF_OPTIONS = {"pdf_tags": True}
 
 # Design tokens (DESIGN.md's frontmatter, which designSnapshotParity holds equal to
 # frontend/tailwind.config.js) — single source for PDF and workbook colour. Each key is one token's
@@ -276,16 +287,22 @@ def render_branded_pdf(
     meta_html: str,
     body_html: str,
     extra_css: str = "",
+    subject: str = "",
 ) -> str:
     """Full HTML document: masthead band + title + meta line + body inside the branded shell.
 
     ``title`` must already be HTML-escaped by the caller (it interpolates into markup);
-    ``meta_html``/``body_html`` are trusted pre-rendered fragments from the body builders.
+    ``meta_html``/``body_html`` are trusted pre-rendered fragments from the body builders. ``subject``
+    is plain text (escaped here): the PDF's /Subject, through the description.
     """
+    description = f'\n<meta name="description" content="{escape(subject, quote=True)}">' if subject else ""
     return f"""<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
+<title>{title}</title>
+<meta name="author" content="EarningsNerd">
+<meta name="generator" content="EarningsNerd">{description}
 <style>
 {font_face_css()}
 {shell_css()}

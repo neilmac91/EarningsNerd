@@ -6,7 +6,7 @@ import re
 from html import escape
 
 from app.models import Summary, Filing
-from app.services.pdf_branding import PALETTE, render_branded_pdf
+from app.services.pdf_branding import PALETTE, PDF_OPTIONS, render_branded_pdf
 from app.services.analysis_export_metadata import (
     ANALYSIS_DISCLAIMER, FCF_DEFINITION, count_label, display_instant, export_points, formula_text, note_index,
     notes_summary, operand_records, period_label, point_method, raw_value_text, source_urls,
@@ -255,7 +255,7 @@ class ExportService:
             from weasyprint import HTML
             html_content = self.generate_pdf_html(summary, filing)
             # WeasyPrint parse + render is CPU-heavy (hundreds of ms) — off the event loop.
-            return await asyncio.to_thread(lambda: HTML(string=html_content).write_pdf())
+            return await asyncio.to_thread(lambda: HTML(string=html_content).write_pdf(**PDF_OPTIONS))
         except ImportError:
             raise Exception("WeasyPrint is not installed. Install it with: pip install weasyprint")
         except Exception as e:
@@ -500,6 +500,7 @@ class ExportService:
             title=f"{escape(display_company_name(company.name) or company.ticker or '')} · Multi-Period Analysis",
             doc_kind="Multi-Period<br>Analysis",
             meta_html=meta_html, body_html=body_html,
+            subject=f"{company.ticker or ''} · {mode} · {period_label(analysis.period_key)}",
             extra_css=("ol.sources, .data-notes, .methods { font-size: 8.5pt; } "
                        ".data-notes { list-style: none; padding-left: 0; } "
                        ".methods li { margin-bottom: 4px; } .operands { margin-top: 2px; } "
@@ -513,7 +514,7 @@ class ExportService:
             from weasyprint import HTML
             html_content = self.generate_analysis_pdf_html(analysis, company)
             # WeasyPrint parse + render is CPU-heavy (hundreds of ms) — off the event loop.
-            return await asyncio.to_thread(lambda: HTML(string=html_content).write_pdf())
+            return await asyncio.to_thread(lambda: HTML(string=html_content).write_pdf(**PDF_OPTIONS))
         except ImportError:
             raise Exception("WeasyPrint is not installed. Install it with: pip install weasyprint")
         except Exception as e:

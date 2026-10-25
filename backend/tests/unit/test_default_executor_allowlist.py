@@ -42,9 +42,9 @@ SITES: dict[tuple[str, str, str], str] = {
         "string matching against the filing text already in memory; it opens no session",
     ("app/services/copilot_service.py", "_admit_answer", "_withhold_unsupported_quotations"):
         "string matching against the filing text already in memory; it opens no session",
-    ("app/services/export_service.py", "export_pdf", "lambda: HTML(string=html_content).write_pdf()"):
+    ("app/services/export_service.py", "export_pdf", "lambda: HTML(string=html_content).write_pdf(**PDF_OPTIONS)"):
         "WeasyPrint over HTML already rendered; it opens no session",
-    ("app/services/export_service.py", "export_analysis_pdf", "lambda: HTML(string=html_content).write_pdf()"):
+    ("app/services/export_service.py", "export_analysis_pdf", "lambda: HTML(string=html_content).write_pdf(**PDF_OPTIONS)"):
         "WeasyPrint over HTML already rendered; it opens no session",
     ("main.py", "lifespan", "_validate_db_connection"):
         "the startup connection check, before the app serves a request, so no other work holds a slot",
