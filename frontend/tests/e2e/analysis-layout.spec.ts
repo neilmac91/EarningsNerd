@@ -1098,7 +1098,7 @@ test.describe('analysis KPI strip, long values', () => {
   test.describe('the figure face', () => {
     test.use({ viewport: { width: 390, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
     // kpiValueGlyphs counts ASCII and KPI_FACE_GLYPHS at the face's one advance, which the strip measures as painted
-    // (0.6em, or whole pixels where the browser snaps glyphs), and anything else at a full em. Each glyph is measured in
+    // (0.6em, or whole pixels where the browser snaps glyphs), and anything else at 1.25em. Each glyph is measured in
     // the value's own faces with a serif after them, not the monospace fallback, so a glyph Geist Mono lacks cannot pass
     // at a fallback's advance; KPI_MISSING_GLYPHS shows the probe tells the two apart.
     test('draws ASCII and every glyph the width counts as its own at the one advance the strip measures', async ({ page, baseURL }) => {
