@@ -203,6 +203,7 @@ test.describe('Public access promises', () => {
         await page.goto('/waitlist')
         await expect(page.getByText('New registrations are currently closed. Existing members can log in.')).toBeVisible()
         await noCollectionControls(page)
+        await expect(page.getByText(/You can (still )?join the waitlist/)).toHaveCount(0)
         await expect(page.getByRole('link', { name: 'Join the waitlist', exact: true })).toHaveCount(0)
         const example = page.locator('#main').getByRole('link', { name: 'See a live example', exact: true })
         await expect(example).toHaveAttribute('href', /(?:\/filing\/.*demo=1|\/company\/AAPL)/)
