@@ -66,7 +66,14 @@ describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source })
         // labels a tier; a chart that still prints none kept its minimum.
         const fitSlot = (WIDTHS[view][i] - layout.gutter - 8) / model.periods.length
         if (model.panels.some((panel) => panel.marks.some((mark) => mark.labelled))) expect(layout.slot, 'A7: widened at most to LABELLED_MAX_SLOT').toBeLessThanOrEqual(Math.max(fitSlot, LABELLED_MAX_SLOT) + 1e-9)
-        if (layout.valuesDontFit) expect(minChartWidth(model, view), 'A4: no widening for labels it cannot fit').toBe(layout.gutter + 8 + MIN_SLOT * model.periods.length)
+        // A chart that still prints no labels took no widening, and its labels miss at its minimum too (so a wider
+        // container never loses labels its minimum holds).
+        const base = layout.gutter + 8 + MIN_SLOT * model.periods.length
+        const atMinimum = layoutChart(model, 0, view)
+        if (layout.valuesDontFit) {
+          expect(minChartWidth(model, view), 'A4: no widening for labels it cannot fit').toBe(base)
+          expect(atMinimum.valuesDontFit, 'A4: labels that miss at the container missed at the minimum').toBe(true)
+        }
         const texts = svgStrings(model, layout)
         for (const text of texts) {
           expect(text, 'M12: glyphs Geist Mono carries').toMatch(SVG_GLYPHS)
@@ -417,8 +424,13 @@ describe('the cases the step-1 data required', () => {
     expect(planAt('RIVN_annual', 342)).toEqual([382, false])
     // LCID needs 41.7 px a period, which its 342 px card already gives: no scroll for a whole-pixel slot.
     expect(planAt('LCID_annual', 342)).toEqual([342, false])
-    // A chart wide enough already is never widened, and a chart with no labels keeps 36 px.
+    // A chart wide enough already is never widened, a top line that fits at 36 px keeps it (AAPL: 409 px at 342),
+    // and a chart with no labels keeps 36 px.
     expect(planAt('REGN_annual', 502)).toEqual([502, false])
+    const aapl = model('AAPL_annual', 'topline')
+    const aaplAt342 = layoutChart(aapl, 342, 'card')
+    expect([aaplAt342.width, aaplAt342.valuesDontFit]).toEqual([aaplAt342.gutter + 8 + MIN_SLOT * aapl.periods.length, false])
+    expect(minChartWidth(aapl)).toBe(aaplAt342.width)
     const margins = model('REGN_annual', 'margins')
     expect(minChartWidth(margins)).toBe(layoutChart(margins, 342, 'card').gutter + 8 + MIN_SLOT * margins.periods.length)
   })

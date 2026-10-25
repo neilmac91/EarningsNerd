@@ -880,7 +880,7 @@ serialisation cannot lose them.
 | `partial` | Absent series per §3.4. Verified. |
 | `single-point` | n_valued = 1: markers or bars only, no path. Verified (XOM/q; isolated points elsewhere). |
 | `not-applicable` | A12 copy, centred, at the full 320 px height. Verified (34 cards). |
-| `error` | `ChartErrorBoundary` at the same height: "This chart couldn’t be drawn. The metrics table lists its figures." *Specified, not yet verified.* |
+| `error` | `ChartErrorBoundary` at the same height, with its own copy: "This chart could not be drawn." (or "These charts could not be drawn." around the grid). *Specified, not yet verified.* |
 | `expanded` | §3.10. Verified on the hard cases in both themes (report §7). |
 | `exporting` | Button busy; the same SVG is serialised. The export is verified; the busy state is specified, not yet verified. |
 | `reduced-motion` | No transitions. The verified build has none. |
