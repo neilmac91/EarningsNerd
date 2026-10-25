@@ -57,7 +57,7 @@ No model was called and no repository file was changed to write this.
 |---|---|
 | Gate | The deterministic number check. "First-try" means the first attempt, before the one allowed repair. |
 | ID | A value's label in the pack: F, X, S, D, R or P. |
-| Frozen prompt | `backend/prompts/trends-depth-analyst-agent.md`, sha `d558d371`. eval-v1 and dev-v4 both used it. |
+| Frozen prompt | The prompt eval-v1 and dev-v4 both used, sha `d558d371`, archived at `tasks/analysis-depth-2026-10/prompts/frozen-d558d371.md`. `backend/prompts/trends-depth-analyst-agent.md` is now the candidate the `-q` and `-c` arms run. |
 
 Counts are taken per auditor and per folder. The `semantics/` and `semantics-by-claude-opus-5-5/` folders hold the same Opus audit for DeepSeek, so it is counted once.
 
@@ -262,6 +262,7 @@ In 6 packs the long-term debt line ends before the window does:
 The pack still computes total debt, net cash and peer percentiles. The data checks do not mention it. Debt components also change across years: DE has long-term only, then long-term plus current, then current only.
 
 - **DeepSeek stated broken values as fact:**
+  - **COP:** "Net cash was $7.1 billion, or 12.1% of revenue, in FY2025 … [D337][D338][D850][D851]", on a debt line that stops after FY2020.
   - **KO:** "Net cash was $8.8 billion at FY2025 … [D442][D443][D440]" and "That ranks at the 100th percentile … [D793][D794]". KO's long-term debt was $35.5bn at FY2023 [F208].
   - **CVX:** "Net cash turned positive at $4.0 billion … [D351][D352][D309]".
   - **DE:** "…down from $35.8 billion in FY2021", presenting a dropped debt line as deleveraging.
@@ -507,10 +508,10 @@ All measures are reported per split (development, held out) and per run, as a ra
 | Real first-try gate errors per analysis | Failures minus known artefacts | 0.68 (17 in 25, frozen prompt) | 0.04 | 0.15 or less |
 | Real mislabels per 1,000 verified claims | Deterministic probe hits, read by hand, plus Opus substantive flags after reading | About 9.6 | About 0.7 (Opus raw 3.4) | 3.5 or less in each run |
 | Judgement share, outside watch | Sentence types | 0.8% | 3.8% | 3–12% |
-| Evaluative words in fact and comparison sentences | Lexicon (`calibration/interp.py`), outside arc and watch | 5.5% | 2.2% | 3% or less |
+| Evaluative words in fact and comparison sentences | Lexicon (`backend/evals/trend_depth/calibration.py`), outside arc and watch | 5.5% | 2.2% | 3% or less |
 | Watch items with forecast wording | Lexicon, read by hand | About 7 of 60 | 1 of 60 | 2 or fewer per 60 |
 | Unsigned falls | U1 | 1 | 0 | 0 (guard) |
-| Broken net cash stated as fact | Debt-break packs | 3 of 6 stated as fact; 1 of 6 disclosed | 4 of 6 disclosed | 0 stated as fact |
+| Broken net cash stated as fact | Debt-break packs | 4 of 6 stated as fact (COP, CVX, DE, KO); 1 of 6 disclosed | 4 of 6 disclosed | 0 stated as fact |
 | Cause support | Opus causes audit | 76% / 23% / 1% | 76% / 22% / 1% | Guard: at least 72% supported, at most 2% unsupported, at least 6 cause sentences per analysis |
 | Judge, C against K0 | Opus, both orders must agree | — | — | C wins or ties grounding and calibration on at least 12 of 20 per split; loses depth on no more than 5 |
 | Form | Words, sentences, sections | 618 average (735 max) | — | 700 words or fewer, 30 sentences or fewer, all 7 sections |

@@ -70,8 +70,7 @@ ARMS: dict[str, Arm] = {
     # The control, K0 in DEEPSEEK-ERRORS.md §3 step 2: the frozen prompt on packs/, as in eval-v1.
     "deepseek-flash": _DEEPSEEK_FLASH,
     # Its model and settings with one input changed (P: the fixed packs; Q: the candidate prompt) or both (C), so
-    # each arm differs from the control only in what it reads. packs-v2/ is built apart; until it exists, P and C
-    # fail to load their packs.
+    # each arm differs from the control only in what it reads.
     "deepseek-flash-p": replace(_DEEPSEEK_FLASH, name="deepseek-flash-p", packs="packs-v2"),
     "deepseek-flash-q": replace(_DEEPSEEK_FLASH, name="deepseek-flash-q", prompt=CANDIDATE_PROMPT),
     "deepseek-flash-c": replace(_DEEPSEEK_FLASH, name="deepseek-flash-c", prompt=CANDIDATE_PROMPT, packs="packs-v2"),

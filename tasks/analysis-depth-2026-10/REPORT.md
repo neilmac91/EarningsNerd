@@ -548,8 +548,8 @@ Gate figures here use the current gate.
    most one repair naming the failed sentences, then fall back to today's code-written narrative if the
    repair also fails. Nothing reaches the cache or the page before the gate passes. The pack's inputs come
    through the existing SEC transports and are cached per accession.
-2. **Prompt and pack.** The frozen prompt (`backend/prompts/trends-depth-analyst-agent.md`, sha256
-   `d558d371…`) is the baseline. The candidate fixes in `DEEPSEEK-ERRORS.md` §2 change it and the pack:
+2. **Prompt and pack.** The frozen prompt (sha256 `d558d371…`, archived at `prompts/frozen-d558d371.md`) is the
+   baseline; `backend/prompts/trends-depth-analyst-agent.md` is now the candidate. The candidate fixes in `DEEPSEEK-ERRORS.md` §2 change it and the pack:
    - restore a judgement slot;
    - add a typical operating-cash-flow-to-net-income level;
    - word net debt without a minus sign;

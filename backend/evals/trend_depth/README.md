@@ -4,7 +4,7 @@ An offline research harness for the "AI trend analysis" section. It builds evide
 filings, generates analyses with a proposed prompt on several models, checks every number with a
 deterministic gate, judges outputs pairwise with a model from neither output's family, audits causes and
 number attribution, and writes a report. None of it runs in production or CI; its unit tests do
-(`tests/unit/test_trend_depth_{factcheck,providers,records,stages}.py`).
+(`tests/unit/test_trend_depth_*.py`).
 The findings and recommendation are in `tasks/analysis-depth-2026-10/REPORT.md`.
 
 ## Arms pin their prompt and their evidence packs
