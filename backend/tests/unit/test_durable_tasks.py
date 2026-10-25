@@ -124,24 +124,53 @@ async def test_worker_authenticates_before_work_and_acknowledges_only_finished_w
         assert failed.json()["detail"] == "Task failed; retry delivery"
 
 
+SENTINELS = {
+    "TASKS_PROJECT_ID": "sentinel-project-7c1", "TASKS_LOCATION": "us-west1", "TASKS_QUEUE": "sentinel-queue-7c1",
+    "TASKS_WORKER_URL": "https://sentinel-worker-7c1-uw.a.run.app",
+    "TASKS_INVOKER_EMAIL": "sentinel-invoker@sentinel-project-7c1.iam.gserviceaccount.com",
+}
+
+
+def _keys(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(200, json={"keys": []}, request=request)
+
+
+def _keys_unreachable(request: httpx.Request) -> httpx.Response:
+    raise httpx.ConnectError("connection refused", request=request)
+
+
+def _keys_unavailable(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(503, request=request)
+
+
 @pytest.mark.asyncio
-@pytest.mark.parametrize("failure, status, detail, line", [
-    (transport.TaskUnavailable("Durable tasks are not configured"), 503, "Task worker is not configured",
-     "Task identity unavailable: the worker is not configured"),
-    (httpx.ConnectError("connection refused"), 503, "Task identity verification unavailable",
-     "Task identity unavailable: Google's signing keys could not be read"),
-    (ValueError("Unexpected task identity"), 401, "Invalid task identity", None),
-])
+@pytest.mark.parametrize("enabled, keys, status, detail, line, raised", [
+    (False, _keys, 503, "Task worker is not configured",
+     "Task identity unavailable: the worker is not configured", transport.TaskUnavailable),
+    (True, _keys_unreachable, 503, "Task identity verification unavailable",
+     "Task identity unavailable: Google's signing keys could not be read", httpx.ConnectError),
+    (True, _keys_unavailable, 503, "Task identity verification unavailable",
+     "Task identity unavailable: Google's signing keys could not be read", httpx.HTTPStatusError),
+    (True, _keys, 401, "Invalid task identity", None, None),
+], ids=["not-configured", "keys-unreachable", "keys-unavailable", "refused-token"])
 async def test_a_worker_that_cannot_check_identity_logs_an_error_a_refusal_does_not(
-    monkeypatch, caplog, failure, status, detail, line,
+    monkeypatch, caplog, enabled, keys, status, detail, line, raised,
 ):
-    # The 503s fail every delivery until someone acts, so each logs an ERROR with its exception (Sentry's event, F50);
-    # a refused identity is a caller's fault and logs nothing. Neither line carries the token.
+    # The real identity check, its Google key read answered in memory. The 503s fail every delivery until someone
+    # acts, so each logs an ERROR with its exception (Sentry's event, F50); a refused token is the caller's fault and
+    # logs nothing. Neither line carries the token or a TASKS_* value: the traceback renders each exception's text.
+    from app.services import oauth_verify
+
+    for key, value in {**SENTINELS, "DURABLE_TASKS_ENABLED": enabled}.items():
+        monkeypatch.setattr(settings, key, value)
+    monkeypatch.setattr(oauth_verify, "_google_jwks_cache", None)
+    monkeypatch.setattr(oauth_verify, "_google_jwks_cache_expires", 0.0)
+    keyed = SimpleNamespace(AsyncClient=lambda **kwargs: httpx.AsyncClient(transport=httpx.MockTransport(keys), **kwargs))
+    monkeypatch.setattr(oauth_verify, "httpx", keyed)
     app = FastAPI()
     app.include_router(tasks.router, prefix="/internal")
     work = AsyncMock()
     monkeypatch.setattr(tasks, "run_background_task", work)
-    monkeypatch.setattr(tasks, "verify_task_identity", AsyncMock(side_effect=failure))
     body = {"kind": "companyfacts", "payload": {"company_id": 7}}
     with caplog.at_level(logging.INFO, logger="app.routers.tasks"):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
@@ -154,8 +183,9 @@ async def test_a_worker_that_cannot_check_identity_logs_an_error_a_refusal_does_
         assert records == []
     else:
         assert [(record.levelno, record.getMessage()) for record in records] == [(logging.ERROR, line)]
-        assert records[0].exc_info[1] is failure
-    assert "signed-token-fixture" not in caplog.text
+        assert isinstance(records[0].exc_info[1], raised)
+    for secret in ("signed-token-fixture", *(value for value in SENTINELS.values() if value != "us-west1")):
+        assert secret not in caplog.text
 
 
 def test_partial_history_keeps_retry_eligible_without_losing_inserted_rows(monkeypatch):
