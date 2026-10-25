@@ -156,19 +156,20 @@ import {
  *    another verb that opens its own predicate in the same form ("PostHog never runs or requires your consent." passes;
  *    "PostHog never runs and requires your consent.", "Analytics are not sold and are collected only with your
  *    consent.", "Server events are not shared and require your consent." and "Server events never run, or run only
- *    after you consent." fail: Codex and the verification lens on #1618). A negation on the verb or the subject makes
- *    "without your consent" the promise ("No usage data is sent without your permission."), and so does one on a verb
- *    before it that shares its object, which "and" does not distribute ("We never sell and collect analytics data ...
- *    without your consent.", beyond main's 60 characters too). A negation from outside denies the promise only over a
- *    clause that makes it ("It is not true that analytics are never collected without your consent." passes), and only
- *    where its own negations do not cancel, two in its group or a denied subject on a denied verb ("It is never not
- *    true that analytics are collected only with your consent." and "Nobody does not promise that analytics are
- *    collected only with your consent." fail: Codex on #1618); over a clause that denies it, or "without your consent"
- *    with no negation of its own, it says the promise again, and main's floor decides ("It is not true that analytics
- *    are collected without your consent." and "It is not true that analytics are not collected only with your consent."
- *    fail: Codex on #1618; "It is not true that server events do not require your consent." passes, as on main). "until
- *    you allow" promises whatever its own negation ("No analytics run until you allow them.", "We do not collect
- *    analytics until you allow them.").
+ *    after you consent." fail: Codex and the verification lens on #1618), and only as the earlier verb's negations
+ *    compose ("Analytics are never not sold or collected only with your consent." fails: Codex on #1618). A negation on
+ *    the verb or the subject makes "without your consent" the promise ("No usage data is sent without your
+ *    permission."), and so does one on a verb before it that shares its object, which "and" does not distribute ("We
+ *    never sell and collect analytics data ... without your consent.", beyond main's 60 characters too). A negation
+ *    from outside denies the promise only over a clause that makes it ("It is not true that analytics are never
+ *    collected without your consent." passes), and only where its own negations do not cancel, two in its group or a
+ *    denied subject on a denied verb ("It is never not true that analytics are collected only with your consent." and
+ *    "Nobody does not promise that analytics are collected only with your consent." fail: Codex on #1618); over a
+ *    clause that denies it, or "without your consent" with no negation of its own, it says the promise again, and
+ *    main's floor decides ("It is not true that analytics are collected without your consent." and "It is not true that
+ *    analytics are not collected only with your consent." fail: Codex on #1618; "It is not true that server events do
+ *    not require your consent." passes, as on main). "until you allow" promises whatever its own negation ("No
+ *    analytics run until you allow them.", "We do not collect analytics until you allow them.").
  *    The consent is bound to the analytics' own operation: another (ANOTHER_OPERATION: sharing, selling, exporting,
  *    deleting, erasing, disclosing, transferring, publishing, showing, displaying, revealing, renting, licensing,
  *    downloading), as a gerund subject in every form ("Sharing analytics data with another user requires your
@@ -672,14 +673,15 @@ type Said = {
   /** Its subject stands for what the sentence named before it (standsForWhatCameBefore). */
   pointsBack: boolean
   /** The operations its subject names as gerunds, the verbs before its own that share its object (sharedVerbsOf), and
-      its verb group, resumed across an aside (verbGroupOf), denied where a verb that shares its object is and "or"
-      distributes the denial to its own (distributesNegation; Codex on #1618), or as an ellipsis says it. */
+      its verb group, resumed across an aside (verbGroupOf), denied where a verb that shares its object is, as its
+      negations compose (deniedPlainly), and "or" distributes the denial to its own (distributesNegation; Codex on
+      #1618), or as an ellipsis says it. */
   gerunds: Operation[] | null
   verbs: Token[]
   group: VerbGroup
-  /** A verb before its own that shares its object is negated, whether or not the negation denies its own verb: a
-      negation there makes "without your consent" a promise ("We never sell and collect analytics data without your
-      consent."). */
+  /** A verb before its own that shares its object is denied, as its negations compose, whether or not the denial
+      reaches its own verb: a negation there makes "without your consent" a promise ("We never sell and collect
+      analytics data without your consent."). */
   negatedBefore: boolean
   /** Its predicate's words and its conditions (an ellipsis's are the ones it repeats), and the spans of its
       conditions that hold clauses of their own, whose waits those clauses say. */
@@ -717,7 +719,8 @@ function saidIn(reading: Reading): Said[] {
     let through = i
     let predicate = clause.predicate
     let group = verbGroupOf(reading, i)
-    const negatedBefore = sharing[i].filter((k) => verbGroupAt(tokens, clauses[k].predicate).negated)
+    // A verb before its own denies only as its negations compose (deniedPlainly: "never not sold" is sold).
+    const negatedBefore = sharing[i].filter((k) => deniedPlainly(reading, verbGroupAt(tokens, clauses[k].predicate)))
     if (negatedBefore.some((k) => distributesNegation(reading, i, k))) group = { ...group, negated: true }
     const gerunds = own && named === i ? gerundsAt(tokens, own.start, ANOTHER_OPERATION) : null
     if (gerunds && gerunds.end !== clause.predicate) {
@@ -2671,6 +2674,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Server events are not recorded or recorded only after you consent.</p>', true],
       // Codex on #1618: every join after the denial counts, not only the last.
       ['<p>Server events never run, or collect or require your consent.</p>', true],
+      // Codex on #1618: the verb a denial distributes from denies only as its negations compose.
+      ['<p>Analytics are never not sold or collected only with your consent.</p>', true],
       // Codex on #1618: a negation from outside over "without your consent" with no negation of its own is the
       // promise's own; over a clause that promises, it denies the promise.
       ['<p>It is not true that analytics are collected without your consent.</p>', true],
