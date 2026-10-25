@@ -144,23 +144,24 @@ import {
  *    consent."), or a negated verb that asserts the clause it takes after "that" ("It is not true that analytics wait
  *    for your consent.", "We do not promise that analytics wait for your consent."), but not a negation in a relative
  *    or a complement clause ("Analytics that do not identify you are collected only with your consent." and "Nobody
- *    doubts that analytics wait for your consent." fail) nor one a "but" sets apart ("Analytics are not collected when
- *    you visit, but only after you allow them." fails), nor one before a verb a denial turns into a yes ("Server events
- *    never cease to require your consent." fails). A negation on a verb before the wait's own that shares its object
- *    denies it only where "or", with no comma before it, distributes it to another verb that opens its own predicate in
- *    the same form ("PostHog never runs or requires your consent." passes; "PostHog never runs and requires your
- *    consent.", "Analytics are not sold and are collected only with your consent.", "Server events are not shared and
- *    require your consent." and "Server events never run, or run only after you consent." fail: Codex and the
- *    verification lens on #1618). A negation on the verb or the subject makes "without your consent" the promise ("No
- *    usage data is sent without your permission."), and so does one on a verb before it that shares its object, which
- *    "and" does not distribute ("We never sell and collect analytics data ... without your consent.", beyond main's 60
- *    characters too). A negation from outside denies the promise only over a clause that makes it ("It is not true that
- *    analytics are never collected without your consent." passes); over a clause that denies it, or "without your
- *    consent" with no negation of its own, it says the promise again, and main's floor decides ("It is not true that
- *    analytics are collected without your consent." and "It is not true that analytics are not collected only with
- *    your consent." fail: Codex on #1618; "It is not true that server events do not require your consent." passes, as
- *    on main). "until you allow" promises whatever its own negation ("No analytics run until you allow them.", "We do
- *    not collect analytics until you allow them.").
+ *    doubts that analytics wait for your consent." fail) nor one a "but", or a mark before "only" (a comma, a dash or a
+ *    bracket), sets apart ("Analytics are not collected when you visit, but only after you allow them." and "Analytics
+ *    are not collected automatically, only after you consent." fail: Codex on #1618), nor one before a verb a denial
+ *    turns into a yes ("Server events never cease to require your consent." fails). A negation on a verb before the
+ *    wait's own that shares its object denies it only where "or", with no comma before it, distributes it to another
+ *    verb that opens its own predicate in the same form ("PostHog never runs or requires your consent." passes;
+ *    "PostHog never runs and requires your consent.", "Analytics are not sold and are collected only with your
+ *    consent.", "Server events are not shared and require your consent." and "Server events never run, or run only
+ *    after you consent." fail: Codex and the verification lens on #1618). A negation on the verb or the subject makes
+ *    "without your consent" the promise ("No usage data is sent without your permission."), and so does one on a verb
+ *    before it that shares its object, which "and" does not distribute ("We never sell and collect analytics data ...
+ *    without your consent.", beyond main's 60 characters too). A negation from outside denies the promise only over a
+ *    clause that makes it ("It is not true that analytics are never collected without your consent." passes); over a
+ *    clause that denies it, or "without your consent" with no negation of its own, it says the promise again, and
+ *    main's floor decides ("It is not true that analytics are collected without your consent." and "It is not true that
+ *    analytics are not collected only with your consent." fail: Codex on #1618; "It is not true that server events do
+ *    not require your consent." passes, as on main). "until you allow" promises whatever its own negation ("No
+ *    analytics run until you allow them.", "We do not collect analytics until you allow them.").
  *    The consent is bound to the analytics' own operation: another (ANOTHER_OPERATION: sharing, selling, exporting,
  *    deleting, erasing, disclosing, transferring, publishing, showing, displaying, revealing, renting, licensing,
  *    downloading), as a gerund subject in every form ("Sharing analytics data with another user requires your
@@ -841,10 +842,18 @@ const deniesItsClause = (subject: NounPhrase | null) =>
     with your consent.", "Analytics are not, as a rule, collected only with your consent.", "Server events do not in any
     case require your consent."). "Not X but Y" affirms Y, as BUT_AFFIRMS reads it for logging out: a "but" or "yet"
     between the verb and the wait takes the denial off ("Analytics are not collected when you visit, but only after you
-    allow them."). */
+    allow them."), and so does "only" set off by a mark, a comma, a dash, a bracket, a semicolon or a colon, with
+    "rather", "instead" or "and" between at most, said in contrast with no "but" ("Analytics are not collected
+    automatically, only after you consent.": Codex on #1618; "- only", "(only", ", rather only"), while a mark before
+    anything else sets no contrast ("We do not collect analytics, usage data or events only with your consent."). */
 function denied(reading: Reading, p: Said, wait: Wait): boolean {
   const governing = governs(reading, p, wait.at)
-  if (!governing || reading.tokens.slice(governing.group.verb, wait.at).some((t) => /^(?:but|yet)$/i.test(t.text))) return false
+  const between = reading.tokens.slice(governing?.group.verb ?? 0, wait.at)
+  const only = between.map((t) => t.lower).lastIndexOf('only')
+  let mark = only - 1
+  while (mark >= 0 && /^(?:rather|instead|and)$/i.test(between[mark].text)) mark--
+  const contrast = between.some((t) => /^(?:but|yet)$/i.test(t.text)) || (only > 0 && mark >= 0 && /^[,;:(\-\u2013\u2014]$/.test(between[mark].text))
+  if (!governing || contrast) return false
   // A denied subject and a denied verb cancel ("No analytics are not collected only with your consent." promises).
   return governing.own ? deniedPlainly(reading, p.group) !== deniesItsClause(p.subject) : deniedPlainly(reading, governing.group)
 }
@@ -2638,6 +2647,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // Codex on #1618: over a clause that denies the promise, a negation from outside says it again.
       ['<p>It is not true that analytics are not collected only with your consent.</p>', true],
       ['<p>It is not the case that usage data is not sent without your permission.</p>', false],
+      // Codex on #1618: "only" set off by a mark sets the promise apart from the denial before it; a list before
+      // "only" sets nothing apart.
+      ['<p>Analytics are not collected automatically, only after you consent.</p>', true],
+      ['<p>Analytics are not collected automatically - only after you consent.</p>', true],
+      ['<p>Analytics are not collected automatically (only after you consent).</p>', true],
+      ['<p>We do not collect analytics, usage data or events only with your consent.</p>', false],
       // Two negations in one clause cancel: a denied subject and a denied verb, or two in the verb group.
       ['<p>No analytics are not collected only with your consent.</p>', true],
       ['<p>Analytics are never not collected only with your consent.</p>', true],
