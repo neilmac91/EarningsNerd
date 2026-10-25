@@ -2565,6 +2565,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Account events are exported into PostHog only after you allow it.</p>', true],
       ['<p>Server events require your consent before we display them in PostHog.</p>', true],
       ['<p>Account events require your consent to show up in PostHog.</p>', true],
+      ['<p>We require your consent to share account events every day with PostHog.</p>', true],
+      ['<p>We never share account events without your consent with PostHog.</p>', true],
       // The floor's cost: a wait the reader reads in no predication (here a condition after an ellipsis) fails as on
       // main, whatever it binds the consent to.
       ['<p>Sharing analytics data requires your consent, and so does exporting it, until you allow it.</p>', true],
