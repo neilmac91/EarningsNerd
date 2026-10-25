@@ -34,6 +34,7 @@ export const ACCOUNT_QUERY_FAMILIES = [
   queryKeys.authConnections(),
   queryKeys.adminInvites(),
   queryKeys.adminFeedback.all(),
+  queryKeys.feedback.all(),
 ] as const
 
 /** Drop identity-derived snapshots before a replacement identity can be accepted.

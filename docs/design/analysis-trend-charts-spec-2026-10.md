@@ -300,7 +300,26 @@ says so; everything else follows the spec.
     - It runs at DPR 1 under full hinting, the harder case for D1 and D8, where §6 names DPR 2.
     - The unit fixtures lose their wire `data_notes`, which describe the full datasets the audit rebuilt and which the
       page's contract therefore refuses; the page groups the notes from the points, as for any dataset without them.
-  - M15 and the swap of `analysis-layout.spec.ts` stay with E194.
+  - `frontend/tests/e2e/analysis-layout.spec.ts`, the analysis page's layout gate, runs in that job too and reads the
+    charts through `fixtures/trendChartDom.ts`: the renderer's `data-text` and `data-plot` with the flag set, today's
+    Recharts layers without it. On the renderer, every chart prints all twelve quarters and keeps its marks whatever
+    the metrics table shows; y tick labels sit inside their axis on one line; no chart scrolls at a desktop card's
+    width, in Swiss francs too (M6); and a phone's quarter keeps `MIN_SLOT`. Recharts' keyboard and notes case runs on
+    Recharts alone, and step 7 retires it (E195).
+- **M15** (`frontend/tests/unit/chart-table-agreement.spec.ts`) holds every value a chart prints on the 19 datasets,
+  card and expanded at 342, 502 and 1030 px, to the metrics table's cell for the same figure: bar and growth labels,
+  A13b labels, off-scale values, strip cells, legend values and the tooltip's readouts. "Rounded to the metrics-table
+  precision" is read as: both strings could print one value, less than half a unit of each one's last digit apart,
+  since the chart is often the coarser ("$16B" on a phone's bar, "$16.1B" in the table) and a coarser string cannot
+  be rounded finer. Rounding both to the coarser precision fails correct pairs too: the true $89.498B prints "$89B"
+  and "$89.5B", and "$89.5B" rounds to $90B. Each chart string is also held within half its own unit of the true
+  value. A growth value agrees with the YoY the table prints, since the growth panel is YoY, where a quarterly table
+  shows QoQ when it has it.
+  - M15 found the engine rounding a value on an exact decimal half down: it rounded on the binary double (`toFixed`;
+    $143.35M is 143.3499… as a double), where the table rounds the decimal half away from zero (Intl). `scale.ts`'s
+    `fixed` now rounds as the table does, so PLUG's 2024Q2 revenue reads "$143.4M" in its tooltip as in the table,
+    and the values on a half in five of the golden plans moved away from zero (REGN's FY2025 free cash flow,
+    $4,080.5M, reads "$4.081B"). Today's Recharts tooltips and axes take the same formats.
 - **The tokens (step 6, E194).** §3.8's Token change list is taken as far as it leaves production as it is until F66:
   - Tailwind holds the renderer's colours as pairs of their own: `chart.s1…s6` (light halves `chart-1…6`, dark halves
     the table's), `chart.tick` (`#636A77`, and `#B8BEC7`, the table's `chart.label.dark`), `chart.value` (`#374151`
@@ -318,8 +337,8 @@ says so; everything else follows the spec.
   - `DESIGN.md` (item 3) records the pairs as omitted from its frontmatter until they ship, so its sidecar, which
     copies the frontmatter, is unchanged. DS §1 and §10 name the pairs (item 4). Of item 5, DS §10's paragraph on the
     renderer states its inks; the rewrites of today's contract (hollow markers, the crosshair, "dark labels use
-    `secondary`" and †) belong to E195 with the charts they describe, and the font-loader note to E199 with the
-    loader. Item 6 is E199, and item 7 E195.
+    `secondary`" and †) belong to E195 with the charts they describe, and the font-loader note came with the loader
+    (item 6, E199: "Fonts (E199)" below). Item 7 is E195's.
   - `tests/unit/chart-apca.spec.ts` recomputes every Lc the tables print, the Source column's included, and holds
     every token to its floor in both themes, on the card and under the column wash (`cursor`, which the table leaves
     unmeasured). The narrowest clear their floors by less than half a point, on the dark wash: the tick ink at
@@ -330,15 +349,30 @@ says so; everything else follows the spec.
   (chosen from the 73 for their cases, trimmed to the plotted concepts and their quality fields, values unchanged),
   for every chart and both views, at 342, 502 and 1030 px. Golden plans for REGN, LCID, PLUG, BYND, JPM and PGR are
   in `tests/unit/fixtures/chart-golden/`. Before landing, the same checks passed on the audit's 75 datasets (600
-  tests). M14 and M19 run on the renderer (above); M15 is E194's, and M20 stays out of the product.
+  tests). M14, M15 and M19 run on the renderer (above), and M20 stays out of the product.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet
   the script cannot read (one served from another origin), the export stops with an error toast rather than paint a
   fallback. `tests/e2e/chart-export-fidelity.spec.ts` holds E1 for every panel in both themes, in Chromium, the one
   browser CI runs (at most 0.1% of plot pixels may differ by more than 25 in a channel; the worst panel measured
-  0.011%, and 1.5–1.7% with the faces left out). Safari and Firefox are not yet checked; F66's preview check covers them. The plan's `latin-ext` preload is not taken: the export reads the faces itself, so the preload would only
-  spare the screen a brief swap of the † glyph, for 14.7 KB more on every route's critical path.
+  0.011%, and 1.5–1.7% with the faces left out). Safari and Firefox are not yet checked; F66's preview check covers them.
+- **Fonts (E199).** `app/fonts.ts` takes G1's fallback (`adjustFontFallback: false` and the monospace list), so a face
+  still loading paints in a monospace one, and keeps `subsets: ['latin']`. `subsets` chooses only the files `next/font`
+  preloads, and the root layout preloads them on every route; every subset's face is declared with its `unicode-range`
+  either way. A `latin-ext` preload would put 14.7 KB more on every route's critical path for glyphs only the analysis
+  surfaces print, and would make † likely, not certain, before first paint. G3's purpose is met by G4's wait instead:
+  it loads and checks `11px "Geist Mono"` with the text `0†₹₪₱`. The Font Loading API picks a family's faces by their
+  `unicode-range`, and with no text it takes a space, so G4's call as written waits for the latin face alone. With the
+  sample the plots paint once the latin face and the latin-ext one (†, and the ₹, ₪ and ₱ that `moneyPrefix` prints)
+  are both in, or 1,500 ms pass, so † never swaps after a plot's first paint, and no other route fetches latin-ext
+  before its text needs it. The export embeds the faces itself, so it needs no preload either.
+  - `trend-charts-v2.spec.tsx` holds the sample to every glyph outside the latin face that the engine prints over the
+    ISO 4217 list, and `designSystemDoneGate.spec.ts` holds the loader's two options.
+  - Outside the plots, a † or a foreign sign set in the data face (the KPI strip, the metrics table, the card's
+    footnotes) can still swap once on a cold cache, now between two monospace faces.
+  - ₩ (KRW) and ₫ (VND) are in no Geist Mono subset, so a panel in either prints its sign in the fallback, a glyph
+    G2 bans (E203).
 - **What this spec supersedes, and when.** When the renderer replaces today's charts (report §10, step 7), this spec
   replaces three rules of `docs/design/analysis-data-notes-redesign-2026-10.md` §4.7 for the four trend charts. Note
   letters move off the plot into the notes band (§3.3), and review letters take «t.review»: in the band they sit on
@@ -1616,7 +1650,8 @@ Run scope:
 
 - **Model checks:** 73 datasets × 4 charts × {card, expanded} × {light, dark}.
 - **DOM and export checks:** the gallery (73 datasets plus REGNPN), both modes and both themes, card and expanded,
-  at 1280×900, DPR 2; plus the 390 px phone subset for M6 and D9.
+  at 1280×900, DPR 2; plus the 390 px phone subset for M6 and D9. The repository's gallery runs at DPR 1 under full
+  font hinting instead, the harder case for D1 and D8 (§0.5).
 - **Gallery failure count** = the number of (image, check) pairs that fail. A spec-conformant build scores 0.
 
 What the verified prototype ran (report §9), all at 0 failures: D1, D2, D3, the coloured-spine part of D4, M8's card

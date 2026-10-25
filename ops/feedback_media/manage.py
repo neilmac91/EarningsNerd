@@ -10,8 +10,10 @@ import argparse
 import copy
 import json
 import subprocess
+import sys
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -451,9 +453,21 @@ def inspect(cloud: Cloud) -> bool:
     return ready and succeeded and probe_succeeded and schedule_ready and monitoring_ready
 
 
+def require_live_verification(cloud: Cloud, service: dict) -> None:
+    # The optional verifier is an Ops dependency only; production request handlers never import
+    # it or connect to its isolated database. Resolve the reviewed checkout for direct CLI use.
+    root = str(Path(__file__).resolve().parents[2])
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from ops.feedback_media.verify_manage import require_receipt
+    require_receipt(cloud, service)
+
+
 def set_enabled(cloud: Cloud, service: dict, enabled: bool) -> None:
     if enabled and not inspect(cloud):
         raise OperationError("Private storage and successful scheduled cleanup are required before enabling")
+    if enabled:
+        require_live_verification(cloud, service)
     containers = copy.deepcopy(service["template"]["containers"])
     if len(containers) != 1:
         raise OperationError("Expected one API container")

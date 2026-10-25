@@ -149,6 +149,20 @@ SEAM = ("ops/describe/service.py", "gcloud_json")
 LOCAL_COMMAND = ("ops/dev/verify.py", "run_command", "Popen")
 # Modules that start child processes outside the subprocess/os calls this gate inspects.
 CHILD_MODULES = {"pty", "asyncio", "multiprocessing"}
+# This fixed, hash-bound source is passed to Cloud Run on the serving app image, never run in
+# the Actions interpreter. Its only asyncio uses coordinate ASGI requests; subprocesses remain
+# subject to the same withheld-stderr gate below.
+FEEDBACK_RUNTIME = "ops/feedback_media/verify_runtime.py"
+FEEDBACK_RUNTIME_IMPORTS = {
+    "sqlalchemy.engine", "sqlalchemy", "psycopg2", "uvicorn", "main", "app.database", "app.models",
+    "app.models.feedback", "app.services.feedback_storage_worker_service", "app.services.password_utils",
+    "app.services.feedback_media_cleanup_service", "app.services.user_account_service", "app.utils.datetimes",
+    "app.services.request_work",
+}
+OPS_SIBLING_IMPORTS = {
+    "ops/feedback_media/manage.py": {"ops.feedback_media.verify_manage"},
+    "ops/feedback_media/verify_manage.py": {"manage"},
+}
 # Public modules in 3.11's sys.stdlib_module_names that 3.12 or 3.13 removed: CI's interpreter still lists them; the
 # runner's python3 (3.12 today) lacks the first five, and a 3.13 runner would lack the rest too.
 REMOVED_AFTER_311 = {
@@ -709,8 +723,16 @@ def test_ops_modules_never_let_a_child_process_inherit_stderr():
         for node in ast.walk(tree):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""]
-                assert not {name.split(".")[0] for name in names} & CHILD_MODULES, (
+                forbidden = {name.split(".")[0] for name in names} & CHILD_MODULES
+                if module == FEEDBACK_RUNTIME and isinstance(node, ast.Import) and names == ["asyncio"]:
+                    assert all(alias.asname is None for alias in node.names)
+                    forbidden -= {"asyncio"}
+                assert not forbidden, (
                     f"{path}:{node.lineno}: {names} starts child processes this gate does not inspect")
+            if module == FEEDBACK_RUNTIME and isinstance(node, ast.Name) and node.id == "asyncio":
+                parent = parents.get(node)
+                assert isinstance(parent, ast.Attribute) and parent.attr in {"Lock", "timeout"}, (
+                    "the verification runtime's asyncio exception permits locks/deadlines, never subprocesses")
             if isinstance(node, ast.ImportFrom) and node.module in ("subprocess", "os", "pty"):
                 assert node.module == "os" and not any(OS_SPAWNERS.fullmatch(a.name) for a in node.names), path
             if isinstance(node, ast.Import):  # an alias would hide a call from this gate
@@ -756,17 +778,23 @@ def test_ops_modules_never_let_a_child_process_inherit_stderr():
 
 def test_ops_modules_import_only_the_standard_library():
     for path in _ops_modules():
+        module = path.relative_to(ROOT).as_posix()
         # A script's own directory is sys.path[0], so a file named like a standard module would shadow it.
         assert path.stem not in sys.stdlib_module_names, f"{path} shadows the standard library's {path.stem}"
         for node in ast.walk(ast.parse(path.read_text())):
             if isinstance(node, ast.Import):
                 names = [alias.name for alias in node.names]
             elif isinstance(node, ast.ImportFrom):
+                if module == "ops/feedback_media/verify_manage.py" and node.level == 1 and node.module is None:
+                    assert [(alias.name, alias.asname) for alias in node.names] == [("manage", "media")]
+                    continue  # The same reviewed sibling supports direct CLI and package loading.
                 assert node.level == 0, f"{path}: ops.yml runs this file as a script; no relative import"
                 names = [node.module]
             else:
                 continue
             for name in names:
+                if name in OPS_SIBLING_IMPORTS.get(module, set()) or (module == FEEDBACK_RUNTIME and name in FEEDBACK_RUNTIME_IMPORTS):
+                    continue
                 assert name.split(".")[0] in sys.stdlib_module_names, f"{path}: {name} is not in the standard library"
                 assert name.split(".")[0] not in REMOVED_AFTER_311, f"{path}: {name} is gone from Python 3.12 or 3.13"
 

@@ -54,9 +54,10 @@ import TrendChartsV2 from '@/features/analysis/components/TrendChartsV2'
 import type { TextRole } from '@/features/analysis/components/TrendChartSvg'
 import { plannedByRole } from './chartPlan'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { exportPanelPng } from '@/features/analysis/lib/chartExport'
+import { exportPanelPng, parseUnicodeRange } from '@/features/analysis/lib/chartExport'
 import { ADVANCE, CARD_HEIGHT, gutterCover, gutterCuts, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
+import { moneyPrefix } from '@/features/analysis/lib/charts/scale'
 import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/theme'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { resolveDataNotes } from '@/features/analysis/lib/dataNotes'
@@ -396,7 +397,7 @@ describe('the card around the plot', () => {
   })
 })
 
-describe('the plot waits for its font (G4)', () => {
+describe('the plot waits for its font (G4), latin-ext included (G3)', () => {
   const plots = (container: HTMLElement) => container.querySelectorAll('[data-analysis-chart] > svg').length
   const withFonts = (fonts: Partial<FontFaceSet>) => Object.defineProperty(document, 'fonts', { configurable: true, value: fonts })
 
@@ -410,7 +411,7 @@ describe('the plot waits for its font (G4)', () => {
     const load = vi.fn(() => new Promise<FontFace[]>((resolve) => { loaded = () => resolve([]) }))
     withFonts({ check: () => false, load })
     const { container } = render(<TrendChartsV2 dataset={dataset('AAPL_annual')} exportEnabled />)
-    expect(load).toHaveBeenCalledWith('11px "Geist Mono"')
+    expect(load).toHaveBeenCalledWith('11px "Geist Mono"', expect.stringContaining('†'))
     expect(plots(container)).toBe(0)
     const box = container.querySelector<HTMLElement>('[data-analysis-chart]')!
     expect(box.style.height).toBe('320px')
@@ -430,12 +431,35 @@ describe('the plot waits for its font (G4)', () => {
     expect(plots(container)).toBe(CHART_IDS.length)
   })
 
-  it('paints at once when the face is already loaded', () => {
+  it('paints at once when the face is already loaded, latin-ext included', () => {
     const load = vi.fn()
-    withFonts({ check: (face: string) => face === '11px "Geist Mono"', load })
+    withFonts({ check: (face: string, text?: string) => face === '11px "Geist Mono"' && Boolean(text?.includes('†')), load })
     const { container } = render(<TrendChartsV2 dataset={dataset('AAPL_annual')} />)
     expect(plots(container)).toBe(CHART_IDS.length)
     expect(load).not.toHaveBeenCalled()
+  })
+
+  it('waits for latin-ext while the latin face alone is in (G3)', () => {
+    // A check with no text asks for a space, so the latin face alone; with † it asks for latin-ext too.
+    const load = vi.fn(() => new Promise<FontFace[]>(() => {}))
+    withFonts({ check: (_face: string, text?: string) => text === undefined, load })
+    const { container } = render(<TrendChartsV2 dataset={dataset('AAPL_annual')} />)
+    expect(plots(container)).toBe(0)
+    expect(load).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks for the latin face and every glyph past it that the plot can print and Geist Mono draws (G3)', () => {
+    const load = vi.fn((_face: string, _text?: string) => new Promise<FontFace[]>(() => {}))
+    withFonts({ check: () => false, load })
+    render(<TrendChartsV2 dataset={dataset('AAPL_annual')} />)
+    const text = load.mock.calls[0][1] ?? ' '
+    // The unicode-range next/font emits for Geist Mono's latin face, the one file app/fonts.ts preloads.
+    const latin = parseUnicodeRange('U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD')
+    const inLatin = (glyph: string) => latin.some(([start, end]) => glyph.codePointAt(0)! >= start && glyph.codePointAt(0)! <= end)
+    const notInGeistMono = new Set(['₩', '₫']) // in latin-ext's range, in no subset's file: they paint in the fallback (E203)
+    const printable = ['†', ...Intl.supportedValuesOf('currency').flatMap((code) => [...moneyPrefix(code)])]
+    expect([...text].some(inLatin), 'the sample names the latin face').toBe(true)
+    expect([...new Set(printable)].filter((glyph) => !inLatin(glyph) && !notInGeistMono.has(glyph) && !text.includes(glyph))).toEqual([])
   })
 })
 

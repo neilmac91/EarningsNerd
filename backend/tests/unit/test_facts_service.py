@@ -808,6 +808,21 @@ class TestExtractAuthoritative:
         ]}}}}}
         assert ("revenue", date(2024, 9, 30)) not in svc.extract_authoritative_values(cf)
 
+    @pytest.mark.parametrize("form", ["DEF 14A", "PRE 14C"])
+    def test_a_later_proxy_item_is_never_the_authority(self, form):
+        # FedEx's shape: the 10-K's FY2025 net income, then a proxy's pay-versus-performance table
+        # listed after it, in dollars rather than millions. The 10-K's value stays the authority, so
+        # the cross-check confirms a parsed 10-K figure instead of replacing it with 4,092 dollars.
+        year = {"start": "2024-06-01", "end": "2025-05-31"}
+        cf = {"facts": {"us-gaap": {"NetIncomeLoss": {"units": {"USD": [
+            {**year, "val": 4_092e6, "form": "10-K", "filed": "2025-07-20"},
+            {**year, "val": 4_092.0, "form": form, "filed": "2025-08-11"},
+        ]}}}}}
+        auth = svc.extract_authoritative_values(cf)
+        assert auth == {("net_income", date(2025, 5, 31)): 4_092e6}
+        out = svc.cross_check_facts([_cfact("net_income", 4_092e6, period_end=date(2025, 5, 31))], auth)
+        assert (out[0]["value"], out[0]["source"]) == (4_092e6, "edgar_xbrl")
+
 
 def _cfact(concept, value, reconciled=True, period_end=date(2024, 12, 31)):
     return {

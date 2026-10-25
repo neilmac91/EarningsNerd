@@ -73,6 +73,11 @@ export default function FeedbackRow({ feedback, detailsOpen, onViewDetails }: Fe
           <span id={messageId} className="block truncate">{feedback.message}</span>
           <span className="mt-1 block text-xs underline underline-offset-2">View details</span>
         </button>
+        {!!feedback.attachment_count && (
+          <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+            {feedback.attachment_count} {feedback.attachment_count === 1 ? 'screenshot' : 'screenshots'}
+          </p>
+        )}
       </td>
       <td className="px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
         {feedback.page_url ? (

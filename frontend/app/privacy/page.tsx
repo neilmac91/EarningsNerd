@@ -30,7 +30,7 @@ export default function PrivacyPage() {
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li><strong>Accounts and access requests:</strong> Email address, any name supplied, password hash, preferences and waitlist details.</li>
             <li><strong>Product use:</strong> Searches, saved summaries, watchlists, usage records, AI questions and conversation text.</li>
-            <li><strong>Correspondence:</strong> Contact details and messages sent through forms or email.</li>
+            <li><strong>Correspondence:</strong> Contact details and messages sent through forms or email. Feedback can include links and optional screenshots, stored privately for you and authorized administrators to review.</li>
             <li><strong>Billing:</strong> Subscription and payment references. Stripe handles payment details; EarningsNerd does not store complete card numbers.</li>
             <li><strong>Technical information:</strong> Browser, device, IP address and request information, account identifiers, diagnostic and security records. Some records include account email.</li>
           </ul>
@@ -128,6 +128,7 @@ export default function PrivacyPage() {
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li><strong>Account and saved records:</strong> Kept while your account exists, unless removed through available controls or a privacy request. Inactivity alone does not trigger deletion.</li>
             <li><strong>Search history and contact submissions:</strong> Records older than 365 days are eligible for scheduled cleanup.</li>
+            <li><strong>Feedback screenshots:</strong> Available for 180 days, with earlier access removal when your account is deleted. An hourly cleanup process targets removal from active storage within 24 hours and tries again when a deletion fails. Feedback messages are retained separately; the screenshot limit does not delete the message.</li>
             <li><strong>Waitlist:</strong> Entries remain until removed; request removal at the privacy address.</li>
             <li><strong>Billing, usage and security records:</strong> Some remain after account deletion. Retention depends on the record&apos;s purpose, payment or dispute administration, security investigations and applicable legal obligations. Audit records can retain account identifiers and email.</li>
             <li><strong>Provider records and backups:</strong> Separate provider retention and backup settings apply. Contact the privacy address for information about a particular record or deletion request.</li>
@@ -153,7 +154,7 @@ export default function PrivacyPage() {
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
             Available account updates, deletion and a JSON export are in{' '}
             <Link href="/dashboard/settings" className="text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Account Settings</Link>.
-            The export covers records available through that feature, rather than every provider&apos;s records.
+            The export covers records available through that feature, including your retained feedback and screenshot metadata with authenticated individual download paths. Screenshot files are downloaded separately while available; the JSON export does not contain the images or every provider&apos;s records.
             Requests may require proportionate identity verification. Requests and complaints are reviewed,
             investigated as appropriate, and answered within applicable legal deadlines, with an explanation
             of any permitted extension or refusal and available appeal route.
