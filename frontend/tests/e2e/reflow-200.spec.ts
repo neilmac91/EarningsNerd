@@ -2237,15 +2237,16 @@ for (const viewport of [{ width: 1024, height: 768 }, { width: 1440, height: 900
             return { top, bottom, left, right }
           }
           const list = el.querySelector('ul')!
+          const viewport = list.parentElement!
           return {
             screen: { top: 0, left: 0, bottom: document.documentElement.clientHeight, right: document.documentElement.clientWidth },
             rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
             panel: box(el),
             title: box([...el.querySelectorAll('p')].find((p) => p.textContent === 'Notifications')!),
             settings: box([...el.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'Manage alert settings')!),
-            list: box(list),
+            list: box(viewport),
             last: box(list.querySelector('li:last-child a')!),
-            overflow: list.scrollHeight - list.clientHeight,
+            overflow: viewport.scrollHeight - viewport.clientHeight,
           }
         })
       const within = (what: string, inner: Box, outer: Box, where: string) => {
@@ -2264,7 +2265,8 @@ for (const viewport of [{ width: 1024, height: 768 }, { width: 1440, height: 900
       const lines = await headerMenuFit(page, 'Notifications')
       expect(lines.problems, `${at}: no line of the panel's text paints past the screen's sides`).toEqual([])
       await panel.getByRole('list').evaluate((list) => {
-        list.scrollTop = list.scrollHeight
+        const viewport = list.parentElement!
+        viewport.scrollTop = viewport.scrollHeight
       })
       const end = await read()
       within('the last alert, the list scrolled to its end,', end.last, end.list, 'the list')
@@ -2383,15 +2385,16 @@ for (const state of [
           const barStyle = getComputedStyle(bar)
           const barBox = bar.getBoundingClientRect()
           const list = el.querySelector('ul')!
+          const viewport = list.parentElement!
           return {
             screen: { top: 0, left: 0, bottom: document.documentElement.clientHeight, right: document.documentElement.clientWidth },
             content: { left: barBox.left + parseFloat(barStyle.paddingLeft), right: barBox.right - parseFloat(barStyle.paddingRight) },
             panel: box(el),
             title: box([...el.querySelectorAll('p')].find((p) => p.textContent === 'Notifications')!),
             settings: box([...el.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'Manage alert settings')!),
-            list: box(list),
+            list: box(viewport),
             last: box(list.querySelector('li:last-child a')!),
-            overflow: list.scrollHeight - list.clientHeight,
+            overflow: viewport.scrollHeight - viewport.clientHeight,
             cut: [...list.querySelectorAll('a > span:last-child > span')].filter((line) => line.scrollWidth > line.clientWidth + 1).map((line) => line.textContent),
             // An alert's date, the text after its " · ", read as a range over the line's text, so it is found however
             // the line is marked up: its fragments' tops more than 2px apart put it on two lines.
@@ -2441,7 +2444,8 @@ for (const state of [
       const lines = await headerMenuFit(page, 'Notifications')
       expect(lines.problems, `${at}: no line of the panel's text paints past the screen's sides`).toEqual([])
       await panel.getByRole('list').evaluate((list) => {
-        list.scrollTop = list.scrollHeight
+        const viewport = list.parentElement!
+        viewport.scrollTop = viewport.scrollHeight
       })
       const end = await read()
       within('the last alert, the list scrolled to its end,', end.last, end.list, 'the list')
