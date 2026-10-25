@@ -46,6 +46,13 @@ its full selector, a rule inside @media or @supports, @font-face, and @page's ma
    @font-face names a file that exists and whose italic bit (OS/2 fsSelection bit 0, read with
    fontTools) matches the style it is declared as, and in each rendered PDF every font WeasyPrint
    embeds for text the stylesheet sets italic (its descriptor's Italic flag) is an italic program.
+6. Every glyph prints in a vendored face (WP3-A): the export inspection found 52 daggers, 2 arrows and 614
+   list bullets set in DejaVu, since the latin subsets of Inter and Geist Mono lack †, → and ◦. Inter's
+   symbols face carries them, the data face's stack falls back to Inter before the system's monospace,
+   and a nested list takes the disc (•, in Inter's latin subset) instead of WeasyPrint's circle. So every
+   font each rendered PDF embeds, whatever kind of program, is of a vendored face's family (Inter Var or
+   Geist Mono), over both fixtures and an analysis whose narrative, grid, count line and nested operand
+   list print each of those marks, and every marker of a nested list is the disc.
 
 The planted forms in test_the_checks_read_what_they_claim score each reader of the source (stylesheet,
 attributes, faces, workbook, module literals) on the forms its rule can take and on look-alikes that
@@ -628,6 +635,93 @@ def test_every_font_asked_for_italic_embeds_an_italic_program():
     upright = [font for font, asked, italic in embedded_fonts(weasyprint.HTML(string=roman_only).write_pdf(uncompressed_pdf=True))
                if asked and not italic]
     assert upright and all(font.endswith("Inter-Var-Oblique") for font in upright), upright
+
+
+# WeasyPrint writes the family a run resolved to as its font descriptor's /FontFamily: the vendored faces'.
+VENDORED_FAMILIES = frozenset({"Inter Var", "Geist Mono"})
+_SYMBOLS_FACE = re.compile(r"@font-face \{[^}]*Inter-Variable-symbols\.woff2[^}]*\}")
+
+
+def embedded_font_families(pdf: bytes) -> list[str]:
+    """The family of every font an uncompressed WeasyPrint PDF embeds, whatever kind of program it is
+    (embedded_fonts reads TrueType programs alone): each font descriptor's /FontFamily, a literal or a
+    UTF-16 hex string, and "Type 3" for each Type 3 font, which carries none."""
+    families = []
+    for literal, hexed in re.findall(rb"/Type /FontDescriptor/FontName /[^/\s]+/FontFamily (?:\(([^)]*)\)|<([0-9A-Fa-f]*)>)", pdf):
+        families.append(bytes.fromhex(hexed.decode()).decode("utf-16") if hexed else literal.decode("latin-1"))
+    assert len(families) == pdf.count(b"/Type /FontDescriptor"), "a font descriptor this reader did not read"
+    return families + ["Type 3"] * len(re.findall(rb"/Subtype /Type3\b", pdf))
+
+
+def foreign_fonts(html: str) -> list[str]:
+    """The families an uncompressed render of ``html`` embeds that no vendored face declares."""
+    import weasyprint
+
+    families = embedded_font_families(weasyprint.HTML(string=html).write_pdf(uncompressed_pdf=True))
+    assert families, "the render embeds no font this reader found"
+    return sorted(set(families) - VENDORED_FAMILIES)
+
+
+def list_markers(html: str) -> dict[int, set[str]]:
+    """Each list marker's text in a render of ``html``, by how many lists hold its item (1: a top-level list)."""
+    import weasyprint
+    from weasyprint.formatting_structure import boxes
+
+    found: dict[int, set[str]] = {}
+
+    def walk(box, lists: tuple[int, ...]) -> None:
+        if getattr(box, "element_tag", None) in ("ul", "ol") and id(box.element) not in lists:
+            lists = (*lists, id(box.element))
+        if isinstance(box, boxes.TextBox) and box.element_tag == "li::marker":
+            found.setdefault(len(lists), set()).add(box.text)
+        for child in getattr(box, "children", ()):  # an absolute placeholder hands on its box's children
+            walk(child, lists)
+
+    for page in weasyprint.HTML(string=html).render().pages:
+        walk(page._page_box, ())
+    return found
+
+
+def _every_mark_analysis() -> str:
+    """The analysis PDF with each mark the latin subsets lack in reach: an arrow in the narrative (the trend
+    detectors join a move with " → "), a calculated figure, whose dagger follows it in the grid's data face
+    and in the data notes' count line, and an operand with an operand of its own, a list in the methods list."""
+    analysis = export_fixtures.TestAnalysisPdfHtml()._analysis()
+    analysis.narrative_md = "Net margin moved 20.0% → 24.3% [2]."
+    analysis.dataset_json["series"][0]["points"][2]["provenance"] = {
+        "method": "calculated", "validation": "passed", "reasons": [], "formula": "annual_minus_ytd",
+        "inputs": [{"concept": "revenue", "value": 2500, "unit": "USD", "provenance": {
+            "method": "calculated", "validation": "passed", "formula": "sum",
+            "inputs": [{"concept": "product_revenue", "value": 2000, "unit": "USD"}]}}],
+    }
+    html = ExportService().generate_analysis_pdf_html(analysis, export_fixtures.TestAnalysisPdfHtml()._company())
+    assert "→" in html and '$1,500 †</td>' in html and "calculated †" in html and '<ul class="operands">' in html
+    return html
+
+
+def test_every_glyph_prints_in_a_vendored_face():
+    weasyprint = pytest.importorskip("weasyprint")
+    pdfs = {**_pdfs(), "analysis with every mark": _every_mark_analysis()}
+    try:
+        rendered = {name: weasyprint.HTML(string=html).write_pdf(uncompressed_pdf=True) for name, html in pdfs.items()}
+    except Exception as exc:  # missing system libs in odd envs: not what this test reads
+        pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
+    families = {name: embedded_font_families(pdf) for name, pdf in rendered.items()}
+    assert all(families.values()), families  # the reader found the fonts
+    assert {name: sorted(set(found) - VENDORED_FAMILIES) for name, found in families.items()} == {name: [] for name in pdfs}
+    markers = list_markers(pdfs["analysis with every mark"])
+    assert markers[2] == {"• "} and "• " in markers[1], markers  # the operands list sits in the methods list
+
+    # Planted: the same PDF without the symbols face sets the dagger and the arrow in DejaVu; with the data
+    # face's stack as it was, the grid's dagger takes the system's monospace; without the disc rule a nested
+    # list prints WeasyPrint's circle.
+    every_mark = pdfs["analysis with every mark"]
+    no_symbols = _SYMBOLS_FACE.sub("", every_mark, count=1)
+    old_stack = every_mark.replace("'Geist Mono', 'Inter Var', monospace", "'Geist Mono', monospace")
+    no_disc = every_mark.replace("ul ul { list-style-type: disc; }", "")
+    assert no_symbols != every_mark and old_stack != every_mark and no_disc != every_mark
+    assert foreign_fonts(no_symbols) and foreign_fonts(old_stack), "a fallback face must read as foreign"
+    assert foreign_fonts(no_disc) == [] and list_markers(no_disc)[2] == {"◦ "}  # the face covers ◦: only the marker reads it
 
 
 PLANTED_STYLES = """

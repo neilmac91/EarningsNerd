@@ -6,7 +6,8 @@ apart (owner decision D4, export-overhaul plan). The shell owns:
 
 - ``@font-face`` for the vendored brand fonts (Inter variable, its roman and its italic, and Geist
   Mono, all OFL: files under ``app/assets/fonts/`` with absolute ``file://`` URLs, never
-  cwd-relative, since agent/CI/Cloud Run working directories differ).
+  cwd-relative, since agent/CI/Cloud Run working directories differ), plus Inter's symbols face for
+  the marks the latin subsets lack (SOURCES.txt records each file's source).
 - ``@page`` chrome: A4 portrait default with the running document title, the
   "EarningsNerd · earningsnerd.io" footer and "Page X of Y" counters, plus the
   ``metrics-landscape`` NAMED PAGE — a section carrying ``class="metrics-landscape"`` starts on
@@ -93,6 +94,9 @@ def font_face_css() -> str:
     # WeasyPrint never slants a face it lacks, so the wordmark's "Nerd" and a quote print italic only
     # from Inter's own italic (the same 4.001 build, latin subset, as the roman).
     inter_italic = (_ASSETS / "fonts" / "Inter-Variable-Italic-latin.woff2").as_uri()
+    # The marks the latin subsets lack (dagger and double dagger, the four arrows, the white bullet), cut
+    # from the same 4.001 build: without it they printed in DejaVu (SOURCES.txt records the cut).
+    inter_symbols = (_ASSETS / "fonts" / "Inter-Variable-symbols.woff2").as_uri()
     geist_mono = (_ASSETS / "fonts" / "GeistMono-latin.woff2").as_uri()
     return f"""
 @font-face {{
@@ -100,6 +104,13 @@ def font_face_css() -> str:
   src: url('{inter}') format('woff2');
   font-weight: 100 900;
   font-style: normal;
+}}
+@font-face {{
+  font-family: 'Inter Var';
+  src: url('{inter_symbols}') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  unicode-range: U+2020-2021, U+2190-2193, U+25E6;
 }}
 @font-face {{
   font-family: 'Inter Var';
@@ -117,7 +128,11 @@ def font_face_css() -> str:
 
 
 def shell_css() -> str:
-    """Page chrome + shared typography. Body builders add their own layout via extra_css."""
+    """Page chrome + shared typography. Body builders add their own layout via extra_css.
+
+    The data face's stack names Inter before the system's monospace, so a mark Geist Mono lacks (a dagger
+    after a figure) takes the brand's sans, never DejaVu Sans Mono; 'DejaVu Sans' stays the sans stack's
+    declared last resort."""
     p = PALETTE
     return f"""
 @page {{
@@ -137,7 +152,7 @@ def shell_css() -> str:
   }}
   @bottom-right {{
     content: "Page " counter(page) " of " counter(pages);
-    font-family: 'Geist Mono', monospace;
+    font-family: 'Geist Mono', 'Inter Var', monospace;
     font-size: 8pt;
     color: {p["ink_tertiary"]};
   }}
@@ -163,7 +178,7 @@ def shell_css() -> str:
   }}
   @bottom-right {{
     content: "Page " counter(page) " of " counter(pages);
-    font-family: 'Geist Mono', monospace;
+    font-family: 'Geist Mono', 'Inter Var', monospace;
     font-size: 8pt;
     color: {p["ink_tertiary"]};
   }}
@@ -219,7 +234,7 @@ p {{ margin: 0 0 9px 0; color: {p["ink_secondary"]}; }}
   font-size: 9pt;
   margin: 0 0 16px 0;
 }}
-.meta .data {{ font-family: 'Geist Mono', monospace; }}
+.meta .data {{ font-family: 'Geist Mono', 'Inter Var', monospace; }}
 
 /* With no outer frame, a table's last hairline would sit on the next block ("Profitability" under
    Financial Highlights): it keeps a list's spacing below it. */
@@ -245,7 +260,7 @@ td {{
   color: {p["ink_secondary"]};
 }}
 td.num, .data {{
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Geist Mono', 'Inter Var', monospace;
   font-variant-numeric: tabular-nums;
 }}
 td.num, th.num {{ text-align: right; }}
@@ -267,6 +282,8 @@ blockquote cite {{
   color: {p["ink_tertiary"]};
 }}
 ul, ol {{ margin: 0 0 10px 0; padding-left: 20px; color: {p["ink_secondary"]}; }}
+/* A nested list takes the disc too: WeasyPrint's default circle (U+25E6) is in no latin subset. */
+ul ul {{ list-style-type: disc; }}
 li {{ margin: 3px 0; }}
 .footnote {{ color: {p["ink_tertiary"]}; font-size: 8.5pt; }}
 .ref {{ color: {p["ink_tertiary"]}; }}
