@@ -8,11 +8,16 @@ a browser. A passage qualifies when it states a cause ("primarily due to", "driv
 driver (a product, segment or cost line) or carries figures, and lower when it reads as boilerplate.
 Many filers state causes without figures (the figures sit in the MD&A tables), so a figure is a bonus,
 not a requirement.
+
+Some filers write table-scale dollars in prose ("increased SG&A expenses by $126", in millions; Costco). A
+passage records the scale its section declares (``table_scale``) and keeps its text as filed; the render
+shows it through ``with_units`` ("$126 million"), so a sentence does not repeat a bare "$126".
 """
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable
+from collections import Counter
+from typing import Any, Iterable, Optional
 from urllib.parse import quote
 
 _CAUSAL = re.compile(
@@ -53,6 +58,61 @@ _COST_WORDS = (
     "free cash flow", "operating activities", "capital expenditures", "impairment", "restructuring",
     "pricing", "volume", "mix", "foreign currency", "membership", "comparable sales", "units", "margin",
 )
+_DECLARED_SCALE = re.compile(r"\bin (millions|thousands|billions)\b", re.IGNORECASE)
+_BARE_DOLLAR = re.compile(r"(?<![\w.$])\$\s?(?:\d{1,3}(?:,\d{3})+|\d+)(?P<cents>\.\d+)?(?![\d,]*\d|\.\d)")
+# What follows a figure, the other end of a range ("$18-19 billion", "$3 to $5 per share") skipped first.
+_RANGE_END = r"\s?(?:(?:-|–|to)\s?\$?\s?[\d,]+(?:\.\d+)?\s?)?"
+_SCALED_AFTER = re.compile(_RANGE_END + r"(?:million|billion|thousand|trillion|mn|bn|mm|[mbk])\b", re.I)
+_PER_UNIT_AFTER = re.compile(_RANGE_END + r"(?:per\b|an? (?:\w+ )?share\b|each\b|apiece\b|/)", re.I)
+_CLAUSE_BREAK = re.compile(r"[,;:(]|\.(?=\s)")
+_PRICE_NOUN = re.compile(r"\b(?:fees?|prices?|priced|deposits?|upgrades?|rewards?|dues|wages?|salar(?:y|ies)|tuition|tickets?|stipends?)\b", re.I)
+_AMOUNT_NOUN = re.compile(r"\b(?:revenues?|sales|expenses?|income|margins?|cash|earnings|profits?|costs?|assets|liabilities|debt)\b", re.I)
+# Text between two figures that makes the second the same kind as the first: a range, or a comparison in the same
+# sentence ("from $120 to $130", "averaged $65 per barrel for the full-year 2025, compared to $76 in 2024").
+_LINKED = re.compile(r"(?:\bto|\band|\bor|-|–|\bcompared (?:to|with)|\bversus|\bvs\.|\bfrom)\s*$", re.I)
+_SENTENCE_END = re.compile(r"[.;](?=\s)")
+
+
+def declared_scale(text: str) -> str:
+    """"million" when a filing section declares its amounts in millions ("(in millions)", "amounts in millions,
+    except per share data") and at least 80% of its scale declarations say so, else "". Only millions: a section
+    whose tables are in thousands writes its prose in millions, with the unit ("$305.0 million") or, by a slip,
+    without it (Snap's FY2019 "decreased $385.0"), so a declared thousands says nothing about a bare figure."""
+    counts = Counter(scale.lower() for scale in _DECLARED_SCALE.findall(text))
+    total = sum(counts.values())
+    return "million" if total and counts["millions"] >= 0.8 * total else ""
+
+
+def with_units(text: str, scale: str) -> str:
+    """The passage with ``scale`` after each bare dollar figure ("$126" -> "$126 million"), for a section that
+    declares its amounts in that scale. A figure is left as filed when it already has a scale or is a price
+    (cents, "per", "a share", "each"); when it is linked to the figure before it in the same sentence (a range, a
+    comparison) it reads as that figure does; otherwise it is left as filed when it is the amount of a price noun in
+    its clause with no amount noun between ("membership fee of $65", "deposit of $100"; but "fee changes to increase
+    revenues approximately $370" is in millions). Leaving a figure as filed is the safe error: it reads as it did
+    in version 1."""
+    if not scale:
+        return text
+    out, cursor = [], 0
+    previous: Optional[tuple[int, bool]] = None  # (end, given the unit) of the figure before
+    for match in _BARE_DOLLAR.finditer(text):
+        tail = text[match.end():match.end() + 40]
+        gap = text[previous[0]:match.start()] if previous else ""
+        if _SCALED_AFTER.match(tail) or _PER_UNIT_AFTER.match(tail) or len(match.group("cents") or "") == 3:
+            unit = False  # ".90": a price or a per-share amount
+        elif previous is not None and _LINKED.search(gap) and not _SENTENCE_END.search(gap):
+            unit = previous[1]
+        else:
+            head = text[:match.start()]
+            breaks = [b.end() for b in _CLAUSE_BREAK.finditer(head)]
+            clause = head[breaks[-1] if breaks else 0:]
+            nouns = list(_PRICE_NOUN.finditer(clause))
+            unit = not (nouns and not _AMOUNT_NOUN.search(clause, nouns[-1].end()))
+        previous = (match.end(), unit)
+        if unit:
+            out.append(text[cursor:match.end()] + f" {scale}")
+            cursor = match.end()
+    return "".join(out) + text[cursor:]
 
 
 def _paragraphs(text: str) -> list[tuple[int, str]]:
@@ -140,8 +200,13 @@ def _note_spans(full: str) -> list[tuple[str, int, int]]:
 def candidates(filing: dict[str, Any], parsed: dict[str, Any], fiscal_year: str, drivers: list[str]) -> list[dict[str, Any]]:
     """Every scored prose passage of one 10-K's MD&A and selected notes."""
     out: list[dict[str, Any]] = []
+    full = parsed.get("full") or ""
+    document_scale = declared_scale(full)
 
     def add(section: str, text: str, base_offset: int, source: str) -> None:
+        # The section's own declaration ("(in millions)" in its tables), else the document's (CAT's early MD&As
+        # declare none and follow the statements' millions).
+        scale = declared_scale(text) or document_scale
         heading = ""
         for index, (offset, block) in enumerate(_paragraphs(text)):
             if _is_heading(block):
@@ -168,6 +233,7 @@ def candidates(filing: dict[str, Any], parsed: dict[str, Any], fiscal_year: str,
                 "offset_basis": source,
                 "document_url": filing["document_url"],
                 "url": fragment_url(filing["document_url"], passage),
+                **({"table_scale": scale} if scale else {}),
             })
 
     if parsed.get("mda"):
@@ -180,7 +246,6 @@ def candidates(filing: dict[str, Any], parsed: dict[str, Any], fiscal_year: str,
                 passage["url"] = fragment_url(exhibit["document_url"], passage["text"])
         else:
             add("Item 7. Management's Discussion and Analysis", parsed["mda"], 0, "mda")
-    full = parsed.get("full") or ""
     for title, start, end in _note_spans(full):
         if _NOTE_KEEP.search(title):
             add(title, full[start:end], start, "full")

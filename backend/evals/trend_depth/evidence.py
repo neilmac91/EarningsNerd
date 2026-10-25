@@ -1,9 +1,16 @@
 """Assemble one company's evidence pack: every citable value and passage, with IDs, plus its rendering.
 
     cd backend && python -m evals.trend_depth.evidence REGN SNAP JPM COST NVDA
+    cd backend && python -m evals.trend_depth.evidence --out ../tasks/analysis-depth-2026-10/packs-v2 --fulltext-end 2026-10-24 KO
 
-Writes ``tasks/analysis-depth-2026-10/packs/<TICKER>.json``. The pack is the ONLY input the proposed
-generator sees, and the reference the fact-check gate reconciles every printed number against.
+Writes ``<out>/<TICKER>.json.gz`` (default ``tasks/analysis-depth-2026-10/packs/``). The pack is the ONLY input
+the proposed generator sees, and the reference the fact-check gate reconciles every printed number against.
+
+This builds pack version 2 (``PACK_VERSION``): version 1 plus the additions of DEEPSEEK-ERRORS.md §2 fixes 3, 4,
+8, 9 and 11, every one under a new ID, so each version-1 ID keeps its value. ``packs/`` holds version 1, the
+input of the frozen runs (eval-v1, dev-v4), and the builder refuses to overwrite a pack of another version there.
+The EDGAR full-text queries are cached under their end date; ``--fulltext-end`` replays a build made on another
+day from the cache (the version-1 packs were built on 2026-10-24).
 
 Contents: the production dataset over the UI's "Last 10" annual window (``F#``); extended companyfacts
 lines (``X#``); disaggregated revenue and segment profit from each 10-K's own XBRL (``S#``); derived
@@ -13,18 +20,19 @@ locations (``P#``); and an EDGAR full-text index of where the top drivers are di
 """
 from __future__ import annotations
 
+import argparse
 import asyncio
 import gzip
 import json
-import sys
 from datetime import date
+from pathlib import Path
 from typing import Any, Optional
 
 from evals.trend_depth import bootstrap
 from evals.trend_depth import derived, dimensions, passages, sec_inputs, xfacts
 from evals.trend_depth.companies import PEERS, by_ticker
 
-PACK_VERSION = "trend-depth-pack-v1"
+PACK_VERSION = "trend-depth-pack-v2"
 PACKS = bootstrap.RECORDS / "packs"
 
 
@@ -262,8 +270,9 @@ async def _register_peers(reg: derived.Registry, ticker: str, peer_group: str, l
     return summary
 
 
-async def build_pack(ticker: str, *, with_peers: bool = True) -> dict[str, Any]:
+async def build_pack(ticker: str, *, with_peers: bool = True, fulltext_end: Optional[str] = None) -> dict[str, Any]:
     company = by_ticker(ticker)
+    fulltext_end = fulltext_end or date.today().isoformat()
     identity = await bootstrap.resolve_identity(ticker)
     company_id = await bootstrap.ingest(ticker)
     start, end = bootstrap.latest_annual_window(company_id)
@@ -313,10 +322,19 @@ async def build_pack(ticker: str, *, with_peers: bool = True) -> dict[str, Any]:
 
     fulltext = []
     for name in driver_names[:5]:
-        hits = await sec_inputs.fulltext_hits(name, identity["cik"], f"{keys[0][2:]}-01-01", date.today().isoformat())
+        hits = await sec_inputs.fulltext_hits(name, identity["cik"], f"{keys[0][2:]}-01-01", fulltext_end)
         fulltext.append({"term": name, "filings": [{"accession": h["accession"], "form": h["form"], "filed": h["filed"]} for h in hits]})
 
     peers = await _register_peers(reg, ticker, company.peer_group, keys[-1], key_to_end[keys[-1]]) if with_peers else {}
+
+    # Version 2: new values, the debt-break and implied-rate checks with their red flags, and the IDs the render
+    # withholds. All of it after the last version-1 ID (peers included), so no version-1 ID moves.
+    derived.version_two_values(reg, keys, company.profile)
+    broken = derived.debt_breaks(reg, keys)
+    added_checks = derived.debt_checks(reg, keys, company.profile, broken)
+    data_checks = data_checks + added_checks
+    derived.append_flags(flags, added_checks)
+    withheld = derived.withheld(reg, broken, flags)
 
     pack = {
         "version": PACK_VERSION,
@@ -340,26 +358,52 @@ async def build_pack(ticker: str, *, with_peers: bool = True) -> dict[str, Any]:
         "coverage": coverage,
         "data_checks": data_checks,
         "red_flags": flags,
+        "withheld": withheld,
         "inflection_years": inflections,
         "filings": [{"period": key, **filing} for key, filing in in_window],
         "passages": [{k: v for k, v in p.items() if k != "score"} | {"score": round(p["score"], 2)} for p in chosen],
         "fulltext_index": fulltext,
+        "fulltext_end": fulltext_end,
         "peers": peers,
     }
     return pack
 
 
-async def _main(tickers: list[str]) -> None:
-    PACKS.mkdir(parents=True, exist_ok=True)
+def _version_at(path: Path) -> Optional[str]:
+    if path.exists():
+        return json.loads(gzip.decompress(path.read_bytes())).get("version")
+    plain = path.with_suffix("")  # an uncompressed pack.json beside it
+    return json.loads(plain.read_text()).get("version") if plain.exists() else None
+
+
+async def _main(tickers: list[str], out: Path = PACKS, fulltext_end: Optional[str] = None, replace: bool = False) -> None:
+    out.mkdir(parents=True, exist_ok=True)
     for ticker in tickers:
-        pack = await build_pack(ticker)
-        path = PACKS / f"{ticker}.json.gz"  # committed compressed; mtime 0 keeps the bytes reproducible
+        path = out / f"{ticker}.json.gz"  # committed compressed; mtime 0 keeps the bytes reproducible
+        found = _version_at(path)
+        if found not in (None, PACK_VERSION) and not replace:
+            # packs/ holds version 1, the input the frozen runs read; a rebuild there would change their evidence.
+            raise SystemExit(f"{path} is {found}, not {PACK_VERSION}: write elsewhere with --out (packs-v2/ holds "
+                             "version 2), or pass --replace to overwrite it")
+        pack = await build_pack(ticker, fulltext_end=fulltext_end)
         path.write_bytes(gzip.compress(json.dumps(pack, separators=(",", ":"), sort_keys=True).encode(), mtime=0))
-        (PACKS / f"{ticker}.json").unlink(missing_ok=True)
+        (out / f"{ticker}.json").unlink(missing_ok=True)
         n = pack["values"]
         print(f"{ticker}: {len(n)} values, {len(pack['segments'])} segment series, {len(pack['passages'])} passages, "
-              f"{len(pack['red_flags'])} flags, {len(pack['data_checks'])} checks -> {path} ({path.stat().st_size // 1024} KB)")
+              f"{len(pack['red_flags'])} flags, {len(pack['data_checks'])} checks, {len(pack['withheld'])} withheld "
+              f"-> {path} ({path.stat().st_size // 1024} KB)")
+
+
+def main(argv: Optional[list[str]] = None) -> None:
+    parser = argparse.ArgumentParser(description="Build evidence packs (version 2).")
+    parser.add_argument("tickers", nargs="+")
+    parser.add_argument("--out", type=Path, default=PACKS, help=f"output directory (default {PACKS})")
+    parser.add_argument("--fulltext-end", default=None,
+                        help="end date of the EDGAR full-text queries, YYYY-MM-DD (default today); the cache is keyed by it")
+    parser.add_argument("--replace", action="store_true", help="overwrite a pack of another version")
+    args = parser.parse_args(argv)
+    asyncio.run(_main(args.tickers, args.out, args.fulltext_end, args.replace))
 
 
 if __name__ == "__main__":
-    asyncio.run(_main(sys.argv[1:]))
+    main()

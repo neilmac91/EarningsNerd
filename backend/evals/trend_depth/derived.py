@@ -82,6 +82,11 @@ def _sum(*values: Optional[float]) -> Optional[float]:
     return sum(present) if present else None
 
 
+def _usd_words(value: float) -> str:
+    """A red flag's dollar figure as a sentence states it: "$89.6 billion", "$596.3 million"."""
+    return f"${value / 1e9:,.1f} billion" if abs(value) >= 1e9 else f"${value / 1e6:,.1f} million"
+
+
 def register_dataset(reg: Registry, dataset: dict[str, Any]) -> None:
     """The metrics table's own points under their existing markers (F#), plus CAGR markers."""
     for series in dataset["series"]:
@@ -613,8 +618,14 @@ def red_flags(reg: Registry, periods: list[str], profile: str, segments: list[di
         for (_, a), (_, b) in zip(net_cash[:-1], net_cash[1:]):
             falls = falls + 1 if b.value < a.value else 0
         if falls >= 2 and net_cash[-1][1].value < 0:
-            add("net_debt_build", "medium", falls,
-                f"Net cash fell {falls} years in a row into net debt in {net_cash[-1][0]}.", [v.id for _, v in net_cash[-1 - falls:]])
+            run = net_cash[-1 - falls:]
+            if all(v.value < 0 for _, v in run):
+                # In net debt throughout: "net cash fell into net debt" reads as a crossing from net cash, and the
+                # model then wrote "net debt" with net cash's minus signs (CAT, DUK, NEE; DEEPSEEK-ERRORS.md §1.2).
+                detail = f"Net debt rose {falls} years in a row to {_usd_words(-run[-1][1].value)} in {run[-1][0]}."
+            else:
+                detail = f"Net cash fell {falls} years in a row into net debt in {net_cash[-1][0]}."
+            add("net_debt_build", "medium", falls, detail, [v.id for _, v in run])
     for item in segments:
         if (item["measure"] != "revenue" or item.get("subtotal") or item.get("generic")
                 or item["kind"] not in ("product", "segment")):
@@ -645,6 +656,175 @@ def red_flags(reg: Registry, periods: list[str], profile: str, segments: list[di
     for n, flag in enumerate(flags, start=1):
         flag["id"] = f"R{n}"
     return flags
+
+
+# Pack version 2 (tasks/analysis-depth-2026-10/DEEPSEEK-ERRORS.md §2, fixes 3, 8 and 9). Everything here runs
+# after the last version-1 value is registered (peers included) and numbers its red flags after the last
+# version-1 flag, so no version-1 ID moves or changes value and a version-1 output still checks against a
+# version-2 pack.
+
+def version_two_values(reg: Registry, periods: list[str], profile: str) -> None:
+    """The values version 2 adds, each under a new ID."""
+    # Fix 3: a typical operating cash flow / net income level. Without one the model borrowed the free-cash-flow
+    # median for it (CVX, DE, PG, TGT) or made a range up (DUK). No window high: it comes from years of depressed
+    # net income (CVX 9.34x, CAT 7.52x). Banks and insurers are skipped: their operating cash flow moves with
+    # funding and trading balances, not earnings quality (JPM would get a 0.19x median).
+    points = [(p, v) for p in periods if (v := reg.get("ocf_to_ni", p)) is not None]
+    if profile not in ("bank", "insurer") and len(points) >= 3:
+        window = f"{points[0][0]}..{points[-1][0]}"
+        low = min(points, key=lambda pv: pv[1].value)
+        reg.add("D", "low:ocf_to_ni", f"Operating cash flow / net income window low ({low[0]})", window, low[1].value, "x",
+                formula="minimum over window", inputs=[low[1].id])
+        reg.add("D", "median:ocf_to_ni", "Operating cash flow / net income window median", window,
+                median(v.value for _, v in points), "x", formula="median over window", inputs=[v.id for _, v in points])
+    # Fix 9: net against operating margin within one year, so the comparison never pairs two years (DE set
+    # FY2025 net margin against FY2024 operating margin, the last year its operating-margin row has).
+    for period in periods:
+        net, operating = reg.get("net_margin", period), reg.get("operating_margin", period)
+        if net is not None and operating is not None:
+            reg.add("D", "margin_gap:net_minus_operating", "Net margin minus operating margin (pp, same year)", period,
+                    net.value - operating.value, "pp", formula="net_margin - operating_margin", inputs=[net.id, operating.id])
+
+
+_OTHER_DEBT = ("debt_current", "short_term_borrowings")
+
+
+def _long_term_debt(reg: Registry, period: str) -> Optional[Value]:
+    """The long-term line total debt sums: the noncurrent tag, else the metrics table's long-term debt."""
+    return reg.get("debt_noncurrent", period) or reg.get("long_term_debt", period)
+
+
+def debt_breaks(reg: Registry, periods: list[str]) -> list[str]:
+    """Years whose long-term debt line is missing or zero while the window reports it in other years, so total
+    debt and net cash there sum the other lines only (fix 8): the line stops after COP FY2020, CVX FY2021,
+    DE FY2021, KO FY2023 and USB FY2022, is zero in ORCL FY2022 and missing in COP FY2016. Such a year counts only
+    while debt is still evident: another debt line is positive, or (after the line was last reported) interest
+    expense held at least half its level of that year. A company that repaid its long-term debt is not a break.
+    Changes in the smaller lines are not tested: a current portion or short-term borrowings line comes and goes
+    with genuine maturities and repayments (AMD), so its absence says little about the data."""
+    lines = {p: _long_term_debt(reg, p) for p in periods}
+    reported = [i for i, p in enumerate(periods) if (v := lines[p]) is not None and v.value > 0]
+    if not reported:
+        return []
+    broken = []
+    for i, period in enumerate(periods):
+        if i in reported:
+            continue
+        other = any((reg.val(key, period) or 0) > 0 for key in _OTHER_DEBT)
+        if i < reported[0]:
+            # Before the line first appears: a company that had not borrowed yet has no other debt line either
+            # (REGN, SNAP, RIVN); COP's FY2016 has a current portion of long-term debt and no long-term debt.
+            if other:
+                broken.append(period)
+            continue
+        anchor = periods[max(j for j in reported if j < i)]
+        interest, anchor_interest = reg.val("interest_expense", period), reg.val("interest_expense", anchor)
+        if other or (interest and anchor_interest and anchor_interest > 0 and interest >= 0.5 * anchor_interest):
+            broken.append(period)
+    return broken
+
+
+def _spans(periods: list[str], years: list[str]) -> list[list[str]]:
+    spans: list[list[str]] = []
+    for period in periods:
+        if period not in years:
+            continue
+        if spans and periods.index(spans[-1][-1]) == periods.index(period) - 1:
+            spans[-1].append(period)
+        else:
+            spans.append([period])
+    return spans
+
+
+IMPLIED_RATE_CEILING = 12.0  # % a year: interest above this is more than the debt the pack sums could carry
+
+
+def debt_checks(reg: Registry, periods: list[str], profile: str, broken: list[str]) -> list[dict[str, Any]]:
+    """Data checks for fix 8: one naming each span of broken years, and the implied-interest-rate test.
+
+    The rate test (interest expense over average total debt, the year-end balance alone where the prior year is
+    missing or broken) runs outside the broken spans, where it would only repeat them (COP, CVX, DE and KO
+    exceed 12% there): it is the backstop for a debt line this pack does not map at all."""
+    checks: list[dict[str, Any]] = []
+    summed = profile not in ("bank", "insurer")  # banks and insurers carry no total debt or net cash
+    for span in _spans(periods, broken):
+        first, last = periods.index(span[0]), periods.index(span[-1])
+        before = periods[first - 1] if first else None
+        after = periods[last + 1] if last + 1 < len(periods) else None
+        lines = [_long_term_debt(reg, p) for p in span]
+        state = "reported as zero" if all(v is not None for v in lines) else "not reported"
+        if before and not after:
+            where, then = f"after {before}", "after that"
+        elif after and not before:
+            where, then = f"before {after}", "before that"
+        else:
+            where = f"in {span[0]}" if len(span) == 1 else f"in {span[0]}-{span[-1]}"
+            then = "in that year" if len(span) == 1 else "in those years"
+        detail = f"Long-term debt {state} {where}"
+        if summed:
+            detail += (f"; total debt and net cash {then} omit it, so this pack leaves them out, with the values built on "
+                       "them (net cash % of revenue, debt growth across the break, the net-cash peer rank).")
+        else:
+            detail += "."
+        evidence = [v.id for p in (before, after) if p and (v := _long_term_debt(reg, p))] + [v.id for v in lines if v]
+        checks.append({"kind": "debt_break", "severity": "high", "period": ",".join(span), "detail": detail,
+                       "evidence": evidence})
+    if summed:
+        rates = []
+        for i, period in enumerate(periods):
+            debt, interest = reg.get("total_debt", period), reg.get("interest_expense", period)
+            if period in broken or debt is None or interest is None or debt.value <= 0 or interest.value <= 0:
+                continue
+            prior = reg.get("total_debt", periods[i - 1]) if i and periods[i - 1] not in broken else None
+            base = [debt] + ([prior] if prior is not None and prior.value > 0 else [])
+            rate = interest.value / (sum(v.value for v in base) / len(base)) * 100.0
+            if rate > IMPLIED_RATE_CEILING:
+                rates.append((period, rate, [interest.id, *(v.id for v in base)]))
+        if rates:
+            listing = ", ".join(f"{rate:.1f}% in {period}" for period, rate, _ in rates)
+            checks.append({
+                "kind": "implied_interest_rate", "severity": "medium", "period": ",".join(p for p, _, _ in rates),
+                "detail": (f"Interest expense over average total debt was {listing}, above about {IMPLIED_RATE_CEILING:.0f}%: "
+                           "total debt there may omit a borrowing line; check it before stating total debt or net cash."),
+                "evidence": [vid for _, _, ids in rates for vid in ids],
+            })
+    return checks
+
+
+def append_flags(flags: list[dict[str, Any]], checks: list[dict[str, Any]]) -> None:
+    """Version 2's data checks as red-flag candidates, numbered after the last version-1 flag. The list is not
+    re-sorted (that would renumber version-1 flags); the render orders flags by severity for reading."""
+    for n, check in enumerate(checks, start=len(flags) + 1):
+        flags.append({"kind": "data_quality", "severity": check.get("severity", "medium"), "persistence": 1,
+                      "detail": check["detail"], "evidence": check.get("evidence", []), "id": f"R{n}"})
+
+
+def withheld(reg: Registry, broken: list[str], flags: list[dict[str, Any]]) -> dict[str, str]:
+    """IDs the render leaves out because they are built on a broken debt year (fix 8), each with its reason.
+
+    Withheld rather than labelled: a label leaves a broken figure for the model to state, and in eval-v1 DeepSeek
+    stated COP's, CVX's and KO's net cash as fact and read DE's dropped line as deleveraging (Sonnet, given the same
+    packs, caught 4 of 6 breaks). The IDs stay in the pack, so a version-1 output citing one still checks. Seeds are total
+    debt and net cash of each broken year (net cash too, as it is cash alone when no debt line is left); the rest
+    follows every value's inputs (net cash % of revenue, debt growth across the break, the net-cash peer rank) and
+    every red flag's evidence. A peer median goes with its withheld peer rank: alone, it invites a comparison
+    with a level the pack no longer shows."""
+    tainted = {vid for period in broken for key in ("total_debt", "net_cash") if (vid := reg.ref(key, period))}
+    grew = True
+    while grew:
+        grew = False
+        for vid, value in reg.values.items():
+            if vid not in tainted and tainted.intersection(value.inputs):
+                tainted.add(vid)
+                grew = True
+    for (key, period), vid in reg.by_key.items():
+        if key.startswith("peer_median:") and reg.ref("peer_pctile:" + key.split(":", 1)[1], period) in tainted:
+            tainted.add(vid)
+    out = {vid: "debt_break" for vid in sorted(tainted, key=lambda v: (v[0], int(v[1:])))}
+    for flag in flags:
+        if tainted.intersection(flag["evidence"]):
+            out[flag["id"]] = "debt_break"
+    return out
 
 
 def percentile_rank(value: float, peers: list[float]) -> float:
