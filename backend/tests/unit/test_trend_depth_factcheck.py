@@ -114,3 +114,109 @@ def test_run_passes_only_without_failures() -> None:
     passing = factcheck.check([{"text": "Revenue was $14.3 billion in FY2025 [F10].", "type": "fact"}], PACK)
     failing = factcheck.check([{"text": "Revenue was $15.0 billion in FY2025 [F10].", "type": "fact"}], PACK)
     assert passing["passed"] and not failing["passed"]
+
+
+# Narrow fixes to gate artefacts (DEEPSEEK-ERRORS.md fix 7). Each case is a sentence from the recorded runs on its
+# pack's real values: the sentence is true and passes, and a wrong mutation of it still fails.
+
+def _pack(*rows: tuple, passages: tuple = ()) -> dict:
+    """(id, label, period, value, unit) rows, as an evidence pack's values."""
+    return {"values": {r[0]: {"label": r[1], "period": r[2], "value": r[3], "unit": r[4]} for r in rows},
+            "passages": [{"id": pid, "fiscal_year": "FY2025", "text": text} for pid, text in passages], "red_flags": []}
+
+
+JPM_OCF = _pack(("F60", "Operating cash flow", "FY2025", -147_782_000_000.0, "usd"))
+USB_EFFICIENCY = _pack(("D195", "Efficiency ratio (noninterest expense / revenue)", "FY2024", 62.879092738247664, "pct"),
+                       ("D220", "Efficiency ratio (noninterest expense / revenue)", "FY2025", 58.99439383321654, "pct"),
+                       ("F29", "Operating margin", "FY2024", 28.0996, "pct"), ("F30", "Operating margin", "FY2025", 24.9454, "pct"),
+                       passages=(("P10", "Noninterest expense in 2025 was $16.8 billion, compared with $17.2 billion in 2024."),))
+ORCL_GAP = _pack(("D443", "Revenue growth minus operating-cost growth", "FY2026", -0.3497123669848605, "pp"),
+                 ("D442", "Incremental operating margin (change in operating income / change in revenue)", "FY2026", 29.403494677646115, "pct"),
+                 ("D395", "Incremental operating margin (change in operating income / change in revenue)", "FY2025", 52.38846327174402, "pct"))
+CVX_NET_MARGIN = _pack(("D613", "Net margin window median", "FY2016..FY2025", 7.910239377, "pct"),
+                       ("F29", "Net margin", "FY2024", 9.1513540902, "pct"), ("F30", "Net margin", "FY2025", 6.6691246638, "pct"))
+JPM_SHARES = _pack(("X102", "Share repurchases (cash)", "FY2025", 31_591_000_000.0, "usd"),
+                   ("X101", "Share repurchases (cash)", "FY2024", 18_830_000_000.0, "usd"),
+                   ("D224", "Diluted share count change", "FY2025", -3.386592566863494, "pct"),
+                   ("D80", "Diluted share count change", "FY2019", -5.377855887521968, "pct"))
+NVDA_GROWTH = _pack(("D448", "Revenue growth", "FY2026", 65.4735357900948, "pct"),
+                    ("D622", "Data Center (product) contribution to revenue growth (pp)", "FY2026", 60.19372092845047, "pp"),
+                    ("F30", "Gross margin", "FY2026", 71.0680843575, "pct"))
+AMD_FCF = _pack(("D467", "Free cash flow margin", "FY2025", 19.443401945783652, "pct"),
+                ("D803", "Free cash flow margin window high (FY2021)", "FY2016..FY2025", 19.593525617622003, "pct"),
+                ("F10", "Revenue", "FY2025", 34_639_000_000.0, "usd"))
+# runs/plant-sem: the two year swaps planted into Sonnet's REGN analysis, which the gate must keep catching.
+REGN_PLANT = _pack(("F30", "Operating margin", "FY2025", 24.9454433901, "pct"),
+                   ("D749", "Operating margin window low (FY2025)", "FY2016..FY2025", 24.9454433901, "pct"),
+                   ("D751", "Operating margin window median", "FY2016..FY2025", 34.55631469145, "pct"),
+                   ("D750", "Operating margin window high (FY2021)", "FY2016..FY2025", 55.6680376065, "pct"),
+                   ("D453", "Operating margin change", "FY2025", -3.1541200517000014, "pp"),
+                   ("D465", "Operating-margin effect of R&D (pp)", "FY2025", -4.65236960769375, "pp"),
+                   ("D466", "Operating-margin effect of SG&A (pp)", "FY2025", 1.9780588982488965, "pp"))
+
+
+def test_a_minus_sign_after_the_dollar_sign_is_parsed() -> None:
+    claim, = factcheck.parse_claims("Operating cash flow was $-147.8 billion in FY2025 [F60].")
+    assert (claim.text, claim.value, claim.unit, claim.scale) == ("$-147.8 billion", -147.8, "usd", 1e9)
+
+
+@pytest.mark.parametrize(
+    "pack, text, fragment",
+    [
+        # "$-X" (Sonnet JPM).
+        (JPM_OCF, "Operating cash flow is not a meaningful earnings-quality measure for a bank, and was $-147.8 billion in FY2025 [F60].", None),
+        (JPM_OCF, "Operating cash flow was $-150.0 billion in FY2025 [F60].", "matches nothing"),
+        # "Improved" for a metric where lower is better (Sonnet USB): the efficiency ratio fell 3.9pp.
+        (USB_EFFICIENCY, "The ratio improved 3.9pp from 62.9% in FY2024 [D195] to 59.0% [D220], as prior-year merger "
+                         "charges and the FDIC special assessment dropped out [P10].", None),
+        (USB_EFFICIENCY, "The ratio worsened 3.9pp from 62.9% in FY2024 [D195] to 59.0% [D220].", "other way"),
+        (USB_EFFICIENCY, "Operating margin improved 3.2pp in FY2025 [F29][F30].", "other way"),
+        # A difference labelled "A minus B", said as B against A (Sonnet ORCL): costs did grow 0.35pp faster.
+        (ORCL_GAP, "Operating costs grew 0.3pp faster than revenue in FY2026, and incremental operating margin was "
+                   "29.4% against 52.4% in FY2025 [D443][D442][D395].", None),
+        (ORCL_GAP, "Revenue grew 0.3pp faster than operating costs in FY2026 [D443].", "other way"),
+        # "<year> <noun> from": the figure is the year before's level (DeepSeek CVX); its repair's "from 6.7%",
+        # FY2025's own level, is wrong.
+        (CVX_NET_MARGIN, "Watch net margin against the 7.9% window median; a print below it would extend the FY2025 "
+                         "slide from 9.2% [D613][F29][F30].", None),
+        (CVX_NET_MARGIN, "Watch net margin against the 7.9% window median; a print below it would extend the FY2025 "
+                         "slide from 6.7% [D613][F30].", "not in the period"),
+        # "Since FY2019's 5.4%" keeps binding forward under the rules above (Sonnet JPM).
+        (JPM_SHARES, "Buybacks rose to $31.6 billion from $18.8 billion [X102][X101] and diluted shares fell 3.4% [D224], "
+                     "the largest fall since FY2019's 5.4% [D80].", None),
+        (JPM_SHARES, "Diluted shares fell 3.4% [D224], the largest fall since FY2018's 5.4% [D80].", "not in the period"),
+        # "Xpp of the Ypp total": the total is the cited revenue growth (DeepSeek NVDA), and only that.
+        (NVDA_GROWTH, "FY2026 growth slowed to 65.5% as Data Center still contributed 60.2pp of the 65.5pp total [D448][D622].", None),
+        (NVDA_GROWTH, "Data Center contributed 60.2pp of the 64.0pp total [D448][D622].", "matches nothing"),
+        (NVDA_GROWTH, "Data Center contributed 60.2pp of the 71.1pp total [D448][D622][F30].", "matches nothing"),
+        # "matched the FY2021 high of 19.6%": the year names the figure after it (DeepSeek AMD) ...
+        (AMD_FCF, "Free cash flow margin of 19.4% matched the FY2021 high of 19.6% [D467][D803].", None),
+        (AMD_FCF, "Free cash flow margin of 19.4% matched the FY2022 high of 19.6% [D467][D803].", "not in the period"),
+        (AMD_FCF, "Free cash flow margin of 19.4% in FY2021 matched the high of 19.6% [D467][D803].", "not in the period"),
+        # ... but with no figure after it, "the <year> <noun>" still binds back.
+        (AMD_FCF, "Revenue of $34.6 billion was the FY2024 high [F10].", "not in the period"),
+        # The planted year swaps stay caught.
+        (REGN_PLANT, "FY2023 operating margin of 24.9% is the window low, below the 34.6% median and the 55.7% high of "
+                     "FY2021 [F30][D749][D751][D750].", "not in the period"),
+        (REGN_PLANT, "Of the 3.2pp FY2023 decline, R&D cost 4.7pp while SG&A recovered 2.0pp [D453][D465][D466].", "not in the period"),
+        (REGN_PLANT, "Of the 3.2pp FY2025 decline, R&D cost 4.7pp while SG&A recovered 2.0pp [D453][D465][D466].", None),
+    ],
+)
+def test_gate_artefact_fixes_keep_their_mutations_failing(pack: dict, text: str, fragment: str) -> None:
+    failures = factcheck.check_sentence({"text": text, "type": "comparison"}, pack).failures
+    if fragment is None:
+        assert failures == [], failures
+    else:
+        assert any(fragment in failure for failure in failures), failures
+
+
+def test_backstops_are_off_by_default_and_fail_only_when_asked() -> None:
+    pack = {**_pack(("D14", "Net cash (cash and investments less debt)", "FY2016", -49_990_000_000.0, "usd"),
+                    ("D352", "Net cash (cash and investments less debt)", "FY2025", -89_591_000_000.0, "usd")),
+            "series_keys": {"net_cash|FY2016": "D14", "net_cash|FY2025": "D352"}}
+    sentences = [{"section": "balance_sheet", "type": "fact",
+                  "text": "Net debt has deepened for nine straight years, from -$50.0 billion to -$89.6 billion [D14][D352]."}]
+    default, backstopped = factcheck.check(sentences, pack), factcheck.check(sentences, pack, backstops=True)
+    assert default["passed"] and "backstop_failures" not in default
+    assert not backstopped["passed"] and backstopped["backstop_failures"] == 2
+    assert all(f["failure"].startswith("backstop R2a:") for f in backstopped["failures"])
