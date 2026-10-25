@@ -459,7 +459,7 @@ def test_eval_scope_uses_checked_merge_delta_and_rejects_unknown_history(tmp_pat
     assert result.returncode == 0, result.stderr
     assert output == 'run=false\n'
     assert '::notice::Draft pull request' in result.stdout and 'ready for review' in result.stdout
-    result, output = run_scope(repo, docs_merge, docs_head, draft='true')
+    result, output = run_scope(shallow, docs_merge, docs_head, draft='true')
     assert result.returncode == 0 and output == 'run=false\n'
     assert '::notice::' not in result.stdout
     result, output = run_scope(tmp_path, '', '', event='workflow_dispatch', draft='')
