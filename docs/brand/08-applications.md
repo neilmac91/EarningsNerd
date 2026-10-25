@@ -466,9 +466,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (`backend/app/assets/fonts/Inter-Variable-Italic-latin.woff2`, the same 4.001 build and latin
   subset), since WeasyPrint never slants a face it lacks: without it the wordmark's "Nerd" and every
   quote printed upright. A symbols face of the same build (`Inter-Variable-symbols.woff2`, its source and
-  cut in `SOURCES.txt` beside the licence) carries the dagger, the arrows and the white bullet the latin
-  subsets lack, which printed in DejaVu, and "≈" (the 20-F and 6-K prompts ask for "≈US$X" beside a
-  convenience translation) and the won and rupee signs. It is a family of its own, 'Inter Var Symbols',
+  cut in `SOURCES.txt` beside the licence) carries the dagger, the left and right arrows and the white
+  bullet the latin subsets lack, which printed in DejaVu, and "≈" (the 20-F and 6-K prompts ask for "≈US$X" beside a
+  convenience translation) and the won and rupee signs, with an italic cut beside the roman and each with a
+  space for a space Pango keeps between two marks. It is a family of its own, 'Inter Var Symbols',
   after Inter in every stack: WeasyPrint embeds two faces of one family and style as one font, so a second
   'Inter Var' face drew "₩" as the latin "A". The data face falls back to Inter and its symbols before the
   system's monospace, and a nested list takes the disc. Each PDF names itself (its title, English, EarningsNerd as author and
@@ -490,10 +491,12 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   style a PDF link to the ink with an underline, and the italic to an italic face (the family
   declares one, each face's file is the style it is declared as, and every font a rendered PDF
   embeds for italic text is an italic program) and every font a rendered PDF embeds to a vendored face's
-  family, each mark it prints to that mark's own glyph in the embedded program, each declared face to a
-  file in `backend/app/assets/fonts` and to a family and style no other face declares, and each nested
-  list's marker to the disc, by `test_export_palette_parity.py` (`test_vendored_font_sources.py` holds each file to the hash
-  `SOURCES.txt` records), which reads a
+  family and to Identity-H, with no .notdef drawn, each glyph a font's text map pairs with text to that
+  text's glyph or a GSUB substitute of it in a file declared for the font's family and style, each declared
+  face to a file in `backend/app/assets/fonts` and to a family and style no other face declares, and each
+  nested list's marker to the disc, by `test_export_palette_parity.py` (`test_vendored_font_sources.py`
+  holds each file to the hash `SOURCES.txt` records, and the symbols cuts, their declared range, the cut
+  commands and the gate's marks to one set of code points), which reads a
   stylesheet as WeasyPrint does, nested and conditional rules included; the rendered copy (no em-dash but
   the null token, no exclamation mark or emoji, the headings the exports own in sentence case, and no
   EDGAR outside an address, in any case or inside a word) by `test_export_voice.py`; the eval's blinding
