@@ -122,8 +122,12 @@
     },
     {
       "rule": "normalises whitespace and reads an empty name as empty",
+      "why": "Whitespace is JavaScript's \\s and trim() set: the ideographic space, the line separator, the no-break space, the Ogham space mark and the medium mathematical space among it, written as escapes.",
       "cases": [
         ["  APPLE   INC. ", "Apple Inc."],
+        ["\u3000APPLE INC.\u3000", "Apple Inc."],
+        ["APPLE\u2028INC.", "Apple Inc."],
+        ["\u00a0APPLE\u1680INC.\u205f", "Apple Inc."],
         ["", ""]
       ]
     },
