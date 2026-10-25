@@ -1,12 +1,14 @@
 import { test, expect } from '@playwright/test'
+import { answerApi } from './fixtures/filing3Api'
 
 // ui/Modal locks the body, so a panel taller than the viewport must scroll inside itself — otherwise
 // its top and bottom are cut off with nothing left to scroll. 320×256 is the WCAG reflow viewport
 // (a 1280-wide window at 400% zoom). /terms is static (CI's Playwright job has no backend); the
-// session marker shows the FeedbackWidget launcher, whose report dialog is ~300px tall at this width.
+// confirmed reader shows the FeedbackWidget launcher, whose report dialog is ~300px tall at this width.
 test.use({ viewport: { width: 320, height: 256 } })
 
-test('a dialog taller than the viewport scrolls inside and keeps every control reachable', async ({ page }) => {
+test('a dialog taller than the viewport scrolls inside and keeps every control reachable', async ({ page, baseURL }) => {
+  await answerApi(page, baseURL!, 'pro')
   await page.addInitScript(() => {
     localStorage.setItem('en_session_active', '1')
     localStorage.setItem(
