@@ -1,7 +1,10 @@
+'use client'
+
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import MarketingCta from '@/features/marketing/components/MarketingCta'
 import SectionImpression from '@/features/marketing/components/SectionImpression'
-import { ACCESS_COPY, type AccessMode } from '@/features/marketing/lib/access'
+import type { AccessMode } from '@/features/marketing/lib/access'
+import { usePublicAccess } from './PublicAccessProvider'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { ArrowRightIcon } from '@/lib/icons'
 
@@ -9,11 +12,11 @@ import { ArrowRightIcon } from '@/lib/icons'
  * The landing page's close (D-045): one line under the last row's rule, not a banner. The sentence carries
  * the live example as a text link (placement `cta_banner`, the activation funnel's name for the page's last
  * example link, kept so the funnel's series continues) and ends on the access mode's call to action as a
- * button, both from the page's ONE access decision (ACCESS_COPY), never hardcoded here. It is no section of
+ * button, using the page's registration policy and current collection readiness. It is no section of
  * its own, so it takes no number among the rows and no heading in the outline.
  */
 export default function ClosingLine({ accessMode }: { accessMode: AccessMode }) {
-  const access = ACCESS_COPY[accessMode]
+  const access = usePublicAccess(accessMode)
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <SectionImpression section="cta_banner">
