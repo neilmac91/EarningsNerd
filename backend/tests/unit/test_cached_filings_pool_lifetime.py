@@ -17,7 +17,7 @@ One rule, two halves in this one module:
   company lookup, search and trending list (eight racers for one new company's row included), the
   saved-summary routes, the upcoming calendar, the account routes (the profile edit, the alert
   preferences, the bell, the data export and the account deletion) and the Copilot ask stream (a Pro
-  and a Free question, a missing filing and both refusals) must answer an eight-request burst
+  and a Free question, a missing filing and the admission's three refusals) must answer an eight-request burst
   with no checkout on the loop and nothing left for the finalizer; and the join, the contact form and
   the feedback submit must send their mails, the analysis exports render, Stripe checkout and the
   portal make their Stripe calls, and the account deletion its Stripe cancellation and PostHog flush,
@@ -2565,12 +2565,12 @@ async def test_account_deletion_holds_no_connection_while_stripe_and_posthog_ans
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("case", ["pro", "free", "missing", "taste_refused", "cap_refused"])
+@pytest.mark.parametrize("case", ["pro", "free", "missing", "taste_refused", "cap_refused", "cap_lease_refused"])
 async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_streams(monkeypatch, tmp_path, case):
     """The Copilot ask stream's filing read, its snapshot and the admission (the cap read and the lease, or the
     free taste's lease) run in one thread-pool unit that releases the request session before the stream
-    starts, its refusals included, so eight askers on four slots make no checkout, statement or release on the
-    loop and leave nothing for the finalizer. On the loop, the admission's wait for the account's ``users`` row
+    starts, its refusals included (the taste's at its lease, the cap's at its read and at its lease), so eight
+    askers on four slots make no checkout, statement or release on the loop and leave nothing for the finalizer. On the loop, the admission's wait for the account's ``users`` row
     lock froze every request on the instance, and a missing filing or a reached cap left its transaction for
     the finalizer. Each admitted question is metered once, its lease converted; a refusal writes nothing."""
     from datetime import timedelta
@@ -2582,7 +2582,9 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
     from app.routers import auth
     from app.routers import summaries as summaries_router
     from app.services.copilot_service import PROVIDER_STARTED_STAGE
-    from app.services.subscription_service import LIFETIME_SCOPE, QA_TASTE_RESERVATION_KIND, get_current_month
+    from app.services.subscription_service import (
+        LIFETIME_SCOPE, QA_RESERVATION_KIND, QA_TASTE_RESERVATION_KIND, get_current_month,
+    )
 
     engine = create_engine(
         f"sqlite:///{tmp_path / 'copilot-ask.db'}",
@@ -2594,7 +2596,7 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
-    pro = case in ("pro", "missing", "cap_refused")
+    pro = case in ("pro", "missing", "cap_refused", "cap_lease_refused")
     with sessions() as db:
         company = Company(cik="0000000005", ticker="ASK", name="Ask fixture")
         db.add(company)
@@ -2614,6 +2616,11 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
                 # Two used and one held reach the taste of three: the dependency's plain read passes, and
                 # the admission refuses.
                 db.add(UsageReservation(user_id=asker.id, month=LIFETIME_SCOPE, kind=QA_TASTE_RESERVATION_KIND,
+                                        token=uuid4().hex, expires_at=utcnow() + timedelta(minutes=5),
+                                        created_at=utcnow()))
+            if case == "cap_lease_refused":
+                # None used and one held reach a cap of one: the cap read passes, and the lease refuses.
+                db.add(UsageReservation(user_id=asker.id, month=get_current_month(), kind=QA_RESERVATION_KIND,
                                         token=uuid4().hex, expires_at=utcnow() + timedelta(minutes=5),
                                         created_at=utcnow()))
         db.commit()
@@ -2657,8 +2664,8 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
     monkeypatch.setattr(summaries_router, "ASK_LIMITER", RateLimiter(limit=100, window_seconds=60))
     monkeypatch.setattr(summaries_router, "answer_filing_question", answer)
     monkeypatch.setattr(summaries_router, "_emit_copilot_cost_best_effort", lambda *_a, **_k: None)
-    if case == "cap_refused":
-        monkeypatch.setattr(settings, "COPILOT_MONTHLY_QUESTION_CAP", 0)
+    if case in ("cap_refused", "cap_lease_refused"):
+        monkeypatch.setattr(settings, "COPILOT_MONTHLY_QUESTION_CAP", 0 if case == "cap_refused" else 1)
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
 
     async def ask(i: int) -> httpx.Response:
@@ -2677,7 +2684,8 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
         assert engine.pool.checkedout() == 0
         # Each route released its own connection; the dependency's finalizer found nothing open.
         assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
-        expected = {"pro": 200, "free": 200, "missing": 404, "taste_refused": 403, "cap_refused": 429}[case]
+        expected = {"pro": 200, "free": 200, "missing": 404, "taste_refused": 403, "cap_refused": 429,
+                    "cap_lease_refused": 429}[case]
         assert [response.status_code for response in responses] == [expected] * 8
         if expected == 200:
             assert all('"type": "complete"' in response.text for response in responses)
@@ -2686,6 +2694,7 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
                 "missing": "Filing not found",
                 "taste_refused": "You've used your 3 free Copilot questions.",
                 "cap_refused": "You've reached this month's fair-use limit of 0 Copilot questions.",
+                "cap_lease_refused": "You've reached this month's fair-use limit of 1 Copilot questions.",
             }[case]
             assert all(response.json()["detail"].startswith(detail) for response in responses)
         with sessions() as db:
@@ -2694,10 +2703,10 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
             tastes = [used for (used,) in db.query(User.copilot_free_taste_used).order_by(User.id)]
             leases = db.query(UsageReservation).count()
         # Each admitted question was metered once and its lease converted; a refusal metered nothing, and the
-        # taste's held leases stay for their own questions.
+        # leases already held stay for their own questions.
         assert questions == ([1] * 8 if case == "pro" else [])
         assert tastes == [1 if case == "free" else 2 if case == "taste_refused" else 0] * 8
-        assert leases == (8 if case == "taste_refused" else 0)
+        assert leases == (8 if case in ("taste_refused", "cap_lease_refused") else 0)
     finally:
         engine.dispose()
 
@@ -2836,8 +2845,7 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # (router file relative to backend/, function name) -> its ceiling. Counted by this file's own walk
 # when the ratchet landed (2026-10-16), after its PR took the summary read and its progress poll off
 # the loop, and recounted when the walk began counting the session handed to a call (2026-10-24):
-# each entry but the generate stream's and the two exports' is a route E121 (``auth.py``) or E171
-# names in ``tasks/todo.md``. The blank line between entries keeps in-place number edits on different
+# each entry is a route E121 (``auth.py``) or E171 names in ``tasks/todo.md``. The blank line between entries keeps in-place number edits on different
 # entries mergeable in any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/admin.py", "audit_stale_xbrl"): 1,

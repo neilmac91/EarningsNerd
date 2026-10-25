@@ -178,18 +178,22 @@ reached cap (16 of 32) left its transaction for the finalizer. On a local Postgr
 transaction holding the asker's `users` row for 1.0 s froze the loop for 1.0 s, Pro or Free: the
 admission waits for that row's lock (up to `USAGE_COUNTER_LOCK_TIMEOUT_MS`, 3 s), and every request on
 the instance waited with it. The filing read, its snapshot, the plan and the admission are now one
-thread-pool unit that releases its session before the stream starts, its refusals included; with the
-row held the same way, the loop's longest gap between its 10 ms ticks was 14 ms (five runs of each).
-Its burst case holds every checkout, statement and release off the loop, each answer and each asker's
-metering (2026-10-25, E171).
+thread-pool unit that releases its session before the stream starts, the admission's refusals included;
+with the row held the same way, the loop's longest gap between its 10 ms ticks was 14 ms (five runs of
+each). The admission is a check-then-write that the loop no longer runs one at a time, and it needs
+nothing new: `subscription_service._reserve_use` takes the account's `users` row lock before it
+counts, and `test_usage_counter_transactions.py` races both Copilot leases on PostgreSQL in CI. A taste
+the dependency already finds spent (`require_copilot_or_taste`'s 403) is refused before the route runs,
+so, like a 422, it still leaves the lookup's transaction for the finalizer. Its burst case holds every
+checkout, statement and release off the loop, each answer and each asker's metering (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
 dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
 rules, uses it. Its ceilings hold the routes that still hand their session to a call on the loop at
-their counts (the rest of the auth router, E121; the admin router's 14 routes, E171; and the summaries
-router's generate stream and two exports; five of those hand-offs, the header's strict ones, use no
+their counts (the rest of the auth router, E121; the admin router's 14 routes and the summaries router's
+generate stream and two exports, E171; five of those hand-offs, the header's strict ones, use no
 connection on the loop), so none can add one in a
 form the ratchet counts and a new route starts at 0. Neither half
 sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called
