@@ -57,7 +57,8 @@ and the unsealed tools behind unchanged commands; nothing sealed changes):
 
 `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py` checks this file. Its `sh` blocks
 must hold exactly the seven pinned commands in order, each the literal prefix of an allow rule
-with no shell syntax, step 0 first. The attestation template must carry the sealed
+with no shell syntax, step 0 first (while the kit is parked, the gate checks that against the seven
+rules restored in memory, since they are out of `.claude/settings.json`). The attestation template must carry the sealed
 `tools/e8_resume.py` constants. The attachment table must equal the restore script's pins. The
 launch paragraph must name the permission mode. It runs in CI on every pull request and push to
 `main` (the `backend-tests` job has no path filter); launch from a `main` that carries all of
