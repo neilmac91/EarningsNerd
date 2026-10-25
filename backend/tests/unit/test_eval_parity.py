@@ -485,7 +485,7 @@ def test_eval_scope_uses_checked_merge_delta_and_rejects_unknown_history(tmp_pat
     assert result.returncode == 0 and output == 'run=true\n', result.stdout
     assert gh_calls.read_text() == ''
     # Only a live "false" lets a pull request's run spend: a failed read, any other answer or a bad number fails.
-    for live_draft in (None, '', 'null', 'True', 'FALSE', ' false', '0'):
+    for live_draft in (None, '', 'null', 'True', 'FALSE', ' false', 'falsey', '0'):
         result, output = run_scope(repo, ai_merge, ai_head, live_draft=live_draft)
         assert result.returncode != 0 and output == '', repr(live_draft)
     for number in ('', '0', '07', '7/../8', 'null'):

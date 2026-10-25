@@ -481,7 +481,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     continue-on-error: true
-    # The scope step reads the pull request's live draft flag; nothing in this job writes to GitHub.
+    # The scope step reads the pull request's live draft flag; no step needs a write scope.
     permissions:
       contents: read
       pull-requests: read
