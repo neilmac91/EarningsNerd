@@ -122,6 +122,24 @@ def test_dry_run_reports_but_deletes_nothing(client, as_admin):
 
 
 @pytest.mark.requires_db
+@pytest.mark.parametrize("dry_run", [False, True], ids=["real run", "dry run"])
+def test_a_real_run_reads_its_plan_under_the_maintenance_lock(client, as_admin, monkeypatch, dry_run):
+    """A real run takes the admin maintenance lock as it reads its plan, so on PostgreSQL it waits out another reset
+    and plans only what that one left (tests/integration/test_admin_maintenance_transactions.py); a dry run, which
+    deletes nothing, takes none. SQLite has no advisory locks, so this counts the calls."""
+    from app.services import admin_filing_service
+
+    ft = f"LOCK-{uuid.uuid4().hex[:6]}"
+    _seed(ft, n=1)
+    locks = []
+    monkeypatch.setattr(admin_filing_service, "lock_maintenance", lambda db: locks.append(db))
+    resp = client.post(f"/api/admin/summaries/reset-all?filing_type={ft}&dry_run={str(dry_run).lower()}")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["deleted_count"] == 1
+    assert len(locks) == (0 if dry_run else 1)
+
+
+@pytest.mark.requires_db
 def test_real_run_deletes_unsaved_keeps_saved_and_xbrl(client, as_admin):
     ft = f"REAL-{uuid.uuid4().hex[:6]}"
     seed = _seed(ft, n=3, saved_indices=(0,), with_xbrl=True)

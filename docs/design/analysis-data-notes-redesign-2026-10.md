@@ -382,7 +382,8 @@ Shipped in #1202 (`DataTable`'s opt-in `layout="fixed"`, `colWidths`, `cellPaddi
 budget in `lib/tableFormat.ts`). The rules, with the corrections of §11:
 
 - `table-layout: fixed` with explicit widths: metric column 8.25 rem (132 px), period columns 4.75 rem
-  (76 px) from 768 px up; 6.5 rem and 4.25 rem below. Widths are in rem so they scale with the reader's
+  (76 px) from 768 px up; 6.5 rem and 4.25 rem below (2026-10-25: #1606 widened the phone column to 4.375 rem
+  for the 2px each footnote mark keeps; `frontend/DESIGN_SYSTEM.md` §4 holds the current widths). Widths are in rem so they scale with the reader's
   text size. Content never sizes a column, so the cell's content must fit its box: the padding is part of
   the geometry (the prototype uses 0.25 rem per side on phones and 0.5 rem above; #1202 uses the compact
   inset), and a figure is formatted to a glyph budget before it is placed (#1202's `tableTokenBudget`:

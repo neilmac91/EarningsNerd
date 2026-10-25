@@ -23,9 +23,14 @@ type Row = { series: AnalysisSeries } & Record<string, unknown>
 // A figure cell: value over change, each line the cell's full width and right-justified onto one figure edge (the mark
 // gutter to its right, DataNoteMark compact: --mark-gutter is one 11px mark, 0.4125rem, and its 2px gap), in the figure
 // face (Geist Mono with a drawn minus), whose fixed 600-unit advance gives tabular lining figures; no tracking, as the
-// data annotation size has none. A period column holds nine glyphs and their gap inside its 1px phone inset: a nine-glyph
-// figure (64.8px), or seven glyphs, the 2px gap and a two-letter note (7 × 7.2 + 2 + 13.2 = 65.6px). It is 4.375rem
-// (70px) on a phone, the width the widest line needed while a figure could also carry a dagger (67px); 4.75rem from md.
+// data annotation size has none. A period column holds its widest line inside its 1px phone inset. A figure carries no
+// dagger (D-061), so that line is an eight-glyph figure and a one-letter note, 8 × 7.2 + 2 + 6.6 = 66.2px (a nine-glyph
+// figure alone is 64.8px, seven glyphs and a two-letter note 65.6px), so 4.375rem (70px, 68px inside) on a phone and
+// 4.75rem (68px inside its 4px inset) from md. metrics-table.spec.tsx derives both from tableTokenBudget. Those 2px a
+// column cost a 375px phone its third whole period (a 309px content box, 104 + 3 × 70 > 309), so below md, where the
+// card's content box is 19.25rem to 19.625rem wide, the metric column gives up to 0.375rem (6px at the default text
+// size) and three periods sit beside it, as at 390px. From md the band would cut the 8.25rem column instead: at 200%
+// text an 816px screen's card falls in it, and its metric column would drop to 5.2rem, too narrow for its names.
 const FIGURE_CELL = 'relative flex flex-col gap-0.5 font-figure tabular-nums lining-nums tracking-normal'
 const FIGURE_LINE = 'flex w-full items-baseline justify-end'
 
@@ -212,7 +217,7 @@ export default function MetricsTable({
         cellPadding="compact"
         layout="fixed"
         colWidths={columns.map((column) => column.key === 'metric' ? 'var(--metric-col)' : 'var(--period-col)')}
-        className="[--metric-col:min(6.5rem,100cqi)] [--period-col:4.375rem] md:[--metric-col:min(8.25rem,100cqi)] md:[--period-col:4.75rem]"
+        className="[--metric-col:min(6.5rem,100cqi)] max-md:[@container(19.25rem<=width<19.625rem)]:[--metric-col:calc(100cqi-3*var(--period-col))] [--period-col:4.375rem] md:[--metric-col:min(8.25rem,100cqi)] md:[--period-col:4.75rem]"
         snapColumns
         scrollRegion={{
           label: `Metrics by period, scrollable table of ${periods.length} ${periodUnit}`,

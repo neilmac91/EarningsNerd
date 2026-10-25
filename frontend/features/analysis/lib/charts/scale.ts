@@ -74,14 +74,14 @@ export function moneyUnit(maxAbs: number): MoneyUnit {
   return { div: 1, suffix: '' }
 }
 
-/** |value| in its own unit at `significant` figures, cents at the finest (F$): a mantissa that rounds to 1,000 steps
- *  up a unit, so 999,960 reads "1.00M", never "1000K". */
-function ownUnit(value: number, significant: number): string {
+/** |value| in its own unit at `significant` figures, at most `finest` decimals in a K, M, B or T unit and cents at the
+ *  finest in dollars (F$): a mantissa that rounds to 1,000 steps up a unit, so 999,960 reads "1.00M", never "1000K". */
+function ownUnit(value: number, significant: number, finest = 2): string {
   const abs = Math.abs(value)
   const at = (unit: MoneyUnit) => {
     const mantissa = abs / unit.div
     const magnitude = Math.floor(Math.log10(mantissa))
-    const digits = Math.max(0, Math.min(2, significant - 1 - magnitude))
+    const digits = Math.max(0, Math.min(unit.suffix ? finest : 2, significant - 1 - magnitude))
     const text = mantissa.toFixed(digits)
     // Rounding up to the next power of ten can add a figure ("9.996" → "10.00"): one decimal fewer keeps the count.
     const shown = digits + Math.floor(Math.log10(Number(text))) + 1
@@ -174,6 +174,14 @@ export function compactMoney(value: number, currency: string | null): string {
   const prefix = moneyPrefix(currency)
   if (value === 0) return `${prefix}0`
   return `${value < 0 ? MINUS : ''}${prefix}${ownUnit(value, 2)}`
+}
+
+/** A tooltip's amount (spec §3.1): 4 significant figures in its own unit ("$14.34B", "$1.234B", "−$987.6M"), cents at
+ *  the finest in dollars, with A2's sign and zero rules. */
+export function tooltipMoney(value: number, currency: string | null): string {
+  const prefix = moneyPrefix(currency)
+  if (value === 0) return `${prefix}0`
+  return `${value < 0 ? MINUS : ''}${prefix}${ownUnit(value, 4, 3)}`
 }
 
 /** A2 for a percent axis: margins unsigned, growth signed ("+50%", "0%", "−50%"). */

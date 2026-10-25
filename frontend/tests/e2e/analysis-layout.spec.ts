@@ -841,6 +841,51 @@ test.describe('analysis heading rail / 1024px', () => {
   })
 })
 
+/** Three whole periods beside the metric names on a phone, 375px included: the 2px each mark keeps grew a phone column to
+ *  4.375rem, so below md, in the band where that cost the third period, the metric column gives up to 6px (MetricsTable).
+ *  A period counts only inside the scroll box and beside a label that is itself in view, so an unstuck label column
+ *  cannot pass it with the columns scrolled off to the left. */
+for (const width of [375, 390]) test.describe(`analysis table periods / ${width}px`, () => {
+  test.use({ viewport: { width, height: 812 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  test('three whole periods sit beside the metric names at rest', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', 'light', 1)
+    const table = page.locator(TABLE)
+    await expect.poll(() => table.evaluate(element => {
+      const region = element.closest('[role="region"]')!
+      const box = region.getBoundingClientRect()
+      const heads = [...element.querySelectorAll('thead th')].map(th => th.getBoundingClientRect())
+      const label = heads[0]
+      if (label.left < box.left - 0.5 || label.right > box.right + 0.5) return -1
+      return heads.slice(1).filter(r => r.left >= label.right - 0.5 && r.left >= box.left - 0.5 && r.right <= box.right + 0.5).length
+    }), 'whole period columns beside the metric names in view').toBeGreaterThanOrEqual(3)
+  })
+})
+
+/** The band stops at md. At 200% text an 816px screen's card has a 19.4375rem content box, inside the band, and there it
+ *  would cut the 8.25rem metric column to about 5.2rem, too narrow for its names (MetricsTable). */
+test.describe('analysis table periods / 816px at 200% text', () => {
+  test.use({ viewport: { width: 816, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  test('md keeps its full metric column where a phone would give up 6px', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', 'light', 2)
+    const geometry = await page.locator(TABLE).evaluate(element => {
+      const root = parseFloat(getComputedStyle(document.documentElement).fontSize)
+      const card = element.closest('[class~="[container-type:inline-size]"]') as HTMLElement
+      const style = getComputedStyle(card)
+      const content = (card.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)) / root
+      const metric = element.querySelector('thead th')!.getBoundingClientRect().width / root
+      const overflowing = [...element.querySelectorAll('tbody th')].filter(th => th.scrollWidth > th.clientWidth + 1).length
+      return { root, content, metric, overflowing }
+    })
+    expect(geometry.root, 'the text is at 200%').toBeCloseTo(32, 1)
+    expect(geometry.content, 'the card\'s content box sits in the band').toBeGreaterThanOrEqual(19.25)
+    expect(geometry.content, 'the card\'s content box sits in the band').toBeLessThan(19.625)
+    expect(geometry.metric, 'the metric column, in rem').toBeCloseTo(8.25, 2)
+    expect(geometry.overflowing, 'metric names wider than their cells').toBe(0)
+  })
+})
+
 for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
   for (const state of ['discrepancy', 'edge'] as const) test(`${state}: a figure's marks share its line and its cell at 390px, in the figure face`, async ({ page, baseURL }) => {
@@ -901,6 +946,35 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
     expect(problems).toEqual([])
     expect(controls.some(control => control.glyphs.some(glyph => glyph.mark === 'letter')), 'a letter is measured').toBe(true)
     expect(controls.filter(control => control.text.includes('†')).map(control => control.name), 'no dagger in any figure control').toEqual([])
+    // A change line's letter keeps 2px from its change too. The change sits outside the figure's source button, so it is
+    // measured from its own line: the change's glyphs (n/m's visible abbreviation included), then the letter.
+    const changeLines = await page.locator(`${TABLE} tbody td`).evaluateAll(cells => cells.flatMap(cell => [...cell.querySelectorAll('[data-note-letter]')]
+      .filter(mark => !mark.closest('button'))
+      .map(mark => {
+        const line = mark.parentElement!
+        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
+        const glyphs: Array<{ mark: boolean; left: number; right: number }> = []
+        const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT)
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const parent = node.parentElement!
+          if (!node.textContent?.trim() || parent.closest('.sr-only')) continue
+          const range = document.createRange(); range.selectNodeContents(node)
+          for (const r of range.getClientRects()) if (r.width && r.height) glyphs.push({ mark: !!parent.closest('[data-note-letter]'), left: r.left, right: r.right })
+        }
+        const style = getComputedStyle(cell)
+        const box = cell.getBoundingClientRect()
+        return { name: `${cell.closest('tr')?.querySelector('th')?.textContent?.trim()} · ${line.textContent?.trim()}`, rem, glyphs, left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight) }
+      })))
+    const changeProblems: string[] = []
+    for (const line of changeLines) {
+      const end = Math.max(...line.glyphs.filter(glyph => !glyph.mark).map(glyph => glyph.right))
+      const first = line.glyphs.find(glyph => glyph.mark)!
+      if (first.left - end < 0.125 * line.rem - 0.5) changeProblems.push(`${line.name}: a change line's letter touches its change`)
+      // Right-justified, a line too wide for its cell runs out at the left.
+      if (line.glyphs.some(glyph => glyph.left < line.left - 1 || glyph.right > line.right + 1)) changeProblems.push(`${line.name}: a change line leaves its cell`)
+    }
+    expect(changeProblems).toEqual([])
+    expect(changeLines.length, 'a change line with a letter is measured').toBeGreaterThan(0)
     if (state === 'edge') {
       // The planted figures fill their column's whole budget with their mark (nine glyphs: the figure and a two-letter
       // note), the sign the ASCII hyphen-minus.

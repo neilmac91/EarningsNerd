@@ -258,6 +258,7 @@ async def test_exact_xbrl_operands_own_rendered_delta_only_after_identity_checks
     filing = SimpleNamespace(
         id=1,
         filing_date=None, period_end_date=None, sec_url="https://sec.example/filing",
+        document_url="https://sec.example/filing/primary.htm",
         filing_type="10-K", company=SimpleNamespace(name="PGR"),
         content_cache=SimpleNamespace(filing_id=1, critical_excerpt=None, markdown_content=None),
     )

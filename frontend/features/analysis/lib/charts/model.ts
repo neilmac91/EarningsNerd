@@ -1,8 +1,8 @@
 /**
  * The trend charts' model: dataset → panels, scales, marks, legend, notes band and footnotes (§3 and §4 of
  * docs/design/analysis-trend-charts-spec-2026-10.md, whose §0.5 says where this engine departs from it). A
- * renderer draws only what this module and layout.ts return; it never computes a domain, a tick, a label, a
- * position or a colour. Pure and SSR-safe.
+ * renderer draws only what this module, layout.ts and readout.ts return; it never computes a domain, a tick, a label,
+ * a position or a colour. Pure and SSR-safe.
  */
 import type { AnalysisDataset, AnalysisPoint, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import { resolveDataNotes, type DataNote, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
@@ -28,6 +28,8 @@ export interface ModelPoint {
   offscale?: 'above' | 'below'
   /** A growth slot that is not meaningful: a zero base or a sign change. */
   nm?: boolean
+  /** A growth slot whose year-earlier period comes before the window (A11's structural state). */
+  structural?: boolean
 }
 
 export interface ModelMark {
@@ -113,7 +115,7 @@ const MARKERS: Marker[] = ['circle', 'square', 'triangle']
 
 /** A1's interval cap for each panel's axis, fixed so every view shows the same ticks. */
 export const AXIS_CAPS = { topline: 5, growth: 4, margins: 8, cash: 8, debtcash: 6, equity: 4 } as const
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /** The top line the first chart plots: revenue, else a bank's net interest income, else an insurer's
  *  premiums earned. */
@@ -157,7 +159,7 @@ function subtitleOf(ds: AnalysisDataset, unit: string | null): string {
 
 const byConcept = (ds: AnalysisDataset) => Object.fromEntries(ds.series.map((s) => [s.concept, s])) as Record<string, AnalysisSeries>
 
-const isCalculated = (point: AnalysisPoint | undefined) =>
+export const isCalculated = (point: AnalysisPoint | undefined) =>
   !!point && point.value != null && (point.provenance ? point.provenance.method === 'calculated' : Boolean(point.derived))
 
 /** A series counts as present when it has a value in the window. */
@@ -218,7 +220,7 @@ function growthOf(ds: AnalysisDataset, series: AnalysisSeries): { points: ModelP
       : point?.value != null && prior?.value === 0 ? 'nm-zero'
         : point?.value != null && priorKey < first ? 'structural' : 'unavailable'
     states.push(state)
-    return { period: key, value: null, nm: state === 'nm-sign' || state === 'nm-zero' }
+    return { period: key, value: null, nm: state === 'nm-sign' || state === 'nm-zero', structural: state === 'structural' }
   })
   return { points, states }
 }

@@ -224,7 +224,8 @@ export async function answerAnalysisApi(page: Page, baseURL: string, fixture: Fi
     }
     // Only the target frontend's static reads can reach the network. In particular an
     // API configured at a different host is still mocked above, never sent to production.
-    if (url.origin === origin && ['GET', 'HEAD'].includes(request.method())) return route.continue()
+    // Same-origin reads go on to the network, through any route a spec registered before this one (fallback, not continue).
+    if (url.origin === origin && ['GET', 'HEAD'].includes(request.method())) return route.fallback()
     return route.abort()
   })
   return traffic
