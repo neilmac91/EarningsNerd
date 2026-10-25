@@ -18,7 +18,7 @@ from app.utils.telemetry_bootstrap import init_sentry
 
 # Initialize Sentry for error tracking (must be done before FastAPI app creation, and before the app modules below are
 # imported, so an import-time error is reported). One line for each outcome: the four the ops logs-probe counts.
-_sentry = init_sentry()
+_sentry = init_sentry("api")
 if _sentry.status == "unavailable":
     print("Sentry SDK not available - install sentry-sdk for error tracking")
 elif _sentry.status == "initialized":

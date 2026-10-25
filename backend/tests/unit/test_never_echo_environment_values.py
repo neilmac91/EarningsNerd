@@ -837,8 +837,32 @@ def test_the_deploy_check_database_checks_print_no_secret(monkeypatch, capsys):
     assert not leaked, f"{leaked} four-character fragments of the fabricated password reached the output"
 
 
+def _assert_option_invariants(options: dict) -> None:
+    """What every process's options must hold, whatever else they set (the API's and the task processes')."""
+    assert options["include_local_variables"] is False and options["send_default_pii"] is False
+    # data_collection would drop the event scrubber and bring frame variables back whatever the two options above say
+    # (sentry_sdk/client.py, _get_options; sentry_sdk/utils.py, serialize_frame).
+    assert "data_collection" not in options and "data_collection" not in options.get("_experiments", {})
+    # Span streaming (trace_lifecycle="stream") sends request headers as span attributes, unscrubbed.
+    assert "trace_lifecycle" not in options and "trace_lifecycle" not in options.get("_experiments", {})
+    # Continuous profiling sends profile chunks, which pass no hook either; main samples transaction profiles only.
+    assert not {"profile_session_sample_rate", "profile_lifecycle"} & (
+        set(options) | set(options.get("_experiments", {}))
+    )
+
+
 @pytest.fixture
 def sentry_envelopes():
+    yield from _capturing("_sentry_options")
+
+
+@pytest.fixture
+def task_sentry_envelopes():
+    # The task worker's and the task child's options (`_task_sentry_options`), captured as the API's are.
+    yield from _capturing("_task_sentry_options")
+
+
+def _capturing(builder: str):
     # main.py's own options, with a fabricated DSN, a transport that keeps each envelope item instead of sending it (with
     # the envelope's and each item's headers, and each lost item's reason and category as a "lost" item; it reads the
     # DSN as the SDK's own does, so the dynamic sampling context carries its public key), every transaction sampled (a
@@ -868,17 +892,8 @@ def sentry_envelopes():
         def record_lost_event(self, reason, data_category=None, item=None, *, quantity=1):
             self.items.append(("lost", [reason, data_category]))
 
-    options = telemetry_bootstrap._sentry_options()
-    assert options["include_local_variables"] is False and options["send_default_pii"] is False
-    # data_collection would drop the event scrubber and bring frame variables back whatever the two options above say
-    # (sentry_sdk/client.py, _get_options; sentry_sdk/utils.py, serialize_frame).
-    assert "data_collection" not in options and "data_collection" not in options.get("_experiments", {})
-    # Span streaming (trace_lifecycle="stream") sends request headers as span attributes, unscrubbed.
-    assert "trace_lifecycle" not in options and "trace_lifecycle" not in options.get("_experiments", {})
-    # Continuous profiling sends profile chunks, which pass no hook either; main samples transaction profiles only.
-    assert not {"profile_session_sample_rate", "profile_lifecycle"} & (
-        set(options) | set(options.get("_experiments", {}))
-    )
+    options = getattr(telemetry_bootstrap, builder)()
+    _assert_option_invariants(options)
     keep = Keep()
     options.update(dsn=dsn, transport=keep, release="gate")
     options.update(traces_sample_rate=1.0, profiles_sample_rate=None)
@@ -926,7 +941,7 @@ def test_main_passes_sentry_only_its_options():
         for path in _scanned_files()
         for call in _sentry_inits(ast.parse(path.read_text(encoding="utf-8")))
     ]
-    assert found == ["app/utils/telemetry_bootstrap.py: sentry_sdk.init(**_sentry_options())"]
+    assert found == ["app/utils/telemetry_bootstrap.py: sentry_sdk.init(**_sentry_options() if process == 'api' else _task_sentry_options())"]
 
 
 @pytest.mark.parametrize(
@@ -2234,6 +2249,8 @@ def test_sentry_stays_off_when_every_placeholder_overlaps_a_secret(monkeypatch):
     with pytest.raises(ValueError) as info:
         telemetry_bootstrap._sentry_options()
     assert str(info.value) == "every placeholder overlaps a secret setting's value"
+    with pytest.raises(ValueError, match="every placeholder overlaps"):
+        telemetry_bootstrap._task_sentry_options()  # the task processes build on the API's options: Sentry stays off
     tree = ast.parse((BACKEND_DIR / "app" / "utils" / "telemetry_bootstrap.py").read_text(encoding="utf-8"))
     guarded = [
         node
@@ -2241,7 +2258,7 @@ def test_sentry_stays_off_when_every_placeholder_overlaps_a_secret(monkeypatch):
         if isinstance(node, ast.Try)
         and any(isinstance(handler.type, ast.Name) and handler.type.id == "Exception" for handler in node.handlers)
         and any(
-            ast.unparse(call) == "sentry_sdk.init(**_sentry_options())"
+            ast.unparse(call) == "sentry_sdk.init(**_sentry_options() if process == 'api' else _task_sentry_options())"
             for statement in node.body
             for call in ast.walk(statement)
             if isinstance(call, ast.Call)
@@ -2892,3 +2909,233 @@ def test_compare_digest_takes_bytes():
 def test_the_compare_digest_gate_flags_a_str(source, flagged):
     ((_, args),) = _compare_digest_calls(ast.parse(source))
     assert _not_bytes(args) is flagged
+
+
+
+# ---- F50: the task worker and the task child start Sentry through the bootstrap, and send what failed and where ----
+
+
+def _bootstrap_calls(tree: ast.Module) -> list[tuple[str, ast.Call]]:
+    """Each call of the bootstrap's public functions, through any import of the module or of the function."""
+    names, modules = {}, set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "app.utils.telemetry_bootstrap":
+            names |= {alias.asname or alias.name: alias.name for alias in node.names}
+        elif isinstance(node, ast.ImportFrom) and node.module == "app.utils":
+            modules |= {alias.asname or alias.name for alias in node.names if alias.name == "telemetry_bootstrap"}
+        elif isinstance(node, ast.Import):
+            modules |= {alias.asname or alias.name for alias in node.names if alias.name == "app.utils.telemetry_bootstrap"}
+    calls = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        function = ast.unparse(node.func)
+        name = names.get(function) or next(
+            (function.rpartition(".")[2] for module in modules if function.startswith(f"{module}.")), None
+        )
+        if name in {"init_sentry", "report_task_failure"}:
+            calls.append((name, node))
+    return calls
+
+
+def test_each_process_starts_sentry_once_through_the_bootstrap():
+    # The single-init pin above holds the one init call to the bootstrap; this one holds who calls the bootstrap: the
+    # API once, at import, before it imports the app (an import-time error is reported) and builds it; the worker once,
+    # at import, before its app; the task child only in main()'s failure handler, never at import or on success.
+    leaf = BACKEND_DIR / "app" / "utils" / "telemetry_bootstrap.py"
+    found = {}
+    for path in _scanned_files():
+        if path == leaf:
+            continue
+        calls = _bootstrap_calls(ast.parse(path.read_text(encoding="utf-8")))
+        if calls:
+            found[path.relative_to(BACKEND_DIR).as_posix()] = [ast.unparse(call) for _, call in calls]
+    assert found == {
+        "main.py": ["init_sentry('api')"],
+        "task_worker_main.py": ["init_sentry('worker')"],
+        "app/services/task_process.py": ["report_task_failure(error, kind)"],
+    }
+    for name in ("main.py", "task_worker_main.py"):
+        tree = ast.parse((BACKEND_DIR / name).read_text(encoding="utf-8"))
+        (call,) = [call for _, call in _bootstrap_calls(tree)]
+        starts = [i for i, node in enumerate(tree.body) if any(inner is call for inner in ast.walk(node))]
+        assert len(starts) == 1, f"{name}: the start is not one top-level statement"
+        later = tree.body[starts[0] + 1 :]
+        earlier = tree.body[: starts[0]]
+        assert not any("FastAPI(" in ast.unparse(node) for node in earlier), f"{name}: the app is built before Sentry"
+        if name == "main.py":
+            assert not any(
+                isinstance(node, ast.ImportFrom) and (node.module or "").startswith(("app.database", "app.routers", "app.services"))
+                for node in earlier
+            ), "main.py imports the app before Sentry starts"
+            assert any(isinstance(node, ast.ImportFrom) and node.module == "app.database" for node in later)
+            # No shim: main.py binds none of the bootstrap's private names, so a stale patch of main fails loudly.
+            assert not any(
+                isinstance(node, ast.ImportFrom) and node.module == "app.utils.telemetry_bootstrap"
+                and any(alias.name.startswith("_") for alias in node.names)
+                for node in ast.walk(tree)
+            )
+    tree = ast.parse((BACKEND_DIR / "app" / "services" / "task_process.py").read_text(encoding="utf-8"))
+    (main_def,) = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main"]
+    (handler,) = [node for node in ast.walk(main_def) if isinstance(node, ast.ExceptHandler)]
+    assert ast.unparse(handler.type) == "Exception" and handler.name == "error"
+    assert [ast.unparse(statement) for statement in handler.body[-2:]] == ["report_task_failure(error, kind)", "return 1"]
+
+
+def test_the_task_processes_change_only_their_policy_of_the_apis_options(monkeypatch):
+    # The task options are the API's with a named delta: the same DSN, release, environment, event scrubber (the same
+    # object), no frame variables, no PII. Every before_send* hook the API sets is replaced, so a hook an SDK upgrade adds
+    # to the API fails here until the task side replaces it too.
+    from app.utils import telemetry_bootstrap
+
+    built = telemetry_bootstrap._sentry_options
+    api = built()
+    monkeypatch.setattr(telemetry_bootstrap, "_sentry_options", lambda: dict(api))
+    task = telemetry_bootstrap._task_sentry_options()
+    changed = {key for key in api.keys() | task.keys() if api.get(key, None) is not task.get(key, None)}
+    assert changed == {
+        "default_integrations", "integrations", "traces_sample_rate", "profiles_sample_rate", "max_request_body_size",
+        "before_send", "before_send_transaction", "before_send_log", "before_send_metric",
+    }
+    assert {key for key in api if key.startswith("before_send")} <= changed
+    assert task["event_scrubber"] is api["event_scrubber"]
+    assert task["default_integrations"] is False and task["max_request_body_size"] == "never"
+    assert task["traces_sample_rate"] is None and task["profiles_sample_rate"] is None
+    _assert_option_invariants(task)
+    assert not {"shutdown_timeout", "auto_enabling_integrations", "max_value_length"} & task.keys()
+    from sentry_sdk.integrations.atexit import AtexitIntegration
+    from sentry_sdk.integrations.dedupe import DedupeIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
+
+    assert [type(integration) for integration in task["integrations"]] == [
+        LoggingIntegration, AtexitIntegration, DedupeIntegration
+    ]
+    logging_integration = task["integrations"][0]
+    assert logging_integration._breadcrumb_handler is None and logging_integration._sentry_logs_handler is None
+    assert logging_integration._handler.level == logging.ERROR
+
+
+@pytest.mark.parametrize("carrier", _CARRIERS)
+def test_a_task_process_sends_no_text_a_carrier_holds(monkeypatch, caplog, task_sentry_envelopes, carrier):
+    # Each carrier quotes an address, payload text and a secret: none reaches Sentry from a task process, whose errors
+    # carry their type and stack only; nothing but errors is sent (no transaction, log, metric or check-in).
+    import sentry_sdk
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from sentry_sdk import logger as sentry_logger
+    from sentry_sdk.crons import capture_checkin
+
+    word, mailbox = _fabricated("task payload word", string.ascii_uppercase), _fabricated("task mailbox", string.ascii_lowercase)
+    address = f"{mailbox}@example.invalid"
+    quoted = f"companyfacts {word} for {address}"
+    if carrier == "message":
+        sentry_sdk.capture_message(quoted)
+    elif carrier == "exception":
+        sentry_sdk.capture_exception(RuntimeError(quoted))
+    elif carrier == "request":
+        app = FastAPI()
+
+        @app.post("/notes/{note}")
+        async def notes(note: str, body: dict):
+            raise RuntimeError(quoted)
+
+        client = TestClient(app, raise_server_exceptions=False)
+        assert client.post(f"/notes/{word}", params={"q": quoted}, json={"note": quoted}).status_code == 500
+    elif carrier == "span":
+        with sentry_sdk.start_transaction(name=quoted), sentry_sdk.start_span(op="job.step", name=quoted) as span:
+            span.set_data("detail", quoted)
+    elif carrier == "log":
+        sentry_logger.warning(quoted)
+    elif carrier == "metric":
+        sentry_sdk.metrics.count("job.failures", 1, attributes={"detail": quoted})
+    elif carrier == "check-in":
+        capture_checkin(monitor_slug=quoted, status="error")
+    else:
+        if carrier == "breadcrumb":
+            caplog.set_level(logging.INFO, logger="app.jobs")
+            logging.getLogger("app.jobs").warning(quoted)
+        elif carrier == "extra":
+            sentry_sdk.set_extra("detail", quoted)
+        elif carrier == "tag":
+            sentry_sdk.set_tag("detail", quoted)
+        elif carrier == "context":
+            sentry_sdk.set_context("job", {"detail": quoted, word: "a key"})
+        else:
+            sentry_sdk.set_user({"id": quoted, "email": address})
+        sentry_sdk.capture_message("job failed")
+    sentry_sdk.flush()
+    sent = json.dumps(task_sentry_envelopes)
+    assert word not in sent and mailbox not in sent and "example.invalid" not in sent
+    assert not {kind for kind, _ in task_sentry_envelopes} & {"transaction", "log", "trace_metric", "check_in"}
+    events = _of(task_sentry_envelopes, "event")
+    assert len(events) == (0 if carrier in {"request", "span", "log", "metric", "check-in"} else 1)
+    for event in events:
+        assert event.keys() <= telemetry_bootstrap_keys()
+        assert all("value" not in exception for exception in event.get("exception", {}).get("values", []))
+
+
+def telemetry_bootstrap_keys() -> frozenset:
+    from app.utils import telemetry_bootstrap
+
+    return telemetry_bootstrap._TASK_EVENT_KEYS
+
+
+def test_a_task_event_says_what_failed_and_where_never_on_what(monkeypatch, caplog, request):
+    # A payload-quoting validation error chained under a RuntimeError with a note, logged with %-arguments: one event,
+    # both types and their frames, no value, no log text; the secret in a kept field (the exception's type name) is
+    # withheld by the API's value scrubber, which runs last.
+    import pydantic
+    import sentry_sdk
+
+    from app.config import settings
+    from app.services.durable_tasks import CompanyTask
+
+    token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
+    monkeypatch.setattr(settings, "INTERNAL_JOB_TOKEN", token)
+    envelopes = request.getfixturevalue("task_sentry_envelopes")
+    word = _fabricated("task payload", string.ascii_uppercase)
+    sentry_sdk.set_tag("task.kind", "companyfacts")
+    sentry_sdk.add_breadcrumb(message=word)
+    caplog.set_level(logging.INFO, logger="app.jobs")
+    logging.getLogger("app.jobs").info("working on %s", word)
+    failed = type(f"Failed{token}", (RuntimeError,), {})
+    try:
+        try:
+            CompanyTask.model_validate({"company_id": word})
+        except pydantic.ValidationError as error:
+            raised = failed(f"{word} failed")
+            raised.add_note(word)
+            raise raised from error
+    except RuntimeError:
+        logging.getLogger("app.jobs").exception("task %s failed", word)
+    from sentry_sdk.crons import capture_checkin
+
+    capture_checkin(monitor_slug="nightly", status="error")
+    sentry_sdk.flush()
+    (event,) = _of(envelopes, "event")
+    assert [exception["type"] for exception in event["exception"]["values"]] == ["ValidationError", "Failed[Filtered]"]
+    assert all("value" not in exception and exception["stacktrace"]["frames"] for exception in event["exception"]["values"])
+    assert event["tags"] == {"task.kind": "companyfacts"} and event["logger"] == "app.jobs"
+    assert not {"logentry", "message", "breadcrumbs", "extra", "user", "request", "modules", "_meta"} & event.keys()
+    sent = json.dumps(envelopes)
+    assert word not in sent and not _fragments(token, sent, width=8) and not _of(envelopes, "check_in")
+
+
+@pytest.mark.parametrize("error", [RuntimeError, _Halt])
+def test_a_failing_task_filter_or_value_scrubber_sends_nothing(monkeypatch, task_sentry_envelopes, error):
+    # The task hooks fail closed: a raise in the allowlist or in the API's value scrubber after it drops the event.
+    import sentry_sdk
+
+    from app.utils import telemetry_bootstrap
+
+    def failing(*arguments):
+        raise error("the filter failed")
+
+    monkeypatch.setattr(telemetry_bootstrap, "_task_event", failing)
+    sentry_sdk.capture_exception(RuntimeError("job failed"))
+    monkeypatch.undo()
+    monkeypatch.setattr(telemetry_bootstrap, "_withhold", failing)
+    sentry_sdk.capture_exception(RuntimeError("job failed again"))
+    sentry_sdk.flush()
+    assert not _of(task_sentry_envelopes, "event")
+    assert _of(task_sentry_envelopes, "lost").count(["callback_error", "error"]) == 2

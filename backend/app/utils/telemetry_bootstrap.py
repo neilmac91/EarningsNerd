@@ -4,9 +4,10 @@ Importing it loads app.config, the standard library and sqlalchemy.engine's URL 
 sentry_sdk (each function imports what it needs, so a failure there is caught with init's own), main, the database,
 a model, a router or a service. So the API (main.py) can start Sentry before it imports the app.
 """
+import logging
 import re
 from functools import lru_cache
-from typing import Any, Callable, NamedTuple
+from typing import Any, Callable, Literal, NamedTuple
 from urllib.parse import quote_plus, unquote, unquote_plus
 
 from sqlalchemy.engine import make_url
@@ -328,24 +329,153 @@ def _sentry_options() -> dict:
 
 
 
-class SentryStart(NamedTuple):
-    """How a process's Sentry start went, and an init failure's text (the API prints it)."""
 
-    status: str  # "initialized", "unconfigured", "unavailable" or "failed"
+# What an event from the task worker or a task child keeps: what failed and where, never what it failed on. Everything
+# else is dropped before the API's value scrubber runs: an exception's value and notes (a pydantic error quotes the
+# payload, a RuntimeError its job's counts), a log record's message and arguments (an f-string template can hold data),
+# breadcrumbs, the request (a task's body is its envelope: an account mail's address), extra (sys.argv), user, modules,
+# threads, every context but the trace's ids, the dynamic sampling context (and with it the envelope's trace header)
+# and every tag but task.kind. An allowlist: a key the SDK adds later stays out until it is named here.
+_TASK_EVENT_KEYS = frozenset(
+    {"event_id", "timestamp", "level", "platform", "logger", "release", "environment", "server_name", "sdk"}
+    | {"exception", "contexts", "tags"}
+)
+_TASK_EXCEPTION_KEYS = frozenset({"type", "module", "mechanism", "stacktrace"})
+_TASK_MECHANISM_KEYS = frozenset({"type", "handled", "exception_id", "parent_id", "source", "is_exception_group"})
+_TASK_FRAME_KEYS = frozenset(
+    {"filename", "abs_path", "module", "function", "lineno", "colno", "in_app", "context_line"}
+    | {"pre_context", "post_context"}
+)
+_TASK_TRACE_KEYS = frozenset({"trace_id", "span_id", "parent_span_id", "op", "status"})
+_TASK_KIND = re.compile(r"[a-z_]{1,32}")
+# The one wait a failed task child spends sending its event: the SDK's own shutdown_timeout. A failure answers 503
+# whether the child exits 1 after it or the worker kills it at its deadline during it, so the wait changes no result.
+TASK_FLUSH_SECONDS = 2.0
+
+
+def _pick(node: Any, keys: frozenset[str]) -> dict[str, Any]:
+    return {key: node[key] for key in keys & node.keys()} if isinstance(node, dict) else {}
+
+
+def _task_event(event: dict[str, Any]) -> dict[str, Any] | None:
+    """The part of an error a task process may send (`_TASK_EVENT_KEYS`), or None for any other kind (a check-in)."""
+    if event.get("type") is not None:
+        return None
+    kept = _pick(event, _TASK_EVENT_KEYS)
+    values = []
+    for entry in (kept.pop("exception", None) or {}).get("values") or []:
+        exception = _pick(entry, _TASK_EXCEPTION_KEYS)
+        if "mechanism" in exception:
+            exception["mechanism"] = _pick(exception["mechanism"], _TASK_MECHANISM_KEYS)
+        if "stacktrace" in exception:
+            frames = (exception["stacktrace"] or {}).get("frames") or []
+            exception["stacktrace"] = {"frames": [_pick(frame, _TASK_FRAME_KEYS) for frame in frames]}
+        values.append(exception)
+    if values:
+        kept["exception"] = {"values": values}
+    trace = (kept.pop("contexts", None) or {}).get("trace")
+    if isinstance(trace, dict):
+        kept["contexts"] = {"trace": _pick(trace, _TASK_TRACE_KEYS)}
+    tags = kept.pop("tags", None)
+    kind = tags.get("task.kind") if isinstance(tags, dict) else None
+    if type(kind) is str and _TASK_KIND.fullmatch(kind):
+        kept["tags"] = {"task.kind": kind}
+    return kept
+
+
+def _task_hooks(event_hook: _Hook) -> dict[str, Callable[[dict[str, Any], dict[str, Any]], Any]]:
+    """A task process's hooks: before_send keeps `_task_event`'s part of an error, then runs the API's own event hook
+    (the value scrubber) on it, last; the others send nothing. Each fails closed: a raise drops the item."""
+
+    def send_error_identity(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any] | None:
+        hint.pop("attachments", None)  # the SDK sends what is left there after the hook, unscrubbed
+        try:
+            kept = _task_event(event)
+        except BaseException as error:  # the SDK sends an item on after any failure but an Exception
+            raise RuntimeError("the task event filter failed") from error
+        return None if kept is None else event_hook(kept, hint)
+
+    def send_nothing(item: dict[str, Any], hint: dict[str, Any]) -> None:
+        hint.pop("attachments", None)
+        return None
+
+    return {"event": send_error_identity, "transaction": send_nothing, "log": send_nothing, "metric": send_nothing}
+
+
+def _task_sentry_options() -> dict:
+    """The task worker's and the task child's options: the API's (`_sentry_options()`: its DSN, release, environment,
+    event scrubber, no frame variables, no PII), with only an ERROR log line becoming an event (no breadcrumbs, no ASGI
+    or SQL instrumentation, no auto-enabled integration), no transactions or profiles, no request body, and hooks
+    that send an error's type and stack only (`_task_hooks`), the API's value scrubber last."""
+    from sentry_sdk.integrations.atexit import AtexitIntegration
+    from sentry_sdk.integrations.dedupe import DedupeIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
+
+    options = _sentry_options()
+    hooks = _task_hooks(options["before_send"])
+    options.update(
+        default_integrations=False,
+        integrations=[
+            LoggingIntegration(level=None, event_level=logging.ERROR, sentry_logs_level=None),
+            AtexitIntegration(),
+            DedupeIntegration(),
+        ],
+        traces_sample_rate=None,
+        profiles_sample_rate=None,
+        max_request_body_size="never",
+        before_send=hooks["event"],
+        before_send_transaction=hooks["transaction"],
+        before_send_log=hooks["log"],
+        before_send_metric=hooks["metric"],
+    )
+    return options
+
+
+class SentryStart(NamedTuple):
+    """How a process's Sentry start went, from a closed set, and an init failure's text (the API prints it)."""
+
+    status: str  # initialized, already, unconfigured, unavailable or failed
     error: str = ""
 
 
-def init_sentry() -> SentryStart:
-    """Start Sentry with `_sentry_options()`, the backend's one init; never raises and prints nothing."""
+_started: str | None = None  # the process whose client this module started
+
+
+def init_sentry(process: Literal["api", "worker", "task"]) -> SentryStart:
+    """Start Sentry once in this process: the API with `_sentry_options()`, any other with `_task_sentry_options()`.
+    The backend's one init; never raises and prints nothing."""
+    global _started
     try:
         import sentry_sdk
     except ImportError:
         return SentryStart("unavailable")
     if not settings.SENTRY_DSN:
         return SentryStart("unconfigured")
+    if _started is not None or sentry_sdk.is_initialized():
+        return SentryStart("already")  # a second init would replace the first client and abandon its queue
     try:
-        sentry_sdk.init(**_sentry_options())
+        sentry_sdk.init(**(_sentry_options() if process == "api" else _task_sentry_options()))
     except Exception as error:
         # A malformed DSN or init failure must never block application startup
         return SentryStart("failed", str(error))
+    _started = process
     return SentryStart("initialized")
+
+
+def report_task_failure(error: BaseException, kind: str | None) -> None:
+    """Send a failed task child's exception (its type and stack: `_task_event`) with its validated kind, waiting at most
+    TASK_FLUSH_SECONDS, and close the client, so nothing waits again at exit. Sentry starts here, on failure only: a
+    task that succeeds never loads the SDK. Never raises: the child exits 1 whatever telemetry does."""
+    try:
+        init_sentry("task")
+        if _started != "task":
+            return  # no DSN, no SDK, a failed start, or a client this module did not start for a task
+        import sentry_sdk
+
+        with sentry_sdk.new_scope() as scope:
+            if kind is not None:
+                scope.set_tag("task.kind", kind)
+            scope.capture_exception(error)
+        sentry_sdk.get_client().close(timeout=TASK_FLUSH_SECONDS)
+    except BaseException:  # noqa: BLE001 — telemetry never changes a task's result
+        pass
