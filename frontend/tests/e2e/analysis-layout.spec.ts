@@ -826,6 +826,24 @@ test.describe('analysis heading rail / 1024px', () => {
   })
 })
 
+/** Three whole periods beside the metric names on a phone, 375px included: the 2px each mark keeps grew a phone column to
+ *  4.375rem, so in the band where that cost the third period the metric column gives up to 6px (MetricsTable). */
+for (const width of [375, 390]) test.describe(`analysis table periods / ${width}px`, () => {
+  test.use({ viewport: { width, height: 812 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  test('three whole periods sit beside the metric names at rest', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', 'light', 1)
+    const table = page.locator(TABLE)
+    await expect.poll(() => table.evaluate(element => {
+      const region = element.closest('[role="region"]')!
+      const box = region.getBoundingClientRect()
+      const heads = [...element.querySelectorAll('thead th')].map(th => th.getBoundingClientRect())
+      const label = heads[0]
+      return heads.slice(1).filter(r => r.left >= label.right - 0.5 && r.right <= box.right + 0.5).length
+    }), 'whole period columns beside the metric names').toBeGreaterThanOrEqual(3)
+  })
+})
+
 for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
   for (const state of ['legacy', 'edge'] as const) test(`${state}: a figure's marks share its line and its cell at 390px, in the figure face`, async ({ page, baseURL }) => {
@@ -904,14 +922,15 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
         }
         const style = getComputedStyle(cell)
         const box = cell.getBoundingClientRect()
-        return { name: `${cell.closest('tr')?.querySelector('th')?.textContent?.trim()} · ${line.textContent?.trim()}`, rem, glyphs, right: box.right - parseFloat(style.paddingRight) }
+        return { name: `${cell.closest('tr')?.querySelector('th')?.textContent?.trim()} · ${line.textContent?.trim()}`, rem, glyphs, left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight) }
       })))
     const changeProblems: string[] = []
     for (const line of changeLines) {
       const end = Math.max(...line.glyphs.filter(glyph => !glyph.mark).map(glyph => glyph.right))
       const first = line.glyphs.find(glyph => glyph.mark)!
       if (first.left - end < 0.125 * line.rem - 0.5) changeProblems.push(`${line.name}: a change line's letter touches its change`)
-      if (line.glyphs.some(glyph => glyph.right > line.right + 1)) changeProblems.push(`${line.name}: a change line leaves its cell`)
+      // Right-justified, a line too wide for its cell runs out at the left.
+      if (line.glyphs.some(glyph => glyph.left < line.left - 1 || glyph.right > line.right + 1)) changeProblems.push(`${line.name}: a change line leaves its cell`)
     }
     expect(changeProblems).toEqual([])
     expect(changeLines.length, 'a change line with a letter is measured').toBeGreaterThan(0)

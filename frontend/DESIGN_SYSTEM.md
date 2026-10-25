@@ -681,6 +681,12 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  query container; the label width is capped to that content width, keeping labels
                  readable at Home without an oversized free-panning snap area. The scroll region
                  itself is not the container: its trailing snap padding must not shrink the cap.
+                 The 2px every mark keeps grew a phone period column to 4.375rem, which cost a 375px
+                 phone (a 309px card) its third whole period, so on a card 19.25rem to 19.625rem wide
+                 the metric column takes calc(100cqi - 3 × period), giving up at most 6px, and three
+                 whole periods sit beside it as at 390px. Gates: tests/unit/metrics-table.spec.tsx
+                 (the band follows the period width) and “analysis table periods” in
+                 tests/e2e/analysis-layout.spec.ts (three whole periods at rest at 375px and 390px).
                  The figures sit on a sheet inside the panel Card (DataTable surface="well"): well
                  #FCFCFD / #0B1120, platinum white, cooler and brighter than the warm panel framing it,
                  and in dark the navy ground itself, so the sheet reads recessed. The heading row and

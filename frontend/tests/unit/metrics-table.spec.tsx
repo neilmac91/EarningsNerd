@@ -441,6 +441,16 @@ describe('MetricsTable column widths', () => {
   }))
   const widest = Math.max(...lines.map(([, width]) => width))
 
+  it('lets the metric column give up to 6px only where that buys a phone its third whole period', () => {
+    const base = /\[--metric-col:min\(([\d.]+)rem,100cqi\)\]/.exec(source)
+    const band = /\[@container\(([\d.]+)rem<=width<([\d.]+)rem\)\]:\[--metric-col:calc\(100cqi-3\*var\(--period-col\)\)\]/.exec(source)
+    expect(base && band, 'the metric column and its band').toBeTruthy()
+    const [low, high] = [Number(band![1]), Number(band![2])]
+    // From the top of the band three periods fit beside the full metric column anyway; below its foot they cannot.
+    expect(high).toBeCloseTo(Number(base![1]) + 3 * rem('period-col'), 6)
+    expect(high - low).toBeCloseTo(0.375, 6)
+  })
+
   it('keeps the mark gutter one mark and its 2px gap wide', () => {
     expect(rem('mark-gutter')).toBeCloseTo(GAP + ADVANCE * MARK, 6)
   })
@@ -449,7 +459,7 @@ describe('MetricsTable column widths', () => {
     expect(widest * 16, lines.map(([label, width]) => `${label}: ${(width * 16).toFixed(1)}px`).join(', ')).toBeCloseTo(67.6, 6)
     for (const root of [16, 32]) {
       expect(rem('period-col') * root - 2, `phone, ${root}px root`).toBeGreaterThanOrEqual(widest * root)
-      expect(rem('period-col', 'md:') * root - 8, `md, ${root}px root`).toBeGreaterThanOrEqual(widest * root)
+      expect(rem('period-col', 'md:') * root - 0.5 * root, `md, ${root}px root`).toBeGreaterThanOrEqual(widest * root) // px-1 a side
     }
   })
 })
