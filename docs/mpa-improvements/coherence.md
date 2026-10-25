@@ -106,8 +106,8 @@ sibling plans have landed:
    4. The exports, split by file; the siblings they waited for (#1601, #1609) have merged.
    5. Surfaces and the results header, last.
 
-   E206 in `tasks/todo.md` tracks them in this order, after the proxy-statement ingest fix
-   (§1.6), which goes first because it may put a wrong number on the page today.
+   E206 in `tasks/todo.md` tracks them in this order. The proxy-statement fix the census found
+   (§1.6) went first: it merged as #1622, and its repair of the rows stored before it is E211.
 7. **The founder's decision, taken 2026-10-25 (§2.9).** The 2026-10 redesign records the
    founder's rule "never hide a note". A P0 review enforced it for exactly the case the quiet
    scheme stops marking: a figure whose only note is `legacy_calculation`. The founder approved
@@ -337,9 +337,10 @@ of any form, so the proxy's value wins.
 - **Nothing flags it.** Companyfacts rows skip the reconciliation checks.
 
 The fix (ingest skips proxy and information statements, plus a read-only query that sizes the
-production rows) is its own work package, high tier, and the first item in E206 (`tasks/todo.md`).
-It goes first: if production ingested those proxies, FDX's FY2022–FY2026 net income is a wrong
-number on the page today (3,826 where the 10-K gives $3,826M).
+production rows) went first, as it could put a wrong number on the page (FDX's FY2022–FY2026 net
+income, 3,826 where the 10-K gives $3,826M): it merged as #1622 on 2026-10-25 (high tier), with
+`ops/detection/proxy_form_winners.sql` to measure the rows production holds. The next sync heals
+some of them; the journaled repair of the rest is E211 (#1622's body says which).
 
 **Owner.** Data, in two parts:
 - the history rows in `facts/**` (high tier);
@@ -1037,12 +1038,11 @@ unresolved conflict.
 4a, 4b and 4c can run in parallel. Step 1 shares no file with steps 2–5 except `tasks/todo.md`,
 so it can start today.
 
-**Tracking.** One row, E206 in `tasks/todo.md`, holds this report's work in order:
-1. the proxy-statement ingest fix (§1.6, high tier), first, since it may put a wrong number on the
-   page today;
-2. WP0–WP5 in the order above;
-3. the concept-selection decision for REGN's change of scope (§1.6);
-4. the `detection-sql` runs before and after the backfill's apply (§1.7).
+**Tracking.** One row, E206 in `tasks/todo.md`, holds this report's work in order, after the
+proxy-statement fix, which merged as #1622 (its repair is E211):
+1. WP0–WP5 in the order above (WP5 also commits a rerunnable restatement census);
+2. the concept-selection decision for REGN's change of scope (§1.6);
+3. the `detection-sql` runs before and after the backfill's apply (§1.7).
 
 ## 7. Findings for the other plans
 
