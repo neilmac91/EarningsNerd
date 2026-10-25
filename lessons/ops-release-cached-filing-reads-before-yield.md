@@ -269,15 +269,18 @@ statement and release off the loop and each answer, each reader's plan given by 
 its `is_pro` mirror (a plan check on the detached user falls back to the mirror and answers wrong), and its
 render case holds no connection while either export builds or renders, and neither on the loop (2026-10-25,
 E171).
-Every unit runs on one of anyio's default thread tokens (40 a process), and an auth lookup blocked on the pool
-holds one while it waits; the dependency's finalizer had a one-token limiter of FastAPI's own
-(`contextmanager_in_threadpool`). So an instance with more requests in flight than tokens can have every token
-held by lookups waiting for connections whose holders need a token to give them back, and nothing moves until
-the pool times out, which the optional lookup reads as anonymous. In the exports' review, sixty PDF exports on
-40 tokens and four slots answered 20 or 36 of 60 (the rest 401), where the base answered all 60, and sixty
-change reports, one unit since #1286, 32 (the rest 500); forty answered all 40. Cloud Run's `--concurrency=40`
-keeps an instance at the token count, and the pool-lifetime file holds it there; raising it needs the units on
-a limiter of their own (2026-10-25, E171).
+A unit run with `run_in_threadpool`, as every E171 unit is, takes one of anyio's default thread tokens (40 a
+process), and an auth lookup blocked on the pool holds one while it waits; the dependency's finalizer had a
+one-token limiter of FastAPI's own (`contextmanager_in_threadpool`), and the feedback router's units run on
+`request_work`'s executor of their own (`run_owned_sync`). So an instance with more requests in flight than
+its tokens and pool slots together can have every token held by lookups waiting for connections whose holders
+need a token to give them back, and nothing moves until the pool times out, which the optional lookup reads as
+anonymous. In the exports' review, on 40 tokens and four slots, 43 PDF exports all answered and 44 as few as 4
+(the rest 401); sixty answered 20 or 36 of 60, where the base answered all 60, and sixty change reports, one
+unit since #1286, 32 to 42 in three runs (the rest 500); forty exports, and forty change reports, all
+answered. Cloud Run's `--concurrency=40` keeps an instance at the token count, a margin of the pool's slots,
+and the pool-lifetime file holds every concurrency the deploy sets there; raising it needs the units on a
+limiter of their own (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the

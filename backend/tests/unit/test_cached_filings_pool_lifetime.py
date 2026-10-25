@@ -2880,7 +2880,8 @@ async def test_summary_exports_hold_no_connection_while_they_render(monkeypatch,
 
     engine, _ = _summary_export_fixture(tmp_path, "summary-export-render.db", pro=True)
     loop_thread = threading.get_ident()
-    # Each step: the connections out as it starts and as it ends, and whether it ran on the loop's thread.
+    # Each build: the connections out as it starts and as it ends, and whether it ran on the loop's thread; the
+    # stub render, which does no work, once.
     held: dict[str, tuple[int, int, bool]] = {}
 
     def recorded(step: str, build: Callable) -> Callable:
@@ -2920,26 +2921,32 @@ async def test_summary_exports_hold_no_connection_while_they_render(monkeypatch,
 
 @pytest.mark.asyncio
 async def test_an_instance_takes_no_more_requests_than_the_thread_tokens_its_units_release_on():
-    """Every unit releases its session on one of anyio's default thread tokens, and an auth lookup blocked on the
-    pool holds one while it waits; the dependency's finalizer had a one-token limiter of FastAPI's own. With more
-    requests in flight than tokens, lookups waiting for connections can hold every token their holders need to
-    give the connections back, and nothing moves until the pool times out: sixty PDF exports on 40 tokens and four
-    slots answered 20 of 60, the rest 401, where the base answered all 60 (E171's export review). So the API
-    service's Cloud Run concurrency stays at or under the token count; raising it needs the units on a limiter of
-    their own (``lessons/ops-release-cached-filing-reads-before-yield.md``)."""
+    """A unit run with ``run_in_threadpool`` releases its session on one of anyio's default thread tokens, and an auth
+    lookup blocked on the pool holds one while it waits; the dependency's finalizer had a one-token limiter of
+    FastAPI's own. With more requests in flight than tokens and pool slots together, lookups waiting for connections
+    can hold every token their holders need to give the connections back, and nothing moves until the pool times
+    out: sixty PDF exports on 40 tokens and four slots answered 20 of 60, the rest 401, where the base answered all
+    60, and 44 as few as 4, where 43 all answered (E171's export review). So every Cloud Run concurrency the deploy
+    sets is a number at or under the token count, a margin of the pool's slots; raising it needs the units on a
+    limiter of their own (``lessons/ops-release-cached-filing-reads-before-yield.md``). The case reads the deploy
+    job's commands, so a concurrency set outside it (by hand, or in the console) or a token count the app changed at
+    startup is out of its reach."""
     import re
 
     import anyio.to_thread
     import yaml
 
     workflow = yaml.load((BACKEND_DIR.parent / ".github/workflows/ci.yml").read_text(), Loader=yaml.BaseLoader)
-    step = next(step for step in workflow["jobs"]["deploy-backend"]["steps"]
-                if step.get("name") == "Deploy Cloud Run service")
-    deploy = "\n".join(line for line in step["run"].splitlines() if not line.lstrip().startswith("#"))
+    deploy = "\n".join(
+        line for step in workflow["jobs"]["deploy-backend"]["steps"] for line in step.get("run", "").splitlines()
+        if not line.lstrip().startswith("#")
+    )
     assert "gcloud run deploy earningsnerd-backend" in deploy
-    concurrency = [int(value) for value in re.findall(r"--concurrency=(\d+)", deploy)]
+    # Every value, in either form (``--concurrency=N`` or ``--concurrency N``), in any step: a value that is not a
+    # number, such as a variable, fails, since the case could not read it.
+    concurrency = re.findall(r"--concurrency[= ](\S+)", deploy)
     tokens = anyio.to_thread.current_default_thread_limiter().total_tokens
-    assert concurrency and max(concurrency) <= tokens, (concurrency, tokens)
+    assert concurrency and all(value.isdigit() and int(value) <= tokens for value in concurrency), (concurrency, tokens)
 
 
 @pytest.mark.asyncio
