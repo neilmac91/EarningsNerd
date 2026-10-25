@@ -6,8 +6,10 @@ and the debt-break checks register after every version-1 ID; the net-debt red fl
 company was in net debt throughout; a long-term debt line that stops, or reads zero, while debt is still evident
 is a break, and so is a debt line's onset (DE) and a one-year cash gap or a double count (MSFT, NVDA, ORCL, COP,
 TGT), with no false one in the 20; everything built on a broken year is withheld from the render, a peer's broken
-year included (a checked peer rank and median replace version 1's); a check names the net-cash peer rank only when
-it withholds it; passages in millions carry their unit; a version-2 render puts derived cells in year order and a
+year included (a checked peer rank and median replace version 1's), and so is a long-term line reported as zero
+there (ORCL); a check names the net-cash peer rank only when it withholds it; a line the filer reports and the pack
+maps nowhere (CAT's current portion of long-term debt, KO's short-term investments) is a data check that withholds
+nothing, and the net-debt flag then quotes no level; passages in millions carry their unit; a version-2 render puts derived cells in year order and a
 legend on net-cash rows; a version-1 pack renders byte for byte as the frozen runs read it; and the committed
 version-2 packs keep every version-1 ID and value. The builder is imported over a stub bootstrap, so no database,
 settings or SEC call is touched.
@@ -174,6 +176,9 @@ def test_debt_break_checks_name_the_span() -> None:
     assert _break_detail(trailing, "bank") == ["Long-term debt not reported after FY2021."]
     hole = {"debt_noncurrent": dict(zip(YEARS, (70e9, 76e9, 0.0, 86e9, 90e9))), "debt_current": _every(3e9)}
     assert _break_detail(hole)[0].startswith("Long-term debt reported as zero in FY2021; total debt and net cash in that year omit it")
+    reg = _registry(hole)  # the evidence is the line on either side; the zero line itself is withheld
+    assert derived.debt_checks(reg, YEARS, "operating", ["FY2021"])[0]["evidence"] == [
+        reg.ref("debt_noncurrent", "FY2020"), reg.ref("debt_noncurrent", "FY2022")]
     leading = {"debt_noncurrent": _every(22e9, YEARS[1:]), "debt_current": {"FY2019": 1e9}}
     assert _break_detail(leading)[0].startswith("Long-term debt not reported before FY2020; total debt and net cash before that omit it")
     reg = _registry(trailing)
@@ -235,6 +240,21 @@ def test_withheld_covers_every_value_and_flag_built_on_a_broken_year() -> None:
     for kept in (reg.ref("total_debt", "FY2021"), reg.ref("net_cash", "FY2021"), reg.ref("g:total_debt", "FY2021"),
                  reg.ref("liquidity", "FY2023"), reg.ref("peer_median:net_margin", "FY2023"), "R2"):
         assert kept is not None and kept not in out
+
+
+def test_a_long_term_line_reported_as_zero_in_a_break_is_withheld() -> None:
+    # ORCL's FY2022 long-term debt reads $0.0m [F185, X213] between $76.0bn and $86.4bn: stated, it reads as debt repaid.
+    pack = _load("packs-v2", "ORCL")
+    reg, years = _pack_registry(pack)
+    assert (reg.values["F185"].value, reg.values["X213"].value) == (0.0, 0.0)
+    out = derived.withheld(reg, ["FY2022"], [])
+    assert out["F185"] == out["X213"] == "debt_break"
+    check = next(c for c in pack["data_checks"] if c["kind"] == "debt_break")
+    assert check["evidence"] == ["X212", "X214"] and {"F185", "X213"} <= set(pack["withheld"])
+    # A positive long-term line of a broken year stays: DE's onset span lacks another line, not this one.
+    reg, years = _pack_registry(_load("packs", "DE"))
+    out = derived.withheld(reg, years[:4], [])
+    assert not {reg.ref(key, year) for key in ("debt_noncurrent", "long_term_debt") for year in years[:4]} & set(out)
 
 
 def test_net_cash_is_withheld_even_when_no_debt_line_is_left() -> None:
@@ -362,6 +382,129 @@ def test_short_term_investments_inside_cash_are_a_double_count() -> None:
     assert derived.double_counted(tgt, ["FY2025"], {}) == []  # no filer total, no finding
     pack = _load("packs-v2", "TGT")
     assert {"D410", "D411"} <= set(pack["withheld"]) and pack["values"]["D410"]["value"] == pytest.approx(-4.299e9, rel=1e-3)
+
+
+# --- Lines the pack maps nowhere: a data check, nothing withheld -------------------------------------------------
+
+# The filer's own figures (companyfacts, first reported) by the packs' fiscal years: CAT's long-term debt maturing within
+# one year (its balance sheet's "Long-term debt due within one year", $7,120m at FY2025), TGT's, and KO's and MSFT's cash,
+# cash equivalents and short-term investments totals.
+CAT_DUE = dict(zip(TEN, (6662e6, 6194e6, 5830e6, 6210e6, 9149e6, 6352e6, 5322e6, 8763e6, 6665e6, 7120e6)))
+TGT_DUE = dict(zip(TEN, (1683e6, 201e6, 1002e6, 94e6, 1056e6, 63e6, 0.0, 1000e6, 1500e6, 2000e6)))
+KO_TOTAL = dict(zip(TEN, (18150e6, 15358e6, 10951e6, 7947e6, 8566e6, 10926e6, 10562e6, 12363e6, 12848e6, 13872e6)))
+MSFT_TOTAL = dict(zip([f"FY{y}" for y in range(2017, 2027)], (132981e6, 133768e6, 133819e6, 136527e6, 130334e6, 104757e6,
+                                                               111262e6, 75543e6, 94565e6, 76843e6)))
+CAT_DEBT_CHECK = ("Long-term debt due within one year is in no line of this pack in FY2016-FY2025: the filer reports from "
+                  "$5.3 billion to $9.1 billion a year, $7.1 billion in FY2025, beside the noncurrent long-term debt this "
+                  "pack sums, so total debt and net cash in those years omit it.")
+
+
+def test_cats_current_portion_of_long_term_debt_is_an_unmapped_line() -> None:
+    # CAT's total debt [D455] is $30,696m noncurrent long-term debt [X180] plus $5,514m short-term borrowings: the $7,120m
+    # due within one year is in no line, so its FY2025 net debt reads $26.2bn [D456] against about $33bn.
+    reg, years = _pack_registry(_load("packs", "CAT"))
+    found = derived.unmapped_lines(reg, years, CAT_DUE, {})
+    assert found == [("debt_current", year, CAT_DUE[year]) for year in years]
+    checks = derived.unmapped_checks(reg, years, found)
+    assert checks == [{"kind": "unmapped_line", "severity": "high", "period": ",".join(years), "detail": CAT_DEBT_CHECK,
+                       "evidence": ["X180", "D455"]}]
+    # Below the share of total debt, or beside a mapped current line, it is no finding.
+    assert derived.unmapped_lines(reg, years, {y: 0.05 * reg.val("total_debt", y) for y in years}, {}) == []
+    reg.add("X", "debt_current", "Current portion of debt", "FY2025", 7120e6, "usd", source="filed", fixed_id="X9999")
+    assert [year for _, year, _ in derived.unmapped_lines(reg, years, CAT_DUE, {})] == years[:-1]
+
+
+def test_a_long_term_debt_tag_that_may_hold_the_current_portion_is_not_tested() -> None:
+    # TGT FY2024-FY2025: $1.5bn and $2.0bn due within a year beside a long-term line tagged LongTermDebt and no current
+    # line. That tag holds the current portion for some filers (DUK), not for TGT, so the test cannot tell them apart.
+    reg, years = _pack_registry(_load("packs", "TGT"))
+    assert reg.get("debt_current", "FY2025") is None and reg.get("debt_noncurrent", "FY2025").formula == "us-gaap:LongTermDebt"
+    assert reg.val("total_debt", "FY2025") * derived.UNMAPPED_LINE_SHARE < TGT_DUE["FY2025"]
+    assert derived.unmapped_lines(reg, years, TGT_DUE, {}) == []
+
+
+def test_a_year_a_break_check_names_is_not_tested_again() -> None:
+    # DE's FY2016-FY2019 onset span already says total debt omits its current portion; the same years with a figure due
+    # within one year are not named twice.
+    reg, years = _pack_registry(_load("packs", "DE"))
+    assert derived.unmapped_lines(reg, years, {y: 8e9 for y in years[:4]}, {}) == []
+
+
+def test_kos_short_term_investments_are_an_unmapped_line() -> None:
+    # KO's own total ($18,150m at FY2016) exceeds its $8,555m of cash and $4,051m of marketable securities: its $9,595m
+    # of short-term investments are in no line of the pack. FY2018-FY2020 the marketable securities, which KO's total
+    # leaves out, cover the gap, so those years are no finding.
+    reg, years = _pack_registry(_load("packs", "KO"))
+    found = derived.unmapped_lines(reg, years, {}, KO_TOTAL)
+    assert [(line, year) for line, year, _ in found] == [("short_term_investments", y) for y in
+                                                         ("FY2016", "FY2017", "FY2021", "FY2022", "FY2023", "FY2024", "FY2025")]
+    assert found[0][2] == pytest.approx(18150e6 - 8555e6 - 4051e6)
+    first, second = derived.unmapped_checks(reg, years, found)
+    assert first["detail"] == (
+        "Cash and short-term investments in this pack fall short of the filer's own cash, cash equivalents and short-term "
+        "investments total before FY2018 ($5.5 billion in FY2016 and $3.9 billion in FY2017): a short-term investment line "
+        "this pack does not map, so cash and investments and net cash before that omit it.")
+    assert first["evidence"] == [reg.ref(k, "FY2017") for k in ("cash_and_equivalents", "short_term_investments", "liquidity")]
+    assert second["period"] == "FY2021,FY2022,FY2023,FY2024,FY2025"
+    assert "after FY2020 (from $1.0 billion to $3.6 billion a year, $3.6 billion in FY2025)" in second["detail"]
+
+
+def test_a_total_the_pack_matches_or_a_named_gap_is_no_unmapped_line() -> None:
+    # MSFT's total equals cash plus short-term investments from FY2018; FY2017's short-term investments are a liquidity
+    # gap that its own check names.
+    reg, years = _pack_registry(_load("packs", "MSFT"))
+    assert reg.val("cash_and_equivalents", "FY2018") + reg.val("short_term_investments", "FY2018") == MSFT_TOTAL["FY2018"]
+    assert derived.unmapped_lines(reg, years, {}, MSFT_TOTAL) == []
+
+
+def test_the_net_debt_flag_quotes_no_level_an_unmapped_line_leaves_incomplete() -> None:
+    reg, years = _pack_registry(_load("packs", "CAT"))
+    plain = next(f for f in derived.red_flags(reg, years, "operating", [], []) if f["kind"] == "net_debt_build")
+    assert plain["detail"] == "Net debt rose 2 years in a row to $26.2 billion in FY2025."
+    found = derived.unmapped_lines(reg, years, CAT_DUE, {})
+    flag = next(f for f in derived.red_flags(reg, years, "operating", [], [], found) if f["kind"] == "net_debt_build")
+    assert flag == {**plain, "detail": "Net debt rose 2 years in a row through FY2025; its level is left out, as total debt "
+                                       "and net cash omit long-term debt due within one year."}
+    # A line left out only before the run leaves the level quoted.
+    early = [hit for hit in found if hit[1] < "FY2023"]
+    assert next(f for f in derived.red_flags(reg, years, "operating", [], [], early)
+                if f["kind"] == "net_debt_build")["detail"] == plain["detail"]
+
+
+# What the committed version-2 packs name as an unmapped line: nowhere else, and no other years.
+UNMAPPED_HITS = {
+    "CAT": {",".join(TEN)},
+    "KO": {"FY2016,FY2017", "FY2021,FY2022,FY2023,FY2024,FY2025"},
+}
+
+
+@pytest.mark.parametrize("ticker", sorted(V1_RENDERS))
+def test_committed_version_2_packs_name_every_unmapped_line_and_withhold_nothing_for_it(ticker: str) -> None:
+    pack = _load("packs-v2", ticker)
+    checks = [c for c in pack["data_checks"] if c["kind"] == "unmapped_line"]
+    assert {c["period"] for c in checks} == UNMAPPED_HITS.get(ticker, set())
+    reg, _ = _pack_registry(pack)
+    named = {kind: [p for c in pack["data_checks"] if c["kind"] == kind for p in c["period"].split(",")]
+             for kind in ("debt_break", "liquidity_break")}
+    assert derived.withheld(reg, named["debt_break"], pack["red_flags"], named["liquidity_break"],
+                            (pack["peers"] or {}).get("replaced")) == pack["withheld"]  # the check adds nothing to it
+    if ticker == "CAT":
+        assert checks[0]["detail"] == CAT_DEBT_CHECK
+
+
+@pytest.mark.parametrize("ticker", sorted(V1_RENDERS))
+def test_no_red_flag_quotes_a_level_an_unmapped_line_leaves_incomplete(ticker: str) -> None:
+    # CAT R1 read "Net debt rose 2 years in a row to $26.2 billion in FY2025" on net debt that omits $7.1bn.
+    pack = _load("packs-v2", ticker)
+    reg, _ = _pack_registry(pack)
+    totals = {"Long-term debt due": ("total_debt", "net_cash"), "Cash and short-term": ("liquidity", "net_cash")}
+    seeds = {vid for c in pack["data_checks"] if c["kind"] == "unmapped_line"
+             for key in next(keys for lead, keys in totals.items() if c["detail"].startswith(lead))
+             for year in c["period"].split(",") if (vid := reg.ref(key, year))}
+    built = derived._built_on(reg, seeds)
+    for flag in pack["red_flags"]:
+        if flag["kind"] != "data_quality" and built & set(flag["evidence"]):
+            assert not re.search(r"\$|\d%", flag["detail"]) and " omit " in flag["detail"], flag
 
 
 @pytest.mark.parametrize("ticker", sorted(V1_RENDERS))
@@ -560,16 +703,21 @@ def _pack(version: str) -> dict[str, Any]:
         "D100": {"label": "Revenue growth", "period": "FY2017", "value": 4.0, "unit": "pct"},
         "D11": {"label": "Net cash % of revenue", "period": "FY2019", "value": -38.8, "unit": "pct"},
         "D12": {"label": "Total debt", "period": "FY2019", "value": 1.5e9, "unit": "usd"},
+        # A long-term line reported as zero inside a break (ORCL FY2022), beside a year that reports it.
+        "F1": {"label": "Long-term debt", "period": "FY2018", "value": 5e9, "unit": "usd"},
+        "F2": {"label": "Long-term debt", "period": "FY2019", "value": 0.0, "unit": "usd"},
     }
     keys = {"g:revenue|FY2018": "D9", "g:revenue|FY2019": "D10", "g:revenue|FY2017": "D100",
-            "net_cash_to_revenue|FY2019": "D11", "total_debt|FY2019": "D12"}
+            "net_cash_to_revenue|FY2019": "D11", "total_debt|FY2019": "D12", "long_term_debt|FY2018": "F1",
+            "long_term_debt|FY2019": "F2"}
     flags = [{"id": "R1", "kind": "revenue_decline", "severity": "medium", "persistence": 1, "detail": "Revenue declined.", "evidence": []},
              {"id": "R2", "kind": "debt_build", "severity": "medium", "persistence": 1, "detail": "Total debt rose 31%.", "evidence": ["D12"]},
              {"id": "R3", "kind": "data_quality", "severity": "high", "persistence": 1, "detail": "Long-term debt not reported.", "evidence": []}]
     return json.loads(json.dumps({  # through JSON with sorted keys, as the packs are committed
         "version": version, "company_name": "Example", "ticker": "EX", "window": "FY2017-FY2019", "sector": "x", "sic": "1",
         "industry": "x", "profile": "operating", "values": values, "series_keys": keys, "segments": [], "peers": {},
-        "red_flags": flags, "data_checks": [], "inflection_years": [], "withheld": {"D12": "debt_break", "R2": "debt_break"},
+        "red_flags": flags, "data_checks": [], "inflection_years": [],
+        "withheld": {"D12": "debt_break", "R2": "debt_break", "F2": "debt_break"},
         "passages": [{"id": "P1", "fiscal_year": "FY2019", "accession": "a", "section": "Item 7", "kind": "causal",
                       "text": COSTCO_FX, "table_scale": "million"}],
     }, sort_keys=True))
@@ -585,6 +733,7 @@ def test_version_2_render_orders_derived_cells_by_year_and_legends_net_cash() ->
 def test_version_2_render_withholds_and_ranks_flags_and_gives_passages_their_unit() -> None:
     text = render.render(_pack("trend-depth-pack-v2"))
     assert "[D12]" not in text and "[R2]" not in text  # built on a broken debt year
+    assert "- Long-term debt: FY2018 $5,000.0m [F1]\n" in text and "[F2]" not in text  # a filed line's withheld cell
     assert text.index("[R3] high") < text.index("[R1] medium")  # an appended high flag reads first
     assert "by $126 million, attributable" in text
 
@@ -593,6 +742,7 @@ def test_version_1_render_is_unchanged_by_version_2() -> None:
     text = render.render(_pack("trend-depth-pack-v1"))
     assert "- Revenue growth: FY2019 6.0% [D10] · FY2017 4.0% [D100] · FY2018 5.0% [D9]" in text  # as the frozen runs read it
     assert "[D12]" in text and "[R2]" in text and "by $126, attributable" in text and "legend" not in text
+    assert "- Long-term debt: FY2018 $5,000.0m [F1] · FY2019 $0.0m [F2]" in text
     assert render.NET_CASH_LEGEND not in text and text.index("[R1]") < text.index("[R3]")
 
 
@@ -633,7 +783,7 @@ def test_committed_version_2_packs_keep_every_version_1_id_and_value(ticker: str
 @pytest.mark.parametrize("ticker", sorted(V1_RENDERS))
 def test_committed_version_2_packs_render_no_withheld_id(ticker: str) -> None:
     pack = _load("packs-v2", ticker)
-    shown = set(re.findall(r"\[([DR]\d+)\]", render.render(pack)))
+    shown = set(re.findall(r"\[([DFRX]\d+)\]", render.render(pack)))
     assert not shown & set(pack["withheld"])
     assert set(pack["withheld"].values()) <= {"debt_break", "liquidity_break", "peer_break"}
 
@@ -677,6 +827,14 @@ def test_readme_states_the_implied_rate_inside_each_long_term_debt_break() -> No
                (("above", above), ("under", under))}
     readme = " ".join((RECORDS / "packs-v2" / "README.md").read_text().split())
     assert f"is above 12% in {listing['above']}, and under it in {listing['under']}." in readme
+
+
+def test_readme_names_each_unmapped_line_the_packs_check() -> None:
+    readme = " ".join((RECORDS / "packs-v2" / "README.md").read_text().split())
+    for ticker in sorted(V1_RENDERS):
+        years = [p for c in _load("packs-v2", ticker)["data_checks"] if c["kind"] == "unmapped_line"
+                 for p in c["period"].split(",")]
+        assert not years or f"{ticker} {_years(years)}:" in readme, ticker
 
 
 # --- The builder ---------------------------------------------------------------------------------------------------

@@ -8,7 +8,8 @@ A version-1 pack renders byte for byte as the frozen runs read it (eval-v1, dev-
 (DEEPSEEK-ERRORS.md §2): derived cells in year order and rows in the order the pack registers them (fix 11;
 the committed pack's IDs sort as strings, so FY2017's cell printed after FY2024's), a legend on net-cash rows
 (fix 4), passages' table-scale dollars with their unit (fix 11), red flags in severity order with version 2's
-appended flags among them, and no cell or flag the pack withholds as built on a broken debt year (fix 8).
+appended flags among them, and no cell or flag the pack withholds as built on a broken debt or cash year (fix 8), a
+filed F or X line included.
 """
 from __future__ import annotations
 
@@ -51,11 +52,13 @@ def fmt(value: float, unit: str) -> str:
 
 
 def _series_lines(pack: dict[str, Any], prefix: str) -> list[str]:
-    """One line per (label) over periods, for F/X/S values."""
+    """One line per (label) over periods, for F/X/S values; a version-2 pack's withheld cells are left out (a long-term
+    debt line reported as zero inside a break, ORCL FY2022), and a row with none left with them."""
+    withheld = {} if _v1(pack) else (pack.get("withheld") or {})
     rows: dict[str, list[tuple[str, str]]] = {}
     order: list[str] = []
     for vid, value in pack["values"].items():
-        if not vid.startswith(prefix):
+        if not vid.startswith(prefix) or vid in withheld:
             continue
         label = value["label"]
         if label not in rows:
