@@ -683,7 +683,7 @@ def test_the_report_reads_each_systems_own_pack(harness: Any, monkeypatch: pytes
     read: list = []
     monkeypatch.setattr(harness.report, "factcheck", types.SimpleNamespace(
         check=lambda sentences, pack: read.append(pack["dir"]) or {"passed": True}))
-    monkeypatch.setattr(harness.report, "classify_flag", lambda item, sentences, pack: read.append(pack["dir"]) or "substantive")
+    monkeypatch.setattr(harness.report, "classify_flag", lambda item, sentences, pack, view: read.append(pack["dir"]) or "substantive")
     record = _generation(harness, "deepseek-flash-c", gate={"passed": True, "claims": 1, "failed_claims": 0, "failures": []},
                          output={"sections": [{"sentences": [{"type": "fact", "text": "x"}]}]}, words=10, latency_s=1.0,
                          usage={"input_tokens": 1000, "output_tokens": 100})

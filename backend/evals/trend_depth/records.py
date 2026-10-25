@@ -12,8 +12,9 @@ import hashlib
 import json
 import os
 import tempfile
+from collections import Counter
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Iterable, Optional
 
 from evals.trend_depth.providers import ARMS, labels_by_number, list_cost
 
@@ -110,12 +111,53 @@ def all_attempts(record: dict[str, Any]) -> list[dict[str, Any]]:
     return [*record.get("prior_attempts", []), *record.get("attempts", [])]
 
 
+def first_reads(record: dict[str, Any]) -> list[int]:
+    """What each OpenAI-compatible (DeepSeek) first attempt of a record read from cache, its replaced generations'
+    included."""
+    return [int(a.get("cached_input_tokens") or 0) for a in all_attempts(record)
+            if a.get("attempt") == 0 and a.get("backend") == "openai_compat"]
+
+
 def first_request_cache(records: list[dict[str, Any]]) -> int:
-    """The cached prefix every company's first request read: the shared system prompt. It is the least that any
-    first attempt read from cache, so no first attempt is credited with a hit left by an earlier run of its pack."""
-    firsts = [int(a.get("cached_input_tokens") or 0) for r in records for a in all_attempts(r)
-              if a.get("attempt") == 0 and a.get("backend") == "openai_compat"]
-    return min(firsts) if firsts else 0
+    """The cached prefix every company's first request shares, the system prompt, from ``records`` of one model and
+    prompt: the read most of their first attempts share (the smaller on a tie). Once the prompt is cached, every
+    company's first request reads exactly it. Two other reads are rarer: a prompt's first requests, sent before it is
+    cached, read less (nothing, or the part an earlier prompt shares: dev-v4's first three read 1,024 of the frozen
+    prompt's 1,920), and a repeat of a label's inputs reads each company's whole prompt, a length of its own per company
+    (eval-v1's five companies dev-v4 had just run). The least read, the rule before, fell to the first, pricing a new
+    prompt's every analysis cold beside one already cached, and, taken within one label, rose to the second: a repeated
+    label whose every first request was warm cost half."""
+    counts = Counter(read for r in records for read in first_reads(r))
+    return min(counts, key=lambda read: (-counts[read], read)) if counts else 0
+
+
+def prefix_key(record: dict[str, Any]) -> Optional[str]:
+    """The cache a record's first request reads: its model's, for its prompt (``prompt_sha256``). The four DeepSeek
+    flash arms share one model, so K0 and P (the frozen prompt) share a prefix, as Q and C (the candidate) do. None
+    for a record made before prompts were hashed (dev-v3)."""
+    if not record.get("prompt_sha256"):
+        return None
+    arm = ARMS.get(record.get("arm", ""))
+    return f"{record.get('model') or (arm.model if arm else '')} {record['prompt_sha256']}"
+
+
+def shared_prefixes(records: Iterable[dict[str, Any]]) -> dict[str, int]:
+    """``first_request_cache`` per model and prompt (``prefix_key``), over every recorded label's records passed, so a
+    warm repeat of one label can neither raise its prompt's prefix nor stand alone. A record without a prompt hash is
+    left out: its own label's records are its only peers."""
+    by_prompt: dict[str, list[dict[str, Any]]] = {}
+    for record in records:
+        key = prefix_key(record)
+        if key is not None:
+            by_prompt.setdefault(key, []).append(record)
+    return {key: first_request_cache(group) for key, group in by_prompt.items()}
+
+
+def warm_first_attempts(records: list[dict[str, Any]], prefix: Callable[[dict[str, Any]], int]) -> tuple[int, int]:
+    """(first attempts that read more than their prompt's shared ``prefix`` from cache, first attempts): a warm read of
+    an earlier request's pack, which ``api_cost`` prices as the prefix alone."""
+    reads = [(read, prefix(r)) for r in records for read in first_reads(r)]
+    return sum(1 for read, shared in reads if read > shared), len(reads)
 
 
 def api_cost(record: dict[str, Any], shared_cache: int = 0) -> Optional[float]:
@@ -124,9 +166,9 @@ def api_cost(record: dict[str, Any], shared_cache: int = 0) -> Optional[float]:
 
     - a Claude CLI call reads nothing from cache: the harness's API request sets no cache breakpoint;
     - a Claude API call is priced as billed, cache writes included;
-    - an OpenAI-compatible (DeepSeek) first attempt reads at most ``shared_cache`` tokens from cache, and a later
-      attempt (a JSON retry or the repair) keeps its recorded hits, because it re-sends the first attempt's
-      prefix seconds later, as a fresh analysis would.
+    - an OpenAI-compatible (DeepSeek) first attempt reads at most ``shared_cache`` tokens from cache (its prompt's
+      ``first_request_cache`` over every label), and a later attempt (a JSON retry or the repair) keeps its recorded
+      hits, because it re-sends the first attempt's prefix seconds later, as a fresh analysis would.
     """
     arm = ARMS.get(record.get("arm", ""))
     if arm is None:
