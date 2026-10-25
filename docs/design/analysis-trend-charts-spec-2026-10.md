@@ -128,7 +128,7 @@ number no longer applies, the rule is given and the number is measured in the re
 | 8. Legend | HTML, stacked (name over value), superscript note letters, hollow swatch for an absent series; M19 checks the stacked width ≤ 502 px | Inline HTML: swatch, name, latest value, and `(FY2024)` when the latest value isn't the last period. It wraps by whole items. No superscripts. An absent series shows a neutral dashed swatch in «t.tick» and claims no palette slot: `Long-term debt — not in dataset`. M19: legend wraps by whole items; no item splits. | Prototype, 566 cards. The prototype shows the absent item only for long-term debt (missing debt must never read as $0); absent gross margin and FCF are not listed (§3.6). |
 | 9. Marker shapes | circle Ø6, square 5×5, diamond 6×6 | circle Ø6, square 6×6, triangle 8 × 7, by present-series index | Prototype marks. |
 | 10. Tokens | grid light `#DEDDD6` (Lc 14.7); tick dark `#B8BDC6` (−63.1); dark subtitle and footnotes at DS `text.secondary.dark`; dark legend names at `text.primary.dark` | grid `#DCD9D0` (Lc 16.8) / `#525C6B` (−15.0); tick `#636A77` (74.1) / `#B8BEC7` (−63.6); value `#374151` / `#D7DADC`; zero `#6B7280` / `#9CA3AF`; review `#92400E` / `#FBBF24`; dark series `#62B2A6 #D3A55C #8CA6E3 #E8927C #97A6C2 #AFA2DE`, light series unchanged. Dark HTML subtitle, footnotes and legend names use `chart.label.dark #B8BEC7`. | DS `text.secondary.dark #9CA3AF` measures Lc −48.6, under 60 for 12 px text (`$S/apca_table.txt`). |
-| 11. Bars and slot | Bars min(44 card / 56 expanded, round(0.62·slot)); growth min(24 / 32, round(0.36·slot)); slotMin = max(24, widest slot-centred string + 4) | Top-line and equity bars min(44, round(0.64·slot)); growth bars max(4, round(0.6·barW)); same in both views. Minimum slot 36 px in both views; a labelled chart widens its slot until A4 finds a tier, up to 42 px (§0.5); below it the SVG scrolls inside its card. The card shows "Values don’t fit at this width. The metrics table lists them." when no tier fits even at 42 px; scrolling alone does not show it. Card SVG 320 px; expanded 520 + strip. | Prototype finding at a 390 px viewport: 27 px slots dropped every printed value of an annual chart; with 36 px slots they print. The phone run shows 0 sideways page scroll (report §9). |
+| 11. Bars and slot | Bars min(44 card / 56 expanded, round(0.62·slot)); growth min(24 / 32, round(0.36·slot)); slotMin = max(24, widest slot-centred string + 4) | Top-line and equity bars min(44, round(0.64·slot)); growth bars max(4, round(0.6·barW)); same in both views. Minimum slot 36 px in both views; a labelled chart widens until A4 finds a tier, up to 42 px a period (§0.5); below it the SVG scrolls inside its card. The card shows "Values don’t fit at this width. The metrics table lists them." when no tier fits even at 42 px; scrolling alone does not show it. Card SVG 320 px; expanded 520 + strip. | Prototype finding at a 390 px viewport: 27 px slots dropped every printed value of an annual chart; with 36 px slots they print. The phone run shows 0 sideways page scroll (report §9). |
 | 12. FY caption, n/m, missing growth | A9; n/m = sentinel or zero prior; separate footnotes for structural and unavailable growth | A9 kept: day ≤ 7 rolls back to the prior month. n/m is the backend `nm` sentinel or a prior value of exactly 0. Missing-growth footnotes use period runs (`none for Q3 ’23–Q4 ’24`), one line for every "—". | n/m and runs: prototype. The prototype implements A9's annual branch; its quarterly subtitle prints `· fiscal quarters ·` and it has no change segment. This spec keeps the full A9 (sim S11: 0 wrong in 72). |
 | 13. Tolerances | T = max(step/8, 4 px·span/h), frozen; tiers P, V, O, S | Unchanged. The step-6a scoring uses this T, from the spec's card geometry, identically for current and proposed renders, with ordinals scored where the true gap > T. Tier P is scored as exact transcription of the strings the chart prints. | `$S/score_tiers.py`, `$S/readout/tol_T.json`. |
 | 14. Not yet prototyped | — | Tooltip, keyboard stepping, column wash, loading and error skeleton states, and the export header/footer composition are **specified, not yet verified** (§3.9, §3.11, §3.13). | Outside the prototype's scope; kept, not deleted. |
@@ -204,10 +204,11 @@ says so; everything else follows the spec.
 - **A labelled chart widens to print its values (E192).** At the 36 px minimum slot, A4 found no label tier for six
   of the audit's 72 top lines (LCID, NVDA, PLUG, REGN, REGNPN and RIVN, all annual, on a 342 px phone card): labels
   of six characters ("$4.86B") cannot keep 2 px apart at a 36 px pitch, and RIVN's "+2,915%" cannot either. The
-  layout (`minChartWidth`) now gives a chart with labelled marks the narrowest whole-pixel slot from 36 to 42 px
-  (`LABELLED_MAX_SLOT`) at which every labelled panel has a tier; a phone card then scrolls a little further inside
-  its card (REGN 409 to 469 px, PLUG 39 px a period). All 72 print their values at 342, 390 and 502 px. A chart
-  that fits its card is never widened, and a chart with no labelled marks keeps 36 px.
+  layout (`minChartWidth`) now gives a chart with labelled marks the narrowest whole-pixel width, at most 42 px a
+  period (`LABELLED_MAX_SLOT`), at which every labelled panel has a tier; a phone card then scrolls a little
+  further inside its card (REGN and NVDA 409 to 465 px, PLUG 432, RIVN 382; LCID's 342 px card already holds them).
+  All 72 print their values at 342, 390 and 502 px. A chart that fits its card is never widened, and a chart with
+  no labelled marks keeps 36 px.
   - Labels no slot up to 42 px holds keep their chart's minimum, and the card says
     "Values don’t fit at this width. The metrics table lists them." It no longer offers "expand the chart":
     on a one-column phone the expanded view is no wider. A code-prefixed currency's labels ("CHF 4.9B") can reach
@@ -742,9 +743,9 @@ legend has no fixed width; it never pushes the plot.
 **A7. Slot minimum and scroll.**
 
 - The minimum slot is 36 px in both views: `W = max(container width, G_L + 8 + 36·n)`.
-- A chart with labelled marks takes the narrowest whole-pixel slot from 36 to 42 px at which A4 finds a tier for
-  every labelled panel (§0.5), so `W = max(container width, G_L + 8 + slot·n)`. A chart whose labels no slot up to
-  42 px holds keeps 36 px.
+- A chart with labelled marks takes the narrowest whole-pixel width, at most `G_L + 8 + 42·n`, at which A4 finds a
+  tier for every labelled panel (§0.5), and `W = max(container width, that width)`. A chart whose labels no slot up
+  to 42 px holds keeps 36 px.
 - When W exceeds the container, the SVG scrolls horizontally inside its card (the existing `useOverflowRegion`
   viewport); the page never scrolls sideways.
 - Measured: at 1280 no chart scrolls. In the 390 px phone run, charts scroll inside their cards with 0 sideways page
@@ -1511,7 +1512,7 @@ errors, and sideways page scroll at 390 px. The other checks are specified for t
 | M3 | model | One unit and one d per axis; no `$0.00`; zero label is exactly `$0`/`0%`; no M/B mix; no $ tick with ≥ 4 integer digits | mixed units, "$1,000M" |
 | M4 | model | Tick intervals ≤ the panel's cap; gridline spacing ≥ h/(cap + 0.1) (≥ 17 px) in every panel and view | crowded ticks |
 | M5 | model | G_L ≥ max tick px + 8 and ≥ 36 | clipped tick labels |
-| M6 | model | slot ≥ 36 px (a labelled chart: the narrowest slot up to 42 px with an A4 tier); if the container is narrower, `scroll = true` and W = G_L + 8 + slot·n | text collisions, dropped values |
+| M6 | model | slot ≥ 36 px (a labelled chart: the narrowest width up to 42 px a period with an A4 tier); if the container is narrower, `scroll = true` and W is that width | text collisions, dropped values |
 | M7 | model | Every null plotted value has a band letter; every off-scale line point has an A3b item with its true value; every clipped growth bar has a break mark and its true value as its label; band letters = footnote letters = data-note letters that touch plotted values; no ↑/↓ in the band | silent gaps, orphan notes, hidden values |
 | M8 | model | H identical for W ∈ {342, 502, 1030}; H = 320 on the card; ticks and tick text identical for card and expanded | CLS, grid misalignment, export ≠ screen |
 | M9 | model | Colours = chart-1..k in order over present series; shapes circle, square, triangle by the same index; an absent series takes no slot; no gain, loss or brand token in any mark | colour misuse |

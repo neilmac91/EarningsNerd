@@ -156,13 +156,20 @@ function frameOf(model: ChartModel, view: ChartView): { gutter: number; minSlot:
 }
 
 /** A7: the narrowest width at which every slot keeps its minimum; below it the SVG scrolls in its card. A labelled
- *  chart takes the narrowest whole-pixel slot up to LABELLED_MAX_SLOT at which A4 finds a tier for every labelled
- *  panel, so a phone scrolls a little further rather than print no values; when none does, it keeps its minimum. */
+ *  chart takes the narrowest whole-pixel width, at most LABELLED_MAX_SLOT a period, at which A4 finds a tier for every
+ *  labelled panel, so a phone scrolls a little further rather than print no values; when none does, it keeps its
+ *  minimum. The search steps a slot pixel at a time, then the pixel within the last step. */
 export function minChartWidth(model: ChartModel, view: ChartView = 'card'): number {
   const { gutter, minSlot } = frameOf(model, view)
   const at = (slot: number) => gutter + RIGHT_PAD + slot * model.periods.length
-  if (!model.panels.some((panel) => panel.marks.some((mark) => mark.labelled))) return at(minSlot)
-  for (let slot = minSlot; slot <= LABELLED_MAX_SLOT; slot++) if (!plan(model, at(slot), view).valuesDontFit) return at(slot)
+  const fits = (width: number) => !plan(model, width, view).valuesDontFit
+  if (!model.panels.some((panel) => panel.marks.some((mark) => mark.labelled)) || fits(at(minSlot))) return at(minSlot)
+  for (let slot = minSlot + 1; slot <= LABELLED_MAX_SLOT; slot++) {
+    if (!fits(at(slot))) continue
+    let width = at(slot - 1) + 1
+    while (!fits(width)) width++
+    return width
+  }
   return at(minSlot)
 }
 

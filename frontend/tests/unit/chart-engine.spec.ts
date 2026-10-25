@@ -405,18 +405,20 @@ describe('the cases the step-1 data required', () => {
     expect(narrow.width, 'a narrow expanded view scrolls rather than crowd its strip').toBeGreaterThan(358)
   })
 
-  it('a phone card widens the top line to the narrowest slot that prints its labels, up to 42 px (A4, A7)', () => {
-    const slotAt = (name: string, width: number) => {
+  it('a phone card widens the top line to the narrowest width that prints its labels, up to 42 px a period (A4, A7)', () => {
+    const planAt = (name: string, width: number) => {
       const plan = layoutChart(model(name, 'topline'), width, 'card')
-      return [plan.slot, plan.valuesDontFit]
+      return [plan.width, plan.valuesDontFit]
     }
-    // At 36 px REGN's six-glyph labels ("$4.86B") collide; 41 px still does not hold them, 42 does.
-    expect(slotAt('REGN_annual', 342)).toEqual([42, false])
-    expect(slotAt('PLUG_annual', 342)).toEqual([39, false])
+    // At 36 px a period REGN's six-glyph labels ("$4.86B") collide; they first fit 465 px wide (41.6 px a period).
+    expect(planAt('REGN_annual', 342)).toEqual([465, false])
+    expect(planAt('PLUG_annual', 342)).toEqual([432, false])
     // RIVN fits its card at 36 px, but not its growth labels ("+2,915%"): it widens and scrolls too.
-    expect(slotAt('RIVN_annual', 342)).toEqual([42, false])
+    expect(planAt('RIVN_annual', 342)).toEqual([382, false])
+    // LCID needs 41.7 px a period, which its 342 px card already gives: no scroll for a whole-pixel slot.
+    expect(planAt('LCID_annual', 342)).toEqual([342, false])
     // A chart wide enough already is never widened, and a chart with no labels keeps 36 px.
-    expect(layoutChart(model('REGN_annual', 'topline'), 502, 'card').width).toBe(502)
+    expect(planAt('REGN_annual', 502)).toEqual([502, false])
     const margins = model('REGN_annual', 'margins')
     expect(minChartWidth(margins)).toBe(layoutChart(margins, 342, 'card').gutter + 8 + MIN_SLOT * margins.periods.length)
   })
