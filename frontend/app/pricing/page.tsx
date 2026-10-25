@@ -412,7 +412,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
               "Monthly" past the screen's left edge. */}
           {!isPaidPro && !isTrialing && (
             <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-              <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
+              <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-text-primary-light dark:text-white' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                 Monthly
               </span>
               {/* Named by the cycle it turns on, its visible "Yearly" label, so a screen reader hears
@@ -427,7 +427,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
                   setBillingCycle(nextCycle)
                 }}
               />
-              <span id={yearlyLabelId} className={`text-sm font-medium ${billingCycle === 'yearly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
+              <span id={yearlyLabelId} className={`text-sm font-medium ${billingCycle === 'yearly' ? 'text-text-primary-light dark:text-white' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                 Yearly <span className="font-semibold">(save {PRO_PRICING.annualSavingsPercent}%)</span>
               </span>
             </div>

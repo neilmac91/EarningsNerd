@@ -44,7 +44,7 @@ export default function AnalysisDemo() {
           </div>
           <DataNotes dataset={SAMPLE_ANALYSIS_DATASET} sample />
           <RevenueBars points={REVENUE_POINTS} />
-          <MetricsTable dataset={SAMPLE_ANALYSIS_DATASET} headingLevel="h4" sample />
+          <MetricsTable dataset={SAMPLE_ANALYSIS_DATASET} headingLevel="h4" />
         </div>
       </DataNotesProvider>
     </div>

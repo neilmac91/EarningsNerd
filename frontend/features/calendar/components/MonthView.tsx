@@ -51,7 +51,7 @@ export function MonthView({
           <div
             key={d}
             className={cx(
-              'px-2.5 py-2 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark',
+              'px-2.5 py-2 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark',
               '[@container(width<42em)]:px-1 [@container(width<21em)]:text-center',
               i > 0 && 'border-l border-border-light/60 dark:border-white/[0.06]',
             )}
@@ -111,19 +111,19 @@ export function MonthView({
                       isToday
                         ? 'grid h-[1.375rem] min-w-[min(1.375rem,100%)] place-items-center rounded-full bg-brand text-white dark:bg-brand-dark dark:text-background-dark'
                         : weekend || !inMonth
-                          ? 'text-text-tertiary-light dark:text-text-secondary-dark'
+                          ? 'text-text-tertiary-light dark:text-text-tertiary-dark'
                           : 'text-text-primary-light dark:text-text-primary-dark',
                       // Below 21em a holiday drops its "Closed", so its date takes the weekend's ink: in the primary
                       // ink, with no count under it, it would read as a trading day with no reports.
                       holiday &&
                         !isToday &&
-                        '[@container(width<21em)]:text-text-tertiary-light dark:[@container(width<21em)]:text-text-secondary-dark',
+                        '[@container(width<21em)]:text-text-tertiary-light dark:[@container(width<21em)]:text-text-tertiary-dark',
                     )}
                   >
                     {formatLocalDate(iso, 'd')}
                   </span>
                   {holiday && (
-                    <span className="text-xs text-text-tertiary-light dark:text-text-secondary-dark [@container(width<21em)]:hidden">Closed</span>
+                    <span className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark [@container(width<21em)]:hidden">Closed</span>
                   )}
                 </span>
                 {inMonth &&
@@ -136,7 +136,7 @@ export function MonthView({
                       >
                         <Icon
                           aria-hidden="true"
-                          className="h-3 w-3 flex-none text-text-tertiary-light dark:text-text-secondary-dark [@container(width<42em)]:hidden"
+                          className="h-3 w-3 flex-none text-text-tertiary-light dark:text-text-tertiary-dark [@container(width<42em)]:hidden"
                         />
                         <span className="truncate font-data text-xs font-semibold tabular-nums text-text-secondary-light dark:text-text-primary-dark">
                           {ev.ticker}
@@ -159,7 +159,7 @@ export function MonthView({
                 {/* A trading day shows its count, 0 included, as the week sheet's day header does; a weekend or a
                     holiday keeps its date alone, so in this density a muted date always means the market is closed. */}
                 {inMonth && (ranked.length > 0 || (!weekend && !holiday)) && (
-                  <span className="hidden font-data text-xs tabular-nums text-text-tertiary-light dark:text-text-secondary-dark [@container(width<21em)]:block">
+                  <span className="hidden font-data text-xs tabular-nums text-text-tertiary-light dark:text-text-tertiary-dark [@container(width<21em)]:block">
                     {ranked.length}
                   </span>
                 )}
@@ -168,7 +168,7 @@ export function MonthView({
           })}
         </div>
       ))}
-      <p className="hidden border-t border-border-light/60 px-3 py-2 text-xs text-text-tertiary-light dark:border-white/[0.06] dark:text-text-secondary-dark [@container(width<21em)]:block">
+      <p className="hidden border-t border-border-light/60 px-3 py-2 text-xs text-text-tertiary-light dark:border-white/[0.06] dark:text-text-tertiary-dark [@container(width<21em)]:block">
         Each trading day shows how many companies report. Open a day to see them.
       </p>
     </div>

@@ -99,6 +99,13 @@ function geometryFixture(state: AnalysisGeometryState): Fixture {
     delete eps.points[5].reconciled
     delete eps.points[6].provenance
     eps.points[6].reconciled = false
+    // The shipped phone bug: at 390px a figure that fills its column's nine-glyph budget with its marks ("$922.0M†a")
+    // wrapped them onto a line of their own below it. This state's notes run past z, so the full budget here is six
+    // glyphs, a dagger and a two-letter note: "$92.2M" and "-$922M", each with both. Both signs are planted.
+    const tight = (concept: string, index: number, value: number) =>
+      Object.assign(dataset.series.find(series => series.concept === concept)!.points[index], { value, provenance: review(['source_check_needed']) })
+    tight('working_capital', 1, 92_200_000)
+    tight('financing_cash_flow', 9, -922_000_000)
   }
   if (state === 'annual') {
     dataset.mode = 'annual'
@@ -171,7 +178,7 @@ export const EXPECTED_NOTES = {
 export const PERIODS = ['2023Q3', '2023Q4', '2024Q1', '2024Q2', '2024Q3', '2024Q4', '2025Q1', '2025Q2', '2025Q3', '2025Q4', '2026Q1', '2026Q2']
 export const METRICS = 20
 // Independently counted fixture slots, not derived using the presentation code under test.
-// All three visual states retain these unavailable values; a table window must not turn
+// All three visual states retain these unavailable values; the table must not turn
 // them into zero, omit their cells, or move their notes to a neighbouring period.
 export const UNAVAILABLE_CELLS = [
   { row: 5, periods: ['2023Q4', '2024Q4', '2025Q4'] }, // Basic EPS
@@ -179,11 +186,7 @@ export const UNAVAILABLE_CELLS = [
   { row: 8, periods: ['2023Q3', '2023Q4'] }, // Capital expenditure
   { row: 9, periods: ['2023Q3', '2023Q4'] }, // Free cash flow
 ] as const
-export const EXPECTED_TABLE_REVIEWS = {
-  clean: { all: 0, newest: 0, earliest: 0 },
-  legacy: { all: 10, newest: 6, earliest: 4 },
-  discrepancy: { all: 3, newest: 3, earliest: 0 },
-} as const
+export const EXPECTED_TABLE_REVIEWS = { clean: 0, legacy: 10, discrepancy: 3 } as const
 
 type TableNoteSlots = { rows: number[]; periods: string[]; letter: string; kind: 'review' }
 // Literal cell associations from the archived visual fixture, independently of noteFor
@@ -235,14 +238,10 @@ export const EXPECTED_KPI_LETTERS = {
     { value: [], growth: [] }, { value: ['a'], growth: ['a'] },
   ],
 } as const
-export const EXPECTED_TABLE_VALUE_DAGGERS = { all: 101, earliest: 52, newest: 49 } as const
+export const EXPECTED_TABLE_VALUE_DAGGERS = 101
 // Only the displayed comparison counts here (QoQ, or YoY when QoQ is absent),
 // unlike the Data notes summary which counts both comparison populations.
-export const EXPECTED_TABLE_COMPARISON_REVIEWS = {
-  clean: { all: 0, earliest: 0, newest: 0 },
-  legacy: { all: 14, earliest: 6, newest: 8 },
-  discrepancy: { all: 3, earliest: 0, newest: 3 },
-} as const
+export const EXPECTED_TABLE_COMPARISON_REVIEWS = { clean: 0, legacy: 14, discrepancy: 3 } as const
 
 /**
  * The analysis page's API for a signed-in Pro reader, answered in the browser: the company and coverage `coverage` names

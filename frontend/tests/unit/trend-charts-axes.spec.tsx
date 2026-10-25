@@ -239,9 +239,9 @@ describe('the first chart and the notes agree on what it draws', () => {
 
   it('a note names the growth chart for a comparison it plots, and not once the top line is in two currencies', () => {
     const ds = dataset('REGN_annual')
-    expect(comparisonLocations(ds, ds.periods, resolveDataNotes(ds))(yoyNote('revenue', 'FY2024'))[0].chart).toBe(1)
+    expect(comparisonLocations(ds, resolveDataNotes(ds))(yoyNote('revenue', 'FY2024'))[0].chart).toBe(1)
     ds.series.find((series) => series.concept === 'revenue')!.points[3].unit = 'EUR'
-    expect(comparisonLocations(ds, ds.periods, resolveDataNotes(ds))(yoyNote('revenue', 'FY2024'))[0].chart).toBe(0)
+    expect(comparisonLocations(ds, resolveDataNotes(ds))(yoyNote('revenue', 'FY2024'))[0].chart).toBe(0)
     const { container } = render(<TrendCharts dataset={ds} />)
     expect(container.querySelector('[data-analysis-chart="Revenue & growth"]')).toBeNull()
     expect(container.textContent).toContain(MIXED_CURRENCY)

@@ -9,6 +9,7 @@ import { compactFigure, exactFigure, formulaWords, substitutedFormula } from '@/
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { dataNoteIssue, type DataNote } from '@/features/analysis/lib/dataNotes'
 import DataNoteMark, { dataNoteDescription } from './DataNoteMark'
+import GrowthText from './GrowthText'
 
 const sourceLinkClass = 'rounded text-brand-strong underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark'
 const legacyLineage = (value: number | null) => value == null
@@ -40,7 +41,7 @@ function SourceInput({ input, nested = false }: { input: FactInput; nested?: boo
   return (
     <li className="min-w-0 space-y-1 border-t border-border-light pt-2 [overflow-wrap:anywhere] dark:border-white/10">
       <p className="font-medium capitalize">{input.concept.replaceAll('_', ' ')}</p>
-      <p className="font-data">{input.value == null ? 'Unavailable' : exactFigure(input.value, input)}</p>
+      <p className="font-figure tabular-nums lining-nums">{input.value == null ? 'Unavailable' : exactFigure(input.value, input)}</p>
       <p>{[input.period_start, input.period_end].filter(Boolean).join(' to ')}</p>
       <p>{calculated ? (provenance?.inputs.length ? 'Calculated from recorded inputs.' : 'Calculated figure.') : provenance?.method === 'reported' ? 'Reported in the source filing.' : 'Source method is not recorded.'}</p>
       {provenance?.formula && <p>{formulaWords(provenance.formula)}</p>}
@@ -83,7 +84,7 @@ function inheritedComparisonNote(comparison: SourceComparison) {
   return `Carries note ${note.letter}: it uses ${inputs.join('; ')}.`
 }
 
-export default function SourceValue({ point, label, concept, children, note, comparison, compactMarks = false }: {
+export default function SourceValue({ point, label, concept, children, note, comparison, compactMarks = false, largeMarks = false }: {
   point: Pick<AnalysisPoint, 'provenance' | 'reconciled' | 'source_url' | 'derived' | 'period' | 'period_end' | 'accession' | 'raw_tag' | 'unit' | 'value'>
   label: string
   concept?: string
@@ -91,6 +92,8 @@ export default function SourceValue({ point, label, concept, children, note, com
   note?: DataNote | null
   comparison?: SourceComparison
   compactMarks?: boolean
+  /** The KPI card's 24px value: its marks take the large raise (DataNoteMark large). */
+  largeMarks?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const id = useId()
@@ -109,17 +112,26 @@ export default function SourceValue({ point, label, concept, children, note, com
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`${label}, ${period}: ${point.value == null ? 'unavailable' : display}${description ? `, ${description}` : ''}. View source and calculation`}
-        className="rounded text-inherit underline decoration-border-light decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:decoration-border-dark dark:focus-visible:shadow-ring-brand-dark"
+        // In the metrics table the figure, its marks and the mark gutter are one baseline row the cell's width, justified
+        // to its right edge, so the gutter (DataNoteMark compact) fills only free space and gives way to a full figure.
+        // The figure re-declares its numerals here: a button's UA `font` shorthand resets font-variant-numeric, and
+        // preflight restores only the family, size and weight, so tabular lining figures set on the cell stop at it.
+        // The table's figures carry no underline: a dotted rule under every value parted it from its change line, and
+        // readers gave a period with no change the next column's (the metrics-table readout, dark at 1x). The KPI
+        // value keeps it.
+        className={`${compactMarks ? 'flex w-full items-baseline justify-end' : 'underline decoration-border-light decoration-dotted underline-offset-4 dark:decoration-border-dark'} tabular-nums lining-nums rounded text-inherit focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark`}
       >
-        {children}<DataNoteMark calculated={calculated} note={note} compact={compactMarks} />
+        {children}<DataNoteMark calculated={calculated} note={note} compact={compactMarks} large={largeMarks} />
       </button>
       <Modal open={open} onClose={() => setOpen(false)} labelledBy={id} size="lg">
         <ModalHeader id={id} onClose={() => setOpen(false)}>{label} · {period}</ModalHeader>
         <ModalBody className="space-y-4 text-sm text-text-secondary-light [overflow-wrap:anywhere] dark:text-text-secondary-dark">
           {point.period_end && <p>{/^\d{4}Q[1-4]$/.test(point.period) ? 'Quarter' : /^FY\d{4}$/.test(point.period) ? 'Fiscal year' : 'Period'} ended {formatLocalDate(point.period_end, 'd MMM yyyy')}.</p>}
           <div className="space-y-1">
-            <p className="font-data text-2xl text-text-primary-light dark:text-text-primary-dark">{display}<DataNoteMark calculated={calculated} note={note} /></p>
-            {point.value != null && <p className="font-data text-xs">As stored: {exactFigure(point.value, figure)}</p>}
+            {/* Figures take the figure face, as in the table and the cards: a minus is drawn, the text stays U+002D. An
+                accession or a raw tag keeps the data face, since its hyphens are not minus signs. */}
+            <p className="font-figure tabular-nums lining-nums text-2xl text-text-primary-light dark:text-text-primary-dark">{display}<DataNoteMark calculated={calculated} note={note} large /></p>
+            {point.value != null && <p className="font-figure tabular-nums lining-nums text-xs">As stored: {exactFigure(point.value, figure)}</p>}
           </div>
           <section className="space-y-1">
             <h3 className="font-semibold">Checks</h3>
@@ -130,7 +142,7 @@ export default function SourceValue({ point, label, concept, children, note, com
             <h3 className="font-semibold">Method</h3>
             <p>{provenance?.method === 'reported' ? 'Reported in the source filing.' : calculated ? (provenance?.inputs.length ? 'Calculated by EarningsNerd from recorded inputs.' : 'Calculated figure.') : 'Source method is not recorded for this saved figure.'}</p>
             {provenance?.formula && <p>{formulaWords(provenance.formula)}</p>}
-            {arithmetic && point.value != null && <p className="font-data text-xs">{provenance?.validation !== 'passed' && 'Recorded inputs: '}{arithmetic}{provenance?.validation === 'passed' && <> = {exactFigure(point.value, figure)}</>}</p>}
+            {arithmetic && point.value != null && <p className="font-figure tabular-nums lining-nums text-xs">{provenance?.validation !== 'passed' && 'Recorded inputs: '}{arithmetic}{provenance?.validation === 'passed' && <> = {exactFigure(point.value, figure)}</>}</p>}
           </section>
           <section className="space-y-2">
             <h3 className="font-semibold">{calculated ? 'Inputs and source filings' : 'Source filing'}</h3>
@@ -142,7 +154,7 @@ export default function SourceValue({ point, label, concept, children, note, com
           </section>
           {comparison && <section className="space-y-2 border-t border-border-light pt-3 dark:border-white/10">
             <h3 className="font-semibold">{comparison.label} comparison</h3>
-            <p className="font-data">{comparison.display}</p>
+            <p className="relative font-figure tabular-nums lining-nums"><GrowthText text={comparison.display} /></p>
             <Checks value={comparison} note={comparison.note} />
             {comparison.note && <p>{inheritedComparisonNote(comparison)}</p>}
             {comparison.provenance?.formula && <p>Calculation: {formulaWords(comparison.provenance.formula)}</p>}

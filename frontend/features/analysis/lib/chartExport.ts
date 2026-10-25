@@ -253,13 +253,13 @@ export const MARK_STAMP = {
  *  `text.primary`/`text.secondary` so a palette change can't silently drift this copy (rule 12:
  *  the mirror is a machine-checked gate, not three comment-guarded literals a grep can't see). */
 export const EXPORT_TEXT = {
-  primary: { light: '#1A1A17', dark: '#D7DADC' },
-  secondary: { light: '#374151', dark: '#9CA3AF' },
+  primary: { light: '#1A1A17', dark: '#EAECEF' },
+  secondary: { light: '#374151', dark: '#D1D5DB' },
 } as const
 
 /** The two inks the header and notes paint: the company in `primary`, the subtitle, legend names and notes in
  *  `secondary`. A card whose own text takes other inks passes them (the trend charts' spec renderer, whose dark
- *  secondary text is chart.tick's: the secondary ink measures APCA Lc −48.6 on the dark card, under its floor of 60);
+ *  secondary text is chart.tick's, the legend names' ink of spec §3.8, #B8BEC7 at APCA Lc −63.6 on the dark card);
  *  otherwise the export takes EXPORT_TEXT for its theme. */
 export interface ExportInk {
   primary: string

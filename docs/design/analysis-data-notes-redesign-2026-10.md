@@ -3,8 +3,9 @@
 Date: 2026-10-10 · Scope: `/analysis` results surface (KPI strip, Sources & methods, charts, narrative,
 metrics table, period picker) and the PDF, Excel and PNG exports that mirror it · Status: the five original §9
 decisions are taken (2026-10-10); amended decision 4 and decisions 6–9 were adopted on 2026-10-11 under the founder's delegation to Astra's recommendation; Phase 1 items 1–10 and 11 of §7 are merged (#1199, #1200, #1202, #1203, #1206) and Phase 2 in #1225 (the status note under §7's Phase 2 says where it departs from the brief and what stays open);
-the follow-ups in §11 are open; this document itself ships nothing · Support
-material:
+the follow-ups in §11 are open; this document itself ships nothing; on 2026-10-25 the table window
+(§4.5) was retired with the metrics-table number system (see the note under §4.5's window control), and
+the current table rule is `frontend/DESIGN_SYSTEM.md` §4, Analysis table · Support material:
 [`tasks/analysis-redesign-2026-10/`](../../tasks/analysis-redesign-2026-10/README.md) (runnable
 prototype, measurement harnesses, recorded measurements).
 
@@ -266,7 +267,8 @@ What a reader sees in the three states (the strip's summary line; state 2 is the
   many of those changes are in the quarters shown, since the report-wide count no longer describes the
   page: state 2 with Newest 6 reads "14 quarter-over-quarter changes in the table (8 in the 6 quarters
   shown)", state 3 with Earliest 6 "3 quarter-over-quarter changes in the table (none in the 6 quarters
-  shown)"; with the full window the clause is unchanged.
+  shown)"; with the full window the clause is unchanged. (Retired with the table window on 2026-10-25:
+  the table clause now counts the whole table; see the note under §4.5's window control.)
 - A year-over-year change the table shows as the labelled fallback of a cell without a quarter-over-quarter
   change (§4.5) is counted among the places that show it: "…, of which the headline cards show one, the
   table shows one as its labelled fallback, … and the exports carry all". None of the three fixture states
@@ -357,7 +359,8 @@ Shipped in #1202 (`DataTable`'s opt-in `layout="fixed"`, `colWidths`, `cellPaddi
 budget in `lib/tableFormat.ts`). The rules, with the corrections of §11:
 
 - `table-layout: fixed` with explicit widths: metric column 8.25 rem (132 px), period columns 4.75 rem
-  (76 px) from 768 px up; 6.5 rem and 4.25 rem below. Widths are in rem so they scale with the reader's
+  (76 px) from 768 px up; 6.5 rem and 4.25 rem below (2026-10-25: #1606 widened the phone column to 4.375 rem
+  for the 2px each footnote mark keeps; `frontend/DESIGN_SYSTEM.md` §4 holds the current widths). Widths are in rem so they scale with the reader's
   text size. Content never sizes a column, so the cell's content must fit its box: the padding is part of
   the geometry (the prototype uses 0.25 rem per side on phones and 0.5 rem above; #1202 uses the compact
   inset), and a figure is formatted to a glyph budget before it is placed (#1202's `tableTokenBudget`:
@@ -400,6 +403,13 @@ budget in `lib/tableFormat.ts`). The rules, with the corrections of §11:
   "Showing 6 of 12 quarters" (years in annual mode). The default is always All: nothing is dropped
   silently, the window is the reader's explicit choice, and charts, headline figures, the data-note totals
   and the exports are not affected by it. Choosing a window keeps focus on the control.
+  **Superseded (2026-10-25).** The window, its status line and the locators' "in the N quarters shown"
+  clause are retired with the metrics-table number system, reversing this decision (#1202, refined in
+  #1273): the table shows every period and scrolls sideways with whole-column snapping, and phones open
+  on the newest period with the "← Earlier quarters" hint. At 1280–1920 px every period fits with no
+  scroll, and on a 390 px phone the full table and Newest 6 each showed three whole periods, so the window
+  only hid data. The current rule is `frontend/DESIGN_SYSTEM.md` §4, Analysis table; this section keeps the
+  October 2026 record as it was.
 - **Annual mode** uses the same table: basis "Δ vs prior year", the window in years, and the CAGR /
   window-change column last, at the period width, inside the snap set, with its window ("FY2016–FY2025")
   in the header. The landing page's `AnalysisDemo` and the `AnalysisTeaser` render the annual sample with
@@ -939,7 +949,8 @@ verification. Implementation and its measurement gates remain separate from this
    adopt; the filing and company pages keep their own vocabulary.
 4. Keep the KPI strip two-up at 320 px (measured fine, "Free cash flow" wraps) or go one-up below 360.
    Recommended: two-up.
-5. Whether the table window should also drive the charts. Recommended: no.
+5. Whether the table window should also drive the charts. Recommended: no. (Moot from 2026-10-25: the
+   table window is retired; see the note under §4.5's window control.)
 
 **Amended and added by the comprehensive review (2026-10-10, evening).** Each is implemented in the
 prototype as recommended; the founder may overrule any of them. Historical release checkpoint:
@@ -1103,14 +1114,16 @@ correction landed in this document:
   cells change fill) before it judges the header's fill. The picker's presets are plain buttons, without
   `aria-pressed` or a selected tint (§4.9, as decision 8 recommends; the summary line states the range);
   the open note's table clause says how many of its quarter-over-quarter changes are in the quarters
-  shown when the table window is narrower than the report, and counts the year-over-year changes the
-  table shows as its labelled fallback (§4.1); the evidence dialog's status follows the notes model's own
-  resolution, so a stored figure without a provenance record whose reconciled flag is false reads "Needs
-  review" with its reason, as its affix and its note do, instead of "No validation record". The phone
-  table's "← Earlier quarters" hint hides at the scroll start and shows only while the table is scrolled
-  away from it, as §4.5 says (it had shown whenever the table overflowed); the disclosure caret and the
-  button fills do not transition under `prefers-reduced-motion`. The chart regions are Tab stops only while
-  they overflow their panels, measured after paint and on every resize as the table's region is, and their
+  shown when the table window is narrower than the report (retired with the table window on
+  2026-10-25: the clause now counts the whole table; see the note under §4.5's window control), and
+  counts the year-over-year changes the table shows as its labelled fallback (§4.1); the evidence
+  dialog's status follows the notes model's own resolution, so a stored figure without a provenance
+  record whose reconciled flag is false reads "Needs review" with its reason, as its affix and its
+  note do, instead of "No validation record". The phone table's "← Earlier quarters" hint hides at
+  the scroll start and shows only while the table is scrolled away from it, as §4.5 says (it had
+  shown whenever the table overflowed); the disclosure caret and the button fills do not transition
+  under `prefers-reduced-motion`. The chart regions are Tab stops only while they overflow their
+  panels, measured after paint and on every resize as the table's region is, and their
   names carry the scroll hint only then (§4.7, §5; they had been unconditional Tab stops, four inert ones at
   1480 px). Each "Original filing" link in the narrative's Sources list is named by its source number, figure
   and period ("Original filing for source 3: Revenue, Q2 2026"), so a screen reader's link list tells them

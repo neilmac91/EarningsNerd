@@ -15,7 +15,7 @@ export function WeekViewLaneHeader({ laneKey, label, dense }: { laneKey: LaneKey
   return (
     <div
       className={cx(
-        'flex items-center gap-1.5 text-text-tertiary-light dark:text-text-secondary-dark',
+        'flex items-center gap-1.5 text-text-tertiary-light dark:text-text-tertiary-dark',
         dense ? 'px-1 pb-1 pt-2' : 'px-2 pb-1 pt-3',
       )}
     >

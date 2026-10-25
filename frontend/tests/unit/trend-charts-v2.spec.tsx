@@ -480,7 +480,7 @@ describe('the PNG export', () => {
     await act(async () => fireEvent.click(within(cards(container)[CHART_IDS.indexOf('cash')]).getByRole('button', { name: 'Download chart as PNG' })))
     const options = vi.mocked(exportPanelPng).mock.calls[0][2]
     expect(options?.dark).toBe(true)
-    // The secondary ink is chart.tick's on dark: the export's own (#9CA3AF) is under §3.8's floor of 60 there.
+    // The secondary ink is chart.tick's on dark, the card's legend names' ink (§3.8), not the export's own.
     expect(options?.ink).toEqual({ primary: CHART_TOKENS.dark.figure, secondary: CHART_TOKENS.dark.name })
     expect(options?.header?.legend).toEqual(model.legend.filter((item) => item.color != null).map((item) => ({ label: item.label, color: CHART_TOKENS.dark.series[item.color!] })))
   })

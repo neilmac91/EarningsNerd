@@ -141,7 +141,7 @@ export default function AdminFeedbackPage() {
                       <th
                         key={col}
                         scope="col"
-                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
+                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark"
                       >
                         {col}
                       </th>
@@ -157,7 +157,7 @@ export default function AdminFeedbackPage() {
             </TableScroll>
           )}
 
-          <p className="border-t border-border-light px-cap-6 py-3 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-secondary-dark">
+          <p className="border-t border-border-light px-cap-6 py-3 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-tertiary-dark">
             Showing the most recent {LIST_LIMIT} feedback items.
           </p>
         </section>

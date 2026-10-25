@@ -219,7 +219,7 @@ export default function DashboardPage() {
           }}
           aria-disabled={logoutMutation.isPending || undefined}
           aria-busy={logoutMutation.isPending || undefined}
-          className="rounded-lg text-sm font-medium text-text-secondary-light hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand aria-disabled:text-text-secondary-light/50 dark:text-text-secondary-dark dark:hover:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark dark:aria-disabled:text-text-secondary-dark/50"
+          className="rounded-lg text-sm font-medium text-text-secondary-light hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand aria-disabled:text-text-secondary-light/50 dark:text-text-secondary-dark dark:hover:text-white dark:focus-visible:shadow-ring-brand-dark dark:aria-disabled:text-text-secondary-dark/50"
         >
           Log out
         </button>
