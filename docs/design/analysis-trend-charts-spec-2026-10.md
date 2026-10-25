@@ -219,20 +219,69 @@ says so; everything else follows the spec.
   `LinePath`, in literal attributes; `TrendChartCard.tsx` is the card, which every chart keeps (a chart that does not
   apply says why at the card's height); `TrendCharts.tsx` loads it as its own chunk while the flag is on.
   `lib/charts/theme.ts` holds §3.8's tokens for both themes (owner decision 3 in §0.3), held to the table by
-  `tests/unit/chart-theme.spec.ts`; they reach Tailwind with step 6 (E194). The keyboard values stop, the tooltip and
-  the column wash are step 5 (E193). The SVG sets `text-rendering="geometricPrecision"`: under full font hinting at 1×
+  `tests/unit/chart-theme.spec.ts`; they reach Tailwind with step 6 (E194). Step 5 (E193) adds the ways to read it, in
+  the next line. The SVG sets `text-rendering="geometricPrecision"`: under full font hinting at 1×
   (headless Chrome's default, and some desktops) Blink snaps each advance to a whole pixel, 7 px where G1 counts 6.6,
   which moved a `CHF 20B` tick label 2 px out of the SVG (D1) and every string off D8. Two readings of D4, which binds
   a series colour to its data: a line run's path names its periods in `data-period`, space-separated, since it spans
   them; the value strip's swatches sit in a `data-strip` group. The tolerance file (§1.0, M20) is readout tooling and
   stays out of the product.
+- **Reading a chart (step 5, E193).** `components/TrendChartPlot.tsx` holds the plot and the ways to read it,
+  `lib/charts/readout.ts` each period's readout (the tooltip's header and rows, and the sentence a screen reader
+  speaks), and `layout.ts` the slot under a pointer, a period's column and the sticky gutter's width. Where it departs
+  from §3.9, §3.10, §3.13, A7 and DESIGN_SYSTEM.md §10's contract for today's charts:
+  - The values stop is a slider over the periods whose `aria-valuetext` is the period's readout, named
+    `{title} chart values`, not `role="application"` beside a live status. A screen reader enters focus mode for it
+    unbidden and speaks the value text on focus and on every move, with no live-region timing, and VoiceOver on iOS can
+    step it by swiping, where an application stop is out of a touch screen reader's reach. It is a transparent layer
+    laid over the viewport, after the overflow region in the Tab order: the pointer passes through it to the plot, its
+    brand ring rings the viewport whatever the plot's scroll (an inset ring on the scrolled plot would leave the view
+    and lie under the gutter), and a touch screen reader finds it anywhere on the chart. Down and Up step too, and Home and End jump to the
+    oldest and newest; a step past either end, which changes no value, says "Oldest period." or "Newest period." in a
+    status line. A pointer's tooltip announces nothing: only the keyboard speaks.
+  - It starts at the newest period, the one the legend and the metrics table quote, and a plot opens scrolled there
+    whenever its view or window starts to overflow: on first layout, after expanding or collapsing (§3.10), whether or
+    not the other view overflowed, and for a new window. Never on a resize or zoom, which would lose the reader's
+    place: a plot that overflows is planned at its minimum width, which a resize leaves as it is. Today's stop starts
+    at the oldest.
+  - The header prints a quarter as the app does, `Q2 2026 · quarter ended Jun 30, 2026`, not `Q2 FY2026`: its end
+    date tells a fiscal quarter from a calendar one. An amount prints at 4 significant figures in its own unit
+    (`$987.6M`), cents at the finest in dollars. A growth row never says Calculated, since every growth rate is a
+    calculated comparison and the top line's footnote says so. A note letter takes the band's ink: «t.review» for a
+    review note. The state texts carry no dash, as `docs/voice-and-style.md` asks: `Unavailable (a)`,
+    `n/m · not meaningful` and `No prior-year period in this window`.
+  - The spoken readout spells out what screen readers garble: whole month names, `billion` for `B`, `minus` and
+    `plus` for the signs, `Year-over-year growth`, a margin and operating cash flow by their full names, `not
+    meaningful` for `n/m`, and a note as the metrics table speaks it (`data note b`).
+  - Escape dismisses a tooltip first, wherever focus is when a pointer raised it (WCAG 1.4.13), and then collapses an
+    expanded card and returns focus to its toggle, so D13's one Escape is two while a tooltip shows. The tooltip sits
+    flush beside its column, so a pointer crosses onto it without passing over another period, and resting on it keeps
+    its period. A tap pins it until a second tap on its period or a press outside the chart; a swipe that scrolls the
+    plot pins nothing.
+  - The tooltip lies outside the scrolling viewport, so 200% text never clips it, inside the viewport's sides and at
+    the plot's top. The wash, the gutter and the tooltip sit outside the node the PNG export serialises, so none needs
+    A7's `data-export="skip"`.
+  - A7's sticky gutter repeats the plot's own gutter while that has scrolled away: the surface over it, each panel's
+    caption on a backing as wide as the caption (captions run past the gutter), the tick labels, "Notes" and the
+    expanded strip's row names. It shows only while the plot is scrolled, so at rest it never covers an off-scale
+    value that reaches into the gutter. Past the gutter it also covers the column a scroll leaves cut at its edge, out
+    to the next slot boundary, with the plot's gridlines and edge rules carried across, and the rest of any value that
+    runs past its column across that edge: a bar label, which A4 keeps apart in either direction (up to 5 px over),
+    and an off-scale value, centred on its column whatever its width (up to 12 px over). So no value shows in part
+    beside the axis, where a cut `−19%` would read `19%`; a pointer under the cover reads no period.
+  - A grid row's cards share its rows (CSS subgrid: header, plot, notes), so a row's plots start at one height
+    whatever its legends wrap to (chief design's review of #1609).
+  - Not built, and open as E200: §3.9's loading skeleton (the card holds the plot's box while its font loads, G4), the
+    export button's busy state and §3.10's height animation.
 - **The renderer's gates.** `frontend/tests/unit/trend-charts-v2.spec.tsx` holds the drawing to the plan on the 19
   datasets, every chart and both views: D4, D5, D7, D11, D12 and D14, every printed string, and paint the export can
-  serialise. `frontend/tests/e2e/charts-v2.spec.ts` runs D1, D2, D8, D9 and D10 in a browser under full font hinting,
-  in both themes at 1280 and 390 px, card and expanded, in CI's `e2e-charts-v2` job, which also runs the export's
-  fidelity check (E1) against the renderer; the job is a required check on `main`, and step 7 moves its specs into
-  `e2e-tests` (E195). The unit spec also runs M14. D3, D6 and D13 are not yet run: D6's inks are the table's, measured
-  in the audit. M15 and M19 move with E194.
+  serialise, and the reading contract above. `frontend/tests/unit/chart-readout.spec.ts` holds every readout to the
+  model, and the golden plans carry the six datasets' readouts. `frontend/tests/e2e/charts-v2.spec.ts` runs D1, D2,
+  D8, D9 (a grid row's plots start at one height), D10 and D13 in a browser under full font hinting, in both themes at
+  1280 and 390 px, card and expanded, and D1, D2 and D8 on the sticky gutter, in CI's `e2e-charts-v2` job, which also
+  runs the export's fidelity check (E1) against the renderer; the job is a required check on `main`, and step 7 moves
+  its specs into `e2e-tests` (E195). The unit spec also runs M14. D3 and D6 are not yet run: D6's inks are the
+  table's, measured in the audit, and the e2e holds the tooltip's text to 4.5:1. M15 and M19 move with E194.
 - **The gate.** `frontend/tests/unit/chart-engine.spec.ts` runs the model checks M1–M6, M8–M13, M18 and M21, M7,
   M16 and M17 in part, A4 (apart from its planner), A5's letter order and spacing, A7, A13b, G6, L1 for bar labels
   and §3.10's strip, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`

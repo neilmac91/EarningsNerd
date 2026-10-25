@@ -42,9 +42,9 @@ export function StripSwatch({ swatch, marker, x, y, color, ring }: { swatch: 'ba
   return <MarkerShape kind={marker ?? 'circle'} x={x} y={y} color={color} ring={ring} />
 }
 
-/** A legend item's 16×10 swatch (§3.6): its line with the marker centred, a 10×10 bar square, or for an absent series
- *  a neutral dashed line that claims no palette slot. */
-export function LegendSwatch({ item, tokens }: { item: LegendItem; tokens: ChartTokens }) {
+/** A legend item's 16×10 swatch (§3.6), and a tooltip row's: its line with the marker centred, a 10×10 bar square, or
+ *  for an absent series a neutral dashed line that claims no palette slot. */
+export function LegendSwatch({ item, tokens }: { item: Pick<LegendItem, 'color' | 'swatch' | 'marker'> & { absent?: boolean }; tokens: ChartTokens }) {
   if (item.absent || item.color == null) {
     return (
       <svg width={16} height={10} aria-hidden="true" className="shrink-0">

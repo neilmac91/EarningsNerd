@@ -123,8 +123,8 @@ export const ENABLE_ANALYSIS =
 /**
  * Draw Multi-Period Analysis's four trend charts with the spec renderer (step 4 of the trend-chart migration, E192;
  * docs/design/analysis-trend-charts-spec-2026-10.md): one SVG per chart from the chart engine's plan, instead of
- * Recharts. It covers /analysis and its locked teaser. The keyboard values stop, tooltip and column wash arrive in
- * step 5 (E193), so it stays off in production until the founder's switch decision (F66). Set
+ * Recharts. It covers /analysis and its locked teaser, with its own keyboard values stop, tooltip and column wash (step
+ * 5, E193). It stays off in production until the founder's switch decision (F66). Set
  * NEXT_PUBLIC_CHARTS_V2='true' for a preview or for CI's charts-v2 e2e job; never in vercel.json, whose env reaches
  * production.
  * Default: disabled.
