@@ -1929,7 +1929,9 @@ function anotherCredentials(sentence: string, at: number, page: OneUsePage): boo
     // refresh tokens rotate."): the token's noun phrase there is the unit's own subject.
     const opened = found && !found.subject && j === found.predicate ? nounPhraseAt(tokens, j) : null
     const other = found && opened ? { ...found, subject: opened, predicate: opened.end } : found
-    if (!other?.subject || j < other.subject.start || j >= other.subject.end || !(CONTRAST.test(other.by ?? '') || CONTRAST.test(own.by ?? ''))) return false
+    // The contrast between the two units is the page's to read (nounsSaidOfAToken): with none, the subject's noun is
+    // said of the token and refused above.
+    if (!other?.subject || j < other.subject.start || j >= other.subject.end) return false
     const words = tokens.slice(other.predicate, other.end).filter((t, n) => inUnit(other, other.predicate + n) && /\w/.test(t.text))
     return words.some((t) => !NO_PREDICATE.test(t.text))
   })
@@ -3815,6 +3817,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Recovery codes expire, unlike single-use refresh tokens.</li>', true],
       ['<li>Unlike session cookies, recovery codes for refresh tokens are single-use.</li>', true],
       ['<li>Recovery codes are not single-use, but refresh tokens are.</li>', true],
+      ['<li>Recovery codes are single-use, while the server revokes refresh tokens after their first redemption.</li>', true],
       ['<li>Recovery codes cannot be reused, but refresh tokens expire after use.</li>', true],
       // ... and where "single-use" before a credential's noun is set beside the token or said of it (Codex's thread
       // 4371353880 on a072e79a), a clause or a condition outside the form's says it again in other words, "like" turns
