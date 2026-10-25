@@ -28,7 +28,8 @@ eval-v1's own verdicts). ``v2`` (DEEPSEEK-ERRORS.md fixes 1, 2, 5 and 13):
 - a repair, only if failures remain, asks for patches to the failed sentences alone, says what each cited ID
   holds, and never asks for "the cited value"; code applies the patches, keyed on each sentence's text, so every
   other sentence stays byte for byte. A patch list that is invalid or does not apply falls back to the full repair
-  (``repair_kind``); a reply that is the whole analysis instead is taken as the full repair, with no second call;
+  (``repair_kind``), which a run resumed before it returned sends without a second patch (``repair_owed``); a reply
+  that is the whole analysis instead is taken as the full repair, with no second call;
 - a repair that only retypes a passage-less ``cause`` sentence to fact or comparison, keeping an explanatory clause
   ("because", "so", "as", "due to"), still fails, whatever else it edits: the sentence in the failed one's place is
   the one its patch wrote or, after a full repair, the one aligned with it.
@@ -169,8 +170,8 @@ async def generate_proposed(arm_name: str, ticker: str, repair: bool = True, tag
     repair if it failed. ``checkpoint`` is handed what is already paid for before each further call is sent, so a
     run stopped mid-call (Ctrl-C, a kill) loses nothing paid: the first attempt, as an interrupted generation,
     before the JSON retry; the first pass, marked as owed its repair, before the repair (and again before a
-    patch's fallback), so the next run retries only the repair. Under ``v2`` the user message opens with the
-    analysis' nonce (``label``, the arm, the ticker)."""
+    patch's fallback), so the next run retries only the repair, and after an unusable patch only the full repair
+    (``_repair_v2``). Under ``v2`` the user message opens with the analysis' nonce (``label``, the arm, the ticker)."""
     arm = ARMS[arm_name]
     pack = load_pack(ticker, arm_name)
     nonce = analysis_nonce(label, arm_name, ticker) if pipeline == "v2" else ""
@@ -463,22 +464,31 @@ async def _repair_v2(arm: Any, system: str, user: str, parsed: dict[str, Any], r
                      tag: str = "", checkpoint: Optional[Callable[[dict[str, Any]], None]] = None) -> None:
     """Version 2's one repair: patches to the failed sentences, applied by code; the full repair only when the
     patches are unusable (the record keeps both calls and its ``repair_kind``). Each call is on the record before its
-    reply is read, so a reply that cannot be read still counts. A refusal stands, as in version 1."""
+    reply is read, so a reply that cannot be read still counts. A refusal stands, as in version 1.
+
+    From an unusable patch reply until the full repair returns, the record holds ``repair_owed: "full"`` (and
+    ``repair_kind`` "full"): the patch was the model's own outcome and was paid for, so a run that resumes the record
+    after a provider error or a kill sends the full repair only, never a second patch. Its calls, latency and cost
+    are then the patch and the full repair, as an uninterrupted fallback's are, plus any full repair cut off at its
+    token cap and paid for (``repair_or_mark`` keeps it)."""
     first_gate = record["gate"]
     failures = first_gate["failures"]
-    result = await call(arm, system, repair_message_v2(user, parsed, failures, pack), max_tokens=max_tokens_for(arm), tag=tag)
-    _add_attempt(record, result, [])
-    record["first_pass_gate"] = {k: first_gate[k] for k in ("passed", "claims", "verified", "failed_claims", "failures",
-                                                            "backstop_failures") if k in first_gate}
-    record["first_pass_output"] = parsed
-    refused = result.meta.get("stop_reason") == "refusal"
-    repaired, problems, replaced = (None, ["the model refused (stop_reason refusal)"], {}) if refused else read_patch_reply(
-        parsed, result.text, failures)
-    record["attempts"][-1]["problems"] = problems
-    record["repair_kind"] = "full" if replaced is None else "patch"
-    if problems and not refused:
-        if checkpoint:  # the paid patch call is on disk before the full repair is sent
-            checkpoint({**record, "repair_error": "interrupted: the full repair had not returned"})
+    if record.get("repair_owed") != "full":
+        result = await call(arm, system, repair_message_v2(user, parsed, failures, pack), max_tokens=max_tokens_for(arm), tag=tag)
+        _add_attempt(record, result, [])
+        record["first_pass_gate"] = {k: first_gate[k] for k in ("passed", "claims", "verified", "failed_claims", "failures",
+                                                                "backstop_failures") if k in first_gate}
+        record["first_pass_output"] = parsed
+        refused = result.meta.get("stop_reason") == "refusal"
+        repaired, problems, replaced = (None, ["the model refused (stop_reason refusal)"], {}) if refused else read_patch_reply(
+            parsed, result.text, failures)
+        record["attempts"][-1]["problems"] = problems
+        record["repair_kind"] = "full" if replaced is None else "patch"
+        if problems and not refused:
+            record["repair_owed"], record["repair_kind"] = "full", "full"
+            if checkpoint:  # the paid patch call is on disk before the full repair is sent
+                checkpoint({**record, "repair_error": "interrupted: the full repair had not returned"})
+    if record.get("repair_owed") == "full":
         result = await call(arm, system, repair_message_v2(user, parsed, failures, pack, patch=False),
                             max_tokens=max_tokens_for(arm), tag=tag)
         _add_attempt(record, result, [])
@@ -487,6 +497,7 @@ async def _repair_v2(arm: Any, system: str, user: str, parsed: dict[str, Any], r
         problems = ["the model refused (stop_reason refusal)"] if refused else validate(repaired)
         record["attempts"][-1]["problems"] = problems
         record["repair_kind"], replaced = "full", None
+        del record["repair_owed"]  # only once its reply is read: one that cannot be read leaves the full repair owed
     if problems:
         record["repair_failed"] = problems
         return

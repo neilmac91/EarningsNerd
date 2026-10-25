@@ -7,12 +7,16 @@ repair repeat; the repair message lists what each cited ID holds and never asks 
 the failed sentences alone, byte for byte everywhere else; an unusable patch list (a section or original that is no
 string included) falls back to the full repair, and a recoverable one (no type, the listing's prefix, a whole
 analysis) needs no second call; every paid call is on the record before its reply is read, and the paid patch call
-is on disk before the full repair is sent, on a retried repair too; a refused patch stands; the gate after a repair
+is on disk before the full repair is sent, on a retried repair too; a run resumed after an unusable patch (a kill, a
+provider error, a full repair cut off at its token cap) sends only the full repair it owes, never a second patch, so
+its record reads "full" with the patch's and the full repair's calls; a refused patch stands; the gate after a repair
 applies the backstops; a retype-only repair that keeps an explanatory clause still fails, whatever else it edits;
 a label refuses to mix an arm's pipelines, prompts or packs; and version 1 runs eval-v1's procedure under the current
 gate. Also ``repair_replay`` (DEEPSEEK-ERRORS.md §3 step 1): it repairs exactly the recorded first passes version 2
-would repair, through that same repair, and reports each repeat's calls, latency, tokens, cost (billed and warm), gate
-and untouched sentences, keeping what was paid for. ``generate`` is imported over a stub bootstrap whose records live in ``tmp_path`` (the fixture is
+would repair, through that same repair, and reports each repeat's calls, latency, tokens, cost (billed and warm, the
+warm prefix capping what a repair's longer prompt reads from cache), gate and untouched sentences, keeping what was
+paid for; its dry run prints the most a run can send and bill (two cold calls a repeat, each reply at max_tokens).
+``generate`` is imported over a stub bootstrap whose records live in ``tmp_path`` (the fixture is
 ``test_trend_depth_stages.py``'s), so the real bootstrap never loads.
 """
 from __future__ import annotations
@@ -29,7 +33,7 @@ from typing import Any
 
 import pytest
 
-from evals.trend_depth.providers import CallResult
+from evals.trend_depth.providers import CallResult, IncompleteReply
 
 STAGES = ("generate", "repair_replay")
 LABEL, TICKER, ARM = "test", "T", "deepseek-flash"
@@ -251,6 +255,21 @@ def test_a_patch_reply_is_on_the_record_before_it_is_read(harness: Any, monkeypa
     assert record["cost_usd"] == pytest.approx(0.2) and record["usage"]["output_tokens"] == 200
 
 
+def test_a_full_repair_whose_reply_cannot_be_read_is_still_owed(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    first = _analysis(*STEADY, ("cash", "comparison", WRONG))
+    sent = _wire(harness, monkeypatch, [json.dumps(first), '{"patches": []}', json.dumps(first)])
+    real = harness.generate.parse_json_object
+
+    def unreadable(text: str) -> Any:
+        if text == json.dumps(first) and len(sent) == 3:  # the full repair's reply, not the first pass's
+            raise TypeError("unreadable")
+        return real(text)
+
+    monkeypatch.setattr(harness.generate, "parse_json_object", unreadable)
+    record = _generate(harness)  # paid, on the record, and the full repair still owed: a resumed run sends it again
+    assert record["repair_error"].startswith("TypeError") and record["repair_owed"] == "full" and len(record["attempts"]) == 3
+
+
 def test_a_refused_patch_stands(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     first = _analysis(*STEADY, ("cash", "comparison", WRONG))
     sent = _wire(harness, monkeypatch, [json.dumps(first), _result("", stop="refusal")])
@@ -259,23 +278,38 @@ def test_a_refused_patch_stands(harness: Any, monkeypatch: pytest.MonkeyPatch) -
     assert record["output"] == first and not record["gate"]["passed"] and len(record["attempts"]) == 2
 
 
-def test_the_paid_patch_is_on_disk_before_the_full_repair_is_sent(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+class Killed(BaseException):
+    """A kill or Ctrl-C mid-call: no ``except Exception`` catches it."""
+
+
+@pytest.mark.parametrize("stop, calls", [
+    (Killed(), 3),  # the kill leaves the checkpoint: first pass, patch, then the full repair the resumed run sends
+    (RuntimeError("503 Service Unavailable"), 3),  # a provider error outlasting the retries: nothing was billed
+    # The full repair cut off at its token cap was paid for, so it stays on the record beside the one resent.
+    (IncompleteReply("the reply stopped at max_tokens", _result("{", stop="max_tokens")), 4),
+])
+def test_a_run_resumed_after_an_unusable_patch_sends_only_the_full_repair(harness: Any, monkeypatch: pytest.MonkeyPatch,
+                                                                           stop: BaseException, calls: int) -> None:
+    # Review 7, repair loop finding 2: the resume used to send a second patch, so the record read "patch" and its
+    # latency summed two patch calls, a sequence the pipeline never runs.
     first = _analysis(*STEADY, ("cash", "comparison", WRONG))
-
-    class Killed(BaseException):
-        pass
-
-    sent = _wire(harness, monkeypatch, [json.dumps(first), '{"patches": []}', Killed()])
-    with pytest.raises(Killed):
+    whole = _analysis(*STEADY, ("cash", "comparison", RIGHT))
+    _wire(harness, monkeypatch, [json.dumps(first), '{"patches": []}', stop])
+    if isinstance(stop, Killed):
+        with pytest.raises(Killed):
+            asyncio.run(harness.generate.run(LABEL, [ARM], [TICKER], 1, "v2"))
+    else:
         asyncio.run(harness.generate.run(LABEL, [ARM], [TICKER], 1, "v2"))
-    kept = json.loads(_path(harness).read_text())
-    assert kept["repair_error"].startswith("interrupted: the full repair") and len(kept["attempts"]) == 2
-    assert kept["cost_usd"] == pytest.approx(0.2) and kept["output"] == first
-    sent.clear()
-    _wire(harness, monkeypatch, [_patch(WRONG, type="comparison", text=RIGHT)])
+    kept = json.loads(_path(harness).read_text())  # the paid patch call is on disk, the full repair owed
+    assert kept["repair_owed"] == "full" and kept["repair_kind"] == "full" and kept["output"] == first and kept["repair_error"]
+    assert [a["attempt"] for a in kept["attempts"]][:2] == [0, "repair"] and kept["attempts"][1]["problems"]
+    sent = _wire(harness, monkeypatch, [json.dumps(whole)])
     asyncio.run(harness.generate.run(LABEL, [ARM], [TICKER], 1, "v2"))
-    settled = json.loads(_path(harness).read_text())  # only the repair was bought again, as a patch
-    assert "repair_error" not in settled and settled["repair_kind"] == "patch" and len(settled["attempts"]) == 3
+    settled = json.loads(_path(harness).read_text())
+    assert len(sent) == 1 and "Return the whole analysis again" in sent[0] and '"patches"' not in sent[0]
+    assert not {"repair_error", "repair_owed"} & set(settled) and settled["repair_kind"] == "full"
+    assert settled["output"] == whole and settled["gate"]["passed"] and len(settled["attempts"]) == calls
+    assert settled["latency_s"] == pytest.approx(calls * 1.0) and settled["cost_usd"] == pytest.approx(calls * 0.1)
 
 
 @pytest.mark.parametrize("path", ["patch", "full"])
@@ -369,10 +403,6 @@ def test_a_retried_repair_repeats_its_analysis_nonce(harness: Any, monkeypatch: 
 
 def test_a_retried_repair_puts_its_paid_patch_on_disk_before_the_full_repair(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     path = _owed(harness, pipeline="v2", nonce="0123456789ab")
-
-    class Killed(BaseException):
-        pass
-
     _wire(harness, monkeypatch, ['{"patches": []}', Killed()])
     with pytest.raises(Killed):
         asyncio.run(harness.generate.run(LABEL, [ARM], [TICKER], 1, "v2"))
@@ -462,7 +492,10 @@ def test_the_replay_takes_the_first_passes_version_2_would_repair(harness: Any, 
 def test_the_replay_repairs_each_case_through_version_2s_repair(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     failing = _sources(harness)
     whole = _analysis(*STEADY, ("cash", "comparison", RIGHT), ("cash", "fact", "Gross margin was 71.1% [F4]."))
-    sent = _wire(harness, monkeypatch, [_patch(WRONG, type="comparison", text=RIGHT), '{"patches": []}', json.dumps(whole)])
+    # A repair's prompt is the first pass's (30,000 tokens, its first attempt's: the warm prefix) plus the failure
+    # listing and the analysis, so it is longer than the prefix: 40,000 tokens here.
+    replies = [_patch(WRONG, type="comparison", text=RIGHT), '{"patches": []}', json.dumps(whole)]
+    sent = _wire(harness, monkeypatch, [CallResult(text, 40000, 0, 100, 0, 1.0, 0.1, "openai_compat", "m", {}) for text in replies])
     replay = harness.repair_replay
     found = [case for case in replay.cases(["eval-v1"])[0]]
     rows = asyncio.run(replay.replay("step1", found, 2, 1))
@@ -471,21 +504,19 @@ def test_the_replay_repairs_each_case_through_version_2s_repair(harness: Any, mo
     assert (patched["repair_kind"], patched["calls"], patched["gate_passed"], patched["untouched_kept"]) == ("patch", 1, True, [4, 4])
     assert (full["repair_kind"], full["calls"], full["gate_passed"], full["untouched_kept"]) == ("full", 2, True, [3, 4])
     assert full["latency_s"] == 2.0 and full["output_tokens"] == 200 and full["cost_usd"] == pytest.approx(0.2)
-    assert full["cost_warm_usd"] == pytest.approx(2 * (1000 * 0.003 + 100 * 0.6) / 1e6)  # the 1,000-token prompt read warm
+    # Warm, a call reads only the 30,000-token prefix from cache and pays full price for the other 10,000:
+    # (10,000 x $0.15 + 30,000 x $0.003 + 100 x $0.60) per million = $0.00165 a call.
+    assert patched["cost_warm_usd"] == pytest.approx(0.00165) and full["cost_warm_usd"] == pytest.approx(2 * 0.00165)
     written = harness.generate.RUNS / "step1" / "repair-replay" / "repeats"
     assert sorted(p.name for p in written.iterdir()) == ["eval-v1__A__1.json", "eval-v1__A__2.json"]
     assert json.loads((written / "eval-v1__A__1.json").read_text())["first_pass_output"] == failing
     assert replay.summary(rows) == {"repeats": 2, "provider_errors": 0, "gate_passed": 2, "repair_failed": 0, "full_repairs": 1,
                                     "untouched_all_kept": 1, "latency_p50_s": 1.0, "latency_p90_s": 2.0,
-                                    "cost_mean_usd": pytest.approx(0.15), "cost_warm_mean_usd": pytest.approx(0.0000945, abs=1e-6)}
+                                    "cost_mean_usd": pytest.approx(0.15), "cost_warm_mean_usd": pytest.approx(1.5 * 0.00165)}
 
 
 def test_the_replay_keeps_what_was_paid_for_and_retries_only_a_provider_error(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-    _sources(harness)
-
-    class Killed(BaseException):
-        pass
-
+    failing = _sources(harness)
     _wire(harness, monkeypatch, ['{"patches": []}', Killed()])
     replay = harness.repair_replay
     found = replay.cases(["eval-v1"])[0]
@@ -494,9 +525,15 @@ def test_the_replay_keeps_what_was_paid_for_and_retries_only_a_provider_error(ha
     path = harness.generate.RUNS / "step1" / "repair-replay" / "repeats" / "eval-v1__A__1.json"
     kept = json.loads(path.read_text())  # the paid patch call is on disk before the full repair was sent
     assert kept["repair_error"].startswith("interrupted: the full repair") and [a["attempt"] for a in kept["attempts"]] == ["repair"]
-    sent = _wire(harness, monkeypatch, [_patch(WRONG, type="comparison", text=RIGHT)])
+    assert kept["repair_owed"] == "full"
+    whole = json.loads(json.dumps(failing).replace(WRONG, RIGHT))
+    sent = _wire(harness, monkeypatch, [json.dumps(whole)])
     rows = asyncio.run(replay.replay("step1", found, 1, 1))
-    assert len(sent) == 1 and rows[0]["gate_passed"] and rows[0]["calls"] == 2 and rows[0]["cost_usd"] == pytest.approx(0.2)
+    # The resumed repeat is bought only its owed full repair: it reads as the fallback it was, on the patch-then-full
+    # basis of an uninterrupted one (two calls, both latencies), never as a patch.
+    assert len(sent) == 1 and "Return the whole analysis again" in sent[0] and rows[0]["gate_passed"]
+    assert (rows[0]["repair_kind"], rows[0]["calls"], rows[0]["latency_s"]) == ("full", 2, 2.0)
+    assert rows[0]["cost_usd"] == pytest.approx(0.2) and replay.summary(rows)["full_repairs"] == 1
     sent = _wire(harness, monkeypatch, [])
     assert asyncio.run(replay.replay("step1", found, 1, 1)) == rows and sent == []  # a settled repeat is kept
 
@@ -506,8 +543,21 @@ def test_a_dry_run_sends_nothing(harness: Any, monkeypatch: pytest.MonkeyPatch, 
     sent = _wire(harness, monkeypatch, [])
     harness.repair_replay.main(["--label", "step1", "--sources", "eval-v1,dev-v3", "--dry-run"])
     out = capsys.readouterr().out
-    assert sent == [] and "2 cases, 4 repairs" in out and "case eval-v1__A: 1 failure(s)" in out
+    assert sent == [] and "2 cases, 4 repairs, at most 8 calls and USD " in out and "case eval-v1__A: 1 failure(s)" in out
     assert not (harness.generate.RUNS / "step1").exists()
+
+
+def test_the_ceiling_is_two_cold_calls_a_repeat_each_at_max_tokens(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    _sources(harness)
+    _wire(harness, monkeypatch, [])
+    monkeypatch.setattr(harness.generate, "repair_message_v2",
+                        lambda user, parsed, failures, pack, patch=True: "x" * (1000 if patch else 3000))
+    found = harness.repair_replay.cases(["eval-v1"])[0]
+    monkeypatch.setattr(harness.generate, "system_prompt", lambda arm_name: "s" * 20000)
+    # One case. Per repeat: the patch request, 21,000 tokens in (the 20,000-byte system prompt and its 1,000-byte
+    # message), and the full repair, 23,000; each reply 16,000 tokens (deepseek-flash's max_tokens), all cold at the
+    # off-peak list price ($0.15 in and $0.60 out per million tokens): $0.0258 a repeat.
+    assert harness.repair_replay.ceiling(found, 2) == (4, pytest.approx(2 * ((21000 + 23000) * 0.15 + 2 * 16000 * 0.60) / 1e6))
 
 
 def test_these_tests_leave_the_real_bootstrap_unloaded() -> None:
