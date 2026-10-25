@@ -515,6 +515,154 @@ async def test_force_regeneration_refreshes_no_expired_row_on_the_loop(monkeypat
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("case", ["replay", "generate", "unready", "force_pro", "force_free", "missing"])
+async def test_generate_stream_releases_its_connection_off_the_loop_before_it_streams(monkeypatch, tmp_path, case):
+    """The generate stream's admission (the filing and summary reads, the served body, the readiness and Pro
+    checks, the progress clear and the generation snapshot) runs in one thread-pool unit that releases the
+    request session before the response streams, its 403 and 404 included, so eight readers on four slots make
+    no checkout, statement or release on the loop and leave nothing for the finalizer. On the loop, each case
+    ran its statements there, the served body was built there (its Risks projected over the filing's own text),
+    and a missing filing or a Free reader's force left its transaction for the finalizer. Each admitted request
+    reaches the one orchestrator with the admission's inputs; a replay or a refusal reaches none. Each reader's
+    plan comes from its Subscription row while its ``is_pro`` mirror says the opposite, so a Pro check that missed
+    the row, as one on the detached user would, answers wrong."""
+    from app.models import User
+    from app.models.subscription import Subscription
+    from app.routers import auth
+    from app.routers import summaries as summaries_router
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'generate-stream.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    pro = case != "force_free"
+    shown = "# Summary\n\nStored analysis the filing page shows."
+    # An empty body is one the filing page cannot show, so it is regenerated in place.
+    stored = {"replay": shown, "unready": "", "force_pro": shown, "force_free": shown}.get(case)
+    with sessions() as db:
+        company = Company(cik="0000000006", ticker="STREAM", name="Stream fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000006-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), sec_url="https://example.test/stream/",
+                        document_url="https://example.test/stream.htm")
+        db.add(filing)
+        db.flush()
+        db.add(FilingContentCache(filing_id=filing.id, critical_excerpt="Revenue was $100.0 million."))
+        if stored is not None:
+            db.add(Summary(filing_id=filing.id, business_overview=stored, raw_summary={}))
+        db.add(SummaryGenerationProgress(filing_id=filing.id, stage="completed", started_at=utcnow(),
+                                         updated_at=utcnow()))
+        for i in range(8):
+            reader = User(email=f"stream-reader-{i}@example.com", is_active=True, is_pro=not pro)
+            db.add(reader)
+            db.flush()
+            db.add(Subscription(user_id=reader.id, plan="pro", status="active") if pro else Subscription(
+                user_id=reader.id, plan="pro", status="trialing", trial_end=utcnow() - timedelta(days=1)))
+        db.commit()
+        filing_id = 999 if case == "missing" else filing.id
+        reader_ids = sorted(user_id for (user_id,) in db.query(User.id))
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
+    # The served body projects the summary's Risks over the filing's text, CPU work that runs no SQL: where it ran.
+    built_on_loop: list[bool] = []
+    served_body = summaries_router.source_safe_business_overview
+
+    def recorded_served_body(summary: Any, filing: Any) -> str:
+        built_on_loop.append(threading.get_ident() == loop_thread)
+        return served_body(summary, filing)
+
+    pipeline_calls: list[dict[str, Any]] = []
+
+    async def pipeline(**kwargs: Any):
+        pipeline_calls.append(kwargs)
+        await asyncio.sleep(0.05)  # the other readers' admissions run while this one streams
+        yield {"type": "complete", "summary": "# Summary\n\nGenerated.", "summary_id": 1}
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(summaries_router, "SUMMARY_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(summaries_router, "stream_filing_summary", pipeline)
+    monkeypatch.setattr(summaries_router, "source_safe_business_overview", recorded_served_body)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    path = f"/api/summaries/filing/{filing_id}/generate-stream" + ("?force=true" if case.startswith("force") else "")
+
+    async def send(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"stream-reader-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            return await client.post(path)
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        # Every checkout, statement and release ran in the thread pool (read before this test's own reads below).
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+        assert built_on_loop == ([False] * 8 if stored is not None and case != "missing" else [])
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open. A generation's
+        # snapshot that left the subscription unloaded reads it in a session of its own, which closes once.
+        own = [session for session in request_sessions if len(session.open_at_close) == 1]
+        assert len(own) == (8 if case in ("generate", "unready") else 0)
+        assert [request.open_at_close[-1:] for request in request_sessions if request not in own] == [[False]] * 8
+        expected = {"replay": 200, "generate": 200, "unready": 200, "force_pro": 200, "force_free": 403,
+                    "missing": 404}[case]
+        assert [response.status_code for response in responses] == [expected] * 8
+        if case == "replay":
+            assert all("Stored analysis the filing page shows." in response.text for response in responses)
+        elif expected == 200:
+            assert all("Generated." in response.text for response in responses)
+        else:
+            detail = {"force_free": "Regenerating a summary is a Pro feature.", "missing": "Filing not found"}[case]
+            assert [response.json()["detail"] for response in responses] == [detail] * 8
+        # Each admitted request reached the orchestrator once, with the admission's inputs and its own reader.
+        admitted = case in ("generate", "unready", "force_pro")
+        assert len(pipeline_calls) == (8 if admitted else 0)
+        assert sorted(call["user_id"] for call in pipeline_calls) == (reader_ids if admitted else [])
+        flags = {"generate": (False, False, False), "unready": (True, True, False), "force_pro": (True, False, True)}
+        for call in pipeline_calls:
+            snapshot = call["current_user"]
+            assert (snapshot.id, snapshot.subscription.status) == (call["user_id"], "active")
+            assert (call["force_regenerate"], call["replace_unready_only"], call["refresh_xbrl"]) == flags[case]
+            assert (call["telemetry_ctx"]["filing_type"], call["telemetry_ctx"]["ticker"]) == ("10-K", "STREAM")
+        with sessions() as db:
+            progress = db.query(SummaryGenerationProgress).count()
+        # The force branch cleared the progress row, and nothing else wrote it.
+        assert progress == (0 if case == "force_pro" else 1)
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("path,case", [
     ("/api/auth/logout", "logout_signed_in"),
     ("/api/auth/logout", "logout_cookie_only"),
@@ -3670,8 +3818,9 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # (router file relative to backend/, function name) -> its ceiling. Counted by this file's own walk
 # when the ratchet landed (2026-10-16), after its PR took the summary read and its progress poll off
 # the loop, and recounted when the walk began counting the session handed to a call (2026-10-24):
-# each entry is a route E121 (``auth.py``) or E171 names in ``tasks/todo.md``. The blank line between
-# entries keeps in-place number edits on different entries mergeable in any order.
+# each entry is a route E121 (``auth.py``) names in ``tasks/todo.md``, E171's last route having left on
+# 2026-10-25. The blank line between entries keeps in-place number edits on different entries mergeable in
+# any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/auth.py", "apple_callback"): 6,
 
@@ -3696,8 +3845,6 @@ ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/auth.py", "unlink_connection"): 2,
 
     ("app/routers/auth.py", "verify_email"): 3,
-
-    ("app/routers/summaries.py", "generate_summary_stream"): 7,
 }
 
 # The walk must keep seeing the routers' async session routes; fewer means a broken walk.

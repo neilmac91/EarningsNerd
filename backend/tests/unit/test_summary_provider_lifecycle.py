@@ -166,6 +166,9 @@ async def test_generation_waits_release_database_connections(boundary, stop, tmp
 
     monkeypatch.setattr(pipeline, "run_in_threadpool", serialized_db_unit)
     ownership_errors = []
+    # The request's session (route cases), set by the request_db override below, and the thread of each of its closes.
+    request_session = None
+    request_closes = []
     loop_thread = threading.get_ident()
     admission_started = False
     subscription_threads = []
@@ -195,7 +198,12 @@ async def test_generation_waits_release_database_connections(boundary, stop, tmp
             return result
 
         def close(self):
-            if self.owner != threading.get_ident():
+            if self is request_session:
+                # The request's session is the route's to release, not a DB unit's: the dependency opens it,
+                # and the route's admission unit releases it in the thread pool (E171). Its closes are checked
+                # below for running off the event loop, not for running where it was opened.
+                request_closes.append(threading.get_ident())
+            elif self.owner != threading.get_ident():
                 ownership_errors.append((self.owner, threading.get_ident()))
             super().close()
             if self.blocked:
@@ -247,8 +255,6 @@ async def test_generation_waits_release_database_connections(boundary, stop, tmp
                     ready.set()
 
     old_overrides = app.dependency_overrides.copy()
-
-    request_session = None
 
     async def request_db():
         nonlocal request_session
@@ -357,6 +363,9 @@ async def test_generation_waits_release_database_connections(boundary, stop, tmp
                     assert db.query(Summary).filter_by(filing_id=filing_id).count() == 1
             assert engine.pool.checkedout() == 0
             assert ownership_errors == [], "session cleanup moved outside its owning worker"
+            if boundary in route_boundaries:
+                # The route released the request's session before it streamed, in the thread pool.
+                assert request_closes and request_closes[0] != loop_thread, "the route released its session on the loop"
     finally:
         finish.set()
         query_finish.set()
