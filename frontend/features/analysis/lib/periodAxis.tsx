@@ -1,5 +1,6 @@
 import { CHART_FONT, chartTheme } from '@/components/ui'
 import type { AnalysisMode } from '@/features/analysis/api/analysis-api'
+import { annualTickLabel, quarterlyTickLines } from './periodLabels'
 
 /**
  * Every-period x-axis ticks for the trend panels (owner decision D2). Recharts' auto interval
@@ -15,21 +16,9 @@ import type { AnalysisMode } from '@/features/analysis/api/analysis-api'
  *   the grid, but the 2-line stack halves the width per tick.
  */
 
-const ANNUAL_KEY = /^FY(\d{4})$/
-const QUARTER_KEY = /^(\d{4})(Q[1-4])$/
-
-/** "FY2016" → "'16". Unrecognized keys pass through untouched. */
-export function annualTickLabel(key: string): string {
-  const match = ANNUAL_KEY.exec(key)
-  return match ? `'${match[1].slice(2)}` : key
-}
-
-/** "2023Q2" → ["Q2", "'23"] (quarter over year); null for unrecognized keys. */
-export function quarterlyTickLines(key: string): [string, string] | null {
-  const match = QUARTER_KEY.exec(key)
-  if (!match) return null
-  return [match[2], `'${match[1].slice(2)}`]
-}
+// The tick strings themselves are pure and live with the period vocabulary, so the chart engine
+// (features/analysis/lib/charts) reads the same ones without importing this React module.
+export { annualTickLabel, quarterlyTickLines } from './periodLabels'
 
 /** XAxis band heights: the tick row (one line annual / two stacked quarterly) plus the axis
  *  caption line underneath (Recharts default height is 30, ticks only). */
