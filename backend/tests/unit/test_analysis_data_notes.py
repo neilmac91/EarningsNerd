@@ -64,8 +64,8 @@ def test_every_known_reason_has_a_pinned_message_and_supplements_continue_after_
     case = CASES[3]
     assert {note["reasons"][0] for note in case["expected"]["notes"]} == set(REASONS)
     result = citation_data_notes(case["citations"], data_notes(case["dataset"]))
-    # 29 reasons: the 28 that mark take a..ab, the record-only legacy_calculation ac, and the supplements follow.
-    assert [note["letter"] for note in result["notes"][-4:]] == ["ac", "ad", "ae", "af"]
+    # 36 reasons: the 35 that mark take a..ai, the record-only legacy_calculation aj, and the supplements follow.
+    assert [note["letter"] for note in result["notes"][-4:]] == ["aj", "ak", "al", "am"]
     assert result["notes"][-4]["reasons"] == ["legacy_calculation"]
     assert all(not note["values"] and not note["comparisons"] for note in result["notes"][-3:])
 

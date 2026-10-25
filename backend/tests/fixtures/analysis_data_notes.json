@@ -2018,6 +2018,160 @@
                 }
               }
             ]
+          },
+          {
+            "concept": "reason_29",
+            "label": "reason_29",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 29,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "zero_where_prior_nonzero"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_30",
+            "label": "reason_30",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 30,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "magnitude_vs_prior"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_31",
+            "label": "reason_31",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 31,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "eps_sign_vs_net_income"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_32",
+            "label": "reason_32",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 32,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "diluted_gt_basic"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_33",
+            "label": "reason_33",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 33,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "legacy_period_label_mismatch"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_34",
+            "label": "reason_34",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 34,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "rolling_duration_not_fiscal_year"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_35",
+            "label": "reason_35",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 35,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "calculation_parent_period_corrected"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
           }
         ]
       },
@@ -2699,11 +2853,179 @@
           {
             "kind": "review",
             "reasons": [
+              "zero_where_prior_nonzero"
+            ],
+            "key": "[\"review\",[\"zero_where_prior_nonzero\"]]",
+            "id": "analysis-data-note-ac",
+            "letter": "ac",
+            "message": "This figure is zero where the previous period had a value. Select it to compare with the filing.",
+            "values": [
+              {
+                "concept": "reason_29",
+                "label": "reason_29",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "magnitude_vs_prior"
+            ],
+            "key": "[\"review\",[\"magnitude_vs_prior\"]]",
+            "id": "analysis-data-note-ad",
+            "letter": "ad",
+            "message": "This figure is more than ten times the previous period\u2019s, or less than a tenth of it. Select it to compare with the filing.",
+            "values": [
+              {
+                "concept": "reason_30",
+                "label": "reason_30",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "eps_sign_vs_net_income"
+            ],
+            "key": "[\"review\",[\"eps_sign_vs_net_income\"]]",
+            "id": "analysis-data-note-ae",
+            "letter": "ae",
+            "message": "Earnings per share and net income have opposite signs for this period. Select it to compare with the filing.",
+            "values": [
+              {
+                "concept": "reason_31",
+                "label": "reason_31",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "diluted_gt_basic"
+            ],
+            "key": "[\"review\",[\"diluted_gt_basic\"]]",
+            "id": "analysis-data-note-af",
+            "letter": "af",
+            "message": "Diluted earnings per share is higher than basic earnings per share for this period. Select it to compare with the filing.",
+            "values": [
+              {
+                "concept": "reason_32",
+                "label": "reason_32",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "legacy_period_label_mismatch"
+            ],
+            "key": "[\"review\",[\"legacy_period_label_mismatch\"]]",
+            "id": "analysis-data-note-ag",
+            "letter": "ag",
+            "message": "This saved figure carried the wrong fiscal period and was replaced by a corrected figure.",
+            "values": [
+              {
+                "concept": "reason_33",
+                "label": "reason_33",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "rolling_duration_not_fiscal_year"
+            ],
+            "key": "[\"review\",[\"rolling_duration_not_fiscal_year\"]]",
+            "id": "analysis-data-note-ah",
+            "letter": "ah",
+            "message": "This saved figure covers a rolling twelve months, not the company\u2019s fiscal year, and is unavailable.",
+            "values": [
+              {
+                "concept": "reason_34",
+                "label": "reason_34",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "calculation_parent_period_corrected"
+            ],
+            "key": "[\"review\",[\"calculation_parent_period_corrected\"]]",
+            "id": "analysis-data-note-ai",
+            "letter": "ai",
+            "message": "An input to this saved calculation was moved to its correct period, so the calculation was withdrawn and is unavailable.",
+            "values": [
+              {
+                "concept": "reason_35",
+                "label": "reason_35",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
               "legacy_calculation"
             ],
             "key": "[\"review\",[\"legacy_calculation\"]]",
-            "id": "analysis-data-note-ac",
-            "letter": "ac",
+            "id": "analysis-data-note-aj",
+            "letter": "aj",
             "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked.",
             "values": [
               {
@@ -2722,13 +3044,13 @@
           }
         ],
         "totals": {
-          "reviewValues": 29,
+          "reviewValues": 36,
           "reviewComparisons": 0,
           "unavailable": 0,
           "passed": 0,
           "unknown": 0,
           "calculated": 0,
-          "total": 29
+          "total": 36
         }
       },
       "citations": [
@@ -3441,11 +3763,179 @@
           {
             "kind": "review",
             "reasons": [
+              "zero_where_prior_nonzero"
+            ],
+            "key": "[\"review\",[\"zero_where_prior_nonzero\"]]",
+            "id": "analysis-data-note-ac",
+            "letter": "ac",
+            "message": "This figure is zero where the previous period had a value. Select it to compare with the filing.",
+            "values": [
+              {
+                "concept": "reason_29",
+                "label": "reason_29",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "magnitude_vs_prior"
+            ],
+            "key": "[\"review\",[\"magnitude_vs_prior\"]]",
+            "id": "analysis-data-note-ad",
+            "letter": "ad",
+            "message": "This figure is more than ten times the previous period\u2019s, or less than a tenth of it. Select it to compare with the filing.",
+            "values": [
+              {
+                "concept": "reason_30",
+                "label": "reason_30",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "eps_sign_vs_net_income"
+            ],
+            "key": "[\"review\",[\"eps_sign_vs_net_income\"]]",
+            "id": "analysis-data-note-ae",
+            "letter": "ae",
+            "message": "Earnings per share and net income have opposite signs for this period. Select it to compare with the filing.",
+            "values": [
+              {
+                "concept": "reason_31",
+                "label": "reason_31",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "diluted_gt_basic"
+            ],
+            "key": "[\"review\",[\"diluted_gt_basic\"]]",
+            "id": "analysis-data-note-af",
+            "letter": "af",
+            "message": "Diluted earnings per share is higher than basic earnings per share for this period. Select it to compare with the filing.",
+            "values": [
+              {
+                "concept": "reason_32",
+                "label": "reason_32",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "legacy_period_label_mismatch"
+            ],
+            "key": "[\"review\",[\"legacy_period_label_mismatch\"]]",
+            "id": "analysis-data-note-ag",
+            "letter": "ag",
+            "message": "This saved figure carried the wrong fiscal period and was replaced by a corrected figure.",
+            "values": [
+              {
+                "concept": "reason_33",
+                "label": "reason_33",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "rolling_duration_not_fiscal_year"
+            ],
+            "key": "[\"review\",[\"rolling_duration_not_fiscal_year\"]]",
+            "id": "analysis-data-note-ah",
+            "letter": "ah",
+            "message": "This saved figure covers a rolling twelve months, not the company\u2019s fiscal year, and is unavailable.",
+            "values": [
+              {
+                "concept": "reason_34",
+                "label": "reason_34",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "calculation_parent_period_corrected"
+            ],
+            "key": "[\"review\",[\"calculation_parent_period_corrected\"]]",
+            "id": "analysis-data-note-ai",
+            "letter": "ai",
+            "message": "An input to this saved calculation was moved to its correct period, so the calculation was withdrawn and is unavailable.",
+            "values": [
+              {
+                "concept": "reason_35",
+                "label": "reason_35",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
               "legacy_calculation"
             ],
             "key": "[\"review\",[\"legacy_calculation\"]]",
-            "id": "analysis-data-note-ac",
-            "letter": "ac",
+            "id": "analysis-data-note-aj",
+            "letter": "aj",
             "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked.",
             "values": [
               {
@@ -3468,8 +3958,8 @@
               "new_citation_reason"
             ],
             "key": "[\"review\",[\"new_citation_reason\"]]",
-            "id": "analysis-data-note-ad",
-            "letter": "ad",
+            "id": "analysis-data-note-ak",
+            "letter": "ak",
             "message": "The source or calculation basis needs review. Check the original filing.",
             "values": [],
             "comparisons": [],
@@ -3486,8 +3976,8 @@
               "legacy_unknown"
             ],
             "key": "[\"unknown\",[\"legacy_unknown\"]]",
-            "id": "analysis-data-note-ae",
-            "letter": "ae",
+            "id": "analysis-data-note-al",
+            "letter": "al",
             "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
             "values": [],
             "comparisons": [],
@@ -3504,8 +3994,8 @@
               "not_in_dataset"
             ],
             "key": "[\"unavailable\",[\"not_in_dataset\"]]",
-            "id": "analysis-data-note-af",
-            "letter": "af",
+            "id": "analysis-data-note-am",
+            "letter": "am",
             "message": "Not in our data for these periods; shown as a dash, never as zero.",
             "values": [],
             "comparisons": [],
@@ -3518,13 +4008,13 @@
           }
         ],
         "totals": {
-          "reviewValues": 29,
+          "reviewValues": 36,
           "reviewComparisons": 0,
           "unavailable": 0,
           "passed": 0,
           "unknown": 0,
           "calculated": 0,
-          "total": 29
+          "total": 36
         }
       },
       "marked_letters": [
@@ -3556,7 +4046,14 @@
         "z",
         "aa",
         "ab",
-        "ad"
+        "ac",
+        "ad",
+        "ae",
+        "af",
+        "ag",
+        "ah",
+        "ai",
+        "ak"
       ]
     },
     {

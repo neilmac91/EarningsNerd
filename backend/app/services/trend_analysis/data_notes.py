@@ -42,6 +42,13 @@ REASONS = {
     "rounded_share_count": "Rounded weighted-average share counts do not establish an exact quarterly EPS figure.",
     "calculation_mismatch": "Our calculation from the filed inputs does not match the stored figure. Select it to see the inputs.",
     "missing_calculation_inputs": "The inputs for this calculation were not found in the same filing, so it could not be checked. Select it to compare with the filing.",
+    "zero_where_prior_nonzero": "This figure is zero where the previous period had a value. Select it to compare with the filing.",
+    "magnitude_vs_prior": "This figure is more than ten times the previous period’s, or less than a tenth of it. Select it to compare with the filing.",
+    "eps_sign_vs_net_income": "Earnings per share and net income have opposite signs for this period. Select it to compare with the filing.",
+    "diluted_gt_basic": "Diluted earnings per share is higher than basic earnings per share for this period. Select it to compare with the filing.",
+    "legacy_period_label_mismatch": "This saved figure carried the wrong fiscal period and was replaced by a corrected figure.",
+    "rolling_duration_not_fiscal_year": "This saved figure covers a rolling twelve months, not the company’s fiscal year, and is unavailable.",
+    "calculation_parent_period_corrected": "An input to this saved calculation was moved to its correct period, so the calculation was withdrawn and is unavailable.",
     "source_conflict": "The company’s filings report different values for this figure. We show the most recent filing’s value; select it to compare.",
 }
 # Reasons that describe a figure's record, not its value (D-061): their notes put no mark beside the figure. Closed: any

@@ -26,6 +26,11 @@ Python and TypeScript. `test_analysis_data_notes.py`, `data-notes.spec.ts` and e
 shared groups and numeric-cell preservation. `analysis-presentation-api.spec.ts` rejects supplied
 metadata that omits concerns or belongs to another snapshot before the stream becomes terminal;
 an absent legacy field alone permits the older presentation fallback.
+Every reason the backend writes has words of its own in `data_notes.REASONS` and `provenance.ts`
+REASONS (2026-10-25, data notes version 2): `backend/tests/unit/test_data_note_reasons_have_words.py`
+reads every module under `app/` and fails a reason with none, which would otherwise reach the page and
+the exports as the generic fallback sentence, and the shared fixture holds the two maps, the
+record-only list and the fine print's summary words equal.
 
 **Deployment compatibility (2026-10-11)**: Adding structured evidence does not update an
 already-open browser tab. Keep the code-owned operand tail in its existing wire grammar until
