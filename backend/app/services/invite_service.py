@@ -103,13 +103,16 @@ def validate_invite_hash(db: Session, code_hash: Optional[str], email: str) -> O
 
 def redeem_invite(db: Session, invite: InviteCode, user, *, commit: bool = True) -> bool:
     """Atomically mark a single-use invite redeemed for ``user``. Returns False if a concurrent
-    registration already consumed it (guarded ``UPDATE ... WHERE used_at IS NULL``).
+    registration already consumed it or an admin revoked it since it validated (guarded
+    ``UPDATE ... WHERE used_at IS NULL AND is_revoked IS false``; E201). On PostgreSQL a
+    redemption that waits behind a revoke's or re-issue's row lock re-checks the row when that
+    transaction commits, so it is refused too.
 
     ``commit=False`` leaves the UPDATE in the caller's open transaction, so a registration commits
     (or rolls back) the new account and the redemption together."""
     result = db.execute(
         update(InviteCode)
-        .where(InviteCode.id == invite.id, InviteCode.used_at.is_(None))
+        .where(InviteCode.id == invite.id, InviteCode.used_at.is_(None), InviteCode.is_revoked.is_(False))
         .values(used_at=_now(), user_id=user.id)
     )
     if commit:
@@ -151,12 +154,13 @@ def _unused_invite_locked(db: Session, invite_id: int) -> InviteCode:
     """The unused invite ``invite_id``, read under its row lock until the caller's commit (E171).
 
     The admin router runs a revoke or re-issue in the thread pool, where a registration on the same
-    instance, as on the other, can redeem the invite between the check and the write. Under the lock
-    (PostgreSQL; SQLite has none and runs one writer at a time) a redemption that wrote first is waited
-    for and seen, so the check refuses the redeemed invite instead of revoking it or minting its
-    replacement. An entity query hands back an invite the session still holds unchanged, so
-    ``populate_existing`` re-reads it: a caller that kept an invite it read before the lock sees the
-    redemption too."""
+    instance, as on the other, can redeem the invite between the check and the write. On PostgreSQL a
+    redemption that wrote first is waited for and seen, so the check refuses the redeemed invite instead
+    of revoking it or minting its replacement; one that comes second waits for the commit and finds the
+    invite revoked (``redeem_invite``, E201). SQLite, which the tests use, has no row locks, so there a
+    redemption that commits between the check and the write is not seen. An entity query hands back an
+    invite the session still holds unchanged, so ``populate_existing`` re-reads it: a caller that kept an
+    invite it read before the lock sees the redemption too."""
     invite = (
         db.query(InviteCode)
         .filter(InviteCode.id == invite_id)

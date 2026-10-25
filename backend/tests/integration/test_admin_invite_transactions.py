@@ -1,7 +1,9 @@
-"""E171: the invite row lock on PostgreSQL. The admin router's revoke and re-send of an invite read it under its row
-lock from their check to their commit (``invite_service._unused_invite_locked``), so a registration that redeemed it
-first is waited for and seen: the revoke refuses the redeemed invite instead of revoking it, and the re-send refuses it
-instead of minting its replacement.
+"""E171 and E201: the invite row lock on PostgreSQL. The admin router's revoke and re-send of an invite read it under
+its row lock from their check to their commit (``invite_service._unused_invite_locked``), so a registration that
+redeemed it first is waited for and seen: the revoke refuses the redeemed invite instead of revoking it, and the re-send
+refuses it instead of minting its replacement. A registration that redeems it second is refused (E201): its guarded
+UPDATE checks ``is_revoked`` as well as ``used_at``, and one that waits behind the write's lock re-checks the row when
+the write commits.
 
 Since E171's invite slice the admin router runs both in the thread pool, where a registration on the same instance, as
 on the other, can redeem the invite between the check and the write. The cases:
@@ -12,13 +14,17 @@ on the other, can redeem the invite between the check and the write. The cases:
 - with the lock, each waits at its read for the redemption, sees its commit and refuses the redeemed invite, revoking
   and minting nothing;
 - two admins' writes of one invite take turns: the second waits for the first's lock and both commit. A shared lock
-  (FOR SHARE) would let both read and then deadlock at their writes, one of them answering 500.
+  (FOR SHARE) would let both read and then deadlock at their writes, one of them answering 500;
+- a redemption that waits behind a revoke's or re-send's lock finds the invite revoked when the write commits and is
+  refused, so the invite stays unredeemed. Its control, the redemption without the ``is_revoked`` guard, redeems the
+  revoked invite, and after a re-send the invitee also holds a live replacement.
 
 The re-send runs the route's unit, whose recipient check reads the invite first and keeps no reference to it, so the
 locked read loads it afresh. Two more writes keep the invite they read before the lock, as a caller that held it would:
 an entity query hands back an invite the session still holds unchanged, so the locked read must re-read the row
-(``populate_existing``). Each case asserts that its write waited for the other transaction's row lock (the
-redemption's, or the first write's), so a case whose writes never met fails rather than passes.
+(``populate_existing``). Each case asserts that one transaction waited for the other's row lock (a write for the
+redemption's or the first write's, a redemption for the write's), so a case whose transactions never met fails
+rather than passes.
 Each case owns a disposable schema, and its sessions name themselves after it (``application_name``), so a wait counts
 only the case's own sessions. ADMIN_INVITE_CONCURRENCY_TEST_DATABASE_URL enables these cases in CI ("Verify admin invite
 concurrency on PostgreSQL"); without the variable they skip.
@@ -31,7 +37,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import bindparam, create_engine, text
+from sqlalchemy import bindparam, create_engine, text, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
@@ -155,27 +161,31 @@ def _waiting(engine, sessions: int) -> bool:
 class _Redemption:
     """A registration's redemption of the invite (``redeem_invite`` with ``commit=False``, as registration calls it),
     on a thread of its own, left uncommitted until ``commit``. A case enters it after its thread pool, so a failed
-    assertion commits it before the pool waits for a write that waits for it."""
+    assertion commits it before the pool waits for a write that waits for it. A redemption that fails commits before
+    the case fails, so its open transaction does not hold the case's schema teardown until its thread's wait runs out."""
 
     def __init__(self, engine, invite_id: int, user_id: int):
         self.engine = engine
         self.invite_id = invite_id
         self.user_id = user_id
-        self.redeemed = threading.Event()
+        self.attempted = threading.Event()
+        self.redeemed = False
         self.committing = threading.Event()
         self.thread = threading.Thread(target=self._redeem)
 
     def _redeem(self) -> None:
         with _session(self.engine) as db:
-            if invite_service.redeem_invite(db, db.get(InviteCode, self.invite_id), db.get(User, self.user_id),
-                                            commit=False):
-                self.redeemed.set()
+            self.redeemed = invite_service.redeem_invite(db, db.get(InviteCode, self.invite_id),
+                                                         db.get(User, self.user_id), commit=False)
+            self.attempted.set()
             self.committing.wait(timeout=30)
             db.commit()
 
     def __enter__(self) -> "_Redemption":
         self.thread.start()
-        assert self.redeemed.wait(timeout=5), "the registration must redeem the invite"
+        if not (self.attempted.wait(timeout=5) and self.redeemed):
+            self.commit()
+            pytest.fail("the registration must redeem the invite")
         return self
 
     def __exit__(self, *exc) -> None:
@@ -258,3 +268,85 @@ def test_a_write_waits_for_a_redemption_and_refuses_the_redeemed_invite(postgres
     _, error = _write_beside_a_redemption(postgres_engine, WRITES[write])
     assert isinstance(error, invite_service.InviteAlreadyRedeemedError), error
     assert _state(postgres_engine) == (True, False, 1)
+
+
+def _redemption_behind_a_write(engine, monkeypatch, write: str) -> tuple[bool, Exception | None]:
+    """Holds the write after its locked read, starts a registration's redemption of the invite (``commit=False``, as
+    registration calls it), asserts the redemption waits for the write's lock, then lets the write commit; returns
+    whether the redemption redeemed the invite and the write's error."""
+    invite_id, user_id = _ids(engine)
+    locked = threading.Event()
+    release = threading.Event()
+    read = invite_service._unused_invite_locked
+
+    def held(db: Session, invite_id: int) -> InviteCode:
+        invite = read(db, invite_id)
+        locked.set()
+        release.wait(timeout=30)
+        return invite
+
+    monkeypatch.setattr(invite_service, "_unused_invite_locked", held)
+
+    def redeem() -> bool:
+        with _session(engine) as db:
+            redeemed = invite_service.redeem_invite(db, db.get(InviteCode, invite_id), db.get(User, user_id),
+                                                    commit=False)
+            db.commit()
+            return redeemed
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        admin = pool.submit(_run, engine, WRITES[write](invite_id))
+        try:
+            if not locked.wait(timeout=5):
+                pytest.fail("the write must read the invite under its lock"
+                            + (f": it raised {admin.result()[1]!r}" if admin.done() else ""))
+            redemption = pool.submit(redeem)
+            waited = _waiting(engine, 1)
+        finally:
+            release.set()
+        _, error = admin.result(timeout=60)
+        redeemed = redemption.result(timeout=60)
+    assert waited, "the redemption must wait for the write's lock"
+    return redeemed, error
+
+
+def _replacement_live(engine) -> bool:
+    """Whether the newest invite, a re-send's replacement of the seeded one, is unused and unrevoked."""
+    with _session(engine) as db:
+        newest = db.query(InviteCode).order_by(InviteCode.id.desc()).first()
+        return newest.used_at is None and not newest.is_revoked
+
+
+def _unguarded(db: Session, invite: InviteCode, user, *, commit: bool = True) -> bool:
+    """``redeem_invite`` without its ``is_revoked`` guard, as it redeemed before E201."""
+    result = db.execute(
+        update(InviteCode)
+        .where(InviteCode.id == invite.id, InviteCode.used_at.is_(None))
+        .values(used_at=utcnow(), user_id=user.id)
+    )
+    if commit:
+        db.commit()
+    return result.rowcount == 1
+
+
+@pytest.mark.parametrize("write", ["revoke", "re-send"])
+def test_without_the_guard_a_redemption_behind_a_write_redeems_the_revoked_invite(postgres_engine, monkeypatch, write):
+    """The control: when the write commits, the waiting redemption re-checks only ``used_at``, so it redeems the
+    invite the write revoked, and after a re-send the invitee also holds a live replacement."""
+    monkeypatch.setattr(invite_service, "redeem_invite", _unguarded)
+    redeemed, error = _redemption_behind_a_write(postgres_engine, monkeypatch, write)
+    assert error is None, error
+    assert redeemed is True
+    assert _state(postgres_engine) == (True, True, 2 if write == "re-send" else 1)
+    assert write != "re-send" or _replacement_live(postgres_engine)
+
+
+@pytest.mark.parametrize("write", ["revoke", "re-send"])
+def test_a_redemption_behind_a_write_refuses_the_revoked_invite(postgres_engine, monkeypatch, write):
+    """E201: when the write commits, the waiting redemption re-checks the row, finds the invite revoked and is refused:
+    the invite stays unredeemed, and a re-send's replacement is the invitee's one live link."""
+    redeemed, error = _redemption_behind_a_write(postgres_engine, monkeypatch, write)
+    assert error is None, error
+    assert redeemed is False
+    assert _state(postgres_engine) == (False, True, 2 if write == "re-send" else 1)
+    assert write != "re-send" or _replacement_live(postgres_engine)

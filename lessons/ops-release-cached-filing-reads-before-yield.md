@@ -243,10 +243,11 @@ on the loop (E121), can now wait there for that lock, from the revoke's or re-se
 inside it), which the base's loop never overlapped. `test_admin_invite_transactions.py` races both
 against a redemption on PostgreSQL in CI, its control shows each acting on the redeemed invite without
 the lock, and two admins' writes of one invite take turns at the lock: a shared one (FOR SHARE) would let
-both read, then deadlock at their writes. A redemption that comes second still redeems a revoked invite:
-`redeem_invite` checks only `used_at` (E201). `create_free_account`, a refusal, no longer takes a session
-of its own; its auth lookup's transaction is still left for the finalizer, as a 403's is
-(2026-10-25, E171).
+both read, then deadlock at their writes. A redemption that comes second is refused (E201): `redeem_invite`
+checks `is_revoked` as well as `used_at`, and one that waits behind the lock re-checks the row when the
+write commits; the same gate races it, its control redeeming the revoked invite without the check.
+`create_free_account`, a refusal, no longer takes a session of its own; its auth lookup's transaction is
+still left for the finalizer, as a 403's is (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
