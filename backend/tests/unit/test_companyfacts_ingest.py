@@ -1318,3 +1318,34 @@ class TestProxyStatementItemsSync:
             _MRK_INCOME[2021] / _MRK_REVENUE[2021] * 100)
         assert not any(concept == "net_income" and period == "FY" for concept, period, _year in changed)
         db.close()
+
+    def test_a_proxy_row_never_displaced_a_10k_listed_locally(self, monkeypatch):
+        # The bulk upsert keeps a current row whose accession has a local filing date over an incoming
+        # row with none, and no filing row is a proxy (FilingType lists no 14A or 14C form). So where the
+        # 10-Ks were listed locally, a sync before this fix stored the proxy's rows behind them, and
+        # this branch's sync finds nothing to change.
+        from app.database import SessionLocal
+        from app.models import Filing, FinancialFact
+        from app.services.facts import currency
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        db.add_all(Filing(company_id=company.id, accession_number=f"K{fy % 100}{tag}", filing_type="10-K",
+                          filing_date=datetime(fy + 1, 2, 25, tzinfo=timezone.utc),
+                          document_url="https://example.com/d", sec_url="https://example.com/s")
+                   for fy in _MRK_INCOME)
+        db.commit()
+        svc._persist_companyfacts_payload(db, company, _mrk_payload(tag, proxy=False))
+        with monkeypatch.context() as before_the_fix:
+            before_the_fix.setattr(currency, "is_proxy_form", lambda form: False)
+            svc._persist_companyfacts_payload(db, company, _mrk_payload(tag))
+
+        rows = db.query(FinancialFact).filter_by(company_id=company.id, concept="net_income").all()
+        assert {(r.fiscal_period, r.accession.removesuffix(tag)) for r in rows
+                if r.is_latest and r.fiscal_period in ("FY", "Q4")} == {
+            ("FY", "K23"), ("FY", "K24"), ("FY", "K25"), ("Q4", "K25")}
+        assert {r.accession.removesuffix(tag) for r in rows if r.form == "DEF 14A"} == {"P26"}
+        result = svc._persist_companyfacts_payload(db, company, _mrk_payload(tag))
+        assert (result["inserted"], result["demoted"]) == (0, 0)
+        db.close()
