@@ -1198,6 +1198,9 @@ class TestProxyStatementItems:
         "10-K", "10-K/A", "10-KT", "10-KT/A", "10-Q", "10-Q/A", "20-F", "20-F/A", "40-F", "40-F/A",
         "6-K", "6-K/A", "8-K", "8-K/A", "S-1", "S-1/A", "S-4", "S-4/A", "F-1", "F-4", "10-12B",
         "10-12G", "POS AM", "424B4", "11-K", "N-14", "SC 14D9", "SC 14N", "", None, 14,
+        # 14A or 14C after a hyphen or a digit, and other forms with no letter-only prefix: the
+        # pattern's prefix must be letters alone, or a fund's N-14AE would read as a proxy.
+        "N-14AE", "N-14AE/A", "N-14 8C", "N-14 8C/A", "N-CSR", "ARS", "SC 14D9/A",
     ])
     def test_reports_and_other_schedules_stay_admitted(self, form):
         from app.services.facts.currency import is_proxy_form
