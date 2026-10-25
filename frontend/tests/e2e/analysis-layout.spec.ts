@@ -124,11 +124,16 @@ async function pageAndCardGeometry(page: Page) {
     }
     const strip = document.querySelector('[data-analysis-kpi]')!.parentElement!
     const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize)
+    // The budget as the grid resolves it: a CSS max() over the values at the advances the strip measured.
+    const ruler = strip.appendChild(document.createElement('div'))
+    ruler.style.cssText = 'position:absolute;visibility:hidden;width:var(--kpi-value)'
+    const kpiBudget = ruler.getBoundingClientRect().width
+    ruler.remove()
     return {
       clientWidth: document.documentElement.clientWidth,
       scrollWidth: document.documentElement.scrollWidth,
       kpiWidth: strip.getBoundingClientRect().width,
-      kpiBudget: parseFloat(getComputedStyle(strip).getPropertyValue('--kpi-value')) * rootFontSize,
+      kpiBudget,
       kpiGap: parseFloat(getComputedStyle(strip).columnGap),
       rootFontSize,
       cards,
@@ -1066,10 +1071,11 @@ test.describe('analysis KPI strip, long values', () => {
   }
   test.describe('the figure face', () => {
     test.use({ viewport: { width: 390, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    // kpiValueWidth counts ASCII and KPI_FACE_GLYPHS at 0.6em and anything else at a full em. Each is measured in the
-    // value's own faces with a serif after them, not the monospace fallback, so a glyph Geist Mono lacks cannot pass
-    // at a fallback's 0.6em; KPI_MISSING_GLYPHS shows the probe tells the two apart.
-    test('draws ASCII and every glyph the width counts as its own at 0.6em', async ({ page, baseURL }) => {
+    // kpiValueGlyphs counts ASCII and KPI_FACE_GLYPHS at the face's one advance, which the strip measures as painted
+    // (0.6em, or whole pixels where the browser snaps glyphs), and anything else at a full em. Each glyph is measured in
+    // the value's own faces with a serif after them, not the monospace fallback, so a glyph Geist Mono lacks cannot pass
+    // at a fallback's advance; KPI_MISSING_GLYPHS shows the probe tells the two apart.
+    test('draws ASCII and every glyph the width counts as its own at the one advance the strip measures', async ({ page, baseURL }) => {
       test.setTimeout(60_000)
       await openAnalysis(page, baseURL!, 'annual', theme, 1)
       const ascii = Array.from({ length: 95 }, (_, index) => String.fromCharCode(32 + index)).join('')
@@ -1082,15 +1088,19 @@ test.describe('analysis KPI strip, long values', () => {
         probe.style.cssText = `position:absolute;white-space:pre;font-family:${faces},serif`
         const measured = [...glyphs].map(glyph => {
           probe.textContent = glyph.repeat(10)
-          return { glyph: `U+${glyph.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}`, em: Math.round(probe.getBoundingClientRect().width / 10 / parseFloat(style.fontSize) * 1000) / 1000 }
+          return { glyph: `U+${glyph.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}`, px: Math.round(probe.getBoundingClientRect().width / 10 * 1000) / 1000 }
         })
         probe.remove()
-        return measured
+        const strip = value.closest('dl')!
+        return { size: parseFloat(style.fontSize), advance: parseFloat(strip.style.getPropertyValue('--kpi-figure')), measured }
       }, glyphs)
       const own = await measure(ascii + KPI_FACE_GLYPHS)
-      expect(own).toHaveLength(95 + [...KPI_FACE_GLYPHS].length)
-      expect(own.filter(({ em }) => Math.abs(em - 0.6) > 0.002), 'glyphs the width counts at 0.6em, off it').toEqual([])
-      expect((await measure(KPI_MISSING_GLYPHS)).filter(({ em }) => Math.abs(em - 0.6) <= 0.002), 'glyphs Geist Mono lacks, measured at 0.6em').toEqual([])
+      expect(own.measured).toHaveLength(95 + [...KPI_FACE_GLYPHS].length)
+      // The strip measured its advance, within a pixel's rounding of the face's 0.6em.
+      expect(Math.abs(own.advance - 0.6 * own.size), `the strip's advance (${own.advance}px) at ${own.size}px`).toBeLessThanOrEqual(0.5)
+      expect(own.measured.filter(({ px }) => Math.abs(px - own.advance) > 0.01), `glyphs the width counts at the strip's advance (${own.advance}px), off it`).toEqual([])
+      const missing = await measure(KPI_MISSING_GLYPHS)
+      expect(missing.measured.filter(({ px }) => Math.abs(px - own.advance) <= 0.01), 'glyphs Geist Mono lacks, measured at its advance').toEqual([])
     })
   })
 })
