@@ -2737,8 +2737,8 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
     and release in one thread-pool unit, their 404s included, so eight admins on four slots make no checkout,
     statement or release on the loop and leave nothing for the finalizer. On the loop, each statement after the
     auth lookup ran there (the stale-XBRL audit and bulk reset loading every filing's XBRL), each read after a
-    write's commit checked a connection out there, and every route but the summary delete left its transaction
-    for the finalizer."""
+    write's commit checked a connection out there, and every case but a summary delete that found its filing left
+    its transaction for the finalizer, the 404s included."""
     from app.models import AuditLog, User
     from app.models.feedback import Feedback
     from app.routers import auth
@@ -2853,9 +2853,10 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
             caches = db.query(FilingContentCache).count()
             statuses = sorted(status for (status,) in db.query(Feedback.status))
             audits = sorted(action for (action,) in db.query(AuditLog.action))
-        # Each write took effect, and the reads, the dry runs and the 404s wrote nothing. Every reset-all that read
-        # a summary before another's delete committed deletes it and writes an audit row; one that read after finds
-        # none and writes none.
+        # Each write took effect, and the reads, the dry runs and the 404s wrote nothing. SQLite has no advisory
+        # locks, so here a reset-all can read its plan before another's delete commits and then audit rows the other
+        # deleted; on PostgreSQL the maintenance lock runs them one at a time, and the second finds nothing and
+        # writes no audit row (tests/integration/test_admin_maintenance_transactions.py).
         assert summaries == (0 if case in ("delete_summary", "reset_filing", "bulk_reset", "reset_all") else 8)
         assert xbrl == (0 if case in ("clear_xbrl", "reset_filing", "bulk_reset") else 8)
         assert caches == (0 if case == "reset_filing" else 8)

@@ -676,7 +676,7 @@ async def reset_all_summaries(
     def reset_summaries() -> admin_summary_service.ResetAllPlan:
         try:
             plan = admin_summary_service.select_reset_candidates(
-                db, filing_type=filing_type, include_saved=include_saved
+                db, filing_type=filing_type, include_saved=include_saved, for_delete=not dry_run
             )
             if not dry_run and plan.delete_ids:
                 admin_summary_service.delete_summaries(db, plan)
