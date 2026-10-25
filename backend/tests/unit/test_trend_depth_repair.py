@@ -510,8 +510,10 @@ def test_the_replay_repairs_each_case_through_version_2s_repair(harness: Any, mo
     written = harness.generate.RUNS / "step1" / "repair-replay" / "repeats"
     assert sorted(p.name for p in written.iterdir()) == ["eval-v1__A__1.json", "eval-v1__A__2.json"]
     assert json.loads((written / "eval-v1__A__1.json").read_text())["first_pass_output"] == failing
+    # Latency on the report's basis (records.quantile, linear between the two nearest ranks, as §3's baselines): the
+    # median of 1.0 s and 2.0 s is 1.5 s and the p90 1.9 s; a nearest rank read 1.0 s and 2.0 s.
     assert replay.summary(rows) == {"repeats": 2, "provider_errors": 0, "gate_passed": 2, "repair_failed": 0, "full_repairs": 1,
-                                    "untouched_all_kept": 1, "latency_p50_s": 1.0, "latency_p90_s": 2.0,
+                                    "untouched_all_kept": 1, "latency_p50_s": 1.5, "latency_p90_s": 1.9,
                                     "cost_mean_usd": pytest.approx(0.15), "cost_warm_mean_usd": pytest.approx(1.5 * 0.00165)}
 
 

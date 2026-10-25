@@ -10,7 +10,8 @@ claims: the probes R1, R2a, R2c and R3 alone over every output, and with Opus's 
 read; the other probe kinds in rows of their own; a flag on a bound counted under view 2 and every uncounted flag
 listed; the later view of one auditor's two audits, and none while its re-audit failed), the calibration measures,
 broken net cash (the breaks packs-v2 records, read alike for a figure cited by its withheld ID and one rebuilt from the
-lines packs-v2 shows; debt and liquidity breaks, each counted under its own kind; version-1 peer ranks apart), cause
+lines packs-v2 shows; debt and liquidity breaks, each counted under its own kind; an analysis disclosing a break only by
+the gate's rule, so a disclosure word about something else leaves it stated as fact; version-1 peer ranks apart), cause
 support from Opus's audit, form, cost (each prompt's shared prefix over every label, so a warm repeat is priced cold),
 latency quantiles on the basis of §3's baselines, each arm's builds and the warning when they differ, that every
 measure reads the arm's own pack, the old gate's continuity score, the judge's verdicts per criterion (one run, and
@@ -648,6 +649,32 @@ def test_a_disclosed_break_and_one_left_unsaid(harness: Any) -> None:
     assert _broken(harness, "REGN", "packs-v2", "Net cash was $1.0 billion in FY2025 [D1].") is None  # no break recorded
     # Words decide, never a cited withheld ID, which only an arm reading packs/ can cite (KO's withheld peer rank).
     assert _broken(harness, "KO", "packs", "That ranks at the 100th percentile, subject to a caveat [D793].")["disclosed"] == []
+
+
+# Review 7 measures [3]: KO's broken FY2025 net cash beside a disclosure word about something else. The gate's backstop
+# fails these (``probes.discloses``: the word must sit in a clause about debt or cash), so the analysis's state reads the
+# same rule: an off-topic "understate" or "missing" left it "disclosed", out of the stated-as-fact row, while the gate
+# repaired the very sentence. K0's sentence cites the withheld IDs on packs/; C's rebuilds the figure on packs-v2.
+OFF_TOPIC = [
+    ("packs-v2", "Net cash was $8.8 billion in FY2025 [D440][X186], though one-off tax payments understate free cash flow."),
+    ("packs-v2", "Net cash was $8.8 billion in FY2025 [D440][X186], a cushion that a missing dividend increase would not explain."),
+    ("packs", "Net cash was $8.8 billion at FY2025, or 18.3% of revenue, against $10.3 billion of cash and investments "
+              "[D442][D443][D440], though one-off tax payments understate free cash flow."),
+]
+
+
+@pytest.mark.parametrize("version, text", OFF_TOPIC)
+def test_a_disclosure_word_about_something_else_leaves_the_analysis_stated_as_fact(harness: Any, version: str, text: str) -> None:
+    found = _broken(harness, "KO", version, text)
+    assert (found["state"], found["disclosed"], len(found["stated"])) == ("stated as fact", [], 1)
+    if version == "packs-v2":  # the gate the P and C arms run says the same of the sentence
+        sentence = {"section": "balance_sheet", "type": "comparison", "text": text}
+        assert not harness.report.factcheck.check([sentence], _committed("KO", version), backstops=True)["passed"]
+    _company(harness, "KO")
+    record, system = ((_v2(harness, output=_sections(balance_sheet=[text])), "deepseek-flash-c") if version == "packs-v2"
+                      else (_record(harness, output=_sections(balance_sheet=[text])), "deepseek-flash"))
+    debt = _measures(harness, [record], system)["broken_net_cash"]
+    assert (debt["stated_as_fact"], debt["disclosed"], debt["stated_sentences"]) == (1, 0, 1)
 
 
 def test_broken_net_cash_rows_read_packs_v2_s_breaks_for_every_arm(harness: Any) -> None:

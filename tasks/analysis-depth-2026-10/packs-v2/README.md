@@ -52,8 +52,9 @@ FY2024, DE FY2022, KO FY2024 and ORCL FY2022. In DE's FY2016–FY2019 onset span
 most first years after a line stops, a one-year gap and an onset: the line tests are the detectors.
 
 **Why withhold rather than label.** A label still leaves a broken figure for the model to state. In eval-v1, DeepSeek
-stated broken net cash as fact for COP, CVX, DE and KO. Every one of those sentences cites an ID that version 2
-withholds. The IDs stay in the pack, so the gate still reconciles a version-1 output that cites them.
+stated broken net cash as fact for COP, CVX, DE and KO (debt), and a figure built on broken cash for NVDA and TGT.
+Every one of those 13 sentences cites an ID that version 2 withholds (`report --label eval-v1`, "Broken net cash").
+The IDs stay in the pack, so the gate still reconciles a version-1 output that cites them.
 
 **Peers.** A peer has no data check to disclose a doubt, so its net cash % of revenue enters a version-2 median and
 rank only when its comparable year passes the debt-break, onset, liquidity-gap and double-count tests over the

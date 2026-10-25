@@ -153,6 +153,18 @@ The 3 DeepSeek check artefacts are AMD 19.4%, CVX 9.2% and the borderline NVDA "
 
 Exposure is about equal: DeepSeek wrote 39 sentences about net cash, Sonnet 40.
 
+**Against the current measures** (`python -m evals.trend_depth.report --label eval-v1`, all 20 companies, view-1 audits):
+- The probes R1, R2a, R2c and R3 find 12 of DeepSeek's sentences (8.2 per 1,000 verified claims) and none of Sonnet's.
+- With Opus's substantive flags, the report counts 15 DeepSeek sentences (10.3; probes 12, Opus 10) and 5 Sonnet
+  sentences (3.4; Opus 5).
+- Read by hand, 13 DeepSeek sentences in 8 companies are real (8.9): the 15 less VRTX's buybacks and RIVN's
+  percentile, both true (check artefacts below). The fourteenth real sentence above, TGT's net debt, states a figure
+  built on TGT's double-counted cash (§1.5), so the report counts it under broken net cash instead.
+- Sonnet's one real sentence is ORCL's (0.7). Its other four flags are KO's 5.2% and DUK's basic EPS (twin values)
+  and the NVDA and KO percentile ranks paraphrased as "net cash rank" (the two minor paraphrases), each in a sentence
+  that discloses a break.
+- §3 step 0 re-audits these outputs under the auditor's view 2.
+
 **Root causes:**
 
 1. **One-basis net cash: 7 DeepSeek sentences. Invited by the pack (b), with DeepSeek-specific rate (a).**
@@ -210,7 +222,7 @@ The auditor is shown "ID = label, period" and never the signed value (`semantics
 |---|---|---|---|
 | Judgement sentences, all | 4 of 590 (0.7%) | 68 of 587 (11.6%) | 50 of 565 (8.8%) |
 | Judgement, excluding the watch list | 4 of 530 (0.8%) | 20 of 527 (3.8%) | 31 of 506 (6.1%) |
-| Evaluative words ("structural", "cushion", "pressure", …) in fact or comparison sentences, excluding arc and watch | 18 of 330 (5.5%) | 7 of 312 (2.2%) | — |
+| Evaluative words ("structural", "cushion", "pressure", …) in fact or comparison sentences, excluding arc and watch | 18 of 330 (5.5%) by hand; the lexicon (`calibration.py`, §3's measure) finds 19 (5.8%) | 7 of 312 (2.2%) | — |
 | Watch items with forecast or consequence wording ("would keep", "will likely remain") | 11 of 60 (about 7 real) | 1 of 60 | 1 of 59 |
 
 Opus scored calibration for Sonnet over DeepSeek on 19 of 20 companies.
@@ -273,6 +285,24 @@ The pack still computes total debt, net cash and peer percentiles. The data chec
 - **Tally:** DeepSeek disclosed 1 of 6 breaks (USB: "the last year the pack reports it"); Sonnet 4 of 6.
 - The same mapping gap probably also affects peers' net cash, and so the peer medians.
 
+**Against the current measures.** Version 2's data checks (`packs-v2/README.md`) name more breaks than this table:
+- **Debt breaks in 6 companies:** COP, CVX, DE, KO, ORCL and USB. ORCL's long-term debt is reported as zero in FY2022
+  alone, and DE's FY2016–FY2019 total debt is long-term debt only.
+- **Liquidity breaks in 5 companies:** a cash or investment line is missing in one year (COP, MSFT, NVDA, ORCL), or
+  the short-term investments already sit inside cash (TGT).
+
+The report's broken-net-cash rows read these breaks for every arm (`report --label eval-v1`, all 20 companies):
+
+| | DeepSeek | Sonnet |
+|---|---|---|
+| Stated a broken figure as fact | 6 of 9 companies, in 13 sentences | 2 of 9, in 6 sentences |
+| By kind | Debt break 4 of 6 (COP, CVX, DE, KO); liquidity break 2 of 5 (NVDA, TGT) | Debt break 1 of 6 (DE); liquidity break 1 of 5 (TGT) |
+| Disclosed | 1 (USB) | 5: USB, COP, CVX and KO (the 4 of 6 above), and NVDA |
+| Silent | MSFT, ORCL | MSFT, ORCL |
+
+A disclosure in one sentence does not excuse another sentence that states a broken figure without one. Sonnet's
+CVX and NVDA net cash sentences are counted that way among its 6.
+
 ### 1.6 Cause support: not a gap
 
 | Opus auditor | Supported | Partial | Unsupported | Cause sentences |
@@ -326,12 +356,12 @@ Latency is about 3.2 ms per output token.
 
 | # | Fix | Where | Errors it should remove | Cost and latency | Risk to other outputs |
 |---|---|---|---|---|---|
-| 1 | Add the missing own ID by code before any repair | Repair loop (`generate.py`, before `_repair`) | 7 of 17 real first-try failures (CVX 2.1%, DUK $1.7bn, NVDA 71.1% ×2, ORCL 80%, JPM 52.4%, SNAP 1.2pp). DUK and ORCL stop repairing. | $0. About 2 fewer repairs in 20: −$0.00015 and −0.65 s per analysis on average | Low to medium: a wrong but matching number could get an ID |
+| 1 | Add the missing own ID by code before any repair | Repair loop (`generate.py`, before `_repair`) | Planned: 7 of 17 real first-try failures (CVX 2.1%, DUK $1.7bn, NVDA 71.1% ×2, ORCL 80%, JPM 52.4%, SNAP 1.2pp), with DUK and ORCL to stop repairing. As built, 3 of 17 (NVDA 71.1% ×2, JPM 52.4%); DUK and ORCL still repair (see "As built") | $0. About 2 fewer repairs in 20 were planned: −$0.00015 and −0.65 s per analysis on average | Low to medium: a wrong but matching number could get an ID |
 | 2 | Rewrite the repair message | Repair loop | Wrong-metric substitutions (TGT 1.01x, NVDA dev-v4 0.91x) and type-only escapes (NVDA) | $0 | Low |
 | 3 | Operating cash flow / net income window median and low | Pack (`derived._window_figures`, new IDs appended) | 5 mislabelled sentences (CVX, DE, PG, TGT, CAT), the DUK range, and 2 first-try failures (TGT, NVDA dev-v4) | About 100 input tokens, about $0.00002 | Low to medium |
 | 4 | Net-debt wording and sign handling | Pack text, red-flag wording, one prompt line | 7 DeepSeek sentences (CAT ×2, TGT, DUK, NEE ×2, ORCL), Sonnet's ORCL flag, Haiku and Gemini cases | About 100–300 input tokens, about $0.00005 | Medium |
 | 5 | Sentence-type handling for "cause" | Repair loop (code) and prompt | First-try failures: MSFT (eval-v1), COST (dev-v4). Catches NVDA-style escapes. | $0; about 60 cached prompt tokens | Low to medium |
-| 6 | Calibration: restore the judgement slot, put meaning in judgements, no forecasts in watch items | Prompt | Judgement share outside watch from 0.8% to about 5–9%. Evaluative words in data sentences from 5.5% to 3% or less. About 7 watch forecasts down to about 1. | About 80 cached tokens; output about ±100 tokens (±$0.00006, ±0.3 s) | Medium |
+| 6 | Calibration: restore the judgement slot, put meaning in judgements, no forecasts in watch items | Prompt | Judgement share outside watch from 0.8% to about 5–9%. Evaluative words in data sentences from 5.8% (the lexicon's count; 5.5% by hand) to 3% or less. About 7 watch forecasts down to about 1. | About 80 cached tokens; output about ±100 tokens (±$0.00006, ±0.3 s) | Medium |
 | 7 | Narrow fixes to gate artefacts | Gate (`factcheck.py`) | DeepSeek CVX 9.2% (AMD with a narrowed rule). Sonnet USB, ORCL, JPM, VRTX, COP. Stops repairs that make correct sentences worse. | $0 | Medium: looser year binding |
 | 8 | Do not compute net cash on broken debt; add a data check | Pack data (`derived.py`, debt components; `evidence.py` data checks) | KO and CVX broken net cash stated as fact, DE "deleveraging", DE's three auditor flags, broken 100th-percentile ranks, for every model | $0 at run time | Medium: peer ranks change, gold examples need remapping |
 | 9 | Net-versus-operating margin within one year | Prompt, pack (same-year derived value), gate check R3 | DE 6.5pp | About 30 tokens | Low |
@@ -339,7 +369,7 @@ Latency is about 3.2 ms per output token.
 | 11 | Small render items: passage table units; derived rows in year order | Pack text (`render.py`, passages) | COST "$126" and "$370"; perhaps the DUK range | Negligible | Low |
 | 12 | Backstop checks | Gate | Whatever remains of fixes 3, 4, 9 and 11, plus the unsigned fall and logic slips | Each hit costs one repair | Medium: false positives cause repairs |
 | 13 | Patch-style repair | Repair loop | None; latency only | A repair drops from about 6.5 s to about 1–3 s and from $0.00145 to about $0.0005. p90 falls from 16 s to about 11–13 s at today's repair rate | Medium: patch format |
-| 14 | Auditor sees the signed value, the bound and twin values | Measurement only (`semantics.py`) | About 10 false DeepSeek flags and 6 false Sonnet flags | $0 | None to the product |
+| 14 | Auditor sees the signed value, the bound and twin values, and, for a figure matched in a 10-K passage, the passage sentences that print it | Measurement only (`semantics.py`) | About 10 false DeepSeek flags and 6 false Sonnet flags | $0 | None to the product |
 
 ### The fixes in detail
 
@@ -349,10 +379,10 @@ Latency is about 3.2 ms per output token.
   - an input of a derived value the sentence cites, for the same period;
   - the red flag whose evidence the sentence cites.
 
-  Accept it only if exactly one candidate fits, its period agrees with the sentence's years, and its label's metric words appear in the clause. Then append the ID and run the gate again; repair only if failures remain.
+  Accept it only if exactly one candidate fits, its period agrees with the sentence's years, and its label's metric words appear in the clause. Then append the ID and run the gate again; repair only if failures remain. As built, three more conditions (see "As built"): a level the metric moved from never gets an ID, a comparison's base year ("since FY2021") dates no figure, and the printed sign must match the value's unless the gate reads the sign from the sentence.
 - **Why it is safe.** The output still carries every figure's own ID, so the grounding rule does not change.
-- **Expected effect, by replay on eval-v1.** With fix 5's code retyping (MSFT), the companies needing a repair fall from 7 to 4 (AMD, CVX, NVDA, TGT).
-- **Before adopting.** Run the substitution test: put wrong-year and wrong-metric values in verified slots across all records. Adopt only if almost nothing new passes.
+- **Expected effect, by replay on eval-v1.** With fix 5's code retyping (MSFT), the companies needing a repair fall from 7 to 4 (AMD, CVX, NVDA, TGT). As built, 5 without the backstops (CVX, DUK, NVDA, ORCL, TGT) and 11 with them.
+- **Before adopting.** Run the substitution test: put wrong-year and wrong-metric values in verified slots across all records. Adopt only if almost nothing new passes. As built, it also runs three shapes no recorded sentence holds: a negative level printed unsigned, a move's end level printed as its start, and a base year's level printed as the current one.
 
 **2. Repair message.**
 - **Drop** "use the cited value exactly".
@@ -369,7 +399,7 @@ Latency is about 3.2 ms per output token.
 
 **4. Net-debt wording.**
 - **Net-cash rows:** a legend saying "below zero = net debt; a higher percentile = more net cash than peers".
-- **Red flag:** "Net debt rose N years in a row to $X", replacing "fell into net debt".
+- **Red flag:** "Net debt rose N years in a row to $X", replacing "fell into net debt". As built, the level is quoted only where no `unmapped_line` data check names a year of the run: CAT R1 quotes none ("its level is left out, as total debt and net cash omit long-term debt due within one year").
 - **One prompt line:** "Net cash below zero is net debt: write 'net debt of $26.2 billion', with no minus sign. Compare with peers on the pack's net-cash basis ('net cash of −38.8% of revenue against a −35.6% median'). Never set a net-debt figure beside a net-cash median as if they were on one scale."
 - **Leave out** positive "twin" values for now: peers on the other side of zero and series that cross zero break them.
 
@@ -410,7 +440,7 @@ Latency is about 3.2 ms per output token.
 | Check | What it catches | Precision on all recorded outputs |
 |---|---|---|
 | R1 | A reference level of another ratio attached to this ratio | 15 of 15 DeepSeek hits true; 0 hits on Sonnet, Haiku and gold; misses coincident values |
-| R2a | A minus sign under "net debt"; made asymmetric, which drops 3 of 4 synthetic false positives | 7 DeepSeek hits all true; 0 Sonnet hits |
+| R2a | A minus sign under "net debt"; made asymmetric, which drops 3 of 4 synthetic false positives | 7 DeepSeek hits all true; 0 Sonnet hits. Reading the hyphenated "net-debt" (review 7) adds an eighth, dev-v3 DeepSeek CAT's final "net-debt ratio … -35.6%", also true |
 | R2c | "Better" or "worse" across net-cash bases; extended to words after both numbers | Included in the 7 above |
 | R3 | A cross-year difference of two margins | 1 hit in all runs (DE), true |
 | U1 | An unsigned fall | 1 hit, true (COP) |
@@ -422,6 +452,74 @@ Latency is about 3.2 ms per output token.
 - Code applies them, keyed on the original text, then gates the whole analysis again.
 - An invalid patch falls back to today's full repair.
 - In all 12 recorded eval-v1 repairs only the failed sentences changed, so patching should keep everything else identical.
+
+### As built
+
+Where the built fixes differ from the plan above, after reviews 5 to 7. The code is the harness (`backend/evals/trend_depth/`, README there). The packs are `packs-v2/` (its README) and the candidate prompt is `backend/prompts/trends-depth-analyst-agent.md`. Each figure below is reproduced by the command named beside it, run with the code at this commit; none calls a model.
+
+**Fix 1: a safe core of auto-citation** (`autocite.py`). An ID is appended only when it is the one candidate that meets all of these:
+- **It reconciles exactly.** The figure is the ID's own value at its printed precision, and the gate verifies the claim as that value.
+- **It fits the sentence's words.** Every word of its label stands in the figure's own clause.
+- **It fits the years.** A year after "from", "since", "than", "versus" or "vs" is a comparison base and dates no figure; this is the gate's own list, `factcheck.BASE_WORDS`. A sentence that names such a base dates no figure that no other year binds. A level the metric moved from ("fell 2.5pp from 9.2%") never gets an ID: an opening "In FY2025," would bind it to the move's own year.
+- **It fits the sign.** The figure must carry the value's sign, unless the gate reads the sign from the sentence: with the value's sign flipped, the gate would fail the claim. The gate compares magnitudes, so without this rule a negative level printed unsigned (net debt as net cash, a loss as income) could get its ID by code.
+- **It changes nothing else.** No other claim's verdict changes with it.
+
+Passages and red flags are never candidates, and no figure is read as one side of a difference.
+
+Results (`python -m evals.trend_depth.autocite`, which also prints the real first passes of eval-v1 and dev-v4):
+- **Effect on the 7 real own-ID omissions: it fixes 3.** These are NVDA's 71.1% in eval-v1 and dev-v4 [F30] and JPM's 52.4% [D207].
+- **Refused: CVX's 2.1% and DUK's $1.7 billion.** Their IDs reconcile, but the clause lacks the label's words: "net cash position" for net cash % of revenue [D352], "burn" for cash burn (negative free cash flow) [D355]. With the label's words in the clause, both get their ID.
+- **Refused: ORCL's 80% and SNAP's 1.2pp.** The first is a red flag's threshold, the second a difference of two margins.
+- **The year and sign rules added no ID and removed none.** Over all 187 recorded outputs, the code appends the same 3 IDs as before those rules.
+- **The substitution test** (eval-v1, dev-v3 and dev-v4) found no leak:
+  - 0 of 107,015 substitutes judged with the claim's own ID kept, and 0 of 111,224 with it omitted;
+  - in the three shapes, 0 of 490 (sign), 0 of 15,183 (from) and 0 of 15,183 (base). Under the auto-citation rules before review 7 these were 29, 12,537 and 12,537;
+  - control: 445 of 8,609 right values get their own ID back.
+- **Code-only replay of eval-v1's DeepSeek first passes.** After retyping and auto-citation, 5 of 20 still fail the gate: CVX, DUK, NVDA, ORCL and TGT. The plan expected 4 (AMD, CVX, NVDA, TGT): AMD passes after fix 7, while DUK and ORCL stay. With the backstops, 11 of 20 fail (§3 step 1).
+
+**Fix 6: calibration in the candidate prompt.**
+- **Red flags** are two sentences each, up to three flags: one sentence on what, how big, for how long and the stated cause, then one judgement sentence on why it matters. Where none applies, one sentence says what was screened. That gives the section 1 to 6 sentences, within the prompt's 30-sentence budget (`tests/unit/test_trend_depth_prompt_examples.py` checks every section count against the budget).
+- **A verdict on what a data check does to a figure** ("unreliable", "overstated") is a judgement sentence.
+- **Watch items are typed `comparison`.** This is DeepSeek's own convention, so the judgement share outside the watch list compares across arms and models unchanged.
+- **The gate still does not enforce the judgement tier** (§4).
+
+**Fix 8: debt and cash breaks in pack version 2** (`packs-v2/README.md`).
+- **Withheld, not dropped.** Every ID built on a broken year stays in the pack, so a version-1 output still checks against it, but the render does not show it (`withheld`).
+- **Debt breaks.** These are found by line tests:
+  - `debt_break`: the long-term debt line is missing or zero while debt is still evident;
+  - a debt onset: a smaller debt line first appears and total debt jumps while interest expense does not follow. DE's FY2016–FY2019 total debt is long-term debt only.
+- **The implied-rate test detects no break.** It fires on none of the 20 outside the break spans, and inside them it misses most first years.
+- **Liquidity breaks** (`liquidity_break`): a cash or investment line missing in one year (COP, MSFT, NVDA, ORCL), or short-term investments already inside cash (TGT).
+- **Checked peer ranks.** A version-1 net-cash peer rank or median built on a peer's broken year is withheld (`peer_break`). Where three or more peers pass the same tests it is replaced by a checked rank under a new ID: PG, CAT, COST, AMD, DUK and NEE; RIVN keeps none.
+- **A new data check, `unmapped_line`** (review 7). It names a line the filer reports and the pack sums nowhere, at 10% or more of the total it is missing from: CAT's long-term debt due within one year ($7.1 billion at FY2025, so its net debt reads $26.2 billion [D456] against $33.4 billion), and KO's cash and investments total above the pack's (FY2016–FY2017, FY2021–FY2025).
+  - It withholds nothing. Lines it cannot see are listed in the packs-v2 README under "Not detected".
+  - The broken-net-cash measure does not count these lines. P and C see the check; K0 and Q do not.
+- **ORCL's FY2022 long-term debt line, reported as zero [F185, X213], is withheld** (review 7).
+
+**Fix 12: two backstops beyond the plan** (`probes.py`; each a gate failure under `--pipeline v2`).
+- **`gap_direction`.** Net margin said to be above or below operating margin against the sign of the same year's gap: the cited "net margin minus operating margin" value, or the difference of the two margins the gate matched.
+  - The gate reads no direction into a same-year gap, so this is its sign check on either pack version. A sign error on packs-v2's cited gap therefore falls in the same row for P and C as for K0.
+  - It finds no hit in eval-v1.
+- **`broken_debt`.** A figure version 2 withholds, cited by its ID, or the same figure rebuilt from the lines version 2 shows: a line of a break year under a total's name (plain "debt" included), or beside a total of another year. It is excused only by a disclosure in a clause about debt or cash (`probes.discloses`, the one rule that the gate, the stated sentences and the analysis's state all read).
+  - The gate's backstop reads the arm's own pack, so it fires only for P and C, as `packs/` records no break.
+  - The report's measure reads `packs-v2/`'s breaks for every arm.
+  - Review 7's 42 broken sentences are all caught. Its 3 false failures, and 59 correct sentences on the 9 break companies' packs, pass.
+- **The logic checks are measures, never failures** (`MEASURE_KINDS`).
+
+**The measurement nonce** (not in the plan). Under `--pipeline v2`, each user message opens with a nonce of the label, arm and ticker (`generate.analysis_nonce`, recorded as `nonce`), and its repair repeats it.
+- **Why:** so no run's first request reads an earlier run's pack from DeepSeek's prompt cache. A company's first analysis in production would not.
+- **Cost:** a first request then reads only the system prompt from cache. In eval-v1, 5 of 20 DeepSeek first attempts read more, and §3's cost prices them cold.
+
+**Fix 14: the auditor's view 2** (`semantics.py`, `VIEW = 2`).
+- **Sign rule.** Values are shown signed, and the auditor is told that the sentence must give the value's sign, by a minus sign or in words. "Net debt of $26.2 billion" for a net cash of -$26.2 billion is consistent; a minus sign under "net debt" is a mismatch.
+- **Period rule.** An input's twin is shown only when every input is of the value's own period. AMD's FY2019 total debt growth [D170] has an FY2019 input equal to long-term debt but no such FY2018 one, so as a twin it would have licensed "long-term debt fell 61.1%"; long-term debt fell 56.4% [D157].
+- **Withheld twins.** An ID a version-2 pack withholds is never a twin: COP's FY2025 "Total debt" [D336] is its current portion alone.
+  - On `packs/`, which shows K0 that total under its own label, the twin stays.
+  - The recorded outputs that read `packs/` hold 6,746 verified claims of the 15 companies whose version-2 pack withholds IDs (eval-v1, dev-v3, dev-v4 and plant-sem; review 7 measures [5], checked again on this commit's packs). 1,202 of them are shown a twin, and no twin is an ID that `packs-v2/` withholds.
+- **Passage text.** A figure the gate matched in a 10-K passage is shown with the passage sentences that print it, with the 10-K's fiscal year and section: at most 3 sentences, each cut to 400 characters around the figure. View 1 said only "a figure in a FY2025 10-K passage".
+  - On eval-v1 this changes the view of 126 of DeepSeek's 1,459 verified claims and 120 of Sonnet's 1,458.
+  - Audit messages grow about 9%.
+- **No record carries a view yet.** Step 0's re-audit is the first under view 2.
 
 ### Tested separately, not in the candidate
 - **Sentence key order: "text" before "type"** in the output schema. Both models currently write the type first, so the expected effect is unclear.
@@ -449,6 +547,8 @@ These are expectations; section 3 measures them.
 | p50 latency | 9.7 s | About 9.2–9.6 s |
 | p90 latency | 16.1 s | About 10–13 s |
 
+As built, the code-only replay of eval-v1's DeepSeek first passes leaves 5 companies failing the gate (CVX, DUK, NVDA, ORCL, TGT) and 11 with the backstops, which the arms run under (see "As built", fix 1).
+
 ---
 
 ## 3. The experiment
@@ -461,17 +561,28 @@ These are expectations; section 3 measures them.
    - `report.py` prints every metric below.
 2. **Replay every recorded output through the new gate and auto-citation:** eval-v1, dev-v1 to dev-v4, plant-sem and the gold examples. Report:
    - every change from failing to passing, read by hand;
-   - the substitution leak rate for fix 1;
+   - the substitution leak rate for fix 1, including three shapes no recorded sentence holds: a negative level printed unsigned, a move's end level printed as its start, and a base year's level printed as the current one (`python -m evals.trend_depth.autocite`);
    - that all planted year swaps and relabels are still caught;
    - that the gold examples still pass.
 3. **Build the pack fixes (3, 4, 8, 9, 11).** Append IDs rather than renumber. Run `gold check`, and `gold remap` if any ID moves. Check rendered token counts.
 4. **Prompt examples:** none may be copied from the 20 companies. That would spoil the re-test, as NVDA's own sentence would have.
+5. **Re-audit eval-v1 under the auditor's view 2**, then run the report on it. Opus re-audits DeepSeek's and Sonnet's 40 outputs under the label `eval-v1-view2`, and `report --label eval-v1-view2` prints the like-for-like mislabel baseline for K0 and C, whose audits run under view 2. The commands are in the harness README.
 
 ### Step 1: patch-style repair, tested on its own
 
-- Send the recorded failing DeepSeek first passes through the patch repair, twice each: eval-v1's 7, dev-v4's 4 and dev-v3's.
-- That is about 30 calls, under $0.05.
-- Measure repair latency, the final gate result, and whether untouched sentences stay byte-identical.
+- **What is replayed.** Every recorded DeepSeek first pass that version 2 would still repair after its code fixes goes through the patch repair, twice each (`repair_replay.py`). "Would still repair" means it fails `generate.fix_first_pass`: retyping, auto-citation, then the gate with its backstops, on `packs/`.
+- **The cases.** From eval-v1, dev-v4 and dev-v3 that is 21 cases:
+  - eval-v1 11: CAT, COP, COST, CVX, DE, DUK, NEE, NVDA, ORCL, PG, TGT;
+  - dev-v4 4: COST, JPM, NVDA, SNAP;
+  - dev-v3 6: CAT, COST, MSFT, NVDA, PG, REGN.
+
+  Of eval-v1's 7 repaired analyses, AMD and MSFT no longer need a repair. CAT, COP, COST, DE, NEE and PG join on backstop hits alone. `repair_replay --dry-run` lists the cases and why each first pass not listed needs no repair.
+- **Calls.** 42 repairs make 42 to 84 calls: a patch, and a full repair when the patch is unusable. Cold is the expected state: the recorded first passes are days old, and a case's two repeats may run at once.
+- **Cost:**
+  - about $0.26 off-peak if every patch is read cold and none falls back;
+  - $0.56 off-peak ($1.12 at peak) if every prompt is read cold and every patch falls back;
+  - at most $2.37 off-peak ($4.75 at peak), the dry run's ceiling: every prompt at one token per byte and every reply at `max_tokens`. The first two estimates calibrate tokens on the recorded first attempts and repairs.
+- **Measures.** Repair latency (p50 and p90 on the report's basis, `records.quantile`), full repairs, the final gate result, and whether untouched sentences stay byte-identical.
 
 ### Step 2: development half (label `dev-v5`)
 
@@ -504,22 +615,36 @@ All measures are reported per split (development, held out) and per run, as a ra
 
 | Measure | How | DeepSeek, eval-v1 | Sonnet, eval-v1 | Target for C |
 |---|---|---|---|---|
-| Passes without a model repair | New gate after auto-citation; a failed generation (invalid replies, a refusal) counts as not passing, and has its own row (target 0) | 13 of 20 under today's gate (7 repaired); 0 failed | 15 of 20; 0 failed | At least 85% pooled; no run below 80% |
+| Passes without a model repair | Each arm's own pipeline: under `--pipeline v2`, the gate with its backstops after retyping and auto-citation. A failed generation (invalid replies, a refusal) counts as not passing and has its own row (target 0). So does a record whose repair generate still owes (`records.awaiting_repair`), since generate repairs only a first pass that failed. A generation lost to a provider error is in no row; a warning heads the report until generate makes it | 13 of 20 as run, under eval-v1's gate of its day (7 repaired); 0 failed. On the arms' basis: 9 of 20 | 15 of 20 as run (5 repaired); 0 failed. On the arms' basis: 18 of 20 | At least 85% pooled; no run below 80% |
+| Repairs sent for broken net cash alone | Repairs sent or owed whose first-pass verdict failed only on the gate's broken_debt backstop. The backstop reads the arm's own pack, so only P and C, reading `packs-v2/`, can have one; K0's and Q's same figures count under broken net cash. Read it beside the pass row before calling a pack fix harmful | 0 of 7 repairs | 0 of 5 repairs | — |
 | Real first-try gate errors per analysis | Distinct failing claims (and causes without a passage) of the model's own first output, before auto-citation, under the gate now without backstops; known artefacts subtracted by hand | 0.68 (17 in 25, frozen prompt): eval-v1 0.40 (8 in 20; development half 3 in 10), dev-v4 1.8 (9 in 5) | 0.04 (1 in 25; eval-v1's 2 are artefacts) | 0.15 or less |
-| First-try backstop hits per analysis | Distinct claims the backstops fail beyond the gate's, broken net cash apart (its own row); each one a repair under `--pipeline v2` | 0.90 (18 in 20) | 0 | — |
-| Real mislabels per 1,000 verified claims | Distinct sentences: probe hits R1, R2a, R2c and R3 plus Opus substantive flags, read by hand. A sentence stating broken net cash is counted there instead; U1, unitless dollars and the margin-gap direction have rows of their own | About 8.9 (13 sentences in 1,459 claims after reading; 15 before, 10.3). §1.2's 14 included TGT's net-debt sentence, now counted under broken net cash | About 0.7 (Opus raw 3.4) | 3.5 or less in each run |
-| Judgement share, outside watch | Sentence types | 0.8% | 3.8% | 3–12% |
-| Evaluative words in fact and comparison sentences | Lexicon (`backend/evals/trend_depth/calibration.py`), outside arc and watch | 5.5% | 2.2% | 3% or less |
-| Watch items with forecast wording | Lexicon, read by hand | About 7 of 60 | 1 of 60 | 2 or fewer per 60 |
+| First-try backstop hits per analysis | Distinct claims the backstops fail beyond the gate's, broken net cash apart (its own row); each one a repair under `--pipeline v2` | 0.90 (18 in 20) | 0 (0 in 20) | — |
+| Mislabels per 1,000 verified claims, probes alone | Distinct sentences with a probe hit R1, R2a, R2c or R3, over every output. This is the basis every arm shares, as P and Q have no Opus audit. A sentence stating broken net cash is counted there instead | 8.2 (12 sentences in 1,459 claims) | 0.0 (0 in 1,458) | — (read beside the next row) |
+| Real mislabels per 1,000 verified claims | Distinct sentences, over the outputs Opus read (K0 and C): probe hits R1, R2a, R2c and R3 plus Opus substantive flags, read by hand. A sentence stating broken net cash is counted there instead; U1, unitless dollars and the margin-gap direction have rows of their own | About 8.9 (13 sentences in 1,459 claims after reading; 15 before, 10.3). §1.2's 14 included TGT's net-debt sentence, now counted under broken net cash. These are view-1 audits; step 0 gives view 2's | About 0.7 (1 after reading; 5 before, 3.4) | 3.5 or less in each run |
+| Judgement share, outside watch | Sentence types | 0.8% (4 of 530) | 3.8% (20 of 527) | 3–12% |
+| Evaluative words in fact and comparison sentences | Lexicon (`backend/evals/trend_depth/calibration.py`), outside arc and watch | 5.8% (19 of 330) | 2.2% (7 of 312) | 3% or less |
+| Watch items with forecast wording | Lexicon, read by hand | 11 of 60 by the lexicon; about 7 after reading (§1.3) | 1 of 60 | 2 or fewer per 60 |
 | Unsigned falls | U1 | 1 | 0 | 0 (guard) |
-| Unitless dollars; net margin's direction against operating margin | Probes `unitless_dollars`; `gap_direction` | 2 (COST); 0 | 0; 0 | — |
-| Broken net cash stated as fact | Analyses of a company whose `packs-v2/` pack names a debt or liquidity break (COP, CVX, DE, KO, ORCL, USB; MSFT, NVDA, TGT liquidity only), its breaks read for every arm: a withheld figure cited by its ID, or rebuilt from the lines `packs-v2/` still shows | 6 of 9 stated as fact (debt break 4 of 6: COP, CVX, DE, KO; liquidity break 2 of 5: NVDA, TGT); 1 disclosed (USB) | 2 of 9 stated as fact (DE, TGT); 5 disclosed | 0 stated as fact |
+| Unitless dollars; net margin's direction against operating margin | Probes `unitless_dollars`; `gap_direction`, the sign check on a same-year margin gap, cited or as two margins' difference. The gate leaves that gap unsigned, so a sign error on it lands in this row for every arm | 2 (COST); 0 | 0; 0 | — |
+| Broken net cash stated as fact | Analyses of a company whose `packs-v2/` pack names a debt or liquidity break (COP, CVX, DE, KO, ORCL, USB; MSFT, NVDA, TGT liquidity only). Its breaks are read for every arm: a withheld figure cited by its ID, or rebuilt from the lines `packs-v2/` still shows (a line of a break year under a total's name, plain "debt" included, or beside a total of another year). A sentence discloses a break only by a disclosure word in a clause about debt or cash (`probes.discloses`). The lines version 2 names only in an `unmapped_line` check (CAT's current portion of long-term debt, KO's investments) are outside this measure | 6 of 9 stated as fact (debt break 4 of 6: COP, CVX, DE, KO; liquidity break 2 of 5: NVDA, TGT); 1 disclosed (USB) | 2 of 9 stated as fact (debt break 1 of 6: DE; liquidity break 1 of 5: TGT); 5 disclosed | 0 stated as fact |
 | Sentences stating a broken figure | The same, each sentence that states one without disclosing the break in that sentence, whatever the analysis says elsewhere | 13 | 6 | 0 |
 | Version-1 peer ranks on a peer's broken year | `peer_break`: only an arm reading `packs/` can cite one, so informational | 7 sentences in 7 analyses | 7 in 7 | — |
 | Cause support | Opus causes audit | 76% / 23% / 1% | 76% / 22% / 1% | Guard: at least 72% supported, at most 2% unsupported, at least 6 cause sentences per analysis |
-| Judge, C against K0 | Opus, both orders must agree | — | — | C wins or ties grounding and calibration on at least 12 of 20 per split; loses depth on no more than 5 |
-| Form | Words, sentences, sections | 618 average (735 max) | — | 700 words or fewer, 30 sentences or fewer, all 7 sections |
-| Cost and latency | `records.api_cost` and latency. A first request reads its prompt's shared prefix from cache: what most first requests of that prompt read over every label in `runs/` (1,920 tokens for the frozen prompt), so a warm repeat is priced cold; warm first attempts are counted | $0.0068 (5 of 20 first attempts warm); 9.7 s p50; 16.1 s p90 | — | At most $0.0075 off-peak; p50 at most 10.5 s; p90 at most 13 s. Also measure one run at peak hours |
+| Judge, C against K0 | Opus, both orders must agree. The report prints each criterion, and the pairs whose grounding and calibration a side each won or tied, per run and summed | Against Sonnet, for reference: grounding won or tied in 17 of 20, calibration in 18, both in the same pair in 16; depth lost in 1 | Against DeepSeek: both in 20 of 20; depth lost in 2 | C wins or ties grounding and calibration on at least 12 of 20 per split; loses depth on no more than 5 |
+| Form | Words, sentences, sections | 618 words average (735 max); 29.5 sentences (31 max); all 7 sections in 20 of 20 | 612 (656); 29.4 (32); 20 of 20 | 700 words or fewer, 30 sentences or fewer, all 7 sections |
+| Cost and latency | `records.api_cost` and latency. A first request reads its prompt's shared prefix from cache: what most first requests of that prompt read over every label in `runs/` (1,920 tokens for the frozen prompt). So a warm repeat is priced cold, and warm first attempts are counted. Latency quantiles are linear between the two nearest ranks (`records.quantile`) | $0.0068 (5 of 20 first attempts warm); 9.7 s p50; 16.1 s p90 | $0.2073; 55.6 s p50; 66.1 s p90 | At most $0.0075 off-peak; p50 at most 10.5 s; p90 at most 13 s. Also measure one run at peak hours |
+
+**Where each baseline comes from.** Every figure above is printed by
+`python -m evals.trend_depth.report --label eval-v1 --systems deepseek-flash,claude-sonnet-5-5` with the code at this
+commit, in the §3 measures table of its "all: 20 companies" section. dev-v4's come from the same command with
+`--label dev-v4`. Five baselines are derived from those rows:
+- **Passes as run.** The pass row prints 13 and 15 of 20, as does the "Gate at b3ed8ef" continuity row.
+- **Passes on the arms' basis:**
+  - DeepSeek: 20 less the 11 eval-v1 cases that `repair_replay --dry-run` lists;
+  - Sonnet: the arm table's current gate, 18 of 20. Sonnet has no first-try backstop hit, and its two failures (VRTX and COP, year bindings) are not figures auto-citation adds an ID to.
+- **Real first-try gate errors.** DeepSeek's 17 in 25 are eval-v1's printed 8 in 20 (development half 3 in 10) plus dev-v4's 9 in 5; none is a known artefact under the gate now. Sonnet's 1 in 25 is the printed 2 in 20 and 1 in 5, less eval-v1's VRTX and COP year bindings (§1.1's artefacts).
+- **Mislabels after reading.** For DeepSeek, the printed 15 sentences less VRTX's and RIVN's flags, both true (§1.2). For Sonnet, the printed 5 less two twin values and two paraphrases (§1.2). Step 0's `report --label eval-v1-view2` prints the same rows from view-2 audits.
+- **Watch forecasts after reading.** The printed 11 of 60, read as in §1.3.
 
 ### When to stop
 
@@ -544,8 +669,8 @@ API list price would be somewhat lower.
 
 | Item | DeepSeek | Opus |
 |---|---|---|
-| Re-audit eval-v1 DeepSeek and Sonnet with the fixed auditor view (40 outputs), for a like-for-like baseline | — | $5.4 |
-| Step 1, patch-repair replay (about 30 calls) | Under $0.05 | — |
+| Step 0: re-audit eval-v1 DeepSeek and Sonnet with the fixed auditor view (40 outputs), for a like-for-like baseline | — | $5.4 at view 1's rate; up to about $5.9, as view 2's messages are about 9% longer |
+| Step 1, patch-repair replay (21 cases, 42 repairs, 42–84 calls) | About $0.26–0.56 off-peak; at most $2.37 (the dry run's ceiling) | — |
 | Step 2: 4 arms × 2 runs × 10 companies, plus optional S and T (about 120 analyses) | About $0.85 | — |
 | Step 2: audits of K0 and C (40 outputs) and the judge, C against K0 (20 pairs) | — | $7.2 + $5.1 |
 | Optional second development round (20 analyses, audits, judge) | $0.15 | $8.6 |
@@ -571,7 +696,11 @@ API list price would be somewhat lower.
 - **Calibration may not move the judge as far as the measures suggest.** Opus's calibration notes also cite uncited "so / as" inferences, and the word lexicon is only a proxy. DeepSeek's sentence-type mix also turns on single words in section instructions, so any prompt edit can shift types elsewhere. Watch the full type mix every run.
 - **Unconfirmed record.** The earlier prompt texts in `calibration/prompt_v*.md` are reconstructions; the dev-v3 records carry no prompt hash. The "one judgement" finding rests on that reconstruction.
 - **The gate's judgement tier** is described in `factcheck.py` but not enforced, and the prompt's rule is stricter than the grounding rule's Tier 4. This needs a decision.
-- **Production data.** Long-term debt mapping breaks in 6 of 20 packs. It probably also affects peers' net cash, the peer medians and the production metrics table. This is a separate production decision.
+- **Production data.** Long-term debt mapping breaks in 6 of 20 packs. It probably also affects peers' net cash, the peer medians and the production metrics table. Version 2 also finds lines the pack never sums:
+  - CAT's long-term debt due within one year and KO's short-term investments (`unmapped_line`);
+  - others no test sees: TGT's current portion of long-term debt and PG's available-for-sale securities, among those `packs-v2/README.md` lists under "Not detected".
+
+  ORCL's FY2022 long-term debt reads zero. This is a separate production decision.
 - **The DeepSeek service.**
   - The model may change silently under the same alias.
   - Peak hours double the price (about $0.014 per analysis).

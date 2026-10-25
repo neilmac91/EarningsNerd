@@ -470,6 +470,9 @@ _NOUN_FROM = re.compile(
 # "1.7pp of the FY2023 gain of 6.0pp": a year after "of the" or "in the" names the whole the figure before it is a
 # part of, so it binds that figure as well as the one after it.
 _PARTITIVE = (["of", "the"], ["in", "the"])
+# "5.7pp better than FY2024": a year right after one of these words is a comparison's base, not the period of the
+# figure before it (``bind_periods``). The one list: auto-citation dates no figure by such a year (autocite._BASE_WORD).
+BASE_WORDS = ("than", "from", "since", "versus", "vs", "vs.")
 
 
 def _forward_years(years: set[str], gap_after: str) -> set[str]:
@@ -516,7 +519,7 @@ def bind_periods(text: str, claims: list[Claim], latest_year: Optional[int]) -> 
         after = sorted((i for i, (st, _) in enumerate(spans) if st >= b), key=lambda i: spans[i][0])
         gap_before = " ".join(text[spans[before[-1]][1]:a].split()) if before else None
         gap_after = " ".join(text[b:spans[after[0]][0]].split()) if after else None
-        base_year = gap_before is not None and gap_before.lower().split()[-1:] in (["than"], ["from"], ["since"], ["versus"], ["vs"], ["vs."])
+        base_year = gap_before is not None and (gap_before.lower().split() or [""])[-1] in BASE_WORDS
         close_before = gap_before is not None and "," not in gap_before and (
             len(gap_before) <= 12 or (len(gap_before) <= 28 and _OF_METRIC_IN.fullmatch(gap_before) is not None))
         close_after = gap_after is not None and len(gap_after) <= 24 and "," not in gap_after and ";" not in gap_after

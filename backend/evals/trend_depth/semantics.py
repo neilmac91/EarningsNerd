@@ -109,7 +109,8 @@ def _withheld(pack: dict[str, Any]) -> set[str]:
     ``liquidity_break`` or ``peer_break``; a list in an earlier build), whatever the reason. None is ever a twin: the
     generator was never shown it, and it is not the quantity its label names. COP's FY2025 "Total debt" (D336) is its
     current portion of debt alone, so as a twin it would present "total debt was $1.0 billion [X203]" to the auditor
-    as a correct label, while the measure of broken net cash, reading cited IDs, would not see it either."""
+    as a correct label, a sentence the measure of broken net cash counts on either pack (``probes.broken_debt``: a
+    debt line of a debt-break year under a total's name, plain "debt" included)."""
     return set(pack.get("withheld") or ())
 
 

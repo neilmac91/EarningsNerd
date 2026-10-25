@@ -409,7 +409,7 @@ all 4. The gate alone caught 2 of the 11.
 | Evidence | DeepSeek flash | Claude Haiku 5.5 (low) | Claude Sonnet 5.5 |
 |---|---|---|---|
 | Beats current (judge) | 15–2 | 20–0 | 19–0 |
-| Gate, first try / after repair (current gate) | 13 / 20 | 12 / 20 | 15 / 20 |
+| Gate, first try / after repair (the gate at `b3ed8ef`, when this report was written) | 13 / 20 | 12 / 20 | 15 / 20 |
 | Cause sentences fully supported (Opus) | 76% | 78% | 76% |
 | Mislabelled numbers per 1,000 verified (both auditors) | 9–10 | 3–4 | 3 |
 | Judgements marked as analysis | 0.7% of sentences | 8.8% | 11.6% |
@@ -417,7 +417,7 @@ all 4. The gate alone caught 2 of the 11.
 | V4 Pro judge, head to head with DeepSeek | — | DeepSeek 4–0, 16 position splits | DeepSeek 4–0, 16 position splits |
 | Gemma 4 31B (neutral), head to head with DeepSeek | — | pending (follow-up) | Sonnet 2, DeepSeek 2, 1 position split (5 of 20 so far) |
 | API list cost per fresh analysis, repairs included | $0.007 | $0.019 | $0.21 |
-| Latency p50 / p90 | 10 s / 16 s | 89 s / 112 s | 57 s / 65 s |
+| Latency p50 / p90 (linear between the two nearest ranks) | 10 s / 16 s | 88 s / 114 s | 56 s / 66 s |
 
 - **The consensus panels tie** on every DeepSeek-against-Claude pair. That is not evidence of equal quality:
   V4 Pro, one of the two panel judges, agreed with itself across the position swap on only 50% of pairs,
@@ -445,15 +445,17 @@ all 4. The gate alone caught 2 of the 11.
 ## 8. Cost and latency at volume
 
 Measured per fresh analysis over 20 companies, at API list prices for the measured tokens, including repair
-calls, each priced as a company's first analysis would bill (`records.api_cost`):
+calls, each priced as a company's first analysis would bill (`records.api_cost`). Latency quantiles are linear
+between the two nearest ranks (`records.quantile`); `runs/eval-v1/REPORT.md` still shows the nearest-rank values it
+was written with (Sonnet 57 s / 65 s, for example):
 
 | System | Per analysis | 1,000 a month | 10,000 a month | Latency p50 / p90 | Input / output tokens |
 |---|---|---|---|---|---|
-| Current (production) | $0.0002 | $0.19 | $1.94 | 1.9 s / 2.2 s | 2,000 / 270 |
+| Current (production) | $0.0002 | $0.19 | $1.94 | 1.9 s / 2.3 s | 2,000 / 270 |
 | DeepSeek flash, proposal | $0.0068 | $6.83 | $68.33 | 10 s / 16 s | 50,000 / 2,400 |
-| Claude Haiku 5.5 low, proposal | $0.019 | $18.55 | $185.51 | 89 s / 112 s | 80,000 / 21,000 |
-| Claude Haiku 5.5 medium, proposal | $0.021 | $21.19 | $211.90 | 116 s / 156 s | 68,000 / 29,000 |
-| Claude Sonnet 5.5, proposal | $0.21 | $207.32 | $2,073.17 | 57 s / 65 s | 64,000 / 7,900 |
+| Claude Haiku 5.5 low, proposal | $0.019 | $18.55 | $185.51 | 88 s / 114 s | 80,000 / 21,000 |
+| Claude Haiku 5.5 medium, proposal | $0.021 | $21.19 | $211.90 | 115 s / 157 s | 68,000 / 29,000 |
+| Claude Sonnet 5.5, proposal | $0.21 | $207.32 | $2,073.17 | 56 s / 66 s | 64,000 / 7,900 |
 
 - **DeepSeek** is priced at the off-peak rate. The peak rate (weekdays 01:00–04:00 and 06:00–10:00 UTC) is
   double: $0.014 per analysis.

@@ -57,7 +57,6 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
-import re
 import statistics
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -89,9 +88,6 @@ JUDGE_TARGET = ("C wins or ties grounding and calibration on at least 12 of 20 p
 # (§1.4's logic slips, fix 11, fix 9); broken_debt is the broken-net-cash measure.
 MISLABEL_KINDS = ("R1", "R2a", "R2c", "R3")
 OWN_ROW_KINDS = ("U1", "unitless_dollars", "gap_direction")
-# A sentence about debt or cash (not a cash flow), whose disclosure wording (probes.DISCLOSURE) is about a break.
-_BREAK_TOPIC = re.compile(r"\b(?:debt|net cash|borrowings?|liquidity|cash|investments?|marketable securities)\b"
-                          r"(?!\s+(?:flows?|provided|used|generated)\b)", re.I)
 
 FAILURE_CLASSES = (
     ("unknown citation", "unknown_citation"), ("no citation", "uncited_number"), ("other way", "direction"),
@@ -350,9 +346,11 @@ def broken_net_cash(sentences: list[dict[str, Any]], pack: dict[str, Any], refer
     that does not disclose the break. None when the reference records no break at all.
 
     - ``state``, for a company whose reference names a debt or liquidity break (None otherwise): ``disclosed`` if a
-      sentence about debt or cash discloses a break (``probes.DISCLOSURE``; its generic words, "missing", "caveat",
-      need the topic), else ``stated as fact`` if a sentence states a broken figure, else ``silent``. Words alone
-      decide, never a cited withheld ID, which only an arm reading version 1 could cite;
+      sentence discloses a break by the rule the gate's backstop and ``stated`` read (``probes.discloses``: a
+      disclosure word in a clause about debt or cash, so "Net cash was $8.8 billion, though one-off tax payments
+      understate free cash flow" discloses nothing and states the broken figure), else ``stated as fact`` if a
+      sentence states a broken figure, else ``silent``. Words alone decide, never a cited withheld ID, which only an
+      arm reading version 1 could cite;
     - ``stated``: each sentence stating a figure of a ``debt_break`` or ``liquidity_break`` without disclosing it in
       that sentence, its breaks and claims, whatever the analysis says elsewhere;
     - ``peer``: each sentence citing a version-1 net-cash peer rank or median built on a peer's broken year
@@ -369,7 +367,7 @@ def broken_net_cash(sentences: list[dict[str, Any]], pack: dict[str, Any], refer
         entry["claims"].append(f"'{hit['claim']}' {hit['detail']}")
     checks = [kind for kind, years in (("debt_break", breaks.debt_years), ("liquidity_break", breaks.cash_years)) if years]
     disclosed = [{"section": s.get("section", ""), "sentence": s["text"]} for s in sentences
-                 if probes.DISCLOSURE.search(_plain(s["text"])) and _BREAK_TOPIC.search(_plain(s["text"]))] if checks else []
+                 if probes.discloses(_plain(s["text"]))] if checks else []
     stated = list(grouped["stated"].values())
     state = None if not checks else "disclosed" if disclosed else "stated as fact" if stated else "silent"
     return {"state": state, "checks": checks, "stated": stated, "disclosed": disclosed, "peer": list(grouped["peer"].values())}

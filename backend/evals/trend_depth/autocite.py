@@ -111,8 +111,10 @@ _REFERENCE_WORDS = frozenset({"median", "high", "low", "average", "typical", "pe
 _POSSESSIVE = frozenset({"its", "their"})  # "its revenue" names another entity's metric: it ends a run, as a modifier
 _MOVE_GAP = re.compile(r"\s*,?\s*(?:to|from)\s*", re.I)  # "fell 3.9pp to 71.1%": the run reaches back over 3.9pp
 _MOVED_FROM = re.compile(r"\bfrom\s+(?:(?:a|an|the)\s+)?$", re.I)  # "fell 2.5pp from 9.2%": the level a move started at
-# The words after which a year is a comparison base: factcheck.bind_periods's base_year test reads the same five.
-_BASE_WORD = re.compile(r"\b(?:than|from|since|versus|vs\.?)\s*$", re.I)
+# The words after which a year is a comparison base: the gate's own list (factcheck.BASE_WORDS, its bind_periods's
+# base_year test), the longer spelling first ("vs." before "vs").
+_BASE_WORD = re.compile(r"\b(?:" + "|".join(re.escape(w) for w in sorted(factcheck.BASE_WORDS, key=len, reverse=True))
+                        + r")\s*$", re.I)
 _CHANGE_LABEL = re.compile(r"\b(?:growth|change|cagr|contribution|effect)\b|\bminus\b", re.I)
 _MOVED = re.compile(
     r"\b(?:rose|risen|rises|rising|grew|grown|grows|growing|fell|fallen|falls|falling|declined|declines|declining|"

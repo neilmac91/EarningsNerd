@@ -38,13 +38,12 @@ import copy
 import difflib
 import hashlib
 import json
-import math
 import statistics
 from typing import Any, Optional
 
 from evals.trend_depth import generate
 from evals.trend_depth.providers import ARMS, list_cost, max_tokens_for
-from evals.trend_depth.records import unsettled, write_json
+from evals.trend_depth.records import quantile, unsettled, write_json
 
 ARM = "deepseek-flash"
 PEAK = 2.0  # DeepSeek's peak hours double every price (providers' price note for deepseek-flash)
@@ -158,11 +157,10 @@ def ceiling(found: list[dict[str, Any]], repeats: int) -> tuple[int, float]:
 
 
 def _percentile(values: list[float], share: float) -> Optional[float]:
-    """The nearest-rank percentile."""
-    if not values:
-        return None
-    ordered = sorted(values)
-    return round(ordered[max(0, math.ceil(share * len(ordered)) - 1)], 3)
+    """The report's latency quantile (``records.quantile``: linear between the two nearest ranks), so a repair's p50 and
+    p90 are on the basis of §3's latency rows and baselines; a nearest rank read 1.0 s as the median of 1.0 and 2.0."""
+    value = quantile(values, share)
+    return None if value is None else round(value, 3)
 
 
 def summary(rows: list[dict[str, Any]]) -> dict[str, Any]:

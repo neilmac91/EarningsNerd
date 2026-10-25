@@ -40,7 +40,8 @@ outputs:
   still shows, in a sentence that does not disclose the break (``discloses``: a ``DISCLOSURE`` match in a clause about
   debt or cash). Each hit names its ``break``, the reason version 2 records (``BREAK_KINDS``):
   - ``debt_break``: total debt, net cash or net debt, or a figure built on them (their share of revenue, debt growth,
-    the net-cash peer rank), of a year a ``debt_break`` data check names. Rebuilt: a debt line of such a year, alone
+    the net-cash peer rank), of a year a ``debt_break`` data check names, and a long-term line version 2 withholds as
+    reported zero there (ORCL's FY2022 F185 and X213, by their IDs). Rebuilt: a debt line of such a year, alone
     or with cash, beside a total of another year ("debt fell 68.5% from FY2021": the FY2025 current portion against
     FY2021's total debt), or under a total's name: the name right after the figure ("$7.1 billion of net cash", "a
     $5.5 billion net debt position"), else the nearest before it, else the first after it ("$8.8 billion more cash
@@ -430,8 +431,8 @@ def discloses(clean: str) -> bool:
     """Whether a sentence discloses a break: a ``DISCLOSURE`` match in a clause that names debt or cash
     (``BREAK_TOPIC``), or one that says they were counted twice. Generic words elsewhere ("though revenue is a later
     recast and not comparable", "one-off tax payments understate free cash flow", "segment data is missing") are
-    about something else. The one rule: the gate's backstop reads it, and so does ``broken_debt``, whose hits are the
-    report's sentences stating a broken figure."""
+    about something else. The one rule: the gate's backstop reads it, and so do ``broken_debt``, whose hits are the
+    report's sentences stating a broken figure, and the report's state of an analysis (``report.broken_net_cash``)."""
     breaks = list(_DISCLOSURE_CLAUSE.finditer(clean))
     for found in DISCLOSURE.finditer(clean):
         head = max((b.end() for b in breaks if b.end() <= found.start()), default=0)

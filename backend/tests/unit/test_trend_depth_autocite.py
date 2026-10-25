@@ -338,8 +338,9 @@ def test_a_right_year_and_sign_still_gets_its_id(elsewhere: str, sentence: str, 
 @pytest.mark.parametrize("word, base", [("than", True), ("from", True), ("since", True), ("versus", True), ("vs", True),
                                         ("vs.", True), ("in", False), ("for", False), ("at", False), ("during", False)])
 def test_auto_citations_base_words_are_the_gates(word: str, base: bool) -> None:
-    # autocite._BASE_WORD copies bind_periods's base-year test: a year after one of these words binds no figure
-    # before it. Both must read the same words, or a year the gate dates a figure by would date none here, or back.
+    # autocite._BASE_WORD reads bind_periods's base-year list (factcheck.BASE_WORDS): a year after one of these words
+    # binds no figure before it. Both must read the same words, or a year the gate dates a figure by would date none
+    # here, or back; this pins the gate's reading and the regex built from the list.
     text = f"Net margin was 9.2% {word} FY2024 [F29]."
     claims = factcheck.parse_claims(text)
     assert (0 not in factcheck.bind_periods(autocite._blank_citations(text), claims, 2025)) is base
