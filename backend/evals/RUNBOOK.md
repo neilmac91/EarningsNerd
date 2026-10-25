@@ -205,7 +205,9 @@ unavailable for any non-contract judge).
 3. **`gate_fail`** — hard-gate vetoes (fabricated number / hygiene). Must not regress vs baseline.
 4. `schema_valid`, `num_recall`, `num_precision`, `coverage` — deterministic components.
 5. **`judge_pass`** — secondary corroboration (faithfulness/insight); never the deciding number.
-6. `$cost`, `latency(s)` — tie-breakers / feasibility.
+6. `$cost`, `latency(s)` — tie-breakers / feasibility. The baseline's `$cost` prices every generation, retries
+   included, at the pipeline's peak-aware estimate; another candidate's prices its successful final attempts at
+   `models.py` list prices, so the two are not like-for-like (the report says so under its table).
 
 The `.json` has per-filing detail — use it to see which filings dragged a candidate down.
 
@@ -496,9 +498,15 @@ provenance and explain intentional bar changes rather than performing cosmetic r
 A baseline's `total_cost_usd` is the pipeline's own estimate: each `ai_call` record's
 `estimated_cost_usd`, summed over every generation a result made, retried and failed ones included.
 `cost_unknown_calls` counts the calls with no estimate, which that sum leaves out; the optional
-judge's calls are in neither. It is the price table's estimate, not the bill; the account balance
-read is the bill. A report written before the
-estimate was summed shows `total_cost_usd=0` for the baseline: unmetered, not a free run.
+judge's calls are in neither. The estimate comes from the price table (`app/services/llm_pricing.py`)
+and is peak-aware: inside DeepSeek's peak windows it is `AI_PEAK_PRICE_MULTIPLIER` (2 by default)
+times the off-peak figure, so two runs of the same set differ by when they ran. It is not the bill.
+The provider balance falls by the real charge, but for every caller of the shared key in the same
+window, so a balance difference brackets one run only when nothing else drew. A candidate's
+`total_cost_usd` is not like-for-like: its successful final attempts at `evals/models.py` list
+prices, with no retries, failed attempts, cache split, peak tariff or unpriced count. A report
+written before the estimate was summed shows `total_cost_usd=0` for the baseline: unmetered, not a
+free run.
 
 The wave-2 parity pin is complete in #698: `eval_20260905T111951Z.json`, 26 × 3,
 source `f5b46ba9`, zero errors/vetoes, PASS/0 warnings. Measure later work against it.
@@ -1116,7 +1124,7 @@ A future `trends_golden_set.json` + scorer (validating selected IDs, rendered ob
 |---|---|
 | EDGAR 403 / empty filings | Valid SEC User-Agent in env; respect ~10 req/s |
 | Small-cap `verified:false` after build | Fill `ground_truth` manually from the filing |
-| Cost surprise | `--limit` + fewer `--runs`; fix `models.py` price placeholders |
+| Cost surprise | `--limit` + fewer `--runs`; a candidate's prices are `models.py` placeholders (fix them there); the baseline's are the pipeline's own (`app/services/llm_pricing.py`) |
 | `anthropic` ImportError / no key | `pip install anthropic`; judge/Claude degrade to a FAIL-with-error row, not a crash |
 | Wrong ground truth | Spot-check against the filing — it silently corrupts every score |
 | FPI figure renders as `$` | Reporting currency not captured — re-check `reporting_currency` (Step B); the value must be native (RMB/EUR/TWD) |

@@ -73,6 +73,21 @@ def test_summarize_provider_calls_sums_reported_counters_and_keeps_unknowns_unkn
     }
 
 
+def test_a_call_with_usage_but_no_estimate_is_unpriced_and_a_zero_estimate_is_priced():
+    # Real records: a timed-out call that reported its prompt but no completion count has usage (so it is not one of
+    # unknown_calls) yet no estimate; a call reporting zero tokens is estimated at exactly 0.0, which is priced.
+    partial = ai_metrics.record_ai_call(operation="section_recovery", provider="primary", actual_model="deepseek-flash",
+                                        usage={"prompt_tokens": 9000}, outcome="timeout")
+    empty = ai_metrics.record_ai_call(operation="summary_primary", provider="primary", actual_model="deepseek-flash",
+                                      usage={"prompt_tokens": 0, "completion_tokens": 0}, outcome="success")
+    silent = ai_metrics.record_ai_call(operation="summary_primary", provider="primary", actual_model="deepseek-flash",
+                                       usage=None, outcome="error")
+    assert (partial["estimated_cost_usd"], empty["estimated_cost_usd"], silent["estimated_cost_usd"]) == (None, 0.0, None)
+    folded = runner.summarize_provider_calls([partial, empty, silent])
+    assert folded["unknown_calls"] == 1 and folded["estimated_cost_unknown_calls"] == 2
+    assert folded["estimated_cost_known_usd"] == 0.0
+
+
 def test_usage_written_before_the_cost_fields_counts_its_calls_as_unpriced():
     priced = runner.summarize_provider_calls([{"usage": _usage(10, 2), "estimated_cost_usd": 0.25}])
     legacy = {key: value for key, value in runner.summarize_provider_calls([{"usage": _usage(10, 2)}] * 3).items()
@@ -101,7 +116,8 @@ def test_markdown_cost_names_the_calls_it_leaves_out(monkeypatch, tmp_path):
     priced = runner.summarize_provider_calls([{"usage": _usage(10, 2), "estimated_cost_usd": 0.1234}])
     rows = [{"candidate": "baseline", "cost_usd": 0.1234, "incurred_provider_usage": priced, "error": "x"}]
     text = runner._write_report(runner._summarize(rows), []).read_text()
-    assert "| 0.1234 |" in text and "unpriced" not in text
+    assert "| 0.1234 |" in text and "(+" not in text
+    assert "not like-for-like across rows" in text
 
 
 def test_usage_stats_report_how_many_attempts_carried_usage():
@@ -224,8 +240,8 @@ async def test_provider_usage_is_conserved_across_every_generation(monkeypatch, 
         if endings[index] != "unknown_only":
             observed.append(ai_metrics.record_ai_call(
                 operation="summary_primary", provider="primary", actual_model="deepseek-flash",
-                usage={"prompt_tokens": 100 + index, "completion_tokens": 20 + index,
-                       "prompt_cache_hit_tokens": 70, "prompt_cache_miss_tokens": 30 + index},
+                usage={"prompt_tokens": 100_000 + index, "completion_tokens": 20_000 + index,
+                       "prompt_cache_hit_tokens": 70_000, "prompt_cache_miss_tokens": 30_000 + index},
                 outcome="success",
             ))
         if endings[index] != "success":
@@ -263,14 +279,14 @@ async def test_provider_usage_is_conserved_across_every_generation(monkeypatch, 
     retry_count = len(endings) - 1
     known_generations = 0 if endings == ("unknown_only",) else len(endings)
     unknown_calls = sum(ending != "success" for ending in endings)
-    expected_tokens = sum(20 + index for index in range(known_generations)) if known_generations else None
+    expected_tokens = sum(20_000 + index for index in range(known_generations)) if known_generations else None
     incurred = result["incurred_provider_usage"]
     assert incurred["calls"] == known_generations + unknown_calls == len(observed)
     assert incurred["unknown_calls"] == unknown_calls
     assert incurred["completion_tokens"] == expected_tokens
-    assert incurred["prompt_tokens"] == (sum(100 + i for i in range(known_generations)) if known_generations else None)
-    assert incurred["cache_hit_tokens"] == (70 * known_generations if known_generations else None)
-    assert incurred["cache_miss_tokens"] == (sum(30 + i for i in range(known_generations)) if known_generations else None)
+    assert incurred["prompt_tokens"] == (sum(100_000 + i for i in range(known_generations)) if known_generations else None)
+    assert incurred["cache_hit_tokens"] == (70_000 * known_generations if known_generations else None)
+    assert incurred["cache_miss_tokens"] == (sum(30_000 + i for i in range(known_generations)) if known_generations else None)
     assert incurred["reasoning_tokens"] is None
     # Cost is conserved the same way: every generation's known estimate, the unpriced calls counted.
     known = [r["estimated_cost_usd"] for r in observed if r["estimated_cost_usd"] is not None]
@@ -282,10 +298,10 @@ async def test_provider_usage_is_conserved_across_every_generation(monkeypatch, 
     assert len(result["retry_provider_attempts"]) == retry_count
     for index, attempt in enumerate(result["retry_provider_attempts"]):
         assert attempt["attempt"] == index and "TimeoutError" in attempt["error"]
-        assert attempt["provider_usage"]["completion_tokens"] == 20 + index
+        assert attempt["provider_usage"]["completion_tokens"] == 20_000 + index
         assert attempt["provider_usage"]["unknown_calls"] == 1
         assert attempt["latency_seconds"] >= 0
-    assert result["provider_usage"]["completion_tokens"] == (20 + retry_count if known_generations else None)
+    assert result["provider_usage"]["completion_tokens"] == (20_000 + retry_count if known_generations else None)
     assert result["preview_frames"] == [f"generation {retry_count}"]
     assert result["incurred_latency_seconds"] >= result["latency_seconds"]
     assert (result["error"] is None) == (endings[-1] == "success")
@@ -294,7 +310,9 @@ async def test_provider_usage_is_conserved_across_every_generation(monkeypatch, 
     assert stats["incurred_usage_attempts"] == 1
     assert stats["incurred_provider_usage"] == incurred
     assert stats["total_completion_tokens"] == result["provider_usage"]["completion_tokens"]
+    # Material at the summary's 4 places in every case with a priced generation, peak or not.
     assert stats["total_cost_usd"] == round(incurred["estimated_cost_known_usd"], 4)
+    assert (stats["total_cost_usd"] > 0) == bool(known_generations)
     assert stats["cost_unknown_calls"] == unknown_calls
     # Older reports remain readable, but missing incurred evidence is unavailable, not free.
     legacy = runner._usage_stats([{"error": "old failure"}])

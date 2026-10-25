@@ -34,8 +34,9 @@ class ModelConfig:
     json_mode: str = "schema"  # "schema" | "object" | "none"
 
 
-# Registry. `baseline` is handled specially by the runner (current openai_service pipeline);
-# it is listed here only for pricing/reporting symmetry.
+# Registry. `baseline` is handled specially by the runner (current openai_service pipeline) and nothing
+# reads this entry: its cost comes from the pipeline's own `ai_call` estimates (app/services/llm_pricing.py),
+# so the prices below are unused. The other entries' prices are their `$cost`.
 REGISTRY: Dict[str, ModelConfig] = {
     "baseline": ModelConfig(
         name="baseline", provider="openai_compat",

@@ -536,7 +536,8 @@ def _usage_stats(rs: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     Reports the number of attempts that carried usage so a mean over a partial set is never
     mistaken for a full one; absent usage yields ``None``, not zero. ``cost_unknown_calls`` counts
-    the incurred calls outside ``total_cost_usd``; ``None`` when no row observed its calls."""
+    the incurred calls outside ``total_cost_usd``; ``None`` when no row carries incurred usage evidence
+    (the candidate route, or a report written before incurred usage existed)."""
     rows = [r.get("provider_usage") for r in rs if isinstance(r.get("provider_usage"), dict)]
     incurred = [r["incurred_provider_usage"] for r in rs if isinstance(r.get("incurred_provider_usage"), dict)]
     with_output = [u["completion_tokens"] for u in rows if u.get("completion_tokens") is not None]
@@ -669,6 +670,10 @@ def _write_report(
             f"{s['mean_numeric_accuracy']} | {s['mean_numeric_precision']} | {s['mean_coverage']} | {s['mean_financial_depth']} | {s.get('mean_specificity', '-')} | {s.get('mean_currency_consistency', '-')} | "
             f"{judge_pass} | {cost} | {s['mean_latency_seconds']} | {s['errors']} |"
         )
+    lines += ["", "`$cost` is an estimate in USD, not like-for-like across rows: `baseline` prices every generation a "
+              "result made, retries included, from the pipeline's own peak-aware `ai_call` estimates (`+N unpriced` "
+              "counts calls with no estimate); any other candidate prices its successful final attempts at "
+              "`evals/models.py` list prices."]
     lines += ["", "## Dollar-figure trace (advisory; raw v2 model prose)", "",
               "Mean counts use measured runs only; missing grounding is unavailable, not zero.",
               "| candidate | mean untraceable | measured | unavailable | errors |",

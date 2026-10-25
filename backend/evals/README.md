@@ -62,6 +62,9 @@ to each provider's documented OpenAI-compatible endpoint and are overridable via
 > **Cost column:** Claude per-token prices are verified (claude-api skill). The other prices
 > are **UNVERIFIED placeholders** — confirm against each provider's pricing page before relying
 > on the `$cost` column. Cost is secondary to the quality verdict; edit prices in `models.py`.
+> The `baseline` row is priced differently: the pipeline's own `ai_call` estimates
+> (`app/services/llm_pricing.py`, peak-aware), for every generation including retries, so it is
+> not like-for-like with the candidates' rows (see RUNBOOK Step 7).
 
 ## Running it
 
