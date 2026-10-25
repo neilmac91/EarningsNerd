@@ -156,12 +156,15 @@ import {
  *    "without your consent" the promise ("No usage data is sent without your permission."), and so does one on a verb
  *    before it that shares its object, which "and" does not distribute ("We never sell and collect analytics data ...
  *    without your consent.", beyond main's 60 characters too). A negation from outside denies the promise only over a
- *    clause that makes it ("It is not true that analytics are never collected without your consent." passes); over a
- *    clause that denies it, or "without your consent" with no negation of its own, it says the promise again, and
- *    main's floor decides ("It is not true that analytics are collected without your consent." and "It is not true that
- *    analytics are not collected only with your consent." fail: Codex on #1618; "It is not true that server events do
- *    not require your consent." passes, as on main). "until you allow" promises whatever its own negation ("No
- *    analytics run until you allow them.", "We do not collect analytics until you allow them.").
+ *    clause that makes it ("It is not true that analytics are never collected without your consent." passes), and only
+ *    where its own negations do not cancel, two in its group or a denied subject on a denied verb ("It is never not
+ *    true that analytics are collected only with your consent." and "Nobody does not promise that analytics are
+ *    collected only with your consent." fail: Codex on #1618); over a clause that denies it, or "without your consent"
+ *    with no negation of its own, it says the promise again, and main's floor decides ("It is not true that analytics
+ *    are collected without your consent." and "It is not true that analytics are not collected only with your consent."
+ *    fail: Codex on #1618; "It is not true that server events do not require your consent." passes, as on main). "until
+ *    you allow" promises whatever its own negation ("No analytics run until you allow them.", "We do not collect
+ *    analytics until you allow them.").
  *    The consent is bound to the analytics' own operation: another (ANOTHER_OPERATION: sharing, selling, exporting,
  *    deleting, erasing, disclosing, transferring, publishing, showing, displaying, revealing, renting, licensing,
  *    downloading), as a gerund subject in every form ("Sharing analytics data with another user requires your
@@ -875,14 +878,16 @@ const deniedPlainly = (reading: Reading, group: VerbGroup) => {
 const ASSERTS = /^(?:promise[sd]?|promising|say|says|said|claim(?:s|ed)?|guarantee[sd]?|state[sd]?|mean|means|meant|imply|implies|implied|suggest(?:s|ed)?|think|thinks|thought|believe[sd]?|assert(?:s|ed)?|pledge[sd]?|ensure[sd]?|warrant(?:s|ed)?|represent(?:s|ed)?|true|correct|accurate|case)$/i
 /** Whether a negation governs a wait from outside its clause (E162 stage 2): the wait stands in the clause a verb that
     asserts it takes after "that" (complementAt, ASSERTS), in the predication's own words or in the clause the reader
-    opens there ("We do not promise that every server event waits ..."), and that verb's group is negated or its
-    subject denies it. A promise whose negation is its own shape stays one: "We do not collect analytics until you allow
-    them." takes no clause after "that". */
+    opens there ("We do not promise that every server event waits ..."), and that verb's group or its subject denies
+    it, as denied() composes them: two negations in the group, or a denied subject on a denied verb, cancel ("It is
+    never not true that ..." and "Nobody does not promise that ..." assert the clause: Codex on #1618). A promise whose
+    negation is its own shape stays one: "We do not collect analytics until you allow them." takes no clause after
+    "that". */
 function deniedFromOutside(reading: Reading, said: Said[], index: number, wait: Wait): boolean {
   const { tokens } = reading
   const holds = (q: Said, inside: (that: number) => boolean) => {
     const complement = complementAt(tokens, q.group)
-    return !!complement && inside(complement.that) && ASSERTS.test(complement.verb.text) && (q.group.negated || deniesItsClause(q.subject))
+    return !!complement && inside(complement.that) && ASSERTS.test(complement.verb.text) && deniedPlainly(reading, q.group) !== deniesItsClause(q.subject)
   }
   const p = said[index]
   const before = said[index - 1]
@@ -2647,6 +2652,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // Codex on #1618: over a clause that denies the promise, a negation from outside says it again.
       ['<p>It is not true that analytics are not collected only with your consent.</p>', true],
       ['<p>It is not the case that usage data is not sent without your permission.</p>', false],
+      // Codex on #1618: the negations on the verb that asserts the clause cancel as a clause's own do, two in its group
+      // or a denied subject on a denied verb, so the clause is asserted.
+      ['<p>It is never not true that analytics are collected only with your consent.</p>', true],
+      ['<p>Nobody does not promise that analytics are collected only with your consent.</p>', true],
+      ['<p>Nobody does not promise that analytics are collected until you allow them.</p>', true],
       // Codex on #1618: "only" set off by a mark sets the promise apart from the denial before it; a list before
       // "only" sets nothing apart.
       ['<p>Analytics are not collected automatically, only after you consent.</p>', true],
