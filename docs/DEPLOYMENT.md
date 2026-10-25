@@ -88,7 +88,9 @@ Override the image command to `uvicorn` with args
 Do not launch it through `main:app`: the API's HTTP middleware deadline is shorter than task work.
 The parent imports no database engine; its isolated child uses `DB_POOL_SIZE=3`,
 `DB_MAX_OVERFLOW=0`, and the existing Cloud SQL socket. Budget three additional connections.
-Use the existing runtime identity and Secret Manager references needed for SQL, SEC, AI and email;
+Use the existing runtime identity and Secret Manager references needed for SQL, SEC, AI and email,
+and the API's `SENTRY_DSN` for the worker and its task children to report failures (F50; binding it is a
+founder/IAM step, and without it the worker logs `Sentry error tracking: unconfigured`);
 do not copy secret values into commands, tasks, source or logs. Match current generation flags.
 Set `TASKS_WORKER_PROCESS=true`, `DURABLE_TASKS_ENABLED=true`, and the complete `TASKS_*` queue,
 worker-origin and identity settings on the worker, plus `SEC_RATE_LIMIT_PER_SECOND=1` and
@@ -258,8 +260,9 @@ printed it in the last seven days, with a count from the newest 500 entries per 
 `SENTRY_DSN`) and `sdk-missing`, or `none`; a read that fails prints
 `sentry startup (7d) <kind>: UNVERIFIED (<class>; gcloud's error text withheld)`, with the classes above,
 and the step adds one `::warning::` that names those kinds and the remedy for each class.
-The task worker runs `task_worker_main.py`, which never imports `main.py` and starts no Sentry, so its
-revisions appear under no kind. After a deploy, the API service's new revision should appear under
+The task worker runs `task_worker_main.py`, which never imports `main.py`: it starts Sentry with the task
+policy but prints none of the four lines (it logs `Sentry error tracking: <status>`), so its revisions appear
+under no kind. After a deploy, the API service's new revision should appear under
 `initialized` and nowhere else, with none of the four lines `UNVERIFIED`. Without the SDK, each start
 would count twice under `sdk-missing`, as `app/routers/users.py` logs the same words. It never prints a
 log line (the failure line can quote an exception) or gcloud's own error text, which names the acting
