@@ -83,6 +83,7 @@ describe('every token is a named Tailwind token, both themes (E194)', () => {
     expect(colors.chart.tick.light, 'the light tick ink is the tertiary text ink').toBe(colors.text.tertiary.light)
     expect(both((tokens) => tokens.value)).toEqual(pair(colors.chart.value))
     expect(colors.chart.value.light, 'the light value ink is the secondary text ink').toBe(colors.text.secondary.light)
+    expect(colors.chart.value.dark, 'every figure the dark chart prints takes the figure ink (D-063)').toBe(colors.text.primary.dark)
     expect(both((tokens) => tokens.review)).toEqual(pair(colors.chart.review))
     expect(colors.chart.review.light, 'the light review ink is the warning ink').toBe(colors.warning.light)
     // The card's legend: names in the secondary ink in both themes (§3.8; E194), values in the primary ink.
