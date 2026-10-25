@@ -2610,6 +2610,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // object stay another operation's.
       ['<p>Server events never run, or run only after you consent.</p>', true],
       ['<p>Server events are not recorded or recorded only after you consent.</p>', true],
+      // Codex on #1618: every join after the denial counts, not only the last.
+      ['<p>Server events never run, or collect or require your consent.</p>', true],
       ['<p>We require your consent to share account events with advertisers or PostHog.</p>', true],
       ['<p>We require your consent to share account events with anyone, including PostHog.</p>', true],
       ['<p>Account events require your consent before we share them with partners like PostHog.</p>', true],
@@ -3252,6 +3254,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
         'Server events are not recorded or recorded only after you consent.',
       ].map(distributes),
     ).toEqual([true, false, false, false, false, false])
+    // Every join after the denial counts: a comma before an earlier "or" stops it before the last.
+    expect(distributesNegation(read('Server events never run, or collect or require your consent.').reading, 2, 0)).toBe(false)
+    expect(distributesNegation(read('We never share or sell or collect analytics data without your consent.').reading, 2, 0)).toBe(true)
     const condition = read('PostHog runs in your browser, while server events wait for your consent.')
     const inner = conditionClauseAt(condition.tokens, condition.reading.clauses[0].conditions[0])
     expect(inner && condition.text(inner.subject.start, inner.subject.end)).toBe('server events')

@@ -926,20 +926,21 @@ function formOf(token: Token | undefined): 'ing' | 'past' | 'third' | 'base' {
 }
 
 /** Whether a negation on the verb group of a clause that shares a later clause's object (sharedVerbsOf) denies the
-    later clause's verb too (E162 stage 2; Codex on #1618): only where "or", with no comma before it, joins the later
-    clause and each clause after the negated one opens at a verb other than the negated one, with no auxiliary, modal,
-    negation or adverb of its own, in the negated verb's form ("We never share or collect analytics data ..."). A
-    predicate that restarts its verb group ("Analytics are not sold and are collected only with your consent."), puts
-    its verb in another form ("Server events are not shared and require your consent."), follows "and" ("PostHog never
-    runs and requires your consent.") or says the negated verb again ("Server events never run, or run only after you
-    consent.") is said in its own right, so the denial before it does not deny it. */
+    later clause's verb too (E162 stage 2; Codex on #1618): only where "or", with no comma before it, joins each clause
+    after the negated one up to the later clause, and each opens at a verb other than the negated one, with no
+    auxiliary, modal, negation or adverb of its own, in the negated verb's form ("We never share or collect analytics
+    data ..."). A predicate that restarts its verb group ("Analytics are not sold and are collected only with your
+    consent."), puts its verb in another form ("Server events are not shared and require your consent."), follows "and"
+    ("PostHog never runs and requires your consent.") or says the negated verb again ("Server events never run, or run
+    only after you consent.") is said in its own right, so the denial before it does not deny it. */
 export function distributesNegation(reading: Reading, index: number, negated: number): boolean {
   const { tokens, clauses } = reading
-  // A comma before "or", or the negated verb said again, sets a predicate of its own apart ("Server events never run,
-  // or run only after you consent.": the second round's verification lens on #1618).
-  if (clauses[index].joinedBy !== 'or' || tokens[clauses[index].start - 2]?.text === ',') return false
   const verb = tokens[verbGroupAt(tokens, clauses[negated].predicate).verb]
   for (let k = negated + 1; k <= index; k++) {
+    // Every join after the negated clause, not only the last: a comma before "or", or the negated verb said again,
+    // sets a predicate of its own apart ("Server events never run, or run only after you consent.": the second
+    // round's verification lens on #1618; "Server events never run, or collect or require your consent.": Codex).
+    if (clauses[k].joinedBy !== 'or' || tokens[clauses[k].start - 2]?.text === ',') return false
     const own = verbGroupAt(tokens, clauses[k].predicate)
     if (own.verb !== clauses[k].predicate || formOf(tokens[own.verb]) !== formOf(verb) || lower(tokens[own.verb]) === lower(verb)) return false
   }
