@@ -78,7 +78,7 @@ const dataset: AnalysisDataset = {
   period_key: 'FY2022..FY2024',
   periods: [period('FY2022', 2022), period('FY2023', 2023), period('FY2024', 2024)],
   series: [
-    // Cash generation panel — net_income present so it takes the right axis.
+    // Cash generation panel — operating cash flow and net income share its one axis.
     series('operating_cash_flow', 'Operating CF', [10, 12, 14]),
     series('free_cash_flow', 'Free cash flow', [5, 6, 7]),
     series('net_income', 'Net income', [8, 9, 10]),

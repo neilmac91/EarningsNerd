@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
 import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, EXPECTED_TABLE_VALUE_DAGGERS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
 
 /**
@@ -682,6 +683,50 @@ for (const theme of THEMES) for (const state of ['captured', 'edge', 'annual'] a
         }), 'the fallback basis has its own line above the complete change token').toBe(true)
       }
     })
+  })
+}
+
+/** Every amount in Swiss francs: a currency code makes the longest tick labels ("CHF 150B"). */
+const inSwissFrancs = (dataset: AnalysisDataset) => {
+  for (const series of dataset.series) if (!series.percent) {
+    series.unit = 'CHF'
+    for (const point of series.points) point.unit = 'CHF'
+  }
+}
+
+for (const theme of THEMES) {
+  test.describe(`analysis chart axes / ${theme}`, () => {
+    test.use({ viewport: { width: 1280, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+    // TrendCharts sizes each value axis from its tick labels. A label wider than its axis runs into the chart's margin
+    // (8 px left, 16 px right) and then out of the SVG, where it is cut; one Recharts breaks at a space reads as two.
+    for (const [name, state, edit] of [['quarterly', 'captured', undefined], ['annual in CHF', 'annual', inSwissFrancs]] as const) {
+      test(`${name}: every y tick label is painted on one line inside its axis`, async ({ page, baseURL }) => {
+        await openAnalysis(page, baseURL!, state, theme, 1, false, edit)
+        const plots = page.locator('[data-analysis-chart]')
+        await expect(plots).toHaveCount(4)
+        const charts = await plots.evaluateAll(elements => elements.map(chart => {
+          const svg = chart.querySelector('svg.recharts-surface')!.getBoundingClientRect()
+          const grid = chart.querySelector('.recharts-cartesian-grid')!.getBoundingClientRect()
+          const labels = [...chart.querySelectorAll('.recharts-yAxis-tick-labels .recharts-cartesian-axis-tick-label')]
+          return {
+            name: chart.getAttribute('data-analysis-chart'),
+            labels: labels.map(label => label.textContent ?? ''),
+            broken: labels.filter(label => label.querySelectorAll('tspan').length !== 1).map(label => label.textContent),
+            outside: labels.flatMap(label => {
+              const box = label.getBoundingClientRect()
+              const inside = box.right <= grid.left + 1 ? box.left >= svg.left + 8 - 0.5 : box.right <= svg.right - 16 + 0.5
+              return inside ? [] : [`${label.textContent} at ${Math.round(box.left - svg.left)}–${Math.round(box.right - svg.left)} of ${Math.round(svg.width)}`]
+            }),
+          }
+        }))
+        for (const chart of charts) {
+          expect(chart.labels.length, `${chart.name}: its y ticks are drawn`).toBeGreaterThan(2)
+          expect(chart.outside, `${chart.name}: y tick labels outside their axis`).toEqual([])
+          expect(chart.broken, `${chart.name}: y tick labels drawn on more than one line`).toEqual([])
+        }
+        if (edit) expect(charts.flatMap(chart => chart.labels).some(label => /^CHF\s\d{3}B$/.test(label)), 'a code-prefixed label is drawn').toBe(true)
+      })
+    }
   })
 }
 

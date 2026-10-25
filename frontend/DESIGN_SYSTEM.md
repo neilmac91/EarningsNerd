@@ -2128,11 +2128,13 @@ Tooltip cursors: `crosshairProps(dark)` on LINE charts; `barCursorProps(dark)` o
 category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
 is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
 The analysis trend charts take each value axis from the chart engine (`features/analysis/lib/charts`,
-`valueAxis`): zero-anchored ticks on its grid, one unit, the filer's currency, every tick printed and
-the width fitted to the widest label; a tooltip prints each value in its own axis's format. Cash
-generation has one axis, and the balance sheet keeps equity's right axis until the engine's renderer
-draws it as its own panel. A percent axis holds every value, since Recharts cannot print a clipped one
-at the plot edge (gate: `tests/unit/trend-charts-axes.spec.tsx`).
+`valueAxis`): zero-anchored ticks on its grid, one unit, the filer's currency, every tick printed on
+one line (a no-break space, where Recharts would wrap "CHF 20B") and the axis as wide as its widest
+label as Recharts sets it; a tooltip prints each value in its own axis's format. Cash generation has
+one axis, and the balance sheet keeps equity's right axis until the engine's renderer draws it as its
+own panel. A percent axis holds every value, since Recharts cannot print a clipped one at the plot
+edge (gates: `tests/unit/trend-charts-axes.spec.tsx`; e2e `analysis-layout.spec.ts`, "analysis chart
+axes", and the export gate's Swiss-franc case).
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.

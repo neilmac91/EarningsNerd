@@ -252,8 +252,10 @@ export async function runAnalysis(page: Page, mode: AnalysisDataset['mode']) {
   await expect(page.getByRole('button', { name: 'Refresh analysis', exact: true })).toBeVisible()
 }
 
-export async function openAnalysis(page: Page, baseURL: string, state: AnalysisState | AnalysisGeometryState, theme: AnalysisTheme, textScale = 1, legacyEvidenceNote = false) {
+export async function openAnalysis(page: Page, baseURL: string, state: AnalysisState | AnalysisGeometryState, theme: AnalysisTheme, textScale = 1, legacyEvidenceNote = false,
+  editDataset?: (dataset: AnalysisDataset) => void) {
   const fixture = state === 'captured' || state === 'edge' || state === 'annual' ? geometryFixture(state) : fixtureFor(state)
+  editDataset?.(fixture.dataset)
   if (legacyEvidenceNote) {
     expect(state).toBe('legacy')
     // The archived long FCF/net-income group has only passed citations. Give one

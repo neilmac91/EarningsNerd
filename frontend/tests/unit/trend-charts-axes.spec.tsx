@@ -19,11 +19,13 @@ vi.mock('recharts', () => ({
   Line: () => null,
   XAxis: () => null,
   // Each axis prints its props, labels formatted the way Recharts calls tickFormatter.
-  YAxis: ({ yAxisId, ticks, domain, width, interval, tickFormatter }: {
+  YAxis: ({ yAxisId, ticks, domain, width, interval, tickFormatter, tick, tickMargin }: {
     yAxisId: string; ticks?: number[]; domain?: [number, number]; width: number; interval?: number; tickFormatter: (value: number, index: number) => string
+    tick: { fontSize: number }; tickMargin: number
   }) => (
     <g data-y-axis={yAxisId} data-ticks={JSON.stringify(ticks ?? null)} data-domain={JSON.stringify(domain ?? null)}
-      data-labels={JSON.stringify((ticks ?? []).map((tick, index) => tickFormatter(tick, index)))} data-width={width} data-interval={interval} />
+      data-labels={JSON.stringify((ticks ?? []).map((value, index) => tickFormatter(value, index)))} data-width={width} data-interval={interval}
+      data-font-size={tick.fontSize} data-tick-margin={tickMargin} />
   ),
   CartesianGrid: () => null,
   Tooltip: ({ content }: { content: (props: unknown) => React.ReactElement | null }) => {
@@ -35,8 +37,8 @@ vi.mock('recharts', () => ({
 import TrendCharts from '@/features/analysis/components/TrendCharts'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { CHART_IDS, MIXED_CURRENCY, buildChartModel, type ChartId, type ModelPanel } from '@/features/analysis/lib/charts/model'
-import { textWidth } from '@/features/analysis/lib/charts/layout'
-import { selectHeadlineFigures, topLineConcept } from '@/features/analysis/lib/reportPresentation'
+import { resolveDataNotes, type DataNote } from '@/features/analysis/lib/dataNotes'
+import { comparisonLocations, selectHeadlineFigures, topLineConcept } from '@/features/analysis/lib/reportPresentation'
 
 const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
   datasets: Record<string, { case: string; dataset: AnalysisDataset }>
@@ -44,7 +46,7 @@ const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json
 const DATASETS = Object.keys(FIXTURE.datasets)
 const dataset = (name: string) => structuredClone(FIXTURE.datasets[name].dataset)
 
-interface DrawnAxis { ticks: number[]; domain: [number, number]; labels: string[]; width: number; interval: string | null }
+interface DrawnAxis { ticks: number[]; domain: [number, number]; labels: string[]; width: number; interval: string | null; fontSize: number; tickMargin: number }
 
 const chartOf = (title: string): ChartId =>
   title.endsWith('& growth') ? 'topline' : title === 'Margins' ? 'margins' : title === 'Cash generation' ? 'cash' : 'balance'
@@ -59,6 +61,7 @@ function drawnAxes(ds: AnalysisDataset): Partial<Record<ChartId, Record<string, 
       axes[axis.dataset.yAxis!] = {
         ticks: JSON.parse(axis.dataset.ticks!), domain: JSON.parse(axis.dataset.domain!), labels: JSON.parse(axis.dataset.labels!),
         width: Number(axis.dataset.width), interval: axis.dataset.interval ?? null,
+        fontSize: Number(axis.dataset.fontSize), tickMargin: Number(axis.dataset.tickMargin),
       }
     }
     charts[chartOf(plot.dataset.analysisChart!)] = axes
@@ -67,8 +70,12 @@ function drawnAxes(ds: AnalysisDataset): Partial<Record<ChartId, Record<string, 
   return charts
 }
 
+/** The room a y tick label takes as Recharts draws it: its glyphs at the tick's font size and Geist Mono's 0.6 em
+ *  advance, set in from the plot by the tick margin and Recharts' 6 px tick length, which it keeps with the line off. */
+const labelRoom = (axis: DrawnAxis, label: string) => [...label].length * axis.fontSize * 0.6 + axis.tickMargin + 6
 const engineAxis = (panel: ModelPanel) => ({ ticks: panel.axis.ticks, domain: panel.axis.domain, labels: panel.axis.ticks.map(panel.axis.format.tick) })
-const sameAxis = ({ ticks, domain, labels }: DrawnAxis) => ({ ticks, domain, labels })
+/** A drawn label prints a no-break space where the engine's has a space (see the one-line test). */
+const sameAxis = ({ ticks, domain, labels }: DrawnAxis) => ({ ticks, domain, labels: labels.map((label) => label.replace(/\u00a0/g, ' ')) })
 const offscale = (panel: ModelPanel) => panel.marks.some((mark) => mark.points.some((point) => point.offscale))
 const valuesOf = (panel: ModelPanel) => panel.marks.flatMap((mark) => mark.points.flatMap((point) => (point.value == null ? [] : [point.value])))
 
@@ -79,7 +86,7 @@ describe.each(DATASETS)('%s: the drawn axes are the engine’s', (name) => {
   it('every axis prints all of its ticks and has room for its widest label', () => {
     for (const axes of Object.values(drawn)) for (const axis of Object.values(axes!)) {
       expect(axis.interval).toBe('0')
-      for (const label of axis.labels) expect(axis.width).toBeGreaterThanOrEqual(Math.ceil(textWidth(label)) + 12)
+      for (const label of axis.labels) expect(axis.width, label).toBeGreaterThanOrEqual(labelRoom(axis, label))
     }
   })
 
@@ -153,6 +160,28 @@ describe('the cases step 2 changes', () => {
     for (const axis of [drawn.cash!.left, drawn.balance!.left, drawn.balance!.right]) expect(axis.labels.slice(1).every((label) => label.startsWith('¥'))).toBe(true)
   })
 
+  it('a code-prefixed currency widens its axes past their floors to hold every label', () => {
+    const ds = dataset('BYND_annual')
+    for (const series of ds.series) if (!series.percent) {
+      series.unit = 'CHF'
+      for (const point of series.points) point.unit = 'CHF'
+    }
+    const axes = Object.values(drawnAxes(ds)).flatMap((chart) => Object.values(chart!))
+    expect(axes.some((axis) => axis.width > 64 && axis.labels.some((label) => label.startsWith('−CHF')))).toBe(true)
+    for (const axis of axes) for (const label of axis.labels) expect(axis.width, label).toBeGreaterThanOrEqual(labelRoom(axis, label))
+  })
+
+  it('a tick label has no space Recharts could break it at', () => {
+    const ds = dataset('BYND_annual')
+    for (const series of ds.series) if (!series.percent) {
+      series.unit = 'CHF'
+      for (const point of series.points) point.unit = 'CHF'
+    }
+    const labels = Object.values(drawnAxes(ds)).flatMap((chart) => Object.values(chart!)).flatMap((axis) => axis.labels)
+    expect(labels).toContain('CHF\u00a00')
+    expect(labels.filter((label) => /[ \f\n\r\t\v\u2028\u2029]/.test(label))).toEqual([])
+  })
+
   it('amounts in two currencies say so instead of drawing one scale', () => {
     const ds = dataset('REGN_annual')
     ds.series.find((series) => series.concept === 'net_income')!.points[3].unit = 'EUR'
@@ -181,6 +210,28 @@ describe('the cases step 2 changes', () => {
     render(<TrendCharts dataset={margins} />)
     const tip = render(tooltips.contents.at(-1)!({ active: true, label: 'FY2025', payload: [{ dataKey: 'net_margin', name: 'Net', value: 31.06, color: '#000' }] })!)
     expect(tip.container.textContent).toContain('31.1%')
+  })
+})
+
+describe('the first chart and the notes agree on what it draws', () => {
+  const yoyNote = (concept: string, period: string) => ({ comparisons: [{ concept, period, basis: 'yoy' }] }) as unknown as DataNote
+
+  it('a note names the growth chart for a comparison it plots, and not once the top line is in two currencies', () => {
+    const ds = dataset('REGN_annual')
+    expect(comparisonLocations(ds, ds.periods, resolveDataNotes(ds))(yoyNote('revenue', 'FY2024'))[0].chart).toBe(1)
+    ds.series.find((series) => series.concept === 'revenue')!.points[3].unit = 'EUR'
+    expect(comparisonLocations(ds, ds.periods, resolveDataNotes(ds))(yoyNote('revenue', 'FY2024'))[0].chart).toBe(0)
+    const { container } = render(<TrendCharts dataset={ds} />)
+    expect(container.querySelector('[data-analysis-chart="Revenue & growth"]')).toBeNull()
+    expect(container.textContent).toContain(MIXED_CURRENCY)
+  })
+
+  it('with no top line in the window, no first chart is drawn, as the engine draws none', () => {
+    const ds = dataset('LOVE_annual')
+    ds.series = ds.series.filter((series) => series.concept !== 'net_interest_income')
+    ds.series.find((series) => series.concept === 'revenue')!.points = []
+    expect(drawnAxes(ds).topline).toBeUndefined()
+    expect(buildChartModel('topline', ds).panels).toEqual([])
   })
 })
 

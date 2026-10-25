@@ -42,8 +42,7 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import analytics from '@/lib/analytics'
 import { formatInstant } from '@/lib/format'
 import { chartDataNotes, exportFilename, exportPanelPng } from '@/features/analysis/lib/chartExport'
-import { textWidth } from '@/features/analysis/lib/charts/layout'
-import { AXIS_CAPS, chartCurrency, MIXED_CURRENCY } from '@/features/analysis/lib/charts/model'
+import { AXIS_CAPS, chartCurrency, chartTopLine, MIXED_CURRENCY } from '@/features/analysis/lib/charts/model'
 import { valueAxis } from '@/features/analysis/lib/charts/scale'
 import {
   ANNUAL_AXIS_HEIGHT,
@@ -58,7 +57,6 @@ import { useDataNotes } from './DataNotesContext'
 import type { DataNote, DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { layoutChartNotes, type ChartNotePosition } from '@/features/analysis/lib/chartNoteLayout'
-import { topLineConcept } from '@/features/analysis/lib/reportPresentation'
 
 const bySeries = (dataset: AnalysisDataset): Record<string, AnalysisSeries> =>
   Object.fromEntries(dataset.series.map((s) => [s.concept, s]))
@@ -68,9 +66,18 @@ const bySeries = (dataset: AnalysisDataset): Record<string, AnalysisSeries> =>
  *  so none is clipped (A3 waits for the engine's own renderer). */
 type EngineAxis = ReturnType<typeof valueAxis>
 
-/** Wide enough for the axis's longest tick label (11 px data face, 0.6 em a glyph) and its 8 px margin. */
-const axisWidth = (axis: EngineAxis, min: number) =>
-  Math.max(min, Math.ceil(Math.max(0, ...axis.ticks.map((tick) => textWidth(axis.format.tick(tick))))) + 12)
+/** Wide enough for the axis's widest tick label as Recharts draws it: in yAxisProps' font size at Geist Mono's 0.6 em
+ *  advance, set in from the plot by its tick margin and the tick length Recharts keeps when the tick line is off. */
+const Y_TICK = yAxisProps(false)
+const RECHARTS_TICK_SIZE = 6
+const axisWidth = (axis: EngineAxis, min: number) => {
+  const glyphs = Math.max(0, ...axis.ticks.map((tick) => [...axis.format.tick(tick)].length))
+  return Math.max(min, Math.ceil(glyphs * Y_TICK.tick.fontSize * 0.6) + RECHARTS_TICK_SIZE + Y_TICK.tickMargin)
+}
+
+/** An axis's tick label, kept on one line. Recharts breaks a label at a space when its own measure (not in Geist Mono)
+ *  finds it wider than the axis, which drew "CHF 20B" as "CHF" over "20B"; it never breaks at a no-break space. */
+const tickLabel = (axis: EngineAxis) => (value: number) => axis.format.tick(value).replace(/ /g, '\u00a0')
 
 /** A tooltip prints the axis's own formats: amounts at the panel's 3 significant figures, percents at 1 dp. */
 const tooltipValue = (axis: EngineAxis, value: number) => (axis.format.kind === 'money' ? axis.format.value(value) : axis.format.value(value, 1))
@@ -551,7 +558,7 @@ function PanelCard({
                 label={periodAxisLabel(dataset.mode, dark)}
               />
               <YAxis yAxisId="value" {...yAxisProps(dark)} width={axisWidth(leftAxis, 64)}
-                domain={leftAxis.domain} ticks={leftAxis.ticks} interval={0} tickFormatter={leftAxis.format.tick} />
+                domain={leftAxis.domain} ticks={leftAxis.ticks} interval={0} tickFormatter={tickLabel(leftAxis)} />
               <YAxis
                 yAxisId="growth"
                 orientation="right"
@@ -560,7 +567,7 @@ function PanelCard({
                 domain={growthAxis.domain}
                 ticks={growthAxis.ticks}
                 interval={0}
-                tickFormatter={growthAxis.format.tick}
+                tickFormatter={tickLabel(growthAxis)}
               />
               <Tooltip
                 cursor={barCursorProps(dark)}
@@ -619,7 +626,7 @@ function PanelCard({
                 domain={leftAxis.domain}
                 ticks={leftAxis.ticks}
                 interval={0}
-                tickFormatter={leftAxis.format.tick}
+                tickFormatter={tickLabel(leftAxis)}
               />
               {rightEntry && rightAxis && (
                 <YAxis
@@ -630,7 +637,7 @@ function PanelCard({
                   domain={rightAxis.domain}
                   ticks={rightAxis.ticks}
                   interval={0}
-                  tickFormatter={rightAxis.format.tick}
+                  tickFormatter={tickLabel(rightAxis)}
                   // The right axis is the ONE colored scale: a 2px spine + tick nibs in its single
                   // series' hue bind that line to this scale by color, and the head-tag names it.
                   // Tick NUMBERS stay neutral (yAxisProps' tick fill, spread first) — no top-level
@@ -685,13 +692,15 @@ export default function TrendCharts({
   const notes = useDataNotes(dataset)
   const series = useMemo(() => bySeries(dataset), [dataset])
 
-  const topLine = topLineConcept(dataset)
+  // The engine's top line (revenue, else net interest income, else premiums earned, with a value in the window), as
+  // the KPI strip and the notes read it; with none, the panel is not drawn.
+  const topLine = chartTopLine(dataset)
 
   const panels: PanelSpec[] = [
     {
-      title: series[topLine]?.label ? `${series[topLine].label} & growth` : 'Top line & growth',
+      title: topLine ? `${topLine.label} & growth` : 'Top line & growth',
       lines: [],
-      bar: [topLine, series[topLine]?.label ?? 'Top line'],
+      bar: topLine ? [topLine.concept, topLine.label] : undefined,
       growthLine: true,
       kind: 'money',
       caps: { left: AXIS_CAPS.topline, right: AXIS_CAPS.growth },

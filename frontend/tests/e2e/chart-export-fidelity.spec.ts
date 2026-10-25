@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
-import { openAnalysis, type AnalysisTheme } from './fixtures/analysisLayoutApi'
+import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
+import { openAnalysis, type AnalysisGeometryState, type AnalysisTheme } from './fixtures/analysisLayoutApi'
 
 /**
  * The downloaded chart PNG paints the plot the reader saw. The export rasterizes the plot's SVG as an
@@ -31,10 +32,22 @@ declare global {
 // not. With it on, every glyph edge differed (1.6–1.7% of a plot's pixels) though both drew Geist Mono.
 test.use({ launchOptions: { args: ['--disable-lcd-text'] } })
 
+/** Every amount in Swiss francs: the tick labels then carry a no-break space ("CHF\u00a020B"), which the faces must cover. */
+const inSwissFrancs = (dataset: AnalysisDataset) => {
+  for (const series of dataset.series) if (!series.percent) {
+    series.unit = 'CHF'
+    for (const point of series.points) point.unit = 'CHF'
+  }
+}
+const CASES: Array<[string, AnalysisGeometryState, ((dataset: AnalysisDataset) => void) | undefined]> = [
+  ['quarterly', 'captured', undefined],
+  ['annual in CHF', 'annual', inSwissFrancs],
+]
+
 test.describe.configure({ mode: 'parallel' })
 
-for (const theme of THEMES) {
-  test.describe(`chart PNG export / ${theme}`, () => {
+for (const theme of THEMES) for (const [name, state, edit] of CASES) {
+  test.describe(`chart PNG export / ${theme} / ${name}`, () => {
     test.use({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: SCALE, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
 
     test('paints each plot in the fonts the screen shows', async ({ page, baseURL }, testInfo) => {
@@ -50,7 +63,7 @@ for (const theme of THEMES) {
           return (draw as (...rest: unknown[]) => void).apply(this, args)
         }
       })
-      await openAnalysis(page, baseURL!, 'captured', theme)
+      await openAnalysis(page, baseURL!, state, theme, 1, false, edit)
       const plots = page.locator('[data-analysis-chart]')
       await expect(plots).toHaveCount(4)
       const buttons = page.getByRole('button', { name: 'Download chart as PNG', exact: true })
