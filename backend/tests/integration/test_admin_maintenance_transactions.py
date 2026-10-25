@@ -283,22 +283,21 @@ def test_two_reset_alls_count_their_deletes_once(postgres_engine):
     assert _summaries(postgres_engine) == 0
 
 
-# Each write that reports what it found, and how its report says it found something.
+# Each write that reports what it found, and how its report says it found something: the filing reset's, any of the
+# four things it clears, so one that read the filing before the lock and reported its XBRL again fails too.
 REPORTED = {
-    "summary delete": (lambda ids: _summary_delete(ids[0]), lambda deleted: deleted),
-    "XBRL clear": (lambda ids: lambda db: admin_filing_service.clear_filing_xbrl(db, ids[0]), lambda had: had),
-    "filing reset": (lambda ids: lambda db: admin_filing_service.reset_filing(db, ids[0]),
-                     lambda deleted: deleted["summary"]),
-    "bulk reset": (lambda ids: lambda db: admin_filing_service.bulk_reset_stale_xbrl(
-        db, year_threshold=1, dry_run=False, actor=ACTOR), lambda affected: affected),
+    "summary delete": lambda deleted: deleted,
+    "XBRL clear": lambda had: had,
+    "filing reset": lambda deleted: any(deleted.values()),
+    "bulk reset": lambda affected: affected,
 }
 
 
 @pytest.mark.parametrize("write", sorted(REPORTED))
 def test_two_of_one_write_at_once_report_what_they_found_once(postgres_engine, write):
     """The second reads after the first's commit and finds nothing to delete or clear, so only one reports it."""
-    make, found = REPORTED[write]
-    run = make(_filing_ids(postgres_engine))
+    found = REPORTED[write]
+    run = WRITES[write](_filing_ids(postgres_engine))
     results, errors = _two_writes_behind_the_lock(postgres_engine, run, run)
     assert errors == [None, None], errors
     assert sorted(bool(found(result)) for result in results) == [False, True], results

@@ -2875,7 +2875,7 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
         # locks, so here a bulk reset or reset-all can read before another's delete commits, then report, and a
         # reset-all audit, rows the other deleted; on PostgreSQL the maintenance lock runs them one at a time, and
         # each after the first finds nothing (tests/integration/test_admin_maintenance_transactions.py). Each audit
-        # row names the admin whose request wrote it, and what that request changed.
+        # row names the admin whose request wrote it, and what that request answered.
         assert summaries == (0 if case in ("delete_summary", "reset_filing", "bulk_reset", "reset_all") else 8)
         assert xbrl == (0 if case in ("clear_xbrl", "reset_filing", "bulk_reset") else 8)
         assert caches == (0 if case == "reset_filing" else 8)
@@ -2885,8 +2885,8 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
                 ("feedback_status_changed", admin_ids[email], email, str(feedback_ids[i]), (("status", "triaged"),))
                 for i, email in enumerate(emails))
         elif case == "reset_all":
-            # One row for each reset-all that found the eight summaries to delete, counting them, and none for one
-            # that found none.
+            # One row for each reset-all whose plan found the eight summaries, with the count it answered, and none
+            # for one whose plan found none.
             deleted = (("deleted_count", 8), ("filing_type", None), ("include_saved", False), ("skipped_saved_count", 0))
             assert audits == sorted(
                 ("summaries_bulk_reset", admin_ids[emails[i]], emails[i], "", deleted)

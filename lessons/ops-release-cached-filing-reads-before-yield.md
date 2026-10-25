@@ -218,7 +218,7 @@ out. `test_admin_maintenance_transactions.py` races them on PostgreSQL in CI: no
 write at once, for each of the five, report what they found once, the second reading after the first's
 commit; each write waits for the lock; and, without it, the deadlock. Their burst case holds every
 checkout, statement and release off the loop, each answer, each route's rows, and each audit row's admin
-and what its request changed (2026-10-25, E171).
+and the count its request answered (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
