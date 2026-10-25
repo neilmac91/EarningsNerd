@@ -809,9 +809,11 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  The sentence above the table names the calculated metrics in place of a dagger on each
                  figure (reportPresentation calculatedMetricsSentence, from the chart engine's
                  fullyCalculated): every series whose values in the run are all calculated, as the
-                 dataset labels it, its first letter lowercased unless it opens an abbreviation: “Figures
-                 are rounded for display; operating margin, net margin and free cash flow are calculated
-                 from filed figures. Select any value for its source and full precision.” With none,
+                 dataset labels it, its first letter lowercased unless it opens an abbreviation, and a
+                 ratio with its article. Two or more margins read as “margins” when every margin of the
+                 run is calculated (a reported gross margin keeps them named one by one): “Figures are
+                 rounded for display; margins, free cash flow, working capital and the current ratio are
+                 calculated from filed figures. Select any value for its source and full precision.” With none,
                  “Figures are rounded for display. Select any value for its source and full precision.”
                  A row calculated in only some periods is not named; its controls say “calculated”.
                  The table's glyph budget reserves room for a marked letter only (tableTokenBudget).

@@ -117,6 +117,25 @@ describe('MetricsTable', () => {
     partly.series = [annual.series[0], annual.series[2], { ...annual.series[1], points: [annual.series[1].points[0], { ...annual.series[1].points[1], provenance: reported }] }]
     rerender(<MetricsTable dataset={partly} />)
     expect(screen.getByText('Figures are rounded for display; free cash flow is calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
+
+    // Every margin of the run calculated reads as "margins", where the first margin stands; a ratio takes "the".
+    const regn = structuredClone(annual)
+    regn.series = [
+      row('revenue', 'Revenue', reported), row('operating_margin', 'Operating margin', calculated, true), row('net_margin', 'Net margin', calculated, true),
+      row('free_cash_flow', 'Free cash flow', calculated), row('working_capital', 'Working capital', calculated), row('current_ratio', 'Current ratio', calculated),
+    ]
+    rerender(<MetricsTable dataset={regn} />)
+    expect(screen.getByText('Figures are rounded for display; margins, free cash flow, working capital and the current ratio are calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
+    // A reported margin keeps the calculated ones named one by one: "margins" would claim it too.
+    const gross = structuredClone(regn)
+    gross.series.splice(1, 0, row('gross_margin', 'Gross margin', reported, true))
+    rerender(<MetricsTable dataset={gross} />)
+    expect(screen.getByText('Figures are rounded for display; operating margin, net margin, free cash flow, working capital and the current ratio are calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
+    // The margins alone still take "are".
+    const marginsOnly = structuredClone(regn)
+    marginsOnly.series = regn.series.slice(0, 3)
+    rerender(<MetricsTable dataset={marginsOnly} />)
+    expect(screen.getByText('Figures are rounded for display; margins are calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
   })
 
   it('hides the CAGR column entirely in quarterly mode (dead UI otherwise)', () => {
