@@ -2486,7 +2486,11 @@ the text `0†₹₪₱`, since with no text the Font Loading API takes the lati
 and no route preloads latin-ext (spec §0.5). Past the wait a plot paints in the loader's monospace fallback (§8),
 whose glyphs share one advance as the plan's widths assume. Every chart keeps its 320 px card,
 and one that does not apply says why in it; a grid row's cards share its rows (subgrid: header, plot, notes), so its
-plots start at one height whatever its legends wrap to. Its keyboard contract (E193) keeps the shape of the one
+plots start at one height whatever its legends wrap to. While its font loads a plot holds bones from its own plan,
+gridlines and bars, and its card is `aria-busy`, and while the renderer's chunk loads the grid holds four cards of bones
+under one `role="status"` (`TrendChartBones.tsx`); the export is `<Button loading>` while its PNG is drawn, and a
+toggle runs the plot's row to its new height (`duration-base`, `ease-standard`, none under reduced motion; E200). Its
+keyboard contract (E193) keeps the shape of the one
 above, on the engine's slots, with these differences. The values stop is a slider over the periods, a transparent
 layer over the viewport after it in the Tab order, ringing the viewport whatever the scroll, whose value text is the
 period's readout (`lib/charts/readout.ts`): the period and its end date, then each series' value at 4

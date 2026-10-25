@@ -309,13 +309,16 @@ list included) and the str of a log's body that is not text only after `before_s
   `token_bytes(...)`. Another codec, `ascii`, raises on a non-ASCII value too, and so do `b64decode` and
   `bytes.fromhex` on a malformed caller value; a value decoded first and held in a name is not bytes by its form
   either. Compare in the encoded form instead: `compare_digest(base64.b64encode(mac.digest()), signature.encode())`.
+- **The FMP refresh** (E17), in `backend/tests/unit/test_refresh_index_membership_script.py`: `--source fmp` runs
+  against a real httpx client on a mock transport, with a sentinel key and httpx's request log open. An HTTP 4xx or
+  5xx, a transport error or timeout whose text quotes the keyed URL, and a malformed answer each exit non-zero
+  naming the route and the status, the error's class or the answer's shape, and the key, the URL and the host reach no log record,
+  stdout or stderr.
 
 The agent clause is not machine-gated and stays session reading.
 
-**Known ungated echoes.** Two are open follow-ups in `tasks/todo.md` (E17, E18); the rest are accepted limits,
+**Known ungated echoes.** One is an open follow-up in `tasks/todo.md` (E18); the rest are accepted limits,
 each with its reason:
-- `scripts/refresh_index_membership.py --source fmp` logs an HTTP error's message (the FMP URL with its key) and
-  lets httpx log each request URL at INFO; the monthly workflow uses the keyless Wikipedia source (todo E17);
 - a provider's own error text can quote a masked key's last four characters (Stripe's and the AI providers'
   invalid-key messages): callers log it, and `app/routers/subscriptions.py` returns Stripe's message as the
   checkout and portal error detail (todo E18);

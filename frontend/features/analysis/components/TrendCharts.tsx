@@ -53,6 +53,7 @@ import {
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import ChartControl from './ChartControl'
+import { TrendChartsSkeleton } from './TrendChartBones'
 import DataNotesLink from './DataNotesLink'
 import { useDataNotes } from './DataNotesContext'
 import type { DataNote, DataNotesModel } from '@/features/analysis/lib/dataNotes'
@@ -755,11 +756,13 @@ function RechartsTrendCharts({
 /** The spec renderer (lib/featureFlags CHARTS_V2, E192), its own chunk so the flag-off route loads none of it. With
  *  `loading` the lazy load gets its own Suspense boundary, and the error boundary sits outside the chunk, so one that
  *  fails to load (a stale client after a deploy) says the charts could not be drawn instead of taking the route down.
- *  `loading` rethrows the error the pages-router loader hands it, so either next/dynamic reaches the boundary. */
+ *  `loading` rethrows the error the pages-router loader hands it, so either next/dynamic reaches the boundary, and
+ *  otherwise draws the grid's bones. */
 const TrendChartsV2 = dynamic(() => import('./TrendChartsV2'), {
   loading: ({ error }) => {
     if (error) throw error
-    return null
+    // Spec §3.9 `loading`: four cards of bones at the card's height hold the grid's place (E200).
+    return <TrendChartsSkeleton />
   },
 })
 // While the flag is on the chunk starts loading with this module, before a run's results ask for it. A failure here
