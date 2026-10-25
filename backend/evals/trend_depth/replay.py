@@ -5,8 +5,11 @@
 
 Calls no model. The base gate is ``factcheck.py`` as committed at ``--base`` (read with ``git show`` into a
 temporary module), so the comparison needs no frozen copy in the tree. Every first pass and every final output
-of every system in ``runs/<label>/`` is checked (``current`` keeps no sentences and is skipped), and so are the
-gold examples (``gold.py``). Printed:
+of every system in ``runs/<label>/`` is checked against the pack that system reads (``packs-v2/`` for the ``-p``
+and ``-c`` arms), and so are the gold examples (``gold.py``); ``current`` keeps no sentences and is skipped. A
+version-2 record's first pass is the model's own first output (``report.first_output``), before the code's
+retyping and auto-citation. A version-2 run decides with the gate now and ``backstops=True``, a version-1 run made
+today with the gate now alone, and eval-v1 decided with the base gate. Printed:
 
 1. Every sentence whose result flips between the base gate and the gate now, either way, with its failures.
 2. The same between the gate now and the gate now with ``backstops=True``.
@@ -15,7 +18,8 @@ gold examples (``gold.py``). Printed:
 4. The planted errors of ``plant-sem``: each sentence that differs from the output it was planted into
    (``--plant-source``), and whether each gate fails it. The relabels were planted for the semantic audit; a
    gate that never caught them is expected to pass them.
-5. Probe hits per run, system and kind (``probes.py``), in final outputs and in first passes.
+5. Probe hits per run, system and kind (``probes.py``), in final outputs and in first passes; ``broken_debt`` reads
+   the pack's own debt breaks, as the gate does, so it is silent on version-1 packs.
 """
 from __future__ import annotations
 
@@ -32,6 +36,8 @@ from typing import Any, Iterator, Optional
 
 from evals.trend_depth import bootstrap, factcheck, gold, probes
 from evals.trend_depth.generate import RUNS, load_pack, sentences_of
+from evals.trend_depth.providers import packs_dir
+from evals.trend_depth.report import first_output
 
 LABELS = ("eval-v1", "dev-v3", "dev-v4", "plant-sem")
 SKIP = ("judge", "causes", "semantics")  # audit and verdict folders beside the systems
@@ -52,20 +58,33 @@ def base_gate(commit: str) -> ModuleType:
     return module
 
 
+def _first_pass(record: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """The model's first output when it differs from the final one: a repaired version-1 record's first pass, or a
+    version-2 record's own first reply (its recorded first pass already carries the code's fixes); None otherwise."""
+    if record.get("pipeline") == "v2":
+        first = first_output(record)
+        return first if first is not None and first != record["output"] else None
+    first = record.get("first_pass_output")
+    return first if isinstance(first, dict) else None
+
+
 def records(labels: list[str]) -> Iterator[tuple[str, str, str, dict[str, Any], list[dict[str, Any]], Optional[list[dict[str, Any]]]]]:
-    """(label, system, ticker, pack, final sentences, first-pass sentences or None when there was no repair) for
-    every recorded output, then the gold examples."""
-    packs: dict[str, dict[str, Any]] = {}
+    """(label, system, ticker, pack, final sentences, first-pass sentences or None when the first pass is the final
+    output) for every recorded output, each against the pack its system reads, then the gold examples."""
+    packs: dict[tuple[str, str], dict[str, Any]] = {}
     for label in labels:
         for folder in sorted(p for p in (RUNS / label).iterdir() if p.is_dir() and not p.name.startswith(SKIP)):
             for path in sorted(folder.glob("*.json")):
                 record = json.loads(path.read_text())
                 if not isinstance(record.get("output"), dict):
                     continue
-                pack = packs.setdefault(record["ticker"], load_pack(record["ticker"]))
-                first = record.get("first_pass_output")
+                key = (packs_dir(folder.name, bootstrap.RECORDS).name, record["ticker"])
+                if key not in packs:
+                    packs[key] = load_pack(record["ticker"], folder.name)
+                pack = packs[key]
+                first = _first_pass(record)
                 yield (label, folder.name, record["ticker"], pack, sentences_of(record["output"]),
-                       sentences_of(first) if isinstance(first, dict) else None)
+                       sentences_of(first) if first is not None else None)
     for path in sorted(gold.GOLD.glob("*.md")):
         if (bootstrap.RECORDS / "packs" / f"{path.stem}.json.gz").exists():
             yield "gold", "gold", path.stem, gold.pack_with_extras(path.stem), factcheck.sentences_from_markdown(path.read_text()), None
@@ -119,7 +138,7 @@ def main() -> None:
                 if changed:
                     sections[section] += [f"{name}: {'pass' if results[a]['passed'] else 'FAIL'} -> "
                                           f"{'pass' if results[b]['passed'] else 'FAIL'}", *changed]
-            for hit in probes.probe(sentences, pack):
+            for hit in probes.probe(sentences, pack) + probes.broken_debt(sentences, pack):
                 hits[(label, system, which)][hit["kind"]] += 1
                 if first is None:
                     hits[(label, system, "first")][hit["kind"]] += 1

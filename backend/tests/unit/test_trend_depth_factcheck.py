@@ -134,7 +134,27 @@ ORCL_GAP = _pack(("D443", "Revenue growth minus operating-cost growth", "FY2026"
                  ("D442", "Incremental operating margin (change in operating income / change in revenue)", "FY2026", 29.403494677646115, "pct"),
                  ("D395", "Incremental operating margin (change in operating income / change in revenue)", "FY2025", 52.38846327174402, "pct"))
 CVX_NET_MARGIN = _pack(("D613", "Net margin window median", "FY2016..FY2025", 7.910239377, "pct"),
+                       ("F28", "Net margin", "FY2023", 10.8677, "pct"),
                        ("F29", "Net margin", "FY2024", 9.1513540902, "pct"), ("F30", "Net margin", "FY2025", 6.6691246638, "pct"))
+# Revenue growth minus operating-cost growth when both fell: costs fell less than revenue (CVX), and DE held out.
+CVX_GAP = _pack(("D379", "Revenue growth minus operating-cost growth", "FY2025", -1.2221, "pp"))
+DE_GAP = _pack(("D431", "Revenue growth minus operating-cost growth", "FY2025", -4.4113, "pp"))
+# packs-v2's same-year net margin minus operating margin (CAT: net margin is 3.4pp below operating margin).
+CAT_MARGIN_GAP = _pack(("D1168", "Net margin minus operating margin (pp, same year)", "FY2025", -3.3541, "pp"))
+# Margin bridges of two years: cost of revenue's effect in FY2023 and FY2024 (CAT), R&D's and other lines' in FY2025
+# and FY2026 (MSFT); the FY2023 and FY2024 operating-margin changes.
+CAT_BRIDGE = _pack(("D384", "Operating-margin effect of cost of revenue (pp)", "FY2023", 5.8069, "pp"),
+                   ("D437", "Operating-margin effect of cost of revenue (pp)", "FY2024", 1.7474, "pp"),
+                   ("D370", "Operating margin change", "FY2023", 6.0346, "pp"),
+                   ("D423", "Operating margin change", "FY2024", 0.8351, "pp"))
+MSFT_BRIDGE = _pack(("D447", "Operating-margin effect of R&D (pp)", "FY2025", 0.507, "pp"),
+                    ("D448", "Operating-margin effect of other lines (residual, pp)", "FY2025", 1.4113, "pp"),
+                    ("D501", "Operating-margin effect of R&D (pp)", "FY2026", 0.8152, "pp"),
+                    ("D502", "Operating-margin effect of other lines (residual, pp)", "FY2026", 1.2233, "pp"))
+# Haiku-low VRTX: FY2025's operating margin recovered to 34.8% from -2.1% in FY2024.
+VRTX_MARGIN = _pack(("D663", "Operating margin window median", "FY2016..FY2025", 31.7702, "pct"),
+                    ("F33", "Operating margin", "FY2023", 38.8279, "pct"), ("F34", "Operating margin", "FY2024", -2.1134, "pct"),
+                    ("F35", "Operating margin", "FY2025", 34.7737, "pct"))
 JPM_SHARES = _pack(("X102", "Share repurchases (cash)", "FY2025", 31_591_000_000.0, "usd"),
                    ("X101", "Share repurchases (cash)", "FY2024", 18_830_000_000.0, "usd"),
                    ("D224", "Diluted share count change", "FY2025", -3.386592566863494, "pct"),
@@ -171,16 +191,49 @@ def test_a_minus_sign_after_the_dollar_sign_is_parsed() -> None:
                          "charges and the FDIC special assessment dropped out [P10].", None),
         (USB_EFFICIENCY, "The ratio worsened 3.9pp from 62.9% in FY2024 [D195] to 59.0% [D220].", "other way"),
         (USB_EFFICIENCY, "Operating margin improved 3.2pp in FY2025 [F29][F30].", "other way"),
+        # ... and only those words: a plain rise or fall of the ratio reads as it is.
+        (USB_EFFICIENCY, "The efficiency ratio fell 3.9pp in FY2025 [D195][D220].", None),
+        (USB_EFFICIENCY, "The efficiency ratio rose 3.9pp in FY2025 [D195][D220].", "other way"),
         # A difference labelled "A minus B", said as B against A (Sonnet ORCL): costs did grow 0.35pp faster.
         (ORCL_GAP, "Operating costs grew 0.3pp faster than revenue in FY2026, and incremental operating margin was "
                    "29.4% against 52.4% in FY2025 [D443][D442][D395].", None),
         (ORCL_GAP, "Revenue grew 0.3pp faster than operating costs in FY2026 [D443].", "other way"),
-        # "<year> <noun> from": the figure is the year before's level (DeepSeek CVX); its repair's "from 6.7%",
-        # FY2025's own level, is wrong.
+        # The comparative decides with the naming order: "slower" or "less" says the side named first trails.
+        (ORCL_GAP, "Operating costs grew 0.3pp slower than revenue in FY2026 [D443].", "other way"),
+        (ORCL_GAP, "Operating costs rose 0.3pp less than revenue in FY2026 [D443].", "other way"),
+        (ORCL_GAP, "Revenue grew 0.3pp slower than operating costs in FY2026 [D443].", None),
+        (ORCL_GAP, "Operating costs grew faster than revenue by 0.3pp in FY2026 [D443].", None),
+        (CVX_GAP, "Operating costs grew 1.2pp slower than revenue in FY2025 [D379].", "other way"),
+        (CVX_GAP, "Operating costs fell 1.2pp less than revenue in FY2025 [D379].", None),
+        (CVX_GAP, "Operating costs fell 1.2pp more than revenue in FY2025 [D379].", "other way"),
+        (CVX_GAP, "Revenue fell 1.2pp more than operating costs in FY2025 [D379].", None),
+        (DE_GAP, "Operating costs fell 4.4pp less than revenue in FY2025 [D431].", None),
+        # A side is its whole phrase: "operating income" or "operating expenses" before "net margin" is not
+        # operating margin named first.
+        (CAT_MARGIN_GAP, "Below operating income, net margin fell 3.4pp under operating margin in FY2025 [D1168].", None),
+        (CAT_MARGIN_GAP, "As operating expenses held, net margin dropped 3.4pp below operating margin in FY2025 [D1168].", None),
+        (CAT_MARGIN_GAP, "Below operating income, net margin rose 3.4pp above operating margin in FY2025 [D1168].", "other way"),
+        # "<year> <noun> from": the figure is the year before's level, where the move started (DeepSeek CVX), or the
+        # year's own, the level a move would continue from (its repair) ...
         (CVX_NET_MARGIN, "Watch net margin against the 7.9% window median; a print below it would extend the FY2025 "
                          "slide from 9.2% [D613][F29][F30].", None),
         (CVX_NET_MARGIN, "Watch net margin against the 7.9% window median; a print below it would extend the FY2025 "
-                         "slide from 6.7% [D613][F30].", "not in the period"),
+                         "slide from 6.7% [D613][F30].", None),
+        (VRTX_MARGIN, "Operating margin should hold at or above its 31.8% window median [D663]; a fall below it would "
+                      "reverse the FY2025 recovery from 34.8% [F35], checked in the FY2026 10-K.", None),
+        (CVX_NET_MARGIN, "A print below it would extend the FY2025 slide from 10.9% [D613][F28].", "not in the period"),
+        # ... after "<year> <metric> fell from" only the year before's ...
+        (CVX_NET_MARGIN, "FY2025 net margin fell from 9.2% [F29].", None),
+        (CVX_NET_MARGIN, "FY2025 net margin fell from 6.7% [F30].", "not in the period"),
+        # ... and after any other verb the year's own: "came from" or "benefited from" names a source (MSFT).
+        (MSFT_BRIDGE, "The FY2026 gain came from 1.2pp of other lines and 0.8pp of R&D [D502][D501].", None),
+        (MSFT_BRIDGE, "The FY2026 gain came from 1.4pp of other lines [D448].", "not in the period"),
+        (MSFT_BRIDGE, "In FY2026 margin benefited from 0.5pp of R&D leverage [D447].", "not in the period"),
+        # "Xpp of the <year> gain of Ypp": the year is the whole's, and binds both parts (CAT, MSFT).
+        (CAT_BRIDGE, "Cost of revenue supplied 5.8pp of the FY2023 gain of 6.0pp [D384][D370].", None),
+        (CAT_BRIDGE, "Cost of revenue supplied 1.7pp of the FY2023 gain of 6.0pp [D437][D370].", "not in the period"),
+        (CAT_BRIDGE, "Cost of revenue supplied 5.8pp of the FY2023 gain of 0.8pp [D384][D423].", "not in the period"),
+        (MSFT_BRIDGE, "R&D added 0.5pp in the FY2026 gain of 1.2pp [D447][D502].", "not in the period"),
         # "Since FY2019's 5.4%" keeps binding forward under the rules above (Sonnet JPM).
         (JPM_SHARES, "Buybacks rose to $31.6 billion from $18.8 billion [X102][X101] and diluted shares fell 3.4% [D224], "
                      "the largest fall since FY2019's 5.4% [D80].", None),

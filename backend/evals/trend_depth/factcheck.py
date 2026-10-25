@@ -11,16 +11,22 @@ whose text carries inline citations (``[F12]``, ``[D40][P7]``) into an evidence 
    (growth, CAGR over the periods between them, share, difference, ratio, percentage-point change, sum,
    mean); or a figure printed in a cited filing passage. Signs compare by magnitude ("fell 12%" cites -12%),
    and a direction word next to a signed change must agree with its sign. "Improved" or "worsened" reads
-   inverted for a metric where lower is better (an efficiency or cost ratio); a value labelled "A minus B"
-   reads reversed when the clause names B first ("costs grew 0.3pp faster than revenue").
+   inverted for a metric where lower is better (an efficiency or cost ratio). A value labelled "A minus B" said
+   with "faster", "more", "slower" or "less" reads as the side the clause names first against the other: "costs
+   grew 0.3pp faster than revenue" says costs minus revenue is +0.3, "costs fell 1.2pp less than revenue" says
+   it is +1.2, and "costs grew 0.3pp slower than revenue" says it is -0.3.
 4. If the sentence names fiscal years, the matched value must belong to one of them.
 5. Tier rules: a number with no citation fails; a ``cause`` sentence must cite a filing passage; a
    ``judgement`` sentence may restate cited numbers but never introduce one.
 
 A run passes only with zero failures; ``check(..., backstops=True)`` also fails the backstop probes' hits
-(``probes.py``: a verified number said about another ratio, basis, year or sign). Counts of periods ("three
-consecutive years") are recorded as ``unverified_count`` (they are not values a pack carries) and are left to
-the rubric judge.
+(``probes.py``: a verified number said about another ratio, basis, year or sign, or a debt figure built on a
+debt break the pack names). Counts of periods ("three consecutive years") are recorded as ``unverified_count``
+(they are not values a pack carries) and are left to the rubric judge.
+
+``backstops=False`` is this gate without the probes, not the gate eval-v1 ran: the narrow fixes to its artefacts
+(DEEPSEEK-ERRORS.md fix 7) apply either way. eval-v1's own verdicts come from the gate as committed at ``b3ed8ef``
+(``replay.base_gate``, the report's ``old_gate``).
 """
 from __future__ import annotations
 
@@ -429,9 +435,35 @@ def year_mentions(text: str) -> list[tuple[int, int, set[str]]]:
 
 
 _OF_METRIC_IN = re.compile(r"of [a-z][a-z -]* (?:in|for)", re.I)
-# "the FY2025 slide from 9.2%", "FY2025 margin fell from 9.2%": one or two words and "from" between a year and
-# the figure after it. The figure is where that year's move started, the year before's level.
-_NOUN_FROM = re.compile(r"(?!(?:and|or|but|to|as|then|while)\b)[a-z][a-z-]*(?: [a-z][a-z-]*)? from", re.I)
+# A movement word and "from" between a year and the figure after it, with at most two words before it. Any other
+# word before "from" ("the FY2026 gain came from 1.2pp", "benefited from") names a source, not a level.
+_METRIC_WORDS = r"(?:(?!(?:and|or|but|to|as|then|while)\b)[a-z][a-z&-]* ){0,2}"
+# "FY2025 net margin fell from 9.2%": the figure is where that year's move started, the year before's level.
+_VERB_FROM = re.compile(
+    _METRIC_WORDS + r"(?:fell|rose|declined|dropped|slid|slipped|dipped|climbed|grew|increased|decreased|jumped|"
+    r"recovered|rebounded|eased|shrank|expanded|contracted|widened|narrowed|improved|deteriorated|worsened) from", re.I)
+# "extend the FY2025 slide from 9.2%" (the slide's start, FY2024's level: DeepSeek CVX), "reverse the FY2025 recovery
+# from 34.8%" (the level it would fall away from, FY2025's own: Haiku-low VRTX): after a movement noun both readings
+# occur, so the figure may be the year's or the year before's.
+_NOUN_FROM = re.compile(
+    _METRIC_WORDS + r"(?:slide|decline|drop|fall|rise|gain|recovery|rebound|dip|jump|increase|decrease|climb|slump|"
+    r"improvement|deterioration|expansion|contraction|widening|narrowing)s? from", re.I)
+# "1.7pp of the FY2023 gain of 6.0pp": a year after "of the" or "in the" names the whole the figure before it is a
+# part of, so it binds that figure as well as the one after it.
+_PARTITIVE = (["of", "the"], ["in", "the"])
+
+
+def _forward_years(years: set[str], gap_after: str) -> set[str]:
+    """The years a year binds to the figure after it: the year before after "<year> <metric> fell from", the year or
+    the year before after "<year> <movement noun> from", else the year itself."""
+    if len(years) != 1:
+        return years
+    prior = str(int(next(iter(years))) - 1)
+    if _VERB_FROM.fullmatch(gap_after):
+        return {prior}
+    if _NOUN_FROM.fullmatch(gap_after):
+        return years | {prior}
+    return years
 
 
 def bind_periods(text: str, claims: list[Claim], latest_year: Optional[int]) -> dict[int, set[str]]:
@@ -447,8 +479,10 @@ def bind_periods(text: str, claims: list[Claim], latest_year: Optional[int]) -> 
     its year ("$596.3 million of net debt in FY2025"); a list chain ("8.7%, 16.7% and 42.4% in FY2023 to
     FY2025") links figures of one unit only. A year after "the" that names the figure after it ("19.4%
     matched the FY2021 high of 19.6%") binds that figure only; with no figure after it, it still binds back
-    ("$14.3 billion was the FY2025 high"). A figure after "<year> <noun> from" ("the FY2025 slide from
-    9.2%") is the year before's level.
+    ("$14.3 billion was the FY2025 high"). After "of the" or "in the" the year names the whole a figure is part
+    of and binds the figures on both sides ("1.7pp of the FY2023 gain of 6.0pp"). A figure after "<year>
+    <metric> fell from" is the year before's level; after "<year> <movement noun> from" ("the FY2025 slide from
+    9.2%") it is the year's or the year before's (``_forward_years``).
     """
     bound: dict[int, set[str]] = {}
     default: set[str] = set()
@@ -467,7 +501,8 @@ def bind_periods(text: str, claims: list[Claim], latest_year: Optional[int]) -> 
         close_before = gap_before is not None and "," not in gap_before and (
             len(gap_before) <= 12 or (len(gap_before) <= 28 and _OF_METRIC_IN.fullmatch(gap_before) is not None))
         close_after = gap_after is not None and len(gap_after) <= 24 and "," not in gap_after and ";" not in gap_after
-        names_next = close_after and gap_before is not None and gap_before.lower().split()[-1:] == ["the"]
+        partitive = gap_before is not None and gap_before.lower().split()[-2:] in _PARTITIVE
+        names_next = close_after and not partitive and gap_before is not None and gap_before.lower().split()[-1:] == ["the"]
         if close_before and not base_year and not names_next:
             chain = [before[-1]]
             for i in reversed(before[:-1]):
@@ -478,10 +513,10 @@ def bind_periods(text: str, claims: list[Claim], latest_year: Optional[int]) -> 
                     break
             for i in chain:
                 bound.setdefault(i, set()).update(years)
+            if partitive and close_after:
+                bound.setdefault(after[0], set()).update(_forward_years(years, gap_after or ""))
         elif close_after:
-            if len(years) == 1 and _NOUN_FROM.fullmatch(gap_after or ""):
-                years = {str(int(next(iter(years))) - 1)}
-            bound.setdefault(after[0], set()).update(years)
+            bound.setdefault(after[0], set()).update(_forward_years(years, gap_after or ""))
         elif not before and a <= 12:
             default = years
     if default:
@@ -491,32 +526,68 @@ def bind_periods(text: str, claims: list[Claim], latest_year: Optional[int]) -> 
 
 
 _CLAUSE_BREAK = re.compile(r"[;:]|,\s+(?:and|but|while|whereas)\b|\bwhile\b|\bwhereas\b|\bbut\b", re.I)
-_MINUS_LABEL = re.compile(r"^(?P<a>.+?) minus (?P<b>.+)$", re.I)
+_MINUS_LABEL = re.compile(r"^(?P<a>.+?) minus (?P<b>.+?)(?:\s*\([^)]*\))?$", re.I)
+# How far the side named first moved against the other: more ("0.3pp faster than revenue"), or less. Words of
+# position ("3.4pp below operating margin") are not comparatives of a move and are read by the direction word alone.
+_MORE, _LESS = r"faster|quicker|more(?!\s+slowly)", r"slower|less|more\s+slowly"
+_COMPARATIVE_AFTER = re.compile(rf"^\s*(?:({_MORE})|({_LESS}))\b", re.I)
+_COMPARATIVE_BEFORE = re.compile(rf"\b(?:({_MORE})|({_LESS}))\s+than\b", re.I)
 _OF_THE_BEFORE = re.compile(r"^\s*of\s+(?:the\s+)?$", re.I)
 _TOTAL_AFTER = re.compile(r"^\s*total\b", re.I)
 _REVENUE_GROWTH = re.compile(r"^revenue growth(?:,|$)", re.I)
 
 
-def _clause_of(text: str, claim: Claim) -> str:
-    """The clause holding the claim: from the last clause break before it to the next one after it."""
+def clause_span(text: str, claim: Claim) -> tuple[int, int]:
+    """Where the clause holding the claim starts and ends: the last clause break before it, the next one after it."""
     head = [m.end() for m in _CLAUSE_BREAK.finditer(text, 0, claim.start)]
     tail = _CLAUSE_BREAK.search(text, claim.start + len(claim.text))
-    return text[head[-1] if head else 0:tail.start() if tail else len(text)]
+    return head[-1] if head else 0, tail.start() if tail else len(text)
 
 
-def _names_reversed(label: str, clause: str) -> bool:
-    """"Operating costs grew 0.3pp faster than revenue" states the reverse of the value labelled "Revenue growth
-    minus operating-cost growth": the clause names the label's second side before its first."""
+def _clause_of(text: str, claim: Claim) -> str:
+    """The clause holding the claim: from the last clause break before it to the next one after it."""
+    start, end = clause_span(text, claim)
+    return text[start:end]
+
+
+def side_pattern(side: str) -> re.Pattern[str]:
+    """How a sentence names one side of an "A minus B" label: the side's whole phrase ("net margin", so "operating
+    income" is not "operating margin"), its parenthesis dropped; a growth side may go without "growth" ("costs grew
+    faster than revenue"), and a cost may be costs or expenses."""
+    words = side.lower().split()
+    tail = r"(?:\s+growth)?" if len(words) > 1 and words[-1] == "growth" else ""
+    words = words[:-1] if tail else words
+    body = r"\s+".join(re.escape(w).replace(r"\-", "[- ]").replace("cost", "(?:costs?|expenses?)") if w.endswith("cost")
+                       else re.escape(w).replace(r"\-", "[- ]") for w in words)
+    return re.compile(rf"\b{body}{tail}\b", re.I)
+
+
+def _named_sign(label: str, text: str, claim: Claim) -> int:
+    """-1 when the cited "A minus B" value is to be read reversed against the sentence's direction word, else 1.
+
+    The clause says the side it names first moved more ("faster", "more") or less ("slower", "less") than the other,
+    right after the figure ("costs grew 0.3pp faster than revenue") or before it ("grew faster than revenue by
+    0.3pp"). First minus second then has the direction word's sign, times -1 for "less" or "slower": "costs fell
+    1.2pp less than revenue" says costs minus revenue is +1.2. The gate checks the direction word against the cited
+    value, so that value reverses when exactly one of "B is named first" and "less" holds: "costs grew 0.3pp faster"
+    and "revenue grew 0.3pp slower" both agree with A minus B at -0.3. With no such comparative ("3.4pp below
+    operating margin" is a position, not a move) the value keeps its sign."""
     found = _MINUS_LABEL.match(label)
     if not found:
-        return False
-    a, b = found.group("a").lower().split(), found.group("b").lower().split()
-    a_key = next((w for w in a if w not in b), None)
-    b_key = next((w for w in b if w not in a), None)
-    if not a_key or not b_key:
-        return False
-    a_at, b_at = (re.search(r"\b" + re.escape(k).replace(r"\-", "[- ]"), clause, re.I) for k in (a_key, b_key))
-    return bool(a_at and b_at and b_at.start() < a_at.start())
+        return 1
+    start, end = clause_span(text, claim)
+    after = _COMPARATIVE_AFTER.match(text[claim.start + len(claim.text):end])
+    lead = text[start:claim.start]
+    # "more than 0.3pp" right before the figure is a bound, not a comparison of the two sides
+    before = [m for m in _COMPARATIVE_BEFORE.finditer(lead) if lead[m.end():].strip()]
+    said = after or (before[-1] if before else None)
+    if said is None:
+        return 1
+    more = 1 if said.group(1) else -1
+    clause = text[start:end]
+    a_at, b_at = (side_pattern(found.group(side)).search(clause) for side in ("a", "b"))
+    b_first = bool(b_at and (a_at is None or b_at.start() < a_at.start()))
+    return more * (-1 if b_first else 1)
 
 
 def _of_the_total(clean: str, claims: list[Claim], claim: Claim) -> bool:
@@ -590,9 +661,8 @@ def analyse_sentence(sentence: dict[str, Any], pack: dict[str, Any]) -> tuple[Se
             as_pct = Claim(claim.text, claim.value, "pct", claim.decimals, claim.scale, claim.qualifier, claim.start)
             hits = [c for c in cands if c.how == "cited" and _REVENUE_GROWTH.match(values[c.ids[0]]["label"])
                     and matches(as_pct, c)]
-        clause = _clause_of(clean_text, claim)
         hits = [replace(c, value=-c.value, how=f"reversed {c.ids[0]}")
-                if c.how == "cited" and _names_reversed(values[c.ids[0]]["label"], clause) else c for c in hits]
+                if c.how == "cited" and _named_sign(values[c.ids[0]]["label"], clean_text, claim) < 0 else c for c in hits]
         mentioned = bindings.get(index, set())
         if mentioned:
             in_period = [c for c in hits if not c.periods or set(c.periods) & mentioned]
@@ -632,8 +702,9 @@ def analyse_sentence(sentence: dict[str, Any], pack: dict[str, Any]) -> tuple[Se
 
 def check(sentences: list[dict[str, Any]], pack: dict[str, Any], *, backstops: bool = False) -> dict[str, Any]:
     """The gate over a whole analysis. ``backstops=True`` also fails every hit of the backstop probes' gate kinds
-    (``probes.GATE_KINDS``: a verified number said about another ratio, basis, year or sign); their logic
-    measures never fail a run."""
+    (``probes.GATE_KINDS``: a verified number said about another ratio, basis, year or sign, or a debt figure of a
+    year inside a debt break the pack's own data checks name, so never on a version-1 pack); their logic measures
+    never fail a run."""
     analysed = [analyse_sentence(s, pack) for s in sentences]
     results = [result for result, _ in analysed]
     backstop_failures = 0
@@ -641,8 +712,11 @@ def check(sentences: list[dict[str, Any]], pack: dict[str, Any], *, backstops: b
         from evals.trend_depth import probes  # probes reads this module's resolutions, so it imports it
 
         keys = probes.series_by_id(pack)
+        breaks = probes.debt_breaks(pack)
         for sentence, (result, resolved) in zip(sentences, analysed):
-            for hit in probes.probe_sentence(sentence, pack, resolved, keys):
+            hits = probes.probe_sentence(sentence, pack, resolved, keys) + probes.broken_debt_sentence(
+                sentence, pack, resolved, breaks, keys)
+            for hit in hits:
                 if hit["kind"] in probes.GATE_KINDS:
                     result.failures.append(f"backstop {hit['kind']}: '{hit['claim']}' {hit['detail']}")
                     backstop_failures += 1
