@@ -8,13 +8,14 @@
 export const KPI_FIGURE_ADVANCE = 0.6 * 1.5
 export const KPI_MARK_ADVANCE = 0.6 * 0.6875
 export const KPI_MARK_GAP = 0.125
-/** The glyphs Geist Mono draws at 0.6em that a value or a mark can print: ASCII, the no-break spaces Intl puts after a
- *  code, the dagger, the minus, and the currency signs it has (€ £ ¥ ₹ ₪ ₽). It lacks ₩, ₱ and ₫, which fall back to a
- *  proportional face (about 0.75em in next/font's size-adjusted fallback); any glyph outside this set counts a full em,
- *  so the budget never undercuts what paints. */
-const FIGURE_FACE = /^[ -~  †−€£¥₹₪₽]$/u
+/** The glyphs past ASCII that Geist Mono draws at 0.6em and a value or a mark can print: the no-break spaces Intl puts
+ *  after a code, the dagger, the minus, and the currency signs it has. It has no ₩ or ₫ (E203), which print in the
+ *  monospace fallback or, where that lacks them too, the platform's own face; any glyph outside ASCII and this set
+ *  counts a full em, so the budget never undercuts what paints. tests/e2e/analysis-layout.spec.ts measures each. */
+export const KPI_FACE_GLYPHS = '\u00a0\u202f†−€£¥₹₪₱₽'
 
-const glyphs = (text: string) => [...text].reduce((sum, glyph) => sum + (FIGURE_FACE.test(glyph) ? 1 : 1 / 0.6), 0)
+const glyphs = (text: string) =>
+  [...text].reduce((sum, glyph) => sum + ((glyph >= ' ' && glyph <= '~') || KPI_FACE_GLYPHS.includes(glyph) ? 1 : 1 / 0.6), 0)
 
 /** A value's width on one line: its figure, then its dagger and note letters, if any. */
 export function kpiValueWidth(text: string, calculated: boolean, letter?: string | null): number {

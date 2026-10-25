@@ -7,7 +7,7 @@ import { render } from '@testing-library/react'
 
 import KpiStrip from '@/features/analysis/components/KpiStrip'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { KPI_FIGURE_ADVANCE, KPI_MARK_ADVANCE, KPI_MARK_GAP, kpiValueWidth } from '@/features/analysis/lib/kpiStripLayout'
+import { KPI_FACE_GLYPHS, KPI_FIGURE_ADVANCE, KPI_MARK_ADVANCE, KPI_MARK_GAP, kpiValueWidth } from '@/features/analysis/lib/kpiStripLayout'
 import { compactCurrencyCountUp, fmtCurrency } from '@/lib/format'
 import { SAMPLE_ANALYSIS_DATASET } from '@/features/marketing/lib/landing-samples'
 
@@ -120,9 +120,9 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
   })
 
   it('counts a glyph the figure face lacks at a full em, so the budget never undercuts what paints', () => {
-    // Geist Mono has no ₩, ₱ or ₫: they fall back to a proportional face.
+    // Geist Mono has no ₩ or ₫ (E203): they print in another face, so each counts a full em.
     expect(kpiValueWidth('₩22.8B', true)).toBeCloseTo(kpiValueWidth('$22.8B', true) + (1 - 0.6) * 1.5, 9)
-    expect(kpiValueWidth('€22.8B', false)).toBeCloseTo(6 * 0.9, 9)
+    for (const glyph of KPI_FACE_GLYPHS) expect(kpiValueWidth(`${glyph}22.8B`, false), glyph).toBeCloseTo(6 * 0.9, 9)
   })
 
   it('sets the widest value, as the cards render it, and the tile count on the strip', () => {
