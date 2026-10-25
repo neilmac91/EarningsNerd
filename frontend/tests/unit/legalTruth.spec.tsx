@@ -1816,6 +1816,9 @@ const DETERMINER = new RegExp(String.raw`^(?:${DETERMINER_WORDS})$`, 'i')
 const POINTS_BACK = /^(?:this|that|these|those|such|said)$/i
 /** A subject's head that stands for something named before ("They are cryptographic keys.", "Each one is a key."). */
 const STANDS_FOR = /^(?:it|they|them|these|those|this|that|one|ones|both|each|either|neither)$/i
+/** A word that stands for something named before wherever it stands in a clause ("but we call them cryptographic
+    keys"). */
+const REFERS_BACK = /^(?:it|its|they|them|their|theirs|these|those)$/i
 /** A word that sets one clause apart from another. */
 const CONTRAST = /^(?:while|whereas|but|although|though|however|yet)$/i
 /** A word with which a clause says again what another said, or points back to it ("and neither can refresh tokens",
@@ -1942,9 +1945,10 @@ function anotherCredentials(sentence: string, at: number, said: Set<string>): bo
     phrase, in the token's unit or in one that no contrast sets apart from it ("Refresh tokens are cryptographic
     keys.", "Refresh tokens: keys that renew your session."), or in a unit that carries a token on as its subject
     ("Refresh tokens rotate, but are cryptographic keys."), and, on a page that names a token, in a unit whose subject
-    may stand for one: a pronoun, a word that points back (POINTS_BACK) or none ("..., although they are cryptographic
-    keys.", "They are cryptographic keys.", "These keys are single-use."). In another sentence or item, it may be the
-    token's ("Each key works only once."). "Refresh tokens are reusable, while recovery
+    may stand for one, or that holds a word that does (REFERS_BACK): a pronoun, a word that points back (POINTS_BACK)
+    or none ("..., although they are cryptographic keys.", "They are cryptographic keys.", "These keys are
+    single-use.", "..., but we call them cryptographic keys."). In another sentence or item, it may be the token's
+    ("Each key works only once."). "Refresh tokens are reusable, while recovery
     codes cannot be reused." and "Unlike refresh tokens, recovery codes cannot be reused." say no noun of a token. */
 function nounsSaidOfAToken(blocks: string[]): Set<string> {
   const said = new Set<string>()
@@ -1966,7 +1970,8 @@ function nounsSaidOfAToken(blocks: string[]): Set<string> {
       const carriesAToken = !!carried && mentions.some((j) => j >= carried.start && j < carried.end)
       const subject = unit ? (unit.subject ?? carried) : null
       const pointsBack = !!subject && [...subject.determiners, ...subject.premodifiers.map((word) => word.text)].some((word) => POINTS_BACK.test(word))
-      const standsForAToken = namesAToken && (!subject || STANDS_FOR.test(subject.head.text) || pointsBack)
+      const refersBack = !!unit && tokens.some((word, m) => inUnit(unit, m) && REFERS_BACK.test(word.text))
+      const standsForAToken = namesAToken && (!subject || STANDS_FOR.test(subject.head.text) || pointsBack || refersBack)
       if (A_CREDENTIAL.test(t.text) && !afterUnlike(tokens, n) && (ofAToken || carriesAToken || standsForAToken)) said.add(lemma(t))
     })
   }
@@ -3875,6 +3880,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Refresh tokens rotate, but are cryptographic keys. Each key works only once.</li>', true],
       ['<li>Refresh tokens rotate, although they are cryptographic keys. Each key works only once.</li>', true],
       ['<li>Refresh tokens rotate. They are cryptographic keys. Each key works only once.</li>', true],
+      // ... and a pronoun that is no subject (Codex's thread 4371719132 on 65b5f67e).
+      ['<li>Refresh tokens rotate, but we call them cryptographic keys. Each key works only once.</li>', true],
       // The costs: "and" or a semicolon sets nothing apart, and "single-use" before a credential's noun outside an
       // "unlike" phrase is read as said of its clause's subject, so these fail as on main though the token is not
       // one-use.
