@@ -214,22 +214,34 @@ says so; everything else follows the spec.
     "Values don’t fit at this width. The metrics table lists them." It no longer offers "expand the chart":
     on a one-column phone the expanded view is no wider. A code-prefixed currency's labels ("CHF 4.9B") can reach
     it on a desktop card.
-- **Not yet in the engine.** `theme.ts` (§3.8's tokens) lands with the renderer: its dark tokens are owner decision
-  3 in §0.3. The tolerance file (§1.0, M20) is readout tooling and stays out of the product.
+- **The renderer (step 4, E192)** draws behind `NEXT_PUBLIC_CHARTS_V2`, off in production until the founder's switch
+  decision (F66). `components/TrendChartSvg.tsx` paints one chart's plan as one SVG with visx's `Group`, `Bar` and
+  `LinePath`, in literal attributes; `TrendChartCard.tsx` is the card, which every chart keeps (a chart that does not
+  apply says why at the card's height); `TrendCharts.tsx` loads it as its own chunk while the flag is on.
+  `lib/charts/theme.ts` holds §3.8's tokens for both themes (owner decision 3 in §0.3), held to the table by
+  `tests/unit/chart-theme.spec.ts`; they reach Tailwind with step 6 (E194). The keyboard values stop, the tooltip
+  and the column wash are step 5 (E193). Two readings of D4, which binds a series colour to its data: a line run's
+  path names its periods in `data-period`, space-separated, since it spans them; the value strip's swatches sit in a
+  `data-strip` group. The tolerance file (§1.0, M20) is readout tooling and stays out of the product.
+- **The renderer's gates.** `frontend/tests/unit/trend-charts-v2.spec.tsx` holds the drawing to the plan on the 19
+  datasets, every chart and both views: D4, D5, D7, D11, D12 and D14, every printed string, and paint the export can
+  serialise. `frontend/tests/e2e/charts-v2.spec.ts` runs D1, D2, D8, D9 and D10 in a browser, in both themes at 1280
+  and 390 px, card and expanded, in CI's `e2e-charts-v2` job, which also runs the export's fidelity check (E1)
+  against the renderer. D3, D6 and D13 are not yet run: D6's inks are the table's, measured in the audit.
 - **The gate.** `frontend/tests/unit/chart-engine.spec.ts` runs the model checks M1–M6, M8–M13, M18 and M21, M7,
   M16 and M17 in part, A4 (apart from its planner), A5's letter order and spacing, A7, A13b, G6, L1 for bar labels
   and §3.10's strip, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`
   (chosen from the 73 for their cases, trimmed to the plotted concepts and their quality fields, values unchanged),
   for every chart and both views, at 342, 502 and 1030 px. Golden plans for REGN, LCID, PLUG, BYND, JPM and PGR are
   in `tests/unit/fixtures/chart-golden/`. Before landing, the same checks passed on the audit's 75 datasets (600
-  tests). M14, M15, M19 and M20 and the D checks need a renderer or the table; they land with the renderer.
+  tests). M14, M15, M19 and M20 need the renderer or the table, and are not yet run.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet
   the script cannot read (one served from another origin), the export stops with an error toast rather than paint a
   fallback. `tests/e2e/chart-export-fidelity.spec.ts` holds E1 for every panel in both themes, in Chromium, the one
   browser CI runs (at most 0.1% of plot pixels may differ by more than 25 in a channel; the worst panel measured
-  0.011%, and 1.5–1.7% with the faces left out). Safari and Firefox are not yet checked (E192). The plan's `latin-ext` preload is not taken: the export reads the faces itself, so the preload would only
+  0.011%, and 1.5–1.7% with the faces left out). Safari and Firefox are not yet checked; F66's preview check covers them. The plan's `latin-ext` preload is not taken: the export reads the faces itself, so the preload would only
   spare the screen a brief swap of the † glyph, for 14.7 KB more on every route's critical path.
 - **What this spec supersedes, and when.** When the renderer replaces today's charts (report §10, step 7), this spec
   replaces three rules of `docs/design/analysis-data-notes-redesign-2026-10.md` §4.7 for the four trend charts. Note

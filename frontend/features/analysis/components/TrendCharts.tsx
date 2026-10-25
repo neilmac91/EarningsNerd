@@ -1,5 +1,6 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useContext, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Bar,
@@ -24,7 +25,6 @@ import { useOverflowRegion } from '@/hooks/useOverflowRegion'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import {
   AxisSeriesTag,
-  Button,
   Card,
   ChartTooltip,
   CHART_FONT,
@@ -40,8 +40,8 @@ import {
 import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, ImageSquareIcon } from '@/lib/icons'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import analytics from '@/lib/analytics'
-import { formatInstant } from '@/lib/format'
-import { chartDataNotes, exportFilename, exportPanelPng } from '@/features/analysis/lib/chartExport'
+import { CHARTS_V2 } from '@/lib/featureFlags'
+import { chartDataNotes, exportFilename, exportPanelPng, exportSourceText } from '@/features/analysis/lib/chartExport'
 import { AXIS_CAPS, chartCurrency, chartTopLine, MIXED_CURRENCY } from '@/features/analysis/lib/charts/model'
 import { valueAxis } from '@/features/analysis/lib/charts/scale'
 import {
@@ -52,6 +52,7 @@ import {
 } from '@/features/analysis/lib/periodAxis'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import { formatCompanyName } from '@/lib/formatCompanyName'
+import ChartControl from './ChartControl'
 import DataNotesLink from './DataNotesLink'
 import { useDataNotes } from './DataNotesContext'
 import type { DataNote, DataNotesModel } from '@/features/analysis/lib/dataNotes'
@@ -295,38 +296,6 @@ interface PanelSpec {
   caps: { left: number; right?: number }
 }
 
-/** Icon-only panel-header control. `secondary` (hairline border + resting surface), 32px hit
- *  area, 20px glyphs — the TSLA field test proved the ghost 28px/14px version read as unshipped
- *  (owner decision D3: keep icon-only, make the affordance visible at rest), and the AAPL
- *  follow-up sized the glyphs up from 16px, which still read tiny in production. Native `title`
- *  tooltips + aria semantics carry the labels. */
-function PanelControl({
-  label,
-  expanded,
-  onClick,
-  children,
-}: {
-  label: string
-  /** Disclosure semantics (aria-expanded) — the expand control. */
-  expanded?: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <Button
-      variant="secondary"
-      size="icon-sm"
-      aria-label={label}
-      title={label}
-      aria-expanded={expanded}
-      onClick={onClick}
-      className="shrink-0"
-    >
-      {children}
-    </Button>
-  )
-}
-
 function PanelCard({
   panel,
   dataset,
@@ -476,8 +445,6 @@ function PanelCard({
 
   const exportPng = async () => {
     if (!plotRef.current) return
-    // The source data's sync time, an instant, as the day it falls on in the reader's zone (DataNotes prints the long form).
-    const sourceDate = formatInstant(dataset.data_as_of, 'MMM d, yyyy')
     const downloaded = await exportPanelPng(
       plotRef.current,
       exportFilename(dataset, panel.title, 'png'),
@@ -492,8 +459,7 @@ function PanelCard({
           ticker: dataset.ticker,
           title: panel.title,
           legend: legendItems.length >= 2 ? legendItems : [],
-          sourceNote: `Source: SEC filings via EarningsNerd · ${sourceDate ? `data as of ${sourceDate}` : 'source refresh time unavailable'}`,
-          disclosure: 'Research only. Not investment advice. Data may contain errors or omissions. earningsnerd.io/terms',
+          ...exportSourceText(dataset),
           notes: exportNotes,
         },
       }
@@ -527,11 +493,11 @@ function PanelCard({
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {exportEnabled && (
-            <PanelControl label="Download chart as PNG" onClick={() => void exportPng()}>
+            <ChartControl label="Download chart as PNG" onClick={() => void exportPng()}>
               <ImageSquareIcon className="h-5 w-5" aria-hidden="true" />
-            </PanelControl>
+            </ChartControl>
           )}
-          <PanelControl
+          <ChartControl
             label={expanded ? 'Collapse chart' : 'Expand chart'}
             expanded={expanded}
             onClick={() => setExpanded((v) => !v)}
@@ -541,7 +507,7 @@ function PanelCard({
             ) : (
               <ArrowsOutSimpleIcon className="h-5 w-5" aria-hidden="true" />
             )}
-          </PanelControl>
+          </ChartControl>
         </div>
       </div>
       <ChartViewport label={panel.title} onKeyboardNavigationChange={setKeyboardNavigation}>
@@ -696,7 +662,7 @@ function PanelCard({
  * to full grid width. (Data labels were removed after the AAPL field test — on dense real-world
  * series they collide into unreadable stacks; values live in the tooltip and metrics grid.)
  */
-export default function TrendCharts({
+function RechartsTrendCharts({
   dataset,
   exportEnabled = false,
 }: {
@@ -784,4 +750,13 @@ export default function TrendCharts({
       </div>
     </ChartErrorBoundary>
   )
+}
+
+/** The spec renderer (lib/featureFlags CHARTS_V2, E192), its own chunk so the flag-off route loads none of it. */
+const TrendChartsV2 = dynamic(() => import('./TrendChartsV2'))
+
+export default function TrendCharts({ dataset, exportEnabled = false }: { dataset: AnalysisDataset; exportEnabled?: boolean }) {
+  return CHARTS_V2
+    ? <TrendChartsV2 dataset={dataset} exportEnabled={exportEnabled} />
+    : <RechartsTrendCharts dataset={dataset} exportEnabled={exportEnabled} />
 }
