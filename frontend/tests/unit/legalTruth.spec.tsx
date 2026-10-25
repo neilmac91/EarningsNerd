@@ -145,13 +145,15 @@ import {
  *    for your consent.", "We do not promise that analytics wait for your consent."), but not a negation in a relative
  *    or a complement clause ("Analytics that do not identify you are collected only with your consent." and "Nobody
  *    doubts that analytics wait for your consent." fail) nor one a "but" sets apart ("Analytics are not collected when
- *    you visit, but only after you allow them." fails). A negation on a verb before the wait's own that shares its
- *    object denies it only where "or" distributes it to a verb that opens its own predicate in the same form ("PostHog
- *    never runs or requires your consent." passes; "PostHog never runs and requires your consent.", "Analytics are
- *    not sold and are collected only with your consent." and "Server events are not shared and require your consent."
- *    fail: Codex on #1618). A negation on the verb or the subject makes "without your consent" the promise ("No usage
- *    data is sent without your permission."), and so does one on a verb before it that shares its object, which "and"
- *    does not distribute ("We never sell and collect analytics data ... without your consent.", beyond main's 60
+ *    you visit, but only after you allow them." fails), nor one before a verb a denial turns into a yes ("Server events
+ *    never cease to require your consent." fails). A negation on a verb before the wait's own that shares its object
+ *    denies it only where "or", with no comma before it, distributes it to another verb that opens its own predicate in
+ *    the same form ("PostHog never runs or requires your consent." passes; "PostHog never runs and requires your
+ *    consent.", "Analytics are not sold and are collected only with your consent.", "Server events are not shared and
+ *    require your consent." and "Server events never run, or run only after you consent." fail: Codex and the
+ *    verification lens on #1618). A negation on the verb or the subject makes "without your consent" the promise ("No
+ *    usage data is sent without your permission."), and so does one on a verb before it that shares its object, which
+ *    "and" does not distribute ("We never sell and collect analytics data ... without your consent.", beyond main's 60
  *    characters too), and "until you allow" promises whatever its own negation ("No analytics run until you allow
  *    them.", "We do not collect analytics until you allow them.").
  *    The consent is bound to the analytics' own operation: another (ANOTHER_OPERATION: sharing, selling, exporting,
@@ -163,9 +165,11 @@ import {
  *    user without your consent."), is a different promise and passes, unless one of several is the analytics' own
  *    ("Collecting and sharing analytics data require your consent.", "We require your consent to collect analytics
  *    data." and "... before we collect analytics data." fail) or its recipient is the analytics provider, after "with",
- *    "to", "into", "in", "via" or "through" in the operation's clause (TO_THE_ANALYTICS: "Sharing account events with
- *    PostHog requires your consent.", "We require your consent to share account events with PostHog." and "Server
- *    events require your consent before we display them in PostHog." fail); an ellipsis says the predicate it repeats
+ *    "to", "into", "in", "via", "through", "inside", "within" or "onto" in the operation's clause or what a comma
+ *    carries on after it, past other recipients too (TO_THE_ANALYTICS, A_PROVIDER: "Sharing account events with PostHog
+ *    requires your consent.", "Server events require your consent before we display them in PostHog." and "We require
+ *    your consent to share account events with advertisers or PostHog." fail), or its verb is "show" as the verb of
+ *    appearing ("Server events need your consent to show up at all." fails); an ellipsis says the predicate it repeats
  *    of its own subject, keeping the denial before it after "as", "so", "neither" or "nor", and its own after its
  *    subject ("Sharing analytics data requires your consent, as does collecting it." and "Sharing analytics data does
  *    not require your consent, but collecting it does." fail). The browser does not scope it in its own clause: "in
@@ -836,8 +840,15 @@ const deniesItsClause = (subject: NounPhrase | null) =>
 function denied(reading: Reading, p: Said, wait: Wait): boolean {
   const governing = governs(reading, p, wait.at)
   if (!governing || reading.tokens.slice(governing.group.verb, wait.at).some((t) => /^(?:but|yet)$/i.test(t.text))) return false
-  return governing.own ? p.group.negated || deniesItsClause(p.subject) : governing.group.negated
+  return governing.own ? deniedPlainly(reading, p.group) || deniesItsClause(p.subject) : deniedPlainly(reading, governing.group)
 }
+/** A verb that a denial makes say what follows it ("never cease to", "do not fail to", "do not hesitate to": the
+    second round's verification lens on #1618). */
+const AFFIRMED_BY_A_DENIAL = /^(?:cease[sd]?|ceasing|fail(?:s|ed|ing)?|neglect(?:s|ed|ing)?|hesitate[sd]?|hesitating|forget|forgets|forgot|forgetting|stop(?:s|ped|ping)?)$/i
+/** A verb group's negation, unless a verb in it is one a denial affirms what follows of (AFFIRMED_BY_A_DENIAL), so
+    "Server events never cease to require your consent." promises. */
+const deniedPlainly = (reading: Reading, group: VerbGroup) =>
+  group.negated && !reading.tokens.slice(group.start, group.verb + 1).some((t) => AFFIRMED_BY_A_DENIAL.test(t.text))
 /** A verb that asserts the clause it takes after "that", or a word that completes "be" so ("true", "the case"): denied,
     it governs that clause from outside (E162 stage 2: "We do not promise that analytics wait for your consent.", "It
     is not true that ..."), while "Nobody doubts that analytics wait for your consent." asserts it. */
@@ -890,10 +901,33 @@ function operationsOf(reading: Reading, p: Said, wait: Wait): Operation[] {
 /** An operation whose recipient is the analytics provider (TO_THE_ANALYTICS), named after its verb in its own words or
     in the rest of the clause its verb stands in ("before we display them in PostHog": the second round's lens). */
 const toTheAnalytics = (reading: Reading, op: Operation) => {
+  const { clauses } = reading
   const at = reading.tokens.indexOf(op.verb)
-  const clause = reading.clauses.find((c) => at >= c.start && at < c.end)
-  for (let k = at + 1; k < Math.max(op.end, clause?.end ?? op.end); k++) if (matchAt(reading, k, THE_PROVIDER) >= 0) return true
+  let c = clauses.findIndex((clause) => at >= clause.start && at < clause.end)
+  // The clause of the operation's verb, with what a comma carries on after it (", including PostHog").
+  while (c >= 0 && clauses[c + 1]?.carried && clauses[c + 1].joinedBy === ',') c++
+  let recipient = false
+  for (let k = at + 1; k < Math.max(op.end, clauses[c]?.end ?? op.end); k++) {
+    if (matchAt(reading, k, THE_PROVIDER) >= 0 || (recipient && matchAt(reading, k, A_PROVIDER) >= 0)) return true
+    recipient ||= RECIPIENT.test(reading.tokens[k].text)
+  }
   return false
+}
+/** The provider named after the preposition that opens an operation's recipients, past the others ("with advertisers
+    or PostHog", "with anyone, including PostHog", "with partners like PostHog": the second round's verification lens
+    on #1618): PostHog, or an analytics, telemetry or tracking provider, vendor, service, platform, partner, tool or
+    company, not a group the name only qualifies. */
+const RECIPIENT = /^(?:with|to|into|in|via|through|inside|within|onto)$/i
+const A_PROVIDER = new RegExp(
+  String.raw`^(?:PostHog|(?:[\w-]+\s+)?(?:analytics|telemetry|tracking)\s+(?:providers?|vendors?|services?|platforms?|partners?|tools?|compan(?:y|ies)))\b(?!\s+(?:users?|reports?|dashboards?|projects?|teams?|members?|accounts?|admins?|staff|customers?|employees?|colleagues?)\b)`,
+  'i',
+)
+/** "show" as the verb of appearing, not of showing something: before "up", or with nothing after it ("Server events
+    need your consent to show up at all.", "Account events require your consent to show.": the second round's
+    verification lens on #1618). It binds the consent to no other operation. */
+const appears = (reading: Reading, op: Operation) => {
+  const at = reading.tokens.indexOf(op.verb)
+  return /^show(?:s|n|ed|ing)?$/i.test(op.verb.text) && (/^up$/i.test(reading.tokens[at + 1]?.text ?? '') || (!op.object && op.end <= at + 1))
 }
 /** Whether a form is named at a token of any of the spans. */
 const namedIn = (reading: Reading, form: RegExp, spans: Array<{ start: number; end: number }>) =>
@@ -960,7 +994,7 @@ function readWait(reading: Reading, said: Said[], index: number, wait: Wait): Wa
   if (wait.kind === 'without' && !withoutPromises(reading, p, wait)) return 'unread'
   if (wait.kind !== 'without' && wait.kind !== 'until' && denied(reading, p, wait)) return 'denied'
   const operations = operationsOf(reading, p, wait)
-  if (operations.length && operations.every((op) => ANOTHER_OPERATION.test(op.verb.text) && !toTheAnalytics(reading, op))) return 'another operation'
+  if (operations.length && operations.every((op) => ANOTHER_OPERATION.test(op.verb.text) && !appears(reading, op) && !toTheAnalytics(reading, op))) return 'another operation'
   return p.subjects.some((_, subject) => !scoped(reading, said, index, subject, wait) && analyticsIn(reading, p, subject, wait, operations)) ? 'claim' : 'unread'
 }
 
@@ -2570,6 +2604,19 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // The floor's cost: a wait the reader reads in no predication (here a condition after an ellipsis) fails as on
       // main, whatever it binds the consent to.
       ['<p>Sharing analytics data requires your consent, and so does exporting it, until you allow it.</p>', true],
+      // The second round's verification lens on #1618: the negated verb said again after "or", or "or" after a comma,
+      // keeps the promise after it; so do the provider listed after other recipients, "show" as the verb of appearing
+      // and a denial a verb turns into a yes. The provider named before the recipient's preposition and "show" with an
+      // object stay another operation's.
+      ['<p>Server events never run, or run only after you consent.</p>', true],
+      ['<p>Server events are not recorded or recorded only after you consent.</p>', true],
+      ['<p>We require your consent to share account events with advertisers or PostHog.</p>', true],
+      ['<p>We require your consent to share account events with anyone, including PostHog.</p>', true],
+      ['<p>Account events require your consent before we share them with partners like PostHog.</p>', true],
+      ['<p>Server events need your consent to show up at all.</p>', true],
+      ['<p>Server events never cease to require your consent.</p>', true],
+      ['<p>Sharing PostHog data with another user requires your consent.</p>', false],
+      ['<p>Showing usage data to another user requires your consent.</p>', false],
       // Every endpoint with other words before "endpoints" (#1397's last review), each and any with a login said, and
       // the claim the other way round.
       ["<p>All of the API's endpoints require authentication.</p>", true],
@@ -3191,8 +3238,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     // verb takes after "that".
     expect(conjunctsOf(read('Analytics cookies and session recording stay off until you allow them.').reading, 1)).toEqual([0, 1])
     expect(sharedVerbsOf(read('We never share or collect analytics data without your consent.').reading, 1)).toEqual([0])
-    // "or" distributes the denial to a verb that opens its predicate in the same form; "and", a verb group of the next
-    // predicate's own and another form do not (Codex on #1618).
+    // "or" distributes the denial to another verb that opens its predicate in the same form; "and", a verb group of the
+    // next predicate's own, another form (Codex on #1618), a comma before "or" and the negated verb said again (the
+    // second round's verification lens) do not.
     const distributes = (sentence: string) => distributesNegation(read(sentence).reading, 1, 0)
     expect(
       [
@@ -3200,8 +3248,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
         'PostHog never runs and requires your consent.',
         'Analytics are not sold and are collected only with your consent.',
         'Server events are not shared and require your consent.',
+        'PostHog never runs, or requires your consent.',
+        'Server events are not recorded or recorded only after you consent.',
       ].map(distributes),
-    ).toEqual([true, false, false, false])
+    ).toEqual([true, false, false, false, false, false])
     const condition = read('PostHog runs in your browser, while server events wait for your consent.')
     const inner = conditionClauseAt(condition.tokens, condition.reading.clauses[0].conditions[0])
     expect(inner && condition.text(inner.subject.start, inner.subject.end)).toBe('server events')
