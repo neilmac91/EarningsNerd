@@ -552,7 +552,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
 
         {!checkoutAvailable && (
           <div className="mx-auto mt-8 max-w-2xl">
-            <Notice title="New subscriptions are currently unavailable" description={<>You can still browse the plans and use your existing account.{' '}<Link href="/dashboard/settings#billing" className="box-decoration-clone rounded-sm underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Manage existing billing</Link>.</>} />
+            <Notice variant="info" title="New subscriptions are currently unavailable" description={<>You can still browse the plans and use your existing account.{' '}<Link href="/dashboard/settings#billing" className="box-decoration-clone rounded-sm underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Manage existing billing</Link>.</>} />
           </div>
         )}
 

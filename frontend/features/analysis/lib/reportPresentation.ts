@@ -1,5 +1,6 @@
 import type { AnalysisDataset, AnalysisPoint } from '@/features/analysis/api/analysis-api'
 import type { DataNote, DataNoteBasis, DataNotesModel } from './dataNotes'
+import { chartCurrency, chartTopLine } from './charts/model'
 import { windowGrowth, windowRange } from './growth'
 
 export type TableWindow = 'all' | 'newest' | 'earliest'
@@ -10,8 +11,9 @@ export const reportIdentity = (dataset: AnalysisDataset) =>
 export const tablePeriods = (dataset: AnalysisDataset, window: TableWindow) =>
   window === 'newest' ? dataset.periods.slice(-6) : window === 'earliest' ? dataset.periods.slice(0, 6) : dataset.periods
 
-export const topLineConcept = (dataset: AnalysisDataset) =>
-  dataset.series.some(series => series.concept === 'revenue') ? 'revenue' : 'net_interest_income'
+/** The top line the KPI strip, the notes' chart locators and the first chart share: revenue, else a bank's net
+ *  interest income, else an insurer's premiums earned (spec D16), whichever has a value in the window. */
+export const topLineConcept = (dataset: AnalysisDataset) => chartTopLine(dataset)?.concept ?? 'revenue'
 
 /** The KPI renderer and note locators use the same four concepts and latest populated point. */
 export function selectHeadlineFigures(dataset: AnalysisDataset) {
@@ -63,11 +65,13 @@ export function comparisonLocations(dataset: AnalysisDataset, periods: AnalysisD
     return [comparisonId(series.concept, annual ? windowRange(series) ?? dataset.period_key : point.period,
       annual ? series.percent ? 'window_pp' : 'cagr' : 'yoy')]
   }))
-  const topLine = dataset.series.find(series => series.concept === topLineConcept(dataset))
-  // TrendCharts plots numeric YoY only; n/m is a table/card label, never a plotted point.
+  const topLine = chartTopLine(dataset)
+  // TrendCharts plots numeric YoY only; n/m is a table/card label, never a plotted point. A top line filed in two
+  // currencies draws no chart (it prints MIXED_CURRENCY), so it shows none of its comparisons.
+  const plotted = topLine && !chartCurrency(dataset, [topLine.concept]).mixed ? topLine : undefined
   const chart = new Set(dataset.periods.flatMap(period => {
-    const point = topLine?.points.find(point => point.period === period.key)
-    return typeof point?.yoy === 'number' ? [comparisonId(topLine!.concept, period.key, 'yoy')] : []
+    const point = plotted?.points.find(point => point.period === period.key)
+    return typeof point?.yoy === 'number' ? [comparisonId(plotted!.concept, period.key, 'yoy')] : []
   }))
   const table = tablePresentation(dataset, periods, notes).comparisons
   const fullTable = tablePresentation(dataset, dataset.periods, notes).comparisons

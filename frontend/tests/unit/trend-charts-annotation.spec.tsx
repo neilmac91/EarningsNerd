@@ -78,7 +78,7 @@ const dataset: AnalysisDataset = {
   period_key: 'FY2022..FY2024',
   periods: [period('FY2022', 2022), period('FY2023', 2023), period('FY2024', 2024)],
   series: [
-    // Cash generation panel — net_income present so it takes the right axis.
+    // Cash generation panel — operating cash flow and net income share its one axis.
     series('operating_cash_flow', 'Operating CF', [10, 12, 14]),
     series('free_cash_flow', 'Free cash flow', [5, 6, 7]),
     series('net_income', 'Net income', [8, 9, 10]),
@@ -106,13 +106,13 @@ describe('TrendCharts missing-data annotation (P1-8)', () => {
   })
 })
 
-describe('TrendCharts cash-generation dual axis (P1-8)', () => {
-  it('marks net income (right) and the cash-flow series (left) symmetrically', () => {
+describe('TrendCharts cash generation on one axis (spec D1, D4)', () => {
+  it('names its series without an axis side: net income shares the cash flows\' scale', () => {
     render(<TrendCharts dataset={dataset} />)
-    expect(screen.getByText('Net income (right)')).toBeInTheDocument()
-    // The left-axis cash-flow series are now positively bound with "(left)" too (symmetric legend).
-    expect(screen.getByText('Operating CF (left)')).toBeInTheDocument()
-    expect(screen.getByText('Free cash flow (left)')).toBeInTheDocument()
+    const card = screen.getByRole('heading', { name: 'Cash generation' }).closest('section')!
+    expect(within(card).getByText('Net income')).toBeInTheDocument()
+    expect(within(card).getByText('Operating CF')).toBeInTheDocument()
+    expect(within(card).queryByText(/\((left|right)\)/)).not.toBeInTheDocument()
   })
 })
 
@@ -133,8 +133,9 @@ describe('TrendCharts source note marks', () => {
     ]
     const tooltip = render(content({ active: true, label: 'FY2023', payload }))
     const status = within(tooltip.getByRole('status'))
-    expect(status.getByText('Revenue · note a').parentElement).toHaveTextContent('$110.0')
-    expect(status.getByText('YoY growth · note b').parentElement).toHaveTextContent('12.5%')
+    // Each value prints in its axis's format: amounts at the panel's 3 significant figures, growth signed.
+    expect(status.getByText('Revenue · note a').parentElement).toHaveTextContent('$110')
+    expect(status.getByText('YoY growth · note b').parentElement).toHaveTextContent('+12.5%')
 
     tooltip.rerender(content({ active: true, label: 'FY2022', payload }))
     expect(status.getByText('Revenue')).toBeInTheDocument()
@@ -244,21 +245,22 @@ describe('TrendCharts source note marks', () => {
     expect(marks.every((mark) => mark.querySelector('text')!.getAttribute('font-size') === '11')).toBe(true)
   })
 
-  it('separates cash-flow notes using each axis while keeping all plotted values fixed', () => {
-    const operating = series('operating_cash_flow', 'Operating CF', [43, 43, 43])
-    const cash = series('free_cash_flow', 'Free cash flow', [38.6, 38.6, 38.6])
-    // The right axis maps 400 to y=60, between the two left-axis points (57 and 61.4).
+  it('separates balance-sheet notes using each axis while keeping all plotted values fixed', () => {
+    const debt = series('long_term_debt', 'Long-term debt', [43, 43, 43])
+    const cash = series('cash_and_equivalents', 'Cash', [38.6, 38.6, 38.6])
+    // The right axis (equity) maps 400 to y=60, between the two left-axis points (57 and 61.4).
     // Comparing raw values or projecting every value through the left axis cannot place this note.
-    const income = series('net_income', 'Net income', [400, 400, 400])
-    for (const item of [operating, cash, income]) for (const point of item.points) point.provenance = { ...passed, validation: 'needs_review', reasons: ['legacy_calculation'] }
-    const { container } = render(<TrendCharts dataset={{ ...dataset, series: [operating, cash, income] }} />)
+    const equity = series('shareholders_equity', 'Equity', [400, 400, 400])
+    for (const item of [debt, cash, equity]) for (const point of item.points) point.provenance = { ...passed, validation: 'needs_review', reasons: ['legacy_calculation'] }
+    const { container } = render(<TrendCharts dataset={{ ...dataset, series: [debt, cash, equity] }} />)
     const marks = [...container.querySelectorAll('g[aria-label="Data note a"]')]
     expect(marks).toHaveLength(9)
     const circles = marks.map((mark) => {
       const circle = mark.querySelector('circle')!
       return { x: Number(circle.getAttribute('cx')), y: Number(circle.getAttribute('cy')) }
     })
-    expect(circles.map((circle) => circle.y)).toEqual([57, 57, 57, 61.4, 61.4, 61.4, 60, 60, 60])
+    // Lines in the panel's order: debt (left), equity (right), cash (left).
+    expect(circles.map((circle) => circle.y)).toEqual([57, 57, 57, 60, 60, 60, 61.4, 61.4, 61.4])
     const letters = marks.map((mark) => {
       const text = mark.querySelector('text')!
       expect(text).toHaveAttribute('font-size', '11')
@@ -271,7 +273,7 @@ describe('TrendCharts source note marks', () => {
       for (const other of letters.slice(index + 1)) expect(intersects(letter, other)).toBe(false)
     }
     // The middle right-axis note remains near its actual point, not clamped from the wrong scale.
-    expect(Math.abs(Number(marks[7].querySelector('text')!.getAttribute('y')) - circles[7].y)).toBeLessThan(32)
+    expect(Math.abs(Number(marks[4].querySelector('text')!.getAttribute('y')) - circles[4].y)).toBeLessThan(32)
   })
 })
 

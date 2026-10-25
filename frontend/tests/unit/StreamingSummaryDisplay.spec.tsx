@@ -118,11 +118,87 @@ describe('StreamingSummaryDisplay step log', () => {
     ])
   })
 
-  it('says a slow run is still running, without guessing why', async () => {
+  // The stalled sentence takes the header's live-status line (a sentence the reader must read: secondary ink,
+  // DESIGN_SYSTEM §7) and joins the live region; the "Still running" signature went with the callout (2026-10-24).
+  it('says a slow run is still working, in the status line and the live region, without guessing why', async () => {
     renderAt('fetching', 50)
     await act(async () => {})
-    expect(screen.getByText('Taking longer than usual. Still working on it.')).toBeInTheDocument()
-    expect(screen.getByText('Still running')).toBeInTheDocument()
+    const meta = screen.getByRole('heading', { level: 2, name: 'Generating the summary' }).nextElementSibling as HTMLElement
+    expect(meta).toHaveTextContent('10-K · Taking longer than usual. Still working on it.')
+    expect(meta.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-sm', 'text-text-secondary-light', 'dark:text-text-secondary-dark']))
+    const live = screen.getByText('Fetching the 10-K from SEC.gov. Taking longer than usual. Still working on it.')
+    expect(live).toHaveAttribute('aria-live', 'polite')
+    expect(live.className).toContain('sr-only')
+    expect(screen.queryByText('Still running')).toBeNull()
+  })
+})
+
+// The header's live-status line carries one line of the voice per pipeline stage, chosen per filing, in place
+// of a status notice (the blue info Notice of 2026-07-04 to 2026-10-24: a quip is activity, not a state;
+// DESIGN_SYSTEM §4 Inline notice, §9). It changes only when the backend's stage does: no timer, so nothing
+// auto-updates (WCAG 2.2.2), and a pool's line never flips between re-renders.
+describe('StreamingSummaryDisplay status line', () => {
+  const metaOf = () => screen.getByRole('heading', { level: 2, name: 'Generating the summary' }).nextElementSibling as HTMLElement
+  const LINES = {
+    fetching: ['Opening the filing…'],
+    parsing: [
+      'Reading the size-8 fine print…',
+      'Reading the footnotes so you can go straight to the ones that matter…',
+      'Reviewing the line called Other…',
+    ],
+    summarizing: [
+      'Checking the figures against the filing’s data…',
+      'Finding where the filing says that…',
+      'Translating management’s phrasing into plain English…',
+    ],
+  } as const
+
+  it.each([
+    ['initializing', 'fetching'],
+    ['queued', 'fetching'],
+    ['fetching', 'fetching'],
+    ['parsing', 'parsing'],
+    ['analyzing', 'summarizing'],
+    ['summarizing', 'summarizing'],
+  ] as const)('at %s shows one of the %s lines after the form code, in secondary ink', async (stage, pool) => {
+    renderAt(stage)
+    await act(async () => {})
+    const meta = metaOf()
+    const text = meta.textContent ?? ''
+    expect(text.startsWith('10-K · ')).toBe(true)
+    expect(LINES[pool]).toContain(text.slice('10-K · '.length))
+    expect(meta.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-sm', 'text-text-secondary-light', 'dark:text-text-secondary-dark']))
+  })
+
+  it('keeps its line through a stage’s ticks and re-renders, and changes it only with the stage', async () => {
+    const { rerender } = renderAt('parsing', 5)
+    await act(async () => {})
+    const before = metaOf().textContent
+    for (const elapsedSeconds of [10, 20, 30]) {
+      rerender(<StreamingSummaryDisplay streamingText="" stage="parsing" message="" filing={filing} elapsedSeconds={elapsedSeconds} />)
+      await act(async () => {})
+      expect(metaOf().textContent).toBe(before)
+    }
+    rerender(<StreamingSummaryDisplay streamingText="" stage="analyzing" message="" filing={filing} elapsedSeconds={31} />)
+    await act(async () => {})
+    const analyzing = metaOf().textContent
+    expect(analyzing).not.toBe(before)
+    expect(LINES.summarizing).toContain(analyzing!.slice('10-K · '.length))
+    // analyzing and summarizing share a pool and a line: the millisecond analyzing stage never flashes a third line.
+    rerender(<StreamingSummaryDisplay streamingText="" stage="summarizing" message="" filing={filing} elapsedSeconds={32} />)
+    await act(async () => {})
+    expect(metaOf().textContent).toBe(analyzing)
+  })
+
+  it('renders no status notice: no info tint, no signature, no live region hidden from assistive tech', async () => {
+    renderAt('summarizing')
+    await act(async () => {})
+    const card = screen.getByRole('heading', { level: 2, name: 'Generating the summary' }).closest('.rounded-xl') as HTMLElement
+    expect(card).not.toBeNull()
+    expect(card.querySelectorAll('[class*="info-"]')).toHaveLength(0)
+    expect(card.querySelectorAll('[aria-hidden="true"] [role="status"]')).toHaveLength(0)
+    expect(screen.queryByText('Reading the filing')).toBeNull()
+    expect(screen.queryByText(/Processing…/)).toBeNull()
   })
 })
 
@@ -157,7 +233,7 @@ describe('StreamingSummaryDisplay headings', () => {
     expect(percent).toHaveTextContent(/\d+%/)
     expect(classes(percent)).toEqual(expect.arrayContaining(['ml-auto', 'flex-none']))
     const meta = heading.nextElementSibling as HTMLElement
-    expect(meta).toHaveTextContent('10-K · Processing…')
+    expect(meta).toHaveTextContent('10-K · Opening the filing…')
     expect(classes(within(meta).getByText('10-K'))).toContain('whitespace-nowrap')
   })
 })
