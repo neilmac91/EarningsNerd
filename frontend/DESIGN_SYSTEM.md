@@ -2453,7 +2453,9 @@ label as Recharts sets it; a tooltip prints each value in its own axis's format.
 one axis, and the balance sheet keeps equity's right axis until the engine's renderer draws it as its
 own panel. A percent axis holds every value, since Recharts cannot print a clipped one at the plot
 edge (gates: `tests/unit/trend-charts-axes.spec.tsx`; e2e `analysis-layout.spec.ts`, "analysis chart
-axes", and the export gate's Swiss-franc case).
+axes", which reads either renderer, and the export gate's Swiss-franc case). The engine's formats round as the
+metrics table rounds, half away from zero on the decimal, for these tooltips and axes as for the spec renderer below;
+the spec's M15 (`tests/unit/chart-table-agreement.spec.ts`) holds every value the renderer prints to the table's cell.
 
 **The analysis trend charts' spec renderer** (`NEXT_PUBLIC_CHARTS_V2`, off in production until F66;
 `docs/design/analysis-trend-charts-spec-2026-10.md`) replaces Recharts on those four charts only. It paints the
@@ -2486,7 +2488,8 @@ is hoverable; a tap pins it until a second tap or a press outside, and a swipe p
 tooltip first, wherever focus is when a pointer raised it, then collapses an expanded card and returns focus to its
 toggle. Gates: `tests/unit/trend-charts-v2.spec.tsx`, `tests/unit/chart-readout.spec.ts`,
 `tests/e2e/charts-v2.spec.ts`, `tests/e2e/charts-v2-gallery.spec.ts` (the spec's DOM checks on twelve datasets, both
-themes, 1280 and 390 px) and CI's `e2e-charts-v2` job, a required check on `main`.
+themes, 1280 and 390 px), `tests/e2e/analysis-layout.spec.ts` on the renderer and CI's `e2e-charts-v2` job, a
+required check on `main`.
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.

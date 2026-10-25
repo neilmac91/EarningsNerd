@@ -728,15 +728,16 @@ jobs:
 
   # The trend charts' spec renderer behind NEXT_PUBLIC_CHARTS_V2 (E192). NEXT_PUBLIC_ values are inlined at build time,
   # so the flag needs its own build: e2e-tests' build with the flag set. This job runs the browser checks that cover
-  # the charts (their DOM checks, the PNG export's fidelity, the locked teaser's first screen, and the analysis route's
-  # text floors); e2e-tests runs everything against the flag-off build production ships. It is a required check on
+  # the charts (their DOM checks, the analysis page's layout around them, the PNG export's fidelity, the locked teaser's
+  # first screen, and the analysis route's text floors); e2e-tests runs everything against the flag-off build
+  # production ships. It is a required check on
   # main (ruleset 23561253, since 2026-10-25), so step 7 (tasks/todo.md E195) takes it out of the ruleset before it
   # moves these specs into e2e-tests and deletes the job. deploy-backend does not wait for it.
   e2e-charts-v2:
     needs: [ci-scope]
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Require a valid browser scope
         env:
@@ -800,7 +801,7 @@ jobs:
         # its own folder of the same artifact, and the step fails if either does.
         run: |
           status=0
-          npx playwright test tests/e2e/charts-v2.spec.ts tests/e2e/charts-v2-gallery.spec.ts tests/e2e/chart-export-fidelity.spec.ts tests/e2e/analysis-teaser-window.spec.ts || status=1
+          npx playwright test tests/e2e/charts-v2.spec.ts tests/e2e/charts-v2-gallery.spec.ts tests/e2e/analysis-layout.spec.ts tests/e2e/chart-export-fidelity.spec.ts tests/e2e/analysis-teaser-window.spec.ts || status=1
           PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/text-floors npx playwright test tests/e2e/text-floors.spec.ts -g 'analysis: muted ink' || status=1
           exit $status
         working-directory: frontend
