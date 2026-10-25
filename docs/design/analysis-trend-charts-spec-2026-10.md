@@ -302,9 +302,10 @@ says so; everything else follows the spec.
       page's contract therefore refuses; the page groups the notes from the points, as for any dataset without them.
   - `frontend/tests/e2e/analysis-layout.spec.ts`, the analysis page's layout gate, runs in that job too and reads the
     charts through `fixtures/trendChartDom.ts`: the renderer's `data-text` and `data-plot` with the flag set, today's
-    Recharts layers without it. Its table windows leave the charts' ticks and marks as they were, its y tick labels
-    sit inside their axis on one line, a chart scrolls on a desktop exactly where its plan is wider (M6), and a phone's
-    quarter keeps `MIN_SLOT`. Recharts' keyboard and notes case runs on Recharts alone, and step 7 retires it (E195).
+    Recharts layers without it. On the renderer, every chart prints all twelve quarters and keeps its marks whatever
+    the metrics table shows; y tick labels sit inside their axis on one line; no chart scrolls at a desktop card's
+    width, in Swiss francs too (M6); and a phone's quarter keeps `MIN_SLOT`. Recharts' keyboard and notes case runs on
+    Recharts alone, and step 7 retires it (E195).
 - **M15** (`frontend/tests/unit/chart-table-agreement.spec.ts`) holds every value a chart prints on the 19 datasets,
   card and expanded at 342, 502 and 1030 px, to the metrics table's cell for the same figure: bar and growth labels,
   A13b labels, off-scale values, strip cells, legend values and the tooltip's readouts. "Rounded to the metrics-table

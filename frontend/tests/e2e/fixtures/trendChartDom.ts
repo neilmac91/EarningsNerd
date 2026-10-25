@@ -5,12 +5,22 @@
  * so it is self-contained and takes the renderer as its argument. Step 7 (E195) deletes the Recharts branches with
  * Recharts.
  */
+import { expect, type Page } from '@playwright/test'
 
 /** The build under test draws the spec renderer: the e2e-charts-v2 job builds, serves and tests with the flag. */
 export const CHARTS_V2 = process.env.NEXT_PUBLIC_CHARTS_V2 === 'true'
 
 /** Today's Recharts layers that the keyboard and notes case reads, on Recharts alone (E195 retires the case). */
 export const RECHARTS = { bars: '.recharts-bar-rectangle path', tooltip: '.recharts-tooltip-wrapper' } as const
+
+/** The page's four charts once each has drawn. The spec renderer adds its SVG only once Geist Mono has loaded, or
+ *  1,500 ms have passed (G4), after the chart's own element; the gallery waits for it the same way. */
+export async function drawnCharts(page: Page) {
+  const charts = page.locator('[data-analysis-chart]')
+  await expect(charts).toHaveCount(4)
+  if (CHARTS_V2) await expect(page.locator('[data-analysis-chart] > svg'), 'each chart has drawn').toHaveCount(4)
+  return charts
+}
 
 /** A period's x tick as each renderer prints it: the spec's typographic apostrophe ("Q3’23"), Recharts' ASCII one. */
 export const tickText = (period: string, v2: boolean) => `${period.slice(4)}${v2 ? '’' : "'"}${period.slice(2, 4)}`
@@ -40,7 +50,7 @@ export function readTicksAndShapes(charts: Element[], v2: boolean) {
   }))
 }
 
-/** Each chart's y tick labels: drawn on one line, inside the axis that holds them, and whether the plot scrolls.
+/** Each chart's y tick labels: drawn on one line, inside the axis that holds them, and whether the chart scrolls.
  *  Recharts sizes each value axis from its labels and keeps an 8 px left and 16 px right margin; the spec renderer
  *  sets every label 8 px left of its plot (D5), on one axis a panel. */
 export function readAxes(charts: Element[], v2: boolean) {
@@ -53,7 +63,6 @@ export function readAxes(charts: Element[], v2: boolean) {
     return {
       name: chart.getAttribute('data-analysis-chart'),
       scrolls: viewport.scrollWidth > viewport.clientWidth + 1,
-      wider: svg.width > viewport.clientWidth + 1,
       labels: labels.map((label) => label.textContent ?? ''),
       // Recharts wraps a label at a space into tspans; the spec renderer prints each as one text, no tspan.
       broken: labels.filter((label) => label.querySelectorAll('tspan').length !== (v2 ? 0 : 1)).map((label) => label.textContent),
@@ -68,15 +77,17 @@ export function readAxes(charts: Element[], v2: boolean) {
   })
 }
 
-/** Each chart's width a period: Recharts' grid over its periods, the spec renderer's slot between x ticks. */
+/** Each chart's width a period (Recharts' grid over its periods, the spec renderer's slot between x ticks) and its
+ *  painted x tick labels. */
 export function readSlots(charts: Element[], { v2, periods }: { v2: boolean; periods: number }) {
   return charts.map((chart) => {
     const viewport = chart.closest('[data-analysis-chart-scroll]')!
-    const xs = [...chart.querySelectorAll(':scope > svg text[data-text="x"]')].map((tick) => Number(tick.getAttribute('x')))
+    const ticks = [...chart.querySelectorAll(v2 ? ':scope > svg text[data-text="x"]' : '.recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-label')]
+    const xs = ticks.map((tick) => Number(tick.getAttribute('x')))
     return {
       name: chart.getAttribute('data-analysis-chart'),
       slot: v2 ? Math.min(...xs.slice(1).map((x, i) => x - xs[i])) : chart.querySelector('.recharts-cartesian-grid')!.getBoundingClientRect().width / periods,
-      ticks: v2 ? xs.length : periods,
+      ticks: ticks.filter((tick) => tick.textContent?.trim()).length,
       scrolls: viewport.scrollWidth > viewport.clientWidth + 1,
     }
   })

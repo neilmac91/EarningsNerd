@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
 import { MIN_SLOT } from '../../features/analysis/lib/charts/layout'
 import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, EXPECTED_TABLE_VALUE_DAGGERS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
-import { CHARTS_V2, RECHARTS, readAxes, readSlots, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
+import { CHARTS_V2, RECHARTS, drawnCharts, readAxes, readSlots, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
 
 /**
  * The one browser geometry gate for the analysis redesign (proposal Phase 1, item 10).
@@ -469,7 +469,7 @@ for (const theme of THEMES) for (const profile of PROFILES) {
       const traffic = await openAnalysis(page, baseURL!, state, theme, profile.textScale ?? 1)
       await assertNotes(page, state)
       await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
-      await expect(page.locator('[data-analysis-chart]')).toHaveCount(4)
+      await drawnCharts(page)
       const baseline = await stableAnalysisOutsideTable(page)
       for (const chart of baseline.charts) {
         expect(chart.ticks.map(tick => tick.text), `${chart.name}: all twelve ordered chart periods`).toEqual(PERIODS.map(period => tickText(period, CHARTS_V2)))
@@ -689,21 +689,19 @@ for (const theme of THEMES) {
     // TrendCharts sizes each value axis from its tick labels. A label wider than its axis runs into the chart's margin
     // (8 px left, 16 px right) and then out of the SVG, where it is cut; one Recharts breaks at a space reads as two.
     // Wider axes must not make a chart at its card's full desktop width scroll. The spec renderer sets each label 8 px
-    // left of its plot, from a gutter sized to its widest label (D5).
+    // left of its plot, from a gutter sized to its widest label (D5). It scrolls a chart only where the plan is wider
+    // than its card (M6), and these plans fit a desktop card.
     for (const [name, state, edit] of [
       ['quarterly', 'captured', undefined], ['quarterly in CHF', 'captured', inSwissFrancs], ['annual in CHF', 'annual', inSwissFrancs],
     ] as const) {
       test(`${name}: every y tick label is painted on one line inside its axis, and no chart scrolls`, async ({ page, baseURL }) => {
         await openAnalysis(page, baseURL!, state, theme, 1, false, edit)
-        const plots = page.locator('[data-analysis-chart]')
-        await expect(plots).toHaveCount(4)
-        const charts = await plots.evaluateAll(readAxes, CHARTS_V2)
+        const charts = await (await drawnCharts(page)).evaluateAll(readAxes, CHARTS_V2)
         for (const chart of charts) {
           expect(chart.labels.length, `${chart.name}: its y ticks are drawn`).toBeGreaterThan(2)
           expect(chart.outside, `${chart.name}: y tick labels outside their axis`).toEqual([])
           expect(chart.broken, `${chart.name}: y tick labels drawn on more than one line`).toEqual([])
-          // Recharts fits every chart to a desktop card; the spec renderer scrolls exactly where its plan is wider (M6).
-          expect(chart.scrolls, `${chart.name}: scrolls at its card's full width`).toBe(CHARTS_V2 ? chart.wider : false)
+          expect(chart.scrolls, `${chart.name}: scrolls at its card's full width`).toBe(false)
         }
         if (edit) expect(charts.flatMap(chart => chart.labels).some(label => /^CHF\s\d{3}B$/.test(label)), 'a code-prefixed label is drawn').toBe(true)
       })
@@ -719,12 +717,10 @@ for (const theme of THEMES) {
     for (const [name, edit] of [['dollars', undefined], ['Swiss francs', inSwissFrancs]] as const) {
       test(`quarterly in ${name}: each quarter keeps its slot, and the chart scrolls inside its card`, async ({ page, baseURL }) => {
         await openAnalysis(page, baseURL!, 'captured', theme, 1, false, edit)
-        const plots = page.locator('[data-analysis-chart]')
-        await expect(plots).toHaveCount(4)
-        const charts = await plots.evaluateAll(readSlots, { v2: CHARTS_V2, periods: PERIODS.length })
+        const charts = await (await drawnCharts(page)).evaluateAll(readSlots, { v2: CHARTS_V2, periods: PERIODS.length })
         for (const chart of charts) {
           // Recharts keeps 28 px a quarter; the spec renderer's slot is at least MIN_SLOT (M6).
-          expect(chart.ticks, `${chart.name}: a tick a quarter`).toBe(PERIODS.length)
+          expect(chart.ticks, `${chart.name}: a printed tick a quarter`).toBe(PERIODS.length)
           expect(chart.slot, `${chart.name}: px a quarter`).toBeGreaterThanOrEqual((CHARTS_V2 ? MIN_SLOT : 28) - 0.01)
           expect(chart.scrolls, `${chart.name}: scrolls inside its card`).toBe(true)
         }

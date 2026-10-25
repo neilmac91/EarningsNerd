@@ -2149,9 +2149,9 @@ label as Recharts sets it; a tooltip prints each value in its own axis's format.
 one axis, and the balance sheet keeps equity's right axis until the engine's renderer draws it as its
 own panel. A percent axis holds every value, since Recharts cannot print a clipped one at the plot
 edge (gates: `tests/unit/trend-charts-axes.spec.tsx`; e2e `analysis-layout.spec.ts`, "analysis chart
-axes", which reads either renderer, and the export gate's Swiss-franc case). A printed value rounds as the metrics
-table rounds, half away from zero on its decimal, so a chart and the table print one number for one figure (gate:
-`tests/unit/chart-table-agreement.spec.ts`, the spec's M15).
+axes", which reads either renderer, and the export gate's Swiss-franc case). The engine's formats round as the
+metrics table rounds, half away from zero on the decimal, for these tooltips and axes as for the spec renderer below;
+the spec's M15 (`tests/unit/chart-table-agreement.spec.ts`) holds every value the renderer prints to the table's cell.
 
 **The analysis trend charts' spec renderer** (`NEXT_PUBLIC_CHARTS_V2`, off in production until F66;
 `docs/design/analysis-trend-charts-spec-2026-10.md`) replaces Recharts on those four charts only. It paints the
