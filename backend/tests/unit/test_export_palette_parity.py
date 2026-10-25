@@ -51,14 +51,18 @@ its full selector, a rule inside @media or @supports, @font-face, and @page's ma
    embeds for text the stylesheet sets italic (its descriptor's Italic flag) is an italic program.
 6. Every glyph prints in a vendored face (WP3-A): the export inspection found 52 daggers, 2 arrows and 614
    list bullets set in DejaVu, since the latin subsets of Inter and Geist Mono lack †, → and ◦. Inter's
-   symbols face carries them, and "≈" (the 20-F and 6-K prompts ask for "≈US$X" beside a convenience
-   translation) and the won and rupee signs; the data face's stack falls back to Inter before the system's
-   monospace, and a nested list takes the disc (•, in Inter's latin subset) instead of WeasyPrint's circle.
-   So every font each rendered PDF embeds, whatever kind of program, is of a vendored face's family (Inter
-   Var, Inter Var Symbols or Geist Mono), and every one of those marks a PDF's text map names is drawn with
-   that mark's own glyph in the embedded program, over both fixtures, an analysis whose narrative, grid, count line and nested operand
-   list print each of those marks, and a 20-F summary that prints "≈", "₩" and "₹" in prose and "≈" in a
-   figure column; and every marker of a nested list is the disc.
+   symbols faces carry them, roman and italic, and "≈" (the 20-F and 6-K prompts ask for "≈US$X" beside a
+   convenience translation) and the won and rupee signs; the data face's stack falls back to Inter before
+   the system's monospace, and a nested list takes the disc (•, in Inter's latin subset) instead of
+   WeasyPrint's circle. Over both fixtures, an analysis whose narrative (roman and an em), grid, count line
+   and nested operand list print each of those marks, and a 20-F summary that prints "≈", "₩" and "₹" in
+   prose, a figure column and a quote, each with a mark, a space and a mark: WeasyPrint logs no .notdef;
+   every font each render embeds, whatever kind of program, is of a vendored face's family (Inter Var, Inter
+   Var Symbols or Geist Mono) and encoded by Identity-H; every glyph a composite font's text map pairs with
+   text is, in a file declared for the font's family and style, that text's glyph or one its GSUB reaches
+   from it (WeasyPrint keeps the files' glyph ids), so a font that merges two files matches neither; and
+   every marker of a nested list is the disc. What the glyph check cannot see: a substitute GSUB reaches
+   that a different feature setting would not have chosen, and text a font draws outside its text map.
 
 The planted forms in test_the_checks_read_what_they_claim score each reader of the source (stylesheet,
 attributes, faces, workbook, module literals) on the forms its rule can take and on look-alikes that
@@ -70,7 +74,9 @@ sets one (a chart's text); and the embedded brand PNG's pixels.
 from __future__ import annotations
 
 import ast
+import functools
 import io
+import logging
 import re
 import zipfile
 from pathlib import Path
@@ -91,7 +97,7 @@ import tests.unit.test_excel_export as workbook_fixtures
 import tests.unit.test_export_service as export_fixtures
 from app.services.excel_export_service import CHART_SERIES, build_analysis_workbook
 from app.services.export_service import ExportService
-from app.services.pdf_branding import PALETTE
+from app.services.pdf_branding import PALETTE, render_branded_pdf
 
 ROOT = Path(__file__).resolve().parents[3]
 EXPORT_MODULES = ("export_service.py", "excel_export_service.py", "analysis_export_metadata.py", "pdf_branding.py")
@@ -639,10 +645,12 @@ def test_the_wordmark_reads_earnings_in_the_ink_and_nerd_italic_in_brand_strong(
 
 def test_every_font_asked_for_italic_embeds_an_italic_program():
     """The PDF a reader gets: every font WeasyPrint embeds for text the stylesheet sets italic (the wordmark's
-    "Nerd", a quote) is an italic program, never the roman under an italic name."""
+    "Nerd", a quote, an em, and a mark the symbols faces carry in either) is an italic program, never the roman
+    under an italic name."""
     weasyprint = pytest.importorskip("weasyprint")
+    htmls = {**_pdfs(), "analysis with every mark": _every_mark_analysis(), "20-F summary with every mark": _every_mark_summary()}
     try:
-        pdfs = {name: weasyprint.HTML(string=html).write_pdf(uncompressed_pdf=True) for name, html in _pdfs().items()}
+        pdfs = {name: weasyprint.HTML(string=html).write_pdf(uncompressed_pdf=True) for name, html in htmls.items()}
     except Exception as exc:  # missing system libs in odd envs: not what this test reads
         pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
     for name, pdf in pdfs.items():
@@ -660,9 +668,10 @@ def test_every_font_asked_for_italic_embeds_an_italic_program():
 
 # WeasyPrint writes the family a run resolved to as its font descriptor's /FontFamily: the vendored faces'.
 VENDORED_FAMILIES = frozenset({"Inter Var", "Inter Var Symbols", "Geist Mono"})
-# The marks the latin subsets lack, which Inter's symbols face carries.
-MARKS = frozenset("†‡←↑→↓◦≈₩₹")
-_SYMBOLS_FACE = re.compile(r"@font-face \{[^}]*Inter-Variable-symbols\.woff2[^}]*\}")
+# The marks the latin subsets lack, which Inter's symbols faces carry: pdf_branding.SYMBOLS_RANGE, which
+# test_vendored_font_sources.py holds equal to this.
+MARKS = frozenset("†‡←→◦≈₩₹")
+_SYMBOLS_FACE = re.compile(r"@font-face \{[^}]*Inter-Variable-(?:Italic-)?symbols\.woff2[^}]*\}")  # roman and italic
 
 
 def embedded_font_families(pdf: bytes) -> list[str]:
@@ -676,37 +685,125 @@ def embedded_font_families(pdf: bytes) -> list[str]:
     return families + ["Type 3"] * len(re.findall(rb"/Subtype /Type3\b", pdf))
 
 
-def mark_glyph_problems(pdf: bytes) -> list[str]:
-    """Each mark (MARKS) an uncompressed WeasyPrint PDF's text map names for a glyph that is not that mark's in
-    the program the font embeds: the font's ToUnicode map gives the mark for a glyph id, which must be the
-    glyph the embedded program's own cmap gives the mark or an alternate it encodes for no character, never a
-    glyph it encodes for another one. When two files are declared as one family and style, WeasyPrint embeds
-    them as one font, and one file's glyph ids then index the other's program ("₩" drawn as the latin "A")."""
+@functools.lru_cache(maxsize=None)
+def vendored_glyphs(path: Path) -> tuple[list[str], dict[int, str], dict[str, frozenset[str]],
+                                         dict[tuple[str, ...], frozenset[str]]]:
+    """A vendored face's glyph order, its cmap, each glyph's closure under its GSUB substitutions (single,
+    multiple, alternate and reverse chaining, through extension lookups; contextual lookups call these, so a
+    glyph any feature can turn it into, itself included) and each ligature's glyphs by its components."""
+    font = TTFont(path)
+    order, cmap = font.getGlyphOrder(), font.getBestCmap()
+    edges: dict[str, set[str]] = {}
+    ligatures: dict[tuple[str, ...], set[str]] = {}
+    for lookup in font["GSUB"].table.LookupList.Lookup if "GSUB" in font else ():
+        for table in lookup.SubTable:
+            kind = lookup.LookupType
+            if kind == 7:
+                kind, table = table.ExtensionLookupType, table.ExtSubTable
+            if kind == 1:
+                pairs = [(source, [target]) for source, target in table.mapping.items()]
+            elif kind in (2, 3):
+                pairs = list((table.mapping if kind == 2 else table.alternates).items())
+            elif kind == 8:
+                pairs = [(source, [target]) for source, target in zip(table.Coverage.glyphs, table.Substitute)]
+            elif kind == 4:
+                for first, entries in table.ligatures.items():
+                    for entry in entries:
+                        ligatures.setdefault((first, *entry.Component), set()).add(entry.LigGlyph)
+                continue
+            else:
+                continue
+            for source, targets in pairs:
+                edges.setdefault(source, set()).update(targets)
+    closure = {}
+    for glyph in order:
+        seen, todo = {glyph}, [glyph]
+        while todo:
+            for target in edges.get(todo.pop(), ()):
+                if target not in seen:
+                    seen.add(target)
+                    todo.append(target)
+        closure[glyph] = frozenset(seen)
+    return order, cmap, closure, {key: frozenset(value) for key, value in ligatures.items()}
+
+
+def _entry_problem(path: Path, gid: int, text: str) -> str | None:
+    """Why ``gid`` is not a glyph the vendored file at ``path`` draws for ``text``, or None when it is: the
+    text's glyph, a substitute GSUB reaches from it, or (for a cluster of characters) a ligature of theirs."""
+    order, cmap, closure, ligatures = vendored_glyphs(path)
+    if gid >= len(order):
+        return f"glyph {gid} is outside its {len(order)} glyphs"
+    glyph, bases = order[gid], [cmap.get(ord(char)) for char in text]
+    if None in bases:
+        return f"it encodes no {text!r} (drawn as {glyph})"
+    if glyph in closure[bases[0]] and len(text) == 1:
+        return None
+    reachable = set().union(*(closure[ligature] for ligature in ligatures.get(tuple(bases), ())))
+    return None if glyph in reachable else f"it draws {text!r} as {bases[0]}, not {glyph}"
+
+
+def glyph_problems(html: str, pdf: bytes) -> list[str]:
+    """Each way the text of an uncompressed WeasyPrint render of ``html`` is not drawn with its own glyphs.
+
+    WeasyPrint subsets with the original glyph ids (retain_gids), so a composite font's ToUnicode map pairs a
+    glyph id of the file it came from with the text drawn by it. Each font must match a file ``html`` declares
+    for its family and its style (the descriptor's italic flag; a family with no face in that style falls back
+    to its normal one): every pair is that file's glyph for the text, or a substitute or ligature its GSUB
+    reaches. Two files declared as one family and style become one embedded font (WeasyPrint keys fonts by
+    family, style and weight), and then neither file matches: one file's glyph ids index the other's program,
+    whichever registered first. A font encoded otherwise than by Identity-H is one WeasyPrint drew a .notdef
+    for, a character no face in its stack carries. A family no vendored face declares is the family gate's."""
+    faces = font_faces(html)
     objects = dict(re.findall(rb"\n(\d+) 0 obj\n(.*?)\nendobj", pdf, re.DOTALL))
 
     def stream(number: bytes) -> bytes:
         body = objects[number]
         return body[body.index(b"stream\n") + len(b"stream\n"):body.rindex(b"\nendstream")]
 
-    fonts = re.findall(rb"/Subtype /Type0/BaseFont /([^/\s]+)/ToUnicode (\d+) 0 R/Encoding /Identity-H"
-                       rb"/DescendantFonts \[(\d+) 0 R\]", pdf)
-    assert len(fonts) == pdf.count(b"/Subtype /Type0"), "a composite font this reader did not read"
     found = []
-    for name, to_unicode, descendant in fonts:
-        descriptor = re.search(rb"/FontDescriptor (\d+) 0 R", objects[descendant])[1]
-        program = TTFont(io.BytesIO(stream(re.search(rb"/FontFile2 (\d+) 0 R", objects[descriptor])[1])))
-        order, cmap = program.getGlyphOrder(), program.getBestCmap() or {}
-        text_map = stream(to_unicode).decode("latin-1")
-        for block in re.findall(r"beginbfchar(.*?)endbfchar", text_map, re.DOTALL):
-            for gid, code in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>", block):
-                text = bytes.fromhex(code).decode("utf-16-be")
-                glyph = order[int(gid, 16)] if int(gid, 16) < len(order) else None
-                # The mark's own glyph, or an alternate the program encodes for nothing (a tabular form the
-                # data face asks for); never a glyph the program encodes for another character.
-                if text in MARKS and cmap.get(ord(text)) != glyph and (glyph is None or glyph in cmap.values()):
-                    found.append(f"{name.decode().split('+')[-1]} names {text} for glyph {glyph}, "
-                                 f"its program's {text} being {cmap.get(ord(text))}")
+    composites = [body for body in objects.values() if re.search(rb"/Subtype /Type0\b", body)]
+    assert composites, "the render embeds no composite font this reader found"
+    for body in composites:
+        name = re.search(rb"/BaseFont /([^/\s]+)", body)[1].decode().split("+")[-1]
+        encoding = re.search(rb"/Encoding (/[^\s/>\]]+|\d+ 0 R)", body)[1].decode()
+        if encoding != "/Identity-H":
+            found.append(f"{name} is encoded by {encoding}, not /Identity-H: WeasyPrint drew a .notdef glyph in it")
+            continue
+        descendant = objects[re.search(rb"/DescendantFonts \[(\d+) 0 R\]", body)[1]]
+        descriptor = objects[re.search(rb"/FontDescriptor (\d+) 0 R", descendant)[1]]
+        literal, hexed = re.search(rb"/FontFamily (?:\(([^)]*)\)|<([0-9A-Fa-f]*)>)", descriptor).groups()
+        family = bytes.fromhex(hexed.decode()).decode("utf-16") if hexed else literal.decode("latin-1")
+        style = "italic" if int(re.search(rb"/Flags (\d+)", descriptor)[1]) & 64 else "normal"
+        files = ([face["file"] for face in faces if face["family"] == family and face["style"] == style]
+                 or [face["file"] for face in faces if face["family"] == family and face["style"] == "normal"])
+        if not files:
+            continue
+        pairs = []
+        for block in re.findall(r"beginbfchar(.*?)endbfchar", stream(re.search(rb"/ToUnicode (\d+) 0 R", body)[1]).decode("latin-1"), re.DOTALL):
+            pairs += [(int(gid, 16), bytes.fromhex(code).decode("utf-16-be")) for gid, code in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>", block)]
+        assert pairs, f"{name}'s text map holds no glyph this reader found"
+        misses = {path.name: [miss for gid, text in pairs if text and (miss := _entry_problem(path, gid, text))] for path in files}
+        if all(misses.values()):
+            found.append(f"{name} ({family} {style}) matches no file declared for it: "
+                         + "; ".join(f"{file}: {', '.join(miss[:3])}" for file, miss in misses.items()))
     return found
+
+
+def rendered(html: str) -> tuple[bytes, list[str]]:
+    """An uncompressed render of ``html`` and the .notdef warnings WeasyPrint logged while drawing it (a glyph
+    no font in the run's stack has, drawn as an empty box)."""
+    import weasyprint
+
+    messages: list[str] = []
+    handler = logging.Handler()
+    handler.emit = lambda record: messages.append(record.getMessage())
+    logger = logging.getLogger("weasyprint")
+    logger.addHandler(handler)
+    try:
+        pdf = weasyprint.HTML(string=html).write_pdf(uncompressed_pdf=True)
+    finally:
+        logger.removeHandler(handler)
+    return pdf, [message for message in messages if ".notdef" in message]
 
 
 def foreign_fonts(html: str) -> list[str]:
@@ -743,7 +840,8 @@ def _every_mark_analysis() -> str:
     detectors join a move with " → "), a calculated figure, whose dagger follows it in the grid's data face
     and in the data notes' count line, and an operand with an operand of its own, a list in the methods list."""
     analysis = export_fixtures.TestAnalysisPdfHtml()._analysis()
-    analysis.narrative_md = "Net margin moved 20.0% → 24.3% [2]."
+    # A mark, a space and a mark keep the space in the marks' run (Pango), in roman and in italic (an em).
+    analysis.narrative_md = "Net margin moved 20.0% → 24.3% [2]. Marked † ‡ and †\u2009‡. *Moved 20.0% → 24.3%, † ‡.*"
     analysis.dataset_json["series"][0]["points"][2]["provenance"] = {
         "method": "calculated", "validation": "passed", "reasons": [], "formula": "annual_minus_ytd",
         "inputs": [{"concept": "revenue", "value": 2500, "unit": "USD", "provenance": {
@@ -752,39 +850,55 @@ def _every_mark_analysis() -> str:
     }
     html = ExportService().generate_analysis_pdf_html(analysis, export_fixtures.TestAnalysisPdfHtml()._company())
     assert "→" in html and '$1,500 †</td>' in html and "calculated †" in html and '<ul class="operands">' in html
+    assert "<em>Moved 20.0% → 24.3%, † ‡.</em>" in html
     return html
 
 
 def _every_mark_summary() -> str:
     """A 20-F summary PDF with each mark a foreign filer's summary can print beyond the latin subsets: "≈US$X"
     beside a convenience translation, which the 20-F and 6-K prompts ask for, in prose and in the metrics
-    table's figure column (the data face), and the won and rupee signs before a figure."""
+    table's figure column (the data face), and the won and rupee signs before a figure; a mark, a space and a
+    mark (Pango keeps the space in the marks' run) in prose, in a figure cell and in a quote, set italic."""
     sections = export_fixtures._full_sections()
-    sections["executive_snapshot"]["key_points"].append("Revenue of RMB 941.2B (≈US$129B, convenience translation)")
-    sections["financial_highlights"]["table"].append({
-        "metric": "Revenue in US dollars", "current_period": "≈US$129B", "prior_period": "≈US$120B",
-        "change": "+7.5%", "commentary": "Convenience translation at the stated rate."})
+    sections["executive_snapshot"]["key_points"] += [
+        "Revenue of RMB 941.2B (≈US$129B, convenience translation)",
+        "Korea ₩1.2T → ₩1.4T; India ₹4,100 → ₹4,500 crore; RMB 941.2B → ≈US$129B; ≈ ₩1.2T; † ‡; → ₩",
+    ]
+    sections["financial_highlights"]["table"] += [
+        {"metric": "Revenue in US dollars", "current_period": "≈US$129B", "prior_period": "≈US$120B",
+         "change": "+7.5%", "commentary": "Convenience translation at the stated rate."},
+        {"metric": "Korea revenue", "current_period": "₩1.2T → ₩1.4T", "prior_period": "† ‡",
+         "change": "+16.7%", "commentary": "A mark, a space and a mark in the data face."},
+    ]
     sections["segment_performance"].append(
         {"segment": "Korea", "revenue": "₩1.2T", "change": "-3%", "commentary": "India revenue of ₹4,100 crore"})
+    sections["management_discussion_insights"]["quotes"].append(
+        {"speaker": "CFO", "quote": "Korea moved ₩1.2T → ₩1.4T, ≈US$1B; † ‡."})
     summary, filing = export_fixtures._make_summary_and_filing(sections)
     filing.filing_type = "20-F"
     html = ExportService().generate_pdf_html(summary, filing)
     assert "(≈US$129B," in html and '<td class="num">≈US$129B</td>' in html and "₩1.2T" in html and "₹4,100" in html
+    assert '<td class="num">₩1.2T → ₩1.4T</td><td class="num">† ‡</td>' in html
+    assert "<blockquote>“Korea moved ₩1.2T → ₩1.4T, ≈US$1B; † ‡.”" in html
     return html
 
 
-def test_every_glyph_prints_in_a_vendored_face():
-    weasyprint = pytest.importorskip("weasyprint")
+def test_every_glyph_prints_in_a_vendored_face(tmp_path):
+    pytest.importorskip("weasyprint")
     pdfs = {**_pdfs(), "analysis with every mark": _every_mark_analysis(), "20-F summary with every mark": _every_mark_summary()}
     try:
-        rendered = {name: weasyprint.HTML(string=html).write_pdf(uncompressed_pdf=True) for name, html in pdfs.items()}
+        renders = {name: rendered(html) for name, html in pdfs.items()}
     except Exception as exc:  # missing system libs in odd envs: not what this test reads
         pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
-    families = {name: embedded_font_families(pdf) for name, pdf in rendered.items()}
+    assert {name: notdef for name, (_, notdef) in renders.items()} == {name: [] for name in pdfs}, "a .notdef glyph"
+    families = {name: embedded_font_families(pdf) for name, (pdf, _) in renders.items()}
     assert all(families.values()), families  # the reader found the fonts
     assert {name: sorted(set(found) - VENDORED_FAMILIES) for name, found in families.items()} == {name: [] for name in pdfs}
-    assert {name: mark_glyph_problems(pdf) for name, pdf in rendered.items()} == {name: [] for name in pdfs}
-    assert "Inter Var Symbols" in families["20-F summary with every mark"]  # the reader saw the marks' face
+    assert {name: glyph_problems(pdfs[name], pdf) for name, (pdf, _) in renders.items()} == {name: [] for name in pdfs}
+    for name in ("analysis with every mark", "20-F summary with every mark"):  # the reader saw the marks' faces
+        assert {"Inter Var Symbols"} <= set(families[name]), name
+        assert any(font.endswith("Inter-Var-Symbols-Italic") and asked and italic
+                   for font, asked, italic in embedded_fonts(renders[name][0])), name
     markers = list_markers(pdfs["analysis with every mark"])
     assert markers[2] == {"• "} and "• " in markers[1], markers  # the operands list sits in the methods list
 
@@ -792,19 +906,42 @@ def test_every_glyph_prints_in_a_vendored_face():
     # face's stack as it was, the grid's dagger takes the system's monospace; without the disc rule a nested
     # list prints WeasyPrint's circle.
     every_mark = pdfs["analysis with every mark"]
-    no_symbols = _SYMBOLS_FACE.sub("", every_mark, count=1)
+    no_symbols = _SYMBOLS_FACE.sub("", every_mark)
     old_stack = every_mark.replace("'Geist Mono', 'Inter Var', 'Inter Var Symbols', monospace", "'Geist Mono', monospace")
     no_disc = every_mark.replace("ul ul { list-style-type: disc; }", "")
     assert no_symbols != every_mark and old_stack != every_mark and no_disc != every_mark
     assert foreign_fonts(no_symbols) and foreign_fonts(old_stack), "a fallback face must read as foreign"
     summary = pdfs["20-F summary with every mark"]
-    assert foreign_fonts(_SYMBOLS_FACE.sub("", summary, count=1)), "≈, ₩ and ₹ need the symbols face"
-    # Planted: the symbols face declared as a second 'Inter Var' normal face, its first form, merges with the
-    # latin one: the 20-F summary's later pages drew "₩" as the latin "A".
-    merged = summary.replace("font-family: 'Inter Var Symbols';", "font-family: 'Inter Var';", 1)
-    assert merged != summary
-    assert mark_glyph_problems(weasyprint.HTML(string=merged).write_pdf(uncompressed_pdf=True))
+    assert foreign_fonts(_SYMBOLS_FACE.sub("", summary)), "≈, ₩ and ₹ need the symbols faces"
     assert foreign_fonts(no_disc) == [] and list_markers(no_disc)[2] == {"◦ "}  # the face covers ◦: only the marker reads it
+
+    # Planted: the symbols face declared as a second 'Inter Var' normal face, its first form, merges with the
+    # latin one, whichever registers first. Latin first: the analysis grid drew "†" with a latin glyph, the
+    # 20-F summary "₩" as "A". Symbols first (a mark is the first text at its size): "ALIBABA" from the
+    # symbols program.
+    merge = ("font-family: 'Inter Var Symbols';", "font-family: 'Inter Var';")
+    for name in ("analysis with every mark", "20-F summary with every mark"):
+        merged = pdfs[name].replace(*merge, 1)
+        assert merged != pdfs[name] and glyph_problems(merged, rendered(merged)[0]), name
+    symbols_first = render_branded_pdf(title="Planted", doc_kind="Planted", meta_html="",
+                                       body_html="<p>→ ₩</p><p>ALIBABA GROUP</p>").replace(*merge, 1)
+    assert glyph_problems(symbols_first, rendered(symbols_first)[0])
+    # Planted: the symbols cut without its two spaces, the first cuts' form. A space between two marks stays in
+    # their run, and WeasyPrint draws it as .notdef and encodes that font by a CMap of its own.
+    from fontTools import subset
+
+    roman = VENDORED_FONT_DIR / "Inter-Variable-symbols.woff2"
+    spaceless = TTFont(roman)
+    subsetter = subset.Subsetter(subset.Options(layout_features=["*"], notdef_outline=True))
+    subsetter.populate(unicodes=[code for code in spaceless.getBestCmap() if code not in (0x20, 0xA0)])
+    subsetter.subset(spaceless)
+    spaceless.flavor = None
+    spaceless.save(tmp_path / "symbols-without-spaces.ttf")
+    planted = summary.replace(f"url('{roman.as_uri()}') format('woff2')",
+                              f"url('{(tmp_path / 'symbols-without-spaces.ttf').as_uri()}') format('truetype')")
+    assert planted != summary
+    pdf, notdef = rendered(planted)
+    assert notdef and any("not /Identity-H" in problem for problem in glyph_problems(planted, pdf)), notdef
 
 
 PLANTED_STYLES = """

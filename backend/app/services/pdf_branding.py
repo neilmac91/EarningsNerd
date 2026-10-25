@@ -89,18 +89,27 @@ def mark_svg(height_px: int = 34, fill: str = PALETTE["brand_strong"]) -> str:
     )
 
 
+# The code points the symbols faces are declared for: every mark they carry, without the two spaces each cut
+# adds for HarfBuzz (test_vendored_font_sources.py holds this, the files' cmaps and SOURCES.txt equal).
+SYMBOLS_RANGE = "U+2020-2021, U+20A9, U+20B9, U+2190, U+2192, U+2248, U+25E6"
+
+
 def font_face_css() -> str:
     inter = (_ASSETS / "fonts" / "Inter-Variable-latin.woff2").as_uri()
     # WeasyPrint never slants a face it lacks, so the wordmark's "Nerd" and a quote print italic only
     # from Inter's own italic (the same 4.001 build, latin subset, as the roman).
     inter_italic = (_ASSETS / "fonts" / "Inter-Variable-Italic-latin.woff2").as_uri()
-    # The marks the latin subsets lack (dagger and double dagger, the four arrows, the white bullet, "almost
-    # equal to" for a convenience translation the 20-F and 6-K prompts ask for, the won and rupee signs a
-    # summary figure may carry), cut from the same 4.001 build: without it they printed in DejaVu
-    # (SOURCES.txt records the cut). It is a family of its own, after Inter in every stack: WeasyPrint keys
-    # an embedded font by family, style and weight, never by file, so declared as a second 'Inter Var'
-    # normal face it merged with the latin one, and a page drew "₩" as the latin "A" (the gid both share).
+    # The marks the latin subsets lack (dagger and double dagger, the left and right arrows, the white
+    # bullet, "almost equal to" for a convenience translation the 20-F and 6-K prompts ask for, the won and
+    # rupee signs a summary figure may carry), roman and italic, cut from the same 4.001 build: without them
+    # they printed in DejaVu (SOURCES.txt records the cuts). A family of its own, after Inter in every stack:
+    # WeasyPrint keys an embedded font by family, style and weight, never by file, so declared as a second
+    # 'Inter Var' face it merged with the latin one, and a page drew "₩" as the latin "A" (the gid both
+    # share). Each cut also carries the space and the no-break space, which SYMBOLS_RANGE leaves out: Pango
+    # keeps a space between two marks in their run, so HarfBuzz needs one there, while fontconfig must never
+    # offer this face for a space.
     inter_symbols = (_ASSETS / "fonts" / "Inter-Variable-symbols.woff2").as_uri()
+    inter_italic_symbols = (_ASSETS / "fonts" / "Inter-Variable-Italic-symbols.woff2").as_uri()
     geist_mono = (_ASSETS / "fonts" / "GeistMono-latin.woff2").as_uri()
     return f"""
 @font-face {{
@@ -114,13 +123,20 @@ def font_face_css() -> str:
   src: url('{inter_symbols}') format('woff2');
   font-weight: 100 900;
   font-style: normal;
-  unicode-range: U+2020-2021, U+20A9, U+20B9, U+2190-2193, U+2248, U+25E6;
+  unicode-range: {SYMBOLS_RANGE};
 }}
 @font-face {{
   font-family: 'Inter Var';
   src: url('{inter_italic}') format('woff2');
   font-weight: 100 900;
   font-style: italic;
+}}
+@font-face {{
+  font-family: 'Inter Var Symbols';
+  src: url('{inter_italic_symbols}') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  unicode-range: {SYMBOLS_RANGE};
 }}
 @font-face {{
   font-family: 'Geist Mono';

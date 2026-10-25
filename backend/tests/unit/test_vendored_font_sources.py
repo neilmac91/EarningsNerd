@@ -4,7 +4,12 @@ SOURCES.txt says where each font in the directory comes from and how the symbols
 sha256 on a line "sha256 <hex>  <file name>". A font replaced without its record (a re-cut that forgot the line,
 a file swapped for another build) would leave the record describing bytes the PDFs no longer embed. So every
 font file in the directory has exactly one hash line, and its hash is the file's; a line naming a file the
-directory lacks is only the cut's source, which is not vendored (NOT_VENDORED).
+directory lacks is only a cut's source, which is not vendored (NOT_VENDORED).
+
+The symbols cuts' code points are written in four places, held equal here: each file's cmap, the
+unicode-range font_face_css declares for each face (pdf_branding.SYMBOLS_RANGE), each pyftsubset command
+SOURCES.txt records, and the glyph gate's MARKS (test_export_palette_parity.py). The cuts and the commands also
+carry SPACES, which the declared range leaves out.
 """
 from __future__ import annotations
 
@@ -12,10 +17,18 @@ import hashlib
 import re
 from pathlib import Path
 
+from fontTools.ttLib import TTFont
+
+from app.services.pdf_branding import SYMBOLS_RANGE, font_face_css
+from tests.unit.test_export_palette_parity import MARKS
+
 FONTS = Path(__file__).resolve().parents[2] / "app" / "assets" / "fonts"
 HASH_LINE = re.compile(r"^\s*sha256 ([0-9a-f]{64})  (\S+)", re.MULTILINE)
 FONT_SUFFIXES = (".woff2", ".woff", ".ttf", ".otf")
-NOT_VENDORED = frozenset({"Inter[opsz,wght].ttf"})  # the symbols face's source, pinned by URL and blob
+NOT_VENDORED = frozenset({"Inter[opsz,wght].ttf", "Inter-Italic[opsz,wght].ttf"})  # the symbols cuts' sources, pinned by URL and blob
+# The two spaces each symbols cut carries for HarfBuzz and its unicode-range leaves out (pdf_branding).
+SPACES = frozenset({0x20, 0xA0})
+SYMBOL_FILES = ("Inter-Variable-symbols.woff2", "Inter-Variable-Italic-symbols.woff2")
 
 
 def recorded_hashes(record: str) -> dict[str, list[str]]:
@@ -64,3 +77,26 @@ def test_the_reader_flags_each_way_a_record_drifts(tmp_path):
     ]
     record = f"  sha256 {a}  A.woff2\n  sha256 {hashlib.sha256(b'b').hexdigest()}  B.woff2\n  sha256 {c}  C.woff2\n"
     assert hash_problems(record, tmp_path) == []
+
+
+def code_points(ranges: str) -> set[int]:
+    """The code points of a CSS unicode-range or a pyftsubset --unicodes value ("U+2020-2021, U+20A9")."""
+    found: set[int] = set()
+    for first, last in re.findall(r"U\+([0-9A-Fa-f]+)(?:-([0-9A-Fa-f]+))?", ranges):
+        found |= set(range(int(first, 16), int(last or first, 16) + 1))
+    assert found, f"no code point in {ranges!r}"
+    return found
+
+
+def test_the_symbols_cuts_carry_the_marks_the_pdfs_declare():
+    declared = code_points(SYMBOLS_RANGE)
+    ranges = re.findall(r"unicode-range:\s*([^;]+);", font_face_css())
+    assert [code_points(item) for item in ranges] == [declared, declared]  # the roman face and the italic one
+    for name in SYMBOL_FILES:
+        cmap = set(TTFont(FONTS / name).getBestCmap())
+        assert cmap - SPACES == declared and SPACES <= cmap, name
+    commands = re.findall(r"--unicodes=(\S+)", (FONTS / "SOURCES.txt").read_text(encoding="utf-8"))
+    assert len(commands) == len(SYMBOL_FILES)
+    assert all(code_points(command) == declared | SPACES for command in commands), commands
+    assert {ord(mark) for mark in MARKS} == declared
+    assert code_points("U+0020, U+2190-2192") == {0x20, 0x2190, 0x2191, 0x2192}  # the reader reads a range whole

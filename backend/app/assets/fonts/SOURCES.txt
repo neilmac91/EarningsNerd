@@ -2,29 +2,38 @@ Where the vendored fonts in this directory come from. Each is licensed under the
 (OFL.txt, the text as Inter's release ships it). Each file's hash is on a line "sha256 <hex>  <file name>",
 which backend/tests/unit/test_vendored_font_sources.py holds equal to the file.
 
-Inter-Variable-symbols.woff2
-  The marks the latin subsets below lack, for the PDFs (pdf_branding.font_face_css, declared as the family
-  'Inter Var Symbols', after 'Inter Var' in every stack, with unicode-range U+2020-2021, U+20A9, U+20B9,
-  U+2190-2193, U+2248, U+25E6; a family of its own, since WeasyPrint embeds two faces of one family and style
-  as one font): the dagger and double dagger, the
-  won and rupee signs a summary figure may carry, the four arrows, "almost equal to" (the 20-F and 6-K prompts
-  ask for "≈US$X" beside a convenience translation) and the white bullet.
+Inter-Variable-symbols.woff2, Inter-Variable-Italic-symbols.woff2
+  The marks the latin subsets below lack, roman and italic, for the PDFs: the dagger and double dagger, the
+  won and rupee signs a summary figure may carry, the left and right arrows (the latin subsets carry the up
+  and down ones), "almost equal to" (the 20-F and 6-K prompts ask for "≈US$X" beside a convenience
+  translation) and the white bullet. pdf_branding.font_face_css declares both as the family 'Inter Var
+  Symbols', after 'Inter Var' in every stack (a family of its own, since WeasyPrint embeds two faces of one
+  family and style as one font), with unicode-range SYMBOLS_RANGE: U+2020-2021, U+20A9, U+20B9, U+2190,
+  U+2192, U+2248, U+25E6. Each cut also carries the space and the no-break space (U+0020, U+00A0), which the
+  range leaves out: Pango keeps a space between two marks in their run, so HarfBuzz needs one in this face,
+  while fontconfig must never offer it for a space.
   Cut from Inter 4.001, the build the latin subsets are (name table "Version 4.001;git-66647c0bb", family
   "Inter", axes opsz and wght): Google Fonts' build of rsms/inter commit
   66647c0bbbe41a850d79d9c76fb13add3378940f, as google/fonts publishes it, pinned to its commit
   e7db6ca603fd4862010383ff17ffd6cc4ffac1c0:
     https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/inter/Inter%5Bopsz,wght%5D.ttf
-    sha256 29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031  Inter[opsz,wght].ttf (the source, not vendored)
+    sha256 29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031  Inter[opsz,wght].ttf (the roman source, not vendored)
     git blob 047c92f6e2212473dc436020afed689527076d44, the blob that commit's tree names for the file
-  Checked as the same build: for each of the 230 code points Inter-Variable-latin.woff2 maps, the source's
-  outline, advance and variation deltas equal that file's. Inter's own GitHub release (v4.1, Inter-4.1.zip,
-  InterVariable.ttf) is another build of the same outlines (git-9221beed3, family "Inter Variable"), so it is
-  not the source.
-  Cut with fontTools 4.63.0 and brotli 1.2.1, the versions backend/requirements.txt pins; the command
-  reproduces the file byte for byte:
-    pyftsubset 'Inter[opsz,wght].ttf' --unicodes=U+2020-2021,U+20A9,U+20B9,U+2190-2193,U+2248,U+25E6 \
+    https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/inter/Inter-Italic%5Bopsz,wght%5D.ttf
+    sha256 acd98e64795781b2058f07b18475e0ecee2a0fe2b42a49e2f9e37d0d6bf66ce6  Inter-Italic[opsz,wght].ttf (the italic source, not vendored)
+    git blob c177578428248f08eedcc60e292acc6f414c2167, the blob that commit's tree names for the file
+  Checked as the same build: for each of the 230 code points Inter-Variable-latin.woff2 maps, the roman
+  source's outline, advance and variation deltas equal that file's, and the italic source's equal
+  Inter-Variable-Italic-latin.woff2's. Inter's own GitHub release (v4.1, Inter-4.1.zip, InterVariable.ttf) is
+  another build of the same outlines (git-9221beed3, family "Inter Variable"), so it is not the source.
+  Cut with fontTools 4.63.0 and brotli 1.2.1, the versions backend/requirements.txt pins; each command
+  reproduces its file byte for byte:
+    pyftsubset 'Inter[opsz,wght].ttf' --unicodes=U+0020,U+00A0,U+2020-2021,U+20A9,U+20B9,U+2190,U+2192,U+2248,U+25E6 \
       --layout-features='*' --flavor=woff2 --output-file=Inter-Variable-symbols.woff2
-    sha256 411d493d420d41e066e474b126017749dbdd0f17775f7f93cc15d02547aa6e94  Inter-Variable-symbols.woff2
+    sha256 f454524facee1db4a20fabdb02d4f2cdb8101ac5e47b845dd9aac0ff856296da  Inter-Variable-symbols.woff2
+    pyftsubset 'Inter-Italic[opsz,wght].ttf' --unicodes=U+0020,U+00A0,U+2020-2021,U+20A9,U+20B9,U+2190,U+2192,U+2248,U+25E6 \
+      --layout-features='*' --flavor=woff2 --output-file=Inter-Variable-Italic-symbols.woff2
+    sha256 78dadfad6303b42c8f3284c1752465fbea26f75d648628cdf514dd8acf32802d  Inter-Variable-Italic-symbols.woff2
   Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter).
 
 Inter-Variable-latin.woff2, Inter-Variable-Italic-latin.woff2
