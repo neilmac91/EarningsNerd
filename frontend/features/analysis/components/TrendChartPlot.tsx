@@ -15,17 +15,23 @@
  * scroll, and the next key resumes the keyboard's own period. The tooltip stays while the pointer rests on it, and
  * Escape dismisses it before it collapses an expanded card (WCAG 1.4.13).
  *
+ * Until its font has loaded (G4) the plot's box holds bones from its own plan, its gridlines and bars (§3.9 `loading`),
+ * and the plot fades in over them (DESIGN_SYSTEM.md §11, skeleton→content; E200).
+ *
  * The wash, the gutter and the tooltip sit outside the plot's node (plotRef), whose SVG is what the PNG export
  * serialises, so none of them reaches the image (§3.11 rule 4). They paint in DOM order without a z-index: the wash
  * under the plot, the gutter over it, the tooltip over both and outside the viewport, so 200% text never clips it.
  */
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
+import { cx } from '@/components/ui'
+import { useContentIn } from '@/hooks/useContentIn'
 import { useOverflowRegion } from '@/hooks/useOverflowRegion'
 import { columnOf, gutterCover, gutterCuts, slotAt, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import type { ChartModel, ChartView } from '@/features/analysis/lib/charts/model'
 import type { PeriodReadout } from '@/features/analysis/lib/charts/readout'
 import type { ChartTokens } from '@/features/analysis/lib/charts/theme'
 import { LegendSwatch } from './chartMarks'
+import { bonesPlan, ChartBones } from './TrendChartBones'
 import TrendChartSvg, { GutterOverlay } from './TrendChartSvg'
 
 const STEP: Record<string, number> = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1 }
@@ -78,6 +84,7 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
   // The status line's end-of-range word, set a frame after it is cleared; a later key or a blur cancels it.
   const edgeFrame = useRef<number | null>(null)
   const tap = useRef<{ id: number; x: number; y: number } | null>(null)
+  const contentIn = useContentIn(!fontReady)
   const active = owner === 'keyboard' ? keyIndex : owner === 'pointer' && hover != null ? Math.min(hover, last) : null
   const readout = active == null ? null : readouts[active]
   const gutter = overflowing && scrollLeft > 0 && fontReady
@@ -258,7 +265,8 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
             <div aria-hidden="true" data-chart-wash className="pointer-events-none absolute top-0"
               style={{ left: column.left, width: column.width, height: layout.height, background: tokens.cursor }} />
           )}
-          <div ref={plotRef} data-analysis-chart={model.title} className="relative col-start-1 row-start-1" style={{ width: layout.width, height: layout.height }}>
+          {!fontReady && <ChartBones plan={bonesPlan(layout)} />}
+          <div ref={plotRef} data-analysis-chart={model.title} className={cx('relative col-start-1 row-start-1', contentIn)} style={{ width: layout.width, height: layout.height }}>
             {fontReady && <TrendChartSvg model={model} layout={layout} tokens={tokens} label={`${model.title} chart`} uid={uid} />}
           </div>
           {gutter && (

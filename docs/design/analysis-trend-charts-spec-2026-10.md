@@ -271,8 +271,19 @@ says so; everything else follows the spec.
     beside the axis, where a cut `−19%` would read `19%`; a pointer under the cover reads no period.
   - A grid row's cards share its rows (CSS subgrid: header, plot, notes), so a row's plots start at one height
     whatever its legends wrap to (chief design's review of #1609).
-  - Not built, and open as E200: §3.9's loading skeleton (the card holds the plot's box while its font loads, G4), the
-    export button's busy state and §3.10's height animation.
+  - §3.9's and §3.10's states (E200):
+    - `loading`: while its font loads (G4) a plot's box holds bones from its own plan, four gridlines a panel and a
+      bar a slot (`TrendChartBones.tsx`), and its card is `aria-busy`; the plot then fades in over them, the first
+      data paint's `duration-base` fade (DESIGN_SYSTEM.md §11, skeleton→content). While the renderer's chunk loads,
+      the grid holds four cards of bones, each a header, a two-line legend and a 320 px plot, under one
+      `role="status"` ("Loading charts"), where it drew nothing. Bones are `Skeleton`s, so static under reduced motion.
+      "The exact final height" is the plot's and the two-line header's: a card whose legend wraps to more lines, or
+      that has footnotes, grows when the renderer replaces its bones.
+    - `exporting`: the export control is `<Button loading>` while its PNG is drawn (the spinner in its glyph's
+      place, `aria-busy`, a second press refused), never natively disabled.
+    - §3.10's height: a toggle runs the plot's row from its old height to its new one (`duration-base`,
+      `ease-standard`, clipped while it runs), and not at all under reduced motion. The card's width changes at once,
+      as the grid places it.
 - **The renderer's gates.** `frontend/tests/unit/trend-charts-v2.spec.tsx` holds the drawing to the plan on the 19
   datasets, every chart, both views and both themes: D3 on the plan's own geometry, D4, D5, D7, D11, D12 and D14,
   every printed string by its role and ink (D6 on the plan), paint the export can serialise, and the reading contract
