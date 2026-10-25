@@ -117,7 +117,8 @@ async function assertPageAndCards(page: Page, width: number, textScale: number, 
     const card = page.locator('[data-analysis-kpi]').nth(index)
     await expect(card.locator('dt')).toHaveText(expected.label)
     const source = card.locator('button[aria-label$="View source and calculation"]')
-    await expect(source.locator('span').filter({ hasText: /^†$/ })).toHaveCount(expected.daggers)
+    // The table's marks share a data-marks wrapper whose text can also be a lone †; count the marks, not it.
+    await expect(source.locator('span:not([data-marks])').filter({ hasText: /^†$/ })).toHaveCount(expected.daggers)
     const letters = EXPECTED_KPI_LETTERS[state][index]
     for (const { scope, expectedLetters } of [
       { scope: source, expectedLetters: letters.value },
@@ -171,7 +172,7 @@ async function assertPaintedMarks(page: Page, selector: string) {
       return context.getImageData(0, 0, 1, 1).data[3]
     }
     return containers.flatMap(container =>
-      [...container.querySelectorAll('[data-note-letter], span')]
+      [...container.querySelectorAll('[data-note-letter], span:not([data-marks])')]
         .filter(mark => mark.hasAttribute('data-note-letter') || mark.textContent?.trim() === '†')
         .map(mark => {
           const visible = mark.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && !mark.closest('.sr-only,[hidden]')
@@ -360,7 +361,7 @@ async function assertTable(page: Page, state: AnalysisState) {
   // Count value marks inside source controls separately from comparison marks below them.
   await expect(sourceControls.locator('[data-note-kind="review"]')).toHaveCount(EXPECTED_TABLE_REVIEWS[state])
   // Q4 header daggers cannot satisfy value-mark presence; count inside source buttons.
-  await expect(sourceControls.locator('span').filter({ hasText: /^†$/ })).toHaveCount(EXPECTED_TABLE_VALUE_DAGGERS)
+  await expect(sourceControls.locator('span:not([data-marks])').filter({ hasText: /^†$/ })).toHaveCount(EXPECTED_TABLE_VALUE_DAGGERS)
   await expect(table.locator('tbody [data-note-kind="review"]:not(button *)')).toHaveCount(EXPECTED_TABLE_COMPARISON_REVIEWS[state])
   const expectedNotes = EXPECTED_TABLE_CELL_NOTES[state]
   const expectedCells = Array.from({ length: METRICS }, (_, row) => expectedPeriods.map(period => {
