@@ -1162,6 +1162,36 @@ def test_every_sentry_channel_runs_the_value_scrubber(monkeypatch):
     }
 
 
+@pytest.mark.parametrize("channel", ("event", "transaction", "log", "metric"))
+def test_private_feedback_withholds_every_sentry_channel_in_request_context(channel):
+    """SQL errors/breadcrumbs and parser data must not carry investor screenshots or notes."""
+    from app.utils.feedback_privacy import private_feedback_request
+    import main
+
+    hook = main._value_scrubber(())[channel]
+    item = {"message": "private investor note", "extra": {"filename": "brokerage.png"},
+            "breadcrumbs": {"values": [{"data": {"params": ["https://private.example/portfolio"]}}]}}
+    hint = {"attachments": [b"screenshot bytes"]}
+    token = private_feedback_request.set(True)
+    try:
+        assert hook(item, hint) is None
+        assert "attachments" not in hint
+    finally:
+        private_feedback_request.reset(token)
+    assert hook({"message": "ordinary service event"}, {}) is not None
+
+
+@pytest.mark.parametrize("path", ("/api/feedback/", "/api/feedback/with-attachments",
+                                  "/api/feedback/attachments/private-id", "/api/admin/feedback"))
+def test_private_feedback_events_remain_withheld_after_request_context_ends(path):
+    import main
+
+    hook = main._value_scrubber(())["event"]
+    assert hook({"request": {"url": "https://api.example.test" + path,
+                              "data": {"message": "a private note", "files": b"bytes"}},
+                 "exception": {"values": [{"value": "SQL params contained private note"}]}}, {}) is None
+
+
 def _scrubbing_envelopes(request, monkeypatch, **values: str | None) -> list:
     """The sentry_envelopes fixture, built once these settings values are in place: main's value scrubber reads the
     settings when `_sentry_options()` runs, as main.py's one call does at startup."""

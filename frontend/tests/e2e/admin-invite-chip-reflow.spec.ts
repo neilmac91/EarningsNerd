@@ -48,6 +48,7 @@ const INVALID = 'not-an-email'
 const CHIPS = [INVITED, SHORT, SHORT_VALID, LONG, INVALID]
 /** A reporter's address of 50 characters. */
 const REPORTER_50 = 'maximilian.featherstonehaugh@exampleenterprise.com'
+const FEEDBACK_LINK = `https://evidence.example.test/report/${'long-filing-reference-'.repeat(12)}?quarter=1#chart`
 
 type Theme = 'light' | 'dark'
 type Box = { left: number; right: number; top: number; bottom: number }
@@ -80,7 +81,7 @@ async function openAdmin(page: Page, baseURL: string, theme: Theme, path: string
             [REPORTER_50, 'feature', 'triaged'],
             [INVITED, 'bug', 'new'],
             [null, 'general', 'resolved'],
-          ].map(([user_email, type, status], i) => ({ id: i + 1, user_id: user_email ? 42 + i : null, user_email, type, message: 'The summary export button does nothing on Safari.', page_url: '/filing/123', status, created_at: '2026-10-14T00:00:00Z' })),
+          ].map(([user_email, type, status], i) => ({ id: i + 1, user_id: user_email ? 42 + i : null, user_email, type, message: `The summary export button does nothing on Safari.\n${FEEDBACK_LINK}`, page_url: '/filing/123', status, created_at: '2026-10-14T00:00:00Z' })),
         })
       default:
         return json(404, { detail: 'Not found' })
@@ -338,6 +339,44 @@ for (const theme of ['light', 'dark'] as const) {
   })
 
   test.describe(`the feedback list, ${theme} theme`, () => {
+    test('details wrap long links at 390px and 200% text, with keyboard close and no preview fetch', async ({ page, baseURL }) => {
+      await page.setViewportSize({ width: 390, height: 400 })
+      const evidenceRequests: string[] = []
+      page.on('request', (request) => {
+        if (new URL(request.url()).hostname === 'evidence.example.test') evidenceRequests.push(request.url())
+      })
+      await openAdmin(page, baseURL!, theme, '/admin/feedback')
+      await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+      const opener = page.getByRole('button', { name: 'View details for feedback 1' })
+      await opener.focus()
+      await opener.press('Enter')
+      const dialog = page.getByRole('dialog', { name: 'Feedback details' })
+      const close = dialog.getByRole('button', { name: 'Close' })
+      await expect(close).toBeFocused()
+      const link = dialog.getByRole('link', { name: FEEDBACK_LINK })
+      await expect(link).toHaveAttribute('href', FEEDBACK_LINK)
+      await page.keyboard.press('Tab')
+      await expect(link).toBeFocused()
+      await expect(link).toBeInViewport()
+      const fit = await dialog.evaluate((panel) => {
+        const bounds = panel.getBoundingClientRect()
+        const link = panel.querySelector('a')!
+        return {
+          sideways: panel.scrollWidth > panel.clientWidth,
+          outside: [...link.getClientRects()].some((rect) => rect.left < bounds.left || rect.right > bounds.right),
+          pageSideways: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        }
+      })
+      expect(fit).toEqual({ sideways: false, outside: false, pageSideways: false })
+      await page.keyboard.press('Tab')
+      await expect(close).toBeFocused()
+      await expect(close).toBeInViewport()
+      await page.keyboard.press('Escape')
+      await expect(dialog).toHaveCount(0)
+      await expect(opener).toBeFocused()
+      expect(evidenceRequests).toEqual([])
+    })
+
     test('at 320px the page does not scroll sideways at the default size and under a 200% root font', async ({ page, baseURL }) => {
       await page.setViewportSize({ width: 320, height: 900 })
       await openAdmin(page, baseURL!, theme, '/admin/feedback')

@@ -33,6 +33,15 @@ export const directionText: Record<Direction, string> = {
   flat: 'text-flat-light dark:text-flat-dark',
 }
 
+/** Change text on the analysis figure surfaces (the metrics table's well, the KPI cards), held to APCA |Lc| >= 75 on
+ *  both grounds in both themes (tailwind.config.js `gain.data`, `loss.data`). Flat takes the neutral ink a flat chip
+ *  already uses in light (secondary) and the well's note ink in dark. The sign still carries direction. */
+export const dataDirectionText: Record<Direction, string> = {
+  up: 'text-gain-data dark:text-gain-data-dark',
+  down: 'text-loss-data dark:text-loss-data-dark',
+  flat: 'text-text-secondary-light dark:text-note-dark',
+}
+
 /** Full pill/chip tone — text + a subtle tinted background + border.
  *  Label ink = the 700-level TEXT tokens (AA inside the tint); the 600s stay on the
  *  border only. Matches Badge's beat/miss recipe — the two primitives now agree. */

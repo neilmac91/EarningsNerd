@@ -214,23 +214,165 @@ says so; everything else follows the spec.
     "Values don’t fit at this width. The metrics table lists them." It no longer offers "expand the chart":
     on a one-column phone the expanded view is no wider. A code-prefixed currency's labels ("CHF 4.9B") can reach
     it on a desktop card.
-- **Not yet in the engine.** `theme.ts` (§3.8's tokens) lands with the renderer: its dark tokens are owner decision
-  3 in §0.3. The tolerance file (§1.0, M20) is readout tooling and stays out of the product.
+- **The renderer (step 4, E192)** draws behind `NEXT_PUBLIC_CHARTS_V2`, off in production until the founder's switch
+  decision (F66). `components/TrendChartSvg.tsx` paints one chart's plan as one SVG with visx's `Group`, `Bar` and
+  `LinePath`, in literal attributes; `TrendChartCard.tsx` is the card, which every chart keeps (a chart that does not
+  apply says why at the card's height); `TrendCharts.tsx` loads it as its own chunk while the flag is on.
+  `lib/charts/theme.ts` holds §3.8's tokens for both themes (owner decision 3 in §0.3), held to the table by
+  `tests/unit/chart-theme.spec.ts`; Tailwind holds them from step 6 (E194, two lines down). Step 5 (E193) adds the ways to read it, in
+  the next line. The SVG sets `text-rendering="geometricPrecision"`: under full font hinting at 1×
+  (headless Chrome's default, and some desktops) Blink snaps each advance to a whole pixel, 7 px where G1 counts 6.6,
+  which moved a `CHF 20B` tick label 2 px out of the SVG (D1) and every string off D8. Two readings of D4, which binds
+  a series colour to its data: a line run's path names its periods in `data-period`, space-separated, since it spans
+  them; the value strip's swatches sit in a `data-strip` group. The tolerance file (§1.0, M20) is readout tooling and
+  stays out of the product.
+- **Reading a chart (step 5, E193).** `components/TrendChartPlot.tsx` holds the plot and the ways to read it,
+  `lib/charts/readout.ts` each period's readout (the tooltip's header and rows, and the sentence a screen reader
+  speaks), and `layout.ts` the slot under a pointer, a period's column and the sticky gutter's width. Where it departs
+  from §3.9, §3.10, §3.13, A7 and DESIGN_SYSTEM.md §10's contract for today's charts:
+  - The values stop is a slider over the periods whose `aria-valuetext` is the period's readout, named
+    `{title} chart values`, not `role="application"` beside a live status. A screen reader enters focus mode for it
+    unbidden and speaks the value text on focus and on every move, with no live-region timing, and VoiceOver on iOS can
+    step it by swiping, where an application stop is out of a touch screen reader's reach. It is a transparent layer
+    laid over the viewport, after the overflow region in the Tab order: the pointer passes through it to the plot, its
+    brand ring rings the viewport whatever the plot's scroll (an inset ring on the scrolled plot would leave the view
+    and lie under the gutter), and a touch screen reader finds it anywhere on the chart. Down and Up step too, and Home and End jump to the
+    oldest and newest; a step past either end, which changes no value, says "Oldest period." or "Newest period." in a
+    status line. A pointer's tooltip announces nothing: only the keyboard speaks.
+  - It starts at the newest period, the one the legend and the metrics table quote, and a plot opens scrolled there
+    whenever its view or window starts to overflow: on first layout, after expanding or collapsing (§3.10), whether or
+    not the other view overflowed, and for a new window. Never on a resize or zoom, which would lose the reader's
+    place: a plot that overflows is planned at its minimum width, which a resize leaves as it is. Today's stop starts
+    at the oldest.
+  - The header prints a quarter as the app does, `Q2 2026 · quarter ended Jun 30, 2026`, not `Q2 FY2026`: its end
+    date tells a fiscal quarter from a calendar one. An amount prints at 4 significant figures in its own unit
+    (`$987.6M`), cents at the finest in dollars. A growth row never says Calculated, since every growth rate is a
+    calculated comparison and the top line's footnote says so. A note letter takes the band's ink: «t.review» for a
+    review note. The state texts carry no dash, as `docs/voice-and-style.md` asks: `Unavailable (a)`,
+    `n/m · not meaningful` and `No prior-year period in this window`.
+  - The spoken readout spells out what screen readers garble: whole month names, `billion` for `B`, `minus` and
+    `plus` for the signs, `Year-over-year growth`, a margin and operating cash flow by their full names, `not
+    meaningful` for `n/m`, and a note as the metrics table speaks it (`data note b`).
+  - Escape dismisses a tooltip first, wherever focus is when a pointer raised it (WCAG 1.4.13), and then collapses an
+    expanded card and returns focus to its toggle, so D13's one Escape is two while a tooltip shows. The tooltip sits
+    flush beside its column, so a pointer crosses onto it without passing over another period, and resting on it keeps
+    its period. A tap pins it until a second tap on its period or a press outside the chart; a swipe that scrolls the
+    plot pins nothing.
+  - The tooltip lies outside the scrolling viewport, so 200% text never clips it, inside the viewport's sides and at
+    the plot's top. The wash, the gutter and the tooltip sit outside the node the PNG export serialises, so none needs
+    A7's `data-export="skip"`.
+  - A7's sticky gutter repeats the plot's own gutter while that has scrolled away: the surface over it, each panel's
+    caption on a backing as wide as the caption (captions run past the gutter), the tick labels, "Notes" and the
+    expanded strip's row names. It shows only while the plot is scrolled, so at rest it never covers an off-scale
+    value that reaches into the gutter. Past the gutter it also covers the column a scroll leaves cut at its edge, out
+    to the next slot boundary, with the plot's gridlines and edge rules carried across, and the rest of any value that
+    runs past its column across that edge: a bar label, which A4 keeps apart in either direction (up to 5 px over),
+    and an off-scale value, centred on its column whatever its width (up to 12 px over). So no value shows in part
+    beside the axis, where a cut `−19%` would read `19%`; a pointer under the cover reads no period.
+  - A grid row's cards share its rows (CSS subgrid: header, plot, notes), so a row's plots start at one height
+    whatever its legends wrap to (chief design's review of #1609).
+  - Not built, and open as E200: §3.9's loading skeleton (the card holds the plot's box while its font loads, G4), the
+    export button's busy state and §3.10's height animation.
+- **The renderer's gates.** `frontend/tests/unit/trend-charts-v2.spec.tsx` holds the drawing to the plan on the 19
+  datasets, every chart, both views and both themes: D3 on the plan's own geometry, D4, D5, D7, D11, D12 and D14,
+  every printed string by its role and ink (D6 on the plan), paint the export can serialise, and the reading contract
+  above. The renderer names each text's role (`data-text`) and each panel's plot rect (`data-plot`) for these checks.
+  `frontend/tests/unit/chart-readout.spec.ts` holds every readout to the model, and the golden plans carry the six
+  datasets' readouts. The unit specs also run M14, and M19 on the PNG's legend (`chart-export.spec.ts`). In a browser,
+  under full font hinting, in CI's `e2e-charts-v2` job (a required check on `main`; step 7 moves its specs into
+  `e2e-tests`, E195):
+  - `frontend/tests/e2e/charts-v2-gallery.spec.ts` draws twelve datasets chosen for their cases, in both themes at
+    1280 and 390 px, card and expanded. It holds each chart to the plan the engine makes at the width the page
+    measured (its size, and every text by role and ink), and to D1, D2, D3, D5, D6 on the computed colours (the card's
+    text too), D8, D9, D10, D14, M6 with A7's sticky gutter, and M19.
+  - `frontend/tests/e2e/charts-v2.spec.ts` runs D13, the reading contract above, and the job runs the export's
+    fidelity check (E1) against the renderer.
+  - The readings the gallery takes:
+    - D1 holds a text box to its SVG's edge, not 1 px inside it: the spec's own layout sets captions and "Notes" at
+      x = 0.
+    - D3's "on the zero rule" is a gap's baseline 3 px above its panel's zero line (A11's placement), within a pixel.
+    - D6 measures each paint's computed colour against the card's computed background, itself held to «t.surface»;
+      each role takes its §3.8 floor, the ↑ and ↓ arrows a mark's. The column wash is held at the token level only.
+    - D9's "before and after hydration": no chart is in the server's HTML (the page draws them after a run), so each
+      card's heights are recorded from the moment it is inserted, and it keeps one.
+    - M19 lets an item break inside only when it is wider than its legend's whole line: no wrapping avoids that
+      without the page scrolling sideways (CLAUDE.md rule 11's 200% text). No item reaches past its legend.
+    - It runs at DPR 1 under full hinting, the harder case for D1 and D8, where §6 names DPR 2.
+    - The unit fixtures lose their wire `data_notes`, which describe the full datasets the audit rebuilt and which the
+      page's contract therefore refuses; the page groups the notes from the points, as for any dataset without them.
+  - `frontend/tests/e2e/analysis-layout.spec.ts`, the analysis page's layout gate, runs in that job too and reads the
+    charts through `fixtures/trendChartDom.ts`: the renderer's `data-text` and `data-plot` with the flag set, today's
+    Recharts layers without it. On the renderer, every chart prints all twelve quarters and keeps its marks whatever
+    the metrics table shows; y tick labels sit inside their axis on one line; no chart scrolls at a desktop card's
+    width, in Swiss francs too (M6); and a phone's quarter keeps `MIN_SLOT`. Recharts' keyboard and notes case runs on
+    Recharts alone, and step 7 retires it (E195).
+- **M15** (`frontend/tests/unit/chart-table-agreement.spec.ts`) holds every value a chart prints on the 19 datasets,
+  card and expanded at 342, 502 and 1030 px, to the metrics table's cell for the same figure: bar and growth labels,
+  A13b labels, off-scale values, strip cells, legend values and the tooltip's readouts. "Rounded to the metrics-table
+  precision" is read as: both strings could print one value, less than half a unit of each one's last digit apart,
+  since the chart is often the coarser ("$16B" on a phone's bar, "$16.1B" in the table) and a coarser string cannot
+  be rounded finer. Rounding both to the coarser precision fails correct pairs too: the true $89.498B prints "$89B"
+  and "$89.5B", and "$89.5B" rounds to $90B. Each chart string is also held within half its own unit of the true
+  value. A growth value agrees with the YoY the table prints, since the growth panel is YoY, where a quarterly table
+  shows QoQ when it has it.
+  - M15 found the engine rounding a value on an exact decimal half down: it rounded on the binary double (`toFixed`;
+    $143.35M is 143.3499… as a double), where the table rounds the decimal half away from zero (Intl). `scale.ts`'s
+    `fixed` now rounds as the table does, so PLUG's 2024Q2 revenue reads "$143.4M" in its tooltip as in the table,
+    and the values on a half in five of the golden plans moved away from zero (REGN's FY2025 free cash flow,
+    $4,080.5M, reads "$4.081B"). Today's Recharts tooltips and axes take the same formats.
+- **The tokens (step 6, E194).** §3.8's Token change list is taken as far as it leaves production as it is until F66:
+  - Tailwind holds the renderer's colours as pairs of their own: `chart.s1…s6` (light halves `chart-1…6`, dark halves
+    the table's), `chart.tick` (`#636A77`, and `#B8BEC7`, the table's `chart.label.dark`), `chart.value` (`#374151`
+    and `#D7DADC`, the plot's own whatever #1606 makes of the text inks), `chart.gridline` (`#DCD9D0`/`#525C6B`, its
+    `chart.grid`) and `chart.review` (`#92400E`/`#FBBF24`). Item 1's dark siblings of `chart-1…6` would make
+    `themePairs` require `dark:bg-chart-1-dark` on the landing page's `RevenueBars`, and its new `chart.label` and
+    `chart.grid` values would repaint that page's axis labels and leave `components/ui/Chart.tsx`'s mirror behind:
+    production surfaces the founder's F66 decision covers. Until then two gates keep the pairs off them:
+    `designTokenParity` admits a hex only the pairs hold in `lib/charts/theme.ts` alone, and `chart-theme.spec.ts`
+    fails any class that names a pair. E195 folds the pairs into item 1's names.
+  - Item 2 waits too: `Chart.tsx` and the shared `chartExport.ts` text mirror keep today's values, since the
+    Fundamentals and Peers charts stay on Recharts. The renderer's PNG takes the card's own inks instead: its header
+    and notes paint in the legend names' ink, `#B8BEC7` on dark. The export's own dark secondary measured Lc −48.6
+    (`#9CA3AF`) when this was written; #1606 raised it with the DS secondary to `#D1D5DB` (−77.3).
+  - `DESIGN.md` (item 3) records the pairs as omitted from its frontmatter until they ship, so its sidecar, which
+    copies the frontmatter, is unchanged. DS §1 and §10 name the pairs (item 4). Of item 5, DS §10's paragraph on the
+    renderer states its inks; the rewrites of today's contract (hollow markers, the crosshair, "dark labels use
+    `secondary`" and †) belong to E195 with the charts they describe, and the font-loader note came with the loader
+    (item 6, E199: "Fonts (E199)" below). Item 7 is E195's.
+  - `tests/unit/chart-apca.spec.ts` recomputes every Lc the tables print, the Source column's included, and holds
+    every token to its floor in both themes, on the card and under the column wash (`cursor`, which the table leaves
+    unmeasured). The narrowest clear their floors by less than half a point, on the dark wash: the tick ink at
+    Lc −60.3 and the zero rule at −45.4.
 - **The gate.** `frontend/tests/unit/chart-engine.spec.ts` runs the model checks M1–M6, M8–M13, M18 and M21, M7,
   M16 and M17 in part, A4 (apart from its planner), A5's letter order and spacing, A7, A13b, G6, L1 for bar labels
   and §3.10's strip, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`
   (chosen from the 73 for their cases, trimmed to the plotted concepts and their quality fields, values unchanged),
   for every chart and both views, at 342, 502 and 1030 px. Golden plans for REGN, LCID, PLUG, BYND, JPM and PGR are
   in `tests/unit/fixtures/chart-golden/`. Before landing, the same checks passed on the audit's 75 datasets (600
-  tests). M14, M15, M19 and M20 and the D checks need a renderer or the table; they land with the renderer.
+  tests). M14, M15 and M19 run on the renderer (above), and M20 stays out of the product.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet
   the script cannot read (one served from another origin), the export stops with an error toast rather than paint a
   fallback. `tests/e2e/chart-export-fidelity.spec.ts` holds E1 for every panel in both themes, in Chromium, the one
   browser CI runs (at most 0.1% of plot pixels may differ by more than 25 in a channel; the worst panel measured
-  0.011%, and 1.5–1.7% with the faces left out). Safari and Firefox are not yet checked (E192). The plan's `latin-ext` preload is not taken: the export reads the faces itself, so the preload would only
-  spare the screen a brief swap of the † glyph, for 14.7 KB more on every route's critical path.
+  0.011%, and 1.5–1.7% with the faces left out). Safari and Firefox are not yet checked; F66's preview check covers them.
+- **Fonts (E199).** `app/fonts.ts` takes G1's fallback (`adjustFontFallback: false` and the monospace list), so a face
+  still loading paints in a monospace one, and keeps `subsets: ['latin']`. `subsets` chooses only the files `next/font`
+  preloads, and the root layout preloads them on every route; every subset's face is declared with its `unicode-range`
+  either way. A `latin-ext` preload would put 14.7 KB more on every route's critical path for glyphs only the analysis
+  surfaces print, and would make † likely, not certain, before first paint. G3's purpose is met by G4's wait instead:
+  it loads and checks `11px "Geist Mono"` with the text `0†₹₪₱`. The Font Loading API picks a family's faces by their
+  `unicode-range`, and with no text it takes a space, so G4's call as written waits for the latin face alone. With the
+  sample the plots paint once the latin face and the latin-ext one (†, and the ₹, ₪ and ₱ that `moneyPrefix` prints)
+  are both in, or 1,500 ms pass, so † never swaps after a plot's first paint, and no other route fetches latin-ext
+  before its text needs it. The export embeds the faces itself, so it needs no preload either.
+  - `trend-charts-v2.spec.tsx` holds the sample to every glyph outside the latin face that the engine prints over the
+    ISO 4217 list, and `designSystemDoneGate.spec.ts` holds the loader's two options.
+  - Outside the plots, a † or a foreign sign set in the data face (the KPI strip, the metrics table, the card's
+    footnotes) can still swap once on a cold cache, now between two monospace faces.
+  - ₩ (KRW) and ₫ (VND) are in no Geist Mono subset, so a panel in either prints its sign in the fallback, a glyph
+    G2 bans (E203).
 - **What this spec supersedes, and when.** When the renderer replaces today's charts (report §10, step 7), this spec
   replaces three rules of `docs/design/analysis-data-notes-redesign-2026-10.md` §4.7 for the four trend charts. Note
   letters move off the plot into the notes band (§3.3), and review letters take «t.review»: in the band they sit on
@@ -655,7 +797,7 @@ LCID annual margins: domain −600…+100%; one band below the plot holds six it
      centred in the box;
    - 6 px gap, then the name (12 px; light `text.secondary #374151`, dark `chart.label.dark #B8BEC7`);
    - 6 px gap, then the latest available value (Geist Mono 12; light `text.primary #1A1A17`, dark
-     `text.primary.dark #D7DADC`), at the panel's tier (F$ d0, or F%), with ` (FY2024)` or ` (Q1 ’25)` when it is not
+     `text.primary.dark #EAECEF`), at the panel's tier (F$ d0, or F%), with ` (FY2024)` or ` (Q1 ’25)` when it is not
      the last period.
    - Names: Margins `Gross`, `Operating`, `Net`; Cash `Operating CF`, `Free cash flow`, `Net income`; Balance
      `Long-term debt`, `Cash`, `Equity`.
@@ -815,10 +957,19 @@ band. Negative offsets, `overflow: visible` text and `textLength` are forbidden.
 |---|---|---|---|---|
 | Subtitle and footnotes | `text.tertiary #636A77` | 74.1 | `chart.label.dark #B8BEC7` | −63.6 |
 | Legend names | `text.secondary #374151` | 90.9 | `chart.label.dark #B8BEC7` | −63.6 |
-| Legend values | `text.primary #1A1A17` | 101.3 | `text.primary.dark #D7DADC` | −80.3 |
+| Legend values | `text.primary #1A1A17` | 101.3 | `text.primary.dark #EAECEF` | −91.8 |
 
 The dark subtitle, footnotes and legend names use `chart.label.dark` because DS `text.secondary.dark #9CA3AF`
 measures Lc −48.6, which is under 60 for 12 px text.
+(2026-10-25: the analysis number system raised DS `text.secondary.dark` app-wide to gray-300 `#D1D5DB`, Lc −77.3
+on the slate panel and −80.3 on navy, and gray-400 `#9CA3AF` became `text.tertiary.dark`; see
+`frontend/DESIGN_SYSTEM.md` §2. The sentence above records the token as this audit measured it. Whether these
+dark texts take the DS secondary ink rather than `chart.label.dark` is the migration's call; this spec is
+unchanged until it makes it. The same pull request raised DS `text.primary.dark` from `#D7DADC` to `#EAECEF`,
+Lc −91.8 on the slate panel and −94.8 on navy. The legend values row above takes it, since the renderer's legend
+values are that token (`charts/theme.ts`'s dark `figure`, held to it by `chart-theme.spec.ts`), as is today's chart
+tooltip value ink in `Chart.tsx`. §1 row 10 and the `value` row's dark ink, a chart-scope token of its own, keep
+`#D7DADC` as this audit measured it, for the migration to decide.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,
@@ -1499,7 +1650,8 @@ Run scope:
 
 - **Model checks:** 73 datasets × 4 charts × {card, expanded} × {light, dark}.
 - **DOM and export checks:** the gallery (73 datasets plus REGNPN), both modes and both themes, card and expanded,
-  at 1280×900, DPR 2; plus the 390 px phone subset for M6 and D9.
+  at 1280×900, DPR 2; plus the 390 px phone subset for M6 and D9. The repository's gallery runs at DPR 1 under full
+  font hinting instead, the harder case for D1 and D8 (§0.5).
 - **Gallery failure count** = the number of (image, check) pairs that fail. A spec-conformant build scores 0.
 
 What the verified prototype ran (report §9), all at 0 failures: D1, D2, D3, the coloured-spine part of D4, M8's card

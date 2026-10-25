@@ -131,8 +131,10 @@ preview into batches.
 The configured sustained sums are: 4 req/s sustained with no job running (two service instances), 6
 in the hourly filing-scan window, and at most 8 req/s in any scheduled overlap — Monday 06:00 and
 07:00 UTC (pregenerate, whose first attempt can run until 07:00, with a scan), Monday 07:30–08:30 UTC
-(backfill-facts with a scan) and a daily EFTS job over a running scan — and 20 req/s if every job ran
-at once (22 with the worker, 24 in a handover second), which configuration does not prevent. A full bucket at rate R admits up to 2R−1 requests in
+(backfill-facts with a scan) and a daily EFTS job over a running scan — and 22 req/s if every job ran
+at once (24 with the worker, 26 in a handover second), which configuration does not prevent. The
+feedback-media cleanup job adds two to this conservative configured sum but performs no SEC calls.
+A full bucket at rate R admits up to 2R−1 requests in
 its first second (19 at the default 10), but at the pinned rate of 1 the bucket never holds more than
 one token, so admissions are at least 1 s apart, and edgartools' window never exceeds its rate per
 rolling second: under the pin a process's ceiling is 2 req/s in every second, the first included, so
@@ -181,7 +183,7 @@ After a deploy, Ops `describe-service` (`docs/DEPLOYMENT.md`) prints `SEC_RATE_L
 `EDGAR_RATE_LIMIT_PER_SEC` and `ENABLE_INSIDER_ACTIVITY` for the serving revision, the pregenerate
 job and the task worker's serving revision, and fails when either pin is not `1` on the service or
 the worker; admin `/metrics` shows `sec_rate_limiter.requests_per_second` for the instance that
-answers; Ops `describe-jobs` prints both pin values for each of the eight jobs and fails when either
+answers; Ops `describe-jobs` prints both pin values for each of the nine jobs and fails when either
 is missing or not `1`. Ops `capacity-readout` carries the worker's request classes and latencies and
 its error-level log counts, the only aggregate evidence of the pin's effect on the worker.
 
@@ -340,6 +342,16 @@ prerequisite, 33/33 application tables and 40/40 migration hashes. See
 [deployment setup and import procedure](DEPLOYMENT.md#monthly-cloud-sql-logical-export) for the
 dedicated identity, IAM, secret, bucket lifecycle and recovery limits.
 
+### Feedback screenshot cleanup alerts
+
+The hourly `feedback-media-cleanup` job is separately monitored by feature-owned Cloud Monitoring
+policies provisioned through protected Ops. Failed completed executions notify the existing verified
+channel; missing normal-cleanup success heartbeats alert after two hours. Probe and dry-run success
+cannot refresh that heartbeat. Overdue objects fail the execution after their counters are recorded.
+Inspect the counts-only job ledger and the private-storage manifests before concluding that media was
+erased. See [private feedback screenshots](DEPLOYMENT.md#private-feedback-screenshots) for provisioning,
+permission checks and the distinction between configured alert routing and verified delivery.
+
 ### Durable alert delivery: reconciling `ambiguous` batches (E11b-1)
 
 New-filing alerts and daily digests are persisted in `earningsnerd_delivery_batches` (one row per
@@ -473,7 +485,7 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 | Endpoint | Purpose |
 |----------|---------|
 | `POST /email/test` | Send a test email via Resend (diagnoses email config; defaults to admin's own address) |
-| `POST /users/free` | Create a new Free, non-beta, non-admin account and email a single-use password setup link; never edits an existing account |
+| `POST /users/free` | Refuses with 409 and creates nothing: an account comes only from signup, where its holder accepts the account requirements, so the answer points to an invitation (`POST /invites`) |
 | `DELETE /filing/{id}/summary` | Delete summary for a filing |
 | `DELETE /filing/{id}/xbrl` | Clear XBRL cache for a filing |
 | `DELETE /filing/{id}/reset` | Full reset (summary, XBRL, content cache, progress) |
@@ -486,26 +498,26 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 
 ### Test accounts
 
-`freeuser@earningsnerd.io` (user id 9) is the founder's free-plan test account, kept indefinitely for checking what a free user sees. It is Free, non-beta and non-admin, and its address is an alias of the founder's mailbox. Its checkouts reuse one live Stripe Customer created for verification and are never paid.
+`freeuser@earningsnerd.io` (user id 9) is the founder's free-plan test account, kept indefinitely for checking what a free user sees. It is Free, non-beta and non-admin, and its address is an alias of the founder's mailbox. While checkout is open, its checkouts reuse one live Stripe Customer created for verification and are never paid.
 
-- Leave it out of funnel, revenue and user-count readouts by filtering on user id 9. That includes the `checkout_started` events its Upgrade clicks fire.
+- Leave it out of funnel, revenue and user-count readouts by filtering on user id 9. That includes the `checkout_started` events its Upgrade clicks fire while checkout is open; while it is closed, as now, an Upgrade click fires none.
 - Nothing deletes it: the retention purge never deletes accounts (`backend/app/services/retention_service.py`).
 
-To create another test account, use an authenticated admin session to send
-`POST /api/admin/users/free` with JSON containing `email` (an address whose inbox the tester
-controls) and optional `full_name`. A successful request returns HTTP 201 with the new account's
-id and flags: Free, non-beta, non-admin and initially unverified. It emails the existing
-password-reset flow's single-use setup link, valid for one hour. Completing that flow sets the
-password and verifies inbox ownership. The response never contains the password or raw token.
+To create another test account, sign up through the site with an address whose inbox the tester
+controls. Signup is where an account's holder accepts the account requirements, so no admin route
+creates one: `POST /api/admin/users/free` answers 409 and creates nothing. While
+`REGISTRATION_MODE` is `invite_only`, an admin first mints an invitation bound to that address
+(`POST /api/admin/invites` with `email`) and hands over the response's `invite_link`, which is
+shown once. Asking the mint to email it answers 503 while promotional mail stays closed
+(`legal_readiness_service.is_marketing_available()`), and the mint and signup both answer 503
+while new collection is closed (`is_collection_available()`).
 
-An existing email returns HTTP 409 and leaves that account unchanged. If the response has
-`emailed: false`, the new account still exists; use the site's forgot-password flow to request
-another setup email. Do not retry creation for the same address.
-
-The monthly trial is available once per account. To test the first-subscription trial again
-after an actual trial or subscription, create a fresh Free account. Opening an unpaid Checkout
-preview and leaving it unsubmitted does not consume that eligibility, so those checks can
-reuse the existing test account. Leave the retained user id 9 unchanged.
+New checkout is closed in code today: `legal_readiness_service.is_checkout_available()`
+returns False, so `POST /api/subscriptions/create-checkout-session` answers 503. Once it
+reopens, the monthly trial is available once per account. To test the first-subscription trial
+again after an actual trial or subscription, create a fresh Free account. Opening an unpaid
+Checkout preview and leaving it unsubmitted does not consume that eligibility, so those checks
+can reuse the existing test account. Leave the retained user id 9 unchanged.
 
 ### Verification Scripts
 
@@ -611,7 +623,9 @@ The check binds merges through the ruleset on `main` (id 23561253, created 2026-
 repos/neilmac91/EarningsNerd/rulesets/23561253` to read it): deletion and force-push of `main`
 blocked; a pull request required with **zero** approvals and squash as the only merge method;
 required status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`,
-`lighthouse`, `review-gate` and `secret-scan`, each pinned to the GitHub Actions app; no bypass actors, so the rules
+`lighthouse`, `review-gate`, `secret-scan` and, since 2026-10-25, `e2e-charts-v2` (the trend charts' spec
+renderer under `NEXT_PUBLIC_CHARTS_V2`; `tasks/todo.md` E195 takes it out again before that job is deleted),
+each pinned to the GitHub Actions app; no bypass actors, so the rules
 bind the administrator too. A required status check needs no approver, so this does not lock a
 single-collaborator repository; requiring pull-request reviews would, because authors cannot approve
 their own pull requests, and the GitHub default `require_extra_approval_for_unattributed_changes` is

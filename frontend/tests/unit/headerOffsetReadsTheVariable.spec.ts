@@ -256,8 +256,8 @@ describe('every offset under the site header reads --site-header-h, and the docu
     ).toEqual([])
     const globalsCss = readFileSync(path.join(ROOT, 'app/globals.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
     const html = globalsCss.match(/@layer base\s*\{\s*html\s*\{([^}]*)\}/)?.[1] ?? ''
-    expect(html, 'app/globals.css: html sets scroll-padding-top: calc(var(--site-header-h, 4rem) + var(--section-nav-h, 0px))').toMatch(
-      /(?:^|;)\s*scroll-padding-top:\s*calc\(var\(--site-header-h,\s*4rem\)\s*\+\s*var\(--section-nav-h,\s*0px\)\);/,
+    expect(html, 'app/globals.css: html sets scroll-padding-top: calc(var(--site-header-h, 4rem) + var(--section-nav-h, 0px) + var(--table-rail-h, 0px))').toMatch(
+      /(?:^|;)\s*scroll-padding-top:\s*calc\(var\(--site-header-h,\s*4rem\)\s*\+\s*var\(--section-nav-h,\s*0px\)\s*\+\s*var\(--table-rail-h,\s*0px\)\);/,
     )
     expect(
       globalsCss,

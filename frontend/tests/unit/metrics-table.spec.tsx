@@ -1,8 +1,15 @@
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import MetricsTable from '@/features/analysis/components/MetricsTable'
+import { tableTokenBudget } from '@/features/analysis/lib/tableFormat'
+
+const TAILWIND_FONT_SIZE = (createRequire(import.meta.url)('../../tailwind.config.js') as { theme: { extend: { fontSize: Record<string, [string, unknown]> } } }).theme.extend.fontSize
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 
 const dataset: AnalysisDataset = {
@@ -95,6 +102,33 @@ describe('MetricsTable', () => {
     const firstBodyCell = container.querySelector('tbody tr th[scope="row"]')
     expect(firstBodyCell).toHaveClass('sticky')
     expect(firstBodyCell).toHaveClass('left-0')
+  })
+
+  it('frames the sheet: the heading row and the Metric column keep the panel surface and its inks, the figures sit on the sheet', () => {
+    // The founder's call on the sheet: the labels keep the normal theme colours, for slight contrast with the data.
+    const { container } = render(<MetricsTable dataset={dataset} />)
+    const table = container.querySelector('table')!
+    const frame = table.parentElement!.parentElement!
+    expect(frame).toHaveClass('rounded-xl', 'outline', 'outline-1', 'outline-rule-light', 'bg-well-light', 'dark:outline-rule-dark', 'dark:bg-well-dark')
+    expect(table.querySelector('thead tr')).toHaveClass('text-text-secondary-light', 'dark:text-text-secondary-dark')
+    for (const th of table.querySelectorAll('thead th')) expect(th).toHaveClass('bg-panel-light', 'dark:bg-panel-dark')
+    for (const row of table.querySelectorAll('tbody tr')) {
+      const [label, ...figures] = [...row.children]
+      expect(label).toHaveClass('bg-panel-light', 'dark:bg-panel-dark', 'border-r', 'border-rule-light', 'dark:border-rule-dark')
+      for (const cell of figures) expect(cell.className, 'a figure cell shows the sheet').not.toMatch(/(?:^|\s)(?:dark:)?bg-/)
+    }
+    expect(within(table).getByRole('rowheader', { name: 'Revenue' }).firstElementChild).toHaveClass('text-figure-light', 'dark:text-figure-dark')
+  })
+
+  it('sets every figure and change line in the figure face, with tabular lining numerals and no tracking', () => {
+    render(<MetricsTable dataset={dataset} />)
+    const control = screen.getByRole('button', { name: /^Revenue, Q3 2024:/ })
+    const cell = control.closest('td')!
+    expect(cell.firstElementChild).toHaveClass('font-figure', 'tabular-nums', 'lining-nums', 'tracking-normal')
+    // A button's UA font shorthand resets font-variant-numeric, so the control re-declares the figure's numerals.
+    expect(control).toHaveClass('tabular-nums', 'lining-nums')
+    // The change line is 12px too, and its own size class would bring caption tracking back: it zeroes it again.
+    expect(within(cell).getByText(/Change vs prior quarter/).closest('[class*="text-gain-data"]')).toHaveClass('tracking-normal')
   })
 
   it('rounds unusually long table figures while source detail preserves value and full comparison', async () => {
@@ -233,7 +267,20 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
   it('renders "n/m" for a sign-flip growth value instead of a nonsensical percentage', () => {
     render(<MetricsTable dataset={annualDataset} />)
     expect(screen.getByText('n/m').parentElement).toHaveTextContent('Change vs prior year')
+    // Read aloud as words, not "n slash m": the abbreviation is hidden and the words stand in for it.
+    const token = screen.getByText('n/m')
+    expect(token).toHaveAttribute('aria-hidden', 'true')
+    expect(token.nextElementSibling).toHaveClass('sr-only')
+    expect(token.nextElementSibling).toHaveTextContent(/^not meaningful$/)
     expect(screen.getByText(/n\/m means not meaningful/)).toHaveTextContent('The final column shows CAGR, or percentage-point change for percent-unit rows. Each value’s source detail states its calculation range.')
+  })
+
+  it('says in the caption what the legend says of the final column, with no window left to select', () => {
+    const { container } = render(<MetricsTable dataset={annualDataset} />)
+    const caption = container.querySelector('caption')!.textContent!
+    expect(caption).toMatch(/: value and change versus prior year\. The final column shows CAGR, or percentage-point change for percent-unit rows\.$/)
+    expect(screen.getByText(/n\/m means not meaningful/).textContent).toContain('The final column shows CAGR, or percentage-point change for percent-unit rows.')
+    expect(caption).not.toMatch(/select/)
   })
 
   it('drops the final column, its legend and its caption on a one-year run, whose count reads in the singular (E185)', () => {
@@ -250,8 +297,8 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     expect(screen.getByRole('columnheader', { name: 'FY2024' })).toBeInTheDocument()
     expect(screen.queryByText('CAGR')).not.toBeInTheDocument()
     expect(screen.getByText(/n\/m means not meaningful/).textContent).toBe('n/m means not meaningful.')
-    expect(container.querySelector('caption')?.textContent).toBe('Metrics by period, 1 of 1 year: value and change versus prior year.')
-    expect(screen.getByText(/^Showing /).textContent).toBe('Showing 1 of 1 year')
+    expect(container.querySelector('caption')?.textContent).toBe('Metrics by period, 1 year: value and change versus prior year.')
+    expect(container.textContent).not.toMatch(/Showing \d/)
   })
 
   it('names the metric names as what lies left of a one-period table on a phone, annual or quarterly (E185)', () => {
@@ -309,7 +356,7 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
 })
 
 
-describe('MetricsTable period windows', () => {
+describe('MetricsTable periods', () => {
   const twelve: AnalysisDataset = {
     ...dataset,
     period_key: '2023Q1..2025Q4',
@@ -324,26 +371,24 @@ describe('MetricsTable period windows', () => {
     })) }],
   }
 
-  it('keeps All as the default, limits only table columns, and resets for a new dataset', async () => {
+  it('shows every period with no window control, and starts a new report on a fresh scroller', () => {
+    // The 6-of-N window is retired: the table always holds the whole run and scrolls sideways where it must.
     const input = structuredClone(twelve)
     const { rerender } = render(<MetricsTable dataset={input} />)
     const table = screen.getByRole('table')
-    expect(screen.getByRole('button', { name: 'All 12' })).toHaveAttribute('aria-pressed', 'true')
     expect(within(table).getAllByRole('columnheader')).toHaveLength(13)
-    await userEvent.click(screen.getByRole('button', { name: 'Newest 6' }))
-    expect(screen.getByRole('status')).toHaveTextContent('Showing 6 of 12 quarters')
-    expect(screen.getByRole('button', { name: 'Newest 6' })).toHaveFocus()
-    expect(screen.queryByRole('button', { name: /Revenue, Q1 2023:/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Revenue, Q4 2025:/ })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Earliest 6' }))
+    expect(screen.queryByRole('group', { name: 'Table window' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(All 12|Newest 6|Earliest 6)$/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Revenue, Q1 2023:/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Revenue, Q4 2025:/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Revenue, Q4 2025:/ })).toBeInTheDocument()
     expect(input).toEqual(twelve)
+    // The same report keeps its scroller (and so its scroll position); another report gets a new one.
+    const scroller = table.parentElement
+    rerender(<MetricsTable dataset={structuredClone(input)} />)
+    expect(screen.getByRole('table').parentElement).toBe(scroller)
     rerender(<MetricsTable dataset={{ ...input, ticker: 'OTHER' }} />)
-    expect(screen.getByRole('button', { name: 'All 12' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('table').parentElement).not.toBe(scroller)
     expect(screen.getAllByRole('columnheader')).toHaveLength(13)
-    rerender(<MetricsTable dataset={input} />)
-    expect(screen.getByRole('button', { name: 'All 12' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('marks only a populated, actually derived Q4 header and uses semantic row headers', () => {
@@ -367,13 +412,58 @@ describe('MetricsTable period windows', () => {
     expect(screen.getByText(/^n\/m means not meaningful\./)).toHaveTextContent('A Q4 header † means some flow figures are calculated from annual totals less the first nine months; it does not mark the column’s balance-sheet figures as calculated.')
   })
 
-  it('shows every period and suppresses window controls for an explicit illustrative sample', async () => {
-    const { rerender } = render(<MetricsTable dataset={twelve} />)
-    await userEvent.click(screen.getByRole('button', { name: 'Newest 6' }))
-    rerender(<MetricsTable dataset={twelve} sample />)
-    expect(screen.getByRole('status')).toHaveTextContent('Showing 12 of 12 quarters')
-    expect(screen.getAllByRole('columnheader')).toHaveLength(13)
-    expect(screen.queryByRole('group', { name: 'Table window' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Newest 6' })).not.toBeInTheDocument()
+})
+
+/**
+ * The column arithmetic (DESIGN_SYSTEM.md, Data note mark): a figure is 12px Geist Mono (DataTable's compact text-xs),
+ * a mark 11px (text-data-xs), each glyph 0.6em wide (Geist Mono's 600-unit advance, which the e2e "analysis phone
+ * marks" gate measures on the real glyphs), and every mark keeps 2px (ml-0.5) from what precedes it; a note's letters
+ * share one box. The gutter is one mark and its gap, so a marked and an unmarked figure share one edge, and a period
+ * column holds the widest line tableTokenBudget allows inside its inset (1px a side on a phone, 4px from md).
+ */
+describe('MetricsTable column widths', () => {
+  const source = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../features/analysis/components/MetricsTable.tsx'), 'utf8')
+  const rem = (name: string, prefix = '') => {
+    const match = new RegExp(`(?:^|[\\s"])${prefix.replace(':', '\\:')}\\[--${name}:([\\d.]+)rem\\]`).exec(source)
+    if (!match) throw new Error(`${prefix}--${name} is not a rem value in MetricsTable.tsx`)
+    return Number(match[1])
+  }
+  const ADVANCE = 0.6
+  const FIGURE = parseFloat(TAILWIND_FONT_SIZE.xs[0]) // rem, text-xs
+  const MARK = parseFloat(TAILWIND_FONT_SIZE['data-xs'][0]) // rem, text-data-xs
+  const GAP = 0.125 // rem, ml-0.5
+  /** Each line the budget allows: [label, width in rem], over a dagger or none and a note of none, one or two letters. */
+  const lines = [false, true].flatMap((calculated) => ['', 'a', 'ab'].map((letter) => {
+    const glyphs = tableTokenBudget(calculated, letter)
+    const marks = [calculated, letter !== ''].filter(Boolean).length
+    const width = glyphs * ADVANCE * FIGURE + marks * GAP + (Number(calculated) + letter.length) * ADVANCE * MARK
+    return [`${glyphs} glyphs${calculated ? ' †' : ''}${letter ? ` ${letter}` : ''}`, width] as const
+  }))
+  const widest = Math.max(...lines.map(([, width]) => width))
+
+  it('lets the metric column give up to 6px only below md, where that buys a phone its third whole period', () => {
+    const base = /\[--metric-col:min\(([\d.]+)rem,100cqi\)\]/.exec(source)
+    const bands = [...source.matchAll(/(\S*)\[@container\(([\d.]+)rem<=width<([\d.]+)rem\)\]:\[--metric-col:/g)]
+    expect(base && bands.length === 1, 'the metric column and its one band').toBeTruthy()
+    // From md the band would cut the 8.25rem column, not the phone's 6.5rem: at 200% text an 816px screen falls in it.
+    expect(bands[0][1], 'the band\'s variant').toBe('max-md:')
+    const band = /max-md:\[@container\(([\d.]+)rem<=width<([\d.]+)rem\)\]:\[--metric-col:calc\(100cqi-3\*var\(--period-col\)\)\]/.exec(source)
+    expect(band, 'the band\'s rule').toBeTruthy()
+    const [low, high] = [Number(band![1]), Number(band![2])]
+    // From the top of the band three periods fit beside the full metric column anyway; below its foot they cannot.
+    expect(high).toBeCloseTo(Number(base![1]) + 3 * rem('period-col'), 6)
+    expect(high - low).toBeCloseTo(0.375, 6)
+  })
+
+  it('keeps the mark gutter one mark and its 2px gap wide', () => {
+    expect(rem('mark-gutter')).toBeCloseTo(GAP + ADVANCE * MARK, 6)
+  })
+
+  it('gives every period column room for its widest line inside its inset, at the default and a doubled text size', () => {
+    expect(widest * 16, lines.map(([label, width]) => `${label}: ${(width * 16).toFixed(1)}px`).join(', ')).toBeCloseTo(67.6, 6)
+    for (const root of [16, 32]) {
+      expect(rem('period-col') * root - 2, `phone, ${root}px root`).toBeGreaterThanOrEqual(widest * root)
+      expect(rem('period-col', 'md:') * root - 0.5 * root, `md, ${root}px root`).toBeGreaterThanOrEqual(widest * root) // px-1 a side
+    }
   })
 })

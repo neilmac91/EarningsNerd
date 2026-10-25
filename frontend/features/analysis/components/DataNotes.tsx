@@ -6,9 +6,9 @@ import type { DataNote } from '@/features/analysis/lib/dataNotes'
 import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { usePrintDetails } from '@/features/analysis/lib/usePrintDetails'
-import { comparisonLocations, tablePeriods } from '@/features/analysis/lib/reportPresentation'
+import { comparisonLocations } from '@/features/analysis/lib/reportPresentation'
 import { formatInstant, formatLocalDate } from '@/lib/format'
-import { useAnalysisTableWindow, useDataNotes } from './DataNotesContext'
+import { useDataNotes } from './DataNotesContext'
 
 /** Nothing to subscribe to: the source date asks only whether it renders in the browser. */
 const noSubscription = () => () => {}
@@ -18,12 +18,12 @@ const comparisonLabel = (basis: string) => basis === 'qoq' ? 'QoQ' : basis === '
 type ComparisonLocations = ReturnType<typeof comparisonLocations>
 
 function comparisonLocator(location: ReturnType<ComparisonLocations>[number]) {
-  const { basis, total, headline, chart, chartLabel, table, fullTable, windowed, periods, quarterly } = location
+  const { basis, total, headline, chart, chartLabel, table, quarterly } = location
   const label = basis === 'qoq' ? 'quarter-over-quarter' : basis === 'yoy' ? 'year-over-year' : basis === 'window_pp' ? 'window percentage-point' : 'CAGR'
   const surfaces = [
     headline ? `The headline cards show ${headline}.` : '',
     chart ? `The ${chartLabel} growth chart shows ${chart}.` : '',
-    fullTable ? `The table shows ${fullTable}${quarterly && basis === 'yoy' ? ' as its labelled fallback' : ''}${windowed && (basis === 'qoq' || basis === 'yoy') ? ` (${table} in the ${periods} ${quarterly ? 'quarters' : 'years'} shown)` : ''}.` : '',
+    table ? `The table shows ${table}${quarterly && basis === 'yoy' ? ' as its labelled fallback' : ''}.` : '',
     `Exports carry all ${total}.`,
   ].filter(Boolean)
   return `${total} ${label} ${total === 1 ? 'comparison carries' : 'comparisons carry'} this note. ${surfaces.join(' ')}`
@@ -63,9 +63,7 @@ export function DataNotesList({ notes, locations }: { notes: DataNote[]; locatio
 export default function DataNotes({ dataset, sample = false }: { dataset: AnalysisDataset; sample?: boolean }) {
   const printScope = usePrintDetails()
   const model = useDataNotes(dataset)
-  const { window } = useAnalysisTableWindow(dataset)
-  const locations = useMemo(() => sample ? undefined : comparisonLocations(dataset, tablePeriods(dataset, window), model),
-    [dataset, window, model, sample])
+  const locations = useMemo(() => sample ? undefined : comparisonLocations(dataset, model), [dataset, model, sample])
   const { totals } = model
   // data_as_of is an instant, the source data's sync time, so it prints as the day it falls on in the reader's zone.
   // The server (the landing renders its demo there) and the hydrating render cannot know that zone, so they print the

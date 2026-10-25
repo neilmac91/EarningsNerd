@@ -92,7 +92,7 @@ const SIZE: Record<SegmentedControlSize, string> = {
 const SELECTED = 'bg-brand text-white shadow-e1 dark:bg-brand-dark dark:text-background-dark'
 const RESTING = cx(
   'text-text-secondary-light hover:text-text-primary-light',
-  'dark:text-text-secondary-dark dark:hover:text-text-primary-dark',
+  'dark:text-text-secondary-dark dark:hover:text-white',
 )
 const UNAVAILABLE = 'bg-background-light text-text-secondary-light dark:bg-background-dark dark:text-text-secondary-dark'
 

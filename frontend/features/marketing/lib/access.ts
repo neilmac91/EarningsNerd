@@ -1,12 +1,12 @@
 import type { SignupConfig } from '@/lib/serverApi'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
+import { exampleFilingHref } from '@/lib/featureFlags'
+import type { LegalReadiness } from '@/features/legal/api/legal-api'
 
 /**
- * The landing page's ONE access decision (the design's `access` tweak). Every account CTA, the
- * access line under the hero, the closing line, the header CTA and the Free pricing column read from
- * here. The truthful state is the backend's REGISTRATION_MODE (read via fetchSignupConfig): in
- * `invite_only` mode /api/auth/register rejects any email signup without an invite, so advertising
- * "Create a free account" would be a lie.
+ * Registration policy (the design's `access` tweak). In invite_only mode the backend rejects an
+ * email signup without an invite. Public entry points also need current collection readiness;
+ * publicAccessCopy combines it with this policy without changing the registration gate itself.
  */
 export type AccessMode = 'public' | 'invite'
 
@@ -47,4 +47,19 @@ export const ACCESS_COPY: Record<AccessMode, AccessCopy> = {
     line: 'Private beta · request an invite',
     href: '/waitlist',
   },
+}
+
+/** Registration policy does not imply collection readiness. Never use this display state as authorization. */
+export function publicAccessCopy(mode: AccessMode, readiness: LegalReadiness | null, loading: boolean): AccessCopy {
+  if (!loading && readiness?.collection_available === true) return ACCESS_COPY[mode]
+  return {
+    cta: 'See a live example',
+    ctaShort: 'Live example',
+    href: exampleFilingHref('access_example'),
+    line: loading
+      ? 'Checking registration availability. You can explore a live example.'
+      : readiness
+        ? 'New registrations are currently closed. Existing members can log in.'
+        : 'Registration availability could not be confirmed. You can explore a live example or log in.',
+  }
 }

@@ -60,7 +60,7 @@ const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
         <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
           {t.insider_name ?? <MissingValue label="name unavailable" />}
         </span>
-        <span className="block text-xs text-text-tertiary-light dark:text-text-secondary-dark">{roleOf(t) ?? <MissingValue label="no role listed" />}</span>
+        <span className="block text-xs text-text-tertiary-light dark:text-text-tertiary-dark">{roleOf(t) ?? <MissingValue label="no role listed" />}</span>
       </>
     ),
   },
@@ -173,7 +173,7 @@ export default function InsiderActivityPanel({
           <span className="sr-only">Loading…</span>
         </div>
       ) : !hasTrades || !summary ? (
-        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
           No open-market insider trades in the last {windowDays} days.
         </p>
       ) : (
@@ -189,7 +189,7 @@ export default function InsiderActivityPanel({
                 {direction !== 'flat' && <>&nbsp;· {signalMagnitude}</>}
               </p>
               {planSells > 0 && (
-                <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+                <p className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
                   Excludes {fmtShares(planSells)} shares sold under pre-scheduled 10b5-1 plans
                   {summary.discretionary_net_shares !== summary.net_shares && (
                     <>&nbsp;· discretionary net {fmtShares(summary.discretionary_net_shares, { signed: true })} shares</>
@@ -242,7 +242,7 @@ export default function InsiderActivityPanel({
         </>
       )}
 
-      <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+      <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
         Open-market Form 4 trades from SEC EDGAR. 10b5-1 marks a trade scheduled in advance under a trading plan.
       </p>
     </Card>

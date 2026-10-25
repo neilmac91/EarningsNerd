@@ -105,7 +105,7 @@ describe('the month sheet shows a day only what fits whole', () => {
     expect(within(holiday).getByText('Closed')).toHaveClass(`${NARROW}:hidden`)
     // With "Closed" gone, a primary-ink date would read as a trading day with no reports (the design review of
     // #1369): the holiday's date takes the weekend's tertiary ink there, and a trading day keeps the primary ink.
-    expect(within(holiday).getByText('19')).toHaveClass(`${NARROW}:text-text-tertiary-light`, `dark:${NARROW}:text-text-secondary-dark`)
+    expect(within(holiday).getByText('19')).toHaveClass(`${NARROW}:text-text-tertiary-light`, `dark:${NARROW}:text-text-tertiary-dark`)
     const tradingDay = within(screen.getByRole('button', { name: /^Tuesday, January 20,/ })).getByText('20')
     expect(tradingDay).toHaveClass('text-text-primary-light', 'dark:text-text-primary-dark')
     expect(tradingDay.className).not.toMatch(/text-text-tertiary/)

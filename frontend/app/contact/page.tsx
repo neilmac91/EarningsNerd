@@ -63,7 +63,7 @@ export default function ContactPage() {
 
         {/* FAQ Hint */}
         <div className="mt-8 text-center">
-          <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
             Looking for quick answers? Check out our{' '}
             <a
               href="/privacy"

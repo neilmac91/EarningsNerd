@@ -39,6 +39,7 @@ EXPECTED_JOBS = {
     "earningsnerd-pregenerate", "earningsnerd-filing-scan", "earningsnerd-filing-digest",
     "earningsnerd-backfill-facts", "earningsnerd-earnings-calendar-refresh",
     "earningsnerd-earnings-day-alerts", "earningsnerd-notable-filings", "earningsnerd-retention-purge",
+    "earningsnerd-feedback-media-cleanup",
 }
 # Scheduled overlaps of SEC-calling jobs with the service (the schedules below; filing-scan hourly with a
 # 1,800 s timeout, pregenerate Monday 06:00 UTC and backfill-facts Monday 07:30 UTC with 3,600 s, the
@@ -194,7 +195,7 @@ def test_configured_sums_fit_the_published_cap_in_every_scheduled_overlap():
     assert windows["hourly filing-scan window"] == 6
     assert max(windows.values()) == 8 and all(total <= SEC_PUBLISHED_CAP_PER_SECOND for total in windows.values())
     all_active = steady + sum(value for name, value in per_process.items() if name not in ("service", WORKER))
-    assert all_active == 20 and all_active > SEC_PUBLISHED_CAP_PER_SECOND  # documented, not bounded
+    assert all_active == 22 and all_active > SEC_PUBLISHED_CAP_PER_SECOND  # documented, not bounded
     # The task worker (enabled in production) adds one process to every window.
     worker = _service_instances(_run(WORKER_STEP)) * per_process[WORKER]
     assert worker == 2 and steady + worker == 6
@@ -213,7 +214,7 @@ def test_configured_sums_fit_the_published_cap_in_every_scheduled_overlap():
     for statement in (
         "4 req/s sustained with no job running",
         "6 in the hourly filing-scan window, and at most 8 req/s in any scheduled overlap",
-        "20 req/s if every job ran at once",
+        "22 req/s if every job ran at once",
         "up to 2R−1 requests in its first second (19 at the default 10)",
         "ceiling is 2 req/s in every second, the first included",
         "6 req/s sustained with no job running and at most 10 req/s in any scheduled overlap, at the cap",

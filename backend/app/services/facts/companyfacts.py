@@ -42,13 +42,13 @@ def _collect_companyfacts_values(
 ) -> dict[tuple[date, str], dict[str, Any]]:
     """Winning item per (period_end, klass) for one concept, across its candidate tags.
 
-    klass is "FY"/"Q" for durations, "I" for instants. Within a tag the LATEST-`filed` item wins a
-    period (restatement-aware; `filed` is ISO so lexical compare is safe, and a later list item wins
-    ties — companyfacts lists in filing order). Across tags, the FIRST tag with data wins a period
-    (priority order), so tag migrations merge into one continuous history without a stale tag
-    shadowing a newer one. Each winner also carries the EARLIEST-filed item's `fp`/`fy` — the one
-    case where those fields are trustworthy (the original filing that reported the period as its
-    own current period), used only as the in-progress-year quarter fallback.
+    klass is "FY"/"Q" for durations, "I" for instants. Only ``admitted_items`` compete, never a proxy or
+    information statement's. Within a tag the LATEST-`filed` item wins a period (restatement-aware; `filed`
+    is ISO so lexical compare is safe, and a later list item wins ties — companyfacts lists in filing
+    order). Across tags, the FIRST tag with data wins a period (priority order), so tag migrations merge
+    into one continuous history without a stale tag shadowing a newer one. Each winner also carries the
+    EARLIEST-filed item's `fp`/`fy` — the one case where those fields are trustworthy (the original filing
+    that reported the period as its own current period), used only as the in-progress-year quarter fallback.
     """
     claimed: dict[tuple[date, str], dict[str, Any]] = {}
     for tag in tags:

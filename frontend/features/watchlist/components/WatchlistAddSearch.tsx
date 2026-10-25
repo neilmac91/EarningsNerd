@@ -81,7 +81,7 @@ export default function WatchlistAddSearch() {
       <div className="relative">
         <MagnifyingGlassIcon
           aria-hidden="true"
-          className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark"
+          className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-tertiary-dark"
         />
         <input
           ref={inputRef}
@@ -134,7 +134,7 @@ export default function WatchlistAddSearch() {
                 <CompanyLogo decorative ticker={company.ticker} name={formatCompanyName(company.name)} size={28} />
                 <span className="min-w-0">
                   <span className="block truncate font-medium text-text-primary-light dark:text-text-primary-dark">{formatCompanyName(company.name)}</span>
-                  <span className="font-data text-sm text-text-tertiary-light dark:text-text-secondary-dark">{company.ticker}</span>
+                  <span className="font-data text-sm text-text-tertiary-light dark:text-text-tertiary-dark">{company.ticker}</span>
                 </span>
               </span>
               <PlusIcon className="h-4 w-4 flex-shrink-0 text-brand-strong group-aria-disabled:opacity-50 dark:text-brand-strong-dark" />
@@ -144,7 +144,7 @@ export default function WatchlistAddSearch() {
       )}
 
       {open && debounced.length > 0 && !isLoading && companies && companies.length === 0 && (
-        <div className="absolute z-20 mt-2 w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark p-4 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark shadow-e3 dark:shadow-none">
+        <div className="absolute z-20 mt-2 w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark p-4 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark shadow-e3 dark:shadow-none">
           No companies found matching &quot;{debounced}&quot;
         </div>
       )}

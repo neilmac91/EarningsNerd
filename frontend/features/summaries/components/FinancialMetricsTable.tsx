@@ -132,7 +132,7 @@ const changeField = (row: FinancialMetric, flow = false, figureCh = 0): ReactNod
   // alone, the change is MissingValue, read as "unavailable".
   if (isMissing(row.change_display)) {
     return (
-      <span data-metric-field="change" className="text-text-tertiary-light dark:text-text-secondary-dark">
+      <span data-metric-field="change" className="text-text-tertiary-light dark:text-text-tertiary-dark">
         <MissingValue />
       </span>
     )
@@ -198,7 +198,7 @@ const TONE_DIRECTION: Record<CellTone, Direction> = { gain: 'up', loss: 'down', 
 const changeToneClass = (tone: CellTone): string => cx(directionText[TONE_DIRECTION[tone]], tone !== 'flat' && 'font-semibold')
 
 // Card labels = the table's header register (DataTable's thead recipe: 12px uppercase eyebrow).
-const EYEBROW = 'text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark'
+const EYEBROW = 'text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark'
 // Card figures = the table's numeric-cell recipe (data face + tabular-nums at the table's text-sm).
 const FIGURE = 'font-data text-sm tabular-nums'
 // A card's year groups: one floor in rem, capped at the row, so the next group starts at the same offset in every card.

@@ -56,7 +56,7 @@ function DayColumn({
         )}
       >
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
+          <span className="text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark">
             {formatLocalDate(day.iso, 'EEE')}
           </span>
           <span
@@ -71,7 +71,7 @@ function DayColumn({
           </span>
         </div>
         {!day.holidayName && (
-          <span className="font-data text-data-xs tabular-nums text-text-tertiary-light dark:text-text-secondary-dark" title="Companies reporting">
+          <span className="font-data text-data-xs tabular-nums text-text-tertiary-light dark:text-text-tertiary-dark" title="Companies reporting">
             {day.events.length}
           </span>
         )}
@@ -80,10 +80,10 @@ function DayColumn({
         {day.holidayName ? (
           <p className="m-auto px-2 py-4 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
             <span className="font-semibold">Market closed</span>
-            <span className="mt-0.5 block text-text-tertiary-light dark:text-text-secondary-dark">{day.holidayName}</span>
+            <span className="mt-0.5 block text-text-tertiary-light dark:text-text-tertiary-dark">{day.holidayName}</span>
           </p>
         ) : empty ? (
-          <p className="m-auto px-2 py-4 text-center text-xs text-text-tertiary-light dark:text-text-secondary-dark">No reports</p>
+          <p className="m-auto px-2 py-4 text-center text-xs text-text-tertiary-light dark:text-text-tertiary-dark">No reports</p>
         ) : (
           <>
             {lanes.map((lane) => (
@@ -142,18 +142,18 @@ function MobileDay({
           <div>
             <h3 className="text-sm font-semibold">{formatLocalDate(day.iso, 'EEEE, MMMM d')}</h3>
             {day.holidayName && (
-              <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">Market closed · {day.holidayName}</p>
+              <p className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">Market closed · {day.holidayName}</p>
             )}
           </div>
         </div>
         {!day.holidayName && (
-          <span className="font-data text-xs tabular-nums text-text-tertiary-light dark:text-text-secondary-dark">
+          <span className="font-data text-xs tabular-nums text-text-tertiary-light dark:text-text-tertiary-dark">
             {day.events.length}
           </span>
         )}
       </header>
       {day.holidayName || day.events.length === 0 ? (
-        <p className="px-4 py-4 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+        <p className="px-4 py-4 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
           {day.holidayName ? `Market closed for ${day.holidayName}. No earnings are scheduled.` : 'No reports scheduled.'}
         </p>
       ) : (

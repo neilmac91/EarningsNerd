@@ -9,6 +9,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -647,7 +648,7 @@ def test_blinding_rejects_raw_rendered_identity_marker(tmp_path: Path) -> None:
 def test_blinding_strips_the_generation_date_from_a_real_filing_export(tmp_path: Path) -> None:
     """The case above blinds a hand-written header; this one blinds what ExportService.generate_pdf_html
     writes (acceptance_worker stores that HTML as the export artifact), so a change to the PDF's meta
-    line that loses the "<br>Source: SEC EDGAR" anchor the lookahead reads fails in CI, not in a run."""
+    line that loses the "<br>Original on SEC.gov" anchor the lookahead reads fails in CI, not in a run."""
     import re
 
     import tests.unit.test_export_service as export_fixtures
@@ -663,8 +664,83 @@ def test_blinding_strips_the_generation_date_from_a_real_filing_export(tmp_path:
     assert generated.search(export.read_text(encoding="utf-8"))  # the export dates itself
     projected = _reviewer_artifact(export, "export", row, config, "H01").decode()
     assert not generated.search(projected)
-    assert "Period End: December 31, 2025<br>Source: SEC EDGAR · " in projected
+    assert "Period End: December 31, 2025<br>Original on SEC.gov · " in projected
     assert "we operate in a very competitive and rapidly changing environment" in projected
+
+
+@pytest.mark.parametrize("source_line", [
+    'Original on SEC.gov · <span class="data">https://www.sec.gov/Archives/edgar/data/1/x.htm</span>',
+    'Source: SEC EDGAR · <span class="data">https://www.sec.gov/Archives/edgar/data/1/x.htm</span>',
+    'Source: SEC EDGAR — <span class="data">https://www.sec.gov/Archives/edgar/data/1/x.htm</span>',
+], ids=["since-E190", "retained-from-before", "retained-from-before-2026-10-16"])
+def test_blinding_reads_the_source_line_of_an_export_written_before_or_after_e190(
+        tmp_path: Path, source_line: str) -> None:
+    """The PDF's source line reads "Original on SEC.gov" since E190 and "Source: SEC EDGAR" before it, with an
+    em dash until 2026-10-16, which an export retained from an earlier run still carries: the blinding strips
+    the generation date before each, and refuses a line it does not know rather than pass the date on."""
+    row = {"config_sha256": "c" * 64, "arm": "candidate", "draw": 1}
+    config = {"content_stamp": "stamp-synthetic", "source_commit": "d" * 40, "model": "model-synthetic",
+              "base_url": "https://provider.invalid/v1"}
+    header = "Filing Date: May 01, 2026 · Period End: March 31, 2026 · Generated September 21, 2026<br>"
+    export = tmp_path / "export.html"
+    export.write_text(f"{header}{source_line}<p>Revenue rose.</p>", encoding="utf-8")
+    projected = _reviewer_artifact(export, "export", row, config, "H01").decode()
+    assert "Generated September" not in projected
+    assert f"Period End: March 31, 2026<br>{source_line}<p>Revenue rose.</p>" in projected
+    export.write_text(f"{header}Source: EDGAR · <p>Revenue rose.</p>", encoding="utf-8")
+    with pytest.raises(ValueError, match="unrecognized export generation-date metadata"):
+        _reviewer_artifact(export, "export", row, config, "H01")
+
+
+def _rewrite_export(fixture: dict[str, Any], row: dict[str, Any], text: str) -> None:
+    """An export as its run wrote it: the receipt, result and slot hashes follow its new bytes."""
+    export = fixture["outputs"].parent / row["export_path"]
+    export.write_text(text, encoding="utf-8")
+    receipt_path = export.parent / "receipt.json"
+    receipt = json.loads(receipt_path.read_text())
+    receipt["artifact_sha256"]["export_html"] = hashlib.sha256(export.read_bytes()).hexdigest()
+    _write(receipt_path, receipt)
+    result = _write(export.parent / "result.json", receipt)
+    with sqlite3.connect(fixture["outputs"].parent / "budget.sqlite3") as db:
+        db.execute("UPDATE slots SET result_sha=? WHERE id=?", (result["sha256"], row["slot_id"]))
+
+
+@pytest.mark.parametrize("lines", [("Original on SEC.gov · ", "Original on SEC.gov · "),
+                                   ("Source: SEC EDGAR · ", "Source: SEC EDGAR · "),
+                                   ("Source: SEC EDGAR · ", "Original on SEC.gov · "),
+                                   ("Source: SEC EDGAR — ", "Source: SEC EDGAR · ")],
+                         ids=["since-E190", "retained-from-before", "mixed", "mixed-before-E190"])
+def test_blinding_refuses_a_packet_set_whose_exports_mix_the_source_line(
+        tmp_path: Path, lines: tuple[str, str]) -> None:
+    """Each arm generates its exports in its own frozen checkout, so they print that version's source line:
+    "Source: SEC EDGAR" and an em dash until 2026-10-16, a middot until E190, "Original on SEC.gov" since.
+    A packet set whose two arms printed different lines would tell a reviewer the arm: the builder refuses it
+    before it writes anything, and builds a set whose exports carry one line, each beside its own filing's
+    address, as a real set's are, so a check that read the address into the line would refuse it."""
+    fixture = _fixture(tmp_path)
+    records = json.loads(fixture["outputs"].read_text())["records"]
+    assert {row["arm"] for row in records} == {"candidate", "comparator"}
+    assert len({row["accession_number"] for row in records}) > 1
+    header = "Filing Date: May 01, 2026 · Period End: March 31, 2026 · Generated September 21, 2026<br>"
+    for row in records:  # the candidate arm prints the first line, the comparator the second
+        line = lines[0] if row["arm"] == "candidate" else lines[1]
+        address = f"https://www.sec.gov/Archives/edgar/data/1/{row['accession_number'].replace('-', '')}/x.htm"
+        _rewrite_export(fixture, row, f'{header}{line}<span class="data">{address}</span><p>Revenue rose.</p>')
+    fixture["outputs"].write_text(json.dumps(inspect_outputs(
+        fixture["outputs"].parent, fixture["outputs"].parent, expected_manifest_sha=fixture["manifest_sha"])))
+    build = lambda: build_blinded_packets(  # noqa: E731
+        fixture["manifest"], fixture["archive"], fixture["preflight"], fixture["outputs"],
+        tmp_path / "reviewers", tmp_path / "custodian", expected_manifest_sha=fixture["manifest_sha"])
+    if lines[0] != lines[1]:
+        with pytest.raises(ValueError, match="more than one source line"):
+            build()
+        assert not (tmp_path / "reviewers").exists() and not (tmp_path / "custodian").exists()
+        return
+    assert build()["mapping_path"]
+    projected = [path.read_text(encoding="utf-8") for path in (tmp_path / "reviewers").rglob("export.html")]
+    assert len(projected) == 2 * len(records)
+    assert all(f"Period End: March 31, 2026<br>{lines[0]}<span" in text for text in projected)
+    assert not any("Generated September" in text for text in projected)
 
 
 def test_blinding_refuses_unknown_nested_execution_marker_or_canonical_shape(tmp_path: Path) -> None:

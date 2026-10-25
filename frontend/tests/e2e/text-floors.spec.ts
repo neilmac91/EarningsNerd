@@ -23,7 +23,8 @@ import { STATIC_ENTRIES } from '../../app/sitemap'
  * must read stays secondary. The ink is read from tailwind.config.js, so a token change cannot leave
  * the census looking at a colour nothing uses; the census must also find tertiary text, or a broken
  * probe would pass.
- * The census is light theme only: every dark pairing is the secondary-dark ink, which this change leaves alone.
+ * The census is light theme only. In dark, muted text takes tertiary's dark twin (gray-400 #9CA3AF), which
+ * tests/unit/figureSurfaceInks.spec.ts holds text-safe on the panel and the page; tinted dark grounds are not censused.
  *
  * The waitlist's join link (E82), in both themes: the pill rests at the secondary recipe's hover fill
  * (`bg-brand-weak`; in dark a shade stronger, `bg-brand-dark/15` beside the recipe's `brand-weak-dark` at 0.14)

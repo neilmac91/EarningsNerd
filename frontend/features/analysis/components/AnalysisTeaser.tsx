@@ -44,7 +44,7 @@ export default function AnalysisTeaser({ forTicker }: { forTicker?: string }) {
               state={{ status: 'done', text: demoCompletion.narrative, completion: demoCompletion }}
               sample
             />
-            <MetricsTable dataset={demoDataset} sample />
+            <MetricsTable dataset={demoDataset} />
           </div>
         </DataNotesProvider>
       </PeekLocked>

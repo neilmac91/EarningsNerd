@@ -119,8 +119,9 @@ const resolveVar = (value: string) => value.replace(/^var\((--[\w-]+)\)$/, (_, n
 const SOURCE_COLORS = { ...flatten(config.theme.extend.colors), white: tailwindColors.white }
 /** Source colors left out on purpose; DESIGN.md › Colors states why. */
 const OMITTED_COLORS = [
-  'text-tertiary-dark',
   ...['grid', 'axis', 'label', 'crosshair', 'ref', 'tip'].flatMap((k) => [`chart-${k}-light`, `chart-${k}-dark`]),
+  // The trend charts' spec renderer, behind NEXT_PUBLIC_CHARTS_V2 until the founder's F66 decision (E195 documents them).
+  ...['s1', 's2', 's3', 's4', 's5', 's6', 'tick', 'value', 'gridline', 'review'].flatMap((k) => [`chart-${k}-light`, `chart-${k}-dark`]),
 ]
 /** Source aliases: the snapshot records only the token each one equals. */
 const COLOR_ALIASES: Record<string, string> = {
@@ -144,7 +145,7 @@ const SPECIMEN_ROLES: Record<string, [string, string | null]> = {
   panel: ['panel-light', 'panel-dark'],
   ink: ['text-primary-light', 'text-primary-dark'],
   secondary: ['text-secondary-light', 'text-secondary-dark'],
-  muted: ['text-tertiary-light', 'text-secondary-dark'],
+  muted: ['text-tertiary-light', 'text-tertiary-dark'],
   line: ['border-light', 'border-dark'],
   'panel-line': ['border-light', 'white@0.1'],
   brand: ['brand', 'brand-dark'],
@@ -171,6 +172,9 @@ const SPECIMEN_ROLES: Record<string, [string, string | null]> = {
   hover: ['white', 'white@0.03'],
   header: ['background-light@0.8', 'background-dark@0.8'],
   'header-line': ['border-light', 'white@0.06'],
+  // A control resting in the secondary ink: primary under the pointer in light, white in dark, where dark primary sits
+  // 1.24:1 from dark secondary and white 1.47:1 (DESIGN_SYSTEM.md §2; tests/unit/themePairs.spec.ts holds the source).
+  'hover-ink': ['text-primary-light', 'white'],
 }
 
 /** Frontmatter typography role → its source. `size` keys tailwind fontSize; `tracking` overrides it. */
@@ -187,6 +191,10 @@ const TYPE_ROLES: Record<string, { family: string; size?: string; tracking?: str
   label: { family: 'body', size: 'xs', tracking: 'var(--track-eyebrow)' },
   data: { family: 'data' },
   'data-xs': { family: 'data', size: 'data-xs' },
+  // The analysis figures: the one-glyph minus face, then the data stack. Like `data` it has no size, so its fontFeature
+  // and letterSpacing are not read here: they are classes on each figure (tabular-nums lining-nums tracking-normal),
+  // held by tests/unit/kpi-strip.spec.tsx and tests/unit/metrics-table.spec.tsx.
+  figure: { family: 'figure' },
   'filing-reader': { family: 'editorial' }, // size and leading checked against globals.css below
 }
 
@@ -405,6 +413,8 @@ describe('sidecar specimens fit the Impeccable panel and trace to the snapshot',
   it('size to their panel stage and key dark mode to the app theme signal', () => {
     // Turbopack (lightningcss) serves hex lowercased, so the query lists the source and served spellings.
     const value = darkVars['--heading-color']
+    // The signal is the heading ink itself: globals.css's pair mirrors tailwind's text.heading, both themes.
+    expect({ light: rootVars['--heading-color'], dark: value }).toEqual(config.theme.extend.colors.text.heading)
     const spellings = [...new Set([value, value.toLowerCase()])]
     const signal = `@container ${spellings.map((v) => `style(--heading-color: ${v})`).join(' or ')}{`
     for (const c of components) {

@@ -80,12 +80,13 @@ describe('waitlist grounded example', () => {
     expect(screen.queryByText('$416.2B')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Source filing/ })).toHaveAttribute('href', filing.sec_url)
   })
-  it.each(['unreachable', 'placeholder', 'empty'])('keeps %s examples neutral and signup available', async state => {
+  it.each(['unreachable', 'placeholder', 'empty'])('keeps %s examples neutral and independent of the form', async state => {
     vi.stubGlobal('fetch', state === 'unreachable'
       ? vi.fn(async () => new Response(null, { status: 503 }))
       : respond(null, [], state === 'placeholder' ? 'Generating summary for this filing…' : ''))
     render(<WaitlistPage />)
     expect(await screen.findByText('Example temporarily unavailable')).toBeInTheDocument()
+    expect(screen.queryByText(/You can (still )?join the waitlist/)).not.toBeInTheDocument()
     expect(screen.getByRole('form', { name: 'Join waitlist' })).toHaveAttribute('data-source', 'waitlist')
     expect(screen.queryByText('Apple Inc.')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Read this filing summary' })).not.toBeInTheDocument()
@@ -99,6 +100,7 @@ describe('waitlist grounded example', () => {
     render(<WaitlistPage />)
     expect(screen.getByRole('form', { name: 'Join waitlist' })).toBeInTheDocument()
     expect(screen.getByText('Loading example…')).toBeInTheDocument()
+    expect(screen.queryByText(/You can (still )?join the waitlist/)).not.toBeInTheDocument()
     expect(screen.queryByText('ASML Holding N.V.')).not.toBeInTheDocument()
     await act(async () => { release(); await resource.pending })
     expect(screen.getByText('ASML Holding N.V.')).toBeInTheDocument()

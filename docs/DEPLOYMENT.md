@@ -37,9 +37,9 @@ skips files whose filename + sha256 are recorded; the psql session is pinned to 
 `postgres:15` service in the `migrations-postgres` CI job, which gates the deploy. To force one file
 to re-run in prod: `DELETE FROM migration_ledger WHERE filename = '<file>.sql';` then re-run the
 deploy. It then runs `gcloud run deploy` and routes
-traffic to the new revision, updates the required pregenerate job image, and updates seven other
+traffic to the new revision, updates the required pregenerate job image, and updates eight other
 configured job targets only when found (filing-scan, filing-digest, backfill-facts,
-earnings-calendar-refresh, earnings-day-alerts, notable-filings, retention-purge). Missing jobs are skipped,
+earnings-calendar-refresh, earnings-day-alerts, notable-filings, retention-purge, feedback-media-cleanup). Missing jobs are skipped,
 not provisioned by CI. It then health-checks `https://api.earningsnerd.io/health/detailed`. The job has a
 30-minute `timeout-minutes` so a stuck step can never hold the deploy group for GitHub's 6-hour
 default. Auth is keyless via Workload Identity Federation (repo variables `GCP_WIF_PROVIDER` +
@@ -205,7 +205,7 @@ binding is a founder IAM item. When every block printed, the final line is `desc
 `describe-service: PASS; UNVERIFIED: worker invoker policy (<class>)`, or
 `describe-service: FAIL (N invariant failure(s))`; an immediate exit prints no verdict line.
 
-`describe-jobs` reports image, task count, pool values and both SEC pin values for all eight
+`describe-jobs` reports image, task count, pool values and both SEC pin values for all nine
 expected jobs, states whether `earningsnerd-backfill-facts` carries the committed
 `python scripts/backfill_facts.py --only-new` entrypoint (other jobs: override present or image
 default; values are never printed), prints every block before exiting when a value defect (pool,
@@ -604,6 +604,183 @@ gcloud scheduler jobs create http retention-purge-weekly --location=us-west1 \
 
 CI updates this job's image with the others once it exists; until then the deploy logs
 "not found — create it once per DEPLOYMENT.md. Skipping."
+
+### Private feedback screenshots
+
+Text feedback works independently of image storage. Screenshots require `FEEDBACK_MEDIA_ENABLED=true`
+and `FEEDBACK_MEDIA_BUCKET`; the default is disabled. Disabling new uploads retains private reads and
+cleanup of previously accepted images. CI preserves these operator-owned values and updates the cleanup
+job image on subsequent backend releases when the job exists.
+
+The protected `Ops` workflow has six fixed operations:
+
+| Operation | Effect |
+| --- | --- |
+| `feedback-media-inspect` | Read bucket security, runtime grants, job image/entrypoint, cleanup/probe executions, hourly schedule and alert routing/heartbeat. |
+| `feedback-media-provision-apply` | Create the dedicated buckets, narrow grants, cleanup job/schedule and feature alert policies; run cleanup and a manifest-backed storage probe. |
+| `feedback-media-enable-apply` | Require matching private resources, successful cleanup and audited storage-probe executions within two hours, and verified alert routing/heartbeat, then enable API uploads. |
+| `feedback-media-disable-apply` | Disable new uploads while retaining the configured bucket, reads and cleanup. |
+| `feedback-media-verify-inspect` | Read the isolated verifier's private serving configuration and signed current-image/frontend receipt. |
+| `feedback-media-verify-apply` | Provision the fixed isolated verification lane, run the real migrations and live browser flow, and retain bounded synthetic evidence. |
+
+Each `-apply` requires the repository owner's approval of that exact run in `ops-apply`; agents never
+approve the deployment or modify the environment. All operations use only the reviewed `main` revision,
+the existing WIF identity and fixed resources in `earnings-nerd/us-west1`. Provisioning refuses an
+existing bucket or job whose ownership/security settings differ; it does not weaken a pre-existing
+resource to make a retry pass. A partial apply is inspected before a newly approved retry.
+
+The new buckets are `earnings-nerd-feedback-media-prod` and `earnings-nerd-feedback-media-preview`.
+Both enforce uniform bucket access and public-access prevention, with versioning and soft delete off.
+The SQL-backup bucket is untouched. Objects are not public and no bearer download URLs are issued.
+The custom `earningsnerdFeedbackObjects` role contains only object create/get/delete, bound on these
+buckets to the runtime identity. Inspection rejects any additional direct runtime bucket grant,
+including objectAdmin or a conditional grant. The storage probe also queries the actual runtime
+identity's effective permissions on the production bucket, so an inherited broad role cannot be
+assumed away. It requires object create/get/delete and rejects the other thirteen enumerated bucket/
+object permissions. This is a point-in-time audit of sixteen supported permissions, not proof about
+every future permission or project-level bucket listing. Broader inherited access blocks rollout;
+adding the narrow binding does not remove it. The provisioning identity needs permissions to create those buckets,
+create/read the custom role, set bucket IAM, create/update and run the cleanup job (including execution overrides) and its IAM, and create/update
+its Cloud Scheduler trigger, create/read log-based metrics, and create/list/read alert policies and the
+existing notification channel; absent grants fail the apply rather than being worked around.
+
+`earningsnerd-feedback-media-cleanup` runs `python scripts/feedback_media_cleanup.py`, with one task,
+one CPU, 512 MiB, a 600-second attempt timeout, one retry and one database connection without overflow.
+`feedback-media-cleanup-hourly` invokes it at `17 * * * *` in `Etc/UTC` using OAuth and a job-scoped
+invoker grant. The extra job raises the configured all-jobs connection budget by one (19 without the
+private worker, 22 with it); it makes no SEC or model calls. Runtime secret references are copied only
+for `DATABASE_URL` and `SECRET_KEY`, never printed or materialized as values.
+
+Screenshots expire after 180 days; account deletion revokes access immediately and schedules removal.
+Cleanup retains object manifests until a conditional delete or confirmed absence succeeds. Inspect the
+`feedback-media-cleanup` job ledger for failed/stale runs and overdue/error counters; a failed or stale
+job is an operational incident, not evidence of erasure. Target active-object removal within 24 hours.
+The operation reuses the existing channel
+`projects/earnings-nerd/notificationChannels/2698479126467110226` only after its enabled, verified email
+metadata is read back; its recipient is never printed. It creates no channel or new destination.
+
+The storage probe runs the cleanup job with execution-scoped `--verify-storage` arguments. It first
+commits an ownerless synthetic manifest, writes a tiny PNG, reads its exact bytes and conditionally
+deletes its generation. Failure leaves durable cleanup evidence. It creates no user or feedback
+report and uses the production bucket; the separate preview bucket is not thereby tested. The probe
+uses its own `feedback-media-storage-probe` ledger name and cannot refresh the scheduled cleanup
+heartbeat. Its enumerated permission audit runs before writing the synthetic object. Inspection requires the latest attempt of each mode to have succeeded on the serving
+image; an older success cannot conceal a recent failure.
+
+Two feature-owned Cloud Monitoring policies route to that existing channel. One observes failed
+completed executions of `earningsnerd-feedback-media-cleanup`, including overdue-object failures.
+The other alerts after two hours without the `earningsnerd_feedback_cleanup_success` log counter.
+Only a successful normal cleanup, after its ledger commit, emits that heartbeat; a probe, dry run,
+failed deletion, overdue backlog or failed ledger commit cannot refresh it. Provisioning creates the
+metric before running cleanup and waits up to five minutes for an observed point. Inspection requires
+the exact enabled policy filters, ownership labels and channel, and an observed recent heartbeat;
+configuration drift is refused rather than silently overwritten. The operation does not apply the
+historical general-alert readiness package or release its unrelated holds.
+
+Policy readback proves configured routing, not email delivery. Retain live policy, channel and
+heartbeat receipts, then confirm delivery on an authorized test or a natural incident before claiming
+end-to-end alert delivery. Metric publication and alert delivery can lag the underlying execution.
+
+Before enabling, verify synthetic upload/read/retry/export/deletion against private storage, browser
+behavior in both themes and the decoder's memory budget. Provisioning alone is not that verification.
+The enable operation checks infrastructure prerequisites; the operator must also retain the test and
+preview receipts in the PR. After enable/disable, verify `/health/detailed`, authenticated capabilities,
+and the serving revision. A frontend rollback must keep the backend read/cleanup paths for accepted
+images; never delete the bucket, manifests or migrations as a rollback.
+
+#### Isolated live verification before enabling screenshots
+
+Merge and verify the backend deployment, then merge the screenshot frontend before this operation.
+The reviewed `main` checkout supplies both the browser build and a bounded, direct `python -c`
+verification wrapper (at most 32 KiB) to the **exact immutable image digest serving production**.
+The wrapper is never installed as a production route or added to the backend image. The unchanged
+application handles the browser's requests; only the private verifier has the fixture controls and
+the local notification sink. Email, Stripe, model, analytics and error-reporting credentials are
+absent from this runtime. The sink validates the application's real feedback notifications without
+sending email.
+
+```bash
+gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=feedback-media-verify-apply
+```
+
+The founder approves this exact run's `ops-apply` deployment in GitHub. It has the same main-only,
+first-attempt, owner-approval and no-overlapping-main-deploy gates as the other apply operations.
+Do not approve it through an agent or run its cloud writes directly. A failed or partial apply is
+inspected before a fresh dispatch and fresh founder approval.
+
+The provisioner addresses only these feature resources:
+
+- Private Cloud Run service `earningsnerd-feedback-verify`, one instance, four concurrent requests,
+  one CPU/1 GiB, and a two-connection database pool without overflow. Four requests allow the browser
+  to exercise the application's two-upload admission limit while a control/busy request can reach it.
+- Identity `earningsnerd-feedback-verify@earnings-nerd.iam.gserviceaccount.com`, project Cloud SQL
+  client access, preview-bucket object create/get/delete, and access only to the two verification
+  secrets. The deployer receives service-account user and OpenID-token creator on this identity,
+  and verification-secret access; the verifier service has an identity-scoped invoker grant.
+- Database and LOGIN role `earningsnerd_feedback_verify` on `earningsnerd-db`, with a fixed
+  purpose/run marker. The role has no superuser, createdb, createrole, replication, bypass-RLS,
+  inherited role memberships, or database ownership. It may connect/create temporary objects in
+  its own database and create objects in that database's public schema. Its connection limit is
+  four. The actual migration runner runs as this restricted schema creator after model bootstrap.
+- Secrets `EARNINGSNERD_FEEDBACK_VERIFY_DATABASE_URL` and
+  `EARNINGSNERD_FEEDBACK_VERIFY_SECRET_KEY`; no production secret is mounted in either preview
+  service or cleanup job. The SQL administrator's existing connection is used only inside the
+  provisioner, through the pinned proxy on localhost port 15432, never exported to `GITHUB_ENV`
+  or passed to the browser process.
+- Existing dedicated bucket `earnings-nerd-feedback-media-preview`. Run media provisioning first.
+  Production objects, database tables and bucket settings are not used for verification fixtures.
+- Cleanup job `earningsnerd-feedback-verify-cleanup` and scheduler
+  `feedback-media-verify-cleanup-hourly` at `41 * * * *` UTC, one task/CPU/database connection,
+  512 MiB, 600-second timeout and one retry. They retain the same test database, bucket and durable
+  manifests after a failed browser run. The preceding run must settle before a new marker replaces
+  its cleanup configuration. Unexpected existing ownership or configuration blocks the operation.
+  Scheduled cleanup skips an unexpired verification lease, so it cannot erase a browser's active
+  fixtures. The protected operation uses execution-scoped `cleanup_now` for its final cleanup.
+  A new apply waits for the prior two-hour lease to expire, even after an early failure or completed
+  run; absence of an active browser is not inferred from a timeout. A changed runtime source also
+  refuses to execute the prior cleanup job automatically: inspect and settle its retained manifests
+  through a separately reviewed operation before retrying the new source.
+
+Before creating resources, the provisioner checks actual project IAM capabilities and SQL
+`CREATEDB`/`CREATEROLE`; a denied permission is a blocker, never a reason to widen grants silently.
+It verifies that the test role has no privileges on production application tables, sequences or
+security-definer functions. PostgreSQL's inherited PUBLIC CONNECT cannot be denied to one role
+without editing production ACLs, so this is an object-access check, not a claim that the role cannot
+connect to any other database. Production ACLs remain untouched. The running verifier separately
+audits its actual identity's preview storage permissions, requires no access permission on the two
+production secrets or production media objects, and checks its actual database name/role/marker
+before importing the app. Cloud Run identity, source digests and the two-hour run lease are checked
+as well. An anonymous request to its normally public application health route must receive Cloud
+Run's 403 denial; direct service IAM readback alone would miss inherited public invoker grants.
+
+The runner serves the actual frontend through an HTTPS loopback proxy. The proxy injects an
+audience-bound Cloud Run token server-side and gives the browser neither that token nor the control
+key. The browser exercises real upload, clipboard, private owner/admin reads, other-account denial,
+links, lost-response retry, export, account deletion and cleanup. Runtime evidence also records
+notification validation, metadata stripping, generation-confirmed deletion and measured memory.
+The memory result describes this representative workload; it does not establish a bound for every
+combination of warmed filing traffic.
+
+The successful receipt is HMAC-signed by the test secret, persisted in the isolated database, and
+bound to the run, schema, current image digest, runtime source, browser suite and committed frontend
+tree. Upload enablement now requires that receipt to be less than two hours old, in addition to the
+production cleanup/probe/monitoring prerequisites. Production request handlers never query the
+verification database. A subsequent backend image or frontend/source change requires fresh live
+verification. Confirm that Vercel serves the receipt's frontend tree and inspect the artifact before
+the separately approved enable operation.
+
+```bash
+gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=feedback-media-verify-inspect
+```
+
+This inspection creates no resources and needs no founder approval; it reads test-secret material
+only in memory to validate the signed receipt and mints a short-lived audience-bound token for the
+private control read. A missing/expired receipt or denied read is unverified, not a success.
+The seven-day `feedback-verification-<run>-1` artifact accepts only the signed counts/digests JSON
+and seven explicitly named synthetic PNG screenshots (8 MiB each, 64 MiB total). Unknown files,
+symlinks, PNG metadata and oversized evidence are rejected before publication. Cookies, session
+state, traces, videos, HTML, credentials, certificates and provider errors are excluded. Temporary
+credentials live in a separate private directory that is removed when the operation ends.
 
 ### Monthly Cloud SQL logical export
 

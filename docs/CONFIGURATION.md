@@ -108,6 +108,9 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `RESEND_REPLY_TO_EMAIL` | `"support@earningsnerd.io"` | Reply destination for direct transactional mail; defaults to the shared public role config. Durable deliveries freeze this optional value at selection; existing batches keep their stored value or header omission across retries and configuration changes. |
 | `CONTACT_NOTIFICATION_EMAIL` | `"support@earningsnerd.io"` | Workspace recipient for contact-form notifications, independent of the sending address. |
 | `FEEDBACK_NOTIFICATION_EMAIL` | `"support@earningsnerd.io"` | Workspace recipient for beta-feedback notifications, independent of the sending address. |
+| `FEEDBACK_MEDIA_ENABLED` | `false` | Accept new screenshot submissions only after private storage, cleanup and alert verification; disabling keeps existing authorized reads and cleanup available. |
+| `FEEDBACK_MEDIA_BUCKET` | `""` | Private GCS bucket for screenshot objects; use separate production and preview buckets with their corresponding isolated database/runtime. Empty disables storage access. |
+| `FEEDBACK_MEDIA_RETENTION_DAYS` | `180` | Screenshot lifetime from creation, recorded on each manifest; account deletion revokes access immediately and queues earlier removal. |
 | `RESEND_WEBHOOK_SECRET` | `""` | Resend/Svix webhook signature secret. |
 | `FRONTEND_URL` | `"https://www.earningsnerd.io"` | Public frontend origin: mail links, sign-in redirects and the mail header's tile (`/assets/earningsnerd-appicon.png`) are built on it. Use the origin that answers without a redirect (the apex answers 307 to www): sent mail keeps the whole address. Set it without a trailing slash: the tile and the waitlist's links strip one, the other links append their paths to it as it is. |
 | `DATA_QUALITY_REPORT_EMAIL` | `"neil@earningsnerd.io"` | Recipient of the operator-run data-quality report. |
@@ -336,6 +339,7 @@ NEXT_PUBLIC_ENABLE_SECTION_TABS=true|false
 NEXT_PUBLIC_ENABLE_CALENDAR=true|false             # Earnings calendar (owned EDGAR+Alpha Vantage engine; FMP no longer used)
 NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY=true|false     # Form 4 insider activity panel (needs backend ENABLE_INSIDER_ACTIVITY=true; keep both off, see above)
 NEXT_PUBLIC_ENABLE_ANALYSIS=true|false             # Multi-Period Analysis (off: nav/CTA hidden + /analysis route 404s)
+NEXT_PUBLIC_CHARTS_V2=true|false                   # Analysis trend charts drawn by the spec renderer instead of Recharts (E192; default off; previews and CI's e2e-charts-v2 job only until F66, never in vercel.json)
 NEXT_PUBLIC_ENABLE_FPI_FILINGS=true|false          # The plan cards name 20-F filings; set WITH the backend ENABLE_FPI_FILINGS (the API deploy sets it true)
 NEXT_PUBLIC_ENABLE_PRO_TRIAL=true|false            # Advertise the 7-day Pro trial (default off; flip WITH backend PRO_TRIAL_DAYS=7)
 WAITLIST_MODE=...                                  # Server-side waitlist gating (not NEXT_PUBLIC_)

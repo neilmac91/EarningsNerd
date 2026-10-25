@@ -16,7 +16,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import Filing, SavedSummary, Summary, SummaryGenerationProgress, User
-from app.services import audit_service
+from app.services import admin_filing_service, audit_service
 from app.services.summary_refresh import generation_failed, stale_filter
 from app.services.summary_versioning import is_stale
 
@@ -41,9 +41,15 @@ class ResetAllPlan:
     skipped_saved: list[dict]
 
 
-def select_reset_candidates(db: Session, *, filing_type: Optional[str], include_saved: bool) -> ResetAllPlan:
+def select_reset_candidates(
+    db: Session, *, filing_type: Optional[str], include_saved: bool, for_delete: bool = False,
+) -> ResetAllPlan:
     """Read-only: the summaries a reset-all matches, split into those to delete and the bookmarked
-    (``saved_summaries``) ones that are skipped unless ``include_saved``."""
+    (``saved_summaries``) ones that are skipped unless ``include_saved``. With ``for_delete``, it first
+    takes the admin maintenance lock (``admin_filing_service.lock_maintenance``), which ``delete_summaries``'
+    commit releases, so no other reset deletes the plan's rows between this read and that delete."""
+    if for_delete:
+        admin_filing_service.lock_maintenance(db)
     # Select only the columns we need (id + filing_id). Summary has large JSON/text columns we
     # never read here, so loading full ORM objects for a bulk op wastes memory + DB I/O.
     query = db.query(Summary.id, Summary.filing_id)
