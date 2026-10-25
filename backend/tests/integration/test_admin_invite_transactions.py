@@ -10,7 +10,9 @@ on the other, can redeem the invite between the check and the write. The cases:
   at its own write, then revokes the redeemed invite, and the re-send mints a replacement for it, so the case after it
   is not passing on writes that never met;
 - with the lock, each waits at its read for the redemption, sees its commit and refuses the redeemed invite, revoking
-  and minting nothing.
+  and minting nothing;
+- two admins' writes of one invite take turns: the second waits at its read for the first's lock and both commit. A
+  shared lock (FOR SHARE) would let both read and then deadlock at their writes, one of them answering 500.
 
 The re-send runs the route's unit, whose recipient check reads the invite first and keeps no reference to it, so the
 locked read loads it afresh. Two more writes keep the invite they read before the lock, as a caller that held it would:
@@ -215,6 +217,36 @@ def test_without_the_lock_a_write_acts_on_an_invite_redeemed_meanwhile(postgres_
     _, error = _write_beside_a_redemption(postgres_engine, WRITES[write])
     assert error is None, error
     assert _state(postgres_engine) == (True, True, 2 if write.startswith("re-send") else 1)
+
+
+@pytest.mark.parametrize("write", ["revoke", "re-send"])
+def test_two_writes_of_one_invite_take_turns(postgres_engine, write):
+    """A revoke holds the invite's lock from its read; a second admin's revoke or re-send of the invite waits at its
+    own locked read until the first commits, then acts on the revoked, unused invite, and both commit."""
+    invite_id, _ = _ids(postgres_engine)
+    first_read = threading.Event()
+    release = threading.Event()
+
+    def first(db: Session) -> InviteCode:
+        invite = invite_service._unused_invite_locked(db, invite_id)
+        first_read.set()
+        release.wait(timeout=30)
+        invite.is_revoked = True
+        db.commit()
+        return invite
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        held = pool.submit(_run, postgres_engine, first)
+        try:
+            assert first_read.wait(timeout=5), "the first write must read the invite under its lock"
+            second = pool.submit(_run, postgres_engine, WRITES[write](invite_id))
+            waited = _waiting(postgres_engine, 1)
+        finally:
+            release.set()
+        results = [held.result(timeout=60), second.result(timeout=60)]
+    assert waited, "the second write must wait at its read for the first write's lock"
+    assert [error for _, error in results] == [None, None]
+    assert _state(postgres_engine) == (False, True, 2 if write == "re-send" else 1)
 
 
 @pytest.mark.parametrize("write", sorted(WRITES))

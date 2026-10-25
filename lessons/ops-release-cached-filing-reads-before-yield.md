@@ -223,21 +223,30 @@ The admin invite routes did the same (`admin.py`: the invite list, mint, revoke 
 admins on four slots, through the real auth dependency, the list, revoke, mint and re-send ran 8 of 16,
 48 of 56, 48 of 56 and 64 of 80 statements on the loop, the writes checked out 16 of 24 connections
 there, and every case left its transaction for the finalizer, the 404s and 409s included; the mint and
-re-send held a connection through their invite mail (each the same in three runs). The list and the
-revoke (with its audit row) are now one unit each, and the mint and the re-send mint in one unit and
-write their audit row in another after the mail, so no pool slot waits on the mail provider. The revoke
-and the re-issue are the Rule's check-then-write units: in the thread pool a registration on the same
-instance can redeem the invite between their check and their write, as one on the other instance always
-could. On a local PostgreSQL 16, with a registration's redemption of the invite uncommitted for 1.0 s,
-the base's revoke and re-send froze the loop for 0.945 to 1.019 s at their write, then revoked the
-redeemed invite, and the re-send minted a replacement for it. They now read the invite under its row lock
-until their commit (`invite_service._unused_invite_locked`, with `populate_existing`, so a caller that
-kept an invite it read before the lock sees the redemption too): each waits in the thread pool, sees the
-redemption's commit and answers 409, and the loop's longest gap was 11 to 14 ms (88 ms on a process's
-first request). `test_admin_invite_transactions.py` races both against a redemption on PostgreSQL in CI,
-and its control shows each acting on the redeemed invite without the lock. A redemption that comes second
-still redeems a revoked invite: `redeem_invite` checks only `used_at`. `create_free_account`, a refusal,
-no longer takes the session (2026-10-25, E171).
+re-send held a connection through their invite mail (each the same in three runs; the mail runs only with
+marketing readiness open, and `is_marketing_available()` keeps it closed, so a mint asking for it answers
+503 before any unit and a re-send of a bound invite answers 503 from its unit). The list and the revoke
+(with its audit row) are now one unit each, and the mint and the re-send mint in one unit and write their
+audit row in another after the mail, so no pool slot waits on the mail provider; that row now takes a
+checkout of its own, so a pool still full at its timeout loses it, logged, where the base's held
+connection kept it. The revoke and the re-issue are the Rule's check-then-write units: in the thread pool
+a registration on the same instance can redeem the invite between their check and their write, as one on
+the other instance always could. On a local PostgreSQL 16, with a registration's redemption of the invite
+uncommitted for 1.0 s, the base's revoke and re-send froze the loop for 0.945 to 1.019 s at their write,
+then revoked the redeemed invite, and the re-send minted a replacement for it. They now read the invite
+under its row lock until their commit (`invite_service._unused_invite_locked`, with `populate_existing`,
+so a caller that kept an invite it read before the lock sees the redemption too): each waits in the
+thread pool, sees the redemption's commit and answers 409, and the loop's longest gap was 11 to 14 ms
+(88 ms on a process's first request). A registration on the same instance, whose session work still runs
+on the loop (E121), can now wait there for that lock, from the revoke's or re-send's read to its commit
+(a median of about 4 ms in the review's stress run, and up to 205 ms when a garbage collection paused
+inside it), which the base's loop never overlapped. `test_admin_invite_transactions.py` races both
+against a redemption on PostgreSQL in CI, its control shows each acting on the redeemed invite without
+the lock, and two admins' writes of one invite take turns at the lock: a shared one (FOR SHARE) would let
+both read, then deadlock at their writes. A redemption that comes second still redeems a revoked invite:
+`redeem_invite` checks only `used_at` (E200). `create_free_account`, a refusal, no longer takes a session
+of its own; its auth lookup's transaction is still left for the finalizer, as a 403's is
+(2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the

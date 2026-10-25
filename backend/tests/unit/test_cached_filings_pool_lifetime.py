@@ -2899,7 +2899,8 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
 
 
 def _invite_fixture(monkeypatch, tmp_path, send_invite_email):
-    """A four-slot pool with eight admins, eight pending invites bound to invitees and eight used ones, the
+    """A four-slot pool with eight admins, eight pending invites bound to invitees (cohort ``seed-{i}``) and eight
+    used ones, the
     invite routes wired to it with ``send_invite_email`` as their mail sender and invitations ready. Returns
     the engine, a session factory, the request sessions as they open, whether each checkout, statement and
     checkin ran on the loop, the seeded invite ids and each admin's id as the audit log stores it."""
@@ -2922,7 +2923,7 @@ def _invite_fixture(monkeypatch, tmp_path, send_invite_email):
             db.add(User(email=f"admin-{i}@example.com", is_active=True, is_admin=True))
         db.flush()
         for i in range(8):
-            db.add(InviteCode(code_hash=f"{i:064x}", email=f"invitee-{i}@example.com",
+            db.add(InviteCode(code_hash=f"{i:064x}", email=f"invitee-{i}@example.com", cohort=f"seed-{i}",
                               expires_at=utcnow() + timedelta(days=7)))
             db.add(InviteCode(code_hash=f"{i + 8:064x}", email=f"redeemed-{i}@example.com",
                               expires_at=utcnow() + timedelta(days=7), used_at=utcnow()))
@@ -2991,6 +2992,7 @@ async def _invite_request(transport: httpx.ASGITransport, method: str, path: str
     ("POST", "/api/admin/invites/{pending}/resend", None, "resend"),
     ("POST", "/api/admin/invites/9999/resend", None, "resend_missing"),
     ("POST", "/api/admin/invites/{used}/resend", None, "resend_used"),
+    ("POST", "/api/admin/invites/{pending}/resend", None, "resend_unready"),
 ])
 async def test_admin_invite_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, body,
                                                                        case):
@@ -2999,17 +3001,25 @@ async def test_admin_invite_routes_release_their_connection_off_the_loop(monkeyp
     audit row in another after the mail, and the list and the revoke (with its audit row) are one unit each. So
     eight admins on four slots, each mail taking 0.05 s, make no checkout, statement or release on the loop and
     leave nothing for the finalizer. On the loop, the list and the revoke ran every statement after the auth lookup
-    there, and the mint and the re-send held their connection through the mail (E171)."""
+    there, and the mint and the re-send held their connection through the mail (E171); the mail case below pins that
+    no connection is out while a mail sends. Odd admins' mails fail, so each audit row and answer must say whether
+    its own mail went. With invitation mail closed, as production keeps it, a re-send of a bound invite answers 503
+    from its unit, released, and changes nothing."""
     from app.models import AuditLog, InviteCode
+    from app.services import legal_readiness_service
 
-    sent: list[str] = []
+    sent: list[tuple[str, str]] = []
 
     async def send_invite_email(*, to_email: str, magic_link: str, name: str | None = None) -> None:
         await asyncio.sleep(0.05)  # the other admins' units run while this mail sends
-        sent.append(to_email)
+        if int(to_email.split("@")[0].rsplit("-", 1)[1]) % 2:
+            raise RuntimeError("the mail provider refused the message")
+        sent.append((to_email, magic_link))
 
     engine, sessions, request_sessions, on_loop, pending, used, admin_ids = _invite_fixture(
         monkeypatch, tmp_path, send_invite_email)
+    if case == "resend_unready":
+        monkeypatch.setattr(legal_readiness_service, "is_marketing_available", lambda: False)
     emails = [f"admin-{i}@example.com" for i in range(8)]
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
     try:
@@ -3025,28 +3035,31 @@ async def test_admin_invite_routes_release_their_connection_off_the_loop(monkeyp
         assert engine.pool.checkedout() == 0
         # Each route released its own connection; the dependency's finalizer found nothing open.
         assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
-        expected = {"revoke_missing": 404, "resend_missing": 404, "revoke_used": 409, "resend_used": 409}.get(case, 200)
+        expected = {"revoke_missing": 404, "resend_missing": 404, "revoke_used": 409, "resend_used": 409,
+                    "resend_unready": 503}.get(case, 200)
         assert [response.status_code for response in responses] == [expected] * 8
         payloads = [response.json() for response in responses]
         with sessions() as db:
             invites = {invite.id: invite for invite in db.query(InviteCode)}
             audits = sorted(
-                (action, user_id, user_email, entity_id, tuple(sorted((details or {}).items())))
-                for action, user_id, user_email, entity_id, details in db.query(
-                    AuditLog.action, AuditLog.user_id, AuditLog.user_email, AuditLog.entity_id, AuditLog.details)
+                (action, user_id, user_email, entity_type, entity_id, tuple(sorted((details or {}).items())))
+                for action, user_id, user_email, entity_type, entity_id, details in db.query(
+                    AuditLog.action, AuditLog.user_id, AuditLog.user_email, AuditLog.entity_type,
+                    AuditLog.entity_id, AuditLog.details)
             )
         minted = sorted(set(invites) - set(pending) - set(used))
         if case == "list":
             assert [sorted(row["status"] for row in payload["invites"]) for payload in payloads] == [
                 ["pending"] * 8 + ["used"] * 8] * 8
         elif expected != 200:
-            assert [payload["detail"] for payload in payloads] == [
-                "Invite not found" if expected == 404 else "Invite already redeemed"] * 8
+            assert [payload["detail"] for payload in payloads] == [{
+                404: "Invite not found", 409: "Invite already redeemed",
+                503: "Invitation email delivery is currently unavailable."}[expected]] * 8
         elif case in ("mint", "mint_email"):
             assert sorted(payload["id"] for payload in payloads) == minted
-            assert sorted((payload["email"], payload["cohort"], payload["emailed"]) for payload in payloads) == sorted(
-                (f"new-{i}@example.com", None, True) if case == "mint_email" else (None, f"wave-{i}", False)
-                for i in range(8))
+            assert [(payload["email"], payload["cohort"], payload["emailed"]) for payload in payloads] == [
+                (f"new-{i}@example.com", None, i % 2 == 0) if case == "mint_email" else (None, f"wave-{i}", False)
+                for i in range(8)]
             assert all("/register?invite=" in payload["invite_link"] for payload in payloads)
         elif case == "revoke":
             assert [(payload["invite_id"], payload["status"]) for payload in payloads] == [
@@ -3054,30 +3067,34 @@ async def test_admin_invite_routes_release_their_connection_off_the_loop(monkeyp
         elif case == "resend":
             assert [payload["revoked_invite_id"] for payload in payloads] == pending
             assert sorted(payload["id"] for payload in payloads) == minted
-            assert [(payload["email"], payload["emailed"]) for payload in payloads] == [
-                (f"invitee-{i}@example.com", True) for i in range(8)]
-        # Each write took effect, and the list, the 404s and the 409s wrote nothing.
+            assert [(payload["email"], payload["cohort"], payload["emailed"]) for payload in payloads] == [
+                (f"invitee-{i}@example.com", f"seed-{i}", i % 2 == 0) for i in range(8)]
+        # Each write took effect, and the list, the 404s, the 409s and the 503s wrote nothing.
         assert len(minted) == (8 if case in ("mint", "mint_email", "resend") else 0)
         assert sorted(invite_id for invite_id, invite in invites.items() if invite.is_revoked) == (
             pending if case in ("revoke", "resend") else [])
         assert sorted(invite_id for invite_id, invite in invites.items() if invite.used_at is not None) == used
+        # Each mail that went carried its own request's link, and each minted invite names the admin who minted it.
         assert sorted(sent) == sorted(
-            f"new-{i}@example.com" if case == "mint_email" else f"invitee-{i}@example.com"
-            for i in range(8) if case in ("mint_email", "resend"))
+            (payloads[i]["email"], payloads[i]["invite_link"]) for i in range(0, 8, 2) if case in ("mint_email", "resend"))
+        if case in ("mint", "mint_email", "resend"):
+            assert [invites[payload["id"]].created_by for payload in payloads] == [
+                int(admin_ids[email]) for email in emails]
         # Each audit row names the admin whose request wrote it and what that request answered.
         by_admin = {payload.get("revoked_invite_id", payload.get("invite_id")): payload for payload in payloads}
         if case in ("mint", "mint_email"):
             assert audits == sorted(
-                ("invite_minted", admin_ids[emails[i]], emails[i], str(payload["id"]),
-                 (("cohort", payload["cohort"]), ("emailed", payload["emailed"])))
+                ("invite_minted", admin_ids[emails[i]], emails[i], "invite", str(payload["id"]),
+                 (("cohort", None), ("emailed", i % 2 == 0)) if case == "mint_email" else
+                 (("cohort", f"wave-{i}"), ("emailed", False)))
                 for i, payload in enumerate(payloads))
         elif case == "revoke":
             assert audits == sorted(
-                ("invite_revoked", admin_ids[emails[i]], emails[i], str(pending[i]), ()) for i in range(8))
+                ("invite_revoked", admin_ids[emails[i]], emails[i], "invite", str(pending[i]), ()) for i in range(8))
         elif case == "resend":
             assert audits == sorted(
-                ("invite_resent", admin_ids[emails[i]], emails[i], str(by_admin[pending[i]]["id"]),
-                 (("cohort", None), ("emailed", True), ("revoked_invite_id", pending[i])))
+                ("invite_resent", admin_ids[emails[i]], emails[i], "invite", str(by_admin[pending[i]]["id"]),
+                 (("cohort", f"seed-{i}"), ("emailed", i % 2 == 0), ("revoked_invite_id", pending[i])))
                 for i in range(8))
         else:
             assert audits == []
@@ -3089,14 +3106,17 @@ async def test_admin_invite_routes_release_their_connection_off_the_loop(monkeyp
 @pytest.mark.parametrize("route", ["mint", "resend"])
 async def test_invite_mint_and_resend_hold_no_connection_while_their_mail_sends(monkeypatch, tmp_path, route):
     """The mint and the re-send release their session before the invite mail, and write their audit row in a unit
-    of their own after it, so no pool slot waits on the mail provider."""
-    held: list[tuple[str, int]] = []
-    engine, _, request_sessions, _, pending, _, _ = _invite_fixture(monkeypatch, tmp_path, None)
+    of their own after it, so no pool slot waits on the mail provider and the row records that the mail went."""
+    from app.models import AuditLog
+    from app.routers import admin
+
+    held: list[tuple[str, int, int]] = []
+    engine, sessions, request_sessions, _, pending, _, _ = _invite_fixture(monkeypatch, tmp_path, None)
 
     async def send_invite_email(*, to_email: str, magic_link: str, name: str | None = None) -> None:
-        held.append((to_email, engine.pool.checkedout()))
-
-    from app.routers import admin
+        checked_out = engine.pool.checkedout()  # read before this check's own session checks one out
+        with sessions() as db:
+            held.append((to_email, checked_out, db.query(AuditLog).count()))
 
     monkeypatch.setattr(admin, "send_invite_email", send_invite_email)
     try:
@@ -3106,9 +3126,12 @@ async def test_invite_mint_and_resend_hold_no_connection_while_their_mail_sends(
             {"email": "new-{i}@example.com", "send_email": True} if route == "mint" else None, 0,
         )
         assert response.status_code == 200, response.text
-        assert held == [("new-0@example.com" if route == "mint" else "invitee-0@example.com", 0)]
+        assert held == [("new-0@example.com" if route == "mint" else "invitee-0@example.com", 0, 0)]
         assert engine.pool.checkedout() == 0
         assert [request.open_at_close[-1:] for request in request_sessions] == [[False]]
+        with sessions() as db:
+            assert [(action, (details or {}).get("emailed")) for action, details in db.query(
+                AuditLog.action, AuditLog.details)] == [("invite_minted" if route == "mint" else "invite_resent", True)]
     finally:
         engine.dispose()
 
