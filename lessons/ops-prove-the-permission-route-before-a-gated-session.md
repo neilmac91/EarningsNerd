@@ -45,9 +45,9 @@ a repository file, `tasks/fable-e8-launch-kit.md`, and the test fails when any c
 deny or ask rule, or carries a shell variable, a separator (`&`, `;`, `|`), a redirection or a
 backtick; when a fence is spelled anything other than `sh`, `text` or `json`, or an interpreter
 or the CLI is invoked outside an `sh` block; or when the kit's first command is not the `--help`
-probe. It also fails when the allow set is not exactly the seven pinned narrow rules plus the three
-exact Ops readback rules that `test_ops_readback_allow_rules.py` pins (F51; a blanket
-`Bash(*)` or any wildcard beyond a trailing `:*` fails), or when an allow entry carries a
+probe. It also fails when an allow entry is not one of the seven pinned narrow rules or the three
+exact Ops readback rules (whose exact presence `test_ops_readback_allow_rules.py` pins, F51), or one of the
+seven is missing (a blanket `Bash(*)` or any wildcard beyond a trailing `:*` fails), or when an allow entry carries a
 variable or names a script that does not exist; its evasion cases lock each of those behaviours
 against in-memory copies.
 No repository gate can exercise the cloud permission classifier itself, so the gate proves that

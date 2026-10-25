@@ -682,8 +682,7 @@ repository). Neither is in place, and the gap is accepted (the founder left this
 ### Agent production readbacks (F51)
 
 After a backend deploy has concluded, a Claude Code session may read production through two read-only
-Ops operations without a prompt or the auto-mode classifier. `.claude/settings.json` allows exactly
-these three commands, each as an exact-match rule:
+Ops operations. `.claude/settings.json` allows exactly these three commands, each as an exact-match rule:
 
 ```sh
 gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=describe-service
@@ -691,34 +690,53 @@ gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=logs-p
 gh run list -R neilmac91/EarningsNerd --workflow ops.yml --branch main --event workflow_dispatch -L 5 --json databaseId,status,conclusion,createdAt,headSha
 ```
 
-A rule without `*` matches only its own text, so a command with another operation, input, ref or
-repository, a wrapper the docs do not strip, a variable or a chained command is outside it and goes to
-the prompt or the classifier as before. Issue each command alone, in exactly this text, never chained or
-piped, and only after the list shows no Ops run `queued`, `waiting`, `pending` or `in_progress`: the
-`ops` group keeps one pending run, so a second dispatch replaces a queued one, an approved apply's
-included ([Read-only release configuration audit](DEPLOYMENT.md#read-only-release-configuration-audit)).
-Dispatch one operation, wait until the list shows it `completed`, then dispatch the next.
+**When the rules apply.** Only in a session that applies this checkout's project settings: a
+single-repository session (a cloud thread in a project, or a cloud session with several repositories,
+reads no project permission rules), in a workspace whose trust is recorded (a `-p` or SDK run uses
+project allow rules only when `~/.claude.json` records `hasTrustDialogAccepted` for the checkout's root),
+and with no managed `allowManagedPermissionRulesOnly`. There, in Auto mode, a matching command runs
+without a prompt and without the auto-mode classifier. Anywhere else it goes to the prompt, the
+classifier or the session's own tool allowance, as before; in Accept edits, or under a harness that
+allows every Bash command, a command that runs proves nothing about these rules. So prove the route
+first with the `gh run list` form, which reads GitHub's run metadata and changes nothing
+(`lessons/ops-prove-the-permission-route-before-a-gated-session.md`): in Auto mode, a silent run means
+the rules apply; a prompt or a classifier denial means they do not, so record it verbatim and stop,
+never reshape a command.
 
-What the runs print is the projection their steps already make: `describe-service` the traffic and
-revision names, `SENTRY_RELEASE`, the allow-listed flags and SEC pins, the sizing lines and the worker's
-invoker verdict; `logs-probe` whether `logging.read` is permitted and the Sentry start lines per
-revision. Neither prints an environment value outside its allow-list, a URL or gcloud's error text; a
-read that is denied or fails prints `UNVERIFIED (<class>)` with a closed class
-(`lessons/ops-denied-reads-report-unverified.md`; gates `test_prod_flag_visibility.py`,
-`test_ops_stderr_withheld.py`, `test_capacity_projection_privacy.py`). The run log itself is read with
-`gh run view <run id> -R neilmac91/EarningsNerd --log`, which stays outside the allow list: an exact rule
-cannot carry a run id, and the whole job log also holds the authentication step's identity lines. A
-record keeps only the operation step's verdict, revision, flag and Sentry lines.
+**What a rule admits.** A rule without `*` matches only its own text, so another operation, input, ref
+or repository, a variable, or a wrapper or assignment the matcher does not strip falls outside it.
+Two of the allowed commands chained together (`&&`, `;`, a newline) are each allowed; issue each alone
+anyway. A read cannot replace a queued run: `ops.yml` runs `describe-service` and `logs-probe` each in
+a concurrency group of its own run, so neither queues behind, nor replaces, a pending operation, an
+approved apply's included. The list covers the newest five Ops dispatches; dispatch one read, wait
+until the list shows it `completed`, then the next.
 
-Nothing here allows an apply. Every other operation, a dispatch through the REST API, a re-run, the
+**What the runs print** is the projection their steps already make ([Read-only release configuration
+audit](DEPLOYMENT.md#read-only-release-configuration-audit)):
+- `describe-service`: the traffic and revision names, `SENTRY_RELEASE`, the allow-listed values (the two
+  AI base URLs among them) and SEC pins, each container's image reference, the sizing lines and the
+  worker's invoker verdict; never the service, traffic or worker URLs, another environment value or
+  gcloud's error text. A required read that fails stops the step with `Unresolved production
+  configuration: cannot describe <kind> <name> (<class>).` and no verdict line; the optional
+  invoker-policy read prints `UNVERIFIED (<class>)`.
+- `logs-probe`: whether `logging.read` is permitted, or `DENIED` with its failure class; the
+  `company_upsert_conflict` count, which is absent when its read fails; and which revisions printed each
+  Sentry start line, with counts, or `UNVERIFIED (<class>; gcloud's error text withheld)` for a kind it
+  could not read; never a log line or gcloud's error text.
+
+A record marks each of those failures Unverified (`lessons/ops-denied-reads-report-unverified.md`;
+gates `test_prod_flag_visibility.py`, `test_ops_stderr_withheld.py`,
+`test_capacity_projection_privacy.py`). The run log itself is read with `gh run view <run id> -R
+neilmac91/EarningsNerd --log`, which stays outside the allow list: an exact rule cannot carry a run id,
+and the whole job log also holds the authentication step's identity lines. A record keeps only the
+operation step's verdict, revision, flag and Sentry lines.
+
+**Nothing here allows an apply.** Every other operation, a dispatch through the REST API, a re-run, the
 deployment-review and environment calls and any `gcloud` command stay outside the allow list; an
 `-apply` still waits for the founder's approval of `ops-apply` and the workflow's owner-approval check,
 and `.claude/hooks/ops_approval_guard.py` refuses a session the approval and rejection calls whatever
-the allow list says ([DEPLOYMENT.md](DEPLOYMENT.md)). The rules take effect only in a checkout that
-carries them and a session that applies project settings; a classifier denial of one of these exact
-commands means they did not apply, so record it verbatim and stop rather than reshape the command
-(`lessons/ops-prove-the-permission-route-before-a-gated-session.md`). Gate:
-`backend/tests/unit/test_ops_readback_allow_rules.py`.
+the allow list says ([DEPLOYMENT.md](DEPLOYMENT.md)). Gate: `backend/tests/unit/test_ops_readback_allow_rules.py`
+(the three rules, the forbidden corpus, and the jobs, steps and concurrency group a read dispatch runs).
 
 ### Persisted audits and weekly judged readout (WS-6 measurement)
 

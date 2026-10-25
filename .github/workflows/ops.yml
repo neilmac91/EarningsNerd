@@ -38,7 +38,9 @@ name: Ops
 #   - The ops job's `concurrency: ops` serializes operations; the approval job sits outside the
 #     group, so an apply waiting for approval holds up no other dispatch. Once approved, an apply
 #     queues like any dispatch, and GitHub holds ONE pending run per group, so a later pending
-#     dispatch replaces it and wastes the approval. Deploys keep their own group on purpose: sharing
+#     dispatch replaces it and wastes the approval. The two reads a Claude Code session may dispatch
+#     by an exact allow rule (describe-service and logs-probe; F51, docs/OPERATIONS.md) take a group
+#     of their own run instead, so a read never queues behind, or replaces, a pending operation. Deploys keep their own group on purpose: sharing
 #     `deploy-backend`'s group would let an ops dispatch silently cancel a queued release. Instead
 #     the pre-flight step below refuses to run while a CI run for a push to `main` is in flight
 #     (read-only inspection and rollback are exempt); for an apply it runs after the approval.
@@ -138,7 +140,9 @@ jobs:
     needs: approve-apply
     if: ${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' && !contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply', inputs.operation)) || (needs.approve-apply.result == 'success' && github.run_attempt == '1')) }}
     concurrency:
-      group: ops
+      # A read (describe-service, logs-probe) runs in its own run's group: it never replaces a pending run,
+      # an approved apply's included (test_ops_readback_allow_rules.py pins this).
+      group: ${{ (inputs.operation == 'describe-service' || inputs.operation == 'logs-probe') && format('ops-read-{0}', github.run_id) || 'ops' }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:

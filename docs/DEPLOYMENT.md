@@ -150,7 +150,8 @@ independent release evidence through the repository's existing keyless WIF ident
 Ops operation at a time and wait for it to finish: GitHub keeps one pending run per concurrency
 group, so a second pending dispatch in the `ops` group replaces the first. An `-apply` waits for the
 founder's approval outside that group, but once approved it queues like any dispatch, so a later
-dispatch can still replace it and waste the approval. Dispatch after the
+dispatch can still replace it and waste the approval. `describe-service` and `logs-probe` alone run in a
+group of their own run (F51), so neither replaces, nor waits behind, a pending operation. Dispatch after the
 merge's `deploy-backend` job has concluded: a describe during a deploy can fail transiently
 (`latest created revision … is not ready`) or show the worker and the API on different images. Both
 describe operations carry a ten-minute step timeout and run committed stdlib-only modules,

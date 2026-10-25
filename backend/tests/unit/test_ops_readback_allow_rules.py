@@ -1,6 +1,7 @@
 """Gate for F51: the permission rules that let a session run the read-only Ops `describe-service` and
-`logs-probe` dispatches and read back the Ops run list without a prompt or the auto-mode classifier
-(rule 12; docs/OPERATIONS.md "Agent production readbacks (F51)").
+`logs-probe` dispatches and read back the Ops run list without a prompt or the auto-mode classifier, in a
+session that applies this checkout's project settings (rule 12; docs/OPERATIONS.md "Agent production
+readbacks (F51)", which names when that is).
 
 The three rules are exact-match: permissions.md says "A rule with no `*` matches one exact command", so no
 other operation, input, ref, repository or input channel rides on them. `admitted` models Claude Code's
@@ -13,17 +14,22 @@ is why the pinned rules carry no `*`.
 
 The gate fails when the allow entries outside the E8 launch kit's seven are not exactly the pinned three; when
 a pinned rule carries a wildcard or shell syntax; when a deny or ask rule shadows one; when a dispatched
-operation is gated by `ops-apply`, is not exempt from the deploy pre-flight, runs any step beyond the pinned
-read-only ones, or reaches gcloud other than by a read; when any allow rule admits a command in the forbidden
-corpus (every other Ops operation, read from ops.yml, in the same form; the same two operations with any other
-input, ref or repository; REST and GraphQL dispatches; deployment approvals and rejections; run re-runs,
-cancellations and log reads; cloud writes and direct production reads; and the pinned forms chained to an apply
-dispatch); when the approval guard lets an approval or rejection in the corpus through; or when
-docs/OPERATIONS.md does not show each pinned command verbatim.
+operation is gated by `ops-apply` or is not exempt from the deploy pre-flight; when ops.yml gains a job, or a job
+other than `ops` or a step of `ops` may run for a read dispatch beyond the pinned read-only steps (a condition
+the gate cannot read counts as one that runs: `read_dispatch_problems`, with its evasion cases); when the reads
+lose the concurrency group of their own run, which keeps a read from replacing a pending run, an approved
+apply's included; when a read step reaches gcloud other than to read; when any allow rule admits a command in
+the forbidden corpus (every other Ops operation, read from ops.yml, in the same form; the same two operations
+with any other input, ref or repository; REST and GraphQL dispatches; deployment approvals and rejections; run
+re-runs, cancellations and log reads; cloud writes and direct production reads; and the pinned forms chained to
+an apply dispatch); when a pinned form is refused by the approval guard (which test_ops_approval_guard.py
+pins for the approval and rejection calls); or when docs/OPERATIONS.md does not show each pinned command
+verbatim.
 """
 from __future__ import annotations
 
 import ast
+import copy
 import json
 import re
 from pathlib import Path
@@ -38,7 +44,9 @@ SETTINGS = ROOT / ".claude" / "settings.json"
 OPERATIONS_DOC = ROOT / "docs" / "OPERATIONS.md"
 SERVICE_MODULE = ROOT / "ops" / "describe" / "service.py"
 
-# The founder-accepted F51 policy, and nothing else (tasks/todo.md F51; DECISIONS-30.md founder action 8).
+# The F51 policy and nothing else: proposed as founder action 8 in DECISIONS-30.md for the two dispatches, accepted
+# in the Wave 3 planning (Agent E brief, F51: "the existing read-only describe-service and logs-probe workflow
+# dispatch/readback forms"); the third rule reads GitHub's run metadata only.
 OPS_READBACK_ALLOW_RULES = (
     "Bash(gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=describe-service)",
     "Bash(gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=logs-probe)",
@@ -55,6 +63,12 @@ READ_STEPS = {
     "logs-probe": SHARED_STEPS + ["Logs read probe (safeguard-2 alert feasibility)"],
 }
 PREFLIGHT = "Refuse to run while a main push (deploy) is in flight"
+JOBS = {"approve-apply", "ops", "refuse-rerun"}
+# Each read dispatch runs in a group of its own run, so it never replaces, nor waits behind, a pending run.
+READ_GROUP = ("${{ (inputs.operation == 'describe-service' || inputs.operation == 'logs-probe') "
+              "&& format('ops-read-{0}', github.run_id) || 'ops' }}")
+# A condition on an earlier step's result that is false when that step was skipped.
+UNRUN_OUTCOME = re.compile(r"steps\.([\w-]+)\.(?:outcome|conclusion) (?:!= 'skipped'|== '(?:success|failure|cancelled)')")
 
 # Claude Code's matcher (permissions.md "Wildcard patterns", "Compound commands", "Wrappers"), read conservatively.
 SEPARATORS = re.compile(r"&&|\|\||\|&|;|\||&|\n")
@@ -120,6 +134,73 @@ def test_no_deny_or_ask_rule_shadows_a_pinned_command():
     assert [command for command in COMMANDS if admitted(command, blocked)] == []
 
 
+def _conjuncts(condition: str) -> list[str] | None:
+    """The top-level `&&` terms of an `if:`, or None when a top-level `||` makes no single term decisive."""
+    body = re.sub(r"^\$\{\{\s*(.*?)\s*\}\}$", r"\1", condition.strip(), flags=re.DOTALL)
+    terms, depth, quoted, start = [], 0, False, 0
+    for at, char in enumerate(body):
+        if char == "'":
+            quoted = not quoted
+        elif quoted:
+            continue
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif depth == 0 and body.startswith("||", at):
+            return None
+        elif depth == 0 and body.startswith("&&", at):
+            terms.append(body[start:at].strip())
+            start = at + 2
+    return terms + [body[start:].strip()]
+
+
+def _never_runs_for_a_read(condition: str, unrun: set[str], operand: str) -> bool:
+    """True only when one top-level term of the condition is false for both read operations: it names another
+    operation, lists operations that include neither read, or needs an earlier step that a read skipped."""
+    for term in _conjuncts(condition) or []:
+        if (match := re.fullmatch(rf"{operand} == '([^']*)'", term)) and match.group(1).lower() not in READ_OPERATIONS:
+            return True
+        if (match := re.fullmatch(rf"contains\('([^']*)', {operand}\)", term)) and not any(
+                operation in match.group(1).lower() for operation in READ_OPERATIONS):
+            return True
+        if (match := UNRUN_OUTCOME.fullmatch(term)) and match.group(1) in unrun:
+            return True
+    return False
+
+
+def read_dispatch_problems(workflow: dict) -> list[str]:
+    """Every way a read dispatch could run more than the pinned read-only steps: another job, another step, or a
+    condition this gate cannot read (counted as one that runs); and the reads' own concurrency group."""
+    jobs, problems = workflow["jobs"], []
+    if set(jobs) != JOBS:
+        problems.append(f"ops.yml's jobs changed ({sorted(set(jobs) ^ JOBS)}): pin what a read dispatch runs in them")
+    for name, job in jobs.items():
+        if name != "ops" and not _never_runs_for_a_read(job.get("if", ""), set(), r"inputs\.operation"):
+            problems.append(f"job {name!r} may run for a read dispatch")
+    ops = jobs.get("ops", {})
+    if ops.get("concurrency") != {"group": READ_GROUP, "cancel-in-progress": "false"}:
+        problems.append("the ops job no longer gives each read dispatch a concurrency group of its own run")
+    for operation in READ_OPERATIONS:
+        runs, unrun = [], set()
+        for step in ops.get("steps", []):
+            label = step.get("name") or step.get("uses")
+            try:
+                runs_here = operation in selected(step)
+            except AssertionError:  # a form selected() does not read: it must be decisively false for a read
+                runs_here = not _never_runs_for_a_read(step["if"], unrun, r"steps\.request\.outputs\.operation")
+                if runs_here:
+                    problems.append(f"{label!r} may run for {operation}: its if: is not one the gate can read")
+                    continue
+            if runs_here:
+                runs.append(label)
+            elif step.get("id"):
+                unrun.add(step["id"])
+        if runs != READ_STEPS[operation]:
+            problems.append(f"{operation} runs {runs}, not the pinned read-only steps {READ_STEPS[operation]}")
+    return problems
+
+
 @pytest.mark.parametrize("operation", READ_OPERATIONS)
 def test_a_dispatched_operation_is_an_existing_ungated_read(operation):
     assert DISPATCH.format(operation) in COMMANDS
@@ -127,16 +208,44 @@ def test_a_dispatched_operation_is_an_existing_ungated_read(operation):
     assert operation not in selected(OPS["jobs"]["approve-apply"]), "an ops-apply operation must never be allow-listed"
     assert operation not in selected(next(step for step in STEPS if step.get("name") == PREFLIGHT)), (
         "the deploy pre-flight exempts only read-only inspection")
-    runs = []
-    for step in STEPS:
-        try:
-            chosen = selected(step)
-        except AssertionError:  # an if: form selected() does not read; it must not name a read operation
-            assert not any(op in step["if"] for op in READ_OPERATIONS), step.get("name")
-            continue
-        if operation in chosen:
-            runs.append(step.get("name") or step.get("uses"))
-    assert runs == READ_STEPS[operation]
+
+
+def test_a_read_dispatch_runs_only_the_pinned_steps_in_its_own_group():
+    assert read_dispatch_problems(OPS) == []
+
+
+WRITE = "gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-latest 2>/dev/null"
+
+
+def _step_before_the_read(condition: str | None):
+    def mutate(workflow: dict) -> None:
+        steps = workflow["jobs"]["ops"]["steps"]
+        at = next(index for index, step in enumerate(steps) if step.get("name") == READ_STEPS["describe-service"][-1])
+        steps.insert(at, {"name": "Pin traffic", "run": WRITE, **({"if": condition} if condition is not None else {})})
+    return mutate
+
+
+EVASIONS = {  # each change would put a production write, or a replacement, into every allowed read dispatch
+    "a step with no condition": _step_before_the_read(None),
+    "a step that always runs": _step_before_the_read("always()"),
+    "a step that runs unless another operation": _step_before_the_read("steps.request.outputs.operation != 'rollback-traffic'"),
+    "a step whose || reopens it": _step_before_the_read("steps.request.outputs.operation == 'sync-companyfacts' || always()"),
+    "a step that lists a read": _step_before_the_read("contains('describe-service rollback-traffic', steps.request.outputs.operation)"),
+    "a step after a skipped step's skip": _step_before_the_read("always() && steps.quarterly.outcome == 'skipped'"),
+    "a new job after ops": lambda workflow: workflow["jobs"].update({"post-read": {
+        "needs": "ops", "if": "github.ref == 'refs/heads/main'", "runs-on": "ubuntu-latest", "steps": [{"run": WRITE}]}}),
+    "the approval job opened to every operation": lambda workflow: workflow["jobs"]["approve-apply"].update(
+        {"if": "github.ref == 'refs/heads/main'"}),
+    "the reads back in the shared group": lambda workflow: workflow["jobs"]["ops"].update(
+        {"concurrency": {"group": "ops", "cancel-in-progress": "false"}}),
+}
+
+
+@pytest.mark.parametrize("case", EVASIONS)
+def test_the_read_dispatch_gate_catches_each_evasion(case):
+    workflow = copy.deepcopy(OPS)
+    EVASIONS[case](workflow)
+    assert read_dispatch_problems(workflow), case
 
 
 def test_the_read_steps_reach_gcloud_only_to_read():
@@ -208,12 +317,6 @@ FORBIDDEN = [
 @pytest.mark.parametrize("command", FORBIDDEN)
 def test_no_allow_rule_admits_a_forbidden_command(command):
     assert not admitted(command, _allow()), f"an allow rule in .claude/settings.json admits: {command!r}"
-
-
-@pytest.mark.parametrize("command", APPROVALS)
-def test_the_approval_guard_refuses_every_approval_and_rejection(command):
-    decision = _decision("Bash", {"command": command})
-    assert decision and decision["permissionDecision"] == "deny", command
 
 
 @pytest.mark.parametrize("command", [*COMMANDS, *(f"timeout 60 {c}" for c in COMMANDS), f"nohup {COMMANDS[0]}"])

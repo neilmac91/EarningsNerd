@@ -13,10 +13,10 @@ Claude Code's own semantics (code.claude.com/docs/en/permissions.md): ``prefix:*
 covers the prefix alone or followed by a space and anything; any other ``*`` matches any text, so
 ``Bash(*)`` is the blanket rule; a pattern without ``*`` matches only itself. The gate fails when:
 
-- the allow set is not exactly the seven pinned narrow rules plus the three exact Ops readback rules
-  that ``test_ops_readback_allow_rules.py`` pins (F51) (so a blanket ``Bash(*)`` or any wildcard beyond
-  a trailing ``:*`` fails), an allow rule contains a shell variable, or an allow rule names a
-  repository script that does not exist;
+- an allow entry is not one of the seven pinned narrow rules or the three exact Ops readback rules (whose
+  exact presence ``test_ops_readback_allow_rules.py`` pins, F51), or one of the seven is missing (so a
+  blanket ``Bash(*)`` or any wildcard beyond a trailing ``:*`` fails), an allow rule contains a shell
+  variable, or an allow rule names a repository script that does not exist;
 - any command in one of the kit's ``sh`` blocks is not covered by an allow rule, is covered by a
   deny or ask rule, or carries a variable, a command separator (``&``, ``;``, ``|``), a
   redirection (``<``, ``>``) or a backtick, any of which takes it outside its rule
