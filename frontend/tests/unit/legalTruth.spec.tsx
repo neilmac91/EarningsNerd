@@ -1813,8 +1813,9 @@ const DETERMINER_WORDS = 'the|a|an|our|your|its|their|all|any|each|every|most|ma
 /** A word that points back to something named before, which may be the token ("Each renewal issues a new refresh
     token. These keys are single-use."). */
 const POINTS_BACK = /^(?:this|that|these|those|such|said)$/i
-/** A subject's head that stands for something named before ("They are cryptographic keys.", "Each one is a key."). */
-const STANDS_FOR = /^(?:it|they|them|these|those|this|that|one|ones|both|each|either|neither)$/i
+/** A subject's head that stands for something named before ("They are cryptographic keys.", "Each one is a key.", "The
+    latter are cryptographic keys."). */
+const STANDS_FOR = /^(?:it|they|them|these|those|this|that|one|ones|both|each|either|neither|former|latter)$/i
 /** A word that stands for something named before wherever it stands in a clause ("but we call them cryptographic
     keys"). */
 const REFERS_BACK = /^(?:it|its|they|them|their|theirs|these|those)$/i
@@ -1942,13 +1943,15 @@ function anotherCredentials(sentence: string, at: number, said: Set<string>): bo
 }
 /** The credential nouns a page says of a token (E162 stage 3): one in a sentence that names a token outside an "unlike"
     phrase, in the token's unit or in one that no contrast sets apart from it ("Refresh tokens are cryptographic
-    keys.", "Refresh tokens: keys that renew your session."), or in a unit that carries a token on as its subject
+    keys.", "Refresh tokens: keys that renew your session."), one beside a token in an "unlike" phrase ("Recovery codes
+    rotate, unlike refresh tokens (cryptographic keys)."), or one in a unit that carries a token on as its subject
     ("Refresh tokens rotate, but are cryptographic keys."), and, on a page that names a token, in a unit whose subject
     may stand for one, or that holds a word that does (REFERS_BACK): a pronoun, a word that points back (POINTS_BACK)
-    or none ("..., although they are cryptographic keys.", "They are cryptographic keys.", "These keys are
-    single-use.", "..., but we call them cryptographic keys."). A noun so said stands for the token in turn ("... Each
-    key is an access code."). In another sentence or item, it may be the token's ("Each key works only once."). "Refresh tokens are reusable, while recovery
-    codes cannot be reused." and "Unlike refresh tokens, recovery codes cannot be reused." say no noun of a token. */
+    or none ("..., although they are cryptographic keys.", "They are cryptographic keys.", "The latter are
+    cryptographic keys.", "These keys are single-use.", "..., but we call them cryptographic keys."). A noun so said
+    stands for the token in turn ("... Each key is an access code."). In another sentence or item, it may be the
+    token's ("Each key works only once."). "Refresh tokens are reusable, while recovery codes cannot be reused." and
+    "Unlike refresh tokens, recovery codes cannot be reused." say no noun of a token. */
 function nounsSaidOfAToken(blocks: string[]): Set<string> {
   const said = new Set<string>()
   const namesAToken = blocks.some((text) => new RegExp(A_TOKEN.source, 'i').test(text))
@@ -1969,6 +1972,11 @@ function nounsSaidOfAToken(blocks: string[]): Set<string> {
     const named = [...sentence.matchAll(A_TOKEN)].map((m) => tokenAt(m.index ?? 0))
     const aliases = tokens.flatMap((t, n) => (A_CREDENTIAL.test(t.text) && said.has(lemma(t)) ? [n] : []))
     const mentions = [...named, ...aliases].filter((j) => !afterUnlike(tokens, j))
+    // An "unlike" phrase, from "unlike" to its unit's subject where it is fronted, else to the unit's end, sets apart
+    // what it holds together: a noun in one that names a token is said of it, wherever each stands in it ("unlike
+    // refresh tokens (cryptographic keys)", "unlike access keys, your session tokens").
+    const phrases = units.flatMap((u) => tokens.flatMap((t, n): Array<[number, number]> => (inUnit(u, n) && t.lower === 'unlike' ? [[n, u.subject && n < u.subject.start ? u.subject.start : u.end]] : [])))
+    const besideAToken = (n: number) => phrases.some(([from, to]) => n >= from && n < to && [...named, ...aliases].some((j) => j >= from && j < to))
     tokens.forEach((t, n) => {
       const unit = unitOf(n)
       const ofAToken = mentions.some((j) => {
@@ -1981,7 +1989,7 @@ function nounsSaidOfAToken(blocks: string[]): Set<string> {
       const pointsBack = !!subject && [...subject.determiners, ...subject.premodifiers.map((word) => word.text)].some((word) => POINTS_BACK.test(word))
       const refersBack = !!unit && tokens.some((word, m) => inUnit(unit, m) && REFERS_BACK.test(word.text))
       const standsForAToken = namesAToken && (!subject || STANDS_FOR.test(subject.head.text) || pointsBack || refersBack)
-      if (A_CREDENTIAL.test(t.text) && !afterUnlike(tokens, n) && (ofAToken || carriesAToken || standsForAToken)) said.add(lemma(t))
+      if (A_CREDENTIAL.test(t.text) && (besideAToken(n) || (!afterUnlike(tokens, n) && (ofAToken || carriesAToken || standsForAToken)))) said.add(lemma(t))
     })
   }
 }
@@ -3775,6 +3783,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // Set beside the token, "one-time" before a credential's noun is that credential's too, as on main
       // (ONE_TIME_OF_ANOTHER); E162's stage 4 keeps the gap.
       ['<li>Refresh tokens, one-time access keys, renew your session.</li>', 'gap'],
+      // A noun the page says of the token in words the family does not read as standing for it is another credential's,
+      // though main refuses the claim; E162's stage 4 keeps the gap.
+      ['<li>Recovery codes rotate, unlike refresh tokens. Both kinds are cryptographic keys. Each key works only once.</li>', 'gap'],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
@@ -3893,11 +3904,18 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Refresh tokens rotate, but we call them cryptographic keys. Each key works only once.</li>', true],
       // ... and a noun said of a noun the page says of a token (Codex's thread 4371778016 on 82c7cc9e).
       ['<li>Refresh tokens are cryptographic keys. Each key is an access code. Each code works only once.</li>', true],
-      // The costs: "and" or a semicolon sets nothing apart, and "single-use" before a credential's noun outside an
-      // "unlike" phrase is read as said of its clause's subject, so these fail as on main though the token is not
-      // one-use.
+      // ... and a noun beside the token in its own "unlike" phrase (Codex's thread 4371809274 on a709b130), and a
+      // subject that stands for the token as "the latter" does.
+      ['<li>Recovery codes rotate, unlike refresh tokens (cryptographic keys). Each key works only once.</li>', true],
+      ['<li>Recovery codes expire, unlike access keys, your session tokens. Each access key works only once.</li>', true],
+      ['<li>Recovery codes rotate, unlike refresh tokens, which are cryptographic keys. Each key works only once.</li>', true],
+      ['<li>Recovery codes rotate, unlike refresh tokens. The latter are cryptographic keys. Each key works only once.</li>', true],
+      // The costs: "and" or a semicolon sets nothing apart, "single-use" before a credential's noun outside an "unlike"
+      // phrase is read as said of its clause's subject, and a noun beside the token in its "unlike" phrase stands for it
+      // beside the credential the phrase sets apart, so these fail as on main though the token is not one-use.
       ['<li>Recovery codes cannot be reused, and refresh tokens rotate.</li>', true],
       ['<li>Use a single-use recovery code.</li>', true],
+      ['<li>Recovery codes cannot be reused, unlike refresh tokens (cryptographic keys).</li>', true],
       // A negation with an adverbial phrase between it and the verb, with no commas (#1456's fifth round, Codex's
       // thread 4336218364), up to four words, and past them with commas.
       ['<li>Logging out does not by itself end your other sessions.</li>', false],
