@@ -337,8 +337,8 @@ says so; everything else follows the spec.
   - `DESIGN.md` (item 3) records the pairs as omitted from its frontmatter until they ship, so its sidecar, which
     copies the frontmatter, is unchanged. DS §1 and §10 name the pairs (item 4). Of item 5, DS §10's paragraph on the
     renderer states its inks; the rewrites of today's contract (hollow markers, the crosshair, "dark labels use
-    `secondary`" and †) belong to E195 with the charts they describe, and the font-loader note to E199 with the
-    loader. Item 6 is E199, and item 7 E195.
+    `secondary`" and †) belong to E195 with the charts they describe, and the font-loader note came with the loader
+    (item 6, E199: "Fonts (E199)" below). Item 7 is E195's.
   - `tests/unit/chart-apca.spec.ts` recomputes every Lc the tables print, the Source column's included, and holds
     every token to its floor in both themes, on the card and under the column wash (`cursor`, which the table leaves
     unmeasured). The narrowest clear their floors by less than half a point, on the dark wash: the tick ink at
@@ -356,8 +356,23 @@ says so; everything else follows the spec.
   the script cannot read (one served from another origin), the export stops with an error toast rather than paint a
   fallback. `tests/e2e/chart-export-fidelity.spec.ts` holds E1 for every panel in both themes, in Chromium, the one
   browser CI runs (at most 0.1% of plot pixels may differ by more than 25 in a channel; the worst panel measured
-  0.011%, and 1.5–1.7% with the faces left out). Safari and Firefox are not yet checked; F66's preview check covers them. The plan's `latin-ext` preload is not taken: the export reads the faces itself, so the preload would only
-  spare the screen a brief swap of the † glyph, for 14.7 KB more on every route's critical path.
+  0.011%, and 1.5–1.7% with the faces left out). Safari and Firefox are not yet checked; F66's preview check covers them.
+- **Fonts (E199).** `app/fonts.ts` takes G1's fallback (`adjustFontFallback: false` and the monospace list), so a face
+  still loading paints in a monospace one, and keeps `subsets: ['latin']`. `subsets` chooses only the files `next/font`
+  preloads, and the root layout preloads them on every route; every subset's face is declared with its `unicode-range`
+  either way. A `latin-ext` preload would put 14.7 KB more on every route's critical path for glyphs only the analysis
+  surfaces print, and would make † likely, not certain, before first paint. G3's purpose is met by G4's wait instead:
+  it loads and checks `11px "Geist Mono"` with the text `0†₹₪₱`. The Font Loading API picks a family's faces by their
+  `unicode-range`, and with no text it takes a space, so G4's call as written waits for the latin face alone. With the
+  sample the plots paint once the latin face and the latin-ext one (†, and the ₹, ₪ and ₱ that `moneyPrefix` prints)
+  are both in, or 1,500 ms pass, so † never swaps after a plot's first paint, and no other route fetches latin-ext
+  before its text needs it. The export embeds the faces itself, so it needs no preload either.
+  - `trend-charts-v2.spec.tsx` holds the sample to every glyph outside the latin face that the engine prints over the
+    ISO 4217 list, and `designSystemDoneGate.spec.ts` holds the loader's two options.
+  - Outside the plots, a † or a foreign sign set in the data face (the KPI strip, the metrics table, the card's
+    footnotes) can still swap once on a cold cache, now between two monospace faces.
+  - ₩ (KRW) and ₫ (VND) are in no Geist Mono subset, so a panel in either prints its sign in the fallback, a glyph
+    G2 bans (E203).
 - **What this spec supersedes, and when.** When the renderer replaces today's charts (report §10, step 7), this spec
   replaces three rules of `docs/design/analysis-data-notes-redesign-2026-10.md` §4.7 for the four trend charts. Note
   letters move off the plot into the notes band (§3.3), and review letters take «t.review»: in the band they sit on

@@ -866,6 +866,13 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
     test.setTimeout(60_000)
     await openAnalysis(page, baseURL!, state, theme, 1)
     expect(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('12px "EN Figure Minus"', '-') }), 'the minus face draws the hyphen-minus').toBe(true)
+    // The stylesheet the build emits (E199): the data face falls back to a monospace one, with no metric-matched Arial.
+    const mono = await page.evaluate(() => ({
+      stack: getComputedStyle(document.documentElement).getPropertyValue('--font-geist-mono').trim(),
+      metricFallback: [...document.fonts].some(face => face.family.replace(/["']/g, '') === 'Geist Mono Fallback'),
+    }))
+    expect(mono.stack, 'the data face falls back to a monospace one').toMatch(/^["']Geist Mono["'],\s*ui-monospace,\s*SFMono-Regular,\s*Menlo,\s*monospace$/)
+    expect(mono.metricFallback, 'no metric-matched Arial face for Geist Mono').toBe(false)
     const selector = `[data-analysis-kpi] button[aria-label$="View source and calculation"], ${TABLE} tbody button[aria-label$="View source and calculation"]`
     const controls = await page.locator(selector).evaluateAll(buttons => buttons.map(button => {
       const cell = button.closest('td, [data-analysis-kpi]')!

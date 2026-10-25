@@ -244,6 +244,15 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
     expect(emittedFontVars().sort()).toEqual([...NEXT_FONT_VARS].sort())
   })
 
+  it("loads Geist Mono with a monospace fallback, never next/font's metric-matched Arial (E199)", () => {
+    // Both options: webpack's loader keeps the size-adjusted Arial face beside a `fallback` list unless
+    // adjustFontFallback is false, and the list is what ends --font-geist-mono in a monospace face.
+    const call = fonts.match(/\bGeist_Mono\(\{([^{}]*)\}\)/)?.[1]
+    if (!call) throw new Error('app/fonts.ts no longer calls Geist_Mono({ … })')
+    expect(call).toMatch(/\badjustFontFallback:\s*false\b/)
+    expect(call).toMatch(/\bfallback:\s*\[\s*'ui-monospace',\s*'SFMono-Regular',\s*'Menlo',\s*'monospace',?\s*\]/)
+  })
+
   it.each(Object.entries(VAR_LED_STACKS))(
     'tailwind fontFamily.%s leads with var(%s)',
     (key, expected) => {
