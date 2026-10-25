@@ -105,6 +105,8 @@ const num = (element: Element, name: string) => Number(element.getAttribute(name
 function expectDrawsPlan(svg: SVGSVGElement, model: ChartModel, layout: ChartLayout, tokens: ChartTokens) {
   expect([num(svg, 'width'), num(svg, 'height')], 'the SVG is the plan’s size').toEqual([layout.width, layout.height])
   expect(svg.getAttribute('viewBox')).toBe(`0 0 ${layout.width} ${layout.height}`)
+  // The plan's 0.6 em advance holds only unhinted: full hinting at 1x snaps it to whole pixels (D8).
+  expect(svg.getAttribute('text-rendering')).toBe('geometricPrecision')
 
   // D12: every panel group carries its id, step and domain.
   const groups = [...svg.querySelectorAll('g[data-panel]')]

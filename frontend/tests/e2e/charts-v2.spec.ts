@@ -98,6 +98,10 @@ function expectSound(report: PlotReport) {
 }
 
 test.describe.configure({ mode: 'parallel' })
+// Full font hinting, headless Chrome's default (CI's) and some desktops': at 1x it snaps every advance to a whole
+// pixel unless the SVG asks for geometric precision, so D1 and D8 run in the case that can break them. The local
+// browser's wrapper passes --font-render-hinting=none; the last flag wins.
+test.use({ launchOptions: { args: ['--font-render-hinting=full'] } })
 
 test.describe('trend charts with the flag unset', () => {
   test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' })

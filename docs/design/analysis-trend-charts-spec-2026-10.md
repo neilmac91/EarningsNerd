@@ -219,15 +219,19 @@ says so; everything else follows the spec.
   `LinePath`, in literal attributes; `TrendChartCard.tsx` is the card, which every chart keeps (a chart that does not
   apply says why at the card's height); `TrendCharts.tsx` loads it as its own chunk while the flag is on.
   `lib/charts/theme.ts` holds §3.8's tokens for both themes (owner decision 3 in §0.3), held to the table by
-  `tests/unit/chart-theme.spec.ts`; they reach Tailwind with step 6 (E194). The keyboard values stop, the tooltip
-  and the column wash are step 5 (E193). Two readings of D4, which binds a series colour to its data: a line run's
-  path names its periods in `data-period`, space-separated, since it spans them; the value strip's swatches sit in a
-  `data-strip` group. The tolerance file (§1.0, M20) is readout tooling and stays out of the product.
+  `tests/unit/chart-theme.spec.ts`; they reach Tailwind with step 6 (E194). The keyboard values stop, the tooltip and
+  the column wash are step 5 (E193). The SVG sets `text-rendering="geometricPrecision"`: under full font hinting at 1×
+  (headless Chrome's default, and some desktops) Blink snaps each advance to a whole pixel, 7 px where G1 counts 6.6,
+  which moved a `CHF 20B` tick label 2 px out of the SVG (D1) and every string off D8. Two readings of D4, which binds
+  a series colour to its data: a line run's path names its periods in `data-period`, space-separated, since it spans
+  them; the value strip's swatches sit in a `data-strip` group. The tolerance file (§1.0, M20) is readout tooling and
+  stays out of the product.
 - **The renderer's gates.** `frontend/tests/unit/trend-charts-v2.spec.tsx` holds the drawing to the plan on the 19
   datasets, every chart and both views: D4, D5, D7, D11, D12 and D14, every printed string, and paint the export can
-  serialise. `frontend/tests/e2e/charts-v2.spec.ts` runs D1, D2, D8, D9 and D10 in a browser, in both themes at 1280
-  and 390 px, card and expanded, in CI's `e2e-charts-v2` job, which also runs the export's fidelity check (E1)
-  against the renderer. D3, D6 and D13 are not yet run: D6's inks are the table's, measured in the audit.
+  serialise. `frontend/tests/e2e/charts-v2.spec.ts` runs D1, D2, D8, D9 and D10 in a browser under full font hinting,
+  in both themes at 1280 and 390 px, card and expanded, in CI's `e2e-charts-v2` job, which also runs the export's
+  fidelity check (E1) against the renderer. D3, D6 and D13 are not yet run: D6's inks are the table's, measured in the
+  audit.
 - **The gate.** `frontend/tests/unit/chart-engine.spec.ts` runs the model checks M1–M6, M8–M13, M18 and M21, M7,
   M16 and M17 in part, A4 (apart from its planner), A5's letter order and spacing, A7, A13b, G6, L1 for bar labels
   and §3.10's strip, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`

@@ -5,6 +5,8 @@
  * gridlines at round(y) + 0.5, y tick labels at the gutter, line paths through their points (cut by the plot's clip),
  * the marker and break-mark shapes, the off-scale rows' baselines, the value strip and the notes band (§4.0). Paint is
  * literal SVG attributes in the theme's hexes, never classes or var(), so the PNG export serialises the plot whole.
+ * Text renders with geometric precision: under full font hinting at 1× (headless Chrome's default, and some desktops)
+ * Blink otherwise snaps each advance to a whole pixel, 7 px where the plan counts Geist Mono's 6.6 (spec G1, D8).
  * The data-* attributes are the ones the DOM checks read (§4.0, D4, D12, D14; step 6, E194): a mark in a series' colour
  * names its series and period, a line run its periods space-separated, and the value strip's swatches sit in its
  * data-strip group.
@@ -127,7 +129,7 @@ export default function TrendChartSvg({ model, layout, tokens, label, uid }: {
   const marks = new Map(model.panels.flatMap((panel) => panel.marks.map((mark) => [mark.seriesKey, mark] as const)))
   return (
     <svg width={layout.width} height={layout.height} viewBox={`0 0 ${layout.width} ${layout.height}`} role="img" aria-label={label}
-      fontFamily={CHART_FONT} fontSize={11} style={{ display: 'block' }}>
+      fontFamily={CHART_FONT} fontSize={11} textRendering="geometricPrecision" style={{ display: 'block' }}>
       <defs>
         {layout.panels.map((box) => (
           <clipPath key={box.panel.id} id={`${uid}-${box.panel.id}`}>
