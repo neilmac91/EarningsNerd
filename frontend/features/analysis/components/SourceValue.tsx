@@ -81,7 +81,7 @@ function inheritedComparisonNote(comparison: SourceComparison) {
     input.provenance?.inputs.forEach(visit)
   }
   comparison.provenance?.inputs.forEach(visit)
-  if (!affected.size) return `${letter ? `Carries note ${letter}. ` : ''}The recorded inputs do not identify which input carries this note.`
+  if (!affected.size) return `${letter ? `Carries note ${letter}. ` : ''}The recorded inputs do not identify which input this note comes from.`
   const status = note.kind === 'review' ? 'needs review' : note.kind === 'unavailable' ? 'is unavailable' : 'has no validation record'
   const inputs = [...affected.values()].map(input => {
     const label = input.concept.replaceAll('_', ' ')
