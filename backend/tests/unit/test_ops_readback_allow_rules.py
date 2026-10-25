@@ -16,15 +16,21 @@ The gate fails when the allow entries outside the E8 launch kit's seven are not 
 a pinned rule carries a wildcard or shell syntax; when a deny or ask rule shadows one; when a dispatched
 operation is gated by `ops-apply` or is not exempt from the deploy pre-flight; when ops.yml gains a job, or a job
 other than `ops` or a step of `ops` may run for a read dispatch beyond the pinned read-only steps (a condition
-the gate cannot read counts as one that runs: `read_dispatch_problems`, with its evasion cases); when the reads
-lose the concurrency group of their own run, which keeps a read from replacing a pending run, an approved
-apply's included; when a read step reaches gcloud other than to read; when any allow rule admits a command in
+the gate cannot read counts as one that runs: `read_dispatch_problems`, with its evasion cases); when ops.yml,
+the ops job or a read's own step gains a key, the workflow's env names, permissions or runner change, a shared
+step a read runs is not its pinned shape, the resolve script runs a line outside its validation vocabulary, or a
+read step hands an environment on to the steps after it; when the reads lose the concurrency group of their own
+run, which keeps a read from replacing a pending run, an approved apply's included; when a read step reaches gcloud other than to read; when any allow rule admits a command in
 the forbidden corpus (every other Ops operation, read from ops.yml, in the same form; the same two operations
 with any other input, ref or repository; REST and GraphQL dispatches; deployment approvals and rejections; run
 re-runs, cancellations and log reads; cloud writes and direct production reads; and the pinned forms chained to
 an apply dispatch); when a pinned form is refused by the approval guard (which test_ops_approval_guard.py
 pins for the approval and rejection calls); or when docs/OPERATIONS.md does not show each pinned command
 verbatim.
+
+Review-checked, not gated: `ops/describe/service.py`, the free-form Python every allowed describe-service runs.
+test_ops_stderr_withheld.py pins its subprocess and import vocabulary and the six gcloud reads it makes, but a gate
+cannot decide what a module does; a change to it changes what the no-prompt dispatch does, so it is high-tier.
 """
 from __future__ import annotations
 
@@ -76,16 +82,31 @@ SHARED_SHAPES = {
         "with": {"workload_identity_provider": "${{ vars.GCP_WIF_PROVIDER }}", "service_account": "${{ vars.GCP_DEPLOYER_SA }}"}},
     "Set up gcloud": {"name": "Set up gcloud", "uses": "google-github-actions/setup-gcloud@v3"},
 }
-# Direct cloud and GitHub callers and token names, refused in the resolve step, which validates the inputs before
-# any credential exists (a denylist: it names the plain routes, and the checks below close the indirect ones).
-RESOLVE_REACH = re.compile(r"\bgcloud\b|\bcurl\b|\bwget\b|\bgh\s|ACTIONS_ID_TOKEN|GITHUB_TOKEN|github\.token")
-# What the workflow and the ops job carry, whole: a new key (an env, `defaults`, a `container`) changes every step.
+# The resolve step's whole vocabulary: it validates the three inputs and writes $GITHUB_OUTPUT, nothing else. Every
+# line of its script must be one of these forms (a new operation's case label needs no change here); anything else (a
+# command, a sourced file, an expansion that builds a name) fails until someone checks it and teaches this list.
+_ERROR = r'echo "::error::[^"$`\\]*(?:\$(?:OP|TICKERS|REVISION)[^"$`\\]*)*"'
+_INPUT = r'"\$(?:TICKERS|REVISION)"'
+RESOLVE_LINES = [re.compile(form) for form in (
+    r"", r"#.*", r"set -euo pipefail", r'case "\$OP" in', r"esac", r";;", r"fi", r"\{",
+    r"[a-z0-9-]+(?:\|[a-z0-9-]+)*\)(?: ;;)?",
+    rf"\*\) {_ERROR}; exit 1 ;;",
+    rf"\[\[ {_INPUT} =~ \^[^\s$`]+\$ \]\] \\",
+    rf"\|\| \{{ {_ERROR}; exit 1; \}}",
+    r"""COUNT=\$\(echo "\$TICKERS" \| tr ',' '\\n' \| wc -l\)""",
+    rf'\[ "\$COUNT" -le \d+ \] \|\| \{{ {_ERROR}; exit 1; \}}',
+    r'if \[ -n "\$TICKERS" \]; then',
+    r'echo "(?:operation=\$OP|tickers=\$TICKERS|revision=\$REVISION|Requested operation: \$OP)"',
+    r'\} >> "\$GITHUB_OUTPUT"',
+)]
+# What every read inherits, pinned whole: a new key (an env, `defaults`, a `container`), another env name (HOME,
+# NODE_OPTIONS), another runner or a wider token changes every step. After checking a change only reads, update these.
 WORKFLOW_KEYS = {"name", "on", "permissions", "env", "jobs"}
+WORKFLOW_ENV = {"REGION", "SERVICE", "JOBS_CHANNEL_JOB", "CLOUD_SQL_PROXY_VERSION", "CLOUD_SQL_PROXY_SHA256"}
+WORKFLOW_PERMISSIONS = {"contents": "read", "actions": "read", "id-token": "write"}
 OPS_JOB_KEYS = {"needs", "if", "concurrency", "runs-on", "steps"}
+RUNNER = "ubuntu-latest"
 LAST_STEP_KEYS = {"describe-service": {"name", "if", "timeout-minutes", "run"}, "logs-probe": {"name", "if", "run"}}
-# Environment names that change what a later shell, interpreter or gcloud runs, wherever they are set.
-LOADER_NAMES = re.compile(r"BASH_ENV|ENV|PATH|SHELLOPTS|BASHOPTS|PROMPT_COMMAND|LD_\w+|PYTHON\w*|CLOUDSDK_\w+|GITHUB_\w+",
-                          re.IGNORECASE)
 # A step a read runs may not change the environment of the steps after it (only the proxy step does, for writes).
 ENV_WRITES = re.compile(r"GITHUB_ENV|GITHUB_PATH|BASH_ENV")
 # A condition on an earlier step's result that is false when that step was skipped.
@@ -199,8 +220,11 @@ def read_dispatch_problems(workflow: dict) -> list[str]:
     jobs, problems = workflow["jobs"], []
     if set(workflow) != WORKFLOW_KEYS:
         problems.append(f"ops.yml's top-level keys changed: {sorted(set(workflow) ^ WORKFLOW_KEYS)}")
-    problems += [f"ops.yml's env sets {name}, which changes what every step runs"
-                 for name in workflow.get("env", {}) if LOADER_NAMES.fullmatch(name)]
+    if set(workflow.get("env", {})) != WORKFLOW_ENV:
+        problems.append(f"ops.yml's env names changed ({sorted(set(workflow.get('env', {})) ^ WORKFLOW_ENV)}): after "
+                        "checking every read step still only reads, update WORKFLOW_ENV")
+    if workflow.get("permissions") != WORKFLOW_PERMISSIONS:
+        problems.append(f"ops.yml's token permissions changed: {workflow.get('permissions')}")
     if set(jobs) != JOBS:
         problems.append(f"ops.yml's jobs changed ({sorted(set(jobs) ^ JOBS)}): pin what a read dispatch runs in them")
     for name, job in jobs.items():
@@ -209,6 +233,8 @@ def read_dispatch_problems(workflow: dict) -> list[str]:
     ops = jobs.get("ops", {})
     if set(ops) != OPS_JOB_KEYS:
         problems.append(f"the ops job's keys changed: {sorted(set(ops) ^ OPS_JOB_KEYS)}")
+    if ops.get("runs-on") != RUNNER:
+        problems.append(f"the ops job runs on {ops.get('runs-on')!r}, not {RUNNER!r}: every read would run there")
     if ops.get("concurrency") != {"group": READ_GROUP, "cancel-in-progress": "false"}:
         problems.append("the ops job no longer gives each read dispatch a concurrency group of its own run")
     read_steps = {}  # id() of each step a read runs -> the step, in order
@@ -241,12 +267,13 @@ def read_dispatch_problems(workflow: dict) -> list[str]:
         if label == "Resolve requested operation":
             if set(step) != {"name", "id", "env", "run"}:
                 problems.append(f"the resolve step's keys changed: {sorted(set(step) ^ {'name', 'id', 'env', 'run'})}")
-            if reach := RESOLVE_REACH.search(step.get("run", "")):
-                problems.append(f"the resolve step names {reach.group()!r}, a cloud or GitHub caller or a token")
+            outside = [line.strip() for line in step.get("run", "").splitlines()
+                       if not any(form.fullmatch(line.strip()) for form in RESOLVE_LINES)]
+            if outside:
+                problems.append(f"the resolve script runs lines outside its validation vocabulary: {outside}; after "
+                                "checking they only validate the inputs, teach RESOLVE_LINES")
         if writes := ENV_WRITES.search(step.get("run", "")):
             problems.append(f"{label!r} writes {writes.group()}, which reaches the steps after it")
-        problems += [f"{label!r} sets {name}, which changes what it runs"
-                     for name in step.get("env", {}) if LOADER_NAMES.fullmatch(name)]
     return problems
 
 
@@ -313,6 +340,15 @@ EVASIONS = {  # each change would put a production write, or a replacement, into
         defaults={"run": {"shell": "bash --rcfile ops/describe/env.sh {0}"}}),
     "a loader in the workflow's env": lambda workflow: workflow["env"].update(BASH_ENV="ops/describe/env.sh"),
     "a container for the ops job": lambda workflow: workflow["jobs"]["ops"].update(container="ghcr.io/example/ops:1"),
+    "another name in the workflow's env": lambda workflow: workflow["env"].update(NODE_OPTIONS="--require ./x.js"),
+    "a self-hosted runner": lambda workflow: workflow["jobs"]["ops"].update({"runs-on": "self-hosted"}),
+    "a wider token": lambda workflow: workflow["permissions"].update(contents="write"),
+    "a script the resolve step runs": lambda workflow: _append_to_resolve(workflow, "bash ops/request/placeholder.sh"),
+    "a name the resolve step builds": lambda workflow: _append_to_resolve(workflow, 'v=GITHUB_; v+=ENV; : "${!v:-/dev/null}"'),
+    "a command inside an input check": lambda workflow: _append_to_resolve(
+        workflow, '[[ "$TICKERS" =~ ^$(id)$ ]] \\'),
+    "a command after an error exit": lambda workflow: _append_to_resolve(
+        workflow, '|| { echo "::error::bad"; exit 1; }; source ops/x.sh'),
     "an apply added to the reads' group": lambda workflow: workflow["jobs"]["ops"]["concurrency"].update(
         {"group": READ_GROUP.replace("inputs.operation == 'logs-probe')",
                                      "inputs.operation == 'logs-probe' || inputs.operation == 'relabel-fy-apply')")}),

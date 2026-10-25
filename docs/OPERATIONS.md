@@ -698,8 +698,8 @@ is recorded (a `-p` or SDK run uses project allow rules only when `~/.claude.jso
 with no managed `allowManagedPermissionRulesOnly` and no `autoMode.classifyAllShell` (which suspends
 every Bash allow rule in Auto mode), and, under the Bash sandbox, with GitHub's API on the sandbox's
 allowlist (a command that carries hosts of its own goes to the classifier). There, in Auto mode, a
-matching command runs without a prompt and without the auto-mode classifier. Anywhere else it goes to the prompt, the classifier or the session's
-own tool allowance, as before.
+matching command runs without a prompt and without the auto-mode classifier. Anywhere else it goes to the
+prompt, the classifier or the session's own tool allowance, as before.
 
 **No command proves the route on its own.** In Auto mode a silent run shows only that the command was
 allowed, by these rules or by the classifier, which may approve a read of run metadata, or even a read
@@ -746,8 +746,10 @@ operation step's verdict, revision, flag and Sentry lines.
 deployment-review and environment calls and any `gcloud` command stay outside the allow list; an
 `-apply` still waits for the founder's approval of `ops-apply` and the workflow's owner-approval check,
 and `.claude/hooks/ops_approval_guard.py` refuses a session the approval and rejection calls whatever
-the allow list says ([DEPLOYMENT.md](DEPLOYMENT.md)). Gate: `backend/tests/unit/test_ops_readback_allow_rules.py`
-(the three rules, the forbidden corpus, and the jobs, steps and concurrency group a read dispatch runs).
+the allow list says ([DEPLOYMENT.md](DEPLOYMENT.md)). Gate:
+`backend/tests/unit/test_ops_readback_allow_rules.py` (the three rules, the forbidden corpus, and the
+jobs, steps, environment, runner and concurrency group a read dispatch runs, with the resolve script's
+vocabulary); `ops/describe/service.py`, the Python every describe runs, is review-checked.
 
 ### Persisted audits and weekly judged readout (WS-6 measurement)
 
