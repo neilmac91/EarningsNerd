@@ -5,7 +5,9 @@ metrics table, period picker) and the PDF, Excel and PNG exports that mirror it 
 decisions are taken (2026-10-10); amended decision 4 and decisions 6–9 were adopted on 2026-10-11 under the founder's delegation to Astra's recommendation; Phase 1 items 1–10 and 11 of §7 are merged (#1199, #1200, #1202, #1203, #1206) and Phase 2 in #1225 (the status note under §7's Phase 2 says where it departs from the brief and what stays open);
 the follow-ups in §11 are open; this document itself ships nothing; on 2026-10-25 the table window
 (§4.5) was retired with the metrics-table number system (see the note under §4.5's window control), and
-the current table rule is `frontend/DESIGN_SYSTEM.md` §4, Analysis table · Support material:
+the current table rule is `frontend/DESIGN_SYSTEM.md` §4, Analysis table; the same day the founder also narrowed the marking rule (`docs/brand/decisions-log.md` D-061), so the
+figure affix (§4.2), the strip (§4.3) and the web row of §4.10 are superseded where their notes say,
+while §9's decisions stand · Support material:
 [`tasks/analysis-redesign-2026-10/`](../../tasks/analysis-redesign-2026-10/README.md) (runnable
 prototype, measurement harnesses, recorded measurements).
 
@@ -33,6 +35,13 @@ The proposal replaces label-per-instance with **note-per-issue**:
    card or a column sits next to a number any more.
 3. One **Data notes strip** under the headline cards (a hairline strip, not a card) with the counts and
    the grouped notes, replacing the "N source checks needed" badge.
+
+   **Superseded (2026-10-25)** for items 2 and 3: the founder narrowed the marking rule on 2026-10-25 (`docs/brand/decisions-log.md` D-061). A figure carries no
+   dagger, and a letter only where its note questions the number (a review note with any reason other
+   than the record-only `legacy_calculation`), in the neutral note ink; the strip is one line of fine print
+   under the metrics table. Every note stays in the evidence dialog and the data notes, and §9's decisions
+   stand. The current rules are `DESIGN.md`'s Calculation Provenance Rule and `frontend/DESIGN_SYSTEM.md`
+   §4 (Data note mark, Data notes strip); this section keeps the October 2026 record as it was.
 4. A **KPI strip** whose label, value and delta rows are shared across cards (CSS subgrid) and whose
    period line names each figure's actual period.
 5. A **metrics table** with fixed, equal period columns (76 px desktop, 68 px phone, scaling with text
@@ -323,6 +332,13 @@ On click, Enter, Space or tap the figure opens the evidence dialog (§4.6). The 
 separate control (it would add dozens of Tab stops); the Data notes strip and the dialog both explain
 it, and the notes chip on a chart or the narrative header jumps to the strip.
 
+**Superseded (2026-10-25).** The founder narrowed the marking rule on 2026-10-25 (`docs/brand/decisions-log.md` D-061): no `†` beside a figure (a sentence above
+the table names the calculated metrics, and the figure's name still says "calculated"), and a letter, in
+the note ink and never warning ink, only for a note that questions the number. A record-only, unknown or
+unavailable note marks nothing and is named in the dialog, not in the figure's name. The Q4 column
+header's `†` and the period picker's stay: they mark periods. §9's decisions stand; the current rule is
+`frontend/DESIGN_SYSTEM.md` §4, Data note mark.
+
 ### 4.3 Data notes strip
 
 Position: under the KPI strip, where `SourcesMethods` sits today, so it is the legend for everything
@@ -333,6 +349,13 @@ counts in warning ink, the all-passed count in sage). Open, it lists the notes a
 figures, Q4 derivation, EPS, FCF definition, data as of, snapshot). Every chart's "Notes a" chip and the
 narrative header's chip open this strip and scroll to the note. Owner: a new `DataNotes.tsx` that
 replaces `SourcesMethods.tsx`.
+
+**Superseded (2026-10-25).** The founder narrowed the marking rule on 2026-10-25 (`docs/brand/decisions-log.md` D-061): the data notes are one line of fine print
+8px under the metrics table, with no hairlines and no warning ink. The summary names each marked note by
+its letter, places and words and counts the gaps, the figures with no check recorded and the calculated
+figures; "No figures need review" (decision 9) never stands beside a record-only note. The open detail
+lists every note, and the comparison locators are gone. §9's decisions stand; the current rule is
+`frontend/DESIGN_SYSTEM.md` §4, Data notes strip.
 
 ### 4.4 KPI strip
 
@@ -590,6 +613,11 @@ corrections of §11:
 | PDF | the same letters as `<sup>` footnote marks in the grid and after narrative citations (never the U+1D43 modifier letter, which the bundled fonts may lack) | on the appendix YoY/QoQ rows, the only place the PDF prints comparisons | `—ᵇ` | "Data notes" list in the same order under the grid, replacing "[note n]" / "[unreconciled]" | Sources & methods appendix (unchanged, with a Note column appended as column 17; columns 1–16 are positional and pinned) |
 | Excel | the letter in the cell's number format (`#,##0" (a)"`), so the cell stays numeric, sorts and prints; the sentence in the cell comment | the same on the growth cells the workbook has (window and top-line YoY) | empty cell with the comment | "Data notes" block on the cover sheet with the same counts | Sources & methods sheet (unchanged, with the Note column) |
 | PNG | hollow marker / filled bar + letter | letter on the growth line | gap | "Note a: …" lines under the plot | not applicable |
+
+**Superseded (2026-10-25)** for the Web and PNG rows: the founder narrowed the marking rule on 2026-10-25 (`docs/brand/decisions-log.md` D-061). On the page a
+figure reads `26.1%` (no dagger) and carries `ᵃ` only where its note questions the number, a gap is `—`
+alone, and the summary is the fine print under the table; the PNG footer names the marked letters and
+states a gap in words. The PDF and Excel rows move with the exports' own change. §9's decisions stand.
 
 Period headers in Excel read "Q2 2026" (the straight form; a typed filter cannot match a typographic
 apostrophe) and the data columns keep the period keys the API uses. The PDF's compact money formatter
@@ -906,6 +934,9 @@ tabs, and the web replaces its exact spans with evidence disclosures.
   keeps its own `not_in_dataset` and `legacy_calculation_not_supported` gaps, so "after the repair" is
   not state 1 byte for byte).
 - Any frontend override that marks a legacy record validated, hides a note, or shows "verified".
+  (Narrowed 2026-10-25, D-061: every note stays in the evidence dialog and the data notes; only a note
+  that questions the number keeps a mark beside the figure. Never marking a legacy record validated and
+  never saying "verified" stand.)
 - Changing what counts as `needs_review` or `unavailable`.
 
 ## 8. Where this review departs from the brief

@@ -562,6 +562,11 @@ this order:
 The card, the expanded view and the export show every line. A "+n more notes" truncation that opens the Modal is
 optional for production and is not part of the verified build.
 
+**2026-10-25, D-061:** today's charts mark a point only where its note questions the number (`noteMarksFigure`,
+`features/analysis/lib/dataNotes.ts`); this band adopts the same rule in the charts plan's step 5 (E193), before F66:
+letters for marked notes only and in «t.tick», no review ink, and no `†` glyph. Until then it letters every note, drawn
+only behind `NEXT_PUBLIC_CHARTS_V2`, which is off.
+
 ### 3.4 Missing, zero, negative, outlier
 
 **State taxonomy (A11)**
