@@ -5,12 +5,13 @@
 -- 2026-10 restatement census: 120 cells at 24 of 59 large filers, 12 of them off the 10-K's, FDX's at a
 -- millionth of it), and the backfill's cross-check (facts/reconcile.py's extract_authoritative_values,
 -- run by backfill-facts) took it as the authority and wrote it over a filing's parsed figure. The next
--- sync replaces a sync's proxy row only where it never stored the 10-K's identity; elsewhere it stays
--- current, a margin computed from it keeps its value, and no sync rewrites a filing's row. The sets:
--- 1 counts the current rows whose form is a proxy form, 2 lists their companies and concepts, 3 lists
--- the calculations computed from them, and 4 lists the filings' rows the cross-check replaced with a
--- proxy's figure. Together they are the cohort of the journaled repair a separate PR builds. It names
--- companies and changes nothing.
+-- sync replaces a sync's proxy row only where no stored row holds the 10-K's identity: neither a
+-- sync's nor a filing's, which the per-filing writer stores behind a current proxy row when the 10-K
+-- is listed after it. Elsewhere the proxy row stays current, a margin computed from it keeps its value,
+-- and no sync rewrites a filing's row. The sets: 1 counts the current rows whose form is a proxy form,
+-- 2 lists their companies and concepts, 3 lists the calculations computed from them, and 4 lists the
+-- filings' rows, current or not, the cross-check replaced with a proxy's figure. Together they are the
+-- cohort of the journaled repair a separate PR builds. It names companies and changes nothing.
 -- Retire: the session that applies that repair deletes this file in the records PR that closes it,
 -- after a detection-sql run reads no rows in sets 2, 3 and 4, and by 2026-12-31 at the latest.
 --
@@ -21,15 +22,17 @@
 -- proxy rows (no index holds the form), then each one's report rows through
 -- uq_financial_fact_identity; set 3 reads financial_fact once for the proxy accessions, then the
 -- affected companies' rows through ix_financial_fact_company_id and the text of their provenance; set 4
--- reads financial_fact once for the current filing-owned companyfacts rows (no index holds the source),
+-- reads financial_fact once for the filing-owned companyfacts rows (no index holds the source),
 -- parses the provenance of those that name an authoritative check, and reads each one's period-end rows
 -- through uq_financial_fact_identity. A list stops at 200 rows, and each row carries its set's full
 -- count (of_n), so a cut list shows.
 -- proxy form: the form, its whitespace collapsed, trimmed and upper-cased, matches
 -- ^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$ (DEF 14A, DEFA14A, DEFM14A, PRE 14C, PX14A6G, ...), is_proxy_form's
 -- rule. report row: a row that is not current, at the same company, concept, period end and fiscal
--- period, whose form is set and is no proxy form (10-K, 10-Q, 8-K, 20-F, ... and amendments; any source
--- or unit). gap: the relative distance from the proxy row's value to its nearest report row's,
+-- period, whose form is set and is no proxy form (10-K, 10-Q, 8-K, 20-F, ... and amendments; any unit),
+-- and that the cross-check did not replace (a row with a filing owner and source companyfacts carries
+-- the authority's figure, a proxy's among them, not its report's). gap: the relative distance from the
+-- proxy row's value to its nearest report row's,
 -- |a - b| / max(|a|, |b|), 0 when one agrees. Stated limits: a 10-K/A that adds Part III late carries
 -- the same table under a report form, and neither the fix nor this file can tell it apart; set 4's
 -- limits are stated with it.
@@ -72,6 +75,7 @@ WITH params AS (
         FROM financial_fact t
         WHERE t.company_id = x.company_id AND t.concept = x.concept AND t.period_end = x.period_end
           AND t.fiscal_period = x.fiscal_period AND NOT t.is_latest
+          AND NOT (t.filing_id IS NOT NULL AND t.source = 'companyfacts')
           AND btrim(COALESCE(t.form, '')) <> ''
           AND upper(btrim(regexp_replace(t.form, '\s+', ' ', 'g'))) !~ p.proxy_form
     ) r
@@ -108,6 +112,7 @@ WITH params AS (
         FROM financial_fact t
         WHERE t.company_id = x.company_id AND t.concept = x.concept AND t.period_end = x.period_end
           AND t.fiscal_period = x.fiscal_period AND NOT t.is_latest
+          AND NOT (t.filing_id IS NOT NULL AND t.source = 'companyfacts')
           AND btrim(COALESCE(t.form, '')) <> ''
           AND upper(btrim(regexp_replace(t.form, '\s+', ' ', 'g'))) !~ p.proxy_form
     ) r
@@ -162,38 +167,55 @@ GROUP BY c.ticker, d.company_id, d.concept, d.fiscal_period
 ORDER BY c.ticker, d.company_id, d.concept, d.fiscal_period
 LIMIT 200;
 
-\echo '4. Current filing rows the backfill''s cross-check replaced with a proxy''s figure. Candidates: current'
-\echo '   rows with a filing owner and source companyfacts, which only cross_check_facts writes on a filing''s'
-\echo '   row (it sets value, source and, since #1191 on 2026-10-10, provenance.checks.authoritative with'
-\echo '   outcome replaced and the parsed original_value). why = proxy row: a stored proxy-form row of the'
-\echo '   company, concept and period end, current or not, holds the same value (relative 1e-6); its accession'
-\echo '   is proxy_witness. why = scale: no such row, but the recorded value is 1/1,000 or 1/1,000,000 of the'
-\echo '   parsed original (within 1%, same sign), the FDX shape. Left out: a row whose value another stored row'
-\echo '   of a report form holds (not a cross-check replacement itself), which a report backs. Limits: a'
-\echo '   witness exists only where a companyfacts sync stored the proxy''s item, so a proxy figure off by a'
-\echo '   non-scale amount at a company no sync read after its proxy is not found; a row replaced before'
-\echo '   #1191 records no original, so only a witness finds it; and scale also lists a parse that was itself'
-\echo '   1,000 or 1,000,000 times too large (the known parse bug runs the other way: a figure in millions'
-\echo '   read as units, which the authority multiplies up and this set does not list).'
+\echo '4. Filing rows the backfill''s cross-check replaced with a proxy''s figure, current or not: a filing''s'
+\echo '   own page reads its rows whatever is_latest says (get_filing_fundamentals). Candidates: rows with a'
+\echo '   filing owner and source companyfacts, which only cross_check_facts writes on a filing''s row; since'
+\echo '   #1191 (2026-10-10) it also records provenance.checks.authoritative, with outcome replaced and the'
+\echo '   parsed original_value. why = proxy row: a stored proxy-form row of the company, concept and period'
+\echo '   end, current or not, holds the same value (relative 1e-6; its accession is proxy_witness), and the'
+\echo '   value is not 1,000 or 1,000,000 times the original, which is the authority multiplying up a figure'
+\echo '   in millions read as units, the parse bug the check exists for. why = scale: no such row, and the'
+\echo '   value is 1/1,000 or 1/1,000,000 of the original (within 1%, same sign), the FDX shape.'
+\echo '   original_backed: a stored report row holds the original, so the replacement overwrote a figure a'
+\echo '   report gives. Left out: a row whose value a stored report row holds. report row here: a row of a'
+\echo '   report form, other than this one, that the cross-check did not replace. Limits: alone, a witness'
+\echo '   cannot tell a proxy figure that differs from the 10-K''s from one that agrees with it, so a row'
+\echo '   whose original was a mis-parse by a non-scale amount, or that a later restatement the proxy quotes'
+\echo '   corrected, is listed unless a stored report row holds its value (original_backed false is the cue'
+\echo '   to read the filing); requiring original_backed would drop every witness at a key where only the'
+\echo '   proxy''s row was stored, as a sync stores only winners. A witness exists only where a companyfacts'
+\echo '   sync stored the proxy''s item, so a non-scale proxy figure at a company no sync read after its'
+\echo '   proxy is not found. A row replaced before #1191 records no original: only a witness finds it, and'
+\echo '   the scale-up guard cannot apply. Scale also lists a parse that was itself 1,000 or 1,000,000 times'
+\echo '   too large.'
 WITH params AS (
     SELECT '^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$'::text AS proxy_form,
            '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard,
            0.000001::numeric AS tolerance
 ), replaced AS MATERIALIZED (
     SELECT ff.id, ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.fiscal_year, ff.form,
-           ff.accession, ff.value,
+           ff.accession, ff.value, ff.is_latest,
            CASE WHEN strpos(ff.provenance::text, '"authoritative"') > 0
                 THEN (CASE WHEN ff.provenance::text ~ p.json_hazard
                            THEN regexp_replace(ff.provenance::text, p.json_hazard, '\\ufffd', 'g')::json
                            ELSE ff.provenance END) -> 'checks' -> 'authoritative' END AS authoritative_check
     FROM financial_fact ff
     CROSS JOIN params p
-    WHERE ff.is_latest AND ff.filing_id IS NOT NULL AND ff.source = 'companyfacts'
+    WHERE ff.filing_id IS NOT NULL AND ff.source = 'companyfacts'
 ), checked AS (
     SELECT r.*, r.authoritative_check ->> 'outcome' AS outcome,
            CASE WHEN json_typeof(r.authoritative_check -> 'original_value') = 'number'
                 THEN (r.authoritative_check ->> 'original_value')::numeric END AS original_value
     FROM replaced r
+), reports AS (
+    SELECT k.id, b.value
+    FROM checked k
+    CROSS JOIN params p
+    JOIN financial_fact b
+      ON b.company_id = k.company_id AND b.concept = k.concept AND b.period_end = k.period_end
+    WHERE b.id <> k.id AND NOT (b.filing_id IS NOT NULL AND b.source = 'companyfacts')
+      AND btrim(COALESCE(b.form, '')) <> ''
+      AND upper(btrim(regexp_replace(b.form, '\s+', ' ', 'g'))) !~ p.proxy_form
 ), signals AS (
     SELECT k.*,
            (SELECT w.accession
@@ -204,32 +226,36 @@ WITH params AS (
               AND abs(w.value - k.value) <= p.tolerance * greatest(abs(w.value), abs(k.value))
             ORDER BY w.id
             LIMIT 1) AS proxy_witness,
-           EXISTS (SELECT 1
-                   FROM financial_fact b
-                   CROSS JOIN params p
-                   WHERE b.company_id = k.company_id AND b.concept = k.concept AND b.period_end = k.period_end
-                     AND b.id <> k.id AND NOT (b.filing_id IS NOT NULL AND b.source = 'companyfacts')
-                     AND btrim(COALESCE(b.form, '')) <> ''
-                     AND upper(btrim(regexp_replace(b.form, '\s+', ' ', 'g'))) !~ p.proxy_form
+           EXISTS (SELECT 1 FROM reports b CROSS JOIN params p
+                   WHERE b.id = k.id
                      AND abs(b.value - k.value) <= p.tolerance * greatest(abs(b.value), abs(k.value)))
                AS report_backed,
+           EXISTS (SELECT 1 FROM reports b CROSS JOIN params p
+                   WHERE b.id = k.id AND k.original_value IS NOT NULL
+                     AND abs(b.value - k.original_value) <= p.tolerance * greatest(abs(b.value), abs(k.original_value)))
+               AS original_backed,
            CASE WHEN k.original_value <> 0 AND k.value <> 0 AND sign(k.value) = sign(k.original_value)
                 THEN k.value / k.original_value END AS ratio
     FROM checked k
 ), listed AS (
     SELECT s.*,
-           CASE WHEN s.proxy_witness IS NOT NULL THEN 'proxy row'
-                WHEN abs(s.ratio * 1000 - 1) <= 0.01 OR abs(s.ratio * 1000000 - 1) <= 0.01 THEN 'scale'
+           CASE WHEN s.proxy_witness IS NOT NULL
+                     AND NOT COALESCE(abs(s.ratio / 1000 - 1) <= 0.01 OR abs(s.ratio / 1000000 - 1) <= 0.01, false)
+                THEN 'proxy row'
+                WHEN s.proxy_witness IS NULL
+                     AND (abs(s.ratio * 1000 - 1) <= 0.01 OR abs(s.ratio * 1000000 - 1) <= 0.01)
+                THEN 'scale'
            END AS why
     FROM signals s
     WHERE NOT s.report_backed
 )
 SELECT c.ticker, l.company_id, l.concept, l.fiscal_period, l.fiscal_year, l.period_end, l.accession, l.form,
-       l.value, l.original_value, l.outcome, l.why, l.proxy_witness, count(*) OVER () AS of_n
+       l.is_latest, l.value, l.original_value, l.outcome, l.why, l.proxy_witness, l.original_backed,
+       count(*) OVER () AS of_n
 FROM listed l
 JOIN companies c ON c.id = l.company_id
 WHERE l.why IS NOT NULL
-ORDER BY c.ticker, l.company_id, l.concept, l.period_end
+ORDER BY c.ticker, l.company_id, l.concept, l.period_end, l.accession
 LIMIT 200;
 
 COMMIT;
