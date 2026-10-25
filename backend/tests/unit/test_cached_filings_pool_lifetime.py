@@ -2473,8 +2473,9 @@ async def _account_record_request(transport: httpx.ASGITransport, method: str, i
         return await client.request(method, "/api/users/export" if method == "GET" else "/api/users/me")
 
 
-# Each failing case's service call, made to raise after its first query: the unit releases the connection in its
-# finally (the deletion's after its rollback), so the route answers its 500 with nothing left for the finalizer.
+# Each failing case's service call, made to raise after its first query: the export's unit releases the connection
+# in its finally, and the deletion's rollback returns it before the unit's release, so the route answers its 500
+# with nothing left for the finalizer.
 _ACCOUNT_RECORD_FAILS = {
     "export_fails": ("app.services.user_data_export_service", "build_user_data_export"),
     "delete_fails": ("app.services.user_account_service", "delete_user"),
@@ -2526,8 +2527,8 @@ async def test_account_export_and_deletion_release_their_connection_off_the_loop
             detail = ("We could not export your data. Try again in a moment." if method == "GET"
                       else "We could not delete your account. Contact support.")
             assert payloads == [{"detail": detail}] * 8
-        # A deletion makes its third-party calls off the loop, for its own account, before its unit, which
-        # the failing case's rollback does not undo.
+        # The deletions' third-party calls all run off the loop and name each owner's customer and account once
+        # between them (the single deletion pins one request to its own); a failing unit's rollback undoes none.
         assert [on for _, _, on, _ in third_party_calls] == [False] * (24 if method == "DELETE" else 0)
         assert sorted(account for name, _, _, account in third_party_calls if name != "PostHog flush") == (
             sorted([f"cus_{i}" for i in range(8)] + [str(i + 1) for i in range(8)]) if method == "DELETE" else [])

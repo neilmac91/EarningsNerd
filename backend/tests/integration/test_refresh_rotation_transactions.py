@@ -257,12 +257,12 @@ _WRITES = ("INSERT INTO refresh_tokens", "UPDATE refresh_tokens", "DELETE FROM r
 
 
 def _delete_loaded_account(db: Session, user_id: int) -> None:
-    """A deletion whose session loaded the account before it began, as the base's route did (its request session
-    held ``current_user`` through the deletion), and as any caller holding the row may: a check made before the
-    lock, or through that loaded row, would find the account there after another deletion committed. The row stays
-    referenced through the deletion: the session's identity map holds an unchanged row weakly, so an unreferenced
-    one is dropped and read again. The route itself releases its session before its third-party calls, so its
-    deletion starts with nothing loaded, as ``delete_account``'s does."""
+    """A deletion whose session holds the account loaded and unexpired when it begins, as any caller holding the
+    row may: a check made before the lock, or through that loaded row, would find the account there after another
+    deletion committed. The row stays referenced through the deletion: the session's identity map holds an
+    unchanged row weakly, so an unreferenced one is dropped and read again. The route releases its session before
+    its third-party calls, so its deletion starts with nothing loaded, as ``delete_account``'s does (the base's
+    route held ``current_user``, but its audit row's commit had expired it by then)."""
     account = db.get(User, user_id)
     assert account is not None, "the first deletion committed before the second loaded the account"
     return user_account_service.delete_user(db, user_id)
