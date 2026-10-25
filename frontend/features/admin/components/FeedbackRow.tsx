@@ -1,7 +1,6 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
-import { useState } from 'react'
 import { format } from 'date-fns'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -16,7 +15,6 @@ import {
 } from '@/features/admin/api/admin-api'
 import FeedbackStatusBadge from '@/features/admin/components/FeedbackStatusBadge'
 import FeedbackTypeBadge from '@/features/admin/components/FeedbackTypeBadge'
-import FeedbackDetails from '@/features/admin/components/FeedbackDetails'
 
 const STATUS_OPTIONS: FeedbackStatus[] = ['new', 'triaged', 'resolved']
 
@@ -31,11 +29,13 @@ function fmtDate(value: string | null): string | null {
 
 interface FeedbackRowProps {
   feedback: FeedbackRecord
+  detailsOpen: boolean
+  onViewDetails: (feedback: FeedbackRecord, opener: HTMLButtonElement) => void
 }
 
-export default function FeedbackRow({ feedback }: FeedbackRowProps) {
+export default function FeedbackRow({ feedback, detailsOpen, onViewDetails }: FeedbackRowProps) {
   const queryClient = useQueryClient()
-  const [detailsOpen, setDetailsOpen] = useState(false)
+  const messageId = `feedback-message-${feedback.id}`
 
   const statusMutation = useMutation({
     mutationFn: (status: FeedbackStatus) => updateFeedbackStatus(feedback.id, status),
@@ -63,16 +63,16 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
       <td className="w-full px-4 py-3 align-top text-sm text-text-primary-light dark:text-text-primary-dark">
         <button
           type="button"
-          onClick={() => setDetailsOpen(true)}
+          onClick={(event) => onViewDetails(feedback, event.currentTarget)}
           aria-label={`View details for feedback ${feedback.id}`}
+          aria-describedby={messageId}
           aria-haspopup="dialog"
           aria-expanded={detailsOpen}
           className="block min-h-11 w-full min-w-64 rounded text-left [contain:inline-size] transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
         >
-          <span className="block truncate">{feedback.message}</span>
+          <span id={messageId} className="block truncate">{feedback.message}</span>
           <span className="mt-1 block text-xs underline underline-offset-2">View details</span>
         </button>
-        <FeedbackDetails feedback={feedback} open={detailsOpen} onClose={() => setDetailsOpen(false)} />
       </td>
       <td className="px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
         {feedback.page_url ? (

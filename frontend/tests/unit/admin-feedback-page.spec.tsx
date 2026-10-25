@@ -121,6 +121,7 @@ describe('AdminFeedbackPage', () => {
     vi.mocked(listFeedback).mockResolvedValue([report])
     renderPage()
     const opener = await screen.findByRole('button', { name: 'View details for feedback 1' })
+    expect(opener).toHaveAccessibleDescription(report.message)
     expect(opener.closest('.ph-no-capture')).not.toBeNull()
     expect(opener).not.toHaveAttribute('title')
     expect(opener.querySelector('a,button')).toBeNull()
@@ -140,6 +141,28 @@ describe('AdminFeedbackPage', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(opener).toHaveFocus()
     expect(screen.getByLabelText('Set status for feedback 1')).toBeInTheDocument()
+  })
+
+  it.each(['removed', 'error'])('keeps an open report readable when its list is %s, then returns focus to the heading', async (outcome) => {
+    vi.mocked(listFeedback).mockResolvedValue([bugReport])
+    let finishStatus!: (report: FeedbackRecord) => void
+    vi.mocked(updateFeedbackStatus).mockReturnValue(new Promise((resolve) => { finishStatus = resolve }))
+    renderPage()
+    const opener = await screen.findByRole('button', { name: 'View details for feedback 1' })
+    // A status mutation can settle while the admin is reading the report it removes from this filter.
+    fireEvent.change(screen.getByLabelText('Set status for feedback 1'), { target: { value: 'resolved' } })
+    await waitFor(() => expect(updateFeedbackStatus).toHaveBeenCalled())
+    opener.focus()
+    fireEvent.click(opener)
+    if (outcome === 'removed') vi.mocked(listFeedback).mockResolvedValue([])
+    else vi.mocked(listFeedback).mockRejectedValue(new Error('offline'))
+    finishStatus({ ...bugReport, status: 'resolved' })
+    await waitFor(() => expect(opener).not.toBeInTheDocument())
+    const dialog = screen.getByRole('dialog', { name: 'Feedback details' })
+    expect(within(dialog).getByText(bugReport.message)).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Feedback', level: 2 })).toHaveFocus()
   })
 })
 

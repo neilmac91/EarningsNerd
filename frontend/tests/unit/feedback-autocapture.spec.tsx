@@ -4,9 +4,10 @@ import { PostHog } from 'posthog-js'
 import { afterEach, expect, it, vi } from 'vitest'
 import { queryKeys } from '@/lib/queryKeys'
 import FeedbackWidget from '@/features/feedback/components/FeedbackWidget'
-import FeedbackRow from '@/features/admin/components/FeedbackRow'
+import AdminFeedbackPage from '@/app/admin/feedback/page'
+import { listFeedback } from '@/features/admin/api/admin-api'
 
-vi.mock('@/features/admin/api/admin-api', () => ({ updateFeedbackStatus: vi.fn() }))
+vi.mock('@/features/admin/api/admin-api', () => ({ listFeedback: vi.fn(), updateFeedbackStatus: vi.fn() }))
 vi.mock('@/features/feedback/api/feedback-api', () => ({ submitFeedback: vi.fn() }))
 
 let analytics: PostHog | undefined
@@ -17,7 +18,7 @@ afterEach(async () => {
   vi.restoreAllMocks()
 })
 
-it('the real PostHog SDK captures ordinary controls but excludes feedback rows and portalled composer/details', () => {
+it('the real PostHog SDK captures ordinary controls but excludes feedback rows and portalled composer/details', async () => {
   analytics = new PostHog()
   vi.spyOn(analytics, '_send_request').mockImplementation((request) => {
     request.callback?.({ statusCode: 200, json: {} })
@@ -36,17 +37,19 @@ it('the real PostHog SDK captures ordinary controls but excludes feedback rows a
     id: 42, email: 'reader@example.test', full_name: null, is_pro: false,
     is_beta: true, is_admin: true, email_verified: true,
   })
+  vi.mocked(listFeedback).mockResolvedValue([{
+    id: 1, user_id: 42, user_email: 'reader@example.test', type: 'bug',
+    message: 'Private report https://evidence.example.test/private-report',
+    page_url: '/filing/123', status: 'new', created_at: '2026-10-25T00:00:00Z',
+  }])
   render(
     <QueryClientProvider client={client}>
       <button>Ordinary control</button>
       <FeedbackWidget />
-      <table><tbody><FeedbackRow feedback={{
-        id: 1, user_id: 42, user_email: 'reader@example.test', type: 'bug',
-        message: 'Private report https://evidence.example.test/private-report',
-        page_url: '/filing/123', status: 'new', created_at: '2026-10-25T00:00:00Z',
-      }} /></tbody></table>
+      <AdminFeedbackPage />
     </QueryClientProvider>,
   )
+  await screen.findByRole('button', { name: 'View details for feedback 1' })
   fireEvent.click(screen.getByRole('button', { name: 'Ordinary control' }))
   expect(JSON.stringify(events)).toContain('$autocapture')
 
