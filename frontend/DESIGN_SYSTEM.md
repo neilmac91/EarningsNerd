@@ -1934,7 +1934,9 @@ has none; it fits a 390px phone at the default size and, wider than its box (a p
 scrolls inside a box that `useOverflowRegion` names and puts in the Tab order, never the page.
 `/pricing` does not share it and keeps its two plan cards. The page closes with one line
 (`ClosingLine.tsx`): the live example as a text link and the access mode's call to action as a button
-at the end of one sentence, under the last row's rule. Gates: `earningsnerd/no-four-up-grid`
+at the end of one sentence while collection is available, under the last row's rule. Otherwise the
+sentence's example link is the sole action; a focused account action that leaves hands focus to it.
+Gates: `earningsnerd/no-four-up-grid`
 (`eslint.designRules.mjs`, run on `LANDING_GRID_FILES`: the route, every marketing module and the
 sections the route mounts from other features) fails a class that sets four column tracks or more under
 any variant (a template, a grid shorthand, a column flow, or multi-column by its count or column width);

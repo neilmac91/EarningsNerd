@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { PANE, answerApi } from './fixtures/filing3Api'
 import { ACCESS_COPY } from '../../features/marketing/lib/access'
+import { legalReady } from './fixtures/legalReady'
 
 /**
  * The site header (components/Header.tsx) is the one bar that sticks at the top of the viewport, and it covers
@@ -45,7 +46,8 @@ import { ACCESS_COPY } from '../../features/marketing/lib/access'
  * 200% text is Chromium's own text setting (`Page.setFontSizes`, as tests/e2e/reflow-200.spec.ts doubles it), not
  * an inline style on <html>, which no media query reads. CI runs e2e with no backend
  * (lessons/test-e2e-runs-without-backend.md), and the build may name a production API host, so every API request is
- * answered here in the browser whatever its host: the session check 401 (a guest), any other API path 404; every
+ * answered here in the browser whatever its host: the session check 401 (a guest), collection readiness open for
+ * the existing signup/invite layout fixtures, any other API path 404; every
  * other request but the frontend's own GET and HEAD is aborted. The filing pane's case answers the API from
  * fixtures/filing3Api.ts, for a Pro reader. The consent bar is answered before load, so its bottom inset is not in
  * play.
@@ -70,6 +72,7 @@ async function answerGuest(page: Page, baseURL: string) {
     if (url.hostname.endsWith('.sentry.io')) return route.abort()
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/internal/')) {
       if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+      if (url.pathname === '/api/legal/readiness') return route.fulfill({ status: 200, headers, json: legalReady })
       if (url.pathname === '/api/auth/me') return route.fulfill({ status: 401, headers, json: { detail: 'Not authenticated' } })
       return route.fulfill({ status: 404, headers, json: { detail: 'No backend is available in the header case' } })
     }
@@ -639,6 +642,7 @@ async function answerHeld(page: Page, baseURL: string, who: 'guest' | 'reader'):
     if (url.hostname.endsWith('.sentry.io')) return route.abort()
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/internal/')) {
       if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+      if (url.pathname === '/api/legal/readiness') return route.fulfill({ status: 200, headers, json: legalReady })
       if (url.pathname === '/api/auth/me') {
         await held
         return who === 'reader'
