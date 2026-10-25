@@ -34,13 +34,23 @@ outputs:
   the sign of the same year's gap: a cited "net margin minus operating margin" value, or the difference of the two
   margins the gate matched ("Net margin was 3.4pp above operating margin" for -3.4). The sentence must name both
   margins, the comparative relating the one before it to the one after it.
-- ``broken_debt`` (``broken_debt()``): total debt, net cash or net debt, or a figure built on them (their share of
-  revenue, debt growth, the net-cash peer rank), stated for a year inside a span the pack's ``debt_break`` data
-  checks name, in a sentence that does not disclose the break (``DISCLOSURE``). Reached through a value built on a
-  broken year (the IDs version 2 withholds), or restated from the visible lines: a debt line of a broken year, alone
-  or with cash, where the nearest debt words before the figure are "total debt", "net cash" or "net debt" ("Net
-  cash was $8.8 billion in FY2025", cash less the one debt line left). Silent on a pack that names no break, as
-  version 1 does; a measure passes version 2's breaks to read every arm alike.
+- ``broken_debt`` (``broken_debt()``): a figure version 2 withholds, or the same figure rebuilt from the lines it
+  still shows, in a sentence that does not disclose the break (``DISCLOSURE``). Each hit names its ``break``, the
+  reason version 2 records (``BREAK_KINDS``):
+  - ``debt_break``: total debt, net cash or net debt, or a figure built on them (their share of revenue, debt growth,
+    the net-cash peer rank), of a year a ``debt_break`` data check names. Rebuilt: a debt line of such a year, alone
+    or with cash, where the nearest debt words before the figure are "total debt", "net cash" or "net debt" ("Net
+    cash was $8.8 billion in FY2025", cash less the one debt line left).
+  - ``liquidity_break``: cash and investments or net cash, or a figure built on them, of a year a
+    ``liquidity_break`` check names. Rebuilt: a cash or investment line of such a year, alone, in a sum or in a
+    difference, where the nearest cash words before the figure are "net cash", "net debt", "liquidity" or cash with
+    investments ("Net debt was $36.1 billion in FY2017", ORCL's cash less debt with its short-term investments
+    missing); plain "cash" is the cash line, not a hit. Where short-term investments already sit inside cash (TGT),
+    cash alone is right, and only a figure on both lines (their sum) is the broken one.
+  - ``peer_break``: a version-1 net-cash peer rank or median built on a peer's broken year, which version 2 withholds
+    and replaces with a checked one; only an arm reading version 1 can cite it.
+  The breaks are the pack's own record (its data checks and ``withheld`` IDs, ``debt_breaks``), so the gate's
+  backstop is silent on a version-1 pack; a measure passes version 2's pack as the reference to read every arm alike.
 
 ``factcheck.check(..., backstops=True)`` turns these (``GATE_KINDS``) into failures. ``probe`` and
 ``probe_sentence`` return every kind but ``broken_debt``, which reads the whole pack's breaks and is its own
@@ -56,7 +66,7 @@ written after reading DeepSeek's eval-v1 outputs:
   metric).
 
 Pure: reads sentences and a pack, calls no model and writes nothing. Each hit is a dict with ``kind``,
-``section``, ``sentence``, ``claim`` and ``detail``.
+``section``, ``sentence``, ``claim`` and ``detail``; a ``broken_debt`` hit also has its ``break``.
 """
 from __future__ import annotations
 
@@ -91,15 +101,34 @@ _FROM = re.compile(r"\bfrom\s*$", re.I)
 _RECOVER = re.compile(r"\brecover\w*\s+(?:back\s+)?(?:toward|towards|to)\b[^0-9]{0,40}$", re.I)
 
 
+_PERIOD = re.compile(r"FY\d{4}(?:\.\.FY\d{4})?")
+
+
+def split_key(key: str) -> tuple[str, str, str]:
+    """(series, period, tag) of a pack's series key: "<series>|<period>", or "<series>|<period>|<tag>" for a value filed
+    beside another of the same series and period (version 2's checked peer rank, tag "checked"). Read from the right,
+    never at the first bar: a segment's series has bars of its own ("seg:...:amd:ClientMember|amd:ClientAndGamingMember|
+    FY2024")."""
+    series, _, last = key.rpartition("|")
+    if _PERIOD.fullmatch(last):
+        return series, last, ""
+    series, _, period = series.rpartition("|")
+    return series, period, last
+
+
 def series_by_id(pack: dict[str, Any]) -> dict[str, str]:
-    """Value ID -> its series: the series key without its period ("median:fcf_to_ni", "net_cash")."""
-    return {vid: key.split("|")[0] for key, vid in pack.get("series_keys", {}).items()}
+    """Value ID -> its series: the series key without its period or tag ("median:fcf_to_ni", "net_cash"; a checked peer
+    rank is "peer_pctile:net_cash_to_revenue", the series of the version-1 rank it replaces)."""
+    return {vid: split_key(key)[0] for key, vid in pack.get("series_keys", {}).items()}
 
 
 def _prior(pack: dict[str, Any], keys: dict[str, str], vid: str) -> Optional[dict[str, Any]]:
-    """The same series' value for the year before, when the value is a single year's."""
+    """The same series' value for the year before, when the value is a single year's and filed under no tag (a tagged
+    value's series runs under its untagged twin, so the year before would be the twin's)."""
     year = re.fullmatch(r"FY(\d{4})", str(pack["values"][vid].get("period", "")))
-    prior = pack["series_keys"].get(f"{keys[vid]}|FY{int(year.group(1)) - 1}") if year and vid in keys else None
+    if not year or vid not in keys or pack["series_keys"].get(f"{keys[vid]}|{year.group(0)}") != vid:
+        return None
+    prior = pack["series_keys"].get(f"{keys[vid]}|FY{int(year.group(1)) - 1}")
     return pack["values"].get(prior) if prior else None
 
 
@@ -352,79 +381,110 @@ def _unitless_dollars(sentence: dict[str, Any], verified: list[Resolution]) -> l
 
 
 DEBT_LINES = ("debt_noncurrent", "long_term_debt", "debt_current", "short_term_borrowings")  # what total debt sums
-# A sentence that says the debt figures rest on a break: the report's disclosure wording, the forms the recorded
-# disclosures took ("total debt shows only a $1.0 billion current portion", "equals short-term borrowings alone",
-# "long-term debt is untagged after FY2020", "so it is not comparable with FY2023's net debt"), and the data check's
-# own words, which the candidate prompt asks to state in the sentence that uses the figure.
+LIQUIDITY_LINES = ("cash_and_equivalents", "short_term_investments", "long_term_investments")  # what cash and investments sums
+BREAK_KINDS = ("debt_break", "liquidity_break", "peer_break")  # why a version-2 pack withholds an ID (derived.withheld)
+# A sentence that says the debt or cash figures rest on a break: the report's disclosure wording, the forms the
+# recorded disclosures took ("total debt shows only a $1.0 billion current portion", "equals short-term borrowings
+# alone", "long-term debt is untagged after FY2020", "so it is not comparable with FY2023's net debt", "cash and
+# investments of $10.6 billion equal cash alone", "subject to the same data caveat", "but that ranking uses the same
+# debt input": the last two point back to a disclosure in the sentence before), the data checks' own words,
+# which the candidate prompt asks to state in the sentence that uses the figure ("not reported in FY2017", "omit
+# them", "already inside cash", "count them twice"), and the plain forms of a cash line's break ("excludes short-term
+# investments", "the investment line is missing", "double counted", "cash already includes its short-term
+# investments"). Not "basis break": COP's and CVX's packs name a revenue basis break, which says nothing of their
+# debt. The one list: the gate's backstop and the report's broken-figure measure both read it; a sentence matching it
+# discloses only a break its words are about (a debt or cash figure), which the reader of the list has to check.
 DISCLOSURE = re.compile(
     r"\b(?:unreliable|incomplete|overstat\w*|understat\w*|not reported|reported only|only through|no (?:long-term )?debt line|"
-    r"missing|omit\w*|drops? out|data (?:gap|break|quality)|debt break|artefact|artifact|last year the pack reports|"
-    r"cannot be (?:assessed|compared)|needs? restating|rests? on (?:the |an )?incomplete|(?:that|this|the) break|"
+    r"missing|omit\w*|drops? out|data (?:gap|break|quality)|debt break|caveats?|same (?:debt|data) input|artefact|artifact|"
+    r"last year the pack reports|cannot be (?:assessed|compared)|needs? restating|rests? on (?:the |an )?incomplete|(?:that|this|the) break|"
     r"not comparable|untagged|no longer (?:reported|tagged|shown)|not (?:shown|tagged|disclosed|given)|withheld|left out|"
     r"leaves? (?:them |it |those )?out|does(?: not|n't) (?:report|show|include|carry)|not (?:in|part of) (?:the|this) pack|"
-    r"unavailable|(?:line|debt) (?:stops|ends)|(?:excludes?|excluding|without) (?:the )?long-term debt|"
-    r"(?:borrowings|portion) (?:alone|only)|only (?:a |the )?(?:\$?[\d.,]+ ?(?:billion|million|bn|m) )?(?:current portion|short-term borrowings))\b",
+    r"unavailable|(?:line|debt) (?:stops|ends)|"
+    r"(?:excludes?|excluding|without|lacks?|lacking) (?:the |its )?(?:long-term debt|(?:short-term |long-term )?investments|marketable securities)|"
+    r"double[- ]count\w*|count\w* (?:them |it |those )?twice|already (?:inside|within|part of|(?:counted|included) in) (?:the |its )?cash|"
+    r"cash (?:balance )?(?:already )?includes? (?:the |its )?short-term investments|"
+    r"(?:borrowings|portion) (?:alone|only)|cash alone|only (?:a |the )?(?:\$?[\d.,]+ ?(?:billion|million|bn|m) )?(?:current portion|short-term borrowings))\b",
     re.I)
+_NOT_A_BALANCE = r"(?!\s+(?:flows?|provided|used|generated)\b)"  # "net cash used in", "free cash flow"
 # Debt words a figure can be said under: a total (group 1) or one line of it.
 _DEBT_NAME = re.compile(r"\b(?:(net cash|net debt|total debt|total borrowings)|short-term borrowings|current portion|"
-                        r"commercial paper|long-term debt|borrowings|notes|debt)\b(?!\s+(?:flows?|provided|used|generated)\b)", re.I)
+                        r"commercial paper|long-term debt|borrowings|notes|debt)\b" + _NOT_A_BALANCE, re.I)
+# Cash words a figure can be said under: a total built on cash and investments (group 1: "liquidity", "cash and
+# short-term investments", "cash, cash equivalents and short-term investments", "cash and marketable securities") or
+# one line of it ("cash", "cash and cash equivalents", "long-term investments").
+_CASH_NAME = re.compile(
+    r"\b(?:(net cash|net debt|liquidity|cash(?:,? (?:and )?(?:cash )?equivalents,?)? (?:and|plus) "
+    r"(?:short-term |long-term |marketable )?(?:investments|securities))|cash|(?:short-term |long-term )?investments)\b"
+    + _NOT_A_BALANCE, re.I)
+_WHY = {"debt_break": "built on a debt-break year", "liquidity_break": "built on a year whose cash and investments are broken",
+        "peer_break": "a version-1 peer rank or median built on a peer's broken year"}
 
 
 class Breaks(NamedTuple):
-    """The years inside a pack's debt breaks, and the IDs built on them."""
-    years: frozenset[str]
-    ids: frozenset[str]
+    """What a version-2 pack records as broken: the years its ``debt_break`` and its ``liquidity_break`` data checks
+    name, and every ID it withholds with the reason (``BREAK_KINDS``)."""
+    debt_years: frozenset[str]
+    cash_years: frozenset[str]
+    ids: dict[str, str]
 
 
-def debt_breaks(pack: dict[str, Any], breaks: Optional[list[dict[str, Any]]] = None) -> Breaks:
-    """The years ``breaks`` name (the pack's own ``debt_break`` data checks when None) and every ID of ``pack`` built
-    on them: total debt and net cash of those years, each value computed from one of them (their share of revenue,
-    debt growth across the break, the peer rank), a peer median whose peer rank is one, and a red flag citing one.
-    The rule is ``derived.withheld``'s, read from the pack's own inputs, so it gives version 2's withheld IDs on a
-    version-2 pack and the same IDs on a version-1 pack given version 2's breaks."""
-    checks = pack.get("data_checks", []) if breaks is None else breaks
-    years = frozenset(p.strip() for c in checks if c.get("kind") == "debt_break" for p in str(c.get("period", "")).split(",")
-                      if p.strip())
-    by_key = pack.get("series_keys", {})
-    tainted = {vid for year in years for key in ("total_debt", "net_cash") if (vid := by_key.get(f"{key}|{year}"))}
-    grew = bool(tainted)
-    while grew:
-        grew = False
-        for vid, value in pack["values"].items():
-            if vid not in tainted and tainted.intersection(value.get("inputs") or ()):
-                tainted.add(vid)
-                grew = True
-    for key, vid in by_key.items():
-        series, _, period = key.partition("|")
-        if series.startswith("peer_median:") and by_key.get(f"peer_pctile:{series.split(':', 1)[1]}|{period}") in tainted:
-            tainted.add(vid)
-    tainted |= {f["id"] for f in pack.get("red_flags", []) if tainted.intersection(f.get("evidence", []))}
-    return Breaks(years, frozenset(tainted))
+def debt_breaks(pack: dict[str, Any]) -> Breaks:
+    """The breaks ``pack`` records (``Breaks``), read from its data checks and its ``withheld`` IDs, not derived again:
+    the pack's own record is the one rule (``derived.withheld``), so the probe counts exactly what the render leaves
+    out. A version-1 pack records none. Version 2 only appends to version 1 (each version-1 ID keeps its value), so a
+    version-2 pack's breaks also read a version-1 output: every ID it withholds is a version-1 ID with the same value,
+    and both versions cover the same fiscal years."""
+    def years(kind: str) -> frozenset[str]:
+        return frozenset(p.strip() for c in pack.get("data_checks", []) if c.get("kind") == kind
+                         for p in str(c.get("period", "")).split(",") if p.strip())
+
+    return Breaks(years("debt_break"), years("liquidity_break"), dict(pack.get("withheld") or {}))
 
 
-def _on_break(r: Resolution, clean: str, pack: dict[str, Any], breaks: Breaks, keys: dict[str, str]) -> Optional[str]:
-    """Why a verified claim states a debt figure of a broken year, or None."""
+def _total_named(names: re.Pattern[str], clean: str, start: int, end: int) -> Optional[str]:
+    """The total the nearest of ``names`` before ``end`` (from ``start``) calls a figure ("net cash"), or None when the
+    nearest is one line of it ("cash", "short-term borrowings") or there is none."""
+    found = list(names.finditer(clean, start, end))
+    return found[-1].group(1) if found else None
+
+
+def _on_break(r: Resolution, clean: str, pack: dict[str, Any], breaks: Breaks,
+              keys: dict[str, str]) -> Optional[tuple[str, str]]:
+    """(break, why) for a verified claim that states a figure of a break, or None: a withheld ID it rests on, else a
+    debt line of a debt-break year under a total's name, else a cash or investment line of a liquidity-break year under
+    a total's name. In a year whose short-term investments sit inside cash (both lines reported: TGT), cash alone is
+    the right figure, so only a figure on both lines is the broken one; in a year a line is missing from (MSFT
+    FY2017), any figure on the lines left falls short."""
     values = pack["values"]
-    built = [i for i in r.best.ids if i in breaks.ids] if r.best else []
+    built = [i for i in r.best.ids if i in breaks.ids]
     if built:
-        what = values[built[0]] if built[0] in values else None
-        return (f"rests on {built[0]}" + (f" ({what['label']}, {what['period']})" if what else "")
-                + ", built on a debt-break year")
-    lines = [i for i in r.best.ids if keys.get(i) in DEBT_LINES and values[i].get("period") in breaks.years] if r.best else []
-    if not lines:
-        return None
+        what, why = values.get(built[0]), breaks.ids[built[0]]
+        return why, (f"rests on {built[0]}" + (f" ({what['label']}, {what['period']})" if what else "")
+                     + f", {_WHY.get(why, why)}")
     start, _ = factcheck.clause_span(clean, r.claim)
-    names = list(_DEBT_NAME.finditer(clean, start, r.claim.start))
-    if not names or not names[-1].group(1):
-        return None
-    return (f"'{names[-1].group(1)}' from {r.best.how}, a debt line of {values[lines[0]]['period']}, inside a debt break, "
-            "where total debt omits a line")
+    debt = [i for i in r.best.ids if keys.get(i) in DEBT_LINES and values[i].get("period") in breaks.debt_years]
+    name = _total_named(_DEBT_NAME, clean, start, r.claim.start) if debt else None
+    if name:
+        return "debt_break", (f"'{name}' from {r.best.how}, a debt line of {values[debt[0]]['period']}, inside a debt break, "
+                              "where total debt omits a line")
+    cash = [i for i in r.best.ids if keys.get(i) in LIQUIDITY_LINES and values[i].get("period") in breaks.cash_years]
+    for year in dict.fromkeys(values[i]["period"] for i in cash):
+        lines = {keys[i] for i in cash if values[i]["period"] == year}
+        inside = all(f"{line}|{year}" in pack["series_keys"] for line in ("cash_and_equivalents", "short_term_investments"))
+        if inside and not {"cash_and_equivalents", "short_term_investments"} <= lines:
+            continue
+        name = _total_named(_CASH_NAME, clean, start, r.claim.start)
+        if name:
+            gap = "short-term investments already inside cash" if inside else "a cash or investment line missing"
+            return "liquidity_break", f"'{name}' from {r.best.how}, on the cash lines of {year}, with {gap}"
+    return None
 
 
 def broken_debt_sentence(sentence: dict[str, Any], pack: dict[str, Any], resolved: Optional[list[Resolution]],
                          breaks: Breaks, keys: Optional[dict[str, str]] = None) -> list[dict[str, Any]]:
     """broken_debt in one sentence; ``resolved`` is the gate's reading of its claims (computed when absent)."""
-    if not breaks.years:
+    if not (breaks.debt_years or breaks.cash_years or breaks.ids):
         return []
     clean = CITATION_RE.sub(lambda m: " " * len(m.group(0)), sentence["text"])
     if DISCLOSURE.search(clean):
@@ -434,18 +494,18 @@ def broken_debt_sentence(sentence: dict[str, Any], pack: dict[str, Any], resolve
     keys = series_by_id(pack) if keys is None else keys
     hits = []
     for r in sorted((r for r in resolved if r.status == "verified" and r.best is not None), key=lambda r: r.claim.start):
-        reason = _on_break(r, clean, pack, breaks, keys)
-        if reason:
-            hits.append(_hit("broken_debt", sentence, r.claim.text, reason))
+        found = _on_break(r, clean, pack, breaks, keys)
+        if found:
+            hits.append({**_hit("broken_debt", sentence, r.claim.text, found[1]), "break": found[0]})
     return hits
 
 
 def broken_debt(sentences: list[dict[str, Any]], pack: dict[str, Any],
-                breaks: Optional[list[dict[str, Any]]] = None) -> list[dict[str, Any]]:
-    """broken_debt over an analysis: total debt, net cash or net debt (or a figure built on them) stated for a year
-    inside a debt break without saying so (module docstring). ``breaks`` are ``debt_break`` data checks, the pack's
-    own when None; a measure passes version 2's for every arm, version-1 packs included."""
-    found = debt_breaks(pack, breaks)
+                reference: Optional[dict[str, Any]] = None) -> list[dict[str, Any]]:
+    """broken_debt over an analysis (module docstring), each hit with its ``break`` (``BREAK_KINDS``). ``reference`` is
+    the company's version-2 pack, whose data checks and withheld IDs are the breaks, so a measure reads every arm
+    alike, on either pack version; None reads ``pack``'s own, as the gate's backstop does (silent on version 1)."""
+    found = debt_breaks(pack if reference is None else reference)
     keys = series_by_id(pack)
     return [hit for sentence in sentences for hit in broken_debt_sentence(sentence, pack, None, found, keys)]
 

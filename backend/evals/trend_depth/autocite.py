@@ -51,7 +51,10 @@ a year, a word of a cited value's label or of a cited flag's detail, or figure t
 **Substitution test** (``substitution_test``). Every verified claim matched to one cited value, in every recorded
 output, has that value replaced by: the same series' value in the neighbouring years (``year``); values of other
 series in the same unit and period (``metric``: first those cited elsewhere in the analysis, the ones
-auto-citation draws from, then a sample of the rest of the pack); a figure of a red flag whose evidence holds the
+auto-citation draws from, then a sample of the rest of the pack). A series is read from its key by its period
+(``probes.split_key``), so a segment's series, which has bars of its own, and version 2's checked peer rank, whose
+key ends in a tag, are slots too, and a checked rank's other series include the version-1 rank it replaces. Then a
+figure of a red flag whose evidence holds the
 value (``threshold``); and the gap between it and another value of its unit and year that the sentence cites
 (``gap``). Each substitute is tried in two arms: ``kept``, with the claim's own ID still cited, and ``omitted``,
 with that ID removed while the sentence still cites another (the omission fix 1 is for). The ``omitted`` arm also
@@ -74,6 +77,7 @@ from typing import Any, Iterable, Iterator, Optional
 
 from evals.trend_depth import factcheck
 from evals.trend_depth.factcheck import CITATION_RE, ID_RE, Claim
+from evals.trend_depth.probes import split_key
 from evals.trend_depth.providers import packs_dir
 
 RECORDS = Path(__file__).resolve().parents[3] / "tasks" / "analysis-depth-2026-10"
@@ -307,10 +311,14 @@ class _Place:
     def modified(self, words: frozenset[str]) -> bool:
         """The word that ended the run before stands right before the label's words, or before "of" and them: the
         phrase names a narrower metric ("Data Center revenue", "cost of revenue") or another entity's ("its
+        revenue"). Or the label's words follow the figure behind "of" while a word of another phrase ended the run
+        before: the figure is that phrase's part of the metric ("Volkswagen Group was $836 million of FY2025
         revenue")."""
-        before, _, stop, _ = self.runs(words)
+        before, after, stop, _ = self.runs(words)
         first = next((i for i, word in enumerate(before) if word in words), None)
-        return stop is not None and first is not None and all(word in _LINKS for word in before[:first])
+        if first is None:
+            return stop is not None and after[:1] == ["of"]
+        return stop is not None and all(word in _LINKS for word in before[:first])
 
     def references(self, words: frozenset[str]) -> set[str]:
         """The reference words ("median", "percentile") in either run or the figure itself that ``words`` lacks."""
@@ -563,40 +571,46 @@ def without(text: str, vid: str) -> str:
     return CITATION_RE.sub(strip, text)
 
 
+def _series(pack: dict[str, Any]) -> dict[str, tuple[str, str, str]]:
+    """Value ID -> (series, period, tag) of its series key (``probes.split_key``: a segment's series holds bars, and a
+    version-2 checked peer rank's key ends in its tag)."""
+    return {vid: split_key(key) for key, vid in pack.get("series_keys", {}).items()}
+
+
 def _slots(sentence: dict[str, Any], pack: dict[str, Any]) -> Iterator[tuple[int, Claim, str]]:
-    """(claim index, claim, ID) for every verified claim of ``sentence`` matched to one cited value of a series with
-    one period."""
-    series = {vid: key.split("|") for key, vid in pack.get("series_keys", {}).items()}
+    """(claim index, claim, ID) for every verified claim of ``sentence`` matched to one cited value with a series key."""
+    series = _series(pack)
     for index, r in enumerate(factcheck.analyse_sentence(sentence, pack)[1]):
         if r.status != "verified" or r.best is None or r.best.how != "cited" or r.claim.unit in ("count", "multiple"):
             continue
         vid = r.best.ids[0]
-        if vid in series and len(series[vid]) == 2:
+        if vid in series:
             yield index, r.claim, vid
 
 
 def substitutes(sentence: dict[str, Any], pack: dict[str, Any], elsewhere: list[str],
                 sample: int = 4) -> Iterator[tuple[str, int, str, str, str]]:
     """(kind, claim index, own ID, substituted sentence text, substituted claim) for every slot of ``sentence``
-    (``_slots``): that value's series in the year before and after ("year"); other series' values in the same unit
-    and period ("metric": every one cited elsewhere in the analysis, then up to ``sample`` of the rest); each figure
-    of a red flag whose evidence holds the value ("threshold", printed in the claim's unit when it has it, else as
-    the flag prints it: "80%"); and the gap between the value and each other value the sentence cites of its unit and
-    single year ("gap": operating cash flow less free cash flow printed as free cash flow)."""
+    (``_slots``): that value's series in the year before and after, under the value's own tag ("year"); values in the
+    same unit and period of other series, or of the same series under another tag, as a checked peer rank and the
+    version-1 rank it replaces ("metric": every one cited elsewhere in the analysis, then up to ``sample`` of the
+    rest); each figure of a red flag whose evidence holds the value ("threshold", printed in the claim's unit when it
+    has it, else as the flag prints it: "80%"); and the gap between the value and each other value the sentence cites
+    of its unit and single year ("gap": operating cash flow less free cash flow printed as free cash flow)."""
     values, keys = pack["values"], pack.get("series_keys", {})
-    series = {vid: key.split("|") for key, vid in keys.items()}
+    series = _series(pack)
     ids = citations(sentence["text"])
     text = sentence["text"]
     for index, claim, vid in _slots(sentence, pack):
-        name, period = series[vid]
+        name, period, tag = series[vid]
         unit = values[vid]["unit"]
         swaps: list[tuple[str, Optional[str]]] = []
         year = re.fullmatch(r"FY(\d{4})", period)
         if year:
-            swaps += [("year", _printed(claim, values[keys[f"{name}|FY{y}"]]["value"]))
-                      for y in (int(year.group(1)) - 1, int(year.group(1)) + 1) if f"{name}|FY{y}" in keys]
+            near = [f"{name}|FY{y}" + (f"|{tag}" if tag else "") for y in (int(year.group(1)) - 1, int(year.group(1)) + 1)]
+            swaps += [("year", _printed(claim, values[keys[key]]["value"])) for key in near if key in keys]
         same = [i for i, v in values.items() if v["unit"] == unit and v.get("period") == period and i in series
-                and series[i][0] != name]
+                and (series[i][0], series[i][2]) != (name, tag)]
         cited = [i for i in same if i in set(elsewhere)]
         rest = [i for i in same if i not in set(cited)]
         step = max(1, len(rest) // sample) if rest else 1

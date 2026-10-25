@@ -1,7 +1,8 @@
 """The depth harness's backstop probes (evals/trend_depth/probes.py, DEEPSEEK-ERRORS.md fix 12): each probe on the
 recorded sentence it was written for, with its pack's real values, and on the true sentences it must leave alone
 (the near misses in the recorded runs, and synthetic ones). Gate kinds fail ``factcheck.check(backstops=True)``;
-the logic measures never do. ``broken_debt`` reads the committed evidence packs of the debt-break companies."""
+the logic measures never do. ``broken_debt`` and the series keys read the committed evidence packs: each break kind
+(debt, liquidity, peer) on the real sentences and lines of the companies whose version-2 pack records it."""
 from __future__ import annotations
 
 import gzip
@@ -251,40 +252,83 @@ def test_backstops_fail_gate_kinds_but_never_logic_measures() -> None:
     assert set(probes.GATE_KINDS).isdisjoint(probes.MEASURE_KINDS)
 
 
-# broken_debt (DEEPSEEK-ERRORS.md fix 8, the gate's side) on the committed packs: packs-v2 names the debt breaks and
-# withholds what is built on them; packs/ (version 1) names none.
+# broken_debt (DEEPSEEK-ERRORS.md fix 8, the gate's side) on the committed packs: packs-v2 records the breaks (its debt
+# and liquidity checks, and the IDs it withholds with their reasons); packs/ (version 1) records none.
 PACKS = Path(__file__).resolve().parents[3] / "tasks" / "analysis-depth-2026-10"
+TICKERS = sorted(path.name[:-len(".json.gz")] for path in (PACKS / "packs-v2").glob("*.json.gz"))
 
 
 def _committed(ticker: str, version: str) -> dict:
     return json.loads(gzip.decompress((PACKS / version / f"{ticker}.json.gz").read_bytes()))
 
 
-def _breaks(ticker: str) -> list:
-    return [c for c in _committed(ticker, "packs-v2")["data_checks"] if c["kind"] == "debt_break"]
+def _found(sentence: list, pack: dict, reference: dict | None = None) -> list:
+    return [(hit["break"], hit["claim"]) for hit in probes.broken_debt(sentence, pack, reference)]
 
 
-# The broken figure restated from the lines a version-2 pack still shows: cash less the one debt line left, or that
-# line called total debt.
+# The broken figure restated from the lines a version-2 pack still shows. Debt: cash less the one debt line left, or
+# that line called total debt. Cash: a cash or investment line of a year a line is missing from (MSFT FY2017, NVDA
+# FY2026, ORCL FY2017, COP FY2021: short-term investments), alone, summed or less debt, under net cash, net debt,
+# liquidity or cash-and-investments words; TGT's cash and short-term investments summed, though cash already holds them.
 RESTATED = [
-    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186].", ["$8.8 billion"]),
-    ("COP", "Net cash was $7.1 billion at FY2025 [D335][X203].", ["$7.1 billion"]),
-    ("DE", "Net debt was $5.5 billion at FY2025 [D405][X185], down from $35.8 billion in FY2021 [D226].", ["$5.5 billion"]),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186].", [("debt_break", "$8.8 billion")]),
+    ("COP", "Net cash was $7.1 billion at FY2025 [D335][X203].", [("debt_break", "$7.1 billion")]),
+    ("DE", "Net debt was $5.5 billion at FY2025 [D405][X185], down from $35.8 billion in FY2021 [D226].",
+     [("debt_break", "$5.5 billion")]),
     ("KO", "Net cash was $8.8 billion at FY2025, cash of $10.3 billion less short-term borrowings of $1.5 billion "
-           "[D440][X186].", ["$8.8 billion"]),
-    ("COP", "Total debt was $1.0 billion in FY2025 [X203].", ["$1.0 billion"]),
+           "[D440][X186].", [("debt_break", "$8.8 billion")]),
+    ("COP", "Total debt was $1.0 billion in FY2025 [X203].", [("debt_break", "$1.0 billion")]),
+    # DE's onset: before FY2020 total debt is long-term debt alone, its current portion untagged.
+    ("DE", "Total debt was $23.7 billion in FY2016 [X186].", [("debt_break", "$23.7 billion")]),
+    ("DE", "Net debt was $19.4 billion in FY2016 [D14][X186].", [("debt_break", "$19.4 billion")]),
+    ("MSFT", "Cash and investments were $13.7 billion in FY2017 [F151][X167].", [("liquidity_break", "$13.7 billion")]),
+    ("MSFT", "Cash and marketable securities were $13.7 billion in FY2017 [F151][X167].", [("liquidity_break", "$13.7 billion")]),
+    ("MSFT", "Cash plus long-term investments came to $13.7 billion in FY2017 [F151][X167].",
+     [("liquidity_break", "$13.7 billion")]),
+    ("NVDA", "Cash, cash equivalents and short-term investments were $10.6 billion in FY2026 [F150].",
+     [("liquidity_break", "$10.6 billion")]),
+    ("MSFT", "Net debt was $78.5 billion in FY2017, cash of $7.7 billion against total debt of $86.2 billion [F151][D16].",
+     [("liquidity_break", "$78.5 billion")]),
+    ("NVDA", "Net cash was $2.1 billion in FY2026 [F150][D440].", [("liquidity_break", "$2.1 billion")]),
+    ("NVDA", "Net cash only reached $2.1 billion in FY2026 [F150][D440].", [("liquidity_break", "$2.1 billion")]),  # no "cash alone"
+    ("NVDA", "Cash and investments fell to $10.6 billion in FY2026 [F150].", [("liquidity_break", "$10.6 billion")]),
+    ("ORCL", "Net debt was $36.1 billion in FY2017 [F135][D16].", [("liquidity_break", "$36.1 billion")]),
+    ("ORCL", "Liquidity was $21.8 billion in FY2017 [F135].", [("liquidity_break", "$21.8 billion")]),
+    ("COP", "Cash and investments were $5.3 billion in FY2021 [F109][X189].", [("liquidity_break", "$5.3 billion")]),
+    ("COP", "Net cash was $3.8 billion in FY2021 [F109][X199].", [("debt_break", "$3.8 billion")]),  # both breaks: debt's line
+    ("TGT", "Cash and short-term investments totalled $10.1 billion in FY2025 [F144][X170].",
+     [("liquidity_break", "$10.1 billion")]),
+    ("TGT", "Cash and investments were $3.6 billion in FY2016 [F135][X161].", [("liquidity_break", "$3.6 billion")]),
 ]
-# The same figures through the IDs version 2 withholds, as the frozen arms state them (eval-v1 DeepSeek KO, DE).
+# The same figures through the IDs version 2 withholds, as the frozen arms state them, one per reason (eval-v1
+# DeepSeek KO, DE, NVDA, TGT, CAT, PG): only an arm reading version 1 sees them.
 WITHHELD = [
     ("KO", "Net cash was $8.8 billion at FY2025, or 18.3% of revenue, against $10.3 billion of cash and investments "
-           "[D442][D443][D440].", ["$8.8 billion", "18.3%"]),
+           "[D442][D443][D440].", [("debt_break", "$8.8 billion"), ("debt_break", "18.3%")]),
     ("DE", "Net debt was $5.52 billion at FY2025 [D407], down from $35.8 billion in FY2021 [D226], or 12.1% of revenue "
-           "[D408].", ["$5.52 billion", "12.1%"]),
+           "[D408].", [("debt_break", "$5.52 billion"), ("debt_break", "12.1%")]),
     ("KO", "That ranks at the 100th percentile of six staples peers, whose median net cash is -14.5% of revenue "
-           "[D793][D794].", ["100th percentile", "-14.5%"]),
+           "[D793][D794].", [("debt_break", "100th percentile"), ("debt_break", "-14.5%")]),
+    ("DE", "Total debt jumped 36.7% in FY2020 [D205].", [("debt_break", "36.7%")]),  # across DE's onset (review 6)
+    ("NVDA", "Net cash fell to $2.1 billion, just 1.0% of revenue, from $34.7 billion a year earlier, as cash and "
+             "investments dropped 75.5% to $10.6 billion [D441][D442][D386][D471][D439].",
+     [("liquidity_break", "$2.1 billion"), ("liquidity_break", "1.0%"), ("liquidity_break", "75.5%"),
+      ("liquidity_break", "$10.6 billion")]),
+    ("TGT", "Net debt was $4.3 billion, or 4.1% of revenue, better than the retail peer median of -3.5% net cash and at "
+            "the 50th percentile of six peers [D410][D411][D613][D612].",
+     [("liquidity_break", "$4.3 billion"), ("liquidity_break", "4.1%"), ("liquidity_break", "-3.5%"),
+      ("liquidity_break", "50th percentile")]),
+    ("CAT", "Net debt is 38.8% of revenue, better than the -35.6% peer median but only the 43rd percentile of seven "
+            "industrials peers [D457][D1152][D1151].", [("peer_break", "-35.6%"), ("peer_break", "43rd percentile")]),
+    ("PG", "Net debt was $24.2 billion, or 27.8% of revenue, against a staples peer median of -1.0% net cash, placing it "
+           "in the 33rd percentile of six peers [D450][D451][D677][D676].", [("peer_break", "-1.0%"), ("peer_break", "33rd percentile")]),
+    # A revenue basis break (COP's data check of a recast) discloses nothing of the debt.
+    ("COP", "Despite the revenue basis break, net cash was $7.1 billion at FY2025 [D337].", [("debt_break", "$7.1 billion")]),
 ]
-# True sentences: a disclosure (a synthetic one, and the recorded ones of Sonnet COP in eval-v1 and dev-v3 and Haiku
-# KO), a debt line under its own name, cash alone, a year before the break.
+# True sentences: a disclosure (synthetic ones in each form a break's disclosure takes, and the recorded ones of Sonnet
+# COP in eval-v1 and dev-v3, Haiku KO, and Sonnet NVDA in dev-v3 and dev-v4), a debt line under its own name, plain
+# cash under its own name, a year before the break, TGT's cash alone (its right basis: the short-term investments are
+# inside it), and version 2's checked peer rank.
 SPARED = [
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], but long-term debt is not reported after FY2023, so it "
            "omits that debt."),
@@ -299,40 +343,121 @@ SPARED = [
     ("KO", "Short-term borrowings were $1.5 billion in FY2025 [X186]."),
     ("KO", "Cash and investments were $10.3 billion in FY2025 [D440]."),
     ("DE", "Net debt was $35.8 billion in FY2021 [D226]."),
+    ("DE", "Long-term debt was $23.7 billion in FY2016 [X186]."),
+    ("MSFT", "Cash was $7.7 billion in FY2017 [F151]."),
+    ("MSFT", "Net debt in FY2017 sat beside long-term investments of $6.0 billion [X167]."),  # the nearest words: a line
+    ("NVDA", "Cash rose to $10.6 billion in FY2026 [F150]."),
+    ("NVDA", "Net cash fell in FY2026 as cash rose to $10.6 billion [F150]."),
+    ("NVDA", "Net cash provided by operating activities far exceeded the $10.6 billion held at FY2026 [F150]."),  # a flow
+    ("NVDA", "Cash and cash equivalents were $10.6 billion in FY2026 [F150]."),
+    ("ORCL", "Cash was $21.8 billion in FY2017 [F135]."),
+    ("COP", "Cash was $5.0 billion in FY2021 [F109]."),
+    ("TGT", "Net debt was $8.9 billion in FY2025 [F144][D409]."),
+    ("TGT", "Cash and short-term investments were $5.5 billion in FY2025 [F144]."),
+    ("TGT", "Short-term investments were $4.6 billion in FY2025 [X170]."),
+    ("AMD", "Net cash ranks at the 100th percentile of five semis peers, against a -17.3% median [D844][D845]."),
+    ("MSFT", "Cash and investments were $13.7 billion in FY2017 [F151][X167], which excludes short-term investments."),
+    ("MSFT", "Cash and investments were $13.7 billion in FY2017 [F151][X167], as the short-term investment line is missing."),
+    ("NVDA", "Cash and investments fell to $10.6 billion in FY2026 [F150], a figure that lacks short-term investments."),
+    ("TGT", "Cash and short-term investments totalled $10.1 billion in FY2025 [F144][X170], but that double counts them."),
+    ("TGT", "Cash and short-term investments totalled $10.1 billion in FY2025 [F144][X170], which counts them twice."),
+    ("TGT", "Cash and short-term investments totalled $10.1 billion in FY2025 [F144][X170], though they are already inside cash."),
+    ("TGT", "Cash and short-term investments totalled $10.1 billion in FY2025 [F144][X170], but cash already includes its "
+            "short-term investments."),
+    ("NVDA", "Net cash fell to $2.14 billion in FY2026 from $34.7 billion, but FY2026 cash and investments of $10.6 billion "
+             "equal cash alone [D441][D386][D439][F150]."),
+    ("NVDA", "Net cash was 83rd percentile of six semiconductor peers [D844] against a peer median of -13.9% of revenue "
+             "[D845], subject to the same data caveat."),
+    ("KO", "Against six staples peers, net cash ranks at the 100th percentile [D793], with a peer median of -14.5% of revenue "
+           "[D794], but that ranking uses the same debt input."),  # Haiku eval-v1, after its disclosing sentence
 ]
 
 
-@pytest.mark.parametrize("ticker, text, claims", RESTATED)
-def test_broken_debt_restated_from_visible_lines_fails_the_v2_gate(ticker: str, text: str, claims: list) -> None:
+@pytest.mark.parametrize("ticker, text, found", RESTATED)
+def test_broken_debt_restated_from_visible_lines_fails_the_v2_gate(ticker: str, text: str, found: list) -> None:
     sentence = [{"section": "balance_sheet", "type": "fact", "text": text}]
     v2, v1 = _committed(ticker, "packs-v2"), _committed(ticker, "packs")
-    assert [hit["claim"] for hit in probes.broken_debt(sentence, v2)] == claims
+    assert _found(sentence, v2) == found
     gate = factcheck.check(sentence, v2, backstops=True)
     assert factcheck.check(sentence, v2)["passed"] and not gate["passed"]
     assert all(f["failure"].startswith("backstop broken_debt:") for f in gate["failures"])
-    # A version-1 pack names no break: the gate stays silent, and the measure, given version 2's breaks, still counts.
-    assert factcheck.check(sentence, v1, backstops=True)["passed"] and probes.broken_debt(sentence, v1) == []
-    assert [hit["claim"] for hit in probes.broken_debt(sentence, v1, _breaks(ticker))] == claims
+    # A version-1 pack records no break: the gate stays silent, and the measure, given version 2's pack, still counts.
+    assert factcheck.check(sentence, v1, backstops=True)["passed"] and _found(sentence, v1) == []
+    assert _found(sentence, v1, v2) == found
 
 
-@pytest.mark.parametrize("ticker, text, claims", WITHHELD)
-def test_broken_debt_counts_withheld_ids_on_either_pack_version(ticker: str, text: str, claims: list) -> None:
+@pytest.mark.parametrize("ticker, text, found", WITHHELD)
+def test_broken_debt_counts_withheld_ids_on_either_pack_version(ticker: str, text: str, found: list) -> None:
     sentence = [{"section": "balance_sheet", "type": "fact", "text": text}]
-    for pack in (_committed(ticker, "packs-v2"), _committed(ticker, "packs")):
-        assert [hit["claim"] for hit in probes.broken_debt(sentence, pack, _breaks(ticker))] == claims
+    v2 = _committed(ticker, "packs-v2")
+    for pack in (v2, _committed(ticker, "packs")):
+        assert _found(sentence, pack, v2) == found
+    assert _found(sentence, v2) == found and not factcheck.check(sentence, v2, backstops=True)["passed"]
 
 
 @pytest.mark.parametrize("ticker, text", SPARED)
 def test_broken_debt_spares_disclosures_and_other_lines(ticker: str, text: str) -> None:
     sentence = [{"section": "balance_sheet", "type": "fact", "text": text}]
-    assert probes.broken_debt(sentence, _committed(ticker, "packs-v2")) == []
-    assert probes.broken_debt(sentence, _committed(ticker, "packs"), _breaks(ticker)) == []
+    v2 = _committed(ticker, "packs-v2")
+    assert _found(sentence, v2) == []
+    assert _found(sentence, _committed(ticker, "packs"), v2) == []
 
 
 def test_broken_ids_follow_the_withheld_rule_on_both_pack_versions() -> None:
-    for ticker in ("COP", "CVX", "DE", "KO", "ORCL"):
+    # The breaks are the reference pack's own record, on every company and for every reason: its withheld IDs with
+    # their reasons, each withheld level in a year its reason's checks name. A version-1 pack records none, and holds
+    # every withheld ID with its version-2 value, so version 2's record reads a version-1 output.
+    assert len(TICKERS) == 20
+    reasons: set = set()
+    for ticker in TICKERS:
         v2, v1 = _committed(ticker, "packs-v2"), _committed(ticker, "packs")
-        assert probes.debt_breaks(v2).ids == frozenset(v2["withheld"])
-        known = set(v1["values"]) | {f["id"] for f in v1["red_flags"]}
-        assert probes.debt_breaks(v1, _breaks(ticker)).ids == frozenset(v2["withheld"]) & known
-        assert probes.debt_breaks(v1) == probes.Breaks(frozenset(), frozenset())
+        breaks = probes.debt_breaks(v2)
+        assert breaks.ids == v2["withheld"]
+        reasons |= set(breaks.ids.values())
+        keys = probes.series_by_id(v2)
+        flags = {f["id"]: f for f in v1["red_flags"]}
+        for vid, why in breaks.ids.items():
+            if keys.get(vid) in ("total_debt", "liquidity", "net_cash"):
+                assert v2["values"][vid]["period"] in (breaks.debt_years if why == "debt_break" else breaks.cash_years), (ticker, vid)
+            assert v1["values"].get(vid, flags.get(vid)) == v2["values"].get(vid, flags.get(vid)) is not None, (ticker, vid)
+        assert probes.debt_breaks(v1) == probes.Breaks(frozenset(), frozenset(), {})
+    assert reasons == set(probes.BREAK_KINDS)
+
+
+# Series keys: "<series>|<period>", a segment's series holding bars of its own, and version 2's "<series>|<period>|checked".
+@pytest.mark.parametrize("key, parts", [
+    ("net_cash|FY2025", ("net_cash", "FY2025", "")),
+    ("median:fcf_to_ni|FY2017..FY2025", ("median:fcf_to_ni", "FY2017..FY2025", "")),
+    ("peer_pctile:net_cash_to_revenue|FY2025|checked", ("peer_pctile:net_cash_to_revenue", "FY2025", "checked")),
+    ("seg:dei_LegalEntityAxis+us-gaap_StatementBusinessSegmentsAxis:revenue:duk:DukeEnergyFloridaMember|"
+     "duk:ElectricUtilitiesandInfrastructureMember|FY2025",
+     ("seg:dei_LegalEntityAxis+us-gaap_StatementBusinessSegmentsAxis:revenue:duk:DukeEnergyFloridaMember|"
+      "duk:ElectricUtilitiesandInfrastructureMember", "FY2025", "")),
+])
+def test_a_series_key_splits_at_its_period(key: str, parts: tuple) -> None:
+    assert probes.split_key(key) == parts
+
+
+def test_a_segment_series_keeps_its_bars_and_a_checked_rank_its_series() -> None:
+    # Cut at the first bar, Duke Energy Florida's electric revenue was one series with its gas revenue, and had no
+    # year before: "fell to $6.99 billion" (from $6.49 billion) went unread.
+    duk, amd = _committed("DUK", "packs"), _committed("AMD", "packs-v2")
+    assert probes.series_by_id(duk)["S123"].endswith("DukeEnergyFloridaMember|duk:ElectricUtilitiesandInfrastructureMember")
+    assert _kinds("Duke Energy Florida electric revenue fell to $6.99 billion in FY2025 [S123].", duk) == [
+        ("logic_direction", "$6.99 billion")]
+    assert _kinds("Duke Energy Florida electric revenue rose to $6.99 billion in FY2025 [S123].", duk) == []
+    keys = probes.series_by_id(amd)
+    assert keys["D844"] == keys["D826"] == "peer_pctile:net_cash_to_revenue"
+    assert keys["D845"] == keys["D827"] == "peer_median:net_cash_to_revenue"
+
+
+def test_a_tagged_value_has_no_year_before() -> None:
+    # A checked rank's series runs under its version-1 twin: the twin's year before is no move of the checked rank.
+    pack = _pack(("D1", "Net cash % of revenue: percentile vs peers (n=6)", "FY2024", 70.0, "pctile", "peer_pctile:net_cash_to_revenue"),
+                 ("D2", "Net cash % of revenue: percentile vs peers (n=6)", "FY2025", 80.0, "pctile", "peer_pctile:net_cash_to_revenue"),
+                 ("D3", "Net cash % of revenue: percentile vs peers (n=5)", "FY2025", 60.0, "pctile", "peer_pctile:net_cash_to_revenue"))
+    pack["series_keys"]["peer_pctile:net_cash_to_revenue|FY2025|checked"] = "D3"
+    pack["series_keys"]["peer_pctile:net_cash_to_revenue|FY2025"] = "D2"
+    assert _kinds("Against five peers, net cash rose to 60th percentile in FY2025 [D3].", pack) == []
+    assert _kinds("Against six peers, net cash rose to 80th percentile in FY2025 [D2].", pack) == []
+    assert _kinds("Against six peers, net cash fell to 80th percentile in FY2025 [D2].", pack) == [("logic_direction", "80th percentile")]
