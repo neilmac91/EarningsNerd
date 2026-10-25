@@ -81,8 +81,8 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
 const KPI_GRID = 'grid gap-3 [--kpi-figure:0.9rem] [--kpi-mark:0.4125rem] [--kpi-card:calc(var(--kpi-value)_+_1.5rem_+_2px)] sm:[--kpi-card:calc(var(--kpi-value)_+_2rem_+_2px)] [--kpi-half:calc((100%_-_0.75rem)_/_2_-_0.5px)] [--kpi-each:calc((100%_-_(var(--kpi-cols)_-_1)_*_0.75rem)_/_var(--kpi-cols)_-_0.5px)] [grid-template-columns:repeat(auto-fill,minmax(max(var(--kpi-card),var(--kpi-half)),1fr))] lg:[grid-template-columns:repeat(auto-fill,minmax(max(var(--kpi-each),var(--kpi-card),min(var(--kpi-half),calc(var(--kpi-each)_+_(var(--kpi-card)_-_var(--kpi-each))_*_1000000))),1fr))] [@container(width<17em)]:grid-cols-1'
 
 /** Drawn hidden beside the strip: ten glyphs in the value's classes (KpiTile's dd) and a dagger as DataNoteMark draws
- *  it at the value's weight. Their widths give the advances this browser paints, which the face's 0.6em only
- *  approximates where glyphs snap to whole pixels. */
+ *  it at the value's weight (its raise, which `large` sets, moves it up but not across). Their widths give the advances
+ *  this browser paints, which the face's 0.6em only approximates where glyphs snap to whole pixels. */
 const PROBE = '0000000000'
 const PROBES = 'pointer-events-none invisible absolute h-0 w-0 overflow-hidden'
 const FIGURE_PROBE = 'block w-max whitespace-pre font-figure text-2xl font-semibold tabular-nums lining-nums tracking-normal'
@@ -157,7 +157,7 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
     <div className="[container-type:inline-size]">
       <div aria-hidden="true" className={PROBES}>
         <span ref={figureProbe} className={FIGURE_PROBE}>{PROBE}</span>
-        <span ref={markProbe} className="block w-max font-semibold"><DataNoteMark calculated large /></span>
+        <span ref={markProbe} className="block w-max font-semibold"><DataNoteMark calculated /></span>
       </div>
       <dl ref={strip} className={KPI_GRID} style={grid}>
         {/* Keyed by its value too, so a new value counts up from zero in its own unit: a tween from the old value would
