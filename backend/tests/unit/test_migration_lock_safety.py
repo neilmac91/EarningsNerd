@@ -512,6 +512,8 @@ _POSTGRES_STEPS = [
     ("the session time zone", "test_session_time_zone.py", "SESSION_TIME_ZONE_TEST_DATABASE_URL"),
     ("filing insert concurrency", "test_filing_insert_transactions.py",
      "FILING_INSERT_CONCURRENCY_TEST_DATABASE_URL"),
+    ("admin maintenance concurrency", "test_admin_maintenance_transactions.py",
+     "ADMIN_MAINTENANCE_CONCURRENCY_TEST_DATABASE_URL"),
 ]
 _GATE_VARIABLE = re.compile(r"[A-Z0-9_]+_TEST_DATABASE_URL")
 
