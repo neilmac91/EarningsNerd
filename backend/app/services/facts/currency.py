@@ -236,7 +236,7 @@ def _operand_unit(provenance: Any) -> Any:
 def _filed(accession: Any, provenance: Any, dates: Mapping[Any, str], view: PayloadView) -> str:
     """A row's filing date (ISO) as the sync reads it: its Filing row's (``dates``), else its filing's ``filed``
     in the payload (``view.filed``), else the row's provenance ``filed_at``, else "" (not known). So a calculation
-    is dated by its own filing, never by its latest operand's date, which its provenance ``filed_at`` records."""
+    is dated by its own filing wherever either dates it; only the fallback, ``filed_at``, is its latest operand's."""
     if accession in dates:
         return dates[accession]
     named = view.filed.get(accession)
@@ -273,7 +273,7 @@ class Guard(NamedTuple):
     ids: frozenset[int]  # the rows neither of the sync's paths may demote, all in the series currency; none on a switch
     switch: str | None  # the currency a newer annual report proves the series switched to, else None
     own: Mapping[Any, str]  # each unnamed filing's own currency, newer or not, as its stored rows vote; a tie is absent
-    later: frozenset[int] = frozenset()  # current rows of a filing filed strictly after the batch row's own, at its key
+    later: frozenset[int] = frozenset()  # current rows (ratios too) of a filing filed strictly after the batch row's
     usd_only: bool = False  # no currency but USD is involved (``_another_currency``): the currency step is main's
 
     @property
@@ -287,7 +287,9 @@ def _another_currency(db: Session, facts: list[dict[str, Any]], view: PayloadVie
     it reads for a filing (``view.own``, which holds the deciding filing and every ``view.foreign`` one), or
     the unit of a stored amount or per-share row of the batch's concepts, current or not. Otherwise the
     currency step is main's (``Guard.usd_only``). Rows that are not current count too: the vote reads
-    them (``_proven_switch``), and a row the step demoted keeps it running until a sync converges the key."""
+    them (``_proven_switch``), and a later sync still converges the keys a demotion left. Rows are never
+    deleted, so once a company stores such a row, demoted or not, the step runs on every sync whose batch
+    carries its concept: it never switches off."""
     from app.models import FinancialFact  # lazy: the pure normalizers import this module
 
     if view.currency != "USD" or any(currency != "USD" for currency in view.own.values()):
@@ -334,7 +336,7 @@ def protected_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView) 
                                        FinancialFact.concept.in_({fact["concept"] for fact in facts})).all()
     rows = [row for row in stored if row.accession not in view.known]
     batch = {(f["concept"], f["period_end"], f["fiscal_period"], f["unit"]): f["accession"] for f in facts
-             if f["fiscal_period"] is not None and _kind(f["unit"]) == "amount"}
+             if f["fiscal_period"] is not None and _kind(f["unit"])}  # amounts, per-share rows and ratios
     others = [row for row in stored if row.is_latest and batch.get(
         (row.concept, row.period_end, row.fiscal_period, row.unit), row.accession) != row.accession]
     filings = {accession: (stamp, form) for accession, stamp, form in db.query(
@@ -527,11 +529,11 @@ def _promote_batch_rows(facts: list[dict[str, Any]], rows: list[Any], held: Mapp
     a fiscal period the batch presents in an amount or per-share unit, it is the batch's own row (same
     concept, key, unit and accession), unless a current row there is of a filing filed strictly after
     the batch row's own filing (each dated by ``_filed``: a Filing row, else its filing's date in the
-    payload, never a calculation's latest operand's): that key is left as found, a newer-filing rule by
+    payload, else a provenance's ``filed_at``): that key is left as found, a newer-filing rule by
     date alone, since companyfacts' first tag with data, not the latest filing, picks the batch's winner
-    across tags. The upsert stored the batch's row behind such a row in its unit (``Guard.later``), so
-    the rule holds on its insert path too. A quarantined row (``_promotable``), or a quarter whose
-    unlabelled twin in its unit is current (the upsert's D1 rule), is never made current and its key is
+    across tags. The upsert stored the batch's row behind such a row in its unit (``Guard.later``, a
+    ratio's too), so the rule holds on its insert path too. A quarantined row (``_promotable``), or a
+    quarter whose unlabelled twin in its unit is current (the upsert's D1 rule), is never made current and its key is
     left as found, except that this sync's own insert there is demoted: a lagging sync never makes the
     batch's older figure current at a key a newer filing's row holds, and a row current there before
     stays (a gap only where none was). A proven switch, or a sync in USD alone, never calls this."""
@@ -566,8 +568,8 @@ def _replace_stale_ratios(facts: list[dict[str, Any]], rows: list[Any], currency
                           held: Mapping[tuple[Any, ...], Any]) -> int:
     """Replace each current ratio computed from other-currency operands where the batch has its own.
 
-    A ratio (``pure``) keeps its unit across currencies, so the upsert's filing-date rule can keep one
-    computed from other-currency operands (``_other_derived``) current and store the batch's
+    A ratio (``pure``) keeps its unit across currencies, so the upsert's filing-date rule (or ``Guard.later``)
+    can keep one computed from other-currency operands (``_other_derived``) current and store the batch's
     calculation behind it: where the batch has its own calculation at that key, the stale row is
     demoted and the batch's promoted, unless the batch's calculation is quarantined (``_promotable``),
     when the stale ratio stays current. A protected ratio is never stale here: it is in the view

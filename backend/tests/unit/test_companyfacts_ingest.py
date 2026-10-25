@@ -2236,18 +2236,20 @@ class TestNativeReportingCurrencySync:
     def test_a_newer_filings_row_dated_by_its_provenance_holds_its_key_where_the_upsert_inserts(
             self, k24_stored, k24a_filing_row):
         # ``_same_day_stale_scenario`` for a filer in CNY. Filed on the stale payload's newest date, K24A is not
-        # protected, but it is filed strictly after the batch's FY2024 winner, K24 (2025-02-15), so its row holds the
-        # key. Where the stale sync inserts K24's identity for the first time, the upsert stores it behind K24A's row
-        # (``Guard.later``): its own rule counts a Filing-dated row only, so it demoted K24A's companyfacts row, and
-        # K24's superseded 1200 showed until the sync naming K24A. The gate reads the newer row from the state before
-        # the sync, so it sees that case too.
+        # protected, but it is filed strictly after the batch's FY2024 winner, K24 (2025-02-15), so its rows hold the
+        # key: its revenue, and its net margin (120 over 1300). Where the stale sync inserts K24's identity for the
+        # first time, the upsert stores K24's rows behind K24A's (``Guard.later``, a ratio too): its own rule counts a
+        # Filing-dated row only, so it demoted K24A's companyfacts rows, and K24's superseded 1200 showed until the
+        # sync naming K24A, its 10.0 margin for good (no sync converges a ratio). The gate reads the newer row from
+        # the state before the sync, so it sees that case too.
         from app.database import SessionLocal
 
         db = SessionLocal()
         company = _new_company(db)
         tag = f"-{uuid.uuid4().hex[:8]}"
-        fresh, stale = _same_day_stale_scenario(db, company, tag, "CNY", k24_stored, k24a_filing_row)
-        assert fresh == stale == [("revenue", "K24A", 1300.0)]
+        fresh, stale = _same_day_stale_scenario(db, company, tag, "CNY", k24_stored, k24a_filing_row,
+                                                ("net_margin", "revenue"))
+        assert fresh == stale == [("net_margin", "K24A", 9.23), ("revenue", "K24A", 1300.0)]
         db.close()
 
     @pytest.mark.parametrize("shape, expected", [
@@ -2278,7 +2280,8 @@ class TestNativeReportingCurrencySync:
         # K23A's 310, which the second sync makes current. Here K23's 300 is set current again and K23A's row not
         # current (a state built by hand, as the ratio test's). The sync dates K23's stored row by its own filing (its
         # date in the payload, 2024-02-15), not by its later operand: K23A's 310, filed after it, is made current.
-        # Dated by its provenance, K23's mixed 300 read as a newer filing's row and held the period.
+        # This pins the date rule's stored-row leg: with the batch row dated by its filing and the stored row by its
+        # provenance (mutation A3r), K23's mixed 300 read as a newer filing's row and held the period.
         from app.database import SessionLocal
         from app.models import FinancialFact
 
@@ -3093,6 +3096,47 @@ class TestNativeReportingCurrencySync:
             ("EUR/shares", False), ("USD/shares", True)]
         db.close()
 
+    @pytest.mark.parametrize("filing", ["its-usd-10-ks", "a-10-q-of-its-own"])
+    def test_a_usd_series_carrying_a_list_in_another_currency_involves_it_only_where_a_filing_reads_it(self, filing):
+        # A USD filer whose payload also tags net income in EUR. Inside its USD 10-Ks (every period again, so main's
+        # per-concept pick read the EUR list), each 10-K reads USD, more of its amount items being in USD: no filing
+        # reads another currency and no row is stored in one, so the sync is main's, its EUR list notwithstanding.
+        # In a 10-Q of its own (Q1-25), that 10-Q reads EUR (``PayloadView.own``), so the sync involves another
+        # currency and runs the currency step. Either way the series reads USD and the 10-Q's item is not read.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        payload = _lagging_usd_payload(fresh=True)
+        units = payload["facts"]["us-gaap"]["NetIncomeLoss"]["units"]
+        units["EUR"] = [{**item, "val": item["val"] * 0.9} for item in units["USD"]] if filing == "its-usd-10-ks" else [
+            _item(27.0, "2025-03-31", start="2025-01-01", accn="Q1-25", fy=2025, fp="Q1", form="10-Q", filed="2025-05-05")]
+        _checked_sync(db, company, _suffixed(payload, tag), final=True, usd_only=filing == "its-usd-10-ks")
+        assert sorted((r.period_end.year, r.unit, r.accession.removesuffix(tag)) for r in db.query(FinancialFact)
+                      .filter_by(company_id=company.id, concept="net_income", is_latest=True)) == [
+            (2022, "USD", "K22"), (2023, "USD", "K24"), (2024, "USD", "K24")]
+        db.close()
+
+    def test_a_usd_filers_row_in_another_currency_of_a_concept_outside_the_batch_leaves_its_sync_mains(self):
+        # A USD filer whose per-filing writer stored FY2024 gross profit in EUR, a concept its companyfacts payload
+        # does not carry. The currency step reads, votes on and demotes the batch's concepts only, so a row of
+        # another concept gives it nothing to correct: the gate reads the stored units of the batch's concepts
+        # alone, the sync is main's, and the EUR row stays current.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        _store_filing_rows(db, company, f"K24{tag}", "10-K", "2025-02-15", [
+            ("gross_profit", "EUR", date(2024, 12, 31), 330.0)])
+        _checked_sync(db, company, _suffixed(_lagging_usd_payload(fresh=True), tag), final=True, usd_only=True)
+        assert [(r.unit, r.is_latest) for r in db.query(FinancialFact).filter_by(
+            company_id=company.id, concept="gross_profit")] == [("EUR", True)]
+        db.close()
+
     @pytest.mark.parametrize("involved", [False, True], ids=["usd-only", "a-stored-eur-row"])
     def test_a_usd_series_leaves_a_legacy_derived_ratio_current_as_usd_derived(self, involved):
         # A net margin stored before operands were recorded (no provenance), derived and with no
@@ -3460,11 +3504,11 @@ def _fcf_scenario(db, company, tag, currency, order, older):
     return _current_fy(db, company, tag, _CASH_FLOWS, 2023)
 
 
-def _same_day_stale_scenario(db, company, tag, currency, k24_stored, k24a_filing_row):
+def _same_day_stale_scenario(db, company, tag, currency, k24_stored, k24a_filing_row, concepts=("revenue",)):
     """A filer in ``currency``. K24A (a 10-K/A filed 2025-05-05) restates FY2024 revenue at 1300 over K24's 1200 and
     is current, a companyfacts row (with a Filing row where ``k24a_filing_row``); where ``k24_stored`` an earlier sync
     stored K24's FY2024 identity. Then a stale payload whose newest filing is a 10-Q filed that same day (Q1-25) does
-    not name K24A. Returns the current FY2024 revenue after the fresh sync and after the stale one."""
+    not name K24A. Returns the current FY2024 rows of ``concepts`` after the fresh sync and after the stale one."""
     usd_only = currency == "USD"
 
     def payload(*, k24a):
@@ -3482,9 +3526,9 @@ def _same_day_stale_scenario(db, company, tag, currency, k24_stored, k24a_filing
         _checked_sync(db, company, _suffixed(_in_currency(_lagging_usd_payload(fresh=True), currency), tag), final=True,
                       usd_only=usd_only)
     _checked_sync(db, company, payload(k24a=True), final=True, usd_only=usd_only)
-    fresh = _current_fy(db, company, tag, ("revenue",), 2024)
+    fresh = _current_fy(db, company, tag, concepts, 2024)
     _checked_sync(db, company, payload(k24a=False), usd_only=usd_only)
-    return fresh, _current_fy(db, company, tag, ("revenue",), 2024)
+    return fresh, _current_fy(db, company, tag, concepts, 2024)
 
 
 def _held_key_scenario(db, company, tag, currency, shape):

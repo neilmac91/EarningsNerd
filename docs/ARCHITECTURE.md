@@ -388,8 +388,9 @@ unused since generation became account-required in #619; kept because migrations
   deliberate re-extraction to gain metadata they never contained. Fact writes serialize on the
   company row and preserve a known newer accession. The per-filing writer also preserves untied
   current companyfacts rows when their filing chronology cannot be established; the bulk writer
-  also preserves a current row the companyfacts sync passes it as newer than its payload (below),
-  and otherwise uses the received normalizer ordering where local Filing chronology is unavailable. A
+  also preserves a current row the companyfacts sync passes it as newer than its payload, or as of a
+  filing filed strictly after the batch row's own at its key (`Guard.later`, a ratio too; below), and
+  otherwise uses the received normalizer ordering where local Filing chronology is unavailable. A
   companyfacts sync that involves another currency than USD then makes its payload's winner the one
   current row at each period it presents, outside the periods it leaves as found (below); a sync in USD
   alone runs the upsert alone. Older accession facts remain
@@ -413,8 +414,10 @@ unused since generation became account-required in #619; kept because migrations
   no currency but USD (neither the payload's series, nor the own currency it reads for a filing, nor
   a stored amount or per-share row of its concepts, current or not, is in another;
   `facts/currency.py::_another_currency`) is the upsert alone: it protects nothing and the currency
-  step returns before touching a row, so a USD filer keeps the upsert's convergence gaps (tasks/todo.md
-  E197). Every other sync then
+  step returns before touching a row, so such a sync keeps the upsert's convergence gaps (tasks/todo.md
+  E198). The gate is per sync, not per filer: rows are never deleted, so a USD filer that stores a row
+  of a concept in another currency, current or not, runs the rest on every sync whose batch carries that
+  concept. Every other sync then
   demotes, never deletes, every current row of its concepts at a period with a fiscal period,
   whatever its source or filing and for a USD series too, whose unit is another currency amount or
   per-share unit, or which is an amount or per-share row under a filing whose own currency is
@@ -488,10 +491,11 @@ unused since generation became account-required in #619; kept because migrations
   an earlier demotion, an amendment stored behind its original's companyfacts row, or a lagging
   sync's figure stayed for good. Three cases are left as found: a period where a row of a filing
   filed strictly after the batch row's own filing was current (each by its Filing row's date, else
-  its filing's `filed` in the payload, else its provenance `filed_at`, so a calculation is dated by its
-  own filing, never by its latest operand), a newer-filing rule by date alone (the upsert's own rule
-  reads Filing rows only, so the sync passes such a row to it to keep current, `Guard.later`, and the
-  rule holds where the upsert inserts too), because the
+  its filing's `filed` in the payload, else its provenance `filed_at`, which for a calculation records
+  its latest operand's date, so a calculation is dated by its own filing wherever a Filing row or the
+  payload dates it), a newer-filing rule by date alone (the upsert's own rule reads Filing rows only,
+  so the sync passes such a row to it to keep current, `Guard.later`, and the rule holds where the
+  upsert inserts too), because the
   collector takes a period from the first registry tag with data, not from the latest filing, so
   where a newer filing restates a period only under a lower-priority tag (revenue moving from the ASC
   606 element to `Revenues`, diluted EPS to `EarningsPerShareBasicAndDiluted` across a split) the
@@ -509,8 +513,9 @@ unused since generation became account-required in #619; kept because migrations
   rule stores one behind an undated companyfacts row, where the older filings have no Filing rows),
   as on main, and where a quarantined row or a twin leaves the period as found. A derived ratio
   (`pure`) keeps its unit, so where a known filing date kept one computed from other-currency
-  operands current, the sync demotes it and promotes the batch's own calculation at that period;
-  where that calculation is
+  operands current, the sync demotes it and promotes the batch's own calculation at that period (so
+  too where the upsert stores that calculation behind a current ratio of a filing filed strictly after
+  its own, `Guard.later`, which stays current only where it is no such ratio); where that calculation is
   quarantined the stale ratio stays current, a ratio at a period a protected ratio holds is the newest
   protected one, and a ratio at a period the batch does not compute is left as it is. Ratios do not
   converge otherwise, so a margin can sit beside amounts of another filing where only the amounts at

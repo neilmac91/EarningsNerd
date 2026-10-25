@@ -47,9 +47,11 @@ is main's: the upsert protects nothing and the currency step returns before touc
 every sync, its edge cases reached every USD filer to fix one non-USD filer's, and showed wrong numbers
 where main was right (a free cash flow under the older filing's accession, dated by its newer
 operand, went current over the newer filing's own, which main kept).
-Count rows that are not current too: the vote reads them, and a row the step demoted keeps it
-running until a sync converges the key; reading current rows only left a misvoted filing's demoted
-restatement behind for good once its convenience rows were demoted.
+Count rows that are not current too: the vote reads them, and a later sync still converges the keys
+a demotion left; reading current rows only left a misvoted filing's demoted restatement behind for
+good once its convenience rows were demoted. The gate is per sync, not per filer, and rows are never
+deleted: once a company stores such a row, every sync whose batch carries its concept runs the
+correction, and the trigger never switches off.
 
 `is_latest` is kept per unit, so the companyfacts writer corrects stored rows itself
 (`demote_convenience_rows`), at any key with a fiscal period, whatever a row's source or filing,
@@ -59,8 +61,8 @@ its items carry in any taxonomy. It demotes every current row of its batch's con
 currency amount or per-share unit, and every amount or per-share row under a filing whose own
 currency is another: there a figure in the series currency is that filing's convenience
 translation, which the syncs before #1365 and #1365's list pick stored. A ratio (`pure`) keeps its
-unit across currencies, so the upsert's filing-date rule can keep one computed from other-currency
-operands current and store the batch's calculation behind it; the writer then demotes the stale
+unit across currencies, so the upsert's filing-date rule (or `Guard.later`) can keep one computed from
+other-currency operands current and store the batch's calculation behind it; the writer then demotes the stale
 ratio and promotes the batch's. A derived ratio with no filing owner and no recorded operands
 predates provenance and was read from the USD lists, so it counts as USD-derived. It never rewrites
 an identity: a ratio stored under the batch calculation's own identity (same filing) is corrected
@@ -82,10 +84,13 @@ filed strictly after the batch row's own filing was current, left as found; a qu
 `unavailable`, any reason), never made current, and a quarter whose unlabelled twin in that unit is
 current (the bulk writer's NULL-period rule), both left as found; and a proven switch, which promotes
 nothing. Date every row by its own filing (`_filed`: its Filing row, else its filing's `filed` in the
-payload, else its provenance `filed_at`), never a calculation by its latest operand: a free cash flow
-under K23's accession whose capex was K24's carried K24's date and went current over K24's own. Hold
-the rule where the upsert inserts too: its own rule reads Filing rows only and demoted a newer
-companyfacts row, so the sync passes it such rows to keep (`Guard.later`). Never let the convergence
+payload, else its provenance `filed_at`, which for a calculation is its latest operand's date), so a
+calculation is dated by its latest operand only where neither a Filing row nor the payload dates its
+filing: a free cash flow under K23's accession whose capex was K24's carried K24's date and went current over
+K24's own. Hold the rule where the upsert inserts too: its own rule reads Filing rows only and
+demoted a newer companyfacts row, so the sync passes it such rows to keep (`Guard.later`), ratios
+included (a stale same-day payload's insert left a superseded margin current for good, as no sync
+converges a ratio). Never let the convergence
 override that newer-filing rule: the collector takes a
 period from the first registry tag with data, not from the latest filing, so where a newer filing
 restates a period only under a lower-priority tag (revenue moving from the ASC 606 element to
@@ -94,7 +99,8 @@ the older filing's figure. Making it current over the newer filing's per-filing 
 FY2024 revenue growth +20.0% where the filer's restatement gives +14.3%, and EPS growth -40%
 where it gives +20%, at every later sync, with the newer filing's margin beside the older revenue. A
 sync whose payload names every stored filing then leaves each key it presents to its payload's
-winner or to a newer filing's current row, whatever came before; check that by row, not by currency
+winner or to a newer filing's current row, whatever came before, outside the keys it leaves as found;
+check that by row, not by currency
 or count (the tests' `_checked_sync` asserts which row in every sync outside a switch, that no
 presented key yields a row of a later filing current before the sync, and main's contract for a sync
 in USD alone; `test_a_usd_only_sync_is_mains` runs the USD shapes). Before widening or narrowing a
@@ -229,7 +235,7 @@ where the older filings have no Filing rows), the older figure stays current, as
 quarantined row or a current unlabelled twin leaves a key as found, the row current there stays. And
 ratios do not converge: a margin at a period whose amounts moved to another filing's rows keeps its
 calculation, so in that shape the newer filing's margin sits beside the older filing's revenue. A
-filer in USD alone keeps main's convergence gaps (E197): an amendment the per-filing writer stored
+sync in USD alone keeps main's convergence gaps (E198): an amendment the per-filing writer stored
 behind its original's companyfacts row stays behind, a newer filing's restatement under a
 lower-priority tag stays behind where the older filings have no Filing rows, and a lagging payload's
 insert replaces a newer row dated by its provenance alone, each for good.
