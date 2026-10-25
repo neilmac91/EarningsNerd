@@ -832,7 +832,7 @@ band. Negative offsets, `overflow: visible` text and `textLength` are forbidden.
 |---|---|---|---|---|
 | Subtitle and footnotes | `text.tertiary #636A77` | 74.1 | `chart.label.dark #B8BEC7` | −63.6 |
 | Legend names | `text.secondary #374151` | 90.9 | `chart.label.dark #B8BEC7` | −63.6 |
-| Legend values | `text.primary #1A1A17` | 101.3 | `text.primary.dark #D7DADC` | −80.3 |
+| Legend values | `text.primary #1A1A17` | 101.3 | `text.primary.dark #EAECEF` | −91.8 |
 
 The dark subtitle, footnotes and legend names use `chart.label.dark` because DS `text.secondary.dark #9CA3AF`
 measures Lc −48.6, which is under 60 for 12 px text.
@@ -841,9 +841,10 @@ on the slate panel and −80.3 on navy, and gray-400 `#9CA3AF` became `text.tert
 `frontend/DESIGN_SYSTEM.md` §2. The sentence above records the token as this audit measured it. Whether these
 dark texts take the DS secondary ink rather than `chart.label.dark` is the migration's call; this spec is
 unchanged until it makes it. The same pull request raised DS `text.primary.dark` from `#D7DADC` to `#EAECEF`,
-Lc −91.8 on the slate panel and −94.8 on navy. Where this spec names `text.primary.dark` (§1 row 10, the legend
-values and the `value` row's dark ink) it keeps the token as this audit measured it; today's chart tooltip value
-ink, which mirrors the token in `Chart.tsx`, draws `#EAECEF`.)
+Lc −91.8 on the slate panel and −94.8 on navy. The legend values row above takes it, since the renderer's legend
+values are that token (`charts/theme.ts`'s dark `figure`, held to it by `chart-theme.spec.ts`), as is today's chart
+tooltip value ink in `Chart.tsx`. §1 row 10 and the `value` row's dark ink, a chart-scope token of its own, keep
+`#D7DADC` as this audit measured it, for the migration (E194) to decide.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,
