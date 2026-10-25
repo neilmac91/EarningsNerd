@@ -3747,6 +3747,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Unlike refresh tokens, which are single-use, recovery codes expire.</li>', true],
       ['<li>Recovery codes cannot be reused, unlike refresh tokens, which also cannot be reused.</li>', true],
       ['<li>Recovery codes cannot be reused, unlike refresh tokens, which are not reusable either.</li>', true],
+      ['<li>Recovery codes cannot be reused, unlike refresh tokens, which are not reusable.</li>', true],
       ['<li>Recovery codes expire, unlike single-use refresh tokens.</li>', true],
       ['<li>Unlike session cookies, recovery codes for refresh tokens are single-use.</li>', true],
       ['<li>Recovery codes are not single-use, but refresh tokens are.</li>', true],
