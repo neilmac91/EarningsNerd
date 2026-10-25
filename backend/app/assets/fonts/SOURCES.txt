@@ -3,8 +3,10 @@ Where the vendored fonts in this directory come from. Each is licensed under the
 which backend/tests/unit/test_vendored_font_sources.py holds equal to the file.
 
 Inter-Variable-symbols.woff2
-  The marks the latin subsets below lack, for the PDFs (pdf_branding.font_face_css, declared with
-  unicode-range U+2020-2021, U+20A9, U+20B9, U+2190-2193, U+2248, U+25E6): the dagger and double dagger, the
+  The marks the latin subsets below lack, for the PDFs (pdf_branding.font_face_css, declared as the family
+  'Inter Var Symbols', after 'Inter Var' in every stack, with unicode-range U+2020-2021, U+20A9, U+20B9,
+  U+2190-2193, U+2248, U+25E6; a family of its own, since WeasyPrint embeds two faces of one family and style
+  as one font): the dagger and double dagger, the
   won and rupee signs a summary figure may carry, the four arrows, "almost equal to" (the 20-F and 6-K prompts
   ask for "≈US$X" beside a convenience translation) and the white bullet.
   Cut from Inter 4.001, the build the latin subsets are (name table "Version 4.001;git-66647c0bb", family

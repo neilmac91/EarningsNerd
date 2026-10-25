@@ -6,8 +6,8 @@ apart (owner decision D4, export-overhaul plan). The shell owns:
 
 - ``@font-face`` for the vendored brand fonts (Inter variable, its roman and its italic, and Geist
   Mono, all OFL: files under ``app/assets/fonts/`` with absolute ``file://`` URLs, never
-  cwd-relative, since agent/CI/Cloud Run working directories differ), plus Inter's symbols face for
-  the marks the latin subsets lack (SOURCES.txt records each file's source).
+  cwd-relative, since agent/CI/Cloud Run working directories differ), plus Inter's symbols face, a family
+  of its own, for the marks the latin subsets lack (SOURCES.txt records each file's source).
 - ``@page`` chrome: A4 portrait default with the running document title, the
   "EarningsNerd · earningsnerd.io" footer and "Page X of Y" counters, plus the
   ``metrics-landscape`` NAMED PAGE — a section carrying ``class="metrics-landscape"`` starts on
@@ -97,7 +97,9 @@ def font_face_css() -> str:
     # The marks the latin subsets lack (dagger and double dagger, the four arrows, the white bullet, "almost
     # equal to" for a convenience translation the 20-F and 6-K prompts ask for, the won and rupee signs a
     # summary figure may carry), cut from the same 4.001 build: without it they printed in DejaVu
-    # (SOURCES.txt records the cut).
+    # (SOURCES.txt records the cut). It is a family of its own, after Inter in every stack: WeasyPrint keys
+    # an embedded font by family, style and weight, never by file, so declared as a second 'Inter Var'
+    # normal face it merged with the latin one, and a page drew "₩" as the latin "A" (the gid both share).
     inter_symbols = (_ASSETS / "fonts" / "Inter-Variable-symbols.woff2").as_uri()
     geist_mono = (_ASSETS / "fonts" / "GeistMono-latin.woff2").as_uri()
     return f"""
@@ -108,7 +110,7 @@ def font_face_css() -> str:
   font-style: normal;
 }}
 @font-face {{
-  font-family: 'Inter Var';
+  font-family: 'Inter Var Symbols';
   src: url('{inter_symbols}') format('woff2');
   font-weight: 100 900;
   font-style: normal;
@@ -132,9 +134,9 @@ def font_face_css() -> str:
 def shell_css() -> str:
     """Page chrome + shared typography. Body builders add their own layout via extra_css.
 
-    The data face's stack names Inter before the system's monospace, so a mark Geist Mono lacks (a dagger
-    after a figure) takes the brand's sans, never DejaVu Sans Mono; 'DejaVu Sans' stays the sans stack's
-    declared last resort."""
+    Every stack names Inter's symbols face after Inter, and the data face's stack names both before the
+    system's monospace, so a mark the latin subsets lack (a dagger after a figure, "≈") prints in a vendored
+    face, never DejaVu; 'DejaVu Sans' stays the sans stack's declared last resort."""
     p = PALETTE
     return f"""
 @page {{
@@ -142,19 +144,19 @@ def shell_css() -> str:
   margin: 20mm 16mm 18mm 16mm;
   @top-left {{
     content: string(doc-title);
-    font-family: 'Inter Var', 'DejaVu Sans', sans-serif;
+    font-family: 'Inter Var', 'Inter Var Symbols', 'DejaVu Sans', sans-serif;
     font-size: 8pt;
     color: {p["ink_tertiary"]};
   }}
   @bottom-left {{
     content: "EarningsNerd · earningsnerd.io";
-    font-family: 'Inter Var', 'DejaVu Sans', sans-serif;
+    font-family: 'Inter Var', 'Inter Var Symbols', 'DejaVu Sans', sans-serif;
     font-size: 8pt;
     color: {p["ink_tertiary"]};
   }}
   @bottom-right {{
     content: "Page " counter(page) " of " counter(pages);
-    font-family: 'Geist Mono', 'Inter Var', monospace;
+    font-family: 'Geist Mono', 'Inter Var', 'Inter Var Symbols', monospace;
     font-size: 8pt;
     color: {p["ink_tertiary"]};
   }}
@@ -168,19 +170,19 @@ def shell_css() -> str:
   margin: 16mm 14mm;
   @top-left {{
     content: string(doc-title);
-    font-family: 'Inter Var', 'DejaVu Sans', sans-serif;
+    font-family: 'Inter Var', 'Inter Var Symbols', 'DejaVu Sans', sans-serif;
     font-size: 8pt;
     color: {p["ink_tertiary"]};
   }}
   @bottom-left {{
     content: "EarningsNerd · earningsnerd.io";
-    font-family: 'Inter Var', 'DejaVu Sans', sans-serif;
+    font-family: 'Inter Var', 'Inter Var Symbols', 'DejaVu Sans', sans-serif;
     font-size: 8pt;
     color: {p["ink_tertiary"]};
   }}
   @bottom-right {{
     content: "Page " counter(page) " of " counter(pages);
-    font-family: 'Geist Mono', 'Inter Var', monospace;
+    font-family: 'Geist Mono', 'Inter Var', 'Inter Var Symbols', monospace;
     font-size: 8pt;
     color: {p["ink_tertiary"]};
   }}
@@ -188,13 +190,13 @@ def shell_css() -> str:
 section.metrics-landscape {{ page: metrics-landscape; break-before: page; }}
 
 body {{
-  font-family: 'Inter Var', 'DejaVu Sans', sans-serif;
+  font-family: 'Inter Var', 'Inter Var Symbols', 'DejaVu Sans', sans-serif;
   color: {p["ink"]};
   font-size: 10.5pt;
   line-height: 1.55;
 }}
 h1 {{ string-set: doc-title content(); }}
-h1, h2, h3 {{ font-family: 'Inter Var', 'DejaVu Sans', sans-serif; font-weight: 600; color: {p["ink"]}; }}
+h1, h2, h3 {{ font-family: 'Inter Var', 'Inter Var Symbols', 'DejaVu Sans', sans-serif; font-weight: 600; color: {p["ink"]}; }}
 h1 {{ font-size: 19pt; margin: 14px 0 4px 0; }}
 h2 {{
   font-size: 13pt;
@@ -214,7 +216,7 @@ p {{ margin: 0 0 9px 0; color: {p["ink_secondary"]}; }}
   align-items: center;
 }}
 .masthead .wordmark {{
-  font-family: 'Inter Var', 'DejaVu Sans', sans-serif;
+  font-family: 'Inter Var', 'Inter Var Symbols', 'DejaVu Sans', sans-serif;
   font-size: 17pt;
   font-weight: 650;
   letter-spacing: -0.02em;
@@ -236,7 +238,7 @@ p {{ margin: 0 0 9px 0; color: {p["ink_secondary"]}; }}
   font-size: 9pt;
   margin: 0 0 16px 0;
 }}
-.meta .data {{ font-family: 'Geist Mono', 'Inter Var', monospace; }}
+.meta .data {{ font-family: 'Geist Mono', 'Inter Var', 'Inter Var Symbols', monospace; }}
 
 /* With no outer frame, a table's last hairline would sit on the next block ("Profitability" under
    Financial Highlights): it keeps a list's spacing below it. */
@@ -262,7 +264,7 @@ td {{
   color: {p["ink_secondary"]};
 }}
 td.num, .data {{
-  font-family: 'Geist Mono', 'Inter Var', monospace;
+  font-family: 'Geist Mono', 'Inter Var', 'Inter Var Symbols', monospace;
   font-variant-numeric: tabular-nums;
 }}
 td.num, th.num {{ text-align: right; }}

@@ -44,7 +44,9 @@ its full selector, a rule inside @media or @supports, @font-face, and @page's ma
    from a real italic. WeasyPrint never slants a face it lacks, and with only Inter's roman declared
    "Nerd" and every quote printed upright. So the wordmark's family declares an italic face, every
    @font-face names a vendored file (one that exists in backend/app/assets/fonts, so a system font
-   declared under a brand family's name fails) and whose italic bit (OS/2 fsSelection bit 0, read with
+   declared under a brand family's name fails), no two faces share a family and a style (WeasyPrint keys
+   an embedded font by family, style and weight, never by file, so a second face merges with the first and
+   one file's glyph ids print from the other's program), and whose italic bit (OS/2 fsSelection bit 0, read with
    fontTools) matches the style it is declared as, and in each rendered PDF every font WeasyPrint
    embeds for text the stylesheet sets italic (its descriptor's Italic flag) is an italic program.
 6. Every glyph prints in a vendored face (WP3-A): the export inspection found 52 daggers, 2 arrows and 614
@@ -53,7 +55,8 @@ its full selector, a rule inside @media or @supports, @font-face, and @page's ma
    translation) and the won and rupee signs; the data face's stack falls back to Inter before the system's
    monospace, and a nested list takes the disc (•, in Inter's latin subset) instead of WeasyPrint's circle.
    So every font each rendered PDF embeds, whatever kind of program, is of a vendored face's family (Inter
-   Var or Geist Mono), over both fixtures, an analysis whose narrative, grid, count line and nested operand
+   Var, Inter Var Symbols or Geist Mono), and every one of those marks a PDF's text map names is drawn with
+   that mark's own glyph in the embedded program, over both fixtures, an analysis whose narrative, grid, count line and nested operand
    list print each of those marks, and a 20-F summary that prints "≈", "₩" and "₹" in prose and "≈" in a
    figure column; and every marker of a nested list is the disc.
 
@@ -429,12 +432,18 @@ VENDORED_FONT_DIR = ROOT / "backend" / "app" / "assets" / "fonts"
 
 
 def font_face_problems(html: str, italic_family: str) -> list[str]:
-    """Each way a PDF's faces fail: the italic family declares no italic face, a face's file is not a vendored
-    one (it resolves outside backend/app/assets/fonts, through a symlink or a ".." too), a face's file is
-    missing, or a file's italic bit disagrees with the style it is declared as."""
+    """Each way a PDF's faces fail: the italic family declares no italic face, two faces share a family and a
+    style, a face's file is not a vendored one (it resolves outside backend/app/assets/fonts, through a
+    symlink or a ".." too), a face's file is missing, or a file's italic bit disagrees with the style it is
+    declared as."""
     faces = font_faces(html)
     found = [] if any(f["family"] == italic_family and f["style"] == "italic" for f in faces) else [
         f"'{italic_family}' declares no italic face"]
+    declared: dict[tuple[str, str], list[str]] = {}
+    for face in faces:
+        declared.setdefault((face["family"], face["style"]), []).append(face["file"].name if face["file"] else "no src")
+    found += [f"'{family}' {style} is declared by {len(files)} files ({', '.join(files)}): WeasyPrint merges them"
+              for (family, style), files in declared.items() if len(files) > 1]
     for face in faces:
         name = f"'{face['family']}' {face['style']} ({face['file'].name if face['file'] else 'no src'})"
         if face["file"] is None:
@@ -650,7 +659,9 @@ def test_every_font_asked_for_italic_embeds_an_italic_program():
 
 
 # WeasyPrint writes the family a run resolved to as its font descriptor's /FontFamily: the vendored faces'.
-VENDORED_FAMILIES = frozenset({"Inter Var", "Geist Mono"})
+VENDORED_FAMILIES = frozenset({"Inter Var", "Inter Var Symbols", "Geist Mono"})
+# The marks the latin subsets lack, which Inter's symbols face carries.
+MARKS = frozenset("†‡←↑→↓◦≈₩₹")
 _SYMBOLS_FACE = re.compile(r"@font-face \{[^}]*Inter-Variable-symbols\.woff2[^}]*\}")
 
 
@@ -663,6 +674,39 @@ def embedded_font_families(pdf: bytes) -> list[str]:
         families.append(bytes.fromhex(hexed.decode()).decode("utf-16") if hexed else literal.decode("latin-1"))
     assert len(families) == pdf.count(b"/Type /FontDescriptor"), "a font descriptor this reader did not read"
     return families + ["Type 3"] * len(re.findall(rb"/Subtype /Type3\b", pdf))
+
+
+def mark_glyph_problems(pdf: bytes) -> list[str]:
+    """Each mark (MARKS) an uncompressed WeasyPrint PDF's text map names for a glyph that is not that mark's in
+    the program the font embeds: the font's ToUnicode map gives the mark for a glyph id, which must be the
+    glyph the embedded program's own cmap gives the mark or an alternate it encodes for no character, never a
+    glyph it encodes for another one. When two files are declared as one family and style, WeasyPrint embeds
+    them as one font, and one file's glyph ids then index the other's program ("₩" drawn as the latin "A")."""
+    objects = dict(re.findall(rb"\n(\d+) 0 obj\n(.*?)\nendobj", pdf, re.DOTALL))
+
+    def stream(number: bytes) -> bytes:
+        body = objects[number]
+        return body[body.index(b"stream\n") + len(b"stream\n"):body.rindex(b"\nendstream")]
+
+    fonts = re.findall(rb"/Subtype /Type0/BaseFont /([^/\s]+)/ToUnicode (\d+) 0 R/Encoding /Identity-H"
+                       rb"/DescendantFonts \[(\d+) 0 R\]", pdf)
+    assert len(fonts) == pdf.count(b"/Subtype /Type0"), "a composite font this reader did not read"
+    found = []
+    for name, to_unicode, descendant in fonts:
+        descriptor = re.search(rb"/FontDescriptor (\d+) 0 R", objects[descendant])[1]
+        program = TTFont(io.BytesIO(stream(re.search(rb"/FontFile2 (\d+) 0 R", objects[descriptor])[1])))
+        order, cmap = program.getGlyphOrder(), program.getBestCmap() or {}
+        text_map = stream(to_unicode).decode("latin-1")
+        for block in re.findall(r"beginbfchar(.*?)endbfchar", text_map, re.DOTALL):
+            for gid, code in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>", block):
+                text = bytes.fromhex(code).decode("utf-16-be")
+                glyph = order[int(gid, 16)] if int(gid, 16) < len(order) else None
+                # The mark's own glyph, or an alternate the program encodes for nothing (a tabular form the
+                # data face asks for); never a glyph the program encodes for another character.
+                if text in MARKS and cmap.get(ord(text)) != glyph and (glyph is None or glyph in cmap.values()):
+                    found.append(f"{name.decode().split('+')[-1]} names {text} for glyph {glyph}, "
+                                 f"its program's {text} being {cmap.get(ord(text))}")
+    return found
 
 
 def foreign_fonts(html: str) -> list[str]:
@@ -739,6 +783,8 @@ def test_every_glyph_prints_in_a_vendored_face():
     families = {name: embedded_font_families(pdf) for name, pdf in rendered.items()}
     assert all(families.values()), families  # the reader found the fonts
     assert {name: sorted(set(found) - VENDORED_FAMILIES) for name, found in families.items()} == {name: [] for name in pdfs}
+    assert {name: mark_glyph_problems(pdf) for name, pdf in rendered.items()} == {name: [] for name in pdfs}
+    assert "Inter Var Symbols" in families["20-F summary with every mark"]  # the reader saw the marks' face
     markers = list_markers(pdfs["analysis with every mark"])
     assert markers[2] == {"• "} and "• " in markers[1], markers  # the operands list sits in the methods list
 
@@ -747,12 +793,17 @@ def test_every_glyph_prints_in_a_vendored_face():
     # list prints WeasyPrint's circle.
     every_mark = pdfs["analysis with every mark"]
     no_symbols = _SYMBOLS_FACE.sub("", every_mark, count=1)
-    old_stack = every_mark.replace("'Geist Mono', 'Inter Var', monospace", "'Geist Mono', monospace")
+    old_stack = every_mark.replace("'Geist Mono', 'Inter Var', 'Inter Var Symbols', monospace", "'Geist Mono', monospace")
     no_disc = every_mark.replace("ul ul { list-style-type: disc; }", "")
     assert no_symbols != every_mark and old_stack != every_mark and no_disc != every_mark
     assert foreign_fonts(no_symbols) and foreign_fonts(old_stack), "a fallback face must read as foreign"
     summary = pdfs["20-F summary with every mark"]
     assert foreign_fonts(_SYMBOLS_FACE.sub("", summary, count=1)), "≈, ₩ and ₹ need the symbols face"
+    # Planted: the symbols face declared as a second 'Inter Var' normal face, its first form, merges with the
+    # latin one: the 20-F summary's later pages drew "₩" as the latin "A".
+    merged = summary.replace("font-family: 'Inter Var Symbols';", "font-family: 'Inter Var';", 1)
+    assert merged != summary
+    assert mark_glyph_problems(weasyprint.HTML(string=merged).write_pdf(uncompressed_pdf=True))
     assert foreign_fonts(no_disc) == [] and list_markers(no_disc)[2] == {"◦ "}  # the face covers ◦: only the marker reads it
 
 
@@ -833,6 +884,7 @@ def test_the_checks_read_what_they_claim():
     # 5. Faces: a family with no italic face, a face whose file is the roman and a missing file each fail.
     fonts = ROOT / "backend" / "app" / "assets" / "fonts"
     roman, italic = (fonts / "Inter-Variable-latin.woff2").as_uri(), (fonts / "Inter-Variable-Italic-latin.woff2").as_uri()
+    symbols = (fonts / "Inter-Variable-symbols.woff2").as_uri()
     face = "@font-face {{ font-family: 'Inter Var'; src: url('{}') format('woff2'); font-style: {}; }}"
     assert font_face_problems(f"<style>{face.format(roman, 'normal')}</style>", "Inter Var") == [
         "'Inter Var' declares no italic face"]
@@ -843,15 +895,18 @@ def test_the_checks_read_what_they_claim():
     assert font_face_problems(f"<style>{face.format(fonts.as_uri() + '/missing.woff2', 'italic')}</style>", "Inter Var") == [
         "'Inter Var' italic (missing.woff2) names no file"]
     assert font_face_problems(f"<style>{face.format(roman, 'normal')} {face.format(italic, 'italic')}</style>", "Inter Var") == []
+    assert font_face_problems(f"<style>{face.format(roman, 'normal')} {face.format(symbols, 'normal')} {face.format(italic, 'italic')}</style>",
+                              "Inter Var") == [
+        "'Inter Var' normal is declared by 2 files (Inter-Variable-latin.woff2, Inter-Variable-symbols.woff2): WeasyPrint merges them"]
     # A system font declared under a brand family's name fails whether or not this machine has it, and so does
     # a path that leaves the vendored directory through "..".
     system = "file:///usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
     escaped = fonts.as_uri() + "/../brand/earningsnerd-mark.png"
     assert font_face_problems(
-        f"<style>{face.format(system, 'normal')} {face.format(escaped, 'normal')} {face.format(italic, 'italic')}</style>",
-        "Inter Var") == [
+        f"<style>{face.format(system, 'normal')} {face.format(italic, 'italic')} "
+        f"{face.format(escaped, 'normal').replace('Inter Var', 'Geist Mono')}</style>", "Inter Var") == [
         "'Inter Var' normal (DejaVuSans.ttf) is not a vendored file in backend/app/assets/fonts",
-        "'Inter Var' normal (earningsnerd-mark.png) is not a vendored file in backend/app/assets/fonts",
+        "'Geist Mono' normal (earningsnerd-mark.png) is not a vendored file in backend/app/assets/fonts",
     ]
 
     # 3. Grounds: a rule painting behind text joins the grounds, and every text colour is held to each.
