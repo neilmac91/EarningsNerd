@@ -399,7 +399,18 @@ both runs.
 - **Per company, in its newest ten years:** 9 of 31 show no review cell, 2 show 1–5, 6 show
   6–10, 7 show 11–20 and 7 more than 20.
 
-The second run, after WP0's apply, measures the drop against these figures.
+**These are the notation as it ships today, not as D-061 draws it** (chief design on #1646).
+Under D-061 (WP1) a `legacy_calculation` note is record-only and draws no letter. So of these
+cells, a reader would see a letter on 14 (0.2%): the `source_check_needed` cells.
+- They sit on reported figures only: EPS and diluted EPS 4 each, operating income and financing
+  cash flow 2 each, cash and investing cash flow 1 each.
+- They are at 5 of the 31 companies. Today 22 show a letter in their newest ten years alone.
+
+The second run, after WP0's apply, measures the change against these figures. WP0 can turn a
+legacy cell into one whose recomputation passes, or into one that disagrees, which D-061 marks. So
+the review share can fall while the count readers see rises. That run reads two numbers:
+- the review count less the record-only reasons (14 now);
+- the legacy share (62.2% now).
 
 ## 2. The notation as one system
 
