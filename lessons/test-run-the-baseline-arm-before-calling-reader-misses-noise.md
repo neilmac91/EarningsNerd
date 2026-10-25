@@ -18,5 +18,5 @@ finding, whatever one earlier round said. To find the cause, vary one property a
 (CSS overrides on the captured page are enough) with fresh readers per variant, then fix in code and
 re-read every image.
 
-**Evidence**: the metrics-table number system's pull request (its readout section: the A/B, the two
-variant rounds and the final read). Review-checked; a readout spends model calls and runs outside CI.
+**Evidence**: the metrics-table number system's pull request, #1606 (its Verification section: the A/B,
+the two variant rounds and the final read). Review-checked; a readout spends model calls and runs outside CI.
