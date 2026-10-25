@@ -48,21 +48,42 @@ def prices_for_model(model: Optional[str]) -> tuple[float, float, float]:
     )
 
 
+def _subset(value: Any, prompt: int) -> Optional[int]:
+    return value if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= prompt else None
+
+
+def _input_split(prompt: Any, hit: Any, miss: Any) -> Optional[tuple[int, int]]:
+    """(cache-hit, cache-miss) input tokens to price, or ``None`` when the input is unknown.
+
+    Cache tokens are subsets of the prompt. With the prompt total known, every prompt token is priced
+    once: the reported hits (or the complement of valid reported misses) at the hit rate, the rest at
+    the dearer miss rate, so a missing or invalid half never prices input as free. Without the total,
+    only two reported halves describe the input."""
+    if prompt is None:
+        if hit is None or miss is None:
+            return None
+        return hit, miss
+    hits = _subset(hit, prompt)
+    if hits is None:
+        misses = _subset(miss, prompt)
+        hits = prompt - misses if misses is not None else 0
+    return hits, prompt - hits
+
+
 def estimate_call_cost_usd(model: Optional[str], usage: Mapping[str, Any], *, at: Optional[datetime] = None) -> dict:
     """Peak-aware, per-model estimate for one provider call from a normalized ``ai_metrics`` usage
-    row. Returns ``{"cost_usd": float | None, "peak": bool}``; ``None`` when no token count is known
-    (never a claimed zero). Reasoning tokens are part of ``completion_tokens`` and priced as output."""
+    row. Returns ``{"cost_usd": float | None, "peak": bool}``; ``None`` when the input or the output
+    count is unknown (never a claimed zero, and never a partial sum). Reasoning tokens are part of
+    ``completion_tokens`` and priced as output."""
     peak = is_peak_hour(at)
-    prompt, completion = usage.get("prompt_tokens"), usage.get("completion_tokens")
-    hit, miss = usage.get("cache_hit_tokens"), usage.get("cache_miss_tokens")
-    if prompt is None and completion is None and hit is None and miss is None:
+    completion = usage.get("completion_tokens")
+    split = _input_split(usage.get("prompt_tokens"), usage.get("cache_hit_tokens"), usage.get("cache_miss_tokens"))
+    if split is None or completion is None:
         return {"cost_usd": None, "peak": peak}
+    hit, miss = split
     hit_price, miss_price, out_price = prices_for_model(model)
     multiplier = settings.AI_PEAK_PRICE_MULTIPLIER if peak else 1.0
-    if hit is None and miss is None:
-        miss = prompt or 0
-        hit = 0
-    cost = ((hit or 0) * hit_price + (miss or 0) * miss_price + (completion or 0) * out_price) * multiplier / 1_000_000
+    cost = (hit * hit_price + miss * miss_price + completion * out_price) * multiplier / 1_000_000
     return {"cost_usd": round(cost, 6), "peak": peak}
 
 
@@ -76,15 +97,13 @@ def estimate_inference_cost_usd(
     """Estimate USD cost from token counts and the configured per-1M-token rates.
 
     When ``cache_hit_tokens`` / ``cache_miss_tokens`` are provided (DeepSeek reports them), input is
-    priced per bucket. When the split is absent, all ``prompt_tokens`` are priced at the dearer
-    cache-miss rate (conservative). Returns 0.0 when there are no tokens. Rounded to 6 dp.
+    priced per bucket, and a half left out is the rest of ``prompt_tokens`` (see ``_input_split``).
+    When the split is absent, all ``prompt_tokens`` are priced at the dearer cache-miss rate
+    (conservative). Returns 0.0 when there are no tokens. Rounded to 6 dp.
     """
     completion = completion_tokens or 0
-    hit = cache_hit_tokens or 0
-    miss = cache_miss_tokens or 0
-    if hit == 0 and miss == 0:
-        # Split not reported → price all input at the (dearer) cache-miss rate.
-        miss = prompt_tokens or 0
+    split = _input_split(prompt_tokens, cache_hit_tokens, cache_miss_tokens)
+    hit, miss = split if split is not None else (cache_hit_tokens or 0, cache_miss_tokens or 0)
     cost = (
         hit * settings.AI_INPUT_CACHE_HIT_PRICE_PER_1M
         + miss * settings.AI_INPUT_CACHE_MISS_PRICE_PER_1M
