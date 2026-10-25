@@ -3,7 +3,8 @@
 Pins what keeps a paid result from being lost or misread: a record still owed a repair is neither audited nor
 judged; an audit or a verdict of an output that has since changed is redone, and the report leaves it out;
 a failed audit or judge call keeps its cost; and generate retries only a failed repair, keeping the calls of
-a generation it replaces. The stages are imported over a stub bootstrap whose records live in ``tmp_path``,
+a generation it replaces. Also that every stage reads the prompt and the evidence pack of the system it reads.
+The stages are imported over a stub bootstrap whose records, pack directories included, live in ``tmp_path``,
 so the real bootstrap (which rewrites the process's database and AI settings) never loads, and every model
 call is faked.
 """
@@ -20,11 +21,12 @@ from typing import Any
 
 import pytest
 
-from evals.trend_depth.providers import CallResult
-from evals.trend_depth.records import output_sha256
+from evals.trend_depth.providers import ARMS, CANDIDATE_PROMPT, FROZEN_PROMPT, CallResult, packs_dir
+from evals.trend_depth.records import output_sha256, pack_sha256
 
 STAGES = ("generate", "judge", "causes", "semantics", "report")
 LABEL, TICKER = "test", "T"
+REPO = Path(__file__).resolve().parents[3]
 
 
 @pytest.fixture
@@ -43,6 +45,7 @@ def harness(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
 
     for module in (stages.judge, stages.causes, stages.generate):
         monkeypatch.setattr(module, "call", no_call)
+    monkeypatch.setattr(stages.generate, "PROMPT_DRAFT", "")  # a TREND_DEPTH_PROMPT in the shell changes nothing here
     yield stages
     for name in [n for n in sys.modules if n.split(".")[-1] in (*STAGES, "gold") and n.startswith("evals.trend_depth.")]:
         del sys.modules[name]  # the next test imports them afresh, over its own records
@@ -63,13 +66,24 @@ def _result(text: str, cost: float) -> CallResult:
     return CallResult(text, 1000, 0, 100, 0, 1.0, cost, "openai_compat", "m", {"stop_reason": "end_turn"})
 
 
+def _packs(harness: Any, **fields: Any) -> dict[str, dict[str, Any]]:
+    """Write the company's pack into every pack directory an arm reads, each pack naming its directory; return them
+    by directory. They share a snapshot_id, as packs built from one dataset do."""
+    folders = {packs_dir(name, harness.generate.RUNS.parent) for name in [*ARMS, "current"]}
+    packs = {}
+    for folder in folders:
+        packs[folder.name] = {"split": "dev", "profile": "p", "window": "w", "snapshot_id": "s1", "dir": folder.name, **fields}
+        _write(folder / f"{TICKER}.json", packs[folder.name])
+    return packs
+
+
 def _auditable(harness: Any, monkeypatch: pytest.MonkeyPatch) -> list:
     """Stub the evidence an audit reads, so an audit reaches its model call; return the calls attempted."""
     item = {"sentence": "Revenue grew because demand rose.", "passages": [{"id": "P1", "filing": "10-K", "text": "Demand rose."}]}
     check = types.SimpleNamespace(CITATION_RE=harness.causes.factcheck.CITATION_RE, check=lambda sentences, pack: {
         "detail": [{"text": "Revenue was 5.", "claims": [{"status": "verified", "ids": ["V1"], "claim": "5"}]}]})
     for module in (harness.causes, harness.semantics):
-        monkeypatch.setattr(module, "load_pack", lambda ticker: {"split": "dev", "values": {}})
+        monkeypatch.setattr(module, "load_pack", lambda ticker, system="": {"split": "dev", "values": {}})
         monkeypatch.setattr(module, "sentences_of", lambda output: [])
     monkeypatch.setattr(harness.causes, "cause_items", lambda sentences, pack: [item])
     monkeypatch.setattr(harness.semantics, "factcheck", check)
@@ -120,7 +134,7 @@ def _judge(harness: Any, monkeypatch: pytest.MonkeyPatch, cached: dict[str, Any]
         return _usable(0.1)
 
     monkeypatch.setattr(harness.judge, "_one_order", one_order)
-    monkeypatch.setattr(harness.judge, "load_pack", lambda ticker: {"split": "dev"})
+    monkeypatch.setattr(harness.judge, "load_pack", lambda ticker, system="": {"split": "dev"})
     monkeypatch.setattr(harness.judge, "reader_text", lambda record, pack: record["arm"])
     record = asyncio.run(harness.judge.judge_pair(LABEL, TICKER, "deepseek-flash", "claude-sonnet-5-5", "gemma-4-31b",
                                                   asyncio.Semaphore(1)))
@@ -145,7 +159,7 @@ def test_a_failed_audit_keeps_its_cost_and_a_stale_one_is_redone(harness: Any, m
     causes = harness.causes
     item = {"sentence": "Revenue grew because demand rose.", "passages": [{"id": "P1", "filing": "10-K", "text": "Demand rose."}]}
     monkeypatch.setattr(causes, "cause_items", lambda sentences, pack: [item])
-    monkeypatch.setattr(causes, "load_pack", lambda ticker: {"split": "dev"})
+    monkeypatch.setattr(causes, "load_pack", lambda ticker, system="": {"split": "dev"})
     monkeypatch.setattr(causes, "sentences_of", lambda output: [])
     replies = [_result('{"claims": []}', 0.2), _result('{"claims": [{"n": 1, "label": "supported", "reason": "r"}]}', 0.3),
                _result('{"claims": [{"n": 1, "label": "partial", "reason": "r"}]}', 0.3)]
@@ -188,8 +202,8 @@ def test_reuse_copies_only_a_finished_audit_of_the_same_output(harness: Any) -> 
 
 def _stub_generate(harness: Any, monkeypatch: pytest.MonkeyPatch, snapshot: str) -> list:
     generate, events = harness.generate, []
-    monkeypatch.setattr(generate, "load_pack", lambda ticker: {"snapshot_id": snapshot})
-    monkeypatch.setattr(generate, "system_prompt", lambda: "the prompt")
+    _packs(harness, snapshot_id=snapshot)
+    monkeypatch.setattr(generate, "system_prompt", lambda arm_name: "the prompt")
     monkeypatch.setattr(generate, "user_message", lambda pack: "the pack")
 
     async def repair(arm: Any, system: str, user: str, record: dict[str, Any], pack: Any, tag: str) -> None:
@@ -247,7 +261,7 @@ def test_the_report_leaves_out_refused_and_stale_audits_and_verdicts(harness: An
 
 def test_an_interrupted_judge_keeps_the_order_it_paid_for(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     _generation(harness, "deepseek-flash"), _generation(harness, "claude-sonnet-5-5")
-    monkeypatch.setattr(harness.judge, "load_pack", lambda ticker: {"split": "dev"})
+    monkeypatch.setattr(harness.judge, "load_pack", lambda ticker, system="": {"split": "dev"})
     monkeypatch.setattr(harness.judge, "reader_text", lambda record, pack: record["arm"])
     bought: list = []
     interrupt = [True]
@@ -292,8 +306,8 @@ def test_an_audit_reply_with_no_usable_label_is_a_failed_audit(harness: Any) -> 
 
 def test_a_first_pass_is_kept_while_its_repair_is_in_flight(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     generate = harness.generate
-    monkeypatch.setattr(generate, "load_pack", lambda ticker: {"split": "dev", "profile": "p", "window": "w", "snapshot_id": "s1"})
-    monkeypatch.setattr(generate, "system_prompt", lambda: "the prompt")
+    monkeypatch.setattr(generate, "load_pack", lambda ticker, system="": {"split": "dev", "profile": "p", "window": "w", "snapshot_id": "s1"})
+    monkeypatch.setattr(generate, "system_prompt", lambda arm_name: "the prompt")
     monkeypatch.setattr(generate, "user_message", lambda pack: "the pack")
     monkeypatch.setattr(generate, "validate", lambda parsed: [])
     monkeypatch.setattr(generate, "word_count", lambda parsed: 1)
@@ -359,8 +373,8 @@ def _real_generate(harness: Any, monkeypatch: pytest.MonkeyPatch, replies: list,
     """Run generate's own code over stubbed evidence: each call takes the next of ``replies`` (a result, or an
     exception to raise), each gate check the next of ``gates``. Returns the user messages the calls were sent."""
     generate = harness.generate
-    monkeypatch.setattr(generate, "load_pack", lambda ticker: {"split": "dev", "profile": "p", "window": "w", "snapshot_id": "s1"})
-    monkeypatch.setattr(generate, "system_prompt", lambda: "the prompt")
+    monkeypatch.setattr(generate, "load_pack", lambda ticker, system="": {"split": "dev", "profile": "p", "window": "w", "snapshot_id": "s1"})
+    monkeypatch.setattr(generate, "system_prompt", lambda arm_name: "the prompt")
     monkeypatch.setattr(generate, "user_message", lambda pack: "the pack")
     monkeypatch.setattr(generate, "validate", lambda parsed: [] if parsed else ["not JSON"])
     monkeypatch.setattr(generate, "word_count", lambda parsed: 1)
@@ -440,7 +454,7 @@ def test_the_first_attempt_is_on_disk_before_the_json_retry_is_sent(harness: Any
 
 def test_judge_order_one_is_on_disk_before_order_two_is_sent(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     rx, ry = _generation(harness, "deepseek-flash"), _generation(harness, "claude-sonnet-5-5")
-    monkeypatch.setattr(harness.judge, "load_pack", lambda ticker: {"split": "dev"})
+    monkeypatch.setattr(harness.judge, "load_pack", lambda ticker, system="": {"split": "dev"})
     monkeypatch.setattr(harness.judge, "reader_text", lambda record, pack: record["arm"])
     path = harness.generate.RUNS / LABEL / "judge" / "gemma-4-31b" / f"{TICKER}__deepseek-flash__claude-sonnet-5-5.json"
     # An earlier run paid for an unusable order 1 on these drafts, and an order on a draft since replaced.
@@ -505,7 +519,7 @@ def test_a_finished_verdict_on_a_changed_draft_is_redone(harness: Any, monkeypat
 def _judge_calls(harness: Any, monkeypatch: pytest.MonkeyPatch, replies: list) -> tuple[Any, list]:
     """judge_pair over the real _one_order, with each judge call taking the next of ``replies``."""
     _generation(harness, "deepseek-flash"), _generation(harness, "claude-sonnet-5-5")
-    monkeypatch.setattr(harness.judge, "load_pack", lambda ticker: {"split": "dev"})
+    monkeypatch.setattr(harness.judge, "load_pack", lambda ticker, system="": {"split": "dev"})
     monkeypatch.setattr(harness.judge, "reader_text", lambda record, pack: record["arm"])
     monkeypatch.setattr(harness.judge, "_user", lambda pack, a, b: a)
     sent: list = []
@@ -565,7 +579,7 @@ def test_semantics_audits_are_tied_to_their_output_and_left_out_when_not(harness
 def test_the_report_prices_every_paid_call_and_counts_each_failure_once(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     from evals.trend_depth.providers import ARMS, list_cost
 
-    monkeypatch.setattr(harness.report, "load_pack", lambda ticker: {})
+    monkeypatch.setattr(harness.report, "load_pack", lambda ticker, system="": {})
     monkeypatch.setattr(harness.report, "factcheck", types.SimpleNamespace(check=lambda sentences, pack: {"passed": True}))
     one = {"attempt": 0, "backend": "openai_compat", "input_tokens": 1000, "cached_input_tokens": 0, "output_tokens": 100, "cost_usd": 0.0}
     gate = {"passed": True, "claims": 1, "failed_claims": 0, "failures": [], "detail": []}
@@ -581,6 +595,100 @@ def test_the_report_prices_every_paid_call_and_counts_each_failure_once(harness:
     assert (stats["generated"], stats["failed_generations"], stats["provider_errors"], stats["pending_repairs"]) == (1, 1, 1, 1)
     assert stats["cost_mean"] == pytest.approx(5 * call_cost / 4)  # five paid calls over four generations
     assert stats["failed_generation_cost"] == pytest.approx(3 * call_cost)  # the failure, the error, the replaced one
+
+
+def _prompt(relative: str) -> str:
+    return (REPO / relative).read_text()
+
+
+@pytest.mark.parametrize("arm, prompt, folder", [
+    ("deepseek-flash", FROZEN_PROMPT, "packs"), ("deepseek-flash-p", FROZEN_PROMPT, "packs-v2"),
+    ("deepseek-flash-q", CANDIDATE_PROMPT, "packs"), ("deepseek-flash-c", CANDIDATE_PROMPT, "packs-v2"),
+])
+def test_each_arm_generates_from_its_own_prompt_and_pack(harness: Any, monkeypatch: pytest.MonkeyPatch, arm: str,
+                                                         prompt: str, folder: str) -> None:
+    generate, packs, gated, sent = harness.generate, _packs(harness), [], []
+    monkeypatch.setattr(generate, "user_message", lambda pack: pack["dir"])
+    monkeypatch.setattr(generate, "validate", lambda parsed: [])
+    monkeypatch.setattr(generate, "word_count", lambda parsed: 1)
+    monkeypatch.setattr(generate, "sentences_of", lambda parsed: [])
+    monkeypatch.setattr(generate.factcheck, "check", lambda sentences, pack: gated.append(pack["dir"]) or {"passed": True})
+
+    async def provider(arm_: Any, system: str, user: str, **kwargs: Any) -> CallResult:
+        sent.append((system, user))
+        return _result('{"sections": []}', 0.1)
+
+    monkeypatch.setattr(generate, "call", provider)
+    record = asyncio.run(generate.generate_proposed(arm, TICKER))
+    assert sent == [(_prompt(prompt), folder)] and gated == [folder]  # the prompt it pins, on its pack, gated on it
+    assert record["prompt_sha256"] == hashlib.sha256(_prompt(prompt).encode()).hexdigest()
+    assert (record["packs"], record["pack_sha256"], record["snapshot_id"]) == (folder, pack_sha256(packs[folder]), "s1")
+
+
+@pytest.mark.parametrize("built, expected", [("now", ["repair"]), ("before a rebuild", ["generate"])])
+def test_a_repair_is_retried_only_on_the_pack_build_its_first_pass_read(harness: Any, monkeypatch: pytest.MonkeyPatch,
+                                                                         built: str, expected: list) -> None:
+    events = _stub_generate(harness, monkeypatch, "s1")  # packs-v2 rebuilt in place keeps its snapshot_id
+    pack = harness.generate.load_pack(TICKER, "deepseek-flash-c")
+    _generation(harness, "deepseek-flash-c", repair_error="APIConnectionError", snapshot_id="s1",
+                prompt_sha256=hashlib.sha256(b"the prompt").hexdigest(), attempts=[{"attempt": 0, "cost_usd": 0.2}],
+                pack_sha256=pack_sha256(pack) if built == "now" else "an earlier build of packs-v2")
+    asyncio.run(harness.generate.run(LABEL, ["deepseek-flash-c"], [TICKER], 1))
+    assert events == expected
+
+
+def test_copying_checks_each_arm_against_its_own_prompt_and_pack(harness: Any) -> None:
+    packs, source = _packs(harness), harness.generate.RUNS / "source"
+    frozen, candidate = (hashlib.sha256(_prompt(p).encode()).hexdigest() for p in (FROZEN_PROMPT, CANDIDATE_PROMPT))
+    eval_v1 = {"ticker": TICKER, "generation_ok": True, "prompt_sha256": frozen, "snapshot_id": "s1"}  # no pack hash
+    _write(source / "deepseek-flash" / f"{TICKER}.json", {**eval_v1, "arm": "deepseek-flash"})
+    _write(source / "deepseek-flash-c" / f"{TICKER}.json", {**eval_v1, "arm": "deepseek-flash-c", "prompt_sha256": candidate,
+                                                             "pack_sha256": pack_sha256(packs["packs-v2"])})
+    assert harness.generate.copy_systems("source", LABEL, ["deepseek-flash", "deepseek-flash-c"], [TICKER]) == 2
+    for arm, record in (("deepseek-flash-q", eval_v1),  # the control's prompt, under an arm on the candidate
+                        ("deepseek-flash-p", {**eval_v1, "pack_sha256": pack_sha256(packs["packs"])})):  # read packs/
+        _write(source / arm / f"{TICKER}.json", {**record, "arm": arm})
+        with pytest.raises(SystemExit):
+            harness.generate.copy_systems("source", LABEL, [arm], [TICKER])
+
+
+def test_the_audits_and_the_judge_read_each_systems_own_pack(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    _packs(harness)
+    _generation(harness, "deepseek-flash"), _generation(harness, "deepseek-flash-c")
+    read: list = []
+    monkeypatch.setattr(harness.causes, "cause_items", lambda sentences, pack: read.append(("causes", pack["dir"])) or [])
+    monkeypatch.setattr(harness.semantics, "factcheck", types.SimpleNamespace(
+        check=lambda sentences, pack: read.append(("semantics", pack["dir"])) or {"detail": []}))
+    asyncio.run(harness.causes.run(LABEL, ["deepseek-flash-c"], [TICKER], 1))
+    asyncio.run(harness.semantics.run(LABEL, ["deepseek-flash-c"], [TICKER], 1))
+    monkeypatch.setattr(harness.judge, "reader_text", lambda record, pack: read.append((record["arm"], pack["dir"])) or record["arm"])
+
+    async def one_order(judge: str, pack: Any, text_a: str, text_b: str, tag: str = "") -> dict[str, Any]:
+        read.append(("judge's header", pack["dir"]))
+        return _usable(0.1)
+
+    monkeypatch.setattr(harness.judge, "_one_order", one_order)
+    asyncio.run(harness.judge.judge_pair(LABEL, TICKER, "deepseek-flash", "deepseek-flash-c", "claude-opus-5-5",
+                                         asyncio.Semaphore(1)))
+    assert read == [("causes", "packs-v2"), ("semantics", "packs-v2"), ("deepseek-flash", "packs"),
+                    ("deepseek-flash-c", "packs-v2"), ("judge's header", "packs"), ("judge's header", "packs")]
+
+
+def test_the_report_reads_each_systems_own_pack(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    _packs(harness)
+    read: list = []
+    monkeypatch.setattr(harness.report, "factcheck", types.SimpleNamespace(
+        check=lambda sentences, pack: read.append(pack["dir"]) or {"passed": True}))
+    monkeypatch.setattr(harness.report, "classify_flag", lambda item, sentences, pack: read.append(pack["dir"]) or "substantive")
+    record = _generation(harness, "deepseek-flash-c", gate={"passed": True, "claims": 1, "failed_claims": 0, "failures": []},
+                         output={"sections": [{"sentences": [{"type": "fact", "text": "x"}]}]}, words=10, latency_s=1.0,
+                         usage={"input_tokens": 1000, "output_tokens": 100})
+    harness.report.arm_stats([record])  # the final output and its first pass, under the gate as it is now
+    _write(harness.generate.RUNS / LABEL / "semantics" / "deepseek-flash-c" / f"{TICKER}.json",
+           {"auditor": "claude-opus-5-5", "output_sha256": output_sha256(record),
+            "items": [{"label": "mismatch", "claim": "5", "sentence": "x", "reason": "r"}]})
+    harness.report.semantic_support(LABEL, ["deepseek-flash-c"], [TICKER])
+    assert read == ["packs-v2", "packs-v2", "packs-v2"]
 
 
 def test_these_tests_leave_the_real_bootstrap_unloaded() -> None:

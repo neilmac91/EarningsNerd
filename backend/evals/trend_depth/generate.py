@@ -3,9 +3,10 @@
     cd backend && python -m evals.trend_depth.generate --label dev-v1 --arms deepseek-flash,claude-sonnet-5-5 --split dev
     cd backend && python -m evals.trend_depth.generate --label eval-v1 --arms current --split all
 
-Arms are the proposed prompt (``prompts/trends-depth-analyst-agent.md``) on a model from
-``providers.ARMS``, or ``current``: the production pipeline (``trend_analysis.narrative.stream_trend_narrative``,
-deepseek-flash selecting code-rendered observations) over the same window, through the same facts store.
+Arms are a model from ``providers.ARMS`` on the prompt and evidence packs the arm pins (the frozen prompt
+on ``packs/`` unless it names others), or ``current``: the production pipeline
+(``trend_analysis.narrative.stream_trend_narrative``, deepseek-flash selecting code-rendered observations) over
+the same window, through the same facts store. Each record carries the hashes of the prompt and the pack it read.
 
 Each output lands in ``tasks/analysis-depth-2026-10/runs/<label>/<arm>/<TICKER>.json`` with the raw reply,
 the parsed sections, the fact-check result, token usage, latency and cost. A reply that is not the
@@ -27,26 +28,28 @@ from typing import Any, Callable, Optional
 from evals.trend_depth import bootstrap
 from evals.trend_depth import factcheck, render
 from evals.trend_depth.companies import eval_companies
-from evals.trend_depth.providers import ARMS, call, max_tokens_for, parse_json_object
-from evals.trend_depth.records import unsettled, write_json, write_text
+from evals.trend_depth.providers import ARMS, call, max_tokens_for, packs_dir, parse_json_object, prompt_path
+from evals.trend_depth.records import pack_sha256, same_inputs, unsettled, write_json, write_text
 
-# TREND_DEPTH_PROMPT points a run at a draft prompt without touching the checked-in one mid-run.
-PROMPT_PATH = Path(os.environ.get("TREND_DEPTH_PROMPT") or bootstrap.BACKEND / "prompts" / "trends-depth-analyst-agent.md")
+# TREND_DEPTH_PROMPT points the candidate arms at a draft without touching the checked-in candidate mid-run; an arm
+# pinned to the frozen prompt ignores it (providers.prompt_path).
+PROMPT_DRAFT = os.environ.get("TREND_DEPTH_PROMPT", "")
 RUNS = bootstrap.RECORDS / "runs"
 SECTION_KEYS = ("arc", "drivers", "margins", "cash", "balance_sheet", "red_flags", "watch")
 SENTENCE_TYPES = ("fact", "comparison", "cause", "judgement")
 
 
-def load_pack(ticker: str) -> dict[str, Any]:
-    plain = bootstrap.RECORDS / "packs" / f"{ticker}.json"
-    packed = bootstrap.RECORDS / "packs" / f"{ticker}.json.gz"
+def load_pack(ticker: str, system: str = "") -> dict[str, Any]:
+    """The evidence pack ``system`` reads (``providers.packs_dir``); ``current``, gold and no system read packs/."""
+    folder = packs_dir(system, bootstrap.RECORDS)
+    packed = folder / f"{ticker}.json.gz"
     if packed.exists():
         return json.loads(gzip.decompress(packed.read_bytes()))
-    return json.loads(plain.read_text())
+    return json.loads((folder / f"{ticker}.json").read_text())
 
 
-def system_prompt() -> str:
-    return PROMPT_PATH.read_text()
+def system_prompt(arm_name: str) -> str:
+    return prompt_path(arm_name, bootstrap.BACKEND.parent, PROMPT_DRAFT).read_text()
 
 
 def user_message(pack: dict[str, Any]) -> str:
@@ -126,8 +129,8 @@ async def generate_proposed(arm_name: str, ticker: str, repair: bool = True, tag
     kill) loses nothing paid: the first attempt, as an interrupted generation, before the JSON retry; the first
     pass, marked as owed its repair, before the repair, so the next run retries only the repair."""
     arm = ARMS[arm_name]
-    pack = load_pack(ticker)
-    system, user = system_prompt(), user_message(pack)
+    pack = load_pack(ticker, arm_name)
+    system, user = system_prompt(arm_name), user_message(pack)
     attempts: list[dict[str, Any]] = []
     parsed: Optional[dict[str, Any]] = None
     problems: list[str] = []
@@ -161,6 +164,7 @@ async def generate_proposed(arm_name: str, ticker: str, repair: bool = True, tag
         "ticker": ticker, "arm": arm_name, "family": arm.family, "model": arm.model, "split": pack["split"],
         "profile": pack["profile"], "window": pack["window"], "snapshot_id": pack["snapshot_id"],
         "prompt_sha256": hashlib.sha256(system.encode()).hexdigest(),
+        "packs": packs_dir(arm_name, bootstrap.RECORDS).name, "pack_sha256": pack_sha256(pack),
         "attempts": attempts,
         "usage": _usage(attempts),
         "latency_s": round(sum(a["latency_s"] for a in attempts), 3),
@@ -228,7 +232,7 @@ async def generate_current(ticker: str) -> dict[str, Any]:
     from app.models import Company
     from app.services.trend_analysis.narrative import stream_trend_narrative
 
-    pack = load_pack(ticker)
+    pack = load_pack(ticker, "current")
     start, end = pack["window"].split("..")
     db = bootstrap.SessionLocal()
     try:
@@ -272,11 +276,10 @@ async def run(label: str, arm_names: list[str], tickers: list[str], concurrency:
         if existing and not unsettled(existing):
             return  # a model's own outcome is kept, a failure included; a provider error (quota, outage) is retried
         if existing and "repair_error" in existing:
-            pack = load_pack(ticker)
-            if (existing.get("prompt_sha256") == hashlib.sha256(system_prompt().encode()).hexdigest()
-                    and existing.get("snapshot_id") == pack["snapshot_id"]):
+            pack, system = load_pack(ticker, arm_name), system_prompt(arm_name)
+            if same_inputs(existing, hashlib.sha256(system.encode()).hexdigest(), pack):
                 async with semaphores[arm_name]:  # the first pass was paid for and stands: retry only its repair
-                    await repair_or_mark(ARMS[arm_name], system_prompt(), user_message(pack), existing, pack,
+                    await repair_or_mark(ARMS[arm_name], system, user_message(pack), existing, pack,
                                          f"{label}/repair/{arm_name}/{ticker}")
                 write_json(path, existing)
                 gate = existing.get("gate") or {}
@@ -318,15 +321,15 @@ def copy_systems(source: str, label: str, systems: list[str], tickers: list[str]
     audits (default and same-auditor folders) and the verdicts between two copied systems.
 
     Every unit is checked before anything is written: a record holding a provider error is skipped (the next
-    ``generate`` makes it), and a proposed record must come from the prompt now checked in and from the
-    evidence pack now committed (``current`` must cover the pack's window). A record already under ``label`` is
-    kept; its audits and verdicts are copied only when it is the same record byte for byte, so an audit never
-    lands beside an output it did not read.
+    ``generate`` makes it), and a proposed record must come from the prompt and the evidence pack its arm runs
+    on now (``current`` must cover the pack's window). A record already under ``label`` is kept; its audits and
+    verdicts are copied only when it is the same record byte for byte, so an audit never lands beside an output
+    it did not read.
     """
-    prompt_sha = hashlib.sha256(system_prompt().encode()).hexdigest()
     src, dst = RUNS / source, RUNS / label
     units: list[tuple[str, str]] = []
     for system in systems:
+        prompt_sha = "" if system == "current" else hashlib.sha256(system_prompt(system).encode()).hexdigest()
         for ticker in tickers:
             record_path = src / system / f"{ticker}.json"
             if not record_path.exists():
@@ -335,11 +338,11 @@ def copy_systems(source: str, label: str, systems: list[str], tickers: list[str]
             if "error" in record or "repair_error" in record:
                 print(f"skip {system} {ticker}: the {source} record holds a provider error; generate it instead")
                 continue
-            pack = load_pack(ticker)
+            pack = load_pack(ticker, system)
             if system == "current":
                 if record.get("window") != pack["window"]:
                     raise SystemExit(f"{record_path}: window {record.get('window')} is not the pack's {pack['window']}")
-            elif record.get("prompt_sha256") != prompt_sha or record.get("snapshot_id") != pack["snapshot_id"]:
+            elif not same_inputs(record, prompt_sha, pack):
                 raise SystemExit(f"{record_path} was generated from another prompt or evidence pack; generate it instead")
             units.append((system, ticker))
     same: set[tuple[str, str]] = set()

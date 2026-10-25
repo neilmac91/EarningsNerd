@@ -1,7 +1,8 @@
 """The depth harness's shared rules over run records (evals/trend_depth/records.py).
 
 Pins when a generation is final enough to audit or judge, how an audit or a verdict is tied to the output it
-read, and how the report prices a company's first analysis from the recorded calls.
+read, when a first pass may be repaired or copied (only beside the prompt and the pack it read), and how the
+report prices a company's first analysis from the recorded calls.
 """
 from __future__ import annotations
 
@@ -14,7 +15,8 @@ import pytest
 from evals.trend_depth.providers import ARMS, list_cost
 from evals.trend_depth import records
 from evals.trend_depth.records import (
-    api_cost, excerpt, first_request_cache, labelled, output_sha256, read_same_output, unsettled, write_json,
+    api_cost, excerpt, first_request_cache, labelled, output_sha256, pack_sha256, read_same_output, same_inputs, unsettled,
+    write_json,
 )
 
 
@@ -39,6 +41,18 @@ def test_an_audit_is_tied_to_the_output_it_read() -> None:
     assert read_same_output({"output_sha256": sha}, "output_sha256", sha)
     assert not read_same_output({"output_sha256": "an earlier output"}, "output_sha256", sha)
     assert read_same_output({}, "output_sha256", sha)  # written before outputs were hashed (eval-v1)
+
+
+def test_a_first_pass_is_repaired_or_copied_only_beside_the_prompt_and_pack_it_read() -> None:
+    pack = {"snapshot_id": "s1", "values": {"D1": {"value": 1.0}}}
+    record = {"prompt_sha256": "p", "snapshot_id": "s1", "pack_sha256": pack_sha256(pack)}
+    assert same_inputs(record, "p", pack)
+    assert not same_inputs(record, "another prompt", pack)
+    assert not same_inputs(record, "p", {**pack, "snapshot_id": "s2"})
+    rebuilt = {**pack, "values": {**pack["values"], "D2": {"value": 2.0}}}  # new IDs over the same dataset
+    assert rebuilt["snapshot_id"] == pack["snapshot_id"] and not same_inputs(record, "p", rebuilt)
+    assert same_inputs({"prompt_sha256": "p", "snapshot_id": "s1"}, "p", rebuilt)  # eval-v1: no pack hash, all on packs/
+    assert pack_sha256(dict(reversed(pack.items()))) == pack_sha256(pack)  # the pack's content, not its key order
 
 
 def test_a_long_reply_keeps_its_head_and_its_tail() -> None:

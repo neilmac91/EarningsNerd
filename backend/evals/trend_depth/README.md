@@ -7,33 +7,61 @@ number attribution, and writes a report. None of it runs in production or CI; it
 (`tests/unit/test_trend_depth_{factcheck,providers,records,stages}.py`).
 The findings and recommendation are in `tasks/analysis-depth-2026-10/REPORT.md`.
 
-## Re-run after a prompt change
+## Arms pin their prompt and their evidence packs
+
+A generator arm (`providers.ARMS`) names the prompt it runs (`prompt`, a repository-relative path) and the pack
+directory it reads (`packs`, under `tasks/analysis-depth-2026-10/`); `providers.prompt_path` and `packs_dir`
+resolve them. An arm that names neither runs the frozen prompt on `packs/`: the frozen prompt is
+`tasks/analysis-depth-2026-10/prompts/frozen-d558d371.md`, the prompt eval-v1 and dev-v4 ran (sha256 `d558d371…`),
+archived byte for byte, so eval-v1's records still match their arms. The experiment of `DEEPSEEK-ERRORS.md` §3
+adds three arms with deepseek-flash's model and settings, each differing from the control only in what it reads:
+
+| Arm | Role | Packs | Prompt |
+|---|---|---|---|
+| `deepseek-flash` | K0, the control | `packs/` | frozen |
+| `deepseek-flash-p` | P: the pack fixes alone | `packs-v2/` | frozen |
+| `deepseek-flash-q` | Q: the prompt fixes alone | `packs/` | candidate, `backend/prompts/trends-depth-analyst-agent.md` |
+| `deepseek-flash-c` | C, the candidate | `packs-v2/` | candidate |
+
+Every stage reads the pack of the system it reads: the gate, the repair, the audits, the judge's sources and the
+report's gate replay. `current` and the gold examples read `packs/`, as does the company header the judge shows
+both drafts. Each record keeps the sha256 of the prompt it ran (`prompt_sha256`) and of the pack it read
+(`pack_sha256`, beside `packs` and the dataset's `snapshot_id`, which a pack rebuilt over the same data keeps), and
+a first pass is repaired or copied only beside both (`records.same_inputs`). The candidate is edited in place;
+`TREND_DEPTH_PROMPT=/path/to/draft.md` stands in for it in the `-q` and `-c` arms only, never for the frozen prompt.
+To run another model on the candidate, add an arm with `prompt=CANDIDATE_PROMPT` (and `packs="packs-v2"`).
+
+## Re-run the DeepSeek experiment
 
 ```bash
 cd backend
-# 1. Tune on the development half only, never reading held-out outputs. A draft prompt can be pointed at with
-#    TREND_DEPTH_PROMPT=/path/to/draft.md without touching the checked-in one (each output records the prompt's sha256).
-python -m evals.trend_depth.generate --label dev-v5 --arms deepseek-flash,claude-sonnet-5-5 --split dev
-python -m evals.trend_depth.report --label dev-v5 --systems deepseek-flash,claude-sonnet-5-5
-# 2. Freeze the prompt, then run everything, the production pipeline included as "current".
-python -m evals.trend_depth.generate --label eval-v2 --arms current,deepseek-flash,claude-sonnet-5-5,claude-haiku-5-5-low,gemini-3.8-flash --split all
-# 3. Judge every pair in both orders. Add --exclude-judges gemini-3.8-flash when the Gemini quota is spent
-#    (Gemma 4 31B then judges the Claude-vs-DeepSeek pairs), or gemini-3.8-flash,gemma-4-31b for consensus panels.
-python -m evals.trend_depth.judge --label eval-v2 --systems current,deepseek-flash,claude-sonnet-5-5,claude-haiku-5-5-low
-# 4. Audit causes against their passages and verified numbers against their labels, by default with an auditor
-#    from another family; --auditor <arm> repeats the audit with one auditor for every system.
-python -m evals.trend_depth.causes --label eval-v2 --systems deepseek-flash,claude-sonnet-5-5,claude-haiku-5-5-low,gold
-python -m evals.trend_depth.semantics --label eval-v2 --systems deepseek-flash,claude-sonnet-5-5,claude-haiku-5-5-low
-python -m evals.trend_depth.causes --label eval-v2 --systems deepseek-flash,claude-sonnet-5-5,claude-haiku-5-5-low,gold --auditor claude-opus-5-5
-python -m evals.trend_depth.semantics --label eval-v2 --systems deepseek-flash,claude-sonnet-5-5,claude-haiku-5-5-low --auditor claude-opus-5-5
-# 5. The report: development and held-out side by side, gate results as run and under the current gate.
-python -m evals.trend_depth.report --label eval-v2 --systems current,deepseek-flash,claude-sonnet-5-5,claude-haiku-5-5-low
+ARMS=deepseek-flash,deepseek-flash-p,deepseek-flash-q,deepseek-flash-c   # P and C need packs-v2/
+# 1. Development half only, never reading held-out outputs: two independent runs of every arm, one label each.
+python -m evals.trend_depth.generate --label dev-v5-r1 --arms $ARMS --split dev
+python -m evals.trend_depth.generate --label dev-v5-r2 --arms $ARMS --split dev
+# 2. In each run: audits of K0 and C (Opus by default for a DeepSeek system, V4 Pro the second auditor), then the
+#    judge, C against K0 in both orders (Opus, the first judge from neither output's family).
+for label in dev-v5-r1 dev-v5-r2; do
+  python -m evals.trend_depth.causes --label $label --systems deepseek-flash,deepseek-flash-c
+  python -m evals.trend_depth.semantics --label $label --systems deepseek-flash,deepseek-flash-c
+  python -m evals.trend_depth.causes --label $label --systems deepseek-flash,deepseek-flash-c --auditor deepseek-v4-pro
+  python -m evals.trend_depth.semantics --label $label --systems deepseek-flash,deepseek-flash-c --auditor deepseek-v4-pro
+  python -m evals.trend_depth.judge --label $label --systems deepseek-flash,deepseek-flash-c
+  python -m evals.trend_depth.report --label $label --systems $ARMS
+done
+# 3. Freeze: stop editing the candidate and packs-v2/ (every record carries their hashes), then run K0 and C on
+#    the held-out half, two runs each, with step 2's audits, judge and report.
+python -m evals.trend_depth.generate --label eval-v2-r1 --arms deepseek-flash,deepseek-flash-c --split holdout
+python -m evals.trend_depth.generate --label eval-v2-r2 --arms deepseek-flash,deepseek-flash-c --split holdout
 ```
 
-The packs in `tasks/analysis-depth-2026-10/packs/` are committed, so every step reads the same evidence and
-needs no SEC access, except the `current` arm, which ingests companyfacts into the local store. A file that
+`--copy-from eval-v1` still copies any arm on the frozen prompt and `packs/`, `current` and `deepseek-flash`
+included. The packs in `tasks/analysis-depth-2026-10/packs/` are committed, so every step reads the same evidence
+and needs no SEC access, except the `current` arm, which ingests companyfacts into the local store. A file that
 exists is skipped, so use a new label per run. A record holding a provider error (a quota, an outage) is
-retried by the next run with the same label.
+retried by the next run with the same label. Judging other pairs: `--exclude-judges gemini-3.8-flash` when the
+Gemini quota is spent (Gemma 4 31B then judges the Claude-vs-DeepSeek pairs), or `gemini-3.8-flash,gemma-4-31b`
+for consensus panels; `--auditor <arm>` repeats an audit with one auditor for every system.
 
 Keys are read by name: `DEEPSEEK_API_KEY`, `GEMINI_API_KEY` (or the cloud container's `OPENAI_API_KEY` with
 a Google base URL), and `ANTHROPIC_API_KEY`. Without an Anthropic key, Claude runs through `claude -p` (the
@@ -166,8 +194,8 @@ moves a gold example's citations to the new IDs, and `gold check` then re-verifi
 | `evidence.py` | assembles a pack, including data checks and peer percentiles from the store |
 | `render.py` | the pack as the generator reads it |
 | `factcheck.py` | the gate |
-| `providers.py` | model arms, usage, latency and list-price cost, the spend ledger and its ceiling |
-| `records.py` | the rules every stage shares over run records: when an output is final, the hash an audit or verdict keeps, the cost a first analysis would bill |
+| `providers.py` | model arms (each pinned to its prompt and pack directory), usage, latency and list-price cost, the spend ledger and its ceiling |
+| `records.py` | the rules every stage shares over run records: when an output is final, the hash an audit or verdict keeps, whether a first pass came from this prompt and pack, the cost a first analysis would bill |
 | `generate.py` | proposed and current generations, the one-repair step, the gate |
 | `judge.py`, `readable.py` | pairwise position-swapped judging in a neutral reader format |
 | `causes.py` | does each cited passage state the cause its sentence gives? |

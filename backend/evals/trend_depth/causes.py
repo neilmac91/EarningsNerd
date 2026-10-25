@@ -198,7 +198,8 @@ async def run(label: str, systems: list[str], tickers: list[str], concurrency: i
                 return
             reuse_audit(label, "causes", system, ticker, auditor, output_sha256(record))
             try:
-                await audit(system, ticker, sentences_of(record["output"]), load_pack(ticker), out, auditor, output_sha256(record))
+                await audit(system, ticker, sentences_of(record["output"]), load_pack(ticker, system), out, auditor,
+                            output_sha256(record))
             except Exception as exc:  # noqa: BLE001 - an audit failure is reported, never a verdict
                 print(f"causes {system} {ticker} failed: {exc}", flush=True)
 

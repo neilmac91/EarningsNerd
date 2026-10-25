@@ -2,23 +2,28 @@
 
 Pins the request shapes the Claude 5.5 models accept: effort inside ``output_config``, adaptive thinking by
 default, ``disabled`` thinking only where it is valid (Haiku 5.5), ``between_tools`` for Sonnet 5.5, and
-no sampling parameters. Also pins the spend ledger and the ceiling checked before each call. The SDK is not
+no sampling parameters. Also pins the spend ledger and the ceiling checked before each call, and the prompt and
+pack directory each arm runs on (the frozen prompt on packs/ unless the arm names others). The SDK is not
 needed: the builder returns plain keyword arguments and the network call is faked.
 """
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import sys
 import types
+from dataclasses import replace
+from pathlib import Path
 from typing import Any, Optional
 
 import pytest
 
 from evals.trend_depth import providers
 from evals.trend_depth.providers import (
-    ARMS, BudgetExceeded, CallResult, IncompleteReply, KeyBusy, LedgerTorn, anthropic_request, call, canonical_pair,
-    labels_by_number, list_cost, max_tokens_for, worst_case_usd,
+    ARMS, CANDIDATE_PROMPT, FROZEN_PROMPT, BudgetExceeded, CallResult, IncompleteReply, KeyBusy, LedgerTorn,
+    anthropic_request, call, canonical_pair, labels_by_number, list_cost, max_tokens_for, packs_dir, prompt_path,
+    worst_case_usd,
 )
 
 
@@ -85,6 +90,52 @@ def test_pairs_have_one_orientation() -> None:
     assert canonical_pair("claude-sonnet-5-5", "current") == ("current", "claude-sonnet-5-5")
     assert canonical_pair("deepseek-flash", "claude-haiku-5-5-low") == ("deepseek-flash", "claude-haiku-5-5-low")
     assert canonical_pair("claude-haiku-5-5-low", "deepseek-flash") == ("deepseek-flash", "claude-haiku-5-5-low")
+
+
+REPO = Path(__file__).resolve().parents[3]
+FROZEN_SHA256 = "d558d371f739479c44f6727a2fb1166f82fbade3f74e6d37f3b2c4fc401229ba"  # the prompt eval-v1 and dev-v4 ran
+EXPERIMENT = {  # DEEPSEEK-ERRORS.md §3 step 2: (prompt, packs) of the arms off the frozen prompt on packs/
+    "deepseek-flash-p": (FROZEN_PROMPT, "packs-v2"),
+    "deepseek-flash-q": (CANDIDATE_PROMPT, "packs"),
+    "deepseek-flash-c": (CANDIDATE_PROMPT, "packs-v2"),
+}
+
+
+@pytest.mark.parametrize("system", [*ARMS, "current", "gold"])
+def test_each_system_reads_the_prompt_and_packs_its_arm_pins(system: str, tmp_path) -> None:
+    prompt, packs = EXPERIMENT.get(system, (FROZEN_PROMPT, "packs"))  # every other arm, the control included
+    assert prompt_path(system, REPO) == REPO / prompt
+    assert packs_dir(system, tmp_path) == tmp_path / packs
+
+
+def test_the_experiment_arms_differ_from_the_control_only_in_what_they_read() -> None:
+    control = ARMS["deepseek-flash"]
+    for name in EXPERIMENT:
+        assert replace(ARMS[name], name=control.name, prompt="", packs="") == control  # model, prices, settings
+
+
+def test_the_frozen_prompt_is_the_one_eval_v1_and_dev_v4_ran() -> None:
+    assert hashlib.sha256((REPO / FROZEN_PROMPT).read_bytes()).hexdigest() == FROZEN_SHA256
+    runs = REPO / "tasks" / "analysis-depth-2026-10" / "runs"
+    records = [json.loads(path.read_text()) for label in ("eval-v1", "dev-v4") for path in (runs / label).glob("*/*.json")]
+    proposed = [r for r in records if r.get("prompt_sha256")]
+    assert len(proposed) >= 90  # 4 arms x 20 companies, and 2 x 5
+    for record in proposed:  # copying these records forward still finds them on their arm's own prompt
+        assert record["prompt_sha256"] == hashlib.sha256(prompt_path(record["arm"], REPO).read_bytes()).hexdigest()
+
+
+def test_a_draft_stands_in_for_the_candidate_prompt_only(tmp_path) -> None:
+    draft = str(tmp_path / "draft.md")
+    for system in ("deepseek-flash-q", "deepseek-flash-c"):
+        assert prompt_path(system, REPO, draft) == Path(draft)
+    for system in ("deepseek-flash", "deepseek-flash-p", "claude-sonnet-5-5"):
+        assert prompt_path(system, REPO, draft) == REPO / FROZEN_PROMPT  # an arm on the frozen prompt runs nothing else
+
+
+def test_each_arm_names_a_prompt_in_the_repository_and_a_packs_folder_beside_the_records() -> None:
+    for arm in ARMS.values():
+        assert not arm.prompt or (not Path(arm.prompt).is_absolute() and (REPO / arm.prompt).is_file())
+        assert "/" not in arm.packs and ".." not in arm.packs
 
 
 def _api(monkeypatch: pytest.MonkeyPatch, tmp_path, spent: float, meta: dict) -> list:
