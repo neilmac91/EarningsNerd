@@ -2691,6 +2691,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>Analytics are collected where we do not use cookies only with your consent.</p>', true],
       ['<p>We collect analytics when you are not signed in only with your consent.</p>', true],
       ['<p>PostHog runs in your browser, while server events are not collected only after you consent.</p>', false],
+      // The clause after "that" says the wait with its own subject: denied there, the promise is taken back, and a
+      // negation from outside says it again.
+      ['<p>We promise that no analytics are collected only with your consent.</p>', false],
+      ['<p>It is not true that no analytics are collected only with your consent.</p>', true],
       // Codex on #1618: "only" set off by a mark sets the promise apart from the denial before it; a list before
       // "only" sets nothing apart.
       ['<p>Analytics are not collected automatically, only after you consent.</p>', true],
