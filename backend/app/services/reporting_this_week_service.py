@@ -10,14 +10,13 @@ Concurrent cache misses wait on one read rather than each checking out a pooled 
 """
 from __future__ import annotations
 
-import asyncio
 import logging
+import threading
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
-from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -100,41 +99,34 @@ class ReportingThisWeekService:
         # Caches the FULL matched list (unlimited) so different callers requesting different
         # `limit` values within the same cache window each get correctly sliced results —
         # caching the already-limited response would let a small-limit request poison the
-        # cache for a later, larger-limit request in the same window.
-        self._cache_companies: Optional[List[ReportingCompany]] = None
-        self._cache_timestamp: Optional[datetime] = None
-        self._cache_week: Optional[tuple[date, date, date]] = None
-        self._fill_lock: Optional[asyncio.Lock] = None
-        self._fill_lock_loop: Optional[asyncio.AbstractEventLoop] = None
-
-    def _get_fill_lock(self) -> asyncio.Lock:
-        """The cache-miss lock, built lazily and keyed to the running loop: an asyncio primitive
-        binds to a loop on its first contended await, and pytest runs a loop per test."""
-        loop = asyncio.get_running_loop()
-        if self._fill_lock is None or self._fill_lock_loop is not loop:
-            self._fill_lock = asyncio.Lock()
-            self._fill_lock_loop = loop
-        return self._fill_lock
+        # cache for a later, larger-limit request in the same window. Requests read it from
+        # worker threads, so a fill replaces the whole snapshot (its key, fill time and list) in
+        # one assignment: a reader sees one fill or the next, never a mix.
+        self._cache: Optional[tuple[tuple[date, date, date], datetime, List[ReportingCompany]]] = None
+        # Single flight, a thread lock because requests run in the thread pool: concurrent misses
+        # (a fresh instance, ET midnight, a lapsed TTL) queue here and recheck, so one read fills
+        # the cache instead of one pooled connection each. A waiter holds no connection: the
+        # route is public, so its session has run no query yet.
+        self._fill_lock = threading.Lock()
 
     def _cached(
         self, key: tuple[date, date, date], now: datetime
     ) -> Optional[tuple[List[ReportingCompany], datetime]]:
         """The cached week and its timestamp, if they are for `key` and inside the TTL."""
-        if (
-            self._cache_companies is not None
-            and self._cache_timestamp is not None
-            and self._cache_week == key
-            and now - self._cache_timestamp < self._cache_ttl
-        ):
-            return self._cache_companies, self._cache_timestamp
+        cached = self._cache
+        if cached is not None and cached[0] == key and now - cached[1] < self._cache_ttl:
+            return cached[2], cached[1]
         return None
 
-    async def get_reporting_this_week(
+    def get_reporting_this_week(
         self, db: Session, *, limit: int = 16, force_refresh: bool = False,
         today: Optional[date] = None,
     ) -> Dict[str, Any]:
         """Return the week's most-anticipated large-caps, ranked. Always returns a dict with a
-        `companies` list (possibly empty) and a `status` field (`ok` | `empty`). Never raises."""
+        `companies` list (possibly empty) and a `status` field (`ok` | `empty`). Never raises.
+
+        Synchronous SQLAlchemy: the route runs it in the thread pool and releases the session in
+        the same unit (``lessons/ops-release-cached-filing-reads-before-yield.md``)."""
         # NY-today is resolved locally rather than via earnings_calendar_service.today_eastern():
         # that module imports CURATED_TICKERS from THIS one, and the reverse import would close a
         # cycle its defensive try/except silently swallows — zeroing out curated scoring.
@@ -147,22 +139,15 @@ class ReportingThisWeekService:
         key = (monday, friday, today_ny)
         hit = None if force_refresh else self._cached(key, now)
         if hit is None:
-            # Single flight: concurrent misses (a fresh instance, ET midnight, a lapsed TTL) queue
-            # here and recheck, so one read fills the cache instead of one pooled connection each.
-            async with self._get_fill_lock():
+            with self._fill_lock:
                 now = datetime.now(timezone.utc)
                 hit = None if force_refresh else self._cached(key, now)
                 if hit is None:
-                    # Off the event loop: this public route has no auth dependency that checks the
-                    # session out first, and a checkout waiting on a full pool must not stop the
-                    # request holding the last connection from finishing and releasing it.
-                    fetched = await run_in_threadpool(self._fetch, db, monday, friday, today_ny)
+                    fetched = self._fetch(db, monday, friday, today_ny)
                     if fetched is None:  # a failed read serves this request only; the next retries
                         hit = ([], now)
                     else:
-                        self._cache_companies = fetched
-                        self._cache_timestamp = now
-                        self._cache_week = key
+                        self._cache = (key, now, fetched)
                         hit = (fetched, now)
         companies, timestamp = hit
 

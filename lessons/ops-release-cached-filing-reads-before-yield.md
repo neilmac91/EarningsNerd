@@ -127,14 +127,75 @@ saved-summary status read, a sync route, among them. Each async route is now one
 own connection, and the library's writes hold a lock from their check to their commit (below). Their
 burst case holds every checkout, statement and release off the loop and each reader to its own library
 (2026-10-24, E171).
+The homepage's reporting-this-week strip, public, ran its read in the thread pool from its service, behind
+a single-flight lock on the loop, but left that read's transaction for the finalizer: eight readers on four
+slots left the one reader's on a cold cache, and all eight with a cache that never holds. The service is
+now synchronous, as the notable-filings strip's is, its single flight a thread lock and its cache replaced
+in one assignment, and the route runs it and the release as one thread-pool unit: neither burst leaves one.
+A cache hit now takes a thread hop as well, and a miss waits for the fill on a thread, holding no
+connection. Its burst case holds every checkout off the loop and nothing left for the finalizer
+(2026-10-24, E171).
+The account routes (the profile edit, the alert preferences' read and update, and the bell's list and
+mark) handed their session to services on the loop, on the connection the auth lookup had checked out.
+Eight readers of each on four slots answered as they should, but every statement after the auth lookup
+ran on the loop (16 of 24 for eight profile edits or bell reads, 40 of 48 for eight first preference
+reads or eight updates, 32 of 40 for eight marks), each write's read after its commit checked a connection out
+there (8 of 16), and every one of them, a refused update included, left its transaction for the
+finalizer. Each is now one thread-pool unit that shapes its answer and releases its session, the
+update's refusal and the plan behind its Pro toggles (the account's subscription row) inside it too, and
+two of their writes are atomic in the database (below). Their burst case holds every checkout,
+statement and release off the loop, each answer and each reader's rows (2026-10-24, E171). A body or
+query that fails its schema (422) is answered after the auth dependency has run and before the route
+does, so it still leaves the lookup's transaction for the finalizer, here as on every authenticated
+route; malformed JSON is refused before any dependency runs.
+The data export and the account deletion handed their session to services on the loop as well. Eight of
+each on four slots answered as they should, but every statement after the auth lookup ran on the loop (80
+of 88 for eight exports, 144 of 152 for eight deletions), each audit row's read after its commit checked
+a connection out there (8 of 16), every export left its transaction for the finalizer, and each of the
+eight deletions held the auth lookup's connection through its Stripe cancellation and its PostHog flush,
+and flushed on the loop. The export is now one thread-pool unit that builds the payload, writes its audit
+row, releases its session and renders the response. The deletion releases the auth lookup's connection
+before its third-party calls, sends PostHog its deletion event in a worker thread (the flush waits up to
+10 s, holding that thread's token), then writes its audit row and deletes the account in one unit that
+rolls a failure back before its release. That unit deletes the account by its id once the lock's own
+query finds the row (`user_account_service.delete_user`; `db.get` would hand back a row the session
+loaded before another transaction deleted it): the second of two deletions of one account at once finds
+none there and answers the route's own 500, naming the account in its log line, where the base's re-read
+the expired account in its error log and raised, so the global handler answered (a local PostgreSQL 16
+probe, 10 of 10 each; `test_refresh_rotation_transactions.py` races two deletions on PostgreSQL in CI). A
+cancelled request task stops the deletion at the await it is in, so before the audit row unless that unit
+has started: a unit or a Stripe call a thread has started runs to its end, and one still queued never
+runs. Nothing in the deploy cancels a request today (uvicorn cancels only after a graceful-shutdown
+timeout the deploy does not set, or on a forced quit), but Cloud Run's SIGKILL, which follows its
+SIGTERM, stops a deletion wherever it is (F18). Their burst cases hold every checkout, statement and
+release off the loop, and one deletion makes its Stripe and PostHog calls with no connection out
+(2026-10-24, E171).
+The Copilot ask stream read its filing, resolved the plan and took its admission's lease on the loop, on
+the connection the auth lookup had checked out. Eight askers on four slots answered as they should, but
+56 of 128 statements ran on the loop for eight Pro questions and 48 of 88 for eight Free ones, each
+admission's commit gave its connection back there, and a missing filing (8 of 24 statements) or a
+reached cap (16 of 32) left its transaction for the finalizer. On a local PostgreSQL 16, another
+transaction holding the asker's `users` row for 1.0 s froze the loop for 1.0 s, Pro or Free: the
+admission waits for that row's lock (up to `USAGE_COUNTER_LOCK_TIMEOUT_MS`, 3 s), and every request on
+the instance waited with it. The filing read, its snapshot, the plan and the admission are now one
+thread-pool unit that releases its session before the stream starts, the admission's refusals included;
+with the row held the same way, the loop's longest gap between its 10 ms ticks was 14 ms (five runs of
+each). The admission is a check-then-write that the loop no longer runs one at a time, and it needs
+nothing new: `subscription_service._reserve_use` takes the account's `users` row lock before it
+counts, and `test_usage_counter_transactions.py` races both Copilot leases on PostgreSQL in CI. A taste
+the dependency already finds spent (`require_copilot_or_taste`'s 403) and a question over the route's own
+rate limit (its 429) are refused before the unit runs, so, like a 422, each still leaves the lookup's
+transaction for the finalizer. Its burst case holds every checkout, statement and release off the loop,
+each answer and each asker's metering (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
 dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
-rules, uses it. Its ceilings hold the routes that still hand their session to a call on the loop at
-their counts (the rest of the auth router, E121, and 23 routes in four other routers, E171; six of
-those hand-offs, the header's strict ones, use no connection on the loop), so none can add one in a
+rules, uses it. Its ceilings hold the routes that still use their session on the loop at
+their counts (the rest of the auth router, E121; the admin router's 14 routes and the summaries router's
+generate stream and two exports, E171; five of those hand-offs, the header's strict ones, use no
+connection on the loop), so none can add one in a
 form the ratchet counts and a new route starts at 0. Neither half
 sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called
 where it is written) where the burst does not list the route, or a background task's own session worked on the loop
@@ -152,11 +213,25 @@ E118's reviews found that five of its units had relied on the loop's order. With
 Each now holds a lock from its check to its commit (2026-10-19). E171's saved-summary slice found three
 more in the library's writes, each now under `saved_summary_service.saved_row_lock`: two saves of one
 summary both passed the duplicate check and stored it twice, two deletes of one row both succeeded, and a
-notes update racing a delete failed on the deleted row (`StaleDataError`, a 500) (2026-10-24). The gate is
-`backend/tests/unit/test_check_then_write_units_serialize.py`. It meets two threads inside each unit
-after their checks, so without the lock the race happens however loaded the host, and it fails any
-checkout made inside the watch-row or saved-row lock in the races it runs. It covers those eight units
-only.
+notes update racing a delete failed on the deleted row (`StaleDataError`, a 500) (2026-10-24). E171's
+account slice found two more and writes each atomically in the database instead, which reaches every
+instance and the alert scanner too: two first reads of one account's alert preferences both found no
+row, and the second insert's clash on the unique `user_id` answered 500, so the insert runs under a
+SAVEPOINT and a clash reads the stored row (`notification_service.get_or_create_preferences`); and of
+two marks of the bell, the one stamped first could commit last and put its earlier stamp back, so the
+mark's UPDATE writes its stamp only over an older one (`user_notification_feed_service.mark_seen`)
+(2026-10-24). The gate is `backend/tests/unit/test_check_then_write_units_serialize.py`. It meets two
+threads inside each unit after their checks (for the marks, the one stamped first checks before the other
+starts and writes once it has committed), so without the lock or the atomic write the race happens
+however loaded the host, and it fails any checkout made inside the watch-row or saved-row lock in the
+races it runs. It covers those
+ten units only. SQLite serializes every writer, so for the two account writes it meets only their
+sequential order. No CI step races them on PostgreSQL, where the second insert waits on the first's
+uncommitted row and the stamp's UPDATE re-checks its WHERE after a row-lock wait. The pull request's
+local PostgreSQL 16 run did, ten runs each: two first reads that met after their check answered one stored
+row (on the base one of them failed with IntegrityError); a first read that met an update's uncommitted
+insert waited 0.505 to 0.510 s for it and answered its row; and a mark stamped first that waited on the
+later mark's row lock left the later stamp (on the base, the earlier one).
 
 Those locks reach one process, and the API runs up to two instances, across which the five races stayed
 open. Since E128 each unit also takes, before its check, a lock in the database that every instance

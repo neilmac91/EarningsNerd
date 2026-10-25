@@ -475,6 +475,10 @@ returns to the figure (the `Modal` contract).
 
 Shipped in #1203 (chart notes with a placement pass, PNG notes). The rules, with the corrections of §11:
 
+When the trend charts' new renderer replaces today's charts, `docs/design/analysis-trend-charts-spec-2026-10.md`
+replaces the note marks and the "Notes a" chip below for those four charts (its §0.5); the filled bars stay. Until
+then these rules govern production.
+
 - An affected point is a hollow marker (panel fill, 2 px series-colour stroke, ≥ 3:1 on both grounds)
   with the note letter above it; an affected bar keeps its fill and carries the letter above it (a
   dashed or hollow bar reads as an estimate in a financial chart). A growth-line point's letter can

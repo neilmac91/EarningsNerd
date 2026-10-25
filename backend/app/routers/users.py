@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator
@@ -14,6 +15,7 @@ from app.routers.auth import get_current_user, _clear_auth_cookie, _clear_refres
 # The user_* services are imported as modules, not functions: their functions stay patchable at
 # their home, and no handler below can shadow a service function of the same name.
 from app.services import user_account_service, user_data_export_service, user_notification_feed_service
+from app.services import filing_list_service
 from app.services.audit_service import log_user_deletion, log_data_export
 from app.services.entitlements import get_entitlements
 from app.services.notification_service import (
@@ -103,13 +105,18 @@ async def update_profile(
 ):
     """Update editable profile fields (currently the display name)."""
     data = payload.model_dump(exclude_unset=True)
-    user_account_service.apply_profile_update(db, current_user, data)
-    return {
-        "id": current_user.id,
-        "email": current_user.email,
-        "full_name": current_user.full_name,
-        "is_pro": current_user.is_pro,
-    }
+
+    def update() -> Dict[str, Any]:
+        # The profile edit's session work, and each preference, bell and export route's, is one unit in
+        # the thread pool: its reads and writes, its payload and the release, so no checkout or statement
+        # waits on the event loop (lessons/ops-release-cached-filing-reads-before-yield.md). The deletion
+        # releases the auth lookup's connection before its third-party calls and writes in one unit after.
+        try:
+            return user_account_service.apply_profile_update(db, current_user, data)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(update)
 
 
 class NotificationPreferencesResponse(BaseModel):
@@ -162,8 +169,16 @@ async def get_notification_preferences(
     db: Session = Depends(get_db),
 ):
     """Get the current user's new-filing alert preferences (creating defaults if none exist)."""
-    prefs = get_or_create_preferences(db, current_user.id)
-    return _prefs_response(prefs, get_entitlements(current_user))
+
+    def read() -> NotificationPreferencesResponse:
+        try:
+            prefs = get_or_create_preferences(db, current_user.id)
+            # The plan reads the account's subscription row, so it is resolved inside the unit too.
+            return _prefs_response(prefs, get_entitlements(current_user))
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(read)
 
 
 @router.put("/me/notification-preferences", response_model=NotificationPreferencesResponse)
@@ -177,18 +192,26 @@ async def update_notification_preferences(
     Pro-gated toggles (``realtime``, ``notify_8k``) are accepted but **coerced off** for non-Pro
     users (rather than erroring), so the frontend can show them as locked Pro upsells.
     """
-    prefs = get_or_create_preferences(db, current_user.id, commit=False)
-
     VALID_CHANNELS = {"email", "in_app"}
     VALID_DIGESTS = {"immediate", "daily", "weekly"}
     data = update.model_dump(exclude_unset=True)
-    if "channel" in data and data["channel"] not in VALID_CHANNELS:
-        raise HTTPException(status_code=400, detail=f"Channel must be one of: {', '.join(sorted(VALID_CHANNELS))}.")
-    if "digest" in data and data["digest"] not in VALID_DIGESTS:
-        raise HTTPException(status_code=400, detail=f"Digest must be one of: {', '.join(sorted(VALID_DIGESTS))}.")
 
-    ent = apply_preference_update(db, prefs, data, current_user)
-    return _prefs_response(prefs, ent)
+    def write() -> NotificationPreferencesResponse:
+        try:
+            # A refusal is raised in the unit too, so it still releases the auth lookup's connection.
+            if "channel" in data and data["channel"] not in VALID_CHANNELS:
+                raise HTTPException(
+                    status_code=400, detail=f"Channel must be one of: {', '.join(sorted(VALID_CHANNELS))}.")
+            if "digest" in data and data["digest"] not in VALID_DIGESTS:
+                raise HTTPException(
+                    status_code=400, detail=f"Digest must be one of: {', '.join(sorted(VALID_DIGESTS))}.")
+            prefs = get_or_create_preferences(db, current_user.id, commit=False)
+            ent = apply_preference_update(db, prefs, data, current_user)
+            return _prefs_response(prefs, ent)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(write)
 
 
 # --------------------------------------------------------------------------- in-app notifications
@@ -244,7 +267,14 @@ async def list_notifications(
     db: Session = Depends(get_db),
 ):
     """Recent filing alerts for the in-app bell, newest first, plus the unread count."""
-    return _notifications_payload(db, current_user, limit)
+
+    def read() -> NotificationListResponse:
+        try:
+            return _notifications_payload(db, current_user, limit)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(read)
 
 
 @router.post("/me/notifications/seen", response_model=NotificationListResponse)
@@ -252,14 +282,17 @@ async def mark_notifications_seen(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Mark the bell as opened (resets the unread count). Returns the now-read recent list.
+    """Mark the bell as opened (resets the unread count). Returns the now-read recent list, built from
+    the user ``mark_seen`` reads back after its commit."""
 
-    Fetch the real row via ``db.get`` and mutate it directly (rather than a bulk UPDATE) so the
-    response is built from a fresh, in-session user — robust regardless of ``expire_on_commit`` — and
-    so it works for the test stand-in (a non-session user) too.
-    """
-    user = user_notification_feed_service.mark_seen(db, current_user)
-    return _notifications_payload(db, user, 20)
+    def mark() -> NotificationListResponse:
+        try:
+            user = user_notification_feed_service.mark_seen(db, current_user)
+            return _notifications_payload(db, user, 20)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(mark)
 
 
 @router.get("/export")
@@ -272,23 +305,34 @@ async def export_user_data(
 
     Provider logs, audit records, correspondence and backups are not included in this export.
     """
-    try:
-        export_data = user_data_export_service.build_user_data_export(db, current_user)
+    user_id = current_user.id
 
-        logger.info(f"User data export completed for user {current_user.id}")
+    def export() -> JSONResponse:
+        # One unit in the thread pool, as the profile edit's: the payload, its audit row and the release,
+        # then the response, rendered there too. The audit row's commit expires the account row, so
+        # nothing after it reads the row.
+        try:
+            export_data = user_data_export_service.build_user_data_export(db, current_user)
 
-        # Create audit log entry
-        log_data_export(db, current_user.id, current_user.email)
+            logger.info(f"User data export completed for user {user_id}")
+
+            # Create audit log entry
+            log_data_export(db, user_id, current_user.email)
+        finally:
+            filing_list_service.release_request_session(db)
 
         return JSONResponse(
             content=export_data,
             headers={
-                "Content-Disposition": f'attachment; filename="earningsnerd_data_export_{current_user.id}_{utcnow().strftime("%Y%m%d_%H%M%S")}.json"'
+                "Content-Disposition": f'attachment; filename="earningsnerd_data_export_{user_id}_{utcnow().strftime("%Y%m%d_%H%M%S")}.json"'
             }
         )
 
+    try:
+        return await run_in_threadpool(export)
+
     except Exception as e:
-        logger.error(f"Error exporting user data for user {current_user.id}: {str(e)}")
+        logger.error(f"Error exporting user data for user {user_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="We could not export your data. Try again in a moment."
@@ -314,6 +358,21 @@ def _cancel_billable_subscriptions(stripe_customer_id: str, user_id: int) -> Non
         logger.info(f"Cancelled Stripe subscription {subscription.id} for user {user_id}")
 
 
+def _request_posthog_deletion(user_id: int) -> None:
+    """Send PostHog the account's ``$delete`` event and wait for it to go. The flush waits up to 10 s, so the
+    account deletion runs this in a worker thread, off the event loop, holding no pooled connection."""
+    # PostHog GDPR deletion — keyed by distinct_id (user id). Do not echo the
+    # email back as a property; the $delete event already targets this person.
+    posthog_client.capture(
+        distinct_id=str(user_id),
+        event='$delete',
+        properties={
+            'deletion_timestamp': utcnow().isoformat()
+        }
+    )
+    posthog_client.flush()  # Ensure the event is sent immediately
+
+
 @router.delete("/me")
 async def delete_user_account(
     current_user: User = Depends(get_current_user),
@@ -332,16 +391,20 @@ async def delete_user_account(
     Stripe customer, audit and provider records can remain. Provider actions are best-effort;
     this endpoint does not establish universal erasure or a fixed legal retention period.
     """
+    # The auth lookup loaded these, so reading them makes no statement.
+    user_id = current_user.id
+    user_email = current_user.email
+    stripe_customer_id = current_user.stripe_customer_id
     try:
-        user_id = current_user.id
-        user_email = current_user.email
-        stripe_customer_id = current_user.stripe_customer_id
-
         # Log deletion for audit trail (before deleting user)
         logger.warning(
             f"USER DELETION: User {user_id} ({user_email}) account deletion initiated. "
             f"Stripe customer: {stripe_customer_id}"
         )
+
+        # The auth lookup's connection goes back before the third-party calls, so none of them holds
+        # one; the audit row and the deletion run after them as one unit in the thread pool (E171).
+        await run_in_threadpool(filing_list_service.release_request_session, db)
 
         # Delete from third-party services BEFORE deleting from database
         deletion_results = {
@@ -366,16 +429,7 @@ async def delete_user_account(
         # 2. Send deletion request to PostHog
         if POSTHOG_AVAILABLE and posthog_client:
             try:
-                # PostHog GDPR deletion — keyed by distinct_id (user id). Do not echo the
-                # email back as a property; the $delete event already targets this person.
-                posthog_client.capture(
-                    distinct_id=str(user_id),
-                    event='$delete',
-                    properties={
-                        'deletion_timestamp': utcnow().isoformat()
-                    }
-                )
-                posthog_client.flush()  # Ensure the event is sent immediately
+                await run_in_threadpool(_request_posthog_deletion, user_id)
                 deletion_results["posthog"] = "deletion_requested"
                 logger.info(f"PostHog deletion event sent for user {user_id}")
             except Exception as e:
@@ -393,16 +447,26 @@ async def delete_user_account(
                 logger.error(f"Failed to anonymize Sentry user {user_id}: {str(e)}")
                 deletion_results["sentry"] = f"error: {str(e)}"
 
-        # Create audit log BEFORE deleting user (so we can still reference user_id)
-        log_user_deletion(
-            db=db,
-            user_id=user_id,
-            user_email=user_email,
-            third_party_results=deletion_results
-        )
+        def record_and_delete() -> None:
+            # One unit in the thread pool: a failure is rolled back before the release.
+            try:
+                # Create audit log BEFORE deleting user (so we can still reference user_id)
+                log_user_deletion(
+                    db=db,
+                    user_id=user_id,
+                    user_email=user_email,
+                    third_party_results=deletion_results
+                )
 
-        # Delete user from database (cascade delete will handle related records)
-        user_account_service.delete_user(db, current_user)
+                # Delete user from database (cascade delete will handle related records)
+                user_account_service.delete_user(db, user_id)
+            except Exception:
+                user_account_service.rollback_account_deletion(db)
+                raise
+            finally:
+                filing_list_service.release_request_session(db)
+
+        await run_in_threadpool(record_and_delete)
 
         # Clear all session cookies (access + session-presence + refresh) using the same helpers
         # as logout. The previous code cleared a non-existent "auth_token" cookie, leaving the real
@@ -426,8 +490,7 @@ async def delete_user_account(
         }
 
     except Exception as e:
-        user_account_service.rollback_account_deletion(db)
-        logger.error(f"Error deleting user account {current_user.id}: {str(e)}")
+        logger.error(f"Error deleting user account {user_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="We could not delete your account. Contact support."

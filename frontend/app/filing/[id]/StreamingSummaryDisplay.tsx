@@ -4,10 +4,11 @@
    StreamingSummaryDisplay — app/filing/[id]/StreamingSummaryDisplay.tsx
    -----------------------------------------------------------------------------
    The live generation experience for a filing summary: one calm progress Card
-   (bar + honest step log + polished whimsy) and, once text streams in, a second
-   Card carrying the AI summary. Composed from the DS primitives (Card, Badge,
-   Notice, GuidanceCard, SkeletonText) with useCountUp for the percent and motion
-   tokens for its timers — no hand-rolled cards, rings, or raw ms.
+   (bar + honest step log + one line of the voice in the header's live-status
+   line) and, once text streams in, a second Card carrying the AI summary.
+   Composed from the DS primitives (Card, Badge, GuidanceCard, SkeletonText) with
+   useCountUp for the percent and motion tokens for its timers — no hand-rolled
+   cards, rings, or raw ms.
 
    The PROGRESS MATH is load-bearing and unchanged from the prior inline version
    (STAGE_ORDER / STAGE_PROGRESS_MAP / the asymptotic optimistic-progress loop);
@@ -21,7 +22,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Filing } from '@/features/filings/api/filings-api'
 import AiDisclaimer from '@/components/AiDisclaimer'
-import { Badge, Card, GuidanceCard, Notice, SkeletonText, buttonVariants } from '@/components/ui'
+import { Badge, Card, GuidanceCard, SkeletonText, buttonVariants } from '@/components/ui'
 import { isNonRetryableStreamError, isPaywallStreamError } from '@/features/summaries/api/summaries-api'
 import { streamErrorCopy } from '@/features/summaries/lib/streamErrorCopy'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
@@ -35,15 +36,46 @@ import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 // --- Constants ---
 
 // The one sanctioned playful surface (docs/voice-and-style.md › the humour floor): dry, true to what
-// the pipeline does, never a joke about money. Rotates while we work.
-const WHIMSY_MESSAGES = [
-  'Reading the footnotes so you can go straight to the ones that matter…',
-  'Checking the figures against the filing’s data…',
-  'Finding where the filing says that…',
-  'Reading the size-8 fine print…',
-  'Reviewing the line called Other…',
-  'Translating management’s phrasing into plain English…',
-]
+// the pipeline does, never a joke about money. One line per backend stage, chosen per filing, so the
+// line changes only when the work does: a run in progress is activity, never a status notice
+// (DESIGN_SYSTEM.md §4 › Inline notice, §9). The pools follow the pipeline
+// (backend/app/services/summary_stages): fetching downloads, parsing reads the sections, and the
+// figure work runs under summarizing (analyzing is two yields between two progress writes,
+// enrichment.py:187-195, so it lasts milliseconds), so those two stages share a pool.
+const STATUS_LINES = {
+  fetching: ['Opening the filing…'],
+  parsing: [
+    'Reading the size-8 fine print…',
+    'Reading the footnotes so you can go straight to the ones that matter…',
+    'Reviewing the line called Other…',
+  ],
+  summarizing: [
+    'Checking the figures against the filing’s data…',
+    'Finding where the filing says that…',
+    'Translating management’s phrasing into plain English…',
+  ],
+} as const
+type StatusPool = keyof typeof STATUS_LINES
+const STATUS_POOL: Record<string, StatusPool> = {
+  initializing: 'fetching',
+  queued: 'fetching',
+  fetching: 'fetching',
+  parsing: 'parsing',
+  analyzing: 'summarizing',
+  summarizing: 'summarizing',
+}
+const STALLED_LINE = 'Taking longer than usual. Still working on it.'
+
+/** The header's live-status line: the stalled sentence, else this filing's line for the stage's pool
+    (unknown and terminal stages take the fetching pool). Deterministic per filing and pool, so it never
+    flips between two lines of one pool across re-renders, and analyzing and summarizing show the same line. */
+const statusLine = (stage: string, filingId: number, isStalled: boolean): string => {
+  if (isStalled) return STALLED_LINE
+  const pool = STATUS_POOL[stage] ?? 'fetching'
+  const lines = STATUS_LINES[pool]
+  const offset = Object.keys(STATUS_LINES).indexOf(pool)
+  return lines[(Math.abs(Math.trunc(filingId)) + offset) % lines.length] ?? lines[0]
+}
 
 // Ordered list of the real pipeline stages the backend streams over SSE
 // (see backend/app/services/summary_pipeline.py). Step status is derived from the
@@ -60,9 +92,10 @@ const buildLoadingSteps = (filingType: string) => [
   { stage: 'summarizing', label: 'Writing the summary' },
 ]
 
-// Screen-reader announcement for the live region. Derived from the STAGE only (never the
-// percent), so the polite region updates exactly once per stage transition instead of chattering
-// on every optimistic-progress tick.
+// Screen-reader announcement for the live region. Derived from the stage (never the percent), so the
+// polite region updates once per stage transition instead of chattering on every optimistic-progress
+// tick; the stalled sentence joins it once a run stalls (the region is atomic, so a stage change while
+// stalled reads both again).
 const stageAnnouncement = (stage: string, filingType: string): string => {
   if (stage === 'completed') return 'Summary ready.'
   const step = buildLoadingSteps(filingType).find((s) => s.stage === stage)
@@ -172,10 +205,7 @@ export default function StreamingSummaryDisplay({
   afterFailure?: ReactNode
 }) {
   const [isClient, setIsClient] = useState(false)
-  const [whimsyMessage, setWhimsyMessage] = useState('')
-  const [showWhimsy, setShowWhimsy] = useState(false)
   const [optimisticProgress, setOptimisticProgress] = useState(0)
-  const [isStalled, setIsStalled] = useState(false)
   // Focus targets: the progress card's heading takes focus from a Retry that leaves (RetryButton's
   // hand-off), the failure card's heading takes focus nobody holds when it appears.
   const progressHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -188,6 +218,10 @@ export default function StreamingSummaryDisplay({
   }), [])
 
   const isError = stage === 'error' || !!error
+  // Stalled: derived in render, not stored, so the stage and the stall land in one commit and the live region
+  // below changes once per transition. Normal generation runs ~30-60s; only flag a genuine stall well past that
+  // window, and never while the summary is being written, so we never signal "failure" during a healthy run.
+  const isStalled = elapsedSeconds > 45 && stage !== 'completed' && stage !== 'summarizing' && !isError
   // A failed generation (or the monthly limit) ends the run the user is waiting on, often from page load
   // with focus on <body>: its card's heading takes focus then, so the next Tab is the card's action, not
   // the site header. Gated on isClient: the first client render is the skeleton, with no card to focus.
@@ -197,38 +231,6 @@ export default function StreamingSummaryDisplay({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time client detection to gate SSR-unsafe rendering (avoids hydration mismatch)
     setIsClient(true)
   }, [])
-
-  // Whimsy rotation effect
-  useEffect(() => {
-    if (stage === 'completed' || isError) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs whimsy-message visibility to the async streaming generation stage
-      setShowWhimsy(false)
-      return
-    }
-
-    setShowWhimsy(true)
-    // Initial random message
-    setWhimsyMessage(WHIMSY_MESSAGES[Math.floor(Math.random() * WHIMSY_MESSAGES.length)])
-
-    // Rotation cadence = a motion-token multiple (DS §11: no raw ms). ambient*2 ≈ 3.6s read.
-    const intervalId = setInterval(() => {
-      setWhimsyMessage(WHIMSY_MESSAGES[Math.floor(Math.random() * WHIMSY_MESSAGES.length)])
-    }, MOTION.ambient * 2)
-
-    return () => clearInterval(intervalId)
-  }, [stage, isError])
-
-  // Stalled state detection
-  useEffect(() => {
-    // Normal generation runs ~30-60s; only flag a genuine stall well past that window
-    // so we never signal "failure" during a healthy run.
-    if (elapsedSeconds > 45 && stage !== 'completed' && stage !== 'summarizing' && !isError) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- derives a stall flag from async streaming elapsed time + generation stage
-      setIsStalled(true)
-    } else {
-      setIsStalled(false)
-    }
-  }, [elapsedSeconds, stage, isError])
 
   // Optimistic progress effect - uses real elapsed time from backend but asymptotic approach
   useEffect(() => {
@@ -308,15 +310,10 @@ export default function StreamingSummaryDisplay({
     ? currentStageIdx
     : STAGE_ORDER.reduce((acc, s, i) => ((STAGE_PROGRESS_MAP[s] ?? 0) <= optimisticProgress ? i : acc), -1)
 
-  // Whimsy copy: rotating quip while healthy, a reassuring line when stalled. Only rendered
-  // inside the progress card, which is itself hidden on error — so the GuidanceCard is the
+  // The live-status line: the stage's line of the voice while healthy, the stalled sentence when stalled.
+  // Only rendered inside the progress card, which is itself hidden on error — so the GuidanceCard is the
   // single failure surface (one error surface, not two).
-  const whimsyText = isStalled
-    ? 'Taking longer than usual. Still working on it.'
-    : showWhimsy && whimsyMessage
-      ? whimsyMessage
-      : 'Opening the filing…'
-  const whimsyAttribution = isStalled ? 'Still running' : 'Reading the filing'
+  const line = statusLine(stage, filing.id, isStalled)
   // The trial sentence is true only while the trial ships (ENABLE_PRO_TRIAL, flipped with the backend's
   // PRO_TRIAL_DAYS) and this user would get it (trialEligible, from the page).
   const showTrial = ENABLE_PRO_TRIAL && trialEligible
@@ -327,13 +324,14 @@ export default function StreamingSummaryDisplay({
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Progress card — one calm focus. Hidden on error: the GuidanceCard below is the single
-          error surface, so the bar/steps/whimsy never duplicate the failure state. */}
+          error surface, so the bar/steps/status line never duplicate the failure state. */}
       {!isError && (
         <Card className="p-cap-6 sm:p-cap-8">
-          {/* Live region: one polite announcement per stage transition (the progressbar's value
-              changes every tick and is deliberately NOT live). */}
+          {/* Live region: one polite announcement per stage transition, plus the stalled sentence while
+              the run stalls (the progressbar's value changes every tick and is deliberately NOT live). */}
           <p role="status" aria-live="polite" className="sr-only">
             {stageAnnouncement(stage, filing.filing_type)}
+            {isStalled ? ` ${STALLED_LINE}` : ''}
           </p>
 
           {/* Header: title + live status + count-up percent. The row wraps: where the heading and the
@@ -349,9 +347,14 @@ export default function StreamingSummaryDisplay({
               >
                 Generating the summary
               </h2>
-              {/* The form code wraps whole: "10-K" never breaks at its hyphen. */}
+              {/* The live-status line: the form code (wrapping whole, never at its hyphen), then one line of
+                  the voice for the stage the backend is in, or the stalled sentence. Plain secondary ink, no
+                  tint, no glyph: a run in progress is activity, never a status notice (DESIGN_SYSTEM.md §4
+                  Inline notice, §9). The span is keyed so a stage change crossfades the line in (the
+                  self-guarded animate-fadeIn; an inline span takes its opacity leg only). */}
               <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                <span className="whitespace-nowrap">{filing.filing_type}</span> · Processing…
+                <span className="whitespace-nowrap">{filing.filing_type}</span> ·{' '}
+                <span key={line} className="animate-fadeIn break-words">{line}</span>
               </p>
             </div>
             <div className="ml-auto flex flex-none flex-col items-end">
@@ -378,18 +381,6 @@ export default function StreamingSummaryDisplay({
             <div
               className="h-full rounded-full bg-brand-strong dark:bg-brand-dark transition-[width] duration-slow ease-standard motion-reduce:transition-none"
               style={{ width: `${roundedProgress}%` }}
-            />
-          </div>
-
-          {/* Polished whimsy — Notice nested in the Card (DS-sanctioned), with the Notice's own
-              glyph: the sparkle is reserved for the AI summary chip (DESIGN.md › Icons).
-              aria-hidden: it's decorative flavor that rotates; the progressbar + step log
-              carry the real, accessible status, so we don't spam SR with rotating quips. */}
-          <div aria-hidden="true" className="mt-6">
-            <Notice
-              variant="info"
-              title={<span key={whimsyText} className="animate-fadeIn">{whimsyText}</span>}
-              description={whimsyAttribution}
             />
           </div>
 

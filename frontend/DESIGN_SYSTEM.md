@@ -904,8 +904,21 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  and at every 10px from 320 to 480px under 200%).
 
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
-                 for form/auth flows and in-card states (role="alert" on error; action slot takes a
-                 small Button). GuidanceCard is a STANDALONE centered panel — never nest it inside a
+                 for form/auth flows and in-card states: something that happened or stands in the way (a
+                 result, an error, a limit, a mode of the account). The variant is written at every call
+                 site, never a default (the default-info trap of lessons/frontend-status-colors-for-status-only.md):
+                 `info` is an advisory state in the info ink, `error` takes role="alert", and the action slot
+                 takes a small Button. Activity is never a Notice, of any variant: a run in progress is the
+                 progress indicator in sage with its words in the ink, as the generating card's live-status
+                 line is ("10-K · Reading the size-8 fine print…", one line of the voice per pipeline stage,
+                 chosen per filing, the stalled sentence in its place; it was a blue info Notice from
+                 2026-07-04 to 2026-10-24) and the Copilot rail's "Reading the filing…" (Ask answer); one
+                 remains, AnalysisPageClient's history fetch (E196). Gate: tests/unit/statusTintResidue.spec.ts
+                 pins every status tint class outside components/ui (a ground, border, ring, gradient stop,
+                 divide, outline or shadow; status ink on a sentence or glyph is not a tint), every Notice's
+                 written variant, and every `info` Notice call site as a shrink-only table, so a new info
+                 Notice is added on purpose and reviewed for state against activity.
+                 GuidanceCard is a STANDALONE centered panel — never nest it inside a
                  Card; inside a Card, Notice is the right scale. Both action rows wrap: GuidanceCard's
                  centres two actions and sets the second under the first when they do not fit side by
                  side, and its description, like a Notice's, breaks a long word
@@ -2106,7 +2119,11 @@ when the SVG remains focused, and does not scroll the chart. The next keyboard a
 the retained hover through the chart’s normal mouse-leave event and resumes its keyboard period.
 Outer arrow keys keep native scrolling. Tooltip changes use a live status; Tab leaves and Shift+Tab
 returns without a trap. The viewport carries the brand focus ring for either keyboard stop. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
-source dates, material gaps and a concise disclosure. Use keyboard/touch source controls, not
+source dates, material gaps and a concise disclosure. The PNG's plot paints the screen's Geist Mono:
+the export carries the page's faces into the isolated SVG image, and when it cannot embed a face the
+plot needs it stops with an error toast rather than paint a fallback (gate, in Chromium:
+`tests/e2e/chart-export-fidelity.spec.ts`, at most 0.1% of plot pixels unlike the screen; Safari and
+Firefox are unchecked). Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
 period count and axis space, so a narrow screen never overlaps labels or widens the page.
@@ -2123,6 +2140,14 @@ chart unit tests). Axis labels: 11–12px data face + tabular-nums; dark labels 
 Tooltip cursors: `crosshairProps(dark)` on LINE charts; `barCursorProps(dark)` on BAR charts — a
 category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
 is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
+The analysis trend charts take each value axis from the chart engine (`features/analysis/lib/charts`,
+`valueAxis`): zero-anchored ticks on its grid, one unit, the filer's currency, every tick printed on
+one line (a no-break space, where Recharts would wrap "CHF 20B") and the axis as wide as its widest
+label as Recharts sets it; a tooltip prints each value in its own axis's format. Cash generation has
+one axis, and the balance sheet keeps equity's right axis until the engine's renderer draws it as its
+own panel. A percent axis holds every value, since Recharts cannot print a clipped one at the plot
+edge (gates: `tests/unit/trend-charts-axes.spec.tsx`; e2e `analysis-layout.spec.ts`, "analysis chart
+axes", and the export gate's Swiss-franc case).
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.
@@ -2188,8 +2213,11 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 1. **App-wide, not just the obvious page** — public *and* authenticated.
 2. **Grep gate** — zero residual legacy brand colors AND legacy type roles:
    ```
-   grep -rnE '\b(mint-[0-9]|glow-mint|(bg|text|ring|border|from|to)-primary-[0-9]|emerald-[0-9]|(from|to|bg|text|border|ring)-(sky|indigo|cyan|teal|violet|fuchsia)-[0-9]|bg-blue-[0-9]|Figtree|font-grotesque|#3A2E26|#D99E4A|#92A0E2|text-text-tertiary-dark)' app components features
+   grep -rnE '\b(mint-[0-9]|glow-mint|(bg|text|ring|border|from|to)-primary-[0-9]|emerald-[0-9]|(from|to|via|bg|text|border(-[trblxyse])?|ring(-offset)?|fill|stroke|outline|decoration|divide|shadow|accent|caret|placeholder)-(sky|indigo|cyan|teal|violet|fuchsia|purple|pink|rose|orange|yellow|lime|green|red|amber|blue)-[0-9]|Figtree|font-grotesque|#3A2E26|#D99E4A|#92A0E2|text-text-tertiary-dark)' app components features
    ```
+   Status tints are a census, not a grep: `tests/unit/statusTintResidue.spec.ts` pins every
+   `info|success|warning|error` tint class outside `components/ui/` and every `<Notice>`'s written
+   variant, shrink-only, so a new status-tinted surface is added to its residue on purpose or not at all.
    For motion changes also: raw durations outside the token homes —
    ```
    grep -rnE '[0-9]+(\.[0-9]+)?m?s\b|cubic-bezier' app components features | grep -v 'var(--'
