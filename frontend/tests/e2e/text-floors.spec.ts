@@ -149,6 +149,8 @@ const ROUTES: Route[] = [
     ready: async (p) => {
       await expect(p.getByRole('heading', { level: 2, name: 'Generating the summary' })).toBeVisible()
       await expect(p.getByText('Writing the summary', { exact: true })).toBeVisible()
+      // The status line crossfades in on mount (animate-fadeIn): the census reads the header once that has finished, never mid-opacity.
+      await settled(p.getByRole('heading', { level: 2, name: 'Generating the summary' }).locator('xpath=..'))
     },
   },
   {

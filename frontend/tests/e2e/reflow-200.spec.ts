@@ -1,6 +1,7 @@
 import { legalReady } from './fixtures/legalReady'
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
+import { settled } from './fixtures/contrast'
 import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
 import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
 import { ACCESS_COPY } from '../../features/marketing/lib/access'
@@ -74,7 +75,11 @@ import { ACCESS_COPY } from '../../features/marketing/lib/access'
  * link in view and its list scrolling inside it (E178). At 390, 360 and 320px under 200% text a dialog's
  * header keeps its title inside the panel and clear of its close button, and a title on a line of its own, under its
  * icon or under the close button alone, takes the header's full width, under the close button too, with no word
- * broken inside it (E158 and E165; the last cases in this file).
+ * broken inside it (E158 and E165; the last cases in this file). A signed-in run in flight on /filing/3 (the generation
+ * stream held open, so the progress card stays at its first stage) keeps the card's live-status line, "10-K · Opening the
+ * filing…", inside the card at 320px at the default text size and at 390px under 200% text, its box and each of its text
+ * runs, with no sideways scroll: the line sits in the heading's min-w-0 column beside the percent, where a run that could
+ * not wrap would spill past the card before it widened the page.
  *
  * An auth page's "Request an invite" link draws its focus ring closed at 320, 360 and 390px, at both text sizes.
  * As an inline link it broke inside its label at 320px and, under 200% text, at 390 and 320px, and drew an open
@@ -1161,6 +1166,81 @@ test('filing (/filing/3) keeps the stuck section nav below the header at 200% te
   expect(focused.linkTop, `focused, the first section link (${focused.linkTop}-${focused.linkBottom}px) lies below the header's bottom edge (${focused.headerBottom}px)`).toBeGreaterThanOrEqual(focused.headerBottom)
   expect(focused.hitsLink, `focused, a hit at the first section link's centre reaches it, not ${focused.hit}`).toBe(true)
 })
+
+/** A signed-in run in flight on a filing with no summary, the hold text-floors.spec.ts uses: fixtures/filing3Api.ts answers
+    the page for a Pro reader, the stored summary answers 404 so the page starts a run, and the stream request is never
+    answered, so the progress card stays up at its first stage with every step pending. */
+async function holdRun(page: Page, baseURL: string) {
+  const cors = { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' }
+  await answerApi(page, baseURL, 'pro')
+  // Registered after answerApi, so these answer first.
+  await page.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/summaries/filing/3', (route) =>
+    route.fulfill({ status: 404, headers: cors, json: { detail: 'Summary not found' } }),
+  )
+  await page.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/summaries/filing/3/generate-stream', () => new Promise<void>(() => {}))
+}
+/** The generating card's live-status line (the heading's next sibling) against the card's box (Card's rounded-xl
+    recipe): its text, and its own box and each of its text runs that cross the card's edge, each with its edges for a
+    failure's message. The form code is one nowrap run and the line breaks at its words, so a run that reaches past the
+    card shows here before the page widens. */
+const statusLineInCard = (heading: Locator) =>
+  heading.evaluate((h2) => {
+    const card = h2.closest('.rounded-xl')!
+    const line = h2.nextElementSibling!
+    const c = card.getBoundingClientRect()
+    const px = (r: DOMRect) => `${Math.round(r.left)}-${Math.round(r.right)} x ${Math.round(r.top)}-${Math.round(r.bottom)}px`
+    const past = (r: DOMRect) => r.left < c.left - 0.5 || r.right > c.right + 0.5 || r.top < c.top - 0.5 || r.bottom > c.bottom + 0.5
+    const box = line.getBoundingClientRect()
+    const outside: string[] = []
+    if (past(box)) outside.push(`the line's box ${px(box)}`)
+    const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent?.trim()) continue
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      const r = range.getBoundingClientRect()
+      if (past(r)) outside.push(`text "${node.textContent.trim()}" ${px(r)}`)
+    }
+    return { text: (line.textContent ?? '').replace(/\s+/g, ' ').trim(), card: px(c), line: px(box), outside }
+  })
+
+/** The generating card at 320px at the default text size and at 390px under 200% text: the page does not scroll
+    sideways, and the live-status line lies inside the card. The header row wraps and the percent moves beneath the
+    heading where the two do not fit (StreamingSummaryDisplay.spec.tsx pins the classes); this reads the painted boxes. */
+for (const state of [
+  { width: 320, height: 640, doubled: false },
+  { width: 390, height: 844, doubled: true },
+]) {
+  const at = `${state.width}px${state.doubled ? ' and 200% text' : ' at the default text size'}`
+  test.describe(`a ${state.width}px phone${state.doubled ? ' at 200% text' : ''}, a summary in flight`, () => {
+    test.use({ viewport: { width: state.width, height: state.height }, isMobile: true, hasTouch: true })
+    test(`filing (/filing/3) keeps the generating card's status line inside the card and does not scroll sideways at ${at}`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('en:copilot-coachmark-v1', '1')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      await holdRun(page, baseURL!)
+      await page.goto('/filing/3')
+      const heading = page.getByRole('heading', { level: 2, name: 'Generating the summary' })
+      await expect(heading).toBeVisible()
+      await expect(page.getByText('Writing the summary', { exact: true })).toBeVisible()
+      await page.evaluate(() => document.fonts.ready)
+      if (state.doubled) await doubleText(page)
+      // The line crossfades in on mount (animate-fadeIn; the span is inline, so only its opacity leg applies): its box is read once that has finished.
+      await settled(heading.locator('xpath=..'))
+      await settle(page)
+
+      const line = await statusLineInCard(heading)
+      expect(line.text, `${at}: the card is at its first stage`).toBe('10-K · Opening the filing…')
+      expect(line.outside, `${at}: the status line (${line.line}) lies inside the card (${line.card})`).toEqual([])
+      const widths = await measure(page)
+      expect(widths.scrollWidth, `/filing/3 with a summary in flight at ${at}: ${why(widths)}`).toBeLessThanOrEqual(widths.clientWidth)
+    })
+  })
+}
 
 /** At 360x780 and at 320x640 with the browser's text doubled, every route in the loop passes the width, bar and
     clear-space checks too. The header's wrap at 360px is its named fallback, so the one-row check stays at 390px. At
