@@ -493,7 +493,12 @@ baseline is unchanged; this validation change does not itself authorize another 
 
 An existing `note` survives re-pinning; `--note "..."` explicitly replaces it. Preserve
 provenance and explain intentional bar changes rather than performing cosmetic re-pins.
-A reported baseline `total_cost_usd=0` is currently unmetered, not proof of a free model run.
+A baseline's `total_cost_usd` is the pipeline's own estimate: each `ai_call` record's
+`estimated_cost_usd`, summed over every generation a result made, retried and failed ones included.
+`cost_unknown_calls` counts the calls with no estimate, which that sum leaves out; the optional
+judge's calls are in neither. It is the price table's estimate, not the bill; the account balance
+read is the bill. A report written before the
+estimate was summed shows `total_cost_usd=0` for the baseline: unmetered, not a free run.
 
 The wave-2 parity pin is complete in #698: `eval_20260905T111951Z.json`, 26 × 3,
 source `f5b46ba9`, zero errors/vetoes, PASS/0 warnings. Measure later work against it.
@@ -1243,7 +1248,10 @@ add `incurred_provider_usage` with `incurred_usage_attempts` as its result-row d
 
 Token totals are sums of known provider counters, not full billed spend. `unknown_calls` counts
 calls with no known usage fields; partially reported fields can also leave token totals incomplete.
-Missing counters remain null. Older reports without incurred evidence remain unavailable in the
+Missing counters remain null. Each usage row also carries `estimated_cost_known_usd`, the sum of its
+calls' known estimates, and `estimated_cost_unknown_calls`, the calls without one; a baseline
+result's `cost_usd` is its incurred known sum, and a usage row written before these fields counts all its
+calls as unknown. Older reports without incurred evidence remain unavailable in the
 new summary fields; their final-attempt totals cannot reconstruct failed-generation costs. No
 baseline or historical report is rewritten by this correction.
 

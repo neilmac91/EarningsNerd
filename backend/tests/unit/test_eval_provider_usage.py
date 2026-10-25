@@ -1,7 +1,8 @@
 """Per-attempt provider usage on the baseline eval route (model-migration measurement).
 
-The baseline route runs the production pipeline, whose ``cost_usd`` is not metered; before this the
-report carried no token counts for it, so a Pro-vs-Flash output-length ratio could not be measured.
+The baseline route runs the production pipeline, so its token counts and its cost come from the
+``ai_call`` records the pipeline makes; before this the report carried no token counts for it, so a
+Pro-vs-Flash output-length ratio could not be measured, and its ``cost_usd`` was a hard-coded zero.
 """
 from __future__ import annotations
 
@@ -50,9 +51,11 @@ def test_observer_collects_only_records_made_under_its_own_task():
 
 def test_summarize_provider_calls_sums_reported_counters_and_keeps_unknowns_unknown():
     records = [
-        {"operation": "summary_primary", "actual_model": "deepseek-v4-pro", "usage": _usage(40000, 2600, 39000, 1000)},
-        {"operation": "section_recovery", "actual_model": "deepseek-v4-pro", "usage": _usage(9000, 400, None, None)},
-        {"operation": "section_recovery", "actual_model": None, "usage": _usage()},
+        {"operation": "summary_primary", "actual_model": "deepseek-v4-pro", "usage": _usage(40000, 2600, 39000, 1000),
+         "estimated_cost_usd": 0.012345},
+        {"operation": "section_recovery", "actual_model": "deepseek-v4-pro", "usage": _usage(9000, 400, None, None),
+         "estimated_cost_usd": 0.001},
+        {"operation": "section_recovery", "actual_model": None, "usage": _usage(), "estimated_cost_usd": None},
     ]
     folded = runner.summarize_provider_calls(records)
     assert folded["calls"] == 3 and folded["unknown_calls"] == 1
@@ -61,11 +64,44 @@ def test_summarize_provider_calls_sums_reported_counters_and_keeps_unknowns_unkn
     # Cache split is summed only where reported — never padded with zeros for the unknown call.
     assert folded["cache_hit_tokens"] == 39000 and folded["cache_miss_tokens"] == 1000
     assert folded["actual_models"] == ["deepseek-v4-pro"]
+    # The known estimates are summed; the call with none is counted outside the sum, never as zero.
+    assert folded["estimated_cost_known_usd"] == 0.013345 and folded["estimated_cost_unknown_calls"] == 1
     assert runner.summarize_provider_calls([]) == {
         "calls": 0, "unknown_calls": 0, "operations": {}, "actual_models": [],
         "prompt_tokens": None, "completion_tokens": None, "cache_hit_tokens": None, "cache_miss_tokens": None,
-        "reasoning_tokens": None,
+        "reasoning_tokens": None, "estimated_cost_known_usd": 0.0, "estimated_cost_unknown_calls": 0,
     }
+
+
+def test_usage_written_before_the_cost_fields_counts_its_calls_as_unpriced():
+    priced = runner.summarize_provider_calls([{"usage": _usage(10, 2), "estimated_cost_usd": 0.25}])
+    legacy = {key: value for key, value in runner.summarize_provider_calls([{"usage": _usage(10, 2)}] * 3).items()
+              if not key.startswith("estimated_cost")}
+    merged = runner._merge_provider_usage([priced, legacy])
+    assert merged["calls"] == 4
+    assert merged["estimated_cost_known_usd"] == 0.25 and merged["estimated_cost_unknown_calls"] == 3
+    # A report re-summarized from such rows (judge_readout) says how many calls its cost leaves out.
+    stats = runner._summarize([
+        {"candidate": "baseline", "cost_usd": 0.0, "incurred_provider_usage": legacy, "error": "old"},
+        {"candidate": "baseline", "cost_usd": 0.25, "incurred_provider_usage": priced, "error": "new"},
+    ])["baseline"]
+    assert stats["total_cost_usd"] == 0.25 and stats["cost_unknown_calls"] == 3
+    # The candidate route observes no calls: its cost has no completeness count, not a claimed zero.
+    candidate = runner._summarize([{"candidate": "deepseek-chat", "cost_usd": 0.5, "error": None}])["deepseek-chat"]
+    assert candidate["total_cost_usd"] == 0.5 and candidate["cost_unknown_calls"] is None
+
+
+def test_markdown_cost_names_the_calls_it_leaves_out(monkeypatch, tmp_path):
+    monkeypatch.setattr(runner, "REPORTS_DIR", tmp_path)
+    usage = runner.summarize_provider_calls([{"usage": _usage(10, 2), "estimated_cost_usd": 0.1234},
+                                             {"usage": _usage(), "estimated_cost_usd": None}])
+    rows = [{"candidate": "baseline", "cost_usd": 0.1234, "incurred_provider_usage": usage, "error": "x"}]
+    text = runner._write_report(runner._summarize(rows), []).read_text()
+    assert "| 0.1234 (+1 unpriced) |" in text
+    priced = runner.summarize_provider_calls([{"usage": _usage(10, 2), "estimated_cost_usd": 0.1234}])
+    rows = [{"candidate": "baseline", "cost_usd": 0.1234, "incurred_provider_usage": priced, "error": "x"}]
+    text = runner._write_report(runner._summarize(rows), []).read_text()
+    assert "| 0.1234 |" in text and "unpriced" not in text
 
 
 def test_usage_stats_report_how_many_attempts_carried_usage():
@@ -90,12 +126,15 @@ def test_usage_stats_report_how_many_attempts_carried_usage():
 async def test_baseline_attempt_carries_the_pipelines_provider_usage(monkeypatch):
     monkeypatch.setattr(settings, "STREAM_SECTION_REVEAL", False)
 
+    recorded = []
+
     async def fake_summary(*args, **kwargs):
         # The pipeline records one provider attempt per call; the runner must see it.
-        ai_metrics.record_ai_call(operation="summary_primary", provider="primary", actual_model="deepseek-flash",
-                                  usage={"prompt_tokens": 41000, "completion_tokens": 2700,
-                                         "prompt_cache_hit_tokens": 40000, "prompt_cache_miss_tokens": 1000},
-                                  outcome="success")
+        recorded.append(ai_metrics.record_ai_call(
+            operation="summary_primary", provider="primary", actual_model="deepseek-flash",
+            usage={"prompt_tokens": 41000, "completion_tokens": 2700,
+                   "prompt_cache_hit_tokens": 40000, "prompt_cache_miss_tokens": 1000},
+            outcome="success"))
         return {"status": "complete", "raw_summary": {"sections": {}}, "summary": "ok"}
 
     monkeypatch.setattr(openai_service, "summarize_filing", fake_summary)
@@ -115,16 +154,22 @@ async def test_baseline_attempt_carries_the_pipelines_provider_usage(monkeypatch
                                    {"filing_text": "raw", "excerpt": "chosen", "xbrl_metrics": {}},
                                    run_index=0, judge_model=None)
     assert result["error"] is None
+    estimate = recorded[0]["estimated_cost_usd"]
+    assert isinstance(estimate, float) and estimate > 0
     assert result["provider_usage"] == {
         "calls": 1, "unknown_calls": 0, "operations": {"summary_primary": 1},
         "actual_models": ["deepseek-flash"], "prompt_tokens": 41000, "completion_tokens": 2700,
         "cache_hit_tokens": 40000, "cache_miss_tokens": 1000, "reasoning_tokens": None,
+        "estimated_cost_known_usd": estimate, "estimated_cost_unknown_calls": 0,
     }
+    # The attempt's cost is the pipeline's own estimate, no longer a hard-coded zero.
+    assert result["cost_usd"] == estimate
     # The observer binding does not leak past the attempt.
     assert ai_metrics._observer.get() is None
     stats = runner._summarize([{**result, "candidate": "baseline"}])["baseline"]
     assert stats["mean_completion_tokens"] == 2700.0 and stats["usage_attempts"] == 1
     assert stats["actual_models"] == ["deepseek-flash"]
+    assert stats["total_cost_usd"] == round(estimate, 4)
 
 
 def _row(ticker, run, agg, cite, tokens=None, error=None, gates=True, candidate="baseline"):
@@ -227,6 +272,12 @@ async def test_provider_usage_is_conserved_across_every_generation(monkeypatch, 
     assert incurred["cache_hit_tokens"] == (70 * known_generations if known_generations else None)
     assert incurred["cache_miss_tokens"] == (sum(30 + i for i in range(known_generations)) if known_generations else None)
     assert incurred["reasoning_tokens"] is None
+    # Cost is conserved the same way: every generation's known estimate, the unpriced calls counted.
+    known = [r["estimated_cost_usd"] for r in observed if r["estimated_cost_usd"] is not None]
+    assert len(known) == known_generations and all(cost > 0 for cost in known)
+    assert incurred["estimated_cost_known_usd"] == pytest.approx(sum(known), abs=1e-6)
+    assert incurred["estimated_cost_unknown_calls"] == unknown_calls
+    assert result["cost_usd"] == incurred["estimated_cost_known_usd"]
     assert result["retried"] == retry_count
     assert len(result["retry_provider_attempts"]) == retry_count
     for index, attempt in enumerate(result["retry_provider_attempts"]):
@@ -243,6 +294,9 @@ async def test_provider_usage_is_conserved_across_every_generation(monkeypatch, 
     assert stats["incurred_usage_attempts"] == 1
     assert stats["incurred_provider_usage"] == incurred
     assert stats["total_completion_tokens"] == result["provider_usage"]["completion_tokens"]
+    assert stats["total_cost_usd"] == round(incurred["estimated_cost_known_usd"], 4)
+    assert stats["cost_unknown_calls"] == unknown_calls
     # Older reports remain readable, but missing incurred evidence is unavailable, not free.
     legacy = runner._usage_stats([{"error": "old failure"}])
     assert legacy["incurred_usage_attempts"] == 0 and legacy["incurred_provider_usage"] is None
+    assert legacy["cost_unknown_calls"] is None
