@@ -22,8 +22,8 @@ import { describe, expect, it } from 'vitest'
  *     system sanctions (§9), and a token inside another (`shadow-ring-error-dark`, the focus ring the primitives own)
  *     is not read. The gain/loss tones (lib/financialTone.ts) and the brand's tints are not status. RESIDUE lists what
  *     the census found on 2026-10-24, per file at its count, with the surface and the open item that retires it
- *     (tasks/todo.md: E185 the pricing usage box, E186 the guidance and warning containers, E187 the error and other
- *     clones of Notice and Badge); a line under "a status tint on a state, no item" is held at its count until a
+ *     (tasks/todo.md E196: its clause (1) the pricing usage box, (2) the guidance and warning containers, (3) and (4) the
+ *     error and other clones of Notice and Badge); a line under "a status tint on a state, no item" is held at its count until a
  *     primitive takes the surface. Shrink-only: a fixed surface fails until its count is lowered, a new tint fails,
  *     and the totals equal RESIDUE_MAX, lowered in the same commit as each shrink
  *     (lessons/test-allowlist-caps-are-equalities.md).
@@ -48,15 +48,15 @@ const COMPONENT = 'Notice'
 const STATUS_TINT = /(?<![\w-])(?:bg|border(?:-[trblxyse])?|ring(?:-offset)?|from|to|via|divide|outline|shadow)-(?:info|success|warning|error)-(?:light|dark|text|emphasis)\b/g
 
 const RESIDUE: Record<string, number> = {
-  // E185: the pricing usage box, an info tint with a blue usage meter (the dashboard meter below is its sanctioned twin).
+  // E196 (1): the pricing usage box, an info tint with a blue usage meter (the dashboard meter below is its sanctioned twin).
   'app/pricing/page.tsx': 8,
-  // E186: hand-rolled warning containers, which wait on a `warning` Notice variant.
+  // E196 (2): hand-rolled warning containers, which wait on a `warning` Notice variant.
   'app/dashboard/page.tsx': 10, // the usage banner's warning tint; also the meter's warning/error fills at its thresholds and the delete button's hover tint
   'components/Header.tsx': 4, // the phone menu's verify-email row
   'features/admin/components/ShareInvite.tsx': 4, // the invite-sharing warning well
   'features/auth/components/UserMenu.tsx': 6, // the unverified dot and the verify-email row
   'features/auth/components/VerificationBanner.tsx': 6, // the banner's warning ground and hover
-  // E187: clones of Notice, GuidanceCard or Badge that take the primitive.
+  // E196 (3) and (4): clones of Notice, GuidanceCard or Badge that take the primitive.
   'features/search/components/FullTextSearch.tsx': 4, // an error Notice clone (2026-10-18)
   'features/filings/components/copilot/CopilotMessage.tsx': 4, // the error bubble, Notice's error recipe verbatim
   'features/calendar/components/DayDetailDialog.tsx': 4, // the "Market closed" info Notice clone
@@ -193,8 +193,8 @@ const INFO_NOTICES: Record<string, number> = {
   'app/pricing/page.tsx': 2, // "You returned from checkout": a result; "New subscriptions are currently unavailable": a mode
   'features/legal/components/CollectionGate.tsx': 1, // collection unavailable: a mode
   'features/analysis/components/NarrativePane.tsx': 2, // source references that need attention, not enough history: results
-  'features/analysis/components/AnalysisPageClient.tsx': 4, // an unsupported filer (a state); the signed-out guidance, the Pro upsell and the history fetch (activity) wait on E186
-  'features/auth/components/RegisterForm.tsx': 1, // the private-beta guidance waits on E186
+  'features/analysis/components/AnalysisPageClient.tsx': 4, // an unsupported filer (a state); the signed-out guidance, the Pro upsell and the history fetch (activity) wait on E196 (2)
+  'features/auth/components/RegisterForm.tsx': 1, // the private-beta guidance waits on E196 (2)
 }
 const INFO_NOTICES_MAX = { files: 6, uses: 11 }
 
@@ -248,7 +248,7 @@ describe('every Notice writes its variant', () => {
       unwritten.push(...found.unwritten)
     }
     expect(unwritten, 'write variant="error|info|success" at the call site: a Notice says which state it is (DESIGN_SYSTEM.md §4 › Inline notice)').toEqual([])
-    // Not vacuous: the Notices E186 names and one imported by its own path (components/ui/Notice) are read.
+    // Not vacuous: the Notices E196 (2) names and one imported by its own path (components/ui/Notice) are read.
     expect(read).toEqual(
       expect.arrayContaining(['features/auth/components/RegisterForm.tsx', 'features/analysis/components/AnalysisPageClient.tsx', 'features/settings/components/BillingPanel.tsx']),
     )
