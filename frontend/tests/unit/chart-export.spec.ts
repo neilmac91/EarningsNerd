@@ -74,12 +74,14 @@ describe('exportFilename', () => {
 
 describe('exportSourceText', () => {
   // The PNG's subtitle names the run's window as the file name, the PDF and the workbook do (periodLabels.ts).
+  // Its short form is the card's own subtitle's (charts/model.ts), which the header takes when the long one is too wide.
   it.each([
-    { run: 'an annual run', period_key: 'FY2016..FY2025', period: 'FY2016–FY2025' },
-    { run: 'a quarterly run', period_key: '2024Q3..2024Q4', period: 'Q3 2024–Q4 2024' },
-    { run: 'a one-period run', period_key: 'FY2024..FY2024', period: 'FY2024' },
-  ])('names the period range of $run: $period', ({ period_key, period }) => {
-    expect(exportSourceText({ ...quarterly, period_key }).period).toBe(period)
+    { run: 'an annual run', period_key: 'FY2016..FY2025', period: 'FY2016–FY2025', periodShort: 'FY2016–FY2025' },
+    { run: 'a quarterly run', period_key: '2024Q3..2025Q4', period: 'Q3 2024–Q4 2025', periodShort: 'Q3 ’24–Q4 ’25' },
+    { run: 'a one-period run', period_key: 'FY2024..FY2024', period: 'FY2024', periodShort: 'FY2024' },
+    { run: 'a one-quarter run', period_key: '2026Q2..2026Q2', period: 'Q2 2026', periodShort: 'Q2 ’26' },
+  ])('names the period range of $run: $period, or $periodShort', ({ period_key, period, periodShort }) => {
+    expect(exportSourceText({ ...quarterly, period_key })).toMatchObject({ period, periodShort })
   })
 })
 
@@ -149,14 +151,29 @@ describe('withPngResolution', () => {
 
   it('passes bytes that are not a PNG through unchanged', () => {
     const whole = png(IHDR, IDAT, IEND)
+    const withTail = new Uint8Array(whole.length + 2)
+    withTail.set(whole)
+    // Each guard has a case only it decides: the signature; a chunk header the bytes cannot hold (1 to 3 bytes left:
+    // with 4 or more, the chunk's length reads and the next guard decides); a chunk whose data runs past the end;
+    // a first chunk other than IHDR; no chunk at all.
     for (const [name, bytes] of [
       ['text', new TextEncoder().encode('png')],
       ['nothing', new Uint8Array()],
-      ['the signature alone', png()],
+      ['whole chunks after a wrong signature', new Uint8Array([...new Uint8Array(8), ...IHDR, ...IDAT, ...IEND])],
+      ['two bytes of a chunk header', whole.subarray(0, 8 + IHDR.length + 2)],
+      ['two bytes after IEND', withTail],
+      ['a chunk cut inside its data', whole.subarray(0, 8 + IHDR.length + IDAT.length - 3)],
+      ['a chunk cut inside its CRC', whole.subarray(0, whole.length - 3)],
       ['a first chunk that is not IHDR', png(IDAT, IEND)],
-      ['a chunk cut short', whole.subarray(0, whole.length - 3)],
-      ['a chunk header cut short', whole.subarray(0, 8 + IHDR.length + 5)],
+      ['the signature alone', png()],
     ] as const) expect(withPngResolution(bytes, EXPORT_DPI), name).toBe(bytes)
+  })
+
+  it('reads a view that starts inside a larger buffer', () => {
+    const whole = png(IHDR, IDAT, IEND)
+    const host = new Uint8Array(3 + whole.length)
+    host.set(whole, 3)
+    expect(withPngResolution(host.subarray(3), EXPORT_DPI)).toEqual(withPngResolution(whole, EXPORT_DPI))
   })
 })
 
@@ -511,13 +528,13 @@ describe('exportPanelPng header', () => {
 
   const PLOT_W = 560
 
-  function makeContainer(): HTMLElement {
+  function makeContainer(width: number = PLOT_W): HTMLElement {
     const container = document.createElement('div')
     container.style.backgroundColor = 'rgb(251, 250, 246)'
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
     // jsdom reports a 0×0 rect; give it a realistic plot size so the footer/legend layout is real.
     svg.getBoundingClientRect = () =>
-      ({ width: PLOT_W, height: 224, top: 0, left: 0, right: PLOT_W, bottom: 224, x: 0, y: 0, toJSON() {} }) as DOMRect
+      ({ width, height: 224, top: 0, left: 0, right: width, bottom: 224, x: 0, y: 0, toJSON() {} }) as DOMRect
     container.appendChild(svg)
     document.body.appendChild(container)
     return container
@@ -539,6 +556,31 @@ describe('exportPanelPng header', () => {
     await exportPanelPng(makeContainer(), 'x.png', { dark: false, header })
     expect(fillTexts).toContain('TSLA · Cash generation · FY2022–FY2024')
     expect(fillTexts).not.toContain('TSLA · Cash generation')
+  })
+
+  describe('at a narrow width', () => {
+    // A bank's longest chart at quarterly range; the stub measures 7 px a character and the strip is the plot's width
+    // less its two pads.
+    const BANK = { ...HEADER, ticker: 'JPM', title: 'Net interest income & growth', legend: [], ...exportSourceText({ ...quarterly, period_key: '2024Q3..2025Q4' }) }
+    const LONG = 'JPM · Net interest income & growth · Q3 2024–Q4 2025'
+    const SHORT = 'JPM · Net interest income & growth · Q3 ’24–Q4 ’25'
+    const plotFor = (subtitle: string) => subtitle.length * 7 + 2 * HEADER_STAMP.padX
+    const subtitles = () => fillArgs.filter((call) => call.text.startsWith('JPM · '))
+
+    it.each([
+      { width: plotFor(LONG), case: 'where the long form fits', drawn: LONG },
+      { width: plotFor(LONG) - 1, case: 'where only the short form fits', drawn: SHORT },
+      { width: plotFor(SHORT) - 40, case: 'where neither fits, condensed by maxWidth', drawn: SHORT },
+    ])('draws the subtitle once, $case', async ({ width, drawn }) => {
+      await exportPanelPng(makeContainer(width), 'x.png', { header: BANK })
+      expect(subtitles()).toEqual([{ text: drawn, maxWidth: width - 2 * HEADER_STAMP.padX }])
+    })
+
+    it('without a short form, condenses the long one', async () => {
+      const width = plotFor(LONG) - 1
+      await exportPanelPng(makeContainer(width), 'x.png', { header: { ...BANK, periodShort: undefined } })
+      expect(subtitles()).toEqual([{ text: LONG, maxWidth: width - 2 * HEADER_STAMP.padX }])
+    })
   })
 
   it('downloads the canvas PNG at the export scale, declaring the export resolution', async () => {

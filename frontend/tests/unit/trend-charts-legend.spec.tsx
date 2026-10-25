@@ -229,6 +229,7 @@ describe('TrendCharts PNG export wiring', () => {
     expect(header?.ticker).toBe('TST')
     expect(header?.title).toBe('Margins')
     expect(header?.period).toBe('FY2023–FY2024')
+    expect(header?.periodShort).toBe('FY2023–FY2024')
     expect(header?.legend.map((i) => i.label)).toEqual(['Gross', 'Operating'])
   })
 

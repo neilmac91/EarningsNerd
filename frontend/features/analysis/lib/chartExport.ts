@@ -8,12 +8,14 @@ import { FCF_DEFINITION } from './provenance'
 
 /** The PNG header's period range, source line and disclosure, the same under every chart renderer. The range is the
  *  run's window as the file name, the PDF and the workbook name it ("FY2016–FY2025", "Q3 2024–Q4 2024", a one-period
- *  run's "FY2024"). The source data's sync time, an instant, prints as the day it falls on in the reader's zone
- *  (DataNotes prints the long form). */
-export function exportSourceText(dataset: AnalysisDataset): { period: string; sourceNote: string; disclosure: string } {
+ *  run's "FY2024"), and in the short form the card's own subtitle prints ("Q3 ’24–Q4 ’24"), which the header takes
+ *  when the long one does not fit. The source data's sync time, an instant, prints as the day it falls on in the
+ *  reader's zone (DataNotes prints the long form). */
+export function exportSourceText(dataset: AnalysisDataset): { period: string; periodShort: string; sourceNote: string; disclosure: string } {
   const sourceDate = formatInstant(dataset.data_as_of, 'MMM d, yyyy')
   return {
     period: formatAnalysisPeriod(dataset.period_key),
+    periodShort: formatAnalysisPeriod(dataset.period_key, 'short'),
     sourceNote: `Source: SEC filings via EarningsNerd · ${sourceDate ? `data as of ${sourceDate}` : 'source refresh time unavailable'}`,
     disclosure: 'Research only. Not investment advice. Data may contain errors or omissions. earningsnerd.io/terms',
   }
@@ -65,7 +67,7 @@ export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: Analysis
 /**
  * Dependency-free chart PNG export (audit enhancement 2): SVG serialization → canvas
  * rasterization, framed so a shared image is self-describing — a HEADER (company name, then
- * ticker · metric, then the series legend; the Recharts SVG carries the plot only, never the
+ * ticker · metric · period, then the series legend; the Recharts SVG carries the plot only, never the
  * legend/title, which live in the card's HTML header) and a branded FOOTER (the EN mark plus the
  * "EarningsNerd" wordmark, so a viewer knows the source). Downloads go through the shared
  * lib/downloadBlob helper (its delayed revoke matters — a synchronous revoke can abort the
@@ -321,7 +323,7 @@ async function drawBrandFooter(
 }
 
 /* ---------------------------------------------------------------------------
-   Header strip — company, ticker · metric, and the series legend. The Recharts
+   Header strip — company, ticker · metric · period, and the series legend. The Recharts
    <svg> carries the plot only; the company/metric/legend live outside it (the
    page picker + TrendCharts' <h2>/PanelLegend), so an exported PNG that
    serializes the SVG alone is unidentifiable. Redraw them onto the canvas from
@@ -340,12 +342,15 @@ export interface ChartLegendItem {
 export interface ChartExportHeader {
   /** Company name — the anchor identity (e.g. "Tesla, Inc."). */
   company: string
-  /** Ticker (e.g. "TSLA") — paired with the metric in the subtitle. */
+  /** Ticker (e.g. "TSLA") — first in the "ticker · metric · period" subtitle. */
   ticker: string
   /** The panel/metric title (e.g. "Cash generation"). */
   title: string
   /** The run's period range (e.g. "FY2016–FY2025"), last in the subtitle; exportSourceText supplies it. */
   period?: string
+  /** The range's short form (e.g. "Q3 ’24–Q4 ’25"), drawn instead when the subtitle with `period` is wider than the
+   *  strip; exportSourceText supplies it. */
+  periodShort?: string
   legend: ChartLegendItem[]
   sourceNote?: string
   disclosure?: string
@@ -353,9 +358,9 @@ export interface ChartExportHeader {
 }
 
 /** Header geometry — exported for tests. Three tiers mirroring a captioned financial chart:
- *  company (bold, text.primary), "ticker · metric" (medium, text.secondary), then the legend
- *  (text-xs with an 8–9px rounded swatch). Values in CSS px; the caller's retina scale is applied
- *  on top. */
+ *  company (bold, the primary ink), "ticker · metric · period" (medium, the secondary ink), then the legend
+ *  (text-xs with an 8–9px rounded swatch); the inks are text.primary and text.secondary unless the card passes its
+ *  own (ExportInk). Values in CSS px; the caller's retina scale is applied on top. */
 export const HEADER_STAMP = {
   padX: 16,
   padTop: 14,
@@ -468,9 +473,9 @@ function fillSwatch(
 
 /** Draw the company + "ticker · metric · period" subtitle + pre-laid-out legend rows into the top strip.
  *  Colors mirror the on-screen tokens: company = text.primary, subtitle/legend = text.secondary, or the card's own
- *  inks (ExportInk).
- *  `maxWidth` on each fillText condenses (never clips) a pathologically long string — a no-op for
- *  real company/metric names. */
+ *  inks (ExportInk). A subtitle wider than the strip takes the period's short form when the header has one.
+ *  `maxWidth` on each fillText is the last resort: it condenses (never clips) what is still wider than the strip,
+ *  such as a long company name, or a bank's subtitle at a phone's width even in its short form. */
 function drawHeader(
   ctx: CanvasRenderingContext2D,
   header: ChartExportHeader,
@@ -490,8 +495,11 @@ function drawHeader(
   top += HEADER_STAMP.companySize + HEADER_STAMP.lineGap
 
   // Subtitle — "{ticker} · {metric} · {period}" ("REGN · Margins · FY2016–FY2025"); a part not given is left out.
-  const subtitle = [header.ticker, header.title, header.period].filter(Boolean).join(' · ')
+  // Wider than the strip, it takes the period's short form ("Q3 ’24–Q4 ’25") before maxWidth condenses it.
   ctx.font = font(500, HEADER_STAMP.subtitleSize)
+  const subtitleWith = (period?: string) => [header.ticker, header.title, period].filter(Boolean).join(' · ')
+  let subtitle = subtitleWith(header.period)
+  if (header.periodShort && ctx.measureText(subtitle).width > maxW) subtitle = subtitleWith(header.periodShort)
   ctx.fillStyle = secondary
   ctx.fillText(subtitle, HEADER_STAMP.padX, top + HEADER_STAMP.subtitleSize, maxW)
   top += HEADER_STAMP.subtitleSize
@@ -548,7 +556,8 @@ function crc32(bytes: Uint8Array): number {
  * not a PNG, or whose chunks do not run whole to its end, come back unchanged. Pure; exported for tests.
  */
 export function withPngResolution(bytes: Uint8Array<ArrayBuffer>, dpi: number): Uint8Array<ArrayBuffer> {
-  if (bytes.length < PNG_SIGNATURE.length || PNG_SIGNATURE.some((byte, index) => bytes[index] !== byte)) return bytes
+  // Shorter than the signature, an index past the end reads undefined, which matches no byte.
+  if (PNG_SIGNATURE.some((byte, index) => bytes[index] !== byte)) return bytes
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const chunks: Uint8Array[] = []
   for (let offset = PNG_SIGNATURE.length; offset < bytes.length;) {
