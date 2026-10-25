@@ -167,6 +167,21 @@ module.exports = {
           crosshair: { light: 'rgba(107,114,128,0.45)', dark: 'rgba(156,163,175,0.4)' }, // flat @ ~45%, dashed 3 3
           ref: { light: '#6B7280', dark: '#9CA3AF' },   // zero/reference line = flat tokens — 4.4:1 / 7.4:1 (hairline-as-meaning ≥3:1)
           tip: { light: '#FBFAF6', dark: '#1F2937' },   // tooltip surface = panel + hairline; shadow-e2 light / shadow NONE dark
+          // ---- The trend charts' spec renderer (docs/design/analysis-trend-charts-spec-2026-10.md §3.8) ----
+          // Behind NEXT_PUBLIC_CHARTS_V2 until the founder's F66 decision; features/analysis/lib/charts/theme.ts
+          // mirrors them, and no class names them yet. Light/dark pairs of their own, not dark siblings of
+          // chart-1…6 or new chart.label/grid values: those would repaint the landing page's RevenueBars
+          // and today's charts (Chart.tsx). APCA Lc on the card (panel): tests/unit/chart-apca.spec.ts.
+          s1: { light: '#3E8E84', dark: '#62B2A6' }, // = chart-1 · dark Lc −49.7 (chart-1 is −32.0 on the dark card)
+          s2: { light: '#B8812F', dark: '#D3A55C' }, // = chart-2 · dark Lc −54.2
+          s3: { light: '#5B7CC0', dark: '#8CA6E3' }, // = chart-3 · dark Lc −50.9
+          s4: { light: '#CF7159', dark: '#E8927C' }, // = chart-4 · dark Lc −51.9
+          s5: { light: '#6E7E9C', dark: '#97A6C2' }, // = chart-5 · dark Lc −50.1
+          s6: { light: '#8B7BC0', dark: '#AFA2DE' }, // = chart-6 · dark Lc −52.8
+          tick: { light: '#636A77', dark: '#B8BEC7' },     // = text.tertiary · dark Lc −63.6 (tertiary-dark, gray-400, is −48.6)
+          value: { light: '#374151', dark: '#D7DADC' },    // = text.secondary · dark the plot's own, the old text.primary.dark (#1606 raised that to #EAECEF)
+          gridline: { light: '#DCD9D0', dark: '#525C6B' }, // Lc 16.8 / −15.0: visible, quieter than the zero rule
+          review: { light: '#92400E', dark: '#FBBF24' },   // = warning · dark Lc −70.2 (warning-dark is −56.9)
         },
 
         // ---- Text ----

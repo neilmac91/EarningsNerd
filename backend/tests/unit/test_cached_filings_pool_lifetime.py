@@ -17,12 +17,14 @@ One rule, two halves in this one module:
   company lookup, search and trending list (eight racers for one new company's row included), the
   saved-summary routes, the upcoming calendar, the account routes (the profile edit, the alert
   preferences, the bell, the data export and the account deletion), the Copilot ask stream (a Pro
-  and a Free question, a missing filing and the admission's three refusals) and the admin feedback triage and
-  filing and summary maintenance routes (their 404s, and the bulk routes' dry and real runs) must answer an
-  eight-request burst with no checkout on the loop and nothing left for the finalizer; and the join, the
-  contact form and the feedback submit must send their mails, the analysis exports render, Stripe checkout
-  and the portal make their Stripe calls, and the account deletion its Stripe cancellation and PostHog
-  flush, with no connection out.
+  and a Free question, a missing filing and the admission's three refusals), the admin feedback triage and
+  filing and summary maintenance routes (their 404s, and the bulk routes' dry and real runs) and the admin
+  invite routes (the list, mint with and without mail, revoke and re-send, their 404s and 409s, and the
+  re-send's 503 with invitation mail closed) must answer an eight-request burst with no checkout on the
+  loop and nothing left for the finalizer; and the join, the contact form, the feedback submit and the
+  invite mint and re-send must send their mails, the analysis exports render, Stripe checkout and the
+  portal make their Stripe calls, and the account deletion its Stripe cancellation and PostHog flush,
+  with no connection out.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
   fails, above that route's ceiling, a session call on the loop in the route's own body, the session
   handed to a call there, a ``with`` it enters there, or a call there of a nested unit that uses it,
@@ -2897,6 +2899,243 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
         engine.dispose()
 
 
+def _invite_fixture(monkeypatch, tmp_path, send_invite_email):
+    """A four-slot pool with eight admins, eight pending invites bound to invitees (cohort ``seed-{i}``) and eight
+    used ones, the invite routes wired to it with ``send_invite_email`` as their mail sender and invitations
+    ready. Returns the engine, a session factory, the request sessions as they open, whether each checkout,
+    statement and checkin ran on the loop, the seeded invite ids and each admin's id as the audit log stores it."""
+    from app.models import InviteCode, User
+    from app.routers import admin, auth
+    from app.services import legal_readiness_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'admin-invites.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        for i in range(8):
+            db.add(User(email=f"admin-{i}@example.com", is_active=True, is_admin=True))
+        db.flush()
+        for i in range(8):
+            db.add(InviteCode(code_hash=f"{i:064x}", email=f"invitee-{i}@example.com", cohort=f"seed-{i}",
+                              expires_at=utcnow() + timedelta(days=7)))
+            db.add(InviteCode(code_hash=f"{i + 8:064x}", email=f"redeemed-{i}@example.com",
+                              expires_at=utcnow() + timedelta(days=7), used_at=utcnow()))
+        db.commit()
+        pending = [invite_id for (invite_id,) in db.query(InviteCode.id).filter(
+            InviteCode.used_at.is_(None)).order_by(InviteCode.id)]
+        used = [invite_id for (invite_id,) in db.query(InviteCode.id).filter(
+            InviteCode.used_at.isnot(None)).order_by(InviteCode.id)]
+        # Admin i sends request i; the audit log stores the admin's id as text.
+        admin_ids = {email: str(user_id) for user_id, email in db.query(User.id, User.email)}
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    # The routes' statements ran on the loop on the connection the auth lookup had checked out in the thread pool,
+    # and a commit gave it back there: neither is a checkout.
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(admin, "send_invite_email", send_invite_email)
+    monkeypatch.setattr(legal_readiness_service, "is_collection_available", lambda: True)
+    monkeypatch.setattr(legal_readiness_service, "is_marketing_available", lambda: True)
+    return engine, sessions, request_sessions, on_loop, pending, used, admin_ids
+
+
+async def _invite_request(transport: httpx.ASGITransport, method: str, path: str, body: dict | None,
+                          i: int) -> httpx.Response:
+    """Admin ``i``'s request, signed in as them, with invite ``i``'s and invitee ``i``'s placeholders filled."""
+    from app.routers import auth
+
+    token = auth.create_access_token({"sub": f"admin-{i}@example.com"})
+    async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                 headers={"Authorization": f"Bearer {token}"}) as client:
+        if body is None:
+            return await client.request(method, path)
+        return await client.request(method, path, json={key: value.format(i=i) if isinstance(value, str) else value
+                                                        for key, value in body.items()})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method,path,body,case", [
+    ("GET", "/api/admin/invites", None, "list"),
+    ("POST", "/api/admin/invites", {"cohort": "wave-{i}"}, "mint"),
+    ("POST", "/api/admin/invites", {"email": "new-{i}@example.com", "send_email": True}, "mint_email"),
+    ("POST", "/api/admin/invites/{pending}/revoke", None, "revoke"),
+    ("POST", "/api/admin/invites/9999/revoke", None, "revoke_missing"),
+    ("POST", "/api/admin/invites/{used}/revoke", None, "revoke_used"),
+    ("POST", "/api/admin/invites/{pending}/resend", None, "resend"),
+    ("POST", "/api/admin/invites/9999/resend", None, "resend_missing"),
+    ("POST", "/api/admin/invites/{used}/resend", None, "resend_used"),
+    ("POST", "/api/admin/invites/{pending}/resend", None, "resend_unready"),
+])
+async def test_admin_invite_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, body,
+                                                                       case):
+    """The admin invite routes run their session work in thread-pool units, released before the invite mail and
+    before they answer, their 404s and 409s included: the mint and the re-send mint in one unit and write their
+    audit row in another after the mail, and the list and the revoke (with its audit row) are one unit each. So
+    eight admins on four slots, each mail taking 0.05 s, make no checkout, statement or release on the loop and
+    leave nothing for the finalizer. On the loop, the list and the revoke ran every statement after the auth lookup
+    there, and the mint and the re-send held their connection through the mail (E171); the mail case below pins that
+    no connection is out while a mail sends. Odd admins' mails fail, so each audit row and answer must say whether
+    its own mail went. With invitation mail closed, as production keeps it, a re-send of a bound invite answers 503
+    from its unit, released, and changes nothing."""
+    from app.models import AuditLog, InviteCode
+    from app.services import legal_readiness_service
+
+    sent: list[tuple[str, str]] = []
+
+    async def send_invite_email(*, to_email: str, magic_link: str, name: str | None = None) -> None:
+        await asyncio.sleep(0.05)  # the other admins' units run while this mail sends
+        if int(to_email.split("@")[0].rsplit("-", 1)[1]) % 2:
+            raise RuntimeError("the mail provider refused the message")
+        sent.append((to_email, magic_link))
+
+    engine, sessions, request_sessions, on_loop, pending, used, admin_ids = _invite_fixture(
+        monkeypatch, tmp_path, send_invite_email)
+    if case == "resend_unready":
+        monkeypatch.setattr(legal_readiness_service, "is_marketing_available", lambda: False)
+    emails = [f"admin-{i}@example.com" for i in range(8)]
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    try:
+        responses = await asyncio.gather(*[
+            _invite_request(transport, method, path.format(pending=pending[i], used=used[i]), body, i)
+            for i in range(8)
+        ])
+        # Every checkout, the auth lookup's included, and every statement and release ran in the thread pool:
+        # none on the loop (read before this test's own reads below).
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        expected = {"revoke_missing": 404, "resend_missing": 404, "revoke_used": 409, "resend_used": 409,
+                    "resend_unready": 503}.get(case, 200)
+        assert [response.status_code for response in responses] == [expected] * 8
+        payloads = [response.json() for response in responses]
+        with sessions() as db:
+            invites = {invite.id: invite for invite in db.query(InviteCode)}
+            audits = sorted(
+                (action, user_id, user_email, entity_type, entity_id, tuple(sorted((details or {}).items())))
+                for action, user_id, user_email, entity_type, entity_id, details in db.query(
+                    AuditLog.action, AuditLog.user_id, AuditLog.user_email, AuditLog.entity_type,
+                    AuditLog.entity_id, AuditLog.details)
+            )
+        minted = sorted(set(invites) - set(pending) - set(used))
+        if case == "list":
+            assert [sorted(row["status"] for row in payload["invites"]) for payload in payloads] == [
+                ["pending"] * 8 + ["used"] * 8] * 8
+        elif expected != 200:
+            assert [payload["detail"] for payload in payloads] == [{
+                404: "Invite not found", 409: "Invite already redeemed",
+                503: "Invitation email delivery is currently unavailable."}[expected]] * 8
+        elif case in ("mint", "mint_email"):
+            assert sorted(payload["id"] for payload in payloads) == minted
+            assert [(payload["email"], payload["cohort"], payload["emailed"]) for payload in payloads] == [
+                (f"new-{i}@example.com", None, i % 2 == 0) if case == "mint_email" else (None, f"wave-{i}", False)
+                for i in range(8)]
+            assert all("/register?invite=" in payload["invite_link"] for payload in payloads)
+        elif case == "revoke":
+            assert [(payload["invite_id"], payload["status"]) for payload in payloads] == [
+                (invite_id, "revoked") for invite_id in pending]
+        elif case == "resend":
+            assert [payload["revoked_invite_id"] for payload in payloads] == pending
+            assert sorted(payload["id"] for payload in payloads) == minted
+            assert [(payload["email"], payload["cohort"], payload["emailed"]) for payload in payloads] == [
+                (f"invitee-{i}@example.com", f"seed-{i}", i % 2 == 0) for i in range(8)]
+        # Each write took effect, and the list, the 404s, the 409s and the 503s wrote nothing.
+        assert len(minted) == (8 if case in ("mint", "mint_email", "resend") else 0)
+        assert sorted(invite_id for invite_id, invite in invites.items() if invite.is_revoked) == (
+            pending if case in ("revoke", "resend") else [])
+        assert sorted(invite_id for invite_id, invite in invites.items() if invite.used_at is not None) == used
+        # Each mail that went carried its own request's link, and each minted invite names the admin who minted it.
+        assert sorted(sent) == sorted(
+            (payloads[i]["email"], payloads[i]["invite_link"]) for i in range(0, 8, 2) if case in ("mint_email", "resend"))
+        if case in ("mint", "mint_email", "resend"):
+            assert [invites[payload["id"]].created_by for payload in payloads] == [
+                int(admin_ids[email]) for email in emails]
+        # Each audit row names the admin whose request wrote it and what that request answered.
+        by_admin = {payload.get("revoked_invite_id", payload.get("invite_id")): payload for payload in payloads}
+        if case in ("mint", "mint_email"):
+            assert audits == sorted(
+                ("invite_minted", admin_ids[emails[i]], emails[i], "invite", str(payload["id"]),
+                 (("cohort", None), ("emailed", i % 2 == 0)) if case == "mint_email" else
+                 (("cohort", f"wave-{i}"), ("emailed", False)))
+                for i, payload in enumerate(payloads))
+        elif case == "revoke":
+            assert audits == sorted(
+                ("invite_revoked", admin_ids[emails[i]], emails[i], "invite", str(pending[i]), ()) for i in range(8))
+        elif case == "resend":
+            assert audits == sorted(
+                ("invite_resent", admin_ids[emails[i]], emails[i], "invite", str(by_admin[pending[i]]["id"]),
+                 (("cohort", f"seed-{i}"), ("emailed", i % 2 == 0), ("revoked_invite_id", pending[i])))
+                for i in range(8))
+        else:
+            assert audits == []
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["mint", "resend"])
+async def test_invite_mint_and_resend_hold_no_connection_while_their_mail_sends(monkeypatch, tmp_path, route):
+    """The mint and the re-send release their session before the invite mail, and write their audit row in a unit
+    of their own after it, so no pool slot waits on the mail provider and the row records that the mail went."""
+    from app.models import AuditLog
+    from app.routers import admin
+
+    held: list[tuple[str, int, int]] = []
+    engine, sessions, request_sessions, _, pending, _, _ = _invite_fixture(monkeypatch, tmp_path, None)
+
+    async def send_invite_email(*, to_email: str, magic_link: str, name: str | None = None) -> None:
+        checked_out = engine.pool.checkedout()  # read before this check's own session checks one out
+        with sessions() as db:
+            held.append((to_email, checked_out, db.query(AuditLog).count()))
+
+    monkeypatch.setattr(admin, "send_invite_email", send_invite_email)
+    try:
+        response = await _invite_request(
+            httpx.ASGITransport(app=app, raise_app_exceptions=False), "POST",
+            "/api/admin/invites" if route == "mint" else f"/api/admin/invites/{pending[0]}/resend",
+            {"email": "new-{i}@example.com", "send_email": True} if route == "mint" else None, 0,
+        )
+        assert response.status_code == 200, response.text
+        assert held == [("new-0@example.com" if route == "mint" else "invitee-0@example.com", 0, 0)]
+        assert engine.pool.checkedout() == 0
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]]
+        with sessions() as db:
+            assert [(action, (details or {}).get("emailed")) for action, details in db.query(
+                AuditLog.action, AuditLog.details)] == [("invite_minted" if route == "mint" else "invite_resent", True)]
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.parametrize("error", [
     OperationalError("ROLLBACK", {}, Exception("server closed the connection unexpectedly")),
     IllegalStateChangeError("Method 'close()' can't be called here; another method is in progress"),
@@ -2975,10 +3214,10 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 # thread dispatcher is a call whose last name is in ``_THREAD_DISPATCHERS``.
 #
 # Strict: the walk does not look inside a callee, so it counts each call the session is handed to,
-# though a callee may never use it on the loop. On main five such hand-offs never do:
-# - ``admin_account_service.create_free_account``, a refusal, never uses the session;
-# - the four OAuth starts' ``_start_google`` and ``_start_apple`` put their state write in the thread
-#   pool themselves (since #1547).
+# though a callee may never use it on the loop. On main four such hand-offs never do: the four OAuth
+# starts' ``_start_google`` and ``_start_apple`` put their state write in the thread pool themselves
+# (since #1547). ``admin_account_service.create_free_account``, a refusal, took the session until E171's
+# invite slice dropped it.
 # The two OAuth callbacks' ``issue_session(db, user, ..., refresh_token=...)`` is not one: it reads
 # ``user.email``, which the mint's commit expired, so it refreshes the user through the request
 # session, on the loop. A logged or type-checked session (``logger.info("%s", db)``,
@@ -3034,17 +3273,7 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # each entry is a route E121 (``auth.py``) or E171 names in ``tasks/todo.md``. The blank line between
 # entries keeps in-place number edits on different entries mergeable in any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
-    ("app/routers/admin.py", "create_free_account"): 1,
-
-    ("app/routers/admin.py", "list_invites"): 1,
-
-    ("app/routers/admin.py", "mint_invite"): 2,
-
     ("app/routers/admin.py", "refresh_stale_summaries"): 2,
-
-    ("app/routers/admin.py", "resend_invite"): 2,
-
-    ("app/routers/admin.py", "revoke_invite"): 2,
 
     ("app/routers/auth.py", "apple_callback"): 6,
 
@@ -3083,7 +3312,7 @@ MIN_ASYNC_SESSION_FUNCTIONS = 60
 # Callees that run their callable argument in a worker thread of the default pool, where a unit of
 # session work belongs. ``stripe_threads.run_on_stripe_threads`` is not one: a session handed to it
 # would hold a pooled connection on a Stripe thread across Stripe calls, so it counts as a hand-off.
-_THREAD_DISPATCHERS = frozenset({"run_in_threadpool", "to_thread", "run_sync", "run_in_executor"})
+_THREAD_DISPATCHERS = frozenset({"run_in_threadpool", "run_owned_sync", "to_thread", "run_sync", "run_in_executor"})
 
 
 def _tail(node: ast.AST) -> str | None:
@@ -3453,6 +3682,7 @@ async def flags_a_handoff_and_a_read(db: Session = Depends(get_db)):
 
 async def clean_service_to_the_pool(db: Session = Depends(get_db)):
     await run_in_threadpool(service.read, db, 1)
+    await run_owned_sync(service.read, db, 1)
     await run_in_threadpool(service.read, row_id=1, session=db)
     await anyio.to_thread.run_sync(service.read, db)
     await asyncio.get_running_loop().run_in_executor(None, service.read, db)

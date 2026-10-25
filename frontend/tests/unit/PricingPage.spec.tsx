@@ -28,6 +28,16 @@ const mockReplace = vi.fn((href: string) => {
 // The flags ship off: the plan lists leave out the lines they decide (lib/planLimits.ts shipped).
 const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false, ENABLE_ANALYSIS: false, ENABLE_FPI_FILINGS: false }))
 vi.mock('@/lib/featureFlags', () => flags)
+// The homepage-to-pricing offer cases assume released collection/checkout. The public readiness
+// transition and hold cases render the real provider in publicAccess.spec.tsx.
+vi.mock('@/features/marketing/components/PublicAccessProvider', async () => {
+  const { ACCESS_COPY } = await import('@/features/marketing/lib/access')
+  const { legalReady } = await import('./fixtures/legalReady')
+  return {
+    usePublicAccess: (mode: keyof typeof ACCESS_COPY) => ACCESS_COPY[mode],
+    usePublicReadiness: () => ({ readiness: legalReady, loading: false }),
+  }
+})
 // Test-only capture of the real onClick each card Button was rendered with, keyed by
 // `${variant}:${label}` (Free = secondary, Pro = primary; both cards share a label while the
 // account is unresolved), so each card's actual handler can be exercised independently of

@@ -514,6 +514,10 @@ _POSTGRES_STEPS = [
      "FILING_INSERT_CONCURRENCY_TEST_DATABASE_URL"),
     ("admin maintenance concurrency", "test_admin_maintenance_transactions.py",
      "ADMIN_MAINTENANCE_CONCURRENCY_TEST_DATABASE_URL"),
+    ("admin invite concurrency", "test_admin_invite_transactions.py",
+     "ADMIN_INVITE_CONCURRENCY_TEST_DATABASE_URL"),
+    ("feedback submission concurrency", "test_feedback_submission_transactions.py",
+     "FEEDBACK_CONCURRENCY_TEST_DATABASE_URL"),
 ]
 _GATE_VARIABLE = re.compile(r"[A-Z0-9_]+_TEST_DATABASE_URL")
 
@@ -809,7 +813,7 @@ def test_cloud_sql_proxy_is_pinned_by_checksum_in_both_workflows():
     assert len(set(pins)) == 1, f"ci.yml and ops.yml must pin the same cloud-sql-proxy build: {pins}"
 
 
-_OPS_PREFLIGHT_EXEMPT = "describe-service describe-jobs logs-probe rollback-traffic"
+_OPS_PREFLIGHT_EXEMPT = "describe-service describe-jobs logs-probe rollback-traffic feedback-media-inspect feedback-media-verify-inspect"
 
 
 def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
@@ -829,7 +833,8 @@ def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
     proxy_run = _executable(_step(job, "Start Cloud SQL proxy and export connection env")["run"])
     assert "PGOPTIONS" not in proxy_run, "do not export PGOPTIONS globally — scope it per Cloud SQL step"
     reach = cloud_sql_reach()
-    assert len(reach) >= 5  # the capacity ledger, detection SQL, the ticker repair, the FY relabel, the quarterly repair
+    # the capacity ledger, detection SQL, the ticker repair, the FY relabel, the quarterly repair, the lineage backfill
+    assert len(reach) >= 6
     for _, reach_step in reach:
         name, options = reach_step["name"], (reach_step.get("env") or {}).get("PGOPTIONS", "")
         for match in re.finditer(r"(?<!\$)(?<!\$\{)\bPGOPTIONS\b", reach_step["run"]):
@@ -848,6 +853,7 @@ def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
         ("Run ticker repair script", 120_000),
         ("Run fiscal-year relabel script", 120_000),
         ("Run quarterly fact repair script", 120_000),
+        ("Run filing lineage backfill script", 120_000),
     ):
         opts = (_step(job, step_name).get("env") or {}).get("PGOPTIONS", "")
         assert (setting_ms(opts, "lock_timeout"), setting_ms(opts, "statement_timeout")) == (10_000, statement_ms), (

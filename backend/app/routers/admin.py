@@ -14,7 +14,7 @@ import logging
 
 from app.config import settings
 from app.database import get_db
-from app.models import User
+from app.models import InviteCode, User
 from app.models.feedback import Feedback
 from app.routers.auth import get_current_user
 from app.schemas.feedback import FeedbackAdminItem, FeedbackStatusUpdate, FeedbackStatus, FeedbackType
@@ -80,12 +80,11 @@ class CreateFreeAccountRequest(BaseModel):
 async def create_free_account(
     payload: CreateFreeAccountRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     _require_admin(current_user)
     try:
         return await admin_account_service.create_free_account(
-            db, email=payload.email, full_name=payload.full_name, actor=current_user,
+            email=payload.email, full_name=payload.full_name, actor=current_user,
         )
     except admin_account_service.AccountInvitationRequired as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
@@ -168,6 +167,17 @@ class ResendInviteResponse(InviteResponse):
     revoked_invite_id: int
 
 
+def _issued_invite(invite: InviteCode, link: str) -> dict:
+    """A minted invite's response fields, read in its unit while the row is loaded (E171)."""
+    return {
+        "id": invite.id,
+        "email": invite.email,
+        "invite_link": link,
+        "expires_at": invite.expires_at,
+        "cohort": invite.cohort,
+    }
+
+
 @router.post("/invites", response_model=InviteResponse)
 async def mint_invite(
     payload: MintInviteRequest,
@@ -184,40 +194,51 @@ async def mint_invite(
         raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
     if payload.send_email and not legal_readiness_service.is_marketing_available():
         raise HTTPException(status_code=503, detail="Invitation email delivery is currently unavailable.")
-    invite, _raw, link = invite_service.mint_invite(
-        db,
-        created_by=current_user.id,
-        email=payload.email,
-        expires_in_hours=payload.expires_in_hours,
-        cohort=payload.cohort,
-    )
+    # A commit expires the admin, and after the release it is detached: read what the units need first.
+    admin_id, admin_email = current_user.id, current_user.email
+
+    def mint() -> dict:
+        try:
+            invite, _raw, link = invite_service.mint_invite(
+                db,
+                created_by=admin_id,
+                email=payload.email,
+                expires_in_hours=payload.expires_in_hours,
+                cohort=payload.cohort,
+            )
+            return _issued_invite(invite, link)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    issued = await run_in_threadpool(mint)
     emailed = False
     if payload.send_email and payload.email:
         try:
-            await send_invite_email(to_email=payload.email, magic_link=link)
+            await send_invite_email(to_email=payload.email, magic_link=issued["invite_link"])
             emailed = True
         except Exception:
-            logger.warning("Failed to email invite %s", invite.id, exc_info=True)
-    try:
-        audit_service.create_audit_log(
-            db,
-            action="invite_minted",
-            user_id=current_user.id,
-            user_email=current_user.email,
-            entity_type="invite",
-            entity_id=str(invite.id),
-            details={"cohort": invite.cohort, "emailed": emailed},
-        )
-    except Exception:
-        logger.warning("Failed to write audit log for invite_minted", exc_info=True)
-    return InviteResponse(
-        id=invite.id,
-        email=invite.email,
-        invite_link=link,
-        expires_at=invite.expires_at,
-        emailed=emailed,
-        cohort=invite.cohort,
-    )
+            logger.warning("Failed to email invite %s", issued["id"], exc_info=True)
+
+    def audit() -> None:
+        # A unit of its own after the mail, so the row records whether it went and no pool slot waits on the
+        # mail provider (E171).
+        try:
+            audit_service.create_audit_log(
+                db,
+                action="invite_minted",
+                user_id=admin_id,
+                user_email=admin_email,
+                entity_type="invite",
+                entity_id=str(issued["id"]),
+                details={"cohort": issued["cohort"], "emailed": emailed},
+            )
+        except Exception:
+            logger.warning("Failed to write audit log for invite_minted", exc_info=True)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    await run_in_threadpool(audit)
+    return InviteResponse(**issued, emailed=emailed)
 
 
 @router.get("/invites")
@@ -227,22 +248,28 @@ async def list_invites(
 ):
     """Admin-only: list recent invites with derived status (pending/used/revoked/expired)."""
     _require_admin(current_user)
-    rows = invite_service.list_recent_invites(db)
-    return {
-        "invites": [
-            {
-                "id": r.id,
-                "email": r.email,
-                "status": invite_service.invite_status(r),
-                "cohort": r.cohort,
-                "expires_at": r.expires_at,
-                "used_at": r.used_at,
-                "user_id": r.user_id,
-                "created_at": r.created_at,
+
+    def invites() -> dict:
+        try:
+            return {
+                "invites": [
+                    {
+                        "id": r.id,
+                        "email": r.email,
+                        "status": invite_service.invite_status(r),
+                        "cohort": r.cohort,
+                        "expires_at": r.expires_at,
+                        "used_at": r.used_at,
+                        "user_id": r.user_id,
+                        "created_at": r.created_at,
+                    }
+                    for r in invite_service.list_recent_invites(db)
+                ]
             }
-            for r in rows
-        ]
-    }
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(invites)
 
 
 @router.post("/invites/{invite_id}/revoke")
@@ -253,25 +280,34 @@ async def revoke_invite(
 ):
     """Admin-only: revoke an unused invite so its link can no longer be redeemed."""
     _require_admin(current_user)
+    admin_id, admin_email = current_user.id, current_user.email
+
+    def revoke() -> str:
+        try:
+            invite_status = invite_service.invite_status(invite_service.revoke_invite(db, invite_id))
+            logger.info("Admin %s revoked invite %s", admin_id, invite_id)
+            try:
+                audit_service.create_audit_log(
+                    db,
+                    action="invite_revoked",
+                    user_id=admin_id,
+                    user_email=admin_email,
+                    entity_type="invite",
+                    entity_id=str(invite_id),
+                )
+            except Exception:
+                logger.warning("Failed to write audit log for invite_revoked", exc_info=True)
+            return invite_status
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        invite = invite_service.revoke_invite(db, invite_id)
+        invite_status = await run_in_threadpool(revoke)
     except invite_service.InviteNotFoundError:
         raise HTTPException(status_code=404, detail="Invite not found")
     except invite_service.InviteAlreadyRedeemedError:
         raise HTTPException(status_code=409, detail="Invite already redeemed")
-    logger.info("Admin %s revoked invite %s", current_user.id, invite_id)
-    try:
-        audit_service.create_audit_log(
-            db,
-            action="invite_revoked",
-            user_id=current_user.id,
-            user_email=current_user.email,
-            entity_type="invite",
-            entity_id=str(invite_id),
-        )
-    except Exception:
-        logger.warning("Failed to write audit log for invite_revoked", exc_info=True)
-    return {"message": "Invite revoked", "invite_id": invite_id, "status": invite_service.invite_status(invite)}
+    return {"message": "Invite revoked", "invite_id": invite_id, "status": invite_status}
 
 
 @router.post("/invites/{invite_id}/resend", response_model=ResendInviteResponse)
@@ -291,57 +327,64 @@ async def resend_invite(
     if not legal_readiness_service.is_collection_available():
         raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
     expires_in_hours = payload.expires_in_hours if payload else None
+    admin_id, admin_email = current_user.id, current_user.email
+
+    def reissue() -> dict:
+        try:
+            # Inspect the existing binding before reissue can revoke the old link. An unbound invite
+            # remains a manual-link operation; bound invites require email readiness.
+            if (invite_service.invite_has_delivery_recipient(db, invite_id)
+                    and not legal_readiness_service.is_marketing_available()):
+                raise HTTPException(status_code=503, detail="Invitation email delivery is currently unavailable.")
+            invite, _raw, link = invite_service.reissue_invite(
+                db,
+                invite_id,
+                created_by=admin_id,
+                expires_in_hours=expires_in_hours,
+            )
+            return _issued_invite(invite, link)
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        # Inspect the existing binding off-loop before reissue can revoke the old link. An
-        # unbound invite remains a manual-link operation; bound invites require email readiness.
-        has_recipient = await run_in_threadpool(invite_service.invite_has_delivery_recipient, db, invite_id)
-        if has_recipient and not legal_readiness_service.is_marketing_available():
-            raise HTTPException(status_code=503, detail="Invitation email delivery is currently unavailable.")
-        invite, _raw, link = invite_service.reissue_invite(
-            db,
-            invite_id,
-            created_by=current_user.id,
-            expires_in_hours=expires_in_hours,
-        )
+        issued = await run_in_threadpool(reissue)
     except invite_service.InviteNotFoundError:
         raise HTTPException(status_code=404, detail="Invite not found")
     except invite_service.InviteAlreadyRedeemedError:
         raise HTTPException(status_code=409, detail="Invite already redeemed")
 
     emailed = False
-    if invite.email:
+    if issued["email"]:
         try:
-            await send_invite_email(to_email=invite.email, magic_link=link)
+            await send_invite_email(to_email=issued["email"], magic_link=issued["invite_link"])
             emailed = True
         except Exception:
-            logger.warning("Failed to email invite %s", invite.id, exc_info=True)
+            logger.warning("Failed to email invite %s", issued["id"], exc_info=True)
 
-    logger.info("Admin %s resent invite %s as %s", current_user.id, invite_id, invite.id)
-    try:
-        audit_service.create_audit_log(
-            db,
-            action="invite_resent",
-            user_id=current_user.id,
-            user_email=current_user.email,
-            entity_type="invite",
-            entity_id=str(invite.id),
-            details={"revoked_invite_id": invite_id, "cohort": invite.cohort, "emailed": emailed},
-        )
-    except Exception:
-        logger.warning("Failed to write audit log for invite_resent", exc_info=True)
+    logger.info("Admin %s resent invite %s as %s", admin_id, invite_id, issued["id"])
 
-    return ResendInviteResponse(
-        id=invite.id,
-        email=invite.email,
-        invite_link=link,
-        expires_at=invite.expires_at,
-        emailed=emailed,
-        cohort=invite.cohort,
-        revoked_invite_id=invite_id,
-    )
+    def audit() -> None:
+        # As the mint's: a unit of its own after the mail (E171).
+        try:
+            audit_service.create_audit_log(
+                db,
+                action="invite_resent",
+                user_id=admin_id,
+                user_email=admin_email,
+                entity_type="invite",
+                entity_id=str(issued["id"]),
+                details={"revoked_invite_id": invite_id, "cohort": issued["cohort"], "emailed": emailed},
+            )
+        except Exception:
+            logger.warning("Failed to write audit log for invite_resent", exc_info=True)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    await run_in_threadpool(audit)
+    return ResendInviteResponse(**issued, emailed=emailed, revoked_invite_id=invite_id)
 
 
-def _feedback_item(row: Feedback, user_email: Optional[str]) -> dict:
+def _feedback_item(row: Feedback, user_email: Optional[str], attachments: list | None = None) -> dict:
     """Shape a Feedback row (+ joined user email) into the admin API item."""
     return {
         "id": row.id,
@@ -352,6 +395,8 @@ def _feedback_item(row: Feedback, user_email: Optional[str]) -> dict:
         "page_url": row.page_url,
         "status": row.status,
         "created_at": row.created_at,
+        "attachment_count": len(attachments or []),
+        "attachments": attachments or [],
     }
 
 
@@ -373,7 +418,8 @@ async def list_feedback(
     def feedback_list() -> dict:
         try:
             rows = admin_feedback_service.list_feedback(db, feedback_status=status, feedback_type=type)
-            return {"feedback": [_feedback_item(row, email) for row, email in rows]}
+            attachments = admin_feedback_service.attachment_metadata(db, [row.id for row, _ in rows])
+            return {"feedback": [_feedback_item(row, email, attachments[row.id]) for row, email in rows]}
         finally:
             filing_list_service.release_request_session(db)
 
@@ -418,7 +464,8 @@ async def update_feedback_status(
                 logger.warning("Failed to write audit log for feedback_status_changed", exc_info=True)
 
             user_email = admin_feedback_service.submitter_email(db, feedback)
-            return _feedback_item(feedback, user_email)
+            attachments = admin_feedback_service.attachment_metadata(db, [feedback.id])
+            return _feedback_item(feedback, user_email, attachments[feedback.id])
         finally:
             filing_list_service.release_request_session(db)
 

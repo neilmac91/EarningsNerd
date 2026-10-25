@@ -46,7 +46,9 @@ the same head (F58 changed both; **Gate** below).
   - if it names a completion it cannot pair, or one paired with a start before the latest ready mark, or a missing
     history, make one fresh draft-to-ready transition once no review is open, its two steps a few seconds apart (the
     gate refuses a draft and a ready mark in the same second), with no manual request, and let its review finish. On a
-    head copilot-eval has drawn on, the transition draws nothing more (`lessons/ops-copilot-eval-red-is-triaged-never-rerun.md`);
+    head copilot-eval has drawn on, the transition draws no more copilot-eval (`lessons/ops-copilot-eval-red-is-triaged-never-rerun.md`);
+    since F55 it draws `eval-baseline` again when the diff touches `backend/app/`, `backend/evals/` or `backend/prompts/`,
+    so reserve first (`ops-reserve-eval-baseline-before-each-push.md`);
   - otherwise a gate job still waiting decides on its own, and a timed-out one is re-run.
 - A review still Running an hour after it started counts as abandoned (F58 call 1; the founder on 2026-10-23: "Call 1
   approved"). The hour is review 6341504879's recommendation: all 242 single runs in PRs 1380–1486 finished within 21

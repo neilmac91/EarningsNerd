@@ -29,7 +29,12 @@ vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
   ENABLE_FEEDBACK_WIDGET: true,
 }))
-vi.mock('@/features/feedback/api/feedback-api', () => ({ submitFeedback: vi.fn() }))
+// The dialog reads whether screenshots are on when it opens, as busyControls.forms.spec.tsx answers it.
+vi.mock('@/features/feedback/api/feedback-api', () => ({
+  submitFeedback: vi.fn(),
+  getFeedbackSubmission: vi.fn(),
+  getFeedbackCapabilities: vi.fn(async () => ({ attachments_enabled: false })),
+}))
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: vi.fn() }))
 
 type Box = { left: number; top: number; width: number; height: number }

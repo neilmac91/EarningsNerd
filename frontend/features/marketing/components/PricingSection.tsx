@@ -8,7 +8,8 @@ import { cx } from '@/components/ui/cx'
 import { MissingValue } from '@/components/ui/MissingValue'
 import FormCodeText from '@/features/marketing/components/FormCodeText'
 import LandingRow from '@/features/marketing/components/LandingRow'
-import { ACCESS_COPY, type AccessMode } from '@/features/marketing/lib/access'
+import type { AccessMode } from '@/features/marketing/lib/access'
+import { usePublicAccess, usePublicReadiness } from './PublicAccessProvider'
 import { useOverflowRegion } from '@/hooks/useOverflowRegion'
 import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
@@ -119,10 +120,13 @@ export default function PricingSection({
     describedBy: hintId,
   })
 
-  const access = ACCESS_COPY[accessMode]
+  const access = usePublicAccess(accessMode)
+  const { readiness } = usePublicReadiness()
+  const checkoutAvailable = readiness?.checkout_available === true
+  const betaOfferAvailable = showBeta && checkoutAvailable
 
   const monthly = billing === 'monthly'
-  const showTrial = ENABLE_PRO_TRIAL && monthly && !showBeta
+  const showTrial = ENABLE_PRO_TRIAL && monthly && !betaOfferAvailable && checkoutAvailable
   const proPrice = monthly ? PRO_PRICING.monthlyDisplay : PRO_PRICING.yearlyPerMonthDisplay
   const billingNote = monthly
     ? `Billed monthly. Or ${PRO_PRICING.yearlyPerMonthDisplay} a month, billed annually at ${PRO_PRICING.yearlyDisplay}.`
@@ -257,7 +261,7 @@ export default function PricingSection({
                   <span className={`text-sm ${MUTED_CLASS}`}>per month</span>
                 </div>
                 <p className={`mt-1.5 text-sm ${MUTED_CLASS}`}>{billingNote}</p>
-                {showBeta && (
+                {betaOfferAvailable && (
                   <p className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-brand-strong dark:text-brand-strong-dark">
                     <SealCheckIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
                     Free for beta members
@@ -290,15 +294,18 @@ export default function PricingSection({
               </td>
               <td className={`${RULE} px-4 pt-5 align-top`}>
                 <Link
-                  href={showBeta ? '/pricing' : pricingHref(cycleName(billing))}
+                  href={betaOfferAvailable ? '/pricing' : pricingHref(cycleName(billing))}
                   className={buttonVariants({ variant: 'primary', size: 'md', wrap: true, className: CTA_CLASS })}
                 >
-                  {showTrial ? `Start ${TRIAL_DAYS}-day free trial` : 'Upgrade to Pro'}
+                  {!checkoutAvailable ? 'View plans' : showTrial ? `Start ${TRIAL_DAYS}-day free trial` : 'Upgrade to Pro'}
                 </Link>
                 {showTrial && (
                   <p className={`mt-2 text-xs ${MUTED_CLASS}`}>
                     Card required. One trial per account. Cancel any time in the {TRIAL_DAYS} days at no charge.
                   </p>
+                )}
+                {readiness && !checkoutAvailable && (
+                  <p className={`mt-2 text-xs ${MUTED_CLASS}`}>Pro activation is currently unavailable.</p>
                 )}
               </td>
             </tr>
