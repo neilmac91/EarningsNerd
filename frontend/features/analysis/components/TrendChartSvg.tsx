@@ -15,7 +15,7 @@ import { memo } from 'react'
 import { Group } from '@visx/group'
 import { Bar, LinePath } from '@visx/shape'
 import { CHART_FONT } from '@/components/ui/Chart'
-import { CAPTION, captionBacking, FONT_PX, gutterOverlayWidth, noteGlyphs, OFF_GLYPH, OFF_ROW, STRIP_LABEL_X, STRIP_MARKER_X, type ChartLayout, type PanelBox } from '@/features/analysis/lib/charts/layout'
+import { CAPTION, captionBacking, FONT_PX, gutterOverlayWidth, noteGlyphs, OFF_GLYPH, OFF_ROW, STRIP_LABEL_X, STRIP_MARKER_X, type ChartLayout, type GutterCut, type PanelBox } from '@/features/analysis/lib/charts/layout'
 import type { ChartModel, ModelMark, ModelPoint, StripRow } from '@/features/analysis/lib/charts/model'
 import type { ChartTokens } from '@/features/analysis/lib/charts/theme'
 import { BreakMark, MarkerShape, StripSwatch } from './chartMarks'
@@ -211,15 +211,16 @@ export default memo(function TrendChartSvg({ model, layout, tokens, label, uid }
  * the viewport's left edge, at the positions the plot draws them: the surface over the gutter, each panel's caption on
  * a surface backing as wide as the caption (it runs past the gutter), the tick labels, "Notes" and the expanded strip's
  * row names. Past the gutter it covers the column a scroll leaves cut at its edge (layout.ts gutterCover), carrying the
- * plot's gridlines and edge rules across it. The caller sticks it over the plot, outside the plot's node, so the PNG
- * export never draws it.
+ * plot's gridlines and edge rules across it, and the rest of any value that runs past its column across that edge
+ * (gutterCuts). The caller sticks it over the plot, outside the plot's node, so the PNG export never draws it.
  */
-export function GutterOverlay({ model, layout, tokens, cover }: { model: ChartModel; layout: ChartLayout; tokens: ChartTokens; cover: number }) {
-  const width = gutterOverlayWidth(layout, cover)
+export function GutterOverlay({ model, layout, tokens, cover, cuts }: { model: ChartModel; layout: ChartLayout; tokens: ChartTokens; cover: number; cuts: GutterCut[] }) {
+  const width = gutterOverlayWidth(layout, cover, cuts)
   return (
     <svg width={width} height={layout.height} viewBox={`0 0 ${width} ${layout.height}`} aria-hidden="true"
       fontFamily={CHART_FONT} fontSize={11} textRendering="geometricPrecision" style={{ display: 'block' }}>
       <rect x={0} y={0} width={cover} height={layout.height} fill={tokens.surface} />
+      {cuts.map((cut) => <rect key={`${cut.y}:${cut.width}`} data-cut x={cut.x} y={cut.y} width={cut.width} height={cut.height} fill={tokens.surface} />)}
       {layout.panels.map((box) => (
         <g key={box.panel.id}>
           {cover > layout.plotLeft && <GridLines box={box} x1={layout.plotLeft} x2={cover} tokens={tokens} />}

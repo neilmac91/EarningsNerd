@@ -169,8 +169,34 @@ export function gutterCover(layout: ChartLayout, scrollLeft: number): number {
   return layout.plotLeft + Math.ceil(scrollLeft / layout.slot - 1e-9) * layout.slot - scrollLeft
 }
 
-/** A7's sticky gutter's width: what it covers, or the widest caption's backing past it. */
-export const gutterOverlayWidth = (layout: ChartLayout, cover = layout.plotLeft) => Math.max(cover, ...layout.panels.map(captionBacking))
+/** A box in the viewport's x, past the cover's edge, that A7's sticky gutter also covers. */
+export interface GutterCut {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** The printed values the cover's edge cuts at a scroll offset, each as the rest of its box past the cover, so the gutter
+ *  hides it whole. Only two texts run past their period's column: a bar label, which A4 keeps 2 px from its neighbours
+ *  in either direction (up to 5 px over, "+2,915%"), and an off-scale value, centred on its column whatever its width
+ *  (up to 12 px over, "−15,071%"). Every other text lies inside its column, which the cover takes whole. */
+export function gutterCuts(layout: ChartLayout, scrollLeft: number, cover: number): GutterCut[] {
+  const edge = scrollLeft + cover
+  const boxes = layout.panels.flatMap((box) => [
+    // A label's planned box (labelAt): 10 px above its baseline, 3 below.
+    ...box.bars.flatMap((bar) => (bar.label ? [{ x0: bar.x + bar.width / 2 - textWidth(bar.label.text) / 2, w: textWidth(bar.label.text), y0: bar.label.y - 10, h: 13 }] : [])),
+    ...[box.offAbove, box.offBelow].flatMap((band) => (band ? band.items.map((item) => ({
+      x0: item.left, w: OFF_GLYPH + textWidth(item.text), y0: band.top + OFF_ROW * item.row, h: OFF_ROW,
+    })) : [])),
+  ])
+  return boxes.filter((box) => box.x0 < edge && box.x0 + box.w > edge)
+    .map((box) => ({ x: cover, y: box.y0, width: box.x0 + box.w - edge, height: box.h }))
+}
+
+/** A7's sticky gutter's width: what it covers, the cut values past it, or the widest caption's backing. */
+export const gutterOverlayWidth = (layout: ChartLayout, cover = layout.plotLeft, cuts: GutterCut[] = []) =>
+  Math.max(cover, ...cuts.map((cut) => cut.x + cut.width), ...layout.panels.map(captionBacking))
 
 /**
  * The left gutter and the narrowest slot. The gutter holds the widest tick label (G_L). An expanded view with a

@@ -239,9 +239,11 @@ says so; everything else follows the spec.
     and lie under the gutter), and a touch screen reader finds it anywhere on the chart. Down and Up step too, and Home and End jump to the
     oldest and newest; a step past either end, which changes no value, says "Oldest period." or "Newest period." in a
     status line. A pointer's tooltip announces nothing: only the keyboard speaks.
-  - It starts at the newest period, the one the legend and the metrics table quote, and a plot that scrolls opens
-    scrolled there, once for each view and window, never again on a resize or zoom, which would lose the reader's
-    place. Today's stop starts at the oldest.
+  - It starts at the newest period, the one the legend and the metrics table quote, and a plot opens scrolled there
+    whenever its view or window starts to overflow: on first layout, after expanding or collapsing (§3.10), whether or
+    not the other view overflowed, and for a new window. Never on a resize or zoom, which would lose the reader's
+    place: a plot that overflows is planned at its minimum width, which a resize leaves as it is. Today's stop starts
+    at the oldest.
   - The header prints a quarter as the app does, `Q2 2026 · quarter ended Jun 30, 2026`, not `Q2 FY2026`: its end
     date tells a fiscal quarter from a calendar one. An amount prints at 4 significant figures in its own unit
     (`$987.6M`), cents at the finest in dollars. A growth row never says Calculated, since every growth rate is a
@@ -263,12 +265,14 @@ says so; everything else follows the spec.
     caption on a backing as wide as the caption (captions run past the gutter), the tick labels, "Notes" and the
     expanded strip's row names. It shows only while the plot is scrolled, so at rest it never covers an off-scale
     value that reaches into the gutter. Past the gutter it also covers the column a scroll leaves cut at its edge, out
-    to the next slot boundary, with the plot's gridlines and edge rules carried across, so no value shows in part
-    beside the axis, where a cut `−19%` would read `19%`; a pointer there reads no period.
+    to the next slot boundary, with the plot's gridlines and edge rules carried across, and the rest of any value that
+    runs past its column across that edge: a bar label, which A4 keeps apart in either direction (up to 5 px over),
+    and an off-scale value, centred on its column whatever its width (up to 12 px over). So no value shows in part
+    beside the axis, where a cut `−19%` would read `19%`; a pointer under the cover reads no period.
   - A grid row's cards share its rows (CSS subgrid: header, plot, notes), so a row's plots start at one height
     whatever its legends wrap to (chief design's review of #1609).
-  - Not built: §3.9's loading skeleton (the card holds the plot's box while its font loads, G4), the export button's
-    busy state and §3.10's height animation.
+  - Not built, and open as E200: §3.9's loading skeleton (the card holds the plot's box while its font loads, G4), the
+    export button's busy state and §3.10's height animation.
 - **The renderer's gates.** `frontend/tests/unit/trend-charts-v2.spec.tsx` holds the drawing to the plan on the 19
   datasets, every chart and both views: D4, D5, D7, D11, D12 and D14, every printed string, and paint the export can
   serialise, and the reading contract above. `frontend/tests/unit/chart-readout.spec.ts` holds every readout to the

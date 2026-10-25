@@ -21,7 +21,7 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
 import { useOverflowRegion } from '@/hooks/useOverflowRegion'
-import { columnOf, gutterCover, slotAt, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { columnOf, gutterCover, gutterCuts, slotAt, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import type { ChartModel, ChartView } from '@/features/analysis/lib/charts/model'
 import type { PeriodReadout } from '@/features/analysis/lib/charts/readout'
 import type { ChartTokens } from '@/features/analysis/lib/charts/theme'
@@ -51,7 +51,7 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
   fontReady: boolean
   uid: string
   view: ChartView
-  /** The node the PNG export serialises: the values stop, holding the chart's SVG alone. */
+  /** The node the PNG export serialises: the plot's box, holding the chart's SVG alone. */
   plotRef: RefObject<HTMLDivElement>
   /** The viewport's whole-pixel width, the width the plan is laid out at. */
   onWidth: (width: number) => void
@@ -75,6 +75,8 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
   const [scrollLeft, setScrollLeft] = useState(0)
   const [edge, setEdge] = useState('')
   const reveal = useRef(false)
+  // The status line's end-of-range word, set a frame after it is cleared; a later key or a blur cancels it.
+  const edgeFrame = useRef<number | null>(null)
   const tap = useRef<{ id: number; x: number; y: number } | null>(null)
   const active = owner === 'keyboard' ? keyIndex : owner === 'pointer' && hover != null ? Math.min(hover, last) : null
   const readout = active == null ? null : readouts[active]
@@ -105,16 +107,15 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
     if (viewport) setScrollLeft(viewport.scrollLeft)
   }
 
-  // Open at the newest period, once a view and window first overflow: never again on a resize or zoom, which would
-  // lose the reader's place.
-  const opened = useRef('')
+  // Open at the newest period when a view or window starts to overflow: on first layout, after expanding or collapsing
+  // (spec §3.10), whether or not the other view overflowed, and for a new window. Never on a resize or zoom, which would
+  // lose the reader's place: a plot that overflows is planned at its minimum width, so a resize changes none of these.
   useLayoutEffect(() => {
     const viewport = viewportRef.current
-    const key = `${view} ${windowKey}`
-    if (!viewport || !overflowing || opened.current === key) return
-    opened.current = key
+    if (!viewport || !overflowing) return
     viewport.scrollLeft = viewport.scrollWidth
     syncScroll()
+    // The view, the window and the overflow alone: never the layout or its width.
   }, [view, windowKey, overflowing])
 
   /** The period under a pointer (layout.ts slotAt), none where the sticky gutter or the plot's own gutter is. */
@@ -158,6 +159,12 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
     placeTip()
   })
 
+  const cancelEdge = () => {
+    if (edgeFrame.current != null) cancelAnimationFrame(edgeFrame.current)
+    edgeFrame.current = null
+    setEdge('')
+  }
+
   const dismiss = () => {
     setOwner(null)
     setPinned(false)
@@ -200,10 +207,10 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
     setPinned(false)
     reveal.current = true
     // A step past either end changes no value, so the slider says nothing: the status line does, fresh each press.
-    setEdge('')
+    cancelEdge()
     if (next !== to) {
       const message = to < 0 ? 'Oldest period.' : 'Newest period.'
-      requestAnimationFrame(() => setEdge(message))
+      edgeFrame.current = requestAnimationFrame(() => setEdge(message))
     }
   }
 
@@ -256,7 +263,7 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
           </div>
           {gutter && (
             <div aria-hidden="true" data-chart-gutter className="pointer-events-none sticky left-0 col-start-1 row-start-1 self-start justify-self-start">
-              <GutterOverlay model={model} layout={layout} tokens={tokens} cover={cover} />
+              <GutterOverlay model={model} layout={layout} tokens={tokens} cover={cover} cuts={gutterCuts(layout, scrollLeft, cover)} />
             </div>
           )}
         </div>
@@ -271,7 +278,7 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
         }}
         onBlur={() => {
           setOwner((current) => (current === 'keyboard' ? null : current))
-          setEdge('')
+          cancelEdge()
         }}
         className="pointer-events-none absolute inset-0 rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark" />
       {readout && (

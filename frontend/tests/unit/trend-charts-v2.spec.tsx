@@ -52,7 +52,7 @@ import TrendCharts from '@/features/analysis/components/TrendCharts'
 import TrendChartsV2 from '@/features/analysis/components/TrendChartsV2'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { exportPanelPng } from '@/features/analysis/lib/chartExport'
-import { CARD_HEIGHT, gutterCover, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { CARD_HEIGHT, gutterCover, gutterCuts, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/theme'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
@@ -251,7 +251,7 @@ describe('the card around the plot', () => {
       if (model.unavailable) continue
       const plan = layoutChart(model, DEFAULT_WIDTH, 'card')
       const title = model.title.replace(/&/g, '&amp;')
-      // The values stop holds the plot's box, empty until the font has loaded.
+      // The plot's box, the export's node, holds its size empty until the font has loaded.
       expect(html).toMatch(new RegExp(`data-analysis-chart="${title}"[^>]*style="width:${plan.width}px;height:${plan.height}px"></div>`))
     }
     expect(html).not.toContain('<svg role="img"')
@@ -559,6 +559,17 @@ describe('reading a chart a period at a time (E193; spec §3.9, §3.13; DESIGN_S
     fireEvent.keyDown(stop, { key: 'Home' })
     fireEvent.keyDown(stop, { key: 'ArrowLeft' })
     await waitFor(() => expect(status).toHaveTextContent('Oldest period.'))
+    // A move off the edge, or a blur, before the word lands cancels it: it never speaks for a period it is not on.
+    const frame = () => act(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+    fireEvent.keyDown(stop, { key: 'ArrowLeft' })
+    fireEvent.keyDown(stop, { key: 'ArrowRight' })
+    await frame()
+    expect(status).toHaveTextContent('')
+    fireEvent.keyDown(stop, { key: 'Home' })
+    fireEvent.keyDown(stop, { key: 'ArrowLeft' })
+    fireEvent.blur(stop)
+    await frame()
+    expect(status).toHaveTextContent('')
   })
 
   it('the keyboard’s period shows its tooltip and its column wash, both hidden from screen readers', () => {
@@ -736,17 +747,113 @@ describe('reading a chart a period at a time (E193; spec §3.9, §3.13; DESIGN_S
       viewport.scrollLeft = 0
       fireEvent.scroll(viewport)
       expect(card.querySelector('[data-chart-gutter]')).toBeNull()
-      // A resize keeps the reader's place: the plot opens at its newest period once.
-      fireEvent(window, new Event('resize'))
-      expect(viewport.scrollLeft).toBe(0)
     } finally {
       scroll.mockRestore()
       width.mockRestore()
     }
   })
 
-  it('a grid row’s cards share its rows: header, plot, notes (the subgrid)', () => {
-    const { container } = render(<TrendChartsV2 dataset={dataset('REGN_annual')} />)
+  it('a plot opens at its newest period whenever a view or window starts to overflow; a resize keeps the reader’s place', () => {
+    // Each viewport's width by view, and a ResizeObserver the test fires (vitest.setup's never calls back).
+    const widths = { card: 300, expanded: 1100 }
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-analysis-chart-scroll') ? Number.parseFloat((this.firstElementChild as HTMLElement).style.width) : 0
+    })
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      if (!this.hasAttribute('data-analysis-chart-scroll')) return 0
+      return this.closest('section')!.classList.contains('md:col-span-2') ? widths.expanded : widths.card
+    })
+    const observers: (() => void)[] = []
+    const Original = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      constructor(callback: () => void) { observers.push(callback) }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver
+    // The browser measures after each layout; it also brings a scroll that no longer fits back to 0.
+    const settle = () => act(() => observers.forEach((callback) => callback()))
+    try {
+      const { card, ds, rerender } = setup('REGN_annual', 'topline')
+      const viewport = () => card.querySelector<HTMLElement>('[data-analysis-chart-scroll]')!
+      const newest = () => Number.parseFloat((viewport().firstElementChild as HTMLElement).style.width)
+      settle()
+      expect(viewport()).toHaveAttribute('role', 'region')
+      expect(viewport().scrollLeft, 'the first layout').toBe(newest())
+      // A resize or a zoom that keeps the plot overflowing keeps the reader's place.
+      viewport().scrollLeft = 40
+      fireEvent.scroll(viewport())
+      widths.card = 320
+      settle()
+      fireEvent(window, new Event('resize'))
+      expect(viewport().scrollLeft, 'a resize').toBe(40)
+      // Expanded, the plot fits; collapsed, the card opens at its newest period again (§3.10).
+      fireEvent.click(within(card).getByRole('button', { name: 'Expand chart' }))
+      settle()
+      expect(viewport(), 'the expanded plot fits').not.toHaveAttribute('role')
+      viewport().scrollLeft = 0
+      fireEvent.click(within(card).getByRole('button', { name: 'Collapse chart' }))
+      settle()
+      expect(viewport().scrollLeft, 'collapsed from a view that fits').toBe(newest())
+      // On a phone both views overflow, and each opens at its newest period.
+      widths.expanded = 300
+      viewport().scrollLeft = 40
+      fireEvent.click(within(card).getByRole('button', { name: 'Expand chart' }))
+      settle()
+      expect(viewport()).toHaveAttribute('role', 'region')
+      expect(viewport().scrollLeft, 'expanded').toBe(newest())
+      viewport().scrollLeft = 40
+      fireEvent.click(within(card).getByRole('button', { name: 'Collapse chart' }))
+      settle()
+      expect(viewport().scrollLeft, 'collapsed').toBe(newest())
+      // A new window opens at its newest period.
+      viewport().scrollLeft = 40
+      const narrow = structuredClone(ds)
+      narrow.periods = narrow.periods.slice(-8)
+      rerender(<TrendChartsV2 dataset={narrow} />)
+      settle()
+      expect(viewport().scrollLeft, 'a new window').toBe(newest())
+    } finally {
+      globalThis.ResizeObserver = Original
+      scroll.mockRestore()
+      width.mockRestore()
+    }
+  })
+
+  it('the sticky gutter hides whole a value its edge cuts: an off-scale value wider than its column', () => {
+    const viewportWidth = 300
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-analysis-chart-scroll') ? Number.parseFloat((this.firstElementChild as HTMLElement).style.width) : 0
+    })
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-analysis-chart-scroll') ? viewportWidth : 0
+    })
+    try {
+      // SNAP's margins clip their 2017 outliers, printed at the plot's edge wider than a 36 px column (−422.5%).
+      const { card, model } = setup('SNAP_annual', 'margins')
+      const layout = layoutChart(model, viewportWidth, 'card')
+      const viewport = card.querySelector<HTMLElement>('[data-analysis-chart-scroll]')!
+      // The first scroll at which the cover's edge cuts an off-scale value.
+      let at = 1
+      while (!gutterCuts(layout, at, gutterCover(layout, at)).length) at++
+      expect(at).toBeLessThan(layout.width - viewportWidth)
+      viewport.scrollLeft = at
+      fireEvent.scroll(viewport)
+      const cuts = gutterCuts(layout, at, gutterCover(layout, at))
+      const drawn = [...card.querySelectorAll('[data-chart-gutter] rect[data-cut]')]
+      expect(drawn.map((rect) => ['x', 'y', 'width', 'height'].map((name) => Number(rect.getAttribute(name)))))
+        .toEqual(cuts.map((cut) => [cut.x, cut.y, cut.width, cut.height]))
+      const svg = card.querySelector('[data-chart-gutter] svg')!
+      expect(Number(svg.getAttribute('width'))).toBe(gutterOverlayWidth(layout, gutterCover(layout, at), cuts))
+    } finally {
+      scroll.mockRestore()
+      width.mockRestore()
+    }
+  })
+
+  it.each(['REGN_annual', 'JPM_annual'])('%s: a grid row’s cards share its rows: header, plot, notes (the subgrid)', (name) => {
+    // JPM's margins do not apply: its card keeps the three rows, the sentence in the plot's.
+    const { container } = render(<TrendChartsV2 dataset={dataset(name)} />)
     for (const card of cards(container)) {
       expect(card).toHaveClass('row-span-3', 'grid', 'grid-cols-1', 'grid-rows-subgrid', 'gap-y-0')
       const flow = [...card.children].filter((child) => !child.classList.contains('sr-only'))

@@ -212,7 +212,7 @@ for (const theme of THEMES) for (const [name, width, state, edit] of CASES) {
       // D9: a grid row's plots start at one height, whatever its legends wrap to (the cards' subgrid).
       const plotTops = await cards.evaluateAll((sections) => sections.map((section) => [
         Math.round(section.getBoundingClientRect().top),
-        section.querySelector('[data-analysis-chart-scroll], [data-analysis-chart-unavailable]')!.getBoundingClientRect().top,
+        section.querySelector('[data-analysis-chart-scroll]')!.getBoundingClientRect().top,
       ]))
       const tops = new Map<number, number[]>()
       for (const [row, top] of plotTops) tops.set(row, [...(tops.get(row) ?? []), top])
@@ -418,7 +418,7 @@ for (const theme of THEMES) for (const width of [1280, 390]) {
     test('the tooltip’s text clears 4.5:1 on its surface, and under 200% text it stays inside the chart', async ({ page, baseURL }) => {
       test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
       test.setTimeout(90_000)
-      await openAnalysis(page, baseURL!, 'captured', theme, width === 390 ? 2 : 1)
+      await openAnalysis(page, baseURL!, 'captured', theme, 2)
       for (const viewport of await page.locator('[data-analysis-chart-scroll]').all()) {
         const card = viewport.locator('xpath=ancestor::section[1]')
         await card.getByRole('slider').focus()
@@ -437,6 +437,27 @@ for (const theme of THEMES) for (const width of [1280, 390]) {
     })
   })
 }
+
+test.describe('trend charts v2 / 900px: a card that scrolls, with an expanded view that fits', () => {
+  test.use({ viewport: { width: 900, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
+
+  test('collapsing opens the card at its newest period again (spec §3.10)', async ({ page, baseURL }) => {
+    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    await openAnalysis(page, baseURL!, 'captured', 'light')
+    const card = page.locator('section:has([data-analysis-chart])').first()
+    const viewport = card.locator('[data-analysis-chart-scroll]')
+    const fromNewest = () => viewport.evaluate((element) => element.scrollWidth - element.clientWidth - element.scrollLeft)
+    const overflows = () => viewport.evaluate((element) => element.scrollWidth > element.clientWidth + 1)
+    expect(await overflows(), 'the two-column card scrolls').toBe(true)
+    expect(await fromNewest()).toBeLessThanOrEqual(1)
+    await viewport.evaluate((element) => { element.scrollLeft = 0 })
+    await card.getByRole('button', { name: 'Expand chart', exact: true }).click()
+    await expect.poll(overflows, { message: 'the expanded plot fits' }).toBe(false)
+    await card.getByRole('button', { name: 'Collapse chart', exact: true }).click()
+    await expect.poll(overflows).toBe(true)
+    await expect.poll(fromNewest, { message: 'collapsed, at the newest period' }).toBeLessThanOrEqual(1)
+  })
+})
 
 test.describe('trend charts v2 / a tap pins a tooltip', () => {
   test.use({ viewport: { width: 390, height: 900 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce', serviceWorkers: 'block' })

@@ -132,7 +132,7 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
         <TrendChartPlot model={model} layout={layout} readouts={readouts} tokens={tokens} fontReady={fontReady} uid={uid} view={view}
           plotRef={plotRef} onWidth={onWidth} />
       ) : (
-        <div data-analysis-chart-unavailable className="flex items-center justify-center px-4 text-center text-sm" style={{ height: CARD_HEIGHT, color: tokens.note }}>
+        <div className="flex items-center justify-center px-4 text-center text-sm" style={{ height: CARD_HEIGHT, color: tokens.note }}>
           {model.unavailable}
         </div>
       )}

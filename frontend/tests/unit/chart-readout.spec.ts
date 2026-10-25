@@ -1,7 +1,7 @@
 /* =============================================================================
    chart-readout.spec.ts — the trend charts' per-period readout (features/analysis/lib/charts/readout.ts)
    -----------------------------------------------------------------------------
-   What the spec renderer's tooltip prints and its live status says for each period (docs/design/analysis-trend-
+   What the spec renderer's tooltip prints and its values stop says for each period (docs/design/analysis-trend-
    charts-spec-2026-10.md §3.9, §3.13; DESIGN_SYSTEM.md §10): the period and its end date, one row per drawn series in
    legend order, each value at tooltip precision (§3.1), its state text, "Calculated" for a calculated point, and its
    own note letter, value and YoY notes independent. Every fixture dataset and chart, plus synthetic notes. The golden

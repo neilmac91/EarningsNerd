@@ -1,10 +1,10 @@
 /**
  * The trend charts' per-period readout (docs/design/analysis-trend-charts-spec-2026-10.md §3.9, §3.13): what the
- * tooltip shows and the live status says for one period of one chart. The rows are the chart's marks in legend order
- * (§3.5: the top line then its YoY growth; debt, cash, then equity), each with its value at tooltip precision (§3.1),
- * its state text, whether this point is calculated, and its own note letter: a value's note, and for the growth row its
- * comparison note, so value and YoY concerns stay independent (DESIGN_SYSTEM.md §10). Pure and SSR-safe, like the
- * model it reads; a renderer prints these strings and computes none.
+ * tooltip shows and the values stop's value text says for one period of one chart. The rows are the chart's marks in
+ * legend order (§3.5: the top line then its YoY growth; debt, cash, then equity), each with its value at tooltip
+ * precision (§3.1), its state text, whether this point is calculated, and its own note letter: a value's note, and for
+ * the growth row its comparison note, so value and YoY concerns stay independent (DESIGN_SYSTEM.md §10). Pure and
+ * SSR-safe, like the model it reads; a renderer prints these strings and computes none.
  */
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import type { DataNotesModel } from '@/features/analysis/lib/dataNotes'
