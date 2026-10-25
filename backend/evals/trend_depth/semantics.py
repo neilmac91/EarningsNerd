@@ -196,11 +196,15 @@ def _current_view_copy(out: Path, label: str, system: str, ticker: str, auditor:
     return True
 
 
-def classify_flag(item: dict[str, Any], sentences: list[dict[str, Any]], pack: dict[str, Any]) -> str:
-    """Why the auditor's ``mismatch`` may not be an error, read deterministically from the gate:
+def classify_flag(item: dict[str, Any], sentences: list[dict[str, Any]], pack: dict[str, Any], view: int = 1) -> str:
+    """Why the auditor's ``mismatch`` may not be an error, read deterministically from the gate; ``view`` is the view
+    the audit was made under (its ``view``, 1 when it has none):
 
-    - ``bound``: the number is a bound ("below 1.0x", "at least 10%") that the cited value satisfies; under view 1
-      the auditor saw only the value it was checked against, not that the claim is an inequality;
+    - ``bound``: under view 1 only, the number is a bound ("below 1.0x", "at least 10%") that the cited value
+      satisfies: the auditor saw only the value it was checked against, not that the claim is an inequality. View 2
+      tells the auditor the claim is a bound and asks whether it applies to that metric and period, so a flag on a
+      bound there is a reading of the sentence ("Net margin stayed above 15% [F30]" for an operating margin of 16.5%,
+      a net margin of 13.1%) and stays substantive;
     - ``ambiguous``: two or more cited values with different labels match the number, so the one the gate
       reported may not be the one the sentence means;
     - ``substantive``: neither, so the sentence most likely gives the number the wrong metric, period or sign.
@@ -211,7 +215,7 @@ def classify_flag(item: dict[str, Any], sentences: list[dict[str, Any]], pack: d
     claim = next((c for c in factcheck.parse_claims(sentence["text"]) if c.text == item["claim"]), None)
     if claim is None:
         return "substantive"
-    if claim.qualifier in ("at_least", "at_most"):
+    if claim.qualifier in ("at_least", "at_most") and view < 2:
         return "bound"
     cited = [i for g in factcheck.CITATION_RE.findall(sentence["text"]) for i in factcheck.ID_RE.findall(g)]
     labels = {" + ".join(sorted(pack["values"][i]["label"] for i in c.ids if i in pack["values"])) or c.how

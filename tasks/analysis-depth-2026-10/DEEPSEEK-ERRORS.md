@@ -504,18 +504,22 @@ All measures are reported per split (development, held out) and per run, as a ra
 
 | Measure | How | DeepSeek, eval-v1 | Sonnet, eval-v1 | Target for C |
 |---|---|---|---|---|
-| Passes without a model repair | New gate after auto-citation | 13 of 20 under today's gate (7 repaired) | 15 of 20 | At least 85% pooled; no run below 80% |
-| Real first-try gate errors per analysis | Failures minus known artefacts | 0.68 (17 in 25, frozen prompt) | 0.04 | 0.15 or less |
-| Real mislabels per 1,000 verified claims | Deterministic probe hits, read by hand, plus Opus substantive flags after reading | About 9.6 | About 0.7 (Opus raw 3.4) | 3.5 or less in each run |
+| Passes without a model repair | New gate after auto-citation; a failed generation (invalid replies, a refusal) counts as not passing, and has its own row (target 0) | 13 of 20 under today's gate (7 repaired); 0 failed | 15 of 20; 0 failed | At least 85% pooled; no run below 80% |
+| Real first-try gate errors per analysis | Distinct failing claims (and causes without a passage) of the model's own first output, before auto-citation, under the gate now without backstops; known artefacts subtracted by hand | 0.68 (17 in 25, frozen prompt): eval-v1 0.40 (8 in 20; development half 3 in 10), dev-v4 1.8 (9 in 5) | 0.04 (1 in 25; eval-v1's 2 are artefacts) | 0.15 or less |
+| First-try backstop hits per analysis | Distinct claims the backstops fail beyond the gate's, broken net cash apart (its own row); each one a repair under `--pipeline v2` | 0.90 (18 in 20) | 0 | — |
+| Real mislabels per 1,000 verified claims | Distinct sentences: probe hits R1, R2a, R2c and R3 plus Opus substantive flags, read by hand. A sentence stating broken net cash is counted there instead; U1, unitless dollars and the margin-gap direction have rows of their own | About 8.9 (13 sentences in 1,459 claims after reading; 15 before, 10.3). §1.2's 14 included TGT's net-debt sentence, now counted under broken net cash | About 0.7 (Opus raw 3.4) | 3.5 or less in each run |
 | Judgement share, outside watch | Sentence types | 0.8% | 3.8% | 3–12% |
 | Evaluative words in fact and comparison sentences | Lexicon (`backend/evals/trend_depth/calibration.py`), outside arc and watch | 5.5% | 2.2% | 3% or less |
 | Watch items with forecast wording | Lexicon, read by hand | About 7 of 60 | 1 of 60 | 2 or fewer per 60 |
 | Unsigned falls | U1 | 1 | 0 | 0 (guard) |
-| Broken net cash stated as fact | Debt-break packs | 4 of 6 stated as fact (COP, CVX, DE, KO); 1 of 6 disclosed | 4 of 6 disclosed | 0 stated as fact |
+| Unitless dollars; net margin's direction against operating margin | Probes `unitless_dollars`; `gap_direction` | 2 (COST); 0 | 0; 0 | — |
+| Broken net cash stated as fact | Analyses of a company whose `packs-v2/` pack names a debt or liquidity break (COP, CVX, DE, KO, ORCL, USB; MSFT, NVDA, TGT liquidity only), its breaks read for every arm: a withheld figure cited by its ID, or rebuilt from the lines `packs-v2/` still shows | 6 of 9 stated as fact (debt break 4 of 6: COP, CVX, DE, KO; liquidity break 2 of 5: NVDA, TGT); 1 disclosed (USB) | 2 of 9 stated as fact (DE, TGT); 5 disclosed | 0 stated as fact |
+| Sentences stating a broken figure | The same, each sentence that states one without disclosing the break in that sentence, whatever the analysis says elsewhere | 13 | 6 | 0 |
+| Version-1 peer ranks on a peer's broken year | `peer_break`: only an arm reading `packs/` can cite one, so informational | 7 sentences in 7 analyses | 7 in 7 | — |
 | Cause support | Opus causes audit | 76% / 23% / 1% | 76% / 22% / 1% | Guard: at least 72% supported, at most 2% unsupported, at least 6 cause sentences per analysis |
 | Judge, C against K0 | Opus, both orders must agree | — | — | C wins or ties grounding and calibration on at least 12 of 20 per split; loses depth on no more than 5 |
 | Form | Words, sentences, sections | 618 average (735 max) | — | 700 words or fewer, 30 sentences or fewer, all 7 sections |
-| Cost and latency | `records.api_cost` and latency | $0.0068; 9.7 s p50; 16.1 s p90 | — | At most $0.0075 off-peak; p50 at most 10.5 s; p90 at most 13 s. Also measure one run at peak hours |
+| Cost and latency | `records.api_cost` and latency. A first request reads its prompt's shared prefix from cache: what most first requests of that prompt read over every label in `runs/` (1,920 tokens for the frozen prompt), so a warm repeat is priced cold; warm first attempts are counted | $0.0068 (5 of 20 first attempts warm); 9.7 s p50; 16.1 s p90 | — | At most $0.0075 off-peak; p50 at most 10.5 s; p90 at most 13 s. Also measure one run at peak hours |
 
 ### When to stop
 

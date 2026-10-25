@@ -2,7 +2,8 @@
 
 Pins when a generation is final enough to audit or judge, how an audit or a verdict is tied to the output it
 read, when a first pass may be repaired or copied (only beside the prompt and the pack it read), and how the
-report prices a company's first analysis from the recorded calls.
+report prices a company's first analysis from the recorded calls: a first request reads its model's and prompt's shared
+prefix, what most first requests of that prompt read over every label, so neither a warm repeat nor a cold start moves it.
 """
 from __future__ import annotations
 
@@ -67,8 +68,46 @@ def test_a_first_request_reads_only_the_shared_prefix_and_a_repair_keeps_its_hit
     records = [{"arm": "deepseek-flash", "attempts": [first, repair]},
                {"arm": "deepseek-flash", "attempts": [_attempt(0, "openai_compat", 38000, 1920, 2000)]}]
     shared = first_request_cache(records)
-    assert shared == 1920  # the least any first request read: the system prompt every company shares
+    assert shared == 1920  # one read each: the smaller, the system prompt every company shares
     assert api_cost(records[0], shared) == pytest.approx(list_cost(flash, 40000, 1920, 2000) + list_cost(flash, 42000, 39000, 2500))
+
+
+def _firsts(reads: list[int], prompt: str = "d558d371", arm: str = "deepseek-flash", model: str = "") -> list[dict[str, Any]]:
+    return [{"arm": arm, "prompt_sha256": prompt, **({"model": model} if model else {}),
+             "attempts": [_attempt(0, "openai_compat", 36000, read, 2000)]} for read in reads]
+
+
+# Recorded first-attempt reads of the frozen prompt (d558d371): eval-v1's deepseek-flash, whose five development
+# companies dev-v4 had just run read their whole prompt, and dev-v4's, whose first three ran before the whole prompt was
+# cached.
+EVAL_V1 = [1920] * 15 + [29312, 33280, 34048, 36608, 40192]
+DEV_V4 = [1024, 1024, 1024, 1920, 1920]
+
+
+def test_the_shared_prefix_is_what_most_first_requests_read_over_every_label() -> None:
+    assert first_request_cache(_firsts(EVAL_V1)) == first_request_cache(_firsts(DEV_V4 + EVAL_V1)) == 1920
+    warm_repeat = _firsts([35000 + 64 * n for n in range(10)])  # a label re-sent while every prompt is still cached
+    assert first_request_cache(warm_repeat) == 35000  # alone, a warm label would price itself at its least read
+    assert records.shared_prefixes([*_firsts(DEV_V4 + EVAL_V1), *warm_repeat]) == {"deepseek-flash d558d371": 1920}
+    cold_start = _firsts([0, 0, 0] + [2048] * 7, prompt="candidate")  # a new prompt: its first requests find nothing cached
+    assert records.shared_prefixes(cold_start) == {"deepseek-flash candidate": 2048}
+    assert first_request_cache(_firsts([1920, 1024])) == 1024  # a tie: the smaller, never crediting a hit not read
+
+
+def test_the_shared_prefix_is_kept_per_model_and_prompt() -> None:
+    """K0 and P share the frozen prompt and the model, so their first requests share a cache; another model's (a Gemini
+    arm on the frozen prompt) and a prompt without a hash (dev-v3) do not join it."""
+    shared = records.shared_prefixes([*_firsts([1920] * 3), *_firsts([1920] * 2, arm="deepseek-flash-p"),
+                                      *_firsts([0] * 9, arm="gemini-3.8-flash", model="gemini-3.8-flash"),
+                                      {"arm": "deepseek-flash", "attempts": [_attempt(0, "openai_compat", 36000, 384, 2000)]}])
+    assert shared == {"deepseek-flash d558d371": 1920, "gemini-3.8-flash d558d371": 0}
+
+
+def test_a_warm_first_attempt_is_counted_and_priced_as_the_prefix() -> None:
+    flash = ARMS["deepseek-flash"]
+    firsts = _firsts(EVAL_V1)
+    assert records.warm_first_attempts(firsts, lambda record: 1920) == (5, 20)
+    assert api_cost(firsts[-1], 1920) == pytest.approx(list_cost(flash, 36000, 1920, 2000))
 
 
 def test_claude_cli_calls_read_nothing_from_cache_and_api_calls_are_priced_as_billed() -> None:
