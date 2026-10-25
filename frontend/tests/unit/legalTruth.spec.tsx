@@ -1810,7 +1810,6 @@ const A_TOKEN = /\b(?:(?:refresh|session|access|auth|bearer|api|id)[- ])?tokens?
 /** A determiner or a quantifier, which may stand between "unlike" and what it sets apart ("unlike your refresh
     tokens"); not one that points back (POINTS_BACK). */
 const DETERMINER_WORDS = 'the|a|an|our|your|its|their|all|any|each|every|most|many|some|both|other'
-const DETERMINER = new RegExp(String.raw`^(?:${DETERMINER_WORDS})$`, 'i')
 /** A word that points back to something named before, which may be the token ("Each renewal issues a new refresh
     token. These keys are single-use."). */
 const POINTS_BACK = /^(?:this|that|these|those|such|said)$/i
@@ -1881,8 +1880,8 @@ const afterUnlike = (tokens: Token[], j: number) => {
     speak of use, in a token's clause, its conditions or a clause that names no token ("..., and so does each one.",
     "..., but refresh tokens expire once they are used."), nothing in it may say it of something else too (ALSO: "A
     recovery code also works only once."), and every token the sentence names (A_TOKEN) is set apart from it.
-    "single-use" before another credential's noun (ONCE_OF_ANOTHER) is that credential's right after "unlike",
-    in a phrase that names no token ("Refresh tokens are reusable, unlike single-use recovery codes."). A form is also
+    "single-use" before another credential's noun (ONCE_OF_ANOTHER) is that credential's after "unlike", in a
+    phrase that names no token ("Refresh tokens are reusable, unlike single-use recovery codes."). A form is also
     where the unit that holds it has a credential's noun as its own subject, and every token stands right after
     "unlike" in that unit ("Unlike refresh tokens, recovery codes cannot be reused.") or is the own subject of another
     unit, with a contrast opening one of the two and a predicate of its own ("Refresh tokens are reusable, while
@@ -1902,13 +1901,13 @@ function anotherCredentials(sentence: string, at: number, said: Set<string>): bo
   if (!own || tokens.some((t, n) => (inUnit(own, n) ? ALSO.test(t.text) : SAYS_AGAIN.test(t.text) || DENIES.test(t.text) || OF_USE.test(t.text)))) return false
   const { subject } = own
   const mentions = [...sentence.matchAll(A_TOKEN)].map((m): [number, number] => [tokenAt(m.index ?? 0), tokenAt((m.index ?? 0) + m[0].length - 1)])
-  // An "unlike" phrase of the unit that sets apart its words from `from` to `to`: "unlike" right before them, a
-  // determiner aside, the phrase fronted before the unit's subject, closed by a mark, or ending the unit, and nothing
-  // after them in it a verb, a clause of its own or a negation.
+  // An "unlike" phrase of the unit that sets apart its words from `from` to `to`: the unit's last "unlike" before them,
+  // the phrase fronted before the unit's subject, closed by a mark, or ending the unit, and nothing after them in it a
+  // verb, a clause of its own or a negation. A token or a credential's noun that does not stand right after "unlike"
+  // is the page's reading of its nouns to refuse (nounsSaidOfAToken).
   const unlikePhrase = (from: number, to: number) => {
-    let unlike = from - 1
-    while (unlike > own.start && DETERMINER.test(tokens[unlike].text)) unlike--
-    if (unlike < own.start || tokens[unlike].lower !== 'unlike') return null
+    const unlike = own.start + tokens.slice(own.start, from).map((t) => t.lower).lastIndexOf('unlike')
+    if (unlike < own.start) return null
     const end = subject && unlike < subject.start ? subject.start : own.end
     const closed = end === own.end || !/\w/.test(tokens[end - 1].text)
     const rest = tokens.slice(to + 1, end)
@@ -3870,6 +3869,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Refresh tokens are cryptographic keys. Each key works only once.</li>', true],
       ['<li>Refresh tokens are cryptographic keys, while each key works only once.</li>', true],
       ['<li>Each renewal issues a new refresh token. These keys are single-use.</li>', true],
+      ['<li>Each renewal issues a new refresh token. Such keys are single-use.</li>', true],
       ['<li>Refresh tokens are cryptographic keys. Recovery codes are reusable, unlike single-use keys.</li>', true],
       ['<li>Each renewal issues a new refresh token. Recovery codes are reusable, unlike these single-use keys.</li>', true],
       ['<li>Each renewal issues a new refresh token. Recovery codes stand in for the single-use keys.</li>', true],
