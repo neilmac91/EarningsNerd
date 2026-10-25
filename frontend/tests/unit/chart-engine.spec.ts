@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, STRIP_LABEL_X, textWidth, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { compactMoney, moneyFormat, MINUS, niceAxis, percentFormat } from '@/features/analysis/lib/charts/scale'
 import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
@@ -60,8 +60,13 @@ describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source })
       expect(new Set(layouts.map((layout) => layout.height)).size).toBe(1)
       if (view === 'card') expect(layouts[0].height).toBe(320)
       layouts.forEach((layout, i) => expect(layout.width, 'M6: below the minimum the SVG keeps its width and scrolls in its card').toBe(Math.max(WIDTHS[view][i], minChartWidth(model, view))))
-      for (const layout of layouts) {
+      for (const [i, layout] of layouts.entries()) {
         expect(layout.slot, 'A7: a slot never falls below its minimum').toBeGreaterThanOrEqual(MIN_SLOT - 1e-9)
+        // A4/A7: a chart widens past its container only as far as LABELLED_MAX_SLOT, and only when that gives its
+        // labels a tier; a chart that still prints none kept its minimum.
+        const fitSlot = (WIDTHS[view][i] - layout.gutter - 8) / model.periods.length
+        if (model.panels.some((panel) => panel.marks.some((mark) => mark.labelled))) expect(layout.slot, 'A7: widened at most to LABELLED_MAX_SLOT').toBeLessThanOrEqual(Math.max(fitSlot, LABELLED_MAX_SLOT) + 1e-9)
+        if (layout.valuesDontFit) expect(minChartWidth(model, view), 'A4: no widening for labels it cannot fit').toBe(layout.gutter + 8 + MIN_SLOT * model.periods.length)
         const texts = svgStrings(model, layout)
         for (const text of texts) {
           expect(text, 'M12: glyphs Geist Mono carries').toMatch(SVG_GLYPHS)
@@ -400,9 +405,31 @@ describe('the cases the step-1 data required', () => {
     expect(narrow.width, 'a narrow expanded view scrolls rather than crowd its strip').toBeGreaterThan(358)
   })
 
-  it('a phone card that cannot fit the top line’s labels says so (A4)', () => {
-    expect(layoutChart(model('REGN_annual', 'topline'), 342, 'card').valuesDontFit).toBe(true)
-    expect(layoutChart(model('REGN_annual', 'topline'), 502, 'card').valuesDontFit).toBe(false)
+  it('a phone card widens the top line to the narrowest slot that prints its labels, up to 42 px (A4, A7)', () => {
+    const slotAt = (name: string, width: number) => {
+      const plan = layoutChart(model(name, 'topline'), width, 'card')
+      return [plan.slot, plan.valuesDontFit]
+    }
+    // At 36 px REGN's six-glyph labels ("$4.86B") collide; 41 px still does not hold them, 42 does.
+    expect(slotAt('REGN_annual', 342)).toEqual([42, false])
+    expect(slotAt('PLUG_annual', 342)).toEqual([39, false])
+    // RIVN fits its card at 36 px, but not its growth labels ("+2,915%"): it widens and scrolls too.
+    expect(slotAt('RIVN_annual', 342)).toEqual([42, false])
+    // A chart wide enough already is never widened, and a chart with no labels keeps 36 px.
+    expect(layoutChart(model('REGN_annual', 'topline'), 502, 'card').width).toBe(502)
+    const margins = model('REGN_annual', 'margins')
+    expect(minChartWidth(margins)).toBe(layoutChart(margins, 342, 'card').gutter + 8 + MIN_SLOT * margins.periods.length)
+  })
+
+  it('labels no slot up to 42 px can hold leave the card to say so, without widening it (A4)', () => {
+    const chf = model('REGN_annual', 'topline', (ds) => {
+      for (const series of ds.series) if (!series.percent) for (const point of [series, ...series.points]) point.unit = 'CHF'
+    })
+    const plan = layoutChart(chf, 502, 'card')
+    expect([plan.width, plan.valuesDontFit]).toEqual([502, true])
+    expect(minChartWidth(chf), 'widening that cannot fit the labels is not taken').toBe(plan.gutter + 8 + MIN_SLOT * chf.periods.length)
+    expect(plan.panels[0].bars.every((bar) => bar.label == null)).toBe(true)
+    expect(VALUES_DONT_FIT).toBe('Values don’t fit at this width. The metrics table lists them.')
   })
 
   it('a one-period window: an empty growth panel shows its zero rule alone', () => {
