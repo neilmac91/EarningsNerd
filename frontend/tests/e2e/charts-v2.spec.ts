@@ -374,6 +374,33 @@ test.describe('trend charts v2 / the states while a chart is not ready (spec §3
   })
 })
 
+test.describe('trend charts v2 / the grid while the renderer’s chunk loads, at 320 px and 200% text (spec §3.9; E200)', () => {
+  test.use({ viewport: { width: 320, height: 1000 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
+
+  test('four cards of bones under one status, inside the page, then the charts', async ({ page, baseURL }) => {
+    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    // Hold the renderer's own chunk (its panel attribute names it, as the flag-off case reads) until the skeleton is read.
+    let release!: () => void
+    const held = new Promise<void>((resolve) => { release = resolve })
+    await page.route('**/_next/static/chunks/*.js', async (route) => {
+      const response = await route.fetch()
+      const body = await response.text()
+      if (body.includes('data-axis-domain')) await held
+      await route.fulfill({ response, body })
+    })
+    const opened = openAnalysis(page, baseURL!, 'annual', 'light', 2)
+    const status = page.getByRole('status', { name: 'Loading charts' })
+    await expect(status).toBeVisible()
+    await expect(status).toHaveAttribute('aria-busy', 'true')
+    await expect(status.locator('[data-chart-bones]')).toHaveCount(4)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth), 'the page does not scroll sideways').toBeLessThanOrEqual(321)
+    release()
+    await opened
+    await expect(status).toHaveCount(0)
+    await expect(page.locator('[data-trend-chart]')).toHaveCount(4)
+  })
+})
+
 for (const motion of ['no-preference', 'reduce'] as const) test.describe(`trend charts v2 / a toggle with motion ${motion} (spec §3.10; E200)`, () => {
   test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: motion, serviceWorkers: 'block' })
 
