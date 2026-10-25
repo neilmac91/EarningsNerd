@@ -7,9 +7,9 @@ import { render } from '@testing-library/react'
 
 import KpiStrip from '@/features/analysis/components/KpiStrip'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { KPI_FACE_GLYPHS, KPI_FIGURE_ADVANCE, KPI_MISSING_GLYPHS, KPI_MARK_ADVANCE, KPI_MARK_GAP, kpiValueWidth } from '@/features/analysis/lib/kpiStripLayout'
+import { KPI_FIGURE_ADVANCE, KPI_MARK_ADVANCE, KPI_MARK_GAP, kpiValueWidth } from '@/features/analysis/lib/kpiStripLayout'
 import { compactCurrencyCountUp, fmtCurrency } from '@/lib/format'
-import { SAMPLE_ANALYSIS_DATASET } from '@/features/marketing/lib/landing-samples'
+import AnalysisDemo from '@/features/marketing/components/AnalysisDemo'
 
 type Theme = { fontSize: Record<string, [string, unknown]>; spacing: Record<string, string>; borderWidth: Record<string, string> }
 const require = createRequire(import.meta.url)
@@ -73,7 +73,9 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
     const minimum = (viewport: number, root: number, value: number, tiles: number) => {
       const vars: Record<string, string> = { 'kpi-value': `${value}rem`, 'kpi-cols': `${tiles}` }
       let template = ''
-      for (const name of classes) {
+      // In compiled order: Tailwind emits the base rules, then sm:, then lg:, whatever their order in the class.
+      const rank = (name: string) => (name.startsWith('lg:') ? 2 : name.startsWith('sm:') ? 1 : 0)
+      for (const name of [...classes].sort((a, b) => rank(a) - rank(b))) {
         const match = /^(sm:|lg:)?\[(--[\w-]+|grid-template-columns):(.+)\]$/.exec(name)
         if (!match || (match[1] === 'sm:' && viewport < 640) || (match[1] === 'lg:' && viewport < 1024)) continue
         if (match[2] === 'grid-template-columns') template = match[3]
@@ -113,17 +115,23 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
     expect(grid, 'no fixed column count fights the widest value').not.toMatch(/(^| )(lg:)?grid-cols-[2-4]\b/)
   })
 
-  it('lays the landing sample\'s three tiles three across, the count no wrapper caps any more', () => {
-    const { container } = render(<KpiStrip dataset={SAMPLE_ANALYSIS_DATASET} />)
-    expect(container.querySelectorAll('[data-analysis-kpi]')).toHaveLength(3)
-    expect(container.querySelector('dl')!.style.getPropertyValue('--kpi-cols')).toBe('3')
+  it('gives the landing demo\'s strip its three tiles as its column count, with no wrapper overriding its columns', () => {
+    const { container } = render(<AnalysisDemo />)
+    const strip = container.querySelector('[data-analysis-kpi]')!.closest('dl')!
+    expect(strip.querySelectorAll('[data-analysis-kpi]')).toHaveLength(3)
+    expect(strip.style.getPropertyValue('--kpi-cols')).toBe('3')
+    // A wrapper used to cap the landing's columns (`lg:[&>div>dl]:grid-cols-3`); the strip's own rule now decides them.
+    const wrappers: string[] = []
+    for (let node = strip.parentElement; node && node !== container; node = node.parentElement) wrappers.push(...node.classList)
+    expect(wrappers.filter((name) => /\[&[^\]]*dl\]|\bgrid-cols-/.test(name))).toEqual([])
   })
 
   it('counts a glyph the figure face lacks at a full em, so the budget never undercuts what paints', () => {
-    // Geist Mono has no ₩ or ₫ (E203) and no narrow no-break space: they print in another face, so each counts a full em.
-    for (const glyph of KPI_MISSING_GLYPHS) expect(kpiValueWidth(glyph, false), glyph).toBeCloseTo(1.5, 9)
+    // Geist Mono has no ₩ or ₫ (E203) and no narrow no-break space ("F CFA"), so each counts a full em, 1.5rem.
     expect(kpiValueWidth('₩22.8B', true)).toBeCloseTo(kpiValueWidth('$22.8B', true) + (1 - 0.6) * 1.5, 9)
-    for (const glyph of KPI_FACE_GLYPHS) expect(kpiValueWidth(`${glyph}22.8B`, false), glyph).toBeCloseTo(6 * 0.9, 9)
+    for (const glyph of ['\u202f', '₩', '₫']) expect(kpiValueWidth(glyph, false), glyph).toBeCloseTo(1.5, 9)
+    // Its latin-ext file has the peso, rupee and shekel signs at 0.6em, beside the dagger.
+    for (const value of ['₱22.8B', '₹22.8B', '₪22.8B', '€22.8B', 'CHF\u00a01.0B']) expect(kpiValueWidth(value, false), value).toBeCloseTo([...value].length * 0.9, 9)
   })
 
   it('sets the widest value, as the cards render it, and the tile count on the strip', () => {
@@ -165,13 +173,17 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
         expect([...shown].length, `${currency} ${final}: "${shown}" before "${last}"`).toBeLessThanOrEqual([...last].length)
       }
     }
-    // An update from a larger value (useCountUp tweens previous → next) prints those frames compactly, never "$1,700.0M".
-    const update = compactCurrencyCountUp(450_000_000, 'USD')
-    for (let step = 0; step <= 200; step++) {
-      const value = 1_700_000_000 + (450_000_000 - 1_700_000_000) * step / 200
-      expect([...update(value)].length, update(value)).toBeLessThanOrEqual([...fmtCurrency(value, { compact: true })].length)
-    }
     // Compact notation on every frame would show "CHF 999.9M" on the way to "CHF 22.8B", one glyph wider.
     expect(compactCurrencyCountUp(22_768_000_000, 'CHF')(999_900_000)).toBe('CHF\u00a01.0B')
+  })
+
+  it('remounts a card whose value changes, so its count starts from zero, not from a wider old value', () => {
+    // A tween from $1.0B to $80.0M would pass "$999.9M", wider than the card sized for "$80.0M".
+    const { container, rerender } = render(<KpiStrip dataset={dataset('USD', [5_000_000_000, 1_000_000_000])} />)
+    const card = (label: string) => [...container.querySelectorAll('[data-analysis-kpi]')].find((item) => item.querySelector('dt')!.textContent === label)!
+    const [revenue, income] = [card('revenue'), card('net_income')]
+    rerender(<KpiStrip dataset={dataset('USD', [5_000_000_000, 80_000_000])} />)
+    expect(card('revenue'), 'an unchanged value keeps its card').toBe(revenue)
+    expect(card('net_income'), 'a changed value takes a new card').not.toBe(income)
   })
 })

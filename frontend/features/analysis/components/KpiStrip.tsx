@@ -75,8 +75,8 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
  *  value fits half the strip, else one. From lg: one card per tile, four at most (--kpi-cols), when they fit; else
  *  two, else one, never three of four. The `min()` term is a step: when --kpi-card exceeds a column of --kpi-cols, its
  *  multiplied excess lifts the minimum to half the strip. Each share keeps 0.5px back, so layout rounding cannot drop
- *  a column whose cards fit it exactly; a card within that half pixel of a share takes the next count down. Below
- *  17em of its own text size the strip still takes one card, whatever its values. */
+ *  a column whose cards fit it exactly; a card within that half pixel of a share gets the next count the rule allows
+ *  (two of four, or one). Below 17em of its own text size the strip still takes one card, whatever its values. */
 const KPI_GRID = 'grid gap-3 [--kpi-card:calc(var(--kpi-value)_+_1.5rem_+_2px)] sm:[--kpi-card:calc(var(--kpi-value)_+_2rem_+_2px)] [--kpi-half:calc((100%_-_0.75rem)_/_2_-_0.5px)] [--kpi-each:calc((100%_-_(var(--kpi-cols)_-_1)_*_0.75rem)_/_var(--kpi-cols)_-_0.5px)] [grid-template-columns:repeat(auto-fill,minmax(max(var(--kpi-card),var(--kpi-half)),1fr))] lg:[grid-template-columns:repeat(auto-fill,minmax(max(var(--kpi-each),var(--kpi-card),min(var(--kpi-half),calc(var(--kpi-each)_+_(var(--kpi-card)_-_var(--kpi-each))_*_1000000))),1fr))] [@container(width<17em)]:grid-cols-1'
 
 /** Headline strip: latest top line, net income, FCF, net margin — with the window's CAGR/YoY
@@ -123,8 +123,10 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
   return (
     <div className="[container-type:inline-size]">
       <dl className={KPI_GRID} style={grid}>
+        {/* Keyed by its value too, so a new value counts up from zero in its own unit: a tween from the old value would
+            draw frames wider than the card sized for the new one ("$999.9M" on the way from $1.0B to $80.0M). */}
         {kpis.map((kpi) => (
-          <KpiTile key={kpi.label} kpi={kpi} />
+          <KpiTile key={`${kpi.label}:${kpi.value}`} kpi={kpi} />
         ))}
       </dl>
     </div>

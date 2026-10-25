@@ -8,12 +8,13 @@
 export const KPI_FIGURE_ADVANCE = 0.6 * 1.5
 export const KPI_MARK_ADVANCE = 0.6 * 0.6875
 export const KPI_MARK_GAP = 0.125
-/** The glyphs past ASCII that Geist Mono draws at 0.6em and a value or a mark can print: the no-break space Intl puts
- *  after a code, the dagger, the minus, and the currency signs it has. It has no ₩ or ₫ (E203) and no narrow no-break
- *  space (U+202F, in "F CFA"), which print in another face; any glyph outside ASCII and this set counts a full em, so
- *  the budget never undercuts what paints. tests/e2e/analysis-layout.spec.ts measures each in Geist Mono itself. */
-export const KPI_FACE_GLYPHS = '\u00a0†−€£¥₹₪₱₽'
-/** Glyphs a value can print that Geist Mono lacks: the e2e's control, which must not measure 0.6em. */
+/** The glyphs past ASCII a value or a mark prints that Geist Mono draws at 0.6em: the no-break space Intl puts after a
+ *  code, the dagger, and the currency signs en-US formats print for every ISO 4217 code that Geist Mono has. Any other
+ *  glyph counts a full em, so the budget never undercuts what paints: ₩ and ₫ (E203), which print in another face, and
+ *  the narrow no-break space in "F CFA", which Chromium draws as a 0.3em space and another engine may take from another
+ *  face. tests/e2e/analysis-layout.spec.ts measures each in Geist Mono itself. */
+export const KPI_FACE_GLYPHS = '\u00a0†€£¥₹₪₱'
+/** The glyphs a value can print that Geist Mono lacks: the e2e's control, none of which may measure 0.6em there. */
 export const KPI_MISSING_GLYPHS = '\u202f₩₫'
 
 const glyphs = (text: string) =>

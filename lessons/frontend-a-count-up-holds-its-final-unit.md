@@ -12,10 +12,12 @@ frame in the final value's unit (`compactCurrencyCountUp`: "CHF 0.0B" … "CHF 2
 frame, so the layout measures one string, and the last frame stays the compact text the page printed before.
 
 **Rule**: When a layout is sized from a value that animates in, format every frame in the unit the value ends in, so
-no frame is wider than the final value, and keep the last frame byte-identical to the static format. Check the frames
-across currencies, signs and unit boundaries (999.96B prints "1.0T"), not one value.
+no frame is wider than the final value, and keep the last frame byte-identical to the static format. Count from zero:
+a tween from a larger old value passes frames wider than the new one ("$999.9M" between $1.0B and $80.0M), so key the
+element by its value and let a change remount it. Check the frames across currencies, signs and unit boundaries
+(999.96B prints "1.0T"), not one value.
 
 **Evidence**: E197's pull request: `frontend/lib/format.ts` `compactCurrencyCountUp`, `frontend/features/analysis/components/KpiStrip.tsx`
-and `frontend/tests/unit/kpi-strip-layout.spec.tsx` ("counts up in the unit its value ends in"), which formats 201
-frames for each of six currencies and nine final values. Gated for the KPI strip by that spec; other count-ups are
+and `frontend/tests/unit/kpi-strip-layout.spec.tsx` ("counts up in the unit its value ends in", which formats 201
+frames for each of six currencies and nine final values, and "remounts a card whose value changes"). Gated for the KPI strip by that spec; other count-ups are
 review-checked.

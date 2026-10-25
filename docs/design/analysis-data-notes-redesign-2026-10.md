@@ -336,9 +336,9 @@ replaces `SourcesMethods.tsx`.
 
 ### 4.4 KPI strip
 
-- `<dl>` grid, `grid-cols-2 lg:grid-cols-4` (columns superseded 2026-10-25 by E197; see the note that ends this item); each card `grid-rows-subgrid` spanning three rows (label,
-  value, period + delta) so the three rows share heights across the strip and every value sits on the
-  same line. (Subgrid: Chrome 117, Safari 16, Firefox 71.) Two-up holds at 320 px and 100% text
+- `<dl>` grid, `grid-cols-2 lg:grid-cols-4` (columns superseded 2026-10-25 by E197; see the note that
+  ends this item); each card `grid-rows-subgrid` spanning three rows (label, value, period + delta) so
+  the three rows share heights across the strip and every value sits on the same line. (Subgrid: Chrome 117, Safari 16, Firefox 71.) Two-up holds at 320 px and 100% text
   (decision 4). When the page container is narrower than 17 em of its own text size (a 390 px phone at
   200% text is 11 em; 320 px at 100% text is 20 em) the cards go one-up: a 48 px figure cannot share a
   173 px card, and the measured overflow at 390 / 320 with 200% text was 55 / 90 px before this rule and
