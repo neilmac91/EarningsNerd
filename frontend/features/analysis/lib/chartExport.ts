@@ -1,9 +1,20 @@
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import api from '@/lib/api/client'
 import { downloadBlob } from '@/lib/downloadBlob'
+import { formatInstant } from '@/lib/format'
 import type { DataNotesModel } from './dataNotes'
 import { formatAnalysisPeriod } from './periodLabels'
 import { FCF_DEFINITION } from './provenance'
+
+/** The PNG header's source line and disclosure, the same under every chart renderer. The source data's sync time, an
+ *  instant, prints as the day it falls on in the reader's zone (DataNotes prints the long form). */
+export function exportSourceText(dataset: AnalysisDataset): { sourceNote: string; disclosure: string } {
+  const sourceDate = formatInstant(dataset.data_as_of, 'MMM d, yyyy')
+  return {
+    sourceNote: `Source: SEC filings via EarningsNerd · ${sourceDate ? `data as of ${sourceDate}` : 'source refresh time unavailable'}`,
+    disclosure: 'Research only. Not investment advice. Data may contain errors or omissions. earningsnerd.io/terms',
+  }
+}
 
 /** Notes for the plotted series only, with the report's stable letters and reason sentences. */
 export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: AnalysisSeries[], notes: DataNotesModel, includeYoY: boolean) {

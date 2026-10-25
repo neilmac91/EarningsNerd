@@ -9,6 +9,7 @@ nothing about it, so an unknown scope can never skip that job.
 """
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -286,7 +287,7 @@ def test_unknown_empty_manual_and_mismatched_inputs_never_skip(history, tmp_path
 
 def test_browser_checks_report_records_and_reject_failed_or_missing_scope(tmp_path):
     jobs = workflow()["jobs"]
-    for name in ("e2e-tests", "lighthouse"):
+    for name in ("e2e-tests", "e2e-charts-v2", "lighthouse"):
         job = jobs[name]
         assert job["needs"] == ["ci-scope"]
         assert job["if"] == "${{ always() && !cancelled() }}"
@@ -326,6 +327,47 @@ def test_e2e_tests_keeps_the_founders_35_minute_limit():
     # F59, the founder's decision (2026-10-23): deploy-backend needs e2e-tests, so a run cancelled at the limit skips
     # its deploy. The suite takes about 20 minutes, and a slow npm registry or apt mirror adds minutes to the installs.
     assert workflow()["jobs"]["e2e-tests"]["timeout-minutes"] == "35"
+
+
+def test_charts_v2_job_is_the_e2e_build_with_its_flag_set():
+    # NEXT_PUBLIC_ values are inlined at build time (E192): the charts-v2 job builds, serves and tests with the flag, on
+    # e2e-tests' own build settings, so the two builds differ in that flag alone.
+    jobs = workflow()["jobs"]
+
+    def step(job, name):
+        return next(each for each in jobs[job]["steps"] if each.get("name", "").startswith(name))
+
+    flag = {"NEXT_PUBLIC_CHARTS_V2": "true"}
+    for name in ("Build frontend", "Start frontend server"):
+        assert step("e2e-charts-v2", name)["env"] == {**step("e2e-tests", name)["env"], **flag}
+        assert "NEXT_PUBLIC_CHARTS_V2" not in step("e2e-tests", name)["env"]
+    run = step("e2e-charts-v2", "Run the charts")
+    assert run["env"]["NEXT_PUBLIC_CHARTS_V2"] == "true"
+    for spec in ("charts-v2", "chart-export-fidelity", "analysis-teaser-window"):
+        assert f"tests/e2e/{spec}.spec.ts" in run["run"], spec
+    assert "tests/e2e/text-floors.spec.ts -g 'analysis: muted ink'" in run["run"]
+    # A failing first run never hides the second: each records its status, and the step exits with either's failure.
+    lines = [line.strip() for line in run["run"].strip().splitlines()]
+    assert lines[0] == "status=0" and lines[-1] == "exit $status"
+    assert all(line.endswith("|| status=1") for line in lines[1:-1]) and len(lines) == 4
+    assert "continue-on-error" not in jobs["e2e-charts-v2"]
+
+
+def test_documented_required_checks_are_jobs_a_workflow_runs():
+    # docs/OPERATIONS.md names the checks main's ruleset (23561253) requires. Each must be a job some workflow runs: a
+    # required check no job reports blocks every pull request. So a job deleted from its workflow (E195's e2e-charts-v2)
+    # fails here until the list drops it, and with it the founder's ruleset entry. CONTRIBUTING.md names them too.
+    text = (ROOT / "docs/OPERATIONS.md").read_text()
+    start = text.index("required status checks")
+    listed = re.findall(r"`([a-z0-9-]+)`", text[start:text.index("each pinned to the GitHub Actions app", start)])
+    jobs = set()
+    for path in (ROOT / ".github/workflows").glob("*.yml"):
+        jobs |= set((yaml.load(path.read_text(), Loader=yaml.BaseLoader) or {}).get("jobs", {}))
+    assert len(listed) == len(set(listed)) == 8
+    assert set(listed) <= jobs, set(listed) - jobs
+    contributing = (ROOT / "CONTRIBUTING.md").read_text()
+    ci = contributing[contributing.index("## CI"):]
+    assert all(f"`{name}`" in ci for name in listed), [name for name in listed if f"`{name}`" not in ci]
 
 
 def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():

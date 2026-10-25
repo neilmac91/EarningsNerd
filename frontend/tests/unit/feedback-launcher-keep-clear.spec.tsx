@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { CurrentUser } from '@/features/auth/api/auth-api'
 import FeedbackWidget from '@/features/feedback/components/FeedbackWidget'
+import { queryKeys } from '@/lib/queryKeys'
 import { CONSENT_LAYER_EVENT } from '@/lib/consentLayer'
 import { LAUNCHER_KEEP_CLEAR_GAP, overlapsKeepClear } from '@/lib/launcherKeepClear'
 
@@ -22,6 +25,7 @@ vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   ENABLE_FEEDBACK_WIDGET: true,
 }))
 vi.mock('@/features/feedback/api/feedback-api', () => ({ submitFeedback: vi.fn() }))
+vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: vi.fn() }))
 
 type Box = { left: number; top: number; width: number; height: number }
 const rect = ({ left, top, width, height }: Box) =>
@@ -84,7 +88,6 @@ describe('FeedbackWidget steps aside from a keep-clear region', () => {
   const yieldClasses = ['opacity-0', 'pointer-events-none']
 
   beforeEach(() => {
-    localStorage.setItem('en_session_active', '1')
     frames = new Map()
     nextFrame = 1
     observed = []
@@ -110,13 +113,23 @@ describe('FeedbackWidget steps aside from a keep-clear region', () => {
 
   afterEach(() => {
     cleanup()
-    localStorage.clear()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
 
+  /** A reader the current-user query already confirms, as busyControls.forms.spec.tsx mounts one. */
+  const reader: CurrentUser = {
+    id: 1, email: '1@example.test', full_name: null, is_pro: false, is_beta: true, is_admin: false, email_verified: true,
+  }
   const renderWidget = async () => {
-    render(<><div data-launcher-keep-clear>Headline figures</div><FeedbackWidget /></>)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+    client.setQueryData(queryKeys.currentUser(), reader)
+    render(
+      <QueryClientProvider client={client}>
+        <div data-launcher-keep-clear>Headline figures</div>
+        <FeedbackWidget />
+      </QueryClientProvider>,
+    )
     const launcher = await screen.findByRole('button', { name: 'Send feedback' })
     flush() // the check queued on mount
     return launcher

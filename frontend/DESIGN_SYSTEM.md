@@ -611,12 +611,15 @@ Data note mark   <DataNoteMark> (analysis) — the footnote marks: † for a cal
                  spacer that grows from nothing up to the gutter into free space only (grow basis-0
                  max-w-[var(--mark-gutter)]; a declared width counts toward the line's minimum and
                  pushed a nine-glyph figure past its cell), so a marked and an unmarked figure share one
-                 edge. A period column holds nine glyphs and their gaps (a figure, a dagger and a
-                 two-letter note, 67px): 4.375rem on a phone inside its 1px inset, 4.75rem from md.
+                 edge. A period column holds its widest line (a seven-glyph figure, a dagger and a
+                 one-letter note, 67.6px) inside its inset: 4.375rem on a phone (68px inside 1px a side),
+                 4.75rem from md (68px inside 4px a side). tests/unit/metrics-table.spec.tsx derives the
+                 gutter and both widths from tableTokenBudget and the type sizes.
                  Gates: tests/unit/data-note-mark.spec.tsx (the raises, the gaps, the spacer, and large
                  only at the two 24px figures); “analysis phone marks” in
                  tests/e2e/analysis-layout.spec.ts (each mark on its figure's line and in its cell, 2px
-                 after its figure, a letter above its dagger and 2px after it, and a mark under an
+                 after its figure and a change line's letter 2px after its change, a letter above its
+                 dagger and 2px after it, and a mark under an
                  underlined control an
                  inline-block: a flex row blockifies its children, and an underline reaches every flex
                  item).
@@ -634,8 +637,11 @@ Data note mark   <DataNoteMark> (analysis) — the footnote marks: † for a cal
                  tests/e2e/analysis-layout.spec.ts “analysis phone marks” (390px, both themes, the
                  legacy and edge states, the edge fixture planting “$92.2M” and “-$922M”, each with † and
                  a two-letter note, its column's whole nine-glyph budget: every mark on its figure's line
-                 and inside its cell, 2px after the figure's end, 2px between † and a letter, the figure
-                 face computed); tests/unit/figureSurfaceInks.spec.ts (the marks' tiers).
+                 and inside its cell, 2px after the figure's end, a change line's letter 2px after its
+                 change, 2px between † and a letter, the figure face computed);
+                 tests/unit/metrics-table.spec.tsx (the gutter one mark and its gap, every period column
+                 its widest line, at the default and a doubled text size);
+                 tests/unit/figureSurfaceInks.spec.ts (the marks' tiers).
 
 Data table hover <DataTable> — ordinary rows use hover:bg-white dark:hover:bg-white/[0.03].
                  With stickyFirstColumn, first-column body cells stay opaque: light hover uses
@@ -675,6 +681,16 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  query container; the label width is capped to that content width, keeping labels
                  readable at Home without an oversized free-panning snap area. The scroll region
                  itself is not the container: its trailing snap padding must not shrink the cap.
+                 The 2px every mark keeps grew a phone period column to 4.375rem, which cost a 375px
+                 phone (a 309px content box) its third whole period, so below md, where the card's
+                 content box is 19.25rem to 19.625rem wide, the metric column takes calc(100cqi -
+                 3 × period), giving up at most 0.375rem (6px at the default text size), and three
+                 whole periods sit beside it as at 390px. The band stops at md: at 200% text an
+                 816px screen's card falls in it, and there it would cut the 8.25rem metric column to
+                 5.2rem. Gates: tests/unit/metrics-table.spec.tsx (the band follows the period width
+                 and stays below md) and “analysis table periods” in tests/e2e/analysis-layout.spec.ts
+                 (three whole periods at rest at 375px and 390px; the full metric column at 816px
+                 under 200% text).
                  The figures sit on a sheet inside the panel Card (DataTable surface="well"): well
                  #FCFCFD / #0B1120, platinum white, cooler and brighter than the warm panel framing it,
                  and in dark the navy ground itself, so the sheet reads recessed. The heading row and
@@ -2454,6 +2470,32 @@ one axis, and the balance sheet keeps equity's right axis until the engine's ren
 own panel. A percent axis holds every value, since Recharts cannot print a clipped one at the plot
 edge (gates: `tests/unit/trend-charts-axes.spec.tsx`; e2e `analysis-layout.spec.ts`, "analysis chart
 axes", and the export gate's Swiss-franc case).
+
+**The analysis trend charts' spec renderer** (`NEXT_PUBLIC_CHARTS_V2`, off in production until F66;
+`docs/design/analysis-trend-charts-spec-2026-10.md`) replaces Recharts on those four charts only. It paints the
+engine's plan in literal SVG attributes from `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for
+both themes; the raw-colour lint rule exempts that file, and `tests/unit/chart-theme.spec.ts` holds it to the spec's
+table and its light values to the Tailwind tokens they share. Until step 6 (E194) moves the dark tokens into
+Tailwind, the card's subtitle, legend and footnotes take those inks inline. Its text renders with geometric
+precision, so full font hinting cannot snap Geist Mono's 6.6 px advance to 7 px. Every chart keeps its 320 px card,
+and one that does not apply says why in it; a grid row's cards share its rows (subgrid: header, plot, notes), so its
+plots start at one height whatever its legends wrap to. Its keyboard contract (E193) keeps the shape of the one
+above, on the engine's slots, with these differences. The values stop is a slider over the periods, a transparent
+layer over the viewport after it in the Tab order, ringing the viewport whatever the scroll, whose value text is the
+period's readout (`lib/charts/readout.ts`): the period and its end date, then each series' value at 4
+significant figures or 1 dp, its state, "calculated" and its data note, in words a screen reader says, with no ·, —,
+n/m, unit letter or U+2212. So the reading is spoken on focus and on every move, and no live status repeats it; a
+pointer's tooltip says nothing. It starts at the newest period, the one the legend and the table quote. Left/Right
+and Down/Up step a period, Home/End jump, and a step past either end says "Oldest period." or "Newest period." in a
+status line. A plot opens scrolled to its newest period whenever its view or window starts to overflow, never on a
+resize, behind A7's sticky gutter (`aria-hidden`, outside the exported node), which repeats the y axis, the captions
+and "Notes" and covers any column or value the edge would cut, so no value shows in part beside the axis. Hover, a tap or the keyboard paints the
+period's column wash (`cursor`, full SVG height) and shows the tooltip, `aria-hidden`, on the Card recipe's surface,
+flush beside its column, inside the viewport's sides and outside its clip, so 200% text never clips it. The tooltip
+is hoverable; a tap pins it until a second tap or a press outside, and a swipe pins nothing. Escape dismisses a
+tooltip first, wherever focus is when a pointer raised it, then collapses an expanded card and returns focus to its
+toggle. Gates: `tests/unit/trend-charts-v2.spec.tsx`, `tests/unit/chart-readout.spec.ts`,
+`tests/e2e/charts-v2.spec.ts` and CI's `e2e-charts-v2` job, a required check on `main`.
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.

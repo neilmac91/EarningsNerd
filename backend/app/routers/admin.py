@@ -23,6 +23,7 @@ from app.services.edgar import clear_xbrl_cache, get_xbrl_cache_stats
 from app.services.resend_service import send_email, ResendError
 from app.services import admin_feedback_service
 from app.services import admin_account_service
+from app.services import filing_list_service
 from app.services import admin_filing_service
 from app.services import admin_summary_service
 from app.services import invite_service
@@ -368,8 +369,15 @@ async def list_feedback(
     and ``type`` query params narrow the result when provided.
     """
     _require_admin(current_user)
-    rows = admin_feedback_service.list_feedback(db, feedback_status=status, feedback_type=type)
-    return {"feedback": [_feedback_item(row, email) for row, email in rows]}
+
+    def feedback_list() -> dict:
+        try:
+            rows = admin_feedback_service.list_feedback(db, feedback_status=status, feedback_type=type)
+            return {"feedback": [_feedback_item(row, email) for row, email in rows]}
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(feedback_list)
 
 
 @router.patch("/feedback/{feedback_id}", response_model=FeedbackAdminItem)
@@ -386,27 +394,35 @@ async def update_feedback_status(
     """
     _require_admin(current_user)
     new_status = payload.status
-    feedback = admin_feedback_service.set_feedback_status(db, feedback_id, new_status)
-    if not feedback:
-        raise HTTPException(status_code=404, detail="Feedback not found")
+    admin_id, admin_email = current_user.id, current_user.email
 
-    logger.info("Admin %s set feedback %s status to %s", current_user.id, feedback_id, new_status)
+    def set_status() -> dict:
+        try:
+            feedback = admin_feedback_service.set_feedback_status(db, feedback_id, new_status)
+            if not feedback:
+                raise HTTPException(status_code=404, detail="Feedback not found")
 
-    try:
-        audit_service.create_audit_log(
-            db,
-            action="feedback_status_changed",
-            user_id=current_user.id,
-            user_email=current_user.email,
-            entity_type="feedback",
-            entity_id=str(feedback_id),
-            details={"status": new_status},
-        )
-    except Exception:
-        logger.warning("Failed to write audit log for feedback_status_changed", exc_info=True)
+            logger.info("Admin %s set feedback %s status to %s", admin_id, feedback_id, new_status)
 
-    user_email = admin_feedback_service.submitter_email(db, feedback)
-    return _feedback_item(feedback, user_email)
+            try:
+                audit_service.create_audit_log(
+                    db,
+                    action="feedback_status_changed",
+                    user_id=admin_id,
+                    user_email=admin_email,
+                    entity_type="feedback",
+                    entity_id=str(feedback_id),
+                    details={"status": new_status},
+                )
+            except Exception:
+                logger.warning("Failed to write audit log for feedback_status_changed", exc_info=True)
+
+            user_email = admin_feedback_service.submitter_email(db, feedback)
+            return _feedback_item(feedback, user_email)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    return await run_in_threadpool(set_status)
 
 
 @router.delete("/filing/{filing_id}/summary")
@@ -422,10 +438,15 @@ async def delete_filing_summary(
     """
     _require_admin(current_user)
 
-    try:
-        summary_deleted = admin_filing_service.delete_filing_summary(db, filing_id, actor=current_user)
-    except admin_filing_service.FilingNotFoundError:
-        raise HTTPException(status_code=404, detail="Filing not found")
+    def delete_summary() -> bool:
+        try:
+            return admin_filing_service.delete_filing_summary(db, filing_id, actor=current_user)
+        except admin_filing_service.FilingNotFoundError:
+            raise HTTPException(status_code=404, detail="Filing not found")
+        finally:
+            filing_list_service.release_request_session(db)
+
+    summary_deleted = await run_in_threadpool(delete_summary)
 
     return {
         "message": f"Summary deleted for filing {filing_id}",
@@ -446,12 +467,18 @@ async def clear_filing_xbrl(
     fresh data to be fetched from SEC on the next request.
     """
     _require_admin(current_user)
+    admin_id = current_user.id
 
-    try:
-        had_xbrl = admin_filing_service.clear_filing_xbrl(db, filing_id)
-    except admin_filing_service.FilingNotFoundError:
-        raise HTTPException(status_code=404, detail="Filing not found")
-    logger.info(f"Admin {current_user.id} cleared XBRL data for filing {filing_id}")
+    def clear_xbrl() -> bool:
+        try:
+            return admin_filing_service.clear_filing_xbrl(db, filing_id)
+        except admin_filing_service.FilingNotFoundError:
+            raise HTTPException(status_code=404, detail="Filing not found")
+        finally:
+            filing_list_service.release_request_session(db)
+
+    had_xbrl = await run_in_threadpool(clear_xbrl)
+    logger.info(f"Admin {admin_id} cleared XBRL data for filing {filing_id}")
 
     return {
         "message": f"XBRL data cleared for filing {filing_id}",
@@ -477,12 +504,18 @@ async def reset_filing(
     Use this to force a complete re-generation from scratch.
     """
     _require_admin(current_user)
+    admin_id = current_user.id
 
-    try:
-        deleted = admin_filing_service.reset_filing(db, filing_id)
-    except admin_filing_service.FilingNotFoundError:
-        raise HTTPException(status_code=404, detail="Filing not found")
-    logger.info(f"Admin {current_user.id} reset filing {filing_id}: {deleted}")
+    def reset() -> dict[str, bool]:
+        try:
+            return admin_filing_service.reset_filing(db, filing_id)
+        except admin_filing_service.FilingNotFoundError:
+            raise HTTPException(status_code=404, detail="Filing not found")
+        finally:
+            filing_list_service.release_request_session(db)
+
+    deleted = await run_in_threadpool(reset)
+    logger.info(f"Admin {admin_id} reset filing {filing_id}: {deleted}")
 
     return {
         "message": f"Filing {filing_id} has been reset",
@@ -551,9 +584,13 @@ async def audit_stale_xbrl(
     """
     _require_admin(current_user)
 
-    total_filings_with_xbrl, stale_filings = admin_filing_service.audit_stale_xbrl(
-        db, year_threshold=year_threshold
-    )
+    def audit() -> tuple[int, list[dict]]:
+        try:
+            return admin_filing_service.audit_stale_xbrl(db, year_threshold=year_threshold)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    total_filings_with_xbrl, stale_filings = await run_in_threadpool(audit)
 
     return {
         "total_filings_with_xbrl": total_filings_with_xbrl,
@@ -582,13 +619,20 @@ async def bulk_reset_stale_xbrl(
     Returns list of affected filings and reset status.
     """
     _require_admin(current_user)
+    admin_id = current_user.id
 
-    affected_filings = admin_filing_service.bulk_reset_stale_xbrl(
-        db, year_threshold=year_threshold, dry_run=dry_run, actor=current_user
-    )
+    def bulk_reset() -> list[dict]:
+        try:
+            return admin_filing_service.bulk_reset_stale_xbrl(
+                db, year_threshold=year_threshold, dry_run=dry_run, actor=current_user
+            )
+        finally:
+            filing_list_service.release_request_session(db)
+
+    affected_filings = await run_in_threadpool(bulk_reset)
 
     if not dry_run:
-        logger.info(f"Admin {current_user.id} bulk-reset {len(affected_filings)} filings with stale XBRL data")
+        logger.info(f"Admin {admin_id} bulk-reset {len(affected_filings)} filings with stale XBRL data")
 
     return {
         "dry_run": dry_run,
@@ -627,32 +671,41 @@ async def reset_all_summaries(
     Returns counts plus the skipped (saved) filings so an operator can act on them deliberately.
     """
     _require_admin(current_user)
+    admin_id, admin_email = current_user.id, getattr(current_user, "email", None)
 
-    plan = admin_summary_service.select_reset_candidates(
-        db, filing_type=filing_type, include_saved=include_saved
-    )
+    def reset_summaries() -> admin_summary_service.ResetAllPlan:
+        try:
+            plan = admin_summary_service.select_reset_candidates(
+                db, filing_type=filing_type, include_saved=include_saved, for_delete=not dry_run
+            )
+            if not dry_run and plan.delete_ids:
+                admin_summary_service.delete_summaries(db, plan)
+                audit_service.create_audit_log(
+                    db=db,
+                    action="summaries_bulk_reset",
+                    user_id=admin_id,
+                    user_email=admin_email,
+                    entity_type="summaries",
+                    details={
+                        "filing_type": filing_type,
+                        "include_saved": include_saved,
+                        "deleted_count": len(plan.delete_ids),
+                        "skipped_saved_count": len(plan.skipped_saved),
+                    },
+                    status="success",
+                )
+            return plan
+        finally:
+            filing_list_service.release_request_session(db)
+
+    plan = await run_in_threadpool(reset_summaries)
     delete_ids = plan.delete_ids
     skipped_saved = plan.skipped_saved
 
     if not dry_run and delete_ids:
-        admin_summary_service.delete_summaries(db, plan)
-        audit_service.create_audit_log(
-            db=db,
-            action="summaries_bulk_reset",
-            user_id=current_user.id,
-            user_email=getattr(current_user, "email", None),
-            entity_type="summaries",
-            details={
-                "filing_type": filing_type,
-                "include_saved": include_saved,
-                "deleted_count": len(delete_ids),
-                "skipped_saved_count": len(skipped_saved),
-            },
-            status="success",
-        )
         logger.info(
             "Admin %s bulk-reset %d summaries (filing_type=%s, include_saved=%s); skipped %d saved",
-            current_user.id, len(delete_ids), filing_type, include_saved, len(skipped_saved),
+            admin_id, len(delete_ids), filing_type, include_saved, len(skipped_saved),
         )
 
     return {

@@ -15,6 +15,8 @@ import { queryKeys } from '@/lib/queryKeys'
 import { refreshAccessToken } from '@/lib/api/refresh'
 import ProfileForm from '@/features/settings/components/ProfileForm'
 import { usePostHogUserIdentification } from '@/hooks/usePostHogUserIdentification'
+import NotificationBell from '@/features/notifications/components/NotificationBell'
+import * as notificationsApi from '@/features/notifications/api/notifications-api'
 
 const { identify } = vi.hoisted(() => ({ identify: vi.fn() }))
 vi.mock('@/lib/analytics', () => ({ analytics: { identify } }))
@@ -55,9 +57,30 @@ afterEach(() => {
   disposers.splice(0).forEach((dispose) => dispose())
   clients.splice(0).forEach((client) => client.clear())
   api.defaults.adapter = originalAdapter
+  vi.restoreAllMocks()
 })
 
 describe('account snapshots follow the resolved identity', () => {
+  it('a late mark-seen receipt cannot replace the next account’s notification list', async () => {
+    const client = newClient()
+    const first = { items: [], unread_count: 1 }
+    const second = { items: [], unread_count: 2 }
+    const receipt = deferred<notificationsApi.NotificationList>()
+    vi.spyOn(notificationsApi, 'getNotifications').mockResolvedValue(first)
+    vi.spyOn(notificationsApi, 'markNotificationsSeen').mockReturnValue(receipt.promise)
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    client.setQueryData(queryKeys.notifications(), first)
+    const view = render(<QueryClientProvider client={client}><NotificationBell /></QueryClientProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications (1 unread)' }))
+    await waitFor(() => expect(notificationsApi.markNotificationsSeen).toHaveBeenCalledTimes(1))
+    view.unmount()
+    resetAccountQueries(client)
+    client.setQueryData(queryKeys.currentUser(), makeUser(2))
+    client.setQueryData(queryKeys.notifications(), second)
+    await act(async () => receipt.resolve({ items: [], unread_count: 0 }))
+    expect(client.getQueryData(queryKeys.notifications())).toEqual(second)
+  })
+
   it.each(['guest-first', 'login-first'])('guest /me cannot invalidate a successful password login (%s)', async (order) => {
     const client = newClient()
     disposers.push(subscribeAccountQueryReset(client))

@@ -1,11 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChatCircleDotsIcon, PaperPlaneTiltIcon } from '@/lib/icons'
 import { Button, Modal, ModalBody, ModalHeader, SegmentedControl, cx, inputClasses, type SegmentedOption } from '@/components/ui'
 import { submitFeedback, type FeedbackType } from '@/features/feedback/api/feedback-api'
-import { hasActiveSession } from '@/lib/api/session'
+import { getCurrentUserSafe, type CurrentUser } from '@/features/auth/api/auth-api'
+import { getSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/session'
+import { queryKeys } from '@/lib/queryKeys'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { ENABLE_FEEDBACK_WIDGET } from '@/lib/featureFlags'
 import { BOTTOM_CHROME_OFFSET, CONSENT_LAYER_EVENT } from '@/lib/consentLayer'
@@ -38,41 +41,52 @@ const LAUNCHER_CLASS =
 
 /**
  * Always-available beta feedback launcher. Renders a floating button for logged-in users only
- * (gated on the client-readable session marker), opening a small bug/idea/general report panel that
+ * (observing the shared current-user query), opening a small bug/idea/general report panel that
  * posts to /api/feedback. Mounted once in Providers so it's available across the authenticated app.
  *
  * v3 (DS-04): the report panel is a ui/Modal dialog (focus trap, Escape, focus return to the
  * launcher, overlay + z-modal tokens) instead of an anchored popover with no keyboard handling.
  */
 export default function FeedbackWidget() {
-  // Avoid a hydration mismatch: the session marker lives in localStorage (client-only), so we render
-  // nothing on the server / first paint and decide after mount.
-  const [mounted, setMounted] = useState(false)
-  const [authed, setAuthed] = useState(false)
+  const { data: user } = useQuery({
+    queryKey: queryKeys.currentUser(),
+    queryFn: getCurrentUserSafe,
+    enabled: ENABLE_FEEDBACK_WIDGET,
+    staleTime: 60_000,
+  })
+
+  // Undefined is an unresolved identity, not a guest. Retained identity survives a failed
+  // background read; confirmed logout or a different reader unmounts the private draft.
+  if (!ENABLE_FEEDBACK_WIDGET || !user) return null
+  return <AccountFeedback key={user.id} readerId={user.id} />
+}
+
+function AccountFeedback({ readerId }: { readerId: number }) {
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [type, setType] = useState<FeedbackType>('general')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const inFlight = useRef(false)
+  const mounted = useRef(false)
   const messageRef = useRef<HTMLTextAreaElement>(null)
   const launcherRef = useRef<HTMLButtonElement>(null)
   // N17: the launcher never rests over a headline figure. While a region the page marks keep-clear (the analysis KPI
   // strip) lies under its box (lib/launcherKeepClear), it steps aside without moving: it fades and lets the pointer
   // through to the figure, keyboard focus brings it back, and it never yields while its own dialog is open.
   const [yielding, setYielding] = useState(false)
-  const shown = ENABLE_FEEDBACK_WIDGET && authed
   const close = () => setOpen(false)
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time hydration latch: session marker lives in localStorage, so we resolve client-only state after mount
-    setMounted(true)
-    setAuthed(hasActiveSession())
+    mounted.current = true
+    return () => { mounted.current = false }
   }, [])
 
   // Measured as DataTable's heading rail is: one check a frame at most, on a passive scroll, a resize, the consent bar
   // coming or going (the launcher rises with it) and a change of the page's size (results mount after Run with no
-  // scroll). jsdom has no ResizeObserver of its own, hence the guard.
+  // scroll). jsdom has no ResizeObserver of its own, hence the guard. This component mounts only for a reader the
+  // current-user query confirms, so the measurement runs for as long as the launcher shows.
   useEffect(() => {
-    if (!shown) return
     let frame = 0
     const check = () => {
       frame = 0
@@ -93,16 +107,22 @@ export default function FeedbackWidget() {
       window.removeEventListener(CONSENT_LAYER_EVENT, queue)
       if (frame) cancelAnimationFrame(frame)
     }
-  }, [shown])
-
-  if (!shown || !mounted) return null
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     // Send uses `loading` (aria-disabled + click guard, not native disabled) so it keeps focus while
     // the request is in flight; a submit that bypasses its click must not send a second report.
-    if (submitting) return
+    if (inFlight.current) return
     if (message.trim().length < 5) return
+    // Read ownership at activation as well as completion: a cache transition may have happened
+    // before React renders the new reader. The generation also catches A → logout → A.
+    const generation = getSessionGeneration()
+    const ownsFeedback = () => mounted.current
+      && isSessionGenerationCurrent(generation)
+      && queryClient.getQueryData<CurrentUser | null>(queryKeys.currentUser())?.id === readerId
+    if (!ownsFeedback()) return
+    inFlight.current = true
     setSubmitting(true)
     try {
       await submitFeedback({
@@ -110,14 +130,19 @@ export default function FeedbackWidget() {
         message: message.trim(),
         pageUrl: typeof window !== 'undefined' ? window.location.pathname : undefined,
       })
+      if (!ownsFeedback()) return
       toast.success('Thanks for the feedback', { description: 'We read every note. It really helps.' })
       setMessage('')
       setType('general')
       setOpen(false)
     } catch (err: unknown) {
+      if (!ownsFeedback()) return
       toast.error(isApiError(err) ? getErrorMessage(err) : 'Could not send feedback. Please try again.')
     } finally {
-      setSubmitting(false)
+      inFlight.current = false
+      // A failed logout can retain the same reader after moving the generation. Release this
+      // form's busy state without publishing its old result or discarding the retained draft.
+      if (mounted.current) setSubmitting(false)
     }
   }
 
