@@ -67,7 +67,7 @@ def test_invite_revoked_after_it_validated_is_not_redeemed(db):
     validated = invite_service.validate_invite(db, raw, "a@b.com")
     assert validated is not None
     # An admin's revoke commits on a session of its own while the registration checks and hashes the password
-    # (E201). The registration's session keeps the invite as it validated it, so only the UPDATE can see the revoke.
+    # (E201). The registration's session keeps the invite as it validated it, so a check of that copy cannot see it.
     admin = sessionmaker(bind=db.get_bind())()
     try:
         invite_service.revoke_invite(admin, invite.id)

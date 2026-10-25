@@ -90,7 +90,8 @@ def create_password_account(
         # Closed beta: consume the (already-validated) single-use invite in the SAME transaction as
         # the insert and tag the user beta-eligible, so the 100%-off promo applies at checkout. A
         # refused redemption (the invite redeemed or revoked since it validated) rolls the account
-        # back too, so the invite's single-use invariant holds, and a failed insert never burns one.
+        # back too, so an invite admits one account at most and none once revoked, and a failed
+        # insert never burns an invite.
         if invite is not None:
             if not invite_service.redeem_invite(db, invite, user, commit=False):
                 db.rollback()
