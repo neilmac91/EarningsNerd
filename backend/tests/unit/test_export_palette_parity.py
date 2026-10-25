@@ -43,16 +43,19 @@ its full selector, a rule inside @media or @supports, @font-face, and @page's ma
 5. The wordmark (the PDF rendition of BG-27): "Earnings" in the ink, "Nerd" italic in brand-strong,
    from a real italic. WeasyPrint never slants a face it lacks, and with only Inter's roman declared
    "Nerd" and every quote printed upright. So the wordmark's family declares an italic face, every
-   @font-face names a file that exists and whose italic bit (OS/2 fsSelection bit 0, read with
+   @font-face names a vendored file (one that exists in backend/app/assets/fonts, so a system font
+   declared under a brand family's name fails) and whose italic bit (OS/2 fsSelection bit 0, read with
    fontTools) matches the style it is declared as, and in each rendered PDF every font WeasyPrint
    embeds for text the stylesheet sets italic (its descriptor's Italic flag) is an italic program.
 6. Every glyph prints in a vendored face (WP3-A): the export inspection found 52 daggers, 2 arrows and 614
    list bullets set in DejaVu, since the latin subsets of Inter and Geist Mono lack †, → and ◦. Inter's
-   symbols face carries them, the data face's stack falls back to Inter before the system's monospace,
-   and a nested list takes the disc (•, in Inter's latin subset) instead of WeasyPrint's circle. So every
-   font each rendered PDF embeds, whatever kind of program, is of a vendored face's family (Inter Var or
-   Geist Mono), over both fixtures and an analysis whose narrative, grid, count line and nested operand
-   list print each of those marks, and every marker of a nested list is the disc.
+   symbols face carries them, and "≈" (the 20-F and 6-K prompts ask for "≈US$X" beside a convenience
+   translation) and the won and rupee signs; the data face's stack falls back to Inter before the system's
+   monospace, and a nested list takes the disc (•, in Inter's latin subset) instead of WeasyPrint's circle.
+   So every font each rendered PDF embeds, whatever kind of program, is of a vendored face's family (Inter
+   Var or Geist Mono), over both fixtures, an analysis whose narrative, grid, count line and nested operand
+   list print each of those marks, and a 20-F summary that prints "≈", "₩" and "₹" in prose and "≈" in a
+   figure column; and every marker of a nested list is the disc.
 
 The planted forms in test_the_checks_read_what_they_claim score each reader of the source (stylesheet,
 attributes, faces, workbook, module literals) on the forms its rule can take and on look-alikes that
@@ -421,15 +424,24 @@ def is_italic_program(font: str | Path | bytes) -> bool:
     return bool(TTFont(io.BytesIO(font) if isinstance(font, bytes) else font)["OS/2"].fsSelection & 1)
 
 
+# Where every face a PDF declares lives: the vendored files, never a system font under a brand family's name.
+VENDORED_FONT_DIR = ROOT / "backend" / "app" / "assets" / "fonts"
+
+
 def font_face_problems(html: str, italic_family: str) -> list[str]:
-    """Each way a PDF's faces fail an italic: the family declares no italic face, a face's file is missing,
-    or a file's italic bit disagrees with the style it is declared as."""
+    """Each way a PDF's faces fail: the italic family declares no italic face, a face's file is not a vendored
+    one (it resolves outside backend/app/assets/fonts, through a symlink or a ".." too), a face's file is
+    missing, or a file's italic bit disagrees with the style it is declared as."""
     faces = font_faces(html)
     found = [] if any(f["family"] == italic_family and f["style"] == "italic" for f in faces) else [
         f"'{italic_family}' declares no italic face"]
     for face in faces:
         name = f"'{face['family']}' {face['style']} ({face['file'].name if face['file'] else 'no src'})"
-        if face["file"] is None or not face["file"].is_file():
+        if face["file"] is None:
+            found.append(f"{name} names no file")
+        elif not face["file"].resolve().is_relative_to(VENDORED_FONT_DIR.resolve()):
+            found.append(f"{name} is not a vendored file in backend/app/assets/fonts")
+        elif not face["file"].is_file():
             found.append(f"{name} names no file")
         elif is_italic_program(face["file"]) != (face["style"] in ("italic", "oblique")):
             found.append(f"{name} is declared {face['style']} but its file's italic bit says otherwise")
@@ -699,9 +711,27 @@ def _every_mark_analysis() -> str:
     return html
 
 
+def _every_mark_summary() -> str:
+    """A 20-F summary PDF with each mark a foreign filer's summary can print beyond the latin subsets: "≈US$X"
+    beside a convenience translation, which the 20-F and 6-K prompts ask for, in prose and in the metrics
+    table's figure column (the data face), and the won and rupee signs before a figure."""
+    sections = export_fixtures._full_sections()
+    sections["executive_snapshot"]["key_points"].append("Revenue of RMB 941.2B (≈US$129B, convenience translation)")
+    sections["financial_highlights"]["table"].append({
+        "metric": "Revenue in US dollars", "current_period": "≈US$129B", "prior_period": "≈US$120B",
+        "change": "+7.5%", "commentary": "Convenience translation at the stated rate."})
+    sections["segment_performance"].append(
+        {"segment": "Korea", "revenue": "₩1.2T", "change": "-3%", "commentary": "India revenue of ₹4,100 crore"})
+    summary, filing = export_fixtures._make_summary_and_filing(sections)
+    filing.filing_type = "20-F"
+    html = ExportService().generate_pdf_html(summary, filing)
+    assert "(≈US$129B," in html and '<td class="num">≈US$129B</td>' in html and "₩1.2T" in html and "₹4,100" in html
+    return html
+
+
 def test_every_glyph_prints_in_a_vendored_face():
     weasyprint = pytest.importorskip("weasyprint")
-    pdfs = {**_pdfs(), "analysis with every mark": _every_mark_analysis()}
+    pdfs = {**_pdfs(), "analysis with every mark": _every_mark_analysis(), "20-F summary with every mark": _every_mark_summary()}
     try:
         rendered = {name: weasyprint.HTML(string=html).write_pdf(uncompressed_pdf=True) for name, html in pdfs.items()}
     except Exception as exc:  # missing system libs in odd envs: not what this test reads
@@ -721,6 +751,8 @@ def test_every_glyph_prints_in_a_vendored_face():
     no_disc = every_mark.replace("ul ul { list-style-type: disc; }", "")
     assert no_symbols != every_mark and old_stack != every_mark and no_disc != every_mark
     assert foreign_fonts(no_symbols) and foreign_fonts(old_stack), "a fallback face must read as foreign"
+    summary = pdfs["20-F summary with every mark"]
+    assert foreign_fonts(_SYMBOLS_FACE.sub("", summary, count=1)), "≈, ₩ and ₹ need the symbols face"
     assert foreign_fonts(no_disc) == [] and list_markers(no_disc)[2] == {"◦ "}  # the face covers ◦: only the marker reads it
 
 
@@ -811,6 +843,16 @@ def test_the_checks_read_what_they_claim():
     assert font_face_problems(f"<style>{face.format(fonts.as_uri() + '/missing.woff2', 'italic')}</style>", "Inter Var") == [
         "'Inter Var' italic (missing.woff2) names no file"]
     assert font_face_problems(f"<style>{face.format(roman, 'normal')} {face.format(italic, 'italic')}</style>", "Inter Var") == []
+    # A system font declared under a brand family's name fails whether or not this machine has it, and so does
+    # a path that leaves the vendored directory through "..".
+    system = "file:///usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    escaped = fonts.as_uri() + "/../brand/earningsnerd-mark.png"
+    assert font_face_problems(
+        f"<style>{face.format(system, 'normal')} {face.format(escaped, 'normal')} {face.format(italic, 'italic')}</style>",
+        "Inter Var") == [
+        "'Inter Var' normal (DejaVuSans.ttf) is not a vendored file in backend/app/assets/fonts",
+        "'Inter Var' normal (earningsnerd-mark.png) is not a vendored file in backend/app/assets/fonts",
+    ]
 
     # 3. Grounds: a rule painting behind text joins the grounds, and every text colour is held to each.
     tinted = f"<style>{PLANTED_STYLES} .methods {{ background: #E5E7EB; }} .footnote {{ color: #636A77; }}</style>"

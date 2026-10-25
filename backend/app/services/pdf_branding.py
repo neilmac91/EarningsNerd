@@ -94,8 +94,10 @@ def font_face_css() -> str:
     # WeasyPrint never slants a face it lacks, so the wordmark's "Nerd" and a quote print italic only
     # from Inter's own italic (the same 4.001 build, latin subset, as the roman).
     inter_italic = (_ASSETS / "fonts" / "Inter-Variable-Italic-latin.woff2").as_uri()
-    # The marks the latin subsets lack (dagger and double dagger, the four arrows, the white bullet), cut
-    # from the same 4.001 build: without it they printed in DejaVu (SOURCES.txt records the cut).
+    # The marks the latin subsets lack (dagger and double dagger, the four arrows, the white bullet, "almost
+    # equal to" for a convenience translation the 20-F and 6-K prompts ask for, the won and rupee signs a
+    # summary figure may carry), cut from the same 4.001 build: without it they printed in DejaVu
+    # (SOURCES.txt records the cut).
     inter_symbols = (_ASSETS / "fonts" / "Inter-Variable-symbols.woff2").as_uri()
     geist_mono = (_ASSETS / "fonts" / "GeistMono-latin.woff2").as_uri()
     return f"""
@@ -110,7 +112,7 @@ def font_face_css() -> str:
   src: url('{inter_symbols}') format('woff2');
   font-weight: 100 900;
   font-style: normal;
-  unicode-range: U+2020-2021, U+2190-2193, U+25E6;
+  unicode-range: U+2020-2021, U+20A9, U+20B9, U+2190-2193, U+2248, U+25E6;
 }}
 @font-face {{
   font-family: 'Inter Var';

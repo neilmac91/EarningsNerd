@@ -1,16 +1,18 @@
 Where the vendored fonts in this directory come from. Each is licensed under the SIL Open Font License 1.1
-(OFL.txt, the text as Inter's release ships it).
+(OFL.txt, the text as Inter's release ships it). Each file's hash is on a line "sha256 <hex>  <file name>",
+which backend/tests/unit/test_vendored_font_sources.py holds equal to the file.
 
 Inter-Variable-symbols.woff2
   The marks the latin subsets below lack, for the PDFs (pdf_branding.font_face_css, declared with
-  unicode-range U+2020-2021, U+2190-2193, U+25E6): the dagger and double dagger, the four arrows and the
-  white bullet.
+  unicode-range U+2020-2021, U+20A9, U+20B9, U+2190-2193, U+2248, U+25E6): the dagger and double dagger, the
+  won and rupee signs a summary figure may carry, the four arrows, "almost equal to" (the 20-F and 6-K prompts
+  ask for "≈US$X" beside a convenience translation) and the white bullet.
   Cut from Inter 4.001, the build the latin subsets are (name table "Version 4.001;git-66647c0bb", family
   "Inter", axes opsz and wght): Google Fonts' build of rsms/inter commit
   66647c0bbbe41a850d79d9c76fb13add3378940f, as google/fonts publishes it, pinned to its commit
   e7db6ca603fd4862010383ff17ffd6cc4ffac1c0:
     https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/inter/Inter%5Bopsz,wght%5D.ttf
-    sha256 29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031
+    sha256 29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031  Inter[opsz,wght].ttf (the source, not vendored)
     git blob 047c92f6e2212473dc436020afed689527076d44, the blob that commit's tree names for the file
   Checked as the same build: for each of the 230 code points Inter-Variable-latin.woff2 maps, the source's
   outline, advance and variation deltas equal that file's. Inter's own GitHub release (v4.1, Inter-4.1.zip,
@@ -18,20 +20,20 @@ Inter-Variable-symbols.woff2
   not the source.
   Cut with fontTools 4.63.0 and brotli 1.2.1, the versions backend/requirements.txt pins; the command
   reproduces the file byte for byte:
-    pyftsubset 'Inter[opsz,wght].ttf' --unicodes=U+2020-2021,U+2190-2193,U+25E6 \
+    pyftsubset 'Inter[opsz,wght].ttf' --unicodes=U+2020-2021,U+20A9,U+20B9,U+2190-2193,U+2248,U+25E6 \
       --layout-features='*' --flavor=woff2 --output-file=Inter-Variable-symbols.woff2
-    sha256 0688afa0392410e70baba0af99c54a75e3e4b0328828c1890dc1efa6d14e4aca
+    sha256 411d493d420d41e066e474b126017749dbdd0f17775f7f93cc15d02547aa6e94  Inter-Variable-symbols.woff2
   Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter).
 
 Inter-Variable-latin.woff2, Inter-Variable-Italic-latin.woff2
   Google Fonts' latin subsets of the same Inter 4.001 build, roman and italic (vendored in ff507e55f and
   #1345, which recorded no source address).
-    sha256 dd8a4575be9806105ac3decd02805cd2782fe7c05abb02c582316bc436ce03ae (roman)
-    sha256 c58f9d530baa7e96355f444502eca739d5eefa0f328f3d635b73648373214629 (italic)
+    sha256 dd8a4575be9806105ac3decd02805cd2782fe7c05abb02c582316bc436ce03ae  Inter-Variable-latin.woff2
+    sha256 c58f9d530baa7e96355f444502eca739d5eefa0f328f3d635b73648373214629  Inter-Variable-Italic-latin.woff2
   Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter).
 
 GeistMono-latin.woff2
   Geist Mono 1.401, latin subset (name table "Version 1.401"; vendored in ff507e55f, which recorded no source
   address).
-    sha256 b7ac144b394cbd81052d6397ec0c33397977b1d7e9bc095e744e652a378c6fb3
+    sha256 b7ac144b394cbd81052d6397ec0c33397977b1d7e9bc095e744e652a378c6fb3  GeistMono-latin.woff2
   Copyright 2024 The Geist Project Authors (https://github.com/vercel/geist-font).
