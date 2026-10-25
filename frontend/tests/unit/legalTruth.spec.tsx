@@ -3947,6 +3947,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Each renewal issues a new refresh token. Recovery codes are reusable, unlike these single-use reset links.</li>', true],
       ['<li>Refresh tokens are backup codes. Each backup code is a recovery key. Each recovery key works only once.</li>', true],
       ['<li>Recovery codes rotate, unlike refresh tokens. The latter are backup codes. Each backup code works only once.</li>', true],
+      ['<li>Recovery codes rotate, unlike refresh tokens (backup codes). Each backup code works only once.</li>', true],
       ['<li>Each renewal issues a new refresh token. Recovery codes stand in for the single-use backup codes.</li>', true],
       // The costs: "and" or a semicolon sets nothing apart, "single-use" before a credential's noun outside an "unlike"
       // phrase is read as said of its clause's subject, a noun beside the token in its "unlike" phrase stands for it
