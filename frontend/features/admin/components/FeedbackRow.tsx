@@ -16,6 +16,7 @@ import {
 } from '@/features/admin/api/admin-api'
 import FeedbackStatusBadge from '@/features/admin/components/FeedbackStatusBadge'
 import FeedbackTypeBadge from '@/features/admin/components/FeedbackTypeBadge'
+import FeedbackDetails from '@/features/admin/components/FeedbackDetails'
 
 const STATUS_OPTIONS: FeedbackStatus[] = ['new', 'triaged', 'resolved']
 
@@ -34,8 +35,7 @@ interface FeedbackRowProps {
 
 export default function FeedbackRow({ feedback }: FeedbackRowProps) {
   const queryClient = useQueryClient()
-  // Long messages collapse to one line by default; admins can expand to read the full text.
-  const [expanded, setExpanded] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   const statusMutation = useMutation({
     mutationFn: (status: FeedbackStatus) => updateFeedbackStatus(feedback.id, status),
@@ -52,7 +52,7 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
   })
 
   return (
-    <tr className="hover:bg-background-light dark:hover:bg-white/5">
+    <tr className="ph-no-capture hover:bg-background-light dark:hover:bg-white/5">
       <td className="whitespace-nowrap px-4 py-3 align-top text-sm">
         <FeedbackTypeBadge type={feedback.type} />
       </td>
@@ -63,19 +63,20 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
       <td className="w-full px-4 py-3 align-top text-sm text-text-primary-light dark:text-text-primary-dark">
         <button
           type="button"
-          onClick={() => setExpanded((e) => !e)}
-          title={feedback.message}
-          aria-expanded={expanded}
-          className={`block w-full min-w-64 rounded text-left [contain:inline-size] transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark ${
-            expanded ? 'whitespace-pre-wrap break-words' : 'truncate'
-          }`}
+          onClick={() => setDetailsOpen(true)}
+          aria-label={`View details for feedback ${feedback.id}`}
+          aria-haspopup="dialog"
+          aria-expanded={detailsOpen}
+          className="block min-h-11 w-full min-w-64 rounded text-left [contain:inline-size] transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
         >
-          {feedback.message}
+          <span className="block truncate">{feedback.message}</span>
+          <span className="mt-1 block text-xs underline underline-offset-2">View details</span>
         </button>
+        <FeedbackDetails feedback={feedback} open={detailsOpen} onClose={() => setDetailsOpen(false)} />
       </td>
       <td className="px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
         {feedback.page_url ? (
-          <span className="block max-w-[14rem] truncate" title={feedback.page_url}>
+          <span className="block max-w-[14rem] truncate">
             {feedback.page_url}
           </span>
         ) : (

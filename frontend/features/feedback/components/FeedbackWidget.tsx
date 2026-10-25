@@ -110,7 +110,7 @@ function AccountFeedback({ readerId }: { readerId: number }) {
 
   return (
     <>
-      <Modal open={open} onClose={close} labelledBy="feedback-dialog-title" size="sm" initialFocusRef={messageRef}>
+      <Modal open={open} onClose={close} labelledBy="feedback-dialog-title" size="sm" initialFocusRef={messageRef} className="ph-no-capture">
         <ModalHeader id="feedback-dialog-title" onClose={close}>
           Send feedback
         </ModalHeader>
@@ -121,6 +121,7 @@ function AccountFeedback({ readerId }: { readerId: number }) {
             <textarea
               ref={messageRef}
               aria-label="Feedback message"
+              aria-describedby="feedback-message-help"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               required
@@ -130,6 +131,9 @@ function AccountFeedback({ readerId }: { readerId: number }) {
               // The field recipe (E154): its fill, border, padding, focus ring and 44px floor; it stays a fixed four rows.
               className={inputClasses({ className: 'resize-none' })}
             />
+            <p id="feedback-message-help" className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+              Describe what happened. You can paste a web link here too.
+            </p>
 
             {/* `loading`, never native `disabled`, while sending: Chromium blurs a focused button
                 that turns disabled (focus → <body>). Native `disabled` stays only for the too-short
