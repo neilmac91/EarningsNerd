@@ -31,9 +31,11 @@ written, the sibling plans have landed or opened:
    net margin 84.6%, free cash flow 78.9%, operating margin 77.8%. Of the 82 flags, 77 (94%)
    have the same cause, `legacy_calculation`: a calculated row written before lineage existed
    (#1191, 2026-10-10). No later write can add lineage to such a row, because ingestion skips an
-   identity that already exists and the quarterly repair excludes filing-owned rows. For REGN, all
-   11 flagged figures reproduce exactly from their reported inputs. A journaled lineage backfill
-   (§1.5) would clear them without changing a single value. No presentation work can do that.
+   identity that already exists and the quarterly repair excludes filing-owned rows. A journaled
+   lineage backfill (§1.5) gives each such row its record without changing a single value: a
+   pass where its inputs agree, a specific concern where they don't. Its dry run measures how many
+   it can reach, since inputs saved before 2026-09-13 lack the start dates the calculator needs.
+   No presentation work can do that.
 2. **The checks miss a real error that the flags cannot show.** REGN's FY2018 and FY2019 revenue
    come from the FY2020 10-K's re-tagged comparatives: $5,145.6M and $6,557.6M. The years' own
    10-Ks reported $6,710.8M and $7,863.4M. The page therefore shows FY2018 revenue growth of
@@ -197,21 +199,42 @@ a journaled apply through `FinancialFactRevision`, an audited rollback, and Ops 
 1. For each company, select the filing-owned rows whose concept has a formula
    (`METRIC_FORMULAS`), whose `raw_tag` is empty or equals the concept, and whose stored lineage is
    missing or not version 1.
-2. Group them with the filing's own rows by `_scope` (company, accession, period end, fiscal year
-   and period).
-3. Run `annotate_filing_calculations` on each group.
+2. Pass every row of the company in those accessions to `annotate_filing_calculations`, which
+   matches inputs by `_scope` (company, accession, period end, fiscal year and period). An input
+   can be owned by either writer, because the identity skip lets whichever ran first own it.
+3. Convert each value to a float first. `FinancialFact.value` reads back as a `Decimal`, which the
+   calculator's comparison does not accept, so every row would otherwise read as a mismatch.
 4. Write `provenance` and `reconciled` only. Never write a value, a fiscal label or `is_latest`.
 
-A row whose inputs are found and whose value matches passes. A mismatch keeps the review state
-under the specific reason `calculation_mismatch`, and missing inputs under
-`missing_calculation_inputs`. These are honest concerns that the notation can then show as real.
+**The outcomes:**
+- **Passes.** A row whose inputs are found and agree passes, as long as every input passes.
+- **Inherits its input's state.** A row whose input needs review inherits that input's reasons,
+  as today's writer does.
+- **Written as a concern.** A row whose recomputed value disagrees is written as
+  `calculation_mismatch`. That is a real inconsistency, which the quiet scheme marks.
+- **Held unchanged and counted.** The backfill writes nothing for any of these:
+  - a row whose inputs cannot be found (most often inputs saved before the per-filing writer kept
+    their start dates, 2026-09-13);
+  - a row whose input is withheld;
+  - a row the old local check had flagged;
+  - a row whose input is itself a legacy calculation.
 
-**Expected effect.** The dry run decides. The evidence so far:
-- All 11 REGN cells reproduce from their reported inputs to 1e-9.
-- 77 of production's 82 latest-year review flags have this cause.
+  Writing `missing_calculation_inputs` for a row nobody doubts would put a new mark on a correct
+  number.
 
-**Tier and gates.** High: `facts/**`, `ops.yml` and a script under `backend/scripts/`. A
-mutation-proven test that a filing-owned legacy calculation gains lineage and nothing else moves.
+**Expected effect.** Unknown until the dry run, which is the measurement.
+- **REGN.** The local check (all 11 REGN cells reproduce to 1e-9) ran on rows the local ingest
+  wrote through companyfacts. Production's rows are filing-owned, and their inputs may lack start
+  dates. So REGN's 11 clear only if the dry run finds their inputs.
+- **The 77 flags.** Of production's 82 latest-year review flags, 77 are `legacy_calculation`. Some
+  of those are companyfacts-owned annual calculations, which belong to the quarterly repair, not
+  to this backfill.
+- **What the dry run reports.** Writes by outcome, holds by reason, and the newest-year figures
+  cleared, marked and held, so the founder approves knowing which.
+
+**Tier and gates.** High: `.github/workflows/ops.yml` and the approval hook's docstring. The
+service (`backend/app/services/filing_lineage_repair.py`) sits outside `facts/`. A mutation-proven
+test that a filing-owned legacy calculation gains lineage and nothing else moves.
 The Ops wiring gate (`test_ops_workflow_wiring.py`) and the lock-timeout gate
 (`test_migration_lock_safety.py`).
 
@@ -893,7 +916,7 @@ unresolved conflict.
 
 | Step | Lands | After | Visible result |
 |---|---|---|---|
-| 1 | **WP0** lineage backfill: high tier; the apply needs the founder's approval | One unverified backend deploy at a time. Its shared files are `tasks/todo.md` and, with #1608, `test_migration_lock_safety.py` | Up to 77 of 82 latest-year "needs review" notes leave the fine print in production. REGN's 11 go if the dry run matches the local check |
+| 1 | **WP0** lineage backfill: high tier; the apply needs the founder's approval | One unverified backend deploy at a time. Its shared files are `tasks/todo.md` and, with #1608, `test_migration_lock_safety.py` | The legacy notes the dry run can reach leave the fine print and the dialogs, as passes or as specific concerns. The dry run counts them, and the holds, before the founder approves the apply |
 | 2 | **WP1** quiet notation: routine tier | #1606, which it is built on | No dagger on figures. A neutral letter only where a note questions the number. Data notes as fine print under the table |
 | 3 | **WP2** data-notes words and **WP5** restatement note, one after the other (they share `data_notes.py` and its test) | WP1 (they share its notes files and its marking rule) | The fine print's words come from the backend, so the exports match. REGN's FY2018–FY2019 revenue gains a "restated in a later filing" letter, with both filings in the dialog |
 | 4a | **WP3-png** (`chartExport.ts`) | #1609 | Chart marks only for notes in question; the PNG states its period range |
