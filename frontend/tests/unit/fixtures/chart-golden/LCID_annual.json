@@ -13,7 +13,9 @@
         "growthBarWidth": 25,
         "xTickY": 293,
         "stripTop": null,
-        "notesY": 312
+        "stripRowY": [],
+        "notesY": 312,
+        "valuesDontFit": false
       },
       "periods": [
         ["FY2019", 73.4, "’19"],
@@ -136,7 +138,9 @@
         "growthBarWidth": 26,
         "xTickY": 493,
         "stripTop": null,
-        "notesY": 512
+        "stripRowY": [],
+        "notesY": 512,
+        "valuesDontFit": false
       },
       "periods": [
         ["FY2019", 111.1, "’19"],
@@ -261,7 +265,9 @@
         "growthBarWidth": 25,
         "xTickY": 293,
         "stripTop": null,
-        "notesY": 312
+        "stripRowY": [],
+        "notesY": 312,
+        "valuesDontFit": false
       },
       "periods": [
         ["FY2019", 73.4, "’19"],
@@ -387,22 +393,24 @@
       "frame": {
         "width": 1030,
         "height": 574,
-        "gutter": 41,
-        "slot": 140.1,
+        "gutter": 54,
+        "slot": 138.3,
         "barWidth": 44,
         "growthBarWidth": 26,
         "xTickY": 493,
         "stripTop": 504,
-        "notesY": 566
+        "stripRowY": [516, 532, 548],
+        "notesY": 566,
+        "valuesDontFit": false
       },
       "periods": [
-        ["FY2019", 111.1, "’19"],
-        ["FY2020", 251.2, "’20"],
-        ["FY2021", 391.4, "’21"],
-        ["FY2022", 531.5, "’22"],
-        ["FY2023", 671.6, "’23"],
-        ["FY2024", 811.8, "’24"],
-        ["FY2025", 951.9, "’25"]
+        ["FY2019", 123.1, "’19"],
+        ["FY2020", 261.4, "’20"],
+        ["FY2021", 399.7, "’21"],
+        ["FY2022", 538, "’22"],
+        ["FY2023", 676.3, "’23"],
+        ["FY2024", 814.6, "’24"],
+        ["FY2025", 952.9, "’25"]
       ],
       "panels": [
         {
@@ -481,12 +489,12 @@
               "top": 448,
               "depth": 2,
               "items": [
-                ["FY2019", "operating_margin", "−5,619%", 83.5, 0],
-                ["FY2019", "net_margin", "−6,043%", 83.5, 1],
-                ["FY2020", "operating_margin", "−15,071%", 220.3, 0],
-                ["FY2020", "net_margin", "−18,093%", 220.3, 1],
-                ["FY2021", "operating_margin", "−5,645%", 363.8, 0],
-                ["FY2021", "net_margin", "−9,516%", 363.8, 1]
+                ["FY2019", "operating_margin", "−5,619%", 95.5, 0],
+                ["FY2019", "net_margin", "−6,043%", 95.5, 1],
+                ["FY2020", "operating_margin", "−15,071%", 230.5, 0],
+                ["FY2020", "net_margin", "−18,093%", 230.5, 1],
+                ["FY2021", "operating_margin", "−5,645%", 372.1, 0],
+                ["FY2021", "net_margin", "−9,516%", 372.1, 1]
               ]
             }
           ],
@@ -499,11 +507,11 @@
         ["Net", "−199.3%", 2, "line", "triangle", false]
       ],
       "notes": [
-        ["FY2021", "a", "neutral", 391.4],
-        ["FY2022", "a", "neutral", 531.5],
-        ["FY2023", "a", "neutral", 671.6],
-        ["FY2024", "a", "neutral", 811.8],
-        ["FY2025", "a", "neutral", 951.9]
+        ["FY2021", "a", "neutral", 399.7],
+        ["FY2022", "a", "neutral", 538],
+        ["FY2023", "a", "neutral", 676.3],
+        ["FY2024", "a", "neutral", 814.6],
+        ["FY2025", "a", "neutral", 952.9]
       ],
       "footnotes": [
         ["a", "Gross margin FY2021–FY2025: Not available in this dataset."],
@@ -514,6 +522,7 @@
         [
           "Gross",
           0,
+          "line",
           "circle",
           {
             "FY2019": "14.5%",
@@ -526,8 +535,9 @@
           }
         ],
         [
-          "Operating",
+          "Operat",
           1,
+          "line",
           "square",
           {
             "FY2019": "−5,619%",
@@ -542,6 +552,7 @@
         [
           "Net",
           2,
+          "line",
           "triangle",
           {
             "FY2019": "−6,043%",
@@ -570,7 +581,9 @@
         "growthBarWidth": 25,
         "xTickY": 293,
         "stripTop": null,
-        "notesY": 312
+        "stripRowY": [],
+        "notesY": 312,
+        "valuesDontFit": false
       },
       "periods": [
         ["FY2019", 79.9, "’19"],
@@ -675,22 +688,24 @@
       "frame": {
         "width": 1030,
         "height": 574,
-        "gutter": 48,
-        "slot": 139.1,
+        "gutter": 54,
+        "slot": 138.3,
         "barWidth": 44,
         "growthBarWidth": 26,
         "xTickY": 493,
         "stripTop": 504,
-        "notesY": 566
+        "stripRowY": [516, 532, 548],
+        "notesY": 566,
+        "valuesDontFit": false
       },
       "periods": [
-        ["FY2019", 117.6, "’19"],
-        ["FY2020", 256.7, "’20"],
-        ["FY2021", 395.9, "’21"],
-        ["FY2022", 535, "’22"],
-        ["FY2023", 674.1, "’23"],
-        ["FY2024", 813.3, "’24"],
-        ["FY2025", 952.4, "’25"]
+        ["FY2019", 123.1, "’19"],
+        ["FY2020", 261.4, "’20"],
+        ["FY2021", 399.7, "’21"],
+        ["FY2022", 538, "’22"],
+        ["FY2023", 676.3, "’23"],
+        ["FY2024", 814.6, "’24"],
+        ["FY2025", 952.9, "’25"]
       ],
       "panels": [
         {
@@ -779,8 +794,9 @@
       ],
       "strip": [
         [
-          "Operating CF",
+          "Operat",
           0,
+          "line",
           "circle",
           {
             "FY2019": "−$0.24B",
@@ -793,8 +809,9 @@
           }
         ],
         [
-          "Free cash flow",
+          "Free c",
           1,
+          "line",
           "square",
           {
             "FY2019": "−$0.34B",
@@ -807,8 +824,9 @@
           }
         ],
         [
-          "Net income",
+          "Net in",
           2,
+          "line",
           "triangle",
           {
             "FY2019": "−$0.28B",
@@ -837,7 +855,9 @@
         "growthBarWidth": 25,
         "xTickY": 293,
         "stripTop": null,
-        "notesY": 312
+        "stripRowY": [],
+        "notesY": 312,
+        "valuesDontFit": false
       },
       "periods": [
         ["FY2019", 68.7, "’19"],
@@ -967,22 +987,24 @@
       "frame": {
         "width": 1030,
         "height": 574,
-        "gutter": 36,
-        "slot": 140.9,
+        "gutter": 54,
+        "slot": 138.3,
         "barWidth": 44,
         "growthBarWidth": 26,
         "xTickY": 493,
         "stripTop": 504,
-        "notesY": 566
+        "stripRowY": [516, 532, 548],
+        "notesY": 566,
+        "valuesDontFit": false
       },
       "periods": [
-        ["FY2019", 106.4, "’19"],
-        ["FY2020", 247.3, "’20"],
-        ["FY2021", 388.1, "’21"],
-        ["FY2022", 529, "’22"],
-        ["FY2023", 669.9, "’23"],
-        ["FY2024", 810.7, "’24"],
-        ["FY2025", 951.6, "’25"]
+        ["FY2019", 123.1, "’19"],
+        ["FY2020", 261.4, "’20"],
+        ["FY2021", 399.7, "’21"],
+        ["FY2022", 538, "’22"],
+        ["FY2023", 676.3, "’23"],
+        ["FY2024", 814.6, "’24"],
+        ["FY2025", 952.9, "’25"]
       ],
       "panels": [
         {
@@ -1070,13 +1092,13 @@
             }
           ],
           "bars": [
-            ["FY2019", "shareholders_equity", 84.4, 432, 44, 12.4],
-            ["FY2020", "shareholders_equity", 225.3, 432, 44, 26.4],
-            ["FY2021", "shareholders_equity", 366.1, 353.8, 44, 78.2],
-            ["FY2022", "shareholders_equity", 507, 345, 44, 87],
-            ["FY2023", "shareholders_equity", 647.9, 335, 44, 97],
-            ["FY2024", "shareholders_equity", 788.7, 354.5, 44, 77.5],
-            ["FY2025", "shareholders_equity", 929.6, 417.7, 44, 14.3]
+            ["FY2019", "shareholders_equity", 101.1, 432, 44, 12.4],
+            ["FY2020", "shareholders_equity", 239.4, 432, 44, 26.4],
+            ["FY2021", "shareholders_equity", 377.7, 353.8, 44, 78.2],
+            ["FY2022", "shareholders_equity", 516, 345, 44, 87],
+            ["FY2023", "shareholders_equity", 654.3, 335, 44, 97],
+            ["FY2024", "shareholders_equity", 792.6, 354.5, 44, 77.5],
+            ["FY2025", "shareholders_equity", 930.9, 417.7, 44, 14.3]
           ],
           "gaps": [],
           "offScale": [null, null],
@@ -1089,15 +1111,16 @@
         ["Equity", "$0.72B", 2, "bar", null, false]
       ],
       "notes": [
-        ["FY2019", "a", "neutral", 106.4]
+        ["FY2019", "a", "neutral", 123.1]
       ],
       "footnotes": [
         ["a", "Long-term debt FY2019: Not available in this dataset."]
       ],
       "strip": [
         [
-          "Long-term debt",
+          "Long-t",
           0,
+          "line",
           "circle",
           {
             "FY2019": "—",
@@ -1112,6 +1135,7 @@
         [
           "Cash",
           1,
+          "line",
           "square",
           {
             "FY2019": "$0.35B",
@@ -1126,6 +1150,7 @@
         [
           "Equity",
           2,
+          "bar",
           null,
           {
             "FY2019": "−$0.62B",

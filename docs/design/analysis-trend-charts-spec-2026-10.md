@@ -174,10 +174,42 @@ says so; everything else follows the spec.
 - **A1 with no values.** A panel with no values, or only zeros, draws its zero rule alone: ticks `[0]` over the
   domain `[0, 1]`. A1's `V = {0, 1}` would label an empty growth panel `0%`, `+0.25%` … `+1.00%`, and an all-zero
   panel `0%` and `+1%`, values no figure has.
+- **The notes band.** A comparison the chart prints as `n/m` carries its note letter in the band too, as its
+  footnote names it; A5 takes letters only "where the YoY is a number", which left a footnote naming a period whose
+  cell had no letter. Glyphs sit 1.5 px apart, each as wide as its text: A5's pitch for one letter, with no overlap
+  for `aa`.
+- **The absent debt's legend item** reads `Long-term debt · not in dataset`, all of it the name, with no value and
+  no palette slot (`color: null`).
+- **The value strip** (§3.10) is collision-free by construction, as §3.10 says, which its geometry did not ensure:
+  in the expanded view, every slot holds the strip's widest cell with 2 px each side, and the gutter reaches past
+  the rows' short names, so a narrow expanded view scrolls rather than crowd. Each row carries its short name (the
+  legend name's first 6 characters) and the legend's swatch (equity's is the bar).
+- **A negative top line** (the spec takes it never to be one) gets a label pad under panel A, so its labels stay
+  in their band.
+- **Readings where the spec is silent or loose**, each now a test:
+  - A2's decimals go past 2 when a step needs them: a growth panel within ±0.1% steps by 0.025 and prints
+    `+0.025%`, where A2's {0, 1, 2} leaves the label undefined. A1's grid runs from 1e−12 to 5e20 a step.
+  - F%'s 0 dp from 1,000% and F$'s d0 test the value as printed: 999.96% reads `1,000%`, and 999.7M on a $B axis
+    reads `$1.00B` (3 significant figures), not `$1.000B`.
+  - A period run compresses only fiscally consecutive periods, so it never spans a period the window skips (MCD's
+    quarterly window has no Q4 ’23).
+  - A growth slot with no value of its own is unavailable even in the window's first year, as D17 counts them
+    (562 value, 162 structural, 28 unavailable, 2 n/m); both print `—` under one footnote line.
+  - A12's sentences follow the top line's own order: a company with revenue and no margin series reads “Margin
+    figures aren’t in this company’s filed data.”, whatever else it reports.
+  - A4's planning box (12 px, 3 px off the bar's end) reaches 1 px past its 14 px pad at a bar that ends on the
+    domain edge; the glyphs themselves (8.8 px above the baseline) stay inside it.
+  - A currency code prints a symbol only when the browser's list of ISO 4217 codes holds it, so `ABC` and `XXX`
+    print none.
+- **Open for the renderer (E192).** At the 36 px minimum slot, A4 finds no label tier for some annual top lines
+  (REGN, NVDA and PLUG on a 342 px phone card): labels of six characters or more cannot keep 2 px apart at a 36 px
+  pitch, so §0.4 row 11's "with 36 px slots they print" does not hold. The layout flags it (`valuesDontFit`, with
+  §3.7's sentence as `VALUES_DONT_FIT`), but "expand the chart" does not help at the same width.
 - **Not yet in the engine.** `theme.ts` (§3.8's tokens) lands with the renderer: its dark tokens are owner decision
   3 in §0.3. The tolerance file (§1.0, M20) is readout tooling and stays out of the product.
 - **The gate.** `frontend/tests/unit/chart-engine.spec.ts` runs the model checks M1–M6, M8–M13, M18 and M21, M7,
-  M16 and M17 in part, and A4 (apart from its planner), A7, A13b and G6, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`
+  M16 and M17 in part, A4 (apart from its planner), A5's letter order and spacing, A7, A13b, G6, L1 for bar labels
+  and §3.10's strip, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`
   (chosen from the 73 for their cases, trimmed to the plotted concepts and their quality fields, values unchanged),
   for every chart and both views, at 342, 502 and 1030 px. Golden plans for REGN, LCID, PLUG, BYND, JPM and PGR are
   in `tests/unit/fixtures/chart-golden/`. Before landing, the same checks passed on the audit's 75 datasets (600
@@ -324,7 +356,7 @@ The following are each used only where a measured number requires them, and each
 | Chart | Strategy | Justifying numbers | Rejected, and why |
 |---|---|---|---|
 | **Revenue & growth** | Two aligned panels with a shared band x. A: top line, linear, domain from A1. B: growth, linear, zero-anchored, A3 clip. Signed labels at each growth bar's end. | Growth is negative in 41/65 datasets, so a visible 0% rule is needed in most of them. $ and % share no scale, and today's 0% floats at an arbitrary dollar height (REGN 0% ≈ $4.5B). \|g\| > 100% in 8/65 and > 50% in 17/65. A3 clips 6 points in 4/70 (BYND FY2018–19, ETSY FY2020, LCID FY2021–22, RIVN FY2022). The top line is never negative (0 negative values in 73 datasets). Within-ticker top-line range: median 1.7×, p90 11.9×, max **340×** (LCID). | **Dual axis:** misreads, as above. **Log:** growth is negative in 41/65; RIVN has $0 revenue in FY2019–20; bar length is meaningless on a log scale. **Indexing:** owner rule. **Growth as text only (C):** drops the graphic sign cue. **Growth line over bars:** it is a dual axis again. |
-| **Margins** | One linear % axis. Zero always in the domain. A3 clip; clipped values printed at the plot edge (A3b). | >10× between series in only 2/59 datasets (LCID 794×, RIVN 10.1×), caused by outliers. Operating margin is negative in 22/59; margins cross zero in 21/59. Below −100% in 9/59 (LCID −18,093%, RIVN −8,524%, PLUG −679%). A3 clips 11 points in 3/59: LCID FY2019–21 (6), RIVN FY2021 (3), SNAP FY2017 (2). PLUG/a, PLUG/q, BYND/a/q, LCID/q and RIVN FY2022 plot in full: LCID/q on −600…0% and PLUG/q on −700…+100%, in every view. | **Fixed ±100% clip:** would clip all 22 LCID/q points (B measured 97 points). **Small multiples:** demote the M1–M3 comparison to non-aligned scales to serve 2/59 datasets. **Log/symlog:** negatives in 22/59. |
+| **Margins** | One linear % axis. Zero always in the domain. A3 clip; clipped values printed at the plot edge (A3b). | >10× between series in only 2/59 datasets (LCID 794×, RIVN 10.1×), caused by outliers. Operating margin is negative in 22/59; margins cross zero in 21/59. Below −100% in 9/59 (LCID −18,093%, RIVN −8,524%, PLUG −679%). A3 clips 11 points in 3/59: LCID FY2019–21 (6), RIVN FY2021 (3), SNAP FY2017 (2). PLUG/a, PLUG/q, BYND/a/q, LCID/q and RIVN FY2022 plot in full: LCID/q on −600…0% and PLUG/q on −700…+10% (A1b: its one positive value, +2.4%, gets room rather than a tick), in every view. | **Fixed ±100% clip:** would clip all 22 LCID/q points (B measured 97 points). **Small multiples:** demote the M1–M3 comparison to non-aligned scales to serve 2/59 datasets. **Log/symlog:** negatives in 22/59. |
 | **Cash generation** | One linear $ axis, zero-anchored, never clipped. | Ratios on one axis: >10× in 1/73 (JPM/q 11.9×); OCF/NI median 1.5×, FCF/NI median 1.3×. 39/73 datasets have a series crossing zero. FCF and NI swap order inside the window in 52/60 datasets, so order is the question, and only a common scale shows it truthfully. | **Dual axis:** 29% misordered pairs. **Clipping:** "every pixel is a citable dollar"; the max ratio of 11.9× stays readable. |
 | **Balance sheet** | Two aligned panels (0.6 / 0.4 of the plot height). A: debt and cash, one $ axis from $0. B: equity, zero-anchored both ways. | One axis would be >10× in 30/73 (41%): cash vs equity 19/73, debt vs equity 12/58. The dual axis misorders 28% of pairs. Equity is negative in 16/73, while debt (0/629) and cash (0/788) are never negative. The net-debt sign flips inside the window in 24/58 datasets, so debt and cash must share a scale. Debt vs cash is >10× in 10/58 (PLUG 119×, NEE 32×, ROKU 23×, CLFD 17×, POOL 13×, MCD 12×). These are kept on one scale on purpose: "one is negligible" *is* the B1 answer, and the smaller series is printed in the legend (latest) and in the strip (all periods). | **Single axis:** 41% compressed. **Dual axis:** 28% misordered. **Three panels:** split debt from cash and break B1. **Log:** equity is negative and LTD = 0 at 14 points. |
 
@@ -576,7 +608,7 @@ for side in {above, below}:
         «t.value»; both left-aligned, baseline = band top + 10 + 14·row
 ```
 
-LCID annual margins: domain −600…+100%; one band below the plot holds six items at FY2019–21: Operating `−5,620%`,
+LCID annual margins: domain −600…+100%; one band below the plot holds six items at FY2019–21: Operating `−5,619%`,
 `−15,071%`, `−5,645%`; Net `−6,043%`, `−18,093%`, `−9,516%`.
 
 ### 3.5 Colour and shape assignment (A8)

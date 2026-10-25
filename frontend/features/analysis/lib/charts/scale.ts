@@ -23,7 +23,7 @@ function niceCore(values: number[], nmax: number, nmin: number): NiceAxis {
   const hi = Math.max(0, ...values)
   // No value, or only zeros (a one-period window's growth): the zero rule alone, labelled "0%" or "$0".
   if (lo === hi) return { domain: [0, 1], ticks: [0], step: 1 }
-  for (let exponent = -12; exponent <= 15; exponent++) {
+  for (let exponent = -12; exponent <= 20; exponent++) {
     for (const mantissa of [1, 2, 2.5, 5]) {
       const step = Number(`${mantissa}e${exponent}`) // parsed, so 1e-4 is exactly the double 0.0001
       const first = Math.floor(lo / step + 1e-9) * step
@@ -35,7 +35,8 @@ function niceCore(values: number[], nmax: number, nmin: number): NiceAxis {
       }
     }
   }
-  // Unreachable for finite values (the grid spans 1e-12 to 5e15); kept so an infinite value cannot loop.
+  // Reached only past the grid (1e-12 to 5e20 a step, far beyond any filer's figure in any currency); one
+  // interval, with zero once.
   return { domain: [lo, hi], ticks: [...new Set([lo, 0, hi])], step: hi - lo }
 }
 
@@ -91,11 +92,14 @@ function ownUnit(value: number, significant: number): string {
   return `${at(unit)}${unit.suffix}`
 }
 
+/** A2's decimal count: the fewest decimals that print the step exactly. A2 names 0, 1 or 2; a finer step (a
+ *  growth panel whose values all lie within ±0.1% steps by 0.025) takes the decimals it needs, so its ticks stay
+ *  distinct and exact ("+0.025%", never "+0.03%" twice over). */
 const decimalsOf = (value: number) => {
-  for (let digits = 0; digits <= 2; digits++) {
+  for (let digits = 0; digits < 15; digits++) {
     if (Math.abs(Number(value.toFixed(digits)) - value) < 1e-9 * Math.max(1, Math.abs(value))) return digits
   }
-  return 2
+  return 15
 }
 
 // en-US grouping without the locale-dependent formatters (earningsnerd/locale-pinned-numbers): the
@@ -135,7 +139,11 @@ export function moneyFormat(values: number[], step: number, ticks: number[], cur
   const maxAbs = Math.max(0, ...values.map(Math.abs))
   const unit = moneyUnit(Math.max(maxAbs, ...ticks.map(Math.abs)))
   const tickDigits = decimalsOf(step / unit.div)
-  const d0 = Math.max(0, 2 - Math.floor(Math.log10(Math.max(maxAbs / unit.div, 1e-9))))
+  // 3 significant figures on the largest |value|: one decimal fewer when rounding carries it to the next power
+  // of ten (999.7M on a $B axis reads "$1.00B", not "$1.000B").
+  const magnitude = Math.floor(Math.log10(Math.max(maxAbs / unit.div, 1e-9)))
+  const fit = Math.max(0, 2 - magnitude)
+  const d0 = fit > 0 && Math.floor(Math.log10(Number((maxAbs / unit.div).toFixed(fit)) || 1)) > magnitude ? fit - 1 : fit
   const format = (value: number, digits: number, printed: boolean) => {
     if (value === 0) return `${prefix}0`
     const sign = value < 0 ? MINUS : ''
@@ -166,7 +174,8 @@ export function percentFormat(step: number, signed: boolean): AxisFormat {
   const format = (value: number, digits: number) => {
     if (value === 0) return signed ? `0${digits ? `.${'0'.repeat(digits)}` : ''}%` : '0%'
     const abs = Math.abs(value)
-    const shown = abs >= 1000 ? 0 : digits
+    // 0 dp from 1,000% as printed: 999.96% reads "1,000%", never "1,000.0%".
+    const shown = Number(abs.toFixed(digits)) >= 1000 ? 0 : digits
     let text = group(abs.toFixed(shown))
     if (Number(text.replace(/,/g, '')) === 0) text = abs.toFixed(Math.max(1, shown))
     return `${value < 0 ? MINUS : signed ? '+' : ''}${text}%`

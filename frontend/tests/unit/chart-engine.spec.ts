@@ -14,9 +14,10 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, textWidth, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, STRIP_LABEL_X, textWidth, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { compactMoney, moneyFormat, MINUS, niceAxis, percentFormat } from '@/features/analysis/lib/charts/scale'
+import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
 import { currencySymbol } from '@/lib/format'
 
 const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
@@ -58,7 +59,7 @@ describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source })
       // M8: the height depends on the view and mode only, so a card never shifts as its width settles.
       expect(new Set(layouts.map((layout) => layout.height)).size).toBe(1)
       if (view === 'card') expect(layouts[0].height).toBe(320)
-      layouts.forEach((layout, i) => expect(layout.width, 'M6: below the minimum the SVG keeps its width and scrolls in its card').toBe(Math.max(WIDTHS[view][i], minChartWidth(model))))
+      layouts.forEach((layout, i) => expect(layout.width, 'M6: below the minimum the SVG keeps its width and scrolls in its card').toBe(Math.max(WIDTHS[view][i], minChartWidth(model, view))))
       for (const layout of layouts) {
         expect(layout.slot, 'A7: a slot never falls below its minimum').toBeGreaterThanOrEqual(MIN_SLOT - 1e-9)
         const texts = svgStrings(model, layout)
@@ -146,8 +147,30 @@ describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source })
             expect(label.text.startsWith(MINUS)).toBe(point.value! < 0)
           }
         }
-        for (const glyph of noteGlyphs(model, layout)) {
-          expect(Math.abs(glyph.x - layout.x(glyph.period)) + ADVANCE_HALF, 'M6: note glyphs fit their slot').toBeLessThanOrEqual(layout.slot / 2)
+        const glyphs = noteGlyphs(model, layout)
+        for (const glyph of glyphs) {
+          expect(Math.abs(glyph.x - layout.x(glyph.period)) + textWidth(glyph.text) / 2, 'M6: note glyphs fit their slot').toBeLessThanOrEqual(layout.slot / 2)
+        }
+        glyphs.forEach((a, i) => glyphs.slice(i + 1).filter((b) => b.period === a.period).forEach((b) => {
+          expect(Math.abs(a.x - b.x) - (textWidth(a.text) + textWidth(b.text)) / 2, `A5: ${a.text} and ${b.text} keep apart`).toBeGreaterThanOrEqual(1.5 - 1e-9)
+        }))
+        expect(layout.valuesDontFit, 'A4: the card says so exactly when a labelled panel prints no labels')
+          .toBe(layout.panels.some((box) => box.panel.marks.some((mark) => mark.labelled) && box.labels.decimals == null))
+        // L1: a label below a negative bar keeps inside its panel's band: its baseline, plus a descent, before the
+        // next panel's region or the period axis.
+        layout.panels.forEach((box, i) => {
+          const bandEnd = layout.panels[i + 1]?.regionTop ?? layout.xTickY - 13
+          for (const bar of box.bars) if (bar.label && bar.value < 0) expect(bar.label.y + 2, `L1: ${bar.label.text}`).toBeLessThanOrEqual(bandEnd + 1e-9)
+        })
+        // §3.10: the value strip is collision-free by construction: each cell inside its slot, the first clear of
+        // the row's short name.
+        if (layout.view === 'expanded') {
+          model.strip.forEach((row, r) => {
+            expect(layout.stripRowY[r]).toBeGreaterThan(layout.stripTop!)
+            for (const [period, cell] of Object.entries(row.cells)) expect(textWidth(cell) + 4, `§3.10: ${row.short} ${period}`).toBeLessThanOrEqual(layout.slot + 1e-9)
+            const first = model.periods[0].key
+            expect(STRIP_LABEL_X + textWidth(row.short), `§3.10: ${row.short} clears its first cell`).toBeLessThanOrEqual(layout.x(first) - textWidth(row.cells[first]) / 2 - 2 + 1e-9)
+          })
         }
       }
       // M9: palette slots and marker shapes in order over the series present; no slot skipped.
@@ -155,6 +178,12 @@ describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source })
       if (chart !== 'topline') {
         expect(drawn.map((mark) => mark.color)).toEqual(drawn.map((_, i) => i))
         drawn.filter((mark) => mark.kind === 'line').forEach((mark, i) => expect(mark.marker).toBe(MARKERS[i]))
+      }
+      // A5: each band cell lists its letters in the footnotes' order (a … z, aa …).
+      const footnoteOrder = model.footnotes.map((note) => note.mark)
+      for (const cell of Object.values(model.notesBand ?? {})) {
+        const letters = cell.map((glyph) => glyph.text).filter((text) => /^[a-z]+$/.test(text))
+        expect(letters).toEqual([...letters].sort((a, b) => footnoteOrder.indexOf(a) - footnoteOrder.indexOf(b)))
       }
       // M7: every letter in the band is explained by a footnote, and every lettered footnote is in the band.
       const bandLetters = new Set(Object.values(model.notesBand ?? {}).flat().map((glyph) => glyph.text).filter((text) => /^[a-z]+$/.test(text)))
@@ -260,8 +289,9 @@ describe('the cases the step-1 data required', () => {
     // Missing debt never reads as no debt: its item stays, first as in canonical order, with a footnote. An absent free
     // cash flow is not listed.
     const balance = model('JPM_annual', 'balance')
-    expect(balance.legend.map((item) => [item.label, item.absent])).toEqual([['Long-term debt', true], ['Cash', false], ['Equity', false]])
-    expect(balance.legend[0].value).toBe('not in dataset')
+    expect(balance.legend.map((item) => [item.label, item.absent])).toEqual([['Long-term debt · not in dataset', true], ['Cash', false], ['Equity', false]])
+    expect([balance.legend[0].value, balance.legend[0].color], 'an absent series has no value and claims no palette slot').toEqual([undefined, null])
+    expect(balance.legend.map((item) => item.color)).toEqual([null, 0, 1])
     expect(balance.footnotes).toContainEqual({ mark: '', text: 'Long-term debt isn’t in this dataset for this window (not shown as zero).' })
     expect(model('JPM_annual', 'cash').legend.map((item) => item.label)).toEqual(['Operating CF', 'Net income'])
     const pgr = model('PGR_quarterly', 'topline')
@@ -286,9 +316,12 @@ describe('the cases the step-1 data required', () => {
     const gap = model('REGN_annual', 'topline', (ds) => {
       ds.periods = ds.periods.filter((period) => period.key !== 'FY2019')
       for (const series of ds.series) series.points = series.points.filter((point) => point.period !== 'FY2019')
-      ds.series.find((s) => s.concept === 'revenue')!.points.find((point) => point.period === 'FY2020')!.yoy = null
+      const revenue = ds.series.find((s) => s.concept === 'revenue')!
+      revenue.points.find((point) => point.period === 'FY2020')!.yoy = null
+      revenue.points.find((point) => point.period === 'FY2018')!.yoy = null
     })
-    expect(gap.footnotes).toContainEqual({ mark: '—', text: 'YoY growth needs the same period a year earlier; none for FY2016, FY2020.' })
+    // FY2018 and FY2020 stand side by side in the window, but a run never spans the year it skips.
+    expect(gap.footnotes).toContainEqual({ mark: '—', text: 'YoY growth needs the same period a year earlier; none for FY2016, FY2018, FY2020.' })
     const zeroBase = model('REGN_annual', 'topline', (ds) => {
       const revenue = ds.series.find((s) => s.concept === 'revenue')!
       ds.periods = ds.periods.filter((period) => period.key !== 'FY2019')
@@ -300,9 +333,74 @@ describe('the cases the step-1 data required', () => {
     expect(zeroBase.panels[1].marks[0].points.find((point) => point.period === 'FY2020')!.nm).toBeFalsy()
   })
 
-  it('a company with revenue but no margin series says the margins are missing, not the revenue', () => {
+  it('a company with revenue but no margin series says the margins are missing, not the revenue, whatever else it reports', () => {
     const m = model('REGN_annual', 'margins', (ds) => { ds.series = ds.series.filter((s) => !s.concept.endsWith('_margin')) })
     expect(m.unavailable).toBe('Margin figures aren’t in this company’s filed data.')
+    // Net interest income beside revenue: revenue is the top line (D16), so no sentence points at an NII chart.
+    const both = model('REGN_annual', 'margins', (ds) => {
+      const revenue = ds.series.find((s) => s.concept === 'revenue')!
+      ds.series = [...ds.series.filter((s) => !s.concept.endsWith('_margin')), { ...structuredClone(revenue), concept: 'net_interest_income', label: 'Net interest income' }]
+    })
+    expect(both.unavailable).toBe('Margin figures aren’t in this company’s filed data.')
+  })
+
+  it('a review note on an n/m comparison marks its band cell, as its footnote names it', () => {
+    const m = model('REGN_annual', 'topline', (ds) => {
+      delete (ds as { data_notes?: unknown }).data_notes
+      Object.assign(ds.series.find((s) => s.concept === 'revenue')!.points.find((point) => point.period === 'FY2024')!, {
+        yoy: 'nm', yoy_provenance: { version: 1, method: 'calculated', validation: 'needs_review', reasons: ['source_conflict'], formula: null, inputs: [] },
+      })
+    })
+    const note = m.footnotes.find((footnote) => footnote.text.includes('Revenue YoY FY2024'))!
+    expect(m.notesBand?.FY2024?.map((glyph) => glyph.text)).toContain(note.mark)
+  })
+
+  it('a negative top line keeps its labels inside panel A, with a label pad under it', () => {
+    const m = model('REGN_annual', 'topline', (ds) => {
+      ds.periods = ds.periods.slice(-4)
+      for (const point of ds.series.find((s) => s.concept === 'revenue')!.points) if (point.value != null) point.value = -point.value
+    })
+    const layout = layoutChart(m, 502, 'card')
+    expect(layout.panels[0].bars.every((bar) => bar.label), 'the labels print').toBe(true)
+    const lowest = Math.max(...layout.panels[0].bars.map((bar) => bar.label!.y))
+    expect(lowest + 2).toBeLessThanOrEqual(layout.panels[1].regionTop)
+  })
+
+  it('more than 26 notes: band cells keep letter order, and two-letter glyphs do not overlap', () => {
+    const review = (reasons: string[]) => ({ version: 1 as const, method: 'reported' as const, validation: 'needs_review' as const, reasons, formula: null, inputs: [] })
+    const ds = dataset('REGN_annual')
+    delete (ds as { data_notes?: unknown }).data_notes
+    let n = 0
+    for (const s of ds.series.filter((series) => ['revenue', 'net_income', 'operating_cash_flow'].includes(series.concept))) {
+      for (const point of s.points) if (point.value != null) point.provenance = review([`reason_${n++}`])
+    }
+    // Letters follow report order, so three FY2017 balance points that share earlier reasons get a one-letter and
+    // two two-letter notes between them.
+    const at = (concept: string) => ds.series.find((s) => s.concept === concept)!.points.find((point) => point.period === 'FY2017')!
+    at('cash_and_equivalents').provenance = review(['reason_28'])
+    at('shareholders_equity').provenance = review(['reason_2'])
+    at('long_term_debt').provenance = review(['reason_27'])
+    const m = buildChartModel('balance', ds)
+    const letterOf = new Map(groupDataNotes(ds).notes.map((note) => [note.reasons[0], note.letter]))
+    const cell = m.notesBand!.FY2017.map((glyph) => glyph.text)
+    const expected = ['reason_2', 'reason_27', 'reason_28'].map((reason) => letterOf.get(reason)!).sort((a, b) => (a.length - b.length) || a.localeCompare(b))
+    expect(cell, 'letter order: a … z, aa …').toEqual(expected)
+    expect(cell.map((letter) => letter.length), 'one letter, then two').toEqual([1, 2, 2])
+    expect(cell, 'a plain string sort would put the two-letter ones first').not.toEqual([...cell].sort())
+    const placed = noteGlyphs(m, layoutChart(m, 502, 'card')).filter((glyph) => glyph.period === 'FY2017')
+    placed.slice(1).forEach((glyph, i) => expect(glyph.x - placed[i].x - (textWidth(glyph.text) + textWidth(placed[i].text)) / 2).toBeCloseTo(1.5, 9))
+  })
+
+  it('the expanded value strip: short names, equity’s bar swatch, and slots that hold every cell', () => {
+    const m = model('REGN_annual', 'balance')
+    expect(m.strip.map((row) => [row.short, row.swatch, row.marker ?? null])).toEqual([['Long-t', 'line', 'circle'], ['Cash', 'line', 'square'], ['Equity', 'bar', null]])
+    const narrow = layoutChart(model('REGN_annual', 'margins'), 358, 'expanded')
+    expect(narrow.width, 'a narrow expanded view scrolls rather than crowd its strip').toBeGreaterThan(358)
+  })
+
+  it('a phone card that cannot fit the top line’s labels says so (A4)', () => {
+    expect(layoutChart(model('REGN_annual', 'topline'), 342, 'card').valuesDontFit).toBe(true)
+    expect(layoutChart(model('REGN_annual', 'topline'), 502, 'card').valuesDontFit).toBe(false)
   })
 
   it('a one-period window: an empty growth panel shows its zero rule alone', () => {
@@ -337,6 +435,10 @@ describe('amounts carry their filer’s currency, never a default dollar sign', 
   it('currencySymbol reads ISO 4217 codes only', () => {
     expect([currencySymbol('USD'), currencySymbol('JPY'), currencySymbol('EUR'), currencySymbol('GBP')]).toEqual(['$', '¥', '€', '£'])
     expect([currencySymbol('shares'), currencySymbol(''), currencySymbol(null), currencySymbol('usd')]).toEqual([null, null, null, null])
+    // Well-formed, but no currency: a code Intl knows nothing of, and XXX ("no currency"), print no symbol.
+    expect([currencySymbol('ABC'), currencySymbol('XXX')]).toEqual([null, null])
+    const abc = model('REGN_annual', 'cash', inUnit('ABC'))
+    expect([ticks(abc)[1], abc.subtitle]).toEqual(['2B', 'FY2016–FY2025 · fiscal years end Dec'])
   })
 })
 
@@ -365,6 +467,21 @@ describe('A1 and A2: ticks and printed values', () => {
     expect([compactMoney(999_600, 'USD'), compactMoney(-999_960_000, 'USD'), compactMoney(9.96e6, 'USD')]).toEqual(['$1.0M', `${MINUS}$1.0B`, '$10M'])
   })
 
+  it('A2 past two decimals: a growth panel within ±0.1% prints exact, distinct ticks', () => {
+    const axis = niceAxis([0, 0.1], 4)
+    expect(axis.ticks.map(percentFormat(axis.step, true).tick)).toEqual(['0%', '+0.025%', '+0.050%', '+0.075%', '+0.100%'])
+  })
+
+  it('F% and d0 test the rounded value: 999.96% is "1,000%", and 999.7M on a $B axis is "$1.00B"', () => {
+    expect([percentFormat(10, false).value(999.96), percentFormat(10, true).value(-999.97, 1)]).toEqual(['1,000%', `${MINUS}1,000%`])
+    const format = moneyFormat([999.7e6, 400e6], 0.25e9, [0, 0.25e9, 0.5e9, 0.75e9, 1e9], 'USD')
+    expect([format.d0, format.value(999.7e6), format.value(400e6)]).toEqual([2, '$1.00B', '$0.40B'])
+  })
+
+  it('A1 at any magnitude: a ₩120,000T axis still steps uniformly', () => {
+    expect(niceAxis([3e16, 1.2e17], 5)).toMatchObject({ step: 2.5e16, ticks: [0, 2.5e16, 5e16, 7.5e16, 1e17, 1.25e17] })
+  })
+
   it('A1 under 0.001: the grid reaches as far down as the data, so zero is never doubled', () => {
     expect(niceAxis([0.0004, 0.0008], 8)).toMatchObject({ ticks: [0, 0.0001, 0.0002, 0.0003, 0.0004, 0.0005, 0.0006, 0.0007, 0.0008], step: 0.0001 })
   })
@@ -384,7 +501,7 @@ function plan(model: ChartModel, layout: ChartLayout) {
     title: model.title,
     subtitle: model.subtitle,
     unavailable: model.unavailable,
-    frame: { width: layout.width, height: layout.height, gutter: layout.gutter, slot: px(layout.slot), barWidth: layout.barWidth, growthBarWidth: layout.growthBarWidth, xTickY: px(layout.xTickY), stripTop: layout.stripTop, notesY: px(layout.notesY) },
+    frame: { width: layout.width, height: layout.height, gutter: layout.gutter, slot: px(layout.slot), barWidth: layout.barWidth, growthBarWidth: layout.growthBarWidth, xTickY: px(layout.xTickY), stripTop: layout.stripTop, stripRowY: layout.stripRowY, notesY: px(layout.notesY), valuesDontFit: layout.valuesDontFit },
     periods: model.periods.map((period) => [period.key, px(layout.x(period.key)), ...period.tick]),
     panels: layout.panels.map((box) => {
       const { axis } = box.panel
@@ -411,7 +528,7 @@ function plan(model: ChartModel, layout: ChartLayout) {
     legend: model.legend.map((item) => [item.label, item.value ?? null, item.color, item.swatch, item.marker ?? null, item.absent]),
     notes: noteGlyphs(model, layout).map((glyph) => [glyph.period, glyph.text, glyph.tone, px(glyph.x)]),
     footnotes: model.footnotes.map((note) => [note.mark, note.text]),
-    strip: layout.view === 'expanded' ? model.strip.map((row) => [row.label, row.color, row.marker ?? null, row.cells]) : [],
+    strip: layout.view === 'expanded' ? model.strip.map((row) => [row.short, row.color, row.swatch, row.marker ?? null, row.cells]) : [],
   }
 }
 

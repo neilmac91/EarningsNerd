@@ -7,6 +7,7 @@
 import type { AnalysisDataset, AnalysisPoint, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import { resolveDataNotes, type DataNote, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { annualTickLabel, formatAnalysisPeriod, formatAnalysisWindow, quarterlyTickLines } from '@/features/analysis/lib/periodLabels'
+import { currencySymbol } from '@/lib/format'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import { moneyFormat, niceAxis, outlierCut, percentFormat, type AxisFormat } from './scale'
 
@@ -61,14 +62,15 @@ export interface NoteGlyph {
 }
 
 export interface LegendItem {
+  /** The name; an absent series' item reads "Long-term debt · not in dataset", all of it the name. */
   label: string
-  color: number
+  /** The palette slot; null for an absent series, which claims none. */
+  color: number | null
   swatch: 'bar' | 'line'
   marker?: Marker
-  /** The latest available value, with its period when that is not the window's last; "not in dataset" for an
-   *  absent series. */
+  /** The latest available value, with its period when that is not the window's last. */
   value?: string
-  /** A series with no value in the window: neutral swatch, no palette slot, never drawn as zero. */
+  /** A series with no value in the window: neutral dashed swatch, no value, never drawn as zero. */
   absent: boolean
 }
 
@@ -80,7 +82,11 @@ export interface Footnote {
 
 export interface StripRow {
   label: string
+  /** The row label the strip prints: the legend name's first 6 characters (spec §0.4 row 22). */
+  short: string
   color: number
+  /** The legend's swatch: a line series' marker, or equity's bar. */
+  swatch: 'bar' | 'line'
   marker?: Marker
   cells: Record<string, string>
 }
@@ -171,7 +177,7 @@ function currencyOf(ds: AnalysisDataset, series: AnalysisSeries[]): { currency: 
   }
   if (units.size > 1) return { currency: null, mixed: true }
   const [unit] = [...units]
-  return { currency: unit && /^[A-Z]{3}$/.test(unit) ? unit : null, mixed: false }
+  return { currency: unit && currencySymbol(unit) ? unit : null, mixed: false }
 }
 
 function valuesOf(ds: AnalysisDataset, series: AnalysisSeries | undefined): ModelPoint[] {
@@ -184,9 +190,9 @@ type GrowthState = 'value' | 'structural' | 'nm-zero' | 'nm-sign' | 'unavailable
 /** The same period a year earlier, keyed as the backend's comparisons key it (FY2023 → FY2022, 2024Q2 → 2023Q2). */
 const yearEarlier = (key: string) => key.replace(/^FY(\d{4})$/, (_, year) => `FY${Number(year) - 1}`).replace(/^(\d{4})(Q[1-4])$/, (_, year, quarter) => `${Number(year) - 1}${quarter}`)
 
-/** YoY growth as percent, with the state of every slot (spec §3.4, A11). A slot whose year-earlier period comes before
- *  the window is structural; one whose year-earlier period is inside it but has no comparison (a gap in the window, or
- *  a missing value) is unavailable. FY and quarter keys each sort as their periods do. */
+/** YoY growth as percent, with the state of every slot (spec §3.4, A11). A valued slot whose year-earlier period comes
+ *  before the window is structural; any other slot without a comparison (no value of its own, a gap in the window, a
+ *  missing prior value) is unavailable, as D17 counts them. FY and quarter keys each sort as their periods do. */
 function growthOf(ds: AnalysisDataset, series: AnalysisSeries): { points: ModelPoint[]; states: GrowthState[] } {
   const byPeriod = new Map(series.points.map((point) => [point.period, point]))
   const first = ds.periods[0]?.key ?? ''
@@ -201,7 +207,7 @@ function growthOf(ds: AnalysisDataset, series: AnalysisSeries): { points: ModelP
     const prior = byPeriod.get(priorKey)
     const state: GrowthState = point?.yoy === 'nm' ? 'nm-sign'
       : point?.value != null && prior?.value === 0 ? 'nm-zero'
-        : priorKey < first ? 'structural' : 'unavailable'
+        : point?.value != null && priorKey < first ? 'structural' : 'unavailable'
     states.push(state)
     return { period: key, value: null, nm: state === 'nm-sign' || state === 'nm-zero' }
   })
@@ -227,6 +233,9 @@ function percentPanel(id: string, caption: string | null, weight: number, nmax: 
   }
   return { id, caption, weight, nmax, marks, currency: null, axis: { ...axis, format: percentFormat(axis.step, signed) } }
 }
+
+/** Note letters run a, b, …, z, aa, ab, …: shorter first, then alphabetical. */
+const letterOrder = (a: string, b: string) => (a.length - b.length) || a.localeCompare(b)
 
 /** A5: the notes band's glyphs and the letters the chart's footnotes explain. Value notes come from every
  *  plotted series; comparison notes only from the series whose YoY the chart draws. */
@@ -255,28 +264,36 @@ function notesBandOf(ds: AnalysisDataset, notes: DataNotesModel, series: Analysi
       if (partly.includes(s) && isCalculated(byPeriod.get(key))) dagger.add(key)
     }
   }
+  // A comparison the chart prints, as a bar or as "n/m" on the 0% rule, carries its note in the band, as the
+  // footnote names it.
   if (yoyOf) for (const point of yoyOf.points) {
-    if (typeof point.yoy === 'number') add(point.period, notes.noteForComparison(point, 'yoy'))
+    if (point.yoy != null) add(point.period, notes.noteForComparison(point, 'yoy'))
   }
   const tone = new Map([...letters.values()].map((note) => [note.letter, note.kind === 'review' ? 'review' as const : 'neutral' as const]))
   const band: Record<string, NoteGlyph[]> = {}
   for (const { key } of ds.periods) {
-    const glyphs: NoteGlyph[] = [...(cells.get(key) ?? [])].sort().map((letter) => ({ text: letter, tone: tone.get(letter) ?? 'neutral' }))
+    const glyphs: NoteGlyph[] = [...(cells.get(key) ?? [])].sort(letterOrder).map((letter) => ({ text: letter, tone: tone.get(letter) ?? 'neutral' }))
     if (dagger.has(key)) glyphs.push({ text: '†', tone: 'neutral' })
     if (glyphs.length) band[key] = glyphs
   }
-  const ordered = [...letters.values()].sort((a, b) => (a.letter.length - b.letter.length) || a.letter.localeCompare(b.letter))
+  const ordered = [...letters.values()].sort((a, b) => letterOrder(a.letter, b.letter))
   return { band: Object.keys(band).length ? band : null, letters: ordered, partly }
 }
 
-/** "FY2023–FY2025" for consecutive periods of the window, otherwise a comma list. */
+/** The fiscal period after `key` (FY2023 → FY2024, 2023Q4 → 2024Q1). */
+const nextPeriod = (key: string) => key
+  .replace(/^FY(\d{4})$/, (_, year) => `FY${Number(year) + 1}`)
+  .replace(/^(\d{4})Q([1-4])$/, (_, year, quarter) => (quarter === '4' ? `${Number(year) + 1}Q1` : `${year}Q${Number(quarter) + 1}`))
+
+/** "FY2023–FY2025" for fiscally consecutive periods, otherwise a comma list: a run never spans a period the
+ *  window skips (MCD's quarterly window has no Q4 ’23), which would name a period the chart does not draw. */
 function periodRuns(ds: AnalysisDataset, periods: string[]): string {
   const order = ds.periods.map((period) => period.key)
   const indices = [...new Set(periods)].map((period) => order.indexOf(period)).filter((i) => i >= 0).sort((a, b) => a - b)
   const runs: [number, number][] = []
   for (const i of indices) {
     const last = runs.at(-1)
-    if (last && i === last[1] + 1) last[1] = i
+    if (last && i === last[1] + 1 && order[i] === nextPeriod(order[last[1]])) last[1] = i
     else runs.push([i, i])
   }
   return runs.map(([a, b]) => formatAnalysisWindow(order[a], order[b], 'short')).join(', ')
@@ -332,7 +349,7 @@ function stripOf(marks: ModelMark[], formatOf: (mark: ModelMark) => AxisFormat):
     const format = formatOf(mark)
     const digits = (value: number) => (format.kind === 'money' ? format.d0 : Math.abs(value) >= 1000 ? 0 : 1)
     return {
-      label: mark.label, color: mark.color, marker: mark.marker,
+      label: mark.label, short: [...mark.label].slice(0, 6).join(''), color: mark.color, swatch: mark.kind === 'line' ? 'line' as const : 'bar' as const, marker: mark.marker,
       cells: Object.fromEntries(mark.points.map((point) => [point.period, point.value == null ? '—' : format.value(point.value, digits(point.value))])),
     }
   })
@@ -350,7 +367,7 @@ function lineMarks(ds: AnalysisDataset, specs: readonly SeriesSpec[], by: Record
 
 /** An absent long-term debt keeps its legend item, first as in canonical order, and a footnote, so missing debt never
  *  reads as no debt (spec §3.4, §3.6). An absent gross margin or free cash flow is not listed. */
-const ABSENT_DEBT: LegendItem = { label: 'Long-term debt', color: 0, swatch: 'line', value: 'not in dataset', absent: true }
+const ABSENT_DEBT: LegendItem = { label: 'Long-term debt · not in dataset', color: null, swatch: 'line', absent: true }
 const ABSENT_DEBT_NOTE: Footnote = { mark: '', text: 'Long-term debt isn’t in this dataset for this window (not shown as zero).' }
 
 function unavailableModel(ds: AnalysisDataset, id: ChartId, title: string, unit: string | null, sentence: string): ChartModel {
@@ -407,12 +424,13 @@ export function buildMarginsModel(ds: AnalysisDataset, notes: DataNotesModel = r
   const marks = lineMarks(ds, MARGIN_SERIES, by)
   if (!marks.length) {
     const company = formatCompanyName(ds.company_name)
-    const sentence = present(by.net_interest_income, ds)
-      ? `Margins need revenue. ${company} reports net interest income instead; see Net interest income & growth.`
-      : present(by.premiums_earned, ds)
-        ? `Margins need revenue. ${company} reports premiums earned instead; see Premiums earned & growth.`
-        : present(by.revenue, ds)
-          ? 'Margin figures aren’t in this company’s filed data.'
+    // The top line's own order (D16): a company with revenue has margins missing, not revenue.
+    const sentence = present(by.revenue, ds)
+      ? 'Margin figures aren’t in this company’s filed data.'
+      : present(by.net_interest_income, ds)
+        ? `Margins need revenue. ${company} reports net interest income instead; see Net interest income & growth.`
+        : present(by.premiums_earned, ds)
+          ? `Margins need revenue. ${company} reports premiums earned instead; see Premiums earned & growth.`
           : 'Margins need revenue, which is not in this company’s filed data.'
     return unavailableModel(ds, 'margins', 'Margins', '% of revenue', sentence)
   }

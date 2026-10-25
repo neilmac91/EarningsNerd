@@ -26,6 +26,11 @@ const BOTTOM = 4
 const RIGHT_PAD = 8
 /** The narrowest period slot: below it the chart scrolls inside its own viewport, never the page. */
 export const MIN_SLOT = 36
+/** The value strip's row: its series' swatch centred at STRIP_MARKER_X, then its short name from STRIP_LABEL_X. */
+export const STRIP_MARKER_X = 6
+export const STRIP_LABEL_X = 14
+/** What the card says under the SVG when A4 finds no label tier for a panel (spec §3.7). */
+export const VALUES_DONT_FIT = 'Values don’t fit at this width: expand the chart or see the metrics table.'
 
 export interface LabelPlan {
   /** One decimal tier for the whole panel, or null when no tier fits (no labels; the strip has them). */
@@ -120,18 +125,33 @@ export interface ChartLayout {
   panels: PanelBox[]
   xTickY: number
   stripTop: number | null
+  /** Each strip row's baseline, in the model's strip order; empty without a strip. */
+  stripRowY: number[]
+  /** A labelled panel found no label tier (A4): the card shows VALUES_DONT_FIT. */
+  valuesDontFit: boolean
   /** The notes band's baseline: the band is reserved on every chart, so plots line up across a grid row. */
   notesY: number
 }
 
-function gutterOf(model: ChartModel): number {
+/**
+ * The left gutter and the narrowest slot. The gutter holds the widest tick label (G_L). An expanded view with a
+ * value strip also fits its rows, so the strip is collision-free by construction as §3.10 says: every slot holds
+ * its widest cell with 2 px each side, and the gutter reaches past the rows' short names, so the first cell
+ * clears them.
+ */
+function frameOf(model: ChartModel, view: ChartView): { gutter: number; minSlot: number } {
   const chars = Math.max(0, ...model.panels.flatMap((panel) => panel.axis.ticks.map((tick) => [...panel.axis.format.tick(tick)].length)))
-  return Math.max(36, Math.ceil(ADVANCE * chars) + 8)
+  const gutter = Math.max(36, Math.ceil(ADVANCE * chars) + 8)
+  if (view !== 'expanded' || !model.strip.length) return { gutter, minSlot: MIN_SLOT }
+  const cell = Math.max(0, ...model.strip.flatMap((row) => Object.values(row.cells).map(textWidth)))
+  const label = Math.max(0, ...model.strip.map((row) => textWidth(row.short)))
+  return { gutter: Math.max(gutter, Math.ceil(STRIP_LABEL_X + label)), minSlot: Math.max(MIN_SLOT, Math.ceil(cell + 4)) }
 }
 
-/** A7: the narrowest width at which every slot keeps MIN_SLOT px, in both modes. */
-export function minChartWidth(model: ChartModel): number {
-  return gutterOf(model) + RIGHT_PAD + MIN_SLOT * model.periods.length
+/** A7: the narrowest width at which every slot keeps its minimum; below it the SVG scrolls in its card. */
+export function minChartWidth(model: ChartModel, view: ChartView = 'card'): number {
+  const { gutter, minSlot } = frameOf(model, view)
+  return gutter + RIGHT_PAD + minSlot * model.periods.length
 }
 
 /** Off-scale rows: entries sorted by x take the lowest row where their box (glyph and value, padded 4 px
@@ -234,8 +254,8 @@ function planNearZero(box: PanelFrame, bars: Bar[], slot: number): Pick<PanelBox
 }
 
 export function layoutChart(model: ChartModel, containerWidth: number, view: ChartView): ChartLayout {
-  const width = Math.max(containerWidth, minChartWidth(model))
-  const gutter = gutterOf(model)
+  const width = Math.max(containerWidth, minChartWidth(model, view))
+  const { gutter } = frameOf(model, view)
   const plotLeft = gutter
   const plotRight = width - RIGHT_PAD
   const slot = (plotRight - plotLeft) / Math.max(1, model.periods.length)
@@ -255,7 +275,8 @@ export function layoutChart(model: ChartModel, containerWidth: number, view: Cha
     return {
       caption: stacked && panel.caption ? CAPTION : 0,
       padTop: panel.marks.some((mark) => mark.labelled) ? LABEL_PAD : TICK_PAD,
-      padBottom: panel.marks.some((mark) => mark.kind === 'growth') ? LABEL_PAD : TICK_PAD,
+      // Labels sit below a negative bar's end, so a labelled panel with one keeps a label pad under it too.
+      padBottom: panel.marks.some((mark) => mark.kind === 'growth' || (mark.labelled && mark.points.some((point) => (point.value ?? 0) < 0))) ? LABEL_PAD : TICK_PAD,
       offTop: offUp ? OFF_ROW * offUp.depth + 4 : 0,
       offBottom: offDown ? OFF_ROW * offDown.depth + 4 : 0,
       offUp, offDown,
@@ -300,7 +321,9 @@ export function layoutChart(model: ChartModel, containerWidth: number, view: Cha
   cursor += xAxisHeight
   const stripTop = stripHeight ? cursor + 4 : null
   cursor += stripHeight
-  return { view, width, height, gutter, plotLeft, plotRight, slot, barWidth, growthBarWidth, x, panels, xTickY, stripTop, notesY: cursor + 12 }
+  const stripRowY = stripTop == null ? [] : model.strip.map((_, i) => stripTop + 12 + i * STRIP_ROW)
+  const valuesDontFit = panels.some((box) => box.panel.marks.some((mark) => mark.labelled) && box.labels.decimals == null)
+  return { view, width, height, gutter, plotLeft, plotRight, slot, barWidth, growthBarWidth, x, panels, xTickY, stripTop, stripRowY, valuesDontFit, notesY: cursor + 12 }
 }
 
 export interface PlacedGlyph extends NoteGlyph {
@@ -309,10 +332,17 @@ export interface PlacedGlyph extends NoteGlyph {
 }
 
 /** The notes band's glyphs, one text per glyph centred on its period's slot, so every renderer and the
- *  export place them identically and each letter can take its own ink. */
+ *  export place them identically and each letter can take its own ink. Glyphs sit 1.5 px apart, each as wide
+ *  as its text: A5's (k − (n−1)/2) × (6.6 + 1.5) for one-letter glyphs, and no overlap for "aa". */
 export function noteGlyphs(model: ChartModel, layout: ChartLayout): PlacedGlyph[] {
   if (!model.notesBand) return []
-  const step = ADVANCE + 1.5
-  return Object.entries(model.notesBand).flatMap(([period, glyphs]) =>
-    glyphs.map((glyph, i) => ({ ...glyph, period, x: layout.x(period) + (i - (glyphs.length - 1) / 2) * step })))
+  return Object.entries(model.notesBand).flatMap(([period, glyphs]) => {
+    const widths = glyphs.map((glyph) => textWidth(glyph.text))
+    let left = layout.x(period) - (widths.reduce((sum, w) => sum + w, 0) + 1.5 * (glyphs.length - 1)) / 2
+    return glyphs.map((glyph, i) => {
+      const x = left + widths[i] / 2
+      left += widths[i] + 1.5
+      return { ...glyph, period, x }
+    })
+  })
 }
