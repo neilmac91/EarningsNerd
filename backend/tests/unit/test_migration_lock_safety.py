@@ -514,6 +514,8 @@ _POSTGRES_STEPS = [
      "FILING_INSERT_CONCURRENCY_TEST_DATABASE_URL"),
     ("admin maintenance concurrency", "test_admin_maintenance_transactions.py",
      "ADMIN_MAINTENANCE_CONCURRENCY_TEST_DATABASE_URL"),
+    ("admin invite concurrency", "test_admin_invite_transactions.py",
+     "ADMIN_INVITE_CONCURRENCY_TEST_DATABASE_URL"),
 ]
 _GATE_VARIABLE = re.compile(r"[A-Z0-9_]+_TEST_DATABASE_URL")
 

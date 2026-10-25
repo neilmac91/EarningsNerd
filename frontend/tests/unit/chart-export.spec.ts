@@ -612,6 +612,22 @@ describe('exportPanelPng header', () => {
     expect(downloadBlob).toHaveBeenCalledOnce()
   })
 
+  // A card's inks here are unlike either theme's, so a header or footer that kept the default would show.
+  it.each([
+    { name: 'the theme’s text inks by default', dark: true, ink: undefined, primary: EXPORT_TEXT.primary.dark, secondary: EXPORT_TEXT.secondary.dark },
+    { name: 'the light theme’s by default', dark: false, ink: undefined, primary: EXPORT_TEXT.primary.light, secondary: EXPORT_TEXT.secondary.light },
+    { name: 'a dark card’s own inks when it passes them', dark: true, ink: { primary: '#123456', secondary: '#654321' }, primary: '#123456', secondary: '#654321' },
+    { name: 'a light card’s own inks when it passes them', dark: false, ink: { primary: '#123456', secondary: '#654321' }, primary: '#123456', secondary: '#654321' },
+  ])('paints the header and notes in $name', async ({ dark, ink, primary, secondary }) => {
+    const fills = new Map<string, string>()
+    ctx.fillText = vi.fn((text: string) => fills.set(text, ctx.fillStyle as string))
+    await exportPanelPng(makeContainer(), 'x.png', { dark, ink, header: { ...HEADER, sourceNote: 'Source: SEC filings', notes: ['A note.'] } })
+    expect(fills.get('Tesla, Inc.')).toBe(primary)
+    for (const text of ['TSLA · Cash generation', 'Operating CF', 'Source: SEC filings', 'A note.']) expect(fills.get(text), text).toBe(secondary)
+    // The footer's wordmark keeps the theme's own ink.
+    expect(fills.get('Earnings')).toBe(dark ? EXPORT_TEXT.primary.dark : EXPORT_TEXT.primary.light)
+  })
+
   it('maxWidth-guards all three header tiers (company, subtitle, legend labels)', async () => {
     await exportPanelPng(makeContainer(), 'x.png', { dark: false, header: HEADER })
     const maxWidthOf = (t: string) => fillArgs.find((a) => a.text === t)?.maxWidth

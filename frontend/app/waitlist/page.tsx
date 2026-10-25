@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { ArrowRightIcon } from '@/lib/icons'
 import WaitlistForm from '@/features/waitlist/components/WaitlistForm'
-import WaitlistCounter from '@/features/waitlist/components/WaitlistCounter'
+import { WaitlistAccessStatus, WaitlistEntryLink } from '@/features/waitlist/components/WaitlistAccess'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import BrandEmphasis from '@/features/marketing/components/BrandEmphasis'
 import FormCodeText from '@/features/marketing/components/FormCodeText'
@@ -14,7 +14,7 @@ import WaitlistExample, { WaitlistExamplePending } from '@/features/waitlist/com
 export const metadata: Metadata = {
   title: 'The 10-K, read for you, with receipts | EarningsNerd',
   description:
-    'Join the EarningsNerd waitlist. AI summaries of SEC filings: financials, risks, and trends, sourced directly from SEC EDGAR.',
+    'Explore EarningsNerd and check private beta availability. AI summaries of SEC filings: financials, risks, and trends, sourced directly from SEC EDGAR.',
   alternates: {
     canonical: '/waitlist',
   },
@@ -34,7 +34,7 @@ export default function WaitlistPage() {
             </p>
 
             <div className="mt-6 flex justify-center lg:justify-start">
-              <WaitlistCounter />
+              <WaitlistAccessStatus />
             </div>
 
             <div id="waitlist" className="mt-8 max-w-xl lg:mx-0">
@@ -50,7 +50,7 @@ export default function WaitlistPage() {
             </div>
 
             <p className="mt-4 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-              No spam. Early access invites and product updates only.
+              Joining the waitlist does not create an account or guarantee an invitation.
             </p>
 
             <p className="mt-6 text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -122,12 +122,9 @@ export default function WaitlistPage() {
                 under the pointer, in both themes (E82): its label measures 5.33:1 on that fill in light
                 and 4.50:1 in dark, on this card. tests/e2e/text-floors.spec.ts holds both themes, at
                 rest and hovered. */}
-            <a
-              href="#waitlist"
+            <WaitlistEntryLink
               className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-semibold text-brand-strong transition-colors duration-fast hover:bg-brand-border/60 focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:hover:bg-brand-border-dark dark:focus-visible:shadow-ring-brand-dark"
-            >
-              Join the waitlist
-            </a>
+            />
           </div>
           <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-4">
             {[

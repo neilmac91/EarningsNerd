@@ -4,8 +4,6 @@ The authenticated endpoint remains as an explicit refusal so older admin clients
 bypass signup. Administrators can issue existing invitation links instead. No account, reset token,
 mail or invented agreement is created here.
 """
-from sqlalchemy.orm import Session
-
 from app.models import User
 
 
@@ -13,9 +11,7 @@ class AccountInvitationRequired(Exception):
     """The recipient must complete signup through an invitation."""
 
 
-async def create_free_account(
-    db: Session, *, email: str, full_name: str | None, actor: User,
-) -> None:
+async def create_free_account(*, email: str, full_name: str | None, actor: User) -> None:
     raise AccountInvitationRequired(
         "Use an invitation so the recipient can accept the account requirements."
     )

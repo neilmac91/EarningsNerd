@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import { Button } from '@/components/ui'
 
 /** Icon-only chart-card header control. `secondary` (hairline border + resting surface), 32px hit
@@ -10,6 +11,7 @@ export default function ChartControl({
   expanded,
   disabled,
   onClick,
+  buttonRef,
   children,
 }: {
   label: string
@@ -18,10 +20,13 @@ export default function ChartControl({
   /** In place but inert until its chart can act (the spec renderer's export, until the plot paints). */
   disabled?: boolean
   onClick: () => void
+  /** The button, for a card that returns focus to it (the spec renderer's Escape from the expanded view). */
+  buttonRef?: Ref<HTMLButtonElement>
   children: React.ReactNode
 }) {
   return (
     <Button
+      ref={buttonRef}
       variant="secondary"
       size="icon-sm"
       aria-label={label}

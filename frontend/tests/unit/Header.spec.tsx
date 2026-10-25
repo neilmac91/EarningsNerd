@@ -39,6 +39,12 @@ vi.mock('@/features/auth/api/auth-api', () => ({
   logout: vi.fn(),
 }))
 
+// Header layout/auth cases run with collection released. publicAccess.spec.tsx holds the real reader.
+vi.mock('@/features/marketing/components/PublicAccessProvider', async () => {
+  const { ACCESS_COPY } = await import('@/features/marketing/lib/access')
+  return { usePublicAccess: (mode: keyof typeof ACCESS_COPY) => ACCESS_COPY[mode] }
+})
+
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import Header, { SITE_HEADER_HEIGHT_PROPERTY } from '@/components/Header'
 import { ACCESS_COPY } from '@/features/marketing/lib/access'

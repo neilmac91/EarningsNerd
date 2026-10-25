@@ -28,7 +28,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 | **Status** | success `#15803D` · warning `#92400E` · error `#B91C1C` (+ `error.emphasis #991B1B` destructive hover) · info `#2563EB` (in-tint label: `info.text #1D4ED8`) | success `#22C55E` · warning `#F59E0B` · error `#F87171` · info `#60A5FA` | Genuine state messages only |
 | **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy) | Money/% direction only — never brand |
 | **Overlay** | `overlay` rgba(11,17,32,0.55) | same | The ONE modal/sheet scrim (`bg-overlay`, v3) — replaces every `bg-slate-950/60` / `bg-black/50` hand-roll |
-| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | same hexes (≥3:1 vs both cream and navy) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
+| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | same hexes (≥3:1 vs both cream and navy); the trend charts' spec renderer, behind a flag until F66, pairs them with lighter dark halves of its own (`chart.s1…s6`, APCA Lc ≥ 45 on the dark card; §10) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
 
 **Legacy / banned as brand:** `mint-*`, `emerald-*`, `primary-*` (back-compat **alias for mint**),
 `green/blue/sky/teal/cyan/indigo-*` as a primary color, and `shadow-glow-mint*`. The old chart hexes
@@ -1934,7 +1934,9 @@ has none; it fits a 390px phone at the default size and, wider than its box (a p
 scrolls inside a box that `useOverflowRegion` names and puts in the Tab order, never the page.
 `/pricing` does not share it and keeps its two plan cards. The page closes with one line
 (`ClosingLine.tsx`): the live example as a text link and the access mode's call to action as a button
-at the end of one sentence, under the last row's rule. Gates: `earningsnerd/no-four-up-grid`
+at the end of one sentence while collection is available, under the last row's rule. Otherwise the
+sentence's example link is the sole action; a focused account action that leaves hands focus to it.
+Gates: `earningsnerd/no-four-up-grid`
 (`eslint.designRules.mjs`, run on `LANDING_GRID_FILES`: the route, every marketing module and the
 sections the route mounts from other features) fails a class that sets four column tracks or more under
 any variant (a template, a grid shorthand, a column flow, or multi-column by its count or column width);
@@ -2152,14 +2154,34 @@ axes", and the export gate's Swiss-franc case).
 **The analysis trend charts' spec renderer** (`NEXT_PUBLIC_CHARTS_V2`, off in production until F66;
 `docs/design/analysis-trend-charts-spec-2026-10.md`) replaces Recharts on those four charts only. It paints the
 engine's plan in literal SVG attributes from `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for
-both themes; the raw-colour lint rule exempts that file, and `tests/unit/chart-theme.spec.ts` holds it to the spec's
-table and its light values to the Tailwind tokens they share. Until step 6 (E194) moves the dark tokens into
-Tailwind, the card's subtitle, legend and footnotes take those inks inline. Its text renders with geometric
+both themes. They mirror Tailwind's `chart.s1…s6`, `chart.tick`, `chart.value`, `chart.gridline` and `chart.review`
+pairs and the text and surface tokens: pairs of their own, whose light halves equal `chart-1…6`, `text-tertiary`,
+`text-secondary` and `warning` (the gridline's is new), so no production chart takes the new dark values before F66.
+The raw-colour lint rule exempts that file; `tests/unit/designTokenParity.spec.ts` holds its hexes to the config and
+keeps the pairs' own hexes out of every other mirror, `tests/unit/chart-theme.spec.ts` holds each field to the spec's
+table and its own token and keeps the pairs out of every class, and `tests/unit/chart-apca.spec.ts` holds each ink to
+the spec's APCA floor (marks and the zero rule 45, text 60, printed values 75, gridlines 10–25) on the card and under
+the column wash. The card's subtitle, legend and footnotes take the same inks inline, and its PNG's header and notes
+take the legend's, so the plot, the card and the image read one source. Its text renders with geometric
 precision, so full font hinting cannot snap Geist Mono's 6.6 px advance to 7 px. Every chart keeps its 320 px card,
-and one that does not apply says why in it. It has none of the keyboard contract above until step 5 (E193): no
-chart-values stop, no tooltip, and a plot is a keyboard stop only while it scrolls. Gates:
-`tests/unit/trend-charts-v2.spec.tsx`, `tests/e2e/charts-v2.spec.ts` and CI's `e2e-charts-v2` job, which binds a
-merge once the founder makes it a required check (F66).
+and one that does not apply says why in it; a grid row's cards share its rows (subgrid: header, plot, notes), so its
+plots start at one height whatever its legends wrap to. Its keyboard contract (E193) keeps the shape of the one
+above, on the engine's slots, with these differences. The values stop is a slider over the periods, a transparent
+layer over the viewport after it in the Tab order, ringing the viewport whatever the scroll, whose value text is the
+period's readout (`lib/charts/readout.ts`): the period and its end date, then each series' value at 4
+significant figures or 1 dp, its state, "calculated" and its data note, in words a screen reader says, with no ·, —,
+n/m, unit letter or U+2212. So the reading is spoken on focus and on every move, and no live status repeats it; a
+pointer's tooltip says nothing. It starts at the newest period, the one the legend and the table quote. Left/Right
+and Down/Up step a period, Home/End jump, and a step past either end says "Oldest period." or "Newest period." in a
+status line. A plot opens scrolled to its newest period whenever its view or window starts to overflow, never on a
+resize, behind A7's sticky gutter (`aria-hidden`, outside the exported node), which repeats the y axis, the captions
+and "Notes" and covers any column or value the edge would cut, so no value shows in part beside the axis. Hover, a tap or the keyboard paints the
+period's column wash (`cursor`, full SVG height) and shows the tooltip, `aria-hidden`, on the Card recipe's surface,
+flush beside its column, inside the viewport's sides and outside its clip, so 200% text never clips it. The tooltip
+is hoverable; a tap pins it until a second tap or a press outside, and a swipe pins nothing. Escape dismisses a
+tooltip first, wherever focus is when a pointer raised it, then collapses an expanded card and returns focus to its
+toggle. Gates: `tests/unit/trend-charts-v2.spec.tsx`, `tests/unit/chart-readout.spec.ts`,
+`tests/e2e/charts-v2.spec.ts` and CI's `e2e-charts-v2` job, a required check on `main`.
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.

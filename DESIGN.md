@@ -314,7 +314,7 @@ The sticky-column hover guidance was refreshed from [`DataTable.tsx` at `4903ae5
 
 ## Colors
 
-The palette combines sage, warm cream, espresso and deep navy with distinct semantic and categorical colors. Frontmatter values are normative for this snapshot; names below explain their use. The snapshot deliberately omits `text-tertiary-dark` (it fails as muted text on navy), the `chart.*` chrome sub-tokens that `Chart.tsx` derives from surface, text and flat colors, and the aliases `text-heading-*` (equal to `text-primary-*`) and bare `gain` / `loss` (equal to their `-light` values).
+The palette combines sage, warm cream, espresso and deep navy with distinct semantic and categorical colors. Frontmatter values are normative for this snapshot; names below explain their use. The snapshot deliberately omits `text-tertiary-dark` (it fails as muted text on navy), the `chart.*` chrome sub-tokens that `Chart.tsx` derives from surface, text and flat colors, the trend-chart spec renderer's `chart.s1…s6`, `chart.tick`, `chart.value`, `chart.gridline` and `chart.review` pairs (behind a flag until the founder decides whether that renderer ships; apart from the gridline's, their light halves equal `chart-1…6`, `text-tertiary-light`, `text-secondary-light` and `warning-light`), and the aliases `text-heading-*` (equal to `text-primary-*`) and bare `gain` / `loss` (equal to their `-light` values).
 
 ### Primary
 

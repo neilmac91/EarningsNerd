@@ -473,7 +473,7 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 | Endpoint | Purpose |
 |----------|---------|
 | `POST /email/test` | Send a test email via Resend (diagnoses email config; defaults to admin's own address) |
-| `POST /users/free` | Create a new Free, non-beta, non-admin account and email a single-use password setup link; never edits an existing account |
+| `POST /users/free` | Refuses with 409 and creates nothing: an account comes only from signup, where its holder accepts the account requirements, so the answer points to an invitation (`POST /invites`) |
 | `DELETE /filing/{id}/summary` | Delete summary for a filing |
 | `DELETE /filing/{id}/xbrl` | Clear XBRL cache for a filing |
 | `DELETE /filing/{id}/reset` | Full reset (summary, XBRL, content cache, progress) |
@@ -486,26 +486,26 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 
 ### Test accounts
 
-`freeuser@earningsnerd.io` (user id 9) is the founder's free-plan test account, kept indefinitely for checking what a free user sees. It is Free, non-beta and non-admin, and its address is an alias of the founder's mailbox. Its checkouts reuse one live Stripe Customer created for verification and are never paid.
+`freeuser@earningsnerd.io` (user id 9) is the founder's free-plan test account, kept indefinitely for checking what a free user sees. It is Free, non-beta and non-admin, and its address is an alias of the founder's mailbox. While checkout is open, its checkouts reuse one live Stripe Customer created for verification and are never paid.
 
-- Leave it out of funnel, revenue and user-count readouts by filtering on user id 9. That includes the `checkout_started` events its Upgrade clicks fire.
+- Leave it out of funnel, revenue and user-count readouts by filtering on user id 9. That includes the `checkout_started` events its Upgrade clicks fire while checkout is open; while it is closed, as now, an Upgrade click fires none.
 - Nothing deletes it: the retention purge never deletes accounts (`backend/app/services/retention_service.py`).
 
-To create another test account, use an authenticated admin session to send
-`POST /api/admin/users/free` with JSON containing `email` (an address whose inbox the tester
-controls) and optional `full_name`. A successful request returns HTTP 201 with the new account's
-id and flags: Free, non-beta, non-admin and initially unverified. It emails the existing
-password-reset flow's single-use setup link, valid for one hour. Completing that flow sets the
-password and verifies inbox ownership. The response never contains the password or raw token.
+To create another test account, sign up through the site with an address whose inbox the tester
+controls. Signup is where an account's holder accepts the account requirements, so no admin route
+creates one: `POST /api/admin/users/free` answers 409 and creates nothing. While
+`REGISTRATION_MODE` is `invite_only`, an admin first mints an invitation bound to that address
+(`POST /api/admin/invites` with `email`) and hands over the response's `invite_link`, which is
+shown once. Asking the mint to email it answers 503 while promotional mail stays closed
+(`legal_readiness_service.is_marketing_available()`), and the mint and signup both answer 503
+while new collection is closed (`is_collection_available()`).
 
-An existing email returns HTTP 409 and leaves that account unchanged. If the response has
-`emailed: false`, the new account still exists; use the site's forgot-password flow to request
-another setup email. Do not retry creation for the same address.
-
-The monthly trial is available once per account. To test the first-subscription trial again
-after an actual trial or subscription, create a fresh Free account. Opening an unpaid Checkout
-preview and leaving it unsubmitted does not consume that eligibility, so those checks can
-reuse the existing test account. Leave the retained user id 9 unchanged.
+New checkout is closed in code today: `legal_readiness_service.is_checkout_available()`
+returns False, so `POST /api/subscriptions/create-checkout-session` answers 503. Once it
+reopens, the monthly trial is available once per account. To test the first-subscription trial
+again after an actual trial or subscription, create a fresh Free account. Opening an unpaid
+Checkout preview and leaving it unsubmitted does not consume that eligibility, so those checks
+can reuse the existing test account. Leave the retained user id 9 unchanged.
 
 ### Verification Scripts
 
@@ -611,7 +611,9 @@ The check binds merges through the ruleset on `main` (id 23561253, created 2026-
 repos/neilmac91/EarningsNerd/rulesets/23561253` to read it): deletion and force-push of `main`
 blocked; a pull request required with **zero** approvals and squash as the only merge method;
 required status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`,
-`lighthouse`, `review-gate` and `secret-scan`, each pinned to the GitHub Actions app; no bypass actors, so the rules
+`lighthouse`, `review-gate`, `secret-scan` and, since 2026-10-25, `e2e-charts-v2` (the trend charts' spec
+renderer under `NEXT_PUBLIC_CHARTS_V2`; `tasks/todo.md` E195 takes it out again before that job is deleted),
+each pinned to the GitHub Actions app; no bypass actors, so the rules
 bind the administrator too. A required status check needs no approver, so this does not lock a
 single-collaborator repository; requiring pull-request reviews would, because authors cannot approve
 their own pull requests, and the GitHub default `require_extra_approval_for_unattributed_changes` is

@@ -9,6 +9,7 @@ nothing about it, so an unknown scope can never skip that job.
 """
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -350,6 +351,23 @@ def test_charts_v2_job_is_the_e2e_build_with_its_flag_set():
     assert lines[0] == "status=0" and lines[-1] == "exit $status"
     assert all(line.endswith("|| status=1") for line in lines[1:-1]) and len(lines) == 4
     assert "continue-on-error" not in jobs["e2e-charts-v2"]
+
+
+def test_documented_required_checks_are_jobs_a_workflow_runs():
+    # docs/OPERATIONS.md names the checks main's ruleset (23561253) requires. Each must be a job some workflow runs: a
+    # required check no job reports blocks every pull request. So a job deleted from its workflow (E195's e2e-charts-v2)
+    # fails here until the list drops it, and with it the founder's ruleset entry. CONTRIBUTING.md names them too.
+    text = (ROOT / "docs/OPERATIONS.md").read_text()
+    start = text.index("required status checks")
+    listed = re.findall(r"`([a-z0-9-]+)`", text[start:text.index("each pinned to the GitHub Actions app", start)])
+    jobs = set()
+    for path in (ROOT / ".github/workflows").glob("*.yml"):
+        jobs |= set((yaml.load(path.read_text(), Loader=yaml.BaseLoader) or {}).get("jobs", {}))
+    assert len(listed) == len(set(listed)) == 8
+    assert set(listed) <= jobs, set(listed) - jobs
+    contributing = (ROOT / "CONTRIBUTING.md").read_text()
+    ci = contributing[contributing.index("## CI"):]
+    assert all(f"`{name}`" in ci for name in listed), [name for name in listed if f"`{name}`" not in ci]
 
 
 def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():

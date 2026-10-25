@@ -8,6 +8,8 @@ import WaitlistForm from '@/features/waitlist/components/WaitlistForm'
 import PricingPage from '@/app/pricing/page'
 import { queryKeys } from '@/lib/queryKeys'
 import { ApiError } from '@/lib/api/client'
+import { advanceSessionGeneration } from '@/lib/api/session'
+import type { CurrentUser } from '@/features/auth/api/auth-api'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 
 /**
@@ -183,13 +185,26 @@ describe('ContactForm', () => {
 })
 
 describe('FeedbackWidget', () => {
+  const reader = (id: number): CurrentUser => ({
+    id, email: `${id}@example.test`, full_name: null, is_pro: false,
+    is_beta: true, is_admin: false, email_verified: true,
+  })
+  function mountFeedback(user: CurrentUser | null | undefined = reader(1)) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+    if (user !== undefined) client.setQueryData(queryKeys.currentUser(), user)
+    render(<QueryClientProvider client={client}><FeedbackWidget /></QueryClientProvider>)
+    return client
+  }
+
   it('Send keeps focus through its request and settle, and refuses a repeat click or submit', async () => {
     const post = deferred<unknown>()
     api.submitFeedback.mockReturnValue(post.promise)
-    render(<FeedbackWidget />)
+    mountFeedback()
 
     fireEvent.click(await screen.findByRole('button', { name: 'Send feedback' }))
     const message = await screen.findByLabelText('Feedback message')
+    expect(message).toHaveAccessibleDescription('Describe what happened. You can paste a web link here too.')
+    expect(message.closest('[role="dialog"]')).toHaveClass('ph-no-capture')
     const send = screen.getByRole('button', { name: 'Send feedback' })
     // Too short is a kept availability state: set by the textarea, never by Send's own activation.
     expect(send).toBeDisabled()
@@ -215,6 +230,96 @@ describe('FeedbackWidget', () => {
     expect(send).not.toBeDisabled()
     expect(document.activeElement).toBe(send)
     expect(message).toHaveValue('The chart is off by one.')
+  })
+
+  it('follows login and logout without remounting, and never carries a draft between readers', async () => {
+    // hasActiveSession is true in this harness: the advisory marker alone must not show feedback.
+    const client = mountFeedback(null)
+    expect(screen.queryByRole('button', { name: 'Send feedback' })).not.toBeInTheDocument()
+    act(() => client.setQueryData(queryKeys.currentUser(), reader(1)))
+    fireEvent.click(await screen.findByRole('button', { name: 'Send feedback' }))
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'Private note from A' } })
+
+    act(() => client.setQueryData(queryKeys.currentUser(), reader(2)))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    expect(screen.getByLabelText('Feedback message')).toHaveValue('')
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'Private note from B' } })
+
+    act(() => client.setQueryData(queryKeys.currentUser(), null))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Send feedback' })).not.toBeInTheDocument()
+    act(() => client.setQueryData(queryKeys.currentUser(), reader(1)))
+    fireEvent.click(await screen.findByRole('button', { name: 'Send feedback' }))
+    expect(screen.getByLabelText('Feedback message')).toHaveValue('')
+  })
+
+  it('waits for identity and keeps the known reader and draft when a background identity read fails', async () => {
+    const identity = deferred<CurrentUser>()
+    api.getCurrentUserSafe.mockReturnValue(identity.promise)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+    render(<QueryClientProvider client={client}><FeedbackWidget /></QueryClientProvider>)
+    expect(screen.queryByRole('button', { name: 'Send feedback' })).not.toBeInTheDocument()
+    await act(async () => identity.resolve(reader(1)))
+    fireEvent.click(await screen.findByRole('button', { name: 'Send feedback' }))
+    const message = screen.getByLabelText('Feedback message')
+    fireEvent.change(message, { target: { value: 'Keep this draft through a network outage' } })
+    api.getCurrentUserSafe.mockRejectedValue(new Error('offline'))
+    await act(async () => { await client.invalidateQueries({ queryKey: queryKeys.currentUser() }) })
+    expect(client.getQueryState(queryKeys.currentUser())?.status).toBe('error')
+    expect(message).toHaveValue('Keep this draft through a network outage')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it.each(['success', 'failure'] as const)('a late A %s cannot close, clear or release B’s pending feedback', async (outcome) => {
+    const a = deferred<unknown>()
+    const b = deferred<unknown>()
+    api.submitFeedback.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise)
+    const client = mountFeedback()
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'A private draft' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    // /me may discover a different reader without an in-tab generation change.
+    act(() => client.setQueryData(queryKeys.currentUser(), reader(2)))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'B private draft' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    await act(async () => outcome === 'success' ? a.resolve({}) : a.reject(new Error('offline')))
+    expect(api.toastSuccess).not.toHaveBeenCalled()
+    expect(api.toastError).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Feedback message')).toHaveValue('B private draft')
+    expect(screen.getByRole('button', { name: 'Sending…' })).toHaveAttribute('aria-busy', 'true')
+    await act(async () => b.resolve({}))
+    expect(api.toastSuccess).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('refuses dispatch after the cache reader changes, even before React renders that change', () => {
+    const client = mountFeedback()
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'A private draft' } })
+    const form = screen.getByRole('button', { name: 'Send feedback' }).closest('form')!
+    act(() => {
+      client.setQueryData(queryKeys.currentUser(), reader(2))
+      fireEvent.submit(form)
+    })
+    expect(api.submitFeedback).not.toHaveBeenCalled()
+  })
+
+  it('ignores a superseded session result without discarding a retained same-reader draft', async () => {
+    const post = deferred<unknown>()
+    api.submitFeedback.mockReturnValueOnce(post.promise).mockResolvedValueOnce({})
+    mountFeedback()
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'Retained after failed logout' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    advanceSessionGeneration()
+    await act(async () => post.resolve({}))
+    expect(api.toastSuccess).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Feedback message')).toHaveValue('Retained after failed logout')
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    await waitFor(() => expect(api.toastSuccess).toHaveBeenCalledTimes(1))
   })
 })
 

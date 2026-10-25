@@ -308,6 +308,12 @@ jobs:
         env:
           ADMIN_MAINTENANCE_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
         run: python -m pytest tests/integration/test_admin_maintenance_transactions.py
+      - name: Verify admin invite concurrency on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          ADMIN_INVITE_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_admin_invite_transactions.py
 
   frontend-tests:
     runs-on: ubuntu-latest
@@ -717,9 +723,9 @@ jobs:
   # The trend charts' spec renderer behind NEXT_PUBLIC_CHARTS_V2 (E192). NEXT_PUBLIC_ values are inlined at build time,
   # so the flag needs its own build: e2e-tests' build with the flag set. This job runs the browser checks that cover
   # the charts (their DOM checks, the PNG export's fidelity, the locked teaser's first screen, and the analysis route's
-  # text floors); e2e-tests runs everything against the flag-off build production ships. It is not a required check
-  # until the founder makes it one (tasks/todo.md F66); step 7 (E195) moves these specs into e2e-tests and deletes the
-  # job. deploy-backend does not wait for it.
+  # text floors); e2e-tests runs everything against the flag-off build production ships. It is a required check on
+  # main (ruleset 23561253, since 2026-10-25), so step 7 (tasks/todo.md E195) takes it out of the ruleset before it
+  # moves these specs into e2e-tests and deletes the job. deploy-backend does not wait for it.
   e2e-charts-v2:
     needs: [ci-scope]
     if: ${{ always() && !cancelled() }}

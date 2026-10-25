@@ -82,6 +82,8 @@ export interface Summary {
     quality?: {
       tier?: string
       reasons?: string[]
+      covered_count?: number
+      total_count?: number
     }
     writer_error?: string
     writer?: {
