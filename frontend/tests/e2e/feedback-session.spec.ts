@@ -50,7 +50,7 @@ for (const theme of ['light', 'dark']) {
     await page.getByRole('dialog', { name: 'Send feedback' }).getByRole('button', { name: 'Close', exact: true }).click()
     await expect(launcher).toBeFocused()
     await page.getByRole('button', { name: 'Account menu' }).click()
-    await page.getByRole('button', { name: 'Log out', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Log out', exact: true }).click()
     await expect(launcher).toHaveCount(0)
     await expect(page.getByRole('dialog', { name: 'Send feedback' })).toHaveCount(0)
   })
