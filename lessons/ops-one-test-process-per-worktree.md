@@ -67,6 +67,14 @@ A sweep found four more asserts that held only on an idle loop. Each now asserts
 code enters, or on what the code did, not on how long it took, and `tests/unit/test_wall_clock_bounds.py`
 fails on a new one.
 
+**Excerpt fixture ordering (2026-10-25).** The forced-excerpt fixture slept for half a second,
+expecting its worker to outlast a 50 ms enrichment join. The worker started before two progress
+writes, so a delayed write let it finish before the join even began. Holding that progress await
+until the worker completed reproduced the failure without another test or shared state. The fixture
+in `backend/tests/unit/test_forced_run_excerpt_is_private.py` now holds the worker until the real
+join cancels its waiter, then releases and drains it, and asserts that cancellation occurred.
+Cleanup releases any started worker on failure; the application and result assertions are unchanged.
+
 **Rule.** A worktree may run more than one pytest process; each owns its database. Within a process,
 tests still share that database and every module-level global, in whatever order xdist produces (and
 pytest-randomly, when installed locally for a hunt). So a test must not depend on another test's

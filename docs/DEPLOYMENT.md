@@ -660,8 +660,12 @@ Cleanup retains object manifests until a conditional delete or confirmed absence
 `feedback-media-cleanup` job ledger for failed/stale runs and overdue/error counters; a failed or stale
 job is an operational incident, not evidence of erasure. Target active-object removal within 24 hours.
 The operation reuses the existing channel
-`projects/earnings-nerd/notificationChannels/2698479126467110226` only after its enabled, verified email
-metadata is read back; its recipient is never printed. It creates no channel or new destination.
+`projects/earnings-nerd/notificationChannels/2698479126467110226` only after its exact identity, email
+type and enabled flag are read back. Google's [notification-channel API](https://docs.cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.notificationChannels)
+can omit the default `VERIFICATION_STATUS_UNSPECIFIED` for channels that do not require verification
+or have a legacy exemption. That default and `VERIFIED` are accepted; explicit `UNVERIFIED`, null
+and unknown statuses are refused before provisioning writes or upload enablement. This readback does
+not prove email delivery. The recipient is never printed, and no channel or new destination is created.
 
 The storage probe runs the cleanup job with execution-scoped `--verify-storage` arguments. It first
 commits an ownerless synthetic manifest, writes a tiny PNG, reads its exact bytes and conditionally
@@ -680,6 +684,10 @@ metric before running cleanup and waits up to five minutes for an observed point
 the exact enabled policy filters, ownership labels and channel, and an observed recent heartbeat;
 configuration drift is refused rather than silently overwritten. The operation does not apply the
 historical general-alert readiness package or release its unrelated holds.
+
+The failure-policy readback accepts an omitted zero `thresholdValue`, the canonical protobuf JSON
+representation of that scalar default. Explicit nonzero or malformed thresholds, missing duration
+and other condition differences remain drift; the approved creation request still specifies zero.
 
 Policy readback proves configured routing, not email delivery. Retain live policy, channel and
 heartbeat receipts, then confirm delivery on an authorized test or a natural incident before claiming
