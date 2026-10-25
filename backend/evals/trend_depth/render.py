@@ -3,10 +3,27 @@
 Values print at a precision that lets a sentence round them honestly: dollars in millions with one
 decimal, percentages and percentage points with one decimal, multiples with two. The gate compares a
 printed claim with the raw value behind the cited ID, never with this rendering.
+
+A version-1 pack renders byte for byte as the frozen runs read it (eval-v1, dev-v4). A version-2 pack adds
+(DEEPSEEK-ERRORS.md §2): derived cells in year order and rows in the order the pack registers them (fix 11;
+the committed pack's IDs sort as strings, so FY2017's cell printed after FY2024's), a legend on net-cash rows
+(fix 4), passages' table-scale dollars with their unit (fix 11), red flags in severity order with version 2's
+appended flags among them, and no cell or flag the pack withholds as built on a broken debt year (fix 8).
 """
 from __future__ import annotations
 
 from typing import Any
+
+from evals.trend_depth.passages import with_units
+
+V1 = "trend-depth-pack-v1"
+NET_CASH_LEGEND = "below zero = net debt; a higher percentile = more net cash than peers"
+_NET_CASH_KEYS = frozenset(("net_cash", "net_cash_to_revenue", "peer_pctile:net_cash_to_revenue",
+                            "peer_median:net_cash_to_revenue"))
+
+
+def _v1(pack: dict[str, Any]) -> bool:
+    return pack.get("version", V1) == V1
 
 
 def fmt(value: float, unit: str) -> str:
@@ -60,7 +77,8 @@ _D_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Revenue drivers (disaggregation shares, growth, contribution to total growth in pp)", ("share:", "g:seg", "contrib:", "segmargin:")),
     ("Common-size income statement (% of revenue) and cost-line growth", ("cs:", "g:cost_of_revenue", "g:research_and_development",
      "g:selling_general_admin", "g:operating_expenses", "g:stock_based_compensation", "tax_rate")),
-    ("Operating leverage and operating-margin bridge (pp effect of each cost line)", ("incremental_margin", "operating_leverage_gap", "bridge:")),
+    ("Operating leverage and operating-margin bridge (pp effect of each cost line)", ("incremental_margin", "operating_leverage_gap", "bridge:",
+     "margin_gap:")),
     ("Cash conversion", ("ocf_to_ni", "fcf_to_ni", "capex_to_dna", "sbc_to_ocf", "cash_burn", "runway_years", "sbc_to_operating_loss")),
     ("Balance sheet, liquidity and working capital", ("liquidity", "total_debt", "net_cash", "net_cash_to_revenue", "dso", "dio",
      "g:liquidity", "g:total_debt", "g:receivables", "g:inventory", "roe")),
@@ -73,15 +91,20 @@ _D_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 
 def _derived_lines(pack: dict[str, Any]) -> list[str]:
+    v1 = _v1(pack)
     keyed = {vid: key.split("|")[0] for key, vid in pack["series_keys"].items()}
-    groups: dict[str, dict[str, list[str]]] = {title: {} for title, _ in _D_GROUPS}
-    for vid, value in pack["values"].items():
-        if not vid.startswith("D"):
-            continue
+    withheld = pack.get("withheld") or {}
+    ids = [vid for vid in pack["values"] if vid.startswith("D")]
+    if not v1:  # registration order, so version 2's added rows close their groups
+        ids = sorted((vid for vid in ids if vid not in withheld), key=lambda vid: int(vid[1:]))
+    groups: dict[str, dict[str, list[tuple[str, str]]]] = {title: {} for title, _ in _D_GROUPS}
+    for vid in ids:
+        value = pack["values"][vid]
         key = keyed.get(vid, "")
         title = next((t for t, prefixes in _D_GROUPS if any(key == p or key.startswith(p) for p in prefixes)), "Other")
-        groups.setdefault(title, {}).setdefault(value["label"], []).append(
-            f"{value['period']} {fmt(value['value'], value['unit'])} [{vid}]"
+        label = value["label"] if v1 or key not in _NET_CASH_KEYS else f"{value['label']} ({NET_CASH_LEGEND})"
+        groups.setdefault(title, {}).setdefault(label, []).append(
+            (value["period"], f"{value['period']} {fmt(value['value'], value['unit'])} [{vid}]")
         )
     lines: list[str] = []
     for title, rows in groups.items():
@@ -89,11 +112,12 @@ def _derived_lines(pack: dict[str, Any]) -> list[str]:
             continue
         lines.append(f"\n### {title}")
         for label, cells in rows.items():
-            lines.append(f"- {label}: " + " · ".join(cells))
+            lines.append(f"- {label}: " + " · ".join(cell for _, cell in (cells if v1 else sorted(cells))))
     return lines
 
 
 def render(pack: dict[str, Any]) -> str:
+    v1, withheld = _v1(pack), pack.get("withheld") or {}
     lines = [
         f"# Evidence pack: {pack['company_name']} ({pack['ticker']}), annual {pack['window']}",
         f"Sector: {pack['sector']} · SIC {pack.get('sic')} {pack.get('industry') or ''} · profile: {pack['profile']}",
@@ -131,7 +155,11 @@ def render(pack: dict[str, Any]) -> str:
         lines.append(f"\nPeer group '{peers['group']}': {', '.join(peers['peers'])}"
                      + (f" (missing: {', '.join(peers['missing'])})" if peers.get("missing") else ""))
     lines.append("\n## E. Red-flag candidates (R), ranked by severity then persistence")
-    for flag in pack["red_flags"]:
+    flags = pack["red_flags"]
+    if not v1:  # version 2 appends its flags after version 1's IDs; a stable sort keeps version 1's order
+        rank = {"high": 0, "medium": 1, "low": 2}
+        flags = sorted((f for f in flags if f["id"] not in withheld), key=lambda f: (rank[f["severity"]], -f["persistence"]))
+    for flag in flags:
         lines.append(f"- [{flag['id']}] {flag['severity']}, {flag['persistence']} period(s): {flag['detail']} "
                      f"Evidence: {' '.join('[' + e + ']' for e in flag['evidence'])}")
     lines.append("\n## F. Data checks (disclose any that affect a figure you use)")
@@ -140,10 +168,12 @@ def render(pack: dict[str, Any]) -> str:
     if not pack["data_checks"]:
         lines.append("- none")
     lines.append(f"\nInflection years (large moves in revenue, operating margin or net income): {', '.join(pack['inflection_years']) or 'none'}")
-    lines.append("\n## G. Filing passages (P), quoted from the company's 10-K filings")
+    lines.append("\n## G. Filing passages (P), quoted from the company's 10-K filings"
+                 + ("" if v1 else "; where a filing states its amounts in millions, a bare dollar figure carries the unit"))
     for passage in pack["passages"]:
         where = f"{passage['fiscal_year']} 10-K ({passage['accession']}), {passage['section']}"
         if passage.get("heading"):
             where += f" › {passage['heading']}"
-        lines.append(f"[{passage['id']}] {where} [{passage['kind']}]\n\"{passage['text']}\"")
+        text = passage["text"] if v1 else with_units(passage["text"], passage.get("table_scale", ""))
+        lines.append(f"[{passage['id']}] {where} [{passage['kind']}]\n\"{text}\"")
     return "\n".join(lines)
