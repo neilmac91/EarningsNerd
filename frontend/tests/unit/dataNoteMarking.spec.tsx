@@ -49,7 +49,8 @@ import NarrativePane from '@/features/analysis/components/NarrativePane'
 import TrendCharts from '@/features/analysis/components/TrendCharts'
 import type { AnalysisCitation, AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { chartDataNotes } from '@/features/analysis/lib/chartExport'
-import { noteMarksFigure, RECORD_ONLY_REASONS, resolveDataNotes, type DataNoteQuality, type DataNotesDataset, type DataNotesWire } from '@/features/analysis/lib/dataNotes'
+import { groupDataNotes, noteMarksFigure, RECORD_ONLY_REASONS, resolveDataNotes, type DataNoteQuality, type DataNotesDataset, type DataNotesWire } from '@/features/analysis/lib/dataNotes'
+import type { FactProvenance } from '@/features/analysis/lib/provenance'
 import { SOURCE_OPERANDS_PREFIX } from '@/features/analysis/lib/narrativeDisplay'
 
 /**
@@ -69,8 +70,9 @@ import { SOURCE_OPERANDS_PREFIX } from '@/features/analysis/lib/narrativeDisplay
  *    record-only a, the unknown d or the gap's e.
  * 3. Every note stays. Each note keeps its entry in the open data notes (the report's) or under the sources (a citation
  *    supplement); the record-only note's entry keeps its words and counts; the summary never says "No figures need
- *    review" beside it, and the legacy figure's dialog says "Needs review", never that checks passed. Filtering the
- *    notes model instead of the render sites fails here.
+ *    review" beside it, even where it sits on a growth figure alone and every value passed, and the legacy figure's
+ *    dialog says "Needs review", never that checks passed. Filtering the notes model instead of the render sites fails
+ *    here.
  */
 
 interface GoldenCase {
@@ -199,5 +201,40 @@ describe('every surface marks and names only the notes that question the number 
     expect(checks).toHaveTextContent('Needs review')
     expect(checks).toHaveTextContent(legacy.message)
     expect(checks).not.toHaveTextContent('Automated checks passed')
+  })
+})
+
+// ---- The all-clear, with a record-only note on a growth figure alone ----------------------------------------------
+// Every value passed and none lacks its record; the FY2024 YoY's prior input is a legacy calculation, so the YoY carries
+// legacy_calculation alone. That note marks nothing, so the summary has no letter to name, and only DataNotes' guard
+// keeps "No figures need review" from it. With the YoY passed, the same report earns it.
+const passedFact: FactProvenance = { version: 1, method: 'reported', validation: 'passed', reasons: [], formula: null, inputs: [] }
+const growthOnly = (yoy: FactProvenance): AnalysisDataset => ({
+  ticker: 'TST', company_name: 'Test Co', mode: 'annual', period_key: 'FY2023..FY2024', data_as_of: '2026-10-25T00:00:00Z',
+  snapshot_id: `growth-${yoy.validation}`, inflections: [],
+  periods: [2023, 2024].map((year) => ({ key: `FY${year}`, fiscal_year: year, fiscal_period: 'FY', period_end: `${year}-12-31` })),
+  series: [{ concept: 'revenue', label: 'Revenue', unit: 'USD', percent: false, cagr: null, points: [
+    { period: 'FY2023', value: 100, provenance: passedFact },
+    { period: 'FY2024', value: 110, provenance: passedFact, yoy: 0.1, yoy_provenance: yoy },
+  ] }],
+})
+
+describe('the data notes never clear a report while a record-only note stands (D-061)', () => {
+  const summary = () => document.querySelector('[data-analysis-data-notes] > details > summary')!
+
+  it('holds back "No figures need review" for a legacy note on a growth figure alone, and says it once that growth passed', () => {
+    const legacy = growthOnly({ ...passedFact, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] })
+    // Every value passed and none is unknown: the counts alone would clear the report.
+    expect(groupDataNotes(legacy).totals).toMatchObject({ reviewValues: 0, reviewComparisons: 1, unknown: 0, passed: 2 })
+    const view = render(<DataNotes dataset={legacy} />)
+    expect(summary()).not.toHaveTextContent('No figures need review')
+    expect(summary().querySelector('[data-note-letter]')).toBeNull()
+    const note = groupDataNotes(legacy).notes[0]
+    expect(noteMarksFigure(note)).toBe(false)
+    expect(document.getElementById(note.id)).toHaveTextContent(note.message)
+    view.unmount()
+
+    render(<DataNotes dataset={growthOnly({ ...passedFact, method: 'calculated' })} />)
+    expect(summary()).toHaveTextContent('No figures need review · 2 checked')
   })
 })
