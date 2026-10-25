@@ -62,6 +62,17 @@ def test_revoked_invite_is_invalid(db):
     assert invite_service.validate_invite(db, raw, "a@b.com") is None
 
 
+def test_invite_revoked_after_it_validated_is_not_redeemed(db):
+    invite, raw, _ = invite_service.mint_invite(db, created_by=None, email=None)
+    validated = invite_service.validate_invite(db, raw, "a@b.com")
+    assert validated is not None
+    # An admin's revoke commits while the registration checks and hashes the password (E201): the revoke wins.
+    invite_service.revoke_invite(db, invite.id)
+    assert invite_service.redeem_invite(db, validated, SimpleNamespace(id=42)) is False
+    db.refresh(invite)
+    assert invite.is_revoked is True and invite.used_at is None and invite.user_id is None
+
+
 def test_email_bound_invite_enforces_match(db):
     _invite, raw, _ = invite_service.mint_invite(db, created_by=None, email="Friend@Example.com")
     # Case-insensitive match accepted; a different address rejected.

@@ -103,13 +103,16 @@ def validate_invite_hash(db: Session, code_hash: Optional[str], email: str) -> O
 
 def redeem_invite(db: Session, invite: InviteCode, user, *, commit: bool = True) -> bool:
     """Atomically mark a single-use invite redeemed for ``user``. Returns False if a concurrent
-    registration already consumed it (guarded ``UPDATE ... WHERE used_at IS NULL``).
+    registration already consumed it or an admin revoked it since it validated (guarded
+    ``UPDATE ... WHERE used_at IS NULL AND is_revoked IS false``; E201). On PostgreSQL a
+    redemption that waits behind a revoke's or re-issue's row lock re-checks the row when that
+    transaction commits, so it is refused too.
 
     ``commit=False`` leaves the UPDATE in the caller's open transaction, so a registration commits
     (or rolls back) the new account and the redemption together."""
     result = db.execute(
         update(InviteCode)
-        .where(InviteCode.id == invite.id, InviteCode.used_at.is_(None))
+        .where(InviteCode.id == invite.id, InviteCode.used_at.is_(None), InviteCode.is_revoked.is_(False))
         .values(used_at=_now(), user_id=user.id)
     )
     if commit:

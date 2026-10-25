@@ -72,8 +72,8 @@ def create_password_account(
     """Create and commit an unverified password account; None when no account may result.
 
     ``invite`` is the closed-beta invite the register handler already validated (None in public
-    mode). None covers a lost redemption race and a lost concurrent-create race for the same email;
-    the caller answers both with its opaque response.
+    mode). None covers a refused redemption (the invite redeemed or revoked since it validated) and
+    a lost concurrent-create race for the same email; the caller answers both with its opaque response.
     """
     require_collection_available()
     agreement = require_current_agreement(agreement)
