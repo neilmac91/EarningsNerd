@@ -887,8 +887,8 @@ Analysis KPI     <KpiStrip> — a definition list whose columns follow its wides
                  cards across below lg and one per tile, four at most, from lg, wherever every card
                  holds that value on one line, else two, then one, never three of four. The strip
                  sets the value's one-line width (--kpi-value, features/analysis/lib/kpiStripLayout.ts:
-                 0.9rem a glyph, 0.5375rem a one-letter mark, a full em for a glyph Geist Mono lacks,
-                 ₩ or ₫) and the tile count on itself; the grid adds the card's padding and border. So 320px keeps two cards for every dollar value
+                 0.9rem a glyph, 0.5375rem a one-letter mark, a full em for a glyph Geist Mono lacks:
+                 ₩, ₫, U+202F) and the tile count on itself; the grid adds the card's padding and border. So 320px keeps two cards for every dollar value
                  the fixtures carry, and a code-prefixed one that two cards cannot hold ("CHF 22.8B†"
                  at 320px, "CA$968.0M†" at 360px, 138.2px each) takes one card, not the card's edge;
                  under 200% text from lg the strip takes two cards where four cannot hold its values.

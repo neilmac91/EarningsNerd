@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
 import { MIN_SLOT } from '../../features/analysis/lib/charts/layout'
-import { KPI_FACE_GLYPHS } from '../../features/analysis/lib/kpiStripLayout'
+import { KPI_FACE_GLYPHS, KPI_MISSING_GLYPHS } from '../../features/analysis/lib/kpiStripLayout'
 import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, EXPECTED_TABLE_VALUE_DAGGERS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
 import { CHARTS_V2, RECHARTS, drawnCharts, readAxes, readSlots, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
 
@@ -1066,26 +1066,31 @@ test.describe('analysis KPI strip, long values', () => {
   }
   test.describe('the figure face', () => {
     test.use({ viewport: { width: 390, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    // kpiValueWidth counts ASCII and KPI_FACE_GLYPHS at 0.6em and anything else at a full em; each must paint at 0.6em.
+    // kpiValueWidth counts ASCII and KPI_FACE_GLYPHS at 0.6em and anything else at a full em. Each is measured in the
+    // value's own faces with a serif after them, not the monospace fallback, so a glyph Geist Mono lacks cannot pass
+    // at a fallback's 0.6em; KPI_MISSING_GLYPHS shows the probe tells the two apart.
     test('draws ASCII and every glyph the width counts as its own at 0.6em', async ({ page, baseURL }) => {
       test.setTimeout(60_000)
       await openAnalysis(page, baseURL!, 'annual', theme, 1)
       const ascii = Array.from({ length: 95 }, (_, index) => String.fromCharCode(32 + index)).join('')
-      const advances = await page.locator('[data-analysis-kpi] [data-kpi-value]').first().evaluate(async (value, glyphs) => {
+      const measure = (glyphs: string) => page.locator('[data-analysis-kpi] [data-kpi-value]').first().evaluate(async (value, glyphs) => {
         const style = getComputedStyle(value)
-        await document.fonts.load(`${style.fontWeight} ${style.fontSize} ${style.fontFamily}`, glyphs)
+        const faces = '"EN Figure Minus", "Geist Mono"'
+        await document.fonts.load(`${style.fontWeight} ${style.fontSize} ${faces}`, glyphs)
         await document.fonts.ready
         const probe = value.appendChild(document.createElement('span'))
-        probe.style.cssText = 'position:absolute;white-space:pre'
+        probe.style.cssText = `position:absolute;white-space:pre;font-family:${faces},serif`
         const measured = [...glyphs].map(glyph => {
           probe.textContent = glyph.repeat(10)
           return { glyph: `U+${glyph.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}`, em: Math.round(probe.getBoundingClientRect().width / 10 / parseFloat(style.fontSize) * 1000) / 1000 }
         })
         probe.remove()
         return measured
-      }, ascii + KPI_FACE_GLYPHS)
-      expect(advances).toHaveLength(95 + [...KPI_FACE_GLYPHS].length)
-      expect(advances.filter(({ em }) => Math.abs(em - 0.6) > 0.002), 'glyphs off 0.6em').toEqual([])
+      }, glyphs)
+      const own = await measure(ascii + KPI_FACE_GLYPHS)
+      expect(own).toHaveLength(95 + [...KPI_FACE_GLYPHS].length)
+      expect(own.filter(({ em }) => Math.abs(em - 0.6) > 0.002), 'glyphs the width counts at 0.6em, off it').toEqual([])
+      expect((await measure(KPI_MISSING_GLYPHS)).filter(({ em }) => Math.abs(em - 0.6) <= 0.002), 'glyphs Geist Mono lacks, measured at 0.6em').toEqual([])
     })
   })
 })
