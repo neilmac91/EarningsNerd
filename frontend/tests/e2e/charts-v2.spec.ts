@@ -357,6 +357,9 @@ test.describe('trend charts v2 / the states while a chart is not ready (spec §3
       }).observe(document, { childList: true, subtree: true })
     })
     const opened = openAnalysis(page, baseURL!, 'captured', 'light')
+    // Read only once the page's own document has committed: a read in flight as the navigation lands loses its context
+    // and throws, which a poll does not retry (CI, 547d9495).
+    await page.waitForURL(/\/analysis\?/, { waitUntil: 'commit' })
     const read = () => page.evaluate(() => (window as unknown as { __bones?: Record<string, unknown> }).__bones ?? null)
     const reread = () => page.evaluate(() => (window as unknown as { __waiting?: { bones: number; busy: number; plots: number } }).__waiting ?? null)
     await expect.poll(read, { message: 'a card drew its bones' }).not.toBeNull()
