@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { answerApi } from './fixtures/filing3Api'
 import { answerLegalReadiness } from './fixtures/legalReady'
 
 /**
@@ -13,10 +14,17 @@ import { answerLegalReadiness } from './fixtures/legalReady'
  *    that replace them (fullPageSpinnerGate.spec.ts): when the data lands, the first card takes the place of
  *    its bones and the title stays where it was; on settings, whose first card has a fixed shape, the second
  *    lands within a few pixels of its bones too.
+ * 4. The filing page with a summary in flight (the generation stream held open, as text-floors.spec.ts holds it,
+ *    so the progress card stays at its first stage with every step pending): under reduced motion the document
+ *    has no CSS animation there either, and the card's live-status line ("10-K · Opening the filing…",
+ *    StreamingSummaryDisplay.tsx) reads the same after longer than two ambient loops (2 x 1800ms, the longest
+ *    motion token), with motion allowed too. The line changes only with the backend's stage, never on a timer
+ *    (WCAG 2.2.2): the rotating callout it replaced changed on its own.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md). The API is answered inside the
  * browser with page.route, and the middleware's session gate is satisfied by its presence cookie, as in
- * dashboard-phone-layout.spec.ts. Holding /api/auth/me keeps a page in its loading state.
+ * dashboard-phone-layout.spec.ts. Holding /api/auth/me keeps a page in its loading state; holding the generation
+ * stream keeps a filing's run in flight (fixtures/filing3Api.ts answers the rest of that page).
  */
 
 const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
@@ -70,6 +78,42 @@ const animations = (page: Page) =>
 const cardTop = (page: Page, selector: string) =>
   page.locator(selector).first().evaluate((el) => el.closest('.rounded-xl')!.getBoundingClientRect().top)
 
+/** The generating card's live-status line at its first stage: the filing's form code, then the fetching pool's one
+ *  line (StreamingSummaryDisplay.tsx STATUS_LINES). The held stream sends no stage and no elapsed time, so the card
+ *  never leaves initializing and never stalls. */
+const STATUS_LINE = '10-K · Opening the filing…'
+
+/** The filing page's own browser state, as its sibling specs seed it: the coachmark dismissed and consent given, so
+ *  neither surface joins the card under test. */
+const seedFilingPage = (page: Page) =>
+  page.addInitScript(() => {
+    try {
+      localStorage.setItem('theme', 'light')
+      localStorage.setItem('en:copilot-coachmark-v1', '1')
+      localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+    } catch {}
+  })
+
+/** A signed-in run in flight on a filing with no summary, the hold text-floors.spec.ts uses: fixtures/filing3Api.ts
+ *  answers the page for a Pro reader, the stored summary answers 404 so the page starts a run, and the stream request
+ *  is never answered, so the progress card stays up at its first stage. Resolves with the card's live-status line, the
+ *  heading's next sibling. */
+async function openRunInFlight(page: Page, baseURL: string) {
+  const cors = { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' }
+  await answerApi(page, baseURL, 'pro')
+  // Registered after answerApi, so these answer first.
+  await page.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/summaries/filing/3', (route) =>
+    route.fulfill({ status: 404, headers: cors, json: { detail: 'Summary not found' } }),
+  )
+  await page.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/summaries/filing/3/generate-stream', () => new Promise<void>(() => {}))
+  await page.goto('/filing/3')
+  const heading = page.getByRole('heading', { level: 2, name: 'Generating the summary' })
+  await expect(heading).toBeVisible()
+  await expect(page.getByText('Writing the summary', { exact: true })).toBeVisible()
+  await page.evaluate(() => document.fonts.ready)
+  return heading.locator('xpath=following-sibling::p[1]')
+}
+
 test.describe('under reduced motion', () => {
   test.use({ reducedMotion: 'reduce' })
 
@@ -105,6 +149,19 @@ test.describe('under reduced motion', () => {
       }
     })
   }
+
+  test('/filing/3 with a summary in flight runs no animation, and its status line holds for longer than two ambient loops', async ({ page, baseURL }) => {
+    await seedFilingPage(page)
+    const line = await openRunInFlight(page, baseURL!)
+    expect(await animations(page)).toEqual([])
+    await expect(line).toHaveText(STATUS_LINE)
+    // Longer than 2 x 1800ms (the ambient token, the longest motion token): a line on a timer would have changed by
+    // now. This one changes only with the backend's stage, which the held stream never sends, so there is nothing
+    // to await but the clock.
+    await page.waitForTimeout(4000)
+    await expect(line).toHaveText(STATUS_LINE)
+    expect(await animations(page)).toEqual([])
+  })
 })
 
 test('with motion allowed, the settings bones shimmer', async ({ page, baseURL }) => {
@@ -118,6 +175,17 @@ test('with motion allowed, the settings bones shimmer', async ({ page, baseURL }
   } finally {
     me.release()
   }
+})
+
+// The no-timer property is the component's, not the motion setting's: with motion allowed the status line's mount
+// crossfade runs once (animate-fadeIn, on the keyed span), and the line still reads the same after the same wait.
+test('with motion allowed, the in-flight status line holds for longer than two ambient loops too', async ({ page, baseURL }) => {
+  await seedFilingPage(page)
+  const line = await openRunInFlight(page, baseURL!)
+  await expect(line).toHaveText(STATUS_LINE)
+  // Longer than 2 x 1800ms (the ambient token), as under reduced motion above.
+  await page.waitForTimeout(4000)
+  await expect(line).toHaveText(STATUS_LINE)
 })
 
 test('account settings: the sections land where their bones stood', async ({ page, baseURL }) => {

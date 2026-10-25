@@ -1035,6 +1035,42 @@ describe('the repository config', SLOW, () => {
     expect(result.messages.every((m) => m.severity === 2)).toBe(true)
   })
 
+  // DESIGN_PALETTE_RULE (eslint.config.mjs): every Tailwind palette name under every colour-bearing utility prefix,
+  // a side border and a ring offset included (widened 2026-10-24, the generating card's callout review; before it the
+  // rule read six prefixes and thirteen names, so `fill-indigo-500` passed). A status tint, a financial tone and a
+  // token inside another word are not palette classes; the brand-mandated Google button is the rule's exemption.
+  it('reads a raw palette class under every colour prefix, the old form and the widened ones, and not a token', async () => {
+    const eslint = new ESLint({ cwd: frontendRoot })
+    const probe = [
+      'export function Probe() {',
+      '  return (',
+      '    <div className="bg-slate-500">',
+      '      <i className="fill-indigo-500" />',
+      '      <b className="via-cyan-400" />',
+      '      <u className="hover:shadow-rose-300" />',
+      '      <s className="border-l-4 border-l-red-500" />',
+      '      <em className="ring-offset-sky-500" />',
+      '      <span className="shadow-ring-error-dark bg-info-light/10 text-gain-text bg-brand-weak dark:bg-error-dark/10" />',
+      '    </div>',
+      '  )',
+      '}',
+      '',
+    ].join('\n')
+    const [app] = await eslint.lintText(probe, { filePath: path.join(frontendRoot, 'app/design-rules-probe.tsx') })
+    expect(app.messages.map((m) => `${m.line} ${m.ruleId}`)).toEqual([
+      '3 no-restricted-syntax',
+      '4 no-restricted-syntax',
+      '5 no-restricted-syntax',
+      '6 no-restricted-syntax',
+      '7 no-restricted-syntax',
+      '8 no-restricted-syntax',
+    ])
+    expect(app.messages.every((m) => m.message === 'Raw palette class — semantic tokens only.')).toBe(true)
+    // The exemption: the Google button keeps its brand-mandated surface (DESIGN_SYSTEM.md §9).
+    const [google] = await eslint.lintText(probe, { filePath: path.join(frontendRoot, 'features/auth/components/GoogleSignInButton.tsx') })
+    expect(google.messages.filter((m) => m.message === 'Raw palette class — semantic tokens only.')).toEqual([])
+  })
+
   it('reads a raw colour in rgba()/hsla() in either case and an unpinned or other-locale number, time or date format on app code, and in lib/format.ts', async () => {
     const eslint = new ESLint({ cwd: frontendRoot })
     const probe = [

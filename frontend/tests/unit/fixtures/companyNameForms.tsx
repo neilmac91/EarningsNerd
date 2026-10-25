@@ -196,7 +196,7 @@ export function N20({ ev }: { ev: CalendarEvent }) {
 
 /** N21 flag: an imported component's text prop. */
 export function N21({ ev }: { ev: CalendarEvent }) {
-  return <Notice title={ev.company_name} />
+  return <Notice variant="info" title={ev.company_name} />
 }
 
 /** N22 flag: a label built from it and handed to a component that prints it, the summary's ask label. */
