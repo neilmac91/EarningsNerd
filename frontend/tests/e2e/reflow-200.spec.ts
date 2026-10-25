@@ -2,7 +2,7 @@ import { legalReady } from './fixtures/legalReady'
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
 import { settled } from './fixtures/contrast'
-import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
+import { answerApi, API_ORIGIN, SUMMARY } from './fixtures/filing3Api'
 import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
 import { ACCESS_COPY } from '../../features/marketing/lib/access'
 
@@ -2728,3 +2728,82 @@ for (const width of [390, 360, 320]) {
     }
   })
 }
+
+
+// UX07 / E181: run against a server built with NEXT_PUBLIC_ENABLE_QUALITY_BADGE=true,
+// and pass the same variable to Playwright. CI's default build leaves this existing flag off;
+// the rendered-state contract is always covered by summary-quality-badge.spec.tsx.
+test.describe('summary coverage disclosure', () => {
+  test.skip(process.env.NEXT_PUBLIC_ENABLE_QUALITY_BADGE !== 'true', 'Requires the quality-enabled build used in production')
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+  for (const theme of ['light', 'dark'] as const) {
+    for (const demo of [false, true]) {
+      for (const tier of ['partial', 'full', 'unknown'] as const) {
+        test(`${tier} coverage in the ${demo ? 'example' : 'ordinary'} view, ${theme}, stays readable and opens by keyboard and touch at 200%`, async ({ page, baseURL }, testInfo) => {
+          await page.addInitScript(chosen => {
+            localStorage.setItem('theme', chosen)
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+            localStorage.setItem('en_session_active', '1')
+          }, theme)
+          await answerApi(page, baseURL!, 'pro')
+          const quality = tier === 'unknown' ? undefined : {
+            tier, covered_count: tier === 'partial' ? 3 : 4, total_count: 9,
+            reasons: tier === 'partial' ? [
+              'financial figures not grounded in SEC XBRL data',
+              'filing grounding unavailable: no usable excerpt or numeric XBRL data',
+              'only 3/9 sections populated',
+              '123 summary figure(s) not traceable to filing data',
+            ] : [],
+          }
+          await page.route(`${API_ORIGIN}/api/summaries/filing/3`, route => route.fulfill({
+            status: 200,
+            headers: { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' },
+            json: { ...SUMMARY, raw_summary: { ...(SUMMARY.raw_summary as object), quality } },
+          }))
+          await page.goto(`/filing/3${demo ? '?demo=1' : ''}`)
+          const coverage = page.getByRole('group', { name: 'Summary coverage' })
+          await expect(coverage.getByText(tier === 'partial' ? 'Partial coverage' : tier === 'full' ? 'Full summary' : 'Coverage unknown', { exact: true })).toBeVisible()
+          expect(await page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(theme === 'dark')
+          const disclosure = coverage.locator('details')
+          const trigger = disclosure.locator('summary')
+          await trigger.focus()
+          await expect(trigger).toBeFocused()
+          expect(await trigger.evaluate(el => el.tabIndex)).toBe(0)
+          await page.keyboard.press('Enter')
+          await expect(disclosure).toHaveAttribute('open', '')
+          await expect(disclosure.getByText('Coverage does not verify every claim. Check the cited sources and original filing.')).toBeVisible()
+          if (tier === 'partial') await expect(disclosure.getByRole('listitem')).toHaveCount(4)
+          await trigger.tap()
+          await expect(disclosure).not.toHaveAttribute('open')
+          await trigger.tap()
+          await expect(disclosure).toHaveAttribute('open', '')
+          await doubleText(page)
+          // Read actual painted characters as well as scroll width: nowrap text can escape
+          // a shrinking flex child's box without widening the document.
+          const escaped = await coverage.evaluate(group => {
+            const box = group.getBoundingClientRect()
+            const failures: string[] = []
+            const walker = document.createTreeWalker(group, NodeFilter.SHOW_TEXT)
+            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+              for (let i = 0; i < (node.textContent ?? '').length; i++) {
+                const range = document.createRange()
+                range.setStart(node, i)
+                range.setEnd(node, i + 1)
+                const rect = range.getBoundingClientRect()
+                if (rect.width && (rect.left < box.left - 1 || rect.right > box.right + 1 || rect.right > innerWidth + 1)) failures.push(node.textContent ?? '')
+              }
+            }
+            return [...new Set(failures)]
+          })
+          expect(escaped, 'every painted coverage label and reason stays in its own column').toEqual([])
+          const widths = await measure(page)
+          expect(widths.scrollWidth, why(widths)).toBeLessThanOrEqual(widths.clientWidth)
+          if (tier === 'partial') {
+            await coverage.evaluate(el => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top - 180))
+            await page.screenshot({ path: testInfo.outputPath('coverage-200.png') })
+          }
+        })
+      }
+    }
+  }
+})
