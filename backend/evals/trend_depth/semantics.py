@@ -16,9 +16,11 @@ so that correct statements stop drawing flags: each matched value's signed value
 period", so a correct "net debt of $26.2 billion" for a net cash of -26.2 billion looked like a sign error), the
 value of a calculation, whether the claim is a bound the value satisfies ("below 1.0x"), and the IDs whose value is
 identical to a matched value or to one of its inputs (VRTX's "buybacks plus dividends" is its buybacks, as it pays
-no dividend). The record format is unchanged: the view is in each item's ``match`` text. An audit made under an
-earlier view is redone, its cost carried forward, unless the same auditor's other folder already holds one of this
-output under the current view, which is copied.
+no dividend). A twin is another name for that one value: an input's twin is shown only when every input is of the
+value's own period, and an ID the pack withholds is never a twin (``_describe``, ``_withheld``), so that no twin
+licenses a wrong number. The record format is unchanged: the view is in each item's ``match`` text. An audit made
+under an earlier view is redone, its cost carried forward, unless the same auditor's other folder already holds one
+of this output under the current view, which is copied.
 """
 from __future__ import annotations
 
@@ -39,18 +41,29 @@ SYSTEM = """You check that each number in a financial analysis is said about the
 item you get a sentence, one number from it, and what that number was matched to in the evidence (the
 metric label, period and signed value of a cited value, or a calculation from cited values and its result). Mark
 the item:
-- "consistent": the sentence says the number is that metric for that period (or that calculation), allowing
-  ordinary paraphrase ("sales" for revenue, "fell 10.3%" for a growth of -10.3%);
-- "mismatch": the sentence attributes the number to a different metric, period, segment or basis than the
-  match (for example it calls a cash-flow growth "revenue growth", or a FY2024 value "FY2025").
+- "consistent": the sentence says the number is that metric for that period (or that calculation), with its sign,
+  allowing ordinary paraphrase ("sales" for revenue, "fell 10.3%" for a growth of -10.3%);
+- "mismatch": the sentence attributes the number to a different metric, period, segment, sign or basis than the
+  match (for example it calls a cash-flow growth "revenue growth", a FY2024 value "FY2025", a growth of -10.3% a
+  rise, or a level a change).
 How to read a match:
-- Values are signed as the evidence stores them. Net cash below zero is net debt: "net debt of $26.2 billion" is
-  consistent with a net cash of -$26.2 billion; a minus sign printed under "net debt" is a mismatch, as is "better"
-  or "worse" that the signed values contradict.
+- Values are signed as the evidence stores them, and the sentence must give the value's sign, by a minus sign or in
+  words ("fell 10.3%", "a loss of $2.1 billion", "used $3.0 billion" for a negative value). The opposite sign is a
+  mismatch: a negative value stated as a positive amount ("net income of $2.1 billion" for -$2.1 billion), or a
+  positive one given the opposite sign ("a loss of $2.1 billion" for net income of $2.1 billion). Net cash below
+  zero is net debt: "net debt of $26.2 billion" is consistent with a net cash of -$26.2 billion; "net cash of $26.2
+  billion" for it, "net debt" for a net cash above zero, a minus sign printed under "net debt", and "better" or
+  "worse" that the signed values contradict are mismatches.
 - "A bound" means the sentence states an inequality ("below 1.0x", "at least 10%") that the matched value satisfies:
   it is consistent when the sentence applies the bound to that metric and period.
-- "Same value as" lists other evidence values identical to a matched value (or to one of its inputs) in that period:
-  the number is consistent if the sentence names any of them.
+- "Same value as" names other evidence values identical to the value it follows, in that period: other names for
+  that value, and for nothing else.
+  - After the value of a "cited" match, the sentence may give the number under any of those names.
+  - After an input of the cited value ("its input ... has the same value as") or after one value of a calculation,
+    a name may replace that input or value inside the same calculation only: "share repurchases were 63% of free
+    cash flow" is consistent with "buybacks plus dividends % of free cash flow" whose input "buybacks plus
+    dividends" has the same value as share repurchases. The number stated as anything else about that name (its
+    level, its growth, a ratio or share the match does not compute) is a mismatch.
 Return one JSON object only: {"items": [{"n": 1, "label": "consistent", "reason": "<= 20 words"}]}"""
 _NO_TWINS = ("pctile",)  # percentile ranks share values by coincidence, not by construction
 _MAX_TWINS = 3
@@ -74,14 +87,35 @@ def _signed(value: float, unit: str) -> str:
     return f"{value:,.2f}{suffix}"
 
 
+def _withheld(pack: dict[str, Any]) -> set[str]:
+    """The IDs a version-2 pack withholds (``derived.withheld``: a dict of ID to its reason, ``debt_break``,
+    ``liquidity_break`` or ``peer_break``; a list in an earlier build), whatever the reason. None is ever a twin: the
+    generator was never shown it, and it is not the quantity its label names. COP's FY2025 "Total debt" (D336) is its
+    current portion of debt alone, so as a twin it would present "total debt was $1.0 billion [X203]" to the auditor
+    as a correct label, while the measure of broken net cash, reading cited IDs, would not see it either."""
+    return set(pack.get("withheld") or ())
+
+
+def _one_period(ids: list[str], pack: dict[str, Any], period: Optional[str] = None) -> bool:
+    """Every ID is a pack value, all of one period (``period`` when given). Only then may a twin of one of them
+    stand in for it inside the calculation: across periods, a twin of one year's value is not a twin of the result.
+    AMD's FY2019 total debt growth (D170, -61.1%) has an FY2019 input equal to long-term debt, but not an FY2018 one,
+    so long-term debt fell 56.4% (D157), and the twin would have licensed "long-term debt fell 61.1%"."""
+    values = pack["values"]
+    periods = {values[i]["period"] if i in values else None for i in ids}
+    return bool(ids) and None not in periods and len(periods) == 1 and (period is None or periods == {period})
+
+
 def _twins(vid: str, pack: dict[str, Any], shown: tuple[str, ...] = ()) -> list[str]:
     """Other IDs whose value is identical to ``vid``'s, in the same unit and period: one quantity under two names.
-    Zeros and percentile ranks are left out, as they coincide by chance, and so are the IDs in ``shown``."""
+    Zeros and percentile ranks are left out, as they coincide by chance, and so are the IDs in ``shown`` and those
+    the pack withholds (``_withheld``)."""
     value = pack["values"][vid]
     if not value["value"] or value["unit"] in _NO_TWINS:
         return []
+    hidden = {vid, *shown, *_withheld(pack)}
     tolerance = 1e-9 * max(1.0, abs(value["value"]))
-    return [other for other, v in pack["values"].items() if other != vid and other not in shown and v["unit"] == value["unit"]
+    return [other for other, v in pack["values"].items() if other not in hidden and v["unit"] == value["unit"]
             and v["period"] == value["period"] and abs(v["value"] - value["value"]) <= tolerance][:_MAX_TWINS]
 
 
@@ -102,19 +136,27 @@ def _computed(match: str, ids: list[str], pack: dict[str, Any]) -> Optional[str]
 
 def _describe(match: str, ids: list[str], pack: dict[str, Any]) -> str:
     """The auditor's view of a match (view 2): each matched value's label, period and signed value and the IDs it is
-    identical to (for a cited value, those of its inputs too: "buybacks plus dividends % of free cash flow" built on
+    identical to; for a cited value, those of its inputs too ("buybacks plus dividends % of free cash flow" built on
     a "buybacks plus dividends" that is the buybacks line); a calculation's result; a passage's year; a red flag's
-    text."""
+    whole text (cut at 120 characters, it hid the figure the claim matched from the auditor in 2 of the 18 such
+    claims of eval-v1's DeepSeek and Sonnet analyses: CAT's 0.06% and JPM's 0.10%).
+
+    A twin stands in for an input, or for one value of a calculation, only when all of them are of the result's
+    period (``_one_period``): a growth, a CAGR or a cross-year difference shows none, as a twin of one of its years
+    would license a different metric's change. A cited value's own twins are always shown: they equal it."""
+    calculation = match != "cited" and not match.startswith(("reversed ", "passage "))
+    operands_alike = not calculation or _one_period([i for i in ids if i in pack["values"]], pack)
     parts = []
     for vid in ids:
         value = pack["values"].get(vid)
         if value:
             text = [f"{vid} = {value['label']}, {value['period']}, {_signed(value['value'], value['unit'])}"]
-            twins = _twins(vid, pack)
+            twins = _twins(vid, pack) if operands_alike else []
             if twins:
                 text.append(_twin_text(twins, pack))
-            for i in value.get("inputs", []) if match == "cited" or match.startswith("reversed ") else []:
-                inner = _twins(i, pack, (vid, *twins)) if i in pack["values"] else []
+            inputs = [] if calculation else value.get("inputs") or []
+            for i in inputs if _one_period(inputs, pack, value["period"]) else []:
+                inner = _twins(i, pack, (vid, *twins))
                 if inner:
                     text.append(f"its input {i} = {pack['values'][i]['label']} has the {_twin_text(inner, pack)}")
             parts.append("; ".join(text))
@@ -124,7 +166,7 @@ def _describe(match: str, ids: list[str], pack: dict[str, Any]) -> str:
                 parts.append(f"{vid} = a figure in a {passage['fiscal_year']} 10-K passage")
             else:
                 flag = next((f for f in pack.get("red_flags", []) if f["id"] == vid), None)
-                parts.append(f"{vid} = red-flag text: {flag['detail'][:120]}" if flag else vid)
+                parts.append(f"{vid} = red-flag text: {flag['detail']}" if flag else vid)
     result = _computed(match, ids, pack)
     return f"{match}{f' = {result}' if result else ''}: " + " | ".join(parts)
 
