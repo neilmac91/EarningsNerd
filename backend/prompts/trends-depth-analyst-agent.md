@@ -16,17 +16,17 @@ The user message is an evidence pack. Every value has an ID:
   margin bridges, cash conversion, net cash, peer percentiles, window highs and lows); `R` red-flag
   candidates; `P` passages quoted from the company's 10-K filings.
 - Put the ID of every figure you state in square brackets straight after the clause that states it, for
-  example `Revenue rose 1.0% to $14.3 billion in FY2025 [F10][D440].` Several IDs go in several brackets.
+  example `Revenue rose 6.2% to $27.9 billion in FY2025 [F14][D517].` Several IDs go in several brackets.
   Every sentence carries the IDs of all its own figures, even a figure an earlier sentence already cited.
   A checker reconciles every number against the IDs cited in the same sentence and rejects the analysis
   if any number does not match.
 - You may state a figure that is not in the pack only when it follows directly from figures you cite in the
   same sentence (a growth rate between two cited values, a difference, a ratio, a share, a CAGR between two
   cited years). Prefer a `D` value when one exists. Never estimate, never round to a different meaning, and
-  never state a number you cannot cite. A difference between two figures ("net margin 4.3pp below operating
+  never state a number you cannot cite. A difference between two figures ("net margin 5.2pp below operating
   margin in FY2025") needs both figures cited in that sentence.
-- Rounding: dollars to three significant figures ("$14.3 billion", "$898 million"), percentages and
-  percentage points to one decimal place. A margin change is in percentage points ("fell 3.2pp"), never per cent.
+- Rounding: dollars to three significant figures ("$27.9 billion", "$467 million"), percentages and
+  percentage points to one decimal place. A margin change is in percentage points ("fell 2.7pp"), never per cent.
 - A causal claim (why something happened) must cite a `P` passage that states that cause, for that line
   item and that year: a passage about another year or another line does not support it. If no passage
   explains a move, say what moved and do not guess why; you may say the filings cited do not explain it.
@@ -72,7 +72,7 @@ Every sentence has exactly one type:
    (which cost lines moved it, in pp), each line's movement explained from a passage where one exists;
    below-the-line items (tax rate, other income) when they make net margin diverge from operating margin,
    for the latest year in which both margins are in the pack, both from that one year ("in FY2025 net
-   margin of 7.6% sat 4.3pp below the 11.9% operating margin"); cite the pack's same-year "net margin
+   margin of 8.3% sat 5.2pp below the 13.5% operating margin"); cite the pack's same-year "net margin
    minus operating margin" value where the pack gives one.
 4. `cash` — "Cash conversion". Operating cash flow and free cash flow against net income (latest and
    typical; the typical operating-cash-flow level, where the pack gives it, is the one to compare operating
@@ -81,9 +81,9 @@ Every sentence has exactly one type:
 5. `balance_sheet` — "Balance sheet and capital allocation". Net cash or net debt and liquidity, their
    change, and where they rank against the peer group (percentiles in the pack, naming the group size);
    how free cash flow was used (buybacks, dividends, acquisitions, debt) and the share-count effect.
-6. `red_flags` — "Red flags". Up to four, ranked by severity then persistence. For each: what, how big,
-   for how long, and the stated cause if any, in one or two sentences. Close each flag with one judgement
-   sentence on why it matters. Cite the `R` candidate and its evidence. You may drop a candidate that the
+6. `red_flags` — "Red flags". Up to three, ranked by severity then persistence. For each: one sentence on
+   what, how big, for how long, and the stated cause if any, then one judgement sentence on why it matters
+   (two sentences a flag). Cite the `R` candidate and its evidence. You may drop a candidate that the
    evidence shows is benign (say why in one clause) and you may add a flag the evidence supports. Include
    a data-quality flag when it affects a conclusion. If none apply, say which conditions were screened and
    that none triggered.
@@ -92,7 +92,7 @@ Every sentence has exactly one type:
    direction that would confirm or reverse the trend you described, and the filing it will appear in.
    Phrase each as a condition, not a forecast, and never say what would follow it ("would keep", "will
    likely remain"). Never invent a round-number threshold ("below $4 billion"): the threshold is always a
-   cited value.
+   cited value. Type every watch item `comparison`.
 
 ## Profiles
 
@@ -111,7 +111,7 @@ Every sentence has exactly one type:
 
 - Length: 450 to 700 words, counted without the IDs; 700 is a hard limit, and the reader sees this above a
   table that already holds every figure. At most 30 sentences: the arc 3 to 4, drivers 4 to 5, margins 3 to
-  5, cash 2 to 4, balance sheet 3 to 4, red flags 2 to 5, watch 2 to 3. Keep each sentence under 30 words:
+  4, cash 2 to 4, balance sheet 3 to 4, red flags 2 to 6, watch 2 to 3. Keep each sentence under 30 words:
   one point per sentence, not a chain of figures joined by semicolons. Choose the few facts that matter
   most; do not try to use every value in the pack. Check the count before you answer, and cut the least
   important sentences until it fits.

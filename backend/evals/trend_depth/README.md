@@ -40,9 +40,18 @@ V4PRO=deepseek-v4-pro  # judge and auditor only, under the ADR-0008 addendum
 # 0. A like-for-like baseline: eval-v1's DeepSeek and Sonnet outputs re-audited under the auditor's view 2.
 python -m evals.trend_depth.generate --label eval-v1-view2 --arms current,deepseek-flash,claude-sonnet-5-5 --split all --copy-from eval-v1
 python -m evals.trend_depth.semantics --label eval-v1-view2 --systems deepseek-flash,claude-sonnet-5-5 --auditor claude-opus-5-5
+# 0b. DEEPSEEK-ERRORS.md §3 step 1, the patch repair on its own: every recorded deepseek-flash first pass of eval-v1,
+#     dev-v4 and dev-v3 that version 2 would still repair after its code fixes, twice each (20 cases, 40 repairs:
+#     under USD 0.5 of DeepSeek off-peak even if every prompt is read cold and every patch falls back). It reports
+#     repair latency, tokens, cost (billed and warm), the gate's verdict and the untouched sentences kept byte for
+#     byte, under runs/step1-r1/repair-replay/. List the cases first.
+python -m evals.trend_depth.repair_replay --label step1-r1 --dry-run
+python -m evals.trend_depth.repair_replay --label step1-r1
 # 1. Development half only, never reading held-out outputs: two independent runs of every arm, one label each.
 #    --pipeline v2 gives every arm the same new gate and repair code (auto-citation, retyping, backstops, patch
-#    repairs), so the arms differ only in pack and prompt; K0 on v2 measures the code fixes alone.
+#    repairs), so the arms differ only in pack and prompt; K0 on v2 measures the code fixes alone. It also opens
+#    each user message with a nonce of the label, arm and ticker (the record's `nonce`), so no run's first request
+#    reads an earlier run's pack from DeepSeek's prompt cache: r2 and K0 start as cold as a company's first analysis.
 python -m evals.trend_depth.generate --label dev-v5-r1 --arms $ARMS --split dev --pipeline v2
 python -m evals.trend_depth.generate --label dev-v5-r2 --arms $ARMS --split dev --pipeline v2
 # 2. In each run: audits of K0 and C (Opus by default for a DeepSeek system, V4 Pro the second auditor), then the
@@ -66,7 +75,9 @@ python -m evals.trend_depth.generate --label eval-v2-r2 --arms deepseek-flash,de
 included. The packs in `tasks/analysis-depth-2026-10/packs/` are committed, so every step reads the same evidence
 and needs no SEC access, except the `current` arm, which ingests companyfacts into the local store. A file that
 exists is skipped, so use a new label per run. A record holding a provider error (a quota, an outage) is
-retried by the next run with the same label. Judging other pairs: `--exclude-judges gemini-3.8-flash` when the
+retried by the next run with the same label, the same `--pipeline` and the same prompt and packs: a label holds
+one build of each arm, so `generate` refuses, naming each record, to add an arm's records to a label holding that
+arm's records of another pipeline, prompt or pack (edit the candidate only between labels). Judging other pairs: `--exclude-judges gemini-3.8-flash` when the
 Gemini quota is spent (Gemma 4 31B then judges the Claude-vs-DeepSeek pairs), or `gemini-3.8-flash,gemma-4-31b`
 for consensus panels; `--auditor <arm>` repeats an audit with one auditor for every system.
 
