@@ -2488,9 +2488,9 @@ _ACCOUNT_RECORD_FAILS = {
 async def test_account_export_and_deletion_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, case):
     """Eight owners on four slots, exporting or deleting, a failing unit per route included: every checkout,
     statement and release runs off the loop and nothing is left for the finalizer, and each deletion makes its
-    Stripe cancellation and PostHog calls off the loop, for its own account. The single deletion below shows
-    those calls hold no connection, and test_account_deletion_api.py that a failed delete rolls back before
-    the release."""
+    Stripe cancellation and PostHog calls off the loop, the eight naming each owner's Stripe customer and account
+    once between them. The single deletion below shows those calls hold no connection, and
+    test_account_deletion_api.py that a failed delete rolls back before the release."""
     import importlib
 
     from app.models import AuditLog, User
