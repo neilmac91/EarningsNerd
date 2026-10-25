@@ -12,7 +12,8 @@ this folder and its evidence.
 
 Evidence for coherence.md:
 - [`verification/`](verification/): the flag-frequency census, comprehension and heuristic
-  transcripts, the export inspection, the file-overlap matrix and the blind notation variant test.
+  transcripts, the export inspection, the file-overlap matrix, the blind notation variant test and
+  the census of how often a later filing changes a year's value.
 - [`screens/`](screens/): before, after and final captures, light and dark, desktop and 390px;
   [`screens/variants/`](screens/variants/) holds the four notation designs on one data state.
 - [`exports/`](exports/): REGN's PDF, workbook and chart PNGs in both themes.

@@ -41,7 +41,10 @@ written, the sibling plans have landed or opened:
    10-Ks reported $6,710.8M and $7,863.4M. The page therefore shows FY2018 revenue growth of
    −12.4%, where the original filings give +14.3%, and an operating margin of 49.3% that is about
    37.8% on the original revenue. Both pass every automated check (§1.6). The trust signal is
-   inverted: "a" sits on 11 correct figures while a materially restated one reads clean.
+   inverted: "a" sits on 11 correct figures while a figure that changed basis reads clean. A census
+   of 59 companies found later filings change 5% of annual figures by more than 1%, mostly
+   legitimate recasts. So the fix is evidence in the dialog and n/m growth across the change, with
+   a mark only for a sign or scale disagreement (§1.6).
 3. **Mark only what questions the number; keep everything else one click away (§2).** Competitors
    mark nothing (§4.3). EarningsNerd's difference is that every figure opens its source, method and
    inputs. That holds without a mark on every figure. In a blind test, four designs shown on one
@@ -90,8 +93,8 @@ written, the sibling plans have landed or opened:
 6. **Order (§6):**
    1. The lineage backfill. It shares no code file with any UI plan.
    2. The quiet notation, built on the table plan (`neilmac91/EarningsNerd#1606`) and landing after it.
-   3. The data-notes words, then the restatement note (its own backend change; they share
-      `data_notes.py`).
+   3. The data-notes words, then the later-filing evidence (WP5, revised by measurement, §1.6;
+      they share `data_notes.py`).
    4. The exports, split so each piece follows the sibling that owns its file and #1601.
    5. Surfaces and the results header, last.
 7. **The founder's decision, taken 2026-10-25 (§2.9).** The 2026-10 redesign records the
@@ -238,43 +241,90 @@ test that a filing-owned legacy calculation gains lineage and nothing else moves
 The Ops wiring gate (`test_ops_workflow_wiring.py`) and the lock-timeout gate
 (`test_migration_lock_safety.py`).
 
-### 1.6 Upstream fix 2: a figure restated by a later filing passes every check
+### 1.6 Upstream fix 2: a later filing's value replaces the year's own, and every check passes
 
-The checks confirm that a reported value matches a filed XBRL fact
-(`reconciled`/`validation`). They do not ask whether a later filing's comparative replaced what the
-year's own report said. For REGN, `us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax`
-carries two values for each of calendar 2018 and 2019:
+The checks confirm that a reported value matches a filed XBRL fact (`reconciled`/`validation`).
+They do not ask whether a later filing's comparative replaced what the year's own report said.
+For REGN, `us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax` carries two values for each
+of calendar 2018 and 2019:
 
-| Year | Value in that year's own 10-K | Value in the FY2020 10-K's comparatives | Value the dataset shows (`is_latest`, newest filing wins) |
+| Year | Value in that year's own 10-K | Value a later 10-K gives | Value the dataset shows (`is_latest`, newest filing wins) |
 |---|---:|---:|---:|
-| 2018 | $6,710.8M (`0001532176-19-000009`) | $5,145.6M (`0001804220-21-000008`) | $5,145.6M |
-| 2019 | $7,863.4M (`0001532176-20-000008`) | $6,557.6M (`0001804220-21-000008`) | $6,557.6M |
+| 2018 | $6,710.8M (`0001532176-19-000009`) | $5,145.6M (FY2020 10-K, `0001804220-21-000008`) | $5,145.6M |
+| 2019 | $7,863.4M (`0001532176-20-000008`) | $6,557.6M (FY2021 10-K, `0001804220-22-000007`) | $6,557.6M |
 
-The series joins two scopes. FY2017 and FY2020 onward use total revenues; FY2018 and FY2019 use
-the smaller re-tagged figure. Displayed FY2018 growth is −12.4% where the filings as reported give
-+14.3%. FY2019 growth is +27.4% where they give +17.2%. Every margin in those years is overstated:
-FY2018 operating margin shows 49.3% against about 37.8%.
+The later 10-Ks reuse the tag for a narrower figure: no us-gaap tag in them carries $6,710.8M, and
+net income did not move. So the series joins two scopes. FY2017 and FY2020 onward use total
+revenues; FY2018 and FY2019 use the narrower figure.
+- **Growth.** FY2018 growth shows −12.4% where the filings as reported give +14.3%. FY2019 shows
+  +27.4% where they give +17.2%.
+- **Margins.** Every margin in those years is overstated: FY2018 operating margin shows 49.3%
+  against about 37.8%.
 
 A blind evaluator flagged this from memory (set Z, F6). It was then confirmed against SEC's XBRL
 API ([verification](verification/heuristic-rescore-transcripts.md#set-z--prototype-round-2)).
 
-**The change (WP5).** The dataset already reads every row of the company. When a fiscal year's
-`is_latest` value differs by more than a set tolerance from the value its own annual filing
-reported, which is still stored as a non-latest row of that accession, add a note: "restated
-in a later filing". It does question the number, so under the quiet scheme it is one of the few
-notes that marks a figure (§2.1), in neutral ink. Both of the blind test's quiet-design readers
-found the note, and one read it as housekeeping (§2.8). So the change also covers:
-- **The dialog** names both values and both filings, with their dates.
-- **Growth across the restatement** (FY2017→FY2018 here) reads as not comparable (n/m) rather
-  than −12.4%, because its two years come from different scopes.
-- **Calculated figures** whose input carries the note (FY2018–FY2019 margins) inherit its letter,
-  as growth already does.
+**How often a later filing changes a year's value: measured.** The question was put to SEC's
+companyfacts for 59 large filers, read through the app's own transport and grouped exactly as
+ingest groups it. That gave 8,616 cells (company × concept × fiscal year, newest ten years). The
+script is `backend/scripts/restatement_census.py`, on the WP5 branch; its output is
+[verification/restatement-census.md](verification/restatement-census.md).
+- **At a 1% tolerance,** a later filing's value differs from the year's own report in 438 cells
+  (5.1%), at 52 of the 59 companies.
+- **Noise.** Every rounding difference sits below 0.1%.
+- **None of the 25 largest gaps is an error correction:**
+  - 15 are retrospective accounting changes or discontinued-operations recasts (ASC 606, ASU
+    2016-15/18, the insurance standard, spin-offs);
+  - 4 are a stock split's basis;
+  - 3 are reclassifications;
+  - 3 are XBRL errors: one ×1000 scale in an own filing, and two exact sign flips in a later one.
 
-Before choosing the tolerance, count how often the note fires across the 27 companies with the
-census method.
+  No 10-K/A ever replaced a value.
+- **REGN** is a change of scope, not a restatement.
 
-**Owner.** Data (`trend_analysis/dataset.py`, `dataset_quality.py`, `data_notes.py`), routine
-tier. Its letter, word and colour belong to this notation system (§2.2).
+So "restated" is the wrong word, and a mark on every difference would mark about 4% of all
+figures. Most of those carry the later filing's value, which is the comparable basis for the years
+after it. That is the overkill this scheme exists to avoid.
+
+**The change (WP5), revised by the measurement:**
+1. **Keep the year's own value.** Ingest keeps each year's own-report value, within the winning
+   tag, as a non-latest row (high tier: `facts/**`). Companyfacts stores only the winner today, so
+   REGN's $6,710.8M exists nowhere in our data.
+2. **Evidence on demand, with no mark.** The evidence dialog shows: "First reported as $6.7B in its
+   own annual report (10-K, filed …); a later filing (filed …) reports $5.1B, shown here."
+3. **Growth across a change of basis reads n/m.** That is any comparison whose two years sit on
+   different bases relative to what each year first reported (the ratio of shown to first-reported
+   moves by more than 1%). The dialog gives the growth as first reported. For REGN, revenue growth
+   FY2018–FY2020 reads n/m, with +14.3%, +17.2% and the rest in the dialog. A whole run recast on
+   one basis keeps its numbers.
+4. **A mark only where the two filings disagree in a way that signals a tagging error:** an exact
+   sign flip, or an exact factor of 1,000ⁿ (4 of 8,616 cells in the census). The words say what
+   was found: "A later filing reports this figure with the opposite sign" or "at 1,000 times the
+   scale of the year's own report". Neither side is called correct.
+5. **Calculated figures** whose input differs (REGN's FY2018–FY2019 margins) carry the same
+   evidence in their dialog, not a mark.
+
+What stays imperfect: the data cannot tell a change of scope like REGN's from a legitimate recast.
+So REGN's FY2018 margin still shows 49.3% unmarked, with the explanation one tap away and the
+broken growth reading n/m. A fix for the scope change itself belongs in concept selection
+(`facts/concepts.py`), which is a separate decision.
+
+**A separate data bug the census found.** Since 2023, proxy statements carry a pay-versus-performance
+table that tags five years of net income, filed after the 10-K. Ingest takes the latest-filed item
+of any form, so the proxy's value wins.
+- **Size.** 120 cells across 24 of the 59 companies.
+- **Where it differs.** At 12 companies the value differs from the 10-K's. FDX's August 2026 proxy
+  tags its net income in plain dollars (3,826 for FY2022), and MRK's is 5.4% off for FY2021.
+- **Nothing flags it.** Companyfacts rows skip the reconciliation checks.
+
+The fix (ingest skips proxy and information statements, plus a read-only query that sizes the
+production rows) is its own work package, high tier.
+
+**Owner.** Data, in two parts:
+- the history rows in `facts/**` (high tier);
+- the evidence, the n/m rule and the sign-or-scale mark in `trend_analysis/` (routine tier).
+
+The mark's words and ink belong to this notation system (§2.2).
 
 ### 1.7 The full-population measurement
 
@@ -305,7 +355,8 @@ mark. That version is kept in [`prototype/notation-prototype.diff`](prototype/no
   is not.
 - **A mark means the number itself is in question.** A figure carries a mark only when a note
   doubts that the value is what the filings support:
-  - a later filing restated it (WP5's note, §1.6), or the filings disagree (`source_conflict`);
+  - a later filing and the year's own report disagree by sign or by a factor of 1,000ⁿ (WP5, §1.6),
+    or the filings disagree (`source_conflict`);
   - a reported value could not be matched to the filed data (`source_check_needed`);
   - a calculation disagrees with its inputs, cannot find them, or combines inputs that do not fit
     together. Examples are `calculation_mismatch` and `missing_calculation_inputs` (the backfill's
@@ -337,7 +388,7 @@ mark. That version is kept in [`prototype/notation-prototype.diff`](prototype/no
 
 | Note | On the figure | In the fine print under the table | In the evidence dialog |
 |---|---|---|---|
-| Questions the number (restated, filings disagree, unmatched, calculation mismatch) | A neutral raised letter. The growth figures built on it carry the same letter, as now. Figures calculated from it should too (WP5: FY2018 margins built on restated revenue) | The letter, its places and one sentence, in the summary line | The note in full. For a restatement: both values, both filings and their dates |
+| Questions the number (a sign or scale disagreement between filings, filings disagree, unmatched, calculation mismatch) | A neutral raised letter. The growth figures built on it carry the same letter, as now. Figures calculated from it should too (WP5: FY2018 margins built on restated revenue) | The letter, its places and one sentence, in the summary line | The note in full. For a restatement: both values, both filings and their dates |
 | Calculated, inputs linked | nothing | Named in the sentence above the table | Method, formula, linked inputs |
 | Calculated before lineage existed (`legacy_calculation`) | nothing | One sentence, its places and its counts (figures, and the growth built on them), in the open detail | "Calculated before 10 October 2026 …; shown as stored, inputs not linked" |
 | Not in our data | "—" | A count in the summary; one sentence in the detail | "Not in our data" |
@@ -537,7 +588,8 @@ full, is in [its JSON](verification/notation-variant-test.json).
    don't push them all into the fine print. The FY2018 revenue flag is the most useful thing on
    the page, and if I later found an unflagged wrong number, I'd stop trusting the whole product."
    The no-marks readers both asked for a mark on that cell.
-4. **What the quiet design still lacks goes to WP5.**
+4. **What the quiet design still lacks goes to WP5** (revised after the census, §1.6: dialog evidence
+   and n/m growth for a later filing's value, a mark only for a sign or scale disagreement).
    - One of the two quiet readers found the restatement note "worded like a routine housekeeping
      footnote".
    - Readers want the as-filed value, the restating filing and its date one tap away.
@@ -641,6 +693,7 @@ the metrics table: neutral ink, 12px, one line while closed, and the detail one 
 
 ```
 ▸ Data notes · ᵃ Revenue FY2018, FY2019: restated in a later filing; we show the later value · 3 not in our data, shown as — · 50 calculated from filed figures
+  (the blind test's planted note; after the census, WP5 marks a sign or scale disagreement only, §1.6)
 
   a. Restated in a later filing: the year's own annual report gave a different value. We show the later filing's value;
      select one to see both filings. Revenue FY2018, FY2019.
@@ -693,7 +746,8 @@ is in [`screens/`](screens/) as `final-*`.
 | Summary, no validation record | "N figures have no validation record (c)" (`DataNotes.tsx:94`) | "N with no check recorded" |
 | Summary, calculated | "50 calculated †" | "50 calculated from filed figures" |
 | `legacy_calculation` | "This saved calculation predates the current source checks. Its inputs need review." | "Calculated before 10 October 2026, when we began keeping each calculation's inputs; shown as stored, with its inputs not linked." |
-| WP5 restatement | (none: the figure reads clean) | "Restated in a later filing: the year's own annual report gave a different value. We show the later filing's value; select one to see both filings." |
+| WP5, a later filing changes the value (no mark; dialog only) | (none: the figure reads clean) | "First reported as {value} in its own annual report ({form}, filed {date}). A later filing (filed {date}) reports {value}, shown here." |
+| WP5, a sign or scale disagreement (marked) | (none) | "A later filing reports this figure with the opposite sign" / "at 1,000 times the scale of the year's own annual report. One of them is likely a tagging error; select it to see both filings." |
 | `source_conflict` (filings disagree, no later restatement) | "Available sources disagree on this figure." | "The company's filings report different values for this figure. We show the most recent filing's value; select it to compare." |
 | `source_check_needed` | "A source check remains unresolved. Review the original filing before use." | "Not yet matched to the filing: our automated check could not confirm this figure against the company's filed data. Select it to compare with the filing." |
 | `not_in_dataset` | "Not available in this dataset." | "Not in our data for these periods; shown as —, never as zero." |
@@ -704,8 +758,8 @@ is in [`screens/`](screens/) as `final-*`.
 Each sentence promises only what the code enforces:
 - "10 October 2026" is #1191's merge date.
 - "Not in our data" makes no claim about whether the company reported the figure.
-- "Restated in a later filing" needs WP5's check that the year's own filing reported another
-  value. A plain disagreement keeps the `source_conflict` sentence. Of the first-run quiet readers,
+- The later-filing words name what the data shows, that a later filing reports a different value,
+  never a restatement. The census found almost none of the differences were error corrections. A plain disagreement keeps the `source_conflict` sentence. Of the first-run quiet readers,
   one found "the company's filings disagree" alarming and both found it unresolved, so that
   sentence names what is shown and how to compare.
 
@@ -732,9 +786,10 @@ do. The full transcripts are in
 
 ### 3.5 What the tests leave open
 
-- **One reader took the restatement note for housekeeping** (§2.8, R2 retail). WP5's dialog must show both values
-  and both filings with their dates. Growth across the restatement should read as not comparable,
-  and figures calculated from the restated value should inherit the letter.
+- **One reader took the restatement note for housekeeping** (§2.8, R2 retail). The census (§1.6)
+  then showed most later-filing differences are legitimate recasts, so WP5 marks only sign and
+  scale disagreements. Every other difference shows both values and both filings, with their
+  dates, in the dialog, and growth across the change of basis reads n/m.
 - **A legacy figure carries no mark.** A reader learns of its incomplete record only in the fine
   print's detail or the dialog. That is the founder decision in §2.9, and the backfill (§1.5)
   removes the case.
@@ -918,7 +973,7 @@ unresolved conflict.
 |---|---|---|---|
 | 1 | **WP0** lineage backfill: high tier; the apply needs the founder's approval | One unverified backend deploy at a time. Its shared files are `tasks/todo.md` and, with #1608, `test_migration_lock_safety.py` | The legacy notes the dry run can reach leave the fine print and the dialogs, as passes or as specific concerns. The dry run counts them, and the holds, before the founder approves the apply |
 | 2 | **WP1** quiet notation: routine tier | #1606, which it is built on | No dagger on figures. A neutral letter only where a note questions the number. Data notes as fine print under the table |
-| 3 | **WP2** data-notes words and **WP5** restatement note, one after the other (they share `data_notes.py` and its test) | WP1 (they share its notes files and its marking rule) | The fine print's words come from the backend, so the exports match. REGN's FY2018–FY2019 revenue gains a "restated in a later filing" letter, with both filings in the dialog |
+| 3 | **WP2** data-notes words and **WP5** later-filing evidence, one after the other (they share `data_notes.py` and its test) | WP1 (they share its notes files and its marking rule) | The fine print's words come from the backend, so the exports match. REGN's FY2018–FY2019 revenue shows both filings in its dialog, and its growth across the change reads n/m |
 | 4a | **WP3-png** (`chartExport.ts`) | #1609 | Chart marks only for notes in question; the PNG states its period range |
 | 4b | **WP3-xlsx** (`excel_export_service.py`) | WP1 | A letter in the workbook grid for figures in question |
 | 4c | **WP3-pdf** (`export_service.py`) | #1601, WP1 | Formatted company name and readable dates. Fine print on the table's page. No per-value dagger |
