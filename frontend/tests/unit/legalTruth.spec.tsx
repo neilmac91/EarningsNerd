@@ -845,15 +845,21 @@ const deniesItsClause = (subject: NounPhrase | null) =>
 function denied(reading: Reading, p: Said, wait: Wait): boolean {
   const governing = governs(reading, p, wait.at)
   if (!governing || reading.tokens.slice(governing.group.verb, wait.at).some((t) => /^(?:but|yet)$/i.test(t.text))) return false
-  return governing.own ? deniedPlainly(reading, p.group) || deniesItsClause(p.subject) : deniedPlainly(reading, governing.group)
+  // A denied subject and a denied verb cancel ("No analytics are not collected only with your consent." promises).
+  return governing.own ? deniedPlainly(reading, p.group) !== deniesItsClause(p.subject) : deniedPlainly(reading, governing.group)
 }
 /** A verb that a denial makes say what follows it ("never cease to", "do not fail to", "do not hesitate to": the
     second round's verification lens on #1618). */
 const AFFIRMED_BY_A_DENIAL = /^(?:cease[sd]?|ceasing|fail(?:s|ed|ing)?|neglect(?:s|ed|ing)?|hesitate[sd]?|hesitating|forget|forgets|forgot|forgetting|stop(?:s|ped|ping)?)$/i
 /** A verb group's negation, unless a verb in it is one a denial affirms what follows of (AFFIRMED_BY_A_DENIAL), so
-    "Server events never cease to require your consent." promises. */
-const deniedPlainly = (reading: Reading, group: VerbGroup) =>
-  group.negated && !reading.tokens.slice(group.start, group.verb + 1).some((t) => AFFIRMED_BY_A_DENIAL.test(t.text))
+    "Server events never cease to require your consent." promises, or a second negation in it cancels the first
+    ("Analytics are never not collected only with your consent." promises). A negation the group takes from a verb
+    that shares its object (distributesNegation) counts once. */
+const deniedPlainly = (reading: Reading, group: VerbGroup) => {
+  const words = reading.tokens.slice(group.start, group.verb + 1)
+  if (!group.negated || words.some((t) => AFFIRMED_BY_A_DENIAL.test(t.text))) return false
+  return (words.filter((t, k) => negates(t, words[k + 1])).length || 1) % 2 === 1
+}
 /** A verb that asserts the clause it takes after "that", or a word that completes "be" so ("true", "the case"): denied,
     it governs that clause from outside (E162 stage 2: "We do not promise that analytics wait for your consent.", "It
     is not true that ..."), while "Nobody doubts that analytics wait for your consent." asserts it. */
@@ -2632,6 +2638,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // Codex on #1618: over a clause that denies the promise, a negation from outside says it again.
       ['<p>It is not true that analytics are not collected only with your consent.</p>', true],
       ['<p>It is not the case that usage data is not sent without your permission.</p>', false],
+      // Two negations in one clause cancel: a denied subject and a denied verb, or two in the verb group.
+      ['<p>No analytics are not collected only with your consent.</p>', true],
+      ['<p>Analytics are never not collected only with your consent.</p>', true],
+      ['<p>No server events do not require your consent.</p>', true],
       ['<p>We require your consent to share account events with advertisers or PostHog.</p>', true],
       ['<p>We require your consent to share account events with anyone, including PostHog.</p>', true],
       ['<p>Account events require your consent before we share them with partners like PostHog.</p>', true],
