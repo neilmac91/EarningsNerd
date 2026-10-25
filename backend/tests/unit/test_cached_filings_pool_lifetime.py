@@ -19,11 +19,12 @@ One rule, two halves in this one module:
   preferences, the bell, the data export and the account deletion), the Copilot ask stream (a Pro
   and a Free question, a missing filing and the admission's three refusals), the admin feedback triage and
   filing and summary maintenance routes (their 404s, and the bulk routes' dry and real runs) and the admin
-  invite routes (the list, mint with and without mail, revoke and re-send, and their 404s and 409s) must
-  answer an eight-request burst with no checkout on the loop and nothing left for the finalizer; and the
-  join, the contact form, the feedback submit and the invite mint and re-send must send their mails, the
-  analysis exports render, Stripe checkout and the portal make their Stripe calls, and the account
-  deletion its Stripe cancellation and PostHog flush, with no connection out.
+  invite routes (the list, mint with and without mail, revoke and re-send, their 404s and 409s, and the
+  re-send's 503 with invitation mail closed) must answer an eight-request burst with no checkout on the
+  loop and nothing left for the finalizer; and the join, the contact form, the feedback submit and the
+  invite mint and re-send must send their mails, the analysis exports render, Stripe checkout and the
+  portal make their Stripe calls, and the account deletion its Stripe cancellation and PostHog flush,
+  with no connection out.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
   fails, above that route's ceiling, a session call on the loop in the route's own body, the session
   handed to a call there, a ``with`` it enters there, or a call there of a nested unit that uses it,
@@ -2900,10 +2901,9 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
 
 def _invite_fixture(monkeypatch, tmp_path, send_invite_email):
     """A four-slot pool with eight admins, eight pending invites bound to invitees (cohort ``seed-{i}``) and eight
-    used ones, the
-    invite routes wired to it with ``send_invite_email`` as their mail sender and invitations ready. Returns
-    the engine, a session factory, the request sessions as they open, whether each checkout, statement and
-    checkin ran on the loop, the seeded invite ids and each admin's id as the audit log stores it."""
+    used ones, the invite routes wired to it with ``send_invite_email`` as their mail sender and invitations
+    ready. Returns the engine, a session factory, the request sessions as they open, whether each checkout,
+    statement and checkin ran on the loop, the seeded invite ids and each admin's id as the audit log stores it."""
     from app.models import InviteCode, User
     from app.routers import admin, auth
     from app.services import legal_readiness_service

@@ -11,14 +11,14 @@ on the other, can redeem the invite between the check and the write. The cases:
   is not passing on writes that never met;
 - with the lock, each waits at its read for the redemption, sees its commit and refuses the redeemed invite, revoking
   and minting nothing;
-- two admins' writes of one invite take turns: the second waits at its read for the first's lock and both commit. A
-  shared lock (FOR SHARE) would let both read and then deadlock at their writes, one of them answering 500.
+- two admins' writes of one invite take turns: the second waits for the first's lock and both commit. A shared lock
+  (FOR SHARE) would let both read and then deadlock at their writes, one of them answering 500.
 
 The re-send runs the route's unit, whose recipient check reads the invite first and keeps no reference to it, so the
 locked read loads it afresh. Two more writes keep the invite they read before the lock, as a caller that held it would:
 an entity query hands back an invite the session still holds unchanged, so the locked read must re-read the row
-(``populate_existing``). Each case asserts that its write waited for the redemption's row lock, so a case whose write
-never met the redemption fails rather than passes.
+(``populate_existing``). Each case asserts that its write waited for the other transaction's row lock (the
+redemption's, or the first write's), so a case whose writes never met fails rather than passes.
 Each case owns a disposable schema, and its sessions name themselves after it (``application_name``), so a wait counts
 only the case's own sessions. ADMIN_INVITE_CONCURRENCY_TEST_DATABASE_URL enables these cases in CI ("Verify admin invite
 concurrency on PostgreSQL"); without the variable they skip.
@@ -221,8 +221,8 @@ def test_without_the_lock_a_write_acts_on_an_invite_redeemed_meanwhile(postgres_
 
 @pytest.mark.parametrize("write", ["revoke", "re-send"])
 def test_two_writes_of_one_invite_take_turns(postgres_engine, write):
-    """A revoke holds the invite's lock from its read; a second admin's revoke or re-send of the invite waits at its
-    own locked read until the first commits, then acts on the revoked, unused invite, and both commit."""
+    """A revoke holds the invite's lock from its read; a second admin's revoke or re-send of the invite waits for that
+    lock until the first commits, then acts on the revoked, unused invite, and both commit."""
     invite_id, _ = _ids(postgres_engine)
     first_read = threading.Event()
     release = threading.Event()
@@ -238,13 +238,15 @@ def test_two_writes_of_one_invite_take_turns(postgres_engine, write):
     with ThreadPoolExecutor(max_workers=2) as pool:
         held = pool.submit(_run, postgres_engine, first)
         try:
-            assert first_read.wait(timeout=5), "the first write must read the invite under its lock"
+            if not first_read.wait(timeout=5):
+                pytest.fail("the first write must read the invite under its lock"
+                            + (f": it raised {held.result()[1]!r}" if held.done() else ""))
             second = pool.submit(_run, postgres_engine, WRITES[write](invite_id))
             waited = _waiting(postgres_engine, 1)
         finally:
             release.set()
         results = [held.result(timeout=60), second.result(timeout=60)]
-    assert waited, "the second write must wait at its read for the first write's lock"
+    assert waited, "the second write must wait for the first write's lock"
     assert [error for _, error in results] == [None, None]
     assert _state(postgres_engine) == (False, True, 2 if write == "re-send" else 1)
 

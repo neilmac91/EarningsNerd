@@ -486,9 +486,9 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 
 ### Test accounts
 
-`freeuser@earningsnerd.io` (user id 9) is the founder's free-plan test account, kept indefinitely for checking what a free user sees. It is Free, non-beta and non-admin, and its address is an alias of the founder's mailbox. Its checkouts reuse one live Stripe Customer created for verification and are never paid.
+`freeuser@earningsnerd.io` (user id 9) is the founder's free-plan test account, kept indefinitely for checking what a free user sees. It is Free, non-beta and non-admin, and its address is an alias of the founder's mailbox. While checkout is open, its checkouts reuse one live Stripe Customer created for verification and are never paid.
 
-- Leave it out of funnel, revenue and user-count readouts by filtering on user id 9. That includes the `checkout_started` events its Upgrade clicks fire.
+- Leave it out of funnel, revenue and user-count readouts by filtering on user id 9. That includes the `checkout_started` events its Upgrade clicks fire while checkout is open; while it is closed, as now, an Upgrade click fires none.
 - Nothing deletes it: the retention purge never deletes accounts (`backend/app/services/retention_service.py`).
 
 To create another test account, sign up through the site with an address whose inbox the tester
@@ -500,10 +500,12 @@ shown once. Asking the mint to email it answers 503 while promotional mail stays
 (`legal_readiness_service.is_marketing_available()`), and the mint and signup both answer 503
 while new collection is closed (`is_collection_available()`).
 
-The monthly trial is available once per account. To test the first-subscription trial again
-after an actual trial or subscription, create a fresh Free account. Opening an unpaid Checkout
-preview and leaving it unsubmitted does not consume that eligibility, so those checks can
-reuse the existing test account. Leave the retained user id 9 unchanged.
+New checkout is closed in code today: `legal_readiness_service.is_checkout_available()`
+returns False, so `POST /api/subscriptions/create-checkout-session` answers 503. Once it
+reopens, the monthly trial is available once per account. To test the first-subscription trial
+again after an actual trial or subscription, create a fresh Free account. Opening an unpaid
+Checkout preview and leaving it unsubmitted does not consume that eligibility, so those checks
+can reuse the existing test account. Leave the retained user id 9 unchanged.
 
 ### Verification Scripts
 
